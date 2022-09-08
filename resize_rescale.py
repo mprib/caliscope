@@ -7,7 +7,7 @@ def rescaleFrame(frame, scale=0.75):
     """ 
     takes a frame and returns a scaled frame
     will work for photos, videos, and live video
-    """
+    """      
     width = int(frame.shape[1] * scale)
     height = int(frame.shape[0] * scale)
     dimensions = (width,height)

@@ -33,7 +33,13 @@ if len(corners)>0:
         allCorners.append(board_corners)
         allIds.append(corner_id)
         
-    cv.aruco.drawDetectedMarkers(gray,corners,ids)
+    # cv.aruco.drawDetectedMarkers(gray,corners,ids)
+
+    for c, id in zip(board_corners, corner_id):
+        cv.circle(gray, (round(c[0][0]), round(c[0][1])), 1,(255,0,0), thickness=-1)
+        cv.putText(gray, str(id[0]), (round(c[0][0]), round(c[0][1])), cv.FONT_HERSHEY_PLAIN, 1.0, (255,255,255), 1)
+    
+    # cv.aruco.drawDetectedMarkers(gray,board_corners,corner_id)
 
     cv.imshow("With markers", gray)
 

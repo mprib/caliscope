@@ -41,7 +41,7 @@ cv.imshow("Dilated", dilated)
 
 # Erode the image
 # eroding an image may be able to take a dilated image and return it to an uneroded state (?)
-# What is all this kernal size stuff? (the tuble in the second argument)
+# What is all this kernal size stuff? (the tuple in the second argument)
 eroded = cv.erode(dilated, (3,3), iterations=3)
 cv.imshow("Eroded", eroded)
 

@@ -45,15 +45,3 @@ def createShapes():
 
 if __name__ == "__main__":
     createShapes()
-
-
-# 1. paint the entire image a certain color
-#blank_img[200:300, 300:400] = 0,0,255
-
-
-
-# Where I currently am in the tutorial
-# https://www.youtube.com/watch?v=oXlwWbU8l2o&t=935s
-
-
-# cv.imshow("original", img)

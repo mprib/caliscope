@@ -1,51 +1,71 @@
 # I have copied this from here:https://answers.opencv.org/question/98447/camera-calibration-using-charuco-and-python/
 # looking for a starting point to begin to perform a charuco calibration.
-
-
+# %%
+from decimal import DecimalTuple
 import time
-import cv2.aruco as A
+import cv2 as cv
 import numpy as np
 
-dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
-board = cv2.aruco.CharucoBoard_create(3,3,.025,.0125,dictionary)
+dictionary = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_50)
+
+# arguments: columns, rows, white space board?
+board = cv.aruco.CharucoBoard_create(5,7,.025,.0125,dictionary)
 img = board.draw((200*3,200*3))
 
 #Dump the calibration board to a file
-cv2.imwrite('charuco.png',img)
+cv.imwrite('charuco.png',img)
 
-
+# %%
 #Start capturing images for calibration
-cap = cv2.VideoCapture(0)
+capture = cv.VideoCapture(0)
 
 allCorners = []
 allIds = []
-decimator = 0
-for i in range(300):
 
-    ret,frame = cap.read()
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    res = cv2.aruco.detectMarkers(gray,dictionary)
+for decimator in range(0,500):
+    
+    ret,frame = capture.read()
+    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-    if len(res[0])>0:
-        res2 = cv2.aruco.interpolateCornersCharuco(res[0],res[1],gray,board)
-        if res2[1] is not None and res2[2] is not None and len(res2[1])>3 and decimator%3==0:
-            allCorners.append(res2[1])
-            allIds.append(res2[2])
+    # are there any individual aruco markers detected?
+    corners, ids, rejected = cv.aruco.detectMarkers(gray,dictionary)
 
-        cv2.aruco.drawDetectedMarkers(gray,res[0],res[1])
+    # if so, then process the image
+    if len(corners)>0:
 
-    cv2.imshow('frame',gray)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+        # estimate where the charuco corners are given the identified arucos and board definition
+        num_board_corners, board_corner, corner_id = cv.aruco.interpolateCornersCharuco(corners,ids,gray,board)
+
+        if board_corner is not None and corner_id is not None and len(board_corner)>3 and decimator%3==0:
+            allCorners.append(board_corner)
+            allIds.append(corner_id)
+            
+            # save out a still image to work with if type 'w'
+            # if cv.waitKey(20) & 0xFF == ord('w'):
+            #     print("Saving Image")
+            #     cv.imwrite("find_charuco.png",gray)
+            #     break
+
+        cv.aruco.drawDetectedMarkers(gray,corners,ids)
+
+
+
+    cv.putText(gray, f"Decimator: {decimator}", (100,100), cv.FONT_HERSHEY_PLAIN, 1.0, (0, 255,0), 1)
+
+    cv.imshow('frame',gray)
+    if cv.waitKey(20) & 0xFF == ord('q'):
         break
+    
     decimator+=1
 
 imsize = gray.shape
 
 #Calibration fails for lots of reasons. Release the video if we do
 try:
-    cal = cv2.aruco.calibrateCameraCharuco(allCorners,allIds,board,imsize,None,None)
+    cal = cv.aruco.calibrateCameraCharuco(allCorners,allIds,board,imsize,None,None)
 except:
-    cap.release()
+    capture.release()
 
-cap.release()
-cv2.destroyAllWindows()
+capture.release()
+cv.destroyAllWindows()
+# %%

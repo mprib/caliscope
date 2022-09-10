@@ -14,7 +14,7 @@ while capture_0.isOpened():
 
     if k == 27: # ESC to stop   
         break
-    elif k == ord('s'): # 
+    elif k == ord('s'): 
         cv.imwrite('images/imageL' + str(num) + '.png', img_0)
         cv.imwrite('images/imageR' + str(num) + '.png', img_1)
         num+=1

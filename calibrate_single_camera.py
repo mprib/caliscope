@@ -11,9 +11,9 @@ import numpy as np
 dictionary = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_50)
 
 # arguments: columns, rows, white space board?
-charuco_border_inch = 0.5 
-charuco_height_inch = 10 # inches
-charuco_width_inch = 8 # inches
+charuco_border_inch = 0
+charuco_height_inch = 11 # inches
+charuco_width_inch = 8.5 # inches
 
 paper_height_inch = charuco_height_inch + charuco_border_inch
 paper_width_inch = charuco_width_inch + charuco_border_inch
@@ -36,7 +36,7 @@ board = cv.aruco.CharucoBoard_create(charuco_columns, charuco_rows, square_lengt
 
 ppm = 300/39.37
 
-cv.imwrite("charuco.png", board.draw((int(paper_height_inch*300), int(paper_width_inch*300))))
+cv.imwrite("charuco.png", ~board.draw((int(paper_width_inch*300), int(paper_height_inch*300))))
 
 #############################################
 
@@ -54,7 +54,7 @@ while capture.isOpened():
     gray = cv.cvtColor(gray, cv.COLOR_GRAY2BGR)
 
     # are there any individual aruco markers detected?
-    corners, ids, rejected = cv.aruco.detectMarkers(gray,dictionary)
+    corners, ids, rejected = cv.aruco.detectMarkers(~gray,dictionary)
 
     # if so, then process the image
     if len(corners)>0:
@@ -101,3 +101,5 @@ cv.destroyAllWindows()
 
 # %%
 # Calibrate saved images
+
+

@@ -6,7 +6,10 @@ import cv2 as cv
 dictionary = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_50)
 
 # arguments: columns, rows, white space board?
-board = cv.aruco.CharucoBoard_create(5,7,.025,.0125,dictionary)
+board = cv.aruco.CharucoBoard_create(5,7,.015,.0125,dictionary)
+
+
+# %%
 
 capture = cv.VideoCapture(0)
 

@@ -43,8 +43,12 @@ cv.imwrite("charuco.png", ~board.draw((int(paper_width_inch*300), int(paper_heig
 # %%
 capture = cv.VideoCapture(0)
 
-allCorners = []
-allIds = []
+board_corners = len(board.chessboardCorners)
+
+corners_all = []
+ids_all = []
+image_size = None # determined at runtime
+
 num = 0
 
 while capture.isOpened():
@@ -53,23 +57,38 @@ while capture.isOpened():
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     gray = cv.cvtColor(gray, cv.COLOR_GRAY2BGR)
 
+    # If our image size is unknown, set it now
+    if not image_size:
+        image_size = gray.shape
+
     # are there any individual aruco markers detected?
     corners, ids, rejected = cv.aruco.detectMarkers(~gray,dictionary)
 
     # if so, then process the image
     if len(corners)>0:
         
-        cv.aruco.drawDetectedMarkers(gray,corners,ids)
+        # cv.aruco.drawDetectedMarkers(gray,corners,ids)
     
         # estimate where the checkerboard corners are given the identified arucos and board definition
-        num_board_corners, board_corners, corner_id = cv.aruco.interpolateCornersCharuco(corners,ids,gray,board, minMarkers = 0)
+        num_board_corners, board_corners, corner_ids = cv.aruco.interpolateCornersCharuco(
+            corners,
+            ids,
+            gray,
+            board, 
+            minMarkers = 0)
         
-        # draw checkerboard corners to visualize placement relative to arucos
-        if board_corners is not None and corner_id is not None and len(board_corners)>3:
+        gray = cv.aruco.drawDetectedCornersCharuco(
+                image=gray,
+                charucoCorners=board_corners,
+                charucoIds=corner_ids,
+                cornerColor = (0,255,0))
 
-            for c, id in zip(board_corners, corner_id):
-                cv.circle(gray, (round(c[0][0]), round(c[0][1])), 3,(0,255,255), thickness=-1)
-                cv.putText(gray, str(id[0]), (round(c[0][0]), round(c[0][1])), cv.FONT_HERSHEY_PLAIN, 1.0, (255,0,255), 1)
+        # draw checkerboard corners to visualize placement relative to arucos
+        # if board_corners is not None and corner_ids is not None and len(board_corners)>3:
+
+        #     for c, id in zip(board_corners, corner_ids):
+        #         cv.circle(gray, (round(c[0][0]), round(c[0][1])), 3,(0,255,255), thickness=-1)
+        #         cv.putText(gray, str(id[0]), (round(c[0][0]), round(c[0][1])), cv.FONT_HERSHEY_PLAIN, 1.0, (255,0,255), 1)
         
     
     k = cv.waitKey(5)
@@ -80,19 +99,19 @@ while capture.isOpened():
         # cv.imwrite('images/imageR' + str(num) + '.png', img_1)
         num+=1
     elif k == ord('c'):
-        if board_corners is not None and corner_id is not None and len(board_corners)>3:
-            allCorners.append(board_corners)
-            allIds.append(corner_id)    
+        if board_corners is not None and corner_ids is not None and len(board_corners)>3:
+            corners_all.append(board_corners)
+            ids_all.append(corner_ids)    
 
     cv.imshow("With markers", gray) 
 
 
 print("All Corners:")
-for crnr in allCorners:
+for crnr in corners_all:
     print(crnr)
     
 print("All IDs")
-for id in allIds:
+for id in ids_all:
     print(id)
 
 capture.release()
@@ -101,5 +120,12 @@ cv.destroyAllWindows()
 
 # %%
 # Calibrate saved images
+success, camera_matrix, distortion, rotation_vec, translation_vec = cv.aruco.calibrateCameraCharuco(
+    charucoCorners=corners_all,
+    charucoIds=ids_all,
+    board=board,
+    imageSize=image_size[::-1][0:2],
+    cameraMatrix=None,
+    distCoeffs=None)
 
-
+# %%

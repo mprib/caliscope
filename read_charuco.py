@@ -1,10 +1,7 @@
 # I have copied this from here:https://answers.opencv.org/question/98447/camera-calibration-using-charuco-and-python/
 # looking for a starting point to begin to perform a charuco calibration.
 # %%
-from decimal import DecimalTuple
-import time
 import cv2 as cv
-import numpy as np
 
 dictionary = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_50)
 
@@ -23,10 +20,6 @@ while True:
 
     # are there any individual aruco markers detected?
     corners, ids, rejected = cv.aruco.detectMarkers(gray,dictionary)
-
-
-    # for c, id, rej in zip(corners, ids, rejected):
-    #     print(f"Corner: {c} \nID: {id} \nRejected: {rej}")
 
     # if so, then process the image
     if len(corners)>0:

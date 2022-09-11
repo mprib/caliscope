@@ -24,10 +24,10 @@ charuco_width = charuco_width_inch/39.37
 
 charuco_columns = 4
 charuco_rows = 5
-square_length = min([charuco_height/charuco_columns, 
-                     charuco_height/charuco_rows, 
-                     charuco_width/charuco_columns, 
-                     charuco_width/charuco_rows]) 
+square_length = min([charuco_height/charuco_rows, 
+                     charuco_width/charuco_columns]) 
+
+print(f"Square Length: {square_length}")
 
 aruco_length = square_length * 0.9 
 
@@ -43,7 +43,8 @@ cv.imwrite("charuco.png", ~board.draw((int(paper_width_inch*300), int(paper_heig
 # %%
 capture = cv.VideoCapture(0)
 
-board_corners = len(board.chessboardCorners)
+max_board_corners = len(board.chessboardCorners)
+INCLUSION_CUTOFF = .8 # percent of corners need to contribute to calibration
 
 corners_all = []
 ids_all = []
@@ -66,7 +67,6 @@ while capture.isOpened():
 
     # if so, then process the image
     if len(corners)>0:
-        
         # cv.aruco.drawDetectedMarkers(gray,corners,ids)
     
         # estimate where the checkerboard corners are given the identified arucos and board definition
@@ -75,17 +75,27 @@ while capture.isOpened():
             ids,
             gray,
             board, 
-            minMarkers = 0)
+            minMarkers = 2)
         
+
         gray = cv.aruco.drawDetectedCornersCharuco(
                 image=gray,
                 charucoCorners=board_corners,
                 charucoIds=corner_ids,
                 cornerColor = (0,255,0))
 
-        # draw checkerboard corners to visualize placement relative to arucos
-        # if board_corners is not None and corner_ids is not None and len(board_corners)>3:
+        cv.putText(gray, str(num_board_corners), (20,20), cv.FONT_HERSHEY_PLAIN, 1.0, (255,0,255), 1)
 
+        # if num_board_corners and num_board_corners >= INCLUSION_CUTOFF * board_corners:
+
+        
+        cv.putText(gray, "Corners All:"+ str(len(corners_all)), (60,20), cv.FONT_HERSHEY_PLAIN, 1.0, (255,0,255), 1)
+        
+        # draw checkerboard corners to visualize placement relative to arucos
+        if num_board_corners >0 and num_board_corners > max_board_corners * INCLUSION_CUTOFF:
+            corners_all.append(board_corners)
+            ids_all.append(corner_ids)
+            # cv.putText(gray, "update calibration", (100,20), cv.FONT_HERSHEY_PLAIN, 1.0, (255,0,255), 1)
         #     for c, id in zip(board_corners, corner_ids):
         #         cv.circle(gray, (round(c[0][0]), round(c[0][1])), 3,(0,255,255), thickness=-1)
         #         cv.putText(gray, str(id[0]), (round(c[0][0]), round(c[0][1])), cv.FONT_HERSHEY_PLAIN, 1.0, (255,0,255), 1)
@@ -98,21 +108,10 @@ while capture.isOpened():
         cv.imwrite('images/frame' + str(num) + '.png', frame)
         # cv.imwrite('images/imageR' + str(num) + '.png', img_1)
         num+=1
-    elif k == ord('c'):
-        if board_corners is not None and corner_ids is not None and len(board_corners)>3:
-            corners_all.append(board_corners)
-            ids_all.append(corner_ids)    
+    # elif k == ord('c'):
+    #     if board_corners is not None and corner_ids is not None and len(board_corners)>3:
 
     cv.imshow("With markers", gray) 
-
-
-print("All Corners:")
-for crnr in corners_all:
-    print(crnr)
-    
-print("All IDs")
-for id in ids_all:
-    print(id)
 
 capture.release()
 cv.destroyAllWindows()

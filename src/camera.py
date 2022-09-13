@@ -5,6 +5,9 @@ from logging import exception
 import cv2 as cv
 import time 
 import numpy as np
+
+from collections import defaultdict
+from itertools import combinations
 class CameraFeeds():
     """
     Create a set of live OpenCV videoCapture devices. These can be then undergo
@@ -24,6 +27,8 @@ class CameraFeeds():
 
         self.input_streams = input_streams
         self.stream_names = stream_names
+                
+
 
     def calibrate(self, board_threshold, charuco, charuco_inverted=False):
         """
@@ -31,21 +36,19 @@ class CameraFeeds():
         board_threshold: percent of board corners that must be represented to record
         
         """
-        # prototyping calibration snapshots every second
-        calibration_start = time.time()
-
-
         # build dictionary of all input streams
         self.captures = {}
         for stream_name, strm in zip(self.stream_names, self.input_streams):
             self.captures[stream_name] = cv.VideoCapture(strm)
 
         # and a place to record the image size
-        self.image_size = {}
+        image_size = {}
         for stream_name in self.stream_names:
-            self.image_size[stream_name] = None
+            image_size[stream_name] = None
 
-        # 
+        # get a list of all the board corners that should be connected:
+        connected_corners = get_connected_corners(charuco)
+
         # open the capture streams 
         while True:
             
@@ -54,9 +57,9 @@ class CameraFeeds():
                 # read in a frame
                 read_success, frame = cap.read()
 
-                # set the image size if uknown
-                if self.image_size[stream_name] is None:
-                    self.image_size[stream_name] = frame.shape
+                # set the image size if unknown
+                if image_size[stream_name] is None:
+                    image_size[stream_name] = frame.shape
 
                 # check for charuco corners in the image
                 found_corner, charuco_corners, charuco_corner_ids = self.find_corners(
@@ -75,37 +78,9 @@ class CameraFeeds():
                         charucoIds=charuco_corner_ids,
                         cornerColor = (0,255,0))
 
-                    
+                   
                     # draw a box bounding each of the frames
-                    frame = self.drawCharucoOutline(frame, charuco_corners, charuco_corner_ids)
-
-##################### PROTOTYPING RAINBOX CALIBRATION
-                    # draw a frame around the detected corners
-                    # begin with a blank frame
-                    
-                                        
-                    # just_corners =np.zeros(self.image_size[stream_name], dtype='uint8') 
-                    # corner_lines = just_corners.copy()               
-
-                    # # add circle at each of the detected corners to the blank image
-                    # for crnr in charuco_corners:
-                    #     cv.circle(just_corners, (round(crnr[0][0]), round(crnr[0][1])), 5, (255,255,255), -1)
-                    
-
-
-                    # for i in range(0, len(charuco_corners)-1):
-                    #     crnr_x = round(charuco_corners[i][0][0])
-                    #     crnr_y = round(charuco_corners[i][0][1])
-                        
-                    #     next_crnr_x = round(charuco_corners[i+1][0][0])
-                    #     next_crnr_y = round(charuco_corners[i+1][0][1])
-                        
-                    #     cv.line(corner_lines, (crnr_x, crnr_y), (next_crnr_x,next_crnr_y), (255,255,255), 3)
-
-
-
-                    # frame = corner_lines
-
+                    frame = self.drawCharucoOutline(frame, charuco_corners, charuco_corner_ids, connected_corners)
 
                 cv.imshow(stream_name, frame)
 
@@ -159,7 +134,7 @@ class CameraFeeds():
         # return 
 
 
-    def drawCharucoOutline(self, frame, charuco_corners, charuco_ids):
+    def drawCharucoOutline(self, frame, charuco_corners, charuco_ids, connected_corners):
         """
         Given a frame and the location of the charuco board corners within in,
         draw a polyline connecting the outer bounds of the detected corners
@@ -217,10 +192,10 @@ class CameraFeeds():
 # may consider organizing as a charuco class
 
 def get_charuco():
-    # create charuco for calibration
+    # get aruco marker dictionary
     dictionary = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_50)
 
-    # arguments: columns, rows, white space board?
+    # and the size of the target board in real life
     charuco_height_inch = 11 # inches
     charuco_width_inch = 8.5 # inches
 
@@ -228,87 +203,67 @@ def get_charuco():
     charuco_height = charuco_height_inch/39.37
     charuco_width = charuco_width_inch/39.37
 
+    # assign the board layout
     charuco_columns = 4
     charuco_rows = 5
+
+    # set the square length to maximize the paper
     square_length = min([charuco_height/charuco_rows, 
                         charuco_width/charuco_columns]) 
 
+    # while making the aruco large to improve visability
     aruco_length = square_length * 0.9 
 
+    # create the board
     board = cv.aruco.CharucoBoard_create(charuco_columns, charuco_rows, square_length, aruco_length, dictionary)
 
     return board
 
 
 # %%
+def get_connected_corners(board):
 
-board = get_charuco()
-corners = board.chessboardCorners
-
-corners_x = corners[:,0]
-corners_y = corners[:,1]
-
-x_set = set(corners_x)
-y_set = set(corners_y)
-
-from collections import defaultdict
-
-lines = defaultdict(list)
-
-for x_line in x_set:
-    for corner, x, y in zip(range(0, len(corners)), corners_x, corners_y):
-        print(f"Corner: {corner}   x: {x}  y: {y}  x_line: {x_line}")
-
-        if x == x_line:
-            print("Added")
-            lines[f"x_{x_line}"].append(corner)
+    # create sets of the vertical and horizontal line positions
+    corners = board.chessboardCorners
+    corners_x = corners[:,0]
+    corners_y = corners[:,1]
+    x_set = set(corners_x)
+    y_set = set(corners_y)
 
 
-for y_line in y_set:
-    for corner, x, y in zip(range(0, len(corners)), corners_x, corners_y):
-        if y == y_line:
-            lines[f"y_{y_line}"].append(corner)
+    lines = defaultdict(list)
 
+    # put each point on the same vertical line in a list
+    for x_line in x_set:
+        for corner, x, y in zip(range(0, len(corners)), corners_x, corners_y):
+            if x == x_line:
+                lines[f"x_{x_line}"].append(corner)
 
-print(lines)
+    # and the same for each point on the same horizontal line
+    for y_line in y_set:
+        for corner, x, y in zip(range(0, len(corners)), corners_x, corners_y):
+            if y == y_line:
+                lines[f"y_{y_line}"].append(corner)
 
+    # create a set of all sets of corner pairs that should be connected
+    connected_corners = set()
+    for lines, corner_ids in lines.items():
+        for i in combinations(corner_ids, 2):
+            connected_corners.add(i)
+
+    return connected_corners
 
 # %%
-"""
-For a given charuco board, returns the set of all corner pairs that are 
-adjacent to each other and therefore eligible to be connect with a line 
-when marking out the grid.    
-"""
-columns, rows = board.getChessboardSize()
+c_c = get_connected_corners(get_charuco())
 
-corners_per_row = rows -1
-corners_per_column = columns -1
-
-corner_pairs = []
-
-for corner in range(0, len(board.chessboardCorners)):
-    # connect within rows
-    # can link to next sequential corner, unless it is the last in the row
-    if corner % (corners_per_row-1) == corners_per_row -2: # minus 2 due to 0 index
-        pass
-    elif corner % (corners_per_row-1) != corners_per_row -2:
-        corner_pairs.append([corner, corner+1])
-
-    # do the same for columns
-    if corner % (corners_per_column-1) == corners_per_column -2: # minus 2 due to 0 index
-        pass
-    elif corner % (corners_per_column-1) != corners_per_column -2:
-        corner_pairs.append([corner, corner + corners_per_row-1])
-
-
-print(corner_pairs)
-
-
+print(c_c)
 
 # %%
 
 if __name__ == "__main__":
-    feeds = CameraFeeds([0,1], ["Cam_1", "Cam_2"])
+    # feeds = CameraFeeds([0,1], ["Cam_1", "Cam_2"])
+    vid_file = 'videos\charuco.mkv'
+    feeds = CameraFeeds([vid_file], ["Cam_1"])
     feeds.calibrate(
         board_threshold=0.8,
         charuco = get_charuco(), 

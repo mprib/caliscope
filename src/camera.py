@@ -41,10 +41,20 @@ class CameraFeeds():
         for stream_name, strm in zip(self.stream_names, self.input_streams):
             self.captures[stream_name] = cv.VideoCapture(strm)
 
-        # and a place to record the image size
-        image_size = {}
+        # and a place to record the parameters used for calibration.
+        # this includes the image size...
+        self.image_size = {}
         for stream_name in self.stream_names:
-            image_size[stream_name] = None
+            self.image_size[stream_name] = None
+
+        # the corner locations:
+
+
+        # the corner IDs:
+
+
+        # the running accumulation of calibration snapshots
+        self.calibration_footprint = {}
 
 
         # get a list of all the board corners that should be connected:
@@ -60,10 +70,9 @@ class CameraFeeds():
                 # read in a frame
                 read_success, frame = cap.read()
 
-                # set the image size if unknown
-                if image_size[stream_name] is None:
-                    image_size[stream_name] = frame.shape
-                    self.calibration_footprint = {}
+                # set the image size if unknown and initialize the calibration footprint
+                if self.image_size[stream_name] is None:
+                    self.image_size[stream_name] = frame.shape
                     self.calibration_footprint[stream_name] =  np.zeros(frame.shape, dtype='uint8')
 
                 # check for charuco corners in the image
@@ -77,16 +86,14 @@ class CameraFeeds():
                 if found_corner:
 
                     # draw them on the frame to visualize
-                    # frame = cv.aruco.drawDetectedCornersCharuco(
-                    #     image = frame,
-                    #     charucoCorners=charuco_corners,
-                    #     charucoIds=charuco_corner_ids,
-                    #     cornerColor = (255,25,25))
+                    frame = cv.aruco.drawDetectedCornersCharuco(
+                        image = frame,
+                        charucoCorners=charuco_corners,
+                        cornerColor = (255,25,25))
                    
-                    # draw a box bounding each of the frames
+                    # draw a box bounding each of the frames if there are enough 
                     if len(charuco_corner_ids) > self.min_points_to_process:
-                        frame = self.calibration_footprint[stream_name]
-                        frame = self.drawCharucoOutline(frame, charuco_corners, charuco_corner_ids, connected_corners)
+                        self.drawCharucoOutline(stream_name, charuco_corners, charuco_corner_ids, connected_corners)
 
                 # merge calibration footprint and live frame
                 alpha = 1
@@ -120,7 +127,7 @@ class CameraFeeds():
             charuco.dictionary)
 
         # if so, then interpolate to the Charuco Corners and return what you found
-        if len(aruco_corners) > 0:
+        if len(aruco_corners) > 3:
             success, charuco_corners, charuco_corner_ids = cv.aruco.interpolateCornersCharuco(
                 aruco_corners,
                 aruco_ids,
@@ -144,7 +151,7 @@ class CameraFeeds():
         # return 
 
 
-    def drawCharucoOutline(self, frame, charuco_corners, charuco_ids, connected_corners):
+    def drawCharucoOutline(self, stream_name, charuco_corners, charuco_ids, connected_corners):
         """
         Given a frame and the location of the charuco board corners within in,
         draw a line connecting the outer bounds of the detected corners
@@ -164,9 +171,9 @@ class CameraFeeds():
             point_1 = observed_corners[pair[0]]
             point_2 = observed_corners[pair[1]]
 
-            cv.line(frame,point_1, point_2, (255,255,255), 3)
+            cv.line(self.calibration_footprint[stream_name],point_1, point_2, (255,255,255), 3)
         
-        return frame
+        # return fr
 
 
 
@@ -247,9 +254,9 @@ print(c_c)
 # %%
 
 if __name__ == "__main__":
-    # feeds = CameraFeeds([0,1], ["Cam_1", "Cam_2"])
+    feeds = CameraFeeds([0,1], ["Cam_1", "Cam_2"])
     vid_file = 'videos\charuco.mkv'
-    feeds = CameraFeeds([vid_file], ["Cam_1"])
+    # feeds = CameraFeeds([vid_file], ["Cam_1"])
     feeds.calibrate(
         board_threshold=0.7,
         charuco = get_charuco(), 

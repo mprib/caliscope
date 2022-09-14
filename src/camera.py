@@ -1,10 +1,10 @@
 
 # %%
 
-from logging import exception
 import cv2 as cv
 import time 
 import numpy as np
+import time
 
 from collections import defaultdict
 from itertools import combinations
@@ -20,44 +20,38 @@ class CameraFeeds():
         Initialize input streams. One per camera. Video captures will be created
         for each one during active calibrations and data capture
         """
-        
-        #TODO: Figure out how to use exceptions
-        # if len(stream_names)!=len(input_streams):
-        # also, stream_names must all be unique    
 
         self.input_streams = input_streams
         self.stream_names = stream_names
                 
+        # initialize a number of dictionaries to hold the various parameters 
+        # associated with each camera
+        self.captures = {}
 
+        # this includes the image size...
+        self.image_size = defaultdict(list)
 
-    def calibrate(self, board_threshold, charuco, charuco_inverted=False):
+        # the corner locations:
+        self.calibration_corners = defaultdict(list)
+        
+        # the corner IDs:
+        self.calibration_ids = defaultdict(list)
+
+        # and the running accumulation of calibration snapshots
+        self.calibration_footprint = {}
+        self.last_calibration_time = {}
+
+    def collect_calibration_footprint(self, board_threshold, charuco, charuco_inverted=False, time_between_cal=1):
         """
         Charuco: a cv2 charuco board
         board_threshold: percent of board corners that must be represented to record
         
         """
         # build dictionary of all input streams
-        self.captures = {}
         for stream_name, strm in zip(self.stream_names, self.input_streams):
             self.captures[stream_name] = cv.VideoCapture(strm)
 
-        # and a place to record the parameters used for calibration.
-        # this includes the image size...
-        self.image_size = {}
-        for stream_name in self.stream_names:
-            self.image_size[stream_name] = None
-
-        # the corner locations:
-
-
-        # the corner IDs:
-
-
-        # the running accumulation of calibration snapshots
-        self.calibration_footprint = {}
-
-
-        # get a list of all the board corners that should be connected:
+        # get the pairs of board corners that should be connected:
         connected_corners = get_connected_corners(charuco)
 
         self.min_points_to_process = int(len(charuco.chessboardCorners) * board_threshold)
@@ -70,10 +64,11 @@ class CameraFeeds():
                 # read in a frame
                 read_success, frame = cap.read()
 
-                # set the image size if unknown and initialize the calibration footprint
-                if self.image_size[stream_name] is None:
+                # initialize parameters on first loop
+                if len(self.image_size[stream_name]) == 0 :
                     self.image_size[stream_name] = frame.shape
                     self.calibration_footprint[stream_name] =  np.zeros(frame.shape, dtype='uint8')
+                    self.last_calibration_time[stream_name] = time.time()
 
                 # check for charuco corners in the image
                 found_corner, charuco_corners, charuco_corner_ids = self.find_corners(
@@ -91,9 +86,19 @@ class CameraFeeds():
                         charucoCorners=charuco_corners,
                         cornerColor = (255,25,25))
                    
-                    # draw a box bounding each of the frames if there are enough 
-                    if len(charuco_corner_ids) > self.min_points_to_process:
-                        self.drawCharucoOutline(stream_name, charuco_corners, charuco_corner_ids, connected_corners)
+                    # add to the calibration corners if good read and enough time has passed from last calibration
+                    enough_corners = len(charuco_corner_ids) > self.min_points_to_process
+                    enough_time_from_last_cal = time.time() > self.last_calibration_time[stream_name]+time_between_cal
+
+                    if enough_corners and enough_time_from_last_cal:
+                        self.draw_charuco_outline(stream_name, charuco_corners, charuco_corner_ids, connected_corners)
+                        self.calibration_corners[stream_name].append(charuco_corners)
+                        self.calibration_ids[stream_name].append(charuco_corner_ids)
+                        self.last_calibration_time[stream_name] = time.time()
+
+
+                # track how many calibrations have been tracked up to now
+                # cv.putText(frame, len())
 
                 # merge calibration footprint and live frame
                 alpha = 1
@@ -105,8 +110,6 @@ class CameraFeeds():
                 break
 
         self.destroy_captures()
-
-
 
     def destroy_captures(self):
         for nm, cap in self.captures.items():
@@ -143,15 +146,7 @@ class CameraFeeds():
             return False, None, None
 
 
-
-    def update_calibration_corners(self, corners, corner_ids):
-        pass
-
-
-        # return 
-
-
-    def drawCharucoOutline(self, stream_name, charuco_corners, charuco_ids, connected_corners):
+    def draw_charuco_outline(self, stream_name, charuco_corners, charuco_ids, connected_corners):
         """
         Given a frame and the location of the charuco board corners within in,
         draw a line connecting the outer bounds of the detected corners
@@ -166,16 +161,15 @@ class CameraFeeds():
             observed_corners[id] = (round(crnr[0]), round(crnr[1]))
         
         # print(corners)
-        
+
+        # drawn_boards = len(self.calibration_ids[stream_name])
+
         for pair in connected_pairs:
             point_1 = observed_corners[pair[0]]
             point_2 = observed_corners[pair[1]]
 
-            cv.line(self.calibration_footprint[stream_name],point_1, point_2, (255,255,255), 3)
-        
-        # return fr
-
-
+            cv.line(self.calibration_footprint[stream_name],point_1, point_2, (255, 165, 0), 1)
+   
 
 ##############################      CLASS ENDS     ###################################
 # Helper functions here primarily related to managing the charuco
@@ -214,7 +208,9 @@ def get_charuco():
 def get_connected_corners(board):
     """
     For a given board, returns a set of corner id pairs that will connect to form
-    a grid pattern
+    a grid pattern.
+
+    NOTE: the return value is a *set* not a list
     """
     # create sets of the vertical and horizontal line positions
     corners = board.chessboardCorners
@@ -246,10 +242,7 @@ def get_connected_corners(board):
 
     return connected_corners
 
-# %%
-c_c = get_connected_corners(get_charuco())
 
-print(c_c)
 
 # %%
 
@@ -257,7 +250,11 @@ if __name__ == "__main__":
     feeds = CameraFeeds([0,1], ["Cam_1", "Cam_2"])
     vid_file = 'videos\charuco.mkv'
     # feeds = CameraFeeds([vid_file], ["Cam_1"])
-    feeds.calibrate(
+    feeds.collect_calibration_footprint(
         board_threshold=0.7,
         charuco = get_charuco(), 
-        charuco_inverted=True)
+        charuco_inverted=True,
+        time_between_cal=1) # seconds that must pass before new corners are stored
+
+
+    

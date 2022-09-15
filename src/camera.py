@@ -9,12 +9,11 @@ import time
 from collections import defaultdict
 from itertools import combinations
 
+import charuco
 
 class Camera():
     """
-    Create a set of live OpenCV videoCapture devices. These can be then undergo
-    individual calibration, stereocalibration, and collect data for 3d
-    reconstruction 
+    Allows collection of calibration data for an individual camera
     """
 
     def __init__(self, input_stream,stream_name):
@@ -27,6 +26,7 @@ class Camera():
         self.image_size = []
         self.calibration_corners = []
         self.calibration_ids = []
+        self.objective_corners = []
 
 
     def collect_calibration_corners(self, board_threshold, charuco, charuco_inverted=False, time_between_cal=1):
@@ -37,8 +37,8 @@ class Camera():
 
         capture = cv.VideoCapture(self.input_stream)
 
-        min_points_to_process = int(len(charuco.chessboardCorners) * board_threshold)
-        connected_corners = get_connected_corners(charuco)
+        min_points_to_process = int(len(charuco.board.chessboardCorners) * board_threshold)
+        connected_corners = charuco.get_connected_corners()
 
         # open the capture stream 
         while True:
@@ -54,7 +54,7 @@ class Camera():
             # check for charuco corners in the image
             found_corner, charuco_corners, charuco_corner_ids = self.find_corners(
                 frame, 
-                charuco, 
+                charuco.board, 
                 charuco_inverted)
 
             # if charuco corners are detected
@@ -76,6 +76,10 @@ class Camera():
                     # store the corners and IDs
                     self.calibration_corners.append(charuco_corners)
                     self.calibration_ids.append(charuco_corner_ids)
+
+                    # objective corner position in a board frame of reference
+                    board_FOR_corners = charuco.board.chessboardCorners[charuco_corner_ids, :]
+                    self.objective_corners.append(board_FOR_corners)
 
                     # 
                     self.draw_charuco_outline(charuco_corners, charuco_corner_ids, connected_corners)
@@ -156,100 +160,6 @@ class Camera():
 
         cv.calibrateCameraExtended
             
-
-##############################      CLASS ENDS     ###################################
-# Helper functions here primarily related to managing the charuco
-# may consider organizing as a charuco class
-
-def get_charuco():
-    # get aruco marker dictionary
-    dictionary = cv.aruco.getPredefinedDictionary(cv.aruco.DICT_4X4_50)
-
-    # and the size of the target board in real life
-    charuco_height_inch = 11 # inches
-    charuco_width_inch = 8.5 # inches
-
-    # convert to meters
-    charuco_height = charuco_height_inch/39.37
-    charuco_width = charuco_width_inch/39.37
-
-    # assign the board layout
-    charuco_columns = 4
-    charuco_rows = 5
-
-    # set the square length to maximize the paper
-    square_length = min([charuco_height/charuco_rows, 
-                        charuco_width/charuco_columns]) 
-
-    # while making the aruco large to improve visability
-    aruco_length = square_length * 0.9 
-
-    # create the board
-    board = cv.aruco.CharucoBoard_create(charuco_columns, charuco_rows, square_length, aruco_length, dictionary)
-
-    return board
-
-
-# %%
-def get_connected_corners(board):
-    """
-    For a given board, returns a set of corner id pairs that will connect to form
-    a grid pattern.
-
-    NOTE: the return value is a *set* not a list
-    """
-    # create sets of the vertical and horizontal line positions
-    corners = board.chessboardCorners
-    corners_x = corners[:,0]
-    corners_y = corners[:,1]
-    x_set = set(corners_x)
-    y_set = set(corners_y)
-
-
-    lines = defaultdict(list)
-
-    # put each point on the same vertical line in a list
-    for x_line in x_set:
-        for corner, x, y in zip(range(0, len(corners)), corners_x, corners_y):
-            if x == x_line:
-                lines[f"x_{x_line}"].append(corner)
-
-    # and the same for each point on the same horizontal line
-    for y_line in y_set:
-        for corner, x, y in zip(range(0, len(corners)), corners_x, corners_y):
-            if y == y_line:
-                lines[f"y_{y_line}"].append(corner)
-
-    # create a set of all sets of corner pairs that should be connected
-    connected_corners = set()
-    for lines, corner_ids in lines.items():
-        for i in combinations(corner_ids, 2):
-            connected_corners.add(i)
-
-    return connected_corners
-
-
-# def get_object_points(board, corner_ids):
-# 
-    # for id in corner_ids
-
-
-
-# %%
-
-if __name__ == "__main__":
-    feeds = {0: "Cam_1",1:"Cam_2"}
-    vid_file = 'videos\charuco.mkv'
-    
-    for stream, stream_name in feeds.items():
-        active_camera = Camera(stream, stream_name)
-        active_camera.collect_calibration_corners(
-            board_threshold=0.7,
-            charuco = get_charuco(), 
-            charuco_inverted=True,
-            time_between_cal=1) # seconds that must pass before new corners are stored
-
-        active_camera.calibrate()
 
 
     

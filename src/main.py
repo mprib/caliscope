@@ -3,26 +3,34 @@
 from operator import inv
 from camera import Camera
 from charuco import Charuco
+import json
+
+
+# %%
+# Calibrate 2 cameras to get input parameters for stereo calibration
 
 charuco = Charuco(4,5,11,8.5)
 
-
-feeds = {0: "Cam_1"}
-
-vid_file = 'videos\charuco.mkv'
-
-# %%
-active_camera = Camera(0, "Cam_1")
-active_camera.collect_calibration_corners(
+cam_0 = Camera(0, "cam_0")
+cam_0.collect_calibration_corners(
     board_threshold=0.5,
-    self.charuco = charuco, 
+    charuco = charuco, 
     charuco_inverted=True,
     time_between_cal=.5) # seconds that must pass before new corners are stored
+cam_0.calibrate()
+cam_0.save_calibration("calibration_params")
 
-
+cam_1 = Camera(1, "cam_1")
+cam_1.collect_calibration_corners(
+    board_threshold=0.5,
+    charuco = charuco, 
+    charuco_inverted=True,
+    time_between_cal=.5) # seconds that must pass before new corners are stored
+cam_1.calibrate()
+cam_1.save_calibration("calibration_params")
 
 
 # %%
+# Collect Dual Data For Stereocalibration
 
-active_camera.close()
-# %%
+

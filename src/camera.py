@@ -6,7 +6,6 @@ import time
 import numpy as np
 import time
 
-from collections import defaultdict
 from itertools import combinations
 import json
 

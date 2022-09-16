@@ -29,16 +29,21 @@ class Camera():
         self.objective_corners = []
 
 
+
     def collect_calibration_corners(self, board_threshold, charuco, charuco_inverted=False, time_between_cal=1):
         """
         Charuco: a cv2 charuco board
         board_threshold: percent of board corners that must be represented to record
         """
 
-        capture = cv.VideoCapture(self.input_stream)
+        # store charuco used for calibration
+        self.charuco = charuco
 
-        min_points_to_process = int(len(charuco.board.chessboardCorners) * board_threshold)
-        connected_corners = charuco.get_connected_corners()
+        capture = cv.VideoCapture(self.input_stream)
+        # capture = cv.VideoCapture(self.input_stream)
+
+        min_points_to_process = int(len(self.charuco.board.chessboardCorners) * board_threshold)
+        connected_corners = self.charuco.get_connected_corners()
 
         # open the capture stream 
         while True:
@@ -54,7 +59,7 @@ class Camera():
             # check for charuco corners in the image
             found_corner, charuco_corners, charuco_corner_ids = self.find_corners(
                 frame, 
-                charuco.board, 
+                self.charuco.board, 
                 charuco_inverted)
 
             # if charuco corners are detected
@@ -78,7 +83,7 @@ class Camera():
                     self.calibration_ids.append(charuco_corner_ids)
 
                     # objective corner position in a board frame of reference
-                    board_FOR_corners = charuco.board.chessboardCorners[charuco_corner_ids, :]
+                    board_FOR_corners = self.charuco.board.chessboardCorners[charuco_corner_ids, :]
                     self.objective_corners.append(board_FOR_corners)
 
                     # 
@@ -94,13 +99,10 @@ class Camera():
 
 
             # end capture when enough grids collected
-            if cv.waitKey(5) == 27: # ESC to stop   
+            if cv.waitKey(5) == 27: # ESC to stop 
+                capture.release()
+                cv.destroyWindow(self.stream_name)
                 break
-
-        # clean up
-        capture.release()
-        cv.destroyAllWindows()
-
     
     def find_corners(self, frame, charuco, charuco_inverted):
         
@@ -157,8 +159,9 @@ class Camera():
    
 
     def calibrate(self):
+        objpoints = 
 
-        cv.calibrateCameraExtended
+        cv.calibrateCamera()
             
 
 

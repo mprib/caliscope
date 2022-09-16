@@ -8,6 +8,7 @@ import time
 
 from collections import defaultdict
 from itertools import combinations
+import json
 
 import charuco
 
@@ -59,7 +60,6 @@ class Camera():
             # check for charuco corners in the image
             found_corner, charuco_corners, charuco_corner_ids = self.find_corners(
                 frame, 
-                self.charuco.board, 
                 charuco_inverted)
 
             # if charuco corners are detected
@@ -104,7 +104,7 @@ class Camera():
                 cv.destroyWindow(self.stream_name)
                 break
     
-    def find_corners(self, frame, charuco, charuco_inverted):
+    def find_corners(self, frame, charuco_inverted):
         
         # invert the frame for detection if needed
         if charuco_inverted:
@@ -114,7 +114,7 @@ class Camera():
         # detect if aruco markers are present
         aruco_corners, aruco_ids, rejected = cv.aruco.detectMarkers(
             frame, 
-            charuco.dictionary)
+            self.charuco.board.dictionary)
 
         # if so, then interpolate to the Charuco Corners and return what you found
         if len(aruco_corners) > 3:
@@ -122,7 +122,7 @@ class Camera():
                 aruco_corners,
                 aruco_ids,
                 frame,
-                charuco)
+                self.charuco.board)
             
             if charuco_corners is not None:
                 return True, charuco_corners, charuco_corner_ids
@@ -159,10 +159,50 @@ class Camera():
    
 
     def calibrate(self):
-        objpoints = 
+        """
+        Use the recorded image corner positions along with the objective
+        corner positions based on the board definition to calculated
+        the camera matrix and distortion parameters
+        """
+        print(f"Calibrating {self.stream_name}")
 
-        cv.calibrateCamera()
-            
+        # organize parameters for calibration function
+        objpoints = self.objective_corners
+        imgpoints = self.calibration_corners
+        width = self.image_size[1]
+        height = self.image_size[0]     
+
+        ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(
+            objpoints, 
+            imgpoints, 
+            (width, height), 
+            None, 
+            None)
 
 
-    
+        # NOTE: ret is RMSE (not sure of what). rvecs and tvecs are the 
+        # rotation and translation vectors *for each calibration snapshot*
+        # this is, they are the position of the camera relative to the board
+        # for that one frame
+
+        self.camera_matrix = mtx
+        self.distortion_params = dist
+
+    def save_calibration(self, destination_folder):
+        """
+        Store individual camera parameters for use in dual camera calibration
+        Saved  to json as camera name to the "calibration_params" directory
+        """
+        # need to store individual camera parameters
+
+        json_dict = {}
+        json_dict["input_stream"] = self.input_stream
+        json_dict["stream_name"] = self.stream_name
+        json_dict["image_size"] = self.image_size
+        json_dict["camera_matrix"] = self.camera_matrix.tolist()
+        json_dict["distortion_params"] = self.distortion_params.tolist()
+
+        json_object = json.dumps(json_dict, indent=4, separators=(',', ': '))
+
+        with open( destination_folder + "/" + self.stream_name + ".json", "w") as outfile:
+            outfile.write(json_object)

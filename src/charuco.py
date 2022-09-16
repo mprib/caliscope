@@ -116,7 +116,7 @@ class Charuco():
 
 
 
-    def get_objective_corners(self, corner_ids):
+    def get_object_corners(self, corner_ids):
         """
         Given an array of corner IDs, provide an array of their relative 
         position in a board from of reference, originating from a corner position.

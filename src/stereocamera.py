@@ -1,5 +1,6 @@
 
 # %%
+import os
 import cv2 as cv
 import time 
 import numpy as np
@@ -133,8 +134,8 @@ class StereoCamera():
                     # checking that all points line up
                     if shared_corner_ids == id_check_A and shared_corner_ids == id_check_B:
                         self.objectpoints.append(object_points_frame)
-                        self.imgpointsA.append(points_A)
-                        self.imgpointsB.append(points_B)
+                        self.imgpointsA.append(np.array(points_A))
+                        self.imgpointsB.append(np.array(points_B))
 
 
                     self.draw_charuco_outline(points_A, points_B, shared_corner_ids, connected_corners)
@@ -223,23 +224,19 @@ class StereoCamera():
             point_2 = observed_corners_B[pair[1]]
             cv.line(self.grid_capture_history_B,point_1, point_2, (255, 165, 0), 1)
 
+
     def calibrate(self):
         """
         generate rotation and translation vectors relating position of Camera B
         relative to Camera A
         """
 
-        # TODO: create a "save calibration" function that will help you iterate
-        # more quickly on resolving the type error issues with the presentation 
-        # of the image points. Pretty sure it just needs a loop turning everything
-        # into a list of arrays.
-        
         criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
         ret, CM1, dist1, CM2, dist2, R, T, E, F = cv.stereoCalibrate(
             objectPoints = self.objectpoints,
-            imagePoints1 = self.imgpointsA,
-            imagePoints2 = self.imgpointsB,
+            imagePoints1 = to_list_of_arrays(self.imgpointsA),
+            imagePoints2 = to_list_of_arrays(self.imgpointsB),
             cameraMatrix1 = self.cameraMatrix_A,
             distCoeffs1 = self.distCoeffs_A,
             cameraMatrix2 = self.cameraMatrix_B,
@@ -265,6 +262,54 @@ class StereoCamera():
         print(f"Rotation: {R}")
         print(f"Translation: {T}")
 
+    def write_json(self, destination_folder, dictionary_name):
+        """
+        JSON dump raw parameters that will be used for stereocalibration. This 
+        is primarily intended for use as a debugging tool to ensure that the 
+        format of the parameters aligns with the expectations of the opencv
+        stereocalibration function
+        """
+        
+        # clean up objectpoints to make it writable to plain text
+        objPoints = self.objectpoints
+        objPoints_list = []
+        for array in range(0,len(objPoints)):
+            objPoints_list.append(objPoints[array].squeeze().tolist())
+
+
+        stereocalib_params = {}
+
+        stereocalib_params["objectPoints"] = objPoints_list,
+        stereocalib_params["imagePoints1"] = self.imgpointsA,
+        stereocalib_params["imagePoints2"] = self.imgpointsB,
+        stereocalib_params["cameraMatrix1"] = self.cameraMatrix_A,
+        stereocalib_params["distCoeffs1"] = self.distCoeffs_A,
+        stereocalib_params["cameraMatrix2"] = self.cameraMatrix_B,
+        stereocalib_params["distCoeffs2"] = self.distCoeffs_B,
+
+        json_object = json.dumps(stereocalib_params, indent=4, separators=(',', ': '))
+
+        with open(os.path.join(Path(__file__).parent, destination_folder, dictionary_name + ".json"), "w") as outfile:
+            outfile.write(json_object)
+
+    def read_json(self, destination_folder, dictionary_name):
+
+        json_path = os.path.join(Path(__file__).parent, destination_folder, dictionary_name + ".json")
+        print(json_path)
+
+        with open(os.path.join(Path(__file__).parent, destination_folder, dictionary_name + ".json"), "r") as f:
+            stereocalib_params = json.load(f)
+
+        self.objPoints = stereocalib_params["objectPoints"]
+        self.imgpointsA = stereocalib_params["imagePoints1"]
+        self.imgpointsB = stereocalib_params["imagePoints2"]
+        self.cameraMatrix_A = stereocalib_params["cameraMatrix1"]
+        self.distCoeffs_A = stereocalib_params["distCoeffs1"]
+        self.cameraMatrix_B = stereocalib_params["cameraMatrix2"]
+        self.distCoeffs_B = stereocalib_params["distCoeffs2"]
+    
+###################### HELPER FUNCTIONS ########################################
+
 def common_corner_ids(IDs_A, IDs_B):
     """
     Properly format a list of corner IDs that are shared between the two frames
@@ -286,18 +331,46 @@ def common_corner_loc(corners, ids, shared_ids):
     the order of the image points remains the same
     """
 
-    print("TODO: Figure this out.")
     id_check = []
     cc = []
 
     for id, corner in zip(ids, corners):
         if id in shared_ids:
-            print(id[0], corner[0])
             id_check.append(id[0])
             cc.append(corner[0].tolist())
         
     return id_check, cc
+
+def to_list_of_arrays(object_list):
+    """
+    Reformat a list of lists to be a list of arrays as expected for the input
+    parameters of the stereocalibration function
+    """
+
+    array_list = []
+
+    for item in object_list:
+        if type(item) == list:
+            array_list.append(np.array(array_list))
+        else:
+            array_list.append(item)
+
+    return array_list
+
 # %%
+
+# stereocam = StereoCamera("cam_0", "cam_1", "calibration_params")
+# charuco = Charuco(4,5,11,8.5)
+# stereocam.read_json("calibration_params", "test_stereocal")
+
+# %%
+# stereocam.write_json("calibration_params", "test_stereocal")
+
+# %%
+
+# %%
+# stereocam.calibrate()
+
 
 
 if __name__ == "__main__":
@@ -309,5 +382,7 @@ if __name__ == "__main__":
         charuco = charuco, 
         charuco_inverted=True,
         time_between_cal=.5)
+
+    # stereocam.write_json("calibration_params", "test_stereocal")
     
     stereocam.calibrate()

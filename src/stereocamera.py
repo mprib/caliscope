@@ -134,8 +134,8 @@ class StereoCamera():
                     # checking that all points line up
                     if shared_corner_ids == id_check_A and shared_corner_ids == id_check_B:
                         self.objectpoints.append(object_points_frame)
-                        self.imgpointsA.append(np.array(points_A))
-                        self.imgpointsB.append(np.array(points_B))
+                        self.imgpointsA.append(np.array(points_A, dtype=np.float32))
+                        self.imgpointsB.append(np.array(points_B, dtype=np.float32))
 
 
                     self.draw_charuco_outline(points_A, points_B, shared_corner_ids, connected_corners)
@@ -233,18 +233,21 @@ class StereoCamera():
 
         criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
+        width = self.image_size_A[1]
+        height = self.image_size_A[0]    
+
         ret, CM1, dist1, CM2, dist2, R, T, E, F = cv.stereoCalibrate(
             objectPoints = self.objectpoints,
-            imagePoints1 = to_list_of_arrays(self.imgpointsA),
-            imagePoints2 = to_list_of_arrays(self.imgpointsB),
-            cameraMatrix1 = self.cameraMatrix_A,
-            distCoeffs1 = self.distCoeffs_A,
-            cameraMatrix2 = self.cameraMatrix_B,
-            distCoeffs2 = self.distCoeffs_B,
+            imagePoints1 = self.imgpointsA,
+            imagePoints2 = self.imgpointsB,
+            cameraMatrix1 = np.array(self.cameraMatrix_A),
+            distCoeffs1 = np.array(self.distCoeffs_A),
+            cameraMatrix2 = np.array(self.cameraMatrix_B),
+            distCoeffs2 = np.array(self.distCoeffs_B),
 
             # based on https://stackoverflow.com/questions/35128281/different-image-size-opencv-stereocalibrate
             # image size does not matter given the approach used here
-            imageSize = self.image_size_A, 
+            imageSize = (width, height), 
 
             # the argments below are optional Output arguments. It remains 
             # unclear how these interact with the function

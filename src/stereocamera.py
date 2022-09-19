@@ -76,21 +76,31 @@ class StereoCamera():
 
                 self.grid_capture_history_A =  np.zeros(self.image_size_A, dtype='uint8')
                 self.grid_capture_history_B =  np.zeros(self.image_size_B, dtype='uint8')
+
+                # for subpixel corner correction 
+                criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.00001)
+                conv_size = (11, 11) # Don't make this too large.
+
                 last_calibration_time = time.time()
+
+
+
                 calibration_initialized = True
 
             # read in each frame
             read_success, frame_A = captureA.read()
             read_success, frame_B = captureB.read()
             
+            gray_frame_A = cv.cvtColor(frame_A, cv.COLOR_BGR2GRAY)
+            gray_frame_B = cv.cvtColor(frame_B, cv.COLOR_BGR2GRAY)
 
             # check for charuco corners in the image
             found_corner_A, charuco_corners_A, charuco_corner_ids_A = self.find_corners(
-                frame_A, 
+                gray_frame_A, 
                 charuco_inverted)
 
             found_corner_B, charuco_corners_B, charuco_corner_ids_B = self.find_corners(
-                frame_B, 
+                gray_frame_B, 
                 charuco_inverted)
                 
 
@@ -123,7 +133,11 @@ class StereoCamera():
 
                     # identify the charuco corners in a board frame of reference
                     object_points_frame = self.charuco.board.chessboardCorners[shared_corner_ids, :]
-                    
+
+                    #opencv can attempt to improve the checkerboard coordinates
+                    charuco_corners_A = cv.cornerSubPix(gray_frame_A, charuco_corners_A, conv_size, (-1, -1), criteria)
+                    charuco_corners_B = cv.cornerSubPix(gray_frame_B, charuco_corners_B, conv_size, (-1, -1), criteria)
+
                     # identify the locations of corners that appear in both frames
                     id_check_A, points_A = common_corner_loc(charuco_corners_A, charuco_corner_ids_A, shared_corner_ids)
                     id_check_B, points_B = common_corner_loc(charuco_corners_B, charuco_corner_ids_B, shared_corner_ids)
@@ -154,7 +168,7 @@ class StereoCamera():
                 cv.destroyAllWindows()
                 break
 
-    def find_corners(self, frame, charuco_inverted):
+    def find_corners(self, gray, charuco_inverted):
         """
         Given a frame, identify the charuco corners in it and return those
         corner locations (x,y) and IDs to the caller
@@ -162,12 +176,12 @@ class StereoCamera():
         
         # invert the frame for detection if needed
         if charuco_inverted:
-            frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)  # convert to gray
-            frame = ~frame  # invert
+            # gray = cv.cvtColor(gray, cv.COLOR_BGR2GRAY)  # convert to gray
+            gray = ~gray  # invert
         
         # detect if aruco markers are present
         aruco_corners, aruco_ids, rejected = cv.aruco.detectMarkers(
-            frame, 
+            gray, 
             self.charuco.board.dictionary)
 
         # if so, then interpolate to the Charuco Corners and return what you found
@@ -175,7 +189,7 @@ class StereoCamera():
             success, charuco_corners, charuco_corner_ids = cv.aruco.interpolateCornersCharuco(
                 aruco_corners,
                 aruco_ids,
-                frame,
+                gray,
                 self.charuco.board)
             
             if charuco_corners is not None:
@@ -313,9 +327,12 @@ def common_corner_loc(corners, ids, shared_ids):
 if __name__ == "__main__":
     stereocam = StereoCamera("cam_0", "cam_1", "calibration_params")
 
-    charuco = Charuco(4,5,11,8.5)
+    charuco = Charuco(4,5,11,8.5, aruco_scale=.75, square_size_overide=.0525)
+    # charuco.save_image("src/new_charuco.png")
+
+
     stereocam.collect_calibration_corners(
-        board_threshold=0.5,
+        board_threshold=0.4,
         charuco = charuco, 
         charuco_inverted=True,
         time_between_cal=.5)

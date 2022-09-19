@@ -19,7 +19,7 @@ class Charuco():
         board_width, 
         dictionary="DICT_4X4_50",
         units="inches", 
-        aruco_scale=0.9, 
+        aruco_scale=0.75, 
         square_size_overide=None):
         
         """
@@ -41,7 +41,7 @@ class Charuco():
         # if square length not provided, calculate based on board dimensions
         # to maximize size of squares
         if square_size_overide:
-            square_length = square_size_overide
+            square_length = square_size_overide # note: in meters
         else:
             square_length = min([board_height/rows, board_width/columns]) 
 

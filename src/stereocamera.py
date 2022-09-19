@@ -29,7 +29,6 @@ class StereoCamera():
         self.cam_A_params = json.load(f)
         self.stream_name_A  = self.cam_A_params["stream_name"]
         self.input_stream_A = self.cam_A_params["input_stream"]
-        self.image_size_A   = self.cam_A_params["image_size"]
         self.cameraMatrix_A = self.cam_A_params["camera_matrix"]
         self.distCoeffs_A = self.cam_A_params["distortion_params"]
 
@@ -37,7 +36,6 @@ class StereoCamera():
         self.cam_B_params   = json.load(f)
         self.stream_name_B  = self.cam_B_params["stream_name"]
         self.input_stream_B = self.cam_B_params["input_stream"]
-        self.image_size_B   = self.cam_B_params["image_size"]
         self.cameraMatrix_B = self.cam_B_params["camera_matrix"]
         self.distCoeffs_B = self.cam_B_params["distortion_params"]
 
@@ -55,8 +53,17 @@ class StereoCamera():
         # store charuco used for calibration
         self.charuco = charuco
 
+        height = int(1080 * .5)
+        width = int(1920 * .5)
+
         captureA = cv.VideoCapture(self.input_stream_A)
+        captureA.set(cv.CAP_PROP_FRAME_WIDTH, width)
+        captureA.set(cv.CAP_PROP_FRAME_HEIGHT, height)
+
         captureB = cv.VideoCapture(self.input_stream_B)
+        captureB.set(cv.CAP_PROP_FRAME_WIDTH, width)
+        captureB.set(cv.CAP_PROP_FRAME_HEIGHT, height)
+
         # capture = cv.VideoCapture(self.input_stream)
 
         min_points_to_process = int(len(self.charuco.board.chessboardCorners) * board_threshold)
@@ -72,7 +79,14 @@ class StereoCamera():
             if not calibration_initialized:
                 self.objectpoints  = [] 
                 self.imgpointsA = [] 
-                self.imgpointsB = [] 
+                self.imgpointsB = []
+
+                # smaple frame to determine actual size
+                read_success, frame_A = captureA.read()
+                read_success, frame_B = captureB.read()
+
+                self.image_size_A   = frame_A.shape
+                self.image_size_B   = frame_B.shape
 
                 self.grid_capture_history_A =  np.zeros(self.image_size_A, dtype='uint8')
                 self.grid_capture_history_B =  np.zeros(self.image_size_B, dtype='uint8')
@@ -82,9 +96,6 @@ class StereoCamera():
                 conv_size = (11, 11) # Don't make this too large.
 
                 last_calibration_time = time.time()
-
-
-
                 calibration_initialized = True
 
             # read in each frame
@@ -119,22 +130,20 @@ class StereoCamera():
                     cornerColor = (120,255,0))
 
                 # identify the corners that appear in both cameras
-                # using a helper function 
                 shared_corner_ids = common_corner_ids(charuco_corner_ids_A, charuco_corner_ids_B)
                 
                 # determine if this snapshot meets the elapsed time and number 
-                # of corners minimum criteria
+                # of corners criteria
                 enough_corners = len(shared_corner_ids) > min_points_to_process
                 enough_time_from_last_cal = time.time() > last_calibration_time+time_between_cal
 
-
-                # and proceed if so
+                # proceed if so
                 if enough_corners and enough_time_from_last_cal:
 
                     # identify the charuco corners in a board frame of reference
                     object_points_frame = self.charuco.board.chessboardCorners[shared_corner_ids, :]
 
-                    #opencv can attempt to improve the checkerboard coordinates
+                    # improve the checkerboard coordinates
                     charuco_corners_A = cv.cornerSubPix(gray_frame_A, charuco_corners_A, conv_size, (-1, -1), criteria)
                     charuco_corners_B = cv.cornerSubPix(gray_frame_B, charuco_corners_B, conv_size, (-1, -1), criteria)
 
@@ -155,9 +164,9 @@ class StereoCamera():
 
             # merge grid history and live frame
             merged_frame_A = cv.addWeighted(frame_A, 1, self.grid_capture_history_A, 1, 0)
-            cv.imshow(self.stream_name_A, merged_frame_A)
-
             merged_frame_B = cv.addWeighted(frame_B, 1, self.grid_capture_history_B, 1, 0)
+
+            cv.imshow(self.stream_name_A, merged_frame_A)
             cv.imshow(self.stream_name_B, merged_frame_B)
 
 
@@ -242,8 +251,8 @@ class StereoCamera():
 
         criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.000001)
 
-        width = self.image_size_A[1]
         height = self.image_size_A[0]    
+        width = self.image_size_A[1]
 
         ret, CM1, dist1, CM2, dist2, R, T, E, F = cv.stereoCalibrate(
             objectPoints = self.objectpoints,
@@ -255,17 +264,8 @@ class StereoCamera():
             distCoeffs2 = np.array(self.distCoeffs_B),
 
             # based on https://stackoverflow.com/questions/35128281/different-image-size-opencv-stereocalibrate
-            # image size does not matter given the approach used here
-            imageSize = (width, height), 
-
-            # the argments below are optional Output arguments. It remains 
-            # unclear how these interact with the function
-            # R,
-            # T,
-            # E,
-            # F,
-            # perViewErrors,
-            # flags = cv.CALIB_USE_INTRINSIC_GUESS,
+            # image size does not matter given the approach used here...not sure
+            imageSize = (height, width), 
             flags = cv.CALIB_FIX_INTRINSIC, # this is the default; only R, T, E, and F matrices are estimated.
             criteria = criteria) 
         
@@ -274,6 +274,30 @@ class StereoCamera():
         print(f"Error: {ret}")
         print(f"Rotation: {R}")
         print(f"Translation: {T}")
+
+    def save_calibration(self, destination_folder):
+        """
+        Store individual camera parameters for use in dual camera calibration
+        Saved  to json as camera name to the "calibration_params" directory
+        """
+        # need to store individual camera parameters
+
+        json_dict = {}
+
+
+
+
+        json_dict["input_stream"] = self.input_stream
+        json_dict["stream_name"] = self.stream_name
+        json_dict["image_size"] = self.image_size
+        json_dict["camera_matrix"] = self.camera_matrix.tolist()
+        json_dict["distortion_params"] = self.distortion_params.tolist()
+
+        json_object = json.dumps(json_dict, indent=4, separators=(',', ': '))
+
+        with open(os.path.join(Path(__file__).parent, destination_folder + "/" + self.stream_name + ".json"), "w") as outfile:
+            outfile.write(json_object)
+
 
 ###################### HELPER FUNCTIONS ########################################
 

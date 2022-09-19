@@ -38,11 +38,16 @@ class Camera():
         board_threshold: percent of board corners that must be represented to record
         """
 
+        width = 1920
+        height = 1080
+
         # store charuco used for calibration
         self.charuco = charuco
 
         capture = cv.VideoCapture(self.input_stream)
         # capture = cv.VideoCapture(self.input_stream)
+        capture.set(cv.CAP_PROP_FRAME_WIDTH, width)
+        capture.set(cv.CAP_PROP_FRAME_HEIGHT, height)
 
         min_points_to_process = int(len(self.charuco.board.chessboardCorners) * board_threshold)
         connected_corners = self.charuco.get_connected_corners()

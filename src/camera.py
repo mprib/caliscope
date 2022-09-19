@@ -52,15 +52,22 @@ class Camera():
         
             read_success, frame = capture.read()
 
+            gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+
             # initialize parameters on first loop
             if len(self.image_size) == 0 :
+                
+                # for subpixel corner correction 
+                criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+                conv_size = (11, 11) # Don't make this too large.
+
                 self.image_size = frame.shape
                 self.grid_capture_history =  np.zeros(self.image_size, dtype='uint8')
                 last_calibration_time = time.time()
 
             # check for charuco corners in the image
             found_corner, charuco_corners, charuco_corner_ids = self.find_corners(
-                frame, 
+                gray, 
                 charuco_inverted)
 
             # if charuco corners are detected
@@ -78,6 +85,9 @@ class Camera():
                 enough_time_from_last_cal = time.time() > last_calibration_time+time_between_cal
 
                 if enough_corners and enough_time_from_last_cal:
+
+                    #opencv can attempt to improve the checkerboard coordinates
+                    charuco_corners = cv.cornerSubPix(gray, charuco_corners, conv_size, (-1, -1), criteria)
 
                     # store the corners and IDs
                     self.calibration_corners.append(charuco_corners)
@@ -105,16 +115,16 @@ class Camera():
                 cv.destroyWindow(self.stream_name)
                 break
     
-    def find_corners(self, frame, charuco_inverted):
+    def find_corners(self, gray, charuco_inverted):
         
         # invert the frame for detection if needed
         if charuco_inverted:
-            frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)  # convert to gray
-            frame = ~frame  # invert
+            # frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)  # convert to gray
+            gray = ~gray  # invert
         
         # detect if aruco markers are present
         aruco_corners, aruco_ids, rejected = cv.aruco.detectMarkers(
-            frame, 
+            gray, 
             self.charuco.board.dictionary)
 
         # if so, then interpolate to the Charuco Corners and return what you found
@@ -122,7 +132,7 @@ class Camera():
             success, charuco_corners, charuco_corner_ids = cv.aruco.interpolateCornersCharuco(
                 aruco_corners,
                 aruco_ids,
-                frame,
+                gray,
                 self.charuco.board)
             
             if charuco_corners is not None:
@@ -216,7 +226,7 @@ class Camera():
 if __name__ == "__main__":
     # Calibrate 2 cameras to get input parameters for stereo calibration
 
-    charuco = charuco.Charuco(4,5,11,8.5)
+    charuco = charuco.Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525)
 
     cam_0 = Camera(0, "cam_0")
     cam_0.collect_calibration_corners(

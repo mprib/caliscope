@@ -5,6 +5,8 @@ import cv2 as cv
 import time 
 import numpy as np
 import time
+import os
+from pathlib import Path
 
 from itertools import combinations
 import json
@@ -187,6 +189,10 @@ class Camera():
         self.camera_matrix = mtx
         self.distortion_params = dist
 
+        print(f"Error: {ret}")
+        print(f"Camera Matrix: {mtx}")
+        print(f"Distortion: {dist}")
+
     def save_calibration(self, destination_folder):
         """
         Store individual camera parameters for use in dual camera calibration
@@ -203,5 +209,29 @@ class Camera():
 
         json_object = json.dumps(json_dict, indent=4, separators=(',', ': '))
 
-        with open( destination_folder + "/" + self.stream_name + ".json", "w") as outfile:
+        with open(os.path.join(Path(__file__).parent, destination_folder + "/" + self.stream_name + ".json"), "w") as outfile:
             outfile.write(json_object)
+
+
+if __name__ == "__main__":
+    # Calibrate 2 cameras to get input parameters for stereo calibration
+
+    charuco = charuco.Charuco(4,5,11,8.5)
+
+    cam_0 = Camera(0, "cam_0")
+    cam_0.collect_calibration_corners(
+        board_threshold=0.5,
+        charuco = charuco, 
+        charuco_inverted=True,
+        time_between_cal=.5) # seconds that must pass before new corners are stored
+    cam_0.calibrate()
+    cam_0.save_calibration("calibration_params")
+
+    cam_1 = Camera(1, "cam_1")
+    cam_1.collect_calibration_corners(
+        board_threshold=0.5,
+        charuco = charuco, 
+        charuco_inverted=True,
+        time_between_cal=.5) # seconds that must pass before new corners are stored
+    cam_1.calibrate()
+    cam_1.save_calibration("calibration_params")

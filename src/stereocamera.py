@@ -67,6 +67,8 @@ class StereoCamera():
         # open the capture stream 
         while True:
             
+            # initialize lists of points used for calibration and blank images
+            # for the grid overlay
             if not calibration_initialized:
                 self.objectpoints  = [] 
                 self.imgpointsA = [] 
@@ -77,7 +79,7 @@ class StereoCamera():
                 last_calibration_time = time.time()
                 calibration_initialized = True
 
-
+            # read in each frame
             read_success, frame_A = captureA.read()
             read_success, frame_B = captureB.read()
             
@@ -106,10 +108,6 @@ class StereoCamera():
                     charucoCorners= charuco_corners_B,
                     cornerColor = (120,255,0))
 
-                # a preliminary frame update primarily for debugging purposes
-                cv.imshow(self.stream_name_A, frame_A)
-                cv.imshow(self.stream_name_B, frame_B)
-
                 # identify the corners that appear in both cameras
                 # using a helper function 
                 shared_corner_ids = common_corner_ids(charuco_corner_ids_A, charuco_corner_ids_B)
@@ -120,13 +118,13 @@ class StereoCamera():
                 enough_time_from_last_cal = time.time() > last_calibration_time+time_between_cal
 
 
-                # proceed if so
+                # and proceed if so
                 if enough_corners and enough_time_from_last_cal:
 
-                    # identify the objective board corners and the image corners
-                    # from each of the frames
+                    # identify the charuco corners in a board frame of reference
                     object_points_frame = self.charuco.board.chessboardCorners[shared_corner_ids, :]
                     
+                    # identify the locations of corners that appear in both frames
                     id_check_A, points_A = common_corner_loc(charuco_corners_A, charuco_corner_ids_A, shared_corner_ids)
                     id_check_B, points_B = common_corner_loc(charuco_corners_B, charuco_corner_ids_B, shared_corner_ids)
 
@@ -137,18 +135,15 @@ class StereoCamera():
                         self.imgpointsA.append(np.array(points_A, dtype=np.float32))
                         self.imgpointsB.append(np.array(points_B, dtype=np.float32))
 
-
-                    self.draw_charuco_outline(points_A, points_B, shared_corner_ids, connected_corners)
-
+                    # update each grid capture history with the newly added points
+                    self.draw_grid_history(points_A, points_B, shared_corner_ids, connected_corners)
                     last_calibration_time = time.time()
 
-            # merge calibration footprint and live frame
-            alpha = 1
-            beta = 1
-            merged_frame_A = cv.addWeighted(frame_A, alpha, self.grid_capture_history_A, beta, 0)
+            # merge grid history and live frame
+            merged_frame_A = cv.addWeighted(frame_A, 1, self.grid_capture_history_A, 1, 0)
             cv.imshow(self.stream_name_A, merged_frame_A)
 
-            merged_frame_B = cv.addWeighted(frame_B, alpha, self.grid_capture_history_B, beta, 0)
+            merged_frame_B = cv.addWeighted(frame_B, 1, self.grid_capture_history_B, 1, 0)
             cv.imshow(self.stream_name_B, merged_frame_B)
 
 
@@ -162,7 +157,7 @@ class StereoCamera():
     def find_corners(self, frame, charuco_inverted):
         """
         Given a frame, identify the charuco corners in it and return those
-        corners and IDs to the caller
+        corner locations (x,y) and IDs to the caller
         """
         
         # invert the frame for detection if needed
@@ -191,7 +186,7 @@ class StereoCamera():
         else:
             return False, None, None
 
-    def draw_charuco_outline(self, charuco_corners_A, charuco_corners_B, charuco_ids, connected_corners):
+    def draw_grid_history(self, charuco_corners_A, charuco_corners_B, charuco_ids, connected_corners):
         """
         Given a frame and the location of the shared charuco board corners between
         the two frames, draw a line connecting the outer bounds of the corners 
@@ -231,7 +226,7 @@ class StereoCamera():
         relative to Camera A
         """
 
-        criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.000001)
 
         width = self.image_size_A[1]
         height = self.image_size_A[0]    
@@ -256,61 +251,16 @@ class StereoCamera():
             # E,
             # F,
             # perViewErrors,
+            # flags = cv.CALIB_USE_INTRINSIC_GUESS,
             flags = cv.CALIB_FIX_INTRINSIC, # this is the default; only R, T, E, and F matrices are estimated.
             criteria = criteria) 
         
         self.rotation_AB = R
         self.translation_AB = T
-
+        print(f"Error: {ret}")
         print(f"Rotation: {R}")
         print(f"Translation: {T}")
 
-    def write_json(self, destination_folder, dictionary_name):
-        """
-        JSON dump raw parameters that will be used for stereocalibration. This 
-        is primarily intended for use as a debugging tool to ensure that the 
-        format of the parameters aligns with the expectations of the opencv
-        stereocalibration function
-        """
-        
-        # clean up objectpoints to make it writable to plain text
-        objPoints = self.objectpoints
-        objPoints_list = []
-        for array in range(0,len(objPoints)):
-            objPoints_list.append(objPoints[array].squeeze().tolist())
-
-
-        stereocalib_params = {}
-
-        stereocalib_params["objectPoints"] = objPoints_list,
-        stereocalib_params["imagePoints1"] = self.imgpointsA,
-        stereocalib_params["imagePoints2"] = self.imgpointsB,
-        stereocalib_params["cameraMatrix1"] = self.cameraMatrix_A,
-        stereocalib_params["distCoeffs1"] = self.distCoeffs_A,
-        stereocalib_params["cameraMatrix2"] = self.cameraMatrix_B,
-        stereocalib_params["distCoeffs2"] = self.distCoeffs_B,
-
-        json_object = json.dumps(stereocalib_params, indent=4, separators=(',', ': '))
-
-        with open(os.path.join(Path(__file__).parent, destination_folder, dictionary_name + ".json"), "w") as outfile:
-            outfile.write(json_object)
-
-    def read_json(self, destination_folder, dictionary_name):
-
-        json_path = os.path.join(Path(__file__).parent, destination_folder, dictionary_name + ".json")
-        print(json_path)
-
-        with open(os.path.join(Path(__file__).parent, destination_folder, dictionary_name + ".json"), "r") as f:
-            stereocalib_params = json.load(f)
-
-        self.objPoints = stereocalib_params["objectPoints"]
-        self.imgpointsA = stereocalib_params["imagePoints1"]
-        self.imgpointsB = stereocalib_params["imagePoints2"]
-        self.cameraMatrix_A = stereocalib_params["cameraMatrix1"]
-        self.distCoeffs_A = stereocalib_params["distCoeffs1"]
-        self.cameraMatrix_B = stereocalib_params["cameraMatrix2"]
-        self.distCoeffs_B = stereocalib_params["distCoeffs2"]
-    
 ###################### HELPER FUNCTIONS ########################################
 
 def common_corner_ids(IDs_A, IDs_B):
@@ -343,22 +293,6 @@ def common_corner_loc(corners, ids, shared_ids):
             cc.append(corner[0].tolist())
         
     return id_check, cc
-
-def to_list_of_arrays(object_list):
-    """
-    Reformat a list of lists to be a list of arrays as expected for the input
-    parameters of the stereocalibration function
-    """
-
-    array_list = []
-
-    for item in object_list:
-        if type(item) == list:
-            array_list.append(np.array(array_list))
-        else:
-            array_list.append(item)
-
-    return array_list
 
 # %%
 

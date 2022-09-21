@@ -18,7 +18,7 @@ class Camera():
     Allows collection of calibration data for an individual camera
     """
 
-    def __init__(self, input_stream,stream_name):
+    def __init__(self, input_stream,stream_name, width, height):
         """
         Initialize input stream for individual video calibration
         """
@@ -29,7 +29,8 @@ class Camera():
         self.calibration_corners = []
         self.calibration_ids = []
         self.objective_corners = []
-
+        self.width = width
+        self.height = height
 
 
     def collect_calibration_corners(self, board_threshold, charuco, charuco_inverted=False, time_between_cal=1):
@@ -38,19 +39,16 @@ class Camera():
         board_threshold: percent of board corners that must be represented to record
         """
 
-        width = 1920
-        height = 1080
-
         # store charuco used for calibration
         self.charuco = charuco
 
-        capture = cv.VideoCapture(self.input_stream)
-        # capture = cv.VideoCapture(self.input_stream)
-        capture.set(cv.CAP_PROP_FRAME_WIDTH, width)
-        capture.set(cv.CAP_PROP_FRAME_HEIGHT, height)
-
         min_points_to_process = int(len(self.charuco.board.chessboardCorners) * board_threshold)
         connected_corners = self.charuco.get_connected_corners()
+
+        capture = cv.VideoCapture(self.input_stream)
+        capture.set(cv.CAP_PROP_FRAME_WIDTH, self.width)
+        capture.set(cv.CAP_PROP_FRAME_HEIGHT, self.height)
+
 
         # open the capture stream 
         while True:
@@ -115,7 +113,7 @@ class Camera():
 
 
             # end capture when enough grids collected
-            if cv.waitKey(5) == 27: # ESC to stop 
+            if cv.waitKey(5) == 27: # ESC to stop
                 capture.release()
                 cv.destroyWindow(self.stream_name)
                 break
@@ -224,8 +222,9 @@ class Camera():
 
         json_object = json.dumps(json_dict, indent=4, separators=(',', ': '))
 
-        with open(os.path.join(Path(__file__).parent, destination_folder + "/" + self.stream_name + ".json"), "w") as outfile:
-            outfile.write(json_object)
+        with open(os.path.join(Path(__file__).parent,
+            destination_folder + "/" + self.stream_name + ".json"), "w") as outfile:
+                outfile.write(json_object)
 
 
 if __name__ == "__main__":
@@ -233,20 +232,20 @@ if __name__ == "__main__":
 
     charuco = charuco.Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525)
 
-    cam_0 = Camera(0, "cam_0")
+    cam_0 = Camera(0, "cam_0", 1920, 1080)
     cam_0.collect_calibration_corners(
         board_threshold=0.5,
         charuco = charuco, 
         charuco_inverted=True,
-        time_between_cal=.5) # seconds that must pass before new corners are stored
+        time_between_cal=1) # seconds that must pass before new corners are stored
     cam_0.calibrate()
     cam_0.save_calibration("calibration_params")
 
-    cam_1 = Camera(1, "cam_1")
+    cam_1 = Camera(1, "cam_1", 1920, 1080)
     cam_1.collect_calibration_corners(
         board_threshold=0.5,
         charuco = charuco, 
         charuco_inverted=True,
-        time_between_cal=.5) # seconds that must pass before new corners are stored
+        time_between_cal=1) # seconds that must pass before new corners are stored
     cam_1.calibrate()
     cam_1.save_calibration("calibration_params")

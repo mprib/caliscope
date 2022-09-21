@@ -53,14 +53,15 @@ class StereoCamera():
         # store charuco used for calibration
         self.charuco = charuco
 
-        height = int(1080 * .5)
-        width = int(1920 * .5)
+        height = int(1080 * 1)
+        width = int(1920 * 1)
 
         captureA = cv.VideoCapture(self.input_stream_A)
         captureA.set(cv.CAP_PROP_FRAME_WIDTH, width)
         captureA.set(cv.CAP_PROP_FRAME_HEIGHT, height)
 
         captureB = cv.VideoCapture(self.input_stream_B)
+        # captureB = captureA
         captureB.set(cv.CAP_PROP_FRAME_WIDTH, width)
         captureB.set(cv.CAP_PROP_FRAME_HEIGHT, height)
 
@@ -80,6 +81,7 @@ class StereoCamera():
                 self.objectpoints  = [] 
                 self.imgpointsA = [] 
                 self.imgpointsB = []
+                self.imgpointsID = []
 
                 # smaple frame to determine actual size
                 read_success, frame_A = captureA.read()
@@ -157,6 +159,7 @@ class StereoCamera():
                         self.objectpoints.append(object_points_frame)
                         self.imgpointsA.append(np.array(points_A, dtype=np.float32))
                         self.imgpointsB.append(np.array(points_B, dtype=np.float32))
+                        self.imgpointsID.append(np.array(shared_corner_ids, dtype=np.float32))
 
                     # update each grid capture history with the newly added points
                     self.draw_grid_history(points_A, points_B, shared_corner_ids, connected_corners)
@@ -265,7 +268,7 @@ class StereoCamera():
 
             # based on https://stackoverflow.com/questions/35128281/different-image-size-opencv-stereocalibrate
             # image size does not matter given the approach used here...not sure
-            imageSize = (height, width), 
+            imageSize = (1,1),
             flags = cv.CALIB_FIX_INTRINSIC, # this is the default; only R, T, E, and F matrices are estimated.
             criteria = criteria) 
         
@@ -284,19 +287,18 @@ class StereoCamera():
 
         json_dict = {}
 
+        json_dict["rotation_vector"] = self.rotation_AB.tolist()
+        json_dict["translation_vector"] = self.translation_AB.tolist()
 
-
-
-        json_dict["input_stream"] = self.input_stream
-        json_dict["stream_name"] = self.stream_name
-        json_dict["image_size"] = self.image_size
-        json_dict["camera_matrix"] = self.camera_matrix.tolist()
-        json_dict["distortion_params"] = self.distortion_params.tolist()
-
+        json_dict["image_points_A"] = [arr.tolist() for arr in self.imgpointsA]
+        json_dict["image_points_B"] = [arr.tolist() for arr in self.imgpointsB]
+        json_dict["image_points_ID"] = [arr.tolist() for arr in self.imgpointsID]
+        
         json_object = json.dumps(json_dict, indent=4, separators=(',', ': '))
 
-        with open(os.path.join(Path(__file__).parent, destination_folder + "/" + self.stream_name + ".json"), "w") as outfile:
+        with open(os.path.join(Path(__file__).parent, destination_folder + "/stereo_" + self.stream_name_A + "_" + self.stream_name_B  + ".json"), "w") as outfile:
             outfile.write(json_object)
+
 
 
 ###################### HELPER FUNCTIONS ########################################
@@ -359,8 +361,9 @@ if __name__ == "__main__":
         board_threshold=0.4,
         charuco = charuco, 
         charuco_inverted=True,
-        time_between_cal=.5)
+        time_between_cal=1)
 
     # stereocam.write_json("calibration_params", "test_stereocal")
     
     stereocam.calibrate()
+    stereocam.save_calibration("calibration_params")

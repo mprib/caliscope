@@ -20,7 +20,7 @@ class Charuco():
         dictionary="DICT_4X4_50",
         units="inches", 
         aruco_scale=0.75, 
-        square_size_overide=None):
+        square_size_overide=None): # after printing, measure actual and return to overide
         
         """
         Create board based on shape and dimensions
@@ -48,9 +48,11 @@ class Charuco():
         # Scale aruco according based on square size
         aruco_length = square_length * aruco_scale 
 
+        # grad the dictionary from the reference info at the foot of the module
         dictionary_integer = ARUCO_DICTIONARIES[dictionary]
         self.dictionary = cv.aruco.Dictionary_get(dictionary_integer)
 
+        # create the board
         self.board = cv.aruco.CharucoBoard_create(
             columns,
             rows,
@@ -75,14 +77,14 @@ class Charuco():
         else:
             cv.imwrite(path, charuco_img)
 
-        # self.board.
 
     def get_connected_corners(self):
         """
         For a given board, returns a set of corner id pairs that will connect to form
-        a grid pattern.
+        a grid pattern. This will provide the "object points" used by the calibration
+        functions. It is the ground truth of how the points relate in the world.
 
-        NOTE: the return value is a *set* not a list
+        The return value is a *set* not a list
         """
         # create sets of the vertical and horizontal line positions
         corners = self.board.chessboardCorners

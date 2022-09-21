@@ -31,6 +31,8 @@ class StereoCamera():
         self.input_stream_A = self.cam_A_params["input_stream"]
         self.cameraMatrix_A = self.cam_A_params["camera_matrix"]
         self.distCoeffs_A = self.cam_A_params["distortion_params"]
+        self.height_A = self.cam_A_params["image_size"][0]
+        self.width_A = self.cam_A_params["image_size"][1]
 
         f = open(Path(Path(__file__).parent, calibration_folder, CamB_name + ".json"))
         self.cam_B_params   = json.load(f)
@@ -38,6 +40,8 @@ class StereoCamera():
         self.input_stream_B = self.cam_B_params["input_stream"]
         self.cameraMatrix_B = self.cam_B_params["camera_matrix"]
         self.distCoeffs_B = self.cam_B_params["distortion_params"]
+        self.height_B = self.cam_B_params["image_size"][0]
+        self.width_B = self.cam_B_params["image_size"][1]
 
 
 
@@ -53,17 +57,14 @@ class StereoCamera():
         # store charuco used for calibration
         self.charuco = charuco
 
-        height = int(1080 * 1)
-        width = int(1920 * 1)
-
         captureA = cv.VideoCapture(self.input_stream_A)
-        captureA.set(cv.CAP_PROP_FRAME_WIDTH, width)
-        captureA.set(cv.CAP_PROP_FRAME_HEIGHT, height)
+        captureA.set(cv.CAP_PROP_FRAME_WIDTH, self.width_A)
+        captureA.set(cv.CAP_PROP_FRAME_HEIGHT, self.height_A)
 
         captureB = cv.VideoCapture(self.input_stream_B)
         # captureB = captureA
-        captureB.set(cv.CAP_PROP_FRAME_WIDTH, width)
-        captureB.set(cv.CAP_PROP_FRAME_HEIGHT, height)
+        captureB.set(cv.CAP_PROP_FRAME_WIDTH, self.width_B)
+        captureB.set(cv.CAP_PROP_FRAME_HEIGHT, self.height_B)
 
         # capture = cv.VideoCapture(self.input_stream)
 
@@ -268,7 +269,7 @@ class StereoCamera():
 
             # based on https://stackoverflow.com/questions/35128281/different-image-size-opencv-stereocalibrate
             # image size does not matter given the approach used here...not sure
-            imageSize = (1,1),
+            imageSize = None,
             flags = cv.CALIB_FIX_INTRINSIC, # this is the default; only R, T, E, and F matrices are estimated.
             criteria = criteria) 
         
@@ -334,19 +335,6 @@ def common_corner_loc(corners, ids, shared_ids):
         
     return id_check, cc
 
-# %%
-
-# stereocam = StereoCamera("cam_0", "cam_1", "calibration_params")
-# charuco = Charuco(4,5,11,8.5)
-# stereocam.read_json("calibration_params", "test_stereocal")
-
-# %%
-# stereocam.write_json("calibration_params", "test_stereocal")
-
-# %%
-
-# %%
-# stereocam.calibrate()
 
 
 
@@ -358,7 +346,7 @@ if __name__ == "__main__":
 
 
     stereocam.collect_calibration_corners(
-        board_threshold=0.4,
+        board_threshold=0.8,
         charuco = charuco, 
         charuco_inverted=True,
         time_between_cal=1)

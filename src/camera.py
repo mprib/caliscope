@@ -13,7 +13,8 @@ import json
 
 import charuco
 
-class Camera():
+
+class Camera:
     """
     Allows collection of calibration data for an individual camera
     """

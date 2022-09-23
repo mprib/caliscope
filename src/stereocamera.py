@@ -288,8 +288,12 @@ class StereoCamera():
 
         json_dict = {}
 
+
+        json_dict["stream_name_A"] = self.stream_name_A
+        json_dict["stream_name_B"] = self.stream_name_B
         json_dict["rotation_vector"] = self.rotation_AB.tolist()
         json_dict["translation_vector"] = self.translation_AB.tolist()
+        
 
         json_dict["image_points_A"] = [arr.tolist() for arr in self.imgpointsA]
         json_dict["image_points_B"] = [arr.tolist() for arr in self.imgpointsB]

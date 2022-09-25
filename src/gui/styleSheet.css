@@ -1,0 +1,36 @@
+QWidget {
+    background-color: "blue";
+    color: "white";
+}
+
+QLineEdit {
+    background-color: "white";
+}
+
+QLineEdit:focus {
+    background-color:darkgray;
+}
+
+
+QPushButton {
+    font-size: 13px;
+}
+
+
+QPushButton:hover {
+    background-color: rgb(0, 123, 160);
+    font-size: 13px;
+}
+
+QPushButton:focus {
+    background-color: rgb(160, 109, 0);
+    font-size: 13px;
+}
+
+.heading {
+    font-size: 18px;
+}
+
+.normal {
+    color:rgb(160, 109, 0)
+}

@@ -23,7 +23,7 @@ class Window(QWidget):
 
         title = QLabel("Login Form")
         title.setProperty("class", "heading")
-        title.setStyleSheet("font-size: 16px;")
+        # title.setStyleSheet("font-size: 16px;")
         layout.addWidget(title, 0, 0, 1, 3, Qt.AlignmentFlag.AlignCenter)
 
         

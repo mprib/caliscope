@@ -200,6 +200,7 @@ class Camera:
         # this is, they are the position of the camera relative to the board
         # for that one frame
 
+        self.error = ret
         self.camera_matrix = mtx
         self.distortion_params = dist
 
@@ -220,6 +221,7 @@ class Camera:
         json_dict["image_size"] = self.image_size
         json_dict["camera_matrix"] = self.camera_matrix.tolist()
         json_dict["distortion_params"] = self.distortion_params.tolist()
+        json_dict["RMS_reproj_error"] = self.ret
 
         json_object = json.dumps(json_dict, indent=4, separators=(',', ': '))
 
@@ -233,7 +235,7 @@ if __name__ == "__main__":
 
     charuco = charuco.Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525)
 
-    cam_0 = Camera(0, "cam_0", 1920, 1080)
+    cam_0 = Camera(0, "cam_0", 1280, 720)
     cam_0.collect_calibration_corners(
         board_threshold=0.5,
         charuco = charuco, 
@@ -242,7 +244,7 @@ if __name__ == "__main__":
     cam_0.calibrate()
     cam_0.save_calibration("calibration_params")
 
-    cam_1 = Camera(1, "cam_1", 1920, 1080)
+    cam_1 = Camera(1, "cam_1", 1280, 720)
     cam_1.collect_calibration_corners(
         board_threshold=0.5,
         charuco = charuco, 

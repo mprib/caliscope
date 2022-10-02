@@ -19,3 +19,7 @@ https://realpython.com/python-concurrency/
 I would like to start getting more in the weeds on camera I/O and multiprocessing of frames with a controlled framerate. This is a cool challenge, and I think that if you get a good, clean solution to this, then you can extend it to calibration and real-time frame processing.
 
 It appears that I'm able to read in multiple frames here with the camera widget. Now I would like to update each frame with the framerate so that I have an understanding of what that is. I previously saw a mediapipe demo on youtube that did this, and I'll go to that to get an idea of how to proceed with this.
+
+Alright, so I'm now reading in multiple cameras using threading, and appear to be getting ~20 FPS from these $30 webcams. Now what?
+
+I want to take a look at how I can incorporate some of the previous code I developed for the calibration. Perhaps just to expand the footprint of my knowledge for a bit, I want to see if I can get the mediapipe hand detection working here as well. That may provide some insight into the challenges of more intense frame processing.

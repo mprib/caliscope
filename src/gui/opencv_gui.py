@@ -1,3 +1,9 @@
+# At this point I can't even recall where I copied this code from, but it is what
+# actually works and drives home to me that I need to develop a better understanding
+# of threads, signals, slots, events, all that as it relates to GUI development
+
+# Moving on to pythonguis.com tutorials for just that. But this code works...
+
 import sys
 
 from PyQt6.QtWidgets import (
@@ -6,10 +12,10 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGridLayout
 )
 from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QIcon, QImage, QPixmap
 
-# from PyQt6.QtGui import *
+# from PyQt6.QtGui import * 
 # from PyQt6.QtWidgets import *
 # from PyQt6.QtCore import *
 import cv2

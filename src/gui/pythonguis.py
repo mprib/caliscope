@@ -1,70 +1,57 @@
 # Built following the tutorials that begin here: 
 # https://www.pythonguis.com/tutorials/pyqt6-creating-your-first-window/
 
-
-# though generally frowned upon, these import all statements save a lot of
-# typing and the names in PyQt6 don't class with other names
 import sys
 
-from PyQt6.QtGui import *
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QPushButton, QLabel,
-                            QWidget, QVBoxLayout, QLineEdit, QMenu)
-from PyQt6.QtCore import QSize, Qt
-from matplotlib import container
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPalette, QColor, QIcon
+from PyQt6.QtWidgets import (
+    QApplication,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QTabWidget,
+    QWidget,
+)
+
+# from PyQt6.layout_colorwidget import Color
 
 
-# subclass QMainWindow into our window 
-class  MainWindow(QMainWindow):
-
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.label = QLabel("Click in this window")
-        self.setCentralWidget(self.label)
+        self.setWindowTitle("FreeMocap")
+        self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
 
-    # def contextMenuEvent(self, e):
-    #     context = QMenu(self)
-    #     context.addAction(QAction("test 1", self))
-    #     context.addAction(QAction("test 2", self))
-    #     context.addAction(QAction("test 3", self))
-    #     context.exec(e.globalPos())
+        tabs = QTabWidget()
+        tabs.setTabPosition(QTabWidget.TabPosition.North)
+        tabs.setMovable(True)
 
-    def mousePressEvent(self, e):
-        if e.button() == Qt.MouseButton.LeftButton:
-            # handle the left-button press in here
-            self.label.setText("mousePressEvent LEFT")
+        tab_names = ["Camera Setup", 
+                    "Individual Camera Calibration",
+                    "StereoCalibration",
+                    "Motion Capture"]
+        for name in tab_names:
+            tabs.addTab(MainTab(), name)
 
-        elif e.button() == Qt.MouseButton.MiddleButton:
-            # handle the middle-button press in here.
-            self.label.setText("mousePressEvent MIDDLE")
+        self.setCentralWidget(tabs)
 
-        elif e.button() == Qt.MouseButton.RightButton:
-            # handle the right-button press in here.
-            self.label.setText("mousePressEvent RIGHT")
+class MainTab(QWidget):
 
-    def mouseReleaseEvent(self, e):
-        if e.button() == Qt.MouseButton.LeftButton:
-            self.label.setText("mouseReleaseEvent LEFT")
+    def __init__(self):
+        super(MainTab, self).__init__()
+        # self.setAutoFillBackground(True)
+        # palette = self.palette()
+        # palette.setColor(QPalette.ColorRole.Window, QColor(color))
+        # self.setPalette(palette)
 
-        elif e.button() == Qt.MouseButton.MiddleButton:
-            self.label.setText("mouseReleaseEvent MIDDLE")
 
-        elif e.button() == Qt.MouseButton.RightButton:
-            self.label.setText("mouseReleaseEvent RIGHT")
 
-    def mouseDoubleClickEvent(self, e):
-        if e.button() == Qt.MouseButton.LeftButton:
-            self.label.setText("mouseDoubleClickEvent LEFT")
 
-        elif e.button() == Qt.MouseButton.MiddleButton:
-            self.label.setText("mouseDoubleClickEvent MIDDLE")
+app = QApplication(sys.argv)
 
-        elif e.button() == Qt.MouseButton.RightButton:
-            self.label.setText("mouseDoubleClickEvent RIGHT")
-
-app = QApplication(sys.argv)    # sys.argv allows passing in args from command line
- 
-window = MainWindow()   # must appear after the application is initalized
+window = MainWindow()
 window.show()
 
-app.exec() # 
+app.exec()

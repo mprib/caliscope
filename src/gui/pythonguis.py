@@ -8,42 +8,59 @@ import sys
 
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QPushButton, QLabel,
-                            QWidget)
+                            QWidget, QVBoxLayout, QLineEdit, QMenu)
 from PyQt6.QtCore import QSize, Qt
+from matplotlib import container
 
 
 # subclass QMainWindow into our window 
 class  MainWindow(QMainWindow):
 
-    def __init__(self, *args, **kwargs):
-        super(MainWindow, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super().__init__()
 
-        # initialize state of interface
-        self.button_is_checked = True
-        
-        self.setWindowTitle("FreeMoCap")
-        self.setWindowIcon(QIcon(r"src\gui\icons\fmc_logo.ico"))
-        self.setFixedSize(QSize(400,300))
+        self.label = QLabel("Click in this window")
+        self.setCentralWidget(self.label)
 
-        label = QLabel("This is an awesome label")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        button = QPushButton("Press me")
-        button.setCheckable(True)
-        button.setChecked(self.button_is_checked)
-        button.clicked.connect(self.button_toggled)        
+    # def contextMenuEvent(self, e):
+    #     context = QMenu(self)
+    #     context.addAction(QAction("test 1", self))
+    #     context.addAction(QAction("test 2", self))
+    #     context.addAction(QAction("test 3", self))
+    #     context.exec(e.globalPos())
 
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            # handle the left-button press in here
+            self.label.setText("mousePressEvent LEFT")
 
-        self.setCentralWidget(button)
-    
-    def button_clicked(self):
-        print("Clicked")
+        elif e.button() == Qt.MouseButton.MiddleButton:
+            # handle the middle-button press in here.
+            self.label.setText("mousePressEvent MIDDLE")
 
-    def button_toggled(self, checked):
-        self.button_is_checked = checked
-        self.setWindowTitle(f"The button is {self.button_is_checked}")
+        elif e.button() == Qt.MouseButton.RightButton:
+            # handle the right-button press in here.
+            self.label.setText("mousePressEvent RIGHT")
 
-        print(self.button_is_checked)
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self.label.setText("mouseReleaseEvent LEFT")
+
+        elif e.button() == Qt.MouseButton.MiddleButton:
+            self.label.setText("mouseReleaseEvent MIDDLE")
+
+        elif e.button() == Qt.MouseButton.RightButton:
+            self.label.setText("mouseReleaseEvent RIGHT")
+
+    def mouseDoubleClickEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self.label.setText("mouseDoubleClickEvent LEFT")
+
+        elif e.button() == Qt.MouseButton.MiddleButton:
+            self.label.setText("mouseDoubleClickEvent MIDDLE")
+
+        elif e.button() == Qt.MouseButton.RightButton:
+            self.label.setText("mouseDoubleClickEvent RIGHT")
 
 app = QApplication(sys.argv)    # sys.argv allows passing in args from command line
  

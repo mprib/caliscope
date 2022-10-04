@@ -25,11 +25,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 for p in sys.path:
     print(p)
 
-import src.concurrency_tutorial.video_stream_widget
+from src.concurrency_tutorial.video_stream_widget import VideoCaptureWidget
 import cv2
 
 class MainWindow(QWidget):
-    def __init__(self):
+    def __init__(self, vid_cap_widget):
         super(MainWindow, self).__init__()
 
         self.VBL = QVBoxLayout()
@@ -41,38 +41,49 @@ class MainWindow(QWidget):
         self.CancelBTN.clicked.connect(self.CancelFeed)
         self.VBL.addWidget(self.CancelBTN)
 
-        self.Worker1 = VideoDisplayWidget()
+        self.vid_display = VideoDisplayWidget(vid_cap_widget)
 
-        self.Worker1.start()
-        self.Worker1.ImageUpdate.connect(self.ImageUpdateSlot)
+        self.vid_display.start()
+        self.vid_display.ImageUpdate.connect(self.ImageUpdateSlot)
         self.setLayout(self.VBL)
 
     def ImageUpdateSlot(self, Image):
         self.FeedLabel.setPixmap(QPixmap.fromImage(Image))
 
     def CancelFeed(self):
-        self.Worker1.stop()
+        self.vid_display.stop()
 
 class VideoDisplayWidget(QThread):
     ImageUpdate = pyqtSignal(QImage)
+    def __init__(self, vid_cap_widget):
+        super(VideoDisplayWidget,self).__init__()
+
+        self.vid_cap_widget = vid_cap_widget
 
     def run(self):
         self.ThreadActive = True
-        Capture = cv2.VideoCapture(0)
+        # Capture = cv2.VideoCapture(0)
         while self.ThreadActive:
-            ret, frame = Capture.read()
-            if ret:
+            try:    # takes a moment for capture widget to spin up...don't error out
+                self.vid_cap_widget.grab_frame()
+                frame = self.vid_cap_widget.raw_frame
                 Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 FlippedImage = cv2.flip(Image, 1)
-                ConvertToQtFormat = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
-                Pic = ConvertToQtFormat.scaled(640, 480, Qt.AspectRatioMode.KeepAspectRatio)
+                qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
+                Pic = qt_frame.scaled(640, 480, Qt.AspectRatioMode.KeepAspectRatio)
                 self.ImageUpdate.emit(Pic)
+            except AttributeError:
+                pass
     def stop(self):
         self.ThreadActive = False
         self.quit()
 
 if __name__ == "__main__":
+    # create a camera widget to pull in a thread of frames
+    # these are currently processed by mediapipe but don't have to be
+    test_cam_widget = VideoCaptureWidget(0,1080,640)
+
     App = QApplication(sys.argv)
-    Root = MainWindow()
+    Root = MainWindow(test_cam_widget)
     Root.show()
     sys.exit(App.exec())

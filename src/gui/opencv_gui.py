@@ -18,6 +18,14 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap
 # from PyQt6.QtGui import * 
 # from PyQt6.QtWidgets import *
 # from PyQt6.QtCore import *
+
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+for p in sys.path:
+    print(p)
+
+import src.concurrency_tutorial.video_stream_widget
 import cv2
 
 class MainWindow(QWidget):
@@ -33,7 +41,7 @@ class MainWindow(QWidget):
         self.CancelBTN.clicked.connect(self.CancelFeed)
         self.VBL.addWidget(self.CancelBTN)
 
-        self.Worker1 = Worker1()
+        self.Worker1 = VideoDisplayWidget()
 
         self.Worker1.start()
         self.Worker1.ImageUpdate.connect(self.ImageUpdateSlot)
@@ -45,7 +53,7 @@ class MainWindow(QWidget):
     def CancelFeed(self):
         self.Worker1.stop()
 
-class Worker1(QThread):
+class VideoDisplayWidget(QThread):
     ImageUpdate = pyqtSignal(QImage)
 
     def run(self):

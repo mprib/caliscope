@@ -8,7 +8,7 @@ from PyQt6.QtGui import QIcon
 
 import sys
 
-from qtpy import QT_API
+# from qtpy import QT_API
 
 class Window(QWidget):
     def __init__(self):
@@ -18,7 +18,7 @@ class Window(QWidget):
         self.setWindowTitle("FreeMoCap")
         self.setContentsMargins(20,20, 20, 20)  
 
-        layout = QGridLayout() 
+        layout = QGridLayout()
         self.setLayout(layout)
 
         title = QLabel("Login Form")
@@ -58,22 +58,7 @@ from pathlib import Path
 with open(Path("src/gui/styleSheet.css")) as f:
     app.setStyleSheet(f.read())
 
-# styleSheet = """
-#     QWidget {
-#         background-color: "green";
-#         color: "white";
-#     }
-
-#     QLineEdit {
-#         background-color: "white";
-#     }
-
-#     QPushButton {
-#         font-size: 16px;
-#     }
-# """
-
-# app.setStyleSheet(styleSheet)
+app.setStyleSheet(styleSheet)
 
 window = Window()
 window.show()

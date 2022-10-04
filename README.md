@@ -10,6 +10,10 @@ https://www.youtube.com/watch?v=s72xCnaidso
 
 NOTES: I have gone through some of this to get a general sense of the structure of the pyqt6 code. I think I have a rough handle on it, and am moving forward to issues of concurrency to read frames at a known framerate at the same time, and then expose them to real-time processing. This is the backbone of any system that wants to do what FMC is doing.
 
+---
+
+I am returning today (10-3-2022) to PyQt6 and looking to get a better handle on how to create a GUI for the application that will allow a more streamlined camera placement, calibration, capture, and post-processing. My own code is becoming a bit too disparate for me to sensibly maintain it and I need to start aligning/organizing things in a central way.
+
 ## Concurrency
 
 This tutorial was linked do on a github issue:

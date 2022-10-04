@@ -1,7 +1,9 @@
+from re import I
 from threading import Thread
 import cv2, time
 import sys
 import mediapipe as mp
+
 
 # import detect_2D_points
 
@@ -41,43 +43,33 @@ class VideoStreamWidget:
 
         return 1/self.avg_delta_time
     
-    def draw_hands(self):
-        imgRGB  = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+    def find_landmarks(self):
+        imgRGB  = cv2.cvtColor(self.raw_frame, cv2.COLOR_BGR2RGB)
         self.hand_results = self.hands.process(imgRGB)
 
 
     def update(self):
-        # Read the next frame from the stream in a different thread
+        # Grap frame and run image detection
         while True:
             if self.capture.isOpened():
-                (self.status, self.frame) = self.capture.read()
+                (self.status, self.raw_frame) = self.capture.read()
                 # wait to read next frame in order to hit target FPS. Record FPS
-                self.draw_hands()
+                self.find_landmarks()
                 self.FPS_actual = self.get_FPS_actual() 
                 time.sleep(1/self.FPS_target)
     
-    def show_frame(self):
-
+    def grab_frame(self):
         # draw hand dots and lines
         if self.hand_results.multi_hand_landmarks:
             for handLms in self.hand_results.multi_hand_landmarks:
-                self.mpDraw.draw_landmarks(self.frame, handLms, self.mpHands.HAND_CONNECTIONS)
+                self.mpDraw.draw_landmarks(self.raw_frame, handLms, self.mpHands.HAND_CONNECTIONS)
 
         # Display frames in main program
         display_text = "FPS:" + str(int(round(self.FPS_actual, 0)))
-        cv2.putText(self.frame, display_text, (10, 70), cv2.FONT_HERSHEY_PLAIN, 3,(255,0,255), 3)
-        cv2.imshow(self.frame_name, self.frame)
-        if cv2.waitKey(1) == ord('q'):
-            self.capture.release()
-            cv2.destroyAllWindows()
-            exit(0)
+        cv2.putText(self.raw_frame, display_text, (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 3,(0,0,0), 2)
+        
 
-if __name__ == '__main__':
-# cam 0: Device USB\VID_328F&PID_003F&MI_00\6&124b7a38&0&0000 was started.
-# cam 1: Device USB\VID_328F&PID_003F&MI_00\6&b0660f1&0&0000 was started.
-# Don't get bogged down in this at the moment, Mac. Pulling unique camera
-# identifiers is going to be an operating system dependent thing, and so 
-# you shouldn't get too bogged down in it right now.
+def main():
 
     src_list = [0,1]
     # src_list = [0]
@@ -88,6 +80,17 @@ if __name__ == '__main__':
     while True:
         try:
             for cam in cam_widgets:
-                cam.show_frame()
+                cam.grab_frame()
+                cv2.imshow(cam.frame_name, cam.raw_frame)
+                
         except AttributeError:
             pass
+     
+        if cv2.waitKey(1) == ord('q'):
+            for cam in cam_widgets:
+                cam.capture.release()
+            cv2.destroyAllWindows()
+            exit(0)
+
+if __name__ == '__main__':
+    main()

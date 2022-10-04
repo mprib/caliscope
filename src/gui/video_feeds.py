@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
 )
 
 
-from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession
+from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 
@@ -27,16 +27,15 @@ class Window(QWidget):
         self.create_player()
         
     def create_player(self):
-        self.mediaPlayer = QMediaPlayer(None) 
-
-        videowidget = QVideoWidget()
-
-        self.openBtn = QPushButton('Open Video')
-        # self.openBtn.setEnabled(False)
-        # self. 
+        # self.mediaPlayer = QMediaPlayer(None) 
         hbox = QHBoxLayout()
         hbox.setContentsMargins(0, 0, 0, 0)
 
+        videowidget = QVideoFrame()
+        hbox.addWidget(videowidget)
+
+        self.openBtn = QPushButton('Open Video')
+        
         hbox.addWidget(self.openBtn)
 
         vbox = QVBoxLayout()

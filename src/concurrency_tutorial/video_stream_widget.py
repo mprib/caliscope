@@ -7,7 +7,7 @@ import mediapipe as mp
 
 # import detect_2D_points
 
-class VideoStreamWidget:
+class VideoCaptureWidget:
     def __init__(self, src, width, height):
         self.FPS_target = 30
 
@@ -75,7 +75,7 @@ def main():
     # src_list = [0]
     cam_widgets = []
     for src in src_list:
-        cam_widgets.append(VideoStreamWidget(src, 1080, 640))
+        cam_widgets.append(VideoCaptureWidget(src, 1080, 640))
 
     while True:
         try:

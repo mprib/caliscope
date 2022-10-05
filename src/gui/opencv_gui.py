@@ -18,8 +18,6 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-for p in sys.path:
-    print(p)
 
 from src.concurrency_tutorial.video_stream_widget import VideoCaptureWidget
 import cv2
@@ -62,11 +60,11 @@ class MainWindow(QWidget):
     def show_mediapipe(self, s):
         print("Toggle Mediapipe")
         print(str(s))
-        if str(s) == 2: # checked   
-            self.vid_cap_widget.show_mediapipe = True
-            print("Turning on Mediapipe")
-        elif str(s) == 0: #unchecked
+        if str(s) == "2": # unchecked   
             self.vid_cap_widget.show_mediapipe = False
+            print("Turning on Mediapipe")
+        elif str(s) == "0": #checked
+            self.vid_cap_widget.show_mediapipe = True
             print("Turning off Mediapipe")
 
 class VideoDisplayWidget(QThread):
@@ -83,7 +81,7 @@ class VideoDisplayWidget(QThread):
         while self.ThreadActive:
             try:    # takes a moment for capture widget to spin up...don't error out
                 self.vid_cap_widget.grab_frame()
-                frame = self.vid_cap_widget.raw_frame
+                frame = self.vid_cap_widget.frame
                 Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 FlippedImage = cv2.flip(Image, 1)
                 qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)

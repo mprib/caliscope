@@ -4,6 +4,7 @@
 
 # Moving on to pythonguis.com tutorials for just that. But this code works...
 
+import queue
 import sys
 
 from PyQt6.QtWidgets import (
@@ -23,8 +24,9 @@ from src.concurrency_tutorial.video_stream_widget import VideoCaptureWidget
 import cv2
 
 class MainWindow(QWidget):
-    def __init__(self, vid_cap_widget):
+    def __init__(self, vid_cap_widget, mp_q):
         super(MainWindow, self).__init__()
+        self.q = mp_q
         self.vid_cap_widget = vid_cap_widget
 
         self.VBL = QVBoxLayout()
@@ -36,13 +38,12 @@ class MainWindow(QWidget):
         self.CancelBTN.clicked.connect(self.CancelFeed)
         self.VBL.addWidget(self.CancelBTN)
 
-        self.mediapipeLabel = QLabel("Show Mediapipe")
-        self.MediapipeCheckbox = QCheckBox()
-        self.MediapipeCheckbox.setCheckState(Qt.CheckState.Unchecked) # default to not showing mediapipe
-        self.MediapipeCheckbox.stateChanged.connect(self.show_mediapipe)
+        self.MediapipeToggle = QCheckBox("Show Mediapipe Overlay")
+        self.MediapipeToggle.setCheckState(Qt.CheckState.Checked)
+        self.MediapipeToggle.stateChanged.connect(self.toggle_mediapipe)
 
-        self.VBL.addWidget(self.mediapipeLabel)
-        self.VBL.addWidget(self.MediapipeCheckbox)
+        # self.VBL.addWidget(self.mediapipeLabel)
+        self.VBL.addWidget(self.MediapipeToggle)
         self.setLayout(self.VBL)
 
         self.vid_display = VideoDisplayWidget(vid_cap_widget)
@@ -57,17 +58,15 @@ class MainWindow(QWidget):
         self.vid_display.stop()
         self.vid_cap_widget.capture.release()
 
-    def show_mediapipe(self, s):
+    def toggle_mediapipe(self, s):
         print("Toggle Mediapipe")
-        print(str(s))
-        if str(s) == "2": # unchecked   
-            self.vid_cap_widget.show_mediapipe = False
-            print("Turning on Mediapipe")
-        elif str(s) == "0": #checked
-            self.vid_cap_widget.show_mediapipe = True
-            print("Turning off Mediapipe")
+        if str(s) == "0":    # Unchecked
+            self.q.put(False)
+        if str(s) == "2":    # Checked
+            self.q.put(True)
 
 class VideoDisplayWidget(QThread):
+
     ImageUpdate = pyqtSignal(QImage)
     
     def __init__(self, vid_cap_widget):
@@ -97,9 +96,10 @@ class VideoDisplayWidget(QThread):
 if __name__ == "__main__":
     # create a camera widget to pull in a thread of frames
     # these are currently processed by mediapipe but don't have to be
-    test_cam_widget = VideoCaptureWidget(0,1080,640)
+    q = queue.Queue()   
+    test_cam_widget = VideoCaptureWidget(0,1080,640, q)
 
     App = QApplication(sys.argv)
-    Root = MainWindow(test_cam_widget)
+    Root = MainWindow(test_cam_widget, q)
     Root.show()
     sys.exit(App.exec())

@@ -4,13 +4,14 @@ import cv2, time
 import sys
 import mediapipe as mp
 
+
 from datetime import datetime
 
 
 # import detect_2D_points
 
 class VideoCaptureWidget:
-    def __init__(self, src, width, height):
+    def __init__(self, src, width, height, mp_toggle_q):
         self.FPS_target = 50
 
         self.capture = cv2.VideoCapture(src)
@@ -19,7 +20,7 @@ class VideoCaptureWidget:
 
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         # Start the thread to read frames from the video stream
-        self.thread = Thread(target=self.update, args=())
+        self.thread = Thread(target=self.update, args=(mp_toggle_q, ))
         self.thread.daemon = True
         self.thread.start()
         self.frame_name = "Cam"+str(src)
@@ -47,12 +48,21 @@ class VideoCaptureWidget:
         return 1/self.avg_delta_time
     
 
-    def update(self):
+    def update(self, mp_toggle_q):
         """
         Worker function that is spun up by Thread
+
+        Parameters:
+            - mp_toggle_q: a queue passed to the thread that will signal a 
+            change of self.show_mediapipe
         """
         # Grap frame and run image detection
         while True:
+            
+            # check to see if another thread signaled a change to mediapipe overley
+            if not mp_toggle_q.empty():
+                self.show_medipipe = mp_toggle_q.get()
+
             if self.capture.isOpened():
                 # pull in working frame
                 (self.status, working_frame) = self.capture.read()
@@ -74,6 +84,16 @@ class VideoCaptureWidget:
 
                 # wait to read next frame in order to hit target FPS. Record FPS
                 self.FPS_actual = self.get_FPS_actual() 
+    
+    def toggle_mediapipe(self):
+
+        print(self.show_medipipe)
+        if self.show_medipipe == True:
+            self.show_medipipe == False
+        else:
+            self.show_medipipe == True
+                
+        print(self.show_medipipe)
     
     def grab_frame(self):
         

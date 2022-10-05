@@ -10,6 +10,7 @@ import mediapipe as mp
 class VideoCaptureWidget:
     def __init__(self, src, width, height):
         self.FPS_target = 30
+        self.show_mediapipe = True
 
         self.capture = cv2.VideoCapture(src)
         self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-get-sync
@@ -48,19 +49,22 @@ class VideoCaptureWidget:
         self.hand_results = self.hands.process(imgRGB)
 
 
+
     def update(self):
+        print(self.show_mediapipe)
         # Grap frame and run image detection
         while True:
             if self.capture.isOpened():
                 (self.status, self.raw_frame) = self.capture.read()
                 # wait to read next frame in order to hit target FPS. Record FPS
-                self.find_landmarks()
+                if self.show_mediapipe:
+                    self.find_landmarks()
                 self.FPS_actual = self.get_FPS_actual() 
                 time.sleep(1/self.FPS_target)
     
     def grab_frame(self):
         # draw hand dots and lines
-        if self.hand_results.multi_hand_landmarks:
+        if self.hand_results.multi_hand_landmarks and self.show_mediapipe:
             for handLms in self.hand_results.multi_hand_landmarks:
                 self.mpDraw.draw_landmarks(self.raw_frame, handLms, self.mpHands.HAND_CONNECTIONS)
 
@@ -68,12 +72,12 @@ class VideoCaptureWidget:
         display_text = "FPS:" + str(int(round(self.FPS_actual, 0)))
         cv2.putText(self.raw_frame, display_text, (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 3,(0,0,0), 2)
         
-
-def main():
-
-    src_list = [0,1]
-    # src_list = [0]
+# Highlight module functionality. View a frame with mediapipe hands
+if __name__ == '__main__':
+    # src_list = [0,1]
+    src_list = [0]
     cam_widgets = []
+
     for src in src_list:
         cam_widgets.append(VideoCaptureWidget(src, 1080, 640))
 
@@ -91,6 +95,3 @@ def main():
                 cam.capture.release()
             cv2.destroyAllWindows()
             exit(0)
-
-if __name__ == '__main__':
-    main()

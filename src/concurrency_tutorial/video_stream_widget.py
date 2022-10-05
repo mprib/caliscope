@@ -33,6 +33,7 @@ class VideoCaptureWidget:
         self.mpHands = mp.solutions.hands
         self.hands = self.mpHands.Hands()
         self.mpDraw = mp.solutions.drawing_utils 
+        self.frame_processed = False
         # self.connected_landmarks = self.mpHands.HAND_CONNECTIONS
 
     def get_FPS_actual(self):
@@ -48,37 +49,38 @@ class VideoCaptureWidget:
     
 
     def update(self):
-        """Worker function that is spun up by Thread
+        """
+        Worker function that is spun up by Thread
         """
         # Grap frame and run image detection
         while True:
             if self.capture.isOpened():
 
-                # pull frame
-                (self.status, self.raw_frame) = self.capture.read()
-                
-                if self.status:
-                    # convert frame to RGB and run mediapipe hand detection
-                    imgRGB  = cv2.cvtColor(self.raw_frame, cv2.COLOR_BGR2RGB)
-                    self.hand_results = self.hands.process(imgRGB)
-                                
-                    # draw hand dots and lines
-                    if self.hand_results.multi_hand_landmarks:
-                        for handLms in self.hand_results.multi_hand_landmarks:
-                            self.mpDraw.draw_landmarks(self.raw_frame, handLms, self.mpHands.HAND_CONNECTIONS)
-                    
-                    # wait to read next frame in order to hit target FPS. Record FPS
-                    self.FPS_actual = self.get_FPS_actual() 
-                    time.sleep(1/self.FPS_target)
+                # pull in working frame
+                (self.status, working_frame) = self.capture.read()
+                frame_RGB  = cv2.cvtColor(working_frame, cv2.COLOR_BGR2RGB)
+                self.hand_results = self.hands.process(frame_RGB)
+                            
+                # draw hand dots and lines
+                self.frame_processed = False
+                self.frame = working_frame.copy() 
+                if self.hand_results.multi_hand_landmarks:
+                    for handLms in self.hand_results.multi_hand_landmarks:
+                        self.mpDraw.draw_landmarks(self.frame, handLms, self.mpHands.HAND_CONNECTIONS)
+                self.frame_processed = True 
+                # wait to read next frame in order to hit target FPS. Record FPS
+                self.FPS_actual = self.get_FPS_actual() 
+                time.sleep(1/self.FPS_target)    #TODO: adjust sleep time to incorporate worker loop time
+    
+
 
     def grab_frame(self):
-                # Display frames in main program
-        time_now = str(datetime.now().strftime("%H:%M:%S"))
-        print(time_now)
-        fps_text =  str(int(round(self.FPS_actual, 0))) 
+        
         # display_text = "FPS:" + fps_text + "Time:" + time_now
-        cv2.putText(self.raw_frame, "FPS:" + fps_text, (10, 70),cv2.FONT_HERSHEY_PLAIN, 2,(0,0,255), 3)
-        cv2.putText(self.raw_frame, "Time:" + time_now, (10,140),cv2.FONT_HERSHEY_PLAIN, 2,(0,0,255), 3)
+        fps_text =  str(int(round(self.FPS_actual, 0))) 
+        time_now = str(datetime.now().strftime("%H:%M:%S"))
+        cv2.putText(self.frame, "FPS:" + fps_text, (10, 70),cv2.FONT_HERSHEY_PLAIN, 2,(0,0,255), 3)
+        cv2.putText(self.frame, "Time:" + time_now, (10,140),cv2.FONT_HERSHEY_PLAIN, 2,(0,0,255), 3)
         
 # Highlight module functionality. View a frame with mediapipe hands
 # press "q" to quit
@@ -94,7 +96,7 @@ if __name__ == '__main__':
         try:
             for cam in cam_widgets:
                 cam.grab_frame()
-                cv2.imshow(cam.frame_name, cam.raw_frame)
+                cv2.imshow(cam.frame_name, cam.frame)
                 
         except AttributeError:
             pass

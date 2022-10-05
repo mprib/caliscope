@@ -15,10 +15,6 @@ from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QIcon, QImage, QPixmap
 
-# from PyQt6.QtGui import * 
-# from PyQt6.QtWidgets import *
-# from PyQt6.QtCore import *
-
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -49,12 +45,12 @@ class MainWindow(QWidget):
 
         self.VBL.addWidget(self.mediapipeLabel)
         self.VBL.addWidget(self.MediapipeCheckbox)
+        self.setLayout(self.VBL)
 
         self.vid_display = VideoDisplayWidget(vid_cap_widget)
         self.vid_display.start()
         self.vid_display.ImageUpdate.connect(self.ImageUpdateSlot)
         
-        self.setLayout(self.VBL)
 
     def ImageUpdateSlot(self, Image):
         self.FeedLabel.setPixmap(QPixmap.fromImage(Image))
@@ -72,8 +68,10 @@ class MainWindow(QWidget):
         elif str(s) == 0: #unchecked
             self.vid_cap_widget.show_mediapipe = False
             print("Turning off Mediapipe")
+
 class VideoDisplayWidget(QThread):
     ImageUpdate = pyqtSignal(QImage)
+    
     def __init__(self, vid_cap_widget):
         super(VideoDisplayWidget,self).__init__()
 
@@ -81,7 +79,7 @@ class VideoDisplayWidget(QThread):
 
     def run(self):
         self.ThreadActive = True
-        # Capture = cv2.VideoCapture(0)
+
         while self.ThreadActive:
             try:    # takes a moment for capture widget to spin up...don't error out
                 self.vid_cap_widget.grab_frame()
@@ -91,6 +89,7 @@ class VideoDisplayWidget(QThread):
                 qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
                 Pic = qt_frame.scaled(640, 480, Qt.AspectRatioMode.KeepAspectRatio)
                 self.ImageUpdate.emit(Pic)
+
             except AttributeError:
                 pass
     def stop(self):

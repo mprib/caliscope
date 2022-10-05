@@ -4,17 +4,19 @@ import cv2, time
 import sys
 import mediapipe as mp
 
+from datetime import datetime
+
 
 # import detect_2D_points
 
 class VideoCaptureWidget:
     def __init__(self, src, width, height):
-        self.FPS_target = 30
-        self.show_mediapipe = True
+        self.FPS_target = 50
 
         self.capture = cv2.VideoCapture(src)
         self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-get-sync
         self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         # Start the thread to read frames from the video stream
         self.thread = Thread(target=self.update, args=())
@@ -31,7 +33,7 @@ class VideoCaptureWidget:
         self.mpHands = mp.solutions.hands
         self.hands = self.mpHands.Hands()
         self.mpDraw = mp.solutions.drawing_utils 
-        self.connected_landmarks = self.mpHands.HAND_CONNECTIONS
+        # self.connected_landmarks = self.mpHands.HAND_CONNECTIONS
 
     def get_FPS_actual(self):
         """set the actual frame rate from within the update function"""
@@ -44,35 +46,42 @@ class VideoCaptureWidget:
 
         return 1/self.avg_delta_time
     
-    def find_landmarks(self):
-        imgRGB  = cv2.cvtColor(self.raw_frame, cv2.COLOR_BGR2RGB)
-        self.hand_results = self.hands.process(imgRGB)
-
-
 
     def update(self):
-        print(self.show_mediapipe)
+        """Worker function that is spun up by Thread
+        """
         # Grap frame and run image detection
         while True:
             if self.capture.isOpened():
-                (self.status, self.raw_frame) = self.capture.read()
-                # wait to read next frame in order to hit target FPS. Record FPS
-                if self.show_mediapipe:
-                    self.find_landmarks()
-                self.FPS_actual = self.get_FPS_actual() 
-                time.sleep(1/self.FPS_target)
-    
-    def grab_frame(self):
-        # draw hand dots and lines
-        if self.hand_results.multi_hand_landmarks and self.show_mediapipe:
-            for handLms in self.hand_results.multi_hand_landmarks:
-                self.mpDraw.draw_landmarks(self.raw_frame, handLms, self.mpHands.HAND_CONNECTIONS)
 
-        # Display frames in main program
-        display_text = "FPS:" + str(int(round(self.FPS_actual, 0)))
-        cv2.putText(self.raw_frame, display_text, (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 3,(0,0,0), 2)
+                # pull frame
+                (self.status, self.raw_frame) = self.capture.read()
+                
+                if self.status:
+                    # convert frame to RGB and run mediapipe hand detection
+                    imgRGB  = cv2.cvtColor(self.raw_frame, cv2.COLOR_BGR2RGB)
+                    self.hand_results = self.hands.process(imgRGB)
+                                
+                    # draw hand dots and lines
+                    if self.hand_results.multi_hand_landmarks:
+                        for handLms in self.hand_results.multi_hand_landmarks:
+                            self.mpDraw.draw_landmarks(self.raw_frame, handLms, self.mpHands.HAND_CONNECTIONS)
+                    
+                    # wait to read next frame in order to hit target FPS. Record FPS
+                    self.FPS_actual = self.get_FPS_actual() 
+                    time.sleep(1/self.FPS_target)
+
+    def grab_frame(self):
+                # Display frames in main program
+        time_now = str(datetime.now().strftime("%H:%M:%S"))
+        print(time_now)
+        fps_text =  str(int(round(self.FPS_actual, 0))) 
+        # display_text = "FPS:" + fps_text + "Time:" + time_now
+        cv2.putText(self.raw_frame, "FPS:" + fps_text, (10, 70),cv2.FONT_HERSHEY_PLAIN, 2,(0,0,255), 3)
+        cv2.putText(self.raw_frame, "Time:" + time_now, (10,140),cv2.FONT_HERSHEY_PLAIN, 2,(0,0,255), 3)
         
 # Highlight module functionality. View a frame with mediapipe hands
+# press "q" to quit
 if __name__ == '__main__':
     # src_list = [0,1]
     src_list = [0]

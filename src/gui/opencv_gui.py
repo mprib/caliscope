@@ -8,7 +8,7 @@ import sys
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QPushButton, 
-    QLabel, QLineEdit, 
+    QLabel, QLineEdit, QCheckBox,
     QVBoxLayout, QHBoxLayout, QGridLayout
 )
 from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
@@ -31,6 +31,7 @@ import cv2
 class MainWindow(QWidget):
     def __init__(self, vid_cap_widget):
         super(MainWindow, self).__init__()
+        self.vid_cap_widget = vid_cap_widget
 
         self.VBL = QVBoxLayout()
 
@@ -41,10 +42,18 @@ class MainWindow(QWidget):
         self.CancelBTN.clicked.connect(self.CancelFeed)
         self.VBL.addWidget(self.CancelBTN)
 
-        self.vid_display = VideoDisplayWidget(vid_cap_widget)
+        self.mediapipeLabel = QLabel("Show Mediapipe")
+        self.MediapipeCheckbox = QCheckBox()
+        self.MediapipeCheckbox.setCheckState(Qt.CheckState.Unchecked) # default to not showing mediapipe
+        self.MediapipeCheckbox.stateChanged.connect(self.show_mediapipe)
 
+        self.VBL.addWidget(self.mediapipeLabel)
+        self.VBL.addWidget(self.MediapipeCheckbox)
+
+        self.vid_display = VideoDisplayWidget(vid_cap_widget)
         self.vid_display.start()
         self.vid_display.ImageUpdate.connect(self.ImageUpdateSlot)
+        
         self.setLayout(self.VBL)
 
     def ImageUpdateSlot(self, Image):
@@ -52,7 +61,17 @@ class MainWindow(QWidget):
 
     def CancelFeed(self):
         self.vid_display.stop()
+        self.vid_cap_widget.capture.release()
 
+    def show_mediapipe(self, s):
+        print("Toggle Mediapipe")
+        print(str(s))
+        if str(s) == 2: # checked   
+            self.vid_cap_widget.show_mediapipe = True
+            print("Turning on Mediapipe")
+        elif str(s) == 0: #unchecked
+            self.vid_cap_widget.show_mediapipe = False
+            print("Turning off Mediapipe")
 class VideoDisplayWidget(QThread):
     ImageUpdate = pyqtSignal(QImage)
     def __init__(self, vid_cap_widget):

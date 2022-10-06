@@ -38,6 +38,7 @@ class MainWindow(QWidget):
         self.CancelBTN.clicked.connect(self.CancelFeed)
         self.VBL.addWidget(self.CancelBTN)
 
+
         self.MediapipeToggle = QCheckBox("Show Mediapipe Overlay")
         self.MediapipeToggle.setCheckState(Qt.CheckState.Checked)
         self.MediapipeToggle.stateChanged.connect(self.toggle_mediapipe)

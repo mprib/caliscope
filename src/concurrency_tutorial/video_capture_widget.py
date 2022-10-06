@@ -8,7 +8,6 @@ import mediapipe as mp
 
 from datetime import datetime
 
-
 # import detect_2D_points
 
 class VideoCaptureWidget:

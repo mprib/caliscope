@@ -6,22 +6,22 @@
 
 import queue
 import sys
+from pathlib import Path
+
+import cv2
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QPushButton, 
-    QLabel, QLineEdit, QCheckBox,
-    QVBoxLayout, QHBoxLayout, QGridLayout
-)
+    QLabel, QLineEdit, QCheckBox, QScrollArea,
+    QVBoxLayout, QHBoxLayout, QGridLayout)
 from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QIcon, QImage, QPixmap
 
-from pathlib import Path
 
+# Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from src.concurrency_tutorial.video_stream_widget import VideoCaptureWidget
-import cv2
 
 class MainWindow(QWidget):
     def __init__(self, vid_cap_widget, mp_q):
@@ -97,9 +97,9 @@ if __name__ == "__main__":
     # create a camera widget to pull in a thread of frames
     # these are currently processed by mediapipe but don't have to be
     q = queue.Queue()   
-    test_cam_widget = VideoCaptureWidget(0,1080,640, q)
+    capture_widget = VideoCaptureWidget(0,1080,640, q)
 
     App = QApplication(sys.argv)
-    Root = MainWindow(test_cam_widget, q)
+    Root = MainWindow(capture_widget, q)
     Root.show()
     sys.exit(App.exec())

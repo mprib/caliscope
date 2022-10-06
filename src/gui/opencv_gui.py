@@ -24,9 +24,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.concurrency_tutorial.video_stream_widget import VideoCaptureWidget
 
 class MainWindow(QWidget):
-    def __init__(self, vid_cap_widget, mp_q):
+    def __init__(self, vid_cap_widget):
         super(MainWindow, self).__init__()
-        self.q = mp_q
         self.vid_cap_widget = vid_cap_widget
 
         self.VBL = QVBoxLayout()
@@ -61,11 +60,7 @@ class MainWindow(QWidget):
 
     def toggle_mediapipe(self, s):
         print("Toggle Mediapipe")
-        if str(s) == "0":    # Unchecked
-            self.q.put(False)
-        if str(s) == "2":    # Checked
-            self.q.put(True)
-
+        self.vid_cap_widget.toggle_mediapipe()
 class VideoDisplayWidget(QThread):
 
     ImageUpdate = pyqtSignal(QImage)
@@ -97,10 +92,9 @@ class VideoDisplayWidget(QThread):
 if __name__ == "__main__":
     # create a camera widget to pull in a thread of frames
     # these are currently processed by mediapipe but don't have to be
-    q = queue.Queue()   
-    capture_widget = VideoCaptureWidget(0,1080,640, q)
+    capture_widget = VideoCaptureWidget(0,1080,640)
 
     App = QApplication(sys.argv)
-    Root = MainWindow(capture_widget, q)
+    Root = MainWindow(capture_widget)
     Root.show()
     sys.exit(App.exec())

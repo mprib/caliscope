@@ -12,7 +12,7 @@ from datetime import datetime
 # import detect_2D_points
 
 class VideoCaptureWidget:
-    def __init__(self, src, width, height, mp_toggle_q ):
+    def __init__(self, src, width, height):
         self.FPS_target = 50
         self.capture = cv2.VideoCapture(src)
         self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-get-sync
@@ -20,7 +20,7 @@ class VideoCaptureWidget:
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
         # Queue used to toggle mp calculation on and off
-        self.mp_toggle_q = mp_toggle_q
+        self.mp_toggle_q = queue.Queue()
 
         # Start the thread to read frames from the video stream
         self.thread = Thread(target=self.update, args=(self.mp_toggle_q, ))
@@ -40,8 +40,8 @@ class VideoCaptureWidget:
         self.mpDraw = mp.solutions.drawing_utils 
         self.show_medipipe = True
     
-    def get_mediapipe_status(self):
-        return self.show_medipipe
+    # def get_mediapipe_status(self):
+    #     return self.show_medipipe
         
 
     def get_FPS_actual(self):
@@ -75,10 +75,10 @@ class VideoCaptureWidget:
                 # pull in working frame
                 (self.status, working_frame) = self.capture.read()
 
-                frame_RGB  = cv2.cvtColor(working_frame, cv2.COLOR_BGR2RGB)
 
                 # Only calculate mediapipe if going to display it
                 if self.show_medipipe:
+                    frame_RGB  = cv2.cvtColor(working_frame, cv2.COLOR_BGR2RGB)
                     self.hand_results = self.hands.process(frame_RGB)
 
                 self.frame = working_frame.copy() 
@@ -96,9 +96,11 @@ class VideoCaptureWidget:
     def toggle_mediapipe(self):
 
         if self.show_medipipe == True:
-            self.show_medipipe == False
+            # self.show_medipipe == False
+            self.mp_toggle_q.put(False)
         else:
-            self.show_medipipe == True
+            # self.show_medipipe == True
+            self.mp_toggle_q.put(True)
                 
         print(self.show_medipipe)
     
@@ -120,7 +122,7 @@ if __name__ == '__main__':
 
     for src in src_list:
         q = queue.Queue()
-        cam_widgets.append(VideoCaptureWidget(src, 640, 480, q))
+        cam_widgets.append(VideoCaptureWidget(src, 640, 480))
 
     while True:
         try:
@@ -133,18 +135,10 @@ if __name__ == '__main__':
         
         # toggle mediapipe with 'm' 
         if cv2.waitKey(1) == ord('m'):
-            print("Turning Mediapipe On")
+            print("Toggling Mediapipe")
             for cam in cam_widgets:
                 print(cam.frame_name)
-                cam.mp_toggle_q.put(True)
-
-        if cv2.waitKey(1) == ord('n'):
-            print("Turning Mediapipe Off")
-            for cam in cam_widgets:
-                print(cam.frame_name)
-                cam.mp_toggle_q.put(False)
-
-           
+                cam.toggle_mediapipe()
        
         # 'q' to quit
         if cv2.waitKey(1) == ord('q'):

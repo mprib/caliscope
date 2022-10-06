@@ -1,3 +1,4 @@
+import queue
 from re import I
 from threading import Thread
 import cv2, time
@@ -11,12 +12,12 @@ from datetime import datetime
 # import detect_2D_points
 
 class VideoCaptureWidget:
-    def __init__(self, src, width, height, mp_toggle_q):
+    def __init__(self, src, width, height, mp_toggle_q ):
         self.FPS_target = 50
-
         self.capture = cv2.VideoCapture(src)
         self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-get-sync
         self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        # self.mp_toggle_q = mp_toggle_q
 
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         # Start the thread to read frames from the video stream
@@ -113,12 +114,14 @@ class VideoCaptureWidget:
 # Highlight module functionality. View a frame with mediapipe hands
 # press "q" to quit
 if __name__ == '__main__':
-    # src_list = [0,1]
-    src_list = [0]
+    src_list = [0,1]
+    # src_list = [0]
     cam_widgets = []
-
+    q_s = []
     for src in src_list:
-        cam_widgets.append(VideoCaptureWidget(src, 640, 480))
+        q = queue.Queue()
+        q_s.append(q)   
+        cam_widgets.append(VideoCaptureWidget(src, 640, 480, q))
 
     while True:
         try:
@@ -131,6 +134,12 @@ if __name__ == '__main__':
      
         if cv2.waitKey(1) == ord('q'):
             for cam in cam_widgets:
+                cam.capture.release()
+            cv2.destroyAllWindows()
+            exit(0)
+        if cv2.waitKey(1) == ord('m'):
+            for cam in cam_widgets:
+
                 cam.capture.release()
             cv2.destroyAllWindows()
             exit(0)

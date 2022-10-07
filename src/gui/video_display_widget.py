@@ -25,9 +25,9 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.concurrency_tutorial.video_capture_widget import VideoCaptureWidget
 
-class MainVideoWindow(QWidget):
+class VideoDisplayWidget(QWidget):
     def __init__(self, video_src):
-        super(MainVideoWindow, self).__init__()
+        super(VideoDisplayWidget, self).__init__()
 
         self.VBL = QVBoxLayout()
 
@@ -49,7 +49,7 @@ class MainVideoWindow(QWidget):
         # self.VBL.addWidget(self.mediapipeLabel)
         self.setLayout(self.VBL)
 
-        self.vid_display = VideoDisplayWidget(video_src)
+        self.vid_display = VideoStreamEmitter(video_src)
         self.vid_display.start()
         self.vid_display.ImageUpdate.connect(self.ImageUpdateSlot)
         
@@ -72,7 +72,9 @@ class MainVideoWindow(QWidget):
     def toggle_mediapipe(self, s):
         print("Toggle Mediapipe")
         self.vid_display.vid_cap_widget.toggle_mediapipe()
-class VideoDisplayWidget(QThread):
+
+
+class VideoStreamEmitter(QThread):
     """
 
     """
@@ -80,7 +82,7 @@ class VideoDisplayWidget(QThread):
 
    
     def __init__(self, video_src):
-        super(VideoDisplayWidget,self).__init__()
+        super(VideoStreamEmitter,self).__init__()
         self.peak_fps_display = 10
         self.video_src = video_src
 
@@ -123,6 +125,6 @@ if __name__ == "__main__":
     # capture_widget = VideoCaptureWidget(0,1080,640)
 
     App = QApplication(sys.argv)
-    Root = MainVideoWindow(1)
+    Root = VideoDisplayWidget(1)
     Root.show()
     sys.exit(App.exec())

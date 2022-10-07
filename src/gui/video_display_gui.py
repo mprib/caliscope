@@ -8,6 +8,7 @@ import queue
 import sys
 from pathlib import Path
 import numpy as np
+import time
 
 import cv2
 
@@ -59,7 +60,7 @@ class MainVideoWindow(QWidget):
         self.vid_display.vid_cap_widget.toggle_mediapipe()
 class VideoDisplayWidget(QThread):
     """
-    
+    VIDEO DISPLAY WIDGET IS SLOWING DOWN MEDIAPIPE
     """
     ImageUpdate = pyqtSignal(QImage)
 
@@ -69,6 +70,7 @@ class VideoDisplayWidget(QThread):
         self.height = 640
         self.width = 1080
         self.video_src = video_src
+        self.peak_fps_display = 10
 
     def run(self):
         self.vid_cap_widget = VideoCaptureWidget(self.video_src, self.width ,self.height)
@@ -80,9 +82,9 @@ class VideoDisplayWidget(QThread):
                 # Grab a frame from the capture widget and adjust it to 
                 # self.vid_cap_widget.grab_frame()
 
-
                 frame = self.vid_cap_widget.frame
-                self.fps_text =  str(int(round(self.vid_cap_widget.FPS_actual, 0))) 
+                fps = self.vid_cap_widget.FPS_actual
+                self.fps_text =  str(int(round(fps, 0))) 
                 Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 FlippedImage = cv2.flip(Image, 1)
 
@@ -91,6 +93,9 @@ class VideoDisplayWidget(QThread):
                 qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
                 Pic = qt_frame.scaled(self.width, self.height, Qt.AspectRatioMode.KeepAspectRatio)
                 self.ImageUpdate.emit(Pic)
+                # time.sleep(1/fps)
+                time.sleep(1/self.peak_fps_display)
+                 
 
 
             except AttributeError:

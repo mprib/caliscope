@@ -11,12 +11,12 @@ from datetime import datetime
 # import detect_2D_points
 
 class VideoCaptureWidget:
-    def __init__(self, src, width, height):
+    def __init__(self, src, width=None, height=None):
 
         self.capture = cv2.VideoCapture(src)
-        self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-get-sync
-        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-getanother thread signaled a change to mediapipe overley-sync
+        # self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        # self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
         # Queue used to toggle mp calculation on and off
         self.mp_toggle_q = queue.Queue()
@@ -57,7 +57,10 @@ class VideoCaptureWidget:
 
     def update(self, show_mp_q):
         """
-        Worker function that is spun up by Thread
+        Worker function that is spun up by Thread. This seems to be where much
+        of the substantive processing and real-time configuration will occur
+
+        I'm not sure if this would map directly to the jkmmmmmmmmmmmmmmmmmmmmmmmmmmmmkilllllllllllllllllllllllllllo
 
         Parameters:
             - mp_toggle_q: a queue passed to the thread that will signal a 
@@ -66,12 +69,12 @@ class VideoCaptureWidget:
         # Grap frame and run image detection
         while True:
             
-            # check to see if another thread signaled a change to mediapipe overley
+            # check to see if mediapipe should be generated
             if not show_mp_q.empty():
                 self.show_medipipe = show_mp_q.get()
 
             if self.capture.isOpened():
-                # pull in working frame
+                # pull in a working frame
                 (self.status, working_frame) = self.capture.read()
 
 
@@ -95,13 +98,10 @@ class VideoCaptureWidget:
     def toggle_mediapipe(self):
 
         if self.show_medipipe == True:
-            # self.show_medipipe == False
             self.mp_toggle_q.put(False)
         else:
-            # self.show_medipipe == True
             self.mp_toggle_q.put(True)
                 
-        print(self.show_medipipe)
     
     def grab_frame(self):
         
@@ -120,8 +120,7 @@ if __name__ == '__main__':
     cam_widgets = []
 
     for src in src_list:
-        q = queue.Queue()
-        cam_widgets.append(VideoCaptureWidget(src, 640, 480))
+        cam_widgets.append(VideoCaptureWidget(src))
 
     while True:
         try:

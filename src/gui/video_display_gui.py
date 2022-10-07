@@ -37,16 +37,30 @@ class MainVideoWindow(QWidget):
         self.MediapipeToggle = QCheckBox("Show Mediapipe Overlay")
         self.MediapipeToggle.setCheckState(Qt.CheckState.Checked)
         self.MediapipeToggle.stateChanged.connect(self.toggle_mediapipe)
-
-        # self.VBL.addWidget(self.mediapipeLabel)
         self.VBL.addWidget(self.MediapipeToggle)
+
+        self.rotate_ccw_btn = QPushButton("Rotate CCW")
+        self.rotate_ccw_btn.clicked.connect(self.rotate_ccw)
+        self.VBL.addWidget(self.rotate_ccw_btn)
+
+        self.rotate_cw_btn = QPushButton("Rotate CW")
+        self.rotate_cw_btn.clicked.connect(self.rotate_cw)
+        self.VBL.addWidget(self.rotate_cw_btn)
+        # self.VBL.addWidget(self.mediapipeLabel)
         self.setLayout(self.VBL)
 
         self.vid_display = VideoDisplayWidget(video_src)
         self.vid_display.start()
         self.vid_display.ImageUpdate.connect(self.ImageUpdateSlot)
         
+    def rotate_ccw(self):
+        # Clockwise rotation called because the display image is flipped
+        self.vid_display.vid_cap_widget.rotate_CW()
 
+    def rotate_cw(self):
+        # Counter Clockwise rotation called because the display image is flipped
+        self.vid_display.vid_cap_widget.rotate_CCW()
+            
     def ImageUpdateSlot(self, Image):
         self.FeedLabel.setPixmap(QPixmap.fromImage(Image))
         # self.FeedLabel.setPixmap(Image)

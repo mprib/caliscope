@@ -1,9 +1,8 @@
 import queue
-from re import I
 from threading import Thread
-import cv2, time
+import cv2
+import time
 import sys
-from cv2 import rotate
 import mediapipe as mp
 
 from datetime import datetime
@@ -30,7 +29,6 @@ class VideoCaptureWidget:
         self.thread.start()
         self.frame_name = "Cam"+str(src)
         
-    
         # initialize time trackers for actual FPS determination
         self.start_time = time.time()
         self.avg_delta_time = None
@@ -40,8 +38,6 @@ class VideoCaptureWidget:
         self.hands = self.mpHands.Hands()
         self.mpDraw = mp.solutions.drawing_utils 
         self.show_medipipe = True
-    
-        
 
     def get_FPS_actual(self):
         """set the actual frame rate from within the update function"""
@@ -67,7 +63,6 @@ class VideoCaptureWidget:
         elif self.rotation_count in [-1, 3]:
             return cv2.rotate(raw_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-
     def rotate_CW(self):
         print("Rotate CW")
         if self.rotation_count == 3:
@@ -81,10 +76,6 @@ class VideoCaptureWidget:
             self.rotation_count = 0
         else:
             self.rotation_count = self.rotation_count - 1
-
-
-        
-
 
     def update(self, show_mp_q):
         """
@@ -163,22 +154,24 @@ if __name__ == '__main__':
                 
         except AttributeError:
             pass
-        
+
+        key = cv2.waitKey(1)
+
         # toggle mediapipe with 'm' 
-        if cv2.waitKey(1) == ord('m'):
+        if key == ord('m'):
             print("Toggling Mediapipe")
             for cam in cam_widgets:
                 print(cam.frame_name)
                 cam.toggle_mediapipe()
         
-        if cv2.waitKey(1) == ord('r'):
+        if key == ord('r'):
             print("Rotate Frame CW")
 
             for cam in cam_widgets:
                 cam.rotate_CW()
                 print(cam.frame_name + " " + str(cam.rotation_count))
        
-        if cv2.waitKey(1) == ord('l'):
+        if  key == ord('l'):
             print("Rotate Frame CCW")
                 
             for cam in cam_widgets:
@@ -186,7 +179,7 @@ if __name__ == '__main__':
                 print(cam.frame_name + " " + str(cam.rotation_count))
        
         # 'q' to quit
-        if cv2.waitKey(1) == ord('q'):
+        if key == ord('q'):
             for cam in cam_widgets:
                 cam.capture.release()
             cv2.destroyAllWindows()

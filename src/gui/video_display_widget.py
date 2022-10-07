@@ -13,7 +13,8 @@ import time
 import cv2
 
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QPushButton, 
+    QMainWindow,
+    QApplication, QWidget, QPushButton, QToolBar,
     QLabel, QLineEdit, QCheckBox, QScrollArea,
     QVBoxLayout, QHBoxLayout, QGridLayout)
 from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
@@ -30,6 +31,7 @@ class VideoDisplayWidget(QWidget):
         super(VideoDisplayWidget, self).__init__()
 
         self.VBL = QVBoxLayout()
+        self.HBL = QHBoxLayout()
 
         self.FeedLabel = QLabel()
         self.VBL.addWidget(self.FeedLabel)
@@ -37,17 +39,19 @@ class VideoDisplayWidget(QWidget):
         self.MediapipeToggle = QCheckBox("Show Mediapipe Overlay")
         self.MediapipeToggle.setCheckState(Qt.CheckState.Checked)
         self.MediapipeToggle.stateChanged.connect(self.toggle_mediapipe)
-        self.VBL.addWidget(self.MediapipeToggle)
+        self.HBL.addWidget(self.MediapipeToggle)
 
         self.rotate_ccw_btn = QPushButton("Rotate CCW")
         self.rotate_ccw_btn.clicked.connect(self.rotate_ccw)
-        self.VBL.addWidget(self.rotate_ccw_btn)
-
+        self.HBL.addWidget(self.rotate_ccw_btn)
+    
         self.rotate_cw_btn = QPushButton("Rotate CW")
         self.rotate_cw_btn.clicked.connect(self.rotate_cw)
-        self.VBL.addWidget(self.rotate_cw_btn)
+        self.HBL.addWidget(self.rotate_cw_btn)
         # self.VBL.addWidget(self.mediapipeLabel)
+
         self.setLayout(self.VBL)
+        self.VBL.addLayout(self.HBL)
 
         self.vid_display = VideoStreamEmitter(video_src)
         self.vid_display.start()

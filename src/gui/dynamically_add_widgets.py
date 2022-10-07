@@ -87,33 +87,6 @@ class MainWindow(QMainWindow):
         self.FeedLabel.setPixmap(QPixmap.fromImage(Image))
 
 
-# class VideoDisplayWidget(QThread):
-
-#     ImageUpdate = pyqtSignal(QImage)
-    
-#     def __init__(self, vid_cap_widget):
-#         super(VideoDisplayWidget,self).__init__()
-
-#         self.vid_cap_widget = vid_cap_widget
-
-#     def run(self):
-#         self.ThreadActive = True
-
-#         while self.ThreadActive:
-#             try:    # takes a moment for capture widget to spin up...don't error out
-#                 self.vid_cap_widget.grab_frame()
-#                 frame = self.vid_cap_widget.frame
-#                 Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-#                 FlippedImage = cv2.flip(Image, 1)
-#                 qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
-#                 Pic = qt_frame.scaled(640, 480, Qt.AspectRatioMode.KeepAspectRatio)
-#                 self.ImageUpdate.emit(Pic)
-
-#             except AttributeError:
-#                 pass
-#     def stop(self):
-#         self.ThreadActive = False
-#         self.quit()
 
 ############### TEST #######################
 

@@ -12,7 +12,7 @@ from datetime import datetime
 
 class VideoCaptureWidget:
     def __init__(self, src, width, height):
-        self.FPS_target = 50
+
         self.capture = cv2.VideoCapture(src)
         self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-get-sync
         self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)

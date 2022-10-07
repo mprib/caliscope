@@ -3,7 +3,6 @@
 
 # %%
 
-import queue
 import sys
 from pathlib import Path
 

@@ -6,10 +6,8 @@ import sys
 from cv2 import rotate
 import mediapipe as mp
 
-
 from datetime import datetime
 
-# import detect_2D_points
 
 class VideoCaptureWidget:
     def __init__(self, src):
@@ -51,6 +49,8 @@ class VideoCaptureWidget:
         self.start_time = time.time()
         if not self.avg_delta_time:
             self.avg_delta_time = self.delta_time
+
+        # folding in current frame rate to trailing average to smooth out
         self.avg_delta_time = 0.8*self.avg_delta_time + 0.2*self.delta_time
         self.previous_time = self.start_time
 
@@ -69,14 +69,14 @@ class VideoCaptureWidget:
 
 
     def rotate_CW(self):
-
+        print("Rotate CW")
         if self.rotation_count == 3:
             self.rotation_count = 0
         else:
             self.rotation_count = self.rotation_count + 1
 
     def rotate_CCW(self):
-
+        print("Rotate CCW")
         if self.rotation_count == -3:
             self.rotation_count = 0
         else:

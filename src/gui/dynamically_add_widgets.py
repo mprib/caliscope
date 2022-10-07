@@ -23,7 +23,7 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap, QAction
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.gui.video_display_gui import MainVideoWindow
+from src.gui.video_display_widget import VideoDisplayWidget
 
 class MainWindow(QMainWindow):
 
@@ -62,7 +62,7 @@ class MainWindow(QMainWindow):
                 col = 0
                 row = row+1
 
-            vid_window = MainVideoWindow(i) 
+            vid_window = VideoDisplayWidget(i) 
             self.gbox.addWidget(vid_window, col, row)
  
             col = col + 1
@@ -87,33 +87,33 @@ class MainWindow(QMainWindow):
         self.FeedLabel.setPixmap(QPixmap.fromImage(Image))
 
 
-class VideoDisplayWidget(QThread):
+# class VideoDisplayWidget(QThread):
 
-    ImageUpdate = pyqtSignal(QImage)
+#     ImageUpdate = pyqtSignal(QImage)
     
-    def __init__(self, vid_cap_widget):
-        super(VideoDisplayWidget,self).__init__()
+#     def __init__(self, vid_cap_widget):
+#         super(VideoDisplayWidget,self).__init__()
 
-        self.vid_cap_widget = vid_cap_widget
+#         self.vid_cap_widget = vid_cap_widget
 
-    def run(self):
-        self.ThreadActive = True
+#     def run(self):
+#         self.ThreadActive = True
 
-        while self.ThreadActive:
-            try:    # takes a moment for capture widget to spin up...don't error out
-                self.vid_cap_widget.grab_frame()
-                frame = self.vid_cap_widget.frame
-                Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                FlippedImage = cv2.flip(Image, 1)
-                qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
-                Pic = qt_frame.scaled(640, 480, Qt.AspectRatioMode.KeepAspectRatio)
-                self.ImageUpdate.emit(Pic)
+#         while self.ThreadActive:
+#             try:    # takes a moment for capture widget to spin up...don't error out
+#                 self.vid_cap_widget.grab_frame()
+#                 frame = self.vid_cap_widget.frame
+#                 Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+#                 FlippedImage = cv2.flip(Image, 1)
+#                 qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
+#                 Pic = qt_frame.scaled(640, 480, Qt.AspectRatioMode.KeepAspectRatio)
+#                 self.ImageUpdate.emit(Pic)
 
-            except AttributeError:
-                pass
-    def stop(self):
-        self.ThreadActive = False
-        self.quit()
+#             except AttributeError:
+#                 pass
+#     def stop(self):
+#         self.ThreadActive = False
+#         self.quit()
 
 ############### TEST #######################
 

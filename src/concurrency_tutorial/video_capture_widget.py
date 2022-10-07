@@ -3,6 +3,7 @@ from re import I
 from threading import Thread
 import cv2, time
 import sys
+from cv2 import rotate
 import mediapipe as mp
 
 
@@ -11,15 +12,19 @@ from datetime import datetime
 # import detect_2D_points
 
 class VideoCaptureWidget:
-    def __init__(self, src, width=None, height=None):
-
+    def __init__(self, src):
+        
+        # Initialize parameters capture paramters
         self.capture = cv2.VideoCapture(src)
         self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-getanother thread signaled a change to mediapipe overley-sync
+        self.rotation_count = 0 # +1 for each 90 degree clockwise rotation, -1 for CCW
+        
         # self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         # self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
-        # Queue used to toggle mp calculation on and off
+        # Create queues used to pass parameters into the worker thread
         self.mp_toggle_q = queue.Queue()
+        self.rotation_q = queue.Queue()
 
         # Start the thread to read frames from the video stream
         self.thread = Thread(target=self.update, args=(self.mp_toggle_q, ))
@@ -28,9 +33,8 @@ class VideoCaptureWidget:
         self.frame_name = "Cam"+str(src)
         
     
-        # initialize time trackers of frame updates
+        # initialize time trackers for actual FPS determination
         self.start_time = time.time()
-        # self.previous_time = 0
         self.avg_delta_time = None
 
         # Mediapipe hand detection infrastructure
@@ -39,8 +43,6 @@ class VideoCaptureWidget:
         self.mpDraw = mp.solutions.drawing_utils 
         self.show_medipipe = True
     
-    # def get_mediapipe_status(self):
-    #     return self.show_medipipe
         
 
     def get_FPS_actual(self):
@@ -53,14 +55,44 @@ class VideoCaptureWidget:
         self.previous_time = self.start_time
 
         return 1/self.avg_delta_time
-    
+
+    def apply_rotation(self, raw_frame):
+
+        if self.rotation_count == 0:
+            return raw_frame
+        elif self.rotation_count in [1, -3]:
+            return cv2.rotate(raw_frame, cv2.ROTATE_90_CLOCKWISE)
+        elif self.rotation_count in [2,-2]:
+            return cv2.rotate(raw_frame, cv2.ROTATE_180)
+        elif self.rotation_count in [-1, 3]:
+            return cv2.rotate(raw_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+
+    def rotate_CW(self):
+
+        if self.rotation_count == 3:
+            self.rotation_count = 0
+        else:
+            self.rotation_count = self.rotation_count + 1
+
+    def rotate_CCW(self):
+
+        if self.rotation_count == -3:
+            self.rotation_count = 0
+        else:
+            self.rotation_count = self.rotation_count - 1
+
+
+        
+
 
     def update(self, show_mp_q):
         """
         Worker function that is spun up by Thread. This seems to be where much
         of the substantive processing and real-time configuration will occur
 
-        I'm not sure if this would map directly to the jkmmmmmmmmmmmmmmmmmmmmmmmmmmmmkilllllllllllllllllllllllllllo
+        I'm not sure if this would map directly to post-processing tasks, but it
+        will probably be pretty close.
 
         Parameters:
             - mp_toggle_q: a queue passed to the thread that will signal a 
@@ -73,10 +105,11 @@ class VideoCaptureWidget:
             if not show_mp_q.empty():
                 self.show_medipipe = show_mp_q.get()
 
-            if self.capture.isOpened():
+            if self.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
                 # pull in a working frame
                 (self.status, working_frame) = self.capture.read()
 
+                working_frame = self.apply_rotation(working_frame)
 
                 # Only calculate mediapipe if going to display it
                 if self.show_medipipe:
@@ -137,6 +170,20 @@ if __name__ == '__main__':
             for cam in cam_widgets:
                 print(cam.frame_name)
                 cam.toggle_mediapipe()
+        
+        if cv2.waitKey(1) == ord('r'):
+            print("Rotate Frame CW")
+
+            for cam in cam_widgets:
+                cam.rotate_CW()
+                print(cam.frame_name + " " + str(cam.rotation_count))
+       
+        if cv2.waitKey(1) == ord('l'):
+            print("Rotate Frame CCW")
+                
+            for cam in cam_widgets:
+                cam.rotate_CCW()
+                print(cam.frame_name + " " + str(cam.rotation_count))
        
         # 'q' to quit
         if cv2.waitKey(1) == ord('q'):

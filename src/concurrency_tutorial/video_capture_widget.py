@@ -80,6 +80,25 @@ class VideoCaptureWidget:
         else:
             self.rotation_count = self.rotation_count - 1
 
+    def run_mediapipe_hands(self, working_frame, show_mp_q ):
+            if not show_mp_q.empty():
+                self.show_medipipe = show_mp_q.get()
+
+             # Only calculate mediapipe if going to display it
+            if self.show_medipipe:
+                frame_RGB  = cv2.cvtColor(working_frame, cv2.COLOR_BGR2RGB)
+                self.hand_results = self.hands.process(frame_RGB)
+            self.frame = working_frame.copy() 
+            
+            # only draw hand landmarks if calculating mediapipe
+            if self.show_medipipe:
+                # draw hand dots and lines
+                if self.hand_results.multi_hand_landmarks:
+                    for handLms in self.hand_results.multi_hand_landmarks:
+                        self.mpDraw.draw_landmarks(self.frame, handLms, self.mpHands.HAND_CONNECTIONS)
+
+
+    
     def update(self, show_mp_q):
         """
         Worker function that is spun up by Thread. This seems to be where much
@@ -95,30 +114,12 @@ class VideoCaptureWidget:
         # Grap frame and run image detection
         while True:
             
-            # check to see if mediapipe should be generated
-            if not show_mp_q.empty():
-                self.show_medipipe = show_mp_q.get()
-
-            if self.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
+           if self.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
                 # pull in a working frame
                 (self.status, working_frame) = self.capture.read()
 
                 working_frame = self.apply_rotation(working_frame)
-
-                # Only calculate mediapipe if going to display it
-                if self.show_medipipe:
-                    frame_RGB  = cv2.cvtColor(working_frame, cv2.COLOR_BGR2RGB)
-                    self.hand_results = self.hands.process(frame_RGB)
-
-                self.frame = working_frame.copy() 
-                
-                # only draw hand landmarks if calculating mediapipe
-                if self.show_medipipe:
-                    # draw hand dots and lines
-                    if self.hand_results.multi_hand_landmarks:
-                        for handLms in self.hand_results.multi_hand_landmarks:
-                            self.mpDraw.draw_landmarks(self.frame, handLms, self.mpHands.HAND_CONNECTIONS)
-
+                self.run_mediapipe_hands(working_frame, show_mp_q)
                 # wait to read next frame in order to hit target FPS. Record FPS
                 self.FPS_actual = self.get_FPS_actual() 
     

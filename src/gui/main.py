@@ -54,18 +54,20 @@ class MainWindow(QMainWindow):
         self.widget = QWidget()                 # Widget that contains the collection of Vertical Box
         self.gbox = QGridLayout()               # The Vertical Box that contains the Horizontal Boxes of  labels and buttons
         
-        total_columns = 4
+        total_columns = 2
         col = 0
         row = 0
-        for i in range(0,2):
-            if col > total_columns:
-                col = 0
-                row = row+1
 
+        # this is the call to create the display widgets and is definitely 
+        # something that needs to be cleaned up
+        for i in range(0,4):
             vid_window = VideoDisplayWidget(i) 
-            self.gbox.addWidget(vid_window, col, row)
+            self.gbox.addWidget(vid_window, row, col)
  
             col = col + 1
+            if col >= total_columns:
+                col = 0 
+                row = row+1
 
         self.widget.setLayout(self.gbox)
 

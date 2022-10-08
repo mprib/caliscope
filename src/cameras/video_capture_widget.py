@@ -125,7 +125,7 @@ class VideoCaptureWidget:
 # press "q" to quit
 if __name__ == '__main__':
     # src_list = [0,1]
-    src_list = [0]
+    src_list = [0, 1, 2, 3]
     cam_widgets = []
 
     for src in src_list:

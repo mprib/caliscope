@@ -14,8 +14,10 @@ start = time.time()
 
 # %%
 # table.to_excel("resolutions.xlsx")
-cap = cv2.VideoCapture(0)
 cap2 = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0)
+# note, if making an additional capture, it seems that the resolution options
+# get narrowed considerably
 
 # resolutions = {}
 # for index, row in table[["W", "H"]].iterrows():
@@ -34,15 +36,40 @@ def get_nearest_resolution(capture, test_width):
     height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     return((width, height)) # print(str(width) + "x" + str(height))
 
+# %%
+
+start = time.time()
+
+min_resolution = get_nearest_resolution(cap, 0)
 print(time.time()-start)
 start = time.time()
 
-smallest_res = get_nearest_resolution(cap2, 0)
-print(smallest_res)
+max_resolution = get_nearest_resolution(cap, 10000)
 print(time.time()-start)
 start = time.time()
 
+resolutions = {min_resolution, max_resolution}
 
-largest_res = get_nearest_resolution(cap2, 10000)
-print(largest_res)
+
+min_width = min_resolution[0]
+max_width = max_resolution[0]
+step_size = int((max_width-min_width)/6) # the size of jump to make before checking on the resolution
+
+for test_width in range(int(min_width + step_size), int(max_width - step_size), int(step_size)):
+    resolutions.add(get_nearest_resolution(cap, test_width))
+    print(get_nearest_resolution(cap, test_width))
+
+print(resolutions)
+
 print(time.time()-start)
+start = time.time()
+# %%
+middle_res_width = (smallest_res[0] + largest_res[0])/2
+# %%
+
+get_nearest_resolution(cap2, middle_res_width)
+# %%
+
+resolutions = {smallest_res, largest_res}
+
+# %%

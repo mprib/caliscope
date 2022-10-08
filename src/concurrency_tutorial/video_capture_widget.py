@@ -1,3 +1,6 @@
+# This widget is the primary functional unit of the motion capture. It
+# establishes the connection with the video source 
+
 import queue
 from threading import Thread
 import cv2
@@ -127,8 +130,8 @@ class VideoCaptureWidget:
             self.mp_toggle_q.put(True)
                 
     
-    def grab_frame(self):
-        
+    def add_fps(self):
+        """"""
         self.fps_text =  str(int(round(self.FPS_actual, 0))) 
         self.time_now = str(datetime.now().strftime("%S"))
         self.sec_now = self.time_now[1]
@@ -139,8 +142,8 @@ class VideoCaptureWidget:
 # Highlight module functionality. View a frame with mediapipe hands
 # press "q" to quit
 if __name__ == '__main__':
-    src_list = [0,1]
-    # src_list = [0]
+    # src_list = [0,1]
+    src_list = [0]
     cam_widgets = []
 
     for src in src_list:
@@ -149,9 +152,10 @@ if __name__ == '__main__':
     while True:
         try:
             for cam in cam_widgets:
-                cam.grab_frame()
+                cam.add_fps()
                 cv2.imshow(cam.frame_name, cam.frame)
                 
+        # bad reads until connection to src established
         except AttributeError:
             pass
 

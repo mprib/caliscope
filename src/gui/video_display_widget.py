@@ -24,7 +24,7 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.concurrency_tutorial.video_capture_widget import VideoCaptureWidget
+from src.cameras.video_capture_widget import VideoCaptureWidget
 
 class VideoDisplayWidget(QWidget):
     def __init__(self, video_src):

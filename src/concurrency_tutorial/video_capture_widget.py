@@ -22,12 +22,8 @@ class VideoCaptureWidget:
         # self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         # self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
-        # Create queues used to pass parameters into the worker thread
-        self.mp_toggle_q = queue.Queue()
-        self.rotation_q = queue.Queue()
-
         # Start the thread to read frames from the video stream
-        self.thread = Thread(target=self.update, args=( ))
+        self.thread = Thread(target=self.run, args=( ))
         self.thread.daemon = True
         self.thread.start()
         self.frame_name = "Cam"+str(src)
@@ -60,11 +56,11 @@ class VideoCaptureWidget:
         if self.rotation_count == 0:
             pass
         elif self.rotation_count in [1, -3]:
-            self.working_frame = cv2.rotate(self.working_frame, cv2.ROTATE_90_CLOCKWISE)
+            self._working_frame = cv2.rotate(self._working_frame, cv2.ROTATE_90_CLOCKWISE)
         elif self.rotation_count in [2,-2]:
-            self.working_frame = cv2.rotate(self.working_frame, cv2.ROTATE_180)
+            self._working_frame = cv2.rotate(self._working_frame, cv2.ROTATE_180)
         elif self.rotation_count in [-1, 3]:
-            self.working_frame = cv2.rotate(self.working_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            self._working_frame = cv2.rotate(self._working_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     def rotate_CW(self):
         print("Rotate CW")
@@ -81,61 +77,47 @@ class VideoCaptureWidget:
             self.rotation_count = self.rotation_count - 1
 
     def run_mediapipe_hands(self):
-            # if not show_mp_q.empty():
-            #     self.show_medipipe = show_mp_q.get()
 
-             # Only calculate mediapipe if going to display it
-            if self.show_mediapipe:
-                frame_RGB  = cv2.cvtColor(self.working_frame, cv2.COLOR_BGR2RGB)
-                self.hand_results = self.hands.process(frame_RGB)
-            
-                # draw hand dots and lines
-                if self.hand_results.multi_hand_landmarks:
-                    for handLms in self.hand_results.multi_hand_landmarks:
-                        self.mpDraw.draw_landmarks(self.working_frame, handLms, self.mpHands.HAND_CONNECTIONS)
+         # Only calculate mediapipe if going to display it
+        if self.show_mediapipe:
+            frame_RGB  = cv2.cvtColor(self._working_frame, cv2.COLOR_BGR2RGB)
+            self.hand_results = self.hands.process(frame_RGB)
+        
+            # draw hand dots and lines
+            if self.hand_results.multi_hand_landmarks:
+                for handLms in self.hand_results.multi_hand_landmarks:
+                    self.mpDraw.draw_landmarks(self._working_frame, handLms, self.mpHands.HAND_CONNECTIONS)
 
 
     
-    def update(self ):
+    def run(self):
         """
-        Worker function that is spun up by Thread. This seems to be where much
-        of the substantive processing and real-time configuration will occur
+        Worker function that is spun up by Thread. Reads in a working frame, 
+        calls various frame processing methods on it, and updates the exposed 
+        frame
 
-        I'm not sure if this would map directly to post-processing tasks, but it
-        will probably be pretty close.
-
-        Parameters:
-            - mp_toggle_q: a queue passed to the thread that will signal a 
-            change of self.show_mediapipe
         """
-        # Grap frame and run image detection
+        # Grab frame and run image detection
         while True:
             
            if self.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
                 # pull in a working frame
-                (self.status, self.working_frame) = self.capture.read()
+                (self.status, self._working_frame) = self.capture.read()
 
                 self.apply_rotation()
                 self.run_mediapipe_hands()
-                # wait to read next frame in order to hit target FPS. Record FPS
-                self.frame = self.working_frame.copy()
+                
+                self.frame = self._working_frame.copy()
                 self.FPS_actual = self.get_FPS_actual() 
     
     def toggle_mediapipe(self):
 
         self.show_mediapipe = not self.show_mediapipe
-        # if self.show_medipipe == True:
-        #     self.mp_toggle_q.put(False)
-        # else:
-        #     self.mp_toggle_q.put(True)
                 
     
     def add_fps(self):
         """"""
         self.fps_text =  str(int(round(self.FPS_actual, 0))) 
-        self.time_now = str(datetime.now().strftime("%S"))
-        self.sec_now = self.time_now[1]
-
         cv2.putText(self.frame, "FPS:" + self.fps_text, (10, 70),cv2.FONT_HERSHEY_PLAIN, 2,(0,0,255), 3)
         
 

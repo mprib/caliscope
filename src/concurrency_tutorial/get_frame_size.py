@@ -73,3 +73,93 @@ get_nearest_resolution(cap2, middle_res_width)
 resolutions = {smallest_res, largest_res}
 
 # %%
+import cv2
+
+
+def list_ports():
+    """
+    Test the ports and returns a tuple with the available ports and the ones that are working.
+    """
+    start = time.time()
+    is_working = True
+    dev_port = 0
+    working_ports = []
+    available_ports = []
+    while is_working:
+        camera = cv2.VideoCapture(dev_port)
+        if not camera.isOpened():
+            is_working = False
+            print("Port %s is not working." %dev_port)
+        else:
+            is_reading, img = camera.read()
+            w = camera.get(3)
+            h = camera.get(4)
+            if is_reading:
+                print("Port %s is working and reads images (%s x %s)" %(dev_port,h,w))
+                working_ports.append(dev_port)
+            else:
+                print("Port %s for camera ( %s x %s) is present but does not reads." %(dev_port,h,w))
+                available_ports.append(dev_port)
+        dev_port +=1
+    elapsed = time.time()-start
+    print(f"Elapsed time to get details on is {elapsed}")
+    return available_ports,working_ports
+# %%
+
+
+
+from threading import Thread
+
+def get_source_details(src, src_list):
+    """returns success, source id ,default frame possible frames"""
+    start = time.time()
+    camera = cv2.VideoCapture(src)
+    if not camera.isOpened():
+        elapsed = time.time()-start
+        print(f"Port {src} is not working.")
+        print(f"Elapsed time to get details on is {elapsed}")
+        # return False, None, [0,0]
+
+    else:
+
+        
+        is_reading, img = camera.read()
+        w = camera.get(3)
+        h = camera.get(4)
+        if is_reading:
+            print("Port %s is working and reads images (%s x %s)" %(src,h,w))
+        else:
+            print("Port %s for camera ( %s x %s) is present but does not reads." %(src,h,w))
+        elapsed = time.time()-start
+        src_list.append([src, [w,h]])
+        # return True, src, [w,h]
+        print(f"Elapsed time to get details on is {elapsed}")
+
+
+
+# %%
+
+print("Beginning video scan...")
+global_start = time.time()
+threads = [] 
+available_cameras = []
+
+for src in range(0,5):
+    get_source_thread = Thread(target = get_source_details, args=(src, available_cameras ))
+    get_source_thread.daemon = True
+    threads.append(get_source_thread)
+
+for thread in threads:
+    thread.start()
+
+for thread in threads:
+    thread.join()
+
+print(available_cameras)
+global_elapsed = time.time()-global_start
+
+
+
+
+print(f"Total Camera Discovery Time: {global_elapsed}")
+# %%

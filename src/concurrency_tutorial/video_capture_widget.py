@@ -27,7 +27,7 @@ class VideoCaptureWidget:
         self.rotation_q = queue.Queue()
 
         # Start the thread to read frames from the video stream
-        self.thread = Thread(target=self.update, args=(self.mp_toggle_q, ))
+        self.thread = Thread(target=self.update, args=( ))
         self.thread.daemon = True
         self.thread.start()
         self.frame_name = "Cam"+str(src)
@@ -40,7 +40,7 @@ class VideoCaptureWidget:
         self.mpHands = mp.solutions.hands
         self.hands = self.mpHands.Hands()
         self.mpDraw = mp.solutions.drawing_utils 
-        self.show_medipipe = True
+        self.show_mediapipe = True
 
     def get_FPS_actual(self):
         """set the actual frame rate from within the update function"""
@@ -80,18 +80,18 @@ class VideoCaptureWidget:
         else:
             self.rotation_count = self.rotation_count - 1
 
-    def run_mediapipe_hands(self, working_frame, show_mp_q ):
-            if not show_mp_q.empty():
-                self.show_medipipe = show_mp_q.get()
+    def run_mediapipe_hands(self, working_frame):
+            # if not show_mp_q.empty():
+            #     self.show_medipipe = show_mp_q.get()
 
              # Only calculate mediapipe if going to display it
-            if self.show_medipipe:
+            if self.show_mediapipe:
                 frame_RGB  = cv2.cvtColor(working_frame, cv2.COLOR_BGR2RGB)
                 self.hand_results = self.hands.process(frame_RGB)
             self.frame = working_frame.copy() 
             
             # only draw hand landmarks if calculating mediapipe
-            if self.show_medipipe:
+            if self.show_mediapipe:
                 # draw hand dots and lines
                 if self.hand_results.multi_hand_landmarks:
                     for handLms in self.hand_results.multi_hand_landmarks:
@@ -99,7 +99,7 @@ class VideoCaptureWidget:
 
 
     
-    def update(self, show_mp_q):
+    def update(self ):
         """
         Worker function that is spun up by Thread. This seems to be where much
         of the substantive processing and real-time configuration will occur
@@ -119,16 +119,17 @@ class VideoCaptureWidget:
                 (self.status, working_frame) = self.capture.read()
 
                 working_frame = self.apply_rotation(working_frame)
-                self.run_mediapipe_hands(working_frame, show_mp_q)
+                self.run_mediapipe_hands(working_frame)
                 # wait to read next frame in order to hit target FPS. Record FPS
                 self.FPS_actual = self.get_FPS_actual() 
     
     def toggle_mediapipe(self):
 
-        if self.show_medipipe == True:
-            self.mp_toggle_q.put(False)
-        else:
-            self.mp_toggle_q.put(True)
+        self.show_mediapipe = not self.show_mediapipe
+        # if self.show_medipipe == True:
+        #     self.mp_toggle_q.put(False)
+        # else:
+        #     self.mp_toggle_q.put(True)
                 
     
     def add_fps(self):

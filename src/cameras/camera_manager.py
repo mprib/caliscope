@@ -2,14 +2,15 @@
 # interface for a given camera. It will  store data related to
 # a variety of camera specific variables and allow setting of these variables:
 #
-# - source
-#   - an integer for a live camera or a path to a video file
+# - port
+#   - an integer for a live camera 
+#   - note this is focused on live feeds...pre-recorded video doesn't need this
 # - nickname
-# - cv2.VideoCapture object based on source
+# - cv2.VideoCapture object based on port
 # - Default Resolution
 # - list of possible resolutions
 # - exposure
-# - intrinsic camera properties
+# - intrinsic camera properties (to be set following calibration/on load)
 #   - camera matrix
 #   - distortion parameters
 #
@@ -22,21 +23,19 @@ from threading import Thread
 TEST_FRAME_COUNT = 3
 MAX_RESOLUTION_CHECK = 10000
 
-class CameraManager(object):
+class Camera(object):
 
 # https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
 # see above for constants used to access properties
-
-    def __init__(self, src):
-
+    def __init__(self, port):
 
         # check if source has a data feed before proceeding
-        test_capture = cv2.VideoCapture(src)
+        test_capture = cv2.VideoCapture(port)
         for _ in range(0, TEST_FRAME_COUNT):
             success, frame = test_capture.read()
 
         if success:
-            self.src = src
+            self.port = port
             self.capture = test_capture
             self.active_port = True
             self.stream_active = False
@@ -47,10 +46,10 @@ class CameraManager(object):
             self.set_possible_resolutions()
             
         else:
-            self.src = src
+            self.port = port
             self.capture = None
             self.active_port = False
-            raise Exception(f"No input from source {src}")       
+            raise Exception(f"No input from source {port}")       
 
     @property
     def exposure(self):
@@ -88,13 +87,10 @@ class CameraManager(object):
 
     @resolution.setter
     def resolution(self, value):
-        if self.show_me_active:
-            self.show_me_active = False
-        
         if self.stream_active:
             # self.stop_q.put("Stop")
             self.capture.release()
-            self.capture = cv2.VideoCapture(self.src)
+            self.capture = cv2.VideoCapture(self.port)
         
         self._width = value[0]
         self._height = value[1]
@@ -102,7 +98,7 @@ class CameraManager(object):
 
     def show_me_worker(self, win_name=None): 
         if not win_name:
-            win_name = f"'q' to quit video {self.src}"
+            win_name = f"'q' to quit video {self.port}"
         
         while True:
 
@@ -119,8 +115,8 @@ class CameraManager(object):
         I need to see how things work in the display widget where
         it actually matters. This may then neceessitate some other method
         of handling things."""
-        self.stream_thread = Thread(target=self.show_me_worker, args= (win_name, ), daemon=True)
-        self.stream_thread.start()
+        stream_thread = Thread(target=self.show_me_worker, args= (win_name, ), daemon=True)
+        stream_thread.start()
 
     def set_default_resolution(self):
         """called at initilization before anything has changed"""
@@ -169,7 +165,7 @@ class CameraManager(object):
         resolutions.sort()
         self.possible_resolutions = resolutions
 # %%
-cam1 = CameraManager(1)
+cam1 = Camera(1)
 
 #%% 
 cam1.show_me()

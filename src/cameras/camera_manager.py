@@ -92,6 +92,7 @@ class CameraManager(object):
 
     @resolution.setter
     def resolution(self, value):
+    
         self.width = value[0]
         self.height = value[1]
 

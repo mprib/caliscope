@@ -14,8 +14,9 @@ start = time.time()
 
 # %%
 # table.to_excel("resolutions.xlsx")
-cap2 = cv2.VideoCapture(0)
-cap = cv2.VideoCapture(0)
+# cap2 = cv2.VideoCapture(0)
+#%%
+cap = cv2.VideoCapture(1)
 # note, if making an additional capture, it seems that the resolution options
 # get narrowed considerably
 

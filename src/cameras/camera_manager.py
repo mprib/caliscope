@@ -63,28 +63,28 @@ class CameraManager(object):
         self._exposure = value
 
     @property
-    def width(self):
-        # print("Getting width")
+    def _width(self):
+        # print("Getting _width")
         return self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
 
-    @width.setter
-    def width(self, value):
-        # print("Setting width")
+    @_width.setter
+    def _width(self, value):
+        # print("Setting _width")
         self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, value)
 
 
     @property
-    def height(self):
+    def _height(self):
         return self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
-    @height.setter
-    def height(self, value):
+    @_height.setter
+    def _height(self, value):
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, value)
 
     @property
     def resolution(self):
         # print("Getting Resolution")
-        return (self.width, self.height)
+        return (self._width, self._height)
 
     @resolution.setter
     def resolution(self, value):
@@ -96,8 +96,8 @@ class CameraManager(object):
             self.capture.release()
             self.capture = cv2.VideoCapture(self.src)
         
-        self.width = value[0]
-        self.height = value[1]
+        self._width = value[0]
+        self._height = value[1]
         
 
     def show_me_worker(self, win_name=None): 
@@ -128,14 +128,14 @@ class CameraManager(object):
 
     def set_exposure(self):
         """Need an initial value, though it does not appear that updates to 
-        exposure reliably read back from OpenCV"""
+        exposure reliably read back from """
         self._exposure = self.capture.get(cv2.CAP_PROP_EXPOSURE)
 
     def get_nearest_resolution(self, test_width):
         """
 
         """
-        # reminder on implementation: calling property getter of width
+        # reminder on implementation: calling property getter of _width
         # introduces bug because 'old_width' property getter called at end
         print("Getting nearest resolution")
         old_width = self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)

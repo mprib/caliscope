@@ -40,6 +40,8 @@ class Camera(object):
             self.port = port
             self.capture = test_capture
             self.active_port = True
+            self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-getanother thread signaled a change to mediapipe overley-sync
+
             self.is_connected = True
             self.is_rolling = False
             self.stop_rolling_trigger = False # used for managing threads

@@ -4,9 +4,12 @@
 
 # Moving on to pythonguis.com tutorials for just that. But this code works...
 
+
+#%%
 import sys
 from pathlib import Path
 import time
+from threading import Thread
 
 import cv2
 
@@ -78,15 +81,11 @@ class VideoDisplayWidget(QWidget):
 
 
 class FrameEmitter(QThread):
-    """
-
-    """
     ImageUpdate = pyqtSignal(QImage)
-
    
     def __init__(self, camcap):
         super(FrameEmitter,self).__init__()
-        self.peak_fps_display = 10
+        self.min_sleep = .01 # if true fps drops to zero, don't blow up
         self.camcap = camcap
 
     def run(self):
@@ -111,7 +110,7 @@ class FrameEmitter(QThread):
                 qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
                 Pic = qt_frame.scaled(self.width, self.height, Qt.AspectRatioMode.KeepAspectRatio)
                 self.ImageUpdate.emit(Pic)
-                time.sleep(1/fps)
+                time.sleep(min(1/fps, self.min_sleep))
                 # time.sleep(1/self.peak_fps_display)
 
             except AttributeError:
@@ -120,15 +119,24 @@ class FrameEmitter(QThread):
         self.ThreadActive = False
         self.quit()
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
+#%%
+# if True:
+
+def test_worker(cam):
     # create a camera widget to pull in a thread of frames
     # these are currently processed by mediapipe but don't have to be
     # capture_widget = VideoCaptureWidget(0,1080,640)
 
-    cam = Camera(1)
     camcap = CameraCaptureWidget(cam)
     App = QApplication(sys.argv)
     display = VideoDisplayWidget(camcap)
-
     display.show()
     sys.exit(App.exec())
+# %%
+port = 1
+cam = Camera(port)
+
+test_thread = Thread(target=test_worker, args=(cam,),daemon=True)
+test_thread.start()
+# %%

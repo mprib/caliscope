@@ -88,7 +88,9 @@ class CameraCaptureWidget:
                     self.mpDraw.draw_landmarks(self._working_frame, handLms, self.mpHands.HAND_CONNECTIONS)
 
 
-    
+
+
+
     def run(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame, 
@@ -98,8 +100,9 @@ class CameraCaptureWidget:
         """
         # Grab frame and run image detection
         while True:
-            
-           if self.cam.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
+            self.cam.is_rolling = True
+
+            if self.cam.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
                 # pull in a working frame
                 (self.status, self._working_frame) = self.cam.capture.read()
 
@@ -108,7 +111,19 @@ class CameraCaptureWidget:
                 
                 self.frame = self._working_frame.copy()
                 self.FPS_actual = self.get_FPS_actual() 
-    
+
+                # Stop thread if camera pulls trigger
+                if self.cam.stop_rolling_trigger:
+                    self.cam.is_rolling = False
+                    break
+
+    def change_resolution(self, res):
+        self.cam.stop_rolling() # will trigger running capture thread to end
+        self.cam.resolution = res
+        self.cap_thread.start()
+
+        pass
+
     def toggle_mediapipe(self):
 
         self.show_mediapipe = not self.show_mediapipe
@@ -123,7 +138,7 @@ class CameraCaptureWidget:
 # Highlight module functionality. View a frame with mediapipe hands
 # press "q" to quit
 if __name__ == '__main__':
-    ports = [0]
+    ports = [1]
     # ports = [0, 1, 3]
 
     cams = []
@@ -176,3 +191,7 @@ if __name__ == '__main__':
                 camcap.cam.capture.release()
             cv2.destroyAllWindows()
             exit(0)
+
+        if key == ord('v'):
+            for camcap in camcap_widgets:
+                camcap.change_resolution((1280, 720))

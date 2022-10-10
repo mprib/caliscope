@@ -91,9 +91,9 @@ class FrameEmitter(QThread):
     def run(self):
         # self.camcap = CameraCaptureWidget(self.camcap) #, self.width ,self.height)
         self.ThreadActive = True
-        self.height = self.camcap.cam.resolution[0]
-        self.width = self.camcap.cam.resolution[1]
-
+        self.height = int(self.camcap.cam.resolution[0])
+        self.width = int(self.camcap.cam.resolution[1])
+        
         while self.ThreadActive:
             try:    # takes a moment for capture widget to spin up...don't error out
 
@@ -110,7 +110,7 @@ class FrameEmitter(QThread):
                 qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
                 Pic = qt_frame.scaled(self.width, self.height, Qt.AspectRatioMode.KeepAspectRatio)
                 self.ImageUpdate.emit(Pic)
-                time.sleep(min(1/fps, self.min_sleep))
+                time.sleep(1/fps)
                 # time.sleep(1/self.peak_fps_display)
 
             except AttributeError:
@@ -123,20 +123,23 @@ class FrameEmitter(QThread):
 #%%
 # if True:
 
+
+# NOTE TO SELF: I"VE FUCKED UP THIS MODULE AND WILL LOOK AT IT IN THE AM WITH FRESH EYES
+# AND LIKELY ROLL BACK TO THIS MORNING'S VERSION
 def test_worker(cam):
     # create a camera widget to pull in a thread of frames
     # these are currently processed by mediapipe but don't have to be
     # capture_widget = VideoCaptureWidget(0,1080,640)
-
-    camcap = CameraCaptureWidget(cam)
-    App = QApplication(sys.argv)
-    display = VideoDisplayWidget(camcap)
-    display.show()
-    sys.exit(App.exec())
+    pass
 # %%
 port = 1
+App = QApplication(sys.argv)
 cam = Camera(port)
+camcap = CameraCaptureWidget(cam)
+display = VideoDisplayWidget(camcap)
+display.show()
+# sys.exit(App.exec())
 
-test_thread = Thread(target=test_worker, args=(cam,),daemon=True)
-test_thread.start()
+# test_thread = Thread(target=test_worker, args=(cam,),daemon=True)
+# test_thread.start()
 # %%

@@ -17,8 +17,10 @@
 # New camera configurations 
 #%%
 
+import queue
 import cv2
 from threading import Thread
+import time
 
 TEST_FRAME_COUNT = 3
 MAX_RESOLUTION_CHECK = 10000
@@ -38,8 +40,8 @@ class Camera(object):
             self.port = port
             self.capture = test_capture
             self.active_port = True
-            self.stream_active = False
-            self.show_me_active = False
+            self.is_connected = True
+            self.is_rolling = False
 
             self.set_exposure()
             self.set_default_resolution()
@@ -57,20 +59,19 @@ class Camera(object):
     
     @exposure.setter
     def exposure(self, value):
-        # print("Setting Exposure")
+        """Note that OpenCV appears to change the exposure value, but 
+        this is not read back accurately through the getter, so just
+        set it manually here after updating"""
         self.capture.set(cv2.CAP_PROP_EXPOSURE, value)
         self._exposure = value
 
     @property
     def _width(self):
-        # print("Getting _width")
         return self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
 
     @_width.setter
     def _width(self, value):
-        # print("Setting _width")
         self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, value)
-
 
     @property
     def _height(self):
@@ -82,41 +83,14 @@ class Camera(object):
 
     @property
     def resolution(self):
-        # print("Getting Resolution")
         return (self._width, self._height)
 
     @resolution.setter
     def resolution(self, value):
-        if self.stream_active:
-            # self.stop_q.put("Stop")
-            self.capture.release()
-            self.capture = cv2.VideoCapture(self.port)
-        
+        """Currently, this is how the resolution is actually changed"""
         self._width = value[0]
         self._height = value[1]
         
-
-    def show_me_worker(self, win_name=None): 
-        if not win_name:
-            win_name = f"'q' to quit video {self.port}"
-        
-        while True:
-
-            success, frame = self.capture.read()
-            cv2.imshow(win_name, frame)
-
-            if cv2.waitKey(1) ==ord('q'):
-                cv2.destroyWindow(win_name)
-                break
-                        
-
-    def show_me(self, win_name=None):
-        """ Note, this is just for general observation purposes, 
-        I need to see how things work in the display widget where
-        it actually matters. This may then neceessitate some other method
-        of handling things."""
-        stream_thread = Thread(target=self.show_me_worker, args= (win_name, ), daemon=True)
-        stream_thread.start()
 
     def set_default_resolution(self):
         """called at initilization before anything has changed"""
@@ -131,9 +105,7 @@ class Camera(object):
         """
 
         """
-        # reminder on implementation: calling property getter of _width
-        # introduces bug because 'old_width' property getter called at end
-        print("Getting nearest resolution")
+        # print("Getting nearest resolution")
         old_width = self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, test_width)
         resolution = self.resolution
@@ -149,9 +121,10 @@ class Camera(object):
         min_width = min_res[0]
         max_width = max_res[0]
 
-        STEPS_TO_CHECK = 10 # this is apparently a very fast process
+        STEPS_TO_CHECK = 10 # fast to check so cover your bases
 
-        step_size = int((max_width-min_width)/STEPS_TO_CHECK) # the size of jump to make before checking on the resolution
+        # the size of jump to make before checking on the resolution
+        step_size = int((max_width-min_width)/STEPS_TO_CHECK) 
 
         resolutions = {min_res, max_res}
 
@@ -159,13 +132,97 @@ class Camera(object):
                                 int(max_width - step_size), 
                                 int(step_size)):
             new_res = self.get_nearest_resolution(test_width)
-            print(new_res)
+            # print(new_res)
             resolutions.add(new_res)
         resolutions = list(resolutions)
         resolutions.sort()
         self.possible_resolutions = resolutions
-# %%
-cam1 = Camera(1)
 
-#%% 
-cam1.show_me()
+    def disconnect(self):
+        self.capture.release()
+        self.is_connected = False
+    
+    def connect(self):
+        self.capture = cv2.VideoCapture(self.port)
+        self.is_connected = True
+
+    # def stop_rolling(self):
+    #     """
+    #     Use .is_rolling as a trigger to kill threads
+    #     that are reading in camera data
+    #     """
+    #     self.stop_rolling_confirmed = False
+    #     self.is_rolling = False
+    #     while not self.stop_rolling_confirmed:
+    #         time.sleep(.1)
+
+# Here I include some helper functions to exhibit/test the functionality 
+# of the module
+def display_worker(camera, kill_q, win_name=None): 
+    if not win_name:
+        win_name = f"'q' to quit video {camera.port}"
+    
+    while True:
+        success, frame = camera.capture.read()
+        cv2.imshow(win_name, frame)
+
+        if not kill_q.empty():
+            _ = kill_q.get()
+            cv2.destroyWindow(win_name)
+            camera.is_rolling = False
+            break
+
+        if cv2.waitKey(1) ==ord('q'):
+            cv2.destroyWindow(win_name)
+            camera.is_rolling = False
+            break
+                    
+def display(camera, kill_q, win_name=None):
+    """ Note, this is just for general observation purposes, 
+    while in the process of verifying this module.
+    """
+    camera.is_rolling = True
+    display_thread = Thread(target=display_worker, args= (camera, kill_q, win_name), daemon=True)
+    display_thread.start()
+
+# if __name__ == "__main__":
+#%%
+# if True:
+
+cam1 = Camera(1)
+print(cam1.possible_resolutions)
+#%%
+
+# cam1.resolution = (752.0, 416.0)
+# display(cam1)
+# #%%
+
+# cam1.resolution = (1280, 720)
+# display(cam1)
+
+# #%%
+
+# cam1.resolution = (1024, 576)
+# display(cam1)
+#%%
+
+kill_q = queue.Queue()
+
+for res in cam1.possible_resolutions:
+    print(f"Testing Resolution {res}")
+    cam1.disconnect()
+    cam1.connect()
+    cam1.resolution = res
+    display(cam1, kill_q)
+    
+    time.sleep(3)
+    kill_q.put("End")
+    time.sleep(1)
+    # cam1.stop_rolling()
+    # time.sleep(3)
+
+    # display(cam1)
+    
+cam1.disconnect()
+
+# %%

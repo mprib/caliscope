@@ -25,6 +25,7 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.video_capture_widget import VideoCaptureWidget
+from src.cameras.camera_manager import Camera
 
 class VideoDisplayWidget(QWidget):
     def __init__(self, video_src):
@@ -33,8 +34,9 @@ class VideoDisplayWidget(QWidget):
         self.VBL = QVBoxLayout()
         self.HBL = QHBoxLayout()
 
-        self.FeedLabel = QLabel()
-        self.VBL.addWidget(self.FeedLabel)
+        # FeedLabel 
+        self.VideoScreen = QLabel()
+        self.VBL.addWidget(self.VideoScreen)
 
         self.MediapipeToggle = QCheckBox("Show Mediapipe Overlay")
         self.MediapipeToggle.setCheckState(Qt.CheckState.Checked)
@@ -53,7 +55,7 @@ class VideoDisplayWidget(QWidget):
         self.setLayout(self.VBL)
         self.VBL.addLayout(self.HBL)
 
-        self.vid_display = VideoStreamEmitter(video_src)
+        self.vid_display = FrameEmitter(video_src)
         self.vid_display.start()
         self.vid_display.ImageUpdate.connect(self.ImageUpdateSlot)
         
@@ -66,7 +68,7 @@ class VideoDisplayWidget(QWidget):
         self.vid_display.vid_cap_widget.rotate_CCW()
             
     def ImageUpdateSlot(self, Image):
-        self.FeedLabel.setPixmap(QPixmap.fromImage(Image))
+        self.VideoScreen.setPixmap(QPixmap.fromImage(Image))
         # self.FeedLabel.setPixmap(Image)
 
     def CancelFeed(self):
@@ -78,7 +80,7 @@ class VideoDisplayWidget(QWidget):
         self.vid_display.vid_cap_widget.toggle_mediapipe()
 
 
-class VideoStreamEmitter(QThread):
+class FrameEmitter(QThread):
     """
 
     """
@@ -86,7 +88,7 @@ class VideoStreamEmitter(QThread):
 
    
     def __init__(self, video_src):
-        super(VideoStreamEmitter,self).__init__()
+        super(FrameEmitter,self).__init__()
         self.peak_fps_display = 10
         self.video_src = video_src
 
@@ -114,8 +116,6 @@ class VideoStreamEmitter(QThread):
                 self.ImageUpdate.emit(Pic)
                 time.sleep(1/fps)
                 # time.sleep(1/self.peak_fps_display)
-                 
-
 
             except AttributeError:
                 pass
@@ -128,6 +128,7 @@ if __name__ == "__main__":
     # these are currently processed by mediapipe but don't have to be
     # capture_widget = VideoCaptureWidget(0,1080,640)
 
+    cam = Camera(1)
     App = QApplication(sys.argv)
     Root = VideoDisplayWidget(1)
     Root.show()

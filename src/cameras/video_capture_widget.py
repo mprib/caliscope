@@ -10,23 +10,22 @@ import mediapipe as mp
 
 from datetime import datetime
 
+# Append main repo to top of path to allow import of backend
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from src.cameras.camera import Camera
 
-class VideoCaptureWidget:
-    def __init__(self, src):
-        
+class CameraCaptureWidget:
+    def __init__(self, cam):
+
+        self.cam = cam 
         # Initialize parameters capture paramters
-        self.capture = cv2.VideoCapture(src)
-        self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 2)  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-getanother thread signaled a change to mediapipe overley-sync
         self.rotation_count = 0 # +1 for each 90 degree clockwise rotation, -1 for CCW
         
-        # self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-        # self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-
         # Start the thread to read frames from the video stream
-        self.thread = Thread(target=self.run, args=( ))
-        self.thread.daemon = True
-        self.thread.start()
-        self.frame_name = "Cam"+str(src)
+        self.cap_thread = Thread(target=self.run, args=( ), daemon=True)
+        self.cap_thread.start()
+        self.frame_name = "Cam"+str(cam.port)
         
         # initialize time trackers for actual FPS determination
         self.start_time = time.time()
@@ -100,9 +99,9 @@ class VideoCaptureWidget:
         # Grab frame and run image detection
         while True:
             
-           if self.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
+           if self.cam.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
                 # pull in a working frame
-                (self.status, self._working_frame) = self.capture.read()
+                (self.status, self._working_frame) = self.cam.capture.read()
 
                 self.apply_rotation()
                 self.run_mediapipe_hands()
@@ -124,18 +123,25 @@ class VideoCaptureWidget:
 # Highlight module functionality. View a frame with mediapipe hands
 # press "q" to quit
 if __name__ == '__main__':
-    # src_list = [0,1]
-    src_list = [0, 1, 3]
-    cam_widgets = []
+    ports = [0]
+    # ports = [0, 1, 3]
 
-    for src in src_list:
-        cam_widgets.append(VideoCaptureWidget(src))
+    cams = []
+    for port in ports:
+        print(f"Creating camera {port}")
+        cams.append(Camera(port))
+
+    camcap_widgets = []
+
+    for cam in cams:
+        print(f"Creating capture widget for camera {cam.port}")
+        camcap_widgets.append(CameraCaptureWidget(cam))
 
     while True:
         try:
-            for cam in cam_widgets:
-                cam.add_fps()
-                cv2.imshow(cam.frame_name, cam.frame)
+            for camcap in camcap_widgets:
+                camcap.add_fps()
+                cv2.imshow(camcap.frame_name, camcap.frame)
                 
         # bad reads until connection to src established
         except AttributeError:
@@ -146,27 +152,27 @@ if __name__ == '__main__':
         # toggle mediapipe with 'm' 
         if key == ord('m'):
             print("Toggling Mediapipe")
-            for cam in cam_widgets:
-                print(cam.frame_name)
-                cam.toggle_mediapipe()
+            for camcap in camcap_widgets:
+                print(camcap.frame_name)
+                camcap.toggle_mediapipe()
         
         if key == ord('r'):
             print("Rotate Frame CW")
 
-            for cam in cam_widgets:
-                cam.rotate_CW()
-                print(cam.frame_name + " " + str(cam.rotation_count))
+            for camcap in camcap_widgets:
+                camcap.rotate_CW()
+                print(camcap.frame_name + " " + str(camcap.rotation_count))
        
         if  key == ord('l'):
             print("Rotate Frame CCW")
                 
-            for cam in cam_widgets:
-                cam.rotate_CCW()
-                print(cam.frame_name + " " + str(cam.rotation_count))
+            for camcap in camcap_widgets:
+                camcap.rotate_CCW()
+                print(camcap.frame_name + " " + str(camcap.rotation_count))
        
         # 'q' to quit
         if key == ord('q'):
-            for cam in cam_widgets:
-                cam.capture.release()
+            for camcap in camcap_widgets:
+                camcap.cam.capture.release()
             cv2.destroyAllWindows()
             exit(0)

@@ -24,8 +24,8 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.cameras.video_capture_widget import VideoCaptureWidget
-from src.cameras.camera_manager import Camera
+from src.cameras.video_capture_widget import CameraCaptureWidget
+from src.cameras.camera import Camera
 
 class VideoDisplayWidget(QWidget):
     def __init__(self, video_src):
@@ -93,7 +93,7 @@ class FrameEmitter(QThread):
         self.video_src = video_src
 
     def run(self):
-        self.vid_cap_widget = VideoCaptureWidget(self.video_src) #, self.width ,self.height)
+        self.vid_cap_widget = CameraCaptureWidget(self.video_src) #, self.width ,self.height)
         self.ThreadActive = True
         self.height = self.vid_cap_widget.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.width = self.vid_cap_widget.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)

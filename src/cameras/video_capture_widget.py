@@ -87,10 +87,6 @@ class CameraCaptureWidget:
                 for handLms in self.hand_results.multi_hand_landmarks:
                     self.mpDraw.draw_landmarks(self._working_frame, handLms, self.mpHands.HAND_CONNECTIONS)
 
-
-
-
-
     def run(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame, 
@@ -119,7 +115,14 @@ class CameraCaptureWidget:
 
     def change_resolution(self, res):
         self.cam.stop_rolling() # will trigger running capture thread to end
+        while self.cam.is_rolling:
+            time.sleep(.01)
+        self.cam.disconnect()
+        self.cam.connect()
         self.cam.resolution = res
+        
+        # apparently threads can only be started once, so create anew
+        self.cap_thread = Thread(target=self.run, args=( ), daemon=True)
         self.cap_thread.start()
 
         pass

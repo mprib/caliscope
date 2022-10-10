@@ -23,6 +23,7 @@ from threading import Thread
 import time
 
 TEST_FRAME_COUNT = 3
+MIN_RESOLUTION_CHECK = 500
 MAX_RESOLUTION_CHECK = 10000
 
 class Camera(object):
@@ -93,7 +94,6 @@ class Camera(object):
         """Currently, this is how the resolution is actually changed"""
         self._width = value[0]
         self._height = value[1]
-        
 
     def set_default_resolution(self):
         """called at initilization before anything has changed"""
@@ -113,7 +113,7 @@ class Camera(object):
         return resolution
 
     def set_possible_resolutions(self):
-        min_res = self.get_nearest_resolution(0)
+        min_res = self.get_nearest_resolution(MIN_RESOLUTION_CHECK)
         max_res = self.get_nearest_resolution(MAX_RESOLUTION_CHECK)
 
         min_width = min_res[0]
@@ -126,16 +126,18 @@ class Camera(object):
 
         resolutions = {min_res, max_res}
 
-        for test_width in range(int(min_width + step_size), 
-                                int(max_width - step_size), 
-                                int(step_size)):
-            new_res = self.get_nearest_resolution(test_width)
-            # print(new_res)
-            resolutions.add(new_res)
-        resolutions = list(resolutions)
-        resolutions.sort()
-        self.possible_resolutions = resolutions
-
+        if max_width > min_width: # i.e. only one size avaialable
+            for test_width in range(int(min_width + step_size), 
+                                    int(max_width - step_size), 
+                                    int(step_size)):
+                new_res = self.get_nearest_resolution(test_width)
+                # print(new_res)
+                resolutions.add(new_res)
+            resolutions = list(resolutions)
+            resolutions.sort()
+            self.possible_resolutions = resolutions
+        else:
+            self.possible_resolutions = self.default_resolution
     def disconnect(self):
         self.capture.release()
         self.is_connected = False
@@ -161,18 +163,26 @@ class Camera(object):
 def display_worker(camera, win_name=None): 
     if not win_name:
         win_name = f"'q' to quit video {camera.port}"
-    
+
+    frame_displayed = False
     while True:
         success, frame = camera.capture.read()
-        cv2.imshow(win_name, frame)
-
+        
+        if success:
+            cv2.imshow(win_name, frame)
+            frame_displayed = True
+        
         if camera.stop_rolling_trigger:
-            cv2.destroyWindow(win_name)
+            if frame_displayed:
+                print("Successful Display")
+                cv2.destroyWindow(win_name)
             camera.is_rolling = False
             break
 
         if cv2.waitKey(1) == ord('q'):
-            cv2.destroyWindow(win_name)
+            if frame_displayed:
+                print("Successful Display")
+                cv2.destroyWindow(win_name)
             camera.is_rolling = False
             break
                     
@@ -187,42 +197,45 @@ def display(camera, win_name=None):
     display_thread.start()
 
 ######################### TEST FUNCTIONALITY OF CAMERAS ########################
+#%%
 if __name__ == "__main__":
-    #%%
     # if True:
 
-    cam1 = Camera(1)
-    print(cam1.possible_resolutions)
+    cam = Camera(0)
+    print(cam.possible_resolutions)
     #%%
     # NOTE: shift+enter will allow you to just run the current block in interactive mode
 
     # kill_q = queue.Queue()
 
-    for res in cam1.possible_resolutions:
+    for res in cam.possible_resolutions:
         print(f"Testing Resolution {res}")
 
         # cv2.imshow appears to throw errors after ~3 changes in resolution
         # disconnecting and reconnecting may not be necessary with other 
         # display implementations 
-        cam1.disconnect()
-        cam1.connect()
-        cam1.resolution = res
-        display(cam1)
-
+        cam.disconnect()
+        cam.connect()
+        cam.resolution = res
+        display(cam)
         time.sleep(3)
-        cam1.stop_rolling()           
+        cam.stop_rolling()           
+        # except:
+            # print(f"Unsuccessful at {res}")
+            # pass
+
 
     # %%
-    cam1.connect()
-    display(cam1)
+    cam.connect()
+    display(cam)
 
     for exp in range(-10,0):
         print(f"Testing Exposure Level {exp}")
-        cam1.exposure = exp
+        cam.exposure = exp
         time.sleep(2)
 
-    cam1.stop_rolling()
-    cam1.exposure = -5
-    cam1.disconnect()
+    cam.stop_rolling()
+    cam.exposure = -5
+    cam.disconnect()
     
     # %%

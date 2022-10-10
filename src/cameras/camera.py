@@ -62,7 +62,7 @@ class Camera(object):
     def exposure(self, value):
         """Note that OpenCV appears to change the exposure value, but 
         this is not read back accurately through the getter, so just
-        set it manually here after updating"""
+        track it manually after updating"""
         self.capture.set(cv2.CAP_PROP_EXPOSURE, value)
         self._exposure = value
 
@@ -101,18 +101,13 @@ class Camera(object):
         """Need an initial value, though it does not appear that updates to 
         exposure reliably read back from """
         self._exposure = self.capture.get(cv2.CAP_PROP_EXPOSURE)
+        self.exposure = self._exposure  # port seemed to hold on to old exposure 
 
     def get_nearest_resolution(self, test_width):
-        """
-
-        """
-        # print("Getting nearest resolution")
-        old_width = self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, test_width)
+        old_width = self._width 
+        self._width = test_width
         resolution = self.resolution
-        # print(resolution)
-        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, old_width)
-        # print("Second time around" + str(resolution))
+        self._width = old_width
         return resolution
 
     def set_possible_resolutions(self):
@@ -158,6 +153,7 @@ class Camera(object):
                 time.sleep(.01)
         self.stop_rolling_trigger = False
 
+############################ DEBUG / TEST ######################################
 # Here I include some helper functions to exhibit/test the functionality 
 # of the module
 def display_worker(camera, win_name=None): 
@@ -173,7 +169,7 @@ def display_worker(camera, win_name=None):
             camera.is_rolling = False
             break
 
-        if cv2.waitKey(1) ==ord('q'):
+        if cv2.waitKey(1) == ord('q'):
             cv2.destroyWindow(win_name)
             camera.is_rolling = False
             break
@@ -183,41 +179,48 @@ def display(camera, win_name=None):
     while in the process of verifying this module.
     """
     camera.is_rolling = True
-    display_thread = Thread(target=display_worker, args= (camera,  win_name), daemon=True)
+    display_thread = Thread(target=display_worker, 
+                            args= (camera, win_name), 
+                            daemon=True)
     display_thread.start()
 
+######################### TEST FUNCTIONALITY OF CAMERAS ########################
+if __name__ == "__main__":
+    #%%
+    # if True:
 
-# if __name__ == "__main__":
-#%%
-# if True:
+    cam1 = Camera(1)
+    print(cam1.possible_resolutions)
+    #%%
+    # NOTE: shift+enter will allow you to just run the current block in interactive mode
 
-cam1 = Camera(1)
-print(cam1.possible_resolutions)
-#%%
-# NOTE: shift+enter will allow you to just run the current block in interactive mode
+    # kill_q = queue.Queue()
 
-# kill_q = queue.Queue()
+    for res in cam1.possible_resolutions:
+        print(f"Testing Resolution {res}")
 
-for res in cam1.possible_resolutions:
-    print(f"Testing Resolution {res}")
+        # cv2.imshow appears to throw errors after ~3 changes in resolution
+        # disconnecting and reconnecting may not be necessary with other 
+        # display implementations 
+        cam1.disconnect()
+        cam1.connect()
+        cam1.resolution = res
+        display(cam1)
 
-    # cv2.imshow appears to throw errors after ~3 changes in resolution
-    # disconnecting and reconnecting may not be necessary with other 
-    # display implementations 
-    cam1.disconnect()
+        time.sleep(3)
+        cam1.stop_rolling()           
+
+    # %%
     cam1.connect()
-    cam1.resolution = res
     display(cam1)
+
+    for exp in range(-10,0):
+        print(f"Testing Exposure Level {exp}")
+        cam1.exposure = exp
+        time.sleep(2)
+
+    cam1.stop_rolling()
+    cam1.exposure = -5
+    cam1.disconnect()
     
-    time.sleep(3)
-    cam1.stop_rolling()           
-
-# %%
-cam1.connect()
-display(cam1)
-
-for exp in range(-10,0):
-    print(f"Testing Exposure Level {exp}")
-    cam1.exposure = exp
-    time.sleep(2)
-# %%
+    # %%

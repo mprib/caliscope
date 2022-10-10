@@ -42,6 +42,7 @@ class Camera(object):
             self.active_port = True
             self.is_connected = True
             self.is_rolling = False
+            self.stop_rolling_trigger = False # used for managing threads
 
             self.set_exposure()
             self.set_default_resolution()
@@ -146,19 +147,20 @@ class Camera(object):
         self.capture = cv2.VideoCapture(self.port)
         self.is_connected = True
 
-    # def stop_rolling(self):
-    #     """
-    #     Use .is_rolling as a trigger to kill threads
-    #     that are reading in camera data
-    #     """
-    #     self.stop_rolling_confirmed = False
-    #     self.is_rolling = False
-    #     while not self.stop_rolling_confirmed:
-    #         time.sleep(.1)
+    def stop_rolling(self):
+        """
+        Use .is_rolling as a trigger to kill threads
+        that are reading in camera data
+        """
+        if self.is_rolling: # don't create a loop if can't break out
+            self.stop_rolling_trigger = True
+            while self.is_rolling:  # give the thread time to wrap up 
+                time.sleep(.01)
+        self.stop_rolling_trigger = False
 
 # Here I include some helper functions to exhibit/test the functionality 
 # of the module
-def display_worker(camera, kill_q, win_name=None): 
+def display_worker(camera, win_name=None): 
     if not win_name:
         win_name = f"'q' to quit video {camera.port}"
     
@@ -166,8 +168,7 @@ def display_worker(camera, kill_q, win_name=None):
         success, frame = camera.capture.read()
         cv2.imshow(win_name, frame)
 
-        if not kill_q.empty():
-            _ = kill_q.get()
+        if camera.stop_rolling_trigger:
             cv2.destroyWindow(win_name)
             camera.is_rolling = False
             break
@@ -177,13 +178,14 @@ def display_worker(camera, kill_q, win_name=None):
             camera.is_rolling = False
             break
                     
-def display(camera, kill_q, win_name=None):
+def display(camera, win_name=None):
     """ Note, this is just for general observation purposes, 
     while in the process of verifying this module.
     """
     camera.is_rolling = True
-    display_thread = Thread(target=display_worker, args= (camera, kill_q, win_name), daemon=True)
+    display_thread = Thread(target=display_worker, args= (camera,  win_name), daemon=True)
     display_thread.start()
+
 
 # if __name__ == "__main__":
 #%%
@@ -192,37 +194,30 @@ def display(camera, kill_q, win_name=None):
 cam1 = Camera(1)
 print(cam1.possible_resolutions)
 #%%
+# NOTE: shift+enter will allow you to just run the current block in interactive mode
 
-# cam1.resolution = (752.0, 416.0)
-# display(cam1)
-# #%%
-
-# cam1.resolution = (1280, 720)
-# display(cam1)
-
-# #%%
-
-# cam1.resolution = (1024, 576)
-# display(cam1)
-#%%
-
-kill_q = queue.Queue()
+# kill_q = queue.Queue()
 
 for res in cam1.possible_resolutions:
     print(f"Testing Resolution {res}")
+
+    # cv2.imshow appears to throw errors after ~3 changes in resolution
+    # disconnecting and reconnecting may not be necessary with other 
+    # display implementations 
     cam1.disconnect()
     cam1.connect()
     cam1.resolution = res
-    display(cam1, kill_q)
+    display(cam1)
     
     time.sleep(3)
-    kill_q.put("End")
-    time.sleep(1)
-    # cam1.stop_rolling()
-    # time.sleep(3)
+    cam1.stop_rolling()           
 
-    # display(cam1)
-    
-cam1.disconnect()
+# %%
+cam1.connect()
+display(cam1)
 
+for exp in range(-10,0):
+    print(f"Testing Exposure Level {exp}")
+    cam1.exposure = exp
+    time.sleep(2)
 # %%

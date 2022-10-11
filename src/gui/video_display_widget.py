@@ -37,15 +37,13 @@ class CameraConfigWidget(QWidget):
         self.VBL = QVBoxLayout()
         self.HBL = QHBoxLayout()
 
+        # print("About to add frame display")
         self.VBL.addWidget(self.get_frame_display())
 
         ################# BEGIN ADDING THE HBOX ###########################
-        # Mediapip display toggle
-        self.MediapipeToggle = QCheckBox("Show Mediapipe Overlay")
-        self.MediapipeToggle.setCheckState(Qt.CheckState.Checked)
-        self.MediapipeToggle.stateChanged.connect(self.toggle_mediapipe)
-        self.HBL.addWidget(self.MediapipeToggle)
-
+        # print("about to add mp toggle")
+        self.HBL.addWidget(self.get_mediapipe_toggle())
+        
         # Image Rotation CCW
         self.rotate_ccw_btn = QPushButton("Rotate CCW")
         self.rotate_ccw_btn.clicked.connect(self.rotate_ccw)
@@ -67,13 +65,14 @@ class CameraConfigWidget(QWidget):
 
 ### Begin Exposure Setting
     def get_exposure_slider(self):
+        # construct a horizontal widget with label: slider: value display
         HBox = QHBoxLayout()
         label = QLabel("Exposure")
         HBox.addWidget(label)
 
         exp_slider = QSlider(Qt.Orientation.Horizontal)
         exp_slider.setRange(-10,0)
-        exp_slider.setSliderPosition(self.cam_cap.cam.exposure)
+        exp_slider.setSliderPosition(int(self.cam_cap.cam.exposure))
         exp_slider.setPageStep(1)
         exp_slider.setSingleStep(1)
         def update_exposure(s):
@@ -83,23 +82,40 @@ class CameraConfigWidget(QWidget):
 
         HBox.addWidget(exp_slider)
 
-
         return HBox
-        # self.VBL.addLayout(HBox)
 
 
     def get_frame_display(self):
-        # Initialize frame emitter which will start grabbing from camcap widget
-        frame_emitter = FrameEmitter(self.cam_cap)
-        frame_emitter.start()
+        # return a QLabel that is linked to the constantly changing image
+        # emitted by the FrameEmitter thread (which is pulled off of the 
+        # video capture widget which is running its own roll_camera thread)
+        
+        # IMPORTANT: frame_emitter thread must continue to exist after running
+        # this method. Cannot be confined to namespace of the method
+        self.frame_emitter = FrameEmitter(self.cam_cap)
+        self.frame_emitter.start()
         CameraDisplay = QLabel()
 
         def ImageUpdateSlot(Image):
             CameraDisplay.setPixmap(QPixmap.fromImage(Image))
 
-        frame_emitter.ImageUpdate.connect(ImageUpdateSlot)
+        self.frame_emitter.ImageBroadcast.connect(ImageUpdateSlot)
 
         return CameraDisplay
+
+    def get_mediapipe_toggle(self):
+        # Mediapip display toggle
+        self.mediapipe_toggle = QCheckBox("Show Mediapipe Overlay")
+        self.mediapipe_toggle.setCheckState(Qt.CheckState.Checked)
+
+        def toggle_mediapipe(s):
+            print("Toggle Mediapipe")
+            self.cam_cap.toggle_mediapipe()
+
+        self.mediapipe_toggle.stateChanged.connect(toggle_mediapipe)
+
+        return self.mediapipe_toggle
+
         
     def rotate_ccw(self):
         # Clockwise rotation called because the display image is flipped
@@ -114,13 +130,10 @@ class CameraConfigWidget(QWidget):
         self.frame_emitter.stop()
         self.vid_cap_widget.capture.release()
 
-    def toggle_mediapipe(self, s):
-        print("Toggle Mediapipe")
-        self.frame_emitter.camcap.toggle_mediapipe()
 
 
 class FrameEmitter(QThread):
-    ImageUpdate = pyqtSignal(QImage)
+    ImageBroadcast = pyqtSignal(QImage)
    
     def __init__(self, camcap):
         super(FrameEmitter,self).__init__()
@@ -149,7 +162,7 @@ class FrameEmitter(QThread):
 
                 qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
                 Pic = qt_frame.scaled(self.width, self.height, Qt.AspectRatioMode.KeepAspectRatio)
-                self.ImageUpdate.emit(Pic)
+                self.ImageBroadcast.emit(Pic)
                 time.sleep(1/fps)
                 # time.sleep(1/self.peak_fps_display)
 

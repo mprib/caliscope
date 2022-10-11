@@ -64,20 +64,27 @@ class CameraConfigWidget(QWidget):
         self.HBL.addWidget(self.rotate_cw_btn)
         # self.VBL.addWidget(self.mediapipeLabel)
 
-        # Adjust Exposure
-        self.exposure = QSlider(Qt.Orientation.Horizontal)
-        self.exposure.setRange(-10,0)
-        self.exposure.setSliderPosition(self.cam_cap.cam.exposure)
-        self.exposure.setPageStep(1)
-        self.exposure.setSingleStep(1)
-        print(f"Exposure initially set to {self.cam_cap.cam.exposure}")
-        self.exposure.valueChanged.connect(self.update_exposure)
-        self.VBL.addWidget(self.exposure)
+        # Horizontal Box with Exposure Slider Section
+        self.build_exposure_slider()
 
 
         self.setLayout(self.VBL)
         self.VBL.addLayout(self.HBL)
 
+    def build_exposure_slider(self):
+
+        HBox = QHBoxLayout()
+        label = QLabel("Exposure")
+        HBox.addWidget(label)
+
+        exp_slider = QSlider(Qt.Orientation.Horizontal)
+        exp_slider.setRange(-10,0)
+        exp_slider.setSliderPosition(self.cam_cap.cam.exposure)
+        exp_slider.setPageStep(1)
+        exp_slider.setSingleStep(1)
+        exp_slider.valueChanged.connect(self.update_exposure)
+        HBox.addWidget(exp_slider)
+        self.VBL.addLayout(HBox)
 
     def update_exposure(self, s):
         print(f"Exposure is {s}")

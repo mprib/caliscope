@@ -14,7 +14,7 @@ from threading import Thread
 import cv2
 
 from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
-                            QSlider,
+                            QSlider, QComboBox,
                             QToolBar, QLabel, QLineEdit, QCheckBox, QScrollArea,
                             QVBoxLayout, QHBoxLayout, QGridLayout)
 
@@ -33,28 +33,29 @@ class CameraConfigWidget(QWidget):
         super(CameraConfigWidget, self).__init__()
 
         self.cam_cap = camcap
-        # Video display at top and settings beneath
         self.VBL = QVBoxLayout()
         self.HBL = QHBoxLayout()
 
         # print("About to add frame display")
+        #################      VIDEO AT TOP     ##########################     
         self.VBL.addWidget(self.get_frame_display())
 
         ################# BEGIN ADDING THE HBOX ###########################
-        # print("about to add mp toggle")
+        ### MP TOGGLE #####################################################
         self.HBL.addWidget(self.get_mediapipe_toggle())
         
-        # Image Rotation CCW
+        ################ ROTATE CCW #######################################
         self.rotate_ccw_btn = QPushButton("Rotate CCW")
         self.rotate_ccw_btn.clicked.connect(self.rotate_ccw)
         self.HBL.addWidget(self.rotate_ccw_btn)
 
-        # Image Rotation CW 
+        ############################## ROTATE CW ###########################
         self.rotate_cw_btn = QPushButton("Rotate CW")
         self.rotate_cw_btn.clicked.connect(self.rotate_cw)
         self.HBL.addWidget(self.rotate_cw_btn)
         # self.VBL.addWidget(self.mediapipeLabel)
-
+        ######################################### RESOLUTION DROPDOWN ######
+        self.HBL.addWidget(self.get_resolution_dropdown())
         # Horizontal Box with Exposure Slider Section
         # self.exposure_slider()
 
@@ -63,7 +64,8 @@ class CameraConfigWidget(QWidget):
         self.VBL.addLayout(self.HBL)
         self.VBL.addLayout(self.get_exposure_slider())
 
-### Begin Exposure Setting
+    
+####################### SUB_WIDGET CONSTRUCTION ############################### 
     def get_exposure_slider(self):
         # construct a horizontal widget with label: slider: value display
         HBox = QHBoxLayout()
@@ -75,12 +77,20 @@ class CameraConfigWidget(QWidget):
         exp_slider.setSliderPosition(int(self.cam_cap.cam.exposure))
         exp_slider.setPageStep(1)
         exp_slider.setSingleStep(1)
+
+        exp_number = QLabel()
+        exp_number.setText(str(int(self.cam_cap.cam.exposure)))
+
         def update_exposure(s):
             print(f"Exposure is {s}")
             self.cam_cap.cam.exposure = s
+            exp_number.setText(str(s))
+
         exp_slider.valueChanged.connect(update_exposure)
 
         HBox.addWidget(exp_slider)
+
+        HBox.addWidget(exp_number)
 
         return HBox
 
@@ -105,17 +115,31 @@ class CameraConfigWidget(QWidget):
 
     def get_mediapipe_toggle(self):
         # Mediapip display toggle
-        self.mediapipe_toggle = QCheckBox("Show Mediapipe Overlay")
-        self.mediapipe_toggle.setCheckState(Qt.CheckState.Checked)
+        mediapipe_toggle = QCheckBox("Show Mediapipe Overlay")
+        mediapipe_toggle.setCheckState(Qt.CheckState.Checked)
 
         def toggle_mediapipe(s):
             print("Toggle Mediapipe")
             self.cam_cap.toggle_mediapipe()
 
-        self.mediapipe_toggle.stateChanged.connect(toggle_mediapipe)
+        mediapipe_toggle.stateChanged.connect(toggle_mediapipe)
 
-        return self.mediapipe_toggle
+        return mediapipe_toggle
 
+    def get_resolution_dropdown(self):
+
+        def format_res(res_tuples):
+            res_text = []
+            for w, h in res_tuples:
+                res_text.append(f"{int(w)} x {int(h)}")
+            return res_text
+
+
+        resolution_combo = QComboBox()
+        options = self.cam_cap.cam.possible_resolutions 
+        resolution_combo.addItems(format_res(options))
+
+        return resolution_combo
         
     def rotate_ccw(self):
         # Clockwise rotation called because the display image is flipped
@@ -126,9 +150,9 @@ class CameraConfigWidget(QWidget):
         self.frame_emitter.camcap.rotate_CCW()
             
 
-    def CancelFeed(self):
-        self.frame_emitter.stop()
-        self.vid_cap_widget.capture.release()
+    # def CancelFeed(self):
+    #     self.frame_emitter.stop()
+    #     self.vid_cap_widget.capture.release()
 
 
 

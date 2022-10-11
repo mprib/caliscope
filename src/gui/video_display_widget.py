@@ -66,10 +66,11 @@ class CameraConfigWidget(QWidget):
 
         # Adjust Exposure
         self.exposure = QSlider(Qt.Orientation.Horizontal)
+        self.exposure.setRange(-10,0)
+        self.exposure.setSliderPosition(self.cam_cap.cam.exposure)
         self.exposure.setPageStep(1)
         self.exposure.setSingleStep(1)
-        self.exposure.setValue(self.cam_cap.cam.exposure)
-        self.exposure.setRange(-10,0)
+        print(f"Exposure initially set to {self.cam_cap.cam.exposure}")
         self.exposure.valueChanged.connect(self.update_exposure)
         self.VBL.addWidget(self.exposure)
 

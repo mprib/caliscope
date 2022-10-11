@@ -37,14 +37,7 @@ class CameraConfigWidget(QWidget):
         self.VBL = QVBoxLayout()
         self.HBL = QHBoxLayout()
 
-        # Initialize frame emitter which will start grabbing from camcap widget
-        self.frame_emitter = FrameEmitter(self.cam_cap)
-        self.frame_emitter.start()
-
-        # Camera display is a label updated with a QPixmap
-        self.CameraDisplay = QLabel()
-        self.VBL.addWidget(self.CameraDisplay)
-        self.frame_emitter.ImageUpdate.connect(self.ImageUpdateSlot)
+        self.VBL.addWidget(self.get_frame_display())
 
         ################# BEGIN ADDING THE HBOX ###########################
         # Mediapip display toggle
@@ -70,10 +63,10 @@ class CameraConfigWidget(QWidget):
 
         self.setLayout(self.VBL)
         self.VBL.addLayout(self.HBL)
-        self.VBL.addLayout(self.exposure_slider())
+        self.VBL.addLayout(self.get_exposure_slider())
 
 ### Begin Exposure Setting
-    def exposure_slider(self):
+    def get_exposure_slider(self):
 
         HBox = QHBoxLayout()
         label = QLabel("Exposure")
@@ -95,6 +88,18 @@ class CameraConfigWidget(QWidget):
         return HBox
         # self.VBL.addLayout(HBox)
 
+
+    def get_frame_display(self):
+        # Initialize frame emitter which will start grabbing from camcap widget
+        self.frame_emitter = FrameEmitter(self.cam_cap)
+        self.frame_emitter.start()
+        self.CameraDisplay = QLabel()
+        # self.VBL.addWidget(self.CameraDisplay)
+
+        self.frame_emitter.ImageUpdate.connect(self.ImageUpdateSlot)
+
+        return self.CameraDisplay
+        pass
         
     def rotate_ccw(self):
         # Clockwise rotation called because the display image is flipped

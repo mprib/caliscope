@@ -65,13 +65,15 @@ class CameraConfigWidget(QWidget):
         # self.VBL.addWidget(self.mediapipeLabel)
 
         # Horizontal Box with Exposure Slider Section
-        self.build_exposure_slider()
+        # self.exposure_slider()
 
 
         self.setLayout(self.VBL)
         self.VBL.addLayout(self.HBL)
+        self.VBL.addLayout(self.exposure_slider())
 
-    def build_exposure_slider(self):
+### Begin Exposure Setting
+    def exposure_slider(self):
 
         HBox = QHBoxLayout()
         label = QLabel("Exposure")
@@ -82,13 +84,17 @@ class CameraConfigWidget(QWidget):
         exp_slider.setSliderPosition(self.cam_cap.cam.exposure)
         exp_slider.setPageStep(1)
         exp_slider.setSingleStep(1)
-        exp_slider.valueChanged.connect(self.update_exposure)
-        HBox.addWidget(exp_slider)
-        self.VBL.addLayout(HBox)
+        def update_exposure(s):
+            print(f"Exposure is {s}")
+            self.cam_cap.cam.exposure = s
+        exp_slider.valueChanged.connect(update_exposure)
 
-    def update_exposure(self, s):
-        print(f"Exposure is {s}")
-        self.cam_cap.cam.exposure = s
+        HBox.addWidget(exp_slider)
+
+
+        return HBox
+        # self.VBL.addLayout(HBox)
+
         
     def rotate_ccw(self):
         # Clockwise rotation called because the display image is flipped

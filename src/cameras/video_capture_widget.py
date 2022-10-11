@@ -46,7 +46,7 @@ class CameraCaptureWidget:
             self.avg_delta_time = self.delta_time
 
         # folding in current frame rate to trailing average to smooth out
-        self.avg_delta_time = 0.8*self.avg_delta_time + 0.2*self.delta_time
+        self.avg_delta_time = 0.95*self.avg_delta_time + 0.05*self.delta_time
         self.previous_time = self.start_time
 
         return 1/self.avg_delta_time

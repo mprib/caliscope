@@ -21,7 +21,9 @@ from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
 
 from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QIcon, QImage, QPixmap
+from PyQt6.QtGui import QIcon, QImage, QPixmap, QFont
+from cv2 import QT_FONT_BOLD
+from cv2 import QT_FONT_DEMIBOLD
 
 
 # Append main repo to top of path to allow import of backend
@@ -36,11 +38,11 @@ class CameraConfigWidget(QDialog):
 
         # frame emitter is a thread that is constantly pulling in values from 
         # the capture widget and broadcasting them to widgets on this window 
+        self.cam_cap = camcap
         self.frame_emitter = FrameEmitter(self.cam_cap)
         self.frame_emitter.start()
 
 
-        self.cam_cap = camcap
         self.VBL = QVBoxLayout()
         self.VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.setLayout(self.VBL)
@@ -79,9 +81,11 @@ class CameraConfigWidget(QDialog):
     def get_fps_display(self):
 
         fps_display = QLabel()
+        fps_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        fps_display.setFont(QFont("Times New Roman", 15))
 
         def FPSUpdateSlot(fps):
-            fps_display.setText(str(str(fps) + "FPS"))
+            fps_display.setText(str(str(fps) + " FPS"))
 
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)        
         
@@ -203,8 +207,9 @@ class CameraConfigWidget(QDialog):
         
 
 class FrameEmitter(QThread):
+    # establish signals from the frame that will be displayed in real time 
+    # within the GUI
     ImageBroadcast = pyqtSignal(QImage)
-
     FPSBroadcast = pyqtSignal(int)
    
     def __init__(self, camcap):
@@ -221,7 +226,6 @@ class FrameEmitter(QThread):
          
         while self.ThreadActive:
             try:    # takes a moment for capture widget to spin up...don't error out
-                
 
                 # Grab a frame from the capture widget and adjust it to 
                 frame = self.camcap.frame
@@ -229,10 +233,6 @@ class FrameEmitter(QThread):
                 self.fps_text =  str(int(round(fps, 0))) 
                 Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 FlippedImage = cv2.flip(Image, 1)
-
-                # overlay frame rate
-                if self.camcap.cam.is_rolling:
-                    cv2.putText(FlippedImage, "FPS:" + self.fps_text, (10, 70),cv2.FONT_HERSHEY_TRIPLEX, 2,(0,165,255), 2)
 
                 qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
                 # Pic = qt_frame.scaled(self.width, self.height, Qt.AspectRatioMode.KeepAspectRatio)

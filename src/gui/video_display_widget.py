@@ -33,6 +33,13 @@ class CameraConfigWidget(QDialog):
     def __init__(self, camcap):
         super(CameraConfigWidget, self).__init__()
 
+
+        # frame emitter is a thread that is constantly pulling in values from 
+        # the capture widget and broadcasting them to widgets on this window 
+        self.frame_emitter = FrameEmitter(self.cam_cap)
+        self.frame_emitter.start()
+
+
         self.cam_cap = camcap
         self.VBL = QVBoxLayout()
         self.VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -71,10 +78,13 @@ class CameraConfigWidget(QDialog):
 ####################### SUB_WIDGET CONSTRUCTION ###############################
     def get_fps_display(self):
 
-        fps_display = QLCDNumber()
-        
-        fps_display.display(self.cam_cap.FPS_actual)
+        fps_display = QLabel()
 
+        def FPSUpdateSlot(fps):
+            fps_display.setText(str(str(fps) + "FPS"))
+
+        self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)        
+        
         return fps_display
  
     def get_cw_rotation_button(self):
@@ -141,8 +151,6 @@ class CameraConfigWidget(QDialog):
         
         # IMPORTANT: frame_emitter thread must continue to exist after running
         # this method. Cannot be confined to namespace of the method
-        self.frame_emitter = FrameEmitter(self.cam_cap)
-        self.frame_emitter.start()
         CameraDisplay = QLabel()
 
         def ImageUpdateSlot(Image):
@@ -196,6 +204,8 @@ class CameraConfigWidget(QDialog):
 
 class FrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
+
+    FPSBroadcast = pyqtSignal(int)
    
     def __init__(self, camcap):
         super(FrameEmitter,self).__init__()
@@ -228,6 +238,7 @@ class FrameEmitter(QThread):
                 # Pic = qt_frame.scaled(self.width, self.height, Qt.AspectRatioMode.KeepAspectRatio)
                 Pic = qt_frame
                 self.ImageBroadcast.emit(Pic)
+                self.FPSBroadcast.emit(fps)
                 time.sleep(1/fps)
                 # time.sleep(1/self.peak_fps_display)
 

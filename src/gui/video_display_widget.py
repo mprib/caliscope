@@ -15,7 +15,7 @@ from threading import Thread
 import cv2
 
 from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
-                            QSlider, QComboBox,
+                            QSlider, QComboBox, QDialog, QSizePolicy, QLCDNumber,
                             QToolBar, QLabel, QLineEdit, QCheckBox, QScrollArea,
                             QVBoxLayout, QHBoxLayout, QGridLayout)
 
@@ -29,56 +29,92 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.video_capture_widget import CameraCaptureWidget
 from src.cameras.camera import Camera
 
-class CameraConfigWidget(QWidget):
+class CameraConfigWidget(QDialog):
     def __init__(self, camcap):
         super(CameraConfigWidget, self).__init__()
 
         self.cam_cap = camcap
         self.VBL = QVBoxLayout()
-        self.HBL = QHBoxLayout()
+        self.VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.setLayout(self.VBL)
+
 
         # print("About to add frame display")
         #################      VIDEO AT TOP     ##########################     
         self.VBL.addWidget(self.get_frame_display())
 
+        #######################  FPS            ##########################
+        self.VBL.addWidget(self.get_fps_display())
+
         ################# BEGIN ADDING THE HBOX ###########################
+        self.HBL = QHBoxLayout()
         ### MP TOGGLE #####################################################
         self.HBL.addWidget(self.get_mediapipe_toggle())
         
         ################ ROTATE CCW #######################################
-        self.rotate_ccw_btn = QPushButton("Rotate CCW")
-        self.rotate_ccw_btn.clicked.connect(self.rotate_ccw)
-        self.HBL.addWidget(self.rotate_ccw_btn)
+        self.HBL.addWidget(self.get_ccw_rotation_button())
 
         ############################## ROTATE CW ###########################
-        self.rotate_cw_btn = QPushButton("Rotate CW")
-        self.rotate_cw_btn.clicked.connect(self.rotate_cw)
-        self.HBL.addWidget(self.rotate_cw_btn)
+        self.HBL.addWidget(self.get_cw_rotation_button())
         # self.VBL.addWidget(self.mediapipeLabel)
         ######################################### RESOLUTION DROPDOWN ######
         self.HBL.addWidget(self.get_resolution_dropdown())
-        # Horizontal Box with Exposure Slider Section
-        # self.exposure_slider()
+        self.HBL.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
 
-        self.setLayout(self.VBL)
         self.VBL.addLayout(self.HBL)
+
+        #################### EXPOSURE SLIDER ##############################
         self.VBL.addLayout(self.get_exposure_slider())
 
+
+####################### SUB_WIDGET CONSTRUCTION ###############################
+    def get_fps_display(self):
+
+        fps_display = QLCDNumber()
+        
+        fps_display.display(self.cam_cap.FPS_actual)
+
+        return fps_display
+ 
+    def get_cw_rotation_button(self):
+        rotate_cw_btn = QPushButton("Rotate CW")
+        rotate_cw_btn.setMaximumSize(100, 50)
+
+        def rotate_cw():
+            # Counter Clockwise rotation called because the display image is flipped
+            self.cam_cap.rotate_CCW()
+
+        rotate_cw_btn.clicked.connect(rotate_cw)
+
+        return rotate_cw_btn
+
+    def get_ccw_rotation_button(self):
+        rotate_ccw_btn = QPushButton("Rotate CCW")
+        rotate_ccw_btn.setMaximumSize(100, 50)
+
+        def rotate_ccw():
+            # Clockwise rotation called because the display image is flipped
+            self.cam_cap.rotate_CW()
+
+        rotate_ccw_btn.clicked.connect(rotate_ccw)
+
+        return rotate_ccw_btn
+
+
     
-####################### SUB_WIDGET CONSTRUCTION ############################### 
     def get_exposure_slider(self):
         # construct a horizontal widget with label: slider: value display
         HBox = QHBoxLayout()
         label = QLabel("Exposure")
-        HBox.addWidget(label)
+        label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         exp_slider = QSlider(Qt.Orientation.Horizontal)
         exp_slider.setRange(-10,0)
         exp_slider.setSliderPosition(int(self.cam_cap.cam.exposure))
         exp_slider.setPageStep(1)
         exp_slider.setSingleStep(1)
-
+        exp_slider.setMaximumWidth(400)
         exp_number = QLabel()
         exp_number.setText(str(int(self.cam_cap.cam.exposure)))
 
@@ -89,9 +125,11 @@ class CameraConfigWidget(QWidget):
 
         exp_slider.valueChanged.connect(update_exposure)
 
+        HBox.addWidget(label)
         HBox.addWidget(exp_slider)
-
         HBox.addWidget(exp_number)
+
+        HBox.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         return HBox
 
@@ -145,27 +183,16 @@ class CameraConfigWidget(QWidget):
                                             daemon=True)
             self.change_res_thread.start()
             # self.cam_cap.change_resolution(new_res)
- 
         
         resolution_combo = QComboBox()
+        
+        w,h = self.cam_cap.cam.default_resolution
+        resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
+        resolution_combo.setMaximumSize(100, 50)
         resolution_combo.addItems(resolutions_text())
         resolution_combo.currentTextChanged.connect(change_resolution)        
         return resolution_combo
         
-    def rotate_ccw(self):
-        # Clockwise rotation called because the display image is flipped
-        self.frame_emitter.camcap.rotate_CW()
-
-    def rotate_cw(self):
-        # Counter Clockwise rotation called because the display image is flipped
-        self.frame_emitter.camcap.rotate_CCW()
-            
-
-    # def CancelFeed(self):
-    #     self.frame_emitter.stop()
-    #     self.vid_cap_widget.capture.release()
-
-
 
 class FrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
@@ -175,7 +202,7 @@ class FrameEmitter(QThread):
         self.min_sleep = .01 # if true fps drops to zero, don't blow up
         self.camcap = camcap
         print("Initializing Frame Emitter")
-
+    
     def run(self):
         # self.camcap = CameraCaptureWidget(self.camcap) #, self.width ,self.height)
         self.ThreadActive = True
@@ -184,6 +211,7 @@ class FrameEmitter(QThread):
          
         while self.ThreadActive:
             try:    # takes a moment for capture widget to spin up...don't error out
+                
 
                 # Grab a frame from the capture widget and adjust it to 
                 frame = self.camcap.frame
@@ -193,10 +221,12 @@ class FrameEmitter(QThread):
                 FlippedImage = cv2.flip(Image, 1)
 
                 # overlay frame rate
-                cv2.putText(FlippedImage, "FPS:" + self.fps_text, (10, 70),cv2.FONT_HERSHEY_TRIPLEX, 2,(0,165,255), 2)
+                if self.camcap.cam.is_rolling:
+                    cv2.putText(FlippedImage, "FPS:" + self.fps_text, (10, 70),cv2.FONT_HERSHEY_TRIPLEX, 2,(0,165,255), 2)
 
                 qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
-                Pic = qt_frame.scaled(self.width, self.height, Qt.AspectRatioMode.KeepAspectRatio)
+                # Pic = qt_frame.scaled(self.width, self.height, Qt.AspectRatioMode.KeepAspectRatio)
+                Pic = qt_frame
                 self.ImageBroadcast.emit(Pic)
                 time.sleep(1/fps)
                 # time.sleep(1/self.peak_fps_display)

@@ -7,6 +7,7 @@ import cv2
 import time
 import sys
 import mediapipe as mp
+import numpy as np
 
 from datetime import datetime
 
@@ -115,9 +116,14 @@ class CameraCaptureWidget:
 
     def change_resolution(self, res):
         self.cam.stop_rolling() # will trigger running capture thread to end
+        blank_image = np.zeros(self.frame.shape, dtype=np.uint8)
+        self.frame = blank_image
+        
         while self.cam.is_rolling:
             time.sleep(.01)
+
         self.cam.disconnect()
+
         self.cam.connect()
         self.cam.resolution = res
         
@@ -125,15 +131,12 @@ class CameraCaptureWidget:
         self.cap_thread = Thread(target=self.roll_camera, args=( ), daemon=True)
         self.cap_thread.start()
 
-        pass
-
     def toggle_mediapipe(self):
-
         self.show_mediapipe = not self.show_mediapipe
                 
     
     def add_fps(self):
-        """"""
+        """NOTE: this is used in main(), not in external use fo this module"""
         self.fps_text =  str(int(round(self.FPS_actual, 0))) 
         cv2.putText(self.frame, "FPS:" + self.fps_text, (10, 70),cv2.FONT_HERSHEY_PLAIN, 2,(0,0,255), 3)
         
@@ -141,7 +144,7 @@ class CameraCaptureWidget:
 # Highlight module functionality. View a frame with mediapipe hands
 # press "q" to quit
 if __name__ == '__main__':
-    ports = [1]
+    ports = [0]
     # ports = [0, 1, 3]
 
     cams = []

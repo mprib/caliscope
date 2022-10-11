@@ -67,7 +67,6 @@ class CameraConfigWidget(QWidget):
 
 ### Begin Exposure Setting
     def get_exposure_slider(self):
-
         HBox = QHBoxLayout()
         label = QLabel("Exposure")
         HBox.addWidget(label)
@@ -91,15 +90,16 @@ class CameraConfigWidget(QWidget):
 
     def get_frame_display(self):
         # Initialize frame emitter which will start grabbing from camcap widget
-        self.frame_emitter = FrameEmitter(self.cam_cap)
-        self.frame_emitter.start()
-        self.CameraDisplay = QLabel()
-        # self.VBL.addWidget(self.CameraDisplay)
+        frame_emitter = FrameEmitter(self.cam_cap)
+        frame_emitter.start()
+        CameraDisplay = QLabel()
 
-        self.frame_emitter.ImageUpdate.connect(self.ImageUpdateSlot)
+        def ImageUpdateSlot(Image):
+            CameraDisplay.setPixmap(QPixmap.fromImage(Image))
 
-        return self.CameraDisplay
-        pass
+        frame_emitter.ImageUpdate.connect(ImageUpdateSlot)
+
+        return CameraDisplay
         
     def rotate_ccw(self):
         # Clockwise rotation called because the display image is flipped
@@ -109,8 +109,6 @@ class CameraConfigWidget(QWidget):
         # Counter Clockwise rotation called because the display image is flipped
         self.frame_emitter.camcap.rotate_CCW()
             
-    def ImageUpdateSlot(self, Image):
-        self.CameraDisplay.setPixmap(QPixmap.fromImage(Image))
 
     def CancelFeed(self):
         self.frame_emitter.stop()

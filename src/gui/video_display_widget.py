@@ -6,6 +6,7 @@
 
 
 #%%
+from ast import arg
 import sys
 from pathlib import Path
 import time
@@ -128,17 +129,27 @@ class CameraConfigWidget(QWidget):
 
     def get_resolution_dropdown(self):
 
-        def format_res(res_tuples):
+        # possible resolutions is a list of tuples, but we need text
+        def resolutions_text():
             res_text = []
-            for w, h in res_tuples:
+            for w, h in self.cam_cap.cam.possible_resolutions:
                 res_text.append(f"{int(w)} x {int(h)}")
             return res_text
+        
+        def change_resolution(res_text):
+            w, h = res_text.split("x")
+            new_res = (int(w), int(h))
 
-
+            self.change_res_thread = Thread(target = self.cam_cap.change_resolution,
+                                            args = (new_res, ),
+                                            daemon=True)
+            self.change_res_thread.start()
+            # self.cam_cap.change_resolution(new_res)
+ 
+        
         resolution_combo = QComboBox()
-        options = self.cam_cap.cam.possible_resolutions 
-        resolution_combo.addItems(format_res(options))
-
+        resolution_combo.addItems(resolutions_text())
+        resolution_combo.currentTextChanged.connect(change_resolution)        
         return resolution_combo
         
     def rotate_ccw(self):

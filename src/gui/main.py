@@ -23,7 +23,7 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap, QAction
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.gui.video_display_widget import VideoDisplayWidget
+from src.gui.video_display_widget import CameraConfigWidget
 
 class MainWindow(QMainWindow):
 
@@ -61,7 +61,7 @@ class MainWindow(QMainWindow):
         # this is the call to create the display widgets and is definitely 
         # something that needs to be cleaned up
         for i in range(0,4):
-            vid_window = VideoDisplayWidget(i) 
+            vid_window = CameraConfigWidget(i) 
             self.gbox.addWidget(vid_window, row, col)
  
             col = col + 1

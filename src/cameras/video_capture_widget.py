@@ -23,7 +23,7 @@ class CameraCaptureWidget:
         self.rotation_count = 0 # +1 for each 90 degree clockwise rotation, -1 for CCW
         
         # Start the thread to read frames from the video stream
-        self.cap_thread = Thread(target=self.run, args=( ), daemon=True)
+        self.cap_thread = Thread(target=self.roll_camera, args=( ), daemon=True)
         self.cap_thread.start()
         self.frame_name = "Cam"+str(cam.port)
         
@@ -87,7 +87,7 @@ class CameraCaptureWidget:
                 for handLms in self.hand_results.multi_hand_landmarks:
                     self.mpDraw.draw_landmarks(self._working_frame, handLms, self.mpHands.HAND_CONNECTIONS)
 
-    def run(self):
+    def roll_camera(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame, 
         calls various frame processing methods on it, and updates the exposed 
@@ -122,7 +122,7 @@ class CameraCaptureWidget:
         self.cam.resolution = res
         
         # apparently threads can only be started once, so create anew
-        self.cap_thread = Thread(target=self.run, args=( ), daemon=True)
+        self.cap_thread = Thread(target=self.roll_camera, args=( ), daemon=True)
         self.cap_thread.start()
 
         pass

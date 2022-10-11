@@ -14,6 +14,7 @@ from threading import Thread
 import cv2
 
 from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
+                            QSlider,
                             QToolBar, QLabel, QLineEdit, QCheckBox, QScrollArea,
                             QVBoxLayout, QHBoxLayout, QGridLayout)
 
@@ -27,57 +28,78 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.video_capture_widget import CameraCaptureWidget
 from src.cameras.camera import Camera
 
-class VideoDisplayWidget(QWidget):
+class CameraConfigWidget(QWidget):
     def __init__(self, camcap):
-        super(VideoDisplayWidget, self).__init__()
+        super(CameraConfigWidget, self).__init__()
 
+        self.cam_cap = camcap
+        # Video display at top and settings beneath
         self.VBL = QVBoxLayout()
         self.HBL = QHBoxLayout()
 
-        # FeedLabel 
-        self.VideoScreen = QLabel()
-        self.VBL.addWidget(self.VideoScreen)
+        # Initialize frame emitter which will start grabbing from camcap widget
+        self.frame_emitter = FrameEmitter(self.cam_cap)
+        self.frame_emitter.start()
 
+        # Camera display is a label updated with a QPixmap
+        self.CameraDisplay = QLabel()
+        self.VBL.addWidget(self.CameraDisplay)
+        self.frame_emitter.ImageUpdate.connect(self.ImageUpdateSlot)
+
+        ################# BEGIN ADDING THE HBOX ###########################
+        # Mediapip display toggle
         self.MediapipeToggle = QCheckBox("Show Mediapipe Overlay")
         self.MediapipeToggle.setCheckState(Qt.CheckState.Checked)
         self.MediapipeToggle.stateChanged.connect(self.toggle_mediapipe)
         self.HBL.addWidget(self.MediapipeToggle)
 
+        # Image Rotation CCW
         self.rotate_ccw_btn = QPushButton("Rotate CCW")
         self.rotate_ccw_btn.clicked.connect(self.rotate_ccw)
         self.HBL.addWidget(self.rotate_ccw_btn)
-    
+
+        # Image Rotation CW 
         self.rotate_cw_btn = QPushButton("Rotate CW")
         self.rotate_cw_btn.clicked.connect(self.rotate_cw)
         self.HBL.addWidget(self.rotate_cw_btn)
         # self.VBL.addWidget(self.mediapipeLabel)
 
+        # Adjust Exposure
+        self.exposure = QSlider(Qt.Orientation.Horizontal)
+        self.exposure.setPageStep(1)
+        self.exposure.setSingleStep(1)
+        self.exposure.setValue(self.cam_cap.cam.exposure)
+        self.exposure.setRange(-10,0)
+        self.exposure.valueChanged.connect(self.update_exposure)
+        self.VBL.addWidget(self.exposure)
+
+
         self.setLayout(self.VBL)
         self.VBL.addLayout(self.HBL)
 
-        self.vid_display = FrameEmitter(camcap)
-        self.vid_display.start()
-        self.vid_display.ImageUpdate.connect(self.ImageUpdateSlot)
+
+    def update_exposure(self, s):
+        print(f"Exposure is {s}")
+        self.cam_cap.cam.exposure = s
         
     def rotate_ccw(self):
         # Clockwise rotation called because the display image is flipped
-        self.vid_display.camcap.rotate_CW()
+        self.frame_emitter.camcap.rotate_CW()
 
     def rotate_cw(self):
         # Counter Clockwise rotation called because the display image is flipped
-        self.vid_display.camcap.rotate_CCW()
+        self.frame_emitter.camcap.rotate_CCW()
             
     def ImageUpdateSlot(self, Image):
-        self.VideoScreen.setPixmap(QPixmap.fromImage(Image))
-        # self.FeedLabel.setPixmap(Image)
+        self.CameraDisplay.setPixmap(QPixmap.fromImage(Image))
 
     def CancelFeed(self):
-        self.vid_display.stop()
+        self.frame_emitter.stop()
         self.vid_cap_widget.capture.release()
 
     def toggle_mediapipe(self, s):
         print("Toggle Mediapipe")
-        self.vid_display.camcap.toggle_mediapipe()
+        self.frame_emitter.camcap.toggle_mediapipe()
 
 
 class FrameEmitter(QThread):
@@ -87,13 +109,14 @@ class FrameEmitter(QThread):
         super(FrameEmitter,self).__init__()
         self.min_sleep = .01 # if true fps drops to zero, don't blow up
         self.camcap = camcap
+        print("Initializing Frame Emitter")
 
     def run(self):
         # self.camcap = CameraCaptureWidget(self.camcap) #, self.width ,self.height)
         self.ThreadActive = True
         self.height = int(self.camcap.cam.resolution[0])
         self.width = int(self.camcap.cam.resolution[1])
-        
+         
         while self.ThreadActive:
             try:    # takes a moment for capture widget to spin up...don't error out
 
@@ -120,26 +143,12 @@ class FrameEmitter(QThread):
         self.quit()
 
 # if __name__ == "__main__":
-#%%
-# if True:
-
-
-# NOTE TO SELF: I"VE FUCKED UP THIS MODULE AND WILL LOOK AT IT IN THE AM WITH FRESH EYES
-# AND LIKELY ROLL BACK TO THIS MORNING'S VERSION
-def test_worker(cam):
-    # create a camera widget to pull in a thread of frames
-    # these are currently processed by mediapipe but don't have to be
-    # capture_widget = VideoCaptureWidget(0,1080,640)
-    pass
 # %%
-port = 1
-App = QApplication(sys.argv)
+port = 0
 cam = Camera(port)
+App = QApplication(sys.argv)
 camcap = CameraCaptureWidget(cam)
-display = VideoDisplayWidget(camcap)
+display = CameraConfigWidget(camcap)
 display.show()
-# sys.exit(App.exec())
+sys.exit(App.exec())
 
-# test_thread = Thread(target=test_worker, args=(cam,),daemon=True)
-# test_thread.start()
-# %%

@@ -40,39 +40,39 @@ class CameraConfigWidget(QDialog):
         self.frame_emitter.start()
 
 
-        self.VBL = QVBoxLayout()
-        self.setLayout(self.VBL)
+        VBL = QVBoxLayout()
+        self.setLayout(VBL)
 
 
         # print("About to add frame display")
         #################      VIDEO AT TOP     ##########################     
-        self.VBL.addWidget(self.get_frame_display())
-        self.VBL.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        VBL.addWidget(self.get_frame_display())
+        VBL.setAlignment(Qt.AlignmentFlag.AlignTop)
+        VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        #######################  FPS            ##########################
-        self.VBL.addWidget(self.get_fps_display())
+        #######################     FPS         ##########################
+        VBL.addWidget(self.get_fps_display())
 
-        ################# BEGIN ADDING THE HBOX ###########################
-        self.HBL = QHBoxLayout()
+        #############################  ADD HBOX ###########################
+        HBL = QHBoxLayout()
         ### MP TOGGLE #####################################################
-        self.HBL.addWidget(self.get_mediapipe_toggle())
+        HBL.addWidget(self.get_mediapipe_toggle())
         
         ################ ROTATE CCW #######################################
-        self.HBL.addWidget(self.get_ccw_rotation_button())
+        HBL.addWidget(self.get_ccw_rotation_button())
 
         ############################## ROTATE CW ###########################
-        self.HBL.addWidget(self.get_cw_rotation_button())
-        # self.VBL.addWidget(self.mediapipeLabel)
+        HBL.addWidget(self.get_cw_rotation_button())
+        # VBL.addWidget(self.mediapipeLabel)
         ######################################### RESOLUTION DROPDOWN ######
-        self.HBL.addWidget(self.get_resolution_dropdown())
-        self.HBL.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        HBL.addWidget(self.get_resolution_dropdown())
+        HBL.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
 
-        self.VBL.addLayout(self.HBL)
+        VBL.addLayout(HBL)
 
         #################### EXPOSURE SLIDER ##############################
-        self.VBL.addLayout(self.get_exposure_slider())
+        VBL.addLayout(self.get_exposure_slider())
 
 
 ####################### SUB_WIDGET CONSTRUCTION ###############################

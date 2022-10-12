@@ -24,7 +24,6 @@ class Charuco():
         
         """
         Create board based on shape and dimensions
-
         square_size_overide: correct for the actual printed size of the board
         """
         self.columns = columns

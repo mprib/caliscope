@@ -20,15 +20,12 @@ from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
                             QVBoxLayout, QHBoxLayout, QGridLayout)
 
 from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
 from PyQt6.QtGui import QIcon, QImage, QPixmap, QFont
-from cv2 import QT_FONT_BOLD
-from cv2 import QT_FONT_DEMIBOLD
-
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.cameras.video_capture_widget import CameraCaptureWidget
+from src.cameras.camera_capture_widget import CameraCaptureWidget
 from src.cameras.camera import Camera
 
 class CameraConfigWidget(QDialog):
@@ -44,13 +41,14 @@ class CameraConfigWidget(QDialog):
 
 
         self.VBL = QVBoxLayout()
-        self.VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.setLayout(self.VBL)
 
 
         # print("About to add frame display")
         #################      VIDEO AT TOP     ##########################     
         self.VBL.addWidget(self.get_frame_display())
+        self.VBL.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         #######################  FPS            ##########################
         self.VBL.addWidget(self.get_fps_display())
@@ -157,6 +155,11 @@ class CameraConfigWidget(QDialog):
         # this method. Cannot be confined to namespace of the method
         CameraDisplay = QLabel()
 
+        # I believe that since this is a text label (technically) it needs
+        # to be centered itself. Centering the containing widget alignment 
+        # won't do
+        CameraDisplay.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
         def ImageUpdateSlot(Image):
             CameraDisplay.setPixmap(QPixmap.fromImage(Image))
 
@@ -195,7 +198,9 @@ class CameraConfigWidget(QDialog):
                                             daemon=True)
             self.change_res_thread.start()
             # self.cam_cap.change_resolution(new_res)
-        
+
+            self.setFixedSize(QSize(int(w) + 50, int(h)+50))
+
         resolution_combo = QComboBox()
         
         w,h = self.cam_cap.cam.default_resolution

@@ -9,8 +9,6 @@ import sys
 import mediapipe as mp
 import numpy as np
 
-from datetime import datetime
-
 # Append main repo to top of path to allow import of backend
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))

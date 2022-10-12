@@ -52,7 +52,7 @@ class Charuco():
         # Scale aruco according based on square size
         aruco_length = square_length * aruco_scale 
 
-        # grad the dictionary from the reference info at the foot of the module
+        # grab the dictionary from the reference info at the foot of the module
         dictionary_integer = ARUCO_DICTIONARIES[dictionary]
         self.dictionary = cv.aruco.Dictionary_get(dictionary_integer)
 

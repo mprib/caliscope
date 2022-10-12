@@ -34,7 +34,7 @@ class Charuco():
         self.rows = rows
         self.inverted = inverted
 
-        if units == "inches":
+        if units == "inch":
             # convert to meters
             board_height = board_height/39.37
             board_width = board_width/39.37

@@ -29,7 +29,8 @@ from src.calibration.charuco import Charuco, ARUCO_DICTIONARIES
 class CharucoBuilder(QDialog):
     def __init__(self):
         super(CharucoBuilder, self).__init__()
-
+        self.setMaximumHeight(DISPLAY_HEIGHT/3)
+        self.setMaximumWidth(DISPLAY_WIDTH/4)
         ###################### VERTICAL PARENT LAYOUT  ####################
         VBL = QVBoxLayout()
         self.setLayout(VBL)
@@ -37,53 +38,67 @@ class CharucoBuilder(QDialog):
         ######################  HORIZONTAL BOX  ###########################
         HBL = QHBoxLayout()
         VBL.addLayout(HBL)
+        HBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         ### COLUMNS #######################################################
-        HBL.addWidget(self.get_column_spinbox())
-        ############   ROWS   #############################################
-        HBL.addWidget(self.get_row_spinbox())
-        ###################### DICTIONARY #################################
+        self.build_column_spinbox()
+        HBL.addWidget(self.column_spin)
+        ########### ROWS ###############################################
+        self.build_row_spinbox()
+        HBL.addWidget(self.row_spin)
+
+        ############### WIDTH ##############################################
+
+        ##################### HEIGHT #######################################
+
+        
+        ############################# DICTIONARY #######################
         # HBL.addWidget(self.get_charuco_dict_dropdown())
-        # ##################################  ARUCO_SCALE ###################
+        # #####################################  ARUCO_SCALE ###############
         # HBL.addWidget(self.get_aruco_scale_spinbox())
-        # ############################################## MEASURED SQUARE EDGE
+        ################################################## ACTUAL EDGE #####
         # HBL.addWidget(self.get_square_edge_length_input())
 
+        self.build_charuco()
+        VBL.addWidget(self.charuco_display)
+         
+    def build_column_spinbox(self):
+        self.column_spin = QSpinBox()
+        self.column_spin.setValue(4)
+        self.column_spin.setMaximumWidth(50)
+        
 
+    def build_row_spinbox(self):
+        self.row_spin = QSpinBox()
+        self.row_spin.setValue(5)
+        self.row_spin.setMaximumWidth(50)
+
+    def build_charuco(self):
         ####################### PNG DISPLAY     ###########################
         columns = 4
         rows = 5
+        board_height = 11
+        board_width = 8
+        
         square_length = 0.0525
         aruco_length = 0.75
         dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
         
-        self.board = cv2.aruco.CharucoBoard_create(
-            columns,
-            rows,
-            square_length,
-            aruco_length,
-            dictionary)
-
-        charuco_img = self.board.draw((int(width_inch*300), int(height_inch*300)))
-
-        board_display = QLabel()
-        board_display.setPixmap(QPixmap(charuco_img))
-        VBL.addWidget(board_display)
-         
-        
-    def get_column_spinbox(self):
-        column_spin = QSpinBox()
-        column_spin.setValue(4)
+        charuco = Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525)
+        charuco.save_image('test_charuco.png')
+        self.charuco_display = QLabel()
+        pixmap = QPixmap('test_charuco.png')
+        self.charuco_display.setPixmap(pixmap)
+        self.charuco_display.setScaledContents(True)
+        self.charuco_display.setMaximumSize(self.width() - 10, self.height() - 20)
     
-        return column_spin
-
-    def get_row_spinbox(self):
-        row_spin = QSpinBox()
-        row_spin.setValue(5)
-        return row_spin
-
-    # def get_charuco_dict_dropdown(self):
-    # 
+    
 App = QApplication(sys.argv)
+
+
+screen = App.primaryScreen()
+DISPLAY_WIDTH = screen.size().width()
+DISPLAY_HEIGHT = screen.size().height()
+
 charuco_window = CharucoBuilder()
 
 charuco_window.show()

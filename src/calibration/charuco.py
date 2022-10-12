@@ -1,7 +1,10 @@
 from email.errors import InvalidBase64CharactersDefect
+from re import I
 import cv2 as cv
 from collections import defaultdict
 from itertools import combinations
+
+from numpy import char
 
 
 
@@ -20,7 +23,8 @@ class Charuco():
         dictionary="DICT_4X4_50",
         units="inches", 
         aruco_scale=0.75, 
-        square_size_overide=None): # after printing, measure actual and return to overide
+        square_size_overide=None,
+        inverted=False): # after printing, measure actual and return to overide
         
         """
         Create board based on shape and dimensions
@@ -28,6 +32,7 @@ class Charuco():
         """
         self.columns = columns
         self.rows = rows
+        self.inverted = inverted
 
         if units == "inches":
             # convert to meters
@@ -58,23 +63,26 @@ class Charuco():
             square_length,
             aruco_length,
             self.dictionary)
-        
 
+        self.board_img = self.get_image() 
 
-    def save_image(self, path, inverted=True):
-
+    def get_image(self):
         # convert to inches for ease of saving at 300 DPI
         inches_per_meter = 39.37
 
         width_inch = self.board_width * inches_per_meter
         height_inch = self.board_height * inches_per_meter
 
-        charuco_img = self.board.draw((int(width_inch*300), int(height_inch*300)))
+        img  = self.board.draw((int(width_inch*300), int(height_inch*300)))
+        if self.inverted:
+            img = ~img
+        
+        return img
 
-        if inverted:
-            cv.imwrite(path, ~charuco_img)
-        else:
-            cv.imwrite(path, charuco_img)
+
+    def save_image(self, path):
+        
+        cv.imwrite(path, self.board_img)
 
 
     def get_connected_corners(self):
@@ -153,3 +161,23 @@ ARUCO_DICTIONARIES = {
 	"DICT_APRILTAG_36h10": cv.aruco.DICT_APRILTAG_36h10,
 	"DICT_APRILTAG_36h11": cv.aruco.DICT_APRILTAG_36h11
 }
+
+
+########################## DEMO  ###########################################
+
+def main():
+    charuco = Charuco(4,5,4,8.5,aruco_scale = .75, square_size_overide=.0525)
+    charuco.save_image("test_charuco.png")  
+    width, height = charuco.board_img.shape
+    print(f"Board width is {width}\nBoard height is {height}")
+
+    while True:
+        cv.imshow("Charuco Board", charuco.board_img)
+        
+        key = cv.waitKey(0)
+        if key == ord('q'):
+            cv.destroyAllWindows()
+            break
+
+if __name__ == "__main__":
+    main()

@@ -35,10 +35,12 @@ class CharucoBuilder(QDialog):
         ###################### VERTICAL PARENT LAYOUT  ####################
         VBL = QVBoxLayout()
         self.setLayout(VBL)
-        
+        self.setWindowTitle("Charuco Board Builder")
         ######################  HORIZONTAL BOX  ###########################
         charuco_config = QGroupBox("Configure Charuco Board")
         charuco_config.setCheckable(True)
+        charuco_config.setChecked(False)    # sensible defaults....
+
         HBL = QHBoxLayout()
         charuco_config.setLayout(HBL)
         HBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -72,54 +74,74 @@ class CharucoBuilder(QDialog):
 
         HBL.addWidget(size_grp)
 
-        #############################   
+        ############################# INVERT ####################################
+        self.build_invert_checkbox()
+        HBL.addWidget(self.invert_checkbox)  
 
+        ####################################### BUILD CHARUCO #################
+        self.build_charuco_build_btn()
+        HBL.addWidget(self.charuco_build_btn)
 
         ####################   DISPLAY CHARUCO  #############################
+        self.charuco_added = False  # track to handle reconfig of board
         self.build_charuco()
+        self.charuco_added = True
         VBL.addWidget(self.charuco_display)
         ################################################## ACTUAL EDGE #####
         # HBL.addWidget(self.get_square_edge_length_input())
-             
-    def build_width_spinbox(self):
-        self.width_spin = QDoubleSpinBox()
-        self.width_spin.setValue(4)
-        self.width_spin.setMaximumWidth(50)
-        
-
-    def build_length_spinbox(self):
-        self.length_spin = QDoubleSpinBox()
-        self.length_spin.setValue(5)
-        self.length_spin.setMaximumWidth(50)
-
-    def build_unit_dropdown(self):
-        self.units = QComboBox()
-        self.units.addItems(["mm", "inch"])
-        self.units.setMaximumWidth(100)
-    
     def build_column_spinbox(self):
         self.column_spin = QSpinBox()
-        self.column_spin.setValue(4)
+        self.column_spin.setValue(5)
         self.column_spin.setMaximumWidth(50)
         
 
     def build_row_spinbox(self):
         self.row_spin = QSpinBox()
-        self.row_spin.setValue(5)
+        self.row_spin.setValue(7)
         self.row_spin.setMaximumWidth(50)
+             
+    def build_width_spinbox(self):
+        self.width_spin = QDoubleSpinBox()
+        self.width_spin.setValue(8.5)
+        self.width_spin.setMaximumWidth(50)
+        
+
+    def build_length_spinbox(self):
+        self.length_spin = QDoubleSpinBox()
+        self.length_spin.setValue(11)
+        self.length_spin.setMaximumWidth(50)
+
+    def build_unit_dropdown(self):
+        self.units = QComboBox()
+        self.units.addItems(["mm", "inch"])
+        self.units.setCurrentText("inch")
+        self.units.setMaximumWidth(100)
+
+    def build_invert_checkbox(self):
+        self.invert_checkbox = QCheckBox("Invert Black and White")
+        self.invert_checkbox.setChecked(False)
+
+    def build_charuco_build_btn(self):
+        self.charuco_build_btn = QPushButton("Create Charuco")
+        # self.charuco_build_btn.setText("Create Charuco")
+        self.charuco_build_btn.setMaximumSize(100,50)
+        self.charuco_build_btn.clicked.connect(self.build_charuco)
+
+
 
     def build_charuco(self):
         ####################### PNG DISPLAY     ###########################
-        columns = 4
-        rows = 7
-        board_height = 11
-        board_width = 8
+        print("Building Charuco")
+        columns = self.column_spin.value()
+        rows = self.row_spin.value()
+        board_height = self.length_spin.value()
+        board_width = self.width_spin.value()
         aruco_scale = 0.75 
-        units = "inches" 
-        square_edge_length = 0.0525
+        units = self.units.currentText()
+        square_edge_length = None
         aruco_length = 0.75
         inverted = False
-        dictionary_str = "DICT_7X7_1000"
+        dictionary_str = "DICT_4X4_1000"
         
         charuco = Charuco(columns,
                           rows,
@@ -132,13 +154,11 @@ class CharucoBuilder(QDialog):
                           inverted = inverted)
         # working_charuco_img = cv2.imencode(".png",charuco.board_img) 
         
-        self.charuco_display = QLabel()
-        # charuco_img = cv2.imread(charuco.board_img)
+        if not self.charuco_added:
+            self.charuco_display = QLabel()
+            self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         charuco_img = self.convert_cv_qt(charuco.board_img)
         self.charuco_display.setPixmap(charuco_img)
-        self.charuco_display.setScaledContents(True)
-        self.charuco_display.setMaximumSize(self.width() - 10, self.height() - 20)
-
 
     def convert_cv_qt(self, cv_img):
             """Convert from an opencv image to QPixmap"""
@@ -150,9 +170,10 @@ class CharucoBuilder(QDialog):
                                           h, 
                                           bytes_per_line, 
                                           QImage.Format.Format_RGB888)
-
-            p = charuco_QImage.scaled(self.width(), 
-                                      self.height(),
+            # self.charuco_display.setSizePolicy(QSizePolicy.expandingDirections)
+            p = charuco_QImage.scaled(self.charuco_display.width(),
+                                      self.charuco_display.height(),
+                                    #   1,
                                       Qt.AspectRatioMode.KeepAspectRatio, 
                                       Qt.TransformationMode.SmoothTransformation)
 

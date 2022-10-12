@@ -68,7 +68,6 @@ class CameraConfigWidget(QDialog):
         HBL.addWidget(self.get_resolution_dropdown())
         HBL.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-
         VBL.addLayout(HBL)
 
         #################### EXPOSURE SLIDER ##############################
@@ -235,11 +234,16 @@ class FrameEmitter(QThread):
                 # Grab a frame from the capture widget and adjust it to 
                 frame = self.camcap.frame
                 fps = self.camcap.FPS_actual
+
                 self.fps_text =  str(int(round(fps, 0))) 
                 Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 FlippedImage = cv2.flip(Image, 1)
+                # print(f"Flipped Image Shape is: {FlippedImage.shape}")
 
-                qt_frame = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format.Format_RGB888)
+                qt_frame = QImage(FlippedImage.data, 
+                                  FlippedImage.shape[1], 
+                                  FlippedImage.shape[0], 
+                                  QImage.Format.Format_RGB888)
                 # Pic = qt_frame.scaled(self.width, self.height, Qt.AspectRatioMode.KeepAspectRatio)
                 Pic = qt_frame
                 self.ImageBroadcast.emit(Pic)
@@ -249,6 +253,7 @@ class FrameEmitter(QThread):
 
             except AttributeError:
                 pass
+
     def stop(self):
         self.ThreadActive = False
         self.quit()

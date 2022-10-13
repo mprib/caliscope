@@ -54,8 +54,9 @@ class CharucoBuilder(QDialog):
         self.build_column_spinbox()
         self.build_row_spinbox()
         
-        shape_grp.layout().addWidget(self.column_spin)
+        # These are reversed from 'rowxcol', but this is how it works out
         shape_grp.layout().addWidget(self.row_spin)
+        shape_grp.layout().addWidget(self.column_spin)
         
         HBL.addWidget(shape_grp)
 
@@ -118,13 +119,13 @@ class CharucoBuilder(QDialog):
         self.units.setMaximumWidth(100)
 
     def build_invert_checkbox(self):
-        self.invert_checkbox = QCheckBox("Invert Black and White")
+        self.invert_checkbox = QCheckBox("Invert")
         self.invert_checkbox.setChecked(False)
 
     def build_charuco_build_btn(self):
-        self.charuco_build_btn = QPushButton("Create Charuco")
+        self.charuco_build_btn = QPushButton("Update")
         # self.charuco_build_btn.setText("Create Charuco")
-        self.charuco_build_btn.setMaximumSize(100,50)
+        self.charuco_build_btn.setMaximumSize(50,30)
         self.charuco_build_btn.clicked.connect(self.build_charuco)
 
 
@@ -139,10 +140,11 @@ class CharucoBuilder(QDialog):
         aruco_scale = 0.75 
         units = self.units.currentText()
         square_edge_length = None
-        inverted = self.invert_checkbox.isChecked
+        inverted = self.invert_checkbox.isChecked()
         dictionary_str = "DICT_4X4_1000"
 
-        print("Calling Charuco Function")
+        # print("Calling Charuco Function")
+        print(f"Inversion value is {inverted}")
         charuco = Charuco(columns,
                           rows,
                           board_height,
@@ -153,7 +155,8 @@ class CharucoBuilder(QDialog):
                           square_size_overide = square_edge_length,
                           inverted = inverted)
         # working_charuco_img = cv2.imencode(".png",charuco.board_img) 
-        
+        # print("Done with Charuco Function")
+
         if not self.charuco_added:
             self.charuco_display = QLabel()
             self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)

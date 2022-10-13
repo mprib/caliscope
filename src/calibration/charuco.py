@@ -6,7 +6,7 @@ from itertools import combinations
 
 from numpy import char
 
-
+INCHES_PER_MM = .0393701
 
 class Charuco():
     """
@@ -21,7 +21,7 @@ class Charuco():
         board_height, 
         board_width, 
         dictionary="DICT_4X4_50",
-        units="inches", 
+        units="inch", 
         aruco_scale=0.75, 
         square_size_overide=None,
         inverted=False): # after printing, measure actual and return to overide
@@ -35,9 +35,9 @@ class Charuco():
         self.inverted = inverted
 
         if units == "inch":
-            # convert to meters
-            board_height = board_height/39.37
-            board_width = board_width/39.37
+            # convert to millimeters
+            board_height = board_height/INCHES_PER_MM
+            board_width = board_width/INCHES_PER_MM
 
         self.board_height = board_height
         self.board_width = board_width
@@ -68,10 +68,9 @@ class Charuco():
 
     def get_image(self):
         # convert to inches for ease of saving at 300 DPI
-        inches_per_meter = 39.37
 
-        width_inch = self.board_width * inches_per_meter
-        height_inch = self.board_height * inches_per_meter
+        width_inch = self.board_width * INCHES_PER_MM
+        height_inch = self.board_height * INCHES_PER_MM
 
         img  = self.board.draw((int(width_inch*300), int(height_inch*300)))
         if self.inverted:
@@ -166,7 +165,7 @@ ARUCO_DICTIONARIES = {
 ########################## DEMO  ###########################################
 
 def main():
-    charuco = Charuco(4,5,4,8.5,aruco_scale = .75, square_size_overide=.0525)
+    charuco = Charuco(4,5,4,8.5,aruco_scale = .75, units = "inch", square_size_overide=.0525)
     charuco.save_image("test_charuco.png")  
     width, height = charuco.board_img.shape
     print(f"Board width is {width}\nBoard height is {height}")

@@ -20,6 +20,7 @@ from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
 from PyQt6.QtGui import QIcon, QImage, QPixmap, QFont
 from cv2 import addWeighted
+from pyparsing import java_style_comment
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -32,18 +33,57 @@ class CharucoBuilder(QDialog):
         super(CharucoBuilder, self).__init__()
         self.setMaximumHeight(DISPLAY_HEIGHT/3)
         self.setMaximumWidth(DISPLAY_WIDTH/4)
-        ###################### VERTICAL PARENT LAYOUT  ####################
+
+        # Build inputs with sensible defaults; must exist before building board
+        self.build_column_spinbox()
+        self.build_row_spinbox()
+        self.build_width_spinbox()
+        self.build_length_spinbox()
+        self.build_unit_dropdown()
+        self.build_invert_checkbox()
+
+        # Build display of board
+        self.charuco_added = False  # track to handle redrawing of board
+        self.build_charuco()
+        self.charuco_added = True
+
+        # Build primary actions
+        self.build_print_btn()
+        self.build_true_up_group()
+        self.build_export()
+
+
+
+        #################### ESTABLISH LARGELY VERTICAL LAYOUT ##############
         VBL = QVBoxLayout()
         self.setLayout(VBL)
         self.setWindowTitle("Charuco Board Builder")
-        ######################  HORIZONTAL BOX  ###########################
+
+
+
+        ################### HORIZONTAL MAIN INTERACTIONS #####################
+        ##### PRINT ##########################################################
+
+        top_actions = QHBoxLayout()
+        top_actions.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+        top_actions.addWidget(self.print_btn)
+        top_actions.addWidget(self.true_up_group)
+        top_actions.addWidget(self.export)
+
+        VBL.addLayout(top_actions)
+
+        ####################   DISPLAY CHARUCO  #############################
+        VBL.addWidget(self.charuco_display)
+        #####################  HORIZONTAL CONFIG BOX  ########################
+        config_options = QHBoxLayout()
+        config_options.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
         charuco_config = QGroupBox("Configure Charuco Board")
+        charuco_config.setLayout(config_options)
         charuco_config.setCheckable(True)
         charuco_config.setChecked(False)    # sensible defaults....
 
-        HBL = QHBoxLayout()
-        charuco_config.setLayout(HBL)
-        HBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         VBL.addWidget(charuco_config)
 
         ### SHAPE GROUP    ################################################
@@ -51,45 +91,55 @@ class CharucoBuilder(QDialog):
         shape_grp.setLayout(QHBoxLayout())
         shape_grp.layout().setAlignment(Qt.AlignmentFlag.AlignHCenter)
         
-        self.build_column_spinbox()
-        self.build_row_spinbox()
         
-        # These are reversed from 'rowxcol', but this is how it works out
+        # These are reversed from 'row x col', but this is how it works out
         shape_grp.layout().addWidget(self.row_spin)
         shape_grp.layout().addWidget(self.column_spin)
         
-        HBL.addWidget(shape_grp)
+        config_options.addWidget(shape_grp)
 
         #################### SIZE GROUP #######################################
         size_grp = QGroupBox("Target Board Size")
         size_grp.setLayout(QHBoxLayout())
         size_grp.layout().setAlignment(Qt.AlignmentFlag.AlignHCenter)
  
-        self.build_width_spinbox()
-        self.build_length_spinbox()
-        self.build_unit_dropdown()
 
         size_grp.layout().addWidget(self.width_spin)
         size_grp.layout().addWidget(self.length_spin)
         size_grp.layout().addWidget(self.units)
 
-        HBL.addWidget(size_grp)
+        config_options.addWidget(size_grp)
 
         ############################# INVERT ####################################
         self.build_invert_checkbox()
-        HBL.addWidget(self.invert_checkbox)  
+        config_options.addWidget(self.invert_checkbox)  
 
         ####################################### BUILD CHARUCO #################
         self.build_charuco_build_btn()
-        HBL.addWidget(self.charuco_build_btn)
+        config_options.addWidget(self.charuco_build_btn)
 
-        ####################   DISPLAY CHARUCO  #############################
-        self.charuco_added = False  # track to handle reconfig of board
-        self.build_charuco()
-        self.charuco_added = True
-        VBL.addWidget(self.charuco_display)
         ################################################## ACTUAL EDGE #####
         # HBL.addWidget(self.get_square_edge_length_input())
+
+
+    def build_print_btn(self):
+        self.print_btn = QPushButton("Save png") 
+        # self.print_btn.setMaximumSize(100, 50)
+
+
+    def build_true_up_group(self):
+        self.true_up_group = QGroupBox("True-Up Printed Square Edge")
+        self.true_up_group.setLayout(QHBoxLayout())
+        self.true_up_group.layout().addWidget(QLabel("Actual Length (mm):"))
+        
+        self.printed_edge_length = QDoubleSpinBox()
+        self.true_up_group.layout().addWidget(self.printed_edge_length)
+
+    def build_export(self):
+        self.export = QPushButton("Export")
+
+
+
     def build_column_spinbox(self):
         self.column_spin = QSpinBox()
         self.column_spin.setValue(5)

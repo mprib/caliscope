@@ -12,9 +12,9 @@ import cv2
 
 from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
                             QSlider, QComboBox, QDialog, QSizePolicy, QLCDNumber,
-                            QToolBar, QLabel, QLineEdit, QCheckBox, QScrollArea,
-                            QVBoxLayout, QHBoxLayout, QGridLayout, QSpinBox, 
-                            QGroupBox, QDoubleSpinBox)
+                            QToolBar, QLabel, QLineEdit, QCheckBox, QScrollArea, QSpacerItem,
+                            QVBoxLayout, QHBoxLayout, QGridLayout, QSpinBox, QFrame,
+                            QGroupBox, QDoubleSpinBox, QTextEdit, QGraphicsTextItem, QTextBrowser)
 
 from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
@@ -31,7 +31,7 @@ from src.calibration.charuco import Charuco, ARUCO_DICTIONARIES
 class CharucoBuilder(QDialog):
     def __init__(self):
         super(CharucoBuilder, self).__init__()
-        self.setMaximumHeight(DISPLAY_HEIGHT/3)
+        self.setMaximumHeight(DISPLAY_HEIGHT)
         self.setMaximumWidth(DISPLAY_WIDTH/4)
 
         # Build inputs with sensible defaults; must exist before building board
@@ -42,49 +42,92 @@ class CharucoBuilder(QDialog):
         self.build_unit_dropdown()
         self.build_invert_checkbox()
 
-        # Build display of board
-        self.charuco_added = False  # track to handle redrawing of board
-        self.build_charuco()
-        self.charuco_added = True
+        self.build_config_options()
 
         # Build primary actions
         self.build_print_btn()
         self.build_true_up_group()
         self.build_export()
 
+        self.build_actions()
 
+        # Build display of board
+        self.charuco_added = False  # track to handle redrawing of board
+        self.build_charuco()
+        self.charuco_added = True
 
         #################### ESTABLISH LARGELY VERTICAL LAYOUT ##############
         VBL = QVBoxLayout()
         self.setLayout(VBL)
         self.setWindowTitle("Charuco Board Builder")
 
-
-
-        ################### HORIZONTAL MAIN INTERACTIONS #####################
+        ################## STEP ONE: Configure Charuco ######################
+        # step1.setFrameStyle(QFrame.)
+        # step1.setReadOnly(True)
+        step1_text ="""
+                    <b>Step 1</b>: Configure the parameters of the charuco board.
+                    The default parameters are appropriate for typical use cases,
+                     though you can invert the board to reduce ink usage. 
+                    """
+        step1 = QLabel(step1_text)
+        step1.setWordWrap(True)
+        # Strange wrinkle: charuco display height and width seem flipped
+        step1.setMaximumWidth(self.charuco_display.height()) 
+        VBL.addWidget(step1)
+        VBL.addSpacing(20)
+        VBL.addWidget(self.charuco_config)
         ##### PRINT ##########################################################
+        VBL.addWidget(self.charuco_display)
+        ############### STEP TWO: Print Charuco  #############################
+        step2_text ="""
+                    <b>Step 2</b>: Save the above board to your computer and then 
+                    print it out on paper that is the Target Board Size. Scotch
+                    tape the paper to something flat and rigid. You don't want to
+                    have any wrinkles in the paper. The flatness of the board is 
+                    <b>important</b>.
+                    """
+        step2 = QLabel(step2_text)
+        step2.setWordWrap(True)
+        # Strange wrinkle: charuco display height and width seem flipped
+        step2.setMaximumWidth(self.charuco_display.height()) 
+        VBL.addWidget(step2)
+        VBL.addWidget(self.png_btn)
 
-        top_actions = QHBoxLayout()
-        top_actions.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        ############### STEP THREE: True-Up to actual Charuco Size ###########
 
-        top_actions.addWidget(self.print_btn)
-        top_actions.addWidget(self.true_up_group)
-        top_actions.addWidget(self.export)
 
-        VBL.addLayout(top_actions)
+
+
+        ########## STEP FOUR: Export Trued-Up Board to Calibration Folder #####
+
+
+        VBL.addLayout(self.top_actions)
+        # VBL.adds
 
         ####################   DISPLAY CHARUCO  #############################
-        VBL.addWidget(self.charuco_display)
+                ################################################## ACTUAL EDGE #####
+        # HBL.addWidget(self.get_square_edge_length_input())
+
+    def build_actions(self):
+        
+        self.top_actions = QHBoxLayout()
+        self.top_actions.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+        self.top_actions.addWidget(self.png_btn)
+        self.top_actions.addWidget(self.true_up_group)
+        self.top_actions.addWidget(self.export)
+
+
+    def build_config_options(self):
         #####################  HORIZONTAL CONFIG BOX  ########################
         config_options = QHBoxLayout()
         config_options.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        charuco_config = QGroupBox("Configure Charuco Board")
-        charuco_config.setLayout(config_options)
-        charuco_config.setCheckable(True)
-        charuco_config.setChecked(False)    # sensible defaults....
+        self.charuco_config = QGroupBox("Configure Charuco Board")
+        self.charuco_config.setLayout(config_options)
+        self.charuco_config.setCheckable(True)
+        self.charuco_config.setChecked(False)    # sensible defaults....
 
-        VBL.addWidget(charuco_config)
 
         ### SHAPE GROUP    ################################################
         shape_grp = QGroupBox("row x col")
@@ -114,16 +157,13 @@ class CharucoBuilder(QDialog):
         self.build_invert_checkbox()
         config_options.addWidget(self.invert_checkbox)  
 
-        ####################################### BUILD CHARUCO #################
-        self.build_charuco_build_btn()
+        ####################################### UPDATE CHARUCO #################
+        self.build_charuco_update_btn()
         config_options.addWidget(self.charuco_build_btn)
-
-        ################################################## ACTUAL EDGE #####
-        # HBL.addWidget(self.get_square_edge_length_input())
 
 
     def build_print_btn(self):
-        self.print_btn = QPushButton("Save png") 
+        self.png_btn = QPushButton("Save png") 
         # self.print_btn.setMaximumSize(100, 50)
 
 
@@ -172,7 +212,7 @@ class CharucoBuilder(QDialog):
         self.invert_checkbox = QCheckBox("Invert")
         self.invert_checkbox.setChecked(False)
 
-    def build_charuco_build_btn(self):
+    def build_charuco_update_btn(self):
         self.charuco_build_btn = QPushButton("Update")
         # self.charuco_build_btn.setText("Create Charuco")
         self.charuco_build_btn.setMaximumSize(50,30)
@@ -226,7 +266,6 @@ class CharucoBuilder(QDialog):
 
             p = charuco_QImage.scaled(self.charuco_display.width(),
                                       self.charuco_display.height(),
-                                    #   1,
                                       Qt.AspectRatioMode.KeepAspectRatio, 
                                       Qt.TransformationMode.SmoothTransformation)
 
@@ -237,16 +276,12 @@ class CharucoBuilder(QDialog):
 
 if __name__ == "__main__":
     App = QApplication(sys.argv)
-
-
     screen = App.primaryScreen()
     DISPLAY_WIDTH = screen.size().width()
     DISPLAY_HEIGHT = screen.size().height()
 
     charuco_window = CharucoBuilder()
-
     charuco_window.show()
-
     sys.exit(App.exec())
 
 

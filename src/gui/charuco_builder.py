@@ -139,10 +139,10 @@ class CharucoBuilder(QDialog):
         aruco_scale = 0.75 
         units = self.units.currentText()
         square_edge_length = None
-        aruco_length = 0.75
-        inverted = False
+        inverted = self.invert_checkbox.isChecked
         dictionary_str = "DICT_4X4_1000"
-        
+
+        print("Calling Charuco Function")
         charuco = Charuco(columns,
                           rows,
                           board_height,
@@ -166,11 +166,11 @@ class CharucoBuilder(QDialog):
             h, w, ch = rgb_image.shape
             bytes_per_line = ch * w
             charuco_QImage = QImage(rgb_image.data, 
-                                          w, 
-                                          h, 
-                                          bytes_per_line, 
-                                          QImage.Format.Format_RGB888)
-            # self.charuco_display.setSizePolicy(QSizePolicy.expandingDirections)
+                                    w, 
+                                    h, 
+                                    bytes_per_line, 
+                                    QImage.Format.Format_RGB888)
+
             p = charuco_QImage.scaled(self.charuco_display.width(),
                                       self.charuco_display.height(),
                                     #   1,

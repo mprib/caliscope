@@ -1,10 +1,11 @@
-from email.errors import InvalidBase64CharactersDefect
-from re import I
-import cv2 as cv
+
+#%%
+
 from collections import defaultdict
 from itertools import combinations
-
+import cv2
 from numpy import char
+import json
 
 INCHES_PER_MM = .0393701
 
@@ -41,33 +42,39 @@ class Charuco():
 
         self.board_height = board_height
         self.board_width = board_width
-
+        self.dictionary = dictionary
+        self.aruco_scale = aruco_scale
         # if square length not provided, calculate based on board dimensions
         # to maximize size of squares
-        if square_size_overide:
-            square_length = square_size_overide # note: in meters
-        else:
-            square_length = min([board_height/rows, board_width/columns]) 
+        self.square_size_overide = square_size_overide
 
-        # Scale aruco according based on square size
-        aruco_length = square_length * aruco_scale 
 
+    @property
+    def dictionary_object(self):
         # grab the dictionary from the reference info at the foot of the module
-        dictionary_integer = ARUCO_DICTIONARIES[dictionary]
-        self.dictionary = cv.aruco.Dictionary_get(dictionary_integer)
+        dictionary_integer = ARUCO_DICTIONARIES[self.dictionary]
+        return cv2.aruco.Dictionary_get(dictionary_integer)
 
+    @property
+    def board(self):
+        if self.square_size_overide:
+            square_length = self.square_size_overide # note: in meters
+        else:
+            square_length = min([self.board_height/self.rows, 
+                                self.board_width/self.columns]) 
+
+        aruco_length = square_length * self.aruco_scale 
         # create the board
-        self.board = cv.aruco.CharucoBoard_create(
-            columns,
-            rows,
-            square_length,
-            aruco_length,
-            self.dictionary)
+        return cv2.aruco.CharucoBoard_create(
+                            self.columns,
+                            self.rows,
+                            square_length,
+                            aruco_length,
+                            # property based on dictionary text 
+                            self.dictionary_object) 
 
-        self.board_img = self.get_image() 
-
-    def get_image(self):
-        # convert to inches for ease of saving at 300 DPI
+    @property
+    def board_img(self):
 
         width_inch = self.board_width * INCHES_PER_MM
         height_inch = self.board_height * INCHES_PER_MM
@@ -81,7 +88,7 @@ class Charuco():
 
     def save_image(self, path):
         
-        cv.imwrite(path, self.board_img)
+        cv2.imwrite(path, self.board_img)
 
 
     def get_connected_corners(self):
@@ -132,51 +139,56 @@ class Charuco():
 
         return self.board.chessboardCorners[corner_ids, :]
 
+    def export_as_json(self, path):
+        charuco_str = json.dumps(self.__dict__, indent=4)    
+        with open(path, 'w') as f:
+            f.write(charuco_str)
+
+
 
  
 
 
 ################################## REFERENCE ###################################
 ARUCO_DICTIONARIES = {
-	"DICT_4X4_50": cv.aruco.DICT_4X4_50,
-	"DICT_4X4_100": cv.aruco.DICT_4X4_100,
-	"DICT_4X4_250": cv.aruco.DICT_4X4_250,
-	"DICT_4X4_1000": cv.aruco.DICT_4X4_1000,
-	"DICT_5X5_50": cv.aruco.DICT_5X5_50,
-	"DICT_5X5_100": cv.aruco.DICT_5X5_100,
-	"DICT_5X5_250": cv.aruco.DICT_5X5_250,
-	"DICT_5X5_1000": cv.aruco.DICT_5X5_1000,
-	"DICT_6X6_50": cv.aruco.DICT_6X6_50,
-	"DICT_6X6_100": cv.aruco.DICT_6X6_100,
-	"DICT_6X6_250": cv.aruco.DICT_6X6_250,
-	"DICT_6X6_1000": cv.aruco.DICT_6X6_1000,
-	"DICT_7X7_50": cv.aruco.DICT_7X7_50,
-	"DICT_7X7_100": cv.aruco.DICT_7X7_100,
-	"DICT_7X7_250": cv.aruco.DICT_7X7_250,
-	"DICT_7X7_1000": cv.aruco.DICT_7X7_1000,
-	"DICT_ARUCO_ORIGINAL": cv.aruco.DICT_ARUCO_ORIGINAL,
-	"DICT_APRILTAG_16h5": cv.aruco.DICT_APRILTAG_16h5,
-	"DICT_APRILTAG_25h9": cv.aruco.DICT_APRILTAG_25h9,
-	"DICT_APRILTAG_36h10": cv.aruco.DICT_APRILTAG_36h10,
-	"DICT_APRILTAG_36h11": cv.aruco.DICT_APRILTAG_36h11
+	"DICT_4X4_50": cv2.aruco.DICT_4X4_50,
+	"DICT_4X4_100": cv2.aruco.DICT_4X4_100,
+	"DICT_4X4_250": cv2.aruco.DICT_4X4_250,
+	"DICT_4X4_1000": cv2.aruco.DICT_4X4_1000,
+	"DICT_5X5_50": cv2.aruco.DICT_5X5_50,
+	"DICT_5X5_100": cv2.aruco.DICT_5X5_100,
+	"DICT_5X5_250": cv2.aruco.DICT_5X5_250,
+	"DICT_5X5_1000": cv2.aruco.DICT_5X5_1000,
+	"DICT_6X6_50": cv2.aruco.DICT_6X6_50,
+	"DICT_6X6_100": cv2.aruco.DICT_6X6_100,
+	"DICT_6X6_250": cv2.aruco.DICT_6X6_250,
+	"DICT_6X6_1000": cv2.aruco.DICT_6X6_1000,
+	"DICT_7X7_50": cv2.aruco.DICT_7X7_50,
+	"DICT_7X7_100": cv2.aruco.DICT_7X7_100,
+	"DICT_7X7_250": cv2.aruco.DICT_7X7_250,
+	"DICT_7X7_1000": cv2.aruco.DICT_7X7_1000,
+	"DICT_ARUCO_ORIGINAL": cv2.aruco.DICT_ARUCO_ORIGINAL,
+	"DICT_APRILTAG_16h5": cv2.aruco.DICT_APRILTAG_16h5,
+	"DICT_APRILTAG_25h9": cv2.aruco.DICT_APRILTAG_25h9,
+	"DICT_APRILTAG_36h10": cv2.aruco.DICT_APRILTAG_36h10,
+	"DICT_APRILTAG_36h11": cv2.aruco.DICT_APRILTAG_36h11
 }
 
 
 ########################## DEMO  ###########################################
 
-def main():
+if __name__ == "__main__":
     charuco = Charuco(4,5,4,8.5,aruco_scale = .75, units = "inch", square_size_overide=.0525)
     charuco.save_image("test_charuco.png")  
     width, height = charuco.board_img.shape
     print(f"Board width is {width}\nBoard height is {height}")
-
+# 
     while True:
-        cv.imshow("Charuco Board", charuco.board_img)
-        
-        key = cv.waitKey(0)
+        cv2.imshow("Charuco Board", charuco.board_img)
+        # 
+        key = cv2.waitKey(0)
         if key == ord('q'):
-            cv.destroyAllWindows()
+            cv2.destroyAllWindows()
             break
-
-if __name__ == "__main__":
-    main()
+            
+    charuco.export_as_json("test_json")

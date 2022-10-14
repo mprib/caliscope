@@ -75,7 +75,7 @@ class Charuco():
 
     @property
     def board_img(self):
-
+        """A cv2 image (numpy array) of the board"""
         width_inch = self.board_width * INCHES_PER_MM
         height_inch = self.board_height * INCHES_PER_MM
 
@@ -105,7 +105,6 @@ class Charuco():
         corners_y = corners[:,1]
         x_set = set(corners_x)
         y_set = set(corners_y)
-
 
         lines = defaultdict(list)
 

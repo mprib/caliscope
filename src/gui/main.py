@@ -23,7 +23,7 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap, QAction
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.gui.video_display_widget import CameraConfigWidget
+from gui.camera_config_widget import CameraConfigWidget
 
 class MainWindow(QMainWindow):
 

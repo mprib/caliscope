@@ -39,12 +39,8 @@ class CameraConfigWidget(QDialog):
         self.frame_emitter = FrameEmitter(self.cam_cap)
         self.frame_emitter.start()
 
-
         VBL = QVBoxLayout()
         self.setLayout(VBL)
-
-
-        # print("About to add frame display")
         #################      VIDEO AT TOP     ##########################     
         VBL.addWidget(self.get_frame_display())
         VBL.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -147,16 +143,9 @@ class CameraConfigWidget(QDialog):
 
     def get_frame_display(self):
         # return a QLabel that is linked to the constantly changing image
-        # emitted by the FrameEmitter thread (which is pulled off of the 
-        # video capture widget which is running its own roll_camera thread)
-        
         # IMPORTANT: frame_emitter thread must continue to exist after running
         # this method. Cannot be confined to namespace of the method
         CameraDisplay = QLabel()
-
-        # I believe that since this is a text label (technically) it needs
-        # to be centered itself. Centering the containing widget alignment 
-        # won't do
         CameraDisplay.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         def ImageUpdateSlot(Image):
@@ -180,8 +169,7 @@ class CameraConfigWidget(QDialog):
         return mediapipe_toggle
 
     def get_resolution_dropdown(self):
-
-        # possible resolutions is a list of tuples, but we need text
+        # possible resolutions is a list of tuples, but we need a list of Stext
         def resolutions_text():
             res_text = []
             for w, h in self.cam_cap.cam.possible_resolutions:
@@ -192,13 +180,13 @@ class CameraConfigWidget(QDialog):
             w, h = res_text.split("x")
             new_res = (int(w), int(h))
 
-            self.change_res_thread = Thread(target = self.cam_cap.change_resolution,
-                                            args = (new_res, ),
-                                            daemon=True)
-            self.change_res_thread.start()
-            # self.cam_cap.change_resolution(new_res)
+        self.change_res_thread = Thread(target = self.cam_cap.change_resolution,
+                                        args = (new_res, ),
+                                        daemon=True)
+        self.change_res_thread.start()
+        # self.cam_cap.change_resolution(new_res)
 
-            self.setFixedSize(QSize(int(w) + 50, int(h)+50))
+        self.setFixedSize(QSize(int(w) + 50, int(h)+50))
 
         resolution_combo = QComboBox()
         
@@ -223,7 +211,6 @@ class FrameEmitter(QThread):
         print("Initializing Frame Emitter")
     
     def run(self):
-        # self.camcap = CameraCaptureWidget(self.camcap) #, self.width ,self.height)
         self.ThreadActive = True
         self.height = int(self.camcap.cam.resolution[0])
         self.width = int(self.camcap.cam.resolution[1])
@@ -231,7 +218,7 @@ class FrameEmitter(QThread):
         while self.ThreadActive:
             try:    # takes a moment for capture widget to spin up...don't error out
 
-                # Grab a frame from the capture widget and adjust it to 
+                # Grab a frame from the capture widget
                 frame = self.camcap.frame
                 fps = self.camcap.FPS_actual
 
@@ -258,13 +245,12 @@ class FrameEmitter(QThread):
         self.ThreadActive = False
         self.quit()
 
-# if __name__ == "__main__":
-# %%
-port = 0
-cam = Camera(port)
-App = QApplication(sys.argv)
-camcap = CameraCaptureWidget(cam)
-display = CameraConfigWidget(camcap)
-display.show()
-sys.exit(App.exec())
+if __name__ == "__main__":
+    port = 0
+    cam = Camera(port)
+    App = QApplication(sys.argv)
+    camcap = CameraCaptureWidget(cam)
+    display = CameraConfigWidget(camcap)
+    display.show()
+    sys.exit(App.exec())
 

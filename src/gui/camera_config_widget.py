@@ -63,10 +63,13 @@ class CameraConfigWidget(QDialog):
 
         fps_display = QLabel()
         fps_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        fps_display.setFont(QFont("Times New Roman", 15))
+        fps_display.setFont(QFont("", 15))
 
         def FPSUpdateSlot(fps):
-            fps_display.setText(str(fps) + " FPS")
+            if fps == 0:
+                fps_display.setText("reconnecting to camera...")
+            else:
+                fps_display.setText(str(fps) + " FPS")
 
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)        
         
@@ -79,6 +82,7 @@ class CameraConfigWidget(QDialog):
         def rotate_cw():
             # Counter Clockwise rotation called because the display image is flipped
             self.cam_cap.rotate_CCW()
+            
 
         rotate_cw_btn.clicked.connect(rotate_cw)
 
@@ -112,7 +116,6 @@ class CameraConfigWidget(QDialog):
         exp_number.setText(str(int(self.cam_cap.cam.exposure)))
 
         def update_exposure(s):
-            print(f"Exposure is {s}")
             self.cam_cap.cam.exposure = s
             exp_number.setText(str(s))
 
@@ -152,7 +155,7 @@ class CameraConfigWidget(QDialog):
         mediapipe_toggle.stateChanged.connect(toggle_mediapipe)
 
         return mediapipe_toggle
-
+        
     def get_resolution_dropdown(self):
         # possible resolutions is a list of tuples, but we need a list of Stext
         def resolutions_text():
@@ -171,11 +174,12 @@ class CameraConfigWidget(QDialog):
                                             daemon=True)
             self.change_res_thread.start()
 
-            self.setFixedSize(QSize(int(w) + 50, int(h)+50))
+            self.setMinimumSize(QSize(int(w) + 50, int(h)+50))
 
         resolution_combo = QComboBox()
         
         w,h = self.cam_cap.cam.default_resolution
+        
         resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
         resolution_combo.setMaximumSize(100, 50)
         resolution_combo.addItems(resolutions_text())

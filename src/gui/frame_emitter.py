@@ -16,7 +16,7 @@ class FrameEmitter(QThread):
     # within the GUI
     ImageBroadcast = pyqtSignal(QImage)
     FPSBroadcast = pyqtSignal(int)
-   
+
     def __init__(self, camcap):
         super(FrameEmitter,self).__init__()
         self.min_sleep = .01 # if true fps drops to zero, don't blow up
@@ -24,6 +24,7 @@ class FrameEmitter(QThread):
         print("Initializing Frame Emitter")
     
     def run(self):
+        MIN_SLEEP_TIME = .01
         self.ThreadActive = True
         self.height = int(self.camcap.cam.resolution[0])
         self.width = int(self.camcap.cam.resolution[1])
@@ -31,49 +32,37 @@ class FrameEmitter(QThread):
         while self.ThreadActive:
             try:    # takes a moment for capture widget to spin up...don't error out
 
-               
-                    # self.broadcast_fps() 
-                    # self.broadcast_frame()
-            # def broadcast_frame(self):
-                # Grab a frame from the capture widget
+                # Grab a frame from the capture widget and broadcast to displays
                 frame = self.camcap.frame
                 Pic = self.cv2_to_qlabel(frame)
                 self.ImageBroadcast.emit(Pic)
-    
-            # def broadcast_fps(self):
-    
-                self.fps = self.camcap.FPS_actual
-                self.FPSBroadcast.emit(self.fps)
-    
-                time.sleep(1/self.fps)
+
+                # grab and broadcast fps
+                fps = self.camcap.FPS_actual
+                self.FPSBroadcast.emit(fps)
+
+                # throttle rate of broadcast to reduce system overhead
+                if fps == 0:    # Camera likely reconnecting
+                    time.sleep(MIN_SLEEP_TIME) 
+                else:
+                    time.sleep(1/fps)
 
             except AttributeError:
                 pass
-
-    def broadcast_frame(self):
-        # Grab a frame from the capture widget
-        frame = self.camcap.frame
-        Pic = self.cv2_to_qlabel(frame)
-        self.ImageBroadcast.emit(Pic)
-
-    def broadcast_fps(self):
-
-        self.fps = self.camcap.FPS_actual
-        self.FPSBroadcast.emit(self.fps)
 
     def stop(self):
         self.ThreadActive = False
         self.quit()
 
     def cv2_to_qlabel(self, frame):
-                Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                FlippedImage = cv2.flip(Image, 1)
+        Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        FlippedImage = cv2.flip(Image, 1)
 
-                qt_frame = QImage(FlippedImage.data, 
-                                  FlippedImage.shape[1], 
-                                  FlippedImage.shape[0], 
-                                  QImage.Format.Format_RGB888)
-                return qt_frame
+        qt_frame = QImage(FlippedImage.data, 
+                          FlippedImage.shape[1], 
+                          FlippedImage.shape[0], 
+                          QImage.Format.Format_RGB888)
+        return qt_frame
         
 
 if __name__ == "__main__":

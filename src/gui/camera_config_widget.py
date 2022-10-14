@@ -1,18 +1,8 @@
-# At this point I can't even recall where I copied this code from, but it is what
-# actually works and drives home to me that I need to develop a better understanding
-# of threads, signals, slots, events, all that as it relates to GUI development
-
-# Moving on to pythonguis.com tutorials for just that. But this code works...
-
 
 #%%
-from ast import arg
 import sys
 from pathlib import Path
-import time
 from threading import Thread
-
-import cv2
 
 from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
                             QSlider, QComboBox, QDialog, QSizePolicy, QLCDNumber,
@@ -25,14 +15,13 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap, QFont
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.cameras.camera_capture_widget import CameraCaptureWidget
 from src.cameras.camera import Camera
+from src.cameras.frame_capture_widget import CameraCaptureWidget
+from frame_emitter import FrameEmitter
 
 class CameraConfigWidget(QDialog):
     def __init__(self, camcap):
         super(CameraConfigWidget, self).__init__()
-
-
         # frame emitter is a thread that is constantly pulling in values from 
         # the capture widget and broadcasting them to widgets on this window 
         self.cam_cap = camcap
@@ -69,7 +58,6 @@ class CameraConfigWidget(QDialog):
         #################### EXPOSURE SLIDER ##############################
         VBL.addLayout(self.get_exposure_slider())
 
-
 ####################### SUB_WIDGET CONSTRUCTION ###############################
     def get_fps_display(self):
 
@@ -78,7 +66,7 @@ class CameraConfigWidget(QDialog):
         fps_display.setFont(QFont("Times New Roman", 15))
 
         def FPSUpdateSlot(fps):
-            fps_display.setText(str(str(fps) + " FPS"))
+            fps_display.setText(str(fps) + " FPS")
 
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)        
         
@@ -107,8 +95,6 @@ class CameraConfigWidget(QDialog):
         rotate_ccw_btn.clicked.connect(rotate_ccw)
 
         return rotate_ccw_btn
-
-
     
     def get_exposure_slider(self):
         # construct a horizontal widget with label: slider: value display
@@ -139,7 +125,6 @@ class CameraConfigWidget(QDialog):
         HBox.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         return HBox
-
 
     def get_frame_display(self):
         # return a QLabel that is linked to the constantly changing image
@@ -177,16 +162,16 @@ class CameraConfigWidget(QDialog):
             return res_text
         
         def change_resolution(res_text):
+            # call the cam_cap widget to change the resolution, but do it in a 
+            # thread so that it doesn't halt your progress
             w, h = res_text.split("x")
             new_res = (int(w), int(h))
+            self.change_res_thread = Thread(target = self.cam_cap.change_resolution,
+                                            args = (new_res, ),
+                                            daemon=True)
+            self.change_res_thread.start()
 
-        self.change_res_thread = Thread(target = self.cam_cap.change_resolution,
-                                        args = (new_res, ),
-                                        daemon=True)
-        self.change_res_thread.start()
-        # self.cam_cap.change_resolution(new_res)
-
-        self.setFixedSize(QSize(int(w) + 50, int(h)+50))
+            self.setFixedSize(QSize(int(w) + 50, int(h)+50))
 
         resolution_combo = QComboBox()
         
@@ -198,52 +183,6 @@ class CameraConfigWidget(QDialog):
         return resolution_combo
         
 
-class FrameEmitter(QThread):
-    # establish signals from the frame that will be displayed in real time 
-    # within the GUI
-    ImageBroadcast = pyqtSignal(QImage)
-    FPSBroadcast = pyqtSignal(int)
-   
-    def __init__(self, camcap):
-        super(FrameEmitter,self).__init__()
-        self.min_sleep = .01 # if true fps drops to zero, don't blow up
-        self.camcap = camcap
-        print("Initializing Frame Emitter")
-    
-    def run(self):
-        self.ThreadActive = True
-        self.height = int(self.camcap.cam.resolution[0])
-        self.width = int(self.camcap.cam.resolution[1])
-         
-        while self.ThreadActive:
-            try:    # takes a moment for capture widget to spin up...don't error out
-
-                # Grab a frame from the capture widget
-                frame = self.camcap.frame
-                fps = self.camcap.FPS_actual
-
-                self.fps_text =  str(int(round(fps, 0))) 
-                Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                FlippedImage = cv2.flip(Image, 1)
-                # print(f"Flipped Image Shape is: {FlippedImage.shape}")
-
-                qt_frame = QImage(FlippedImage.data, 
-                                  FlippedImage.shape[1], 
-                                  FlippedImage.shape[0], 
-                                  QImage.Format.Format_RGB888)
-                # Pic = qt_frame.scaled(self.width, self.height, Qt.AspectRatioMode.KeepAspectRatio)
-                Pic = qt_frame
-                self.ImageBroadcast.emit(Pic)
-                self.FPSBroadcast.emit(fps)
-                time.sleep(1/fps)
-                # time.sleep(1/self.peak_fps_display)
-
-            except AttributeError:
-                pass
-
-    def stop(self):
-        self.ThreadActive = False
-        self.quit()
 
 if __name__ == "__main__":
     port = 0

@@ -27,7 +27,7 @@ class CameraCaptureWidget:
         self.frame_name = "Cam"+str(cam.port)
         
         # initialize time trackers for actual FPS determination
-        self.start_time = time.time()
+        # self.start_time = time.time()
         self.avg_delta_time = None
 
         # Mediapipe hand detection infrastructure
@@ -94,19 +94,21 @@ class CameraCaptureWidget:
 
         """
         # Grab frame and run image detection
+
+        self.start_time = time.time() # used to get initial delta_t for FPS
         while True:
             self.cam.is_rolling = True
 
             if self.cam.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
                 # pull in a working frame
-                (self.status, self._working_frame) = self.cam.capture.read()
+                self.status, self._working_frame = self.cam.capture.read()
 
                 self.apply_rotation()
                 self.run_mediapipe_hands()
                 
                 self.frame = self._working_frame.copy()
 
-                # Determination must be limited by speed of this threak loop
+                # Determination must be limited by speed of this thread loop
                 # so cannot be an @property
                 self.FPS_actual = self.get_FPS_actual()
 
@@ -122,6 +124,9 @@ class CameraCaptureWidget:
         
         while self.cam.is_rolling:
             time.sleep(.01)
+
+        self.FPS_actual = 0
+        self.avg_delta_time = None
 
         self.cam.disconnect()
 

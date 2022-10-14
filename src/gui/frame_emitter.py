@@ -1,0 +1,82 @@
+import sys
+from pathlib import Path
+import time
+
+import cv2
+
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
+from PyQt6.QtGui import QIcon, QImage, QPixmap, QFont
+
+# Append main repo to top of path to allow import of backend
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+
+class FrameEmitter(QThread):
+    # establish signals from the frame that will be displayed in real time 
+    # within the GUI
+    ImageBroadcast = pyqtSignal(QImage)
+    FPSBroadcast = pyqtSignal(int)
+   
+    def __init__(self, camcap):
+        super(FrameEmitter,self).__init__()
+        self.min_sleep = .01 # if true fps drops to zero, don't blow up
+        self.camcap = camcap
+        print("Initializing Frame Emitter")
+    
+    def run(self):
+        self.ThreadActive = True
+        self.height = int(self.camcap.cam.resolution[0])
+        self.width = int(self.camcap.cam.resolution[1])
+         
+        while self.ThreadActive:
+            try:    # takes a moment for capture widget to spin up...don't error out
+
+               
+                    # self.broadcast_fps() 
+                    # self.broadcast_frame()
+            # def broadcast_frame(self):
+                # Grab a frame from the capture widget
+                frame = self.camcap.frame
+                Pic = self.cv2_to_qlabel(frame)
+                self.ImageBroadcast.emit(Pic)
+    
+            # def broadcast_fps(self):
+    
+                self.fps = self.camcap.FPS_actual
+                self.FPSBroadcast.emit(self.fps)
+    
+                time.sleep(1/self.fps)
+
+            except AttributeError:
+                pass
+
+    def broadcast_frame(self):
+        # Grab a frame from the capture widget
+        frame = self.camcap.frame
+        Pic = self.cv2_to_qlabel(frame)
+        self.ImageBroadcast.emit(Pic)
+
+    def broadcast_fps(self):
+
+        self.fps = self.camcap.FPS_actual
+        self.FPSBroadcast.emit(self.fps)
+
+    def stop(self):
+        self.ThreadActive = False
+        self.quit()
+
+    def cv2_to_qlabel(self, frame):
+                Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                FlippedImage = cv2.flip(Image, 1)
+
+                qt_frame = QImage(FlippedImage.data, 
+                                  FlippedImage.shape[1], 
+                                  FlippedImage.shape[0], 
+                                  QImage.Format.Format_RGB888)
+                return qt_frame
+        
+
+if __name__ == "__main__":
+    pass
+
+    # not much to look at here... go to camera_config_widget.py for test

@@ -105,7 +105,10 @@ class CameraCaptureWidget:
                 self.run_mediapipe_hands()
                 
                 self.frame = self._working_frame.copy()
-                self.FPS_actual = self.get_FPS_actual() 
+
+                # Determination must be limited by speed of this threak loop
+                # so cannot be an @property
+                self.FPS_actual = self.get_FPS_actual()
 
                 # Stop thread if camera pulls trigger
                 if self.cam.stop_rolling_trigger:
@@ -150,17 +153,17 @@ if __name__ == '__main__':
         print(f"Creating camera {port}")
         cams.append(Camera(port))
 
-    camcap_widgets = []
+    frm_cap_widgets = []
 
     for cam in cams:
         print(f"Creating capture widget for camera {cam.port}")
-        camcap_widgets.append(CameraCaptureWidget(cam))
+        frm_cap_widgets.append(CameraCaptureWidget(cam))
 
     while True:
         try:
-            for camcap in camcap_widgets:
-                camcap.add_fps()
-                cv2.imshow(camcap.frame_name, camcap.frame)
+            for frm_cap in frm_cap_widgets:
+                frm_cap.add_fps()
+                cv2.imshow(frm_cap.frame_name, frm_cap.frame)
                 
         # bad reads until connection to src established
         except AttributeError:
@@ -171,31 +174,31 @@ if __name__ == '__main__':
         # toggle mediapipe with 'm' 
         if key == ord('m'):
             print("Toggling Mediapipe")
-            for camcap in camcap_widgets:
-                print(camcap.frame_name)
-                camcap.toggle_mediapipe()
+            for frm_cap in frm_cap_widgets:
+                print(frm_cap.frame_name)
+                frm_cap.toggle_mediapipe()
         
         if key == ord('r'):
             print("Rotate Frame CW")
 
-            for camcap in camcap_widgets:
-                camcap.rotate_CW()
-                print(camcap.frame_name + " " + str(camcap.rotation_count))
+            for frm_cap in frm_cap_widgets:
+                frm_cap.rotate_CW()
+                print(frm_cap.frame_name + " " + str(frm_cap.rotation_count))
        
         if  key == ord('l'):
             print("Rotate Frame CCW")
                 
-            for camcap in camcap_widgets:
-                camcap.rotate_CCW()
-                print(camcap.frame_name + " " + str(camcap.rotation_count))
+            for frm_cap in frm_cap_widgets:
+                frm_cap.rotate_CCW()
+                print(frm_cap.frame_name + " " + str(frm_cap.rotation_count))
        
         # 'q' to quit
         if key == ord('q'):
-            for camcap in camcap_widgets:
-                camcap.cam.capture.release()
+            for frm_cap in frm_cap_widgets:
+                frm_cap.cam.capture.release()
             cv2.destroyAllWindows()
             exit(0)
 
         if key == ord('v'):
-            for camcap in camcap_widgets:
-                camcap.change_resolution((1280, 720))
+            for frm_cap in frm_cap_widgets:
+                frm_cap.change_resolution((1280, 720))

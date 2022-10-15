@@ -24,7 +24,7 @@ from pyparsing import java_style_comment
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from cameras.frame_capture_widget import CameraCaptureWidget
+from cameras.real_time_device import RealTimeDevice
 from src.cameras.camera import Camera
 from src.calibration.charuco import Charuco, ARUCO_DICTIONARIES
 

@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.camera import Camera
 
-class CameraCaptureWidget:
+class RealTimeDevice:
     def __init__(self, cam):
 
         self.cam = cam 
@@ -133,6 +133,7 @@ class CameraCaptureWidget:
         self.cam.connect()
         self.cam.resolution = res
         
+        self.cap_thread.join()
         # apparently threads can only be started once, so create anew
         self.cap_thread = Thread(target=self.roll_camera, args=( ), daemon=True)
         self.cap_thread.start()
@@ -162,7 +163,7 @@ if __name__ == '__main__':
 
     for cam in cams:
         print(f"Creating capture widget for camera {cam.port}")
-        frm_cap_widgets.append(CameraCaptureWidget(cam))
+        frm_cap_widgets.append(RealTimeDevice(cam))
 
     while True:
         try:

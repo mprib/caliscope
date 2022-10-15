@@ -20,10 +20,14 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QIcon, QImage, QPixmap, QAction
+from numpy import disp
+
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from gui.camera_config_widget import CameraConfigWidget
+from src.cameras.camera import Camera
+from src.cameras.real_time_device import RealTimeDevice
+from src.gui.camera_config_widget import CameraConfigWidget
 
 class MainWindow(QMainWindow):
 
@@ -35,7 +39,6 @@ class MainWindow(QMainWindow):
         menu = self.menuBar()
         file_menu = menu.addMenu("&File")
         window_menu = menu.addMenu("&Window")
-
         # Close Application
         action_close = QAction("&Close", self)
         action_close.triggered.connect(self.close_app)
@@ -60,20 +63,25 @@ class MainWindow(QMainWindow):
 
         # this is the call to create the display widgets and is definitely 
         # something that needs to be cleaned up
-        for i in range(0,4):
-            vid_window = CameraConfigWidget(i) 
-            self.gbox.addWidget(vid_window, row, col)
- 
-            col = col + 1
-            if col >= total_columns:
-                col = 0 
-                row = row+1
+        # for port in [0,1,3]:
+        port = 0
+        cam = Camera(port)
+        real_time_device = RealTimeDevice(cam)
+        display = CameraConfigWidget(real_time_device) 
+        # self.gbox.addWidget(vid_window, row, col)
 
+        # col = col + 1
+        # if col >= total_columns:
+        #     col = 0 
+        #     row = row+1
+        label = QLabel("Test")
+        # display.setFixedSize(300, 300)
+        self.gbox.addWidget(display)
         self.widget.setLayout(self.gbox)
 
         #Scroll Area Properties
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setWidgetResizable(True)
         self.scroll.setWidget(self.widget)
 
@@ -85,9 +93,6 @@ class MainWindow(QMainWindow):
 
         return        
     
-    def ImageUpdateSlot(self, Image):
-        self.FeedLabel.setPixmap(QPixmap.fromImage(Image))
-
 
 
 ############### TEST #######################

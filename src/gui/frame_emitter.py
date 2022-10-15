@@ -41,6 +41,9 @@ class FrameEmitter(QThread):
                 image = self.cv2_to_qlabel(frame)
                 pixmap = QPixmap.fromImage(image)
 
+                # GUI was crashing I believe due to overloading GUI thread with 
+                # scaling. Scaling within the emitter resolved the crashes
+
                 if self.pixmap_edge_length:
                     pixmap = pixmap.scaled(self.pixmap_edge_length,
                                            self.pixmap_edge_length,

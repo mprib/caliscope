@@ -35,6 +35,14 @@ class RealTimeDevice:
         self.hands = self.mpHands.Hands()
         self.mpDraw = mp.solutions.drawing_utils 
         self.show_mediapipe = True
+    
+    @property
+    def resolution(self):
+        if self.rotation_count in [-2,0,2]:
+            return self.cam.resolution
+        else:
+            w, h = self.cam.resolution
+            return h,w
 
     def get_FPS_actual(self):
         """set the actual frame rate from within the update function"""

@@ -1,9 +1,11 @@
 
 #%%
+from re import I
 import sys
 from pathlib import Path
 from threading import Thread
 import time
+import cv2
 
 from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
                             QSlider, QComboBox, QDialog, QSizePolicy, QLCDNumber,
@@ -36,7 +38,9 @@ class CameraConfigWidget(QDialog):
             self.frame_emitter = FrameEmitter(self.RTD)
             self.frame_emitter.start()
 
-        self.setMaximumSize(DISPLAY_WIDTH/2, (DISPLAY_HEIGHT/2))
+        window_edge = min(DISPLAY_WIDTH/2, DISPLAY_HEIGHT/2)
+        self.setFixedSize(window_edge, window_edge) 
+        self.setContentsMargins(0,0,0,0)
 
         ################### BUILD SUB WIDGETS #############################
         self.build_frame_display()
@@ -46,17 +50,19 @@ class CameraConfigWidget(QDialog):
         self.build_cw_rotation_btn()
         self.build_resolution_combo()
         self.build_exposure_hbox()
+        self.build_view_full_res_btn()
         ###################################################################
         self.VBL = QVBoxLayout(self)
+        self.VBL.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.VBL.setContentsMargins(0,0,0,0)
+
         #################      VIDEO AT TOP     ##########################     
         self.VBL.addWidget(self.frame_display)
         #######################     FPS         ##########################
-        self.VBL.addWidget(self.fps_display)
 
         #############################  ADD HBOX ###########################
         HBL = QHBoxLayout()
         ### MP TOGGLE #####################################################
-        HBL.addWidget(self.mediapipe_toggle)
         
         ################ ROTATE CCW #######################################
         HBL.addWidget(self.ccw_rotation_btn)
@@ -67,24 +73,29 @@ class CameraConfigWidget(QDialog):
         ######################################### RESOLUTION DROPDOWN ######
         HBL.addWidget(self.resolution_combo)
         HBL.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         self.VBL.addLayout(HBL)
+
 
         #################### EXPOSURE SLIDER ##############################
         self.VBL.addLayout(self.exposure_hbox)
+        
+        self.VBL.addWidget(self.fps_display)
+        self.VBL.addWidget(self.mediapipe_toggle)
+
+        self.VBL.addWidget(self.view_full_res_btn)
         self.adjustSize()
 ####################### SUB_WIDGET CONSTRUCTION ###############################
     def build_fps_display(self):
 
         self.fps_display = QLabel()
         self.fps_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.fps_display.setFont(QFont("", 15))
+        # self.fps_display.setFont(QFont("", 15))
         # self.fps_display.setMaximumSize(400,400)
         def FPSUpdateSlot(fps):
             if fps == 0:
                 self.fps_display.setText("reconnecting to camera...")
             else:
-                self.fps_display.setText(str(fps) + " FPS")
+                self.fps_display.setText("FPS: " + str(fps))
 
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)        
  
@@ -95,6 +106,7 @@ class CameraConfigWidget(QDialog):
         def rotate_cw():
             # Counter Clockwise rotation called because the display image is flipped
             self.RTD.rotate_CCW()
+            self.adjustSize()
 
         self.cw_rotation_btn.clicked.connect(rotate_cw)
 
@@ -105,6 +117,7 @@ class CameraConfigWidget(QDialog):
         def rotate_ccw():
             # Clockwise rotation called because the display image is flipped
             self.RTD.rotate_CW()
+            self.adjustSize()
 
         self.ccw_rotation_btn.clicked.connect(rotate_ccw)
     
@@ -119,7 +132,7 @@ class CameraConfigWidget(QDialog):
         self.exp_slider.setSliderPosition(int(self.RTD.cam.exposure))
         self.exp_slider.setPageStep(1)
         self.exp_slider.setSingleStep(1)
-        # exp_slider.setMaximumWidth(400)
+        self.exp_slider.setMaximumWidth(200)
         exp_number = QLabel()
         exp_number.setText(str(int(self.RTD.cam.exposure)))
 
@@ -142,8 +155,8 @@ class CameraConfigWidget(QDialog):
 
         self.frame_display = QLabel()
         self.frame_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.frame_display.setFixedWidth(self.width()-0.1*self.width())
-        self.frame_display.setFixedHeight(self.height()-0.1*self.height())
+        self.frame_display.setFixedWidth(self.width())
+        self.frame_display.setFixedHeight(self.height()-150)
 
         def ImageUpdateSlot(Image):
             pixmap = QPixmap.fromImage(Image)
@@ -197,7 +210,25 @@ class CameraConfigWidget(QDialog):
         self.resolution_combo.addItems(resolutions_text())
         self.resolution_combo.currentTextChanged.connect(change_resolution)        
 
+    def build_view_full_res_btn(self):
+        self.view_full_res_btn = QPushButton("View Full Resolution (press 'q' to quit Full Resolution View)")
+        
+        def cv2_view_worker():
+            while True:
+                frame = cv2.flip(self.RTD.frame, 1)
 
+                cv2.imshow("Press 'q' to Quit", frame)
+
+                key = cv2.waitKey(1)
+                if key == ord('q'):
+                    cv2.destroyAllWindows()
+                    break
+
+        def run_cv2_view():
+            self.cv2_view = Thread(target=cv2_view_worker, args = (), daemon = True)
+            self.cv2_view.start()
+
+        self.view_full_res_btn.clicked.connect(run_cv2_view)
 
 if __name__ == "__main__":
     port = 0

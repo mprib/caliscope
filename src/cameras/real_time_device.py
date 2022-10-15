@@ -1,7 +1,7 @@
 # This widget is the primary functional unit of the motion capture. It
-# establishes the connection with the video source 
+# establishes the connection with the video source and manages the thread
+# that reads in frames.
 
-import queue
 from threading import Thread
 import cv2
 import time
@@ -19,7 +19,7 @@ class RealTimeDevice:
 
         self.cam = cam 
         # Initialize parameters capture paramters
-        self.rotation_count = 0 # +1 for each 90 degree clockwise rotation, -1 for CCW
+        self.rotation_count = 0 # +1 for each 90 degree CW rotation, -1 for CCW
         
         # Start the thread to read frames from the video stream
         self.cap_thread = Thread(target=self.roll_camera, args=( ), daemon=True)
@@ -108,7 +108,7 @@ class RealTimeDevice:
                 
                 self.frame = self._working_frame.copy()
 
-                # Determination must be limited by speed of this thread loop
+                # Rate of calculation must be limited by speed of this  loop
                 # so cannot be an @property
                 self.FPS_actual = self.get_FPS_actual()
 

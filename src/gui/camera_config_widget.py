@@ -36,14 +36,12 @@ class CameraConfigWidget(QDialog):
         DISPLAY_HEIGHT = App.primaryScreen().size().height()
 
         self.RTD = real_time_device
-        if frame_emitter:
-            self.frame_emitter = frame_emitter
-        else:
-            self.frame_emitter = FrameEmitter(self.RTD)
-            self.frame_emitter.start()
 
-        window_edge = min(DISPLAY_WIDTH/2, DISPLAY_HEIGHT/2)
-        self.setFixedSize(window_edge, window_edge) 
+
+        pixmap_edge = min(DISPLAY_WIDTH/2, DISPLAY_HEIGHT/2)
+        self.frame_emitter = FrameEmitter(self.RTD, pixmap_edge)
+        self.frame_emitter.start()
+        self.setFixedSize(pixmap_edge, pixmap_edge*1.2) 
         self.setContentsMargins(0,0,0,0)
 
         ################### BUILD SUB WIDGETS #############################
@@ -183,15 +181,13 @@ class CameraConfigWidget(QDialog):
 
         self.frame_display = QLabel()
         self.frame_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.frame_display.setFixedWidth(self.width()-50)
-        self.frame_display.setFixedHeight(self.height()-150)
+        self.frame_display.setFixedWidth(self.width())
+        self.frame_display.setFixedHeight(self.width())
         w = self.frame_display.width()
         h = self.frame_display.height()
-        def ImageUpdateSlot(Image):
-            pixmap = QPixmap.fromImage(Image)
-            scaled_pixmap = pixmap.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatio)
+        def ImageUpdateSlot(QPixmap):
 
-            self.frame_display.setPixmap(scaled_pixmap)
+            self.frame_display.setPixmap(QPixmap)
 
         self.frame_emitter.ImageBroadcast.connect(ImageUpdateSlot)
 

@@ -14,34 +14,42 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 class FrameEmitter(QThread):
     # establish signals from the frame that will be displayed in real time 
     # within the GUI
-    ImageBroadcast = pyqtSignal(QImage)
+    ImageBroadcast = pyqtSignal(QPixmap)
     FPSBroadcast = pyqtSignal(int)
 
     
-    def __init__(self, camcap, pixmap_edge_length=None):
+    def __init__(self, real_time_device, pixmap_edge_length=None):
         # pixmap_edge length is from the display window. It will rescale the window
         # to always have square dimensions with black around either side
         super(FrameEmitter,self).__init__()
         self.min_sleep = .01 # if true fps drops to zero, don't blow up
-        self.camcap = camcap
+        self.RTD = real_time_device
+        self.pixmap_edge_length = pixmap_edge_length
         print("Initializing Frame Emitter")
     
     def run(self):
         MIN_SLEEP_TIME = .01
         self.ThreadActive = True
-        self.height = int(self.camcap.cam.resolution[0])
-        self.width = int(self.camcap.cam.resolution[1])
+        # self.height = int(self.camcap.cam.resolution[0])
+        # self.width = int(self.camcap.cam.resolution[1])
          
         while self.ThreadActive:
             try:    # takes a moment for capture widget to spin up...don't error out
 
                 # Grab a frame from the capture widget and broadcast to displays
-                frame = self.camcap.frame
-                Pic = self.cv2_to_qlabel(frame)
-                self.ImageBroadcast.emit(Pic)
+                frame = self.RTD.frame
+                image = self.cv2_to_qlabel(frame)
+                pixmap = QPixmap.fromImage(image)
+
+                if self.pixmap_edge_length:
+                    pixmap = pixmap.scaled(self.pixmap_edge_length,
+                                           self.pixmap_edge_length,
+                                           Qt.AspectRatioMode.KeepAspectRatio)
+
+                self.ImageBroadcast.emit(pixmap)
 
                 # grab and broadcast fps
-                fps = self.camcap.FPS_actual
+                fps = self.RTD.FPS_actual
                 self.FPSBroadcast.emit(fps)
 
                 # throttle rate of broadcast to reduce system overhead
@@ -66,8 +74,8 @@ class FrameEmitter(QThread):
                           FlippedImage.shape[0], 
                           QImage.Format.Format_RGB888)
         return qt_frame
-    
-     
+
+
 
 if __name__ == "__main__":
     pass

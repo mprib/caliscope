@@ -41,7 +41,7 @@ class CameraConfigWidget(QDialog):
         pixmap_edge = min(DISPLAY_WIDTH/2, DISPLAY_HEIGHT/2)
         self.frame_emitter = FrameEmitter(self.RTD, pixmap_edge)
         self.frame_emitter.start()
-        self.setFixedSize(pixmap_edge, pixmap_edge + 400) 
+        self.setFixedSize(pixmap_edge, pixmap_edge + 200) 
         self.setContentsMargins(0,0,0,0)
 
         ################### BUILD SUB WIDGETS #############################
@@ -92,27 +92,24 @@ class CameraConfigWidget(QDialog):
 ####################### SUB_WIDGET CONSTRUCTION ###############################
     def build_toggle_grp(self):  
 
-        def on_radio_btn(self):
-            radio_btn = self.sender()
-            if radio_btn.isChecked():
-                print(radio_btn)
+        def on_radio_btn():
+            radio_grp = self.sender().text()
+            if radio_grp == "None":
+                self.RTD.show_mediapipe = False
+            if radio_grp == "Mediapipe Hands":
+                self.RTD.show_mediapipe = True
+
 
         self.toggle_grp = QGroupBox("Toggle Visual Overlays to Confirm Capture Quality")
         # self.toggle_grp.setFixedWidth(0.75* self.width-50())
         hbox = QHBoxLayout()
-
-        self.no_overlay_btn = QRadioButton("None")
-        self.no_overlay_btn.setChecked(True)
-        hbox.addWidget(self.no_overlay_btn)
-        self.no_overlay_btn.
-        self.mp_hands_btn  = QRadioButton("Mediapipe Hands")
-        self.mp_hands_btn.setChecked(False)
-        hbox.addWidget(self.mp_hands_btn)
-
-        self.charuco_btn = QRadioButton("Charuco")
-        hbox.addWidget(self.charuco_btn)        
-
-        # self.toggle_grp.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        for option in ["None", "Mediapipe Hands", "Charuco"]:
+            btn = QRadioButton(option)
+            hbox.addWidget(btn)
+            if option == "None":
+                btn.setChecked(True)
+            btn.toggled.connect(on_radio_btn)
+        
         self.toggle_grp.setLayout(hbox)
         hbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 

@@ -5,12 +5,13 @@ import sys
 from pathlib import Path
 from threading import Thread
 import time
+from tkinter import W
 import cv2
 
 from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
                             QSlider, QComboBox, QDialog, QSizePolicy, QLCDNumber,
                             QToolBar, QLabel, QLineEdit, QCheckBox, QScrollArea,
-                            QVBoxLayout, QHBoxLayout, QGridLayout, )
+                            QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QRadioButton)
 
 from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
@@ -30,7 +31,10 @@ class CameraConfigWidget(QDialog):
         
         # print(self.isAnimated()) 
         # self.setAnimated(False) 
-    
+        App = QApplication.instance()
+        DISPLAY_WIDTH = App.primaryScreen().size().width()
+        DISPLAY_HEIGHT = App.primaryScreen().size().height()
+
         self.RTD = real_time_device
         if frame_emitter:
             self.frame_emitter = frame_emitter
@@ -45,24 +49,22 @@ class CameraConfigWidget(QDialog):
         ################### BUILD SUB WIDGETS #############################
         self.build_frame_display()
         self.build_fps_display()
-        self.build_mediapipe_toggle()
         self.build_ccw_rotation_btn()
         self.build_cw_rotation_btn()
         self.build_resolution_combo()
         self.build_exposure_hbox()
         self.build_view_full_res_btn()
+        # self.build_toggle_grp()
         ###################################################################
         self.VBL = QVBoxLayout(self)
-        self.VBL.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.VBL.setContentsMargins(0,0,0,0)
 
         #################      VIDEO AT TOP     ##########################     
         self.VBL.addWidget(self.frame_display)
-        #######################     FPS         ##########################
 
-        #############################  ADD HBOX ###########################
+        ############################  ADD HBOX OF CONFIG ######################
         HBL = QHBoxLayout()
-        ### MP TOGGLE #####################################################
         
         ################ ROTATE CCW #######################################
         HBL.addWidget(self.ccw_rotation_btn)
@@ -76,15 +78,41 @@ class CameraConfigWidget(QDialog):
         self.VBL.addLayout(HBL)
 
 
-        #################### EXPOSURE SLIDER ##############################
+        #################### EXPOSURE SLIDER #################################
         self.VBL.addLayout(self.exposure_hbox)
         
+        #######################     FPS         ##############################
         self.VBL.addWidget(self.fps_display)
-        self.VBL.addWidget(self.mediapipe_toggle)
+        ###################### RADIO BUTTONS OF OVERLAY TOGGLES ##################
+        # self.VBL.addWidget(self.toggle_grp)
+
+        ### MP TOGGLE ########################################################
+        # self.VBL.addWidget(self.mediapipe_toggle)
 
         self.VBL.addWidget(self.view_full_res_btn)
-        self.adjustSize()
+
 ####################### SUB_WIDGET CONSTRUCTION ###############################
+    # def build_toggle_grp(self):
+    #     self.toggle_grp = QGroupBox("Toggle Visual Overlays to Confirm Capture Quality")
+    #     # self.toggle_grp.setFixedWidth(0.75* self.width-50())
+    #     hbox = QHBoxLayout()
+
+    #     self.no_overlay_btn = QRadioButton("None")
+    #     self.no_overlay_btn.setChecked(True)
+    #     hbox.addWidget(self.no_overlay_btn)
+
+    #     self.mp_hands_btn  = QRadioButton("Mediapipe Hands")
+    #     self.mp_hands_btn.setChecked(False)
+    #     hbox.addWidget(self.mp_hands_btn)
+
+    #     self.charuco_btn = QRadioButton("Charuco")
+    #     hbox.addWidget(self.charuco_btn)        
+
+    #     # self.toggle_grp.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    #     self.toggle_grp.setLayout(hbox)
+    #     hbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+
     def build_fps_display(self):
 
         self.fps_display = QLabel()
@@ -155,31 +183,19 @@ class CameraConfigWidget(QDialog):
 
         self.frame_display = QLabel()
         self.frame_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.frame_display.setFixedWidth(self.width())
+        self.frame_display.setFixedWidth(self.width()-50)
         self.frame_display.setFixedHeight(self.height()-150)
-
+        w = self.frame_display.width()
+        h = self.frame_display.height()
         def ImageUpdateSlot(Image):
             pixmap = QPixmap.fromImage(Image)
-            scaled_pixmap = pixmap.scaled(self.frame_display.width(),
-                                          self.frame_display.height(),
-                                          Qt.AspectRatioMode.KeepAspectRatio)
+            scaled_pixmap = pixmap.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatio)
 
             self.frame_display.setPixmap(scaled_pixmap)
 
         self.frame_emitter.ImageBroadcast.connect(ImageUpdateSlot)
 
-    def build_mediapipe_toggle(self):
-        # Mediapip display toggle
-        self.mediapipe_toggle = QCheckBox("Show Mediapipe Overlay")
-        self.mediapipe_toggle.setCheckState(Qt.CheckState.Checked)
 
-        def toggle_mediapipe(s):
-            print("Toggle Mediapipe")
-            self.RTD.toggle_mediapipe()
-
-        self.mediapipe_toggle.stateChanged.connect(toggle_mediapipe)
-
-        
     def build_resolution_combo(self):
         # possible resolutions is a list of tuples, but we need a list of Stext
         def resolutions_text():
@@ -211,7 +227,7 @@ class CameraConfigWidget(QDialog):
         self.resolution_combo.currentTextChanged.connect(change_resolution)        
 
     def build_view_full_res_btn(self):
-        self.view_full_res_btn = QPushButton("View Full Resolution (press 'q' to quit Full Resolution View)")
+        self.view_full_res_btn = QPushButton("Open Full Resolution Window (press 'q' to close)")
         
         def cv2_view_worker():
             while True:
@@ -235,10 +251,12 @@ if __name__ == "__main__":
     cam = Camera(port)
  
     App = QApplication(sys.argv)
-    DISPLAY_WIDTH = App.primaryScreen().size().width()
-    DISPLAY_HEIGHT = App.primaryScreen().size().height()
+    # DISPLAY_WIDTH = App.primaryScreen().size().width()
+    # DISPLAY_HEIGHT = App.primaryScreen().size().height()
     real_time_device = RealTimeDevice(cam)
     display = CameraConfigWidget(real_time_device)
     display.show()
     sys.exit(App.exec())
 
+
+# %%

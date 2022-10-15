@@ -36,8 +36,7 @@ class CameraConfigWidget(QDialog):
             self.frame_emitter = FrameEmitter(self.RTD)
             self.frame_emitter.start()
 
-        self.setFixedSize(DISPLAY_HEIGHT/3, DISPLAY_HEIGHT/3)
-        
+        self.setMaximumSize(DISPLAY_WIDTH/2, (DISPLAY_HEIGHT/2))
 
         ################### BUILD SUB WIDGETS #############################
         self.build_frame_display()
@@ -48,13 +47,7 @@ class CameraConfigWidget(QDialog):
         self.build_resolution_combo()
         self.build_exposure_hbox()
         ###################################################################
-        self.VBL = QVBoxLayout()
-        self.setLayout(self.VBL)
-        # container = QWidget()
-        # container.setLayout(self.VBL)
-        # self.setCentralWidget(container)
-        # VBL.setAlignment(Qt.AlignmentFlag.AlignTop)
-        # VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.VBL = QVBoxLayout(self)
         #################      VIDEO AT TOP     ##########################     
         self.VBL.addWidget(self.frame_display)
         #######################     FPS         ##########################
@@ -101,11 +94,7 @@ class CameraConfigWidget(QDialog):
 
         def rotate_cw():
             # Counter Clockwise rotation called because the display image is flipped
-            self.VBL.removeWidget(self.frame_display)
-            self.frame_display.close()
             self.RTD.rotate_CCW()
-            self.build_frame_display()
-            self.VBL.insertWidget(0, self.frame_display)
 
         self.cw_rotation_btn.clicked.connect(rotate_cw)
 
@@ -116,7 +105,6 @@ class CameraConfigWidget(QDialog):
         def rotate_ccw():
             # Clockwise rotation called because the display image is flipped
             self.RTD.rotate_CW()
-            # self.resize()
 
         self.ccw_rotation_btn.clicked.connect(rotate_ccw)
     
@@ -125,12 +113,12 @@ class CameraConfigWidget(QDialog):
         self.exposure_hbox = QHBoxLayout()
         label = QLabel("Exposure")
         label.setAlignment(Qt.AlignmentFlag.AlignRight)
-
-        exp_slider = QSlider(Qt.Orientation.Horizontal)
-        exp_slider.setRange(-10,0)
-        exp_slider.setSliderPosition(int(self.RTD.cam.exposure))
-        exp_slider.setPageStep(1)
-        exp_slider.setSingleStep(1)
+        
+        self.exp_slider = QSlider(Qt.Orientation.Horizontal)
+        self.exp_slider.setRange(-10,0)
+        self.exp_slider.setSliderPosition(int(self.RTD.cam.exposure))
+        self.exp_slider.setPageStep(1)
+        self.exp_slider.setSingleStep(1)
         # exp_slider.setMaximumWidth(400)
         exp_number = QLabel()
         exp_number.setText(str(int(self.RTD.cam.exposure)))
@@ -139,10 +127,10 @@ class CameraConfigWidget(QDialog):
             self.RTD.cam.exposure = s
             exp_number.setText(str(s))
 
-        exp_slider.valueChanged.connect(update_exposure)
+        self.exp_slider.valueChanged.connect(update_exposure)
 
         self.exposure_hbox.addWidget(label)
-        self.exposure_hbox.addWidget(exp_slider)
+        self.exposure_hbox.addWidget(self.exp_slider)
         self.exposure_hbox.addWidget(exp_number)
 
         self.exposure_hbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -159,8 +147,8 @@ class CameraConfigWidget(QDialog):
 
         def ImageUpdateSlot(Image):
             pixmap = QPixmap.fromImage(Image)
-            scaled_pixmap = pixmap.scaled(500,
-                                          500,
+            scaled_pixmap = pixmap.scaled(self.frame_display.width(),
+                                          self.frame_display.height(),
                                           Qt.AspectRatioMode.KeepAspectRatio)
 
             self.frame_display.setPixmap(scaled_pixmap)

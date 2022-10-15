@@ -17,7 +17,10 @@ class FrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
     FPSBroadcast = pyqtSignal(int)
 
-    def __init__(self, camcap):
+    
+    def __init__(self, camcap, pixmap_edge_length=None):
+        # pixmap_edge length is from the display window. It will rescale the window
+        # to always have square dimensions with black around either side
         super(FrameEmitter,self).__init__()
         self.min_sleep = .01 # if true fps drops to zero, don't blow up
         self.camcap = camcap
@@ -63,7 +66,8 @@ class FrameEmitter(QThread):
                           FlippedImage.shape[0], 
                           QImage.Format.Format_RGB888)
         return qt_frame
-        
+    
+     
 
 if __name__ == "__main__":
     pass

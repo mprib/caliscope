@@ -101,7 +101,8 @@ if __name__ == "__main__":
 
 
     app = QApplication(sys.argv)
-
+    # DISPLAY_WIDTH = app.primaryScreen().size().width()
+    # DISPLAY_HEIGHT = app.primaryScreen().size().height()
     window = MainWindow()
     window.show()
 

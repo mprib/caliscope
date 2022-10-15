@@ -34,7 +34,7 @@ class RealTimeDevice:
         self.mpHands = mp.solutions.hands
         self.hands = self.mpHands.Hands()
         self.mpDraw = mp.solutions.drawing_utils 
-        self.show_mediapipe = True
+        self.show_mediapipe = False
     
     @property
     def resolution(self):

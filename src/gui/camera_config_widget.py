@@ -41,7 +41,7 @@ class CameraConfigWidget(QDialog):
         pixmap_edge = min(DISPLAY_WIDTH/2, DISPLAY_HEIGHT/2)
         self.frame_emitter = FrameEmitter(self.RTD, pixmap_edge)
         self.frame_emitter.start()
-        self.setFixedSize(pixmap_edge, pixmap_edge*1.2) 
+        self.setFixedSize(pixmap_edge, pixmap_edge + 400) 
         self.setContentsMargins(0,0,0,0)
 
         ################### BUILD SUB WIDGETS #############################
@@ -52,7 +52,7 @@ class CameraConfigWidget(QDialog):
         self.build_resolution_combo()
         self.build_exposure_hbox()
         self.build_view_full_res_btn()
-        # self.build_toggle_grp()
+        self.build_toggle_grp()
         ###################################################################
         self.VBL = QVBoxLayout(self)
         self.VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -82,7 +82,7 @@ class CameraConfigWidget(QDialog):
         #######################     FPS         ##############################
         self.VBL.addWidget(self.fps_display)
         ###################### RADIO BUTTONS OF OVERLAY TOGGLES ##################
-        # self.VBL.addWidget(self.toggle_grp)
+        self.VBL.addWidget(self.toggle_grp)
 
         ### MP TOGGLE ########################################################
         # self.VBL.addWidget(self.mediapipe_toggle)
@@ -90,25 +90,31 @@ class CameraConfigWidget(QDialog):
         self.VBL.addWidget(self.view_full_res_btn)
 
 ####################### SUB_WIDGET CONSTRUCTION ###############################
-    # def build_toggle_grp(self):
-    #     self.toggle_grp = QGroupBox("Toggle Visual Overlays to Confirm Capture Quality")
-    #     # self.toggle_grp.setFixedWidth(0.75* self.width-50())
-    #     hbox = QHBoxLayout()
+    def build_toggle_grp(self):  
 
-    #     self.no_overlay_btn = QRadioButton("None")
-    #     self.no_overlay_btn.setChecked(True)
-    #     hbox.addWidget(self.no_overlay_btn)
+        def on_radio_btn(self):
+            radio_btn = self.sender()
+            if radio_btn.isChecked():
+                print(radio_btn)
 
-    #     self.mp_hands_btn  = QRadioButton("Mediapipe Hands")
-    #     self.mp_hands_btn.setChecked(False)
-    #     hbox.addWidget(self.mp_hands_btn)
+        self.toggle_grp = QGroupBox("Toggle Visual Overlays to Confirm Capture Quality")
+        # self.toggle_grp.setFixedWidth(0.75* self.width-50())
+        hbox = QHBoxLayout()
 
-    #     self.charuco_btn = QRadioButton("Charuco")
-    #     hbox.addWidget(self.charuco_btn)        
+        self.no_overlay_btn = QRadioButton("None")
+        self.no_overlay_btn.setChecked(True)
+        hbox.addWidget(self.no_overlay_btn)
+        self.no_overlay_btn.
+        self.mp_hands_btn  = QRadioButton("Mediapipe Hands")
+        self.mp_hands_btn.setChecked(False)
+        hbox.addWidget(self.mp_hands_btn)
 
-    #     # self.toggle_grp.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    #     self.toggle_grp.setLayout(hbox)
-    #     hbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.charuco_btn = QRadioButton("Charuco")
+        hbox.addWidget(self.charuco_btn)        
+
+        # self.toggle_grp.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.toggle_grp.setLayout(hbox)
+        hbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
 
     def build_fps_display(self):

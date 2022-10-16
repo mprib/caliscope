@@ -87,7 +87,6 @@ class Charuco():
 
 
     def save_image(self, path):
-        
         cv2.imwrite(path, self.board_img)
 
 

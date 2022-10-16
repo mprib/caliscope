@@ -84,9 +84,7 @@ class CameraConfigWidget(QDialog):
         ###################### RADIO BUTTONS OF OVERLAY TOGGLES ##################
         self.VBL.addWidget(self.toggle_grp)
 
-        ### MP TOGGLE ########################################################
-        # self.VBL.addWidget(self.mediapipe_toggle)
-
+        ################## FULL RESOLUTION LAUNCH BUTTON ######################
         self.VBL.addWidget(self.view_full_res_btn)
 
 ####################### SUB_WIDGET CONSTRUCTION ###############################

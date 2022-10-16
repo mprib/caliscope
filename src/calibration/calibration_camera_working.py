@@ -27,9 +27,9 @@ class Camera:
         self.input_stream = input_stream
         self.stream_name = stream_name
         self.image_size = []
-        self.calibration_corners = []
-        self.calibration_ids = []
-        self.objective_corners = []
+        self.corner_loc_img = []
+        self.corner_ids = []
+        self.corner_loc_obj = []
         self.width = width
         self.height = height
 
@@ -94,12 +94,12 @@ class Camera:
                     charuco_corners = cv.cornerSubPix(gray, charuco_corners, conv_size, (-1, -1), criteria)
 
                     # store the corners and IDs
-                    self.calibration_corners.append(charuco_corners)
-                    self.calibration_ids.append(charuco_corner_ids)
+                    self.corner_loc_img.append(charuco_corners)
+                    self.corner_ids.append(charuco_corner_ids)
 
                     # objective corner position in a board frame of reference
                     board_FOR_corners = self.charuco.board.chessboardCorners[charuco_corner_ids, :]
-                    self.objective_corners.append(board_FOR_corners)
+                    self.corner_loc_obj.append(board_FOR_corners)
 
                     # 
                     self.draw_charuco_outline(charuco_corners, charuco_corner_ids, connected_corners)
@@ -182,8 +182,8 @@ class Camera:
         print(f"Calibrating {self.stream_name}")
 
         # organize parameters for calibration function
-        objpoints = self.objective_corners
-        imgpoints = self.calibration_corners
+        objpoints = self.corner_loc_obj
+        imgpoints = self.corner_loc_img
         width = self.image_size[1]
         height = self.image_size[0]     
 

@@ -108,16 +108,17 @@ class RealTimeDevice:
             self.cam.is_rolling = True
 
             if self.cam.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
-                # pull in a working frame
+                # read in working frame
                 self.status, self._working_frame = self.cam.capture.read()
-
                 self.apply_rotation()
+
+                # REAL TIME OVERLAYS ON self._working_frame
                 self.run_mediapipe_hands()
-                
+
+                # update frame that is emitted to GUI
                 self.frame = self._working_frame.copy()
 
-                # Rate of calculation must be limited by speed of this  loop
-                # so cannot be an @property
+                # Rate of calling recalc must be limited by this loop
                 self.FPS_actual = self.get_FPS_actual()
 
                 # Stop thread if camera pulls trigger

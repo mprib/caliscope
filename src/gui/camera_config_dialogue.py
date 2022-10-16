@@ -23,9 +23,9 @@ from src.cameras.camera import Camera
 from src.cameras.real_time_device import RealTimeDevice
 from frame_emitter import FrameEmitter
 
-class CameraConfigWidget(QDialog):
+class CameraConfigDialog(QDialog):
     def __init__(self, real_time_device, frame_emitter=None):
-        super(CameraConfigWidget, self).__init__()
+        super(CameraConfigDialog, self).__init__()
         # frame emitter is a thread that is constantly pulling in values from 
         # the capture widget and broadcasting them to widgets on this window 
         
@@ -251,7 +251,7 @@ if __name__ == "__main__":
     # DISPLAY_WIDTH = App.primaryScreen().size().width()
     # DISPLAY_HEIGHT = App.primaryScreen().size().height()
     real_time_device = RealTimeDevice(cam)
-    display = CameraConfigWidget(real_time_device)
+    display = CameraConfigDialog(real_time_device)
     display.show()
     sys.exit(App.exec())
 

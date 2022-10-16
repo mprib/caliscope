@@ -27,7 +27,7 @@ from numpy import disp
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.camera import Camera
 from src.cameras.real_time_device import RealTimeDevice
-from src.gui.camera_config_widget import CameraConfigWidget
+from src.gui.camera_config_dialogue import CameraConfigDialog
 
 class MainWindow(QMainWindow):
 
@@ -67,7 +67,7 @@ class MainWindow(QMainWindow):
         port = 0
         cam = Camera(port)
         real_time_device = RealTimeDevice(cam)
-        display = CameraConfigWidget(real_time_device) 
+        display = CameraConfigDialog(real_time_device) 
         # self.gbox.addWidget(vid_window, row, col)
 
         # col = col + 1

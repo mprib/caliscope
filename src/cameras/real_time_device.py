@@ -4,6 +4,7 @@
 
 from pickle import FALSE
 from threading import Thread
+from tkinter import W
 import cv2
 import time
 import sys
@@ -118,11 +119,12 @@ class RealTimeDevice:
             if self.cam.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
                 # read in working frame
                 self.status, self._working_frame = self.cam.capture.read()
-                self.apply_rotation()
 
                 # REAL TIME OVERLAYS ON self._working_frame
                 self.run_mediapipe_hands()
                 self.draw_charuco()
+
+                self.apply_rotation() # must apply rotation at end...otherwise mismatch in frame / grid history dimensions
 
                 # update frame that is emitted to GUI
                 self.frame = self._working_frame.copy()
@@ -150,15 +152,17 @@ class RealTimeDevice:
 
         self.cam.connect()
         self.cam.resolution = res
-        
+        if self.int_calib:
+            self.int_calib.initialize_grid_history()
+
         self.cap_thread.join()
+
         # apparently threads can only be started once, so create anew
         self.cap_thread = Thread(target=self.roll_camera, args=( ), daemon=True)
         self.cap_thread.start()
 
     def toggle_mediapipe(self):
         self.show_mediapipe = not self.show_mediapipe
-                
     
     def add_fps(self):
         """NOTE: this is used in main(), not in external use fo this module"""

@@ -17,7 +17,6 @@
 # New camera configurations 
 #%%
 
-import queue
 import cv2
 from threading import Thread
 import time

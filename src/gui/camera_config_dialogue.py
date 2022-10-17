@@ -1,11 +1,8 @@
 
 #%%
-from re import I
 import sys
 from pathlib import Path
 from threading import Thread
-import time
-from tkinter import W
 import cv2
 
 from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,

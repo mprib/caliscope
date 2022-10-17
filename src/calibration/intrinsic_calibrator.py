@@ -12,11 +12,11 @@ from itertools import combinations
 import json
 import os
 
-from charuco import Charuco
 
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from src.calibration.charuco import Charuco
 from src.cameras.camera import Camera
 
 class IntrinsicCalibrator:
@@ -191,7 +191,7 @@ if __name__ == "__main__":
     cam = Camera(0)
 
             
-    detector = IntrinsicCalibrator(cam, charuco)
+    calib = IntrinsicCalibrator(cam, charuco)
     last_calibration_time = time.time()
 
     print("About to enter main loop")
@@ -199,9 +199,9 @@ if __name__ == "__main__":
     
         read_success, frame = cam.capture.read()
 
-        detector.track_corners(frame)
-        detector.collect_corners(wait_time=2)
-        frame = detector.merged_grid_history() 
+        calib.track_corners(frame)
+        calib.collect_corners(wait_time=2)
+        frame = calib.merged_grid_history() 
 
         cv2.imshow("Press 'q' to quit", frame)
         # cv2.imshow("Capture History", detector._grid_capture_history)
@@ -214,6 +214,6 @@ if __name__ == "__main__":
             break
 
 
-    detector.calibrate()
-    detector.save_calibration('test_cal.json')
+    calib.calibrate()
+    calib.save_calibration('test_cal.json')
 

@@ -1,6 +1,10 @@
 # Overview
 
-Trying to slowly build up a stable system for calibrating cameras for use with markerless motion capture. Basic overview of the current functionality is this:
+Trying to slowly build up a stable system for calibrating cameras for use with markerless motion capture. 
+
+Within almost all the primary code modules there should be an `if __name__ == "__main__":` showcase at the bottom. No proper tests yet, but this is where someone might look to get a quick and dirty idea of what is going on.
+
+Basic overview of the current functionality is this:
 
 The `Camera` object is provided with a port (a.k.a. numerical source) and during initialization it will figure out basic resolution options/exposure settings. This camera object provides an interface to a camera.capture that can be read from. The `stop_rolling()` method uses a `self.stop_rolling` trigger to inititate a shutdown of the capture. This is important when using threads to read from a capture device and then trying to make changes to the configuration of that device.
 

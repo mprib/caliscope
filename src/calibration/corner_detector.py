@@ -21,16 +21,15 @@ from src.cameras.camera import Camera
 
 class IntrinsicCalibrator:
 
-    def __init__(self, charuco, image_size, board_threshold=.8):
-    
+    def __init__(self, camera, charuco):
+
+        self.camera = camera
         self.charuco = charuco
-        self.image_size = image_size
 
         self.corner_loc_img = []
         self.corner_loc_obj = []
         self.corner_ids = []
 
-        self.min_points_to_process = int(len(self.charuco.board.chessboardCorners) * board_threshold)
         self.connected_corners = self.charuco.get_connected_corners()
         self.last_calibration_time = time.time()    # need to initialize to *something*
 
@@ -38,7 +37,13 @@ class IntrinsicCalibrator:
         self._criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         self._conv_size = (11, 11) # Don't make this too large.
 
-        self._grid_capture_history =  np.zeros(image_size, dtype='uint8')
+        # get appropriately structured image size
+        self.image_size = list(self.camera.resolution)
+        self.image_size.reverse()   # for some reason...
+        self.image_size.append(3)
+
+        self._grid_capture_history =  np.zeros(self.image_size, dtype='uint8')
+        print("Stop here")
 
     def track_corners(self, frame): 
 
@@ -73,10 +78,12 @@ class IntrinsicCalibrator:
             self.charuco_corner_ids = np.array([])
             self.charuco_corners = np.array([])
 
-    def collect_corners(self, wait_time=1):
-        # and enough time  has passed from the last "snapshot"
-        enough_corners = len(self.charuco_corner_ids) > self.min_points_to_process
+    def collect_corners(self, board_threshold=0.8, wait_time=1):
 
+        corner_count = len(self.charuco.board.chessboardCorners)
+        min_points_to_process = int(corner_count * board_threshold)
+
+        enough_corners = len(self.charuco_corner_ids) > min_points_to_process
         enough_time_from_last_cal = time.time() > self.last_calibration_time+wait_time
 
         if enough_corners and enough_time_from_last_cal:
@@ -183,29 +190,14 @@ if __name__ == "__main__":
     charuco = Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525, inverted=True)
     cam = Camera(0)
 
-    capture = cv2.VideoCapture(0)
-
-    print("Getting image size")
-    # get the image size:
-    image_size = None
-    while not image_size:
-        read_success, frame = capture.read()
-
-        if read_success:
-            image_size = frame.shape
-            width = image_size[1]
-            height = image_size[0]     
-
-            print(f"Width: {width}  Height: {height}    Size: {image_size}")
-
- 
-    detector = IntrinsicCalibrator(charuco, image_size)
+            
+    detector = IntrinsicCalibrator(cam, charuco)
     last_calibration_time = time.time()
 
     print("About to enter main loop")
     while True:
     
-        read_success, frame = capture.read()
+        read_success, frame = cam.capture.read()
 
         detector.track_corners(frame)
         detector.collect_corners(wait_time=2)
@@ -217,7 +209,7 @@ if __name__ == "__main__":
 
         # end capture when enough grids collected
         if key == ord('q'):
-            capture.release()
+            cam.capture.release()
             cv2.destroyAllWindows()
             break
 
@@ -225,4 +217,3 @@ if __name__ == "__main__":
     detector.calibrate()
     detector.save_calibration('test_cal.json')
 
-    print("This is where you debug...")

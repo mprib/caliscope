@@ -105,6 +105,7 @@ class Camera:
                     self.draw_charuco_outline(charuco_corners, charuco_corner_ids, connected_corners)
 
                     last_calibration_time = time.time()
+                    print(self.grid_capture_history)
 
             # merge calibration footprint and live frame
             alpha = 1

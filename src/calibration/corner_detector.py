@@ -4,6 +4,7 @@
 # detector and the corner drawer...like, there will need to be something that
 # accumulates a frame of corners to be drawn onto the displayed frame.
 
+
 import cv2
 import time
 import numpy as np
@@ -29,21 +30,18 @@ class IntrinsicCalibrator:
         self._criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         self._conv_size = (11, 11) # Don't make this too large.
 
-
         self._grid_capture_history =  np.zeros(image_size, dtype='uint8')
 
-
-
-    def find_corners(self, frame): 
+    def track_corners(self, frame): 
 
         # invert the frame for detection if needed
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # convert to gray
         if self.charuco.inverted:
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # convert to gray
-            frame = ~frame  # invert
+            gray = ~ gray # invert
         
         # detect if aruco markers are present
         aruco_corners, aruco_ids, rejected = cv2.aruco.detectMarkers(
-            frame, 
+            gray, 
             self.charuco.board.dictionary)
 
         # if so, then interpolate to the Charuco Corners and return what you found
@@ -51,9 +49,16 @@ class IntrinsicCalibrator:
             success, charuco_corners, charuco_corner_ids = cv2.aruco.interpolateCornersCharuco(
                 aruco_corners,
                 aruco_ids,
-                frame,
+                gray,
                 self.charuco.board)
-            
+
+            charuco_corners = cv2.cornerSubPix(gray, charuco_corners, self._conv_size, (-1, -1), self._criteria)
+
+            frame = cv2.aruco.drawDetectedCornersCharuco(
+                                image = frame,
+                                charucoCorners=charuco_corners,
+                                cornerColor = (120,255,0))
+        
             if charuco_corners is not None:
                 return True, charuco_corners, charuco_corner_ids
             else:
@@ -63,32 +68,15 @@ class IntrinsicCalibrator:
             return False, None, None
 
     def collect_corners(self, frame, wait_time=1):
-        #This function does too many things. Way too many things.
-        # 
-        # # check for charuco corners in the image
-        crnr_found, corners, ids = detector.find_corners(frame)
+        # check for charuco corners in the image
+        crnr_found, corners, ids = detector.track_corners(frame)
 
-        # invert the frame for detection if needed
-        if self.charuco.inverted:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # convert to gray
-            gray = ~gray  # invert
-
-        # Draw Corners if detected
         if crnr_found:
-            # draw them on the frame to visualize
-            frame = cv2.aruco.drawDetectedCornersCharuco(
-                                image = frame,
-                                charucoCorners=corners,
-                                cornerColor = (120,255,0))
-
-            # add to the calibration corners if enough corners observed
             # and enough time  has passed from the last "snapshot"
             enough_corners = len(ids) > self.min_points_to_process
             enough_time_from_last_cal = time.time() > self.last_calibration_time+wait_time
-            if enough_corners and enough_time_from_last_cal:
 
-                #opencv can attempt to improve the checkerboard coordinates
-                corners = cv2.cornerSubPix(gray, corners, self._conv_size, (-1, -1), self._criteria)
+            if enough_corners and enough_time_from_last_cal:
 
                 # store the corners and IDs
                 self.corner_loc_img.append(corners)
@@ -98,11 +86,11 @@ class IntrinsicCalibrator:
                 board_FOR_corners = self.charuco.board.chessboardCorners[ids, :]
                 self.corner_loc_obj.append(board_FOR_corners)
                 # 
-                self.draw_charuco_outline(corners, ids, self.connected_corners)
+                self.update_capture_history(corners, ids, self.connected_corners)
                 self.last_calibration_time = time.time()
                 print(ids)
 
-    def draw_charuco_outline(self, charuco_corners, charuco_ids, connected_corners):
+    def update_capture_history(self, charuco_corners, charuco_ids, connected_corners):
         """
         Given a frame and the location of the charuco board corners within in,
         draw a line connecting the outer bounds of the detected corners
@@ -113,20 +101,23 @@ class IntrinsicCalibrator:
 
         # build dictionary of corner positions:
         observed_corners = {}
-        for id, crnr in zip(charuco_ids.squeeze(), charuco_corners.squeeze()):
-            observed_corners[id] = (round(crnr[0]), round(crnr[1]))
+        for crnr_id, crnr in zip(charuco_ids.squeeze(), charuco_corners.squeeze()):
+            observed_corners[crnr_id] = (round(crnr[0]), round(crnr[1]))
         
-        # print(corners)
-
-        # drawn_boards = len(self.calibration_ids[stream_name])
-
+        # add them to the visual representation of the grid capture history
         for pair in connected_pairs:
             point_1 = observed_corners[pair[0]]
             point_2 = observed_corners[pair[1]]
 
             cv2.line(self._grid_capture_history,point_1, point_2, (255, 165, 0), 1)
- 
 
+ 
+    def merge_capture_history(self,frame):
+            alpha = 1
+            beta = 1
+            # frame = cv2.addWeighted(frame, alpha, self._grid_capture_history, beta,0)
+
+            return cv2.addWeighted(frame, alpha, self._grid_capture_history, beta, 0)
 
 
 if __name__ == "__main__":
@@ -158,36 +149,15 @@ if __name__ == "__main__":
     
         read_success, frame = capture.read()
 
-        detector.collect_corners(frame) 
-        #     # add to the calibration corners if enough corners observed
-        #     # and enough time  has passed from the last "snapshot"
-        #     enough_corners = len(charuco_corner_ids) > min_points_to_process
-        #     enough_time_from_last_cal = time.time() > last_calibration_time+time_between_cal
-
-        #     if enough_corners and enough_time_from_last_cal:
-
-        #         #opencv can attempt to improve the checkerboard coordinates
-        #         charuco_corners = cv2.cornerSubPix(gray, charuco_corners, conv_size, (-1, -1), criteria)
-
-        #         # store the corners and IDs
-        #         self.corner_loc_img.append(charuco_corners)
-        #         self.corner_ids.append(charuco_corner_ids)
-
-        #         # objective corner position in a board frame of reference
-        #         board_FOR_corners = self.charuco.board.chessboardCorners[charuco_corner_ids, :]
-        #         self.corner_loc_obj.append(board_FOR_corners)
-
-        #         # 
-        #         self.draw_charuco_outline(charuco_corners, charuco_corner_ids, connected_corners)
-
-        #         last_calibration_time = time.time()
-
+        detector.collect_corners(frame)
+        frame = detector.merge_capture_history(frame) 
+        # frame = detector.merge_capture_history(frame) 
         # # merge calibration footprint and live frame
         # alpha = 1
         # beta = 1
         # merged_frame = cv2.addWeighted(frame, alpha, self.grid_capture_history, beta, 0)
         cv2.imshow("Press 'q' to quit", frame)
-
+        # cv2.imshow("Capture History", detector._grid_capture_history)
         key = cv2.waitKey(1)
 
         # end capture when enough grids collected
@@ -195,4 +165,5 @@ if __name__ == "__main__":
             capture.release()
             cv2.destroyAllWindows()
             break
- 
+
+    print("This is where you debug...")

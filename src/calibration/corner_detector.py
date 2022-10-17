@@ -9,8 +9,15 @@ import cv2
 import time
 import numpy as np
 from itertools import combinations
+import json
+import os
 
 from charuco import Charuco
+
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from src.cameras.camera import Camera
 
 class IntrinsicCalibrator:
 
@@ -26,6 +33,7 @@ class IntrinsicCalibrator:
         self.min_points_to_process = int(len(self.charuco.board.chessboardCorners) * board_threshold)
         self.connected_corners = self.charuco.get_connected_corners()
         self.last_calibration_time = time.time()    # need to initialize to *something*
+
         # for subpixel corner correction 
         self._criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         self._conv_size = (11, 11) # Don't make this too large.
@@ -34,74 +42,68 @@ class IntrinsicCalibrator:
 
     def track_corners(self, frame): 
 
+        self.frame = frame
+
         # invert the frame for detection if needed
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # convert to gray
+        self.gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)  # convert to gray
         if self.charuco.inverted:
-            gray = ~ gray # invert
+            self.gray = ~ self.gray # invert
         
         # detect if aruco markers are present
         aruco_corners, aruco_ids, rejected = cv2.aruco.detectMarkers(
-            gray, 
+            self.gray, 
             self.charuco.board.dictionary)
 
         # if so, then interpolate to the Charuco Corners and return what you found
         if len(aruco_corners) > 3:
-            success, charuco_corners, charuco_corner_ids = cv2.aruco.interpolateCornersCharuco(
+            _, self.charuco_corners, self.charuco_corner_ids = cv2.aruco.interpolateCornersCharuco(
                 aruco_corners,
                 aruco_ids,
-                gray,
+                self.gray,
                 self.charuco.board)
 
-            charuco_corners = cv2.cornerSubPix(gray, charuco_corners, self._conv_size, (-1, -1), self._criteria)
+            self.charuco_corners = cv2.cornerSubPix(self.gray, self.charuco_corners, self._conv_size, (-1, -1), self._criteria)
 
-            frame = cv2.aruco.drawDetectedCornersCharuco(
-                                image = frame,
-                                charucoCorners=charuco_corners,
+            self.frame = cv2.aruco.drawDetectedCornersCharuco(
+                                image = self.frame,
+                                charucoCorners=self.charuco_corners,
                                 cornerColor = (120,255,0))
         
-            if charuco_corners is not None:
-                return True, charuco_corners, charuco_corner_ids
-            else:
-                return False, None, None
-
         else:
-            return False, None, None
+            self.charuco_corner_ids = np.array([])
+            self.charuco_corners = np.array([])
 
-    def collect_corners(self, frame, wait_time=1):
-        # check for charuco corners in the image
-        crnr_found, corners, ids = detector.track_corners(frame)
+    def collect_corners(self, wait_time=1):
+        # and enough time  has passed from the last "snapshot"
+        enough_corners = len(self.charuco_corner_ids) > self.min_points_to_process
 
-        if crnr_found:
-            # and enough time  has passed from the last "snapshot"
-            enough_corners = len(ids) > self.min_points_to_process
-            enough_time_from_last_cal = time.time() > self.last_calibration_time+wait_time
+        enough_time_from_last_cal = time.time() > self.last_calibration_time+wait_time
 
-            if enough_corners and enough_time_from_last_cal:
+        if enough_corners and enough_time_from_last_cal:
 
-                # store the corners and IDs
-                self.corner_loc_img.append(corners)
-                self.corner_ids.append(ids)
+            # store the corners and IDs
+            self.corner_loc_img.append(self.charuco_corners)
+            self.corner_ids.append(self.charuco_corner_ids)
 
-                # store objective corner positions in a board frame of reference
-                board_FOR_corners = self.charuco.board.chessboardCorners[ids, :]
-                self.corner_loc_obj.append(board_FOR_corners)
-                # 
-                self.update_capture_history(corners, ids, self.connected_corners)
-                self.last_calibration_time = time.time()
-                print(ids)
+            # store objective corner positions in a board frame of reference
+            board_FOR_corners = self.charuco.board.chessboardCorners[self.charuco_corner_ids, :]
+            self.corner_loc_obj.append(board_FOR_corners)
+            # 
+            self.update_capture_history()
+            self.last_calibration_time = time.time()
 
-    def update_capture_history(self, charuco_corners, charuco_ids, connected_corners):
+    def update_capture_history(self):
         """
         Given a frame and the location of the charuco board corners within in,
         draw a line connecting the outer bounds of the detected corners
         """
 
-        possible_pairs = {pair for pair in combinations(charuco_ids.squeeze().tolist(),2)}
-        connected_pairs = connected_corners.intersection(possible_pairs)
+        possible_pairs = {pair for pair in combinations(self.charuco_corner_ids.squeeze().tolist(),2)}
+        connected_pairs = self.connected_corners.intersection(possible_pairs)
 
         # build dictionary of corner positions:
         observed_corners = {}
-        for crnr_id, crnr in zip(charuco_ids.squeeze(), charuco_corners.squeeze()):
+        for crnr_id, crnr in zip(self.charuco_corner_ids.squeeze(), self.charuco_corners.squeeze()):
             observed_corners[crnr_id] = (round(crnr[0]), round(crnr[1]))
         
         # add them to the visual representation of the grid capture history
@@ -112,18 +114,74 @@ class IntrinsicCalibrator:
             cv2.line(self._grid_capture_history,point_1, point_2, (255, 165, 0), 1)
 
  
-    def merge_capture_history(self,frame):
+    def merged_grid_history(self):
             alpha = 1
             beta = 1
             # frame = cv2.addWeighted(frame, alpha, self._grid_capture_history, beta,0)
 
-            return cv2.addWeighted(frame, alpha, self._grid_capture_history, beta, 0)
+            return cv2.addWeighted(self.frame, alpha, self._grid_capture_history, beta, 0)
+
+
+    def calibrate(self):
+        """
+        Use the recorded image corner positions along with the objective
+        corner positions based on the board definition to calculated
+        the camera matrix and distortion parameters
+        """
+        print(f"Calibrating....")
+
+        # organize parameters for calibration function
+        objpoints = self.corner_loc_obj
+        imgpoints = self.corner_loc_img
+        height = self.image_size[0]     
+        width = self.image_size[1]
+
+        error, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
+            objpoints, 
+            imgpoints, 
+            (width, height), 
+            None, 
+            None)
+
+
+        # NOTE: ret is RMSE (not sure of what). rvecs and tvecs are the 
+        # rotation and translation vectors *for each calibration snapshot*
+        # this is, they are the position of the camera relative to the board
+        # for that one frame
+
+        self.error = error
+        self.camera_matrix = mtx
+        self.distortion_params = dist
+
+        print(f"Error: {error}")
+        print(f"Camera Matrix: {mtx}")
+        print(f"Distortion: {dist}")
+
+    def save_calibration(self, path):
+        """
+        Store individual camera parameters for use in dual camera calibration
+        Saved  to json as camera name to the "calibration_params" directory
+        """
+        # need to store individual camera parameters
+
+        json_dict = {}
+        # json_dict["input_stream"] = self.input_stream
+        # json_dict["stream_name"] = self.stream_name
+        json_dict["image_size"] = self.image_size
+        json_dict["camera_matrix"] = self.camera_matrix.tolist()
+        json_dict["distortion_params"] = self.distortion_params.tolist()
+        json_dict["RMS_reproj_error"] = self.error
+
+        json_object = json.dumps(json_dict, indent=4, separators=(',', ': '))
+
+        with open(os.path.join(Path(__file__).parent, path), "w") as outfile:
+                outfile.write(json_object)
 
 
 if __name__ == "__main__":
 
     charuco = Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525, inverted=True)
-
+    cam = Camera(0)
 
     capture = cv2.VideoCapture(0)
 
@@ -149,13 +207,10 @@ if __name__ == "__main__":
     
         read_success, frame = capture.read()
 
-        detector.collect_corners(frame)
-        frame = detector.merge_capture_history(frame) 
-        # frame = detector.merge_capture_history(frame) 
-        # # merge calibration footprint and live frame
-        # alpha = 1
-        # beta = 1
-        # merged_frame = cv2.addWeighted(frame, alpha, self.grid_capture_history, beta, 0)
+        detector.track_corners(frame)
+        detector.collect_corners(wait_time=2)
+        frame = detector.merged_grid_history() 
+
         cv2.imshow("Press 'q' to quit", frame)
         # cv2.imshow("Capture History", detector._grid_capture_history)
         key = cv2.waitKey(1)
@@ -165,5 +220,9 @@ if __name__ == "__main__":
             capture.release()
             cv2.destroyAllWindows()
             break
+
+
+    detector.calibrate()
+    detector.save_calibration('test_cal.json')
 
     print("This is where you debug...")

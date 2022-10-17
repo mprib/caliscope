@@ -11,7 +11,7 @@ from itertools import combinations
 
 from charuco import Charuco
 
-class CornerDetector:
+class IntrinsicCalibrator:
 
     def __init__(self, charuco, image_size, board_threshold=.8):
     
@@ -34,7 +34,7 @@ class CornerDetector:
 
 
 
-    def get_corners(self, frame): 
+    def find_corners(self, frame): 
 
         # invert the frame for detection if needed
         if self.charuco.inverted:
@@ -63,10 +63,12 @@ class CornerDetector:
             return False, None, None
 
     def collect_corners(self, frame, wait_time=1):
-        # check for charuco corners in the image
-        crnr_found, corners, ids = detector.get_corners(frame)
+        #This function does too many things. Way too many things.
+        # 
+        # # check for charuco corners in the image
+        crnr_found, corners, ids = detector.find_corners(frame)
 
-                # invert the frame for detection if needed
+        # invert the frame for detection if needed
         if self.charuco.inverted:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # convert to gray
             gray = ~gray  # invert
@@ -84,18 +86,21 @@ class CornerDetector:
             enough_corners = len(ids) > self.min_points_to_process
             enough_time_from_last_cal = time.time() > self.last_calibration_time+wait_time
             if enough_corners and enough_time_from_last_cal:
+
                 #opencv can attempt to improve the checkerboard coordinates
                 corners = cv2.cornerSubPix(gray, corners, self._conv_size, (-1, -1), self._criteria)
+
                 # store the corners and IDs
                 self.corner_loc_img.append(corners)
                 self.corner_ids.append(ids)
-                # objective corner position in a board frame of reference
+
+                # store objective corner positions in a board frame of reference
                 board_FOR_corners = self.charuco.board.chessboardCorners[ids, :]
                 self.corner_loc_obj.append(board_FOR_corners)
                 # 
                 self.draw_charuco_outline(corners, ids, self.connected_corners)
                 self.last_calibration_time = time.time()
-                print(id)
+                print(ids)
 
     def draw_charuco_outline(self, charuco_corners, charuco_ids, connected_corners):
         """
@@ -145,7 +150,7 @@ if __name__ == "__main__":
             print(f"Width: {width}  Height: {height}    Size: {image_size}")
 
  
-    detector = CornerDetector(charuco, image_size)
+    detector = IntrinsicCalibrator(charuco, image_size)
     last_calibration_time = time.time()
 
     print("About to enter main loop")

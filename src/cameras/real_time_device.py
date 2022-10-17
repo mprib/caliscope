@@ -2,9 +2,7 @@
 # establishes the connection with the video source and manages the thread
 # that reads in frames.
 
-from pickle import FALSE
 from threading import Thread
-from tkinter import W
 import cv2
 import time
 import sys

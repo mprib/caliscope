@@ -171,7 +171,6 @@ class RealTimeDevice:
 
 
     def draw_charuco(self):
-        print(f"Track Charuco: {self.track_charuco}")
         if self.track_charuco:
             self.int_calib.track_corners(self._working_frame)
 
@@ -205,7 +204,7 @@ if __name__ == '__main__':
         try:
             for rtd in real_time_devices:
                 rtd.add_fps()
-                cv2.imshow(str(rtd.frame_name +": 'q' to quit"), rtd.frame)
+                cv2.imshow(str(rtd.frame_name +": 'q' to quit and attempt calibration"), rtd.frame)
                 
         # bad reads until connection to src established
         except AttributeError:
@@ -250,6 +249,10 @@ if __name__ == '__main__':
         # 'q' to quit
         if key == ord('q'):
             for rtd in real_time_devices:
+                try:
+                    rtd.int_calib.calibrate()
+                except:
+                    pass
                 rtd.cam.capture.release()
             cv2.destroyAllWindows()
             exit(0)

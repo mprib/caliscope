@@ -21,6 +21,7 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap, QFont
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.camera import Camera
 from src.cameras.real_time_device import RealTimeDevice
+from src.calibration.charuco import Charuco
 from frame_emitter import FrameEmitter
 
 class CameraConfigDialog(QDialog):
@@ -94,14 +95,31 @@ class CameraConfigDialog(QDialog):
             radio_grp = self.sender().text()
             if radio_grp == "None":
                 self.RTD.show_mediapipe = False
-            if radio_grp == "Mediapipe Hands":
+                self.RTD.int_calib.track_charuco = False
+                self.RTD.int_calib.collect_charuco_corners = False
+
+            if radio_grp == "View Mediapipe Hands":
+                print("MP")
                 self.RTD.show_mediapipe = True
+                self.RTD.track_charuco = False
+                self.RTD.collect_charuco_corners = False
 
+            if radio_grp == "View Charuco":
+                print("Charuco")
+                self.RTD.show_mediapipe = False
+                self.RTD.track_charuco = True
+                self.RTD.collect_charuco_corners = False
+               
+            if radio_grp == "Collect Calibration Points":
+                print("get corners")
+                self.RTD.show_mediapipe = False
+                self.RTD.track_charuco = True
+                self.RTD.collect_charuco_corners = True
 
-        self.toggle_grp = QGroupBox("Toggle Visual Overlays to Confirm Capture Quality")
+        self.toggle_grp = QGroupBox("Views and Actions")
         # self.toggle_grp.setFixedWidth(0.75* self.width-50())
         hbox = QHBoxLayout()
-        for option in ["None", "Mediapipe Hands", "Charuco"]:
+        for option in ["None", "View Mediapipe Hands", "View Charuco", "Collect Calibration Points"]:
             btn = QRadioButton(option)
             hbox.addWidget(btn)
             if option == "None":
@@ -246,13 +264,14 @@ class CameraConfigDialog(QDialog):
 if __name__ == "__main__":
     port = 0
     cam = Camera(port)
- 
-    App = QApplication(sys.argv)
-    # DISPLAY_WIDTH = App.primaryScreen().size().width()
-    # DISPLAY_HEIGHT = App.primaryScreen().size().height()
     real_time_device = RealTimeDevice(cam)
-    display = CameraConfigDialog(real_time_device)
-    display.show()
+    
+    charuco = Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525, inverted=True)
+    real_time_device.assign_charuco(charuco)    
+
+    App = QApplication(sys.argv)
+    config_dialog = CameraConfigDialog(real_time_device)
+    config_dialog.show()
     sys.exit(App.exec())
 
 

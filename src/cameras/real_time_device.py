@@ -41,8 +41,8 @@ class RealTimeDevice:
         self.mpDraw = mp.solutions.drawing_utils 
         self.show_mediapipe = False
 
-        self.track_charuco = FALSE
-        self.collect_charuco_corners = FALSE
+        self.track_charuco = False
+        self.collect_charuco_corners = False
     
     @property
     def resolution(self):
@@ -171,7 +171,7 @@ class RealTimeDevice:
 
 
     def draw_charuco(self):
-
+        print(f"Track Charuco: {self.track_charuco}")
         if self.track_charuco:
             self.int_calib.track_corners(self._working_frame)
 

@@ -2,6 +2,7 @@
 # establishes the connection with the video source and manages the thread
 # that reads in frames.
 
+from pickle import FALSE
 from threading import Thread
 import cv2
 import time
@@ -13,11 +14,15 @@ import numpy as np
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.camera import Camera
+from src.calibration.intrinsic_calibrator import IntrinsicCalibrator
+from src.calibration.charuco import Charuco
+
 
 class RealTimeDevice:
     def __init__(self, cam):
 
         self.cam = cam 
+
         # Initialize parameters capture paramters
         self.rotation_count = 0 # +1 for each 90 degree CW rotation, -1 for CCW
         
@@ -35,6 +40,9 @@ class RealTimeDevice:
         self.hands = self.mpHands.Hands()
         self.mpDraw = mp.solutions.drawing_utils 
         self.show_mediapipe = False
+
+        self.track_charuco = FALSE
+        self.collect_charuco_corners = FALSE
     
     @property
     def resolution(self):
@@ -114,6 +122,7 @@ class RealTimeDevice:
 
                 # REAL TIME OVERLAYS ON self._working_frame
                 self.run_mediapipe_hands()
+                self.draw_charuco()
 
                 # update frame that is emitted to GUI
                 self.frame = self._working_frame.copy()
@@ -155,30 +164,48 @@ class RealTimeDevice:
         """NOTE: this is used in main(), not in external use fo this module"""
         self.fps_text =  str(int(round(self.FPS_actual, 0))) 
         cv2.putText(self.frame, "FPS:" + self.fps_text, (10, 70),cv2.FONT_HERSHEY_PLAIN, 2,(0,0,255), 3)
+    
+
+    def assign_charuco(self, charuco):
+        self.int_calib = IntrinsicCalibrator(self.cam, charuco)
+
+
+    def draw_charuco(self):
+
+        if self.track_charuco:
+            self.int_calib.track_corners(self._working_frame)
+
+            if self.collect_charuco_corners:
+                self.int_calib.collect_corners()
+                self._working_frame = self.int_calib.merged_grid_history()
+
         
 
 # Highlight module functionality. View a frame with mediapipe hands
 # press "q" to quit
 if __name__ == '__main__':
     ports = [0]
-    # ports = [0, 1, 3]
-
+    
     cams = []
     for port in ports:
         print(f"Creating camera {port}")
         cams.append(Camera(port))
 
-    frm_cap_widgets = []
+    charuco = Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525, inverted=True)
 
+    real_time_devices = []
     for cam in cams:
-        print(f"Creating capture widget for camera {cam.port}")
-        frm_cap_widgets.append(RealTimeDevice(cam))
+        print(f"Creating Real Time Device for camera {cam.port}")
+        rtd = RealTimeDevice(cam)
+        rtd.assign_charuco(charuco)
+        real_time_devices.append(rtd)
+    
 
     while True:
         try:
-            for frm_cap in frm_cap_widgets:
-                frm_cap.add_fps()
-                cv2.imshow(frm_cap.frame_name, frm_cap.frame)
+            for rtd in real_time_devices:
+                rtd.add_fps()
+                cv2.imshow(str(rtd.frame_name +": 'q' to quit"), rtd.frame)
                 
         # bad reads until connection to src established
         except AttributeError:
@@ -189,31 +216,37 @@ if __name__ == '__main__':
         # toggle mediapipe with 'm' 
         if key == ord('m'):
             print("Toggling Mediapipe")
-            for frm_cap in frm_cap_widgets:
-                print(frm_cap.frame_name)
-                frm_cap.toggle_mediapipe()
+            for rtd in real_time_devices:
+                print(rtd.frame_name)
+                rtd.toggle_mediapipe()
         
         if key == ord('r'):
             print("Rotate Frame CW")
 
-            for frm_cap in frm_cap_widgets:
-                frm_cap.rotate_CW()
-                print(frm_cap.frame_name + " " + str(frm_cap.rotation_count))
+            for rtd in real_time_devices:
+                rtd.rotate_CW()
+                print(rtd.frame_name + " " + str(rtd.rotation_count))
        
         if  key == ord('l'):
             print("Rotate Frame CCW")
                 
-            for frm_cap in frm_cap_widgets:
-                frm_cap.rotate_CCW()
-                print(frm_cap.frame_name + " " + str(frm_cap.rotation_count))
-       
+            for rtd in real_time_devices:
+                rtd.rotate_CCW()
+                print(rtd.frame_name + " " + str(rtd.rotation_count))
+
+        # Toggle charuco display
+        if key == ord('c'):
+            for rtd in real_time_devices:
+                # rtd.assign_charuco(charuco)
+                rtd.track_charuco = not rtd.track_charuco
+
         # 'q' to quit
         if key == ord('q'):
-            for frm_cap in frm_cap_widgets:
-                frm_cap.cam.capture.release()
+            for rtd in real_time_devices:
+                rtd.cam.capture.release()
             cv2.destroyAllWindows()
             exit(0)
 
         if key == ord('v'):
-            for frm_cap in frm_cap_widgets:
-                frm_cap.change_resolution((1280, 720))
+            for rtd in real_time_devices:
+                rtd.change_resolution((1280, 720))

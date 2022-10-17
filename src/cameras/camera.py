@@ -71,7 +71,7 @@ class Camera(object):
 
     @property
     def _width(self):
-        return self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+        return int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     @_width.setter
     def _width(self, value):
@@ -79,7 +79,7 @@ class Camera(object):
 
     @property
     def _height(self):
-        return self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        return int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     @_height.setter
     def _height(self, value):

@@ -124,7 +124,6 @@ class IntrinsicCalibrator:
     def merged_grid_history(self):
             alpha = 1
             beta = 1
-            # frame = cv2.addWeighted(frame, alpha, self._grid_capture_history, beta,0)
 
             return cv2.addWeighted(self.frame, alpha, self._grid_capture_history, beta, 0)
 

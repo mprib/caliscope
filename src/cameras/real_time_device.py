@@ -240,6 +240,13 @@ if __name__ == '__main__':
                 # rtd.assign_charuco(charuco)
                 rtd.track_charuco = not rtd.track_charuco
 
+        # Toggle charuco display
+        if key == ord('C'):
+            for rtd in real_time_devices:
+                # rtd.assign_charuco(charuco)
+                rtd.collect_charuco_corners = not rtd.collect_charuco_corners
+
+
         # 'q' to quit
         if key == ord('q'):
             for rtd in real_time_devices:

@@ -37,12 +37,12 @@ class CameraConfigDialog(QDialog):
         DISPLAY_HEIGHT = App.primaryScreen().size().height()
 
         self.RTD = real_time_device
-
+        self.setWindowTitle("Camera Configuration and Calibration")
 
         pixmap_edge = min(DISPLAY_WIDTH/2, DISPLAY_HEIGHT/2)
         self.frame_emitter = FrameEmitter(self.RTD, pixmap_edge)
         self.frame_emitter.start()
-        self.setFixedSize(pixmap_edge, pixmap_edge + 200) 
+        self.setFixedSize(pixmap_edge, pixmap_edge + 300) 
         self.setContentsMargins(0,0,0,0)
 
         ################### BUILD SUB WIDGETS #############################
@@ -54,6 +54,7 @@ class CameraConfigDialog(QDialog):
         self.build_exposure_hbox()
         self.build_view_full_res_btn()
         self.build_toggle_grp()
+        self.build_calibrate_grp()
         ###################################################################
         self.VBL = QVBoxLayout(self)
         self.VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -84,19 +85,37 @@ class CameraConfigDialog(QDialog):
         self.VBL.addWidget(self.fps_display)
         ###################### RADIO BUTTONS OF OVERLAY TOGGLES ##################
         self.VBL.addWidget(self.toggle_grp)
+        
+        ###################### CALIBRATION  ################################
+        self.VBL.addWidget(self.calibrate_grp)
 
         ################## FULL RESOLUTION LAUNCH BUTTON ######################
         self.VBL.addWidget(self.view_full_res_btn)
 
 ####################### SUB_WIDGET CONSTRUCTION ###############################
+
+    def build_calibrate_grp(self):
+        self.calibrate_grp = QGroupBox("Calibrate")
+        hbox = QHBoxLayout()
+        self.calibrate_grp.setLayout(hbox)
+
+        self.calibrate_btn = QPushButton("Calibrate")
+        self.calibrate_btn.setMaximumWidth(100)
+        hbox.addWidget(self.calibrate_btn)
+
+        def calibrate():
+            self.RTD.int_calib.calibrate()
+
+        self.calibrate_btn.clicked.connect(calibrate)
+
     def build_toggle_grp(self):  
 
         def on_radio_btn():
             radio_grp = self.sender().text()
             if radio_grp == "None":
                 self.RTD.show_mediapipe = False
-                self.RTD.int_calib.track_charuco = False
-                self.RTD.int_calib.collect_charuco_corners = False
+                self.RTD.track_charuco = False
+                self.RTD.collect_charuco_corners = False
 
             if radio_grp == "View Mediapipe Hands":
                 print("MP")

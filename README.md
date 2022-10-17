@@ -1,29 +1,15 @@
-# A Branch for Learning Things and Slowly Rolling My Own FMC
+# Overview
 
-## PYQT6 Mock Up
+Trying to slowly build up a stable system for calibrating cameras for use with markerless motion capture. Basic overview of the current functionality is this:
 
-Implement an OpenCV camera calibration with a PyQT6 user interface. I will begin by following the tutorial here
+The `Camera` object is provided with a port (a.k.a. numerical source) and during initialization it will figure out basic resolution options/exposure settings. This camera object provides an interface to a camera.capture that can be read from. The `stop_rolling()` method uses a `self.stop_rolling` trigger to inititate a shutdown of the capture. This is important when using threads to read from a capture device and then trying to make changes to the configuration of that device.
 
-### Initial tutorial
+I am working with 4 webcams here. 3 of them can establish connections in about 2 seconds, but I also have a pricey logitech model that takes ~30 seconds to establish a connection. OBS is able to connect to this camera almost instantly, so who knows what is going on.
 
-https://www.youtube.com/watch?v=s72xCnaidso
+The `RealTimeDevice` is a central feature of the workflow. It takes a `Camera` and starts a thread of the method `roll_camera()`. Within `roll_camera()` a `_working_frame` is read from the camera and actions are performed on it before being copied over to `self.frame`. The RTD can be assigned a `Charuco` for use in the calibration.
 
-NOTES: I have gone through some of this to get a general sense of the structure of the pyqt6 code. I think I have a rough handle on it, and am moving forward to issues of concurrency to read frames at a known framerate at the same time, and then expose them to real-time processing. This is the backbone of any system that wants to do what FMC is doing.
+The `FrameEmitter` reads the `real_time_device.frame` that is being updated within the `RealTimeDevice.roll_camera()` thread, and broadcasts it to a pyqt signal that can be picked up by the GUI. **IMPORTANTLY**: pixmap scaling takes place within this `FrameEmmitter` Qthread. There is only one scale shown within the GUI proper, and a `cv2.imshow` window is launched so show actual resolution. Attempts to scale images within the main GUI thread lead to errorless crashes when attempting to move the window after changing to a higer resolution from the default.
 
----
+The `Charuco` object provides lots of methods and properties to aid with calibration. It extends the basic OpenCV charuco to provided some properties and methods useful to the calibrator, as well as a means to override the square edge length.
 
-I am returning today (10-3-2022) to PyQt6 and looking to get a better handle on how to create a GUI for the application that will allow a more streamlined camera placement, calibration, capture, and post-processing. My own code is becoming a bit too disparate for me to sensibly maintain it and I need to start aligning/organizing things in a central way.
-
-## Concurrency
-
-This tutorial was linked do on a github issue:
-
-https://realpython.com/python-concurrency/
-
-I would like to start getting more in the weeds on camera I/O and multiprocessing of frames with a controlled framerate. This is a cool challenge, and I think that if you get a good, clean solution to this, then you can extend it to calibration and real-time frame processing.
-
-It appears that I'm able to read in multiple frames here with the camera widget. Now I would like to update each frame with the framerate so that I have an understanding of what that is. I previously saw a mediapipe demo on youtube that did this, and I'll go to that to get an idea of how to proceed with this.
-
-Alright, so I'm now reading in multiple cameras using threading, and appear to be getting ~20 FPS from these $30 webcams. Now what?
-
-I want to take a look at how I can incorporate some of the previous code I developed for the calibration. Perhaps just to expand the footprint of my knowledge for a bit, I want to see if I can get the mediapipe hand detection working here as well. That may provide some insight into the challenges of more intense frame processing.
+The `IntrinsicCalibrator` is initialized by the `RealTimeDevice` with the relevant `Camera` and a `Charuco`. The camera is really just there to provide needed resolution settings that may be changing in real time via user interaction with the `RealTimeDevice`. It tracks charuco corners that the RTS feeds it and maintains in overlay of the grid capture history for providing visual feedback to the user about what is going into the calibration. This object will ultimately be called to run the calibration. 

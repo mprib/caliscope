@@ -37,13 +37,22 @@ class IntrinsicCalibrator:
         self._criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         self._conv_size = (11, 11) # Don't make this too large.
 
+        self.initialize_grid_history()
+        
+        print("Stop here")
+    def initialize_grid_history(self):
         # get appropriately structured image size
+
+        #!!! IF CAMERA RESOLUTION CHANGES THIS MUST BE RERUN
         self.image_size = list(self.camera.resolution)
         self.image_size.reverse()   # for some reason...
         self.image_size.append(3)
-
         self._grid_capture_history =  np.zeros(self.image_size, dtype='uint8')
-        print("Stop here")
+
+        # roll back collected corners to the beginning
+        self.corner_loc_img = []
+        self.corner_loc_obj = []
+        self.corner_ids = []
 
     def track_corners(self, frame): 
 

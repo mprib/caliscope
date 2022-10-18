@@ -36,10 +36,10 @@ class CameraConfigDialog(QDialog):
         self.RTD = real_time_device
         self.setWindowTitle("Camera Configuration and Calibration")
 
-        pixmap_edge = min(DISPLAY_WIDTH/2, DISPLAY_HEIGHT/2)
-        self.frame_emitter = FrameEmitter(self.RTD, pixmap_edge)
+        self.pixmap_edge = min(DISPLAY_WIDTH/3, DISPLAY_HEIGHT/3)
+        self.frame_emitter = FrameEmitter(self.RTD, self.pixmap_edge)
         self.frame_emitter.start()
-        self.setFixedSize(pixmap_edge, pixmap_edge + 300) 
+        self.setFixedSize(self.pixmap_edge, self.pixmap_edge*2) 
         self.setContentsMargins(0,0,0,0)
 
         ################### BUILD SUB WIDGETS #############################
@@ -57,6 +57,8 @@ class CameraConfigDialog(QDialog):
         self.VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.VBL.setContentsMargins(0,0,0,0)
 
+        ################## FULL RESOLUTION LAUNCH BUTTON ######################
+        self.VBL.addWidget(self.view_full_res_btn)
         #################      VIDEO AT TOP     ##########################     
         self.VBL.addWidget(self.frame_display)
 
@@ -86,24 +88,40 @@ class CameraConfigDialog(QDialog):
         ###################### CALIBRATION  ################################
         self.VBL.addWidget(self.calibrate_grp)
 
-        ################## FULL RESOLUTION LAUNCH BUTTON ######################
-        self.VBL.addWidget(self.view_full_res_btn)
 
 ####################### SUB_WIDGET CONSTRUCTION ###############################
 
     def build_calibrate_grp(self):
         self.calibrate_grp = QGroupBox("Calibrate")
+        # Generally Horizontal Configuration
         hbox = QHBoxLayout()
         self.calibrate_grp.setLayout(hbox)
+        
+        # Build Charuco Image Display
+        self.charuco_display = QLabel()
+        charuco_img = self.convert_cv_qt(self.RTD.int_calib.charuco.board_img)
+        charuco_img = charuco_img.scaled(self.pixmap_edge/3,
+                                         self.pixmap_edge/3,
+                                         Qt.AspectRatioMode.KeepAspectRatio)
+        self.charuco_display.setPixmap(charuco_img)
+        hbox.addWidget(self.charuco_display)
 
+        # Collect Calibration Corners
+        vbox = QVBoxLayout()
+        collect_crnr_btn = QPushButton("Collect Charuco Grids")
+        collect_crnr_btn.setMaximumWidth(100)
+        vbox.addWidget(collect_crnr_btn) 
+    
+        # Calibrate Button
         self.calibrate_btn = QPushButton("Calibrate")
         self.calibrate_btn.setMaximumWidth(100)
-        hbox.addWidget(self.calibrate_btn)
+        vbox.addWidget(self.calibrate_btn)
 
         def calibrate():
             self.RTD.int_calib.calibrate()
 
         self.calibrate_btn.clicked.connect(calibrate)
+
 
     def build_toggle_grp(self):  
 
@@ -277,6 +295,26 @@ class CameraConfigDialog(QDialog):
 
         self.view_full_res_btn.clicked.connect(run_cv2_view)
 
+
+
+    def convert_cv_qt(self, cv_img):
+            """Convert from an opencv image to QPixmap"""
+            rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+            h, w, ch = rgb_image.shape
+            bytes_per_line = ch * w
+            charuco_QImage = QImage(rgb_image.data, 
+                                    w, 
+                                    h, 
+                                    bytes_per_line, 
+                                    QImage.Format.Format_RGB888)
+
+            p = charuco_QImage.scaled(self.charuco_display.width(),
+                                      self.charuco_display.height(),
+                                      Qt.AspectRatioMode.KeepAspectRatio, 
+                                      Qt.TransformationMode.SmoothTransformation)
+
+            return QPixmap.fromImage(p)
+ 
 if __name__ == "__main__":
     port = 0
     cam = Camera(port)

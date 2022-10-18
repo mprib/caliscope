@@ -8,7 +8,7 @@ import cv2
 
 from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
                             QSlider, QComboBox, QDialog, QSizePolicy, QLCDNumber,
-                            QToolBar, QLabel, QLineEdit, QCheckBox, QScrollArea,
+                            QToolBar, QLabel, QLineEdit, QCheckBox, QScrollArea, QFileDialog,
                             QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox, QRadioButton)
 
 from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
@@ -109,6 +109,7 @@ class CameraConfigDialog(QDialog):
 
         # Collect Calibration Corners
         vbox = QVBoxLayout()
+        vbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         collect_crnr_btn = QPushButton("Capture")
         collect_crnr_btn.setMaximumWidth(100)
         vbox.addWidget(collect_crnr_btn) 
@@ -131,7 +132,17 @@ class CameraConfigDialog(QDialog):
         self.calibrate_btn.setMaximumWidth(100)
         vbox.addWidget(self.calibrate_btn)
         def calibrate():
-            self.RTD.int_calib.calibrate()
+            print("Capture History" + str(len(self.RTD.int_calib.corner_ids)))
+            if len(self.RTD.int_calib.corner_ids) > 0:
+                self.calib_output.setText("Calibration can take a moment...")
+
+                def wrker(): 
+                    self.RTD.int_calib.calibrate()
+                    self.calib_output.setText(get_calib_output())
+                self.calib_thread = Thread(target=wrker, args=(), daemon=True)
+                self.calib_thread.start()
+            else:
+                self.calib_output.setText("Need to Collect Grids")
         self.calibrate_btn.clicked.connect(calibrate)
         
         # Clear calibration history
@@ -139,11 +150,59 @@ class CameraConfigDialog(QDialog):
         clear_grid_history_btn.setMaximumWidth(100)
         vbox.addWidget(clear_grid_history_btn)
         def clear_grid():
+            # Note this does not clear out the calibration parameters
             self.RTD.int_calib.initialize_grid_history()
         clear_grid_history_btn.clicked.connect(clear_grid)
 
+
+        # Save Calibration
+        save_cal_btn = QPushButton("Save Calibration")
+        save_cal_btn.setMaximumWidth(100)
+        vbox.addWidget(save_cal_btn)
+        def save_cal():
+            filename = f"cam_{self.RTD.cam.port}_calibration.json"
+            save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", filename, "JSON (*.json)")
+            print(save_file_tuple)
+            save_file_name = str(Path(save_file_tuple[0]))
+            if len(save_file_name)>1:
+                print(f"Saving calibration to {save_file_name}")
+                self.RTD.int_calib.save_calibration(save_file_name)
+
+
+        save_cal_btn.clicked.connect(save_cal)
+        
         # include calibration grid in horizontal box
         hbox.addLayout(vbox)
+
+        # Calibration output presented in label on far right
+        def get_calib_output():
+            c = self.RTD.int_calib
+            grid_count = "Grid Count:\t" + str(len(self.RTD.int_calib.corner_ids))
+            error_text = f"Error:\t{round(c.error,3)} "
+            size_text = "Size:\t" + str(c.image_size[0]) + "x" + str(c.image_size[1]) 
+            cam_matrix_text = "Camera Matrix:\n" + ('\n'.join(
+                   ['\t'.join([str(round(cell,1)) for cell in row]
+                   ) 
+                   for row in c.camera_matrix]))  
+            distortion_text = "Distortion:\t" + ','.join([str(round(cell,2)) for cell in c.distortion_params.squeeze()])
+
+            print(c.camera_matrix)
+            summary = (grid_count + "\n\n" + 
+                        error_text + "\n\n" + 
+                        size_text + "\n\n" + 
+                        cam_matrix_text + "\n\n" + 
+                        distortion_text)
+            return summary
+
+        self.calib_output = QLabel()
+        self.calib_output.setWordWrap(True)
+        self.calib_output.setMaximumWidth(self.pixmap_edge/3)
+        hbox.addWidget(self.calib_output)
+        # calib_output.setMaximumWidth() 
+        
+        
+        
+        
 
     def build_toggle_grp(self):  
 
@@ -153,23 +212,30 @@ class CameraConfigDialog(QDialog):
                 self.RTD.show_mediapipe = False
                 self.RTD.track_charuco = False
                 self.RTD.collect_charuco_corners = False
+                self.RTD.undistort = False
 
             if radio_grp == "Mediapipe Hands":
-                print("MP")
                 self.RTD.show_mediapipe = True
                 self.RTD.track_charuco = False
                 self.RTD.collect_charuco_corners = False
+                self.RTD.undistort = False
 
             if radio_grp == "Charuco":
-                print("Charuco")
                 self.RTD.show_mediapipe = False
                 self.RTD.track_charuco = True
                 self.RTD.collect_charuco_corners = False
-               
+                self.RTD.undistort = False
+
+            if radio_grp == "Undistort":
+               self.RTD.show_mediapipe = False
+               self.RTD.track_charuco = False
+               self.RTD.collect_charuco_corners = False              
+               self.RTD.undistort = True
+
         self.toggle_grp = QGroupBox("Views")
         # self.toggle_grp.setFixedWidth(0.75* self.width-50())
         hbox = QHBoxLayout()
-        for option in ["None", "Mediapipe Hands", "Charuco"]:
+        for option in ["None", "Mediapipe Hands", "Charuco", "Undistort"]:
             btn = QRadioButton(option)
             hbox.addWidget(btn)
             if option == "None":
@@ -330,7 +396,13 @@ class CameraConfigDialog(QDialog):
                                       Qt.TransformationMode.SmoothTransformation)
 
             return QPixmap.fromImage(p)
- 
+
+    def pretty_matrix(mat):
+       return ('\n'.join(
+                   ['\t'.join([str(round(cell,2)) for cell in row]
+                   ) 
+                   for row in mat]))  
+
 if __name__ == "__main__":
     port = 0
     cam = Camera(port)

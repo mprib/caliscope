@@ -19,8 +19,8 @@ class FrameEmitter(QThread):
 
     
     def __init__(self, real_time_device, pixmap_edge_length=None):
-        # pixmap_edge length is from the display window. It will rescale the window
-        # to always have square dimensions with black around either side
+        # pixmap_edge length is from the display window. Keep the display area
+        # square to keep life simple.
         super(FrameEmitter,self).__init__()
         self.min_sleep = .01 # if true fps drops to zero, don't blow up
         self.RTD = real_time_device
@@ -30,8 +30,7 @@ class FrameEmitter(QThread):
     def run(self):
         MIN_SLEEP_TIME = .01
         self.ThreadActive = True
-        # self.height = int(self.camcap.cam.resolution[0])
-        # self.width = int(self.camcap.cam.resolution[1])
+
          
         while self.ThreadActive:
             try:    # takes a moment for capture widget to spin up...don't error out

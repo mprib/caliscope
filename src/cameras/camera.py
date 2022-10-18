@@ -5,7 +5,6 @@
 # - port
 #   - an integer for a live camera 
 #   - note this is focused on live feeds...pre-recorded video doesn't need this
-# - nickname
 # - cv2.VideoCapture object based on port
 # - Default Resolution
 # - list of possible resolutions

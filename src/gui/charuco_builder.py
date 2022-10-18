@@ -190,6 +190,10 @@ class CharucoBuilder(QDialog):
         
         self.printed_edge_length = QDoubleSpinBox()
         self.printed_edge_length.setMaximumWidth(100)
+        def update_charuco():
+            self.charuco.square_size_overide = self.printed_edge_length.value()
+            print("Updated Square Size Overide")
+        self.printed_edge_length.valueChanged.connect(update_charuco)
         self.true_up_group.layout().addWidget(self.printed_edge_length)
 
     def build_export(self):
@@ -307,3 +311,4 @@ if __name__ == "__main__":
 
 
    
+# %%

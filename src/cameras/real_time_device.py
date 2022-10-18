@@ -2,6 +2,7 @@
 # establishes the connection with the video source and manages the thread
 # that reads in frames.
 
+from re import I
 from threading import Thread
 import cv2
 import time
@@ -42,7 +43,8 @@ class RealTimeDevice:
         # don't add anything special at the start
         self.track_charuco = False
         self.collect_charuco_corners = False
-    
+        self.undistort  = False 
+
     @property
     def resolution(self):
         if self.rotation_count in [-2,0,2]: # adjust for rotation
@@ -119,6 +121,7 @@ class RealTimeDevice:
                 # REAL TIME OVERLAYS ON self._working_frame
                 self.run_mediapipe_hands()
                 self.draw_charuco()
+                self.apply_undistortion()
 
                 self.apply_rotation() # must apply rotation at end...otherwise mismatch in frame / grid history dimensions
 
@@ -179,6 +182,15 @@ class RealTimeDevice:
 
             if self.collect_charuco_corners:
                 self.int_calib.collect_corners()
+
+    
+    def apply_undistortion(self):
+
+        if self.undistort == True and self.int_calib.is_calibrated:
+            self._working_frame = cv2.undistort(self._working_frame,
+                                                self.int_calib.camera_matrix,
+                                                self.int_calib.distortion_params)
+            
 
         
 
@@ -247,6 +259,11 @@ if __name__ == '__main__':
                 # rtd.assign_charuco(charuco)
                 rtd.collect_charuco_corners = not rtd.collect_charuco_corners
 
+        # Toggle undistortion
+        if key == ord('d'):
+            for rtd in real_time_devices:
+                # rtd.assign_charuco(charuco)
+                rtd.undistort = not rtd.undistort
 
         # 'q' to quit
         if key == ord('q'):

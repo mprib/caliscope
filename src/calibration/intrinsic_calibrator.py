@@ -38,6 +38,8 @@ class IntrinsicCalibrator:
         self._conv_size = (11, 11) # Don't make this too large.
 
         self.initialize_grid_history()
+
+        self.is_calibrated = False # starts out this way
         
         print("Stop here")
     def initialize_grid_history(self):
@@ -163,6 +165,7 @@ class IntrinsicCalibrator:
             None, 
             None)
 
+        self.is_calibrated = True
 
         # NOTE: ret is RMSE (not sure of what). rvecs and tvecs are the 
         # rotation and translation vectors *for each calibration snapshot*
@@ -187,6 +190,7 @@ class IntrinsicCalibrator:
         json_dict = {}
         # json_dict["input_stream"] = self.input_stream
         # json_dict["stream_name"] = self.stream_name
+        json_dict["port"] = self.camera.port
         json_dict["image_size"] = self.image_size
         json_dict["camera_matrix"] = self.camera_matrix.tolist()
         json_dict["distortion_params"] = self.distortion_params.tolist()

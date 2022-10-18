@@ -175,10 +175,10 @@ class RealTimeDevice:
         """Heavy lifting from the charuco module"""
         if self.track_charuco:
             self.int_calib.track_corners(self._working_frame)
+            self._working_frame = self.int_calib.merged_grid_history()
 
             if self.collect_charuco_corners:
                 self.int_calib.collect_corners()
-                self._working_frame = self.int_calib.merged_grid_history()
 
         
 

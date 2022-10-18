@@ -75,8 +75,13 @@ class IntrinsicCalibrator:
                 aruco_ids,
                 self.gray,
                 self.charuco.board)
-
-            self.charuco_corners = cv2.cornerSubPix(self.gray, self.charuco_corners, self._conv_size, (-1, -1), self._criteria)
+            
+            # This occasionally errors out... 
+            # only offers possible refinement so if it fails, just move along
+            try:
+                self.charuco_corners = cv2.cornerSubPix(self.gray, self.charuco_corners, self._conv_size, (-1, -1), self._criteria)
+            except:
+                pass
 
             self.frame = cv2.aruco.drawDetectedCornersCharuco(
                                 image = self.frame,

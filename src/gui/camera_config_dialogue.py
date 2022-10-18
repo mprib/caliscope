@@ -1,5 +1,6 @@
 
 #%%
+from filecmp import clear_cache
 import sys
 from pathlib import Path
 from threading import Thread
@@ -108,20 +109,41 @@ class CameraConfigDialog(QDialog):
 
         # Collect Calibration Corners
         vbox = QVBoxLayout()
-        collect_crnr_btn = QPushButton("Collect Charuco Grids")
+        collect_crnr_btn = QPushButton("Capture")
         collect_crnr_btn.setMaximumWidth(100)
         vbox.addWidget(collect_crnr_btn) 
-    
+        def capture():
+            """change to turn on/off"""
+            if self.RTD.collect_charuco_corners:
+                self.RTD.collect_charuco_corners = False
+                collect_crnr_btn.setText("Capture")
+                # self.RTD.show_mediapipe = False
+                # self.RTD.track_charuco = True
+            else: 
+                self.RTD.show_mediapipe = False
+                self.RTD.track_charuco = True
+                self.RTD.collect_charuco_corners = True
+                collect_crnr_btn.setText("Stop Capture")
+        collect_crnr_btn.clicked.connect(capture)
+
         # Calibrate Button
         self.calibrate_btn = QPushButton("Calibrate")
         self.calibrate_btn.setMaximumWidth(100)
         vbox.addWidget(self.calibrate_btn)
-
         def calibrate():
             self.RTD.int_calib.calibrate()
-
         self.calibrate_btn.clicked.connect(calibrate)
+        
+        # Clear calibration history
+        clear_grid_history_btn = QPushButton("Clear History")
+        clear_grid_history_btn.setMaximumWidth(100)
+        vbox.addWidget(clear_grid_history_btn)
+        def clear_grid():
+            self.RTD.int_calib.initialize_grid_history()
+        clear_grid_history_btn.clicked.connect(clear_grid)
 
+        # include calibration grid in horizontal box
+        hbox.addLayout(vbox)
 
     def build_toggle_grp(self):  
 
@@ -132,28 +154,22 @@ class CameraConfigDialog(QDialog):
                 self.RTD.track_charuco = False
                 self.RTD.collect_charuco_corners = False
 
-            if radio_grp == "View Mediapipe Hands":
+            if radio_grp == "Mediapipe Hands":
                 print("MP")
                 self.RTD.show_mediapipe = True
                 self.RTD.track_charuco = False
                 self.RTD.collect_charuco_corners = False
 
-            if radio_grp == "View Charuco":
+            if radio_grp == "Charuco":
                 print("Charuco")
                 self.RTD.show_mediapipe = False
                 self.RTD.track_charuco = True
                 self.RTD.collect_charuco_corners = False
                
-            if radio_grp == "Collect Calibration Points":
-                print("get corners")
-                self.RTD.show_mediapipe = False
-                self.RTD.track_charuco = True
-                self.RTD.collect_charuco_corners = True
-
-        self.toggle_grp = QGroupBox("Views and Actions")
+        self.toggle_grp = QGroupBox("Views")
         # self.toggle_grp.setFixedWidth(0.75* self.width-50())
         hbox = QHBoxLayout()
-        for option in ["None", "View Mediapipe Hands", "View Charuco", "Collect Calibration Points"]:
+        for option in ["None", "Mediapipe Hands", "Charuco"]:
             btn = QRadioButton(option)
             hbox.addWidget(btn)
             if option == "None":

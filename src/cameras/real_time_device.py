@@ -19,7 +19,7 @@ from src.calibration.charuco import Charuco
 
 class RealTimeDevice:
     def __init__(self, cam):
-
+        # camera to be managed is the primary initiating component
         self.cam = cam 
 
         # Initialize parameters capture paramters
@@ -31,7 +31,6 @@ class RealTimeDevice:
         self.frame_name = "Cam"+str(cam.port)
         
         # initialize time trackers for actual FPS determination
-        # self.start_time = time.time()
         self.avg_delta_time = None
 
         # Mediapipe hand detection infrastructure
@@ -40,19 +39,20 @@ class RealTimeDevice:
         self.mpDraw = mp.solutions.drawing_utils 
         self.show_mediapipe = False
 
+        # don't add anything special at the start
         self.track_charuco = False
         self.collect_charuco_corners = False
     
     @property
     def resolution(self):
-        if self.rotation_count in [-2,0,2]:
+        if self.rotation_count in [-2,0,2]: # adjust for rotation
             return self.cam.resolution
         else:
             w, h = self.cam.resolution
             return h,w
 
     def get_FPS_actual(self):
-        """set the actual frame rate from within the update function"""
+        """set the actual frame rate; called within roll_camera()"""
         self.delta_time = time.time() - self.start_time
         self.start_time = time.time()
         if not self.avg_delta_time:
@@ -108,8 +108,6 @@ class RealTimeDevice:
         frame
 
         """
-        # Grab frame and run image detection
-
         self.start_time = time.time() # used to get initial delta_t for FPS
         while True:
             self.cam.is_rolling = True
@@ -140,22 +138,23 @@ class RealTimeDevice:
         blank_image = np.zeros(self.frame.shape, dtype=np.uint8)
         self.frame = blank_image
         
-        while self.cam.is_rolling:
+        while self.cam.is_rolling:  # wait for everythong to catch up
             time.sleep(.01)
 
         self.FPS_actual = 0
         self.avg_delta_time = None
 
+        # reconnecting a few times without disconnnect sometimes crashed python
         self.cam.disconnect()
-
         self.cam.connect()
+
         self.cam.resolution = res
         if self.int_calib:
             self.int_calib.initialize_grid_history()
 
         self.cap_thread.join()
 
-        # apparently threads can only be started once, so create anew
+        # Spin up the thread again now that resolution is changed
         self.cap_thread = Thread(target=self.roll_camera, args=( ), daemon=True)
         self.cap_thread.start()
 
@@ -163,7 +162,7 @@ class RealTimeDevice:
         self.show_mediapipe = not self.show_mediapipe
     
     def add_fps(self):
-        """NOTE: this is used in main(), not in external use fo this module"""
+        """NOTE: this is used in code at bottom, not in external use """
         self.fps_text =  str(int(round(self.FPS_actual, 0))) 
         cv2.putText(self.frame, "FPS:" + self.fps_text, (10, 70),cv2.FONT_HERSHEY_PLAIN, 2,(0,0,255), 3)
     
@@ -173,6 +172,7 @@ class RealTimeDevice:
 
 
     def draw_charuco(self):
+        """Heavy lifting from the charuco module"""
         if self.track_charuco:
             self.int_calib.track_corners(self._working_frame)
 

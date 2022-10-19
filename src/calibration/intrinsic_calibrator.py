@@ -114,13 +114,9 @@ class IntrinsicCalibrator:
                     x = round(coord[0])
                     y = round(coord[1])
 
-                    cv2.circle(self.frame, (x, y), 5,(120,120,0), 3)
-                    cv2.putText(self.frame,str(ID), (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5,(220,0,0), 3)
+                    cv2.circle(self.frame, (x, y), 5,(0,0,220), 3)
+                    # cv2.putText(self.frame,str(ID), (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5,(220,0,0), 3)
 
-                # self.frame = cv2.aruco.drawDetectedCornersCharuco(
-                #                     image = self.frame,
-                #                     charucoCorners=self.charuco_corners,
-                #                     cornerColor = (120,255,0))
             else:
                 self.charuco_corner_ids = np.array([])
                 self.charuco_corners = np.array([])

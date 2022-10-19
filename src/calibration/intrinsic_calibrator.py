@@ -99,9 +99,13 @@ class IntrinsicCalibrator:
         corner_count = len(self.charuco.board.chessboardCorners)
         min_points_to_process = int(corner_count * board_threshold)
 
-        enough_corners = len(self.charuco_corner_ids) > min_points_to_process
+        if self.charuco_corner_ids.any():
+            enough_corners = len(self.charuco_corner_ids) > min_points_to_process
+        else:
+            enough_corners = False
+        
         enough_time_from_last_cal = time.time() > self.last_calibration_time+wait_time
-
+            
         if enough_corners and enough_time_from_last_cal:
 
             # store the corners and IDs

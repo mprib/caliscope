@@ -45,7 +45,7 @@ class CharucoBuilder(QDialog):
         self.build_config_options()
 
         # Build primary actions
-        self.build_print_btn()
+        self.build_save_png_group()
         self.build_true_up_group()
         self.build_export()
 
@@ -91,7 +91,7 @@ class CharucoBuilder(QDialog):
         # Strange wrinkle: charuco display height and width seem flipped
         step2.setMaximumWidth(self.charuco_display.height()) 
         VBL.addWidget(step2)
-        VBL.addWidget(self.png_btn)
+        VBL.addLayout(self.save_png_hbox)
         VBL.addSpacing(20)
 
         ############### STEP THREE: True-Up to actual Charuco Size ###########
@@ -169,9 +169,9 @@ class CharucoBuilder(QDialog):
 
 
 
-    def build_print_btn(self):
+    def build_save_png_group(self):
+        # basic png save button
         self.png_btn = QPushButton("&Save png") 
-
         def save_png():
             save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", "charuco.png", "PNG (*.png)")
             print(save_file_tuple)
@@ -179,9 +179,22 @@ class CharucoBuilder(QDialog):
             if len(save_file_name)>1:
                 print(f"Saving board to {save_file_name}")
                 self.charuco.save_image(save_file_name)
-
-
         self.png_btn.clicked.connect(save_png)
+
+        # additional mirror image option
+        self.png_mirror_btn = QPushButton("&Save mirror png") 
+        def save_mirror_png():
+            save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", "charuco_mirror.png", "PNG (*.png)")
+            print(save_file_tuple)
+            save_file_name = str(Path(save_file_tuple[0]))
+            if len(save_file_name)>1:
+                print(f"Saving board to {save_file_name}")
+                self.charuco.save_mirror_image(save_file_name)
+        self.png_mirror_btn.clicked.connect(save_mirror_png)
+
+        self.save_png_hbox = QHBoxLayout()
+        self.save_png_hbox.addWidget(self.png_btn)
+        self.save_png_hbox.addWidget(self.png_mirror_btn)
 
     def build_true_up_group(self):
         self.true_up_group = QGroupBox("True-Up Printed Square Edge")

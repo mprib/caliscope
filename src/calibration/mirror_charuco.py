@@ -1,5 +1,12 @@
 # This module is about having some fun and just seeing if I can get something weird
 # to work that I think might have an application to the fullscale process later on.
+
+# Dang. That was kinda fun to be able to go from kludgey prototype to an 
+# implemented feature in less than a day. And I think this will be clutch 
+# when it comes to stereocalibration.
+
+
+
 from pathlib import Path
 import sys
 import numpy as np

@@ -57,13 +57,7 @@ class IntrinsicCalibrator:
         self.corner_loc_obj = []
         self.corner_ids = []
 
-
-
-
-
-
-
-    def track_corners(self, frame): 
+    def track_corners(self, frame, mirror): 
         """ This method is called by the RealTimeDevice during roll_camera().
         A frame is provided that the IntrinsicCalibrator can then process. This 
         method does the primary work of identifying the corners that are 
@@ -80,10 +74,18 @@ class IntrinsicCalibrator:
         aruco_corners, aruco_ids, rejected = cv2.aruco.detectMarkers(
             self.gray, 
             self.charuco.board.dictionary)
+        
+        frame_width = frame.shape[1]
+        
+        # correct the mirror frame before putting text on it if it's flipped
+        if mirror:
+            self.frame = cv2.flip(self.frame,1)
 
         # if so, then interpolate to the Charuco Corners and return what you found
         if len(aruco_corners) > 3:
-            _, self.charuco_corners, self.charuco_corner_ids = cv2.aruco.interpolateCornersCharuco(
+            (success,
+            self.charuco_corners, 
+            self.charuco_corner_ids) = cv2.aruco.interpolateCornersCharuco(
                 aruco_corners,
                 aruco_ids,
                 self.gray,
@@ -96,11 +98,32 @@ class IntrinsicCalibrator:
             except:
                 pass
 
-            self.frame = cv2.aruco.drawDetectedCornersCharuco(
-                                image = self.frame,
-                                charucoCorners=self.charuco_corners,
-                                cornerColor = (120,255,0))
-        
+            if success:
+                # clean up the data types
+                self.charuco_corner_ids.tolist()
+                self.charuco_corners.tolist()
+                
+                # flip coordinates if mirrored image fed in
+                if mirror:
+                    self.charuco_corners[:,:,0] = frame_width-self.charuco_corners[:,:,0]
+
+
+                for ID, coord in zip(self.charuco_corner_ids[:,0], self.charuco_corners[:,0]):
+                    coord = list(coord)
+                    # print(frame.shape[1])
+                    x = round(coord[0])
+                    y = round(coord[1])
+
+                    cv2.circle(self.frame, (x, y), 5,(120,120,0), 3)
+                    cv2.putText(self.frame,str(ID), (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5,(220,0,0), 3)
+
+                # self.frame = cv2.aruco.drawDetectedCornersCharuco(
+                #                     image = self.frame,
+                #                     charucoCorners=self.charuco_corners,
+                #                     cornerColor = (120,255,0))
+            else:
+                self.charuco_corner_ids = np.array([])
+                self.charuco_corners = np.array([])
         else:
             self.charuco_corner_ids = np.array([])
             self.charuco_corners = np.array([])
@@ -225,7 +248,10 @@ if __name__ == "__main__":
     
         read_success, frame = cam.capture.read()
 
-        calib.track_corners(frame)
+        calib.track_corners(frame, mirror=False)
+        calib.collect_corners(wait_time=2)
+        frame = cv2.flip(frame,1)
+        calib.track_corners(frame, mirror=True)
         calib.collect_corners(wait_time=2)
         frame = calib.merged_grid_history() 
 

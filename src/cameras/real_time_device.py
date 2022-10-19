@@ -184,11 +184,18 @@ class RealTimeDevice:
         self.collect_charuco_corners
         """
         if self.charuco_being_tracked:
-            self.int_calib.track_corners(self._working_frame)
-            self._working_frame = self.int_calib.merged_grid_history()
-
+            self.int_calib.track_corners(self._working_frame, mirror=False)
             if self.collect_charuco_corners:
                 self.int_calib.collect_corners()
+
+            self._working_frame = cv2.flip(self._working_frame,1)
+
+            self.int_calib.track_corners(self._working_frame, mirror=True)
+            if self.collect_charuco_corners:
+                self.int_calib.collect_corners()
+
+            self._working_frame = self.int_calib.merged_grid_history()
+
 
     
     def apply_undistortion(self):
@@ -258,7 +265,7 @@ if __name__ == '__main__':
         if key == ord('c'):
             for rtd in real_time_devices:
                 # rtd.assign_charuco(charuco)
-                rtd.track_charuco = not rtd.track_charuco
+                rtd.charuco_being_tracked = not rtd.charuco_being_tracked
 
         # Toggle charuco display
         if key == ord('C'):

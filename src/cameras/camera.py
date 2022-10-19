@@ -104,6 +104,10 @@ class Camera(object):
         self.exposure = self._exposure  # port seemed to hold on to old exposure 
 
     def get_nearest_resolution(self, test_width):
+        """This strange little method just temporarly stores the current value
+        of the resolution to be replaced at the end, then tries a value
+        and then reads what resolution closest to it the capture offers, 
+        then returns the capture to its original state"""
         old_width = self._width 
         self._width = test_width
         resolution = self.resolution
@@ -202,9 +206,7 @@ if __name__ == "__main__":
     cam = Camera(0)
     print(cam.possible_resolutions)
     #%%
-    # NOTE: shift+enter will allow you to just run the current block in interactive mode
 
-    # kill_q = queue.Queue()
 
     for res in cam.possible_resolutions:
         print(f"Testing Resolution {res}")
@@ -218,12 +220,7 @@ if __name__ == "__main__":
         display(cam)
         time.sleep(3)
         cam.stop_rolling()           
-        # except:
-            # print(f"Unsuccessful at {res}")
-            # pass
 
-
-    # %%
     cam.connect()
     display(cam)
 

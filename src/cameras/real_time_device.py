@@ -41,7 +41,7 @@ class RealTimeDevice:
         self.show_mediapipe = False
 
         # don't add anything special at the start
-        self.track_charuco = False
+        self.charuco_being_tracked = False
         self.collect_charuco_corners = False
         self.undistort  = False 
 
@@ -120,7 +120,7 @@ class RealTimeDevice:
 
                 # REAL TIME OVERLAYS ON self._working_frame
                 self.run_mediapipe_hands()
-                self.draw_charuco()
+                self.process_charuco()
                 self.apply_undistortion()
 
                 self.apply_rotation() # must apply rotation at end...otherwise mismatch in frame / grid history dimensions
@@ -174,9 +174,16 @@ class RealTimeDevice:
         self.int_calib = IntrinsicCalibrator(self.cam, charuco)
 
 
-    def draw_charuco(self):
-        """Heavy lifting from the charuco module"""
-        if self.track_charuco:
+    def process_charuco(self):
+        """Heavy lifting from the charuco module. This method could involve just 
+        displaying the identified corners on the frame, or adding them to 
+        the list of corners for running a calibration. 
+        
+        The scope of the action depends on setting flags for:
+        self.charuco_being_tracked
+        self.collect_charuco_corners
+        """
+        if self.charuco_being_tracked:
             self.int_calib.track_corners(self._working_frame)
             self._working_frame = self.int_calib.merged_grid_history()
 

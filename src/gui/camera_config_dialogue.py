@@ -119,10 +119,10 @@ class CameraConfigDialog(QDialog):
                 self.RTD.collect_charuco_corners = False
                 collect_crnr_btn.setText("Capture")
                 # self.RTD.show_mediapipe = False
-                # self.RTD.track_charuco = True
+                # self.RTD.charuco_being_tracked = True
             else: 
                 self.RTD.show_mediapipe = False
-                self.RTD.track_charuco = True
+                self.RTD.charuco_being_tracked = True
                 self.RTD.collect_charuco_corners = True
                 collect_crnr_btn.setText("Stop Capture")
         collect_crnr_btn.clicked.connect(capture)
@@ -210,25 +210,25 @@ class CameraConfigDialog(QDialog):
             radio_grp = self.sender().text()
             if radio_grp == "None":
                 self.RTD.show_mediapipe = False
-                self.RTD.track_charuco = False
+                self.RTD.charuco_being_tracked = False
                 self.RTD.collect_charuco_corners = False
                 self.RTD.undistort = False
 
             if radio_grp == "Mediapipe Hands":
                 self.RTD.show_mediapipe = True
-                self.RTD.track_charuco = False
+                self.RTD.charuco_being_tracked = False
                 self.RTD.collect_charuco_corners = False
                 self.RTD.undistort = False
 
             if radio_grp == "Charuco":
                 self.RTD.show_mediapipe = False
-                self.RTD.track_charuco = True
+                self.RTD.charuco_being_tracked = True
                 self.RTD.collect_charuco_corners = False
                 self.RTD.undistort = False
 
             if radio_grp == "Undistort":
                self.RTD.show_mediapipe = False
-               self.RTD.track_charuco = False
+               self.RTD.charuco_being_tracked = False
                self.RTD.collect_charuco_corners = False              
                self.RTD.undistort = True
 

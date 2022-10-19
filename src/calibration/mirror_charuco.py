@@ -40,12 +40,11 @@ def mark_charuco_corners(frame, charuco, mirror):
             # clean up the data types
             charuco_corner_ids.tolist()
             charuco_corners.tolist()
-        
+            
+             
             for ID, coord in zip(charuco_corner_ids[:,0], charuco_corners[:,0]):
                 coord = list(coord)
-                print(frame.shape[1])
-                print(f"{ID}: {round(coord[0])}, {round(coord[1])}")
-
+                # print(frame.shape[1])
                 y = round(coord[1])
                 # adjust horizontal position depending on mirroring
                 if mirror:
@@ -53,7 +52,8 @@ def mark_charuco_corners(frame, charuco, mirror):
                 else:
                     x = round(coord[0])
 
-                cv2.putText(frame,str(ID), (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5,(120,120,0), 3)
+                cv2.circle(frame, (x, y), 5,(120,120,0), 3)
+                # cv2.putText(frame,str(ID), (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5,(120,120,0), 3)
 
     return frame
 

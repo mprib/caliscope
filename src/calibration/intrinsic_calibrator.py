@@ -42,6 +42,7 @@ class IntrinsicCalibrator:
         self.is_calibrated = False # starts out this way
         
         print("Stop here")
+
     def initialize_grid_history(self):
         # get appropriately structured image size
 
@@ -56,7 +57,17 @@ class IntrinsicCalibrator:
         self.corner_loc_obj = []
         self.corner_ids = []
 
+
+
+
+
+
+
     def track_corners(self, frame): 
+        """ This method is called by the RealTimeDevice during roll_camera().
+        A frame is provided that the IntrinsicCalibrator can then process. This 
+        method does the primary work of identifying the corners that are 
+        present in the frame."""
 
         self.frame = frame
 
@@ -171,11 +182,7 @@ class IntrinsicCalibrator:
 
         self.is_calibrated = True
 
-        # NOTE: ret is RMSE (not sure of what). rvecs and tvecs are the 
-        # rotation and translation vectors *for each calibration snapshot*
-        # this is, they are the position of the camera relative to the board
-        # for that one frame
-
+        # ret is RMSE of reprojection 
         self.error = error
         self.camera_matrix = mtx
         self.distortion_params = dist
@@ -192,8 +199,6 @@ class IntrinsicCalibrator:
         # need to store individual camera parameters
 
         json_dict = {}
-        # json_dict["input_stream"] = self.input_stream
-        # json_dict["stream_name"] = self.stream_name
         json_dict["port"] = self.camera.port
         json_dict["image_size"] = self.image_size
         json_dict["camera_matrix"] = self.camera_matrix.tolist()

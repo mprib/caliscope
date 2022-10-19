@@ -89,6 +89,9 @@ class Charuco():
     def save_image(self, path):
         cv2.imwrite(path, self.board_img)
 
+    def save_mirror_image(self, path):
+        mirror = cv2.flip(self.board_img,1)
+        cv2.imwrite(path, mirror)
 
     def get_connected_corners(self):
         """

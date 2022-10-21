@@ -1,1 +1,12 @@
 SessionDate = "today"
+
+[charuco]
+columns = 5
+rows = 4
+board_height = 14
+board_width = 11
+dictionary = "DICT_4X4_50"
+units = "inch"
+aruco_scale = 0.75
+square_size_overide = 0.0525
+inverted = false

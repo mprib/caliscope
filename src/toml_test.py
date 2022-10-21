@@ -9,7 +9,6 @@ import os
 import time
 import sys
 
-
 sys.path.insert(0,str(Path(__file__).parent.parent))
 for p in sys.path:
     print(p)
@@ -19,52 +18,49 @@ from src.calibration.charuco import Charuco
 config_path = str(Path(Path(__file__).parent.parent, "test_session", "config.toml"))
 #%%
 
-if exists(config_path):
-    print("removing")
-    os.remove(config_path)
-
-
-
 #%%
 
 class Session:
 
     def __init__(self, directory):
 
-        
         self.dir = str(directory)
-        self.config = self.get_config()
-
+        self.config_path = str(Path(self.dir, "config.toml"))
         self.load_config()
 
-    def get_config(self):
-        config_path = str(Path(self.dir, "config.toml"))
+    def load_config(self):
 
-        if exists(config_path):
-            print("Found it")
-            with open(config_path,"r") as f:
-
-                config = toml.load(config_path)
+        if exists(self.config_path):
+            print("Found previous config")
+            with open(self.config_path,"r") as f:
+                self.config = toml.load(self.config_path)
         else:
             print("Creating it")
 
-            config = toml.loads("")
-            config["SessionDate"] = "today"
+            self.config = toml.loads("")
+            self.config["SessionDate"] = "today"
 
-            with open(config_path, "a") as f:
-                toml.dump(config,f)
+            with open(self.config_path, "a") as f:
+                toml.dump(self.config,f)
 
-        return config
-                
-    def load_config(self):
-        """If there are any cameras or a charuco in the config, then go ahead
-        and create them""" 
-        pass
+        return self.config
+
+    def update_config(self):
+        with open(self.config_path, "w") as f:
+           toml.dump(self.config,f)       
+
 
     def get_charuco(self):
         
-        try:
+        if "charuco" in self.config:
+            print("Loading charuco from config")
             params = self.config["charuco"]
+            
+            # TOML doesn't seem to store None when dumping to file
+            if "square_size_overide" in self.config["charuco"]:
+                sso = self.config["charuco"]["square_size_overide"]
+            else:
+                sso = None
 
             self.charuco = Charuco( columns = params["columns"],
                                     rows = params["rows"] ,
@@ -73,16 +69,27 @@ class Session:
                                     dictionary = params["dictionary"],
                                     units = params["units"],
                                     aruco_scale = params["aruco_scale"],
-                                    square_size_overide = params["square_size_overide"],
+                                    square_size_overide = sso,
                                     inverted = params["inverted"])
-        except:
+        else:
+            print("Loading default charuco")
             self.charuco = Charuco(4,5,11,8.5)
-            params = self.charuco.__dict__
-            
+            self.config["charuco"] = self.charuco.__dict__
+            self.update_config() 
 
-        
+    def save_charuco_config(self):
+        self.config["charuco"] = self.charuco.__dict__
+        self.update_config()
          
 #%%
 # if __name__ == "__main__":
 session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
 
+session.get_charuco()
+# %%
+session.charuco = Charuco(5,5,14,11, square_size_overide=.0525)
+#%%
+
+session.save_charuco_config()
+# session.update_config()
+# %%

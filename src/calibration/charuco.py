@@ -33,20 +33,31 @@ class Charuco():
         """
         self.columns = columns
         self.rows = rows
-        self.inverted = inverted
-
-        if units == "inch":
-            # convert to millimeters
-            board_height = board_height/INCHES_PER_MM
-            board_width = board_width/INCHES_PER_MM
 
         self.board_height = board_height
         self.board_width = board_width
         self.dictionary = dictionary
+
+        self.units = units
         self.aruco_scale = aruco_scale
         # if square length not provided, calculate based on board dimensions
         # to maximize size of squares
         self.square_size_overide = square_size_overide
+        self.inverted = inverted
+
+    @property
+    def board_height_mm(self):
+        if self.units == "inch": 
+            return self.board_height/INCHES_PER_MM
+        else:
+            return self.board_height
+
+    @property
+    def board_width_mm(self):
+        if self.units == "inch": 
+            return self.board_width/INCHES_PER_MM
+        else:
+            return self.board_width
 
 
     @property
@@ -60,8 +71,8 @@ class Charuco():
         if self.square_size_overide:
             square_length = self.square_size_overide # note: in meters
         else:
-            square_length = min([self.board_height/self.rows, 
-                                self.board_width/self.columns]) 
+            square_length = min([self.board_height_mm/self.rows, 
+                                self.board_width_mm/self.columns]) 
 
         aruco_length = square_length * self.aruco_scale 
         # create the board
@@ -75,9 +86,9 @@ class Charuco():
 
     @property
     def board_img(self):
-        """A cv2 image (numpy array) of the board"""
-        width_inch = self.board_width * INCHES_PER_MM
-        height_inch = self.board_height * INCHES_PER_MM
+        """A cv2 image (numpy array) of the board printing at 300 dpi"""
+        width_inch = self.board_width_mm* INCHES_PER_MM
+        height_inch = self.board_height_mm * INCHES_PER_MM
 
         img  = self.board.draw((int(width_inch*300), int(height_inch*300)))
         if self.inverted:
@@ -179,11 +190,12 @@ ARUCO_DICTIONARIES = {
 ########################## DEMO  ###########################################
 
 if __name__ == "__main__":
-    charuco = Charuco(4,5,4,8.5,aruco_scale = .75, units = "inch", square_size_overide=.0525)
+    charuco = Charuco(4,5,4,8.5,aruco_scale = .75, units = "inch", square_size_overide=0)
     charuco.save_image("test_charuco.png")  
     width, height = charuco.board_img.shape
     print(f"Board width is {width}\nBoard height is {height}")
-# 
+
+    print(f"Charuco dictionary: {charuco.__dict__}") 
     while True:
         cv2.imshow("Charuco Board", charuco.board_img)
         # 

@@ -4,14 +4,14 @@
 # be  catchall for the camera settings and calibration. This 
 # object will also initialize cameras that have not been configured
 # yet
-
+#%%
 from collections import defaultdict
 import json
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
-from os.path import exists
 from pathlib import Path
+from os.path import exists
 #%%
 from re import I
 from threading import Thread

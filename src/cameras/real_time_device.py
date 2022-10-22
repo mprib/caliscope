@@ -23,8 +23,7 @@ class RealTimeDevice:
         # camera to be managed is the primary initiating component
         self.cam = cam 
 
-        # Initialize parameters capture paramters
-        self.rotation_count = 0 # +1 for each 90 degree CW rotation, -1 for CCW
+        # self.cam.rotation_count = 0 
         
         # Start the thread to read frames from the video stream
         self.cap_thread = Thread(target=self.roll_camera, args=( ), daemon=True)
@@ -45,13 +44,13 @@ class RealTimeDevice:
         self.collect_charuco_corners = False
         self.undistort  = False 
 
-    @property
-    def resolution(self):
-        if self.rotation_count in [-2,0,2]: # adjust for rotation
-            return self.cam.resolution
-        else:
-            w, h = self.cam.resolution
-            return h,w
+    # @property
+    # def resolution(self):
+    #     if self.cam.rotation_count in [-2,0,2]: # adjust for rotation
+    #         return self.cam.resolution
+    #     else:
+    #         w, h = self.cam.resolution
+    #         return h,w
 
     def get_FPS_actual(self):
         """set the actual frame rate; called within roll_camera()"""
@@ -68,28 +67,16 @@ class RealTimeDevice:
 
     def apply_rotation(self):
 
-        if self.rotation_count == 0:
+        if self.cam.rotation_count == 0:
             pass
-        elif self.rotation_count in [1, -3]:
+        elif self.cam.rotation_count in [1, -3]:
             self._working_frame = cv2.rotate(self._working_frame, cv2.ROTATE_90_CLOCKWISE)
-        elif self.rotation_count in [2,-2]:
+        elif self.cam.rotation_count in [2,-2]:
             self._working_frame = cv2.rotate(self._working_frame, cv2.ROTATE_180)
-        elif self.rotation_count in [-1, 3]:
+        elif self.cam.rotation_count in [-1, 3]:
             self._working_frame = cv2.rotate(self._working_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-    def rotate_CW(self):
-        print("Rotate CW")
-        if self.rotation_count == 3:
-            self.rotation_count = 0
-        else:
-            self.rotation_count = self.rotation_count + 1
 
-    def rotate_CCW(self):
-        print("Rotate CCW")
-        if self.rotation_count == -3:
-            self.rotation_count = 0
-        else:
-            self.rotation_count = self.rotation_count - 1
 
     def run_mediapipe_hands(self):
 
@@ -251,15 +238,15 @@ if __name__ == '__main__':
             print("Rotate Frame CW")
 
             for rtd in real_time_devices:
-                rtd.rotate_CW()
-                print(rtd.frame_name + " " + str(rtd.rotation_count))
+                rtd.cam.rotate_CW()
+                print(rtd.frame_name + " " + str(rtd.cam.rotation_count))
        
         if  key == ord('l'):
             print("Rotate Frame CCW")
                 
             for rtd in real_time_devices:
-                rtd.rotate_CCW()
-                print(rtd.frame_name + " " + str(rtd.rotation_count))
+                rtd.cam.rotate_CCW()
+                print(rtd.frame_name + " " + str(rtd.cam.rotation_count))
 
         # Toggle charuco display
         if key == ord('c'):

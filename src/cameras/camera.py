@@ -44,6 +44,9 @@ class Camera(object):
             self.is_connected = True
             self.is_rolling = False
             self.stop_rolling_trigger = False # used for managing threads
+            
+            # read by RealTimeDevice to set orientation
+            self.rotation_count = 0 # +1 for each 90 degree CW rotation, -1 for CCW
 
             self.set_exposure()
             self.set_default_resolution()
@@ -140,6 +143,23 @@ class Camera(object):
             self.possible_resolutions = resolutions
         else:
             self.possible_resolutions = self.default_resolution
+
+    def rotate_CW(self):
+        print("Rotate CW")
+        if self.rotation_count == 3:
+            self.rotation_count = 0
+        else:
+            self.rotation_count = self.rotation_count + 1
+
+    def rotate_CCW(self):
+        print("Rotate CCW")
+        if self.rotation_count == -3:
+            self.rotation_count = 0
+        else:
+            self.rotation_count = self.rotation_count - 1
+
+
+
     def disconnect(self):
         self.capture.release()
         self.is_connected = False

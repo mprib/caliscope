@@ -1,24 +1,29 @@
 
 #%%
 
-from cv2 import detail_Estimator
+from tkinter import W
+import cv2
 import toml
 from pathlib import Path
 from os.path import exists
 import os
 import time
+from datetime import datetime
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0,str(Path(__file__).parent.parent))
 for p in sys.path:
     print(p)
 
 from src.calibration.charuco import Charuco
+from src.cameras.camera import Camera
 
-config_path = str(Path(Path(__file__).parent.parent, "test_session", "config.toml"))
+# config_path = str(Path(Path(__file__).parent.parent, "test_session", "config.toml"))
 #%%
 
 #%%
+MAX_CAMERA_PORT_CHECK = 10
 
 class Session:
 
@@ -38,8 +43,9 @@ class Session:
             print("Creating it")
 
             self.config = toml.loads("")
-            self.config["SessionDate"] = "today"
-
+            self.config["SessionDate"] = datetime.now()
+            # self.config["charuco"] = ""
+            # self.config["cameras"] = []
             with open(self.config_path, "a") as f:
                 toml.dump(self.config,f)
 
@@ -50,13 +56,13 @@ class Session:
            toml.dump(self.config,f)       
 
 
-    def get_charuco(self):
+    def load_charuco(self):
         
         if "charuco" in self.config:
             print("Loading charuco from config")
             params = self.config["charuco"]
             
-            # TOML doesn't seem to store None when dumping to file
+            # TOML doesn't seem to store None when dumping to file; adjust here
             if "square_size_overide" in self.config["charuco"]:
                 sso = self.config["charuco"]["square_size_overide"]
             else:
@@ -77,19 +83,45 @@ class Session:
             self.config["charuco"] = self.charuco.__dict__
             self.update_config() 
 
-    def save_charuco_config(self):
+    def save_charuco(self):
         self.config["charuco"] = self.charuco.__dict__
         self.update_config()
-         
+
+    def find_cameras(self):
+        # naming short and singular for brevity...cam[0] vs cameras[0]
+        self.cam = {}
+
+        def add_cam(port):
+            try:
+                print(f"Trying port {port}") 
+                cam = Camera(port)
+                print(f"Success at port {port}")
+                self.cam[port] = cam
+                self.save_camera(port)
+            except:
+                print(f"No camera at port {port}")
+
+        with ThreadPoolExecutor() as executor:
+            for i in range(0,MAX_CAMERA_PORT_CHECK):
+                executor.submit(add_cam, i )
+
+
+    def save_camera(self, port):
+        self.config["cam_"+str(port)] = self.cam[port].__dict__
+        self.update_config()
+
+
 #%%
 # if __name__ == "__main__":
 session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
 
-session.get_charuco()
+session.load_charuco()
 # %%
-session.charuco = Charuco(5,5,14,11, square_size_overide=.0525)
+session.charuco = Charuco(5,8,14,11, square_size_overide=.0525)
 #%%
 
-session.save_charuco_config()
+session.save_charuco()
 # session.update_config()
+# %%
+session.find_cameras()
 # %%

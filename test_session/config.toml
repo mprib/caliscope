@@ -18,7 +18,7 @@ rotation_count = 0
 [cam_0]
 port = 0
 resolution = [ 640, 480,]
-rotation_count = 0
+rotation_count = 1
 
 [cam_2]
 port = 2

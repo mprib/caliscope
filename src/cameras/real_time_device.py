@@ -127,9 +127,10 @@ class RealTimeDevice:
         self.cam.stop_rolling() # will trigger running capture thread to end
         blank_image = np.zeros(self.frame.shape, dtype=np.uint8)
         self.frame = blank_image
-        
-        while self.cam.is_rolling:  # wait for everythong to catch up
-            time.sleep(.01)
+
+        # pretty sure I can delete this next part since it is included in cam.stop_rolling()        
+        # while self.cam.is_rolling:  # wait for everythong to catch up
+        #     time.sleep(.01)
 
         self.FPS_actual = 0
         self.avg_delta_time = None
@@ -142,7 +143,8 @@ class RealTimeDevice:
         if self.int_calib:
             self.int_calib.initialize_grid_history()
 
-        self.cap_thread.join()
+        # test of commenting this out...may not longer be necessary
+        # self.cap_thread.join()
 
         # Spin up the thread again now that resolution is changed
         self.cap_thread = Thread(target=self.roll_camera, args=( ), daemon=True)

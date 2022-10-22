@@ -89,14 +89,14 @@ class Session:
 
     def find_cameras(self):
         # naming short and singular for brevity...cam[0] vs cameras[0]
-        self.cam = {}
+        self.camera = {}
 
         def add_cam(port):
             try:
                 print(f"Trying port {port}") 
                 cam = Camera(port)
                 print(f"Success at port {port}")
-                self.cam[port] = cam
+                self.camera[port] = cam
                 self.save_camera(port)
             except:
                 print(f"No camera at port {port}")
@@ -107,7 +107,14 @@ class Session:
 
 
     def save_camera(self, port):
-        self.config["cam_"+str(port)] = self.cam[port].__dict__
+        cam = self.camera[port]
+        params = {"port":cam.port,
+                  "resolution": cam.resolution,
+                  "rotation_count":cam.rotation_count,
+                  "camera_matrix": cam.camera_matrix,
+                  "distortion": cam.distortion}
+
+        self.config["cam_"+str(port)] = params
         self.update_config()
 
 
@@ -117,7 +124,7 @@ session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
 
 session.load_charuco()
 # %%
-session.charuco = Charuco(5,8,14,11, square_size_overide=.0525)
+session.charuco = Charuco(5,4,14,11, square_size_overide=None)
 #%%
 
 session.save_charuco()
@@ -125,3 +132,4 @@ session.save_charuco()
 # %%
 session.find_cameras()
 # %%
+

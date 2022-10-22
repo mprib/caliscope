@@ -202,9 +202,9 @@ class IntrinsicCalibrator:
         self.is_calibrated = True
 
         # ret is RMSE of reprojection 
-        self.error = error
-        self.camera_matrix = mtx
-        self.distortion_params = dist
+        self.camera.error = error
+        self.camera.camera_matrix = mtx
+        self.camera.distortion = dist
 
         print(f"Error: {error}")
         print(f"Camera Matrix: {mtx}")

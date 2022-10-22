@@ -1,20 +1,17 @@
 
 #%%
 
-from tkinter import W
-import cv2
-import toml
-from pathlib import Path
-from os.path import exists
-import os
-import time
-from datetime import datetime
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from os.path import exists
+from pathlib import Path
+
+import toml
 
 sys.path.insert(0,str(Path(__file__).parent.parent))
-for p in sys.path:
-    print(p)
+# for p in sys.path:
+#     print(p)
 
 from src.calibration.charuco import Charuco
 from src.cameras.camera import Camera
@@ -43,7 +40,7 @@ class Session:
             print("Creating it")
 
             self.config = toml.loads("")
-            self.config["SessionDate"] = datetime.now()
+            self.config["CreationDate"] = datetime.now()
             # self.config["charuco"] = ""
             # self.config["cameras"] = []
             with open(self.config_path, "a") as f:
@@ -114,6 +111,7 @@ class Session:
                   "camera_matrix": cam.camera_matrix,
                   "distortion": cam.distortion}
 
+        print(params)
         self.config["cam_"+str(port)] = params
         self.update_config()
 

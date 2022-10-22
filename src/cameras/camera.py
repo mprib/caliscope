@@ -51,7 +51,12 @@ class Camera(object):
             self.set_exposure()
             self.set_default_resolution()
             self.set_possible_resolutions()
-            
+
+            # camera initializes as uncalibrated            
+            self.error = None
+            self.camera_matrix = None
+            self.distortion = None
+
         else:
             self.port = port
             self.capture = None

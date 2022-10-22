@@ -28,6 +28,9 @@ class Session:
 
         self.dir = str(directory)
         self.config_path = str(Path(self.dir, "config.toml"))
+
+        # dictionary of Cameras, key = port
+        self.camera = {}
         self.load_config()
 
     def load_config(self):
@@ -80,13 +83,30 @@ class Session:
             self.config["charuco"] = self.charuco.__dict__
             self.update_config() 
 
+
+    def load_cameras(self):
+        for key, item in self.config.items():
+            if key.startswith("cam"):
+                print(key, item)
+                port = item["port"]
+                resolution = item["resolution"]
+                rotation_count = item["rotation_count"]
+
+                self.camera[port] = Camera(port)
+
+                cam =  self.camera[port] # trying to make a little more readable
+                cam.resolution = resolution
+                cam.rotation_count = rotation_count
+
+                if "error" in item.keys():
+                    print(item["error"])
+                
+
     def save_charuco(self):
         self.config["charuco"] = self.charuco.__dict__
         self.update_config()
 
     def find_cameras(self):
-        # naming short and singular for brevity...cam[0] vs cameras[0]
-        self.camera = {}
 
         def add_cam(port):
             try:
@@ -100,7 +120,10 @@ class Session:
 
         with ThreadPoolExecutor() as executor:
             for i in range(0,MAX_CAMERA_PORT_CHECK):
-                executor.submit(add_cam, i )
+                if i in self.camera.keys():
+                    pass
+                else:
+                    executor.submit(add_cam, i )
 
 
     def save_camera(self, port):
@@ -128,6 +151,7 @@ session.charuco = Charuco(5,4,14,11, square_size_overide=None)
 session.save_charuco()
 # session.update_config()
 # %%
-session.find_cameras()
+# session.find_cameras()
+session.load_cameras()
 # %%
 

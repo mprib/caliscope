@@ -47,6 +47,7 @@ class Charuco():
 
     @property
     def board_height_mm(self):
+        """Internal calculations will always use mm for consistency"""
         if self.units == "inch": 
             return self.board_height/INCHES_PER_MM
         else:
@@ -54,6 +55,7 @@ class Charuco():
 
     @property
     def board_width_mm(self):
+        """Internal calculations will always use mm for consistency"""
         if self.units == "inch": 
             return self.board_width/INCHES_PER_MM
         else:
@@ -86,7 +88,10 @@ class Charuco():
 
     @property
     def board_img(self):
-        """A cv2 image (numpy array) of the board printing at 300 dpi"""
+        """A cv2 image (numpy array) of the board printing at 300 dpi.
+        Conversion to mm back to inches is strange, but done due to 
+        ubiquity of inch measurement for familiar printing standard"""
+
         width_inch = self.board_width_mm* INCHES_PER_MM
         height_inch = self.board_height_mm * INCHES_PER_MM
 

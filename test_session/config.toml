@@ -1,8 +1,8 @@
-SessionDate = "today"
+SessionDate = 2022-10-22T08:13:54.364556
 
 [charuco]
 columns = 5
-rows = 4
+rows = 8
 board_height = 14
 board_width = 11
 dictionary = "DICT_4X4_50"
@@ -10,3 +10,36 @@ units = "inch"
 aruco_scale = 0.75
 square_size_overide = 0.0525
 inverted = false
+
+[cam_1]
+port = 1
+capture = "< cv2.VideoCapture 00000278FB1E5230>"
+active_port = true
+is_connected = true
+is_rolling = false
+stop_rolling_trigger = false
+_exposure = -7.0
+default_resolution = [ 640, 480,]
+possible_resolutions = [ [ 640, 480,], [ 800, 448,], [ 864, 480,], [ 960, 544,], [ 1024, 576,], [ 1184, 656,], [ 1280, 720,],]
+
+[cam_0]
+port = 0
+capture = "< cv2.VideoCapture 00000278FB1E54B0>"
+active_port = true
+is_connected = true
+is_rolling = false
+stop_rolling_trigger = false
+_exposure = -6.0
+default_resolution = [ 640, 480,]
+possible_resolutions = [ [ 640, 480,], [ 800, 600,], [ 1024, 576,], [ 1280, 720,], [ 1920, 1080,],]
+
+[cam_2]
+port = 2
+capture = "< cv2.VideoCapture 00000278FB1E55F0>"
+active_port = true
+is_connected = true
+is_rolling = false
+stop_rolling_trigger = false
+_exposure = -6.0
+default_resolution = [ 640, 480,]
+possible_resolutions = [ [ 640, 480,], [ 800, 600,], [ 1024, 576,], [ 1280, 720,], [ 1920, 1080,],]

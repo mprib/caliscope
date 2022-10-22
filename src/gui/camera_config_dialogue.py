@@ -264,23 +264,23 @@ class CameraConfigDialog(QDialog):
         self.cw_rotation_btn = QPushButton("Rotate CW")
         self.cw_rotation_btn.setMaximumSize(100, 50)
 
-        def rotate_cw():
-            # Counter Clockwise rotation called because the display image is flipped
-            self.RTD.rotate_CCW()
-            self.adjustSize()
+        # def rotate_cw():
+        #     self.RTD.cam.rotate_CCW()
+        #     # self.adjustSize()
 
-        self.cw_rotation_btn.clicked.connect(rotate_cw)
+        # Counter Clockwise rotation called because the display image is flipped
+        self.cw_rotation_btn.clicked.connect(self.RTD.cam.rotate_CCW)
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton("Rotate CCW")
         self.ccw_rotation_btn.setMaximumSize(100, 50)
 
-        def rotate_ccw():
-            # Clockwise rotation called because the display image is flipped
-            self.RTD.rotate_CW()
-            self.adjustSize()
+        # def rotate_ccw():
+        #     self.RTD.cam.rotate_CW()
+        #     # self.adjustSize()
 
-        self.ccw_rotation_btn.clicked.connect(rotate_ccw)
+        # Clockwise rotation called because the display image is flipped
+        self.ccw_rotation_btn.clicked.connect(self.RTD.cam.rotate_CW)
     
     def build_exposure_hbox(self):
         # construct a horizontal widget with label: slider: value display

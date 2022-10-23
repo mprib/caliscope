@@ -89,18 +89,18 @@ class Session:
             if key.startswith("cam"):
                 print(key, item)
                 port = item["port"]
-                resolution = item["resolution"]
-                rotation_count = item["rotation_count"]
-
                 self.camera[port] = Camera(port)
 
                 cam =  self.camera[port] # trying to make a little more readable
-                cam.resolution = resolution
-                cam.rotation_count = rotation_count
+                cam.resolution = item["resolution"]
+                cam.rotation_count = item["rotation_count"]
 
+                # if calibration done, then populate those
                 if "error" in item.keys():
                     print(item["error"])
-                
+                    cam.error = item["error"] 
+                    cam.camera_matrix = item["camera_matrix"]
+                    cam.distortion = item["distortion"]
 
     def save_charuco(self):
         self.config["charuco"] = self.charuco.__dict__
@@ -131,6 +131,7 @@ class Session:
         params = {"port":cam.port,
                   "resolution": cam.resolution,
                   "rotation_count":cam.rotation_count,
+                  "error": cam.error,
                   "camera_matrix": cam.camera_matrix,
                   "distortion": cam.distortion}
 

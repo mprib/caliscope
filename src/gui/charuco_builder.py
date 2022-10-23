@@ -29,10 +29,13 @@ from src.cameras.camera import Camera
 from src.calibration.charuco import Charuco, ARUCO_DICTIONARIES
 from src.session import Session
 class CharucoBuilder(QDialog):
-    def __init__(self):
+    def __init__(self, session):
         super(CharucoBuilder, self).__init__()
+
         self.setMaximumHeight(DISPLAY_HEIGHT)
         self.setMaximumWidth(DISPLAY_WIDTH/4)
+
+        self.session = session
 
         # Build inputs with sensible defaults; must exist before building board
         self.build_column_spinbox()
@@ -313,12 +316,13 @@ class CharucoBuilder(QDialog):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
 
-    session 
+    session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
+
     screen = App.primaryScreen()
     DISPLAY_WIDTH = screen.size().width()
     DISPLAY_HEIGHT = screen.size().height()
 
-    charuco_window = CharucoBuilder()
+    charuco_window = CharucoBuilder(session)
     charuco_window.show()
     sys.exit(App.exec())
 

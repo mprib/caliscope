@@ -7,7 +7,7 @@ import cv2
 from numpy import char
 import json
 
-INCHES_PER_MM = .0393701
+INCHES_PER_CM = .393701
 
 class Charuco():
     """
@@ -46,18 +46,18 @@ class Charuco():
         self.inverted = inverted
 
     @property
-    def board_height_mm(self):
+    def board_height_cm(self):
         """Internal calculations will always use mm for consistency"""
         if self.units == "inch": 
-            return self.board_height/INCHES_PER_MM
+            return self.board_height/INCHES_PER_CM
         else:
             return self.board_height
 
     @property
-    def board_width_mm(self):
+    def board_width_cm(self):
         """Internal calculations will always use mm for consistency"""
         if self.units == "inch": 
-            return self.board_width/INCHES_PER_MM
+            return self.board_width/INCHES_PER_CM
         else:
             return self.board_width
 
@@ -73,8 +73,8 @@ class Charuco():
         if self.square_size_overide:
             square_length = self.square_size_overide # note: in meters
         else:
-            square_length = min([self.board_height_mm/self.rows, 
-                                self.board_width_mm/self.columns]) 
+            square_length = min([self.board_height_cm/self.rows, 
+                                self.board_width_cm/self.columns]) 
 
         aruco_length = square_length * self.aruco_scale 
         # create the board
@@ -92,8 +92,8 @@ class Charuco():
         Conversion to mm back to inches is strange, but done due to 
         ubiquity of inch measurement for familiar printing standard"""
 
-        width_inch = self.board_width_mm* INCHES_PER_MM
-        height_inch = self.board_height_mm * INCHES_PER_MM
+        width_inch = self.board_width_cm* INCHES_PER_CM
+        height_inch = self.board_height_cm * INCHES_PER_CM
 
         img  = self.board.draw((int(width_inch*300), int(height_inch*300)))
         if self.inverted:

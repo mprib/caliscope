@@ -29,7 +29,7 @@ class Session:
         self.camera = {}
         self.load_config()
         self.load_charuco()
-        self.load_cameras()
+        # self.load_cameras()
 
     def load_config(self):
 
@@ -80,6 +80,7 @@ class Session:
 
     def save_charuco(self):
         self.config["charuco"] = self.charuco.__dict__
+        print(self.charuco.__dict__)
         self.update_config()
 
     def load_cameras(self):
@@ -145,12 +146,12 @@ class Session:
 
 #%%
 # if __name__ == "__main__":
-session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
+# session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
 
 # %%
-session.charuco = Charuco(5,4,14,11, square_size_overide=None)
+# session.charuco = Charuco(5,4,14,11, square_size_overide=None)
 #%%
 
-session.save_charuco()
+# session.save_charuco()
 # session.update_config()
 # %%

@@ -36,6 +36,7 @@ class CharucoBuilder(QDialog):
         self.setMaximumWidth(DISPLAY_WIDTH/4)
 
         self.session = session
+        self.params = self.session.config["charuco"]
 
         # Build inputs with sensible defaults; must exist before building board
         self.build_column_spinbox()
@@ -50,7 +51,7 @@ class CharucoBuilder(QDialog):
         # Build primary actions
         self.build_save_png_group()
         self.build_true_up_group()
-        self.build_export()
+        self.build_save_config()
 
         # Build display of board
         self.charuco_added = False  # track to handle redrawing of board
@@ -125,6 +126,8 @@ class CharucoBuilder(QDialog):
         step4.setMaximumWidth(self.charuco_display.height()) 
         VBL.addWidget(step4)
         VBL.addWidget(self.export)
+    
+
 
     def build_config_options(self):
         #####################  HORIZONTAL CONFIG BOX  ########################
@@ -198,62 +201,75 @@ class CharucoBuilder(QDialog):
         self.save_png_hbox.addWidget(self.png_btn)
         self.save_png_hbox.addWidget(self.png_mirror_btn)
 
+    def set_expected_edge_length(self):
+        # intialize edge length to something reasonable
+        columns = self.column_spin.value()
+        rows = self.row_spin.value()
+        board_height = self.length_spin.value()
+        board_width = self.width_spin.value()
+        units = self.units.currentText()
+
+        expected_length = min([board_height/rows, board_width/columns])
+        if units == "inch":
+            # convert to cm
+            expected_length = round(expected_length/.393701, 1)
+
+        self.printed_edge_length.setValue(expected_length)        
+
     def build_true_up_group(self):
         self.true_up_group = QGroupBox("True-Up Printed Square Edge")
         self.true_up_group.setLayout(QHBoxLayout())
-        self.true_up_group.layout().addWidget(QLabel("Actual Length (mm):"))
+        self.true_up_group.layout().addWidget(QLabel("Actual Length (cm):"))
         
         self.printed_edge_length = QDoubleSpinBox()
         self.printed_edge_length.setMaximumWidth(100)
+        self.set_expected_edge_length()
         def update_charuco():
             self.charuco.square_size_overide = self.printed_edge_length.value()
             print("Updated Square Size Overide")
         self.printed_edge_length.valueChanged.connect(update_charuco)
         self.true_up_group.layout().addWidget(self.printed_edge_length)
 
-    def build_export(self):
-        self.export = QPushButton("&Export")
+
+    def build_save_config(self):
+        self.export = QPushButton("&Save Charuco")
         
-        def export_json():
-            save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", "charuco.json", "JSON (*.json)")
-            print(save_file_tuple)
-            save_file_name = str(Path(save_file_tuple[0]))
-            if len(save_file_name)>1:
-                print(f"Saving board to {save_file_name}")
-                self.charuco.export_as_json(save_file_name)
-        self.export.clicked.connect(export_json)
+        def save_charuco():
+            self.session.charuco = self.charuco
+            self.session.save_charuco() 
+        self.export.clicked.connect(save_charuco)
 
     def build_column_spinbox(self):
         self.column_spin = QSpinBox()
-        self.column_spin.setValue(5)
+        self.column_spin.setValue(self.params["columns"])
         self.column_spin.setMaximumWidth(50)
         
 
     def build_row_spinbox(self):
         self.row_spin = QSpinBox()
-        self.row_spin.setValue(7)
+        self.row_spin.setValue(self.params["rows"])
         self.row_spin.setMaximumWidth(50)
              
     def build_width_spinbox(self):
         self.width_spin = QDoubleSpinBox()
-        self.width_spin.setValue(8.5)
+        self.width_spin.setValue(self.params["board_width"])
         self.width_spin.setMaximumWidth(50)
         
 
     def build_length_spinbox(self):
         self.length_spin = QDoubleSpinBox()
-        self.length_spin.setValue(11)
+        self.length_spin.setValue(self.params["board_height"])
         self.length_spin.setMaximumWidth(50)
 
     def build_unit_dropdown(self):
         self.units = QComboBox()
-        self.units.addItems(["mm", "inch"])
-        self.units.setCurrentText("inch")
+        self.units.addItems(["cm", "inch"])
+        self.units.setCurrentText(self.params["units"])
         self.units.setMaximumWidth(100)
 
     def build_invert_checkbox(self):
         self.invert_checkbox = QCheckBox("&Invert")
-        self.invert_checkbox.setChecked(False)
+        self.invert_checkbox.setChecked(self.params["inverted"])
 
     def build_charuco_update_btn(self):
         self.charuco_build_btn = QPushButton("&Update")
@@ -264,13 +280,16 @@ class CharucoBuilder(QDialog):
 
     def build_charuco(self):
         ####################### PNG DISPLAY     ###########################
+        self.set_expected_edge_length()
+
         columns = self.column_spin.value()
         rows = self.row_spin.value()
         board_height = self.length_spin.value()
         board_width = self.width_spin.value()
         aruco_scale = 0.75 
         units = self.units.currentText()
-        square_edge_length = None
+        square_edge_length = self.printed_edge_length.value()
+
         inverted = self.invert_checkbox.isChecked()
         dictionary_str = "DICT_4X4_1000"
 

@@ -250,8 +250,6 @@ class CameraConfigDialog(QDialog):
 
         self.fps_display = QLabel()
         self.fps_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        # self.fps_display.setFont(QFont("", 15))
-        # self.fps_display.setMaximumSize(400,400)
         def FPSUpdateSlot(fps):
             if fps == 0:
                 self.fps_display.setText("reconnecting to camera...")
@@ -264,20 +262,12 @@ class CameraConfigDialog(QDialog):
         self.cw_rotation_btn = QPushButton("Rotate CW")
         self.cw_rotation_btn.setMaximumSize(100, 50)
 
-        # def rotate_cw():
-        #     self.RTD.cam.rotate_CCW()
-        #     # self.adjustSize()
-
         # Counter Clockwise rotation called because the display image is flipped
         self.cw_rotation_btn.clicked.connect(self.RTD.cam.rotate_CCW)
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton("Rotate CCW")
         self.ccw_rotation_btn.setMaximumSize(100, 50)
-
-        # def rotate_ccw():
-        #     self.RTD.cam.rotate_CW()
-        #     # self.adjustSize()
 
         # Clockwise rotation called because the display image is flipped
         self.ccw_rotation_btn.clicked.connect(self.RTD.cam.rotate_CW)
@@ -321,7 +311,6 @@ class CameraConfigDialog(QDialog):
         w = self.frame_display.width()
         h = self.frame_display.height()
         def ImageUpdateSlot(QPixmap):
-
             self.frame_display.setPixmap(QPixmap)
 
         self.frame_emitter.ImageBroadcast.connect(ImageUpdateSlot)

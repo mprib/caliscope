@@ -50,13 +50,21 @@ class AppDemo(QMainWindow):
             if "cam" in key:    
                 port = params["port"]
                 cam_name = f"Camera {port}"
-                cam_rows[port] = StandardItem(cam_name)
+                # cam_rows[port] = StandardItem(cam_name)
+                cam_rows[port] = params
 
         # a long way to deal with no sorting in python dictionaries
-        cam_rows_sorted = {k:v for k, v in sorted(cam_rows.items(), key = lambda item:item[1])}
+        cam_rows_sorted = {k:v for k, v in sorted(cam_rows.items(), key = lambda item:item[0])}
 
-        for key, value in cam_rows_sorted.items():
-           cameras.appendRow(value) 
+        for port, params in cam_rows_sorted.items():
+           cam = StandardItem(f"Camera {port}")
+
+           for key, value in params.items():
+                item = StandardItem(key)
+                item.appendRow(StandardItem(value))
+                cam.appendRow(item)
+
+           cameras.appendRow(cam)
 
         # print(cam_rows_sorted) 
         # print(cam_rows)

@@ -27,17 +27,11 @@ from pyqtgraph.parametertree import Parameter, ParameterTree
 
 
 
-
 params = [
     {'name': 'Charuco', 'type': 'group', 'children': 
     [
         {'name': 'Launch Builder', 'type': 'action'},
        
-        {'name': 'Restore State', 'type': 'action', 'children': 
-        [
-            {'name': 'Add missing items', 'type': 'bool', 'value': True},
-            {'name': 'Remove extra items', 'type': 'bool', 'value': True},
-        ]},
     ]},
 
     {'name': 'Custom context menu', 'type': 'group', 'children': 
@@ -121,4 +115,5 @@ compareState = p.saveState()
 assert pg.eq(compareState, state)
 
 if __name__ == '__main__':
+
     pg.exec()

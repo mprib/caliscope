@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.real_time_device import RealTimeDevice
 from src.cameras.camera import Camera
 from src.calibration.charuco import Charuco, ARUCO_DICTIONARIES
-
+from src.session import Session
 class CharucoBuilder(QDialog):
     def __init__(self):
         super(CharucoBuilder, self).__init__()
@@ -113,9 +113,8 @@ class CharucoBuilder(QDialog):
 
         ########## STEP FOUR: Export Trued-Up Board to Calibration Folder #####
         step4_text ="""
-                    <b>Step 4</b>: After truing up the board, export the board
-                    parameters for use in a calibration. NOTE: Save 
-                    configurations as <code>.json</code> files.
+                    <b>Step 4</b>: After truing up the board, save the board
+                    parameters for use in this session.
                     """
         step4 = QLabel(step4_text)
         step4.setWordWrap(True)
@@ -255,7 +254,6 @@ class CharucoBuilder(QDialog):
 
     def build_charuco_update_btn(self):
         self.charuco_build_btn = QPushButton("&Update")
-        # self.charuco_build_btn.setText("Create Charuco")
         self.charuco_build_btn.setMaximumSize(50,30)
         self.charuco_build_btn.clicked.connect(self.build_charuco)
 
@@ -314,6 +312,8 @@ class CharucoBuilder(QDialog):
 
 if __name__ == "__main__":
     App = QApplication(sys.argv)
+
+    session 
     screen = App.primaryScreen()
     DISPLAY_WIDTH = screen.size().width()
     DISPLAY_HEIGHT = screen.size().height()

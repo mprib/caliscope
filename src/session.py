@@ -10,14 +10,9 @@ from pathlib import Path
 import toml
 
 sys.path.insert(0,str(Path(__file__).parent.parent))
-# for p in sys.path:
-#     print(p)
 
 from src.calibration.charuco import Charuco
 from src.cameras.camera import Camera
-
-# config_path = str(Path(Path(__file__).parent.parent, "test_session", "config.toml"))
-#%%
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10
@@ -32,6 +27,8 @@ class Session:
         # dictionary of Cameras, key = port
         self.camera = {}
         self.load_config()
+        self.load_charuco()
+        self.load_cameras()
 
     def load_config(self):
 
@@ -44,8 +41,6 @@ class Session:
 
             self.config = toml.loads("")
             self.config["CreationDate"] = datetime.now()
-            # self.config["charuco"] = ""
-            # self.config["cameras"] = []
             with open(self.config_path, "a") as f:
                 toml.dump(self.config,f)
 
@@ -54,7 +49,6 @@ class Session:
     def update_config(self):
         with open(self.config_path, "w") as f:
            toml.dump(self.config,f)       
-
 
     def load_charuco(self):
         
@@ -83,6 +77,9 @@ class Session:
             self.config["charuco"] = self.charuco.__dict__
             self.update_config() 
 
+    def save_charuco(self):
+        self.config["charuco"] = self.charuco.__dict__
+        self.update_config()
 
     def load_cameras(self):
         for key, item in self.config.items():
@@ -102,9 +99,6 @@ class Session:
                     cam.camera_matrix = item["camera_matrix"]
                     cam.distortion = item["distortion"]
 
-    def save_charuco(self):
-        self.config["charuco"] = self.charuco.__dict__
-        self.update_config()
 
     def find_cameras(self):
 
@@ -121,10 +115,10 @@ class Session:
         with ThreadPoolExecutor() as executor:
             for i in range(0,MAX_CAMERA_PORT_CHECK):
                 if i in self.camera.keys():
+                    # don't try to connect to an already connected camera
                     pass
                 else:
                     executor.submit(add_cam, i )
-
 
     def save_camera(self, port):
         cam = self.camera[port]
@@ -144,7 +138,6 @@ class Session:
 # if __name__ == "__main__":
 session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
 
-session.load_charuco()
 # %%
 session.charuco = Charuco(5,4,14,11, square_size_overide=None)
 #%%

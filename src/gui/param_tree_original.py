@@ -21,18 +21,59 @@ import pyqtgraph as pg
 from pyqtgraph.examples._buildParamTypes import makeAllParamTypes
 from pyqtgraph.Qt import QtGui, QtWidgets
 
-app = pg.mkQApp("Multicamera Calibration")
+app = pg.mkQApp("CamCam")
 import pyqtgraph.parametertree.parameterTypes as pTypes
 from pyqtgraph.parametertree import Parameter, ParameterTree
+
+
+## test subclassing parameters
+## This parameter automatically generates two child parameters which are always reciprocals of each other
+class ComplexParameter(pTypes.GroupParameter):
+    def __init__(self, **opts):
+        opts['type'] = 'bool'
+        opts['value'] = True
+        pTypes.GroupParameter.__init__(self, **opts)
+        
+        self.addChild({'name': 'A = 1/B', 'type': 'float', 'value': 7, 'suffix': 'Hz', 'siPrefix': True})
+        self.addChild({'name': 'B = 1/A', 'type': 'float', 'value': 1/7., 'suffix': 's', 'siPrefix': True})
+        self.a = self.param('A = 1/B')
+        self.b = self.param('B = 1/A')
+        self.a.sigValueChanged.connect(self.aChanged)
+        self.b.sigValueChanged.connect(self.bChanged)
+        
+    def aChanged(self):
+        self.b.setValue(1.0 / self.a.value(), blockSignal=self.bChanged)
+
+    def bChanged(self):
+        self.a.setValue(1.0 / self.b.value(), blockSignal=self.aChanged)
+
+
+## test add/remove
+## this group includes a menu allowing the user to add new parameters into its child list
+class ScalableGroup(pTypes.GroupParameter):
+    def __init__(self, **opts):
+        opts['type'] = 'group'
+        opts['addText'] = "Add"
+        opts['addList'] = ['str', 'float', 'int']
+        pTypes.GroupParameter.__init__(self, **opts)
+    
+    def addNew(self, typ):
+        val = {
+            'str': '',
+            'float': 0.0,
+            'int': 0
+        }[typ]
+        self.addChild(dict(name="ScalableParam %d" % (len(self.childs)+1), type=typ, value=val, removable=True, renamable=True))
 
 
 
 
 params = [
-    {'name': 'Charuco', 'type': 'group', 'children': 
+    makeAllParamTypes(),
+    {'name': 'Save/Restore functionality', 'type': 'group', 'children': 
     [
-        {'name': 'Launch Builder', 'type': 'action'},
-       
+        {'name': 'Save State', 'type': 'action'},
+
         {'name': 'Restore State', 'type': 'action', 'children': 
         [
             {'name': 'Add missing items', 'type': 'bool', 'value': True},
@@ -52,6 +93,14 @@ params = [
             'internal': 'What the user sees',
         }},
     ]},
+
+    ComplexParameter(name='Custom parameter group (reciprocal values)'),
+
+    ScalableGroup(name="Expandable Parameter Group", tip='Click to add children', children=
+    [
+        {'name': 'ScalableParam 1', 'type': 'str', 'value': "default param 1"},
+        {'name': 'ScalableParam 2', 'type': 'str', 'value': "default param 2"},
+    ]),
 ]
 
 ## Create tree of Parameter objects
@@ -93,12 +142,8 @@ def restore():
     add = p['Save/Restore functionality', 'Restore State', 'Add missing items']
     rem = p['Save/Restore functionality', 'Restore State', 'Remove extra items']
     p.restoreState(state, addChildren=add, removeChildren=rem)
-
-def test_function():
-    print("helloworld")
-
-p.param('Charuco', 'Launch Builder').sigActivated.connect(test_function)
-# p.param('Save/Restore functionality', 'Restore State').sigActivated.connect(restore)
+p.param('Save/Restore functionality', 'Save State').sigActivated.connect(save)
+p.param('Save/Restore functionality', 'Restore State').sigActivated.connect(restore)
 
 
 ## Create two ParameterTree widgets, both accessing the same data

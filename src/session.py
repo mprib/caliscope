@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from os.path import exists
 from pathlib import Path
+from threading import Thread
 
 import toml
 
@@ -82,22 +83,30 @@ class Session:
         self.update_config()
 
     def load_cameras(self):
-        for key, item in self.config.items():
-            if key.startswith("cam"):
-                print(key, item)
-                port = item["port"]
+
+        def add_preconfigured_cam(params):
+            try:
+                port = params["port"]
                 self.camera[port] = Camera(port)
-
                 cam =  self.camera[port] # trying to make a little more readable
-                cam.resolution = item["resolution"]
-                cam.rotation_count = item["rotation_count"]
+                cam.resolution = params["resolution"]
+                cam.rotation_count = params["rotation_count"]
+            except:
+                print("Unable to connect... camera may be in use.")
 
-                # if calibration done, then populate those
-                if "error" in item.keys():
-                    print(item["error"])
-                    cam.error = item["error"] 
-                    cam.camera_matrix = item["camera_matrix"]
-                    cam.distortion = item["distortion"]
+            # if calibration done, then populate those
+            if "error" in params.keys():
+                print(params["error"])
+                cam.error = params["error"] 
+                cam.camera_matrix = params["camera_matrix"]
+                cam.distortion = params["distortion"]
+
+        with ThreadPoolExecutor() as executor:
+            for key, params in self.config.items():
+                if key.startswith("cam"):
+                    print(key, params)
+                    executor.submit(add_preconfigured_cam, params)
+                
 
 
     def find_cameras(self):
@@ -145,7 +154,3 @@ session.charuco = Charuco(5,4,14,11, square_size_overide=None)
 session.save_charuco()
 # session.update_config()
 # %%
-# session.find_cameras()
-session.load_cameras()
-# %%
-

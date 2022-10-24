@@ -1,12 +1,15 @@
-from re import I
 import sys
 from pathlib import Path
+
 import cv2
-from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeView
-from PyQt6.QtGui import QStandardItem, QStandardItemModel, QFont, QColor, QImage
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import (QColor, QFont, QImage, QStandardItem,
+                         QStandardItemModel)
+from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeView
+
 sys.path.insert(0,str(Path(__file__).parent.parent.parent))
 from src.session import Session
+
 
 class StandardItem(QStandardItem):
     def __init__(self, txt="", font_size=12, set_bold=False, color=QColor(0,0,0)):
@@ -49,7 +52,7 @@ class ImageItem(QStandardItem):
 
 
 
-class AppDemo(QMainWindow):
+class ConfigTree(QMainWindow):
     def __init__(self, session):
         super().__init__()
         self.setWindowTitle("test window")
@@ -62,14 +65,10 @@ class AppDemo(QMainWindow):
         self.setCentralWidget(treeView)
 
         self.build_charuco()
-        # test_icon_path = r"C:\Users\Mac Prible\repos\learn-opencv\src\gui\icons\fmc_logo.png"
 
-        # charuco = ImageItem(test_icon_path, "Charuco Board")
         self.build_camera_intrinisics()
 
-
         treeView.setModel(treeModel)
-
         treeView.doubleClicked.connect(self.getValue)
 
     def build_camera_intrinisics(self):
@@ -107,16 +106,6 @@ class AppDemo(QMainWindow):
                 rotation = "270 degrees"
             cam.appendRow(StandardItem(f"Rotation: {rotation}"))
 
-            # for key, value in params.items():
-            #      item = StandardItem(f"{key}: {value}")
-            #      # item.appendRow(StandardItem(value))
-            #      cam.appendRow(item)
-
-
-        # print(f"Length of cam row dict is {len(cam_rows)}")
-
-
-
     def build_charuco(self):
 
         charuco_header = StandardItem("Charuco", set_bold = True)
@@ -130,20 +119,21 @@ class AppDemo(QMainWindow):
         print(val.data())
         print(val.row())
         print(val.column())
+        print(val.parent().data())
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    
+
     session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
-    
+
     for key, params in session.config.items():
         print(key)
         print(params)
-    
-    demo = AppDemo(session)
-    
+
+    demo = ConfigTree(session)
+
     demo.show()
-    
+
     sys.exit(app.exec())
 

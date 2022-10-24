@@ -209,12 +209,16 @@ class CharucoBuilder(QDialog):
         board_width = self.width_spin.value()
         units = self.units.currentText()
 
-        expected_length = min([board_height/rows, board_width/columns])
-        if units == "inch":
-            # convert to cm
-            expected_length = round(expected_length/.393701, 1)
+        if "square_size_overide" in session.config["charuco"].keys():
+            overide = session.config["charuco"]["square_size_overide"]
+            self.printed_edge_length.setValue(overide) 
+        else:
+            expected_length = min([board_height/rows, board_width/columns])
+            if units == "inch":
+                # convert to cm
+                expected_length = round(expected_length/.393701, 1)
 
-        self.printed_edge_length.setValue(expected_length)        
+            self.printed_edge_length.setValue(expected_length)        
 
     def build_true_up_group(self):
         self.true_up_group = QGroupBox("True-Up Printed Square Edge")

@@ -32,8 +32,8 @@ class CharucoBuilder(QDialog):
     def __init__(self, session):
         super(CharucoBuilder, self).__init__()
 
-        self.setMaximumHeight(DISPLAY_HEIGHT)
-        self.setMaximumWidth(DISPLAY_WIDTH/4)
+        # self.setMaximumHeight(DISPLAY_HEIGHT)
+        # self.setMaximumWidth(DISPLAY_WIDTH/4)
 
         self.session = session
         self.params = self.session.config["charuco"]
@@ -125,7 +125,7 @@ class CharucoBuilder(QDialog):
         # Strange wrinkle: charuco display height and width seem flipped
         step4.setMaximumWidth(self.charuco_display.height()) 
         VBL.addWidget(step4)
-        VBL.addWidget(self.export)
+        VBL.addWidget(self.export_btn)
     
 
 
@@ -209,8 +209,8 @@ class CharucoBuilder(QDialog):
         board_width = self.width_spin.value()
         units = self.units.currentText()
 
-        if "square_size_overide" in session.config["charuco"].keys():
-            overide = session.config["charuco"]["square_size_overide"]
+        if "square_size_overide" in self.session.config["charuco"].keys():
+            overide = self.session.config["charuco"]["square_size_overide"]
             self.printed_edge_length.setValue(overide) 
         else:
             expected_length = min([board_height/rows, board_width/columns])
@@ -236,12 +236,12 @@ class CharucoBuilder(QDialog):
 
 
     def build_save_config(self):
-        self.export = QPushButton("&Save Charuco")
+        self.export_btn = QPushButton("&Save Charuco")
         
         def save_charuco():
             self.session.charuco = self.charuco
             self.session.save_charuco() 
-        self.export.clicked.connect(save_charuco)
+        self.export_btn.clicked.connect(save_charuco)
 
     def build_column_spinbox(self):
         self.column_spin = QSpinBox()

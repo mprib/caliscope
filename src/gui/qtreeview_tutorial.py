@@ -1,3 +1,4 @@
+from re import I
 import sys
 from pathlib import Path
 import cv2
@@ -56,81 +57,93 @@ class AppDemo(QMainWindow):
 
         treeView = QTreeView(self)
         treeView.setHeaderHidden(True)
-
         treeModel = QStandardItemModel()
-
-        rootNode = treeModel.invisibleRootItem()
-
+        self.rootNode = treeModel.invisibleRootItem()
         self.setCentralWidget(treeView)
 
+        self.build_charuco()
         # test_icon_path = r"C:\Users\Mac Prible\repos\learn-opencv\src\gui\icons\fmc_logo.png"
 
         # charuco = ImageItem(test_icon_path, "Charuco Board")
-        charuco_header = StandardItem("Charuco", set_bold = True)
-        rootNode.appendRow(charuco_header)
+        self.build_camera_intrinisics()
 
-        edge_length_overide = session.config["charuco"]["square_size_overide"]
-    
-        charuco_img = ImageItem(session.charuco.board_img, f"Edge Length: {edge_length_overide} cm")
-        charuco_header.appendRow(charuco_img)
-        # for key, value in session.config["charuco"].items():
-        #     if not key in ["dictionary", "aruco_scale"]:
-        #         charuco.appendRow(StandardItem(f"{key}: {value}"))
-
-        # rootNode.appendRow(charuco)
-
-        cameras = StandardItem("Cameras")
-
-
-        cam_rows = {} 
-        for key, params  in session.config.items():
-            if "cam" in key:    
-                port = params["port"]
-                cam_name = f"Camera {port}"
-                # cam_rows[port] = StandardItem(cam_name)
-                cam_rows[port] = params
-
-        # a long way to deal with no sorting in python dictionaries
-        cam_rows_sorted = {k:v for k, v in sorted(cam_rows.items(), key = lambda item:item[0])}
-
-        for port, params in cam_rows_sorted.items():
-           cam = StandardItem(f"Camera {port}")
-
-           for key, value in params.items():
-                item = StandardItem(key)
-                item.appendRow(StandardItem(value))
-                cam.appendRow(item)
-
-           cameras.appendRow(cam)
-
-        # print(cam_rows_sorted) 
-        # print(cam_rows)
-        print(f"Length of cam row dict is {len(cam_rows)}")
-
-        rootNode.appendRow(cameras)
 
         treeView.setModel(treeModel)
 
         treeView.doubleClicked.connect(self.getValue)
-        
 
+    def build_camera_intrinisics(self):
+
+        camera_intrinsics = StandardItem("Camera Intrinsics")
+        self.rootNode.appendRow(camera_intrinsics)
+
+        # build a sorted dictionary that can be used to construct a display
+        # of intrinsic camera data
+        cam_rows = {} 
+        for key, params  in session.config.items():
+            if "cam" in key:    
+                port = params["port"]
+                cam_rows[port] = params
+
+        cam_rows_sorted = {k:v for k, v in sorted(cam_rows.items(), key = lambda item:item[0])}
+
+        for port, params in cam_rows_sorted.items():
+            cam = StandardItem(f"Camera {port}", set_bold=True)
+            camera_intrinsics.appendRow(cam)
+
+            cam.appendRow(StandardItem(f"Port: {port}"))
+
+            res = params["resolution"]
+            cam.appendRow(StandardItem(f"Resolution: {res}"))
+
+            rotation = params["rotation_count"]
+            if rotation == 0:
+                rotation = "None"
+            elif rotation == 1:
+                rotation = "90 degrees"
+            elif rotation in [-2,2]:
+                rotation = "180 degrees"
+            elif rotation in [-1,3]:
+                rotation = "270 degrees"
+            cam.appendRow(StandardItem(f"Rotation: {rotation}"))
+
+            # for key, value in params.items():
+            #      item = StandardItem(f"{key}: {value}")
+            #      # item.appendRow(StandardItem(value))
+            #      cam.appendRow(item)
+
+
+        # print(f"Length of cam row dict is {len(cam_rows)}")
+
+
+
+    def build_charuco(self):
+
+        charuco_header = StandardItem("Charuco", set_bold = True)
+        self.rootNode.appendRow(charuco_header)
+        edge_length_overide = session.config["charuco"]["square_size_overide"]
+    
+        charuco_img = ImageItem(session.charuco.board_img, f"Edge Length: {edge_length_overide} cm")
+        charuco_header.appendRow(charuco_img)
     
     def getValue(self, val):
         print(val.data())
         print(val.row())
         print(val.column())
 
-app = QApplication(sys.argv)
 
-session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
-
-for key, params in session.config.items():
-    print(key)
-    print(params)
-
-demo = AppDemo(session)
-
-demo.show()
-
-sys.exit(app.exec())
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    
+    session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
+    
+    for key, params in session.config.items():
+        print(key)
+        print(params)
+    
+    demo = AppDemo(session)
+    
+    demo.show()
+    
+    sys.exit(app.exec())
 

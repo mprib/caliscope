@@ -1,11 +1,12 @@
 import sys
 from pathlib import Path
+from tkinter.ttk import Treeview
 
 import cv2
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import (QColor, QFont, QImage, QStandardItem,
                          QStandardItemModel)
-from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeView
+from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeView, QWidget, QSizePolicy
 
 sys.path.insert(0,str(Path(__file__).parent.parent.parent))
 from src.session import Session
@@ -52,24 +53,24 @@ class ImageItem(QStandardItem):
 
 
 
-class ConfigTree(QMainWindow):
+class ConfigTree(QWidget):
     def __init__(self, session):
         super().__init__()
-        self.setWindowTitle("test window")
-        self.resize(500, 700)
+        self.session = session 
 
-        treeView = QTreeView(self)
-        treeView.setHeaderHidden(True)
-        treeModel = QStandardItemModel()
-        self.rootNode = treeModel.invisibleRootItem()
-        self.setCentralWidget(treeView)
+        self.treeView = QTreeView(self)
+        self.treeView.setHeaderHidden(True)
+        self.treeModel = QStandardItemModel()
+        self.rootNode = self.treeModel.invisibleRootItem()
+
 
         self.build_charuco()
 
         self.build_camera_intrinisics()
 
-        treeView.setModel(treeModel)
-        treeView.doubleClicked.connect(self.getValue)
+        self.treeView.setModel(self.treeModel)
+        self.treeView.setMinimumHeight(self.height())
+    
 
     def build_camera_intrinisics(self):
 
@@ -79,7 +80,7 @@ class ConfigTree(QMainWindow):
         # build a sorted dictionary that can be used to construct a display
         # of intrinsic camera data
         cam_rows = {} 
-        for key, params  in session.config.items():
+        for key, params  in self.session.config.items():
             if "cam" in key:    
                 port = params["port"]
                 cam_rows[port] = params
@@ -110,17 +111,14 @@ class ConfigTree(QMainWindow):
 
         charuco_header = StandardItem("Charuco", set_bold = True)
         self.rootNode.appendRow(charuco_header)
-        edge_length_overide = session.config["charuco"]["square_size_overide"]
+        # print(self.session.config)
+        edge_length_overide = self.session.config["charuco"]["square_size_overide"]
     
-        charuco_img = ImageItem(session.charuco.board_img, f"Edge Length: {edge_length_overide} cm")
+        charuco_img = ImageItem(self.session.charuco.board_img, f"Edge Length: {edge_length_overide} cm")
         charuco_header.appendRow(charuco_img)
-    
-    def getValue(self, val):
-        print(val.data())
-        print(val.row())
-        print(val.column())
-        print(val.parent().data())
 
+    def test_function(self):
+        print("Works across modules")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

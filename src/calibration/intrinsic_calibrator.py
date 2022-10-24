@@ -12,7 +12,6 @@ from itertools import combinations
 import json
 import os
 
-
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -41,8 +40,6 @@ class IntrinsicCalibrator:
 
         self.is_calibrated = False # starts out this way
         
-        print("Stop here")
-
     def initialize_grid_history(self):
         # get appropriately structured image size
 
@@ -152,7 +149,9 @@ class IntrinsicCalibrator:
     def update_capture_history(self):
         """
         Given a frame and the location of the charuco board corners within in,
-        draw a line connecting the outer bounds of the detected corners
+        draw a line connecting the outer bounds of the detected corners and add
+        it in to the history of captrued frames. One frame will hold the whole
+        history of the corners collected.
         """
 
         possible_pairs = {pair for pair in combinations(self.charuco_corner_ids.squeeze().tolist(),2)}

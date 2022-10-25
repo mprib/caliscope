@@ -62,8 +62,12 @@ class ConfigTree(QWidget):
         self.treeView = QTreeView(self)
         self.treeView.setHeaderHidden(True)
 
-        self.update()
-        # self.treeView.resize(self.sizeHint())
+        self.treeView.setModel(self.treeModel)
+        print("Works across modules")
+        self.treeModel = QStandardItemModel()
+        self.rootNode = self.treeModel.invisibleRootItem()
+        self.build_charuco()
+        self.build_camera_intrinisics()
     
 
     def build_camera_intrinisics(self):
@@ -111,15 +115,7 @@ class ConfigTree(QWidget):
         charuco_img = ImageItem(self.session.charuco.board_img, f"Edge Length: {edge_length_overide} cm")
         charuco_header.appendRow(charuco_img)
 
-    def update(self):
-        print("Works across modules")
-        self.treeModel = QStandardItemModel()
-        self.rootNode = self.treeModel.invisibleRootItem()
-        self.build_charuco()
-        self.build_camera_intrinisics()
 
-        self.treeView.setModel(self.treeModel)
-        # self.treeView.setMinimumHeight(self.height())
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -136,7 +132,8 @@ if __name__ == "__main__":
 
     time.sleep(1)
 
-    demo.update()
+    print(demo.treeModel.data())
+    # demo.update()
 
     sys.exit(app.exec())
 

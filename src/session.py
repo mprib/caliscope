@@ -7,7 +7,8 @@ from datetime import datetime
 from os.path import exists
 from pathlib import Path
 from threading import Thread
-
+from unittest import result
+import cv2
 import toml
 
 sys.path.insert(0,str(Path(__file__).parent.parent))
@@ -31,7 +32,9 @@ class Session:
         self.load_config()
         self.load_charuco()
         self.load_cameras()
+        self.find_cameras()
         self.load_rtds()
+        self.adjust_resolutions()
 
     def load_config(self):
 
@@ -90,10 +93,15 @@ class Session:
         def add_preconfigured_cam(params):
             try:
                 port = params["port"]
+
                 self.camera[port] = Camera(port)
+
                 cam =  self.camera[port] # trying to make a little more readable
-                # cam.resolution = params["resolution"] # I don't think this is working...need to change 
+                # res = params["resolution"]
+                # cam.capture.set(cv2.CAP_PROP_FRAME_WIDTH, res[0])
+                # cam.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, res[1])
                 cam.rotation_count = params["rotation_count"]
+                cam.exposure = params["exposure"]
             except:
                 print("Unable to connect... camera may be in use.")
 
@@ -137,9 +145,22 @@ class Session:
         for port, cam in self.camera.items():
             print(f"Loading RTD for port {port}")
             self.rtd[port] = RealTimeDevice(cam)
+    
+    def adjust_resolutions(self):
+        def adjust_res_worker(port):
             rtd = self.rtd[port]
-            print(f"Attempting to change resolution on port {port}")
-            rtd.change_resolution(self.config[f"cam_{port}"]["resolution"])
+            resolution = self.config[f"cam_{port}"]["resolution"]
+            default_res = self.camera[port].default_resolution
+            print(f"resultion is {resolution[0:1]}")
+            print(f"default res is {default_res[0:1]}")
+
+            if resolution[0] != default_res[0] or resolution[1] != default_res[1]:
+                print(f"Attempting to change resolution on port {port}")
+                rtd.change_resolution(resolution)
+
+        with ThreadPoolExecutor() as executor:
+            for port in self.camera.keys():
+                executor.submit(adjust_res_worker, port )
 
     def save_camera(self, port):
         cam = self.camera[port]
@@ -148,7 +169,8 @@ class Session:
                   "rotation_count":cam.rotation_count,
                   "error": cam.error,
                   "camera_matrix": cam.camera_matrix,
-                  "distortion": cam.distortion}
+                  "distortion": cam.distortion,
+                  "exposure": cam.exposure}
 
         print(params)
         self.config["cam_"+str(port)] = params
@@ -160,7 +182,6 @@ if __name__ == "__main__":
     session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
 
 #%%
-    session.charuco = Charuco(5,4,14,11, square_size_overide=None)
     
     session.save_charuco()
     session.update_config()

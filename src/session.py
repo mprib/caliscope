@@ -10,6 +10,7 @@ from threading import Thread
 from unittest import result
 import cv2
 import toml
+import numpy as np
 
 sys.path.insert(0,str(Path(__file__).parent.parent))
 
@@ -109,8 +110,8 @@ class Session:
             if "error" in params.keys():
                 print(params["error"])
                 cam.error = params["error"] 
-                cam.camera_matrix = params["camera_matrix"]
-                cam.distortion = params["distortion"]
+                cam.camera_matrix = np.array(params["camera_matrix"]).astype(float)
+                cam.distortion = np.array(params["distortion"]).astype(float)
 
         with ThreadPoolExecutor() as executor:
             for key, params in self.config.items():
@@ -183,5 +184,5 @@ if __name__ == "__main__":
 
 #%%
     
-    session.save_charuco()
-    session.update_config()
+    # session.save_charuco()
+    # session.update_config()

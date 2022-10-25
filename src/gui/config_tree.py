@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 from tkinter.ttk import Treeview
-
+import time
 import cv2
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import (QColor, QFont, QImage, QStandardItem,
@@ -25,6 +25,7 @@ class StandardItem(QStandardItem):
         self.setText(str(txt))
 
 class ImageItem(QStandardItem):
+    # needed to display charuco board
     def __init__(self, image, txt = ""):
         super().__init__()
 
@@ -35,7 +36,7 @@ class ImageItem(QStandardItem):
         self.setText(txt)
 
     def convert_cv_qt(self, cv_img):
-            """Convert from an opencv image to QPixmap"""
+            """Convert from an opencv image to QImage"""
             rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
             h, w, ch = rgb_image.shape
             bytes_per_line = ch * w
@@ -60,16 +61,9 @@ class ConfigTree(QWidget):
 
         self.treeView = QTreeView(self)
         self.treeView.setHeaderHidden(True)
-        self.treeModel = QStandardItemModel()
-        self.rootNode = self.treeModel.invisibleRootItem()
 
-
-        self.build_charuco()
-
-        self.build_camera_intrinisics()
-
-        self.treeView.setModel(self.treeModel)
-        self.treeView.setMinimumHeight(self.height())
+        self.update()
+        # self.treeView.resize(self.sizeHint())
     
 
     def build_camera_intrinisics(self):
@@ -117,8 +111,15 @@ class ConfigTree(QWidget):
         charuco_img = ImageItem(self.session.charuco.board_img, f"Edge Length: {edge_length_overide} cm")
         charuco_header.appendRow(charuco_img)
 
-    def test_function(self):
+    def update(self):
         print("Works across modules")
+        self.treeModel = QStandardItemModel()
+        self.rootNode = self.treeModel.invisibleRootItem()
+        self.build_charuco()
+        self.build_camera_intrinisics()
+
+        self.treeView.setModel(self.treeModel)
+        # self.treeView.setMinimumHeight(self.height())
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -130,8 +131,13 @@ if __name__ == "__main__":
         print(params)
 
     demo = ConfigTree(session)
-
+    
     demo.show()
+
+    time.sleep(1)
+
+    demo.update()
 
     sys.exit(app.exec())
 
+    

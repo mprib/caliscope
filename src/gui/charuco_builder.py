@@ -241,6 +241,7 @@ class CharucoBuilder(QDialog):
         def save_charuco():
             self.session.charuco = self.charuco
             self.session.save_charuco() 
+            
         self.export_btn.clicked.connect(save_charuco)
 
     def build_column_spinbox(self):

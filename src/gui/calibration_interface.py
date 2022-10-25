@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QMainWindow, QSizePolicy, QApplication, QGridLayout, QWidget, QHBoxLayout
 import sys
 from pathlib import Path
-
+import time
 
 sys.path.insert(0,str(Path(__file__).parent.parent.parent))
 from src.session import Session
@@ -31,6 +31,7 @@ class CalibrationInterface(QMainWindow):
 
         self.config_tree.treeView.doubleClicked.connect(self.getValue)
         
+        self.charuco_builder = CharucoBuilder(self.session)
 
     def getValue(self, val):
         print(val.parent().data())
@@ -41,9 +42,15 @@ class CalibrationInterface(QMainWindow):
 
     def load_charuco(self):
         
-        self.charuco_builder = CharucoBuilder(self.session)
         self.grid.addWidget(self.charuco_builder, 0, 1)
-        self.charuco_builder.export_btn.clicked.connect(self.config_tree.test_function)
+        # this is what allows the tree to update based on changes to the charuco
+        def on_export_btn():
+            self.config_tree = None
+            self.config_tree = ConfigTree(self.session)
+            self.grid.addWidget(self.config_tree, 0, 0)
+
+        self.charuco_builder.export_btn.clicked.connect(on_export_btn)
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 

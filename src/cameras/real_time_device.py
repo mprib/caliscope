@@ -188,10 +188,10 @@ class RealTimeDevice:
     
     def apply_undistortion(self):
 
-        if self.undistort == True and self.int_calib.is_calibrated:
+        if self.undistort == True: # and self.int_calib.is_calibrated:
             self._working_frame = cv2.undistort(self._working_frame,
-                                                self.int_calib.camera_matrix,
-                                                self.int_calib.distortion_params)
+                                                self.cam.camera_matrix,
+                                                self.cam.distortion)
             
 
         

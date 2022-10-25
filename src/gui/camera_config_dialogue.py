@@ -163,6 +163,13 @@ class CameraConfigDialog(QDialog):
 
         def save_cal():
             self.session.save_camera(self.RTD.cam.port)
+            # filename = f"cam_{self.RTD.cam.port}_calibration.json"
+            # save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", filename, "JSON (*.json)")
+            # print(save_file_tuple)
+            # save_file_name = str(Path(save_file_tuple[0]))
+            # if len(save_file_name)>1:
+            #     print(f"Saving calibration to {save_file_name}")
+            #     self.RTD.int_calib.save_calibration(save_file_name)
 
 
         save_cal_btn.clicked.connect(save_cal)

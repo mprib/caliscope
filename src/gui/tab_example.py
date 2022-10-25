@@ -21,6 +21,12 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        app = QApplication.instance()
+        screen = app.primaryScreen()
+        DISPLAY_WIDTH = screen.size().width()
+        DISPLAY_HEIGHT = screen.size().height()         
+        self.
+
         self.setWindowTitle("FreeMocap")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
 
@@ -28,8 +34,8 @@ class MainWindow(QMainWindow):
         tabs.setTabPosition(QTabWidget.TabPosition.North)
         tabs.setMovable(True)
 
-        tab_names = ["Camera Setup", 
-                    "Individual Camera Calibration",
+        tab_names = ["Charuco", 
+                    "Single Camera",
                     "StereoCalibration",
                     "Motion Capture"]
         for name in tab_names:

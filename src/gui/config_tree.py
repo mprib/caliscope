@@ -62,9 +62,9 @@ class ConfigTree(QWidget):
         self.treeView = QTreeView(self)
         self.treeView.setHeaderHidden(True)
 
+        self.treeModel = QStandardItemModel()
         self.treeView.setModel(self.treeModel)
         print("Works across modules")
-        self.treeModel = QStandardItemModel()
         self.rootNode = self.treeModel.invisibleRootItem()
         self.build_charuco()
         self.build_camera_intrinisics()

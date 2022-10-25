@@ -21,13 +21,15 @@ from src.cameras.camera import Camera
 from src.cameras.real_time_device import RealTimeDevice
 from src.calibration.charuco import Charuco
 from frame_emitter import FrameEmitter
+from src.session import Session
 
 class CameraConfigDialog(QDialog):
-    def __init__(self, real_time_device, frame_emitter=None):
+    def __init__(self, real_time_device, session):
         super(CameraConfigDialog, self).__init__()
         # frame emitter is a thread that is constantly pulling in values from 
         # the capture widget and broadcasting them to widgets on this window 
-        
+
+        self.session = session 
         # print(self.isAnimated()) 
         # self.setAnimated(False) 
         App = QApplication.instance()
@@ -118,8 +120,6 @@ class CameraConfigDialog(QDialog):
             if self.RTD.collect_charuco_corners:
                 self.RTD.collect_charuco_corners = False
                 collect_crnr_btn.setText("Capture")
-                # self.RTD.show_mediapipe = False
-                # self.RTD.charuco_being_tracked = True
             else: 
                 self.RTD.show_mediapipe = False
                 self.RTD.charuco_being_tracked = True
@@ -131,6 +131,7 @@ class CameraConfigDialog(QDialog):
         self.calibrate_btn = QPushButton("Calibrate")
         self.calibrate_btn.setMaximumWidth(100)
         vbox.addWidget(self.calibrate_btn)
+
         def calibrate():
             print("Capture History" + str(len(self.RTD.int_calib.corner_ids)))
             if len(self.RTD.int_calib.corner_ids) > 0:
@@ -159,14 +160,16 @@ class CameraConfigDialog(QDialog):
         save_cal_btn = QPushButton("Save Calibration")
         save_cal_btn.setMaximumWidth(100)
         vbox.addWidget(save_cal_btn)
+
         def save_cal():
-            filename = f"cam_{self.RTD.cam.port}_calibration.json"
-            save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", filename, "JSON (*.json)")
-            print(save_file_tuple)
-            save_file_name = str(Path(save_file_tuple[0]))
-            if len(save_file_name)>1:
-                print(f"Saving calibration to {save_file_name}")
-                self.RTD.int_calib.save_calibration(save_file_name)
+            self.session.save_camera(self.RTD.cam.port)
+            # filename = f"cam_{self.RTD.cam.port}_calibration.json"
+            # save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", filename, "JSON (*.json)")
+            # print(save_file_tuple)
+            # save_file_name = str(Path(save_file_tuple[0]))
+            # if len(save_file_name)>1:
+            #     print(f"Saving calibration to {save_file_name}")
+            #     self.RTD.int_calib.save_calibration(save_file_name)
 
 
         save_cal_btn.clicked.connect(save_cal)
@@ -176,27 +179,33 @@ class CameraConfigDialog(QDialog):
 
         # Calibration output presented in label on far right
         def get_calib_output():
-            c = self.RTD.int_calib
+            c = self.RTD.cam
             grid_count = "Grid Count:\t" + str(len(self.RTD.int_calib.corner_ids))
-            error_text = f"Error:\t{round(c.error,3)} "
-            size_text = "Size:\t" + str(c.image_size[0]) + "x" + str(c.image_size[1]) 
-            cam_matrix_text = "Camera Matrix:\n" + ('\n'.join(
-                   ['\t'.join([str(round(cell,1)) for cell in row]
-                   ) 
-                   for row in c.camera_matrix]))  
-            distortion_text = "Distortion:\t" + ','.join([str(round(cell,2)) for cell in c.distortion_params.squeeze()])
+            size_text = "Size:\t" + str(c.resolution[0]) + "x" + str(c.resolution[1]) 
 
-            print(c.camera_matrix)
-            summary = (grid_count + "\n\n" + 
+            # only grab if they exist
+            if c.error:
+                error_text = f"Error:\t{round(c.error,3)} "
+                cam_matrix_text = "Camera Matrix:\n" + ('\n'.join(
+                    ['\t'.join([str(round(float(cell),1)) for cell in row]
+                    ) 
+                    for row in c.camera_matrix]))  
+                distortion_text = "Distortion:\t" + ','.join([str(round(float(cell),2)) for cell in c.distortion[0]])
+
+                print(c.camera_matrix)
+                summary = (grid_count + "\n\n" + 
                         error_text + "\n\n" + 
                         size_text + "\n\n" + 
                         cam_matrix_text + "\n\n" + 
                         distortion_text)
-            return summary
+                return summary
+            else:
+                return "No Calibration Stored"
 
         self.calib_output = QLabel()
         self.calib_output.setWordWrap(True)
         self.calib_output.setMaximumWidth(self.pixmap_edge/3)
+        self.calib_output.setText(get_calib_output())
         hbox.addWidget(self.calib_output)
         # calib_output.setMaximumWidth() 
         
@@ -339,11 +348,12 @@ class CameraConfigDialog(QDialog):
         
         self.resolution_combo = QComboBox()
         
-        w,h = self.RTD.cam.default_resolution
         
-        self.resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
-        self.resolution_combo.setMaximumSize(100, 50)
         self.resolution_combo.addItems(resolutions_text())
+        self.resolution_combo.setMaximumSize(100, 50)
+        
+        w,h = self.RTD.cam.resolution
+        self.resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
         self.resolution_combo.currentTextChanged.connect(change_resolution)        
 
     def build_view_full_res_btn(self):
@@ -393,17 +403,34 @@ class CameraConfigDialog(QDialog):
                    for row in mat]))  
 
 if __name__ == "__main__":
-    port = 0
-    cam = Camera(port)
-    real_time_device = RealTimeDevice(cam)
-    
-    charuco = Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525, inverted=True)
-    real_time_device.assign_charuco(charuco)    
-
     App = QApplication(sys.argv)
-    config_dialog = CameraConfigDialog(real_time_device)
-    config_dialog.show()
+
+    session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
+    # session.load_cameras()
+    # session.find_cameras() 
+    config_dialogs = [] 
+    for port, rtd in session.rtd.items():
+        
+        # rtd = RealTimeDevice(cam)
+        # rtd.change_resolution(cam.resolution)
+        rtd.assign_charuco(session.charuco)
+        config_dialogs.append(CameraConfigDialog(rtd, session))
+
+    for cd in config_dialogs:
+        print("About to show dialog")
+        cd.show()
+
     sys.exit(App.exec())
+
+
+    # cam = Camera(port)
+    # real_time_device = RealTimeDevice(cam)
+    # charuco = Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525, inverted=True)
+    # real_time_device.assign_charuco(charuco)    
+
+    # config_dialog = CameraConfigDialog(real_time_device)
+    # config_dialog.show()
+    # sys.exit(App.exec())
 
 
 # %%

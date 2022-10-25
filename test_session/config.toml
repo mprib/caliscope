@@ -1,27 +1,26 @@
 CreationDate = 2022-10-22T11:10:05.513575
 
 [charuco]
-columns = 6
-rows = 5
-board_height = 9.0
-board_width = 8.5
-dictionary = "DICT_4X4_1000"
+columns = 5
+rows = 4
+board_height = 14
+board_width = 11
+dictionary = "DICT_4X4_50"
 units = "inch"
 aruco_scale = 0.75
-square_size_overide = 9.25
-inverted = true
+inverted = false
 
 [cam_1]
 port = 1
-resolution = [ 640, 480,]
+resolution = [ 960, 544,]
+rotation_count = 0
+
+[cam_2]
+port = 2
+resolution = [ 1920, 1080,]
 rotation_count = 0
 
 [cam_0]
 port = 0
-resolution = [ 640, 480,]
-rotation_count = 1
-
-[cam_2]
-port = 2
 resolution = [ 640, 480,]
 rotation_count = 0

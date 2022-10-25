@@ -14,18 +14,23 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from src.gui.charuco_builder import CharucoBuilder
+from src.session import Session
 # from PyQt6.layout_colorwidget import Color
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, session):
         super().__init__()
-
+        self.session = session
         app = QApplication.instance()
         screen = app.primaryScreen()
         DISPLAY_WIDTH = screen.size().width()
         DISPLAY_HEIGHT = screen.size().height()         
-        self.
+        self.setMinimumSize(DISPLAY_HEIGHT/3, DISPLAY_WIDTH/3)
 
         self.setWindowTitle("FreeMocap")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
@@ -34,12 +39,15 @@ class MainWindow(QMainWindow):
         tabs.setTabPosition(QTabWidget.TabPosition.North)
         tabs.setMovable(True)
 
-        tab_names = ["Charuco", 
-                    "Single Camera",
-                    "StereoCalibration",
-                    "Motion Capture"]
-        for name in tab_names:
-            tabs.addTab(MainTab(), name)
+        # tab_names = ["Charuco", 
+        #             "Single Camera",
+        #             "StereoCalibration",
+        #             "Motion Capture"]
+
+        # for name in tab_names:
+            # tabs.addTab(MainTab(), name)
+
+        tabs.addTab(CharucoBuilder(self.session), "Charuco Builder")
 
         self.setCentralWidget(tabs)
 
@@ -53,11 +61,12 @@ class MainTab(QWidget):
         # self.setPalette(palette)
 
 
-
-
-app = QApplication(sys.argv)
-
-window = MainWindow()
-window.show()
-
-app.exec()
+if __name__ == "__main__":
+    session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
+    
+    app = QApplication(sys.argv)
+    
+    window = MainWindow(session)
+    window.show()
+    
+    app.exec()

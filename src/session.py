@@ -12,6 +12,7 @@ import toml
 
 sys.path.insert(0,str(Path(__file__).parent.parent))
 
+from src.cameras.real_time_device import RealTimeDevice
 from src.calibration.charuco import Charuco
 from src.cameras.camera import Camera
 
@@ -29,7 +30,8 @@ class Session:
         self.camera = {}
         self.load_config()
         self.load_charuco()
-        # self.load_cameras()
+        self.load_cameras()
+        self.load_rtds()
 
     def load_config(self):
 
@@ -90,7 +92,7 @@ class Session:
                 port = params["port"]
                 self.camera[port] = Camera(port)
                 cam =  self.camera[port] # trying to make a little more readable
-                cam.resolution = params["resolution"]
+                # cam.resolution = params["resolution"] # I don't think this is working...need to change 
                 cam.rotation_count = params["rotation_count"]
             except:
                 print("Unable to connect... camera may be in use.")
@@ -107,8 +109,7 @@ class Session:
                 if key.startswith("cam"):
                     print(key, params)
                     executor.submit(add_preconfigured_cam, params)
-                
-
+             
 
     def find_cameras(self):
 
@@ -130,6 +131,16 @@ class Session:
                 else:
                     executor.submit(add_cam, i )
 
+    def load_rtds(self):
+        #need RTD to adjust resolution 
+        self.rtd = {}
+        for port, cam in self.camera.items():
+            print(f"Loading RTD for port {port}")
+            self.rtd[port] = RealTimeDevice(cam)
+            rtd = self.rtd[port]
+            print(f"Attempting to change resolution on port {port}")
+            rtd.change_resolution(self.config[f"cam_{port}"]["resolution"])
+
     def save_camera(self, port):
         cam = self.camera[port]
         params = {"port":cam.port,
@@ -145,13 +156,11 @@ class Session:
 
 
 #%%
-# if __name__ == "__main__":
-# session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
+if __name__ == "__main__":
+    session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
 
-# %%
-# session.charuco = Charuco(5,4,14,11, square_size_overide=None)
 #%%
-
-# session.save_charuco()
-# session.update_config()
-# %%
+    session.charuco = Charuco(5,4,14,11, square_size_overide=None)
+    
+    session.save_charuco()
+    session.update_config()

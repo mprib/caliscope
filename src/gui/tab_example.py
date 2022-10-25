@@ -30,7 +30,7 @@ class MainWindow(QMainWindow):
         screen = app.primaryScreen()
         DISPLAY_WIDTH = screen.size().width()
         DISPLAY_HEIGHT = screen.size().height()         
-        self.setMinimumSize(DISPLAY_HEIGHT/3, DISPLAY_WIDTH/3)
+        self.setMinimumSize(DISPLAY_WIDTH*.20,DISPLAY_HEIGHT*.9)
 
         self.setWindowTitle("FreeMocap")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
@@ -51,10 +51,10 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(tabs)
 
-class MainTab(QWidget):
+# class MainTab(QWidget):
 
-    def __init__(self):
-        super(MainTab, self).__init__()
+#     def __init__(self):
+#         super(MainTab, self).__init__()
         # self.setAutoFillBackground(True)
         # palette = self.palette()
         # palette.setColor(QPalette.ColorRole.Window, QColor(color))

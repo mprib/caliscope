@@ -1,3 +1,4 @@
+
 #%%
 import sys
 from pathlib import Path
@@ -39,7 +40,7 @@ class ConfigModel(QAbstractItemModel):
         with open(self.toml_path, "w") as f:
            toml.dump(self.config,f)       
 
-
+    
 class StandardItem(QStandardItem):
     def __init__(self, txt="", font_size=12, set_bold=False, color=QColor(0,0,0)):
         super().__init__()

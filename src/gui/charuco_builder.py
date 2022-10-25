@@ -28,7 +28,7 @@ from src.cameras.real_time_device import RealTimeDevice
 from src.cameras.camera import Camera
 from src.calibration.charuco import Charuco, ARUCO_DICTIONARIES
 from src.session import Session
-class CharucoBuilder(QDialog):
+class CharucoBuilder(QWidget):
     def __init__(self, session):
         super(CharucoBuilder, self).__init__()
 

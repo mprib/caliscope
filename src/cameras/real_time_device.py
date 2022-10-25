@@ -9,7 +9,6 @@ import time
 import sys
 import mediapipe as mp
 import numpy as np
-
 # Append main repo to top of path to allow import of backend
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -44,13 +43,6 @@ class RealTimeDevice:
         self.collect_charuco_corners = False
         self.undistort  = False 
 
-    # @property
-    # def resolution(self):
-    #     if self.cam.rotation_count in [-2,0,2]: # adjust for rotation
-    #         return self.cam.resolution
-    #     else:
-    #         w, h = self.cam.resolution
-    #         return h,w
 
     def get_FPS_actual(self):
         """set the actual frame rate; called within roll_camera()"""
@@ -125,9 +117,14 @@ class RealTimeDevice:
 
     def change_resolution(self, res):
         self.cam.stop_rolling() # will trigger running capture thread to end
-        blank_image = np.zeros(self.frame.shape, dtype=np.uint8)
-        self.frame = blank_image
-
+        
+        # if the display isn't up and running this may error out (as when trying
+        # to initialize the resolution to a non-default value)
+        try:
+            blank_image = np.zeros(self.frame.shape, dtype=np.uint8)
+            self.frame = blank_image
+        except:
+            pass
         # pretty sure I can delete this next part since it is included in cam.stop_rolling()        
         # while self.cam.is_rolling:  # wait for everythong to catch up
         #     time.sleep(.01)
@@ -140,9 +137,11 @@ class RealTimeDevice:
         self.cam.connect()
 
         self.cam.resolution = res
-        if self.int_calib:
+        # if self.int_calib:
+        try:
             self.int_calib.initialize_grid_history()
-
+        except:
+            pass
         # test of commenting this out...may not longer be necessary
         # self.cap_thread.join()
 

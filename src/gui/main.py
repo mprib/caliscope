@@ -8,7 +8,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPalette, QColor, QIcon
 from PyQt6.QtWidgets import ( QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, 
                             QPushButton, QTabWidget, QWidget,QGroupBox, 
-                            QScrollArea, QApplication)
+                            QScrollArea, QApplication, QTableWidget, QSizePolicy)
 
 from pathlib import Path
 from numpy import char
@@ -19,6 +19,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.gui.charuco_builder import CharucoBuilder
 from src.gui.camera_config_dialogue import CameraConfigDialog
 from src.session import Session
+from camera_table import CameraTable
+
 
 class MainWindow(QMainWindow):
     def __init__(self, session):
@@ -28,7 +30,7 @@ class MainWindow(QMainWindow):
         screen = app.primaryScreen()
         DISPLAY_WIDTH = screen.size().width()
         DISPLAY_HEIGHT = screen.size().height()         
-        self.setMinimumSize(DISPLAY_WIDTH*.30,DISPLAY_HEIGHT*.6)
+        self.setMinimumSize(DISPLAY_WIDTH*.30,DISPLAY_HEIGHT*.7)
 
         self.setWindowTitle("FreeMocap Camera Calibration")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
@@ -48,8 +50,7 @@ class MainWindow(QMainWindow):
         # for port, rtd in self.session.rtd.items():
             # self.tabs.addTab(CameraConfigDialog(rtd,self.session), f"Camera {port}")
 
-    def test_function(self):
-        print("working")
+    def update_summary_image(self):
         self.summary.update_charuco_summary()
     
     def launch_cha_build(self):
@@ -59,7 +60,7 @@ class MainWindow(QMainWindow):
                 return
 
         self.charuco_builder = CharucoBuilder(self.session)
-        self.charuco_builder.export_btn.clicked.connect(self.test_function)
+        self.charuco_builder.export_btn.clicked.connect(self.update_summary_image)
         self.tabs.addTab(self.charuco_builder, "Charuco Builder")
         # self.tabs["Charuco Builder"].setClosable(True)
 
@@ -72,16 +73,15 @@ class SessionSummary(QMainWindow):
         self.scroll = QScrollArea()             # Scroll Area which contains the widgets, set as the centralWidget
         self.widget = QWidget()                 # Widget that contains the collection of Vertical Box
         self.vbox = QVBoxLayout()               # The Vertical Box that contains the Horizontal Boxes of  labels and buttons
-    
         #Scroll Area Properties
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.scroll.setWidgetResizable(True)
         self.scroll.setWidget(self.widget)
 
         self.setCentralWidget(self.scroll)
 
-        self.setGeometry(600, 100, 1000, 900)
+        # self.setGeometry(600, 100, 1000, 900)
         self.setWindowTitle('Scroll Area Demonstration')
         self.show()
 
@@ -89,13 +89,17 @@ class SessionSummary(QMainWindow):
 
         # realizing that it is important to place widgets in init so that the
         # data can be refreshed from an update() call and the layout will
-        # remain unchanged        
+        # remain unchanged       
+        self.top_hbox = QHBoxLayout()
+        self.vbox.addLayout(self.top_hbox)
+        self.vbox.setAlignment(self.top_hbox, Qt.AlignmentFlag.AlignTop) 
         self.charuco_summary = QGroupBox("Charuco Board")
-        self.vbox.addWidget(self.charuco_summary)
+        self.charuco_summary.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.top_hbox.addWidget(self.charuco_summary)
 
         self.cam_summary = QGroupBox("Single Camera Calibration")
-        self.vbox.addWidget(self.cam_summary)
-
+        self.top_hbox.addWidget(self.cam_summary)
+        self.top_hbox.setAlignment(self.cam_summary, Qt.AlignmentFlag.AlignTop)       
         self.build_charuco_summary()
         self.build_cam_summary()
         self.build_stereo_summary()
@@ -105,30 +109,32 @@ class SessionSummary(QMainWindow):
         # self.charuco_summary.setLayout(None)
         self.charuco_hbox = QHBoxLayout()
         self.charuco_summary.setLayout(self.charuco_hbox)
+        # self.charuco_summary.setSizePolicy(QSizePolicy.verticalPolicy)
         self.charuco_display = QLabel()
-        self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)       
-
+        self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.charuco_display.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Minimum)       
         self.charuco_hbox.addWidget(self.charuco_display)
+        self.charuco_hbox.setAlignment(self.charuco_display, Qt.AlignmentFlag.AlignBottom)
 
         right_vbox = QVBoxLayout()
         self.charuco_summary = QLabel()
 
         self.launch_charuco_builder_btn = QPushButton("Launch Charuco Builder")        
-        self.launch_charuco_builder_btn.setMaximumSize(150,50)
+        self.launch_charuco_builder_btn.setMaximumSize(150,30)
         
         right_vbox.addWidget(self.charuco_summary)
         right_vbox.addWidget(self.launch_charuco_builder_btn)
-
-        right_vbox.setAlignment(self.charuco_summary, Qt.AlignmentFlag.AlignHCenter) 
-        right_vbox.setAlignment(self.charuco_display, Qt.AlignmentFlag.AlignHCenter) 
-
+        right_vbox.setAlignment(self.launch_charuco_builder_btn,Qt.AlignmentFlag.AlignBottom)
         self.charuco_hbox.addLayout(right_vbox)
+        self.charuco_hbox.setAlignment(right_vbox, Qt.AlignmentFlag.AlignBottom) 
+        # right_vbox.setAlignment(self.charuco_display, Qt.AlignmentFlag.AlignHCenter) 
+
 
         self.update_charuco_summary()
 
     def update_charuco_summary(self):
-        charuco_width = self.width()/4
-        charuco_height = self.height()/4
+        charuco_width = self.width()*1.3
+        charuco_height = self.height()*1.3
         charuco_img = self.session.charuco.board_pixmap(charuco_width, charuco_height)
         self.charuco_display.setPixmap(charuco_img)
         self.charuco_summary.setText(self.session.charuco.summary())
@@ -141,14 +147,18 @@ class SessionSummary(QMainWindow):
 
         left_vbox = QVBoxLayout()
 
-        self.connect_cameras_btn = QPushButton("Connect Cameras")
-        # self.find_cameras_btn = QPushButton("Find Additional Cameras")
+        self.camera_table = CameraTable(self.session)
+        # self.camera_table.setFixedSize(self.width(),self.height() )
+        self.camera_table.setFixedSize(250, 150)
+        # self.camera_table.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+        left_vbox.addWidget(self.camera_table)
         self.open_cameras_btn = QPushButton("Open Camera Calibration") 
-        left_vbox.addWidget(self.connect_cameras_btn)
         left_vbox.addWidget(self.open_cameras_btn)
+        self.cam_hbox.addLayout(left_vbox)
 
-        
 
+
+    
     def build_stereo_summary(self):
         stereo_summary = QGroupBox("Stereocalibration")
         self.vbox.addWidget(stereo_summary) 

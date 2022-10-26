@@ -190,7 +190,7 @@ class Camera(object):
         size_text = "Size:\t" + str(self.resolution[0]) + "x" + str(self.resolution[1]) 
 
         # only grab if they exist
-        if self.error:
+        if self.error and self.error != "NA":
             error_text = f"Error:\t{round(self.error,3)} "
             cam_matrix_text = "Camera Matrix:\n" + ('\n'.join(
                 ['\t'.join([str(round(float(cell),1)) for cell in row]

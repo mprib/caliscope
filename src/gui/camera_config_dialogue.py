@@ -377,7 +377,7 @@ if __name__ == "__main__":
 
     session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
     session.load_cameras()
-    session.find_cameras() 
+    session.find_additional_cameras() 
 
     session.load_rtds()
     session.adjust_resolutions()

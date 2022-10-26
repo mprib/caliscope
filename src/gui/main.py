@@ -1,7 +1,7 @@
 # Built following the tutorials that begin here: 
 # https://www.pythonguis.com/tutorials/pyqt6-creating-your-first-window/
 
-from re import L
+from re import A, L
 import sys
 
 from PyQt6.QtCore import Qt
@@ -47,8 +47,15 @@ class MainWindow(QMainWindow):
         self.summary.launch_charuco_builder_btn.clicked.connect(self.launch_cha_build)
         # self.tabs.addTab(CharucoBuilder(self.session), "Charuco Builder")
         # self.su 
-        # for port, rtd in self.session.rtd.items():
-            # self.tabs.addTab(CameraConfigDialog(rtd,self.session), f"Camera {port}")
+        self.summary.open_cameras_btn.clicked.connect(self.open_cams)
+
+    def open_cams(self):
+        for t in range(0,self.tabs.count()):
+            if self.tabs.tabText(t).startswith("Cam"):
+                return
+
+        for port, rtd in self.session.rtd.items():
+            self.tabs.addTab(CameraConfigDialog(rtd, self.session), f"Camera {port}")
 
     def update_summary_image(self):
         self.summary.update_charuco_summary()
@@ -133,8 +140,8 @@ class SessionSummary(QMainWindow):
         self.update_charuco_summary()
 
     def update_charuco_summary(self):
-        charuco_width = self.width()*1.3
-        charuco_height = self.height()*1.3
+        charuco_width = 200
+        charuco_height = 200
         charuco_img = self.session.charuco.board_pixmap(charuco_width, charuco_height)
         self.charuco_display.setPixmap(charuco_img)
         self.charuco_summary.setText(self.session.charuco.summary())
@@ -152,7 +159,21 @@ class SessionSummary(QMainWindow):
         self.camera_table.setFixedSize(250, 150)
         # self.camera_table.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
         left_vbox.addWidget(self.camera_table)
+        self.find_connect_cams_btn = QPushButton("Find and Connect to Cameras")
+
+        def find_connect_cams():
+            self.session.load_cameras()
+            self.session.find_additional_cameras()
+            self.session.load_rtds()
+            self.session.adjust_resolutions()
+
+        self.find_connect_cams_btn.clicked.connect(find_connect_cams)
+        left_vbox.addWidget(self.find_connect_cams_btn)
+
         self.open_cameras_btn = QPushButton("Open Camera Calibration") 
+
+        # self.open_cameras_btn.clicked.connect(open_cams)
+
         left_vbox.addWidget(self.open_cameras_btn)
         self.cam_hbox.addLayout(left_vbox)
 

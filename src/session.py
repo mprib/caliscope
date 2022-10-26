@@ -35,7 +35,6 @@ class Session:
         # self.load_cameras()
         # self.find_cameras()
         # self.load_rtds()
-        # self.adjust_resolutions()
 
     def load_config(self):
 
@@ -120,6 +119,7 @@ class Session:
                     print(key, params)
                     executor.submit(add_preconfigured_cam, params)
              
+
 
     def find_cameras(self):
 

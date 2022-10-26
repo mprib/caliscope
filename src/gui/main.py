@@ -1,6 +1,7 @@
 # Built following the tutorials that begin here: 
 # https://www.pythonguis.com/tutorials/pyqt6-creating-your-first-window/
 
+from re import L
 import sys
 
 from PyQt6.QtCore import Qt
@@ -49,7 +50,7 @@ class MainWindow(QMainWindow):
 
     def test_function(self):
         print("working")
-        self.summary.build_charuco_summary()
+        self.summary.update_charuco_summary()
     
     def launch_cha_build(self):
         # check to see if it exists
@@ -86,9 +87,14 @@ class SessionSummary(QMainWindow):
 
         self.widget.setLayout(self.vbox)
 
-        
+        # realizing that it is important to place widgets in init so that the
+        # data can be refreshed from an update() call and the layout will
+        # remain unchanged        
         self.charuco_summary = QGroupBox("Charuco Board")
         self.vbox.addWidget(self.charuco_summary)
+
+        self.cam_summary = QGroupBox("Single Camera Calibration")
+        self.vbox.addWidget(self.cam_summary)
 
         self.build_charuco_summary()
         self.build_cam_summary()
@@ -101,17 +107,11 @@ class SessionSummary(QMainWindow):
         self.charuco_summary.setLayout(self.charuco_hbox)
         self.charuco_display = QLabel()
         self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)       
-        charuco_width = self.width()/4
-        charuco_height = self.height()/4
-        charuco_img = self.session.charuco.board_pixmap(charuco_width, charuco_height)
-        self.charuco_display.setPixmap(charuco_img)
 
         self.charuco_hbox.addWidget(self.charuco_display)
 
-
         right_vbox = QVBoxLayout()
         self.charuco_summary = QLabel()
-        self.charuco_summary.setText(self.session.charuco.summary())
 
         self.launch_charuco_builder_btn = QPushButton("Launch Charuco Builder")        
         self.launch_charuco_builder_btn.setMaximumSize(150,50)
@@ -124,17 +124,30 @@ class SessionSummary(QMainWindow):
 
         self.charuco_hbox.addLayout(right_vbox)
 
+        self.update_charuco_summary()
+
     def update_charuco_summary(self):
+        charuco_width = self.width()/4
+        charuco_height = self.height()/4
+        charuco_img = self.session.charuco.board_pixmap(charuco_width, charuco_height)
+        self.charuco_display.setPixmap(charuco_img)
+        self.charuco_summary.setText(self.session.charuco.summary())
         
-        pass
 
 
     def build_cam_summary(self):
-        cam_summary = QGroupBox("Single Camera Calibration")
-        self.vbox.addWidget(cam_summary)
+        self.cam_hbox = QHBoxLayout()
+        self.cam_summary.setLayout(self.cam_hbox)
 
+        left_vbox = QVBoxLayout()
 
+        self.connect_cameras_btn = QPushButton("Connect Cameras")
+        # self.find_cameras_btn = QPushButton("Find Additional Cameras")
+        self.open_cameras_btn = QPushButton("Open Camera Calibration") 
+        left_vbox.addWidget(self.connect_cameras_btn)
+        left_vbox.addWidget(self.open_cameras_btn)
 
+        
 
     def build_stereo_summary(self):
         stereo_summary = QGroupBox("Stereocalibration")

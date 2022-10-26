@@ -313,28 +313,11 @@ class CharucoBuilder(QWidget):
         if not self.charuco_added:
             self.charuco_display = QLabel()
             self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        charuco_img = self.convert_cv_qt(self.charuco.board_img)
+        charuco_height = self.charuco_display.height()
+        charuco_width = self.charuco_display.width()
+        print("Building charuco thumbnail...")
+        charuco_img = self.charuco.board_pixmap(charuco_width, charuco_height)
         self.charuco_display.setPixmap(charuco_img)
-
-    def convert_cv_qt(self, cv_img):
-            """Convert from an opencv image to QPixmap"""
-            rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-            h, w, ch = rgb_image.shape
-            bytes_per_line = ch * w
-            charuco_QImage = QImage(rgb_image.data, 
-                                    w, 
-                                    h, 
-                                    bytes_per_line, 
-                                    QImage.Format.Format_RGB888)
-
-            p = charuco_QImage.scaled(self.charuco_display.width(),
-                                      self.charuco_display.height(),
-                                      Qt.AspectRatioMode.KeepAspectRatio, 
-                                      Qt.TransformationMode.SmoothTransformation)
-
-            return QPixmap.fromImage(p)
-            # return QPixmap.fromImage(charuco_QImage)
-
 
 
 if __name__ == "__main__":

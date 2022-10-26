@@ -8,8 +8,8 @@ board_width = 8.5
 dictionary = "DICT_4X4_1000"
 units = "inch"
 aruco_scale = 0.75
-square_size_overide = 7.25
-inverted = false
+square_size_overide = 5.25
+inverted = true
 
 [cam_1]
 port = 1

@@ -140,7 +140,7 @@ class CameraConfigDialog(QDialog):
 
                 def wrker(): 
                     self.RTD.int_calib.calibrate()
-                    self.calib_output.setText(get_calib_output())
+                    self.calib_output.setText(self.RTD.cam.calibration_summary())
                 self.calib_thread = Thread(target=wrker, args=(), daemon=True)
                 self.calib_thread.start()
             else:
@@ -376,10 +376,14 @@ if __name__ == "__main__":
     App = QApplication(sys.argv)
 
     session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
-    # session.load_rtds()
-    # session.load_cameras()
-    # session.find_cameras() 
+    session.load_cameras()
+    session.find_cameras() 
+
+    session.load_rtds()
+    session.adjust_resolutions()
+
     config_dialogs = [] 
+
     for port, rtd in session.rtd.items():
         
         # rtd = RealTimeDevice(cam)

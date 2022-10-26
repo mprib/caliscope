@@ -38,13 +38,29 @@ class MainWindow(QMainWindow):
         # self.tabs.setTabsClosable(True)
         # self.tabs.tabCloseRequested.connect(self.tabs.removeTab)
         self.setCentralWidget(self.tabs)
-        self.tabs.addTab(SessionSummary(self.session), "Summary")
+        self.summary = SessionSummary(self.session)
+
+        self.tabs.addTab(self.summary, "Summary")
+        self.summary.launch_charuco_builder_btn.clicked.connect(self.launch_cha_build)
         # self.tabs.addTab(CharucoBuilder(self.session), "Charuco Builder")
-        
+        # self.su 
         # for port, rtd in self.session.rtd.items():
             # self.tabs.addTab(CameraConfigDialog(rtd,self.session), f"Camera {port}")
 
+    def test_function(self):
+        print("working")
+        self.summary.build_charuco_summary()
+    
+    def launch_cha_build(self):
+        # check to see if it exists
+        for t in range(0,self.tabs.count()):
+            if self.tabs.tabText(t) == "Charuco Builder":
+                return
 
+        self.charuco_builder = CharucoBuilder(self.session)
+        self.charuco_builder.export_btn.clicked.connect(self.test_function)
+        self.tabs.addTab(self.charuco_builder, "Charuco Builder")
+        # self.tabs["Charuco Builder"].setClosable(True)
 
 class SessionSummary(QMainWindow):
     def __init__(self, session):
@@ -56,12 +72,6 @@ class SessionSummary(QMainWindow):
         self.widget = QWidget()                 # Widget that contains the collection of Vertical Box
         self.vbox = QVBoxLayout()               # The Vertical Box that contains the Horizontal Boxes of  labels and buttons
     
-        # for i in range(1,50):
-        #     object = QLabel("TextLabel")
-        #     self.vbox.addWidget(object)
-
-        # self.widget.setLayout(self.vbox)
-
         #Scroll Area Properties
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -73,23 +83,12 @@ class SessionSummary(QMainWindow):
         self.setGeometry(600, 100, 1000, 900)
         self.setWindowTitle('Scroll Area Demonstration')
         self.show()
-        # # center = QHBoxLayout()
-        # # self.setLayout(center)
-        # # center.addWidget(self.widget)
-        # self.setMinimumHeight(1800)
-        # self.scroll = QScrollArea()
-        # self.widget = QWidget() 
-        # self.vbox = QVBoxLayout()
+
         self.widget.setLayout(self.vbox)
 
-        # self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        # self.scroll.setWidgetResizable(False)
-        # self.scroll.setWidget(self.widget)
-
-        # self.setCentralWidget(self.widget)
-
-        # # self.setLayout(self.vbox)
         
+        self.charuco_summary = QGroupBox("Charuco Board")
+        self.vbox.addWidget(self.charuco_summary)
 
         self.build_charuco_summary()
         self.build_cam_summary()
@@ -97,46 +96,50 @@ class SessionSummary(QMainWindow):
 
 
     def build_charuco_summary(self):
-        charuco_summary = QGroupBox("Charuco Board")
-        self.vbox.addWidget(charuco_summary)
+        # self.charuco_summary.setLayout(None)
+        self.charuco_hbox = QHBoxLayout()
+        self.charuco_summary.setLayout(self.charuco_hbox)
+        self.charuco_display = QLabel()
+        self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)       
+        charuco_width = self.width()/4
+        charuco_height = self.height()/4
+        charuco_img = self.session.charuco.board_pixmap(charuco_width, charuco_height)
+        self.charuco_display.setPixmap(charuco_img)
+
+        self.charuco_hbox.addWidget(self.charuco_display)
 
 
+        right_vbox = QVBoxLayout()
+        self.charuco_summary = QLabel()
+        self.charuco_summary.setText(self.session.charuco.summary())
 
+        self.launch_charuco_builder_btn = QPushButton("Launch Charuco Builder")        
+        self.launch_charuco_builder_btn.setMaximumSize(150,50)
+        
+        right_vbox.addWidget(self.charuco_summary)
+        right_vbox.addWidget(self.launch_charuco_builder_btn)
 
+        right_vbox.setAlignment(self.charuco_summary, Qt.AlignmentFlag.AlignHCenter) 
+        right_vbox.setAlignment(self.charuco_display, Qt.AlignmentFlag.AlignHCenter) 
 
-        def convert_cv_qt(cv_img):
-                """Convert from an opencv image to QPixmap"""
-                rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-                h, w, ch = rgb_image.shape
-                bytes_per_line = ch * w
-                charuco_QImage = QImage(rgb_image.data, 
-                                        w, 
-                                        h, 
-                                        bytes_per_line, 
-                                        QImage.Format.Format_RGB888)
-    
-                p = charuco_QImage.scaled(self.charuco_display.width(),
-                                          self.charuco_display.height(),
-                                          Qt.AspectRatioMode.KeepAspectRatio, 
-                                          Qt.TransformationMode.SmoothTransformation)
-    
-                return QPixmap.fromImage(p)
- 
+        self.charuco_hbox.addLayout(right_vbox)
+
+    def update_charuco_summary(self):
+        
         pass
+
 
     def build_cam_summary(self):
         cam_summary = QGroupBox("Single Camera Calibration")
         self.vbox.addWidget(cam_summary)
 
 
-        pass
 
 
     def build_stereo_summary(self):
         stereo_summary = QGroupBox("Stereocalibration")
         self.vbox.addWidget(stereo_summary) 
 
-        pass
 
 if __name__ == "__main__":
     session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')

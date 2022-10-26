@@ -102,10 +102,11 @@ class CameraConfigDialog(QDialog):
         
         # Build Charuco Image Display
         self.charuco_display = QLabel()
-        charuco_img = self.convert_cv_qt(self.RTD.int_calib.charuco.board_img)
-        charuco_img = charuco_img.scaled(self.pixmap_edge/3,
-                                         self.pixmap_edge/3,
-                                         Qt.AspectRatioMode.KeepAspectRatio)
+        # charuco_img = self.convert_cv_qt(self.RTD.int_calib.charuco.board_img)
+        charuco_img = self.RTD.int_calib.charuco.board_pixmap(self.pixmap_edge/3, self.pixmap_edge/3)
+        # charuco_img = charuco_img.scaled(self.pixmap_edge/3,
+                                        #  self.pixmap_edge/3,
+                                        #  Qt.AspectRatioMode.KeepAspectRatio)
         self.charuco_display.setPixmap(charuco_img)
         hbox.addWidget(self.charuco_display)
 

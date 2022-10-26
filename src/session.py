@@ -32,10 +32,10 @@ class Session:
         self.camera = {}
         self.load_config()
         self.load_charuco()
-        self.load_cameras()
+        # self.load_cameras()
         # self.find_cameras()
-        self.load_rtds()
-        self.adjust_resolutions()
+        # self.load_rtds()
+        # self.adjust_resolutions()
 
     def load_config(self):
 

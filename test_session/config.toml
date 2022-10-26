@@ -8,8 +8,8 @@ board_width = 8.5
 dictionary = "DICT_4X4_1000"
 units = "inch"
 aruco_scale = 0.75
-square_size_overide = 5.25
-inverted = true
+square_size_overide = 7.25
+inverted = false
 
 [cam_1]
 port = 1
@@ -19,13 +19,9 @@ exposure = -7.0
 
 [cam_0]
 port = 0
-resolution = [ 1280, 720,]
+resolution = [ 640, 480,]
 rotation_count = 0
-error = 0.39900706884064113
-camera_matrix = [ [ "639.0470801100574", "0.0", "643.5299988051195",], [ "0.0", "639.5385051924519", "373.3897516305198",], [ "0.0", "0.0", "1.0",],]
-distortion = [ [ "0.1596562223502381", "-0.22242352510050073", "-0.0022713856726325715", "-0.00040705330120486096", "0.10722959559836664",],]
-exposure = -6
-grid_count = 47
+exposure = -6.0
 
 [cam_2]
 port = 2

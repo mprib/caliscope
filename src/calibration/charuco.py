@@ -105,7 +105,8 @@ class Charuco():
 
 
     def board_pixmap(self, width, height):
-        """Convert from an opencv image to QPixmap"""
+        """Convert from an opencv image to QPixmap..this can be used for 
+        creating thumbnail images"""
         rgb_image = cv2.cvtColor(self.board_img, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
@@ -174,16 +175,15 @@ class Charuco():
 
         return self.board.chessboardCorners[corner_ids, :]
 
-    def export_as_json(self, path):
-        charuco_str = json.dumps(self.__dict__, indent=4)    
-        with open(path, 'w') as f:
-            f.write(charuco_str)
+    def summary(self):
 
-
-
- 
-
-
+        text = f"Columns: {self.columns}\n"
+        text = text + f"Rows: {self.rows}\n"
+        text = text + f"Board Size: {self.board_width} x {self.board_height} {self.units}\n"
+        text = text + f"Inverted:  {self.inverted}\n"
+        text = text + f"\n"
+        text = text + f"Square Edge Length: {self.square_size_overide} cm"
+        return text
 ################################## REFERENCE ###################################
 ARUCO_DICTIONARIES = {
 	"DICT_4X4_50": cv2.aruco.DICT_4X4_50,
@@ -227,4 +227,3 @@ if __name__ == "__main__":
             cv2.destroyAllWindows()
             break
             
-    charuco.export_as_json("test_json")

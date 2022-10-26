@@ -163,49 +163,18 @@ class CameraConfigDialog(QDialog):
 
         def save_cal():
             self.session.save_camera(self.RTD.cam.port)
-            # filename = f"cam_{self.RTD.cam.port}_calibration.json"
-            # save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", filename, "JSON (*.json)")
-            # print(save_file_tuple)
-            # save_file_name = str(Path(save_file_tuple[0]))
-            # if len(save_file_name)>1:
-            #     print(f"Saving calibration to {save_file_name}")
-            #     self.RTD.int_calib.save_calibration(save_file_name)
-
 
         save_cal_btn.clicked.connect(save_cal)
         
         # include calibration grid in horizontal box
         hbox.addLayout(vbox)
 
-        # Calibration output presented in label on far right
-        def get_calib_output():
-            c = self.RTD.cam
-            grid_count = "Grid Count:\t" + str(len(self.RTD.int_calib.corner_ids))
-            size_text = "Size:\t" + str(c.resolution[0]) + "x" + str(c.resolution[1]) 
 
-            # only grab if they exist
-            if c.error:
-                error_text = f"Error:\t{round(c.error,3)} "
-                cam_matrix_text = "Camera Matrix:\n" + ('\n'.join(
-                    ['\t'.join([str(round(float(cell),1)) for cell in row]
-                    ) 
-                    for row in c.camera_matrix]))  
-                distortion_text = "Distortion:\t" + ','.join([str(round(float(cell),2)) for cell in c.distortion[0]])
-
-                print(c.camera_matrix)
-                summary = (grid_count + "\n\n" + 
-                        error_text + "\n\n" + 
-                        size_text + "\n\n" + 
-                        cam_matrix_text + "\n\n" + 
-                        distortion_text)
-                return summary
-            else:
-                return "No Calibration Stored"
 
         self.calib_output = QLabel()
         self.calib_output.setWordWrap(True)
         self.calib_output.setMaximumWidth(self.pixmap_edge/3)
-        self.calib_output.setText(get_calib_output())
+        self.calib_output.setText(self.RTD.cam.calibration_summary())
         hbox.addWidget(self.calib_output)
         # calib_output.setMaximumWidth() 
         
@@ -406,6 +375,7 @@ if __name__ == "__main__":
     App = QApplication(sys.argv)
 
     session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
+    # session.load_rtds()
     # session.load_cameras()
     # session.find_cameras() 
     config_dialogs = [] 
@@ -414,7 +384,8 @@ if __name__ == "__main__":
         # rtd = RealTimeDevice(cam)
         # rtd.change_resolution(cam.resolution)
         rtd.assign_charuco(session.charuco)
-        config_dialogs.append(CameraConfigDialog(rtd, session))
+        if port == 0:
+            config_dialogs.append(CameraConfigDialog(rtd, session))
 
     for cd in config_dialogs:
         print("About to show dialog")

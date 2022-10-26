@@ -56,7 +56,7 @@ class Camera(object):
             self.error = None
             self.camera_matrix = None
             self.distortion = None
-
+            self.grid_count = None
         else:
             self.port = port
             self.capture = None
@@ -183,6 +183,30 @@ class Camera(object):
             while self.is_rolling:  # give the thread time to wrap up 
                 time.sleep(.01)
         self.stop_rolling_trigger = False
+
+    def calibration_summary(self):
+        # Calibration output presented in label on far right
+        grid_count = "Grid Count:\t" + str(self.grid_count)
+        size_text = "Size:\t" + str(self.resolution[0]) + "x" + str(self.resolution[1]) 
+
+        # only grab if they exist
+        if self.error:
+            error_text = f"Error:\t{round(self.error,3)} "
+            cam_matrix_text = "Camera Matrix:\n" + ('\n'.join(
+                ['\t'.join([str(round(float(cell),1)) for cell in row]
+                ) 
+                for row in self.camera_matrix]))  
+            distortion_text = "Distortion:\t" + ','.join([str(round(float(cell),2)) for cell in self.distortion[0]])
+
+            # print(self.camera_matrix)
+            summary = (grid_count + "\n\n" + 
+                    error_text + "\n\n" + 
+                    size_text + "\n\n" + 
+                    cam_matrix_text + "\n\n" + 
+                    distortion_text)
+            return summary
+        else:
+            return "No Calibration Stored"
 
 ############################ DEBUG / TEST ######################################
 # Here I include some helper functions to exhibit/test the functionality 

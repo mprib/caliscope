@@ -33,7 +33,7 @@ class Session:
         self.load_config()
         self.load_charuco()
         self.load_cameras()
-        self.find_cameras()
+        # self.find_cameras()
         self.load_rtds()
         self.adjust_resolutions()
 
@@ -112,6 +112,7 @@ class Session:
                 cam.error = params["error"] 
                 cam.camera_matrix = np.array(params["camera_matrix"]).astype(float)
                 cam.distortion = np.array(params["distortion"]).astype(float)
+                cam.grid_count = params["grid_count"]
 
         with ThreadPoolExecutor() as executor:
             for key, params in self.config.items():
@@ -146,14 +147,15 @@ class Session:
         for port, cam in self.camera.items():
             print(f"Loading RTD for port {port}")
             self.rtd[port] = RealTimeDevice(cam)
+            self.rtd[port].assign_charuco(self.charuco)
     
     def adjust_resolutions(self):
         def adjust_res_worker(port):
             rtd = self.rtd[port]
             resolution = self.config[f"cam_{port}"]["resolution"]
             default_res = self.camera[port].default_resolution
-            print(f"resultion is {resolution[0:1]}")
-            print(f"default res is {default_res[0:1]}")
+            print(f"resolution is {resolution[0:2]}")
+            print(f"default res is {default_res[0:2]}")
 
             if resolution[0] != default_res[0] or resolution[1] != default_res[1]:
                 print(f"Attempting to change resolution on port {port}")
@@ -171,9 +173,11 @@ class Session:
                   "error": cam.error,
                   "camera_matrix": cam.camera_matrix,
                   "distortion": cam.distortion,
-                  "exposure": cam.exposure}
+                  "exposure": cam.exposure,
+                  "grid_count": cam.grid_count}
 
-        print(params)
+        print(f"Saving camera parameters...{params}")
+
         self.config["cam_"+str(port)] = params
         self.update_config()
 

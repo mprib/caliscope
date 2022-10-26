@@ -6,6 +6,8 @@ from itertools import combinations
 import cv2
 from numpy import char
 import json
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QImage, QPixmap
 
 INCHES_PER_CM = .393701
 
@@ -102,6 +104,22 @@ class Charuco():
         return img
 
 
+    def board_pixmap(self, width, height):
+        """Convert from an opencv image to QPixmap"""
+        rgb_image = cv2.cvtColor(self.board_img, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb_image.shape
+        bytes_per_line = ch * w
+        charuco_QImage = QImage(rgb_image.data, 
+                                w, 
+                                h, 
+                                bytes_per_line, 
+                                QImage.Format.Format_RGB888)
+        p = charuco_QImage.scaled(width, height,
+                                  Qt.AspectRatioMode.KeepAspectRatio, 
+                                  Qt.TransformationMode.SmoothTransformation)
+        return QPixmap.fromImage(p)
+
+    
     def save_image(self, path):
         cv2.imwrite(path, self.board_img)
 

@@ -204,10 +204,12 @@ class IntrinsicCalibrator:
         self.camera.error = error
         self.camera.camera_matrix = mtx
         self.camera.distortion = dist
+        self.camera.grid_count = len(self.corner_ids)
 
         print(f"Error: {error}")
         print(f"Camera Matrix: {mtx}")
         print(f"Distortion: {dist}")
+        print(f"Grid Count: {self.camera.grid_count}")
 
     def save_calibration(self, path):
         """

@@ -121,7 +121,7 @@ class Session:
              
 
 
-    def find_cameras(self):
+    def find_additional_cameras(self):
 
         def add_cam(port):
             try:

@@ -16,15 +16,21 @@ port = 1
 resolution = [ 640, 480,]
 rotation_count = 0
 exposure = -7.0
+error = "NA"
+grid_count = 0
 
 [cam_0]
 port = 0
 resolution = [ 640, 480,]
 rotation_count = 0
 exposure = -6.0
+error = "NA"
+grid_count = 0
 
 [cam_2]
 port = 2
 resolution = [ 640, 480,]
 rotation_count = 0
 exposure = -6.0
+error = "NA"
+grid_count = 0

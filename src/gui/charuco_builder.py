@@ -3,6 +3,7 @@
 
 #%%
 from ast import arg
+from re import I
 import sys
 from pathlib import Path
 import time
@@ -313,6 +314,7 @@ class CharucoBuilder(QWidget):
         if not self.charuco_added:
             self.charuco_display = QLabel()
             self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            self.charuco_display.setMaximumSize(self.height()/2, self.width()/2)
         charuco_height = self.charuco_display.height()
         charuco_width = self.charuco_display.width()
         print("Building charuco thumbnail...")

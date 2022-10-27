@@ -201,7 +201,7 @@ class IntrinsicCalibrator:
         self.is_calibrated = True
 
         # ret is RMSE of reprojection 
-        self.camera.error = error
+        self.camera.error = round(error,3)
         self.camera.camera_matrix = mtx
         self.camera.distortion = dist
         self.camera.grid_count = len(self.corner_ids)

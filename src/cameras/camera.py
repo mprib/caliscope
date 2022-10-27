@@ -20,6 +20,8 @@ import cv2
 from threading import Thread
 import time
 
+from pandas import NA
+
 TEST_FRAME_COUNT = 3
 MIN_RESOLUTION_CHECK = 500
 MAX_RESOLUTION_CHECK = 10000
@@ -100,6 +102,8 @@ class Camera(object):
         """Currently, this is how the resolution is actually changed"""
         self._width = value[0]
         self._height = value[1]
+
+
 
     def set_default_resolution(self):
         """called at initilization before anything has changed"""

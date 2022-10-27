@@ -30,6 +30,8 @@ class Session:
 
         # dictionary of Cameras, key = port
         self.camera = {}
+        self.rtd = {}
+
         self.load_config()
         self.load_charuco()
         # self.load_cameras()
@@ -97,9 +99,6 @@ class Session:
                 self.camera[port] = Camera(port)
 
                 cam =  self.camera[port] # trying to make a little more readable
-                # res = params["resolution"]
-                # cam.capture.set(cv2.CAP_PROP_FRAME_WIDTH, res[0])
-                # cam.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, res[1])
                 cam.rotation_count = params["rotation_count"]
                 cam.exposure = params["exposure"]
             except:
@@ -143,7 +142,6 @@ class Session:
 
     def load_rtds(self):
         #need RTD to adjust resolution 
-        self.rtd = {}
         for port, cam in self.camera.items():
             print(f"Loading RTD for port {port}")
             self.rtd[port] = RealTimeDevice(cam)

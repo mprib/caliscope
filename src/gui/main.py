@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import ( QVBoxLayout, QHBoxLayout, QLabel, QMainWindow,
 
 from pathlib import Path
 from numpy import char
+from threading import Thread
 
 from qtpy import QT_VERSION
 
@@ -31,10 +32,10 @@ class MainWindow(QMainWindow):
         DISPLAY_WIDTH = screen.size().width()
         DISPLAY_HEIGHT = screen.size().height()         
         self.setMinimumSize(DISPLAY_WIDTH*.30,DISPLAY_HEIGHT*.7)
+        
 
         self.setWindowTitle("FreeMocap Camera Calibration")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
-
         self.tabs = QTabWidget()
         self.tabs.setTabPosition(QTabWidget.TabPosition.North)
         self.tabs.setMovable(True)
@@ -42,8 +43,8 @@ class MainWindow(QMainWindow):
         # self.tabs.tabCloseRequested.connect(self.tabs.removeTab)
         self.setCentralWidget(self.tabs)
         self.summary = SessionSummary(self.session)
-
         self.tabs.addTab(self.summary, "Summary")
+        
         self.summary.launch_charuco_builder_btn.clicked.connect(self.launch_cha_build)
         # self.tabs.addTab(CharucoBuilder(self.session), "Charuco Builder")
         # self.su 
@@ -51,6 +52,10 @@ class MainWindow(QMainWindow):
         self.summary.close_cameras_btn.clicked.connect(self.close_cams)
 
     def open_cams(self):
+        # see if this helps with updating changes
+        self.session.load_config()
+        self.session.load_charuco()
+
         # don't bother if already done
         for t in range(0,self.tabs.count()):
             if self.tabs.tabText(t).startswith("Cam"):
@@ -58,7 +63,9 @@ class MainWindow(QMainWindow):
             
         if len(self.session.rtd) > 0:
             for port, rtd in self.session.rtd.items():
+                
                 cam_tab = CameraConfigDialog(rtd, self.session)
+                
                 self.tabs.addTab(cam_tab, f"Camera {port}")
                 cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
         else:
@@ -92,6 +99,7 @@ class SessionSummary(QMainWindow):
         super().__init__()
         self.session = session
 
+        self.cams_connected = False
 
         self.scroll = QScrollArea()             # Scroll Area which contains the widgets, set as the centralWidget
         self.widget = QWidget()                 # Widget that contains the collection of Vertical Box
@@ -163,6 +171,24 @@ class SessionSummary(QMainWindow):
         self.charuco_summary.setText(self.session.charuco.summary())
         
 
+    def find_connect_cams(self):
+        
+        def find_cam_worker():
+
+            self.session.load_cameras()
+            self.session.find_additional_cameras()
+            self.session.load_rtds()
+            self.session.adjust_resolutions()
+            self.camera_table.update_data()
+
+        if not self.cams_connected:
+            print("Connecting to cameras...This may take a moment.")
+            self.find_cams = Thread(target=find_cam_worker, args=(), daemon=True)
+            self.find_cams.start()
+        else:
+            print("Cameras already connected or in process.")
+
+        self.cams_connected = True
 
     def build_cam_summary(self):
         self.cam_hbox = QHBoxLayout()
@@ -177,17 +203,8 @@ class SessionSummary(QMainWindow):
         left_vbox.addWidget(self.camera_table)
         self.find_connect_cams_btn = QPushButton("Find and Connect to Cameras")
 
-        def find_connect_cams():
 
-            # find_cam_worker():
-            self.session.load_cameras()
-
-            self.session.find_additional_cameras()
-            self.session.load_rtds()
-            self.session.adjust_resolutions()
-            self.camera_table.update_data()
-
-        self.find_connect_cams_btn.clicked.connect(find_connect_cams)
+        self.find_connect_cams_btn.clicked.connect(self.find_connect_cams)
         left_vbox.addWidget(self.find_connect_cams_btn)
 
         self.open_cameras_btn = QPushButton("Open Cameras") 

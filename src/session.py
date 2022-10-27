@@ -55,6 +55,11 @@ class Session:
         return self.config
 
     def update_config(self):
+        
+        # alphabetize by key
+        sorted_config = {key:value for key, value in sorted(self.config.items())}
+        self.config = sorted_config
+
         with open(self.config_path, "w") as f:
            toml.dump(self.config,f)       
 
@@ -184,6 +189,7 @@ class Session:
 if __name__ == "__main__":
     session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
 
+    session.update_config()
 #%%
     
     # session.save_charuco()

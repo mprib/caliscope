@@ -158,14 +158,14 @@ class CameraConfigDialog(QDialog):
 
 
         # Save Calibration
-        save_cal_btn = QPushButton("Save Calibration")
-        save_cal_btn.setMaximumWidth(100)
-        vbox.addWidget(save_cal_btn)
+        self.save_cal_btn = QPushButton("Save Calibration")
+        self.save_cal_btn.setMaximumWidth(100)
+        vbox.addWidget(self.save_cal_btn)
 
         def save_cal():
             self.session.save_camera(self.RTD.cam.port)
 
-        save_cal_btn.clicked.connect(save_cal)
+        self.save_cal_btn.clicked.connect(save_cal)
         
         # include calibration grid in horizontal box
         hbox.addLayout(vbox)

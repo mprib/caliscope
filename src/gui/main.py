@@ -55,7 +55,9 @@ class MainWindow(QMainWindow):
                 return
 
         for port, rtd in self.session.rtd.items():
-            self.tabs.addTab(CameraConfigDialog(rtd, self.session), f"Camera {port}")
+            cam_tab = CameraConfigDialog(rtd, self.session)
+            self.tabs.addTab(cam_tab, f"Camera {port}")
+            cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.refresh_view)
 
     def update_summary_image(self):
         self.summary.update_charuco_summary()

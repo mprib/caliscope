@@ -2,7 +2,6 @@
 # establishes the connection with the video source and manages the thread
 # that reads in frames.
 
-from re import I
 from threading import Thread
 import cv2
 import time
@@ -13,7 +12,7 @@ import numpy as np
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.camera import Camera
-from src.calibration.intrinsic_calibrator import IntrinsicCalibrator
+from src.calibration.mono_calibrator import MonoCalibrator
 from src.calibration.charuco import Charuco
 
 
@@ -139,7 +138,7 @@ class RealTimeDevice:
         self.cam.resolution = res
         # if self.int_calib:
         try:
-            self.int_calib.initialize_grid_history()
+            self.mono_cal.initialize_grid_history()
         except:
             pass
         # test of commenting this out...may not longer be necessary
@@ -159,7 +158,7 @@ class RealTimeDevice:
     
 
     def assign_charuco(self, charuco):
-        self.int_calib = IntrinsicCalibrator(self.cam, charuco)
+        self.mono_cal = MonoCalibrator(self.cam, charuco)
 
 
     def process_charuco(self):
@@ -172,17 +171,17 @@ class RealTimeDevice:
         self.collect_charuco_corners
         """
         if self.charuco_being_tracked:
-            self.int_calib.track_corners(self._working_frame, mirror=False)
+            self.mono_cal.track_corners(self._working_frame, mirror=False)
             if self.collect_charuco_corners:
-                self.int_calib.collect_corners()
+                self.mono_cal.collect_corners()
 
             self._working_frame = cv2.flip(self._working_frame,1)
 
-            self.int_calib.track_corners(self._working_frame, mirror=True)
+            self.mono_cal.track_corners(self._working_frame, mirror=True)
             if self.collect_charuco_corners:
-                self.int_calib.collect_corners()
+                self.mono_cal.collect_corners()
 
-            self._working_frame = self.int_calib.merged_grid_history()
+            self._working_frame = self.mono_cal.merged_grid_history()
 
 
     

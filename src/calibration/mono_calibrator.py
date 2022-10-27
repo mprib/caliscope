@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.calibration.charuco import Charuco
 from src.cameras.camera import Camera
 
-class IntrinsicCalibrator:
+class MonoCalibrator:
 
     def __init__(self, camera, charuco):
 
@@ -211,25 +211,6 @@ class IntrinsicCalibrator:
         print(f"Distortion: {dist}")
         print(f"Grid Count: {self.camera.grid_count}")
 
-    def save_calibration(self, path):
-        """
-        Store individual camera parameters for use in dual camera calibration
-        Saved  to json as camera name to the "calibration_params" directory
-        """
-        # need to store individual camera parameters
-
-        json_dict = {}
-        json_dict["port"] = self.camera.port
-        json_dict["image_size"] = self.image_size
-        json_dict["camera_matrix"] = self.camera_matrix.tolist()
-        json_dict["distortion_params"] = self.distortion_params.tolist()
-        json_dict["RMS_reproj_error"] = self.error
-
-        json_object = json.dumps(json_dict, indent=4, separators=(',', ': '))
-
-        with open(os.path.join(Path(__file__).parent, path), "w") as outfile:
-                outfile.write(json_object)
-
 
 if __name__ == "__main__":
 
@@ -237,7 +218,7 @@ if __name__ == "__main__":
     cam = Camera(0)
 
             
-    calib = IntrinsicCalibrator(cam, charuco)
+    calib = MonoCalibrator(cam, charuco)
     last_calibration_time = time.time()
 
     print("About to enter main loop")
@@ -264,5 +245,3 @@ if __name__ == "__main__":
 
 
     calib.calibrate()
-    calib.save_calibration('test_cal.json')
-

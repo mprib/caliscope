@@ -76,7 +76,9 @@ class CharucoBuilder(QWidget):
         step1 = QLabel(step1_text)
         step1.setWordWrap(True)
         # Strange wrinkle: charuco display height and width seem flipped
-        step1.setMaximumWidth(self.charuco_display.height()) 
+        # step1.setMaximumWidth(self.charuco_display.height()) 
+
+        step1.setMinimumWidth(self.width()*.5) 
         VBL.addWidget(step1)
         VBL.addWidget(self.charuco_config)
         ##### PRINT ##########################################################
@@ -94,7 +96,7 @@ class CharucoBuilder(QWidget):
         step2 = QLabel(step2_text)
         step2.setWordWrap(True)
         # Strange wrinkle: charuco display height and width seem flipped
-        step2.setMaximumWidth(self.charuco_display.height()) 
+        step2.setMinimumWidth(self.width()*.5) 
         VBL.addWidget(step2)
         VBL.addLayout(self.save_png_hbox)
         VBL.addSpacing(20)
@@ -111,7 +113,8 @@ class CharucoBuilder(QWidget):
         step3 = QLabel(step3_text)
         step3.setWordWrap(True)
         # Strange wrinkle: charuco display height and width seem flipped
-        step3.setMaximumWidth(self.charuco_display.height()) 
+        # step3.setMaximumWidth(self.charuco_display.height()) 
+        step3.setMinimumWidth(self.width()*.5) 
         VBL.addWidget(step3)
         VBL.addWidget(self.true_up_group)
         VBL.addSpacing(20)
@@ -124,11 +127,13 @@ class CharucoBuilder(QWidget):
         step4 = QLabel(step4_text)
         step4.setWordWrap(True)
         # Strange wrinkle: charuco display height and width seem flipped
-        step4.setMaximumWidth(self.charuco_display.height()) 
+        # step4.setMaximumWidth(self.charuco_display.height()) 
+        step4.setMinimumWidth(self.width()*.5) 
         VBL.addWidget(step4)
         VBL.addWidget(self.export_btn)
     
-
+        for w in self.children():
+            VBL.setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
 
     def build_config_options(self):
         #####################  HORIZONTAL CONFIG BOX  ########################
@@ -177,7 +182,8 @@ class CharucoBuilder(QWidget):
 
     def build_save_png_group(self):
         # basic png save button
-        self.png_btn = QPushButton("&Save png") 
+        self.png_btn = QPushButton("Save &png") 
+        self.png_btn.setMaximumSize(100,30)
         def save_png():
             save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", "charuco.png", "PNG (*.png)")
             print(save_file_tuple)
@@ -188,7 +194,8 @@ class CharucoBuilder(QWidget):
         self.png_btn.clicked.connect(save_png)
 
         # additional mirror image option
-        self.png_mirror_btn = QPushButton("&Save mirror png") 
+        self.png_mirror_btn = QPushButton("Save &mirror png") 
+        self.png_mirror_btn.setMaximumSize(100,30)
         def save_mirror_png():
             save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", "charuco_mirror.png", "PNG (*.png)")
             print(save_file_tuple)
@@ -222,7 +229,7 @@ class CharucoBuilder(QWidget):
             self.printed_edge_length.setValue(expected_length)        
 
     def build_true_up_group(self):
-        self.true_up_group = QGroupBox("True-Up Printed Square Edge")
+        self.true_up_group = QGroupBox("&True-Up Printed Square Edge")
         self.true_up_group.setLayout(QHBoxLayout())
         self.true_up_group.layout().addWidget(QLabel("Actual Length (cm):"))
         
@@ -238,6 +245,7 @@ class CharucoBuilder(QWidget):
 
     def build_save_config(self):
         self.export_btn = QPushButton("&Save Charuco")
+        self.export_btn.setMaximumSize(100,30)
         
         def save_charuco():
             self.session.charuco = self.charuco

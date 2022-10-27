@@ -42,7 +42,7 @@ class CameraConfigDialog(QDialog):
         self.pixmap_edge = min(DISPLAY_WIDTH/3, DISPLAY_HEIGHT/3)
         self.frame_emitter = FrameEmitter(self.RTD, self.pixmap_edge)
         self.frame_emitter.start()
-        self.setFixedSize(self.pixmap_edge, self.pixmap_edge*2) 
+        # self.setFixedSize(self.pixmap_edge, self.pixmap_edge*2) 
         self.setContentsMargins(0,0,0,0)
 
         ################### BUILD SUB WIDGETS #############################
@@ -90,6 +90,9 @@ class CameraConfigDialog(QDialog):
         
         ###################### CALIBRATION  ################################
         self.VBL.addWidget(self.calibrate_grp)
+
+        for w in self.children():
+            self.VBL.setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
 
 
 ####################### SUB_WIDGET CONSTRUCTION ###############################
@@ -320,6 +323,7 @@ class CameraConfigDialog(QDialog):
             self.RTD.cam.camera_matrix = None
             self.RTD.cam.distortion = None
             self.RTD.cam.grid_count = 0
+            self.RTD.undistort = False
         
         self.resolution_combo = QComboBox()
         

@@ -315,6 +315,11 @@ class CameraConfigDialog(QDialog):
                                             daemon=True)
             self.change_res_thread.start()
 
+            # whenever resolution changes, calibration parameters no longer apply
+            self.RTD.cam.error = None
+            self.RTD.cam.camera_matrix = None
+            self.RTD.cam.distortion = None
+            self.RTD.cam.grid_count = 0
         
         self.resolution_combo = QComboBox()
         

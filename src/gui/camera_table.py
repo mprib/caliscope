@@ -7,7 +7,7 @@ import sys
 from PyQt6.QtCore import Qt, QAbstractTableModel
 from PyQt6.QtGui import QPalette, QColor, QIcon
 from PyQt6.QtWidgets import ( QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, 
-                            QPushButton, QTabWidget, QWidget,QGroupBox, 
+                            QPushButton, QTabWidget, QWidget,QGroupBox, QTableWidgetItem,
                             QScrollArea, QApplication, QTableWidget, QTableView)
 
 from pathlib import Path
@@ -59,32 +59,35 @@ class CameraTable(QWidget):
     def __init__(self,session):
         super().__init__()
 
-        self.table = QTableView()
-        self.session = session
         vbox = QVBoxLayout()
+
+        self.table = QTableWidget()
+        self.session = session
+        self.update_data()        
+       
         self.setLayout(vbox)
         vbox.addWidget(self.table)   
-        self.update_data()        
 
-        self._headers = ["port", "resolution", "error", "grid_count"]        
 
-        self.table.verticalHeader().setVisible(False)
-        self.model = DictionaryTableModel(self.data, self._headers)
-        self.table.setModel(self.model)
+        # self.table.verticalHeader().setVisible(False)
+        # self.model = DictionaryTableModel(self.data, self._headers)
+        # self.table.setModel(self.model)
         self.table.resizeColumnsToContents()
-        self.setFixedSize(self.table.size())
+        # self.setFixedSize(self.table.size())
         # self.setCentralWidget(self.table)
 
 
     def update_data(self):
         self.data = []
+        self._headers = ["port", "resolution", "error", "grid_count"]        
+
         for key, params in self.session.config.items():
             if "cam" in key:
                 print(f"Found {key}")
                 if "error" in params.keys():
                     pass
                 else:
-                    params["error"] = "NA"
+                    params["error"] = None
                     params["grid_count"] = 0
                 # print(params)
                 print(params)
@@ -95,10 +98,22 @@ class CameraTable(QWidget):
 
         print(f"Updating cam data to {self.data}")
 
+        row_count = len(self.data)
+        column_count = len(self._headers)
+
+        self.table.setRowCount(row_count)
+        self.table.setColumnCount(column_count)
+        self.table.setHorizontalHeaderLabels(self._headers)
+
+        for row in range(row_count):
+            for column in range(column_count):
+                item = list(self.data[row].values())[column]
+                print(item)
+                self.table.setItem(row,column, QTableWidgetItem(str(item)))
+
+
     def refresh_view(self):
-        self.model.layoutAboutToBeChanged
         self.update_data()
-        self.model.layoutChanged()
 
 
 if __name__ == "__main__":

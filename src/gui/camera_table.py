@@ -64,9 +64,9 @@ class CameraTable(QWidget):
         vbox = QVBoxLayout()
         self.setLayout(vbox)
         vbox.addWidget(self.table)   
+        self.update_data()        
 
         self._headers = ["port", "resolution", "error", "grid_count"]        
-        self.update_data()        
 
         self.table.verticalHeader().setVisible(False)
         self.model = DictionaryTableModel(self.data, self._headers)
@@ -92,6 +92,13 @@ class CameraTable(QWidget):
                 res = params["resolution"]
                 params["resolution"] = f"{res[0]} x {res[1]}"
                 self.data.append(params)
+
+        print(f"Updating cam data to {self.data}")
+
+    def refresh_view(self):
+        self.model.layoutAboutToBeChanged
+        self.update_data()
+        self.model.layoutChanged()
 
 
 if __name__ == "__main__":

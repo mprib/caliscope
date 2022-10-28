@@ -8,6 +8,7 @@ import time
 import sys
 import mediapipe as mp
 import numpy as np
+from datetime import datetime
 # Append main repo to top of path to allow import of backend
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -94,7 +95,10 @@ class RealTimeDevice:
 
             if self.cam.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
                 # read in working frame
+                read_start = time.perf_counter()
                 self.status, self._working_frame = self.cam.capture.read()
+                read_stop = time.perf_counter()
+                self.frame_time = (read_start+read_stop)/2
 
                 # REAL TIME OVERLAYS ON self._working_frame
                 self.run_mediapipe_hands()
@@ -171,13 +175,13 @@ class RealTimeDevice:
         self.collect_charuco_corners
         """
         if self.charuco_being_tracked:
-            self.mono_cal.track_corners(self._working_frame, mirror=False)
+            self.mono_cal.track_corners(self._working_frame,self.frame_time, mirror=False)
             if self.collect_charuco_corners:
                 self.mono_cal.collect_corners()
 
             self._working_frame = cv2.flip(self._working_frame,1)
 
-            self.mono_cal.track_corners(self._working_frame, mirror=True)
+            self.mono_cal.track_corners(self._working_frame,self.frame_time, mirror=True)
             if self.collect_charuco_corners:
                 self.mono_cal.collect_corners()
 

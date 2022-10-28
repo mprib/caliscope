@@ -26,8 +26,8 @@ class MonoCalibrator:
         self.camera = camera
         self.charuco = charuco
 
-        self.frame_corner_ids = np.array([])
-        self.frame_corners = np.array([])
+        self._frame_corner_ids = np.array([])
+        self._frame_corners = np.array([])
 
         self.corner_loc_img = []
         self.corner_loc_obj = []
@@ -122,11 +122,11 @@ class MonoCalibrator:
                     # cv2.putText(self.frame,str(ID), (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5,(220,0,0), 3)
 
             else:
-                self.frame_corner_ids = np.array([])
-                self.frame_corners = np.array([])
+                self._frame_corner_ids = np.array([])
+                self._frame_corners = np.array([])
         else:
-            self.frame_corner_ids = np.array([])
-            self.frame_corners = np.array([])
+            self._frame_corner_ids = np.array([])
+            self._frame_corners = np.array([])
 
     def collect_corners(self, board_threshold=0.8, wait_time=1):
 

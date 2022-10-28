@@ -28,9 +28,11 @@ class RealTimeDevice:
         self.cap_thread = Thread(target=self.roll_camera, args=( ), daemon=True)
         self.cap_thread.start()
         self.frame_name = "Cam"+str(cam.port)
-        
+
         # initialize time trackers for actual FPS determination
+        self.frame_time = time.perf_counter()
         self.avg_delta_time = None
+        self.frame_stereo_read = False     # tracks if sterecalibrator has pulled in the frame 
 
         # Mediapipe hand detection infrastructure
         self.mpHands = mp.solutions.hands
@@ -103,14 +105,27 @@ class RealTimeDevice:
                 # REAL TIME OVERLAYS ON self._working_frame
                 self.run_mediapipe_hands()
                 self.process_charuco()
+                
+
+                # I have misgivings about including this in here
+                # should be used as a sanity check of distortion params
+                # applied sparingly and never run when doing *anything* else
                 self.apply_undistortion()
 
-                self.apply_rotation() # must apply rotation at end...otherwise mismatch in frame / grid history dimensions
+                # must apply rotation at end...
+                # otherwise mismatch in frame / grid history dimensions
+                self.apply_rotation()
 
                 # update frame that is emitted to GUI
+                # and processed by stereo_cal
                 self.frame = self._working_frame.copy()
+                
+                # tracks if sterecalibrator has pulled in the frame 
+                # if this goes after process_charuco() then only
+                # fully stocked charuco corner/id arrays will go into stereo_cal
+                self.frame_stereo_read = False     
 
-                # Rate of calling recalc must be limited by this loop
+                # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
 
                 # Stop thread if camera pulls trigger
@@ -119,7 +134,8 @@ class RealTimeDevice:
                     break
 
     def change_resolution(self, res):
-        self.cam.stop_rolling() # will trigger running capture thread to end
+        # pull cam.stop_rolling_trigger and wait for roll_camera to stop
+        self.cam.stop_rolling() 
         
         # if the display isn't up and running this may error out (as when trying
         # to initialize the resolution to a non-default value)
@@ -128,9 +144,6 @@ class RealTimeDevice:
             self.frame = blank_image
         except:
             pass
-        # pretty sure I can delete this next part since it is included in cam.stop_rolling()        
-        # while self.cam.is_rolling:  # wait for everythong to catch up
-        #     time.sleep(.01)
 
         self.FPS_actual = 0
         self.avg_delta_time = None
@@ -140,13 +153,11 @@ class RealTimeDevice:
         self.cam.connect()
 
         self.cam.resolution = res
-        # if self.int_calib:
+        # if self.mono_calib:
         try:
             self.mono_cal.initialize_grid_history()
         except:
             pass
-        # test of commenting this out...may not longer be necessary
-        # self.cap_thread.join()
 
         # Spin up the thread again now that resolution is changed
         self.cap_thread = Thread(target=self.roll_camera, args=( ), daemon=True)
@@ -179,6 +190,7 @@ class RealTimeDevice:
             if self.collect_charuco_corners:
                 self.mono_cal.collect_corners()
 
+            # consider running flipped search within calibrator...
             self._working_frame = cv2.flip(self._working_frame,1)
 
             self.mono_cal.track_corners(self._working_frame,self.frame_time, mirror=True)
@@ -191,7 +203,7 @@ class RealTimeDevice:
     
     def apply_undistortion(self):
 
-        if self.undistort == True: # and self.int_calib.is_calibrated:
+        if self.undistort == True: # and self.mono_cal.is_calibrated:
             self._working_frame = cv2.undistort(self._working_frame,
                                                 self.cam.camera_matrix,
                                                 self.cam.distortion)
@@ -274,7 +286,7 @@ if __name__ == '__main__':
         if key == ord('q'):
             for rtd in real_time_devices:
                 try:
-                    rtd.int_calib.calibrate()
+                    rtd.mono_cal.calibrate()
                 except:
                     pass
                 rtd.cam.capture.release()

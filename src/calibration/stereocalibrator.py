@@ -32,9 +32,13 @@ if __name__ == "__main__":
 
     print(session.rtd)
     while True:
-
+        print("looping")
         for port, device in session.rtd.items():
-            if device.mono_cal.frame_corners.any() and device.mono_cal.frame_corner_ids.any():
+            corner_count = len(device.mono_cal.frame_corners)
+            id_count = len(device.mono_cal.frame_corner_ids)
+
+            if corner_count > 0 and device.frame_stereo_read == False:
+                device.frame_stereo_read = True
                 print(f"Camera {port}: frame read at {device.frame_time}")                
                 print(device.mono_cal.frame_corner_ids)
                 print(device.mono_cal.frame_corners)
@@ -50,5 +54,7 @@ if __name__ == "__main__":
         if key == ord("c"):
             for port, device in session.rtd.items():
                 device.charuco_being_tracked = not device.charuco_being_tracked 
-        
-        time.sleep(.03)
+
+        # time.sleep(.03)           
+
+    

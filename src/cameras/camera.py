@@ -20,7 +20,6 @@ import cv2
 from threading import Thread
 import time
 
-from pandas import NA
 
 TEST_FRAME_COUNT = 3
 MIN_RESOLUTION_CHECK = 500
@@ -187,7 +186,7 @@ class Camera(object):
             self.stop_rolling_trigger = True
             while self.is_rolling:  # give the thread time to wrap up 
                 time.sleep(.01)
-        self.stop_rolling_trigger = False
+        self.stop_rolling_trigger = False # reset the trigger
 
     def calibration_summary(self):
         # Calibration output presented in label on far right

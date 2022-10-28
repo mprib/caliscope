@@ -105,8 +105,8 @@ class CameraConfigDialog(QDialog):
         
         # Build Charuco Image Display
         self.charuco_display = QLabel()
-        # charuco_img = self.convert_cv_qt(self.RTD.int_calib.charuco.board_img)
-        charuco_img = self.RTD.int_calib.charuco.board_pixmap(self.pixmap_edge/3, self.pixmap_edge/3)
+        # charuco_img = self.convert_cv_qt(self.RTD.mono_cal.charuco.board_img)
+        charuco_img = self.session.charuco.board_pixmap(self.pixmap_edge/3, self.pixmap_edge/3)
         # charuco_img = charuco_img.scaled(self.pixmap_edge/3,
                                         #  self.pixmap_edge/3,
                                         #  Qt.AspectRatioMode.KeepAspectRatio)
@@ -137,12 +137,12 @@ class CameraConfigDialog(QDialog):
         vbox.addWidget(self.calibrate_btn)
 
         def calibrate():
-            print("Capture History" + str(len(self.RTD.int_calib.corner_ids)))
-            if len(self.RTD.int_calib.corner_ids) > 0:
+            print("Capture History" + str(len(self.RTD.mono_cal.corner_ids)))
+            if len(self.RTD.mono_cal.corner_ids) > 0:
                 self.calib_output.setText("Calibration can take a moment...")
 
                 def wrker(): 
-                    self.RTD.int_calib.calibrate()
+                    self.RTD.mono_cal.calibrate()
                     self.calib_output.setText(self.RTD.cam.calibration_summary())
                 self.calib_thread = Thread(target=wrker, args=(), daemon=True)
                 self.calib_thread.start()
@@ -156,7 +156,7 @@ class CameraConfigDialog(QDialog):
         vbox.addWidget(clear_grid_history_btn)
         def clear_grid():
             # Note this does not clear out the calibration parameters
-            self.RTD.int_calib.initialize_grid_history()
+            self.RTD.mono_cal.initialize_grid_history()
         clear_grid_history_btn.clicked.connect(clear_grid)
 
 

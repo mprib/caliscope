@@ -35,7 +35,6 @@ class RealTimeDevice:
         # initialize time trackers for actual FPS determination
         self.frame_time = time.perf_counter()
         self.avg_delta_time = None
-        self.frame_stereo_read = False     # tracks if sterecalibrator has pulled in the frame 
 
         # Mediapipe hand detection infrastructure
         self.mpHands = mp.solutions.hands
@@ -105,14 +104,18 @@ class RealTimeDevice:
                 read_stop = time.perf_counter()
                 self.frame_time = (read_start+read_stop)/2
 
-                if self.push_to_reel:
-                    print(f"Pushing from port {self.cam.port}")
-                    self.reel.put([self.frame_time, self._working_frame])
 
                 # REAL TIME OVERLAYS ON self._working_frame
                 self.run_mediapipe_hands()
                 self.process_charuco()
                 
+                if self.push_to_reel:
+                    # print(f"Pushing from port {self.cam.port} at {self.frame_time}")
+                    self.reel.put([self.frame_time, 
+                                   self._working_frame, 
+                                   self.mono_cal._frame_corner_ids,
+                                   self.mono_cal._frame_corners,
+                                   self.mono_cal.board_FOR_corners])
 
                 # I have misgivings about including this in here
                 # should be used as a sanity check of distortion params
@@ -123,15 +126,12 @@ class RealTimeDevice:
                 # otherwise mismatch in frame / grid history dimensions
                 self.apply_rotation()
 
-                # update frame that is emitted to GUI
-                # and processed by stereo_cal
+                # update frame that is emitted to GUI by frame emitter
+                # note: frame_emitter uses a throttled loop to just periodically
+                # read the current frame. It's not trying to by precise or 
+                # pick up every frame
                 self.frame = self._working_frame.copy()
                 
-                # tracks if sterecalibrator has pulled in the frame 
-                # if this goes after process_charuco() then only
-                # fully stocked charuco corner/id arrays will go into stereo_cal
-                self.frame_stereo_read = False     
-
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
 

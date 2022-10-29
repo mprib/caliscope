@@ -20,6 +20,12 @@ distortion = [ [ "0.2107836748131482", "-0.343055833133437", "-0.007415962381049
 exposure = -5
 grid_count = 19
 
+[cam_2]
+port = 2
+resolution = [ 640, 480,]
+rotation_count = 0
+exposure = -6.0
+
 [charuco]
 columns = 4
 rows = 5

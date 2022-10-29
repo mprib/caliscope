@@ -3,6 +3,7 @@
 # that reads in frames.
 
 from threading import Thread
+from queue import Queue
 import cv2
 import time
 import sys
@@ -20,7 +21,9 @@ from src.calibration.charuco import Charuco
 class RealTimeDevice:
     def __init__(self, cam):
         # camera to be managed is the primary initiating component
-        self.cam = cam 
+        self.cam = cam
+        self.reel = Queue(-1) # infinite size....hopefully doesn't blow up  
+        self.push_to_reel = False
 
         # self.cam.rotation_count = 0 
         
@@ -101,6 +104,10 @@ class RealTimeDevice:
                 self.status, self._working_frame = self.cam.capture.read()
                 read_stop = time.perf_counter()
                 self.frame_time = (read_start+read_stop)/2
+
+                if self.push_to_reel:
+                    print(f"Pushing from port {self.cam.port}")
+                    self.reel.put([self.frame_time, self._working_frame])
 
                 # REAL TIME OVERLAYS ON self._working_frame
                 self.run_mediapipe_hands()

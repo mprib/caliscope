@@ -51,7 +51,7 @@ if __name__ == "__main__":
     def harvest_corners(device):
         device.push_to_reel = True
         port = device.cam.port
-        device.
+        device.track_
         while True:
             print(f"Camera {port}: frame read at {device.frame_time}")                
             # print(device.mono_cal.frame_corner_ids)
@@ -116,7 +116,7 @@ if __name__ == "__main__":
 # 
         # if key == ord("c"):
             # for port, device in session.rtd.items():
-                # device.charuco_being_tracked = not device.charuco_being_tracked 
+                # device.track_charuco = not device.track_charuco 
 
         # time.sleep(.03)           
 

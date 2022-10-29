@@ -143,6 +143,14 @@ class MonoCalibrator:
             self._frame_corner_ids = np.array([])
             self._frame_corners = np.array([])
 
+    @property
+    def board_FOR_corners(self):
+        """Objective position of charuco corners in a board frame of reference"""
+        if self._frame_corner_ids.any():
+            return self.charuco.board.chessboardCorners[self._frame_corner_ids, :]
+        else: 
+            return np.array([])
+
     def collect_corners(self, board_threshold=0.8, wait_time=1):
 
         corner_count = len(self.charuco.board.chessboardCorners)
@@ -162,8 +170,8 @@ class MonoCalibrator:
             self.corner_ids.append(self._frame_corner_ids)
 
             # store objective corner positions in a board frame of reference
-            board_FOR_corners = self.charuco.board.chessboardCorners[self._frame_corner_ids, :]
-            self.corner_loc_obj.append(board_FOR_corners)
+            # board_FOR_corners = self.charuco.board.chessboardCorners[self._frame_corner_ids, :]
+            self.corner_loc_obj.append(self.board_FOR_corners)
             # 
             self.update_capture_history()
             self.last_calibration_time = time.time()

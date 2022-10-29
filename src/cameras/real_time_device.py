@@ -44,7 +44,7 @@ class RealTimeDevice:
         self.show_mediapipe = False
 
         # don't add anything special at the start
-        self.charuco_being_tracked = False
+        self.track_charuco = False
         self.collect_charuco_corners = False
         self.undistort  = False 
 
@@ -189,18 +189,11 @@ class RealTimeDevice:
         the list of corners for running a calibration. 
         
         The scope of the action depends on setting flags for:
-        self.charuco_being_tracked
+        self.track_charuco
         self.collect_charuco_corners
         """
-        if self.charuco_being_tracked:
-            self.mono_cal.track_corners(self._working_frame,self.frame_time, mirror=False)
-            if self.collect_charuco_corners:
-                self.mono_cal.collect_corners()
-
-            # consider running flipped search within calibrator...
-            self._working_frame = cv2.flip(self._working_frame,1)
-
-            self.mono_cal.track_corners(self._working_frame,self.frame_time, mirror=True)
+        if self.track_charuco:
+            self.mono_cal.track_corners(self._working_frame,self.frame_time)
             if self.collect_charuco_corners:
                 self.mono_cal.collect_corners()
 
@@ -274,19 +267,17 @@ if __name__ == '__main__':
         # Toggle charuco display
         if key == ord('c'):
             for rtd in real_time_devices:
-                # rtd.assign_charuco(charuco)
-                rtd.charuco_being_tracked = not rtd.charuco_being_tracked
+                rtd.track_charuco = not rtd.track_charuco
 
         # Toggle charuco display
         if key == ord('C'):
             for rtd in real_time_devices:
-                # rtd.assign_charuco(charuco)
+                rtd.charuco_being_traced = True
                 rtd.collect_charuco_corners = not rtd.collect_charuco_corners
 
         # Toggle undistortion
         if key == ord('d'):
             for rtd in real_time_devices:
-                # rtd.assign_charuco(charuco)
                 rtd.undistort = not rtd.undistort
 
         # 'q' to quit

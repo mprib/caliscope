@@ -58,7 +58,19 @@ class MonoCalibrator:
         self.corner_loc_obj = []
         self.corner_ids = []
 
-    def track_corners(self, frame, frame_time, mirror): 
+    def track_corners(self,frame , frame_time):
+
+        self.track_corners_single_frame(frame, frame_time, mirror = False)
+        # print(self._frame_corner_ids)
+        if not self._frame_corner_ids.any():
+            # print("Checking mirror image")
+            frame = cv2.flip(frame,1)
+            self.track_corners_single_frame(frame, frame_time, mirror = True)
+
+
+
+
+    def track_corners_single_frame(self, frame, frame_time, mirror): 
         """ This method is called by the RealTimeDevice during roll_camera().
         A frame is provided that the IntrinsicCalibrator can then process. This 
         method does the primary work of identifying the corners that are 
@@ -77,7 +89,9 @@ class MonoCalibrator:
             self.gray, 
             self.charuco.board.dictionary)
         
-        frame_width = frame.shape[1]
+        # print(f"{len(aruco_corners)} corners found in image; Mirror: {mirror}")
+
+        frame_width = frame.shape[1]    # used for flipping mirrored corners back
         
         # correct the mirror frame before putting text on it if it's flipped
         if mirror:
@@ -112,6 +126,7 @@ class MonoCalibrator:
                 self.frame_corner_ids = self._frame_corner_ids
                 self.frame_corners = self._frame_corners
 
+                #TODO: break out into seperate method.... this is about drawing
                 for ID, coord in zip(self._frame_corner_ids[:,0], self._frame_corners[:,0]):
                     coord = list(coord)
                     # print(frame.shape[1])
@@ -235,15 +250,12 @@ if __name__ == "__main__":
         read_success, frame = cam.capture.read()
         read_stop = time.perf_counter()
         frame_time = (read_start+read_stop)/2
-        calib.track_corners(frame, frame_time, mirror=False)
-        calib.collect_corners(wait_time=2)
-        frame = cv2.flip(frame,1)
-        calib.track_corners(frame, frame_time, mirror=True)
-        calib.collect_corners(wait_time=2)
-        frame = calib.merged_grid_history() 
+        calib.track_corners(frame, frame_time)
+        calib.collect_corners(wait_time=1)
+        merged_frame = calib.merged_grid_history() 
 
-        cv2.imshow("Press 'q' to quit", frame)
-        # cv2.imshow("Capture History", detector._grid_capture_history)
+        cv2.imshow("Press 'q' to quit", merged_frame)
+        # cv2.imshow("Capture History", calib._grid_capture_history)
         key = cv2.waitKey(1)
 
         # end capture when enough grids collected

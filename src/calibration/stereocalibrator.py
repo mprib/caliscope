@@ -52,7 +52,7 @@ if __name__ == "__main__":
             frame_corners = frame_corners.tolist()
             board_FOR_corners = board_FOR_corners.tolist()
 
-            corner_queue.put(
+            frame_data[port].append(
                 {
                     "port": port,
                     "frame_index": frame_index,
@@ -76,6 +76,12 @@ if __name__ == "__main__":
                 break
 
     
+    # build container for list of frames by port
+
+    frame_data = {}
+
+    for port,device in session.rtd.items():
+        frame_data[port] = []
 
     with ThreadPoolExecutor() as executor: 
 
@@ -87,16 +93,16 @@ if __name__ == "__main__":
     
     # now move across the corner_queue in a sequential way
 
-    all_frames = {}
-    for _ in range(corner_queue.qsize()):
-        port_time_corners = corner_queue.get()
-        port = port_time_corners["port"]
-        frame_time = port_time_corners["frame_time"]
-        frame_index = port_time_corners["frame_index"]
-        frame_key = f"{port}_{frame_index}"
+    # all_frames = {}
+    # for _ in range(corner_queue.qsize()):
+    #     port_time_corners = corner_queue.get()
+    #     port = port_time_corners["port"]
+    #     frame_time = port_time_corners["frame_time"]
+    #     frame_index = port_time_corners["frame_index"]
+    #     frame_key = f"{port}_{frame_index}"
 
-        all_frames[frame_key] = port_time_corners
+    #     all_frames[frame_key] = port_time_corners
 
 #%%
-    with open("all_frames.json","w") as f:
-        json.dump(all_frames, f)
+    with open("frame_data.json","w") as f:
+        json.dump(frame_data, f)

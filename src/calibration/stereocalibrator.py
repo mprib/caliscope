@@ -37,6 +37,9 @@ if __name__ == "__main__":
         device.push_to_reel = True
         port = device.cam.port
         device.track_charuco = True
+        
+        frame_index = 0
+
         while True:
             # print(device.mono_cal.frame_corner_ids)
             # print(device.mono_cal.frame_corners)
@@ -52,11 +55,14 @@ if __name__ == "__main__":
             corner_queue.put(
                 {
                     "port": port,
+                    "frame_index": frame_index,
                     "frame_time": frame_time,
                     "corner_ids": corner_ids,
                     "frame_corners": frame_corners,
                     "board_FOR_corners": board_FOR_corners # corner location in board frame of reference
                 })
+            
+            frame_index += 1
             # print(f"Corner IDs: {corner_ids}")
             # print(f"Image Corner Loc: {frame_corners}")
             # print(f"Board FOR Corner Loc: {board_FOR_corners}")
@@ -81,13 +87,15 @@ if __name__ == "__main__":
     
     # now move across the corner_queue in a sequential way
 
-    all_frames = []
+    all_frames = {}
     for _ in range(corner_queue.qsize()):
         port_time_corners = corner_queue.get()
         port = port_time_corners["port"]
         frame_time = port_time_corners["frame_time"]
+        frame_index = port_time_corners["frame_index"]
+        frame_key = f"{port}_{frame_index}"
 
-        all_frames.append(port_time_corners)
+        all_frames[frame_key] = port_time_corners
 
 #%%
     with open("all_frames.json","w") as f:

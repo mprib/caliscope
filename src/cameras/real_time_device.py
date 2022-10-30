@@ -37,9 +37,9 @@ class RealTimeDevice:
         self.avg_delta_time = None
 
         # Mediapipe hand detection infrastructure
-        self.mpHands = mp.solutions.hands
-        self.hands = self.mpHands.Hands()
-        self.mpDraw = mp.solutions.drawing_utils 
+        # self.mpHands = mp.solutions.hands
+        # self.hands = self.mpHands.Hands()
+        # self.mpDraw = mp.solutions.drawing_utils 
         self.show_mediapipe = False
 
         # don't add anything special at the start

@@ -22,6 +22,9 @@ class RealTimeDevice:
     def __init__(self, cam):
         # camera to be managed is the primary initiating component
         self.cam = cam
+
+
+        # properties related to frame sync
         self.reel = Queue(-1) # infinite size....hopefully doesn't blow up  
         self.push_to_reel = False
 
@@ -37,9 +40,9 @@ class RealTimeDevice:
         self.avg_delta_time = None
 
         # Mediapipe hand detection infrastructure
-        # self.mpHands = mp.solutions.hands
-        # self.hands = self.mpHands.Hands()
-        # self.mpDraw = mp.solutions.drawing_utils 
+        self.mpHands = mp.solutions.hands
+        self.hands = self.mpHands.Hands()
+        self.mpDraw = mp.solutions.drawing_utils 
         self.show_mediapipe = False
 
         # don't add anything special at the start
@@ -47,6 +50,9 @@ class RealTimeDevice:
         self.collect_charuco_corners = False
         self.undistort  = False 
 
+    def assign_shutter_sync(self, shutter_sync):
+        """shutter sync is a thread queue that triggers end of wait cycle"""
+        self.shutter_sync = shutter_sync
 
     def get_FPS_actual(self):
         """set the actual frame rate; called within roll_camera()"""
@@ -86,6 +92,7 @@ class RealTimeDevice:
                 for handLms in self.hand_results.multi_hand_landmarks:
                     self.mpDraw.draw_landmarks(self._working_frame, handLms, self.mpHands.HAND_CONNECTIONS)
 
+    
     def roll_camera(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame, 
@@ -96,8 +103,13 @@ class RealTimeDevice:
         self.start_time = time.time() # used to get initial delta_t for FPS
         while True:
             self.cam.is_rolling = True
-
+    
             if self.cam.capture.isOpened(): # note this line is truly necessary otherwise error upon closing capture
+
+                #wait for sync_shutter to fire
+                if self.push_to_reel:
+                    _ = self.shutter_sync.get()
+
                 # read in working frame
                 read_start = time.perf_counter()
                 self.status, self._working_frame = self.cam.capture.read()

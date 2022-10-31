@@ -82,11 +82,11 @@ class Session:
                                     dictionary = params["dictionary"],
                                     units = params["units"],
                                     aruco_scale = params["aruco_scale"],
-                                    square_size_overide = sso,
+                                    square_size_overide = params["square_size_overide"],
                                     inverted = params["inverted"])
         else:
             print("Loading default charuco")
-            self.charuco = Charuco(4,5,11,8.5)
+            self.charuco = Charuco(4,5,11,8.5,square_size_overide=5.4)
             self.config["charuco"] = self.charuco.__dict__
             self.update_config() 
 

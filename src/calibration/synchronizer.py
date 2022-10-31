@@ -24,8 +24,8 @@ from src.session import Session
 
 logging.basicConfig(filename="synchronizer.log", 
                     filemode = "w", 
-                    level=logging.INFO)
-                    # level=logging.DEBUG)
+                    # level=logging.INFO)
+                    level=logging.DEBUG)
 
 
 class Synchronizer:
@@ -33,63 +33,65 @@ class Synchronizer:
     def __init__(self, session):
         self.session = session
         
-        self.ports = [0,1,2]
+        self.ports = []
         self.synced_frames = []
-        self.port_current_frame = [0 for _ in range(len(self.ports))]
 
         # initialize frame data which will hold everything pushed from 
         # roll_camera() for each port
         self.frame_data = {}
         for port,device in session.rtd.items():
+            self.ports.append(port)
             self.frame_data[port] = []
+        self.port_current_frame = [0 for _ in range(len(self.ports))]
 
         logging.info("About to submit Threadpool Harversters")
 
-        # with ThreadPoolExecutor() as executor: 
-        #     # executor.submit(self.bundle_frames)
+        self.shutter_sync = Queue()
 
-        #     for port, device in session.rtd.items():
-        #         executor.submit(self.harvest_corners, device)
         self.threads = []
         for port,device in session.rtd.items():
+            device.assign_shutter_sync(self.shutter_sync)
+
             t = Thread(target=self.harvest_corners, args=(device,), daemon=True)
             self.threads.append(t)
 
         for t in self.threads:
-            t.start() 
+            t.start()
+        
+        self.bundler = Thread(target= self.bundle_frames, args = ())
+        self.bundler.start()
 
         logging.info("Threadpool harversters just submitted")
 
-        self.bundler = Thread(target= self.bundle_frames, args = ( ), daemon=True)
-        self.bundler.start()
 
 
         # self.bundler.start()
 
     # get minimum value of frame_time for next layer
-    def earliest_next_frame(self, wait_retry = 0.03, attempt=0):
+    def earliest_next_frame(self, wait_retry = 0.05, attempt=0):
 
-        try:
-            time_of_next_frames = []
-            for port in self.ports:
-                next_index = self.port_current_frame[port] + 1
-                logging.debug(f"about to calculate 'next frame time' for port {port}")
-                # port_index_key = str(port) + "_" + str(next_index)
-                next_frame_time = self.frame_data[port][next_index]["frame_time"]
-                time_of_next_frames.append(next_frame_time)
-            return min(time_of_next_frames)
+        time_of_next_frames = []
+        for port in self.ports:
+            next_index = self.port_current_frame[port] + 1
+            # logging.debug(f"about to calculate 'next frame time' for port {port}")
+            # port_index_key = str(port) + "_" + str(next_index)
+            next_frame_time = self.frame_data[port][next_index]["frame_time"]
+            # logging.debug(f"'next frame time' for port {port} is {next_frame_time}")
+            time_of_next_frames.append(next_frame_time)
 
-        except IndexError:
-            if attempt > 5:
-                raise IndexError
-            logging.error("Not enough new frames available. Waiting for more frames...")
-            time.sleep(wait_retry)
-            logging.debug("Reattempting to get earliest next frame")
-            self.earliest_next_frame(attempt=attempt+1)
+            if time_of_next_frames is None:
+                logging.debug("Next frame time None. Investigate.")
+        return min(time_of_next_frames)
 
-    # def start_corner_harvesters(self):
+    def frame_slack(self):
+        """Determine how many unassigned frames are sitting in self.dataframe"""
+        
+        frame_count = {port:len(data) for port, data in self.frame_data.items()}
 
-
+        slack = [frame_count[port] - self.port_current_frame[port] for port in self.ports] 
+        logging.debug(f"Slack in frames is {slack}")  
+        return min(slack) 
+        
 
     def harvest_corners(self, device):
         device.push_to_reel = True
@@ -142,27 +144,31 @@ class Synchronizer:
         return min_frames
                 
     def bundle_frames(self):
-        logging.info("Waiting for frame_data to populate")
-
-        while self.minimum_frame_data() < 10:
-            time.sleep(.1)        
-            logging.info("Still waiting")
+        
+        # need to have 2 frames to assess bundling
+        for port in self.ports:
+            self.shutter_sync.put("fire")
 
         logging.info("About to start bundling frames...")
         while True:
-            time.sleep(.025)
-            try:
-                cutoff_time = self.earliest_next_frame()
-            except IndexError as e:
-                logging.info("No frames to process...exiting.")
-                print(e)
-                break
+            # Trigger device to proceed with reading frame and pushing to reel
+            for port in self.ports:
+                self.shutter_sync.put("fire")
             
+            # sleep function to throttle frame rate
+            # time.sleep(.2)
+
+            # wait for frame data to populate
+            while self.frame_slack() < 2:
+                time.sleep(.01)
+
+
+            cutoff_time = self.earliest_next_frame()
             next_layer = []
+            # test call to see what it returns
 
             for port in self.ports:
                 current_frame = self.port_current_frame[port]
-                # frame_data = all_frames[str(port) + "_" + str(port_frame_index)]
                 current_frame_data = self.frame_data[port][current_frame]
                 frame_time = current_frame_data["frame_time"]
 
@@ -185,15 +191,6 @@ class Synchronizer:
         for i in range(len(self.synced_frames)):
             logging.INFO(f"Synced: {self.synced_frames[i]}")
 
-#TODO: a function that looks at the growing port list and assesses if it is 
-# time to call `earliest_next_frame()`
-
-# current_port_frame_indices = [0 for _ in range(len(ports))]
-
-# for key, frame_data in frame_data.items():
-
-#     logging.debug(frame_data)
-    # 
 
 if __name__ == "__main__":
 
@@ -209,10 +206,3 @@ if __name__ == "__main__":
 
     for i in range(len(syncr.synced_frames)):
         logging.info(f"From __main__: {syncr.synced_frames[i]}")
-    # while time.perf_counter - start_time < 30:
-        # time.sleep(1)
-
-
-# # from previous version of synchronizer file
-# with open("frame_data.json",) as f:
-#     frame_data = json.load(f)

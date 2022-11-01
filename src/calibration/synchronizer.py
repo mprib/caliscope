@@ -36,7 +36,7 @@ class Synchronizer:
         
         # place to put cumulative synced frames for reference after synchronizer
         # is closed
-        self.synced_frames = []
+        # self.synced_frames = []   Ignore this...the caller can hold the synced frames
         
         # place to pull real time data with get()
         self.synced_frames_q = Queue()
@@ -47,7 +47,9 @@ class Synchronizer:
         for port,device in session.rtd.items():
             self.ports.append(port)
             self.frame_data[port] = []
-        self.port_current_frame = [0 for _ in range(len(self.ports))]
+
+        self.port_current_frame = {port:0 for port in self.ports}
+        self.port_frame_count = {port:0 for port in self.ports}
 
         logging.info("About to submit Threadpool Harversters")
 
@@ -91,6 +93,7 @@ class Synchronizer:
                     "port": port,
                     "frame": frame,
                     "frame_index": frame_index,
+                    "fps": device.FPS_actual,
                     "frame_time": frame_time,
                     "corner_ids": corner_ids,
                     "frame_corners": frame_corners,
@@ -98,7 +101,7 @@ class Synchronizer:
                 })
             
             frame_index += 1
-
+            self.port_frame_count[port] = frame_index
 
     
     # get minimum value of frame_time for next layer
@@ -115,9 +118,7 @@ class Synchronizer:
     def frame_slack(self):
         """Determine how many unassigned frames are sitting in self.dataframe"""
         
-        frame_count = {port:len(data) for port, data in self.frame_data.items()}
-
-        slack = [frame_count[port] - self.port_current_frame[port] for port in self.ports] 
+        slack = [self.port_frame_count[port] - self.port_current_frame[port] for port in self.ports] 
         logging.debug(f"Slack in frames is {slack}")  
         return min(slack) 
 
@@ -175,7 +176,7 @@ class Synchronizer:
 
             logging.debug(f"Next Layer: {next_layer}")
 
-            self.synced_frames.append(next_layer)
+            # self.synced_frames.append(next_layer)
             self.synced_frames_q.put(next_layer)
 
 

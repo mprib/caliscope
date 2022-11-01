@@ -39,6 +39,29 @@ def square_resize(frame, final_side_length):
 
     return frame    
 
+def common_ids(portA, portB):
+    corner_idsA = frame_bundle[portA]["corner_ids"]
+    corner_idsB = frame_bundle[portB]["corner_ids"]
+    common_corners = np.intersect1d(corner_idsA,corner_idsB)
+    common_corners = common_corners.tolist()
+
+    return common_corners
+
+def obj_img_points(port, common_corner_ids):
+
+    corner_ids = frame_bundle[port]["corner_ids"]
+    frame_corners = frame_bundle[port]["frame_corners"].squeeze().tolist()
+    board_FOR_corners = frame_bundle[port]["board_FOR_corners"].squeeze().tolist()   
+
+    obj_points = []
+    img_points = []
+
+    for crnr_id, img, obj in zip(corner_ids, frame_corners, board_FOR_corners):
+        if crnr_id in common_corner_ids:
+            img_points.append(img)
+            obj_points.append(obj)
+
+    return obj_points, img_points 
 
 print(pairs)
 frame_height = 250
@@ -67,23 +90,23 @@ for frame_bundle in all_bundles:
 
         
         # get common corners between portA and portB
-        corner_idsA = frame_bundle[portA]["corner_ids"]
-        corner_idsB = frame_bundle[portB]["corner_ids"]
-        common_corners = np.intersect1d(corner_idsA,corner_idsB)
+        in_common = common_ids(portA, portB)
+        obj_A, img_A = obj_img_points(portA, in_common)
+        obj_B, img_B = obj_img_points(portB, in_common)
 
-        frame_cornersA = frame_bundle[portA]["frame_corners"] 
-        frame_cornersB = frame_bundle[portB]["frame_corners"] 
 
-        board_FOR_cornersA = frame_bundle[portA]["board_FOR_corners"]
-        board_FOR_cornersB = frame_bundle[portB]["board_FOR_corners"]
+        if len(in_common) > 6 and len(in_common)< 8:
+            logging.debug(f"Common corners for pair {pair} are {in_common}")
+            logging.debug(f"Objective location of points is {obj_A}")
+            logging.debug(f"Should be same as  {obj_B}")
+            logging.debug(f"Image Points for port A are {img_A}")
+            logging.debug(f"Image Points for port B are {img_B}")
 
-         
-        logging.debug(f"Common corners for pair {pair} are {common_corners}")
     cv2.imshow("Stereocalibration", stacked_bundle)
 
     cv2.waitKey(1)
 
-    time.sleep(.025)
+    # time.sleep(.001 )
 
     # for port, frame_data in frame_bundle.items():
     #     print(port)

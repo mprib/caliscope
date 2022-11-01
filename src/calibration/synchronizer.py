@@ -46,30 +46,32 @@ class Synchronizer:
         self.frame_data = {}
         for port,device in session.rtd.items():
             self.ports.append(port)
-            self.frame_data[port] = []
+            # self.frame_data[port] = []
 
-        self.port_current_frame = {port:0 for port in self.ports}
         self.port_frame_count = {port:0 for port in self.ports}
+        self.port_current_frame = {port:0 for port in self.ports}
 
-        logging.info("About to submit Threadpool Harversters")
+        self.frame_rates = []
+        self.mean_frame_times = []
 
         self.shutter_sync = Queue()
         self.fps_target = fps_target
-        self.throttle_wait = 1/fps_target
+        self.throttle_wait = 1/fps_target # initial value that will get revised
+
+        logging.info("About to submit Threadpool Harversters")
         self.threads = []
         for port,device in session.rtd.items():
             device.assign_shutter_sync(self.shutter_sync)
 
             t = Thread(target=self.harvest_corners, args=(device,), daemon=True)
-            self.threads.append(t)
-
-        for t in self.threads:
             t.start()
+            self.threads.append(t)
+        logging.info("Threadpool harvesters just submitted")
         
+        logging.info("Starting bundler"...")
         self.bundler = Thread(target= self.bundle_frames, args = ())
         self.bundler.start()
 
-        logging.info("Threadpool harvesters just submitted")
 
     def harvest_corners(self, device):
         port = device.cam.port
@@ -84,11 +86,11 @@ class Synchronizer:
             frame_time, frame, corner_ids, frame_corners, board_FOR_corners = device.reel.get()
             # print(f"Reading from port {port}: frame created at {round(frame_time,3)} read at {round(time.perf_counter(),3)}; ")                
             
-            corner_ids = corner_ids.tolist()
-            frame_corners = frame_corners.tolist()
-            board_FOR_corners = board_FOR_corners.tolist()
+            # corner_ids = corner_ids.tolist()
+            # frame_corners = frame_corners.tolist()
+            # board_FOR_corners = board_FOR_corners.tolist()
 
-            self.frame_data[port].append(
+            self.frame_data[f"{port}_{frame_index}"] = (
                 {
                     "port": port,
                     "frame": frame,
@@ -105,16 +107,27 @@ class Synchronizer:
 
     
     # get minimum value of frame_time for next layer
-    def earliest_next_frame(self, wait_retry = 0.05, attempt=0):
+    def earliest_next_frame(self):
 
         time_of_next_frames = []
         for port in self.ports:
             next_index = self.port_current_frame[port] + 1
-            next_frame_time = self.frame_data[port][next_index]["frame_time"]
+            next_frame_time = self.frame_data[f"{port}_{next_index}"]["frame_time"]
             time_of_next_frames.append(next_frame_time)
 
         return min(time_of_next_frames)
 
+    def earliest_current_frame(self):
+
+        time_of_current_frames = []
+        for port in self.ports:
+            current_index = self.port_current_frame[port] 
+            current_frame_time = self.frame_data[f"{port}_{current_index}"]["frame_time"]
+            time_of_current_frames.append(current_frame_time)
+
+        return min(time_of_current_frames)
+
+    
     def frame_slack(self):
         """Determine how many unassigned frames are sitting in self.dataframe"""
         
@@ -123,19 +136,24 @@ class Synchronizer:
         return min(slack) 
 
     def average_fps(self):
-        fps = []
-        for port in self.ports:
-            device = self.session.rtd[port]
-            fps.append(device.FPS_actual)
-        return np.mean(fps)
+
+        #only look at the most recent layers
+        if len(self.mean_frame_times)>10:
+            self.mean_frame_times = self.mean_frame_times[-10:]
+
+        delta_t = np.diff(self.mean_frame_times)
+        mean_delta_t = np.mean(delta_t)
+
+        return 1/mean_delta_t
 
     def throttle_fps(self):
-        if self.average_fps() > self.fps_target:
+        fps = self.average_fps()
+        if fps> self.fps_target:
             self.throttle_wait +=.0001
         else:
             self.throttle_wait -=.0001
-
-        time.sleep(self.throttle_wait)
+        print(f"FPS: {fps}") 
+        time.sleep(max(self.throttle_wait,0))
 
     def bundle_frames(self):
         
@@ -149,38 +167,46 @@ class Synchronizer:
             for port in self.ports:
                 self.shutter_sync.put("fire")
 
-            self.throttle_fps()
-
             # wait for frame data to populate
             while self.frame_slack() < 2:
                 time.sleep(.01)
 
             # don't put a frame in a bundle if the next bundle has a frame before it
-            cutoff_time = self.earliest_next_frame()
-            next_layer = []
+            # bundle_start = self.earliest_current_frame()
+            bundle_cutoff_time = self.earliest_next_frame()
+            
+            # delta_t = bundle_cutoff_time - bundle_start
+            # self.frame_rates.append(1/delta_t)
 
+            # only throttle if you are mostly current
+            if self.frame_slack()<5:
+                self.throttle_fps()
+
+
+            next_layer = {}
+            layer_frame_times = []
             for port in self.ports:
                 current_frame_index = self.port_current_frame[port]
-                current_frame_data = self.frame_data[port][current_frame_index]
+                current_frame_data = self.frame_data[f"{port}_{current_frame_index}"]
                 frame_time = current_frame_data["frame_time"]
 
                 # placeholder here is where the actual corner data would go
-                placeholder = f"{port}_{current_frame_index}_{frame_time}"
+                port_index_key = f"{port}_{current_frame_index}"
 
-                if frame_time < cutoff_time:
+                if frame_time < bundle_cutoff_time:
                     #add the data and increment the index
-                    next_layer.append(placeholder)      
+                    next_layer[port] = self.frame_data.pop(port_index_key)      
                     self.port_current_frame[port] +=1
+                    layer_frame_times.append(frame_time)
                 else:
-                    next_layer.append(None)
+                    next_layer[port] = None
+            logging.debug(f"Unassigned Frames: {len(self.frame_data)}")
 
-            logging.debug(f"Next Layer: {next_layer}")
-
-            # self.synced_frames.append(next_layer)
+            self.mean_frame_times.append(np.mean(layer_frame_times))
             self.synced_frames_q.put(next_layer)
 
 
-
+import pickle
 if __name__ == "__main__":
 
     session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
@@ -190,24 +216,28 @@ if __name__ == "__main__":
 
     session.load_rtds()
 
-    syncr = Synchronizer(session, fps_target=25)
+    syncr = Synchronizer(session, fps_target=6)
     # print(syncr.synced_frames)
 
+    all_bundles = []
     while True:
-        print(syncr.synced_frames_q.get())    
-    # putting this in here is definitely the wrong way to do it....move this 
-    # down to the demo section at the bottom and figure out how to pull
-    # the data you need from the synchronizer. That will answer your question
-    # about what to do next and give you a way to test this.
-    # note: this imshow is more for debugging...not sure what to do with it
-    # cv2.putText(frame,f"{round(device.FPS_actual,1)} FPS", (30,30), cv2.FONT_HERSHEY_PLAIN, 2, (0,0,250), 3)
-    # cv2.putText(frame, f"Time: {round(frame_time,1)}", (30, 70),cv2.FONT_HERSHEY_PLAIN, 2, (0,0,250), 3)
-    # cv2.imshow(f"Port {port}", frame)  # imshow is still IO, so threading may remain best choice     
- 
-    # key = cv2.waitKey(1)
-    # if key == ord("q"):
-    #     device.track_charuco = False
-    #     break
+        frame_bundle = syncr.synced_frames_q.get()   
+        all_bundles.append(frame_bundle)
+        for port, frame_data in frame_bundle.items():
+            if frame_data:
+                cv2.imshow(f"Port {port}", frame_data["frame"])  # imshow is still IO, so threading may remain best choice     
+
+        key = cv2.waitKey(1)
+
+        if key == ord("q"):
+            cv2.destroyAllWindows()
+            break
+
+        if key == ord("m"):
+            for port,device in session.rtd.items():
+                device.show_mediapipe = True
+
     
-    # for i in range(len(syncr.synced_frames)):
-    #     logging.info(f"From __main__: {syncr.synced_frames[i]}")
+    with open('all_bundles.pkl', 'wb') as f:
+        pickle.dump(all_bundles,f)
+

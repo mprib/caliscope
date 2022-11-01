@@ -62,7 +62,7 @@ class RealTimeDevice:
             self.avg_delta_time = self.delta_time
 
         # folding in current frame rate to trailing average to smooth out
-        self.avg_delta_time = 0.95*self.avg_delta_time + 0.05*self.delta_time
+        self.avg_delta_time = 0.9*self.avg_delta_time + 0.1*self.delta_time
         self.previous_time = self.start_time
 
         return 1/self.avg_delta_time
@@ -121,13 +121,6 @@ class RealTimeDevice:
                 self.run_mediapipe_hands()
                 self.process_charuco()
                 
-                if self.push_to_reel:
-                    # print(f"Pushing from port {self.cam.port} at {self.frame_time}")
-                    self.reel.put([self.frame_time, 
-                                   self._working_frame, 
-                                   self.mono_cal._frame_corner_ids,
-                                   self.mono_cal._frame_corners,
-                                   self.mono_cal.board_FOR_corners])
 
                 # I have misgivings about including this in here
                 # should be used as a sanity check of distortion params
@@ -137,6 +130,14 @@ class RealTimeDevice:
                 # must apply rotation at end...
                 # otherwise mismatch in frame / grid history dimensions
                 self.apply_rotation()
+
+                if self.push_to_reel:
+                    # print(f"Pushing from port {self.cam.port} at {self.frame_time}")
+                    self.reel.put([self.frame_time, 
+                                   self._working_frame, 
+                                   self.mono_cal._frame_corner_ids,
+                                   self.mono_cal._frame_corners,
+                                   self.mono_cal.board_FOR_corners])
 
                 # update frame that is emitted to GUI by frame emitter
                 # note: frame_emitter uses a throttled loop to just periodically

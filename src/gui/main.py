@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
         
 
         self.setWindowTitle("FreeMocap Camera Calibration")
-        self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
+        self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.png"))
         self.tabs = QTabWidget()
         self.tabs.setTabPosition(QTabWidget.TabPosition.North)
         self.tabs.setMovable(True)

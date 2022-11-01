@@ -1,5 +1,4 @@
 
-#%%
 from filecmp import clear_cache
 import sys
 from pathlib import Path
@@ -408,14 +407,3 @@ if __name__ == "__main__":
     sys.exit(App.exec())
 
 
-    # cam = Camera(port)
-    # real_time_device = RealTimeDevice(cam)
-    # charuco = Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525, inverted=True)
-    # real_time_device.assign_charuco(charuco)    
-
-    # config_dialog = CameraConfigDialog(real_time_device)
-    # config_dialog.show()
-    # sys.exit(App.exec())
-
-
-# %%

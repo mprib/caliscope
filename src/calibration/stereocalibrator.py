@@ -24,16 +24,35 @@ class StereoCalibrator:
 
         self.corner_threshold = 7
         
+
+
         # self.frame_bundle = frame_bundle
+        # initialize dictionary to hold stereo inputs
+        blank_dict = {"obj":[], "img_A": [], "img_B": [], "frame_time": []}
+        self.stereo_inputs = {pair:blank_dict for pair in pairs}
 
-    def superframe(self, frame_bundle, single_frame_height=250):
-
+    def process_frame_bundle(self, frame_bundle):
         self.frame_bundle = frame_bundle
-        self.single_frame_height = single_frame_height
+        
+        for pair in self.pairs:
+            portA = pair[0]
+            portB = pair[1]
+            self.set_common_ids(pair[0], pair[1])
+            obj_A, img_A = self.get_obj_img_points(portA)
+            obj_B, img_B = self.get_obj_img_points(portB)
 
+            if len(self.common_ids) > self.corner_threshold:
+                self.stereo_inputs[pair]["obj"].append(obj_A)
+                self.stereo_inputs[pair]["img_A"].append(img_A)
+                self.stereo_inputs[pair]["img_B"].append(img_B)
+
+    def superframe(self, single_frame_height=250):
+
+        self.single_frame_height = single_frame_height
         stacked_bundle = np.array([])
 
-        for pair in pairs:
+        for pair in self.pairs:
+
             portA = pair[0]
             portB = pair[1]        
 
@@ -45,20 +64,9 @@ class StereoCalibrator:
             else:
                 stacked_bundle = hstacked_pair
 
-            # get common corners between portA and portB
-            in_common = self.common_ids(portA, portB)
-            obj_A, img_A = self.obj_img_points(portA, in_common)
-            obj_B, img_B = self.obj_img_points(portB, in_common)
-
-
-            if len(in_common) > self.corner_threshold:
-                stereo_inputs[pair]["obj"].append(obj_A)
-                stereo_inputs[pair]["img_A"].append(img_A)
-                stereo_inputs[pair]["img_B"].append(img_B)
-
         return stacked_bundle
 
-    def square_resize(self, port):
+    def resize_to_square(self, port):
         """ returns a square image with black borders to round it out. If the 
         data is none, then makes the image completely blank"""
 
@@ -90,21 +98,21 @@ class StereoCalibrator:
 
         return frame    
 
-    def common_ids(self, portA, portB):
+    def set_common_ids(self, portA, portB):
 
         if self.frame_bundle[portA] and self.frame_bundle[portB]:
             corner_idsA = self.frame_bundle[portA]["corner_ids"]
             corner_idsB = self.frame_bundle[portB]["corner_ids"]
-            common_corners = np.intersect1d(corner_idsA,corner_idsB)
-            common_corners = common_corners.tolist()
+            common_ids = np.intersect1d(corner_idsA,corner_idsB)
+            common_ids = common_ids.tolist()
 
-            return common_corners
+            self.common_ids =  common_ids
         else:
-            return []
+            self.common_ids = []
 
-    def obj_img_points(self, port, common_corner_ids):
+    def get_obj_img_points(self, port):
 
-        if self.frame_bundle[port]:
+        if self.frame_bundle[port] and len(self.common_ids)>0:
             corner_ids = self.frame_bundle[port]["corner_ids"]
             frame_corners = self.frame_bundle[port]["frame_corners"].squeeze().tolist()
             board_FOR_corners = self.frame_bundle[port]["board_FOR_corners"].squeeze().tolist()   
@@ -113,7 +121,7 @@ class StereoCalibrator:
             img_points = []
 
             for crnr_id, img, obj in zip(corner_ids, frame_corners, board_FOR_corners):
-                if crnr_id in common_corner_ids:
+                if crnr_id in self.common_ids:
                     img_points.append(img)
                     obj_points.append(obj)
 
@@ -122,11 +130,10 @@ class StereoCalibrator:
             return [[]],[[]]
 
 
-    #%%
     def hstack_frames(self, portA, portB):
 
-        frameA = self.square_resize(portA)
-        frameB = self.square_resize(portB)
+        frameA = self.resize_to_square(portA)
+        frameB = self.resize_to_square(portB)
 
         stacked_pair = np.hstack((frameA, frameB))
 
@@ -137,22 +144,19 @@ if __name__ == "__main__":
 
     with open(r'C:\Users\Mac Prible\repos\learn-opencv\all_bundles.pkl', 'rb') as f:
         all_bundles = pickle.load(f)
-# %%
+
     ports = [0,1,2]
     pairs = [(i,j) for i,j in combinations(ports,2)]
 
-    # initialize dictionary to hold stereo inputs
-    blank_dict = {"obj":[], "img_A": [], "img_B": []}
-    stereo_inputs = {pair:blank_dict for pair in pairs}
     
     stereo_cal = StereoCalibrator(ports)
     #%%
     for frame_bundle in all_bundles:
-
-        stacked_pairs = stereo_cal.superframe(frame_bundle)
+        stereo_cal.process_frame_bundle(frame_bundle)
+        stacked_pairs = stereo_cal.superframe(single_frame_height=250)
 
         cv2.imshow("Stereocalibration", stacked_pairs)
         cv2.waitKey(1)
         time.sleep(.05 )
 
-    logging.debug(pprint.pformat(stereo_inputs))
+    logging.debug(pprint.pformat(stereo_cal.stereo_inputs))

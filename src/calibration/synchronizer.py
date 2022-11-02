@@ -68,7 +68,7 @@ class Synchronizer:
             self.threads.append(t)
         logging.info("Threadpool harvesters just submitted")
         
-        logging.info("Starting bundler"...")
+        logging.info("Starting bundler...")
         self.bundler = Thread(target= self.bundle_frames, args = ())
         self.bundler.start()
 

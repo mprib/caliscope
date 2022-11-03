@@ -34,10 +34,6 @@ class Synchronizer:
         
         self.ports = []
         
-        # place to put cumulative synced frames for reference after synchronizer
-        # is closed
-        # self.synced_frames = []   Ignore this...the caller can hold the synced frames
-        
         # place to pull real time data with get()
         self.synced_frames_q = Queue()
 

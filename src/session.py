@@ -34,9 +34,6 @@ class Session:
 
         self.load_config()
         self.load_charuco()
-        # self.load_cameras()
-        # self.find_cameras()
-        # self.load_rtds()
 
     def load_config(self):
 

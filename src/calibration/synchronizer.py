@@ -80,7 +80,7 @@ class Synchronizer:
         while True:
 
             frame_time, frame, corner_ids, frame_corners, board_FOR_corners = device.reel.get()
-            # print(f"Reading from port {port}: frame created at {round(frame_time,3)} read at {round(time.perf_counter(),3)}; ")                
+            #True print(f"Reading from port {port}: frame created at {round(frame_time,3)} read at {round(time.perf_counter(),3)}; ")                
             
             # corner_ids = corner_ids.tolist()
             # frame_corners = frame_corners.tolist()
@@ -148,7 +148,7 @@ class Synchronizer:
             self.throttle_wait +=.0001
         else:
             self.throttle_wait -=.0001
-        print(f"FPS: {fps}") 
+        # print(f"FPS: {fps}") 
         time.sleep(max(self.throttle_wait,0))
 
     def bundle_frames(self):

@@ -29,8 +29,8 @@ class StereoCalibrator:
         self.syncronizer = syncronizer
 
         # self.ports = 
-        # self.uncalibrated_pairs = [(i,j) for i,j in combinations(self.syncronizer.ports,2)]
-        self.uncalibrated_pairs = [(0,1)]
+        self.uncalibrated_pairs = [(i,j) for i,j in combinations(self.syncronizer.ports,2)]
+        # self.uncalibrated_pairs = [(0,2)]
         self.stereo_inputs = {pair:{"obj":[], "img_A": [], "img_B": []} for pair in self.uncalibrated_pairs}
         self.last_store_time = time.perf_counter()        
         self.thread = Thread(target=self.show_bundled_frames, args=(), daemon=True)
@@ -56,8 +56,10 @@ class StereoCalibrator:
                 break
 
     def stereo_calibrate(self):
-        stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
-        
+        # stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
+        stereocalibration_flags = cv2.CALIB_USE_INTRINSIC_GUESS
+
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.00001) 
         for pair, inputs in self.stereo_inputs.items():
             camA = self.syncronizer.session.camera[pair[0]]
             camB = self.syncronizer.session.camera[pair[1]]
@@ -87,11 +89,12 @@ class StereoCalibrator:
                                                camB.camera_matrix,  
                                                camB.distortion, 
                                                (400, 400), # (width, height)....my recollection is that these did not matter. from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
-                                            #    criteria = criteria, 
-                                               flags = stereocalibration_flags)
+                                               criteria = criteria, 
+                                               flags = stereocalibration_flags,
+                                               )
 
-            print(f"For camera pair {pair}, rotation is {rotation} and translation is {translation}")
-
+            print(f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}")
+            print(f"RMSE of reprojection is {ret}")
 
     def remove_full_pairs(self):
 
@@ -99,7 +102,7 @@ class StereoCalibrator:
 
             grid_count = len(self.stereo_inputs[pair]["obj"])
 
-            if grid_count > 5:
+            if grid_count > 15:
                 self.uncalibrated_pairs.remove(pair)
                 # img_A = 
 
@@ -280,19 +283,5 @@ if __name__ == "__main__":
 
     stereo_cal = StereoCalibrator(syncr)
 
-    # #%%
-    # for frame_bundle in all_bundles:
-    #     stereo_cal.process_frame_bundle(frame_bundle, time_threshold=.5, corner_threshold=6)
-    #     stacked_pairs = stereo_cal.superframe(single_frame_height=250)
-
-    #     cv2.imshow("Stereocalibration", stacked_pairs)
-    #     time.sleep(.1)
-    #     key = cv2.waitKey(1)
-    #     if key == ord("q"):
-    #         cv2.destroyAllWindows()
-    #         break 
-
-    
-        
     cv2.destroyAllWindows()
     logging.debug(pprint.pformat(stereo_cal.stereo_inputs))

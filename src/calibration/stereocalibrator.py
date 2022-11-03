@@ -24,7 +24,7 @@ class StereoCalibrator:
 
         # self.frame_bundle = frame_bundle
         # initialize dictionary to hold stereo inputs
-        blank_dict = {"obj":[], "img_A": [], "img_B": [], "frame_time": []}
+        blank_dict = {"obj":[], "img_A": [], "img_B": []}
         self.stereo_inputs = {pair:blank_dict for pair in pairs}
         self.last_store_time = time.perf_counter()        
 
@@ -69,17 +69,11 @@ class StereoCalibrator:
 
         return stacked_bundle
 
-    def resize_to_square(self, port):
+    def resize_to_square(self, frame):
         """ returns a square image with black borders to round it out. If the 
         data is none, then makes the image completely blank"""
 
         edge = self.single_frame_height
-        bundle = self.frame_bundle[port]
-        if bundle is None:
-            frame = np.zeros((edge, edge, 3), dtype=np.uint8)
-
-        else:
-            frame = self.frame_bundle[port]["frame"]
 
         frame = cv2.flip(frame,1)
 
@@ -115,7 +109,6 @@ class StereoCalibrator:
 
     def get_obj_img_points(self, port):
 
-        # if self.frame_bundle[port] and len(self.common_ids)>self.corner_threshold:
         corner_ids = self.frame_bundle[port]["corner_ids"]
         frame_corners = self.frame_bundle[port]["frame_corners"].squeeze().tolist()
         board_FOR_corners = self.frame_bundle[port]["board_FOR_corners"].squeeze().tolist()   
@@ -132,11 +125,57 @@ class StereoCalibrator:
         # else:
             # return [[]],[[]]
 
+    def mark_stored_corners(self, frameA, portA, frameB, portB):
+        pair = (portA, portB)
+        img_A = self.stereo_inputs[pair]['img_A']
+        img_B = self.stereo_inputs[pair]['img_B']
+
+
+        for cornerset in img_A:
+            for corner in cornerset:
+                corner = (int(corner[0]), int(corner[1]))
+                cv2.circle(frameA, corner,2,(255,165,0), 2,1)
+
+        for cornerset in img_B:
+            for corner in cornerset:
+                corner = (int(corner[0]), int(corner[1]))
+                cv2.circle(frameB, corner,2,(255,165,0), 2,1)
+
+        # print(img_A, img_B)
+
+        return frameA, frameB
+            
+    def frame_or_blank(self, port):
+
+        edge = self.single_frame_height
+        bundle = self.frame_bundle[port]
+        if bundle is None:
+            frame = np.zeros((edge, edge, 3), dtype=np.uint8)
+        else:
+            frame = self.frame_bundle[port]["frame"]
+
+        frame = frame.copy()
+        return frame
+
 
     def hstack_frames(self, portA, portB):
 
-        frameA = self.resize_to_square(portA)
-        frameB = self.resize_to_square(portB)
+        frameA = self.frame_or_blank(portA)
+        frameB = self.frame_or_blank(portB)
+
+        frameA, frameB = self.mark_stored_corners(frameA, portA, frameB, portB)
+        # frameB = self.mark_stored_corners(frameB, (portA, portB))
+
+        frameA = cv2.flip(frameA,1)
+        cv2.putText(frameA, f"Port: {portA}", (30,50), cv2.FONT_HERSHEY_PLAIN, 5, (0,0,200), 3)
+        frameA = cv2.flip(frameA,1)
+
+        frameB = cv2.flip(frameB,1)
+        cv2.putText(frameB, f"Port: {portB}", (30,50), cv2.FONT_HERSHEY_PLAIN, 5, (0,0,200), 3)
+        frameB = cv2.flip(frameB,1)
+
+        frameA = self.resize_to_square(frameA)
+        frameB = self.resize_to_square(frameB)
 
         stacked_pair = np.hstack((frameA, frameB))
 
@@ -153,6 +192,8 @@ if __name__ == "__main__":
 
     
     stereo_cal = StereoCalibrator(ports)
+# %%
+
     #%%
     for frame_bundle in all_bundles:
         stereo_cal.process_frame_bundle(frame_bundle, time_threshold=1, corner_threshold=7)
@@ -160,7 +201,7 @@ if __name__ == "__main__":
 
         cv2.imshow("Stereocalibration", stacked_pairs)
         cv2.waitKey(1)
-        time.sleep(.03 )
+        time.sleep(.15)
 
     cv2.destroyAllWindows()
     logging.debug(pprint.pformat(stereo_cal.stereo_inputs))

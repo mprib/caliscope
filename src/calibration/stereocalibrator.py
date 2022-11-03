@@ -22,29 +22,32 @@ class StereoCalibrator:
         self.ports = ports
         self.pairs = [(i,j) for i,j in combinations(ports,2)]
 
-        self.corner_threshold = 7
-        
-
-
         # self.frame_bundle = frame_bundle
         # initialize dictionary to hold stereo inputs
         blank_dict = {"obj":[], "img_A": [], "img_B": [], "frame_time": []}
         self.stereo_inputs = {pair:blank_dict for pair in pairs}
+        self.last_store_time = time.perf_counter()        
 
-    def process_frame_bundle(self, frame_bundle):
+    def process_frame_bundle(self, frame_bundle, time_threshold=0.5, corner_threshold=7):
         self.frame_bundle = frame_bundle
-        
+        # self.corner_threshold = corner_threshold
+
         for pair in self.pairs:
             portA = pair[0]
             portB = pair[1]
             self.set_common_ids(pair[0], pair[1])
-            obj_A, img_A = self.get_obj_img_points(portA)
-            obj_B, img_B = self.get_obj_img_points(portB)
+            enough_corners = len(self.common_ids) > corner_threshold
+            enough_time = time.perf_counter() - self.last_store_time > time_threshold
 
-            if len(self.common_ids) > self.corner_threshold:
-                self.stereo_inputs[pair]["obj"].append(obj_A)
+            if enough_corners and enough_time:
+                obj, img_A = self.get_obj_img_points(portA)
+                _, img_B = self.get_obj_img_points(portB)
+
+             #    if len(self.common_ids) > self.corner_threshold:
+                self.stereo_inputs[pair]["obj"].append(obj)
                 self.stereo_inputs[pair]["img_A"].append(img_A)
                 self.stereo_inputs[pair]["img_B"].append(img_B)
+                self.last_store_time = time.perf_counter()
 
     def superframe(self, single_frame_height=250):
 
@@ -112,22 +115,22 @@ class StereoCalibrator:
 
     def get_obj_img_points(self, port):
 
-        if self.frame_bundle[port] and len(self.common_ids)>0:
-            corner_ids = self.frame_bundle[port]["corner_ids"]
-            frame_corners = self.frame_bundle[port]["frame_corners"].squeeze().tolist()
-            board_FOR_corners = self.frame_bundle[port]["board_FOR_corners"].squeeze().tolist()   
+        # if self.frame_bundle[port] and len(self.common_ids)>self.corner_threshold:
+        corner_ids = self.frame_bundle[port]["corner_ids"]
+        frame_corners = self.frame_bundle[port]["frame_corners"].squeeze().tolist()
+        board_FOR_corners = self.frame_bundle[port]["board_FOR_corners"].squeeze().tolist()   
 
-            obj_points = []
-            img_points = []
+        obj_points = []
+        img_points = []
 
-            for crnr_id, img, obj in zip(corner_ids, frame_corners, board_FOR_corners):
-                if crnr_id in self.common_ids:
-                    img_points.append(img)
-                    obj_points.append(obj)
+        for crnr_id, img, obj in zip(corner_ids, frame_corners, board_FOR_corners):
+            if crnr_id in self.common_ids:
+                img_points.append(img)
+                obj_points.append(obj)
 
-            return obj_points, img_points 
-        else:
-            return [[]],[[]]
+        return obj_points, img_points 
+        # else:
+            # return [[]],[[]]
 
 
     def hstack_frames(self, portA, portB):
@@ -152,11 +155,12 @@ if __name__ == "__main__":
     stereo_cal = StereoCalibrator(ports)
     #%%
     for frame_bundle in all_bundles:
-        stereo_cal.process_frame_bundle(frame_bundle)
+        stereo_cal.process_frame_bundle(frame_bundle, time_threshold=1, corner_threshold=7)
         stacked_pairs = stereo_cal.superframe(single_frame_height=250)
 
         cv2.imshow("Stereocalibration", stacked_pairs)
         cv2.waitKey(1)
-        time.sleep(.05 )
+        time.sleep(.03 )
 
+    cv2.destroyAllWindows()
     logging.debug(pprint.pformat(stereo_cal.stereo_inputs))

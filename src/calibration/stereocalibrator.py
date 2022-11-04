@@ -113,7 +113,7 @@ class StereoCalibrator:
 
             self.session.config[f"stereo_{pair[0]}_{pair[1]}_rotation"] = rotation
             self.session.config[f"stereo_{pair[0]}_{pair[1]}_translation"] = translation 
-            self.session.config[f"stereo_{pair[0]}_{pair[1]}_translation"] = translation 
+            self.session.config[f"stereo_{pair[0]}_{pair[1]}_RMSE"] = ret 
 
             logging.info(f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}")
             logging.info(f"RMSE of reprojection is {ret}")

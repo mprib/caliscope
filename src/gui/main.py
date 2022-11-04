@@ -1,7 +1,6 @@
 # Built following the tutorials that begin here: 
 # https://www.pythonguis.com/tutorials/pyqt6-creating-your-first-window/
 
-from re import A, L
 import sys
 
 from PyQt6.QtCore import Qt
@@ -17,6 +16,7 @@ from threading import Thread
 from qtpy import QT_VERSION
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 from src.gui.charuco_builder import CharucoBuilder
 from src.gui.camera_config_dialogue import CameraConfigDialog
 from src.session import Session
@@ -32,22 +32,18 @@ class MainWindow(QMainWindow):
         DISPLAY_WIDTH = screen.size().width()
         DISPLAY_HEIGHT = screen.size().height()         
         self.setMinimumSize(DISPLAY_WIDTH*.30,DISPLAY_HEIGHT*.7)
-        
 
         self.setWindowTitle("FreeMocap Camera Calibration")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.png"))
         self.tabs = QTabWidget()
         self.tabs.setTabPosition(QTabWidget.TabPosition.North)
         self.tabs.setMovable(True)
-        # self.tabs.setTabsClosable(True)
-        # self.tabs.tabCloseRequested.connect(self.tabs.removeTab)
+
         self.setCentralWidget(self.tabs)
         self.summary = SessionSummary(self.session)
         self.tabs.addTab(self.summary, "Summary")
         
         self.summary.launch_charuco_builder_btn.clicked.connect(self.launch_cha_build)
-        # self.tabs.addTab(CharucoBuilder(self.session), "Charuco Builder")
-        # self.su 
         self.summary.open_cameras_btn.clicked.connect(self.open_cams)
         self.summary.close_cameras_btn.clicked.connect(self.close_cams)
 

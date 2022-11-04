@@ -23,8 +23,8 @@ from src.session import Session
 
 logging.basicConfig(filename="synchronizer.log", 
                     filemode = "w", 
-                    # level=logging.INFO)
-                    level=logging.DEBUG)
+                    level=logging.INFO)
+                    # level=logging.DEBUG)
 
 
 class Synchronizer:
@@ -234,6 +234,6 @@ if __name__ == "__main__":
                 device.show_mediapipe = True
 
     
-    with open('all_bundles.pkl', 'wb') as f:
+    with open('bundles.pkl', 'wb') as f:
         pickle.dump(all_bundles,f)
 

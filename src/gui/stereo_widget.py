@@ -35,7 +35,8 @@ class StereoDisplay(QDialog):
 
         self.setWindowTitle("StereoCamera Calibration")
         self.stacked_frame_width = 500
-
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(500)
         self.frame_emitter = StereoFrameEmitter(self.stereo_cal)
         self.frame_emitter.start()
         
@@ -67,11 +68,14 @@ class StereoDisplay(QDialog):
 
         self.frame_emitter.ImageBroadcast.connect(ImageUpdateSlot)
 
+        def stop_video_slot(bool):
+            self.frame_display.setText("Beginning Calibration")
+        self.frame_emitter.CalibrationText.connect(stop_video_slot)
 class StereoFrameEmitter(QThread):
     # establish signals from the frame that will be displayed in real time 
     # within the GUI
     ImageBroadcast = pyqtSignal(QPixmap)
-
+    CalibrationText = pyqtSignal(object)
     
     def __init__(self, stereo_cal):
         # pixmap_edge length is from the display window. Keep the display area
@@ -82,15 +86,16 @@ class StereoFrameEmitter(QThread):
         logging.info("Initializing Stereo Calibration Frame Emitter")
     
     def run(self):
-        MIN_SLEEP_TIME = .01
         self.ThreadActive = True
-
          
         while self.ThreadActive:
             try:    # takes a moment for capture widget to spin up...don't error out
 
                 # Grab a frame from the capture widget and broadcast to displays
                 frame = self.stereo_cal.stacked_frames.get()
+                if frame.shape == (1,):     # entered calibration; no more frames
+                    self.CalibrationText.emit(True)
+                    # self.stop()
                 image = self.cv2_to_qlabel(frame)
                 pixmap = QPixmap.fromImage(image)
 
@@ -120,8 +125,8 @@ if __name__ == "__main__":
     session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
     session.load_cameras()
     session.load_rtds()
-    session.adjust_resolutions()
-    session.find_additional_cameras() # looking to add a third
+    # session.adjust_resolutions()
+    # session.find_additional_cameras() # looking to add a third
     start_time = time.perf_counter()
 
 

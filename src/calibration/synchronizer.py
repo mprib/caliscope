@@ -23,8 +23,8 @@ from src.session import Session
 
 logging.basicConfig(filename="synchronizer.log", 
                     filemode = "w", 
-                    level=logging.INFO)
-                    # level=logging.DEBUG)
+                    # level=logging.INFO)
+                    level=logging.DEBUG)
 
 
 class Synchronizer:
@@ -80,11 +80,6 @@ class Synchronizer:
         while True:
 
             frame_time, frame, corner_ids, frame_corners, board_FOR_corners = device.reel.get()
-            #True print(f"Reading from port {port}: frame created at {round(frame_time,3)} read at {round(time.perf_counter(),3)}; ")                
-            
-            # corner_ids = corner_ids.tolist()
-            # frame_corners = frame_corners.tolist()
-            # board_FOR_corners = board_FOR_corners.tolist()
 
             self.frame_data[f"{port}_{frame_index}"] = (
                 {
@@ -153,6 +148,10 @@ class Synchronizer:
 
     def bundle_frames(self):
         
+        logging.info(f"Waiting for all ports to begin harvesting corners...")
+        while self.frame_slack() == 0:
+            time.sleep(.01)
+
         # need to have 2 frames to assess bundling
         for port in self.ports:
             self.shutter_sync.put("fire")
@@ -208,9 +207,10 @@ if __name__ == "__main__":
     session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
     session.load_cameras()
     session.find_additional_cameras() # looking to add a third
+    session.load_rtds()
+    session.adjust_resolutions()
     start_time = time.perf_counter()
 
-    session.load_rtds()
 
     syncr = Synchronizer(session, fps_target=6)
     # print(syncr.synced_frames)

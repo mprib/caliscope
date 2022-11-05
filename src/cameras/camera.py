@@ -31,7 +31,8 @@ class Camera(object):
 # see above for constants used to access properties
     def __init__(self, port):
 
-        # check if source has a data feed before proceeding
+        # check if source has a data feed before proceeding...if not it is 
+        # either in use or fake
         test_capture = cv2.VideoCapture(port)
         for _ in range(0, TEST_FRAME_COUNT):
             good_read, frame = test_capture.read()
@@ -61,11 +62,13 @@ class Camera(object):
             self.distortion = None
             self.grid_count = None
         else:
+            # probably busy
             self.port = port
             self.capture = None
             self.active_port = False
             raise Exception(f"Not reading at port {port}...likely in use")       
         if isinstance(self.possible_resolutions[0], int):
+            # probably not real
             self.port = port
             self.capture = None
             self.active_port = False

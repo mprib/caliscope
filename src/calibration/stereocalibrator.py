@@ -1,8 +1,8 @@
 import logging
 logging.basicConfig(filename="stereocalibration.log", 
                     filemode = "w", 
-                    # level=logging.DEBUG)
-                    level=logging.INFO)
+                    level=logging.DEBUG)
+                    # level=logging.INFO)
 
 import pickle
 import cv2
@@ -34,9 +34,9 @@ class StereoCalibrator:
         # when this many frames of conrners synched, move on to calibration
         self.grid_count_trigger = 15 
         self.wait_time = 1  # seconds between snapshots
+        # board corners in common for a snapshot to be taken
         self.corner_threshold = 7
 
-        
         self.stacked_frames = Queue() 
 
         self.ports = []
@@ -60,7 +60,7 @@ class StereoCalibrator:
             # frame_bundle = self.synchronizer.synced_frames_q.get()
             self.process_frame_bundle(frame_bundle)
             
-            self.stacked_frames.put(stereo_cal.superframe(single_frame_height=250))
+            self.stacked_frames.put(self.superframe(single_frame_height=250))
             # cv2.imshow("Stereocalibration", stacked_pairs)
 
             self.remove_full_pairs()
@@ -145,7 +145,7 @@ class StereoCalibrator:
                 obj, img_A = self.get_obj_img_points(portA)
                 _, img_B = self.get_obj_img_points(portB)
                
-                self.stereo_inputs[pair]["obj"].append(obj)
+                self.stereo)_inputs[pair]["obj"].append(obj)
                 self.stereo_inputs[pair]["img_A"].append(img_A)
                 self.stereo_inputs[pair]["img_B"].append(img_B)
                 self.last_store_time[pair] = time.perf_counter()
@@ -197,7 +197,6 @@ class StereoCalibrator:
                                     cv2.BORDER_CONSTANT,value = pad_color)
 
         frame = imutils.resize(frame, height=edge)
-
         return frame    
 
     def set_common_ids(self, portA, portB):
@@ -284,6 +283,9 @@ class StereoCalibrator:
         frameA = self.resize_to_square(frameA)
         frameB = self.resize_to_square(frameB)
 
+        # cv2.imshow(str(portA), frameA)
+        # cv2.imshow(str(portB), frameB)
+
         stacked_pair = np.hstack((frameA, frameB))
 
         return stacked_pair
@@ -291,28 +293,15 @@ class StereoCalibrator:
 
 if __name__ == "__main__":
 
-    # with open(r'C:\Users\Mac Prible\repos\learn-opencv\all_bundles.pkl', 'rb') as f:
-        # all_bundles = pickle.load(f)
-    # testing = "playback"
-    # testing = "live"
-    # if testing == "live":
+
     logging.debug("Test live stereocalibration processing")
     session = Session("test_session")
     session.load_cameras()
     session.load_rtds()
+    session.adjust_resolutions()
+    time.sleep(3)
     syncr = Synchronizer(session, fps_target=6)
     stereo_cal = StereoCalibrator(syncr)
-
-    # else:
-    #     logging.debug("Test processing of recorded bundles")
-    #     session = Session("test_session")
-
-    #     session.load_cameras()
-    #     session.load_rtds()
-    #     all_bundles_path = r'C:\Users\Mac Prible\repos\learn-opencv\bundles.pkl' 
-    #     stereo_cal = StereoCalibrator(session = session, bundled_frame_path=all_bundles_path)
-
-
 
     while len(stereo_cal.uncalibrated_pairs) > 0:
             

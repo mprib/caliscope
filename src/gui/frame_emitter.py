@@ -1,3 +1,8 @@
+import logging
+logging.basicConfig(filename="synchronizer.log", 
+                    filemode = "w", 
+                    level=logging.INFO)
+
 import sys
 from pathlib import Path
 import time

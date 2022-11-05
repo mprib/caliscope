@@ -22,8 +22,6 @@ from src.session import Session
 from src.calibration.synchronizer import Synchronizer
 
 
-
-
 class StereoCalibrator:
     logging.info("Building Stereocalibrator...")
     def __init__(self, synchronizer):
@@ -32,10 +30,10 @@ class StereoCalibrator:
         self.session = synchronizer.session
         
         # when this many frames of conrners synched, move on to calibration
-        self.grid_count_trigger = 15 
+        self.grid_count_trigger = 5 
         self.wait_time = 1  # seconds between snapshots
         # board corners in common for a snapshot to be taken
-        self.corner_threshold = 7
+        self.corner_threshold = 6
 
         self.stacked_frames = Queue() 
 
@@ -50,22 +48,24 @@ class StereoCalibrator:
 
         logging.debug(f"Processing pairs of uncalibrated pairs: {self.uncalibrated_pairs}")
         self.stereo_inputs = {pair:{"obj":[], "img_A": [], "img_B": []} for pair in self.uncalibrated_pairs}
-        self.thread = Thread(target=self.show_bundled_frames, args=(), daemon=True)
+        self.thread = Thread(target=self.push_bundled_frames, args=(), daemon=True)
         self.thread.start()
 
     
-    def show_bundled_frames(self):
+    def push_bundled_frames(self):
+        logging.debug(f"Currently {len(self.uncalibrated_pairs)} uncalibrated pairs ")
         while len(self.uncalibrated_pairs) >0:
             frame_bundle = self.synchronizer.synced_frames_q.get()
             # frame_bundle = self.synchronizer.synced_frames_q.get()
             self.process_frame_bundle(frame_bundle)
-            
+            logging.debug("About to push bundled frame to stack")
             self.stacked_frames.put(self.superframe(single_frame_height=250))
             # cv2.imshow("Stereocalibration", stacked_pairs)
 
             self.remove_full_pairs()
 
             if len(self.uncalibrated_pairs) == 0:
+                self.stacked_frames.put(np.array([-1]))
                 self.stereo_calibrate()
 
 
@@ -145,7 +145,7 @@ class StereoCalibrator:
                 obj, img_A = self.get_obj_img_points(portA)
                 _, img_B = self.get_obj_img_points(portB)
                
-                self.stereo)_inputs[pair]["obj"].append(obj)
+                self.stereo_inputs[pair]["obj"].append(obj)
                 self.stereo_inputs[pair]["img_A"].append(img_A)
                 self.stereo_inputs[pair]["img_B"].append(img_B)
                 self.last_store_time[pair] = time.perf_counter()
@@ -298,20 +298,30 @@ if __name__ == "__main__":
     session = Session("test_session")
     session.load_cameras()
     session.load_rtds()
-    session.adjust_resolutions()
-    time.sleep(3)
+    # session.adjust_resolutions()
+    # time.sleep(3)
+    logging.info("Creating Synchronizer")
     syncr = Synchronizer(session, fps_target=6)
+    logging.info("Creating Stereocalibrator")
     stereo_cal = StereoCalibrator(syncr)
 
+    # while len(stereo_cal.uncalibrated_pairs) == 0:
+        # time.sleep(.1)
+    logging.info("Showing Stacked Frames")
     while len(stereo_cal.uncalibrated_pairs) > 0:
             
-            frame = stereo_cal.stacked_frames.get()
-            cv2.imshow("Stereocalibration", frame)
+        frame = stereo_cal.stacked_frames.get()
+        print(frame.dtype)
+        print(frame.shape)
+        if frame.shape == (1,):
+            logging.info("Beginning to calibrate")
+            cv2.destroyAllWindows()
+        cv2.imshow("Stereocalibration", frame)
 
-            key = cv2.waitKey(1)
-            if key == ord("q"):
-                cv2.destroyAllWindows()
-                break
+        key = cv2.waitKey(1)
+        if key == ord("q"):
+            cv2.destroyAllWindows()
+            break
     
 
 

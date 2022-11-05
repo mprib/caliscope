@@ -21,7 +21,7 @@ from threading import Thread
 import time
 
 
-TEST_FRAME_COUNT = 3
+TEST_FRAME_COUNT = 10
 MIN_RESOLUTION_CHECK = 500
 MAX_RESOLUTION_CHECK = 10000
 
@@ -34,9 +34,10 @@ class Camera(object):
         # check if source has a data feed before proceeding
         test_capture = cv2.VideoCapture(port)
         for _ in range(0, TEST_FRAME_COUNT):
-            success, frame = test_capture.read()
-
-        if success:
+            good_read, frame = test_capture.read()
+        
+            # pass # dealing with this in the else statemetn below...not a real camera
+        if good_read:
             self.port = port
             self.capture = test_capture
             self.active_port = True
@@ -46,7 +47,7 @@ class Camera(object):
             self.is_connected = True
             self.is_rolling = False
             self.stop_rolling_trigger = False # used for managing threads
-            
+        
             # read by RealTimeDevice to set orientation
             self.rotation_count = 0 # +1 for each 90 degree CW rotation, -1 for CCW
 
@@ -63,8 +64,13 @@ class Camera(object):
             self.port = port
             self.capture = None
             self.active_port = False
-            raise Exception(f"No input from source {port}")       
-
+            raise Exception(f"Not reading at port {port}...likely in use")       
+        if isinstance(self.possible_resolutions[0], int):
+            self.port = port
+            self.capture = None
+            self.active_port = False
+            raise Exception(f"{port}...likely not real")       
+        
     @property
     def exposure(self):
         return self._exposure
@@ -256,7 +262,7 @@ def display(camera, win_name=None):
 if __name__ == "__main__":
     # if True:
 
-    cam = Camera(0)
+    cam = Camera(3)
     print(cam.possible_resolutions)
     #%%
 

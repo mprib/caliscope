@@ -43,13 +43,16 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.tabs)
 
         self.summary = SessionSummary(self.session)
-        self.tabs.addTab(self.summary, "Summary")
+        self.tabs.addTab(self.summary, "&Summary")
         
         self.summary.launch_charuco_builder_btn.clicked.connect(self.launch_charuco_builder)
         self.summary.open_cameras_btn.clicked.connect(self.open_cams)
         self.summary.close_cameras_btn.clicked.connect(self.close_cams)
 
+        self.summary.find_connect_cams_btn.clicked.connect(self.find_connect_cams)
+
     def open_cams(self):
+
         # see if this helps with updating changes
         self.session.load_config()
         self.session.load_charuco()
@@ -99,12 +102,32 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.charuco_builder, "Charuco Builder")
         # self.tabs["Charuco Builder"].setClosable(True)
 
+    def find_connect_cams(self):
+        
+        def find_cam_worker():
+
+            self.session.load_cameras()
+            self.session.find_additional_cameras()
+            self.session.load_rtds()
+            self.session.adjust_resolutions()
+            self.summary.camera_table.update_data()
+
+        if not self.cams_connected:
+            print("Connecting to cameras...This may take a moment.")
+            self.find_cams = Thread(target=find_cam_worker, args=(), daemon=True)
+            self.find_cams.start()
+        else:
+            print("Cameras already connected or in process.")
+
+        self.cams_connected = True
+
+
 class SessionSummary(QMainWindow):
     def __init__(self, session):
         super().__init__()
         self.session = session
 
-        self.cams_connected = False
+        # self.cams_connected = False
 
         self.scroll = QScrollArea()             # Scroll Area which contains the widgets, set as the centralWidget
         self.widget = QWidget()                 # Widget that contains the collection of Vertical Box
@@ -173,25 +196,6 @@ class SessionSummary(QMainWindow):
         self.charuco_summary.setText(self.session.charuco.summary())
         
 
-    def find_connect_cams(self):
-        
-        def find_cam_worker():
-
-            self.session.load_cameras()
-            self.session.find_additional_cameras()
-            self.session.load_rtds()
-            self.session.adjust_resolutions()
-            self.camera_table.update_data()
-
-        if not self.cams_connected:
-            print("Connecting to cameras...This may take a moment.")
-            self.find_cams = Thread(target=find_cam_worker, args=(), daemon=True)
-            self.find_cams.start()
-        else:
-            print("Cameras already connected or in process.")
-
-        self.cams_connected = True
-
     def build_cam_summary(self):
         self.cam_hbox = QHBoxLayout()
         self.cam_summary.setLayout(self.cam_hbox)
@@ -206,7 +210,6 @@ class SessionSummary(QMainWindow):
         self.find_connect_cams_btn = QPushButton("Find and Connect to Cameras")
 
 
-        self.find_connect_cams_btn.clicked.connect(self.find_connect_cams)
         left_vbox.addWidget(self.find_connect_cams_btn)
 
         self.open_cameras_btn = QPushButton("Open Cameras") 

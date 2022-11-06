@@ -209,24 +209,7 @@ class CharucoBuilder(QWidget):
         self.save_png_hbox.addWidget(self.png_btn)
         self.save_png_hbox.addWidget(self.png_mirror_btn)
 
-    def set_expected_edge_length(self):
-        # intialize edge length to something reasonable
-        columns = self.column_spin.value()
-        rows = self.row_spin.value()
-        board_height = self.length_spin.value()
-        board_width = self.width_spin.value()
-        units = self.units.currentText()
 
-        if "square_size_overide" in self.session.config["charuco"].keys():
-            overide = self.session.config["charuco"]["square_size_overide"]
-            self.printed_edge_length.setValue(overide) 
-        else:
-            expected_length = min([board_height/rows, board_width/columns])
-            if units == "inch":
-                # convert to cm
-                expected_length = round(expected_length/.393701, 1)
-
-            self.printed_edge_length.setValue(expected_length)        
 
     def build_true_up_group(self):
         self.true_up_group = QGroupBox("&True-Up Printed Square Edge")
@@ -235,11 +218,15 @@ class CharucoBuilder(QWidget):
         
         self.printed_edge_length = QDoubleSpinBox()
         self.printed_edge_length.setMaximumWidth(100)
-        self.set_expected_edge_length()
+        # self.set_true_edge_length()
+        overide = self.session.config["charuco"]["square_size_overide"]
+        self.printed_edge_length.setValue(overide) 
+
         def update_charuco():
             self.charuco.square_size_overide = self.printed_edge_length.value()
             print("Updated Square Size Overide")
         self.printed_edge_length.valueChanged.connect(update_charuco)
+
         self.true_up_group.layout().addWidget(self.printed_edge_length)
 
 
@@ -294,7 +281,7 @@ class CharucoBuilder(QWidget):
 
     def build_charuco(self):
         ####################### PNG DISPLAY     ###########################
-        self.set_expected_edge_length()
+        # self.set_true_edge_length()
 
         columns = self.column_spin.value()
         rows = self.row_spin.value()

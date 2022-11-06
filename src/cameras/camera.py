@@ -16,6 +16,8 @@
 # New camera configurations 
 #%%
 
+import logging
+
 import cv2
 from threading import Thread
 import time
@@ -33,12 +35,14 @@ class Camera(object):
 
         # check if source has a data feed before proceeding...if not it is 
         # either in use or fake
+        logging.debug(f"Attempting to connect video capure at port {port}")
         test_capture = cv2.VideoCapture(port)
         for _ in range(0, TEST_FRAME_COUNT):
             good_read, frame = test_capture.read()
         
             # pass # dealing with this in the else statemetn below...not a real camera
         if good_read:
+            logging.debug(f"Good read at port {port}...proceeding")
             self.port = port
             self.capture = test_capture
             self.active_port = True
@@ -66,12 +70,14 @@ class Camera(object):
             self.port = port
             self.capture = None
             self.active_port = False
+            logging.info(f"Camera at port {port} appears to be busy")
             raise Exception(f"Not reading at port {port}...likely in use")       
         if isinstance(self.possible_resolutions[0], int):
             # probably not real
             self.port = port
             self.capture = None
             self.active_port = False
+            logging.info(f"Camera at port {port} may be virtual")
             raise Exception(f"{port}...likely not real")       
         
     @property

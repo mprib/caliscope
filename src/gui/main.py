@@ -2,6 +2,13 @@
 # https://www.pythonguis.com/tutorials/pyqt6-creating-your-first-window/
 
 import sys
+import logging
+
+logging.basicConfig(filename="log\main.log", 
+                    filemode = "w", 
+                    format='%(asctime)s - %(pathname)s - %(levelname)s - %(message)s',
+                    level=logging.DEBUG)
+                    # level=logging.INFO)
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPalette, QColor, QIcon
@@ -33,8 +40,7 @@ class MainWindow(QMainWindow):
         DISPLAY_WIDTH = screen.size().width()
         DISPLAY_HEIGHT = screen.size().height()         
         self.setMinimumSize(DISPLAY_WIDTH*.30,DISPLAY_HEIGHT*.7)
-        self.start_connecting_cams = False
-        self.cams_connected = False
+        self.cams_in_process = False
         self.setWindowTitle("FreeMocap Camera Calibration")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.png"))
 
@@ -48,16 +54,11 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.summary, "&Summary")
         
         self.summary.launch_charuco_builder_btn.clicked.connect(self.launch_charuco_builder)
-        self.summary.open_cameras_btn.clicked.connect(self.open_cams)
-        self.summary.close_cameras_btn.clicked.connect(self.close_cams)
 
-        self.summary.find_connect_cams_btn.clicked.connect(self.find_connect_cams)
+        self.summary.open_cameras_btn.clicked.connect(self.open_cams)
+        self.summary.find_connect_cams_btn.clicked.connect(self.connect_cams)
 
     def open_cams(self):
-
-        # see if this helps with updating changes
-        # self.session.load_config()
-        # self.session.load_charuco()
 
         # don't bother if already done
         for t in range(0,self.tabs.count()):
@@ -73,22 +74,13 @@ class MainWindow(QMainWindow):
                 self.tabs.addTab(cam_tab, f"Camera {port}")
                 cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
         else:
-            print("No cameras available")
-
-    def close_cams(self):
-        print("Attempting to close cameras")
-        tab_count = self.tabs.count()
-        for t in range(tab_count,0,-1):
-            if self.tabs.tabText(t).startswith("Cam"):
-                self.tabs.removeTab(t)
-
+            logging.info("No cameras available")
 
 
     def update_summary_image(self):
         self.summary.update_charuco_summary()
     
     def launch_charuco_builder(self):
-        # check to see if it exists
         for t in range(0,self.tabs.count()):
             if self.tabs.tabText(t) == "Charuco Builder":
                 return
@@ -98,33 +90,32 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.charuco_builder, "Charuco Builder")
         # self.tabs["Charuco Builder"].setClosable(True)
 
-    def find_connect_cams(self):
+    def connect_cams(self):
         
         def find_cam_worker():
-            self.start_connecting_cams = True
+            self.cams_in_process = True
+            logging.debug("Loading Cameras")
             self.session.load_cameras()
-            self.session.find_additional_cameras()
+            logging.debug("Loading RTDs")
             self.session.load_rtds()
+            logging.debug("Adjusting resolutions")
             self.session.adjust_resolutions()
+            logging.debug("Updating Camera Table")
             self.summary.camera_table.update_data()
-            self.cams_connected = True
 
             # trying to call open_cams() directly created a weird bug that 
             # may be due to all the different threads. This seemed to kick it
             # back to the main thread...
             self.summary.open_cameras_btn.click()
 
-        if not self.cams_connected:
+            self.cams_in_process = False
+
+        if not self.cams_in_process:
             print("Connecting to cameras...This may take a moment.")
             self.find_cams = Thread(target=find_cam_worker, args=(), daemon=True)
             self.find_cams.start()
         else:
             print("Cameras already connected or in process.")
-
-        # while not self.cams_connected:
-        #     print("Waiting on cameras...")
-        #     time.sleep(.5) 
-        # self.open_cams()
 
 
 class SessionSummary(QMainWindow):
@@ -212,7 +203,7 @@ class SessionSummary(QMainWindow):
         self.camera_table.setFixedSize(250, 150)
         # self.camera_table.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
         left_vbox.addWidget(self.camera_table)
-        self.find_connect_cams_btn = QPushButton("Find and Connect to Cameras")
+        self.find_connect_cams_btn = QPushButton("&Connect to Cameras")
 
 
         left_vbox.addWidget(self.find_connect_cams_btn)

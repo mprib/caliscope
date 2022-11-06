@@ -61,24 +61,24 @@ class CameraTable(QWidget):
 
         vbox = QVBoxLayout()
 
-        self.table = QTableWidget()
         self.session = session
-        self.update_data()        
+        self.table = QTableWidget()
        
         self.setLayout(vbox)
         vbox.addWidget(self.table)   
 
-
-        # self.table.verticalHeader().setVisible(False)
-        # self.model = DictionaryTableModel(self.data, self._headers)
-        # self.table.setModel(self.model)
+        self.update_data()        
+        self.table.verticalHeader().setVisible(False)
         self.table.resizeColumnsToContents()
-        # self.setFixedSize(self.table.size())
-        # self.setCentralWidget(self.table)
 
 
     def update_data(self):
+        """ Builds a list-of-lists table structure from the config file and 
+        then writes this to a table"""
+
+        # start fresh each time
         self.data = []
+        # columns to import from camera configs
         self._headers = ["port", "resolution", "error", "grid_count"]        
 
         for key, params in self.session.config.items():
@@ -104,17 +104,14 @@ class CameraTable(QWidget):
         self.table.setRowCount(row_count)
         self.table.setColumnCount(column_count)
         self.table.setHorizontalHeaderLabels(self._headers)
+        # alternate = ["1", "2", "3", "$"]
+        # self.table.setHorizontalHeaderLabels(alternate)
 
         for row in range(row_count):
             for column in range(column_count):
                 item = list(self.data[row].values())[column]
                 print(item)
                 self.table.setItem(row,column, QTableWidgetItem(str(item)))
-
-
-    def refresh_view(self):
-        self.update_data()
-
 
 if __name__ == "__main__":
 
@@ -124,8 +121,3 @@ if __name__ == "__main__":
     window=CameraTable(session)
     window.show()
     app.exec()
-    # data = []
-
-
-
-    # print(data)

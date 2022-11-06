@@ -32,18 +32,20 @@ class MainWindow(QMainWindow):
         DISPLAY_WIDTH = screen.size().width()
         DISPLAY_HEIGHT = screen.size().height()         
         self.setMinimumSize(DISPLAY_WIDTH*.30,DISPLAY_HEIGHT*.7)
-
+        self.cams_connected = False
         self.setWindowTitle("FreeMocap Camera Calibration")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.png"))
+
+        # 
         self.tabs = QTabWidget()
         self.tabs.setTabPosition(QTabWidget.TabPosition.North)
         self.tabs.setMovable(True)
-
         self.setCentralWidget(self.tabs)
+
         self.summary = SessionSummary(self.session)
         self.tabs.addTab(self.summary, "Summary")
         
-        self.summary.launch_charuco_builder_btn.clicked.connect(self.launch_cha_build)
+        self.summary.launch_charuco_builder_btn.clicked.connect(self.launch_charuco_builder)
         self.summary.open_cameras_btn.clicked.connect(self.open_cams)
         self.summary.close_cameras_btn.clicked.connect(self.close_cams)
 
@@ -61,6 +63,7 @@ class MainWindow(QMainWindow):
             for port, rtd in self.session.rtd.items():
                 
                 cam_tab = CameraConfigDialog(rtd, self.session)
+                cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
                 
                 self.tabs.addTab(cam_tab, f"Camera {port}")
                 cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
@@ -75,11 +78,17 @@ class MainWindow(QMainWindow):
                 self.tabs.removeTab(t)
 
 
+    # def close_cams(self):
+    #     print("Attempting to close cameras")
+    #     tab_count = self.tabs.count()
+    #     for t in range(tab_count,0,-1):
+    #         if self.tabs.tabText(t).startswith("Cam"):
+    #             self.tabs.removeTab(t)
 
     def update_summary_image(self):
         self.summary.update_charuco_summary()
     
-    def launch_cha_build(self):
+    def launch_charuco_builder(self):
         # check to see if it exists
         for t in range(0,self.tabs.count()):
             if self.tabs.tabText(t) == "Charuco Builder":
@@ -114,48 +123,45 @@ class SessionSummary(QMainWindow):
 
         self.widget.setLayout(self.vbox)
 
-        # realizing that it is important to place widgets in init so that the
-        # data can be refreshed from an update() call and the layout will
-        # remain unchanged       
         self.top_hbox = QHBoxLayout()
         self.vbox.addLayout(self.top_hbox)
         self.vbox.setAlignment(self.top_hbox, Qt.AlignmentFlag.AlignTop) 
-        self.charuco_summary = QGroupBox("Charuco Board")
-        self.charuco_summary.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        self.top_hbox.addWidget(self.charuco_summary)
+
+        self.charuco_group = QGroupBox("Charuco Board")
+        self.charuco_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        # self.charuco_group.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.top_hbox.addWidget(self.charuco_group)
 
         self.cam_summary = QGroupBox("Single Camera Calibration")
         self.top_hbox.addWidget(self.cam_summary)
         self.top_hbox.setAlignment(self.cam_summary, Qt.AlignmentFlag.AlignTop)       
+
         self.build_charuco_summary()
         self.build_cam_summary()
         self.build_stereo_summary()
 
 
     def build_charuco_summary(self):
-        # self.charuco_summary.setLayout(None)
-        self.charuco_hbox = QHBoxLayout()
-        self.charuco_summary.setLayout(self.charuco_hbox)
-        # self.charuco_summary.setSizePolicy(QSizePolicy.verticalPolicy)
+        vbox = QVBoxLayout()
+        self.charuco_group.setLayout(vbox)
+         
         self.charuco_display = QLabel()
         self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.charuco_display.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Minimum)       
-        self.charuco_hbox.addWidget(self.charuco_display)
-        self.charuco_hbox.setAlignment(self.charuco_display, Qt.AlignmentFlag.AlignBottom)
 
-        right_vbox = QVBoxLayout()
+        hbox = QHBoxLayout()
+        vbox.addLayout(hbox)
+        hbox.addWidget(self.charuco_display)
+
         self.charuco_summary = QLabel()
+        hbox.addWidget(self.charuco_summary)
+        hbox.setAlignment(self.charuco_display, Qt.AlignmentFlag.AlignBaseline)
+        hbox.setAlignment(self.charuco_summary, Qt.AlignmentFlag.AlignBaseline)
 
-        self.launch_charuco_builder_btn = QPushButton("Launch Charuco Builder")        
+        self.launch_charuco_builder_btn = QPushButton("&Launch Builder")        
         self.launch_charuco_builder_btn.setMaximumSize(150,30)
-        
-        right_vbox.addWidget(self.charuco_summary)
-        right_vbox.addWidget(self.launch_charuco_builder_btn)
-        right_vbox.setAlignment(self.launch_charuco_builder_btn,Qt.AlignmentFlag.AlignBottom)
-        self.charuco_hbox.addLayout(right_vbox)
-        self.charuco_hbox.setAlignment(right_vbox, Qt.AlignmentFlag.AlignBottom) 
-        # right_vbox.setAlignment(self.charuco_display, Qt.AlignmentFlag.AlignHCenter) 
-
+        vbox.addWidget(self.launch_charuco_builder_btn)
+        vbox.setAlignment(self.launch_charuco_builder_btn, Qt.AlignmentFlag.AlignHCenter)
 
         self.update_charuco_summary()
 

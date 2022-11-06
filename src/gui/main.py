@@ -56,23 +56,30 @@ class MainWindow(QMainWindow):
         self.summary.launch_charuco_builder_btn.clicked.connect(self.launch_charuco_builder)
 
         self.summary.open_cameras_btn.clicked.connect(self.open_cams)
-        self.summary.find_connect_cams_btn.clicked.connect(self.connect_cams)
+        self.summary.connect_cams_btn.clicked.connect(self.connect_cams)
+        self.summary.find_cams_btn.clicked.connect(self.find_additional_cams)
 
     def open_cams(self):
 
         # don't bother if already done
-        for t in range(0,self.tabs.count()):
-            if self.tabs.tabText(t).startswith("Cam"):
-                return
-            
+        # for t in range(0,self.tabs.count()):
+            # if self.tabs.tabText(t).startswith("Cam"):
+                # return
+        tab_names  = [self.tabs.tabText(i) for i in range(self.tabs.count())] 
+        logging.debug(f"Current tabs are: {tab_names}")
+
         if len(self.session.rtd) > 0:
             for port, rtd in self.session.rtd.items():
+                tab_name = f"Camera {port}"
+                logging.debug(f"Potentially adding {tab_name}")
+                if tab_name in tab_names:
+                    pass # already here, don't bother 
+                else:
+                    cam_tab = CameraConfigDialog(rtd, self.session)
+                    cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
                 
-                cam_tab = CameraConfigDialog(rtd, self.session)
-                cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
-                
-                self.tabs.addTab(cam_tab, f"Camera {port}")
-                cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
+                    self.tabs.addTab(cam_tab,tab_name)
+                    # cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
         else:
             logging.info("No cameras available")
 
@@ -90,9 +97,32 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.charuco_builder, "Charuco Builder")
         # self.tabs["Charuco Builder"].setClosable(True)
 
-    def connect_cams(self):
+    def find_additional_cams(self):
         
         def find_cam_worker():
+
+            self.session.find_additional_cameras()
+            logging.debug("Loading RTDs")
+            self.session.load_rtds()
+            logging.debug("Adjusting resolutions")
+            self.session.adjust_resolutions()
+            logging.debug("Updating Camera Table")
+            self.summary.camera_table.update_data()
+        
+            self.summary.open_cameras_btn.click()
+            
+            self.cams_in_process = False
+
+        if not self.cams_in_process:
+            print("Searching for additional cameras...This may take a moment.")
+            self.find = Thread(target=find_cam_worker, args=(), daemon=True)
+            self.find.start()
+        else:
+            print("Cameras already connected or in process.")
+
+    def connect_cams(self):
+        
+        def connect_cam_worker():
             self.cams_in_process = True
             logging.debug("Loading Cameras")
             self.session.load_cameras()
@@ -112,8 +142,8 @@ class MainWindow(QMainWindow):
 
         if not self.cams_in_process:
             print("Connecting to cameras...This may take a moment.")
-            self.find_cams = Thread(target=find_cam_worker, args=(), daemon=True)
-            self.find_cams.start()
+            self.connect = Thread(target=connect_cam_worker, args=(), daemon=True)
+            self.connect.start()
         else:
             print("Cameras already connected or in process.")
 
@@ -203,17 +233,19 @@ class SessionSummary(QMainWindow):
         self.camera_table.setFixedSize(250, 150)
         # self.camera_table.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
         left_vbox.addWidget(self.camera_table)
-        self.find_connect_cams_btn = QPushButton("&Connect to Cameras")
+        self.connect_cams_btn = QPushButton("&Connect to Cameras")
 
 
-        left_vbox.addWidget(self.find_connect_cams_btn)
-
-        self.open_cameras_btn = QPushButton("Open Cameras") 
-        self.close_cameras_btn = QPushButton("Close Cameras")
+        left_vbox.addWidget(self.connect_cams_btn)
+        self.find_cams_btn = QPushButton("&Find Additional Cameras")
+        left_vbox.addWidget(self.find_cams_btn)
+        # self.close_cameras_btn = QPushButton("Close Cameras")
         # self.open_cameras_btn.clicked.connect(open_cams)
 
         # left_vbox.addWidget(self.open_cameras_btn)
-        left_vbox.addWidget(self.close_cameras_btn)
+        # left_vbox.addWidget(self.close_cameras_btn)
+        self.open_cameras_btn = QPushButton("Open Cameras") # this button is invisible
+
         self.cam_hbox.addLayout(left_vbox)
 
 

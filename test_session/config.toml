@@ -9,9 +9,15 @@ grid_count = 0
 
 [cam_1]
 port = 1
-resolution = [ 864, 480,]
+resolution = [ 640, 480,]
 rotation_count = 0
 exposure = -7.0
+
+[cam_2]
+port = 2
+resolution = [ 1024, 576,]
+rotation_count = 0
+exposure = -6.0
 grid_count = 0
 
 [charuco]

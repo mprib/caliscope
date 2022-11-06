@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import ( QVBoxLayout, QHBoxLayout, QLabel, QMainWindow,
 from pathlib import Path
 from numpy import char
 from threading import Thread
+import time
 
 from qtpy import QT_VERSION
 
@@ -32,6 +33,7 @@ class MainWindow(QMainWindow):
         DISPLAY_WIDTH = screen.size().width()
         DISPLAY_HEIGHT = screen.size().height()         
         self.setMinimumSize(DISPLAY_WIDTH*.30,DISPLAY_HEIGHT*.7)
+        self.start_connecting_cams = False
         self.cams_connected = False
         self.setWindowTitle("FreeMocap Camera Calibration")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.png"))
@@ -54,8 +56,8 @@ class MainWindow(QMainWindow):
     def open_cams(self):
 
         # see if this helps with updating changes
-        self.session.load_config()
-        self.session.load_charuco()
+        # self.session.load_config()
+        # self.session.load_charuco()
 
         # don't bother if already done
         for t in range(0,self.tabs.count()):
@@ -81,12 +83,6 @@ class MainWindow(QMainWindow):
                 self.tabs.removeTab(t)
 
 
-    # def close_cams(self):
-    #     print("Attempting to close cameras")
-    #     tab_count = self.tabs.count()
-    #     for t in range(tab_count,0,-1):
-    #         if self.tabs.tabText(t).startswith("Cam"):
-    #             self.tabs.removeTab(t)
 
     def update_summary_image(self):
         self.summary.update_charuco_summary()
@@ -105,12 +101,18 @@ class MainWindow(QMainWindow):
     def find_connect_cams(self):
         
         def find_cam_worker():
-
+            self.start_connecting_cams = True
             self.session.load_cameras()
             self.session.find_additional_cameras()
             self.session.load_rtds()
             self.session.adjust_resolutions()
             self.summary.camera_table.update_data()
+            self.cams_connected = True
+
+            # trying to call open_cams() directly created a weird bug that 
+            # may be due to all the different threads. This seemed to kick it
+            # back to the main thread...
+            self.summary.open_cameras_btn.click()
 
         if not self.cams_connected:
             print("Connecting to cameras...This may take a moment.")
@@ -119,7 +121,10 @@ class MainWindow(QMainWindow):
         else:
             print("Cameras already connected or in process.")
 
-        self.cams_connected = True
+        # while not self.cams_connected:
+        #     print("Waiting on cameras...")
+        #     time.sleep(.5) 
+        # self.open_cams()
 
 
 class SessionSummary(QMainWindow):
@@ -216,7 +221,7 @@ class SessionSummary(QMainWindow):
         self.close_cameras_btn = QPushButton("Close Cameras")
         # self.open_cameras_btn.clicked.connect(open_cams)
 
-        left_vbox.addWidget(self.open_cameras_btn)
+        # left_vbox.addWidget(self.open_cameras_btn)
         left_vbox.addWidget(self.close_cameras_btn)
         self.cam_hbox.addLayout(left_vbox)
 

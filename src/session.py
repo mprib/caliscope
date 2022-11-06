@@ -1,6 +1,10 @@
 
 #%%
-
+import logging
+logging.basicConfig(filename="log\session.log", 
+                    filemode = "w", 
+                    level=logging.DEBUG)
+                    # level=logging.INFO)
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -38,11 +42,11 @@ class Session:
     def load_config(self):
 
         if exists(self.config_path):
-            print("Found previous config")
+            logging.info("Found previous config")
             with open(self.config_path,"r") as f:
                 self.config = toml.load(self.config_path)
         else:
-            print("Creating it")
+            logging.info("Creating it")
 
             self.config = toml.loads("")
             self.config["CreationDate"] = datetime.now()
@@ -63,7 +67,7 @@ class Session:
     def load_charuco(self):
         
         if "charuco" in self.config:
-            print("Loading charuco from config")
+            logging.info("Loading charuco from config")
             params = self.config["charuco"]
             
             # TOML doesn't seem to store None when dumping to file; adjust here
@@ -82,14 +86,14 @@ class Session:
                                     square_size_overide = params["square_size_overide"],
                                     inverted = params["inverted"])
         else:
-            print("Loading default charuco")
+            logging.info("Loading default charuco")
             self.charuco = Charuco(4,5,11,8.5,square_size_overide=5.4)
             self.config["charuco"] = self.charuco.__dict__
             self.update_config() 
 
     def save_charuco(self):
         self.config["charuco"] = self.charuco.__dict__
-        print(self.charuco.__dict__)
+        logging.info(f"Saving charuco with params {self.charuco.__dict__} to config")
         self.update_config()
 
     def load_cameras(self):
@@ -104,11 +108,11 @@ class Session:
                 cam.rotation_count = params["rotation_count"]
                 cam.exposure = params["exposure"]
             except:
-                print("Unable to connect... camera may be in use.")
+                logging.info("Unable to connect... camera may be in use.")
 
             # if calibration done, then populate those
             if "error" in params.keys():
-                print(params["error"])
+                logging.info(params["error"])
                 cam.error = params["error"] 
                 cam.camera_matrix = np.array(params["camera_matrix"]).astype(float)
                 cam.distortion = np.array(params["distortion"]).astype(float)
@@ -117,8 +121,11 @@ class Session:
         with ThreadPoolExecutor() as executor:
             for key, params in self.config.items():
                 if key.startswith("cam"):
-                    print(key, params)
-                    executor.submit(add_preconfigured_cam, params)
+                    if params["port"] in self.rtd.keys():
+                        logging.info(f"Don't reload a camera at port {params['port']}") 
+                    else:
+                        logging.info(f"Beginning to load {key} with params {params}")
+                        executor.submit(add_preconfigured_cam, params)
              
 
 
@@ -126,13 +133,13 @@ class Session:
 
         def add_cam(port):
             try:
-                print(f"Trying port {port}") 
+                logging.info(f"Trying port {port}") 
                 cam = Camera(port)
-                print(f"Success at port {port}")
+                logging.info(f"Success at port {port}")
                 self.camera[port] = cam
                 self.save_camera(port)
             except:
-                print(f"No camera at port {port}")
+                logging.info(f"No camera at port {port}")
 
         with ThreadPoolExecutor() as executor:
             for i in range(0,MAX_CAMERA_PORT_CHECK):
@@ -144,21 +151,26 @@ class Session:
 
     def load_rtds(self):
         #need RTD to adjust resolution 
+        
+        
         for port, cam in self.camera.items():
-            print(f"Loading RTD for port {port}")
-            self.rtd[port] = RealTimeDevice(cam)
-            self.rtd[port].assign_charuco(self.charuco)
+            if port in self.rtd.keys():
+                pass # only add if not added yet
+            else:
+                logging.info(f"Loading RTD for port {port}")
+                self.rtd[port] = RealTimeDevice(cam)
+                self.rtd[port].assign_charuco(self.charuco)
     
     def adjust_resolutions(self):
         def adjust_res_worker(port):
             rtd = self.rtd[port]
             resolution = self.config[f"cam_{port}"]["resolution"]
             default_res = self.camera[port].default_resolution
-            print(f"resolution is {resolution[0:2]}")
-            print(f"default res is {default_res[0:2]}")
+            logging.info(f"Port {port} resolution is {resolution[0:2]}")
+            logging.info(f"Port {port} default res is {default_res[0:2]}")
 
             if resolution[0] != default_res[0] or resolution[1] != default_res[1]:
-                print(f"Attempting to change resolution on port {port}")
+                logging.info(f"Attempting to change resolution on port {port}")
                 rtd.change_resolution(resolution)
 
         with ThreadPoolExecutor() as executor:
@@ -176,7 +188,7 @@ class Session:
                   "exposure": cam.exposure,
                   "grid_count": cam.grid_count}
 
-        print(f"Saving camera parameters...{params}")
+        logging.info(f"Saving camera parameters...{params}")
 
         self.config["cam_"+str(port)] = params
         self.update_config()

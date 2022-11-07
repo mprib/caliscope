@@ -1,7 +1,8 @@
 import logging
 logging.basicConfig(filename="stereocalibration.log", 
                     filemode = "w", 
-                    level=logging.INFO)
+                    # level=logging.INFO)
+                    level=logging.DEBUG)
 
 import sys
 from pathlib import Path
@@ -93,8 +94,8 @@ class StereoFrameEmitter(QThread):
 
                 # Grab a frame from the capture widget and broadcast to displays
                 frame = self.stereo_cal.stacked_frames.get()
-                if frame.shape == (1,):     # entered calibration; no more frames
-                    self.CalibrationText.emit(True)
+                # if frame.shape == (1,):     # entered calibration; no more frames
+                    # self.CalibrationText.emit(True)
                     # self.stop()
                 image = self.cv2_to_qlabel(frame)
                 pixmap = QPixmap.fromImage(image)

@@ -1,7 +1,6 @@
 # Built following the tutorials that begin here: 
 # https://www.pythonguis.com/tutorials/pyqt6-creating-your-first-window/
 
-from re import L
 import sys
 
 from PyQt6.QtCore import Qt, QAbstractTableModel

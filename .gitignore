@@ -2,3 +2,4 @@
 all_frames.json
 *.log
 *.pkl
+*.pyc

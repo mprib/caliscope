@@ -13,7 +13,6 @@ from PyQt6.QtWidgets import ( QVBoxLayout, QHBoxLayout, QLabel, QMainWindow,
 from pathlib import Path
 from numpy import char
 
-from qtpy import QT_VERSION
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.gui.charuco_builder import CharucoBuilder

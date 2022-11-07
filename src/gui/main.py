@@ -21,7 +21,6 @@ from numpy import char
 from threading import Thread
 import time
 
-from qtpy import QT_VERSION
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 

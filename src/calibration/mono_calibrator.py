@@ -151,7 +151,7 @@ class MonoCalibrator:
         else: 
             return np.array([])
 
-    def collect_corners(self, board_threshold=0.8, wait_time=1):
+    def collect_corners(self, board_threshold=0.7, wait_time=.5):
 
         corner_count = len(self.charuco.board.chessboardCorners)
         min_points_to_process = int(corner_count * board_threshold)

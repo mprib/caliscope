@@ -28,10 +28,10 @@ class StereoCalibrator:
         
         self.synchronizer = synchronizer
         self.session = synchronizer.session
-        
+        self.calibration_started = False        
         # when this many frames of conrners synched, move on to calibration
         self.grid_count_trigger = 20 
-        self.wait_time = 1  # seconds between snapshots
+        self.wait_time = .5  # seconds between snapshots
         # board corners in common for a snapshot to be taken
         self.corner_threshold = 9
 
@@ -65,8 +65,13 @@ class StereoCalibrator:
             self.remove_full_pairs()
 
             if len(self.uncalibrated_pairs) == 0:
-                self.stacked_frames.put(np.array([-1]))
                 self.stereo_calibrate()
+                # self.calibration = Thread(target=self.stereo_calibrate(), args=(), daemon=True)
+                # self.calibration.start()
+                # self.calibration_started = True
+                # while True:
+                    # time.sleep(.5)
+                    # self.stacked_frames.put(np.array([]))
 
 
     def stereo_calibrate(self):
@@ -74,7 +79,8 @@ class StereoCalibrator:
         from camera and combined with obj and img points for each pair. 
         """
 
-        stereocalibration_flags = cv2.CALIB_USE_INTRINSIC_GUESS
+        # stereocalibration_flags = cv2.CALIB_USE_INTRINSIC_GUESS
+        stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.00001) 
 
         for pair, inputs in self.stereo_inputs.items():

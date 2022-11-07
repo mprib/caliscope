@@ -30,10 +30,10 @@ class StereoCalibrator:
         self.session = synchronizer.session
         self.calibration_started = False        
         # when this many frames of conrners synched, move on to calibration
-        self.grid_count_trigger = 20 
+        self.grid_count_trigger = 15 
         self.wait_time = .5  # seconds between snapshots
         # board corners in common for a snapshot to be taken
-        self.corner_threshold = 9
+        self.corner_threshold = 7
 
         self.stacked_frames = Queue() 
 

@@ -222,7 +222,6 @@ class RealTimeDevice:
                                                 self.cam.distortion)
             
 
-        
 
 # Highlight module functionality. View a frame with mediapipe hands
 # press "q" to quit

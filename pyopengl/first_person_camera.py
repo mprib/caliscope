@@ -5,6 +5,7 @@ from OpenGL.GL.shaders import compileProgram,compileShader
 import numpy as np
 import pyrr
 from PIL import Image
+import time
 
 SCREEN_WIDTH = 640
 SCREEN_HEIGHT = 480
@@ -38,14 +39,12 @@ def initialize_glfw():
 
 class Cube:
 
-
     def __init__(self, position, eulers):
 
         self.position = np.array(position, dtype=np.float32)
         self.eulers = np.array(eulers, dtype=np.float32)
 
 class Player:
-
 
     def __init__(self, position):
 
@@ -78,6 +77,10 @@ class Scene:
             Cube(
                 position = [6,0,0],
                 eulers = [0,0,0]
+            ),
+            Cube(
+                position = [9,0,0],
+                eulers = [0,0,0]
             )
         ]
 
@@ -86,7 +89,7 @@ class Scene:
     def update(self, rate):
 
         for cube in self.cubes:
-            cube.eulers[1] += 0.25 * rate
+            cube.eulers[1] += 0.0 * rate
             if cube.eulers[1] > 360:
                 cube.eulers[1] -= 360
     
@@ -158,6 +161,7 @@ class App:
             self.renderer.render(self.scene)
 
             #timing
+            time.sleep(.005)
             self.calculateFramerate()
         self.quit()
     
@@ -207,7 +211,8 @@ class App:
         rate = self.frameTime / 16.7
         theta_increment = rate * ((SCREEN_WIDTH/2) - x)
         phi_increment = rate * ((SCREEN_HEIGHT/2) - y)
-        self.scene.spin_player(theta_increment, phi_increment)
+        if glfw.get_key(self.window, GLFW_CONSTANTS.GLFW_KEY_SPACE) == GLFW_CONSTANTS.GLFW_PRESS:
+            self.scene.spin_player(theta_increment, phi_increment)
         glfw.set_cursor_pos(self.window, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
     
     def calculateFramerate(self):
@@ -426,5 +431,7 @@ class Material:
     def destroy(self):
         glDeleteTextures(1, (self.texture,))
 
-window = initialize_glfw()
-myApp = App(window)
+
+if __name__ == "__main__":
+    window = initialize_glfw()
+    myApp = App(window)

@@ -6,12 +6,6 @@ import pygame as pg
 from OpenGL.GL import *
 import numpy as np
 from OpenGL.GL.shaders import compileProgram, compileShader
-class Cube:
-
-    def __init__(self, position, eulers):
-        self.position = np.array(position, dtype=np.float32)
-        self.eulers = np.array(eulers, dtype=np.float32)
-
 
 class App:
     def __init__(self):
@@ -31,9 +25,9 @@ class App:
         glUseProgram(self.shader)
         glUniform1i(glGetUniformLocation(self.shader, "imageTexture"), 0)
         
-        self.triangle = CubeMesh()
+        self.triangle = Triangle()
         self.marble_texture = Material("pyopengl/gfx/marble.jpg")
-        # self.fmc_texture = Material("pyopengl/gfx/fmc_logo.png")
+        self.fmc_texture = Material("pyopengl/gfx/fmc_logo.png")
         self.mainLoop()
 
 
@@ -61,8 +55,8 @@ class App:
                 
             #refesh screen
             glClear(GL_COLOR_BUFFER_BIT)
-            self.marble_texture.use()
-            # self.fmc_texture.use()
+            # self.marble_texture.use()
+            self.fmc_texture.use()
             glUseProgram(self.shader) # get shader ready. best practice since shaders may change
             glBindVertexArray(self.triangle.vao) # prepare thing to be drawn
             glDrawArrays(GL_TRIANGLES, 0, self.triangle.vertex_count)
@@ -79,7 +73,7 @@ class App:
         pg.quit()
 
 
-class CubeMesh:
+class Triangle:
     def __init__(self):
         
         # x,y,z,r,g,b,s,t

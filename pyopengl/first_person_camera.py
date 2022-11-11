@@ -44,29 +44,27 @@ class Cube:
         self.position = np.array(position, dtype=np.float32)
         self.eulers = np.array(eulers, dtype=np.float32)
 
-class Player:
+class Camera:
 
     def __init__(self, position):
 
         self.position = np.array(position, dtype = np.float32)
-        self.theta = 0
-        self.phi = 0
+        self.yaw = 0
+        self.pitch = 0
         self.update_vectors()
     
     def update_vectors(self):
 
         self.forwards = np.array(
             [
-                np.cos(np.deg2rad(self.theta)) * np.cos(np.deg2rad(self.phi)),
-                np.sin(np.deg2rad(self.theta)) * np.cos(np.deg2rad(self.phi)),
-                np.sin(np.deg2rad(self.phi))
+                np.cos(np.deg2rad(self.yaw)) * np.cos(np.deg2rad(self.pitch)),
+                np.sin(np.deg2rad(self.yaw)) * np.cos(np.deg2rad(self.pitch)),
+                np.sin(np.deg2rad(self.pitch))
             ]
         )
 
         globalUp = np.array([0,0,1], dtype = np.float32)
-
         self.right = np.cross(self.forwards, globalUp)
-
         self.up = np.cross(self.right, self.forwards)
 
 class Scene:
@@ -84,7 +82,7 @@ class Scene:
             )
         ]
 
-        self.player = Player(position = [0,0,2])
+        self.camera = Camera(position = [0,0,2])
     
     def update(self, rate):
 
@@ -93,30 +91,39 @@ class Scene:
             if cube.eulers[1] > 360:
                 cube.eulers[1] -= 360
     
-    def move_player(self, dPos):
+    def move_camera(self, dir):
+        adjustment = .1 #* self.frameTime / 16.7 
+        if dir == "forward":
+            dPos = adjustment * self.camera.forwards
+        if dir == "backward":
+            dPos = adjustment * -self.camera.forwards
+        if dir == "right":
+            dPos = adjustment * self.camera.right
+        if dir == "left":
+            dPos = adjustment * -self.camera.right
 
         dPos = np.array(dPos, dtype = np.float32)
-        self.player.position += dPos
-    
-    def spin_player(self, dTheta, dPhi):
+        self.camera.position += dPos
+         
+    def spin_camera(self, dyaw, dpitch):
 
-        self.player.theta += dTheta
-        if self.player.theta > 360:
-            self.player.theta -= 360
-        elif self.player.theta < 0:
-            self.player.theta += 360
+        self.camera.yaw += dyaw
+        if self.camera.yaw > 360:
+            self.camera.yaw -= 360
+        elif self.camera.yaw < 0:
+            self.camera.yaw += 360
         
-        self.player.phi = min(
-            89, max(-89, self.player.phi + dPhi)
+        self.camera.pitch = min(
+            89, max(-89, self.camera.pitch + dpitch)
         )
 
-        self.player.update_vectors()
+        self.camera.update_vectors()
     
 class App:
     def __init__(self, window):
         
         self.window = window
-        self.renderer = GraphicsEngine()
+        self.renderer = GrapitchcsEngine()
         self.scene = Scene()
 
         self.lastTime = glfw.get_time()
@@ -127,16 +134,8 @@ class App:
         self.walk_offset_lookup = {
             1: 0,
             2: 90,
-            3: 45,
             4: 180,
-            6: 135,
-            7: 90,
             8: 270,
-            9: 315,
-            11: 0,
-            12: 225,
-            13: 270,
-            14: 180
         }
         
         self.mainLoop()
@@ -156,7 +155,8 @@ class App:
             
             glfw.poll_events()
 
-            self.scene.update(self.frameTime / 16.7)
+            # this is just about rotating the cubes which I'm not interested in
+            # self.scene.update(self.frameTime / 16.7)
 
             self.renderer.render(self.scene)
 
@@ -167,52 +167,39 @@ class App:
     
     def handleKeys(self):
 
-        """
-        w: 1 -> 0 degrees
-        a: 2 -> 90 degrees
-        w & a: 3 -> 45 degrees
-        s: 4 -> 180 degrees
-        w & s: 5 -> x
-        a & s: 6 -> 135 degrees
-        w & a & s: 7 -> 90 degrees
-        d: 8 -> 270 degrees
-        w & d: 9 -> 315 degrees
-        a & d: 10 -> x
-        w & a & d: 11 -> 0 degrees
-        s & d: 12 -> 225 degrees
-        w & s & d: 13 -> 270 degrees
-        a & s & d: 14 -> 180 degrees
-        w & a & s & d: 15 -> x
-        """
-        combo = 0
-        directionModifier = 0
-
         if glfw.get_key(self.window, GLFW_CONSTANTS.GLFW_KEY_W) == GLFW_CONSTANTS.GLFW_PRESS:
-            combo += 1
+            self.scene.move_camera("forward")
         if glfw.get_key(self.window, GLFW_CONSTANTS.GLFW_KEY_A) == GLFW_CONSTANTS.GLFW_PRESS:
-            combo += 2
+            self.scene.move_camera("left")
         if glfw.get_key(self.window, GLFW_CONSTANTS.GLFW_KEY_S) == GLFW_CONSTANTS.GLFW_PRESS:
-            combo += 4
+            self.scene.move_camera("backward")
         if glfw.get_key(self.window, GLFW_CONSTANTS.GLFW_KEY_D) == GLFW_CONSTANTS.GLFW_PRESS:
-            combo += 8
-        
-        if combo in self.walk_offset_lookup:
-            directionModifier = self.walk_offset_lookup[combo]
-            dPos = [
-                0.1 * self.frameTime / 16.7 * np.cos(np.deg2rad(self.scene.player.theta + directionModifier)),
-                0.1 * self.frameTime / 16.7 * np.sin(np.deg2rad(self.scene.player.theta + directionModifier)),
-                0
-            ]
-            self.scene.move_player(dPos)
+            self.scene.move_camera("right")
+
+
+        # if combo in self.walk_offset_lookup:
+        if True:
+            # directionModifier = self.walk_offset_lookup[combo]
+            # dPos = [
+            #     0.1 * self.frameTime / 16.7 * (np.cos(np.deg2rad(self.scene.camera.yaw))*(np.cos(np.deg2rad(self.scene.camera.pitch)))),
+            #     0.1 * self.frameTime / 16.7 * np.sin(np.deg2rad(self.scene.camera.yaw)),
+            #     0.1 * self.frameTime / 16.7 * (np.sin(np.deg2rad(self.scene.camera.pitch))*(np.cos(np.deg2rad(self.scene.camera.pitch))))]
+            #     # 0]
+            print(f"Yaw:{self.scene.camera.yaw}")
+            print(f"Pitch:{self.scene.camera.pitch}")
+            # print(f"Direction Modifier: {directionModifier}")
+            # print(dPos)
+            # print(.1 * self.frameTime / 16.7 * self.scene.camera.forwards)
+            # self.scene.move_camera(dPos)
         
     def handleMouse(self):
 
         (x,y) = glfw.get_cursor_pos(self.window)
         rate = self.frameTime / 16.7
-        theta_increment = rate * ((SCREEN_WIDTH/2) - x)
-        phi_increment = rate * ((SCREEN_HEIGHT/2) - y)
-        if glfw.get_key(self.window, GLFW_CONSTANTS.GLFW_KEY_SPACE) == GLFW_CONSTANTS.GLFW_PRESS:
-            self.scene.spin_player(theta_increment, phi_increment)
+        yaw_increment = rate * ((SCREEN_WIDTH/2) - x)
+        pitch_increment = rate * ((SCREEN_HEIGHT/2) - y)
+        # if glfw.get_key(self.window, GLFW_CONSTANTS.GLFW_KEY_SPACE) == GLFW_CONSTANTS.GLFW_PRESS:
+        self.scene.spin_camera(yaw_increment, pitch_increment)
         glfw.set_cursor_pos(self.window, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
     
     def calculateFramerate(self):
@@ -230,7 +217,7 @@ class App:
     def quit(self):
         self.renderer.quit()
 
-class GraphicsEngine:
+class GrapitchcsEngine:
 
 
     def __init__(self):
@@ -247,7 +234,7 @@ class GraphicsEngine:
 
         projection_transform = pyrr.matrix44.create_perspective_projection(
             fovy = 45, aspect = 640/480, 
-            near = 0.1, far = 10, dtype=np.float32
+            near = 0.1, far = 100, dtype=np.float32
         )
         glUniformMatrix4fv(
             glGetUniformLocation(self.shader,"projection"),
@@ -276,10 +263,10 @@ class GraphicsEngine:
         glUseProgram(self.shader)
 
         view_transform = pyrr.matrix44.create_look_at(
-            eye = scene.player.position,
-            target = scene.player.position + scene.player.forwards,
-            up = scene.player.up, dtype=np.float32
-        )
+            eye = scene.camera.position,
+            target = scene.camera.position + scene.camera.forwards,
+            up = scene.camera.up, dtype=np.float32)
+
         glUniformMatrix4fv(self.viewMatrixLocation, 1, GL_FALSE, view_transform)
 
         self.wood_texture.use()

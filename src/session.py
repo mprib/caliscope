@@ -10,15 +10,12 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from os.path import exists
 from pathlib import Path
-from threading import Thread
-from unittest import result
-import cv2
 import toml
 import numpy as np
 
 sys.path.insert(0,str(Path(__file__).parent.parent))
 
-from src.cameras.real_time_device import RealTimeDevice
+from src.cameras.video_stream import VideoStream
 from src.calibration.charuco import Charuco
 from src.cameras.camera import Camera
 
@@ -34,7 +31,7 @@ class Session:
 
         # dictionary of Cameras, key = port
         self.camera = {}
-        self.rtd = {}
+        self.stream = {}
 
         self.load_config()
         self.load_charuco()
@@ -121,7 +118,7 @@ class Session:
         with ThreadPoolExecutor() as executor:
             for key, params in self.config.items():
                 if key.startswith("cam"):
-                    if params["port"] in self.rtd.keys():
+                    if params["port"] in self.stream.keys():
                         logging.info(f"Don't reload a camera at port {params['port']}") 
                     else:
                         logging.info(f"Beginning to load {key} with params {params}")
@@ -149,21 +146,21 @@ class Session:
                 else:
                     executor.submit(add_cam, i )
 
-    def load_rtds(self):
-        #need RTD to adjust resolution 
+    def load_streams(self):
+        #need Stream to adjust resolution 
         
         
         for port, cam in self.camera.items():
-            if port in self.rtd.keys():
+            if port in self.stream.keys():
                 pass # only add if not added yet
             else:
-                logging.info(f"Loading RTD for port {port}")
-                self.rtd[port] = RealTimeDevice(cam)
-                self.rtd[port].assign_charuco(self.charuco)
+                logging.info(f"Loading Stream for port {port}")
+                self.stream[port] = VideoStream(cam)
+                self.stream[port].assign_charuco(self.charuco)
     
     def adjust_resolutions(self):
         def adjust_res_worker(port):
-            rtd = self.rtd[port]
+            stream = self.stream[port]
             resolution = self.config[f"cam_{port}"]["resolution"]
             default_res = self.camera[port].default_resolution
             logging.info(f"Port {port} resolution is {resolution[0:2]}")
@@ -171,7 +168,7 @@ class Session:
 
             if resolution[0] != default_res[0] or resolution[1] != default_res[1]:
                 logging.info(f"Attempting to change resolution on port {port}")
-                rtd.change_resolution(resolution)
+                stream.change_resolution(resolution)
 
         with ThreadPoolExecutor() as executor:
             for port in self.camera.keys():
@@ -196,8 +193,10 @@ class Session:
 
 #%%
 if __name__ == "__main__":
-    session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
-
+    repo = Path(__file__).parent.parent
+    config_path = Path(repo, "test_session")
+    print(config_path)
+    session = Session(config_path)
     session.update_config()
 #%%
     

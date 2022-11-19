@@ -4,7 +4,6 @@ logging.basicConfig(filename="stereocalibration.log",
                     level=logging.DEBUG)
                     # level=logging.INFO)
 
-import pickle
 import cv2
 import time
 from itertools import combinations

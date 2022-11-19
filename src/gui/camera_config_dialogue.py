@@ -17,13 +17,13 @@ from PyQt6.QtGui import QIcon, QImage, QPixmap, QFont
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.camera import Camera
-from src.cameras.real_time_device import RealTimeDevice
+from src.cameras.video_stream import VideoStream
 from src.calibration.charuco import Charuco
 from frame_emitter import FrameEmitter
 from src.session import Session
 
 class CameraConfigDialog(QDialog):
-    def __init__(self, real_time_device, session):
+    def __init__(self, video_stream, session):
         super(CameraConfigDialog, self).__init__()
         # frame emitter is a thread that is constantly pulling in values from 
         # the capture widget and broadcasting them to widgets on this window 
@@ -35,11 +35,11 @@ class CameraConfigDialog(QDialog):
         DISPLAY_WIDTH = App.primaryScreen().size().width()
         DISPLAY_HEIGHT = App.primaryScreen().size().height()
 
-        self.RTD = real_time_device
+        self.stream = video_stream
         self.setWindowTitle("Camera Configuration and Calibration")
 
         self.pixmap_edge = min(DISPLAY_WIDTH/3, DISPLAY_HEIGHT/3)
-        self.frame_emitter = FrameEmitter(self.RTD, self.pixmap_edge)
+        self.frame_emitter = FrameEmitter(self.stream, self.pixmap_edge)
         self.frame_emitter.start()
         # self.setFixedSize(self.pixmap_edge, self.pixmap_edge*2) 
         self.setContentsMargins(0,0,0,0)
@@ -104,7 +104,7 @@ class CameraConfigDialog(QDialog):
         
         # Build Charuco Image Display
         self.charuco_display = QLabel()
-        # charuco_img = self.convert_cv_qt(self.RTD.mono_cal.charuco.board_img)
+        # charuco_img = self.convert_cv_qt(self.stream.mono_cal.charuco.board_img)
         charuco_img = self.session.charuco.board_pixmap(self.pixmap_edge/3, self.pixmap_edge/3)
         # charuco_img = charuco_img.scaled(self.pixmap_edge/3,
                                         #  self.pixmap_edge/3,
@@ -120,13 +120,13 @@ class CameraConfigDialog(QDialog):
         vbox.addWidget(collect_crnr_btn) 
         def capture():
             """change to turn on/off"""
-            if self.RTD.collect_charuco_corners:
-                self.RTD.collect_charuco_corners = False
+            if self.stream.collect_charuco_corners:
+                self.stream.collect_charuco_corners = False
                 collect_crnr_btn.setText("Capture")
             else: 
-                self.RTD.show_mediapipe = False
-                self.RTD.track_charuco = True
-                self.RTD.collect_charuco_corners = True
+                self.stream.show_mediapipe = False
+                self.stream.track_charuco = True
+                self.stream.collect_charuco_corners = True
                 collect_crnr_btn.setText("Stop Capture")
         collect_crnr_btn.clicked.connect(capture)
 
@@ -136,13 +136,13 @@ class CameraConfigDialog(QDialog):
         vbox.addWidget(self.calibrate_btn)
 
         def calibrate():
-            print("Capture History" + str(len(self.RTD.mono_cal.corner_ids)))
-            if len(self.RTD.mono_cal.corner_ids) > 0:
+            print("Capture History" + str(len(self.stream.mono_cal.corner_ids)))
+            if len(self.stream.mono_cal.corner_ids) > 0:
                 self.calib_output.setText("Calibration can take a moment...")
 
                 def wrker(): 
-                    self.RTD.mono_cal.calibrate()
-                    self.calib_output.setText(self.RTD.cam.calibration_summary())
+                    self.stream.mono_cal.calibrate()
+                    self.calib_output.setText(self.stream.cam.calibration_summary())
                 self.calib_thread = Thread(target=wrker, args=(), daemon=True)
                 self.calib_thread.start()
             else:
@@ -155,7 +155,7 @@ class CameraConfigDialog(QDialog):
         vbox.addWidget(clear_grid_history_btn)
         def clear_grid():
             # Note this does not clear out the calibration parameters
-            self.RTD.mono_cal.initialize_grid_history()
+            self.stream.mono_cal.initialize_grid_history()
         clear_grid_history_btn.clicked.connect(clear_grid)
 
 
@@ -165,7 +165,7 @@ class CameraConfigDialog(QDialog):
         vbox.addWidget(self.save_cal_btn)
 
         def save_cal():
-            self.session.save_camera(self.RTD.cam.port)
+            self.session.save_camera(self.stream.cam.port)
 
         self.save_cal_btn.clicked.connect(save_cal)
         
@@ -177,7 +177,7 @@ class CameraConfigDialog(QDialog):
         self.calib_output = QLabel()
         self.calib_output.setWordWrap(True)
         self.calib_output.setMaximumWidth(self.pixmap_edge/3)
-        self.calib_output.setText(self.RTD.cam.calibration_summary())
+        self.calib_output.setText(self.stream.cam.calibration_summary())
         hbox.addWidget(self.calib_output)
         # calib_output.setMaximumWidth() 
         
@@ -190,28 +190,28 @@ class CameraConfigDialog(QDialog):
         def on_radio_btn():
             radio_grp = self.sender().text()
             if radio_grp == "None":
-                self.RTD.show_mediapipe = False
-                self.RTD.track_charuco = False
-                self.RTD.collect_charuco_corners = False
-                self.RTD.undistort = False
+                self.stream.show_mediapipe = False
+                self.stream.track_charuco = False
+                self.stream.collect_charuco_corners = False
+                self.stream.undistort = False
 
             if radio_grp == "Mediapipe Hands":
-                self.RTD.show_mediapipe = True
-                self.RTD.track_charuco = False
-                self.RTD.collect_charuco_corners = False
-                self.RTD.undistort = False
+                self.stream.show_mediapipe = True
+                self.stream.track_charuco = False
+                self.stream.collect_charuco_corners = False
+                self.stream.undistort = False
 
             if radio_grp == "Charuco":
-                self.RTD.show_mediapipe = False
-                self.RTD.track_charuco = True
-                self.RTD.collect_charuco_corners = False
-                self.RTD.undistort = False
+                self.stream.show_mediapipe = False
+                self.stream.track_charuco = True
+                self.stream.collect_charuco_corners = False
+                self.stream.undistort = False
 
             if radio_grp == "Undistort":
-               self.RTD.show_mediapipe = False
-               self.RTD.track_charuco = False
-               self.RTD.collect_charuco_corners = False              
-               self.RTD.undistort = True
+               self.stream.show_mediapipe = False
+               self.stream.track_charuco = False
+               self.stream.collect_charuco_corners = False              
+               self.stream.undistort = True
 
         self.toggle_grp = QGroupBox("Views")
         # self.toggle_grp.setFixedWidth(0.75* self.width-50())
@@ -244,14 +244,14 @@ class CameraConfigDialog(QDialog):
         self.cw_rotation_btn.setMaximumSize(100, 50)
 
         # Counter Clockwise rotation called because the display image is flipped
-        self.cw_rotation_btn.clicked.connect(self.RTD.cam.rotate_CCW)
+        self.cw_rotation_btn.clicked.connect(self.stream.cam.rotate_CCW)
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton("Rotate CCW")
         self.ccw_rotation_btn.setMaximumSize(100, 50)
 
         # Clockwise rotation called because the display image is flipped
-        self.ccw_rotation_btn.clicked.connect(self.RTD.cam.rotate_CW)
+        self.ccw_rotation_btn.clicked.connect(self.stream.cam.rotate_CW)
     
     def build_exposure_hbox(self):
         # construct a horizontal widget with label: slider: value display
@@ -261,15 +261,15 @@ class CameraConfigDialog(QDialog):
         
         self.exp_slider = QSlider(Qt.Orientation.Horizontal)
         self.exp_slider.setRange(-10,0)
-        self.exp_slider.setSliderPosition(int(self.RTD.cam.exposure))
+        self.exp_slider.setSliderPosition(int(self.stream.cam.exposure))
         self.exp_slider.setPageStep(1)
         self.exp_slider.setSingleStep(1)
         self.exp_slider.setMaximumWidth(200)
         exp_number = QLabel()
-        exp_number.setText(str(int(self.RTD.cam.exposure)))
+        exp_number.setText(str(int(self.stream.cam.exposure)))
 
         def update_exposure(s):
-            self.RTD.cam.exposure = s
+            self.stream.cam.exposure = s
             exp_number.setText(str(s))
 
         self.exp_slider.valueChanged.connect(update_exposure)
@@ -301,7 +301,7 @@ class CameraConfigDialog(QDialog):
         # possible resolutions is a list of tuples, but we need a list of Stext
         def resolutions_text():
             res_text = []
-            for w, h in self.RTD.cam.possible_resolutions:
+            for w, h in self.stream.cam.possible_resolutions:
                 res_text.append(f"{int(w)} x {int(h)}")
             return res_text
         
@@ -312,17 +312,17 @@ class CameraConfigDialog(QDialog):
             w, h = int(w), int(h)
             new_res = (w, h)
             # self.cam_cap.change_resolution(new_res)
-            self.change_res_thread = Thread(target = self.RTD.change_resolution,
+            self.change_res_thread = Thread(target = self.stream.change_resolution,
                                             args = (new_res, ),
                                             daemon=True)
             self.change_res_thread.start()
 
             # whenever resolution changes, calibration parameters no longer apply
-            self.RTD.cam.error = None
-            self.RTD.cam.camera_matrix = None
-            self.RTD.cam.distortion = None
-            self.RTD.cam.grid_count = 0
-            self.RTD.undistort = False
+            self.stream.cam.error = None
+            self.stream.cam.camera_matrix = None
+            self.stream.cam.distortion = None
+            self.stream.cam.grid_count = 0
+            self.stream.undistort = False
         
         self.resolution_combo = QComboBox()
         
@@ -330,7 +330,7 @@ class CameraConfigDialog(QDialog):
         self.resolution_combo.addItems(resolutions_text())
         self.resolution_combo.setMaximumSize(100, 50)
         
-        w,h = self.RTD.cam.resolution
+        w,h = self.stream.cam.resolution
         self.resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
         self.resolution_combo.currentTextChanged.connect(change_resolution)        
 
@@ -339,7 +339,7 @@ class CameraConfigDialog(QDialog):
         
         def cv2_view_worker():
             while True:
-                frame = cv2.flip(self.RTD.frame, 1)
+                frame = cv2.flip(self.stream.frame, 1)
 
                 cv2.imshow("Press 'q' to Quit", frame)
 
@@ -387,18 +387,18 @@ if __name__ == "__main__":
     session.load_cameras()
     session.find_additional_cameras() 
 
-    session.load_rtds()
+    session.load_streams()
     session.adjust_resolutions()
 
     config_dialogs = [] 
 
-    for port, rtd in session.rtd.items():
+    for port, stream in session.stream.items():
         
-        # rtd = RealTimeDevice(cam)
-        # rtd.change_resolution(cam.resolution)
-        rtd.assign_charuco(session.charuco)
+        # stream = RealTimeDevice(cam)
+        # stream.change_resolution(cam.resolution)
+        stream.assign_charuco(session.charuco)
         if port == 0:
-            config_dialogs.append(CameraConfigDialog(rtd, session))
+            config_dialogs.append(CameraConfigDialog(stream, session))
 
     for cd in config_dialogs:
         print("About to show dialog")

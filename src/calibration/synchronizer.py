@@ -40,7 +40,7 @@ class Synchronizer:
         # initialize frame data which will hold everything pushed from 
         # roll_camera() for each port
         self.frame_data = {}
-        for port,device in session.rtd.items():
+        for port,device in session.stream.items():
             self.ports.append(port)
             # self.frame_data[port] = []
 
@@ -56,7 +56,7 @@ class Synchronizer:
 
         logging.info("About to submit Threadpool Harversters")
         self.threads = []
-        for port,device in session.rtd.items():
+        for port,device in session.stream.items():
             device.assign_shutter_sync(self.shutter_sync)
 
             t = Thread(target=self.harvest_corners, args=(device,), daemon=True)
@@ -207,7 +207,7 @@ if __name__ == "__main__":
     session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
     session.load_cameras()
     session.find_additional_cameras() # looking to add a third
-    session.load_rtds()
+    session.load_streams()
     session.adjust_resolutions()
     start_time = time.perf_counter()
 
@@ -230,7 +230,7 @@ if __name__ == "__main__":
             break
 
         if key == ord("m"):
-            for port,device in session.rtd.items():
+            for port,device in session.stream.items():
                 device.show_mediapipe = True
 
     

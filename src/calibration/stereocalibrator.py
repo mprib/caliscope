@@ -303,7 +303,7 @@ if __name__ == "__main__":
     logging.debug("Test live stereocalibration processing")
     session = Session("test_session")
     session.load_cameras()
-    session.load_rtds()
+    session.load_streams()
     session.adjust_resolutions()
     # time.sleep(3)
     logging.info("Creating Synchronizer")

@@ -67,14 +67,14 @@ class MainWindow(QMainWindow):
         tab_names  = [self.tabs.tabText(i) for i in range(self.tabs.count())] 
         logging.debug(f"Current tabs are: {tab_names}")
 
-        if len(self.session.rtd) > 0:
-            for port, rtd in self.session.rtd.items():
+        if len(self.session.stream) > 0:
+            for port, stream in self.session.stream.items():
                 tab_name = f"Camera {port}"
                 logging.debug(f"Potentially adding {tab_name}")
                 if tab_name in tab_names:
                     pass # already here, don't bother 
                 else:
-                    cam_tab = CameraConfigDialog(rtd, self.session)
+                    cam_tab = CameraConfigDialog(stream, self.session)
                     cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
                 
                     self.tabs.addTab(cam_tab,tab_name)
@@ -101,8 +101,8 @@ class MainWindow(QMainWindow):
         def find_cam_worker():
 
             self.session.find_additional_cameras()
-            logging.debug("Loading RTDs")
-            self.session.load_rtds()
+            logging.debug("Loading streams")
+            self.session.load_streams()
             logging.debug("Adjusting resolutions")
             self.session.adjust_resolutions()
             logging.debug("Updating Camera Table")
@@ -125,8 +125,8 @@ class MainWindow(QMainWindow):
             self.cams_in_process = True
             logging.debug("Loading Cameras")
             self.session.load_cameras()
-            logging.debug("Loading RTDs")
-            self.session.load_rtds()
+            logging.debug("Loading streams")
+            self.session.load_streams()
             logging.debug("Adjusting resolutions")
             self.session.adjust_resolutions()
             logging.debug("Updating Camera Table")
@@ -256,8 +256,10 @@ class SessionSummary(QMainWindow):
 
 
 if __name__ == "__main__":
-    session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
-    
+    repo = Path(__file__).parent.parent.parent
+    config_path = Path(repo, "test_session")
+    print(config_path)
+    session = Session(config_path)
     app = QApplication(sys.argv)
     
     window = MainWindow(session)

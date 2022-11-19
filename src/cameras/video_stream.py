@@ -18,7 +18,7 @@ from src.calibration.mono_calibrator import MonoCalibrator
 from src.calibration.charuco import Charuco
 
 
-class RealTimeDevice:
+class VideoStream:
     def __init__(self, cam):
         # camera to be managed is the primary initiating component
         self.cam = cam
@@ -235,19 +235,19 @@ if __name__ == '__main__':
 
     charuco = Charuco(4,5,11,8.5,aruco_scale = .75, square_size_overide=.0525, inverted=True)
 
-    real_time_devices = []
+    streams = []
     for cam in cams:
-        print(f"Creating Real Time Device for camera {cam.port}")
-        rtd = RealTimeDevice(cam)
-        rtd.assign_charuco(charuco)
-        real_time_devices.append(rtd)
+        print(f"Creating Video Stream for camera {cam.port}")
+        stream = VideoStream(cam)
+        stream.assign_charuco(charuco)
+        streams.append(stream)
     
 
     while True:
         try:
-            for rtd in real_time_devices:
-                rtd.add_fps()
-                cv2.imshow(str(rtd.frame_name +": 'q' to quit and attempt calibration"), rtd.frame)
+            for stream in streams:
+                stream.add_fps()
+                cv2.imshow(str(stream.frame_name +": 'q' to quit and attempt calibration"), stream.frame)
                 
         # bad reads until connection to src established
         except AttributeError:
@@ -258,51 +258,51 @@ if __name__ == '__main__':
         # toggle mediapipe with 'm' 
         if key == ord('m'):
             print("Toggling Mediapipe")
-            for rtd in real_time_devices:
-                print(rtd.frame_name)
-                rtd.toggle_mediapipe()
+            for stream in streams:
+                print(stream.frame_name)
+                stream.toggle_mediapipe()
         
         if key == ord('r'):
             print("Rotate Frame CW")
 
-            for rtd in real_time_devices:
-                rtd.cam.rotate_CW()
-                print(rtd.frame_name + " " + str(rtd.cam.rotation_count))
+            for stream in streams:
+                stream.cam.rotate_CW()
+                print(stream.frame_name + " " + str(stream.cam.rotation_count))
        
         if  key == ord('l'):
             print("Rotate Frame CCW")
                 
-            for rtd in real_time_devices:
-                rtd.cam.rotate_CCW()
-                print(rtd.frame_name + " " + str(rtd.cam.rotation_count))
+            for stream in streams:
+                stream.cam.rotate_CCW()
+                print(stream.frame_name + " " + str(stream.cam.rotation_count))
 
         # Toggle charuco display
         if key == ord('c'):
-            for rtd in real_time_devices:
-                rtd.track_charuco = not rtd.track_charuco
+            for stream in streams:
+                stream.track_charuco = not stream.track_charuco
 
         # Toggle charuco display
         if key == ord('C'):
-            for rtd in real_time_devices:
-                rtd.charuco_being_traced = True
-                rtd.collect_charuco_corners = not rtd.collect_charuco_corners
+            for stream in streams:
+                stream.charuco_being_traced = True
+                stream.collect_charuco_corners = not stream.collect_charuco_corners
 
         # Toggle undistortion
         if key == ord('d'):
-            for rtd in real_time_devices:
-                rtd.undistort = not rtd.undistort
+            for stream in streams:
+                stream.undistort = not stream.undistort
 
         # 'q' to quit
         if key == ord('q'):
-            for rtd in real_time_devices:
+            for stream in streams:
                 try:
-                    rtd.mono_cal.calibrate()
+                    stream.mono_cal.calibrate()
                 except:
                     pass
-                rtd.cam.capture.release()
+                stream.cam.capture.release()
             cv2.destroyAllWindows()
             exit(0)
 
         if key == ord('v'):
-            for rtd in real_time_devices:
-                rtd.change_resolution((1280, 720))
+            for stream in streams:
+                stream.change_resolution((1280, 720))

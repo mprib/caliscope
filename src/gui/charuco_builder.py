@@ -6,10 +6,6 @@ from ast import arg
 from re import I
 import sys
 from pathlib import Path
-import time
-from threading import Thread
-
-import cv2
 
 from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
                             QSlider, QComboBox, QDialog, QSizePolicy, QLCDNumber,
@@ -17,15 +13,11 @@ from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
                             QVBoxLayout, QHBoxLayout, QGridLayout, QSpinBox, QFrame, QFileDialog,
                             QGroupBox, QDoubleSpinBox, QTextEdit, QGraphicsTextItem, QTextBrowser)
 
-from PyQt6.QtMultimedia import QMediaPlayer, QMediaCaptureSession, QVideoFrame
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
-from PyQt6.QtGui import QIcon, QImage, QPixmap, QFont, QAction
-from cv2 import addWeighted
-from pyparsing import java_style_comment
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.cameras.real_time_device import RealTimeDevice
+from src.cameras.video_stream import VideoStream
 from src.cameras.camera import Camera
 from src.calibration.charuco import Charuco, ARUCO_DICTIONARIES
 from src.session import Session

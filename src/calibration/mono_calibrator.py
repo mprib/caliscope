@@ -9,9 +9,6 @@ import cv2
 import time
 import numpy as np
 from itertools import combinations
-import json
-import os
-from datetime import datetime
 
 from pathlib import Path
 import sys

@@ -26,7 +26,7 @@ from numpy import disp
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.camera import Camera
-from src.cameras.real_time_device import RealTimeDevice
+from cameras.video_stream import VideoStream
 from src.gui.camera_config_dialogue import CameraConfigDialog
 
 class MainWindow(QMainWindow):
@@ -66,8 +66,8 @@ class MainWindow(QMainWindow):
         # for port in [0,1,3]:
         port = 0
         cam = Camera(port)
-        real_time_device = RealTimeDevice(cam)
-        display = CameraConfigDialog(real_time_device) 
+        video_stream = VideoStream(cam)
+        display = CameraConfigDialog(video_stream) 
         # self.gbox.addWidget(vid_window, row, col)
 
         # col = col + 1

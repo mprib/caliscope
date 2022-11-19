@@ -23,12 +23,12 @@ class FrameEmitter(QThread):
     FPSBroadcast = pyqtSignal(int)
 
     
-    def __init__(self, real_time_device, pixmap_edge_length=None):
+    def __init__(self, video_stream, pixmap_edge_length=None):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(FrameEmitter,self).__init__()
         self.min_sleep = .01 # if true fps drops to zero, don't blow up
-        self.RTD = real_time_device
+        self.stream = video_stream
         self.pixmap_edge_length = pixmap_edge_length
         print("Initializing Frame Emitter")
     
@@ -41,7 +41,7 @@ class FrameEmitter(QThread):
             try:    # takes a moment for capture widget to spin up...don't error out
 
                 # Grab a frame from the capture widget and broadcast to displays
-                frame = self.RTD.frame
+                frame = self.stream.frame
                 image = self.cv2_to_qlabel(frame)
                 pixmap = QPixmap.fromImage(image)
 
@@ -56,7 +56,7 @@ class FrameEmitter(QThread):
                 self.ImageBroadcast.emit(pixmap)
 
                 # grab and broadcast fps
-                fps = self.RTD.FPS_actual
+                fps = self.stream.FPS_actual
                 self.FPSBroadcast.emit(fps)
 
                 # throttle rate of broadcast to reduce system overhead

@@ -198,7 +198,3 @@ if __name__ == "__main__":
     print(config_path)
     session = Session(config_path)
     session.update_config()
-#%%
-    
-    # session.save_charuco()
-    # session.update_config()

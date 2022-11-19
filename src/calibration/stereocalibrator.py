@@ -42,7 +42,16 @@ class StereoCalibrator:
             logging.debug(f"Appending port {port}...")
             self.ports.append(port)
 
-        self.uncalibrated_pairs = [(i,j) for i,j in combinations(self.ports,2)]
+        unordered_pairs = [(i,j) for i,j in combinations(self.ports,2)]
+        self.uncalibrated_pairs = [] 
+        # standardize so that smaller port number always appears first
+        for pair in unordered_pairs: 
+            i,j = pair[0], pair[1]
+
+            if i > j:
+                i,j = j,i
+            self.uncalibrated_pairs.append((i,j))
+
         self.last_store_time = {pair: time.perf_counter() for pair in self.uncalibrated_pairs}        
 
         logging.debug(f"Processing pairs of uncalibrated pairs: {self.uncalibrated_pairs}")
@@ -65,12 +74,6 @@ class StereoCalibrator:
 
             if len(self.uncalibrated_pairs) == 0:
                 self.stereo_calibrate()
-                # self.calibration = Thread(target=self.stereo_calibrate(), args=(), daemon=True)
-                # self.calibration.start()
-                # self.calibration_started = True
-                # while True:
-                    # time.sleep(.5)
-                    # self.stacked_frames.put(np.array([]))
 
 
     def stereo_calibrate(self):

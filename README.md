@@ -8,6 +8,6 @@ A walk through of the current functionality is here:
 
 https://youtu.be/64-Lv390SMo
 
-# NOTE: recently renamed
-
+## NOTE: recently renamed
+    
 I'm trying to organize things with a clean slate as this project is no longer really about learning opencv. Looking to rename current functionality as main and start a new development branch. My hope is to do smaller pushes to main as functionality expands.

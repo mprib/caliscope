@@ -1,26 +1,51 @@
 # Want to create a small window that allows for the charuco params to be set
 # and a board to be constructed that will be used for the calibration
 
+import sys
+
 #%%
 from ast import arg
-from re import I
-import sys
 from pathlib import Path
+from re import I
 
-from PyQt6.QtWidgets import (QMainWindow, QApplication, QWidget, QPushButton,
-                            QSlider, QComboBox, QDialog, QSizePolicy, QLCDNumber,
-                            QToolBar, QLabel, QLineEdit, QCheckBox, QScrollArea, QSpacerItem,
-                            QVBoxLayout, QHBoxLayout, QGridLayout, QSpinBox, QFrame, QFileDialog,
-                            QGroupBox, QDoubleSpinBox, QTextEdit, QGraphicsTextItem, QTextBrowser)
-
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
+from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
+from PyQt6.QtWidgets import (
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFrame,
+    QGraphicsTextItem,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLCDNumber,
+    QLineEdit,
+    QMainWindow,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QSlider,
+    QSpacerItem,
+    QSpinBox,
+    QTextBrowser,
+    QTextEdit,
+    QToolBar,
+    QVBoxLayout,
+    QWidget,
+)
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.cameras.video_stream import VideoStream
+from src.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from src.cameras.camera import Camera
-from src.calibration.charuco import Charuco, ARUCO_DICTIONARIES
+from src.cameras.video_stream import VideoStream
 from src.session import Session
+
+
 class CharucoBuilder(QWidget):
     def __init__(self, session):
         super(CharucoBuilder, self).__init__()
@@ -59,7 +84,7 @@ class CharucoBuilder(QWidget):
         ################## STEP ONE: Configure Charuco ######################
         # step1.setFrameStyle(QFrame.)
         # step1.setReadOnly(True)
-        step1_text ="""
+        step1_text = """
                     <b>Step 1</b>: Configure the parameters of the charuco 
                     board. The default parameters are appropriate for typical 
                     use cases, though you can invert the board to reduce ink 
@@ -68,16 +93,16 @@ class CharucoBuilder(QWidget):
         step1 = QLabel(step1_text)
         step1.setWordWrap(True)
         # Strange wrinkle: charuco display height and width seem flipped
-        # step1.setMaximumWidth(self.charuco_display.height()) 
+        # step1.setMaximumWidth(self.charuco_display.height())
 
-        step1.setMinimumWidth(self.width()*.5) 
+        step1.setMinimumWidth(self.width() * 0.5)
         VBL.addWidget(step1)
         VBL.addWidget(self.charuco_config)
         ##### PRINT ##########################################################
         VBL.addWidget(self.charuco_display)
         VBL.addSpacing(20)
         ############### STEP TWO: Print Charuco  #############################
-        step2_text ="""
+        step2_text = """
                     <b>Step 2</b>: Save a picture of the above board to your 
                     computer and then print it out. Tape or glue the paper to 
                     something flat and rigid. You don't want to have any 
@@ -88,13 +113,13 @@ class CharucoBuilder(QWidget):
         step2 = QLabel(step2_text)
         step2.setWordWrap(True)
         # Strange wrinkle: charuco display height and width seem flipped
-        step2.setMinimumWidth(self.width()*.5) 
+        step2.setMinimumWidth(self.width() * 0.5)
         VBL.addWidget(step2)
         VBL.addLayout(self.save_png_hbox)
         VBL.addSpacing(20)
 
         ############### STEP THREE: True-Up to actual Charuco Size ###########
-        step3_text ="""
+        step3_text = """
                     <b>Step 3</b>: Measure the actual length of the edge of a 
                     square (in mm) as it appears on the printed board, and input 
                     it into the box below. This adjustment helps to account for 
@@ -105,25 +130,25 @@ class CharucoBuilder(QWidget):
         step3 = QLabel(step3_text)
         step3.setWordWrap(True)
         # Strange wrinkle: charuco display height and width seem flipped
-        # step3.setMaximumWidth(self.charuco_display.height()) 
-        step3.setMinimumWidth(self.width()*.5) 
+        # step3.setMaximumWidth(self.charuco_display.height())
+        step3.setMinimumWidth(self.width() * 0.5)
         VBL.addWidget(step3)
         VBL.addWidget(self.true_up_group)
         VBL.addSpacing(20)
 
         ########## STEP FOUR: Export Trued-Up Board to Calibration Folder #####
-        step4_text ="""
+        step4_text = """
                     <b>Step 4</b>: After truing up the board, save the board
                     parameters for use in this session.
                     """
         step4 = QLabel(step4_text)
         step4.setWordWrap(True)
         # Strange wrinkle: charuco display height and width seem flipped
-        # step4.setMaximumWidth(self.charuco_display.height()) 
-        step4.setMinimumWidth(self.width()*.5) 
+        # step4.setMaximumWidth(self.charuco_display.height())
+        step4.setMinimumWidth(self.width() * 0.5)
         VBL.addWidget(step4)
         VBL.addWidget(self.export_btn)
-    
+
         for w in self.children():
             VBL.setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
 
@@ -135,26 +160,23 @@ class CharucoBuilder(QWidget):
         self.charuco_config = QGroupBox("&Configure Charuco Board")
         self.charuco_config.setLayout(config_options)
         self.charuco_config.setCheckable(True)
-        self.charuco_config.setChecked(False)    # sensible defaults....
-
+        self.charuco_config.setChecked(False)  # sensible defaults....
 
         ### SHAPE GROUP    ################################################
         shape_grp = QGroupBox("row x col")
         shape_grp.setLayout(QHBoxLayout())
         shape_grp.layout().setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        
-        
+
         # These are reversed from 'row x col', but this is how it works out
         shape_grp.layout().addWidget(self.row_spin)
         shape_grp.layout().addWidget(self.column_spin)
-        
+
         config_options.addWidget(shape_grp)
 
         #################### SIZE GROUP #######################################
         size_grp = QGroupBox("Target Board Size")
         size_grp.setLayout(QHBoxLayout())
         size_grp.layout().setAlignment(Qt.AlignmentFlag.AlignHCenter)
- 
 
         size_grp.layout().addWidget(self.width_spin)
         size_grp.layout().addWidget(self.length_spin)
@@ -164,90 +186,92 @@ class CharucoBuilder(QWidget):
 
         ############################# INVERT ####################################
         self.build_invert_checkbox()
-        config_options.addWidget(self.invert_checkbox)  
+        config_options.addWidget(self.invert_checkbox)
 
         ####################################### UPDATE CHARUCO #################
         self.build_charuco_update_btn()
         config_options.addWidget(self.charuco_build_btn)
 
-
-
     def build_save_png_group(self):
         # basic png save button
-        self.png_btn = QPushButton("Save &png") 
-        self.png_btn.setMaximumSize(100,30)
+        self.png_btn = QPushButton("Save &png")
+        self.png_btn.setMaximumSize(100, 30)
+
         def save_png():
-            save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", "charuco.png", "PNG (*.png)")
+            save_file_tuple = QFileDialog.getSaveFileName(
+                self, "Save As", "charuco.png", "PNG (*.png)"
+            )
             print(save_file_tuple)
             save_file_name = str(Path(save_file_tuple[0]))
-            if len(save_file_name)>1:
+            if len(save_file_name) > 1:
                 print(f"Saving board to {save_file_name}")
                 self.charuco.save_image(save_file_name)
+
         self.png_btn.clicked.connect(save_png)
 
         # additional mirror image option
-        self.png_mirror_btn = QPushButton("Save &mirror png") 
-        self.png_mirror_btn.setMaximumSize(100,30)
+        self.png_mirror_btn = QPushButton("Save &mirror png")
+        self.png_mirror_btn.setMaximumSize(100, 30)
+
         def save_mirror_png():
-            save_file_tuple = QFileDialog.getSaveFileName(self, "Save As", "charuco_mirror.png", "PNG (*.png)")
+            save_file_tuple = QFileDialog.getSaveFileName(
+                self, "Save As", "charuco_mirror.png", "PNG (*.png)"
+            )
             print(save_file_tuple)
             save_file_name = str(Path(save_file_tuple[0]))
-            if len(save_file_name)>1:
+            if len(save_file_name) > 1:
                 print(f"Saving board to {save_file_name}")
                 self.charuco.save_mirror_image(save_file_name)
+
         self.png_mirror_btn.clicked.connect(save_mirror_png)
 
         self.save_png_hbox = QHBoxLayout()
         self.save_png_hbox.addWidget(self.png_btn)
         self.save_png_hbox.addWidget(self.png_mirror_btn)
 
-
-
     def build_true_up_group(self):
         self.true_up_group = QGroupBox("&True-Up Printed Square Edge")
         self.true_up_group.setLayout(QHBoxLayout())
         self.true_up_group.layout().addWidget(QLabel("Actual Length (cm):"))
-        
+
         self.printed_edge_length = QDoubleSpinBox()
         self.printed_edge_length.setMaximumWidth(100)
         # self.set_true_edge_length()
         overide = self.session.config["charuco"]["square_size_overide"]
-        self.printed_edge_length.setValue(overide) 
+        self.printed_edge_length.setValue(overide)
 
         def update_charuco():
             self.charuco.square_size_overide = self.printed_edge_length.value()
             print("Updated Square Size Overide")
+
         self.printed_edge_length.valueChanged.connect(update_charuco)
 
         self.true_up_group.layout().addWidget(self.printed_edge_length)
 
-
     def build_save_config(self):
         self.export_btn = QPushButton("&Save Charuco")
-        self.export_btn.setMaximumSize(100,30)
-        
+        self.export_btn.setMaximumSize(100, 30)
+
         def save_charuco():
             self.session.charuco = self.charuco
-            self.session.save_charuco() 
-            
+            self.session.save_charuco()
+
         self.export_btn.clicked.connect(save_charuco)
 
     def build_column_spinbox(self):
         self.column_spin = QSpinBox()
         self.column_spin.setValue(self.params["columns"])
         self.column_spin.setMaximumWidth(50)
-        
 
     def build_row_spinbox(self):
         self.row_spin = QSpinBox()
         self.row_spin.setValue(self.params["rows"])
         self.row_spin.setMaximumWidth(50)
-             
+
     def build_width_spinbox(self):
         self.width_spin = QDoubleSpinBox()
         self.width_spin.setValue(self.params["board_width"])
         self.width_spin.setMaximumWidth(50)
-        
 
     def build_length_spinbox(self):
         self.length_spin = QDoubleSpinBox()
@@ -266,10 +290,8 @@ class CharucoBuilder(QWidget):
 
     def build_charuco_update_btn(self):
         self.charuco_build_btn = QPushButton("&Update")
-        self.charuco_build_btn.setMaximumSize(50,30)
+        self.charuco_build_btn.setMaximumSize(50, 30)
         self.charuco_build_btn.clicked.connect(self.build_charuco)
-
-
 
     def build_charuco(self):
         ####################### PNG DISPLAY     ###########################
@@ -279,7 +301,7 @@ class CharucoBuilder(QWidget):
         rows = self.row_spin.value()
         board_height = self.length_spin.value()
         board_width = self.width_spin.value()
-        aruco_scale = 0.75 
+        aruco_scale = 0.75
         units = self.units.currentText()
         square_edge_length = self.printed_edge_length.value()
 
@@ -287,21 +309,23 @@ class CharucoBuilder(QWidget):
         dictionary_str = "DICT_4X4_1000"
 
         # print("Calling Charuco Function")
-        self.charuco = Charuco(columns,
-                          rows,
-                          board_height,
-                          board_width,
-                          units = units,
-                          dictionary = dictionary_str,
-                          aruco_scale = aruco_scale, 
-                          square_size_overide = square_edge_length,
-                          inverted = inverted)
-        # working_charuco_img = cv2.imencode(".png",charuco.board_img) 
+        self.charuco = Charuco(
+            columns,
+            rows,
+            board_height,
+            board_width,
+            units=units,
+            dictionary=dictionary_str,
+            aruco_scale=aruco_scale,
+            square_size_overide=square_edge_length,
+            inverted=inverted,
+        )
+        # working_charuco_img = cv2.imencode(".png",charuco.board_img)
 
         if not self.charuco_added:
             self.charuco_display = QLabel()
             self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-            self.charuco_display.setMaximumSize(self.height()/2, self.width()/2)
+            self.charuco_display.setMaximumSize(self.height() / 2, self.width() / 2)
         charuco_height = self.charuco_display.height()
         charuco_width = self.charuco_display.width()
         print("Building charuco thumbnail...")
@@ -312,7 +336,7 @@ class CharucoBuilder(QWidget):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
 
-    session = Session(r'C:\Users\Mac Prible\repos\learn-opencv\test_session')
+    session = Session(r"C:\Users\Mac Prible\repos\learn-opencv\test_session")
 
     screen = App.primaryScreen()
     DISPLAY_WIDTH = screen.size().width()
@@ -323,5 +347,4 @@ if __name__ == "__main__":
     sys.exit(App.exec())
 
 
-   
 # %%

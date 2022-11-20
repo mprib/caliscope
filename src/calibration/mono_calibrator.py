@@ -2,6 +2,14 @@
 # detector and the corner drawer...like, there will need to be something that
 # accumulates a frame of corners to be drawn onto the displayed frame.
 
+import logging
+
+logging.basicConfig(
+    filename="monocalibrator.log",
+    filemode="w",
+    # level=logging.INFO)
+    level=logging.DEBUG,
+)
 
 import sys
 import time
@@ -56,20 +64,20 @@ class MonoCalibrator:
         self.corner_loc_obj = []
         self.corner_ids = []
 
-    def track_corners(self, frame):
+    def find_corners(self, frame):
         """Will check for corners in the default board image, if it doesn't
         find any, then it will look for images in the mirror image of the
         default board"""
         self.frame = frame
 
-        self.track_corners_single_frame(mirror=False)
+        self.find_corners_single_frame(mirror=False)
         # print(self._frame_corner_ids)
         if not self._frame_corner_ids.any():
             # print("Checking mirror image")
             self.frame = cv2.flip(self.frame, 1)
-            self.track_corners_single_frame(mirror=True)
+            self.find_corners_single_frame(mirror=True)
 
-    def track_corners_single_frame(self, mirror):
+    def find_corners_single_frame(self, mirror):
         """ """
 
         # invert the frame for detection if needed
@@ -218,7 +226,7 @@ class MonoCalibrator:
         corner positions based on the board definition to calculated
         the camera matrix and distortion parameters
         """
-        print(f"Calibrating....")
+        logging.info(f"Calibrating camera {self.camera.port}....")
 
         # organize parameters for calibration function
         objpoints = self.corner_loc_obj
@@ -238,10 +246,10 @@ class MonoCalibrator:
         self.camera.distortion = dist
         self.camera.grid_count = len(self.corner_ids)
 
-        print(f"Error: {error}")
-        print(f"Camera Matrix: {mtx}")
-        print(f"Distortion: {dist}")
-        print(f"Grid Count: {self.camera.grid_count}")
+        logging.info(f"Error: {error}")
+        logging.info(f"Camera Matrix: {mtx}")
+        logging.info(f"Distortion: {dist}")
+        logging.info(f"Grid Count: {self.camera.grid_count}")
 
 
 if __name__ == "__main__":
@@ -259,7 +267,7 @@ if __name__ == "__main__":
     while True:
 
         read_success, frame = cam.capture.read()
-        calib.track_corners(frame)
+        calib.find_corners(frame)
         calib.collect_corners(wait_time=0.5)
         merged_frame = calib.merged_grid_history()
 
@@ -273,3 +281,7 @@ if __name__ == "__main__":
             break
 
     calib.calibrate()
+    print(f"Error: {cam.error}")
+    print(f"Camera Matrix: {cam.camera_matrix}")
+    print(f"Distortion: {cam.distortion}")
+    print(f"Grid Count: {cam.grid_count}")

@@ -229,7 +229,6 @@ if __name__ == "__main__":
     all_bundles = []
     while True:
         frame_bundle = syncr.synced_frames_q.get()
-        # all_bundles.append(frame_bundle)
         for port, frame_data in frame_bundle.items():
             if frame_data:
                 cv2.imshow(

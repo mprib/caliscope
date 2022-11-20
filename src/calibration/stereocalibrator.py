@@ -337,7 +337,7 @@ class StereoCalibrator:
 if __name__ == "__main__":
 
     logging.debug("Test live stereocalibration processing")
-    session = Session("test_session")
+    session = Session("default_session")
     session.load_cameras()
     session.load_streams()
     session.adjust_resolutions()

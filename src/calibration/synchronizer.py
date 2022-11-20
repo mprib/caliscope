@@ -82,20 +82,20 @@ class Synchronizer:
             (
                 frame_time,
                 frame,
-                corner_ids,
-                frame_corners,
-                board_FOR_corners,
+                # corner_ids,
+                # frame_corners,
+                # board_FOR_corners,
             ) = device.reel.get()
 
             self.frame_data[f"{port}_{frame_index}"] = {
                 "port": port,
                 "frame": frame,
                 "frame_index": frame_index,
-                "fps": device.FPS_actual,
+                # "fps": device.FPS_actual,
                 "frame_time": frame_time,
-                "corner_ids": corner_ids,
-                "frame_corners": frame_corners,
-                "board_FOR_corners": board_FOR_corners,  # corner location in board frame of reference
+                # "corner_ids": corner_ids,
+                # "frame_corners": frame_corners,
+                # "board_FOR_corners": board_FOR_corners,  # corner location in board frame of reference
             }
 
             frame_index += 1
@@ -151,7 +151,7 @@ class Synchronizer:
             self.throttle_wait += 0.0001
         else:
             self.throttle_wait -= 0.0001
-        # print(f"FPS: {fps}")
+        print(f"FPS: {fps}")
         time.sleep(max(self.throttle_wait, 0))
 
     def bundle_frames(self):
@@ -181,8 +181,9 @@ class Synchronizer:
             # delta_t = bundle_cutoff_time - bundle_start
             # self.frame_rates.append(1/delta_t)
 
-            # only throttle if you aue mostly current
-            if self.frame_slack() < 5:
+            # only throttle if you are mostly current to avoid progressive
+            # drift in lag
+            if self.frame_slack() < 3:
                 self.throttle_fps()
 
             next_layer = {}
@@ -214,16 +215,16 @@ import pickle
 if __name__ == "__main__":
 
     repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "test_session")
+    config_path = Path(repo, "default_session")
     session = Session(config_path)
 
     session.load_cameras()
     session.find_additional_cameras()  # looking to add a third
     session.load_streams()
-    session.adjust_resolutions()
+    # session.adjust_resolutions()
     start_time = time.perf_counter()
 
-    syncr = Synchronizer(session, fps_target=12)
+    syncr = Synchronizer(session, fps_target=30)
     # print(syncr.synced_frames)
 
     all_bundles = []
@@ -241,9 +242,9 @@ if __name__ == "__main__":
             cv2.destroyAllWindows()
             break
 
-        if key == ord("m"):
-            for port, device in session.stream.items():
-                device.show_mediapipe = True
+        # if key == ord("m"):
+        #     for port, device in session.stream.items():
+        #         device.show_mediapipe = True
 
     # with open("bundles.pkl", "wb") as f:
     #     pickle.dump(all_bundles, f)

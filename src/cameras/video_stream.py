@@ -41,15 +41,15 @@ class VideoStream:
         self.avg_delta_time = None
 
         # Mediapipe hand detection infrastructure
-        self.mpHands = mp.solutions.hands
-        self.hands = self.mpHands.Hands()
-        self.mpDraw = mp.solutions.drawing_utils
-        self.show_mediapipe = False
+        # self.mpHands = mp.solutions.hands
+        # self.hands = self.mpHands.Hands()
+        # self.mpDraw = mp.solutions.drawing_utils
+        # self.show_mediapipe = False
 
         # don't add anything special at the start
-        self.track_charuco = False
-        self.collect_charuco_corners = False
-        self.undistort = False
+        # self.track_charuco = False
+        # self.collect_charuco_corners = False
+        # self.undistort = False
 
     def assign_shutter_sync(self, shutter_sync):
         """shutter sync is a thread queue that triggers end of wait cycle"""
@@ -83,19 +83,19 @@ class VideoStream:
                 self._working_frame, cv2.ROTATE_90_COUNTERCLOCKWISE
             )
 
-    def run_mediapipe_hands(self):
+    # def run_mediapipe_hands(self):
 
-        # Only calculate mediapipe if going to display it
-        if self.show_mediapipe:
-            frame_RGB = cv2.cvtColor(self._working_frame, cv2.COLOR_BGR2RGB)
-            self.hand_results = self.hands.process(frame_RGB)
+    #     # Only calculate mediapipe if going to display it
+    #     if self.show_mediapipe:
+    #         frame_RGB = cv2.cvtColor(self._working_frame, cv2.COLOR_BGR2RGB)
+    #         self.hand_results = self.hands.process(frame_RGB)
 
-            # draw hand dots and lines
-            if self.hand_results.multi_hand_landmarks:
-                for handLms in self.hand_results.multi_hand_landmarks:
-                    self.mpDraw.draw_landmarks(
-                        self._working_frame, handLms, self.mpHands.HAND_CONNECTIONS
-                    )
+    #         # draw hand dots and lines
+    #         if self.hand_results.multi_hand_landmarks:
+    #             for handLms in self.hand_results.multi_hand_landmarks:
+    #                 self.mpDraw.draw_landmarks(
+    #                     self._working_frame, handLms, self.mpHands.HAND_CONNECTIONS
+    #                 )
 
     def roll_camera(self):
         """
@@ -108,9 +108,8 @@ class VideoStream:
         while True:
             self.cam.is_rolling = True
 
-            if (
-                self.cam.capture.isOpened()
-            ):  # note this line is truly necessary otherwise error upon closing capture
+            # note this line is truly necessary otherwise error upon closing capture
+            if self.cam.capture.isOpened():
 
                 # wait for sync_shutter to fire
                 if self.push_to_reel:
@@ -123,13 +122,13 @@ class VideoStream:
                 self.frame_time = (read_start + read_stop) / 2
 
                 # REAL TIME OVERLAYS ON self._working_frame
-                self.run_mediapipe_hands()
-                self.process_charuco()
+                # self.run_mediapipe_hands()
+                # self.process_charuco()
 
                 # I have misgivings about including this in here
                 # should be used as a sanity check of distortion params
                 # applied sparingly and never run when doing *anything* else
-                self.apply_undistortion()
+                # self.apply_undistortion()
 
                 # must apply rotation at end...
                 # otherwise mismatch in frame / grid history dimensions
@@ -141,9 +140,9 @@ class VideoStream:
                         [
                             self.frame_time,
                             self._working_frame,
-                            self.mono_cal._frame_corner_ids,
-                            self.mono_cal._frame_corners,
-                            self.mono_cal.board_FOR_corners,
+                            # self.mono_cal._frame_corner_ids,
+                            # self.mono_cal._frame_corners,
+                            # self.mono_cal.board_FOR_corners,
                         ]
                     )
 
@@ -182,19 +181,19 @@ class VideoStream:
 
         self.cam.resolution = res
         # if self.mono_calib:
-        try:
-            self.mono_cal.initialize_grid_history()
-        except:
-            pass
+        # try:
+        # self.mono_cal.initialize_grid_history()
+        # except:
+        # pass
 
         # Spin up the thread again now that resolution is changed
         self.cap_thread = Thread(target=self.roll_camera, args=(), daemon=True)
         self.cap_thread.start()
 
-    def toggle_mediapipe(self):
-        self.show_mediapipe = not self.show_mediapipe
+    # def toggle_mediapipe(self):
+    # self.show_mediapipe = not self.show_mediapipe
 
-    def add_fps(self):
+    def _add_fps(self):
         """NOTE: this is used in code at bottom, not in external use"""
         self.fps_text = str(int(round(self.FPS_actual, 0)))
         cv2.putText(
@@ -207,31 +206,31 @@ class VideoStream:
             3,
         )
 
-    def assign_charuco(self, charuco):
-        self.mono_cal = MonoCalibrator(self.cam, charuco)
+    # def assign_charuco(self, charuco):
+    # self.mono_cal = MonoCalibrator(self.cam, charuco)
 
-    def process_charuco(self):
-        """Heavy lifting from the charuco module. This method could involve just
-        displaying the identified corners on the frame, or adding them to
-        the list of corners for running a calibration.
+    # def process_charuco(self):
+    # """Heavy lifting from the charuco module. This method could involve just
+    # displaying the identified corners on the frame, or adding them to
+    # the list of corners for running a calibration.
 
-        The scope of the action depends on setting flags for:
-        self.track_charuco
-        self.collect_charuco_corners
-        """
-        if self.track_charuco:
-            self.mono_cal.track_corners(self._working_frame, self.frame_time)
-            if self.collect_charuco_corners:
-                self.mono_cal.collect_corners()
+    # The scope of the action depends on setting flags for:
+    # self.track_charuco
+    # self.collect_charuco_corners
+    # """
+    #     if self.track_charuco:
+    #         self.mono_cal.track_corners(self._working_frame, self.frame_time)
+    #         if self.collect_charuco_corners:
+    #             self.mono_cal.collect_corners()
 
-            self._working_frame = self.mono_cal.merged_grid_history()
+    #         self._working_frame = self.mono_cal.merged_grid_history()
 
-    def apply_undistortion(self):
+    # def apply_undistortion(self):
 
-        if self.undistort == True:  # and self.mono_cal.is_calibrated:
-            self._working_frame = cv2.undistort(
-                self._working_frame, self.cam.camera_matrix, self.cam.distortion
-            )
+    #     if self.undistort == True:  # and self.mono_cal.is_calibrated:
+    #         self._working_frame = cv2.undistort(
+    #             self._working_frame, self.cam.camera_matrix, self.cam.distortion
+    #         )
 
 
 # Highlight module functionality. View a frame with mediapipe hands
@@ -252,13 +251,13 @@ if __name__ == "__main__":
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
         stream = VideoStream(cam)
-        stream.assign_charuco(charuco)
+        # stream.assign_charuco(charuco)
         streams.append(stream)
 
     while True:
         try:
             for stream in streams:
-                stream.add_fps()
+                stream._add_fps()
                 cv2.imshow(
                     str(stream.frame_name + ": 'q' to quit and attempt calibration"),
                     stream.frame,
@@ -271,11 +270,11 @@ if __name__ == "__main__":
         key = cv2.waitKey(1)
 
         # toggle mediapipe with 'm'
-        if key == ord("m"):
-            print("Toggling Mediapipe")
-            for stream in streams:
-                print(stream.frame_name)
-                stream.toggle_mediapipe()
+        # if key == ord("m"):
+        #     print("Toggling Mediapipe")
+        #     for stream in streams:
+        #         print(stream.frame_name)
+        #         stream.toggle_mediapipe()
 
         if key == ord("r"):
             print("Rotate Frame CW")
@@ -292,28 +291,28 @@ if __name__ == "__main__":
                 print(stream.frame_name + " " + str(stream.cam.rotation_count))
 
         # Toggle charuco display
-        if key == ord("c"):
-            for stream in streams:
-                stream.track_charuco = not stream.track_charuco
+        # if key == ord("c"):
+        #     for stream in streams:
+        #         stream.track_charuco = not stream.track_charuco
 
-        # Toggle charuco display
-        if key == ord("C"):
-            for stream in streams:
-                stream.charuco_being_traced = True
-                stream.collect_charuco_corners = not stream.collect_charuco_corners
+        # # Toggle charuco display
+        # if key == ord("C"):
+        #     for stream in streams:
+        #         stream.charuco_being_traced = True
+        #         stream.collect_charuco_corners = not stream.collect_charuco_corners
 
-        # Toggle undistortion
-        if key == ord("d"):
-            for stream in streams:
-                stream.undistort = not stream.undistort
+        # # Toggle undistortion
+        # if key == ord("d"):
+        #     for stream in streams:
+        #         stream.undistort = not stream.undistort
 
         # 'q' to quit
         if key == ord("q"):
             for stream in streams:
-                try:
-                    stream.mono_cal.calibrate()
-                except:
-                    pass
+                # try:
+                #     stream.mono_cal.calibrate()
+                # except:
+                #     pass
                 stream.cam.capture.release()
             cv2.destroyAllWindows()
             exit(0)

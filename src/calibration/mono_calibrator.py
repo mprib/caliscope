@@ -1,5 +1,3 @@
-# The purpose of this module will be to construct a worker for the real time
-# device that can look at a picure and identify/collect the corners.
 # There may be a mixed functionality here...I'm not sure. Between the corner
 # detector and the corner drawer...like, there will need to be something that
 # accumulates a frame of corners to be drawn onto the displayed frame.
@@ -21,6 +19,8 @@ from src.cameras.camera import Camera
 class MonoCalibrator:
     def __init__(self, camera, charuco):
 
+        # need camera to know resolution and to assign calibration parameters
+        # to camera
         self.camera = camera
         self.charuco = charuco
 
@@ -56,23 +56,21 @@ class MonoCalibrator:
         self.corner_loc_obj = []
         self.corner_ids = []
 
-    def track_corners(self, frame, frame_time):
+    def track_corners(self, frame):
+        """Will check for corners in the default board image, if it doesn't
+        find any, then it will look for images in the mirror image of the
+        default board"""
+        self.frame = frame
 
-        self.track_corners_single_frame(frame, frame_time, mirror=False)
+        self.track_corners_single_frame(mirror=False)
         # print(self._frame_corner_ids)
         if not self._frame_corner_ids.any():
             # print("Checking mirror image")
-            frame = cv2.flip(frame, 1)
-            self.track_corners_single_frame(frame, frame_time, mirror=True)
+            self.frame = cv2.flip(self.frame, 1)
+            self.track_corners_single_frame(mirror=True)
 
-    def track_corners_single_frame(self, frame, frame_time, mirror):
-        """This method is called by the RealTimeDevice during roll_camera().
-        A frame is provided that the IntrinsicCalibrator can then process. This
-        method does the primary work of identifying the corners that are
-        present in the frame."""
-
-        self.frame = frame
-        self.frame_time = frame_time
+    def track_corners_single_frame(self, mirror):
+        """ """
 
         # invert the frame for detection if needed
         self.gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)  # convert to gray
@@ -260,16 +258,12 @@ if __name__ == "__main__":
     print("About to enter main loop")
     while True:
 
-        read_start = time.perf_counter()
         read_success, frame = cam.capture.read()
-        read_stop = time.perf_counter()
-        frame_time = (read_start + read_stop) / 2
-        calib.track_corners(frame, frame_time)
-        calib.collect_corners(wait_time=1)
+        calib.track_corners(frame)
+        calib.collect_corners(wait_time=0.5)
         merged_frame = calib.merged_grid_history()
 
         cv2.imshow("Press 'q' to quit", merged_frame)
-        # cv2.imshow("Capture History", calib._grid_capture_history)
         key = cv2.waitKey(1)
 
         # end capture when enough grids collected

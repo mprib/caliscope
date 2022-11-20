@@ -1,9 +1,7 @@
 import logging
 
-logging.basicConfig(filename="stereocalibration.log", 
-                    filemode="w", 
-                    level=logging.DEBUG)
-                    # level=logging.INFO)
+logging.basicConfig(filename="stereocalibration.log", filemode="w", level=logging.DEBUG)
+# level=logging.INFO)
 
 import pprint
 import sys
@@ -15,6 +13,7 @@ from threading import Thread
 
 import cv2
 import imutils
+
 # from matplotlib.pyplot import grid
 import numpy as np
 
@@ -354,11 +353,11 @@ if __name__ == "__main__":
     while len(stereo_cal.uncalibrated_pairs) > 0:
 
         frame = stereo_cal.stacked_frames.get()
-        print(frame.dtype)
-        print(frame.shape)
         if frame.shape == (1,):
+            # no longer receiving any frame info...
             logging.info("Beginning to calibrate")
             cv2.destroyAllWindows()
+
         cv2.imshow("Stereocalibration", frame)
 
         key = cv2.waitKey(1)

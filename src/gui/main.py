@@ -1,33 +1,46 @@
-# Built following the tutorials that begin here: 
+# Built following the tutorials that begin here:
 # https://www.pythonguis.com/tutorials/pyqt6-creating-your-first-window/
 
-import sys
 import logging
+import sys
 
-logging.basicConfig(filename="log\main.log", 
-                    filemode = "w", 
-                    format='%(asctime)s - %(pathname)s - %(levelname)s - %(message)s',
-                    level=logging.DEBUG)
-                    # level=logging.INFO)
+logging.basicConfig(
+    filename="log\main.log",
+    filemode="w",
+    format="%(asctime)s - %(pathname)s - %(levelname)s - %(message)s",
+    level=logging.DEBUG,
+)
+# level=logging.INFO)
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPalette, QColor, QIcon
-from PyQt6.QtWidgets import ( QVBoxLayout, QHBoxLayout, QLabel, QMainWindow, 
-                            QPushButton, QTabWidget, QWidget,QGroupBox, 
-                            QScrollArea, QApplication, QTableWidget, QSizePolicy)
-
-from pathlib import Path
-from numpy import char
-from threading import Thread
 import time
+from pathlib import Path
+from threading import Thread
 
+from numpy import char
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QIcon, QPalette
+from PyQt6.QtWidgets import (
+    QApplication,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QTableWidget,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.gui.charuco_builder import CharucoBuilder
-from src.gui.camera_config_dialogue import CameraConfigDialog
-from src.session import Session
 from camera_table import CameraTable
+
+from src.gui.camera_config_dialogue import CameraConfigDialog
+from src.gui.charuco_builder import CharucoBuilder
+from src.session import Session
 
 
 class MainWindow(QMainWindow):
@@ -37,13 +50,13 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         screen = app.primaryScreen()
         DISPLAY_WIDTH = screen.size().width()
-        DISPLAY_HEIGHT = screen.size().height()         
-        self.setMinimumSize(DISPLAY_WIDTH*.30,DISPLAY_HEIGHT*.7)
+        DISPLAY_HEIGHT = screen.size().height()
+        self.setMinimumSize(DISPLAY_WIDTH * 0.30, DISPLAY_HEIGHT * 0.7)
         self.cams_in_process = False
         self.setWindowTitle("FreeMocap Camera Calibration")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.png"))
 
-        # 
+        #
         self.tabs = QTabWidget()
         self.tabs.setTabPosition(QTabWidget.TabPosition.North)
         self.tabs.setMovable(True)
@@ -51,8 +64,10 @@ class MainWindow(QMainWindow):
 
         self.summary = SessionSummary(self.session)
         self.tabs.addTab(self.summary, "&Summary")
-        
-        self.summary.launch_charuco_builder_btn.clicked.connect(self.launch_charuco_builder)
+
+        self.summary.launch_charuco_builder_btn.clicked.connect(
+            self.launch_charuco_builder
+        )
 
         self.summary.open_cameras_btn.clicked.connect(self.open_cams)
         self.summary.connect_cams_btn.clicked.connect(self.connect_cams)
@@ -62,9 +77,9 @@ class MainWindow(QMainWindow):
 
         # don't bother if already done
         # for t in range(0,self.tabs.count()):
-            # if self.tabs.tabText(t).startswith("Cam"):
-                # return
-        tab_names  = [self.tabs.tabText(i) for i in range(self.tabs.count())] 
+        # if self.tabs.tabText(t).startswith("Cam"):
+        # return
+        tab_names = [self.tabs.tabText(i) for i in range(self.tabs.count())]
         logging.debug(f"Current tabs are: {tab_names}")
 
         if len(self.session.stream) > 0:
@@ -72,22 +87,23 @@ class MainWindow(QMainWindow):
                 tab_name = f"Camera {port}"
                 logging.debug(f"Potentially adding {tab_name}")
                 if tab_name in tab_names:
-                    pass # already here, don't bother 
+                    pass  # already here, don't bother
                 else:
                     cam_tab = CameraConfigDialog(stream, self.session)
-                    cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
-                
-                    self.tabs.addTab(cam_tab,tab_name)
+                    cam_tab.save_cal_btn.clicked.connect(
+                        self.summary.camera_table.update_data
+                    )
+
+                    self.tabs.addTab(cam_tab, tab_name)
                     # cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
         else:
             logging.info("No cameras available")
 
-
     def update_summary_image(self):
         self.summary.update_charuco_summary()
-    
+
     def launch_charuco_builder(self):
-        for t in range(0,self.tabs.count()):
+        for t in range(0, self.tabs.count()):
             if self.tabs.tabText(t) == "Charuco Builder":
                 return
 
@@ -97,7 +113,6 @@ class MainWindow(QMainWindow):
         # self.tabs["Charuco Builder"].setClosable(True)
 
     def find_additional_cams(self):
-        
         def find_cam_worker():
 
             self.session.find_additional_cameras()
@@ -107,9 +122,9 @@ class MainWindow(QMainWindow):
             self.session.adjust_resolutions()
             logging.debug("Updating Camera Table")
             self.summary.camera_table.update_data()
-        
+
             self.summary.open_cameras_btn.click()
-            
+
             self.cams_in_process = False
 
         if not self.cams_in_process:
@@ -120,7 +135,6 @@ class MainWindow(QMainWindow):
             print("Cameras already connected or in process.")
 
     def connect_cams(self):
-        
         def connect_cam_worker():
             self.cams_in_process = True
             logging.debug("Loading Cameras")
@@ -132,7 +146,7 @@ class MainWindow(QMainWindow):
             logging.debug("Updating Camera Table")
             self.summary.camera_table.update_data()
 
-            # trying to call open_cams() directly created a weird bug that 
+            # trying to call open_cams() directly created a weird bug that
             # may be due to all the different threads. This seemed to kick it
             # back to the main thread...
             self.summary.open_cameras_btn.click()
@@ -154,10 +168,14 @@ class SessionSummary(QMainWindow):
 
         # self.cams_connected = False
 
-        self.scroll = QScrollArea()             # Scroll Area which contains the widgets, set as the centralWidget
-        self.widget = QWidget()                 # Widget that contains the collection of Vertical Box
-        self.vbox = QVBoxLayout()               # The Vertical Box that contains the Horizontal Boxes of  labels and buttons
-        #Scroll Area Properties
+        self.scroll = (
+            QScrollArea()
+        )  # Scroll Area which contains the widgets, set as the centralWidget
+        self.widget = QWidget()  # Widget that contains the collection of Vertical Box
+        self.vbox = (
+            QVBoxLayout()
+        )  # The Vertical Box that contains the Horizontal Boxes of  labels and buttons
+        # Scroll Area Properties
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.scroll.setWidgetResizable(True)
@@ -166,36 +184,39 @@ class SessionSummary(QMainWindow):
         self.setCentralWidget(self.scroll)
 
         # self.setGeometry(600, 100, 1000, 900)
-        self.setWindowTitle('Scroll Area Demonstration')
+        self.setWindowTitle("Scroll Area Demonstration")
         self.show()
 
         self.widget.setLayout(self.vbox)
 
         self.top_hbox = QHBoxLayout()
         self.vbox.addLayout(self.top_hbox)
-        self.vbox.setAlignment(self.top_hbox, Qt.AlignmentFlag.AlignTop) 
+        self.vbox.setAlignment(self.top_hbox, Qt.AlignmentFlag.AlignTop)
 
         self.charuco_group = QGroupBox("Charuco Board")
-        self.charuco_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.charuco_group.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
+        )
         # self.charuco_group.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.top_hbox.addWidget(self.charuco_group)
 
         self.cam_summary = QGroupBox("Single Camera Calibration")
         self.top_hbox.addWidget(self.cam_summary)
-        self.top_hbox.setAlignment(self.cam_summary, Qt.AlignmentFlag.AlignTop)       
+        self.top_hbox.setAlignment(self.cam_summary, Qt.AlignmentFlag.AlignTop)
 
         self.build_charuco_summary()
         self.build_cam_summary()
         self.build_stereo_summary()
 
-
     def build_charuco_summary(self):
         vbox = QVBoxLayout()
         self.charuco_group.setLayout(vbox)
-         
+
         self.charuco_display = QLabel()
         self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.charuco_display.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Minimum)       
+        self.charuco_display.setSizePolicy(
+            QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Minimum
+        )
 
         hbox = QHBoxLayout()
         vbox.addLayout(hbox)
@@ -206,10 +227,12 @@ class SessionSummary(QMainWindow):
         hbox.setAlignment(self.charuco_display, Qt.AlignmentFlag.AlignBaseline)
         hbox.setAlignment(self.charuco_summary, Qt.AlignmentFlag.AlignBaseline)
 
-        self.launch_charuco_builder_btn = QPushButton("&Launch Builder")        
-        self.launch_charuco_builder_btn.setMaximumSize(150,30)
+        self.launch_charuco_builder_btn = QPushButton("&Launch Builder")
+        self.launch_charuco_builder_btn.setMaximumSize(150, 30)
         vbox.addWidget(self.launch_charuco_builder_btn)
-        vbox.setAlignment(self.launch_charuco_builder_btn, Qt.AlignmentFlag.AlignHCenter)
+        vbox.setAlignment(
+            self.launch_charuco_builder_btn, Qt.AlignmentFlag.AlignHCenter
+        )
 
         self.update_charuco_summary()
 
@@ -219,7 +242,6 @@ class SessionSummary(QMainWindow):
         charuco_img = self.session.charuco.board_pixmap(charuco_width, charuco_height)
         self.charuco_display.setPixmap(charuco_img)
         self.charuco_summary.setText(self.session.charuco.summary())
-        
 
     def build_cam_summary(self):
         self.cam_hbox = QHBoxLayout()
@@ -234,7 +256,6 @@ class SessionSummary(QMainWindow):
         left_vbox.addWidget(self.camera_table)
         self.connect_cams_btn = QPushButton("&Connect to Cameras")
 
-
         left_vbox.addWidget(self.connect_cams_btn)
         self.find_cams_btn = QPushButton("&Find Additional Cameras")
         left_vbox.addWidget(self.find_cams_btn)
@@ -243,16 +264,13 @@ class SessionSummary(QMainWindow):
 
         # left_vbox.addWidget(self.open_cameras_btn)
         # left_vbox.addWidget(self.close_cameras_btn)
-        self.open_cameras_btn = QPushButton("Open Cameras") # this button is invisible
+        self.open_cameras_btn = QPushButton("Open Cameras")  # this button is invisible
 
         self.cam_hbox.addLayout(left_vbox)
 
-
-
-    
     def build_stereo_summary(self):
         stereo_summary = QGroupBox("Stereocalibration")
-        self.vbox.addWidget(stereo_summary) 
+        self.vbox.addWidget(stereo_summary)
 
 
 if __name__ == "__main__":
@@ -261,9 +279,9 @@ if __name__ == "__main__":
     print(config_path)
     session = Session(config_path)
     app = QApplication(sys.argv)
-    
+
     window = MainWindow(session)
     # window = SessionSummary(session)
     window.show()
-    
+
     app.exec()

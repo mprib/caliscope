@@ -15,21 +15,14 @@ import numpy as np
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.calibration.charuco import Charuco
-from src.calibration.mono_calibrator import MonoCalibrator
 from src.cameras.camera import Camera
 
 
 class VideoStream:
     def __init__(self, cam):
-        # camera to be managed is the primary initiating component
         self.cam = cam
-
-        # properties related to frame sync
         self.reel = Queue(-1)  # infinite size....hopefully doesn't blow up
         self.push_to_reel = False
-
-        # self.cam.rotation_count = 0
 
         # Start the thread to read frames from the video stream
         self.cap_thread = Thread(target=self.roll_camera, args=(), daemon=True)
@@ -40,18 +33,7 @@ class VideoStream:
         self.frame_time = time.perf_counter()
         self.avg_delta_time = None
 
-        # Mediapipe hand detection infrastructure
-        # self.mpHands = mp.solutions.hands
-        # self.hands = self.mpHands.Hands()
-        # self.mpDraw = mp.solutions.drawing_utils
-        # self.show_mediapipe = False
-
-        # don't add anything special at the start
-        # self.track_charuco = False
-        # self.collect_charuco_corners = False
-        # self.undistort = False
-
-    def assign_shutter_sync(self, shutter_sync):
+    def set_shutter_sync(self, shutter_sync):
         """shutter sync is a thread queue that triggers end of wait cycle"""
         self.shutter_sync = shutter_sync
 
@@ -83,26 +65,11 @@ class VideoStream:
                 self._working_frame, cv2.ROTATE_90_COUNTERCLOCKWISE
             )
 
-    # def run_mediapipe_hands(self):
-
-    #     # Only calculate mediapipe if going to display it
-    #     if self.show_mediapipe:
-    #         frame_RGB = cv2.cvtColor(self._working_frame, cv2.COLOR_BGR2RGB)
-    #         self.hand_results = self.hands.process(frame_RGB)
-
-    #         # draw hand dots and lines
-    #         if self.hand_results.multi_hand_landmarks:
-    #             for handLms in self.hand_results.multi_hand_landmarks:
-    #                 self.mpDraw.draw_landmarks(
-    #                     self._working_frame, handLms, self.mpHands.HAND_CONNECTIONS
-    #                 )
-
     def roll_camera(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame,
         calls various frame processing methods on it, and updates the exposed
         frame
-
         """
         self.start_time = time.time()  # used to get initial delta_t for FPS
         while True:
@@ -242,10 +209,6 @@ if __name__ == "__main__":
     for port in ports:
         print(f"Creating camera {port}")
         cams.append(Camera(port))
-
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
-    )
 
     streams = []
     for cam in cams:

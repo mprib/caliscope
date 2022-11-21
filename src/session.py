@@ -29,8 +29,8 @@ class Session:
         self.config_path = str(Path(self.dir, "config.toml"))
 
         # dictionary of Cameras, key = port
-        self.camera = {}
-        self.stream = {}
+        self.cameras = {}
+        self.streams = {}
 
         self.load_config()
         self.load_charuco()
@@ -99,9 +99,9 @@ class Session:
             try:
                 port = params["port"]
 
-                self.camera[port] = Camera(port)
+                self.cameras[port] = Camera(port)
 
-                cam = self.camera[port]  # trying to make a little more readable
+                cam = self.cameras[port]  # trying to make a little more readable
                 cam.rotation_count = params["rotation_count"]
                 cam.exposure = params["exposure"]
             except:
@@ -118,7 +118,7 @@ class Session:
         with ThreadPoolExecutor() as executor:
             for key, params in self.config.items():
                 if key.startswith("cam"):
-                    if params["port"] in self.stream.keys():
+                    if params["port"] in self.streams.keys():
                         logging.info(f"Don't reload a camera at port {params['port']}")
                     else:
                         logging.info(f"Beginning to load {key} with params {params}")
@@ -130,14 +130,14 @@ class Session:
                 logging.info(f"Trying port {port}")
                 cam = Camera(port)
                 logging.info(f"Success at port {port}")
-                self.camera[port] = cam
+                self.cameras[port] = cam
                 self.save_camera(port)
             except:
                 logging.info(f"No camera at port {port}")
 
         with ThreadPoolExecutor() as executor:
             for i in range(0, MAX_CAMERA_PORT_CHECK):
-                if i in self.camera.keys():
+                if i in self.cameras.keys():
                     # don't try to connect to an already connected camera
                     pass
                 else:
@@ -146,19 +146,19 @@ class Session:
     def load_streams(self):
         # need Stream to adjust resolution
 
-        for port, cam in self.camera.items():
-            if port in self.stream.keys():
+        for port, cam in self.cameras.items():
+            if port in self.streams.keys():
                 pass  # only add if not added yet
             else:
                 logging.info(f"Loading Stream for port {port}")
-                self.stream[port] = VideoStream(cam)
+                self.streams[port] = VideoStream(cam)
                 # self.stream[port].assign_charuco(self.charuco)
 
     def adjust_resolutions(self):
         def adjust_res_worker(port):
-            stream = self.stream[port]
+            stream = self.streams[port]
             resolution = self.config[f"cam_{port}"]["resolution"]
-            default_res = self.camera[port].default_resolution
+            default_res = self.cameras[port].default_resolution
             logging.info(f"Port {port} resolution is {resolution[0:2]}")
             logging.info(f"Port {port} default res is {default_res[0:2]}")
 
@@ -167,11 +167,11 @@ class Session:
                 stream.change_resolution(resolution)
 
         with ThreadPoolExecutor() as executor:
-            for port in self.camera.keys():
+            for port in self.cameras.keys():
                 executor.submit(adjust_res_worker, port)
 
     def save_camera(self, port):
-        cam = self.camera[port]
+        cam = self.cameras[port]
         params = {
             "port": cam.port,
             "resolution": cam.resolution,

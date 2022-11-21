@@ -407,7 +407,7 @@ if __name__ == "__main__":
 
     config_dialogs = []
 
-    for port, stream in session.stream.items():
+    for port, stream in session.streams.items():
 
         # stream = RealTimeDevice(cam)
         # stream.change_resolution(cam.resolution)

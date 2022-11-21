@@ -190,11 +190,10 @@ class Synchronizer:
             layer_frame_times = []
             for port in self.ports:
                 current_frame_index = self.port_current_frame[port]
-                current_frame_data = self.frame_data[f"{port}_{current_frame_index}"]
-                frame_time = current_frame_data["frame_time"]
 
-                # placeholder here is where the actual corner data would go
                 port_index_key = f"{port}_{current_frame_index}"
+                current_frame_data = self.frame_data[port_index_key]
+                frame_time = current_frame_data["frame_time"]
 
                 if frame_time < bundle_cutoff_time:
                     # add the data and increment the index

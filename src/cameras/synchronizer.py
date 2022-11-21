@@ -29,8 +29,8 @@ from src.session import Session
 
 
 class Synchronizer:
-    def __init__(self, session, fps_target):
-        self.session = session
+    def __init__(self, streams, fps_target):
+        self.streams = streams
 
         self.ports = []
 
@@ -40,7 +40,7 @@ class Synchronizer:
         # initialize frame data which will hold everything pushed from
         # roll_camera() for each port
         self.frame_data = {}
-        for port, device in session.stream.items():
+        for port, stream in self.streams.items():
             self.ports.append(port)
             # self.frame_data[port] = []
 
@@ -56,10 +56,10 @@ class Synchronizer:
 
         logging.info("About to submit Threadpool of frame Harvesters")
         self.threads = []
-        for port, device in session.stream.items():
-            device.assign_shutter_sync(self.shutter_sync)
+        for port, stream in self.streams.items():
+            stream.set_shutter_sync(self.shutter_sync)
 
-            t = Thread(target=self.harvest_corners, args=(device,), daemon=True)
+            t = Thread(target=self.harvest_corners, args=(stream,), daemon=True)
             t.start()
             self.threads.append(t)
         logging.info("Threadpool harvesters just submitted")
@@ -103,7 +103,8 @@ class Synchronizer:
 
     # get minimum value of frame_time for next layer
     def earliest_next_frame(self):
-
+        """Looks at next unassigned frame across the ports to determine
+        the earliest time at which each of them was read"""
         time_of_next_frames = []
         for port in self.ports:
             next_index = self.port_current_frame[port] + 1
@@ -112,17 +113,17 @@ class Synchronizer:
 
         return min(time_of_next_frames)
 
-    def earliest_current_frame(self):
+    # def earliest_current_frame(self):
 
-        time_of_current_frames = []
-        for port in self.ports:
-            current_index = self.port_current_frame[port]
-            current_frame_time = self.frame_data[f"{port}_{current_index}"][
-                "frame_time"
-            ]
-            time_of_current_frames.append(current_frame_time)
+    #     time_of_current_frames = []
+    #     for port in self.ports:
+    #         current_index = self.port_current_frame[port]
+    #         current_frame_time = self.frame_data[f"{port}_{current_index}"][
+    #             "frame_time"
+    #         ]
+    #         time_of_current_frames.append(current_frame_time)
 
-        return min(time_of_current_frames)
+    #     return min(time_of_current_frames)
 
     def frame_slack(self):
         """Determine how many unassigned frames are sitting in self.dataframe"""
@@ -135,7 +136,7 @@ class Synchronizer:
         return min(slack)
 
     def average_fps(self):
-
+        """"""
         # only look at the most recent layers
         if len(self.mean_frame_times) > 10:
             self.mean_frame_times = self.mean_frame_times[-10:]
@@ -218,12 +219,12 @@ if __name__ == "__main__":
     session = Session(config_path)
 
     session.load_cameras()
-    session.find_additional_cameras()  # looking to add a third
+    # session.find_additional_cameras()  # looking to add a third
     session.load_streams()
     # session.adjust_resolutions()
     start_time = time.perf_counter()
 
-    syncr = Synchronizer(session, fps_target=30)
+    syncr = Synchronizer(session.streams, fps_target=6)
     # print(syncr.synced_frames)
 
     all_bundles = []

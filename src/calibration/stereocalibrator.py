@@ -1,7 +1,9 @@
 import logging
 
-logging.basicConfig(filename="stereocalibration.log", filemode="w", level=logging.DEBUG)
-# level=logging.INFO)
+LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO
+
+logging.basicConfig(filename="stereocalibration.log", filemode="w", level=LOG_LEVEL)
 
 import pprint
 import sys
@@ -13,12 +15,10 @@ from threading import Thread
 
 import cv2
 import imutils
-
-# from matplotlib.pyplot import grid
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.calibration.synchronizer import Synchronizer
+from cameras.synchronizer import Synchronizer
 from src.session import Session
 
 
@@ -124,7 +124,7 @@ class StereoCalibrator:
                 camA.distortion,
                 camB.camera_matrix,
                 camB.distortion,
-                imageSize=None,  # (400, 400), # (width, height)....my recollection is that these did not matter. from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
+                imageSize=None,  # this does not matter. from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
                 criteria=criteria,
                 flags=stereocalibration_flags,
             )

@@ -23,12 +23,12 @@ import numpy as np
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-# from src.calibration.mono_calibrator import MonoCalibrator
-# from src.cameras.camera import Camera
-from src.session import Session
+from src.cameras.video_stream import VideoStream
 
 
 class Synchronizer:
+    streams: list
+
     def __init__(self, streams, fps_target):
         self.streams = streams
 
@@ -82,20 +82,13 @@ class Synchronizer:
             (
                 frame_time,
                 frame,
-                # corner_ids,
-                # frame_corners,
-                # board_FOR_corners,
             ) = device.reel.get()
 
             self.frame_data[f"{port}_{frame_index}"] = {
                 "port": port,
                 "frame": frame,
                 "frame_index": frame_index,
-                # "fps": device.FPS_actual,
                 "frame_time": frame_time,
-                # "corner_ids": corner_ids,
-                # "frame_corners": frame_corners,
-                # "board_FOR_corners": board_FOR_corners,  # corner location in board frame of reference
             }
 
             frame_index += 1
@@ -209,42 +202,28 @@ class Synchronizer:
             self.synced_frames_q.put(next_layer)
 
 
-# Pickling here was done as a way to
-import pickle
-
 if __name__ == "__main__":
+
+    from src.session import Session
 
     repo = Path(__file__).parent.parent.parent
     config_path = Path(repo, "default_session")
     session = Session(config_path)
 
     session.load_cameras()
-    # session.find_additional_cameras()  # looking to add a third
     session.load_streams()
-    # session.adjust_resolutions()
-    start_time = time.perf_counter()
 
     syncr = Synchronizer(session.streams, fps_target=6)
-    # print(syncr.synced_frames)
 
     all_bundles = []
     while True:
         frame_bundle = syncr.synced_frames_q.get()
         for port, frame_data in frame_bundle.items():
             if frame_data:
-                cv2.imshow(
-                    f"Port {port}", frame_data["frame"]
-                )  # imshow is still IO, so threading may remain best choice
+                cv2.imshow(f"Port {port}", frame_data["frame"])
 
         key = cv2.waitKey(1)
 
         if key == ord("q"):
             cv2.destroyAllWindows()
             break
-
-        # if key == ord("m"):
-        #     for port, device in session.stream.items():
-        #         device.show_mediapipe = True
-
-    # with open("bundles.pkl", "wb") as f:
-    #     pickle.dump(all_bundles, f)

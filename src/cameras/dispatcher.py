@@ -51,7 +51,7 @@ class Dispatcher:
             frame_bundle = self.synchronizer.synced_frames_q.get()
 
             for ports, q_list in self.queues.items():
-                logging.debug(f"Port(s) {ports} has list of {q_list}")
+                logging.debug(f"Port(s) {ports} has list of {len(q_list)} items long")
 
                 # ensure that ports is a list, even if only one
                 if type(ports) == int:
@@ -61,19 +61,25 @@ class Dispatcher:
                     frames = []
                     for port in ports:
                         frames.append(frame_bundle[port]["frame"])
-                        q.put(frames)
+                    q.put(frames)
 
-    def add_mono_queue(self, port, q):
-        logging.info(f"Adding queue for port {port}")
+    def add_queue(self, port, q):
+        logging.info(f"Adding queue for port(s) {port}")
         self.queues[port].append(q)
         logging.info(f"All Queues: {self.queues}")
         logging.info(f"Successfully added queue for port {port}")
 
-    def add_stereo_queue(self, stereo_ports, q):
-        logging.info(f"Adding queue for ports {stereo_ports[0]}")
-        self.queues[stereo_ports].append(q)
-        logging.info(f"All Queues: {self.queues}")
-        logging.info(f"Successfully added queue for port {stereo_ports}")
+    # def add_mono_queue(self, port, q):
+    #     logging.info(f"Adding queue for port {port}")
+    #     self.queues[port].append(q)
+    #     logging.info(f"All Queues: {self.queues}")
+    #     logging.info(f"Successfully added queue for port {port}")
+
+    # def add_stereo_queue(self, stereo_ports, q):
+    #     logging.info(f"Adding queue for ports {stereo_ports[0]}")
+    #     self.queues[stereo_ports].append(q)
+    #     logging.info(f"All Queues: {self.queues}")
+    #     logging.info(f"Successfully added queue for port {stereo_ports}")
 
 
 if __name__ == "__main__":
@@ -84,32 +90,32 @@ if __name__ == "__main__":
     session = Session(config_path)
     session.load_cameras()
     session.load_streams()
-    syncr = Synchronizer(session.streams, fps_target=6)
+    syncr = Synchronizer(session.streams, fps_target=12)
 
     logging.info("Building dispatcher")
     dispatchr = Dispatcher(syncr)
 
-    mono_q = Queue()
-    mono_port = 1
-    logging.info("Adding test queue")
-    dispatchr.add_mono_queue(mono_port, mono_q)
-
     stereo_q = Queue()
     stereo_ports = (0, 2)
     logging.info("Adding test stereo queue")
-    dispatchr.add_stereo_queue(stereo_ports, stereo_q)
+    dispatchr.add_queue(stereo_ports, stereo_q)
+
+    mono_q = Queue()
+    mono_port = 1
+    logging.info("Adding test queue")
+    dispatchr.add_queue(mono_port, mono_q)
 
     while True:
         logging.debug("About to get frame from test queue")
         frame = mono_q.get()
-        cv2.imshow(f"Port {mono_port}", frame[0])
-
-        key = cv2.waitKey(1)
         frames = stereo_q.get()
+
+        cv2.imshow(f"Port {mono_port}", frame[0])
 
         cv2.imshow(f"Port {stereo_ports[0]}", frames[0])
         cv2.imshow(f"Port {stereo_ports[1]}", frames[1])
 
+        key = cv2.waitKey(1)
         if key == ord("q"):
             cv2.destroyAllWindows()
             break

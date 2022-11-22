@@ -59,16 +59,16 @@ class Synchronizer:
         for port, stream in self.streams.items():
             stream.set_shutter_sync(self.shutter_sync)
 
-            t = Thread(target=self.harvest_corners, args=(stream,), daemon=True)
+            t = Thread(target=self.harvest_frames, args=(stream,), daemon=True)
             t.start()
             self.threads.append(t)
-        logging.info("Threadpool harvesters just submitted")
+        logging.info("Frame harvesters just submitted")
 
-        logging.info("Starting bundler...")
-        self.bundler = Thread(target=self.bundle_frames, args=())
+        logging.info("Starting frame bundler...")
+        self.bundler = Thread(target=self.bundle_frames, args=(), daemon=True)
         self.bundler.start()
 
-    def harvest_corners(self, device):
+    def harvest_frames(self, device):
         # pull data from the
         port = device.cam.port
         device.push_to_reel = True

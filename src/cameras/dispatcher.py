@@ -1,6 +1,8 @@
 import logging
 
-logging.basicConfig(filename="dispatcher.log", filemode="w", level=logging.INFO)
+# LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
+logging.basicConfig(filename="dispatcher.log", filemode="w", level=LOG_LEVEL)
 # level=logging.DEBUG)
 
 import sys
@@ -49,18 +51,15 @@ class Dispatcher:
             for ports, q_list in self.queues.items():
                 logging.debug(f"Port(s) {ports} has list of {q_list}")
 
-                # push single frame to the mono queues
+                # ensure that ports is a list, even if only one
                 if type(ports) == int:
-                    for q in q_list:
-                        q.put(frame_bundle[ports]["frame"])
+                    ports = [ports]
 
-                # push synched stereo pairs for stereo queues
-                if type(ports) == tuple:
-                    for q in q_list:
-                        stereo_bundle = []
-                        stereo_bundle.append(frame_bundle[ports[0]]["frame"])
-                        stereo_bundle.append(frame_bundle[ports[1]]["frame"])
-                        q.put(stereo_bundle)
+                for q in q_list:
+                    frames = []
+                    for port in ports:
+                        frames.append(frame_bundle[port]["frame"])
+                        q.put(frames)
 
     def add_mono_queue(self, port, q):
         logging.info(f"Adding queue for port {port}")
@@ -101,7 +100,7 @@ if __name__ == "__main__":
     while True:
         logging.debug("About to get frame from test queue")
         frame = mono_q.get()
-        cv2.imshow(f"Port {stereo_ports}", frame)
+        cv2.imshow(f"Port {mono_port}", frame[0])
 
         key = cv2.waitKey(1)
         frames = stereo_q.get()

@@ -2,7 +2,8 @@ import logging
 
 # LOG_LEVEL = logging.INFO
 LOG_LEVEL = logging.DEBUG
-logging.basicConfig(filename="dispatcher.log", filemode="w", level=LOG_LEVEL)
+LOG_FILE = "dispatcher.log"
+logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
 # level=logging.DEBUG)
 
 import sys
@@ -24,11 +25,12 @@ from src.cameras.synchronizer import Synchronizer
 class Dispatcher:
     """This class pulls the frame bundle from the synced_frames_q of
     the syncronizer and then partitions the frames out to various queues.
-    Callers of the dispather can add a queu to it along with its associated
-    port, and the dispatcher will start populating that que.
+    Callers of the dispather can add a queue to it along with its associated
+    ports, and the dispatcher will start populating that queue with a list of
+    frames associated with those ports.
 
-    if the port is not a single integer, but instead contains an _
-    (such as 0_1) then a list of synced frame pairs will be put on the queue"""
+    ports argument can be either an integer or a tuple
+    """
 
     def __init__(self, synchronizer):
         self.synchronizer = synchronizer

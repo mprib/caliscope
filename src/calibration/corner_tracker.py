@@ -19,7 +19,6 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.calibration.charuco import Charuco
-from src.cameras.camera import Camera
 
 
 class CornerTracker:
@@ -133,19 +132,21 @@ def draw_corners(frame, ids, locs):
 
 if __name__ == "__main__":
 
+    from src.cameras.camera import Camera
+
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
     )
     cam = Camera(0)
 
     print(f"Using Optimized Code?: {cv2.useOptimized()}")
-    calib = CornerTracker(charuco)
+    trackr = CornerTracker(charuco)
 
     print("About to enter main loop")
     while True:
 
         read_success, frame = cam.capture.read()
-        ids, locations, board_corners = calib.get_corners(frame)
+        ids, locations, board_corners = trackr.get_corners(frame)
         drawn_frame = draw_corners(frame, ids, locations)
 
         cv2.imshow("Press 'q' to quit", drawn_frame)

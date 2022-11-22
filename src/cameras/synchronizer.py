@@ -23,7 +23,7 @@ import numpy as np
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.cameras.video_stream import VideoStream
+# from src.cameras.video_stream import VideoStream
 
 
 class Synchronizer:

@@ -4,12 +4,10 @@
 
 import logging
 
-logging.basicConfig(
-    filename="monocalibrator.log",
-    filemode="w",
-    # level=logging.INFO)
-    level=logging.DEBUG,
-)
+LOG_LEVEL = logging.DEBUG
+# LOG_LEVEL = logging.INFO
+LOG_FILE = "monocalibrator.log"
+logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
 
 import sys
 import time

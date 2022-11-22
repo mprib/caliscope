@@ -13,152 +13,36 @@ import sys
 import time
 from itertools import combinations
 from pathlib import Path
+from queue import Queue
 
 import cv2
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.calibration.charuco import Charuco
+from src.calibration.corner_tracker import CornerTracker
 from src.cameras.camera import Camera
 
 
 class MonoCalibrator:
-    def __init__(self, camera, charuco):
+    def __init__(self, camera, dispatcher, corner_tracker):
 
         # need camera to know resolution and to assign calibration parameters
-        # to camera
+        # to camera....but can also just get calibration output from here
+        # and then assign it camera outside of this.
         self.camera = camera
-        self.charuco = charuco
+        self.corner_tracker = corner_tracker
+        self.dispatcher = dispatcher
 
-        self._frame_corner_ids = np.array([])
-        self._frame_corners = np.array([])
+        self.frame_q = Queue()
+        port = self.camera.port        
+        self.dispatcher.
 
-        self.corner_loc_img = []
-        self.corner_loc_obj = []
         self.corner_ids = []
+        self.corner_loc = []
+        self.board_FOR_corner = []
 
-        self.connected_corners = self.charuco.get_connected_corners()
         self.last_calibration_time = time.time()  # need to initialize to *something*
-
-        # for subpixel corner correction
-        self._criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-        self._conv_size = (11, 11)  # Don't make this too large.
-
-        self.initialize_grid_history()
-
-        self.is_calibrated = False  # starts out this way
-
-    def initialize_grid_history(self):
-        # get appropriately structured image size
-
-        #!!! IF CAMERA RESOLUTION CHANGES THIS MUST BE RERUN
-        self.image_size = list(self.camera.resolution)
-        self.image_size.reverse()  # for some reason...
-        self.image_size.append(3)
-        self._grid_capture_history = np.zeros(self.image_size, dtype="uint8")
-
-        # roll back collected corners to the beginning
-        self.corner_loc_img = []
-        self.corner_loc_obj = []
-        self.corner_ids = []
-
-    def find_corners(self, frame):
-        """Will check for corners in the default board image, if it doesn't
-        find any, then it will look for images in the mirror image of the
-        default board"""
-        self.frame = frame
-
-        self.find_corners_single_frame(mirror=False)
-        # print(self._frame_corner_ids)
-        if not self._frame_corner_ids.any():
-            # print("Checking mirror image")
-            self.frame = cv2.flip(self.frame, 1)
-            self.find_corners_single_frame(mirror=True)
-
-    def find_corners_single_frame(self, mirror):
-        """ """
-
-        # invert the frame for detection if needed
-        self.gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)  # convert to gray
-        if self.charuco.inverted:
-            self.gray = ~self.gray  # invert
-
-        # detect if aruco markers are present
-        aruco_corners, aruco_ids, rejected = cv2.aruco.detectMarkers(
-            self.gray, self.charuco.board.dictionary
-        )
-
-        # print(f"{len(aruco_corners)} corners found in image; Mirror: {mirror}")
-
-        frame_width = frame.shape[1]  # used for flipping mirrored corners back
-
-        # correct the mirror frame before putting text on it if it's flipped
-        if mirror:
-            self.frame = cv2.flip(self.frame, 1)
-
-        # if so, then interpolate to the Charuco Corners and return what you found
-        if len(aruco_corners) > 3:
-            (
-                success,
-                self._frame_corners,
-                self._frame_corner_ids,
-            ) = cv2.aruco.interpolateCornersCharuco(
-                aruco_corners, aruco_ids, self.gray, self.charuco.board
-            )
-
-            # This occasionally errors out...
-            # only offers possible refinement so if it fails, just move along
-            try:
-                self._frame_corners = cv2.cornerSubPix(
-                    self.gray,
-                    self._frame_corners,
-                    self._conv_size,
-                    (-1, -1),
-                    self._criteria,
-                )
-            except:
-                pass
-
-            if success:
-                # clean up the data types
-                self._frame_corner_ids.tolist()
-                self._frame_corners.tolist()
-                # flip coordinates if mirrored image fed in
-                if mirror:
-                    self._frame_corners[:, :, 0] = (
-                        frame_width - self._frame_corners[:, :, 0]
-                    )
-
-                # update the list of corners exposed to outside callers
-                self.frame_corner_ids = self._frame_corner_ids
-                self.frame_corners = self._frame_corners
-
-                # TODO: break out into seperate method.... this is about drawing
-                for ID, coord in zip(
-                    self._frame_corner_ids[:, 0], self._frame_corners[:, 0]
-                ):
-                    coord = list(coord)
-                    # print(frame.shape[1])
-                    x = round(coord[0])
-                    y = round(coord[1])
-
-                    cv2.circle(self.frame, (x, y), 5, (0, 0, 220), 3)
-                    # cv2.putText(self.frame,str(ID), (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5,(220,0,0), 3)
-
-            else:
-                self._frame_corner_ids = np.array([])
-                self._frame_corners = np.array([])
-        else:
-            self._frame_corner_ids = np.array([])
-            self._frame_corners = np.array([])
-
-    @property
-    def board_FOR_corners(self):
-        """Objective position of charuco corners in a board frame of reference"""
-        if self._frame_corner_ids.any():
-            return self.charuco.board.chessboardCorners[self._frame_corner_ids, :]
-        else:
-            return np.array([])
 
     def collect_corners(self, board_threshold=0.7, wait_time=0.5):
 
@@ -175,12 +59,12 @@ class MonoCalibrator:
         if enough_corners and enough_time_from_last_cal:
 
             # store the corners and IDs
-            self.corner_loc_img.append(self._frame_corners)
+            self.corner_loc.append(self._frame_corners)
             self.corner_ids.append(self._frame_corner_ids)
 
             # store objective corner positions in a board frame of reference
             # board_FOR_corners = self.charuco.board.chessboardCorners[self._frame_corner_ids, :]
-            self.corner_loc_obj.append(self.board_FOR_corners)
+            self.board_FOR_corner.append(self.board_FOR_corners)
             #
             self.update_capture_history()
             self.last_calibration_time = time.time()
@@ -212,12 +96,6 @@ class MonoCalibrator:
 
             cv2.line(self._grid_capture_history, point_1, point_2, (255, 165, 0), 1)
 
-    def merged_grid_history(self):
-        alpha = 1
-        beta = 1
-
-        return cv2.addWeighted(self.frame, alpha, self._grid_capture_history, beta, 0)
-
     def calibrate(self):
         """
         Use the recorded image corner positions along with the objective
@@ -227,8 +105,8 @@ class MonoCalibrator:
         logging.info(f"Calibrating camera {self.camera.port}....")
 
         # organize parameters for calibration function
-        objpoints = self.corner_loc_obj
-        imgpoints = self.corner_loc_img
+        objpoints = self.board_FOR_corner
+        imgpoints = self.corner_loc
         height = self.image_size[0]
         width = self.image_size[1]
 

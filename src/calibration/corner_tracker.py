@@ -6,7 +6,7 @@ import logging
 
 LOG_LEVEL = logging.DEBUG
 # LOG_LEVEL = logging.INFO
-LOG_FILE = "monocalibrator.log"
+LOG_FILE = "corner_tracker.log"
 logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
 
 import sys
@@ -37,8 +37,8 @@ class CornerTracker:
         find any, then it will look for images in the mirror image of the
         default board"""
 
-        self.corner_ids = np.array([])
-        self.corner_loc = np.array([])
+        self.ids = np.array([])
+        self.img_loc = np.array([])
         self.frame = frame
 
         # invert the frame for detection if needed
@@ -48,12 +48,12 @@ class CornerTracker:
 
         self.find_corners_single_frame(mirror=False)
         # print(self._frame_corner_ids)
-        if not self.corner_ids.any():
+        if not self.ids.any():
             # print("Checking mirror image")
             self.gray = cv2.flip(self.gray, 1)
             self.find_corners_single_frame(mirror=True)
 
-        return self.corner_ids, self.corner_loc, self.board_FOR_corner
+        return self.ids, self.img_loc, self.board_loc
 
     def find_corners_single_frame(self, mirror):
 
@@ -62,7 +62,7 @@ class CornerTracker:
             self.gray, self.charuco.board.dictionary
         )
 
-        frame_width = frame.shape[1]  # used for flipping mirrored corners back
+        frame_width = self.frame.shape[1]  # used for flipping mirrored corners back
 
         # correct the mirror frame before putting text on it if it's flipped
         if mirror:
@@ -70,20 +70,16 @@ class CornerTracker:
 
         # if so, then interpolate to the Charuco Corners and return what you found
         if len(aruco_corners) > 3:
-            (
-                success,
-                self.corner_loc,
-                self.corner_ids,
-            ) = cv2.aruco.interpolateCornersCharuco(
+            (success, _img_loc, _ids,) = cv2.aruco.interpolateCornersCharuco(
                 aruco_corners, aruco_ids, self.gray, self.charuco.board
             )
 
             # This occasionally errors out...
             # only offers possible refinement so if it fails, just move along
             try:
-                self.corner_loc = cv2.cornerSubPix(
+                _img_loc = cv2.cornerSubPix(
                     self.gray,
-                    self.corner_loc,
+                    _img_loc,
                     self.conv_size,
                     (-1, -1),
                     self.criteria,
@@ -93,12 +89,12 @@ class CornerTracker:
 
             if success:
                 # clean up the data types
-                self.corner_ids.tolist()
-                self.corner_loc.tolist()
+                self.ids = _ids
+                self.img_loc = _img_loc
 
                 # flip coordinates if mirrored image fed in
                 if mirror:
-                    self.corner_loc[:, :, 0] = frame_width - self.corner_loc[:, :, 0]
+                    self.img_loc[:, :, 0] = frame_width - self.img_loc[:, :, 0]
 
         #     else:
         #         self.corner_ids = np.array([])
@@ -108,10 +104,10 @@ class CornerTracker:
         #     self.corner_loc = np.array([])
 
     @property
-    def board_FOR_corner(self):
+    def board_loc(self):
         """Objective position of charuco corners in a board frame of reference"""
-        if self.corner_ids.any():
-            return self.charuco.board.chessboardCorners[self.corner_ids, :]
+        if self.ids.any():
+            return self.charuco.board.chessboardCorners[self.ids, :]
         else:
             return np.array([])
 

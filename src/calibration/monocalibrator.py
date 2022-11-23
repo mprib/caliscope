@@ -11,12 +11,13 @@ logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
 
 import sys
 import time
-from itertools import combinations
 from pathlib import Path
 
 import cv2
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+import draw_charuco
+
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 
@@ -40,6 +41,10 @@ class MonoCalibrator:
 
         self.last_calibration_time = time.time()  # need to initialize to *something*
 
+    @property
+    def grid_count(self):
+        return len(self.all_ids)
+
     def collect_corners(self, frame):
         self.frame = frame
         ids, img_loc, board_loc = self.corner_tracker.get_corners(self.frame)
@@ -62,9 +67,11 @@ class MonoCalibrator:
 
             self.last_calibration_time = time.time()
 
-        self.grid_frame = draw_grid_history(
+        self.grid_frame = draw_charuco.grid_history(
             frame, self.all_ids, self.all_img_loc, self.connected_corners
         )
+
+        self.grid_corner_frame = draw_charuco.corners(self.grid_frame, ids, img_loc)
 
     def calibrate(self):
         """
@@ -100,28 +107,6 @@ class MonoCalibrator:
         self.camera.grid_count = len(self.all_ids)
 
 
-def draw_grid_history(frame, all_ids, all_img_locs, connected_corners):
-
-    for ids, img_locs in zip(all_ids, all_img_locs):
-
-        possible_pairs = {pair for pair in combinations(ids.squeeze().tolist(), 2)}
-        connected_pairs = connected_corners.intersection(possible_pairs)
-
-        # build dictionary of corner positions:
-        observed_corners = {}
-        for crnr_id, crnr in zip(ids.squeeze(), img_locs.squeeze()):
-            observed_corners[crnr_id] = (round(crnr[0]), round(crnr[1]))
-
-        # add them to the visual representation of the grid capture history
-        for pair in connected_pairs:
-            point_1 = observed_corners[pair[0]]
-            point_2 = observed_corners[pair[1]]
-
-            cv2.line(frame, point_1, point_2, (255, 165, 0), 1)
-
-    return frame
-
-
 if __name__ == "__main__":
 
     from src.cameras.camera import Camera
@@ -140,9 +125,8 @@ if __name__ == "__main__":
 
         read_success, frame = cam.capture.read()
         monocal.collect_corners(frame)
-        # grid_frame = monocal.grid_frame
 
-        cv2.imshow("Press 'q' to quit", monocal.grid_frame)
+        cv2.imshow("Press 'q' to quit", monocal.grid_corner_frame)
         key = cv2.waitKey(1)
 
         # end capture when enough grids collected

@@ -41,12 +41,13 @@ from src.session import Session
 
 
 class CameraConfigDialog(QDialog):
-    def __init__(self, video_stream, session):
+    def __init__(self, video_stream, monocalibrator, session):
         super(CameraConfigDialog, self).__init__()
         # frame emitter is a thread that is constantly pulling in values from
         # the capture widget and broadcasting them to widgets on this window
 
         self.session = session
+        self.monocal = monocalibrator
         # print(self.isAnimated())
         # self.setAnimated(False)
         App = QApplication.instance()
@@ -398,20 +399,19 @@ class CameraConfigDialog(QDialog):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
 
-    session = Session(r"C:\Users\Mac Prible\repos\learn-opencv\test_session")
+    repo = Path(__file__).parent.parent.parent
+    config_path = Path(repo, "default_session")
+    session = Session(config_path)
     session.load_cameras()
-    session.find_additional_cameras()
-
+    # session.find_additional_cameras()
     session.load_streams()
-    session.adjust_resolutions()
+    session.load_syncronizer()
+    session.load_dispatcher()
+    # session.adjust_resolutions()
 
     config_dialogs = []
 
     for port, stream in session.streams.items():
-
-        # stream = RealTimeDevice(cam)
-        # stream.change_resolution(cam.resolution)
-        stream.assign_charuco(session.charuco)
         if port == 0:
             config_dialogs.append(CameraConfigDialog(stream, session))
 

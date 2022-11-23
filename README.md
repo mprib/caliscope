@@ -1,13 +1,9 @@
 # Overview
 
-Run `src\gui\main.py` to launch a dialog for individual camera calibration. This will update parameters to `test_session\config.toml`. When intrinsic parameters are set, then launch `src\calibration\stereocalibrator.py`. This will open up an opencv window with the stacked frame pairs for stereocalibration.
+A moderate scale refactor is underway impacting the monocalibrator. Single camera calibration as well as corner tracking was deeply nested within the video stream object and I have been working to create more loosly coupled classes with better internal coherence. 
 
-Within almost all the primary code modules there should be an `if __name__ == "__main__":` showcase at the bottom. No proper tests yet, but this is where someone might look to get a quick and dirty idea of what is going on. My immediate goals are to improve logging, get the stereocalibration into the dialog, and get a way to visualize the stereocalibration results in 3D.
+Side effects of this refactor include the need to push more responsibility onto the session object in order to maintain interaction between the increasing number of classes. This manifests in the GUI braking.
 
-A walk through of the current functionality is here:
+## Current Branch Targets
 
-https://youtu.be/64-Lv390SMo
-
-## NOTE: recently renamed
-
-I'm trying to organize things with a clean slate as this project is no longer really about learning opencv. Primary functionality has been pushed to `main` and I will begin incremental improvements in development branches.
+Build out the session class to create a syncronizer and dispatcher. Monocalibrators can be loosely spun up by the GUI to hook into the dispatcher and camera. I believe this stage of the change will be challenging, but ultimately lead to a much better framework for moving forward. 

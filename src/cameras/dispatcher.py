@@ -44,6 +44,7 @@ class Dispatcher:
         logging.info("Starting dispatcher thread")
         self.thread.start()
 
+
     def dispatch_frames_worker(self):
         logging.info("spinning up dispatch worker")
         while self.run_dispatch:
@@ -68,18 +69,6 @@ class Dispatcher:
         self.queues[port].append(q)
         logging.info(f"All Queues: {self.queues}")
         logging.info(f"Successfully added queue for port {port}")
-
-    # def add_mono_queue(self, port, q):
-    #     logging.info(f"Adding queue for port {port}")
-    #     self.queues[port].append(q)
-    #     logging.info(f"All Queues: {self.queues}")
-    #     logging.info(f"Successfully added queue for port {port}")
-
-    # def add_stereo_queue(self, stereo_ports, q):
-    #     logging.info(f"Adding queue for ports {stereo_ports[0]}")
-    #     self.queues[stereo_ports].append(q)
-    #     logging.info(f"All Queues: {self.queues}")
-    #     logging.info(f"Successfully added queue for port {stereo_ports}")
 
 
 if __name__ == "__main__":

@@ -18,6 +18,8 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+import draw_charuco
+
 from src.calibration.charuco import Charuco
 
 
@@ -88,20 +90,13 @@ class CornerTracker:
                 pass
 
             if success:
-                # clean up the data types
+                # assign to tracker
                 self.ids = _ids
                 self.img_loc = _img_loc
 
                 # flip coordinates if mirrored image fed in
                 if mirror:
                     self.img_loc[:, :, 0] = frame_width - self.img_loc[:, :, 0]
-
-        #     else:
-        #         self.corner_ids = np.array([])
-        #         self.corner_loc = np.array([])
-        # else:
-        #     self.corner_ids = np.array([])
-        #     self.corner_loc = np.array([])
 
     @property
     def board_loc(self):
@@ -110,20 +105,6 @@ class CornerTracker:
             return self.charuco.board.chessboardCorners[self.ids, :]
         else:
             return np.array([])
-
-
-def draw_corners(frame, ids, locs):
-    # TODO: break out into seperate method.... this is about drawing
-    if len(ids) > 0:
-        for _id, coord in zip(ids[:, 0], locs[:, 0]):
-            coord = list(coord)
-            # print(frame.shape[1])
-            x = round(coord[0])
-            y = round(coord[1])
-
-            cv2.circle(frame, (x, y), 5, (0, 0, 220), 3)
-            # cv2.putText(self.frame,str(ID), (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5,(220,0,0), 3)
-    return frame
 
 
 if __name__ == "__main__":
@@ -143,7 +124,7 @@ if __name__ == "__main__":
 
         read_success, frame = cam.capture.read()
         ids, locations, board_corners = trackr.get_corners(frame)
-        drawn_frame = draw_corners(frame, ids, locations)
+        drawn_frame = draw_charuco.corners(frame, ids, locations)
 
         cv2.imshow("Press 'q' to quit", drawn_frame)
         key = cv2.waitKey(1)

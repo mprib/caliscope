@@ -45,7 +45,7 @@ class CameraConfigDialog(QDialog):
         self.setWindowTitle("Camera Configuration and Calibration")
 
         self.pixmap_edge = min(DISPLAY_WIDTH / 3, DISPLAY_HEIGHT / 3)
-        self.frame_emitter = FrameEmitter(self.monocal, self.pixmap_edge)
+        self.frame_emitter = FrameEmitter(self.monocal.grid_frame_q, self.pixmap_edge)
         self.frame_emitter.start()
         # self.setFixedSize(self.pixmap_edge, self.pixmap_edge*2)
         self.setContentsMargins(0, 0, 0, 0)
@@ -150,7 +150,7 @@ class CameraConfigDialog(QDialog):
 
                 def wrker():
                     self.stream.mono_cal.calibrate()
-                    self.calib_output.setText(self.monocal.cam.calibration_summary())
+                    self.calib_output.setText(self.monocal.camera.calibration_summary())
 
                 self.calib_thread = Thread(target=wrker, args=(), daemon=True)
                 self.calib_thread.start()
@@ -180,7 +180,7 @@ class CameraConfigDialog(QDialog):
         # that I expect will pay dividends later
         def save_cal():
             pass
-            # self.session.save_camera(self.monocal.cam.port)
+            # self.session.save_camera(self.monocal.camera.port)
 
         self.save_cal_btn.clicked.connect(save_cal)
 
@@ -190,7 +190,7 @@ class CameraConfigDialog(QDialog):
         self.calib_output = QLabel()
         self.calib_output.setWordWrap(True)
         self.calib_output.setMaximumWidth(self.pixmap_edge / 3)
-        self.calib_output.setText(self.monocal.cam.calibration_summary())
+        self.calib_output.setText(self.monocal.camera.calibration_summary())
         hbox.addWidget(self.calib_output)
         # calib_output.setMaximumWidth()
 
@@ -252,14 +252,14 @@ class CameraConfigDialog(QDialog):
         self.cw_rotation_btn.setMaximumSize(100, 50)
 
         # Counter Clockwise rotation called because the display image is flipped
-        self.cw_rotation_btn.clicked.connect(self.monocal.cam.rotate_CCW)
+        self.cw_rotation_btn.clicked.connect(self.monocal.camera.rotate_CCW)
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton("Rotate CCW")
         self.ccw_rotation_btn.setMaximumSize(100, 50)
 
         # Clockwise rotation called because the display image is flipped
-        self.ccw_rotation_btn.clicked.connect(self.monocal.cam.rotate_CW)
+        self.ccw_rotation_btn.clicked.connect(self.monocal.camera.rotate_CW)
 
     def build_exposure_hbox(self):
         # construct a horizontal widget with label: slider: value display
@@ -269,15 +269,15 @@ class CameraConfigDialog(QDialog):
 
         self.exp_slider = QSlider(Qt.Orientation.Horizontal)
         self.exp_slider.setRange(-10, 0)
-        self.exp_slider.setSliderPosition(int(self.monocal.cam.exposure))
+        self.exp_slider.setSliderPosition(int(self.monocal.camera.exposure))
         self.exp_slider.setPageStep(1)
         self.exp_slider.setSingleStep(1)
         self.exp_slider.setMaximumWidth(200)
         exp_number = QLabel()
-        exp_number.setText(str(int(self.monocal.cam.exposure)))
+        exp_number.setText(str(int(self.monocal.camera.exposure)))
 
         def update_exposure(s):
-            self.monocal.cam.exposure = s
+            self.monocal.camera.exposure = s
             exp_number.setText(str(s))
 
         self.exp_slider.valueChanged.connect(update_exposure)
@@ -309,7 +309,7 @@ class CameraConfigDialog(QDialog):
         # possible resolutions is a list of tuples, but we need a list of Stext
         def resolutions_text():
             res_text = []
-            for w, h in self.monocal.cam.possible_resolutions:
+            for w, h in self.monocal.camera.possible_resolutions:
                 res_text.append(f"{int(w)} x {int(h)}")
             return res_text
 
@@ -326,10 +326,10 @@ class CameraConfigDialog(QDialog):
             self.change_res_thread.start()
 
             # whenever resolution changes, calibration parameters no longer apply
-            self.monocal.cam.error = None
-            self.monocal.cam.camera_matrix = None
-            self.monocal.cam.distortion = None
-            self.monocal.cam.grid_count = 0
+            self.monocal.camera.error = None
+            self.monocal.camera.camera_matrix = None
+            self.monocal.camera.distortion = None
+            self.monocal.camera.grid_count = 0
             self.stream.undistort = False
 
         self.resolution_combo = QComboBox()
@@ -337,7 +337,7 @@ class CameraConfigDialog(QDialog):
         self.resolution_combo.addItems(resolutions_text())
         self.resolution_combo.setMaximumSize(100, 50)
 
-        w, h = self.monocal.cam.resolution
+        w, h = self.monocal.camera.resolution
         self.resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
         self.resolution_combo.currentTextChanged.connect(change_resolution)
 
@@ -348,7 +348,7 @@ class CameraConfigDialog(QDialog):
 
         def cv2_view_worker():
             while True:
-                frame = cv2.flip(self.stream.frame, 1)
+                frame = cv2.flip(self.monocal.frame, 1)
 
                 cv2.imshow("Press 'q' to Quit", frame)
 
@@ -390,23 +390,31 @@ class CameraConfigDialog(QDialog):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
 
-    repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "default_1_cam_session")
-    session = Session(config_path)
-    session.load_cameras()
-    # session.find_additional_cameras()
-    session.load_stream_tools()
-    session.load_monocalibrators()
+    # repo = Path(__file__).parent.parent.parent
+    # config_path = Path(repo, "default_1_cam_session")
+    # session = Session(config_path)
+    # session.load_cameras()
+    # # session.find_additional_cameras()
+    # session.load_stream_tools()
+    # session.load_monocalibrators()
     # session.adjust_resolutions()
 
     config_dialogs = []
 
-    for port, stream in session.streams.items():
-        if port == 0:
-            config_dialogs.append(CameraConfigDialog(stream, session))
+    from src.calibration.corner_tracker import CornerTracker
+    from src.calibration.monocalibrator import MonoCalibrator
+    from src.cameras.camera import Camera
 
-    for cd in config_dialogs:
-        print("About to show dialog")
-        cd.show()
+    charuco = Charuco(
+        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
+    )
+
+    trackr = CornerTracker(charuco)
+    test_port = 0
+    cam = Camera(0)
+    monocal = MonoCalibrator(cam, trackr)
+
+    cam_dialog = CameraConfigDialog(monocal)
+    cam_dialog.show()
 
     sys.exit(App.exec())

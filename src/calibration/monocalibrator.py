@@ -16,8 +16,7 @@ from pathlib import Path
 import cv2
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-import draw_charuco
-
+import src.calibration.draw_charuco
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 
@@ -27,7 +26,6 @@ class MonoCalibrator:
         self.camera = camera
         self.corner_tracker = corner_tracker
         self.wait_time = wait_time
-        self.image_size = list(self.camera.resolution)
 
         # TODO...this is going deeper into the hierarchy than I would like
         # and may deserve a refactor
@@ -43,9 +41,19 @@ class MonoCalibrator:
 
     @property
     def grid_count(self):
+        """How many sets of corners have been collected up to this point"""
         return len(self.all_ids)
 
     def collect_corners(self, frame):
+        """
+        Input: opencv frame
+
+        Side Effect 1: records corner ids, positions, and board positions provided
+        that enough time has past since the last set was recorded
+
+        Side Effect 2: updates the image
+        #TODO #13 Split out the image update to its own method that returns a modified frame
+        """
         self.frame = frame
         ids, img_loc, board_loc = self.corner_tracker.get_corners(self.frame)
 
@@ -82,6 +90,8 @@ class MonoCalibrator:
         logging.info(f"Calibrating camera {self.camera.port}....")
 
         # organize parameters for calibration function
+        self.image_size = list(self.camera.resolution)
+
         objpoints = self.all_board_loc
         imgpoints = self.all_img_loc
         height = self.image_size[0]

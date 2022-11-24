@@ -29,37 +29,33 @@ class FrameEmitter(QThread):
         self.ThreadActive = True
 
         while self.ThreadActive:
-            try:  # takes a moment for capture widget to spin up...don't error out
+            # try:  # takes a moment for capture widget to spin up...don't error out
 
-                # Grab a frame from the capture widget and broadcast to displays
-                frame = self.frame_q.get()
-                image = self.cv2_to_qlabel(frame)
-                pixmap = QPixmap.fromImage(image)
+            # Grab a frame from the capture widget and broadcast to displays
+            frame = self.frame_q.get()
+            image = self.cv2_to_qlabel(frame)
+            pixmap = QPixmap.fromImage(image)
+            # GUI was crashing I believe due to overloading GUI thread with
+            # scaling. Scaling within the emitter resolved the crashes
+            if self.pixmap_edge_length:
+                pixmap = pixmap.scaled(
+                    self.pixmap_edge_length,
+                    self.pixmap_edge_length,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                )
+            self.ImageBroadcast.emit(pixmap)
+            # grab and broadcast fps
+            fps = 0  # TODO: #14 calculate based off of rate of getting from q
+            self.FPSBroadcast.emit(fps)
 
-                # GUI was crashing I believe due to overloading GUI thread with
-                # scaling. Scaling within the emitter resolved the crashes
+            # throttle rate of broadcast to reduce system overhead
+            # if fps == 0:  # Camera likely reconnecting
+            #     time.sleep(MIN_SLEEP_TIME)
+            # else:
+            #     time.sleep(1 / fps)
 
-                if self.pixmap_edge_length:
-                    pixmap = pixmap.scaled(
-                        self.pixmap_edge_length,
-                        self.pixmap_edge_length,
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                    )
-
-                self.ImageBroadcast.emit(pixmap)
-
-                # grab and broadcast fps
-                fps = 0  # TODO: #14 calculate based off of rate of getting from q
-                self.FPSBroadcast.emit(fps)
-
-                # throttle rate of broadcast to reduce system overhead
-                if fps == 0:  # Camera likely reconnecting
-                    time.sleep(MIN_SLEEP_TIME)
-                else:
-                    time.sleep(1 / fps)
-
-            except AttributeError:
-                pass
+            # except AttributeError:
+            #     pass
 
     def stop(self):
         self.ThreadActive = False

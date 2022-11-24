@@ -12,6 +12,7 @@ logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
 import sys
 import time
 from pathlib import Path
+from queue import Queue
 
 import cv2
 
@@ -26,6 +27,7 @@ class MonoCalibrator:
         self.camera = camera
         self.corner_tracker = corner_tracker
         self.wait_time = wait_time
+        self.grid_frame_q = Queue(1)
 
         self.image_size = self.camera.resolution
 
@@ -79,7 +81,9 @@ class MonoCalibrator:
 
             self.last_calibration_time = time.time()
 
-    def get_grid_frame(self):
+        self.push_grid_frame()
+
+    def push_grid_frame(self):
 
         grid_frame = draw_charuco.grid_history(
             frame, self.all_ids, self.all_img_loc, self.connected_corners
@@ -87,7 +91,7 @@ class MonoCalibrator:
 
         grid_corner_frame = draw_charuco.corners(grid_frame, self.ids, self.img_loc)
 
-        return grid_corner_frame
+        self.grid_frame_q.put(grid_corner_frame)
 
     def calibrate(self):
         """
@@ -146,7 +150,7 @@ if __name__ == "__main__":
     while True:
         read_success, frame = cam.capture.read()
         monocal.collect_corners(frame)
-        frame = monocal.get_grid_frame()
+        frame = monocal.grid_frame_q.get()
         cv2.imshow("Press 'q' to quit", frame)
         key = cv2.waitKey(1)
 

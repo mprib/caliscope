@@ -1,33 +1,21 @@
 import sys
-from filecmp import clear_cache
 from pathlib import Path
 from threading import Thread
 
 import cv2
-from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont, QIcon, QImage, QPixmap
-from PyQt6.QtMultimedia import QMediaCaptureSession, QMediaPlayer, QVideoFrame
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
     QApplication,
-    QCheckBox,
     QComboBox,
     QDialog,
-    QFileDialog,
-    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QLCDNumber,
-    QLineEdit,
-    QMainWindow,
     QPushButton,
     QRadioButton,
-    QScrollArea,
-    QSizePolicy,
     QSlider,
-    QToolBar,
     QVBoxLayout,
-    QWidget,
 )
 
 # Append main repo to top of path to allow import of backend
@@ -41,24 +29,23 @@ from src.session import Session
 
 
 class CameraConfigDialog(QDialog):
-    def __init__(self, video_stream, monocalibrator, session):
+    def __init__(self, monocalibrator):
         super(CameraConfigDialog, self).__init__()
         # frame emitter is a thread that is constantly pulling in values from
         # the capture widget and broadcasting them to widgets on this window
 
-        self.session = session
+        # self.session = session
         self.monocal = monocalibrator
-        # print(self.isAnimated())
-        # self.setAnimated(False)
+
         App = QApplication.instance()
         DISPLAY_WIDTH = App.primaryScreen().size().width()
         DISPLAY_HEIGHT = App.primaryScreen().size().height()
 
-        self.stream = video_stream
+        # self.stream = session.stream
         self.setWindowTitle("Camera Configuration and Calibration")
 
         self.pixmap_edge = min(DISPLAY_WIDTH / 3, DISPLAY_HEIGHT / 3)
-        self.frame_emitter = FrameEmitter(self.stream, self.pixmap_edge)
+        self.frame_emitter = FrameEmitter(self.monocal, self.pixmap_edge)
         self.frame_emitter.start()
         # self.setFixedSize(self.pixmap_edge, self.pixmap_edge*2)
         self.setContentsMargins(0, 0, 0, 0)
@@ -74,42 +61,42 @@ class CameraConfigDialog(QDialog):
         self.build_toggle_grp()
         self.build_calibrate_grp()
         ###################################################################
-        self.VBL = QVBoxLayout(self)
-        self.VBL.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.VBL.setContentsMargins(0, 0, 0, 0)
+        self.v_box = QVBoxLayout(self)
+        self.v_box.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.v_box.setContentsMargins(0, 0, 0, 0)
 
         ################## FULL RESOLUTION LAUNCH BUTTON ######################
-        self.VBL.addWidget(self.view_full_res_btn)
+        self.v_box.addWidget(self.view_full_res_btn)
         #################      VIDEO AT TOP     ##########################
-        self.VBL.addWidget(self.frame_display)
+        self.v_box.addWidget(self.frame_display)
 
         ############################  ADD HBOX OF CONFIG ######################
-        HBL = QHBoxLayout()
+        h_box = QHBoxLayout()
 
         ################ ROTATE CCW #######################################
-        HBL.addWidget(self.ccw_rotation_btn)
+        h_box.addWidget(self.ccw_rotation_btn)
 
         ############################## ROTATE CW ###########################
-        HBL.addWidget(self.cw_rotation_btn)
+        h_box.addWidget(self.cw_rotation_btn)
         # VBL.addWidget(self.mediapipeLabel)
         ######################################### RESOLUTION DROPDOWN ######
-        HBL.addWidget(self.resolution_combo)
-        HBL.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.VBL.addLayout(HBL)
+        h_box.addWidget(self.resolution_combo)
+        h_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.v_box.addLayout(h_box)
 
         #################### EXPOSURE SLIDER #################################
-        self.VBL.addLayout(self.exposure_hbox)
+        self.v_box.addLayout(self.exposure_hbox)
 
         #######################     FPS         ##############################
-        self.VBL.addWidget(self.fps_display)
-        ###################### RADIO BUTTONS OF OVERLAY TOGGLES ##################
-        self.VBL.addWidget(self.toggle_grp)
+        self.v_box.addWidget(self.fps_display)
+        ################### RADIO BUTTONS OF OVERLAY TOGGLES ##################
+        self.v_box.addWidget(self.toggle_grp)
 
         ###################### CALIBRATION  ################################
-        self.VBL.addWidget(self.calibrate_grp)
+        self.v_box.addWidget(self.calibrate_grp)
 
         for w in self.children():
-            self.VBL.setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
+            self.v_box.setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
 
     ####################### SUB_WIDGET CONSTRUCTION ###############################
 
@@ -122,7 +109,7 @@ class CameraConfigDialog(QDialog):
         # Build Charuco Image Display
         self.charuco_display = QLabel()
         # charuco_img = self.convert_cv_qt(self.stream.mono_cal.charuco.board_img)
-        charuco_img = self.session.charuco.board_pixmap(
+        charuco_img = self.monocal.corner_tracker.charuco.board_pixmap(
             self.pixmap_edge / 3, self.pixmap_edge / 3
         )
         # charuco_img = charuco_img.scaled(self.pixmap_edge/3,
@@ -163,7 +150,7 @@ class CameraConfigDialog(QDialog):
 
                 def wrker():
                     self.stream.mono_cal.calibrate()
-                    self.calib_output.setText(self.stream.cam.calibration_summary())
+                    self.calib_output.setText(self.monocal.cam.calibration_summary())
 
                 self.calib_thread = Thread(target=wrker, args=(), daemon=True)
                 self.calib_thread.start()
@@ -188,8 +175,12 @@ class CameraConfigDialog(QDialog):
         self.save_cal_btn.setMaximumWidth(100)
         vbox.addWidget(self.save_cal_btn)
 
+        # TODO: refactor so saves managed elsewhere...why build a whole session
+        # here just to save. There's got to be a more modular approach to this
+        # that I expect will pay dividends later
         def save_cal():
-            self.session.save_camera(self.stream.cam.port)
+            pass
+            # self.session.save_camera(self.monocal.cam.port)
 
         self.save_cal_btn.clicked.connect(save_cal)
 
@@ -199,7 +190,7 @@ class CameraConfigDialog(QDialog):
         self.calib_output = QLabel()
         self.calib_output.setWordWrap(True)
         self.calib_output.setMaximumWidth(self.pixmap_edge / 3)
-        self.calib_output.setText(self.stream.cam.calibration_summary())
+        self.calib_output.setText(self.monocal.cam.calibration_summary())
         hbox.addWidget(self.calib_output)
         # calib_output.setMaximumWidth()
 
@@ -261,14 +252,14 @@ class CameraConfigDialog(QDialog):
         self.cw_rotation_btn.setMaximumSize(100, 50)
 
         # Counter Clockwise rotation called because the display image is flipped
-        self.cw_rotation_btn.clicked.connect(self.stream.cam.rotate_CCW)
+        self.cw_rotation_btn.clicked.connect(self.monocal.cam.rotate_CCW)
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton("Rotate CCW")
         self.ccw_rotation_btn.setMaximumSize(100, 50)
 
         # Clockwise rotation called because the display image is flipped
-        self.ccw_rotation_btn.clicked.connect(self.stream.cam.rotate_CW)
+        self.ccw_rotation_btn.clicked.connect(self.monocal.cam.rotate_CW)
 
     def build_exposure_hbox(self):
         # construct a horizontal widget with label: slider: value display
@@ -278,15 +269,15 @@ class CameraConfigDialog(QDialog):
 
         self.exp_slider = QSlider(Qt.Orientation.Horizontal)
         self.exp_slider.setRange(-10, 0)
-        self.exp_slider.setSliderPosition(int(self.stream.cam.exposure))
+        self.exp_slider.setSliderPosition(int(self.monocal.cam.exposure))
         self.exp_slider.setPageStep(1)
         self.exp_slider.setSingleStep(1)
         self.exp_slider.setMaximumWidth(200)
         exp_number = QLabel()
-        exp_number.setText(str(int(self.stream.cam.exposure)))
+        exp_number.setText(str(int(self.monocal.cam.exposure)))
 
         def update_exposure(s):
-            self.stream.cam.exposure = s
+            self.monocal.cam.exposure = s
             exp_number.setText(str(s))
 
         self.exp_slider.valueChanged.connect(update_exposure)
@@ -318,7 +309,7 @@ class CameraConfigDialog(QDialog):
         # possible resolutions is a list of tuples, but we need a list of Stext
         def resolutions_text():
             res_text = []
-            for w, h in self.stream.cam.possible_resolutions:
+            for w, h in self.monocal.cam.possible_resolutions:
                 res_text.append(f"{int(w)} x {int(h)}")
             return res_text
 
@@ -335,10 +326,10 @@ class CameraConfigDialog(QDialog):
             self.change_res_thread.start()
 
             # whenever resolution changes, calibration parameters no longer apply
-            self.stream.cam.error = None
-            self.stream.cam.camera_matrix = None
-            self.stream.cam.distortion = None
-            self.stream.cam.grid_count = 0
+            self.monocal.cam.error = None
+            self.monocal.cam.camera_matrix = None
+            self.monocal.cam.distortion = None
+            self.monocal.cam.grid_count = 0
             self.stream.undistort = False
 
         self.resolution_combo = QComboBox()
@@ -346,7 +337,7 @@ class CameraConfigDialog(QDialog):
         self.resolution_combo.addItems(resolutions_text())
         self.resolution_combo.setMaximumSize(100, 50)
 
-        w, h = self.stream.cam.resolution
+        w, h = self.monocal.cam.resolution
         self.resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
         self.resolution_combo.currentTextChanged.connect(change_resolution)
 
@@ -400,13 +391,12 @@ if __name__ == "__main__":
     App = QApplication(sys.argv)
 
     repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "default_session")
+    config_path = Path(repo, "default_1_cam_session")
     session = Session(config_path)
     session.load_cameras()
     # session.find_additional_cameras()
-    session.load_streams()
-    session.load_syncronizer()
-    session.load_dispatcher()
+    session.load_stream_tools()
+    session.load_monocalibrators()
     # session.adjust_resolutions()
 
     config_dialogs = []

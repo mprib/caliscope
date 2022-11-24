@@ -1,0 +1,22 @@
+CreationDate = 2022-11-20T13:50:27.969661
+
+[cam_0]
+port = 0
+resolution = [ 640, 480,]
+rotation_count = 0
+error = 0.461
+camera_matrix = [ [ "647.3079896845863", "0.0", "650.2281025773259",], [ "0.0", "649.0195868788946", "367.4995680237256",], [ "0.0", "0.0", "1.0",],]
+distortion = [ [ "0.17943509914401118", "-0.25384173528069875", "-0.0021921563852084283", "0.001485673687918775", "0.12128810962633467",],]
+exposure = -6.0
+grid_count = 78
+
+[charuco]
+columns = 4
+rows = 5
+board_height = 11
+board_width = 8.5
+dictionary = "DICT_4X4_50"
+units = "inch"
+aruco_scale = 0.75
+square_size_overide = 5.4
+inverted = false

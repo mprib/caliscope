@@ -16,7 +16,7 @@ from pathlib import Path
 import cv2
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-import src.calibration.draw_charuco
+import src.calibration.draw_charuco as draw_charuco
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 
@@ -26,6 +26,8 @@ class MonoCalibrator:
         self.camera = camera
         self.corner_tracker = corner_tracker
         self.wait_time = wait_time
+
+        self.image_size = self.camera.resolution
 
         # TODO...this is going deeper into the hierarchy than I would like
         # and may deserve a refactor
@@ -55,10 +57,12 @@ class MonoCalibrator:
         #TODO #13 Split out the image update to its own method that returns a modified frame
         """
         self.frame = frame
-        ids, img_loc, board_loc = self.corner_tracker.get_corners(self.frame)
+        self.ids, self.img_loc, self.board_loc = self.corner_tracker.get_corners(
+            self.frame
+        )
 
-        if ids.any():
-            enough_corners = len(ids) > self.min_points_to_process
+        if self.ids.any():
+            enough_corners = len(self.ids) > self.min_points_to_process
         else:
             enough_corners = False
 
@@ -69,17 +73,21 @@ class MonoCalibrator:
         if enough_corners and enough_time_from_last_cal:
 
             # store the corners and IDs
-            self.all_ids.append(ids)
-            self.all_img_loc.append(img_loc)
-            self.all_board_loc.append(board_loc)
+            self.all_ids.append(self.ids)
+            self.all_img_loc.append(self.img_loc)
+            self.all_board_loc.append(self.board_loc)
 
             self.last_calibration_time = time.time()
 
-        self.grid_frame = draw_charuco.grid_history(
+    def get_grid_frame(self):
+
+        grid_frame = draw_charuco.grid_history(
             frame, self.all_ids, self.all_img_loc, self.connected_corners
         )
 
-        self.grid_corner_frame = draw_charuco.corners(self.grid_frame, ids, img_loc)
+        grid_corner_frame = draw_charuco.corners(grid_frame, self.ids, self.img_loc)
+
+        return grid_corner_frame
 
     def calibrate(self):
         """
@@ -90,7 +98,10 @@ class MonoCalibrator:
         logging.info(f"Calibrating camera {self.camera.port}....")
 
         # organize parameters for calibration function
-        self.image_size = list(self.camera.resolution)
+        # self.image_size = list(self.camera.resolution)
+        self.image_size = list(self.image_size)
+        self.image_size.reverse()  # for some reason...
+        self.image_size.append(3)
 
         objpoints = self.all_board_loc
         imgpoints = self.all_img_loc
@@ -128,15 +139,15 @@ if __name__ == "__main__":
     trackr = CornerTracker(charuco)
     test_port = 0
     cam = Camera(0)
+    print(cam.resolution)
     monocal = MonoCalibrator(cam, trackr)
 
     print("About to enter main loop")
     while True:
-
         read_success, frame = cam.capture.read()
         monocal.collect_corners(frame)
-
-        cv2.imshow("Press 'q' to quit", monocal.grid_corner_frame)
+        frame = monocal.get_grid_frame()
+        cv2.imshow("Press 'q' to quit", frame)
         key = cv2.waitKey(1)
 
         # end capture when enough grids collected

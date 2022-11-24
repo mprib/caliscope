@@ -1,8 +1,11 @@
 #%%
 import logging
 
-logging.basicConfig(filename="log\session.log", filemode="w", level=logging.DEBUG)
-# level=logging.INFO)
+LOG_FILE = "log\session.log"
+LOG_LEVEL = logging.DEBUG
+
+logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
+
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -15,7 +18,11 @@ import toml
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.calibration.charuco import Charuco
+from src.calibration.corner_tracker import CornerTracker
+from src.calibration.monocalibrator import MonoCalibrator
 from src.cameras.camera import Camera
+from src.cameras.dispatcher import Dispatcher
+from src.cameras.synchronizer import Synchronizer
 from src.cameras.video_stream import VideoStream
 
 #%%
@@ -28,9 +35,13 @@ class Session:
         self.dir = str(directory)
         self.config_path = str(Path(self.dir, "config.toml"))
 
-        # dictionary of Cameras, key = port
+        # dictionaries of streaming related objects. key = port
         self.cameras = {}
         self.streams = {}
+
+        # dictionaries of calibration related objects.
+        self.monocalibrators = {}  # key = port
+        self.stereocalibrators = {}  # key = portA_portB
 
         self.load_config()
         self.load_charuco()
@@ -66,11 +77,11 @@ class Session:
             logging.info("Loading charuco from config")
             params = self.config["charuco"]
 
-            # TOML doesn't seem to store None when dumping to file; adjust here
-            if "square_size_overide" in self.config["charuco"]:
-                sso = self.config["charuco"]["square_size_overide"]
-            else:
-                sso = None
+            # # TOML doesn't seem to store None when dumping to file; adjust here
+            # if "square_size_overide" in self.config["charuco"]:
+            #     sso = self.config["charuco"]["square_size_overide"]
+            # else:
+            #     sso = None
 
             self.charuco = Charuco(
                 columns=params["columns"],
@@ -98,10 +109,9 @@ class Session:
         def add_preconfigured_cam(params):
             try:
                 port = params["port"]
-
                 self.cameras[port] = Camera(port)
 
-                cam = self.cameras[port]  # trying to make a little more readable
+                cam = self.cameras[port]
                 cam.rotation_count = params["rotation_count"]
                 cam.exposure = params["exposure"]
             except:
@@ -143,8 +153,9 @@ class Session:
                 else:
                     executor.submit(add_cam, i)
 
-    def load_streams(self):
-        # need Stream to adjust resolution
+    def load_stream_tools(self):
+        # in addition to populating the active streams, this loads a frame
+        # synchronizer and a dispatcher for the frames
 
         for port, cam in self.cameras.items():
             if port in self.streams.keys():
@@ -154,7 +165,23 @@ class Session:
                 self.streams[port] = VideoStream(cam)
                 # self.stream[port].assign_charuco(self.charuco)
 
+        self.synchronizer = Synchronizer(self.streams, fps_target=30)
+        self.dispatcher = Dispatcher(self.synchronizer)
+
+    def load_monocalibrators(self):
+        self.corner_tracker = CornerTracker(self.charuco)
+
+        for port, cam in self.cameras.items():
+            if port in self.monocalibrators.keys():
+                pass  # only add if not added yet
+            else:
+                logging.info(f"Loading Monocalibrator for port {port}")
+                self.monocalibrators[port] = MonoCalibrator(cam, self.corner_tracker)
+
     def adjust_resolutions(self):
+        """Changes the camera resolution to the value in the configuration, as
+        log as it is not configured for the default resolution"""
+
         def adjust_res_worker(port):
             stream = self.streams[port]
             resolution = self.config[f"cam_{port}"]["resolution"]

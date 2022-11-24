@@ -6,4 +6,6 @@ Side effects of this refactor include the need to push more responsibility onto 
 
 ## Current Branch Targets
 
-Build out the session class to create a syncronizer and dispatcher. Monocalibrators can be loosely spun up by the GUI to hook into the dispatcher and camera. I believe this stage of the change will be challenging, but ultimately lead to a much better framework for moving forward. 
+Refactor CameraConfigDialog to operate when provided only with a monocalibrator. 
+
+Monocalabrator may need to be changed to create a queue for exposing the grid_frame. This could be passed to the frame_emitter

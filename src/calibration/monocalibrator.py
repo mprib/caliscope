@@ -25,7 +25,8 @@ from src.calibration.corner_tracker import CornerTracker
 
 class MonoCalibrator:
     def __init__(self, camera, corner_tracker, board_threshold=0.7, wait_time=0.5):
-        self.camera = camera
+
+        self.camera = camera  # reference needed to update params
         self.corner_tracker = corner_tracker
         self.wait_time = wait_time
 
@@ -67,7 +68,7 @@ class MonoCalibrator:
         logging.debug("Entering collect_corners thread loop")
         while True:
             dispatched_frame = self.frame_in_q.get()
-            self.frame = dispatched_frame[0]
+            self.frame = dispatched_frame[0]  # List of frames placed on queue
             self.ids, self.img_loc, self.board_loc = self.corner_tracker.get_corners(
                 self.frame
             )

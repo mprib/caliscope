@@ -15,28 +15,24 @@ class FrameEmitter(QThread):
     # establish signals from the frame that will be displayed in real time
     # within the GUI
     ImageBroadcast = pyqtSignal(QPixmap)
-    FPSBroadcast = pyqtSignal(int)
 
-    def __init__(self, frame_q, pixmap_edge_length=None):
+    def __init__(self, monocalibrator, pixmap_edge_length=None):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(FrameEmitter, self).__init__()
-        self.frame_q = frame_q
+        self.frame_q = monocalibrator.grid_frame_q
         self.pixmap_edge_length = pixmap_edge_length
-        print("Initializing Frame Emitter")
+        self.rotation_count = monocalibrator.camera.rotation_count
 
     def run(self):
         self.ThreadActive = True
 
         while self.ThreadActive:
-            # try:  # takes a moment for capture widget to spin up...don't error out
-
-            # Grab a frame from the capture widget and broadcast to displays
+            # Grab a frame from the queue and broadcast to displays
             frame = self.frame_q.get()
             image = self.cv2_to_qlabel(frame)
             pixmap = QPixmap.fromImage(image)
-            # GUI was crashing I believe due to overloading GUI thread with
-            # scaling. Scaling within the emitter resolved the crashes
+
             if self.pixmap_edge_length:
                 pixmap = pixmap.scaled(
                     self.pixmap_edge_length,
@@ -44,18 +40,6 @@ class FrameEmitter(QThread):
                     Qt.AspectRatioMode.KeepAspectRatio,
                 )
             self.ImageBroadcast.emit(pixmap)
-            # grab and broadcast fps
-            fps = 0  # TODO: #14 calculate based off of rate of getting from q
-            self.FPSBroadcast.emit(fps)
-
-            # throttle rate of broadcast to reduce system overhead
-            # if fps == 0:  # Camera likely reconnecting
-            #     time.sleep(MIN_SLEEP_TIME)
-            # else:
-            #     time.sleep(1 / fps)
-
-            # except AttributeError:
-            #     pass
 
     def stop(self):
         self.ThreadActive = False

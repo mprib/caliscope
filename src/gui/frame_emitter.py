@@ -1,6 +1,6 @@
 import logging
 
-logging.basicConfig(filename="synchronizer.log", filemode="w", level=logging.INFO)
+logging.basicConfig(filename="frame_emitter.log", filemode="w", level=logging.INFO)
 
 import sys
 import time
@@ -20,7 +20,7 @@ class FrameEmitter(QThread):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(FrameEmitter, self).__init__()
-        self.frame_q = monocalibrator.grid_frame_q
+        self.monocalibrator = monocalibrator
         self.pixmap_edge_length = pixmap_edge_length
         self.rotation_count = monocalibrator.camera.rotation_count
 
@@ -29,7 +29,8 @@ class FrameEmitter(QThread):
 
         while self.ThreadActive:
             # Grab a frame from the queue and broadcast to displays
-            frame = self.frame_q.get()
+            self.monocalibrator.grid_frame_ready_q.get()
+            frame = self.monocalibrator.grid_frame
             image = self.cv2_to_qlabel(frame)
             pixmap = QPixmap.fromImage(image)
 

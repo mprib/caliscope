@@ -36,23 +36,22 @@ from src.session import Session
 
 
 class CameraConfigDialog(QDialog):
-    def __init__(self, monocalibrator):
+    def __init__(self, stream, monocalibrator):
         super(CameraConfigDialog, self).__init__()
-        # frame emitter is a thread that is constantly pulling in values from
-        # the capture widget and broadcasting them to widgets on this window
 
-        # self.session = session
         self.monocal = monocalibrator
+
+        # stream reference needed to change resolution
+        self.stream = stream
 
         App = QApplication.instance()
         DISPLAY_WIDTH = App.primaryScreen().size().width()
         DISPLAY_HEIGHT = App.primaryScreen().size().height()
 
-        # self.stream = session.stream
         self.setWindowTitle("Camera Configuration and Calibration")
 
         self.pixmap_edge = min(DISPLAY_WIDTH / 3, DISPLAY_HEIGHT / 3)
-        self.frame_emitter = FrameEmitter(self.monocal.grid_frame_q, self.pixmap_edge)
+        self.frame_emitter = FrameEmitter(self.monocal, self.pixmap_edge)
         self.frame_emitter.start()
         # self.setFixedSize(self.pixmap_edge, self.pixmap_edge*2)
         self.setContentsMargins(0, 0, 0, 0)
@@ -115,13 +114,9 @@ class CameraConfigDialog(QDialog):
 
         # Build Charuco Image Display
         self.charuco_display = QLabel()
-        # charuco_img = self.convert_cv_qt(self.stream.mono_cal.charuco.board_img)
         charuco_img = self.monocal.corner_tracker.charuco.board_pixmap(
             self.pixmap_edge / 3, self.pixmap_edge / 3
         )
-        # charuco_img = charuco_img.scaled(self.pixmap_edge/3,
-        #  self.pixmap_edge/3,
-        #  Qt.AspectRatioMode.KeepAspectRatio)
         self.charuco_display.setPixmap(charuco_img)
         hbox.addWidget(self.charuco_display)
 
@@ -151,8 +146,7 @@ class CameraConfigDialog(QDialog):
         vbox.addWidget(self.calibrate_btn)
 
         def calibrate():
-            print("Capture History" + str(len(self.stream.mono_cal.corner_ids)))
-            if len(self.stream.mono_cal.corner_ids) > 0:
+            if len(self.monocal.all_ids) > 0:
                 self.calib_output.setText("Calibration can take a moment...")
 
                 def wrker():
@@ -171,11 +165,12 @@ class CameraConfigDialog(QDialog):
         clear_grid_history_btn.setMaximumWidth(100)
         vbox.addWidget(clear_grid_history_btn)
 
-        def clear_grid():
-            # Note this does not clear out the calibration parameters
-            self.stream.mono_cal.initialize_grid_history()
+        def clear_capture_history():
+            self.monocal.all_ids = []
+            self.monocal.all_img_loc = []
+            self.monocal.all_board_loc = []
 
-        clear_grid_history_btn.clicked.connect(clear_grid)
+        clear_grid_history_btn.clicked.connect(clear_capture_history)
 
         # Save Calibration
         self.save_cal_btn = QPushButton("Save Calibration")
@@ -252,7 +247,8 @@ class CameraConfigDialog(QDialog):
             else:
                 self.fps_display.setText("FPS: " + str(fps))
 
-        self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
+        # TODO: #18 #17 #16 #15 Create FPS display on config dialog
+        # self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
 
     def build_cw_rotation_btn(self):
         self.cw_rotation_btn = QPushButton("Rotate CW")
@@ -297,8 +293,6 @@ class CameraConfigDialog(QDialog):
 
     def build_frame_display(self):
         # return a QLabel that is linked to the constantly changing image
-        # IMPORTANT: frame_emitter thread must continue to exist after running
-        # this method. Cannot be confined to namespace of the method
 
         self.frame_display = QLabel()
         self.frame_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -412,28 +406,30 @@ if __name__ == "__main__":
     )
 
     trackr = CornerTracker(charuco)
-    test_port = 1
+    test_port = 0
     cam = Camera(test_port)
     stream = VideoStream(cam)
-    streams_dict = {test_port: stream}
-    syncr = Synchronizer(streams_dict, fps_target=30)
+    streams_dict = {test_port: stream}  # synchronizer expects this format
+    syncr = Synchronizer(streams_dict, fps_target=6)
     dispatchr = Dispatcher(syncr)
     monocal = MonoCalibrator(cam, trackr)
     dispatchr.add_queue(test_port, monocal.frame_in_q)
 
-    while True:
-        frames = monocal.grid_frame_q.get()
-        cv2.imshow(f"Camera {test_port}", frames)
+    # This loop is serving the purpose of the frame emitter...this feels like
+    # how this should be done.
+    # while True:
+    #     frames = monocal.grid_frame_q.get()
+    #     cv2.imshow(f"Camera {test_port}", frames)
 
-        key = cv2.waitKey(1)
+    #     key = cv2.waitKey(1)
 
-        # end capture when enough grids collected
-        if key == ord("q"):
-            cam.capture.release()
-            cv2.destroyAllWindows()
-            break
+    #     # end capture when enough grids collected
+    #     if key == ord("q"):
+    #         cam.capture.release()
+    #         cv2.destroyAllWindows()
+    #         break
 
-    # cam_dialog = CameraConfigDialog(monocal)
-    # cam_dialog.show()
+    cam_dialog = CameraConfigDialog(stream, monocal)
+    cam_dialog.show()
 
-    # sys.exit(App.exec())
+    sys.exit(App.exec())

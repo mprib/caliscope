@@ -44,7 +44,6 @@ class Dispatcher:
         logging.info("Starting dispatcher thread")
         self.thread.start()
 
-
     def dispatch_frames_worker(self):
         logging.info("spinning up dispatch worker")
         while self.run_dispatch:
@@ -61,6 +60,8 @@ class Dispatcher:
                 for q in q_list:
                     frames = []
                     for port in ports:
+                        # A list of frames in port order is placed on the queue
+                        # must be accessed downstream by list index
                         frames.append(frame_bundle[port]["frame"])
                     q.put(frames)
 

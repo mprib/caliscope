@@ -1,3 +1,10 @@
+import logging
+
+LOG_LEVEL = logging.DEBUG
+# LOG_LEVEL = logging.INFO
+LOG_FILE = "camera_config_dialog.log"
+logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
+
 import sys
 from pathlib import Path
 from threading import Thread
@@ -390,31 +397,43 @@ class CameraConfigDialog(QDialog):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
 
-    # repo = Path(__file__).parent.parent.parent
-    # config_path = Path(repo, "default_1_cam_session")
-    # session = Session(config_path)
-    # session.load_cameras()
-    # # session.find_additional_cameras()
-    # session.load_stream_tools()
-    # session.load_monocalibrators()
-    # session.adjust_resolutions()
+    from queue import Queue
 
     config_dialogs = []
 
     from src.calibration.corner_tracker import CornerTracker
     from src.calibration.monocalibrator import MonoCalibrator
     from src.cameras.camera import Camera
+    from src.cameras.dispatcher import Dispatcher
+    from src.cameras.synchronizer import Synchronizer
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
     )
 
     trackr = CornerTracker(charuco)
-    test_port = 0
-    cam = Camera(0)
+    test_port = 1
+    cam = Camera(test_port)
+    stream = VideoStream(cam)
+    streams_dict = {test_port: stream}
+    syncr = Synchronizer(streams_dict, fps_target=30)
+    dispatchr = Dispatcher(syncr)
     monocal = MonoCalibrator(cam, trackr)
+    dispatchr.add_queue(test_port, monocal.frame_in_q)
 
-    cam_dialog = CameraConfigDialog(monocal)
-    cam_dialog.show()
+    while True:
+        frames = monocal.grid_frame_q.get()
+        cv2.imshow(f"Camera {test_port}", frames)
 
-    sys.exit(App.exec())
+        key = cv2.waitKey(1)
+
+        # end capture when enough grids collected
+        if key == ord("q"):
+            cam.capture.release()
+            cv2.destroyAllWindows()
+            break
+
+    # cam_dialog = CameraConfigDialog(monocal)
+    # cam_dialog.show()
+
+    # sys.exit(App.exec())

@@ -13,6 +13,7 @@ import sys
 import time
 from pathlib import Path
 from queue import Queue
+from threading import Thread
 
 import cv2
 
@@ -27,6 +28,8 @@ class MonoCalibrator:
         self.camera = camera
         self.corner_tracker = corner_tracker
         self.wait_time = wait_time
+
+        self.frame_in_q = Queue()
         self.grid_frame_q = Queue(1)
 
         self.image_size = self.camera.resolution
@@ -42,13 +45,16 @@ class MonoCalibrator:
         self.all_board_loc = []
 
         self.last_calibration_time = time.time()  # need to initialize to *something*
+        self.collecting_corners = True
+        self.thread = Thread(target=self.collect_corners, args=(), daemon=True)
+        self.thread.start()
 
     @property
     def grid_count(self):
         """How many sets of corners have been collected up to this point"""
         return len(self.all_ids)
 
-    def collect_corners(self, frame):
+    def collect_corners(self):
         """
         Input: opencv frame
 
@@ -58,35 +64,38 @@ class MonoCalibrator:
         Side Effect 2: updates the image
         #TODO #13 Split out the image update to its own method that returns a modified frame
         """
-        self.frame = frame
-        self.ids, self.img_loc, self.board_loc = self.corner_tracker.get_corners(
-            self.frame
-        )
+        logging.debug("Entering collect_corners thread loop")
+        while True:
+            dispatched_frame = self.frame_in_q.get()
+            self.frame = dispatched_frame[0]
+            self.ids, self.img_loc, self.board_loc = self.corner_tracker.get_corners(
+                self.frame
+            )
 
-        if self.ids.any():
-            enough_corners = len(self.ids) > self.min_points_to_process
-        else:
-            enough_corners = False
+            if self.ids.any():
+                enough_corners = len(self.ids) > self.min_points_to_process
+            else:
+                enough_corners = False
 
-        enough_time_from_last_cal = (
-            time.time() > self.last_calibration_time + self.wait_time
-        )
+            enough_time_from_last_cal = (
+                time.time() > self.last_calibration_time + self.wait_time
+            )
 
-        if enough_corners and enough_time_from_last_cal:
+            if enough_corners and enough_time_from_last_cal:
 
-            # store the corners and IDs
-            self.all_ids.append(self.ids)
-            self.all_img_loc.append(self.img_loc)
-            self.all_board_loc.append(self.board_loc)
+                # store the corners and IDs
+                self.all_ids.append(self.ids)
+                self.all_img_loc.append(self.img_loc)
+                self.all_board_loc.append(self.board_loc)
 
-            self.last_calibration_time = time.time()
+                self.last_calibration_time = time.time()
 
-        self.push_grid_frame()
+            self.push_grid_frame()
 
     def push_grid_frame(self):
 
         grid_frame = draw_charuco.grid_history(
-            frame, self.all_ids, self.all_img_loc, self.connected_corners
+            self.frame, self.all_ids, self.all_img_loc, self.connected_corners
         )
 
         grid_corner_frame = draw_charuco.corners(grid_frame, self.ids, self.img_loc)
@@ -100,6 +109,8 @@ class MonoCalibrator:
         the camera matrix and distortion parameters
         """
         logging.info(f"Calibrating camera {self.camera.port}....")
+
+        self.collecting_corners = False
 
         # organize parameters for calibration function
         # self.image_size = list(self.camera.resolution)
@@ -143,14 +154,20 @@ if __name__ == "__main__":
     trackr = CornerTracker(charuco)
     test_port = 0
     cam = Camera(0)
-    print(cam.resolution)
+    in_frame_q = Queue()
+
     monocal = MonoCalibrator(cam, trackr)
 
     print("About to enter main loop")
     while True:
         read_success, frame = cam.capture.read()
-        monocal.collect_corners(frame)
+
+        logging.debug("Placing frame in queue to process")
+        monocal.frame_in_q.put({test_port: frame})
+
+        logging.debug("Getting grid frame to display")
         frame = monocal.grid_frame_q.get()
+
         cv2.imshow("Press 'q' to quit", frame)
         key = cv2.waitKey(1)
 

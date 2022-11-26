@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
         read_success, frame = cam.capture.read()
         ids, locations, board_corners = trackr.get_corners(frame)
-        drawn_frame = draw_charuco.corners(frame, ids, locations)
+        drawn_frame = src.calibration.draw_charuco.corners(frame, ids, locations)
 
         cv2.imshow("Press 'q' to quit", drawn_frame)
         key = cv2.waitKey(1)

@@ -40,10 +40,8 @@ class CameraConfigDialog(QDialog):
         super(CameraConfigDialog, self).__init__()
 
         self.monocal = monocalibrator
-
         # stream reference needed to change resolution
         self.stream = stream
-
         App = QApplication.instance()
         DISPLAY_WIDTH = App.primaryScreen().size().width()
         DISPLAY_HEIGHT = App.primaryScreen().size().height()
@@ -410,10 +408,8 @@ if __name__ == "__main__":
     cam = Camera(test_port)
     stream = VideoStream(cam)
     streams_dict = {test_port: stream}  # synchronizer expects this format
-    syncr = Synchronizer(streams_dict, fps_target=6)
-    dispatchr = Dispatcher(syncr)
-    monocal = MonoCalibrator(cam, trackr)
-    dispatchr.add_queue(test_port, monocal.frame_in_q)
+    syncr = Synchronizer(streams_dict, fps_target=12)
+    monocal = MonoCalibrator(cam, syncr, trackr)
 
     # This loop is serving the purpose of the frame emitter...this feels like
     # how this should be done.

@@ -165,8 +165,8 @@ class Session:
                 self.streams[port] = VideoStream(cam)
                 # self.stream[port].assign_charuco(self.charuco)
 
-        self.synchronizer = Synchronizer(self.streams, fps_target=30)
-        self.dispatcher = Dispatcher(self.synchronizer)
+        # self.synchronizer = Synchronizer(self.streams, fps_target=30)
+        # self.dispatcher = Dispatcher(self.synchronizer)
 
     def load_monocalibrators(self):
         self.corner_tracker = CornerTracker(self.charuco)

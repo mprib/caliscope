@@ -1,9 +1,10 @@
 import logging
 
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
 LOG_FILE = "camera_config_dialog.log"
-logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
+LOG_LEVEL = logging.DEBUG
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 import sys
 from pathlib import Path
@@ -12,18 +13,9 @@ from threading import Thread
 import cv2
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtWidgets import (
-    QApplication,
-    QComboBox,
-    QDialog,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QRadioButton,
-    QSlider,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import (QApplication, QComboBox, QDialog, QGroupBox,
+                             QHBoxLayout, QLabel, QPushButton, QRadioButton,
+                             QSlider, QVBoxLayout)
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -105,6 +97,7 @@ class CameraConfigDialog(QDialog):
     ####################### SUB_WIDGET CONSTRUCTION ###############################
 
     def build_calibrate_grp(self):
+        logging.debug("Building Calibrate Group")
         self.calibrate_grp = QGroupBox("Calibrate")
         # Generally Horizontal Configuration
         hbox = QHBoxLayout()
@@ -127,13 +120,11 @@ class CameraConfigDialog(QDialog):
 
         def capture():
             """change to turn on/off"""
-            if self.stream.collect_charuco_corners:
-                self.stream.collect_charuco_corners = False
+            if self.monocal.capture_corners:
+                self.monocal.capture_corners = False
                 collect_crnr_btn.setText("Capture")
             else:
-                self.stream.show_mediapipe = False
-                self.stream.track_charuco = True
-                self.stream.collect_charuco_corners = True
+                self.monocal.capture_corners = True
                 collect_crnr_btn.setText("Stop Capture")
 
         collect_crnr_btn.clicked.connect(capture)
@@ -148,7 +139,7 @@ class CameraConfigDialog(QDialog):
                 self.calib_output.setText("Calibration can take a moment...")
 
                 def wrker():
-                    self.stream.mono_cal.calibrate()
+                    self.monocal.calibrate()
                     self.calib_output.setText(self.monocal.camera.calibration_summary())
 
                 self.calib_thread = Thread(target=wrker, args=(), daemon=True)
@@ -164,9 +155,7 @@ class CameraConfigDialog(QDialog):
         vbox.addWidget(clear_grid_history_btn)
 
         def clear_capture_history():
-            self.monocal.all_ids = []
-            self.monocal.all_img_loc = []
-            self.monocal.all_board_loc = []
+            self.monocal.initialize_grid_history()
 
         clear_grid_history_btn.clicked.connect(clear_capture_history)
 
@@ -195,6 +184,8 @@ class CameraConfigDialog(QDialog):
         # calib_output.setMaximumWidth()
 
     def build_toggle_grp(self):
+        logging.debug("Building Toggle Group")
+
         def on_radio_btn():
             radio_grp = self.sender().text()
             if radio_grp == "None":
@@ -235,7 +226,7 @@ class CameraConfigDialog(QDialog):
         hbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
     def build_fps_display(self):
-
+        logging.debug("Building FPS Display")
         self.fps_display = QLabel()
         self.fps_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
@@ -243,10 +234,10 @@ class CameraConfigDialog(QDialog):
             if fps == 0:
                 self.fps_display.setText("reconnecting to camera...")
             else:
-                self.fps_display.setText("FPS: " + str(fps))
+                self.fps_display.setText("FPS: " + str(round(fps, 1)))
 
         # TODO: #18 #17 #16 #15 Create FPS display on config dialog
-        # self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
+        self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
 
     def build_cw_rotation_btn(self):
         self.cw_rotation_btn = QPushButton("Rotate CW")
@@ -411,21 +402,9 @@ if __name__ == "__main__":
     syncr = Synchronizer(streams_dict, fps_target=12)
     monocal = MonoCalibrator(cam, syncr, trackr)
 
-    # This loop is serving the purpose of the frame emitter...this feels like
-    # how this should be done.
-    # while True:
-    #     frames = monocal.grid_frame_q.get()
-    #     cv2.imshow(f"Camera {test_port}", frames)
-
-    #     key = cv2.waitKey(1)
-
-    #     # end capture when enough grids collected
-    #     if key == ord("q"):
-    #         cam.capture.release()
-    #         cv2.destroyAllWindows()
-    #         break
-
+    logging.info("Creating Camera Config Dialog")
     cam_dialog = CameraConfigDialog(stream, monocal)
+    logging.info("About to show camera config dialog")
     cam_dialog.show()
 
     sys.exit(App.exec())

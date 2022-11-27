@@ -26,18 +26,19 @@ from src.calibration.corner_tracker import CornerTracker
 
 class MonoCalibrator:
     def __init__(
-        self, camera, syncronizer, corner_tracker, board_threshold=0.7, wait_time=0.5
+        self, camera, synchronizer, corner_tracker, board_threshold=0.7, wait_time=0.5
     ):
 
         self.camera = camera  # reference needed to update params
         self.port = camera.port
         self.corner_tracker = corner_tracker
         self.wait_time = wait_time
+        self.capture_corners = False  # start out not doing anything
 
-        self.syncronizer = syncronizer
+        self.synchronizer = synchronizer
         self.bundle_ready_q = Queue()
         self.grid_frame_ready_q = Queue()
-        self.syncronizer.subscribe(self.bundle_ready_q)
+        self.synchronizer.subscribe(self.bundle_ready_q)
 
         # TODO...this is going deeper into the hierarchy than I would like
         # and may deserve a refactor
@@ -58,7 +59,6 @@ class MonoCalibrator:
         return len(self.all_ids)
 
     def initialize_grid_history(self):
-        #!!! IF CAMERA RESOLUTION CHANGES THIS MUST BE RERUN
         self.image_size = list(self.camera.resolution)
         self.image_size.reverse()  # for some reason...
         self.image_size.append(3)
@@ -82,29 +82,38 @@ class MonoCalibrator:
         logging.debug("Entering collect_corners thread loop")
         while True:
             frame_bundle_notice = self.bundle_ready_q.get()
-            self.frame = self.syncronizer.current_bundle[self.port]["frame"]
-            self.ids, self.img_loc, self.board_loc = self.corner_tracker.get_corners(
-                self.frame
-            )
+            self.frame = self.synchronizer.current_bundle[self.port]["frame"]
 
-            if self.ids.any():
-                enough_corners = len(self.ids) > self.min_points_to_process
-            else:
-                enough_corners = False
+            self.ids = np.array([])
+            self.img_loc = np.array([])
+            self.board_loc = np.array([])
 
-            enough_time_from_last_cal = (
-                time.time() > self.last_calibration_time + self.wait_time
-            )
+            if self.capture_corners:
 
-            if enough_corners and enough_time_from_last_cal:
+                (
+                    self.ids,
+                    self.img_loc,
+                    self.board_loc,
+                ) = self.corner_tracker.get_corners(self.frame)
 
-                # store the corners and IDs
-                self.all_ids.append(self.ids)
-                self.all_img_loc.append(self.img_loc)
-                self.all_board_loc.append(self.board_loc)
+                if self.ids.any():
+                    enough_corners = len(self.ids) > self.min_points_to_process
+                else:
+                    enough_corners = False
 
-                self.last_calibration_time = time.time()
-                self.update_grid_history()
+                enough_time_from_last_cal = (
+                    time.time() > self.last_calibration_time + self.wait_time
+                )
+
+                if enough_corners and enough_time_from_last_cal:
+
+                    # store the corners and IDs
+                    self.all_ids.append(self.ids)
+                    self.all_img_loc.append(self.img_loc)
+                    self.all_board_loc.append(self.board_loc)
+
+                    self.last_calibration_time = time.time()
+                    self.update_grid_history()
 
             self.set_grid_frame()
 
@@ -156,6 +165,7 @@ class MonoCalibrator:
             objpoints, imgpoints, (width, height), None, None
         )
 
+        self.update_camera()
         self.is_calibrated = True
 
         logging.info(f"Error: {self.error}")
@@ -187,7 +197,7 @@ if __name__ == "__main__":
     cam = Camera(0)
     streams = {cam.port: VideoStream(cam)}
 
-    syncr = Synchronizer(streams, fps_target=12)
+    syncr = Synchronizer(streams, fps_target=10)
 
     monocal = MonoCalibrator(cam, syncr, trackr)
 

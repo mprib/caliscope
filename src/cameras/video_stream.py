@@ -33,9 +33,11 @@ class VideoStream:
         self.frame_time = time.perf_counter()
         self.avg_delta_time = None
 
-    def set_shutter_sync(self, shutter_sync):
-        """shutter sync is a thread queue that triggers end of wait cycle"""
-        self.shutter_sync = shutter_sync
+        self.shutter_sync = Queue()
+
+    # def set_shutter_sync(self, shutter_sync):
+    #     """shutter sync is a thread queue that triggers end of wait cycle"""
+    #     self.shutter_sync = shutter_sync
 
     def get_FPS_actual(self):
         """set the actual frame rate; called within roll_camera()"""
@@ -50,21 +52,6 @@ class VideoStream:
 
         return 1 / self.avg_delta_time
 
-    def apply_rotation(self):
-
-        if self.cam.rotation_count == 0:
-            pass
-        elif self.cam.rotation_count in [1, -3]:
-            self._working_frame = cv2.rotate(
-                self._working_frame, cv2.ROTATE_90_CLOCKWISE
-            )
-        elif self.cam.rotation_count in [2, -2]:
-            self._working_frame = cv2.rotate(self._working_frame, cv2.ROTATE_180)
-        elif self.cam.rotation_count in [-1, 3]:
-            self._working_frame = cv2.rotate(
-                self._working_frame, cv2.ROTATE_90_COUNTERCLOCKWISE
-            )
-
     def roll_camera(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame,
@@ -74,7 +61,7 @@ class VideoStream:
         self.start_time = time.time()  # used to get initial delta_t for FPS
         while True:
             self.cam.is_rolling = True
-
+            # time.sleep(0.15)
             # note this line is truly necessary otherwise error upon closing capture
             if self.cam.capture.isOpened():
 
@@ -88,30 +75,16 @@ class VideoStream:
                 read_stop = time.perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
 
-                # REAL TIME OVERLAYS ON self._working_frame
-                # self.run_mediapipe_hands()
-                # self.process_charuco()
-
                 # I have misgivings about including this in here
                 # should be used as a sanity check of distortion params
                 # applied sparingly and never run when doing *anything* else
                 # self.apply_undistortion()
 
-                # must apply rotation at end...
                 # otherwise mismatch in frame / grid history dimensions
                 # self.apply_rotation()
 
                 if self.push_to_reel:
-                    # print(f"Pushing from port {self.cam.port} at {self.frame_time}")
-                    self.reel.put(
-                        [
-                            self.frame_time,
-                            self._working_frame,
-                            # self.mono_cal._frame_corner_ids,
-                            # self.mono_cal._frame_corners,
-                            # self.mono_cal.board_FOR_corners,
-                        ]
-                    )
+                    self.reel.put([self.frame_time, self._working_frame])
 
                 # update frame that is emitted to GUI by frame emitter
                 # note: frame_emitter uses a throttled loop to just periodically
@@ -133,11 +106,13 @@ class VideoStream:
 
         # if the display isn't up and running this may error out (as when trying
         # to initialize the resolution to a non-default value)
-        try:
-            blank_image = np.zeros(self.frame.shape, dtype=np.uint8)
-            self.frame = blank_image
-        except:
-            pass
+        # try:
+        blank_image = np.zeros(self._working_frame.shape, dtype=np.uint8)
+        self.reel.put([time.perf_counter(), blank_image])
+        self.reel.put([time.perf_counter(), blank_image])
+        self.reel.put([time.perf_counter(), blank_image])
+        # except:
+        #     pass
 
         self.FPS_actual = 0
         self.avg_delta_time = None
@@ -147,12 +122,6 @@ class VideoStream:
         self.cam.connect()
 
         self.cam.resolution = res
-        # if self.mono_calib:
-        # try:
-        # self.mono_cal.initialize_grid_history()
-        # except:
-        # pass
-
         # Spin up the thread again now that resolution is changed
         self.cap_thread = Thread(target=self.roll_camera, args=(), daemon=True)
         self.cap_thread.start()
@@ -173,31 +142,12 @@ class VideoStream:
             3,
         )
 
-    # def assign_charuco(self, charuco):
-    # self.mono_cal = MonoCalibrator(self.cam, charuco)
+    def apply_undistortion(self):
 
-    # def process_charuco(self):
-    # """Heavy lifting from the charuco module. This method could involve just
-    # displaying the identified corners on the frame, or adding them to
-    # the list of corners for running a calibration.
-
-    # The scope of the action depends on setting flags for:
-    # self.track_charuco
-    # self.collect_charuco_corners
-    # """
-    #     if self.track_charuco:
-    #         self.mono_cal.track_corners(self._working_frame, self.frame_time)
-    #         if self.collect_charuco_corners:
-    #             self.mono_cal.collect_corners()
-
-    #         self._working_frame = self.mono_cal.merged_grid_history()
-
-    # def apply_undistortion(self):
-
-    #     if self.undistort == True:  # and self.mono_cal.is_calibrated:
-    #         self._working_frame = cv2.undistort(
-    #             self._working_frame, self.cam.camera_matrix, self.cam.distortion
-    #         )
+        if self.undistort == True:  # and self.mono_cal.is_calibrated:
+            self._working_frame = cv2.undistort(
+                self._working_frame, self.cam.camera_matrix, self.cam.distortion
+            )
 
 
 # Highlight module functionality. View a frame with mediapipe hands
@@ -232,50 +182,8 @@ if __name__ == "__main__":
 
         key = cv2.waitKey(1)
 
-        # toggle mediapipe with 'm'
-        # if key == ord("m"):
-        #     print("Toggling Mediapipe")
-        #     for stream in streams:
-        #         print(stream.frame_name)
-        #         stream.toggle_mediapipe()
-
-        if key == ord("r"):
-            print("Rotate Frame CW")
-
-            for stream in streams:
-                stream.cam.rotate_CW()
-                print(stream.frame_name + " " + str(stream.cam.rotation_count))
-
-        if key == ord("l"):
-            print("Rotate Frame CCW")
-
-            for stream in streams:
-                stream.cam.rotate_CCW()
-                print(stream.frame_name + " " + str(stream.cam.rotation_count))
-
-        # Toggle charuco display
-        # if key == ord("c"):
-        #     for stream in streams:
-        #         stream.track_charuco = not stream.track_charuco
-
-        # # Toggle charuco display
-        # if key == ord("C"):
-        #     for stream in streams:
-        #         stream.charuco_being_traced = True
-        #         stream.collect_charuco_corners = not stream.collect_charuco_corners
-
-        # # Toggle undistortion
-        # if key == ord("d"):
-        #     for stream in streams:
-        #         stream.undistort = not stream.undistort
-
-        # 'q' to quit
         if key == ord("q"):
             for stream in streams:
-                # try:
-                #     stream.mono_cal.calibrate()
-                # except:
-                #     pass
                 stream.cam.capture.release()
             cv2.destroyAllWindows()
             exit(0)

@@ -35,10 +35,6 @@ class VideoStream:
 
         self.shutter_sync = Queue()
 
-    # def set_shutter_sync(self, shutter_sync):
-    #     """shutter sync is a thread queue that triggers end of wait cycle"""
-    #     self.shutter_sync = shutter_sync
-
     def get_FPS_actual(self):
         """set the actual frame rate; called within roll_camera()"""
         self.delta_time = time.time() - self.start_time
@@ -61,8 +57,6 @@ class VideoStream:
         self.start_time = time.time()  # used to get initial delta_t for FPS
         while True:
             self.cam.is_rolling = True
-            # time.sleep(0.15)
-            # note this line is truly necessary otherwise error upon closing capture
             if self.cam.capture.isOpened():
 
                 # wait for sync_shutter to fire
@@ -75,21 +69,10 @@ class VideoStream:
                 read_stop = time.perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
 
-                # I have misgivings about including this in here
-                # should be used as a sanity check of distortion params
-                # applied sparingly and never run when doing *anything* else
-                # self.apply_undistortion()
-
-                # otherwise mismatch in frame / grid history dimensions
-                # self.apply_rotation()
-
                 if self.push_to_reel:
                     self.reel.put([self.frame_time, self._working_frame])
 
-                # update frame that is emitted to GUI by frame emitter
-                # note: frame_emitter uses a throttled loop to just periodically
-                # read the current frame. It's not trying to by precise or
-                # pick up every frame
+                # this may no longer be necessary...consider removing in the future
                 self.frame = self._working_frame.copy()
 
                 # Rate of calling recalc must be frequency of this loop
@@ -106,13 +89,10 @@ class VideoStream:
 
         # if the display isn't up and running this may error out (as when trying
         # to initialize the resolution to a non-default value)
-        # try:
         blank_image = np.zeros(self._working_frame.shape, dtype=np.uint8)
+        # multiple blank images to account for sync issues
         self.reel.put([time.perf_counter(), blank_image])
         self.reel.put([time.perf_counter(), blank_image])
-        self.reel.put([time.perf_counter(), blank_image])
-        # except:
-        #     pass
 
         self.FPS_actual = 0
         self.avg_delta_time = None
@@ -125,9 +105,6 @@ class VideoStream:
         # Spin up the thread again now that resolution is changed
         self.cap_thread = Thread(target=self.roll_camera, args=(), daemon=True)
         self.cap_thread.start()
-
-    # def toggle_mediapipe(self):
-    # self.show_mediapipe = not self.show_mediapipe
 
     def _add_fps(self):
         """NOTE: this is used in code at bottom, not in external use"""

@@ -119,13 +119,6 @@ class VideoStream:
             3,
         )
 
-    def apply_undistortion(self):
-
-        if self.undistort == True:  # and self.mono_cal.is_calibrated:
-            self._working_frame = cv2.undistort(
-                self._working_frame, self.cam.camera_matrix, self.cam.distortion
-            )
-
 
 # Highlight module functionality. View a frame with mediapipe hands
 # press "q" to quit

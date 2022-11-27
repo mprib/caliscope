@@ -130,6 +130,7 @@ class MonoCalibrator:
         logging.debug(f"Frame Size is {self.frame.shape}")
         logging.debug(f"camera resolution is {self.camera.resolution}")
 
+        # check to see if the camera resolution changed from the last round
         if (
             self.frame.shape[0] == self.grid_capture_history.shape[0]
             and self.frame.shape[1] == self.grid_capture_history.shape[1]

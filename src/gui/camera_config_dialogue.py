@@ -56,9 +56,9 @@ class CameraConfigDialog(QDialog):
         self.setContentsMargins(0, 0, 0, 0)
 
         ################### BUILD SUB WIDGETS #############################
-        self.build_view_full_res_btn()
+        # self.build_view_full_res_btn()
         self.build_frame_display()
-        self.build_fps_display()
+        self.build_realtime_text_display()
         self.build_ccw_rotation_btn()
         self.build_cw_rotation_btn()
         self.build_resolution_combo()
@@ -71,7 +71,7 @@ class CameraConfigDialog(QDialog):
         self.v_box.setContentsMargins(0, 0, 0, 0)
 
         ################## FULL RESOLUTION LAUNCH BUTTON ######################
-        self.v_box.addWidget(self.view_full_res_btn)
+        # self.v_box.addWidget(self.view_full_res_btn)
         #################      VIDEO AT TOP     ##########################
         self.v_box.addWidget(self.frame_display)
 
@@ -92,8 +92,8 @@ class CameraConfigDialog(QDialog):
         #################### EXPOSURE SLIDER #################################
         self.v_box.addLayout(self.exposure_hbox)
 
-        #######################     FPS         ##############################
-        self.v_box.addWidget(self.fps_display)
+        #######################     FPS   + Grid Count #########################
+        self.v_box.addLayout(self.realtime_text_hbox)
         ################### RADIO BUTTONS OF OVERLAY TOGGLES ##################
         # self.v_box.addWidget(self.toggle_grp)
 
@@ -129,16 +129,16 @@ class CameraConfigDialog(QDialog):
 
         def capture():
             """change to turn on/off"""
-            if self.monocal.capture_corners:
+            if not self.monocal.capture_corners:
+                self.monocal.capture_corners = True
+                collect_crnr_btn.setText("Stop Capture")
+                self.calibrate_btn.setEnabled(False)
+            else:
                 self.monocal.capture_corners = False
                 collect_crnr_btn.setText("Capture")
                 if self.monocal.grid_count > 1:
                     self.calibrate_btn.setEnabled(True)
                     self.clear_grid_history_btn.setEnabled(True)
-            else:
-                self.monocal.capture_corners = True
-                collect_crnr_btn.setText("Stop Capture")
-                self.calibrate_btn.setEnabled(False)
 
         collect_crnr_btn.clicked.connect(capture)
 
@@ -150,16 +150,20 @@ class CameraConfigDialog(QDialog):
 
         def calibrate():
             if len(self.monocal.all_ids) > 0:
-                self.calib_output.setText("Calibration can take a moment...")
+                self.cal_output.setText("Calibration can take a moment...")
+                self.calibrate_btn.setEnabled(False)
+                self.clear_grid_history_btn.setEnabled(True)
+                self.save_cal_btn.setEnabled(True)
+                self.undistort_btn.setEnabled(True)
 
                 def wrker():
                     self.monocal.calibrate()
-                    self.calib_output.setText(self.monocal.camera.calibration_summary())
+                    self.cal_output.setText(self.monocal.camera.calibration_summary())
 
                 self.calib_thread = Thread(target=wrker, args=(), daemon=True)
                 self.calib_thread.start()
             else:
-                self.calib_output.setText("Need to Collect Grids")
+                self.cal_output.setText("Need to Collect Grids")
 
         self.calibrate_btn.clicked.connect(calibrate)
 
@@ -171,11 +175,28 @@ class CameraConfigDialog(QDialog):
 
         def clear_capture_history():
             self.monocal.initialize_grid_history()
+            self.calibrate_btn.setEnabled(False)
+            self.clear_grid_history_btn.setEnabled(False)
+            self.save_cal_btn.setEnabled(False)
+            self.undistort_btn.setEnabled(False)
+            self.frame_emitter.undistort = False
 
         self.clear_grid_history_btn.clicked.connect(clear_capture_history)
 
+        # Undistort
+        self.undistort_btn = QPushButton("Undistort")
+        self.undistort_btn.setEnabled(False)
+        self.undistort_btn.setMaximumWidth(100)
+        vbox.addWidget(self.undistort_btn)
+
+        def undistort():
+            self.frame_emitter.undistort = True
+
+        self.undistort_btn.clicked.connect(undistort)
+
         # Save Calibration
         self.save_cal_btn = QPushButton("Save Calibration")
+        self.save_cal_btn.setEnabled(False)
         self.save_cal_btn.setMaximumWidth(100)
         vbox.addWidget(self.save_cal_btn)
 
@@ -191,68 +212,37 @@ class CameraConfigDialog(QDialog):
         # include calibration grid in horizontal box
         hbox.addLayout(vbox)
 
-        self.calib_output = QLabel()
-        self.calib_output.setWordWrap(True)
-        self.calib_output.setMaximumWidth(self.pixmap_edge / 3)
-        self.calib_output.setText(self.monocal.camera.calibration_summary())
-        hbox.addWidget(self.calib_output)
+        self.cal_output = QLabel()
+        self.cal_output.setWordWrap(True)
+        self.cal_output.setMaximumWidth(self.pixmap_edge / 3)
+        self.cal_output.setText(self.monocal.camera.calibration_summary())
+        hbox.addWidget(self.cal_output)
         # calib_output.setMaximumWidth()
 
-    def build_toggle_grp(self):
-        logging.debug("Building Toggle Group")
-
-        def on_radio_btn():
-            radio_grp = self.sender().text()
-            if radio_grp == "None":
-                self.stream.show_mediapipe = False
-                self.stream.track_charuco = False
-                self.stream.collect_charuco_corners = False
-                self.stream.undistort = False
-
-            if radio_grp == "Mediapipe Hands":
-                self.stream.show_mediapipe = True
-                self.stream.track_charuco = False
-                self.stream.collect_charuco_corners = False
-                self.stream.undistort = False
-
-            if radio_grp == "Charuco":
-                self.stream.show_mediapipe = False
-                self.stream.track_charuco = True
-                self.stream.collect_charuco_corners = False
-                self.stream.undistort = False
-
-            if radio_grp == "Undistort":
-                self.stream.show_mediapipe = False
-                self.stream.track_charuco = False
-                self.stream.collect_charuco_corners = False
-                self.stream.undistort = True
-
-        self.toggle_grp = QGroupBox("Views")
-        # self.toggle_grp.setFixedWidth(0.75* self.width-50())
-        hbox = QHBoxLayout()
-        for option in ["None", "Mediapipe Hands", "Charuco", "Undistort"]:
-            btn = QRadioButton(option)
-            hbox.addWidget(btn)
-            if option == "None":
-                btn.setChecked(True)
-            btn.toggled.connect(on_radio_btn)
-
-        self.toggle_grp.setLayout(hbox)
-        hbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-
-    def build_fps_display(self):
+    def build_realtime_text_display(self):
+        self.realtime_text_hbox = QHBoxLayout()
         logging.debug("Building FPS Display")
         self.fps_display = QLabel()
         self.fps_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.realtime_text_hbox.addWidget(self.fps_display)
 
         def FPSUpdateSlot(fps):
-            if fps == 0:
-                self.fps_display.setText("reconnecting to camera...")
-            else:
+            if self.monocal.camera.is_rolling:
                 self.fps_display.setText("FPS: " + str(round(fps, 1)))
+            else:
+                self.fps_display.setText("reconnecting to camera...")
 
-        # TODO: #18 #17 #16 #15 Create FPS display on config dialog
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
+
+        logging.debug("Building Grid Count Display")
+        self.grid_count_display = QLabel()
+        self.realtime_text_hbox.addWidget(self.grid_count_display)
+        self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+        def grid_count_update_slot(grid_count):
+            self.grid_count_display.setText(f"Grid Count: {grid_count}")
+
+        self.frame_emitter.GridCountBroadcast.connect(grid_count_update_slot)
 
     def build_cw_rotation_btn(self):
         self.cw_rotation_btn = QPushButton("Rotate CW")
@@ -311,7 +301,6 @@ class CameraConfigDialog(QDialog):
         self.frame_emitter.ImageBroadcast.connect(ImageUpdateSlot)
 
     def build_resolution_combo(self):
-        # possible resolutions is a list of tuples, but we need a list of Stext
         def resolutions_text():
             res_text = []
             for w, h in self.monocal.camera.possible_resolutions:
@@ -321,6 +310,7 @@ class CameraConfigDialog(QDialog):
         def change_resolution(res_text):
             # call the cam_cap widget to change the resolution, but do it in a
             # thread so that it doesn't halt your progress
+
             w, h = res_text.split("x")
             w, h = int(w), int(h)
             new_res = (w, h)
@@ -335,7 +325,10 @@ class CameraConfigDialog(QDialog):
             self.monocal.camera.camera_matrix = None
             self.monocal.camera.distortion = None
             self.monocal.camera.grid_count = 0
-            self.stream.undistort = False
+            self.frame_emitter.undistort = False
+
+            self.cal_output.setText(self.monocal.camera.calibration_summary())
+            self.clear_grid_history_btn.click()
 
         self.resolution_combo = QComboBox()
 
@@ -346,50 +339,50 @@ class CameraConfigDialog(QDialog):
         self.resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
         self.resolution_combo.currentTextChanged.connect(change_resolution)
 
-    def build_view_full_res_btn(self):
-        self.view_full_res_btn = QPushButton(
-            "Open Full Resolution Window (press 'q' to close)"
-        )
+    # def build_view_full_res_btn(self):
+    #     self.view_full_res_btn = QPushButton(
+    #         "Open Full Resolution Window (press 'q' to close)"
+    #     )
 
-        def cv2_view_worker():
-            while True:
-                frame = cv2.flip(self.monocal.frame, 1)
+    #     def cv2_view_worker():
+    #         while True:
+    #             frame = cv2.flip(self.monocal.frame, 1)
 
-                cv2.imshow("Press 'q' to Quit", frame)
+    #             cv2.imshow("Press 'q' to Quit", frame)
 
-                key = cv2.waitKey(1)
-                if key == ord("q"):
-                    cv2.destroyAllWindows()
-                    break
+    #             key = cv2.waitKey(1)
+    #             if key == ord("q"):
+    #                 cv2.destroyAllWindows()
+    #                 break
 
-        def run_cv2_view():
-            self.cv2_view = Thread(target=cv2_view_worker, args=(), daemon=True)
-            self.cv2_view.start()
+    #     def run_cv2_view():
+    #         self.cv2_view = Thread(target=cv2_view_worker, args=(), daemon=True)
+    #         self.cv2_view.start()
 
-        self.view_full_res_btn.clicked.connect(run_cv2_view)
+    #     self.view_full_res_btn.clicked.connect(run_cv2_view)
 
-    def convert_cv_qt(self, cv_img):
-        """Convert from an opencv image to QPixmap"""
-        rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb_image.shape
-        bytes_per_line = ch * w
-        charuco_QImage = QImage(
-            rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
-        )
+    # def convert_cv_qt(self, cv_img):
+    #     """Convert from an opencv image to QPixmap"""
+    #     rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+    #     h, w, ch = rgb_image.shape
+    #     bytes_per_line = ch * w
+    #     charuco_QImage = QImage(
+    #         rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
+    #     )
 
-        p = charuco_QImage.scaled(
-            self.charuco_display.width(),
-            self.charuco_display.height(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
+    #     p = charuco_QImage.scaled(
+    #         self.charuco_display.width(),
+    #         self.charuco_display.height(),
+    #         Qt.AspectRatioMode.KeepAspectRatio,
+    #         Qt.TransformationMode.SmoothTransformation,
+    #     )
 
-        return QPixmap.fromImage(p)
+    #     return QPixmap.fromImage(p)
 
-    def pretty_matrix(mat):
-        return "\n".join(
-            ["\t".join([str(round(cell, 2)) for cell in row]) for row in mat]
-        )
+    # def pretty_matrix(mat):
+    #     return "\n".join(
+    #         ["\t".join([str(round(cell, 2)) for cell in row]) for row in mat]
+    #     )
 
 
 if __name__ == "__main__":
@@ -402,7 +395,6 @@ if __name__ == "__main__":
     from src.calibration.corner_tracker import CornerTracker
     from src.calibration.monocalibrator import MonoCalibrator
     from src.cameras.camera import Camera
-    from src.cameras.dispatcher import Dispatcher
     from src.cameras.synchronizer import Synchronizer
 
     charuco = Charuco(
@@ -414,7 +406,7 @@ if __name__ == "__main__":
     cam = Camera(test_port)
     stream = VideoStream(cam)
     streams_dict = {test_port: stream}  # synchronizer expects this format
-    syncr = Synchronizer(streams_dict, fps_target=12)
+    syncr = Synchronizer(streams_dict, fps_target=6)
     monocal = MonoCalibrator(cam, syncr, trackr)
 
     logging.info("Creating Camera Config Dialog")

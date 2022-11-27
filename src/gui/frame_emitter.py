@@ -15,6 +15,7 @@ class FrameEmitter(QThread):
     # within the GUI
     ImageBroadcast = pyqtSignal(QPixmap)
     FPSBroadcast = pyqtSignal(float)
+    GridCountBroadcast = pyqtSignal(int)
 
     def __init__(self, monocalibrator, pixmap_edge_length=None):
         # pixmap_edge length is from the display window. Keep the display area
@@ -23,6 +24,7 @@ class FrameEmitter(QThread):
         self.monocalibrator = monocalibrator
         self.pixmap_edge_length = pixmap_edge_length
         self.rotation_count = monocalibrator.camera.rotation_count
+        self.undistort = False
 
     def run(self):
         self.ThreadActive = True
@@ -35,7 +37,9 @@ class FrameEmitter(QThread):
             # self.last_frame_time = datetime.now()
 
             self.frame = self.monocalibrator.grid_frame
+            self.apply_undistortion()
             self.apply_rotation()
+
             image = self.cv2_to_qlabel(self.frame)
             pixmap = QPixmap.fromImage(image)
 
@@ -47,6 +51,7 @@ class FrameEmitter(QThread):
                 )
             self.ImageBroadcast.emit(pixmap)
             self.FPSBroadcast.emit(self.monocalibrator.synchronizer.fps)
+            self.GridCountBroadcast.emit(self.monocalibrator.grid_count)
 
     def stop(self):
         self.ThreadActive = False
@@ -74,6 +79,15 @@ class FrameEmitter(QThread):
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_180)
         elif self.monocalibrator.camera.rotation_count in [-1, 3]:
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+    def apply_undistortion(self):
+
+        if self.undistort == True:  # and self.mono_cal.is_calibrated:
+            self.frame = cv2.undistort(
+                self.frame,
+                self.monocalibrator.camera.camera_matrix,
+                self.monocalibrator.camera.distortion,
+            )
 
 
 if __name__ == "__main__":

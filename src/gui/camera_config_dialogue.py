@@ -339,51 +339,6 @@ class CameraConfigDialog(QDialog):
         self.resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
         self.resolution_combo.currentTextChanged.connect(change_resolution)
 
-    # def build_view_full_res_btn(self):
-    #     self.view_full_res_btn = QPushButton(
-    #         "Open Full Resolution Window (press 'q' to close)"
-    #     )
-
-    #     def cv2_view_worker():
-    #         while True:
-    #             frame = cv2.flip(self.monocal.frame, 1)
-
-    #             cv2.imshow("Press 'q' to Quit", frame)
-
-    #             key = cv2.waitKey(1)
-    #             if key == ord("q"):
-    #                 cv2.destroyAllWindows()
-    #                 break
-
-    #     def run_cv2_view():
-    #         self.cv2_view = Thread(target=cv2_view_worker, args=(), daemon=True)
-    #         self.cv2_view.start()
-
-    #     self.view_full_res_btn.clicked.connect(run_cv2_view)
-
-    # def convert_cv_qt(self, cv_img):
-    #     """Convert from an opencv image to QPixmap"""
-    #     rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-    #     h, w, ch = rgb_image.shape
-    #     bytes_per_line = ch * w
-    #     charuco_QImage = QImage(
-    #         rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
-    #     )
-
-    #     p = charuco_QImage.scaled(
-    #         self.charuco_display.width(),
-    #         self.charuco_display.height(),
-    #         Qt.AspectRatioMode.KeepAspectRatio,
-    #         Qt.TransformationMode.SmoothTransformation,
-    #     )
-
-    #     return QPixmap.fromImage(p)
-
-    # def pretty_matrix(mat):
-    #     return "\n".join(
-    #         ["\t".join([str(round(cell, 2)) for cell in row]) for row in mat]
-    #     )
-
 
 if __name__ == "__main__":
     App = QApplication(sys.argv)

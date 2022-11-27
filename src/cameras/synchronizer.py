@@ -1,8 +1,3 @@
-# This is a very much work in progress to sort through coding up the basic
-# rule for frame syncing that I have in mind. Put all the frames in the first
-# index. If one frame was read after the earliest frame in the next index,
-# move it to the next index
-
 import logging
 
 LOG_FILE = "synchronizer.log"
@@ -22,7 +17,6 @@ import numpy as np
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-# from src.cameras.video_stream import VideoStream
 
 
 class Synchronizer:
@@ -31,36 +25,28 @@ class Synchronizer:
     def __init__(self, streams: dict, fps_target):
         self.streams = streams
 
-        self.ports = []
-
-        # place to pull real time data with get()
-        # self.synced_frames_q = Queue()
         self.current_bundle = None
+        self.subscriptions = []  # queues that will be notified of new bundles
 
-        self.subscriptions = []
-        # initialize frame data which will hold everything pushed from
-        # roll_camera() for each port
         self.frame_data = {}
+
+        self.ports = []
         for port, stream in self.streams.items():
             self.ports.append(port)
-            # self.frame_data[port] = []
 
         self.port_frame_count = {port: 0 for port in self.ports}
         self.port_current_frame = {port: 0 for port in self.ports}
 
-        self.frame_rates = []
         self.mean_frame_times = []
 
         # self.shutter_sync = Queue()
         self.fps_target = fps_target
-        self.fps = fps_target
-        self.throttle_wait = 1 / fps_target  # initial value that will get revised
+        if fps_target is not None:
+            self.fps = fps_target
 
         logging.info("About to submit Threadpool of frame Harvesters")
         self.threads = []
         for port, stream in self.streams.items():
-            # stream.set_shutter_sync(self.shutter_sync)
-
             t = Thread(target=self.harvest_frames, args=(stream,), daemon=True)
             t.start()
             self.threads.append(t)
@@ -74,10 +60,8 @@ class Synchronizer:
         self.subscriptions.append(q)
 
     def harvest_frames(self, stream):
-        # pull data from the
         port = stream.cam.port
         stream.push_to_reel = True
-        # stream.track_charuco = True
 
         logging.info(f"Beginning to collect data generated at port {port}")
         frame_index = 0
@@ -132,58 +116,37 @@ class Synchronizer:
 
         return 1 / mean_delta_t
 
-    def throttle_fps(self):
-        self.fps = self.average_fps()
-        # if fps > self.fps_target:
-        if abs(self.fps - self.fps_target) < 1:
-            self.throttle_wait += 0.1 * ((1 / self.fps_target) - (1 / self.fps))
-        else:
-            self.throttle_wait += 0.5 * ((1 / self.fps_target) - (1 / self.fps))
-        if np.isnan(self.fps):
-            self.throttle_wait = 0
-        print(f"FPS: {self.fps}")
-        # print(self.throttle_wait)
-        time.sleep(max(self.throttle_wait, 0))
-
     def bundle_frames(self):
 
         logging.info(f"Waiting for all ports to begin harvesting corners...")
-        # while self.frame_slack() == 0:
-        #     self.shutter_sync.put("fire")
-        #     time.sleep(0.01)
 
         # need to have 2 frames to assess bundling
-        # for stream in self.streams:
-        # stream.shutter_sync.put("fire")
         for port in self.ports:
             self.streams[port].shutter_sync.put("fire")
 
+        sync_time = time.perf_counter()
+
         logging.info("About to start bundling frames...")
         while True:
-            # Trigger device to proceed with reading frame and pushing to reel
-            # for stream in self.streams:
-            #     stream.shutter_sync.put("fire")
-            # for port in self.ports:
-            #     self.shutter_sync.put("fire")
-            for port in self.ports:
-                self.streams[port].shutter_sync.put("fire")
+
+            # if too much slack, need to burn off so skip waiting and adding new frames
+            if self.frame_slack() < 2:
+                # Trigger device to proceed with reading frame and pushing to reel
+                if self.fps_target is not None:
+                    wait_time = 1 / self.fps_target
+                    while time.perf_counter() < sync_time + wait_time:
+                        time.sleep(0.001)
+
+                sync_time = time.perf_counter()
+                for port in self.ports:
+                    self.streams[port].shutter_sync.put("fire")
 
             # wait for frame data to populate
             while self.frame_slack() < 2:
-                # self.shutter_sync.put("fire")
                 time.sleep(0.01)
 
             # don't put a frame in a bundle if the next bundle has a frame before it
-            # bundle_start = self.earliest_current_frame()
             bundle_cutoff_time = self.earliest_next_frame()
-
-            # delta_t = bundle_cutoff_time - bundle_start
-            # self.frame_rates.append(1/delta_t)
-
-            # only throttle if you are mostly current to avoid progressive
-            # drift in lag
-            # if self.frame_slack() < 3:
-            # self.throttle_fps()
 
             next_layer = {}
             layer_frame_times = []
@@ -203,14 +166,13 @@ class Synchronizer:
                     next_layer[port] = None
             logging.debug(f"Unassigned Frames: {len(self.frame_data)}")
 
-            # commenting out previous framework code...no longer passing frames
-            # via queue, just passing notification that frame is updated
             self.mean_frame_times.append(np.mean(layer_frame_times))
-            # self.synced_frames_q.put(next_layer)
 
             self.current_bundle = next_layer
             for q in self.subscriptions:
                 q.put("new bundle available")
+
+            self.fps = self.average_fps()
 
 
 if __name__ == "__main__":
@@ -218,7 +180,6 @@ if __name__ == "__main__":
     # DON"T DEAL WITH THE SESSION OBJECT IN TESTS...ONLY MORE FOUNDATIONAL ELEMENTS
     from src.cameras.camera import Camera
     from src.cameras.video_stream import VideoStream
-    from src.session import Session
 
     repo = Path(__file__).parent.parent.parent
     config_path = Path(repo, "default_session")
@@ -232,7 +193,7 @@ if __name__ == "__main__":
     for cam in cameras:
         streams[cam.port] = VideoStream(cam)
 
-    syncr = Synchronizer(streams, fps_target=12)
+    syncr = Synchronizer(streams, fps_target=25)
 
     notification_q = Queue()
 
@@ -241,7 +202,6 @@ if __name__ == "__main__":
     all_bundles = []
     while True:
         frame_bundle_notice = notification_q.get()
-        print(frame_bundle_notice)
         for port, frame_data in syncr.current_bundle.items():
             if frame_data:
                 cv2.imshow(f"Port {port}", frame_data["frame"])

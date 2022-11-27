@@ -2,8 +2,7 @@ import logging
 
 logging.basicConfig(filename="frame_emitter.log", filemode="w", level=logging.INFO)
 
-import sys
-import time
+from datetime import datetime
 from pathlib import Path
 
 import cv2
@@ -15,6 +14,7 @@ class FrameEmitter(QThread):
     # establish signals from the frame that will be displayed in real time
     # within the GUI
     ImageBroadcast = pyqtSignal(QPixmap)
+    FPSBroadcast = pyqtSignal(float)
 
     def __init__(self, monocalibrator, pixmap_edge_length=None):
         # pixmap_edge length is from the display window. Keep the display area
@@ -30,8 +30,13 @@ class FrameEmitter(QThread):
         while self.ThreadActive:
             # Grab a frame from the queue and broadcast to displays
             self.monocalibrator.grid_frame_ready_q.get()
-            frame = self.monocalibrator.grid_frame
-            image = self.cv2_to_qlabel(frame)
+
+            # time_between = datetime.now() - self.last_frame_time
+            # self.last_frame_time = datetime.now()
+
+            self.frame = self.monocalibrator.grid_frame
+            self.apply_rotation()
+            image = self.cv2_to_qlabel(self.frame)
             pixmap = QPixmap.fromImage(image)
 
             if self.pixmap_edge_length:
@@ -41,6 +46,7 @@ class FrameEmitter(QThread):
                     Qt.AspectRatioMode.KeepAspectRatio,
                 )
             self.ImageBroadcast.emit(pixmap)
+            self.FPSBroadcast.emit(self.monocalibrator.synchronizer.fps)
 
     def stop(self):
         self.ThreadActive = False
@@ -57,6 +63,17 @@ class FrameEmitter(QThread):
             QImage.Format.Format_RGB888,
         )
         return qt_frame
+
+    def apply_rotation(self):
+        logging.info("Applying Rotation")
+        if self.monocalibrator.camera.rotation_count == 0:
+            pass
+        elif self.monocalibrator.camera.rotation_count in [1, -3]:
+            self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_CLOCKWISE)
+        elif self.monocalibrator.camera.rotation_count in [2, -2]:
+            self.frame = cv2.rotate(self.frame, cv2.ROTATE_180)
+        elif self.monocalibrator.camera.rotation_count in [-1, 3]:
+            self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
 
 if __name__ == "__main__":

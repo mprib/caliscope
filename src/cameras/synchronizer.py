@@ -53,6 +53,7 @@ class Synchronizer:
 
         self.shutter_sync = Queue()
         self.fps_target = fps_target
+        self.fps = fps_target
         self.throttle_wait = 1 / fps_target  # initial value that will get revised
 
         logging.info("About to submit Threadpool of frame Harvesters")
@@ -132,15 +133,15 @@ class Synchronizer:
         return 1 / mean_delta_t
 
     def throttle_fps(self):
-        fps = self.average_fps()
+        self.fps = self.average_fps()
         # if fps > self.fps_target:
-        if abs(fps - self.fps_target) < 1:
-            self.throttle_wait += 0.1 * ((1 / self.fps_target) - (1 / fps))
+        if abs(self.fps - self.fps_target) < 1:
+            self.throttle_wait += 0.1 * ((1 / self.fps_target) - (1 / self.fps))
         else:
-            self.throttle_wait += 0.5 * ((1 / self.fps_target) - (1 / fps))
-        if np.isnan(fps):
+            self.throttle_wait += 0.5 * ((1 / self.fps_target) - (1 / self.fps))
+        if np.isnan(self.fps):
             self.throttle_wait = 0
-        print(f"FPS: {fps}")
+        print(f"FPS: {self.fps}")
         # print(self.throttle_wait)
         time.sleep(max(self.throttle_wait, 0))
 

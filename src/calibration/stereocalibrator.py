@@ -1,9 +1,13 @@
 import logging
 
+FILE_NAME = "stereocalibration.log"
 LOG_LEVEL = logging.DEBUG
-LOG_LEVEL = logging.INFO
+# LOG_LEVEL = logging.INFO
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
-logging.basicConfig(filename="stereocalibration.log", filemode="w", level=LOG_LEVEL)
+logging.basicConfig(
+    filename=FILE_NAME, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL
+)
 
 import pprint
 import sys
@@ -18,35 +22,55 @@ import imutils
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from cameras.synchronizer import Synchronizer
+from src.cameras.synchronizer import Synchronizer
 from src.session import Session
 
 
 class StereoCalibrator:
     logging.info("Building Stereocalibrator...")
 
-    def __init__(self, synchronizer):
+    def __init__(self, synchronizer, corner_tracker):
 
+        self.corner_tracker = corner_tracker
         self.synchronizer = synchronizer
-        self.session = synchronizer.session
-        self.calibration_started = False
+
         # when this many frames of conrners synched, move on to calibration
         self.grid_count_trigger = 15
         self.wait_time = 0.5  # seconds between snapshots
-        # board corners in common for a snapshot to be taken
-        self.corner_threshold = 7
+        self.corner_threshold = 7  # board corners in common for capture
 
-        self.stacked_frames = Queue()
+        # self.stacked_frames = Queue()  # ultimately will be removing this
+        self.bundle_available_q = Queue()
+        self.cal_frames_ready_q = Queue()
+        self.synchronizer.subscribe(self.bundle_available_q)
 
+        self.build_port_list()
+        self.build_uncalibrated_pairs()
+        self.build_stereocal_inputs()
+
+        # needed to determine if enough time has passed since last capture
+        self.last_store_time = {
+            pair: time.perf_counter() for pair in self.uncalibrated_pairs
+        }
+
+        logging.info(
+            f"Processing pairs of uncalibrated pairs: {self.uncalibrated_pairs}"
+        )
+
+        self.thread = Thread(target=self.harvest_frame_bundles, args=(), daemon=True)
+        self.thread.start()
+
+    def build_port_list(self):
+        logging.debug("Creating port list...")
         self.ports = []
-        logging.debug("Initializing ports...")
-        for port, camera in self.session.camera.items():
+        for port, stream in self.synchronizer.streams.items():
             logging.debug(f"Appending port {port}...")
             self.ports.append(port)
 
+    def build_uncalibrated_pairs(self):
+        # construct a list of uncalibrated pairs with smaller number port first
         unordered_pairs = [(i, j) for i, j in combinations(self.ports, 2)]
         self.uncalibrated_pairs = []
-        # standardize so that smaller port number always appears first
         for pair in unordered_pairs:
             i, j = pair[0], pair[1]
 
@@ -54,34 +78,38 @@ class StereoCalibrator:
                 i, j = j, i
             self.uncalibrated_pairs.append((i, j))
 
-        self.last_store_time = {
-            pair: time.perf_counter() for pair in self.uncalibrated_pairs
-        }
-
-        logging.debug(
-            f"Processing pairs of uncalibrated pairs: {self.uncalibrated_pairs}"
-        )
+    def build_stereocal_inputs(self):
+        # create dictionary of future inputs to stereocalibrate function
         self.stereo_inputs = {
             pair: {"obj": [], "img_A": [], "img_B": []}
             for pair in self.uncalibrated_pairs
         }
-        self.thread = Thread(target=self.push_bundled_frames, args=(), daemon=True)
-        self.thread.start()
 
-    def push_bundled_frames(self):
+    def harvest_frame_bundles(self):
         logging.debug(f"Currently {len(self.uncalibrated_pairs)} uncalibrated pairs ")
-        while len(self.uncalibrated_pairs) > 0:
-            frame_bundle = self.synchronizer.synced_frames_q.get()
-            # frame_bundle = self.synchronizer.synced_frames_q.get()
-            self.process_frame_bundle(frame_bundle)
-            logging.debug("About to push bundled frame to stack")
-            self.stacked_frames.put(self.superframe(single_frame_height=250))
-            # cv2.imshow("Stereocalibration", stacked_pairs)
 
-            self.remove_full_pairs()
+        while len(self.uncalibrated_pairs) > 0:
+            self.bundle_available_q.get()
+            self.current_bundle = self.synchronizer.current_bundle
+            self.add_corner_data()
+
+            logging.debug("About to push bundled frame to stack")
+            # self.stacked_frames.put(self.superframe(single_frame_height=250))
+            # cv2.imshow("Stereocalibration", stacked_pairs)
+            self.cal_frames_ready_q.put("frames ready")
+            # self.remove_full_pairs()
 
             if len(self.uncalibrated_pairs) == 0:
                 self.stereo_calibrate()
+
+    def add_corner_data(self):
+        for port in self.current_bundle.keys():
+            if self.current_bundle[port] is not None:
+                ids, img_loc, board_loc = self.corner_tracker.get_corners(
+                    self.current_bundle[port]["frame"]
+                )
+                print(ids)
+                logging.debug(f"Port {port}: {ids}")
 
     def stereo_calibrate(self):
         """Iterates across all camera pairs. Intrinsic parameters are pulled
@@ -94,8 +122,8 @@ class StereoCalibrator:
 
         for pair, inputs in self.stereo_inputs.items():
 
-            camA = self.synchronizer.session.camera[pair[0]]
-            camB = self.synchronizer.session.camera[pair[1]]
+            camA = self.synchronizer.streams[pair[0]].camera
+            camB = self.synchronizer.streams[pair[1]].camera
 
             obj = self.stereo_inputs[pair]["obj"]
             img_A = self.stereo_inputs[pair]["img_A"]
@@ -129,15 +157,16 @@ class StereoCalibrator:
                 flags=stereocalibration_flags,
             )
 
-            self.session.config[f"stereo_{pair[0]}_{pair[1]}_rotation"] = rotation
-            self.session.config[f"stereo_{pair[0]}_{pair[1]}_translation"] = translation
-            self.session.config[f"stereo_{pair[0]}_{pair[1]}_RMSE"] = ret
+            # TODO: update config outside of the stereocalibrator
+            # self.session.config[f"stereo_{pair[0]}_{pair[1]}_rotation"] = rotation
+            # self.session.config[f"stereo_{pair[0]}_{pair[1]}_translation"] = translation
+            # self.session.config[f"stereo_{pair[0]}_{pair[1]}_RMSE"] = ret
 
             logging.info(
                 f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}"
             )
             logging.info(f"RMSE of reprojection is {ret}")
-        self.session.update_config()
+        # self.session.update_config()
 
     def remove_full_pairs(self):
 
@@ -335,30 +364,33 @@ class StereoCalibrator:
 
 
 if __name__ == "__main__":
+    from src.calibration.corner_tracker import CornerTracker
 
     logging.debug("Test live stereocalibration processing")
     session = Session("default_session")
     session.load_cameras()
-    session.load_streams()
+    session.load_stream_tools()
     session.adjust_resolutions()
     # time.sleep(3)
+
+    trackr = CornerTracker(session.charuco)
+
     logging.info("Creating Synchronizer")
-    syncr = Synchronizer(session, fps_target=6)
+    syncr = Synchronizer(session.streams, fps_target=6)
     logging.info("Creating Stereocalibrator")
-    stereo_cal = StereoCalibrator(syncr)
+    stereo_cal = StereoCalibrator(syncr, trackr)
 
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
     logging.info("Showing Stacked Frames")
     while len(stereo_cal.uncalibrated_pairs) > 0:
 
-        frame = stereo_cal.stacked_frames.get()
-        if frame.shape == (1,):
-            # no longer receiving any frame info...
-            logging.info("Beginning to calibrate")
-            cv2.destroyAllWindows()
+        frame_ready = stereo_cal.cal_frames_ready_q.get()
+        bundle = stereo_cal.current_bundle
 
-        cv2.imshow("Stereocalibration", frame)
+        for port in bundle.keys():
+            if bundle[port] is not None:
+                cv2.imshow(str(port), bundle[port]["frame"])
 
         key = cv2.waitKey(1)
         if key == ord("q"):

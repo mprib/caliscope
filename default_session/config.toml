@@ -39,4 +39,4 @@ dictionary = "DICT_4X4_50"
 units = "inch"
 aruco_scale = 0.75
 square_size_overide = 5.4
-inverted = false
+inverted = true

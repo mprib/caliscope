@@ -13,9 +13,18 @@ from threading import Thread
 import cv2
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtWidgets import (QApplication, QComboBox, QDialog, QGroupBox,
-                             QHBoxLayout, QLabel, QPushButton, QRadioButton,
-                             QSlider, QVBoxLayout)
+from PyQt6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QRadioButton,
+    QSlider,
+    QVBoxLayout,
+)
 
 # Append main repo to top of path to allow import of backend
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -47,14 +56,14 @@ class CameraConfigDialog(QDialog):
         self.setContentsMargins(0, 0, 0, 0)
 
         ################### BUILD SUB WIDGETS #############################
+        self.build_view_full_res_btn()
         self.build_frame_display()
         self.build_fps_display()
         self.build_ccw_rotation_btn()
         self.build_cw_rotation_btn()
         self.build_resolution_combo()
         self.build_exposure_hbox()
-        self.build_view_full_res_btn()
-        self.build_toggle_grp()
+        # self.build_toggle_grp()
         self.build_calibrate_grp()
         ###################################################################
         self.v_box = QVBoxLayout(self)
@@ -86,7 +95,7 @@ class CameraConfigDialog(QDialog):
         #######################     FPS         ##############################
         self.v_box.addWidget(self.fps_display)
         ################### RADIO BUTTONS OF OVERLAY TOGGLES ##################
-        self.v_box.addWidget(self.toggle_grp)
+        # self.v_box.addWidget(self.toggle_grp)
 
         ###################### CALIBRATION  ################################
         self.v_box.addWidget(self.calibrate_grp)
@@ -123,14 +132,19 @@ class CameraConfigDialog(QDialog):
             if self.monocal.capture_corners:
                 self.monocal.capture_corners = False
                 collect_crnr_btn.setText("Capture")
+                if self.monocal.grid_count > 1:
+                    self.calibrate_btn.setEnabled(True)
+                    self.clear_grid_history_btn.setEnabled(True)
             else:
                 self.monocal.capture_corners = True
                 collect_crnr_btn.setText("Stop Capture")
+                self.calibrate_btn.setEnabled(False)
 
         collect_crnr_btn.clicked.connect(capture)
 
         # Calibrate Button
         self.calibrate_btn = QPushButton("Calibrate")
+        self.calibrate_btn.setEnabled(False)
         self.calibrate_btn.setMaximumWidth(100)
         vbox.addWidget(self.calibrate_btn)
 
@@ -150,14 +164,15 @@ class CameraConfigDialog(QDialog):
         self.calibrate_btn.clicked.connect(calibrate)
 
         # Clear calibration history
-        clear_grid_history_btn = QPushButton("Clear History")
-        clear_grid_history_btn.setMaximumWidth(100)
-        vbox.addWidget(clear_grid_history_btn)
+        self.clear_grid_history_btn = QPushButton("Clear History")
+        self.clear_grid_history_btn.setMaximumWidth(100)
+        self.clear_grid_history_btn.setEnabled(False)
+        vbox.addWidget(self.clear_grid_history_btn)
 
         def clear_capture_history():
             self.monocal.initialize_grid_history()
 
-        clear_grid_history_btn.clicked.connect(clear_capture_history)
+        self.clear_grid_history_btn.clicked.connect(clear_capture_history)
 
         # Save Calibration
         self.save_cal_btn = QPushButton("Save Calibration")

@@ -51,7 +51,7 @@ class Synchronizer:
         self.frame_rates = []
         self.mean_frame_times = []
 
-        self.shutter_sync = Queue()
+        # self.shutter_sync = Queue()
         self.fps_target = fps_target
         self.fps = fps_target
         self.throttle_wait = 1 / fps_target  # initial value that will get revised
@@ -59,7 +59,7 @@ class Synchronizer:
         logging.info("About to submit Threadpool of frame Harvesters")
         self.threads = []
         for port, stream in self.streams.items():
-            stream.set_shutter_sync(self.shutter_sync)
+            # stream.set_shutter_sync(self.shutter_sync)
 
             t = Thread(target=self.harvest_frames, args=(stream,), daemon=True)
             t.start()
@@ -73,11 +73,11 @@ class Synchronizer:
     def subscribe(self, q):
         self.subscriptions.append(q)
 
-    def harvest_frames(self, device):
+    def harvest_frames(self, stream):
         # pull data from the
-        port = device.cam.port
-        device.push_to_reel = True
-        device.track_charuco = True
+        port = stream.cam.port
+        stream.push_to_reel = True
+        # stream.track_charuco = True
 
         logging.info(f"Beginning to collect data generated at port {port}")
         frame_index = 0
@@ -87,7 +87,7 @@ class Synchronizer:
             (
                 frame_time,
                 frame,
-            ) = device.reel.get()
+            ) = stream.reel.get()
 
             self.frame_data[f"{port}_{frame_index}"] = {
                 "port": port,
@@ -148,19 +148,25 @@ class Synchronizer:
     def bundle_frames(self):
 
         logging.info(f"Waiting for all ports to begin harvesting corners...")
-        while self.frame_slack() == 0:
-            self.shutter_sync.put("fire")
-            time.sleep(0.01)
+        # while self.frame_slack() == 0:
+        #     self.shutter_sync.put("fire")
+        #     time.sleep(0.01)
 
         # need to have 2 frames to assess bundling
+        # for stream in self.streams:
+        # stream.shutter_sync.put("fire")
         for port in self.ports:
-            self.shutter_sync.put("fire")
+            self.streams[port].shutter_sync.put("fire")
 
         logging.info("About to start bundling frames...")
         while True:
             # Trigger device to proceed with reading frame and pushing to reel
+            # for stream in self.streams:
+            #     stream.shutter_sync.put("fire")
+            # for port in self.ports:
+            #     self.shutter_sync.put("fire")
             for port in self.ports:
-                self.shutter_sync.put("fire")
+                self.streams[port].shutter_sync.put("fire")
 
             # wait for frame data to populate
             while self.frame_slack() < 2:
@@ -176,8 +182,8 @@ class Synchronizer:
 
             # only throttle if you are mostly current to avoid progressive
             # drift in lag
-            if self.frame_slack() < 3:
-                self.throttle_fps()
+            # if self.frame_slack() < 3:
+            # self.throttle_fps()
 
             next_layer = {}
             layer_frame_times = []
@@ -226,7 +232,7 @@ if __name__ == "__main__":
     for cam in cameras:
         streams[cam.port] = VideoStream(cam)
 
-    syncr = Synchronizer(streams, fps_target=30)
+    syncr = Synchronizer(streams, fps_target=12)
 
     notification_q = Queue()
 

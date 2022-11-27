@@ -99,7 +99,7 @@ class VideoStream:
 
                 # must apply rotation at end...
                 # otherwise mismatch in frame / grid history dimensions
-                self.apply_rotation()
+                # self.apply_rotation()
 
                 if self.push_to_reel:
                     # print(f"Pushing from port {self.cam.port} at {self.frame_time}")

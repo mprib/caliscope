@@ -73,7 +73,7 @@ class VideoStream:
                     self.reel.put([self.frame_time, self._working_frame])
 
                 # this may no longer be necessary...consider removing in the future
-                self.frame = self._working_frame.copy()
+                # self.frame = self._working_frame.copy()
 
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()

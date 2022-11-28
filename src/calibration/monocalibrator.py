@@ -136,7 +136,7 @@ class MonoCalibrator:
             and self.frame.shape[1] == self.grid_capture_history.shape[1]
         ):
             grid_frame = cv2.addWeighted(self.frame, 1, self.grid_capture_history, 1, 0)
-            grid_frame = draw_charuco.corners(grid_frame, self.ids, self.img_loc)
+            grid_frame = draw_charuco.corners(grid_frame, self.img_loc)
 
             self.grid_frame = grid_frame
             self.grid_frame_ready_q.put("frame ready")
@@ -201,6 +201,7 @@ if __name__ == "__main__":
     syncr = Synchronizer(streams, fps_target=10)
 
     monocal = MonoCalibrator(cam, syncr, trackr)
+    monocal.capture_corners = True
 
     print("About to enter main loop")
     while True:

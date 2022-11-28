@@ -34,22 +34,21 @@ class StereoCalibrator:
         self.corner_tracker = corner_tracker
         self.synchronizer = synchronizer
 
-        # when this many frames of conrners synched, move on to calibration
-        self.grid_count_trigger = 15
-        self.wait_time = 0.5  # seconds between snapshots
         self.corner_threshold = 7  # board corners in common for capture
+        self.wait_time = 0.5  # seconds between snapshots
+        self.grid_count_trigger = 15  #  move on to calibration
 
         # self.stacked_frames = Queue()  # ultimately will be removing this
         self.bundle_available_q = Queue()
-        self.cal_frames_ready_q = Queue()
         self.synchronizer.subscribe(self.bundle_available_q)
+        self.cal_frames_ready_q = Queue()
 
         self.build_port_list()
         self.build_uncalibrated_pairs()
         self.build_stereocal_inputs()
 
         # needed to determine if enough time has passed since last capture
-        self.last_store_time = {
+        self.last_corner_save_time = {
             pair: time.perf_counter() for pair in self.uncalibrated_pairs
         }
 
@@ -61,6 +60,7 @@ class StereoCalibrator:
         self.thread.start()
 
     def build_port_list(self):
+        """Construct list of ports associated with incoming frames"""
         logging.debug("Creating port list...")
         self.ports = []
         for port, stream in self.synchronizer.streams.items():
@@ -68,7 +68,7 @@ class StereoCalibrator:
             self.ports.append(port)
 
     def build_uncalibrated_pairs(self):
-        # construct a list of uncalibrated pairs with smaller number port first
+        """construct a list of uncalibrated pairs with smaller number port first"""
         unordered_pairs = [(i, j) for i, j in combinations(self.ports, 2)]
         self.uncalibrated_pairs = []
         for pair in unordered_pairs:
@@ -79,37 +79,83 @@ class StereoCalibrator:
             self.uncalibrated_pairs.append((i, j))
 
     def build_stereocal_inputs(self):
-        # create dictionary of future inputs to stereocalibrate function
+        """Constructs dictionary to hold growing lists of input parameters .
+        When a list grows to the lengths of the grid_count_trigger, it will
+        commence calibration"""
         self.stereo_inputs = {
-            pair: {"obj": [], "img_A": [], "img_B": []}
+            pair: {"common_board_loc": [], "img_loc_A": [], "img_loc_B": []}
             for pair in self.uncalibrated_pairs
         }
 
     def harvest_frame_bundles(self):
+        """Monitors the bundle_available_q to grab a new frame bundle and inititiate
+        processing of it."""
         logging.debug(f"Currently {len(self.uncalibrated_pairs)} uncalibrated pairs ")
 
         while len(self.uncalibrated_pairs) > 0:
             self.bundle_available_q.get()
             self.current_bundle = self.synchronizer.current_bundle
-            self.add_corner_data()
 
-            logging.debug("About to push bundled frame to stack")
-            # self.stacked_frames.put(self.superframe(single_frame_height=250))
-            # cv2.imshow("Stereocalibration", stacked_pairs)
+            self.add_corner_data()
+            for pair in self.uncalibrated_pairs:
+                self.store_stereo_data()
+
             self.cal_frames_ready_q.put("frames ready")
-            # self.remove_full_pairs()
 
             if len(self.uncalibrated_pairs) == 0:
                 self.stereo_calibrate()
 
     def add_corner_data(self):
+        """Assign corner data for each frame"""
         for port in self.current_bundle.keys():
             if self.current_bundle[port] is not None:
                 ids, img_loc, board_loc = self.corner_tracker.get_corners(
                     self.current_bundle[port]["frame"]
                 )
+
+                self.current_bundle[port]["ids"] = ids
+                self.current_bundle[port]["img_loc"] = img_loc
+                self.current_bundle[port]["board_loc"] = board_loc
+
                 print(ids)
                 logging.debug(f"Port {port}: {ids}")
+
+    def store_stereo_data(self):
+        logging.debug("About to process current frame bundle")
+
+        for pair in self.uncalibrated_pairs:
+            portA = pair[0]
+            portB = pair[1]
+
+            common_ids = self.get_common_ids(portA, portB)
+
+            enough_corners = len(common_ids) > self.corner_threshold
+            enough_time = (
+                time.perf_counter() - self.last_corner_save_time[pair] > self.wait_time
+            )
+
+            if enough_corners and enough_time:
+                # add corner data to stereo_inputs
+                obj, img_loc_A = self.get_common_locs(portA, common_ids)
+                _, img_loc_B = self.get_common_locs(portB, common_ids)
+
+                self.stereo_inputs[pair]["common_board_loc"].append(obj)
+                self.stereo_inputs[pair]["img_loc_A"].append(img_loc_A)
+                self.stereo_inputs[pair]["img_loc_B"].append(img_loc_B)
+                self.last_corner_save_time[pair] = time.perf_counter()
+
+    def get_common_ids(self, portA, portB):
+        """Intersection of grid corners observed in the active grid pair"""
+        if self.current_bundle[portA] and self.current_bundle[portB]:
+            ids_A = self.current_bundle[portA]["ids"]
+            ids_B = self.current_bundle[portB]["ids"]
+            common_ids = np.intersect1d(ids_A, ids_B)
+            common_ids = common_ids.tolist()
+
+        else:
+            common_ids = []
+
+        return common_ids
 
     def stereo_calibrate(self):
         """Iterates across all camera pairs. Intrinsic parameters are pulled
@@ -125,9 +171,9 @@ class StereoCalibrator:
             camA = self.synchronizer.streams[pair[0]].camera
             camB = self.synchronizer.streams[pair[1]].camera
 
-            obj = self.stereo_inputs[pair]["obj"]
-            img_A = self.stereo_inputs[pair]["img_A"]
-            img_B = self.stereo_inputs[pair]["img_B"]
+            obj = self.stereo_inputs[pair]["common_board_loc"]
+            img_A = self.stereo_inputs[pair]["img_loc_A"]
+            img_B = self.stereo_inputs[pair]["img_loc_B"]
 
             # convert to list of vectors for OpenCV function
             obj = [np.array(x, dtype=np.float32) for x in obj]
@@ -171,196 +217,28 @@ class StereoCalibrator:
     def remove_full_pairs(self):
 
         for pair in self.uncalibrated_pairs:
-            grid_count = len(self.stereo_inputs[pair]["obj"])
+            grid_count = len(self.stereo_inputs[pair]["common_board_loc"])
 
             if grid_count > self.grid_count_trigger:
                 self.uncalibrated_pairs.remove(pair)
 
-    def process_frame_bundle(
-        self,
-        frame_bundle,
-    ):
-        logging.debug("About to process current frame bundle")
-        self.frame_bundle = frame_bundle
-
-        for pair in self.uncalibrated_pairs:
-            portA = pair[0]
-            portB = pair[1]
-
-            self.set_common_ids(portA, portB)
-
-            enough_corners = len(self.common_ids) > self.corner_threshold
-            enough_time = (
-                time.perf_counter() - self.last_store_time[pair] > self.wait_time
-            )
-
-            if enough_corners and enough_time:
-                obj, img_A = self.get_obj_img_points(portA)
-                _, img_B = self.get_obj_img_points(portB)
-
-                self.stereo_inputs[pair]["obj"].append(obj)
-                self.stereo_inputs[pair]["img_A"].append(img_A)
-                self.stereo_inputs[pair]["img_B"].append(img_B)
-                self.last_store_time[pair] = time.perf_counter()
-
-    def superframe(self, single_frame_height=250):
-        """Combine all current bundled frames into a grid. Paired frames are
-        next to each other horizontally and all pairs are vertically stacked"""
-        logging.debug("assembling superframe")
-
-        self.single_frame_height = single_frame_height
-        stacked_bundle = np.array([])
-
-        for pair in self.uncalibrated_pairs:
-
-            portA = pair[0]
-            portB = pair[1]
-
-            hstacked_pair = self.hstack_frames(portA, portB)
-
-            if stacked_bundle.any():
-                stacked_bundle = np.vstack((stacked_bundle, hstacked_pair))
-            else:
-                stacked_bundle = hstacked_pair
-
-        return stacked_bundle
-
-    def resize_to_square(self, frame):
-        """To make sure that frames align well, scale them all to thumbnails
-        squares with black borders. If there is a dropped frame, make the image
-        blank."""
-        logging.debug("resizing square")
-        edge = self.single_frame_height  # square edge length
-
-        frame = cv2.flip(frame, 1)
-
-        height = frame.shape[0]
-        width = frame.shape[1]
-
-        padded_size = max(height, width)
-
-        height_pad = int((padded_size - height) / 2)
-        width_pad = int((padded_size - width) / 2)
-        pad_color = [0, 0, 0]
-
-        logging.debug("about to pad border")
-        frame = cv2.copyMakeBorder(
-            frame,
-            height_pad,
-            height_pad,
-            width_pad,
-            width_pad,
-            cv2.BORDER_CONSTANT,
-            value=pad_color,
-        )
-
-        frame = imutils.resize(frame, height=edge)
-        return frame
-
-    def set_common_ids(self, portA, portB):
-        """Intersection of grid corners observed in the active grid pair"""
-        if self.frame_bundle[portA] and self.frame_bundle[portB]:
-            corner_idsA = self.frame_bundle[portA]["corner_ids"]
-            corner_idsB = self.frame_bundle[portB]["corner_ids"]
-            common_ids = np.intersect1d(corner_idsA, corner_idsB)
-            common_ids = common_ids.tolist()
-
-            self.common_ids = common_ids
-        else:
-            self.common_ids = []
-
-    def get_obj_img_points(self, port):
+    def get_common_locs(self, port, common_ids):
         """Pull out objective location and image location of board corners for
         a port that are on the list of common ids"""
 
-        corner_ids = self.frame_bundle[port]["corner_ids"]
-        frame_corners = self.frame_bundle[port]["frame_corners"].squeeze().tolist()
-        board_FOR_corners = (
-            self.frame_bundle[port]["board_FOR_corners"].squeeze().tolist()
-        )
+        ids = self.current_bundle[port]["ids"]
+        img_loc = self.current_bundle[port]["img_loc"].squeeze().tolist()
+        board_loc = self.current_bundle[port]["board_loc"].squeeze().tolist()
 
-        obj_points = []
-        img_points = []
+        common_img_loc = []
+        common_board_loc = []
 
-        for crnr_id, img, obj in zip(corner_ids, frame_corners, board_FOR_corners):
-            if crnr_id in self.common_ids:
-                img_points.append(img)
-                obj_points.append(obj)
+        for crnr_id, img, obj in zip(ids, img_loc, board_loc):
+            if crnr_id in common_ids:
+                common_board_loc.append(img)
+                common_img_loc.append(obj)
 
-        return obj_points, img_points
-
-    def draw_stored_corners(self, frameA, portA, frameB, portB):
-
-        pair = (portA, portB)
-        img_A = self.stereo_inputs[pair]["img_A"]
-        img_B = self.stereo_inputs[pair]["img_B"]
-
-        for cornerset in img_A:
-            for corner in cornerset:
-                corner = (int(corner[0]), int(corner[1]))
-                cv2.circle(frameA, corner, 2, (255, 165, 0), 2, 1)
-
-        for cornerset in img_B:
-            for corner in cornerset:
-                corner = (int(corner[0]), int(corner[1]))
-                cv2.circle(frameB, corner, 2, (255, 165, 0), 2, 1)
-
-        return frameA, frameB
-
-    def frame_or_blank(self, port):
-        logging.debug("plugging blank frame data")
-
-        edge = self.single_frame_height
-        bundle = self.frame_bundle[port]
-        if bundle is None:
-            frame = np.zeros((edge, edge, 3), dtype=np.uint8)
-        else:
-            frame = self.frame_bundle[port]["frame"]
-
-        frame = frame.copy()
-        return frame
-
-    def hstack_frames(self, portA, portB):
-        """place paired frames side by side"""
-        logging.debug("Horizontally stacking paired frames")
-        frameA = self.frame_or_blank(portA)
-        frameB = self.frame_or_blank(portB)
-
-        frameA, frameB = self.draw_stored_corners(frameA, portA, frameB, portB)
-
-        frameA = cv2.flip(frameA, 1)
-        cv2.putText(
-            frameA,
-            f"Port: {portA}",
-            (30, 50),
-            cv2.FONT_HERSHEY_PLAIN,
-            5,
-            (0, 0, 200),
-            3,
-        )
-        frameA = cv2.flip(frameA, 1)
-
-        frameB = cv2.flip(frameB, 1)
-        cv2.putText(
-            frameB,
-            f"Port: {portB}",
-            (30, 50),
-            cv2.FONT_HERSHEY_PLAIN,
-            5,
-            (0, 0, 200),
-            3,
-        )
-        frameB = cv2.flip(frameB, 1)
-
-        frameA = self.resize_to_square(frameA)
-        frameB = self.resize_to_square(frameB)
-
-        # cv2.imshow(str(portA), frameA)
-        # cv2.imshow(str(portB), frameB)
-
-        stacked_pair = np.hstack((frameA, frameB))
-
-        return stacked_pair
+        return common_img_loc, common_board_loc
 
 
 if __name__ == "__main__":

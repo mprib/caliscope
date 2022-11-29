@@ -1,4 +1,6 @@
-#%%
+# Manager of all created objects and the primary interface for the GUI.
+
+
 import logging
 
 LOG_FILE = "log\session.log"
@@ -76,12 +78,6 @@ class Session:
         if "charuco" in self.config:
             logging.info("Loading charuco from config")
             params = self.config["charuco"]
-
-            # # TOML doesn't seem to store None when dumping to file; adjust here
-            # if "square_size_overide" in self.config["charuco"]:
-            #     sso = self.config["charuco"]["square_size_overide"]
-            # else:
-            #     sso = None
 
             self.charuco = Charuco(
                 columns=params["columns"],

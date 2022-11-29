@@ -1,6 +1,6 @@
 import logging
 
-LOG_FILE = "camera_config_dialog.log"
+LOG_FILE = "log/camera_config_dialog.log"
 LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 

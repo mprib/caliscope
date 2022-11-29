@@ -1,6 +1,6 @@
 import logging
 
-LOG_FILE = "synchronizer.log"
+LOG_FILE = "log\synchronizer.log"
 LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 

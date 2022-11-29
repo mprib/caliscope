@@ -1,13 +1,11 @@
 import logging
 
-FILE_NAME = "stereoframe_builder.log"
+LOG_FILE = "log\stereoframe_builder.log"
 LOG_LEVEL = logging.DEBUG
 # LOG_LEVEL = logging.INFO
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
-logging.basicConfig(
-    filename=FILE_NAME, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL
-)
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 import sys
 from pathlib import Path

@@ -4,14 +4,14 @@
 
 import logging
 
+LOG_FILE = "log\corner_tracker.log"
 LOG_LEVEL = logging.DEBUG
 # LOG_LEVEL = logging.INFO
-LOG_FILE = "corner_tracker.log"
-logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
+
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 import sys
-import time
-from itertools import combinations
 from pathlib import Path
 
 import cv2
@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
         read_success, frame = cam.capture.read()
         ids, locations, board_corners = trackr.get_corners(frame)
-        drawn_frame = src.calibration.draw_charuco.corners(frame, ids, locations)
+        drawn_frame = src.calibration.draw_charuco.corners(frame, locations)
 
         cv2.imshow("Press 'q' to quit", drawn_frame)
         key = cv2.waitKey(1)

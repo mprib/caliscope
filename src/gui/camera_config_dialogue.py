@@ -37,12 +37,16 @@ from src.session import Session
 
 
 class CameraConfigDialog(QDialog):
-    def __init__(self, stream, monocalibrator):
+    def __init__(self, session, port):
         super(CameraConfigDialog, self).__init__()
 
-        self.monocal = monocalibrator
+        self.session = session
+        self.port = port
+
+        self.monocal = session.monocalibrators[port]
+        self.stream = session.streams[port]
         # stream reference needed to change resolution
-        self.stream = stream
+
         App = QApplication.instance()
         DISPLAY_WIDTH = App.primaryScreen().size().width()
         DISPLAY_HEIGHT = App.primaryScreen().size().height()
@@ -165,7 +169,7 @@ class CameraConfigDialog(QDialog):
             self.monocal.initialize_grid_history()
             self.calibrate_btn.setEnabled(False)
             self.clear_grid_history_btn.setEnabled(False)
-            self.save_cal_btn.setEnabled(False)
+            # self.save_cal_btn.setEnabled(False)
             self.undistort_btn.setEnabled(False)
             self.frame_emitter.undistort = False
 
@@ -189,7 +193,7 @@ class CameraConfigDialog(QDialog):
 
         # Save Calibration
         self.save_cal_btn = QPushButton("Save Calibration")
-        self.save_cal_btn.setEnabled(False)
+        # self.save_cal_btn.setEnabled(False)
         self.save_cal_btn.setMaximumWidth(100)
         vbox.addWidget(self.save_cal_btn)
 
@@ -197,8 +201,7 @@ class CameraConfigDialog(QDialog):
         # here just to save. There's got to be a more modular approach to this
         # that I expect will pay dividends later
         def save_cal():
-            pass
-            # self.session.save_camera(self.monocal.camera.port)
+            self.session.save_camera(self.port)
 
         self.save_cal_btn.clicked.connect(save_cal)
 
@@ -350,16 +353,25 @@ if __name__ == "__main__":
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
     )
 
-    trackr = CornerTracker(charuco)
+    repo = Path(__file__).parent.parent.parent
+    config_path = Path(repo, "default_session")
+    print(config_path)
+    session = Session(config_path)
+    session.load_cameras()
+    session.load_stream_tools()
+    session.load_monocalibrators()
+
+    # trackr = CornerTracker(charuco)
     test_port = 0
-    cam = Camera(test_port)
-    stream = VideoStream(cam)
-    streams_dict = {test_port: stream}  # synchronizer expects this format
-    syncr = Synchronizer(streams_dict, fps_target=6)
-    monocal = MonoCalibrator(cam, syncr, trackr)
+    # cam = Camera(test_port)
+    # stream = VideoStream(cam)
+    # streams_dict = {test_port: stream}  # synchronizer expects this format
+    # syncr = Synchronizer(streams_dict, fps_target=6)
+    # monocal = MonoCalibrator(cam, syncr, trackr)
 
     logging.info("Creating Camera Config Dialog")
-    cam_dialog = CameraConfigDialog(stream, monocal)
+    cam_dialog = CameraConfigDialog(session, test_port)
+
     logging.info("About to show camera config dialog")
     cam_dialog.show()
 

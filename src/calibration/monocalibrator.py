@@ -79,6 +79,7 @@ class MonoCalibrator:
         Side Effect 2: updates the image
         #TODO #13 Split out the image update to its own method that returns a modified frame
         """
+        # wait for camera to start rolling
         logging.debug("Entering collect_corners thread loop")
         while True:
             frame_bundle_notice = self.bundle_ready_q.get()
@@ -104,7 +105,6 @@ class MonoCalibrator:
                     enough_corners = False
 
                 enough_time_from_last_cal = (
-                    time.time() > self.last_calibration_time + self.wait_time
                 )
 
                 if enough_corners and enough_time_from_last_cal:

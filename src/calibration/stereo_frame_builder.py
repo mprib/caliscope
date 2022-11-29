@@ -110,11 +110,11 @@ class StereoframeBuilder:
     def get_frame_or_blank(self, port):
         """Synchronization issues can lead to some frames being None in the
         bundle, so plug that with a blank frame"""
-        logging.debug("plugging blank frame data")
 
         edge = self.single_frame_height
         bundle = self.current_bundle[port]
         if bundle is None:
+            logging.debug("plugging blank frame data")
             frame = np.zeros((edge, edge, 3), dtype=np.uint8)
         else:
             frame = self.current_bundle[port]["frame"]

@@ -84,13 +84,10 @@ class MainWindow(QMainWindow):
                 if tab_name in tab_names:
                     pass  # already here, don't bother
                 else:
-                    cam_tab = CameraConfigDialog(
-                        stream, self.session.monocalibrators[port]
-                    )
+                    cam_tab = CameraConfigDialog(self.session, port)
 
                     def on_save_click():
-                        self.session.save_camera(port)
-                        self.summary.camera_table.update_data
+                        self.summary.camera_table.update_data()
 
                     cam_tab.save_cal_btn.clicked.connect(on_save_click)
 

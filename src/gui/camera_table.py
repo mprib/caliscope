@@ -1,5 +1,13 @@
 # Built following the tutorials that begin here:
 # https://www.pythonguis.com/tutorials/pyqt6-creating-your-first-window/
+import logging
+
+LOG_FILE = "log\camera_table.log"
+LOG_LEVEL = logging.DEBUG
+# LOG_LEVEL = logging.INFO
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 import sys
 from pathlib import Path
@@ -65,14 +73,12 @@ class CameraTable(QWidget):
                 else:
                     params["error"] = None
                     params["grid_count"] = 0
-                # print(params)
-                print(params)
                 params = {k: params[k] for k in self._headers}
                 res = params["resolution"]
                 params["resolution"] = f"{res[0]} x {res[1]}"
                 self.data.append(params)
 
-        print(f"Updating cam data to {self.data}")
+        logging.debug(f"Updating cam data to {self.data}")
 
         row_count = len(self.data)
         column_count = len(self._headers)
@@ -80,8 +86,6 @@ class CameraTable(QWidget):
         self.table.setRowCount(row_count)
         self.table.setColumnCount(column_count)
         self.table.setHorizontalHeaderLabels(self._headers)
-        # alternate = ["1", "2", "3", "$"]
-        # self.table.setHorizontalHeaderLabels(alternate)
 
         for row in range(row_count):
             for column in range(column_count):

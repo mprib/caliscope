@@ -154,8 +154,7 @@ class Session:
                     executor.submit(add_cam, i)
 
     def load_stream_tools(self):
-        # in addition to populating the active streams, this loads a frame
-        # synchronizer and a dispatcher for the frames
+        # in addition to populating the active streams, this loads a frame synchronizer
 
         for port, cam in self.cameras.items():
             if port in self.streams.keys():
@@ -163,10 +162,8 @@ class Session:
             else:
                 logging.info(f"Loading Stream for port {port}")
                 self.streams[port] = VideoStream(cam)
-                # self.stream[port].assign_charuco(self.charuco)
 
-        # self.synchronizer = Synchronizer(self.streams, fps_target=30)
-        # self.dispatcher = Dispatcher(self.synchronizer)
+        self.synchronizer = Synchronizer(self.streams, fps_target=6.2)
 
     def load_monocalibrators(self):
         self.corner_tracker = CornerTracker(self.charuco)
@@ -176,7 +173,9 @@ class Session:
                 pass  # only add if not added yet
             else:
                 logging.info(f"Loading Monocalibrator for port {port}")
-                self.monocalibrators[port] = MonoCalibrator(cam, self.corner_tracker)
+                self.monocalibrators[port] = MonoCalibrator(
+                    cam, self.synchronizer, self.corner_tracker
+                )
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as

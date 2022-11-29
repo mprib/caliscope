@@ -82,7 +82,9 @@ class MonoCalibrator:
         logging.debug("Entering collect_corners thread loop")
         while True:
             frame_bundle_notice = self.bundle_ready_q.get()
-            self.frame = self.synchronizer.current_bundle[self.port]["frame"]
+            frame_data = self.synchronizer.current_bundle[self.port]
+            if frame_data:
+                self.frame = frame_data["frame"]
 
             self.ids = np.array([])
             self.img_loc = np.array([])

@@ -52,40 +52,30 @@ class CameraConfigDialog(QDialog):
         self.pixmap_edge = min(DISPLAY_WIDTH / 3, DISPLAY_HEIGHT / 3)
         self.frame_emitter = FrameEmitter(self.monocal, self.pixmap_edge)
         self.frame_emitter.start()
-        # self.setFixedSize(self.pixmap_edge, self.pixmap_edge*2)
         self.setContentsMargins(0, 0, 0, 0)
 
         ################### BUILD SUB WIDGETS #############################
-        # self.build_view_full_res_btn()
         self.build_frame_display()
         self.build_realtime_text_display()
         self.build_ccw_rotation_btn()
         self.build_cw_rotation_btn()
         self.build_resolution_combo()
         self.build_exposure_hbox()
-        # self.build_toggle_grp()
         self.build_calibrate_grp()
         ###################################################################
         self.v_box = QVBoxLayout(self)
         self.v_box.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.v_box.setContentsMargins(0, 0, 0, 0)
 
-        ################## FULL RESOLUTION LAUNCH BUTTON ######################
-        # self.v_box.addWidget(self.view_full_res_btn)
         #################      VIDEO AT TOP     ##########################
         self.v_box.addWidget(self.frame_display)
 
         ############################  ADD HBOX OF CONFIG ######################
         h_box = QHBoxLayout()
-
-        ################ ROTATE CCW #######################################
         h_box.addWidget(self.ccw_rotation_btn)
-
-        ############################## ROTATE CW ###########################
         h_box.addWidget(self.cw_rotation_btn)
-        # VBL.addWidget(self.mediapipeLabel)
-        ######################################### RESOLUTION DROPDOWN ######
         h_box.addWidget(self.resolution_combo)
+
         h_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.v_box.addLayout(h_box)
 
@@ -94,8 +84,6 @@ class CameraConfigDialog(QDialog):
 
         #######################     FPS   + Grid Count #########################
         self.v_box.addLayout(self.realtime_text_hbox)
-        ################### RADIO BUTTONS OF OVERLAY TOGGLES ##################
-        # self.v_box.addWidget(self.toggle_grp)
 
         ###################### CALIBRATION  ################################
         self.v_box.addWidget(self.calibrate_grp)
@@ -190,7 +178,12 @@ class CameraConfigDialog(QDialog):
         vbox.addWidget(self.undistort_btn)
 
         def undistort():
-            self.frame_emitter.undistort = True
+            if self.frame_emitter.undistort:
+                self.frame_emitter.undistort = False
+                self.undistort_btn.setText("Undistort")
+            else:
+                self.frame_emitter.undistort = True
+                self.undistort_btn.setText("Revert")
 
         self.undistort_btn.clicked.connect(undistort)
 
@@ -228,7 +221,8 @@ class CameraConfigDialog(QDialog):
 
         def FPSUpdateSlot(fps):
             if self.monocal.camera.is_rolling:
-                self.fps_display.setText("FPS: " + str(round(fps, 1)))
+                # rounding to nearest integer should be close enough for our purposes
+                self.fps_display.setText("FPS: " + str(round(fps, 0)))
             else:
                 self.fps_display.setText("reconnecting to camera...")
 

@@ -4,13 +4,12 @@
 import logging
 import sys
 
-logging.basicConfig(
-    filename="log\main.log",
-    filemode="w",
-    format="%(asctime)s - %(pathname)s - %(levelname)s - %(message)s",
-    level=logging.DEBUG,
-)
-# level=logging.INFO)
+LOG_FILE = "log\main.log"
+LOG_LEVEL = logging.DEBUG
+# LOG_LEVEL = logging.INFO
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 import time
 from pathlib import Path
@@ -75,21 +74,19 @@ class MainWindow(QMainWindow):
 
     def open_cams(self):
 
-        # don't bother if already done
-        # for t in range(0,self.tabs.count()):
-        # if self.tabs.tabText(t).startswith("Cam"):
-        # return
         tab_names = [self.tabs.tabText(i) for i in range(self.tabs.count())]
         logging.debug(f"Current tabs are: {tab_names}")
 
-        if len(self.session.stream) > 0:
-            for port, stream in self.session.stream.items():
+        if len(self.session.streams) > 0:
+            for port, stream in self.session.streams.items():
                 tab_name = f"Camera {port}"
                 logging.debug(f"Potentially adding {tab_name}")
                 if tab_name in tab_names:
                     pass  # already here, don't bother
                 else:
-                    cam_tab = CameraConfigDialog(stream, self.session)
+                    cam_tab = CameraConfigDialog(
+                        stream, self.session.monocalibrators[port]
+                    )
                     cam_tab.save_cal_btn.clicked.connect(
                         self.summary.camera_table.update_data
                     )
@@ -117,7 +114,9 @@ class MainWindow(QMainWindow):
 
             self.session.find_additional_cameras()
             logging.debug("Loading streams")
-            self.session.load_streams()
+            self.session.load_stream_tools()
+            logging.debug("Loading monocalibrators")
+            self.session.load_monocalibrators()
             logging.debug("Adjusting resolutions")
             self.session.adjust_resolutions()
             logging.debug("Updating Camera Table")
@@ -140,9 +139,11 @@ class MainWindow(QMainWindow):
             logging.debug("Loading Cameras")
             self.session.load_cameras()
             logging.debug("Loading streams")
-            self.session.load_streams()
+            self.session.load_stream_tools()
             logging.debug("Adjusting resolutions")
             self.session.adjust_resolutions()
+            logging.debug("Loading monocalibrators")
+            self.session.load_monocalibrators()
             logging.debug("Updating Camera Table")
             self.summary.camera_table.update_data()
 

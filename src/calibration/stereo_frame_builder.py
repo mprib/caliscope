@@ -130,6 +130,9 @@ class StereoframeBuilder:
         frameA = self.get_frame_or_blank(portA)
         frameB = self.get_frame_or_blank(portB)
 
+        # frameA = self.current_bundle[portA]["frame"]
+        # frameB = self.current_bundle[portB]["frame"]
+
         frameA, frameB = self.draw_common_corner_history(frameA, portA, frameB, portB)
         frameA, frameB = self.draw_common_corner_current(frameA, portA, frameB, portB)
 

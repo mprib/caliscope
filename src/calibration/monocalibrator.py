@@ -48,7 +48,9 @@ class MonoCalibrator:
 
         self.initialize_grid_history()
 
-        self.last_calibration_time = time.time()  # need to initialize to *something*
+        self.last_calibration_time = (
+            time.perf_counter()
+        )  # need to initialize to *something*
         self.collecting_corners = True
         self.thread = Thread(target=self.collect_corners, args=(), daemon=True)
         self.thread.start()
@@ -82,17 +84,19 @@ class MonoCalibrator:
         # wait for camera to start rolling
         logging.debug("Entering collect_corners thread loop")
         while True:
-            frame_bundle_notice = self.bundle_ready_q.get()
+            frame_bundle_notice = self.bundle_ready_q.get()  # enforces pause
             frame_data = self.synchronizer.current_bundle[self.port]
+
             if frame_data:
                 self.frame = frame_data["frame"]
+            else:
+                self.frame = np.zeros(self.image_size, dtype="uint8")
 
             self.ids = np.array([])
             self.img_loc = np.array([])
             self.board_loc = np.array([])
 
             if self.capture_corners:
-
                 (
                     self.ids,
                     self.img_loc,
@@ -105,6 +109,7 @@ class MonoCalibrator:
                     enough_corners = False
 
                 enough_time_from_last_cal = (
+                    time.perf_counter() > self.last_calibration_time + self.wait_time
                 )
 
                 if enough_corners and enough_time_from_last_cal:
@@ -114,7 +119,7 @@ class MonoCalibrator:
                     self.all_img_loc.append(self.img_loc)
                     self.all_board_loc.append(self.board_loc)
 
-                    self.last_calibration_time = time.time()
+                    self.last_calibration_time = time.perf_counter()
                     self.update_grid_history()
 
             self.set_grid_frame()

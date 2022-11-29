@@ -5,8 +5,10 @@ import logging
 
 LOG_FILE = "log\session.log"
 LOG_LEVEL = logging.DEBUG
+# LOG_LEVEL = logging.INFO
 
-logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -23,7 +25,6 @@ from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.monocalibrator import MonoCalibrator
 from src.cameras.camera import Camera
-from src.cameras.dispatcher import Dispatcher
 from src.cameras.synchronizer import Synchronizer
 from src.cameras.video_stream import VideoStream
 

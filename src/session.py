@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.monocalibrator import MonoCalibrator
+from src.calibration.stereo_frame_builder import StereoFrameBuilder
 from src.calibration.stereocalibrator import StereoCalibrator
 from src.cameras.camera import Camera
 from src.cameras.synchronizer import Synchronizer
@@ -174,8 +175,9 @@ class Session:
                     cam, self.synchronizer, self.corner_tracker
                 )
 
-    def load_stereocalibrator(self):
+    def load_stereo_tools(self):
         self.stereocalibrator = StereoCalibrator(self.synchronizer, self.corner_tracker)
+        self.stereo_frame_builder = StereoFrameBuilder(self.stereocalibrator)
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as

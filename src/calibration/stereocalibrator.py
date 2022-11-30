@@ -23,7 +23,6 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.synchronizer import Synchronizer
-from src.session import Session
 
 
 class StereoCalibrator:
@@ -243,9 +242,14 @@ class StereoCalibrator:
 
 if __name__ == "__main__":
     from src.calibration.corner_tracker import CornerTracker
+    from src.session import Session
 
     logging.debug("Test live stereocalibration processing")
-    session = Session("default_session")
+
+    repo = Path(__file__).parent.parent.parent
+    config_path = Path(repo, "sessions", "default_session")
+    session = Session(config_path)
+
     session.load_cameras()
     session.load_stream_tools()
     session.adjust_resolutions()

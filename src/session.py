@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.monocalibrator import MonoCalibrator
+from src.calibration.stereocalibrator import StereoCalibrator
 from src.cameras.camera import Camera
 from src.cameras.synchronizer import Synchronizer
 from src.cameras.video_stream import VideoStream
@@ -44,7 +45,6 @@ class Session:
 
         # dictionaries of calibration related objects.
         self.monocalibrators = {}  # key = port
-        self.stereocalibrators = {}  # key = portA_portB
 
         self.load_config()
         self.load_charuco()
@@ -174,6 +174,9 @@ class Session:
                     cam, self.synchronizer, self.corner_tracker
                 )
 
+    def load_stereocalibrator(self):
+        self.stereocalibrator = StereoCalibrator(self.synchronizer, self.corner_tracker)
+
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as
         log as it is not configured for the default resolution"""
@@ -215,7 +218,7 @@ class Session:
 #%%
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent
-    config_path = Path(repo, "default_session")
+    config_path = Path(repo, "sessions", "default_session")
     print(config_path)
     session = Session(config_path)
     session.update_config()

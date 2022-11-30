@@ -30,9 +30,6 @@ from PyQt6.QtWidgets import (
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from frame_emitter import FrameEmitter
 
-from src.calibration.charuco import Charuco
-from src.cameras.camera import Camera
-from src.cameras.video_stream import VideoStream
 from src.session import Session
 
 
@@ -340,34 +337,15 @@ class CameraConfigDialog(QDialog):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
 
-    from queue import Queue
-
-    config_dialogs = []
-
-    from src.calibration.corner_tracker import CornerTracker
-    from src.calibration.monocalibrator import MonoCalibrator
-    from src.cameras.camera import Camera
-    from src.cameras.synchronizer import Synchronizer
-
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
-    )
-
     repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "default_session")
+    config_path = Path(repo, "sessions", "default_session")
     print(config_path)
     session = Session(config_path)
     session.load_cameras()
     session.load_stream_tools()
     session.load_monocalibrators()
 
-    # trackr = CornerTracker(charuco)
     test_port = 0
-    # cam = Camera(test_port)
-    # stream = VideoStream(cam)
-    # streams_dict = {test_port: stream}  # synchronizer expects this format
-    # syncr = Synchronizer(streams_dict, fps_target=6)
-    # monocal = MonoCalibrator(cam, syncr, trackr)
 
     logging.info("Creating Camera Config Dialog")
     cam_dialog = CameraConfigDialog(session, test_port)

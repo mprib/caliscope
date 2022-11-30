@@ -15,17 +15,16 @@ import imutils
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-import src.calibration.draw_charuco as draw_charuco
 from src.cameras.synchronizer import Synchronizer
-from src.session import Session
 
 
-class StereoframeBuilder:
+class StereoFrameBuilder:
     def __init__(self, stereo_calibrator, single_frame_height=250):
         self.stereo_calibrator = stereo_calibrator
         self.single_frame_height = single_frame_height
 
-    def grab_current_bundle(self):
+    def set_current_bundle(self):
+        self.stereo_calibrator.cal_frames_ready_q.get()  # impose wait until update
         self.current_bundle = self.stereo_calibrator.current_bundle
 
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
@@ -140,10 +139,18 @@ class StereoframeBuilder:
 
         return hstacked_pair
 
+    @property
+    def stereoframe_pairs(self):
+        frame_pairs = {}
+        for pair in self.stereo_calibrator.pairs:
+            frame_pairs[pair] = self.hstack_frames(pair)
+        return frame_pairs
+
 
 if __name__ == "__main__":
     from src.calibration.corner_tracker import CornerTracker
     from src.calibration.stereocalibrator import StereoCalibrator
+    from src.session import Session
 
     logging.debug("Test live stereocalibration processing")
 
@@ -152,8 +159,8 @@ if __name__ == "__main__":
     print(config_path)
     session = Session(config_path)
     session.load_cameras()
-    session.load_stream_tools()
     session.adjust_resolutions()
+    session.load_stream_tools()
     # time.sleep(3)
 
     trackr = CornerTracker(session.charuco)
@@ -162,21 +169,18 @@ if __name__ == "__main__":
     syncr = Synchronizer(session.streams, fps_target=6)
     logging.info("Creating Stereocalibrator")
     stereo_cal = StereoCalibrator(syncr, trackr)
-    frame_builder = StereoframeBuilder(stereo_cal)
+    frame_builder = StereoFrameBuilder(stereo_cal)
 
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
     logging.info("Showing Stacked Frames")
     while len(stereo_cal.uncalibrated_pairs) > 0:
+        # wait for newly processed frame to be available
+        # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
+        frame_builder.set_current_bundle()
 
-        frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
-        # bundle = stereo_cal.current_bundle
-        frame_builder.grab_current_bundle()
-        pairs = frame_builder.stereo_calibrator.uncalibrated_pairs
-
-        for pair in pairs:
-            hstacked_pair = frame_builder.hstack_frames(pair)
-            cv2.imshow(str(pair), hstacked_pair)
+        for pair, frame in frame_builder.stereoframe_pairs.items():
+            cv2.imshow(str(pair), frame)
 
         key = cv2.waitKey(1)
         if key == ord("q"):

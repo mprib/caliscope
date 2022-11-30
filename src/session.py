@@ -24,11 +24,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.monocalibrator import MonoCalibrator
-from src.calibration.stereo_frame_builder import StereoFrameBuilder
 from src.calibration.stereocalibrator import StereoCalibrator
 from src.cameras.camera import Camera
 from src.cameras.synchronizer import Synchronizer
 from src.cameras.video_stream import VideoStream
+from src.gui.stereo_frame_builder import StereoFrameBuilder
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10

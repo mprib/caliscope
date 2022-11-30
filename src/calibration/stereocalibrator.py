@@ -9,7 +9,6 @@ logging.basicConfig(
     filename=FILE_NAME, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL
 )
 
-import pprint
 import sys
 import time
 from itertools import combinations
@@ -77,6 +76,8 @@ class StereoCalibrator:
                 i, j = j, i
             self.uncalibrated_pairs.append((i, j))
 
+        self.pairs = self.uncalibrated_pairs  # save original list for later reference
+
     def build_stereocal_inputs(self):
         """Constructs dictionary to hold growing lists of input parameters .
         When a list grows to the lengths of the grid_count_trigger, it will
@@ -116,7 +117,6 @@ class StereoCalibrator:
                 self.current_bundle[port]["img_loc"] = img_loc
                 self.current_bundle[port]["board_loc"] = board_loc
 
-                print(ids)
                 logging.debug(f"Port {port}: {ids}")
 
     def store_stereo_data(self):
@@ -241,6 +241,8 @@ class StereoCalibrator:
 
 
 if __name__ == "__main__":
+    import pprint
+
     from src.calibration.corner_tracker import CornerTracker
     from src.session import Session
 

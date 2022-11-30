@@ -57,6 +57,7 @@ class StereoPairConfigDialog(QDialog):
         ######## Primarily horizontal layout
         self.hbox = QHBoxLayout(self)
         self.hbox.addWidget(self.frame_display)
+        self.hbox.addWidget(self.grid_count)
 
     def build_frame_display(self):
         # return a QLabel that is linked to the constantly changing image
@@ -71,6 +72,14 @@ class StereoPairConfigDialog(QDialog):
             self.frame_display.setPixmap(pixmap)
 
         self.stereo_frame_emitter.StereoFramesBroadcast.connect(ImageUpdateSlot)
+
+        self.grid_count = QLabel()
+
+        def GridCountUpdateSlot(grid_counts):
+            count = str(grid_counts[self.pair])
+            self.grid_count.setText(f"Captured Boards: {count}")
+
+        self.stereo_frame_emitter.GridCountBroadcast.connect(GridCountUpdateSlot)
 
 
 if __name__ == "__main__":

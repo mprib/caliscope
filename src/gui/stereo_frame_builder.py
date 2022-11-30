@@ -1,8 +1,8 @@
 import logging
 
 LOG_FILE = "log\stereoframe_builder.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
+# LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
@@ -127,9 +127,6 @@ class StereoFrameBuilder:
         frameA = self.get_frame_or_blank(portA)
         frameB = self.get_frame_or_blank(portB)
 
-        # frameA = self.current_bundle[portA]["frame"]
-        # frameB = self.current_bundle[portB]["frame"]
-
         frameA, frameB = self.draw_common_corner_history(frameA, portA, frameB, portB)
         frameA, frameB = self.draw_common_corner_current(frameA, portA, frameB, portB)
 
@@ -140,6 +137,7 @@ class StereoFrameBuilder:
         return hstacked_pair
 
     def get_stereoframe_pairs(self):
+        """Build a dictionary of paired frames to be broadcast to interface"""
         frame_pairs = {}
         for pair in self.stereo_calibrator.pairs:
             frame_pairs[pair] = self.hstack_frames(pair)

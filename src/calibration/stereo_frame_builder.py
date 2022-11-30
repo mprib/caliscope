@@ -139,8 +139,7 @@ class StereoFrameBuilder:
 
         return hstacked_pair
 
-    @property
-    def stereoframe_pairs(self):
+    def get_stereoframe_pairs(self):
         frame_pairs = {}
         for pair in self.stereo_calibrator.pairs:
             frame_pairs[pair] = self.hstack_frames(pair)
@@ -179,7 +178,7 @@ if __name__ == "__main__":
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
         frame_builder.set_current_bundle()
 
-        for pair, frame in frame_builder.stereoframe_pairs.items():
+        for pair, frame in frame_builder.get_stereoframe_pairs().items():
             cv2.imshow(str(pair), frame)
 
         key = cv2.waitKey(1)

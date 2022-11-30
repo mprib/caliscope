@@ -286,8 +286,6 @@ class CameraConfigDialog(QDialog):
         self.frame_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.frame_display.setFixedWidth(self.width())
         self.frame_display.setFixedHeight(self.width())
-        w = self.frame_display.width()
-        h = self.frame_display.height()
 
         def ImageUpdateSlot(QPixmap):
             self.frame_display.setPixmap(QPixmap)

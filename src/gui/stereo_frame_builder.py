@@ -82,7 +82,7 @@ class StereoFrameBuilder:
         squares with black borders."""
         logging.debug("resizing square")
 
-        # frame = cv2.flip(frame, 1)
+        frame = cv2.flip(frame, 1)
 
         height = frame.shape[0]
         width = frame.shape[1]
@@ -144,6 +144,7 @@ class StereoFrameBuilder:
         frame_pairs = {}
         for pair in self.stereo_calibrator.pairs:
             frame_pairs[pair] = self.hstack_frames(pair)
+            print(self.stereo_calibrator.pairs)
         return frame_pairs
 
 

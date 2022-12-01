@@ -58,17 +58,14 @@ class StereoFrameEmitter(QThread):
 
     def cv2_to_qlabel(self, frame):
         Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        FlippedImage = cv2.flip(Image, 1)
 
         qt_frame = QImage(
-            FlippedImage.data,
-            FlippedImage.shape[1],
-            FlippedImage.shape[0],
+            Image.data,
+            Image.shape[1],
+            Image.shape[0],
             QImage.Format.Format_RGB888,
         )
         return qt_frame
-
-    # time.sleep(3)
 
 
 if __name__ == "__main__":

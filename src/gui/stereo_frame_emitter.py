@@ -27,8 +27,6 @@ class StereoFrameEmitter(QThread):
         super(StereoFrameEmitter, self).__init__()
         self.stereo_frame_builder = stereo_frame_builder
 
-        # stereo inputs is the dictionary (key ==pair)
-        # that holds the captured corners and count
         self.stereo_outputs = self.stereo_frame_builder.stereo_calibrator.stereo_outputs
 
     def run(self):
@@ -39,15 +37,12 @@ class StereoFrameEmitter(QThread):
             self.stereo_frame_builder.set_current_bundle()
 
             frame_dict = self.stereo_frame_builder.get_stereoframe_pairs()
-            grid_count = {}
+
             # convert cv2 frames to pixmap for dialog
             for pair, frame in frame_dict.items():
                 image = self.cv2_to_qlabel(frame)  # convert to qlabel
                 pixmap = QPixmap.fromImage(image)  # and then to pixmap
                 frame_dict[pair] = pixmap
-
-                # pre-process the grid count to get it
-                # grid_count[pair] = len(self.stereo_inputs[pair]["common_board_loc"])
 
             self.StereoFramesBroadcast.emit(frame_dict)
             self.StereoCalOutBroadcast.emit(self.stereo_outputs)

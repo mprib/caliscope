@@ -28,12 +28,14 @@ class StereoFrameBuilder:
         self.current_bundle = self.stereo_calibrator.current_bundle
 
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
-
+        """Return unaltered frame if no corner information dedected, otherwise
+        return two frames with same corners drawn"""
         if (
-            self.current_bundle[portA] is not None
-            or self.current_bundle[portB] is not None
+            "ids" not in self.current_bundle[portA]
+            or "ids" not in self.current_bundle[portB]
         ):
-
+            return frameA, frameB
+        else:
             ids_A = self.current_bundle[portA]["ids"]
             ids_B = self.current_bundle[portB]["ids"]
             common_ids = np.intersect1d(ids_A, ids_B)
@@ -55,9 +57,6 @@ class StereoFrameBuilder:
                     y = round(float(img_loc[:, 1]))
 
                     cv2.circle(frameB, (x, y), 5, (0, 0, 220), 3)
-            return frameA, frameB
-        else:
-
             return frameA, frameB
 
     def draw_common_corner_history(self, frameA, portA, frameB, portB):

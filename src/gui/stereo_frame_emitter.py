@@ -20,7 +20,7 @@ class StereoFrameEmitter(QThread):
     # establish signals from the frame that will be displayed in real time
     # within the GUI
     StereoFramesBroadcast = pyqtSignal(object)
-    GridCountBroadcast = pyqtSignal(object)
+    StereoCalOutBroadcast = pyqtSignal(object)
     # GridCountBroadcast = pyqtSignal(int)
 
     def __init__(self, stereo_frame_builder):
@@ -29,7 +29,7 @@ class StereoFrameEmitter(QThread):
 
         # stereo inputs is the dictionary (key ==pair)
         # that holds the captured corners and count
-        self.stereo_inputs = self.stereo_frame_builder.stereo_calibrator.stereo_inputs
+        self.stereo_outputs = self.stereo_frame_builder.stereo_calibrator.stereo_outputs
 
     def run(self):
         self.ThreadActive = True
@@ -47,10 +47,11 @@ class StereoFrameEmitter(QThread):
                 frame_dict[pair] = pixmap
 
                 # pre-process the grid count to get it
-                grid_count[pair] = len(self.stereo_inputs[pair]["common_board_loc"])
+                # grid_count[pair] = len(self.stereo_inputs[pair]["common_board_loc"])
 
             self.StereoFramesBroadcast.emit(frame_dict)
-            self.GridCountBroadcast.emit(grid_count)
+            self.StereoCalOutBroadcast.emit(self.stereo_outputs)
+            logging.debug(f"stereo output dictionary: {self.stereo_outputs}")
 
     def stop(self):
         self.ThreadActive = False

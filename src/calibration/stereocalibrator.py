@@ -43,6 +43,7 @@ class StereoCalibrator:
         self.build_port_list()
         self.build_uncalibrated_pairs()
         self.build_stereo_inputs()
+        self.build_stereo_outputs()
 
         # needed to determine if enough time has passed since last capture
         self.last_corner_save_time = {
@@ -88,6 +89,15 @@ class StereoCalibrator:
             for pair in self.pairs
         }
 
+    def build_stereo_outputs(self):
+        """Constructs dictionary to hold growing lists of input parameters .
+        When a list grows to the lengths of the grid_count_trigger, it will
+        commence calibration"""
+        self.stereo_outputs = {
+            pair: {"grid_count": None, "rotation": None, "translation": None}
+            for pair in self.pairs
+        }
+
     def harvest_frame_bundles(self):
         """Monitors the bundle_available_q to grab a new frame bundle and inititiate
         processing of it."""
@@ -101,7 +111,15 @@ class StereoCalibrator:
             for pair in self.uncalibrated_pairs:
                 self.store_stereo_data(pair)
 
-            self.calibrate_full_pairs()
+                grid_count = len(self.stereo_inputs[pair]["common_board_loc"])
+                self.stereo_outputs[pair]["grid_count"] = grid_count
+
+                if grid_count > self.grid_count_trigger:
+                    self.calibrate_thread = Thread(
+                        target=self.stereo_calibrate, args=[pair], daemon=True
+                    )
+                    self.calibrate_thread.start()
+            # self.calibrate_full_pairs()
 
             self.cal_frames_ready_q.put("frames ready")
 
@@ -217,16 +235,17 @@ class StereoCalibrator:
         logging.info(f"RMSE of reprojection is {ret}")
         # self.session.update_config()
 
-    def calibrate_full_pairs(self):
+    # def calibrate_full_pairs(self):
 
-        for pair in self.uncalibrated_pairs:
-            grid_count = len(self.stereo_inputs[pair]["common_board_loc"])
+    #     for pair in self.uncalibrated_pairs:
+    #         grid_count = len(self.stereo_inputs[pair]["common_board_loc"])
+    #         self.stereo_outputs["grid_count"] = grid_count
 
-            if grid_count > self.grid_count_trigger:
-                self.calibrate_thread = Thread(
-                    target=self.stereo_calibrate, args=[pair], daemon=True
-                )
-                self.calibrate_thread.start()
+    #         if grid_count > self.grid_count_trigger:
+    #             self.calibrate_thread = Thread(
+    #                 target=self.stereo_calibrate, args=[pair], daemon=True
+    #             )
+    #             self.calibrate_thread.start()
 
     def get_common_locs(self, port, common_ids):
         """Pull out objective location and image location of board corners for
@@ -245,6 +264,17 @@ class StereoCalibrator:
                 common_img_loc.append(obj)
 
         return common_img_loc, common_board_loc
+
+    def reset_pair(self, pair):
+        """Delete the stereo_inputs for a pair of cameras and add them back
+        to the list of uncalibrated pairs"""
+
+        if pair not in self.uncalibrated_pairs:
+            self.stereo_inputs[pair]["common_board_loc"] = []
+            self.stereo_inputs[pair]["img_loc_A"] = []
+            self.stereo_inputs[pair]["img_loc_B"] = []
+
+            self.uncalibrated_pairs.append(pair)
 
 
 if __name__ == "__main__":

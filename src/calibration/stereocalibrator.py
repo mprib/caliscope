@@ -94,7 +94,12 @@ class StereoCalibrator:
         When a list grows to the lengths of the grid_count_trigger, it will
         commence calibration"""
         self.stereo_outputs = {
-            pair: {"grid_count": None, "rotation": None, "translation": None}
+            pair: {
+                "grid_count": None,
+                "rotation": None,
+                "translation": None,
+                "RMSE": None,
+            }
             for pair in self.pairs
         }
 
@@ -223,9 +228,13 @@ class StereoCalibrator:
         )
 
         # TODO: update config outside of the stereocalibrator
-        # self.session.config[f"stereo_{pair[0]}_{pair[1]}_rotation"] = rotation
-        # self.session.config[f"stereo_{pair[0]}_{pair[1]}_translation"] = translation
-        # self.session.config[f"stereo_{pair[0]}_{pair[1]}_RMSE"] = ret
+
+        self.stereo_outputs[pair] = {
+            "grid_count": len(obj),
+            "rotation": rotation,
+            "translation": translation,
+            "RMSE": ret,
+        }
 
         self.uncalibrated_pairs.remove(pair)
 
@@ -269,11 +278,18 @@ class StereoCalibrator:
         """Delete the stereo_inputs for a pair of cameras and add them back
         to the list of uncalibrated pairs"""
 
-        if pair not in self.uncalibrated_pairs:
-            self.stereo_inputs[pair]["common_board_loc"] = []
-            self.stereo_inputs[pair]["img_loc_A"] = []
-            self.stereo_inputs[pair]["img_loc_B"] = []
+        self.stereo_inputs[pair]["common_board_loc"] = []
+        self.stereo_inputs[pair]["img_loc_A"] = []
+        self.stereo_inputs[pair]["img_loc_B"] = []
 
+        self.stereo_outputs[pair] = {
+            "grid_count": 0,
+            "rotation": None,
+            "translation": None,
+            "RMSE": None,
+        }
+
+        if pair not in self.uncalibrated_pairs:
             self.uncalibrated_pairs.append(pair)
 
 

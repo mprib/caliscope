@@ -29,7 +29,11 @@ class StereoFrameBuilder:
 
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
 
-        if self.current_bundle[portA] and self.current_bundle[portB]:
+        if (
+            self.current_bundle[portA] is not None
+            or self.current_bundle[portB] is not None
+        ):
+
             ids_A = self.current_bundle[portA]["ids"]
             ids_B = self.current_bundle[portB]["ids"]
             common_ids = np.intersect1d(ids_A, ids_B)
@@ -79,7 +83,7 @@ class StereoFrameBuilder:
         squares with black borders."""
         logging.debug("resizing square")
 
-        frame = cv2.flip(frame, 1)
+        # frame = cv2.flip(frame, 1)
 
         height = frame.shape[0]
         width = frame.shape[1]

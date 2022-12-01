@@ -39,8 +39,10 @@ from src.gui.stereo_frame_emitter import StereoFrameEmitter
 class StereoPairConfigDialog(QWidget):
     def __init__(self, session, pair):
         super(StereoPairConfigDialog, self).__init__()
-
-        self.stereo_frame_emitter = StereoFrameEmitter(session.stereo_frame_builder)
+        self.session = session
+        self.stereo_frame_emitter = StereoFrameEmitter(
+            self.session.stereo_frame_builder
+        )
         self.stereo_frame_emitter.start()
 
         self.pair = pair
@@ -87,7 +89,13 @@ class StereoPairConfigDialog(QWidget):
         ### hook up to incoming signal of stereo dict
         def StereoCalOutUpdateSlot(stereocal_output):
             count = str(stereocal_output[self.pair]["grid_count"])
-            error_reprojection = str(stereocal_output[self.pair]["RMSE"])
+
+            # make sure that RMSE is rounded, dealing with possibility of None
+            error_reprojection = stereocal_output[self.pair]["RMSE"]
+            if error_reprojection is not None:
+                error_reprojection = round(error_reprojection, 2)
+
+            error_reprojection = str(error_reprojection)
 
             self.grid_count.setText(f"Captured Boards: {count}")
             self.error_reprojection.setText(f"RMSE: {error_reprojection}")
@@ -98,9 +106,7 @@ class StereoPairConfigDialog(QWidget):
         self.reset_btn = QPushButton("Reset")
 
         def reset_stereo_cal():
-            self.stereo_frame_emitter.stereo_frame_builder.stereo_calibrator.reset_pair(
-                self.pair
-            )
+            self.session.stereocalibrator.reset_pair(self.pair)
 
         self.reset_btn.clicked.connect(reset_stereo_cal)
 

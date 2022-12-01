@@ -52,14 +52,14 @@ class StereoPairConfigDialog(QDialog):
 
         self.setWindowTitle("Stereocalibration")
 
-        self.build_frame_display()
+        self.build_frame_pair_group()
 
         ######## Primarily horizontal layout
         self.hbox = QHBoxLayout(self)
         self.hbox.addWidget(self.frame_display)
         self.hbox.addWidget(self.grid_count)
 
-    def build_frame_display(self):
+    def build_frame_pair_group(self):
         # return a QLabel that is linked to the constantly changing image
 
         self.frame_display = QLabel()
@@ -75,11 +75,11 @@ class StereoPairConfigDialog(QDialog):
 
         self.grid_count = QLabel()
 
-        def GridCountUpdateSlot(grid_counts):
-            count = str(grid_counts[self.pair])
+        def StereoCalOutUpdateSlot(stereocal_output):
+            count = str(stereocal_output[self.pair]["grid_count"])
             self.grid_count.setText(f"Captured Boards: {count}")
 
-        self.stereo_frame_emitter.GridCountBroadcast.connect(GridCountUpdateSlot)
+        self.stereo_frame_emitter.StereoCalOutBroadcast.connect(StereoCalOutUpdateSlot)
 
 
 if __name__ == "__main__":
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     session.load_stereo_tools()
 
     logging.info("Creating Camera Config Dialog")
-    test_pair = (0, 1)
+    test_pair = (0, 2)
     cam_dialog = StereoPairConfigDialog(session, test_pair)
 
     logging.info("About to show camera config dialog")

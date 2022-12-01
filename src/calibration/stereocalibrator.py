@@ -1,6 +1,6 @@
 import logging
 
-FILE_NAME = "stereocalibration.log"
+FILE_NAME = "log\stereocalibration.log"
 LOG_LEVEL = logging.DEBUG
 # LOG_LEVEL = logging.INFO
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
@@ -52,7 +52,7 @@ class StereoCalibrator:
         logging.info(
             f"Initiating data collection of uncalibrated pairs: {self.uncalibrated_pairs}"
         )
-
+        self.stereo_cal_running = True
         self.thread = Thread(target=self.harvest_frame_bundles, args=(), daemon=True)
         self.thread.start()
 
@@ -75,7 +75,9 @@ class StereoCalibrator:
                 i, j = j, i
             self.uncalibrated_pairs.append((i, j))
 
-        self.pairs = self.uncalibrated_pairs  # save original list for later reference
+        self.pairs = (
+            self.uncalibrated_pairs.copy()
+        )  # save original list for later reference
 
     def build_stereo_inputs(self):
         """Constructs dictionary to hold growing lists of input parameters .
@@ -83,7 +85,7 @@ class StereoCalibrator:
         commence calibration"""
         self.stereo_inputs = {
             pair: {"common_board_loc": [], "img_loc_A": [], "img_loc_B": []}
-            for pair in self.uncalibrated_pairs
+            for pair in self.pairs
         }
 
     def harvest_frame_bundles(self):
@@ -91,7 +93,7 @@ class StereoCalibrator:
         processing of it."""
         logging.debug(f"Currently {len(self.uncalibrated_pairs)} uncalibrated pairs ")
 
-        while len(self.uncalibrated_pairs) > 0:
+        while self.stereo_cal_running:
             self.bundle_available_q.get()
             self.current_bundle = self.synchronizer.current_bundle
 
@@ -134,7 +136,7 @@ class StereoCalibrator:
             time.perf_counter() - self.last_corner_save_time[pair] > self.wait_time
         )
 
-        if enough_corners and enough_time:
+        if enough_corners and enough_time and pair in self.uncalibrated_pairs:
             # add corner data to stereo_inputs
             obj, img_loc_A = self.get_common_locs(portA, common_ids)
             _, img_loc_B = self.get_common_locs(portB, common_ids)

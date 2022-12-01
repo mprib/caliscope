@@ -36,9 +36,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.gui.stereo_frame_emitter import StereoFrameEmitter
 
 
-class StereoPairConfigDialog(QWidget):
+class StereoPairWidget(QWidget):
     def __init__(self, session, pair):
-        super(StereoPairConfigDialog, self).__init__()
+        super(StereoPairWidget, self).__init__()
         self.session = session
         self.stereo_frame_emitter = StereoFrameEmitter(
             self.session.stereo_frame_builder
@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
     logging.info("Creating Camera Config Dialog")
     test_pair = (0, 2)
-    cam_dialog = StereoPairConfigDialog(session, test_pair)
+    cam_dialog = StereoPairWidget(session, test_pair)
 
     logging.info("About to show camera config dialog")
     cam_dialog.show()

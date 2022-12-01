@@ -144,7 +144,6 @@ class StereoFrameBuilder:
         frame_pairs = {}
         for pair in self.stereo_calibrator.pairs:
             frame_pairs[pair] = self.hstack_frames(pair)
-            print(self.stereo_calibrator.pairs)
         return frame_pairs
 
 
@@ -158,6 +157,7 @@ if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent
     config_path = Path(repo, "sessions", "default_session")
     print(config_path)
+
     session = Session(config_path)
     session.load_cameras()
     session.adjust_resolutions()

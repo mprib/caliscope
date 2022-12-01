@@ -216,7 +216,12 @@ class Session:
         self.config["cam_" + str(port)] = params
         self.update_config()
 
+    def save_stereocalibration(self):
+        logging.info(f"Saving stereocalibration....")
+        logging.info(self.stereocalibrator.stereo_outputs)
 
+        self.config["stereocal"] = self.stereocalibrator.stereo_outputs
+        self.update_config()
 #%%
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent

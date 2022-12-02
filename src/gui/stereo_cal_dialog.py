@@ -56,6 +56,7 @@ class StereoCalDialog(QScrollArea):
     def build_top_controls(self):
 
         self.top_controls = QHBoxLayout()
+        self.top_controls.setContentsMargins(20, 0, 20, 0)
 
         # add a spin box to control the frame rate
         self.frame_rate_spin = QSpinBox()
@@ -113,14 +114,13 @@ class StereoCalDialog(QScrollArea):
 
 
 if __name__ == "__main__":
+    from time import time
+
     from src.gui.stereo_frame_emitter import StereoFrameEmitter
     from src.session import Session
 
-    App = QApplication(sys.argv)
-
     repo = Path(__file__).parent.parent.parent
     config_path = Path(repo, "sessions", "default_session")
-    print(config_path)
     session = Session(config_path)
     session.load_cameras()
     session.load_stream_tools()
@@ -128,7 +128,8 @@ if __name__ == "__main__":
     session.load_stereo_tools()
 
     logging.info("Creating Camera Config Dialog")
-    # test_pair = (0, 2)
+
+    App = QApplication(sys.argv)
     stereo_frame_emitter = StereoFrameEmitter(session.stereo_frame_builder)
     stereo_frame_emitter.start()
     # cam_dialog = StereoPairWidget(session, test_pair)

@@ -1,6 +1,6 @@
 import logging
 
-LOG_FILE = "synchronizer.log"
+LOG_FILE = "log\synchronizer.log"
 LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
@@ -60,7 +60,7 @@ class Synchronizer:
         self.subscriptions.append(q)
 
     def harvest_frames(self, stream):
-        port = stream.cam.port
+        port = stream.camera.port
         stream.push_to_reel = True
 
         logging.info(f"Beginning to collect data generated at port {port}")

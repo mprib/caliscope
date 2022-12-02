@@ -4,6 +4,7 @@
 from itertools import combinations
 
 import cv2
+import numpy as np
 
 
 def grid_history(frame, ids, img_locs, connected_corners):
@@ -26,9 +27,12 @@ def grid_history(frame, ids, img_locs, connected_corners):
     return frame
 
 
-def corners(frame, ids, locs):
-    if len(ids) > 0:
-        for _id, coord in zip(ids[:, 0], locs[:, 0]):
+def corners(frame, locs):
+    # if type(locs) == list:
+    #     locs = np.array(locs, dtype=np.float32)
+
+    if locs.any():
+        for coord in locs[:, 0]:
             coord = list(coord)
             # print(frame.shape[1])
             x = round(coord[0])

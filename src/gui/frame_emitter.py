@@ -1,6 +1,10 @@
 import logging
 
-logging.basicConfig(filename="frame_emitter.log", filemode="w", level=logging.INFO)
+LOG_FILE = "log/frame_emitter.log"
+LOG_LEVEL = logging.DEBUG
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 from datetime import datetime
 from pathlib import Path
@@ -32,9 +36,6 @@ class FrameEmitter(QThread):
         while self.ThreadActive:
             # Grab a frame from the queue and broadcast to displays
             self.monocalibrator.grid_frame_ready_q.get()
-
-            # time_between = datetime.now() - self.last_frame_time
-            # self.last_frame_time = datetime.now()
 
             self.frame = self.monocalibrator.grid_frame
             self.apply_undistortion()

@@ -48,7 +48,9 @@ class MonoCalibrator:
 
         self.initialize_grid_history()
 
-        self.last_calibration_time = time.time()  # need to initialize to *something*
+        self.last_calibration_time = (
+            time.perf_counter()
+        )  # need to initialize to *something*
         self.collecting_corners = True
         self.thread = Thread(target=self.collect_corners, args=(), daemon=True)
         self.thread.start()
@@ -79,17 +81,22 @@ class MonoCalibrator:
         Side Effect 2: updates the image
         #TODO #13 Split out the image update to its own method that returns a modified frame
         """
+        # wait for camera to start rolling
         logging.debug("Entering collect_corners thread loop")
         while True:
-            frame_bundle_notice = self.bundle_ready_q.get()
-            self.frame = self.synchronizer.current_bundle[self.port]["frame"]
+            frame_bundle_notice = self.bundle_ready_q.get()  # enforces pause
+            frame_data = self.synchronizer.current_bundle[self.port]
+
+            if frame_data:
+                self.frame = frame_data["frame"]
+            else:
+                self.frame = np.zeros(self.image_size, dtype="uint8")
 
             self.ids = np.array([])
             self.img_loc = np.array([])
             self.board_loc = np.array([])
 
             if self.capture_corners:
-
                 (
                     self.ids,
                     self.img_loc,
@@ -102,7 +109,7 @@ class MonoCalibrator:
                     enough_corners = False
 
                 enough_time_from_last_cal = (
-                    time.time() > self.last_calibration_time + self.wait_time
+                    time.perf_counter() > self.last_calibration_time + self.wait_time
                 )
 
                 if enough_corners and enough_time_from_last_cal:
@@ -112,7 +119,7 @@ class MonoCalibrator:
                     self.all_img_loc.append(self.img_loc)
                     self.all_board_loc.append(self.board_loc)
 
-                    self.last_calibration_time = time.time()
+                    self.last_calibration_time = time.perf_counter()
                     self.update_grid_history()
 
             self.set_grid_frame()
@@ -136,7 +143,7 @@ class MonoCalibrator:
             and self.frame.shape[1] == self.grid_capture_history.shape[1]
         ):
             grid_frame = cv2.addWeighted(self.frame, 1, self.grid_capture_history, 1, 0)
-            grid_frame = draw_charuco.corners(grid_frame, self.ids, self.img_loc)
+            grid_frame = draw_charuco.corners(grid_frame, self.img_loc)
 
             self.grid_frame = grid_frame
             self.grid_frame_ready_q.put("frame ready")
@@ -201,6 +208,7 @@ if __name__ == "__main__":
     syncr = Synchronizer(streams, fps_target=10)
 
     monocal = MonoCalibrator(cam, syncr, trackr)
+    monocal.capture_corners = True
 
     print("About to enter main loop")
     while True:

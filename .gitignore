@@ -3,3 +3,6 @@ all_frames.json
 *.log
 *.pkl
 *.pyc
+*.png
+.vscode*
+.idea*

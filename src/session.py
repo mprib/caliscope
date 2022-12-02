@@ -220,8 +220,14 @@ class Session:
         logging.info(f"Saving stereocalibration....")
         logging.info(self.stereocalibrator.stereo_outputs)
 
-        self.config["stereocal"] = self.stereocalibrator.stereo_outputs
+        stereo_out = self.stereocalibrator.stereo_outputs
+        for pair, stereo_params in stereo_out.items():
+            config_key = f"stereo_{pair[0]}_{pair[1]}"
+            self.config[config_key] = stereo_params
+
         self.update_config()
+
+
 #%%
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent

@@ -23,6 +23,17 @@ class StereoFrameBuilder:
         self.stereo_calibrator = stereo_calibrator
         self.single_frame_height = single_frame_height
 
+        self.get_camera_rotation()
+
+    def get_camera_rotation(self):
+        # need to get rotation of each camera/port
+        # not happy with how deep this reach is into the object hierarchy,
+        # but doing rotation at the end avoids having to appy corrections for
+        # drawing of corners during stereocalibration
+        self.rotation_counts = {}
+        for port, stream in self.stereo_calibrator.synchronizer.streams.items():
+            self.rotation_counts[port] = stream.camera.rotation_count
+
     def set_current_bundle(self):
         self.stereo_calibrator.cal_frames_ready_q.get()  # impose wait until update
         self.current_bundle = self.stereo_calibrator.current_bundle
@@ -135,6 +146,10 @@ class StereoFrameBuilder:
 
         frameA = self.resize_to_square(frameA)
         frameB = self.resize_to_square(frameB)
+
+        frameA = self.apply_rotation(frameA, portA)
+        frameB = self.apply_rotation(frameB, portB)
+
         hstacked_pair = np.hstack((frameA, frameB))
 
         return hstacked_pair
@@ -145,6 +160,20 @@ class StereoFrameBuilder:
         for pair in self.stereo_calibrator.pairs:
             frame_pairs[pair] = self.hstack_frames(pair)
         return frame_pairs
+
+    def apply_rotation(self, frame, port):
+        logging.info("Applying Rotation")
+        rotation_count = self.rotation_counts[port]
+        if rotation_count == 0:
+            pass
+        elif rotation_count in [1, -3]:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        elif rotation_count in [2, -2]:
+            frame = cv2.rotate(frame, cv2.ROTATE_180)
+        elif rotation_count in [-1, 3]:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+        return frame
 
 
 if __name__ == "__main__":

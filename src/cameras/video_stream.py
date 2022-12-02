@@ -19,15 +19,15 @@ from src.cameras.camera import Camera
 
 
 class VideoStream:
-    def __init__(self, cam):
-        self.cam = cam
+    def __init__(self, camera):
+        self.camera = camera
         self.reel = Queue(-1)  # infinite size....hopefully doesn't blow up
         self.push_to_reel = False
 
         # Start the thread to read frames from the video stream
         self.cap_thread = Thread(target=self.roll_camera, args=(), daemon=True)
         self.cap_thread.start()
-        self.frame_name = "Cam" + str(cam.port)
+        self.frame_name = "Cam" + str(camera.port)
 
         # initialize time trackers for actual FPS determination
         self.frame_time = time.perf_counter()
@@ -56,8 +56,8 @@ class VideoStream:
         """
         self.start_time = time.time()  # used to get initial delta_t for FPS
         while True:
-            self.cam.is_rolling = True
-            if self.cam.capture.isOpened():
+            self.camera.is_rolling = True
+            if self.camera.capture.isOpened():
 
                 # wait for sync_shutter to fire
                 if self.push_to_reel:
@@ -65,7 +65,7 @@ class VideoStream:
 
                 # read in working frame
                 read_start = time.perf_counter()
-                self.status, self._working_frame = self.cam.capture.read()
+                self.status, self._working_frame = self.camera.capture.read()
                 read_stop = time.perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
 
@@ -73,19 +73,19 @@ class VideoStream:
                     self.reel.put([self.frame_time, self._working_frame])
 
                 # this may no longer be necessary...consider removing in the future
-                self.frame = self._working_frame.copy()
+                # self.frame = self._working_frame.copy()
 
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
 
                 # Stop thread if camera pulls trigger
-                if self.cam.stop_rolling_trigger:
-                    self.cam.is_rolling = False
+                if self.camera.stop_rolling_trigger:
+                    self.camera.is_rolling = False
                     break
 
     def change_resolution(self, res):
         # pull cam.stop_rolling_trigger and wait for roll_camera to stop
-        self.cam.stop_rolling()
+        self.camera.stop_rolling()
 
         # if the display isn't up and running this may error out (as when trying
         # to initialize the resolution to a non-default value)
@@ -98,10 +98,10 @@ class VideoStream:
         self.avg_delta_time = None
 
         # reconnecting a few times without disconnnect sometimes crashed python
-        self.cam.disconnect()
-        self.cam.connect()
+        self.camera.disconnect()
+        self.camera.connect()
 
-        self.cam.resolution = res
+        self.camera.resolution = res
         # Spin up the thread again now that resolution is changed
         self.cap_thread = Thread(target=self.roll_camera, args=(), daemon=True)
         self.cap_thread.start()
@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
         if key == ord("q"):
             for stream in streams:
-                stream.cam.capture.release()
+                stream.camera.capture.release()
             cv2.destroyAllWindows()
             exit(0)
 

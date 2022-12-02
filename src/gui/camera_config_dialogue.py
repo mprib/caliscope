@@ -1,6 +1,6 @@
 import logging
 
-LOG_FILE = "camera_config_dialog.log"
+LOG_FILE = "log/camera_config_dialog.log"
 LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
@@ -30,19 +30,20 @@ from PyQt6.QtWidgets import (
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from frame_emitter import FrameEmitter
 
-from src.calibration.charuco import Charuco
-from src.cameras.camera import Camera
-from src.cameras.video_stream import VideoStream
 from src.session import Session
 
 
 class CameraConfigDialog(QDialog):
-    def __init__(self, stream, monocalibrator):
+    def __init__(self, session, port):
         super(CameraConfigDialog, self).__init__()
 
-        self.monocal = monocalibrator
+        self.session = session
+        self.port = port
+
+        self.monocal = session.monocalibrators[port]
+        self.stream = session.streams[port]
         # stream reference needed to change resolution
-        self.stream = stream
+
         App = QApplication.instance()
         DISPLAY_WIDTH = App.primaryScreen().size().width()
         DISPLAY_HEIGHT = App.primaryScreen().size().height()
@@ -52,40 +53,30 @@ class CameraConfigDialog(QDialog):
         self.pixmap_edge = min(DISPLAY_WIDTH / 3, DISPLAY_HEIGHT / 3)
         self.frame_emitter = FrameEmitter(self.monocal, self.pixmap_edge)
         self.frame_emitter.start()
-        # self.setFixedSize(self.pixmap_edge, self.pixmap_edge*2)
         self.setContentsMargins(0, 0, 0, 0)
 
         ################### BUILD SUB WIDGETS #############################
-        # self.build_view_full_res_btn()
         self.build_frame_display()
         self.build_realtime_text_display()
         self.build_ccw_rotation_btn()
         self.build_cw_rotation_btn()
         self.build_resolution_combo()
         self.build_exposure_hbox()
-        # self.build_toggle_grp()
         self.build_calibrate_grp()
         ###################################################################
         self.v_box = QVBoxLayout(self)
         self.v_box.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.v_box.setContentsMargins(0, 0, 0, 0)
 
-        ################## FULL RESOLUTION LAUNCH BUTTON ######################
-        # self.v_box.addWidget(self.view_full_res_btn)
         #################      VIDEO AT TOP     ##########################
         self.v_box.addWidget(self.frame_display)
 
         ############################  ADD HBOX OF CONFIG ######################
         h_box = QHBoxLayout()
-
-        ################ ROTATE CCW #######################################
         h_box.addWidget(self.ccw_rotation_btn)
-
-        ############################## ROTATE CW ###########################
         h_box.addWidget(self.cw_rotation_btn)
-        # VBL.addWidget(self.mediapipeLabel)
-        ######################################### RESOLUTION DROPDOWN ######
         h_box.addWidget(self.resolution_combo)
+
         h_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.v_box.addLayout(h_box)
 
@@ -94,8 +85,6 @@ class CameraConfigDialog(QDialog):
 
         #######################     FPS   + Grid Count #########################
         self.v_box.addLayout(self.realtime_text_hbox)
-        ################### RADIO BUTTONS OF OVERLAY TOGGLES ##################
-        # self.v_box.addWidget(self.toggle_grp)
 
         ###################### CALIBRATION  ################################
         self.v_box.addWidget(self.calibrate_grp)
@@ -177,7 +166,7 @@ class CameraConfigDialog(QDialog):
             self.monocal.initialize_grid_history()
             self.calibrate_btn.setEnabled(False)
             self.clear_grid_history_btn.setEnabled(False)
-            self.save_cal_btn.setEnabled(False)
+            # self.save_cal_btn.setEnabled(False)
             self.undistort_btn.setEnabled(False)
             self.frame_emitter.undistort = False
 
@@ -190,13 +179,18 @@ class CameraConfigDialog(QDialog):
         vbox.addWidget(self.undistort_btn)
 
         def undistort():
-            self.frame_emitter.undistort = True
+            if self.frame_emitter.undistort:
+                self.frame_emitter.undistort = False
+                self.undistort_btn.setText("Undistort")
+            else:
+                self.frame_emitter.undistort = True
+                self.undistort_btn.setText("Revert")
 
         self.undistort_btn.clicked.connect(undistort)
 
         # Save Calibration
         self.save_cal_btn = QPushButton("Save Calibration")
-        self.save_cal_btn.setEnabled(False)
+        # self.save_cal_btn.setEnabled(False)
         self.save_cal_btn.setMaximumWidth(100)
         vbox.addWidget(self.save_cal_btn)
 
@@ -204,8 +198,7 @@ class CameraConfigDialog(QDialog):
         # here just to save. There's got to be a more modular approach to this
         # that I expect will pay dividends later
         def save_cal():
-            pass
-            # self.session.save_camera(self.monocal.camera.port)
+            self.session.save_camera(self.port)
 
         self.save_cal_btn.clicked.connect(save_cal)
 
@@ -228,7 +221,8 @@ class CameraConfigDialog(QDialog):
 
         def FPSUpdateSlot(fps):
             if self.monocal.camera.is_rolling:
-                self.fps_display.setText("FPS: " + str(round(fps, 1)))
+                # rounding to nearest integer should be close enough for our purposes
+                self.fps_display.setText("FPS: " + str(round(fps, 0)))
             else:
                 self.fps_display.setText("reconnecting to camera...")
 
@@ -292,8 +286,6 @@ class CameraConfigDialog(QDialog):
         self.frame_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.frame_display.setFixedWidth(self.width())
         self.frame_display.setFixedHeight(self.width())
-        w = self.frame_display.width()
-        h = self.frame_display.height()
 
         def ImageUpdateSlot(QPixmap):
             self.frame_display.setPixmap(QPixmap)
@@ -343,29 +335,19 @@ class CameraConfigDialog(QDialog):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
 
-    from queue import Queue
+    repo = Path(__file__).parent.parent.parent
+    config_path = Path(repo, "sessions", "default_session")
+    print(config_path)
+    session = Session(config_path)
+    session.load_cameras()
+    session.load_stream_tools()
+    session.load_monocalibrators()
 
-    config_dialogs = []
-
-    from src.calibration.corner_tracker import CornerTracker
-    from src.calibration.monocalibrator import MonoCalibrator
-    from src.cameras.camera import Camera
-    from src.cameras.synchronizer import Synchronizer
-
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
-    )
-
-    trackr = CornerTracker(charuco)
     test_port = 0
-    cam = Camera(test_port)
-    stream = VideoStream(cam)
-    streams_dict = {test_port: stream}  # synchronizer expects this format
-    syncr = Synchronizer(streams_dict, fps_target=6)
-    monocal = MonoCalibrator(cam, syncr, trackr)
 
     logging.info("Creating Camera Config Dialog")
-    cam_dialog = CameraConfigDialog(stream, monocal)
+    cam_dialog = CameraConfigDialog(session, test_port)
+
     logging.info("About to show camera config dialog")
     cam_dialog.show()
 

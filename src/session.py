@@ -1,10 +1,14 @@
-#%%
+# Manager of all created objects and the primary interface for the GUI.
+
+
 import logging
 
 LOG_FILE = "log\session.log"
 LOG_LEVEL = logging.DEBUG
+# LOG_LEVEL = logging.INFO
 
-logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -20,10 +24,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.monocalibrator import MonoCalibrator
+from src.calibration.stereocalibrator import StereoCalibrator
 from src.cameras.camera import Camera
-from src.cameras.dispatcher import Dispatcher
 from src.cameras.synchronizer import Synchronizer
 from src.cameras.video_stream import VideoStream
+from src.gui.stereo_frame_builder import StereoFrameBuilder
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10
@@ -41,7 +46,6 @@ class Session:
 
         # dictionaries of calibration related objects.
         self.monocalibrators = {}  # key = port
-        self.stereocalibrators = {}  # key = portA_portB
 
         self.load_config()
         self.load_charuco()
@@ -76,12 +80,6 @@ class Session:
         if "charuco" in self.config:
             logging.info("Loading charuco from config")
             params = self.config["charuco"]
-
-            # # TOML doesn't seem to store None when dumping to file; adjust here
-            # if "square_size_overide" in self.config["charuco"]:
-            #     sso = self.config["charuco"]["square_size_overide"]
-            # else:
-            #     sso = None
 
             self.charuco = Charuco(
                 columns=params["columns"],
@@ -154,8 +152,7 @@ class Session:
                     executor.submit(add_cam, i)
 
     def load_stream_tools(self):
-        # in addition to populating the active streams, this loads a frame
-        # synchronizer and a dispatcher for the frames
+        # in addition to populating the active streams, this loads a frame synchronizer
 
         for port, cam in self.cameras.items():
             if port in self.streams.keys():
@@ -163,10 +160,8 @@ class Session:
             else:
                 logging.info(f"Loading Stream for port {port}")
                 self.streams[port] = VideoStream(cam)
-                # self.stream[port].assign_charuco(self.charuco)
 
-        # self.synchronizer = Synchronizer(self.streams, fps_target=30)
-        # self.dispatcher = Dispatcher(self.synchronizer)
+        self.synchronizer = Synchronizer(self.streams, fps_target=6.2)
 
     def load_monocalibrators(self):
         self.corner_tracker = CornerTracker(self.charuco)
@@ -176,7 +171,13 @@ class Session:
                 pass  # only add if not added yet
             else:
                 logging.info(f"Loading Monocalibrator for port {port}")
-                self.monocalibrators[port] = MonoCalibrator(cam, self.corner_tracker)
+                self.monocalibrators[port] = MonoCalibrator(
+                    cam, self.synchronizer, self.corner_tracker
+                )
+
+    def load_stereo_tools(self):
+        self.stereocalibrator = StereoCalibrator(self.synchronizer, self.corner_tracker)
+        self.stereo_frame_builder = StereoFrameBuilder(self.stereocalibrator)
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as
@@ -215,11 +216,22 @@ class Session:
         self.config["cam_" + str(port)] = params
         self.update_config()
 
+    def save_stereocalibration(self):
+        logging.info(f"Saving stereocalibration....")
+        logging.info(self.stereocalibrator.stereo_outputs)
+
+        stereo_out = self.stereocalibrator.stereo_outputs
+        for pair, stereo_params in stereo_out.items():
+            config_key = f"stereo_{pair[0]}_{pair[1]}"
+            self.config[config_key] = stereo_params
+
+        self.update_config()
+
 
 #%%
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent
-    config_path = Path(repo, "default_session")
+    config_path = Path(repo, "sessions", "default_session")
     print(config_path)
     session = Session(config_path)
     session.update_config()

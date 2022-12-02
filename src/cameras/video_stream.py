@@ -31,8 +31,8 @@ class VideoStream:
 
         # initialize time trackers for actual FPS determination
         self.frame_time = time.perf_counter()
-        self.avg_delta_time = None
-
+        self.avg_delta_time = 1
+        
         self.shutter_sync = Queue()
 
     def get_FPS_actual(self):
@@ -47,7 +47,7 @@ class VideoStream:
         self.previous_time = self.start_time
 
         return 1 / self.avg_delta_time
-
+        # TODO: #23 avg_delta_time was zero when testing on the laptop...is this necessary?
     def roll_camera(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame,

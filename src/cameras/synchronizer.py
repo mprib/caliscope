@@ -26,7 +26,7 @@ class Synchronizer:
         self.streams = streams
 
         self.current_bundle = None
-        self.subscriptions = []  # queues that will be notified of new bundles
+        self.subscribers = []  # queues that will be notified of new bundles
 
         self.frame_data = {}
 
@@ -57,7 +57,10 @@ class Synchronizer:
         self.bundler.start()
 
     def subscribe(self, q):
-        self.subscriptions.append(q)
+        self.subscribers.append(q)
+
+    def set_record_q(self, q):
+        self.record_q = q
 
     def harvest_frames(self, stream):
         port = stream.camera.port
@@ -169,10 +172,16 @@ class Synchronizer:
             self.mean_frame_times.append(np.mean(layer_frame_times))
 
             self.current_bundle = next_layer
-            for q in self.subscriptions:
+            # notify other processes that the current bundle is ready for processing
+            # only for tasks that can risk missing a frame bundle
+            for q in self.subscribers:
                 q.put("new bundle available")
 
+            if self.record_q is not None:
+                self.record_q.put(self.current_bundle)
+
             self.fps = self.average_fps()
+
 
 
 if __name__ == "__main__":
@@ -197,7 +206,7 @@ if __name__ == "__main__":
 
     notification_q = Queue()
 
-    syncr.subscriptions.append(notification_q)
+    syncr.subscribers.append(notification_q)
 
     all_bundles = []
     while True:

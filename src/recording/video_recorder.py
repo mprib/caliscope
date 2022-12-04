@@ -131,13 +131,12 @@ if __name__ == "__main__":
     notification_q = Queue()
     syncr.subscribers.append(notification_q)
 
-    repo = Path(__file__).parent.parent.parent
-    print(repo)
-
     video_recorder = VideoRecorder(syncr)
 
     time.sleep(2)
-    video_path = Path(Path(__file__).parent, "sample")
+    repo = Path(__file__).parent.parent.parent
+    print(repo)
+    video_path = Path(repo,"examples", "recordings", "sample1")
     video_recorder.start_recording(video_path)
 
     time.sleep(6)
@@ -145,7 +144,7 @@ if __name__ == "__main__":
 
     
     time.sleep(2)
-    video_path = Path(Path(__file__).parent, "sample2")
+    video_path = Path(repo, "examples", "recordings","sample2")
     video_recorder.start_recording(video_path)
 
     time.sleep(6)

@@ -7,3 +7,4 @@ all_frames.json
 .vscode*
 .idea*
 *.mp4
+*.csv

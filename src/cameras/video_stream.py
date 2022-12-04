@@ -21,17 +21,18 @@ from src.cameras.camera import Camera
 class VideoStream:
     def __init__(self, camera):
         self.camera = camera
+        self.port = camera.port
+
         self.reel = Queue(-1)  # infinite size....hopefully doesn't blow up
         self.push_to_reel = False
 
         # Start the thread to read frames from the video stream
         self.cap_thread = Thread(target=self.roll_camera, args=(), daemon=True)
         self.cap_thread.start()
-        self.frame_name = "Cam" + str(camera.port)
 
         # initialize time trackers for actual FPS determination
         self.frame_time = time.perf_counter()
-        self.avg_delta_time = 1
+        self.avg_delta_time = 1 # trying to avoid div 0 error...not sure about this though
         
         self.shutter_sync = Queue()
 
@@ -120,8 +121,6 @@ class VideoStream:
         )
 
 
-# Highlight module functionality. View a frame with mediapipe hands
-# press "q" to quit
 if __name__ == "__main__":
     ports = [0]
 

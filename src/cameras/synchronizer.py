@@ -69,7 +69,7 @@ class Synchronizer:
         self.record_q = None
 
     def harvest_frames(self, stream):
-        port = stream.camera.port
+        port = stream.port
         stream.push_to_reel = True
 
         logging.info(f"Beginning to collect data generated at port {port}")

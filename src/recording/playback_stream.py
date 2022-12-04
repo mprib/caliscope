@@ -12,19 +12,50 @@ LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-from queue import Queue
 from pathlib import Path
-import pandas as pd
+from queue import Queue
+from threading import Thread
+
 import cv2
+import pandas as pd
 
 
 class PlaybackStream:
     def __init__(self, port, directory):
         self.port = port
         self.directory = directory
-        pass
-    
-    
+
+        video_path = str(Path(self.directory, f"port_{port}.mp4"))
+        bundle_history_path = str(Path(self.directory, f"bundle_history.csv"))
+        self.reel = Queue(-1)
+        self.capture = cv2.VideoCapture(video_path)
+
+        self.bundle_history = pd.read_csv(bundle_history_path)
+
+    def initiate_reel(self):
+
+        self.thread = Thread(target=self.feed_reel, args=[], daemon=True)
+        self.thread.start()
+
+    def feed_reel(self):
+
+        port_history = self.bundle_history[self.bundle_history["port"] == port]
+        frame_index = port_history["frame_index"].min()
+
+        while True:
+            frame_time = port_history[port_history["frame_index"] == frame_index][
+                "frame_time"
+            ]
+            frame_time = float(frame_time)
+            success, frame = self.capture.read()
+            
+            if not success:
+                break
+            
+            self.reel.put([frame_time, frame])
+            
+            frame_index+=1
+
 
 if __name__ == "__main__":
 
@@ -32,44 +63,16 @@ if __name__ == "__main__":
 
     repo = Path(__file__).parent.parent.parent
     print(repo)
-    video_path = Path(repo, "examples", "recordings", "sample1")
+    video_directory = Path(repo, "examples", "recordings", "sample1")
 
     port = 1
-    playback_stream = PlaybackStream(port=port, directory=video_path)
-
-    reel = Queue(-1)
-
-    mp4_file = str(Path(video_path, f"port_{port}.mp4"))
-    bundle_history_path =str(Path(video_path, f"bundle_history.csv")) 
+    playback_stream = PlaybackStream(port=port, directory=video_directory)
+    playback_stream.initiate_reel()
     
-    bundle_history = pd.read_csv(bundle_history_path)
-
-    port_history = bundle_history[bundle_history["port"]==port]
-
-
-    frame_index = port_history["frame_index"].min()
-
-    cap = cv2.VideoCapture(mp4_file)
-
     while True:
 
-        success, frame = cap.read()
-        key = cv2.waitKey(1)
-
-        if not success:
-            break
-
-        if key == ord("q"):
-            break
-
-
-        frame_time = port_history[port_history["frame_index"]==frame_index]["frame_time"]
-        frame_time = float(frame_time)
-
-
-        reel.put([frame_time, frame])
         # time.sleep(.03)
-        frame_time, reel_frame = reel.get()
+        frame_time, reel_frame = playback_stream.reel.get()
         cv2.imshow(str(port), reel_frame)
+        key = cv2.waitKey(1)
         print(frame_time)
-        frame_index +=1

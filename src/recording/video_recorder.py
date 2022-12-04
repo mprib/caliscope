@@ -51,7 +51,7 @@ class VideoRecorder:
                                "frame_time":[]}
         bundle_index = 0
 
-        self.bundle_in_q = Queue()
+        self.bundle_in_q = Queue(-1)
         self.syncronizer.set_record_q(self.bundle_in_q)       
 
         while self.recording:

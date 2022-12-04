@@ -32,12 +32,12 @@ class PlaybackStream:
 
         self.bundle_history = pd.read_csv(bundle_history_path)
 
-    def initiate_reel(self):
+    def start_video_to_reel(self):
 
-        self.thread = Thread(target=self.feed_reel, args=[], daemon=True)
+        self.thread = Thread(target=self.video_to_reel, args=[], daemon=True)
         self.thread.start()
 
-    def feed_reel(self):
+    def video_to_reel(self):
 
         port_history = self.bundle_history[self.bundle_history["port"] == port]
         frame_index = port_history["frame_index"].min()
@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     port = 1
     playback_stream = PlaybackStream(port=port, directory=video_directory)
-    playback_stream.initiate_reel()
+    playback_stream.start_video_to_reel()
     
     while True:
 

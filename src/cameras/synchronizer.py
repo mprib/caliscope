@@ -26,6 +26,7 @@ class Synchronizer:
         self.streams = streams
 
         self.current_bundle = None
+        self.record_q = None    #used to transmit frame bundles to recorder
         self.subscribers = []  # queues that will be notified of new bundles
 
         self.frame_data = {}
@@ -60,7 +61,12 @@ class Synchronizer:
         self.subscribers.append(q)
 
     def set_record_q(self, q):
+        logging.info("Setting record queue")
         self.record_q = q
+        
+    def release_record_q(self):
+        logging.info("Releasing record queue")
+        self.record_q = None
 
     def harvest_frames(self, stream):
         port = stream.camera.port
@@ -178,6 +184,7 @@ class Synchronizer:
                 q.put("new bundle available")
 
             if self.record_q is not None:
+                logging.debug("Placing bundle on record queue")
                 self.record_q.put(self.current_bundle)
 
             self.fps = self.average_fps()
@@ -194,7 +201,7 @@ if __name__ == "__main__":
     config_path = Path(repo, "default_session")
 
     cameras = []
-    ports = [0, 1, 2]
+    ports = [0, 1]
     for port in ports:
         cameras.append(Camera(port))
 

@@ -276,7 +276,7 @@ class SessionSummary(QMainWindow):
 
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "sessions", "default_session")
+    config_path = Path(repo, "examples", "default_session")
     print(config_path)
     session = Session(config_path)
     app = QApplication(sys.argv)

@@ -12,6 +12,7 @@ from queue import Queue
 from threading import Thread
 import cv2
 import sys
+import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.synchronizer import Synchronizer
@@ -22,56 +23,91 @@ class VideoRecorder:
         self.syncronizer = synchronizer
 
         # connect video recorder to synchronizer via a "bundle in" queue
-        self.bundle_in_q = Queue()
-        self.syncronizer.set_record_q(self.bundle_in_q)
         self.recording = False
 
-
-    def build_video_writers(self, destination_folder):
+    def build_video_writers(self):
         
         # create a dictionary of videowriters
         self.video_writers = {}
         for port, stream in self.syncronizer.streams.items():
-            # path = str(Path(str(self.destination_path), "recordings", f"video_{port}.mp4"))
-            path = str(Path(destination_folder, f"port_{port}.mp4"))
+
+            path = str(Path(self.destination_folder, f"port_{port}.mp4"))
+            logging.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
-            fps = 10 # I believe that this will work....
+            fps = self.syncronizer.fps_target
             frame_size = stream.camera.resolution
             
-            logging.info(f"Recording destination is {path}")
             writer = cv2.VideoWriter(path, fourcc,fps, frame_size )
             self.video_writers[port] = writer
 
-    def save_frame_worker(self, destination_folder):
-        self.build_video_writers(destination_folder)
+
+    def save_frame_worker(self):
+
+        self.build_video_writers()
+        # build dict that will be stored to csv
+        self.bundle_history = {"bundle_index": [],
+                               "port":[],
+                               "frame_index":[],
+                               "frame_time":[]}
+        bundle_index = 0
+
+        self.bundle_in_q = Queue()
+        self.syncronizer.set_record_q(self.bundle_in_q)       
 
         while self.recording:
             frame_bundle = self.bundle_in_q.get() 
+            logging.debug("Pulling bundle from record queue")
 
             for port, bundle in frame_bundle.items():
-                
-                frame = bundle["frame"]
-                frame_index = bundle["frame_index"]
-                frame_time = bundle["frame_time"]
+                if bundle is not None:
+                    # read in the data for this frame for this port
+                    frame = bundle["frame"]
+                    frame_index = bundle["frame_index"]
+                    frame_time = bundle["frame_time"]
 
-                self.video_writers[port].write(frame)
-                cv2.imshow(f"port: {port}", frame)
-                
-            key = cv2.waitKey(1)
-            # if key == ord('q'):
-            #     cv2.destroyAllWindows()
-            #     break
+                    # store the frame
+                    self.video_writers[port].write(frame)
+
+                    # store to assocated data in the dictionary
+                    self.bundle_history["bundle_index"].append(bundle_index)
+                    self.bundle_history["port"].append(port)
+                    self.bundle_history["frame_index"].append(frame_index)
+                    self.bundle_history["frame_time"].append(frame_time)
+
+                    # these two lines of code are just for ease of debugging 
+                    cv2.imshow(f"port: {port}", frame)
+                    key = cv2.waitKey(1)
+
+            bundle_index += 1
+
+        self.syncronizer.release_record_q()
+
+        # a proper release is strictly necessary to ensure file is readable
         for port, bundle in frame_bundle.items():
             self.video_writers[port].release()
 
+        self.store_bundle_history()
+    
+    def store_bundle_history(self):
+        df = pd.DataFrame(self.bundle_history)
+        # TODO: #25 if file exists then change the name
+        bundle_hist_path = str(Path(self.destination_folder, "bundle_history.csv"))
+        logging.info(f"Storing bundle history to {bundle_hist_path}")
+        df.to_csv(bundle_hist_path, index = False, header = True)
+        
+         
     def start_recording(self, destination_folder):
+
+        logging.info(f"All video data to be saved to {destination_folder}")
+
+        self.destination_folder = destination_folder
         self.recording = True
-        self.recording_thread = Thread(target=self.save_frame_worker, args=[destination_folder,], daemon=True)
+        self.recording_thread = Thread(target=self.save_frame_worker, args=[], daemon=True)
         self.recording_thread.start() 
+
 
     def stop_recording(self):
         self.recording = False
-
 
 
 
@@ -91,25 +127,26 @@ if __name__ == "__main__":
     for cam in cameras:
         streams[cam.port] = VideoStream(cam)
 
-    syncr = Synchronizer(streams, fps_target=25)
+    syncr = Synchronizer(streams, fps_target=30)
     notification_q = Queue()
     syncr.subscribers.append(notification_q)
 
     repo = Path(__file__).parent.parent.parent
     print(repo)
-    # destination_path = Path(repo, "sessions", "default_session", "recordings")
 
     video_recorder = VideoRecorder(syncr)
 
-    video_recorder.start_recording(Path(Path(__file__).parent, "sample"))
+    time.sleep(2)
+    video_path = Path(Path(__file__).parent, "sample")
+    video_recorder.start_recording(video_path)
 
-    time.sleep(4)
+    time.sleep(6)
     video_recorder.stop_recording()
 
-    # while True:
-    #     key = cv2.waitKey(1)
-
-    #     if key == ord("q"):
-    #         video_recorder.stop_recording() 
-    #         break
     
+    time.sleep(2)
+    video_path = Path(Path(__file__).parent, "sample2")
+    video_recorder.start_recording(video_path)
+
+    time.sleep(6)
+    video_recorder.stop_recording()

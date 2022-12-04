@@ -20,7 +20,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 class Synchronizer:
-    streams: list
 
     def __init__(self, streams: dict, fps_target):
         self.streams = streams

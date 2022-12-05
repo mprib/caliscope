@@ -194,7 +194,7 @@ if __name__ == "__main__":
 
     from src.cameras.camera import Camera
     from src.cameras.synchronizer import Synchronizer
-    from src.cameras.video_stream import VideoStream
+    from src.cameras.live_stream import LiveStream
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     trackr = CornerTracker(charuco)
     test_port = 0
     cam = Camera(0)
-    streams = {cam.port: VideoStream(cam)}
+    streams = {cam.port: LiveStream(cam)}
 
     syncr = Synchronizer(streams, fps_target=10)
 

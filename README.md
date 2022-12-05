@@ -6,7 +6,7 @@ Before tackling the larger task, I will take a smaller step by doing 3d tracking
 
 ## Recording Synched Video
 
-To avoid repeated data acquisition during development, I need a way to just run off of recorded video. Because a long-term goal is to have real-time data processing, it would be best if all post-processing could occur through the same synchronizer interface, so the system will be set up to allow playback of recorded sessions through the synchronizer via PlaybackStreams which mimic the interface of the regular VideoStream.
+To avoid repeated data acquisition during development, I need a way to just run off of recorded video. Because a long-term goal is to have real-time data processing, it would be best if all post-processing could occur through the same synchronizer interface, so the system will be set up to allow playback of recorded sessions through the synchronizer via PlaybackStreams which mimic the interface of the regular LiveStream.
 
 ## Next Step
 

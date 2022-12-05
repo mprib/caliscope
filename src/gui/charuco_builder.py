@@ -42,7 +42,7 @@ from PyQt6.QtWidgets import (
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from src.cameras.camera import Camera
-from src.cameras.video_stream import VideoStream
+from src.cameras.live_stream import LiveStream
 from src.session import Session
 
 

@@ -39,7 +39,7 @@ class RecordedStream:
 
     def video_to_reel(self):
         """Places list of [frame_time, frame] on the reel for reading by a synchronizer,
-        mimicking the behaviour of the VideoStream. 
+        mimicking the behaviour of the LiveStream. 
         """
 
         port_history = self.bundle_history[self.bundle_history["port"] == port]

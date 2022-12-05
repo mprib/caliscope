@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.camera import Camera
 
 
-class VideoStream:
+class LiveStream:
     def __init__(self, camera):
         self.camera = camera
         self.port = camera.port
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     streams = []
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
-        stream = VideoStream(cam)
+        stream = LiveStream(cam)
         # stream.assign_charuco(charuco)
         streams.append(stream)
 

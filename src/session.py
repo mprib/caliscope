@@ -27,7 +27,7 @@ from src.calibration.monocalibrator import MonoCalibrator
 from src.calibration.stereocalibrator import StereoCalibrator
 from src.cameras.camera import Camera
 from src.cameras.synchronizer import Synchronizer
-from src.cameras.video_stream import VideoStream
+from src.cameras.live_stream import LiveStream
 from src.gui.stereo_frame_builder import StereoFrameBuilder
 
 #%%
@@ -159,7 +159,7 @@ class Session:
                 pass  # only add if not added yet
             else:
                 logging.info(f"Loading Stream for port {port}")
-                self.streams[port] = VideoStream(cam)
+                self.streams[port] = LiveStream(cam)
 
         self.synchronizer = Synchronizer(self.streams, fps_target=6.2)
 

@@ -30,30 +30,33 @@ class RecordedStream:
         self.reel = Queue(-1)
         self.capture = cv2.VideoCapture(video_path)
 
-        self.bundle_history = pd.read_csv(bundle_history_path)
+        bundle_history = pd.read_csv(bundle_history_path)
 
-    def start_video_to_reel(self):
+        self.port_history = bundle_history[bundle_history["port"] == port]
+        self.start_frame_index = self.port_history["frame_index"].min()
+        self.last_frame_index = self.port_history["frame_index"].max()
+        self.shutter_sync = Queue(-1)
 
-        self.thread = Thread(target=self.video_to_reel, args=[], daemon=True)
+    def play_video(self):
+
+        self.thread = Thread(target=self.play_video_worker, args=[], daemon=True)
         self.thread.start()
 
-    def video_to_reel(self):
+    def play_video_worker(self):
         """Places list of [frame_time, frame] on the reel for reading by a synchronizer,
         mimicking the behaviour of the LiveStream. 
         """
-
-        port_history = self.bundle_history[self.bundle_history["port"] == port]
-        frame_index = port_history["frame_index"].min()
-        last_frame = port_history["frame_index"].max()
+        frame_index = self.start_frame_index
 
         while True:
-            frame_time = port_history[port_history["frame_index"] == frame_index][
+            
+            _ = self.shutter_sync.get()
+
+            frame_time = self.port_history[self.port_history["frame_index"] == frame_index][
                 "frame_time"
             ]
             frame_time = float(frame_time)
             success, frame = self.capture.read()
-
-            # print(frame_time)
 
             if not success:
                 break
@@ -62,30 +65,67 @@ class RecordedStream:
 
             frame_index += 1
 
-            if frame_index > last_frame:
+            if frame_index > self.last_frame_index:
                 self.reel.put([-1, np.array([], dtype="uint8")])
                 break
 
 
+class RecordedStreamPool:
+    
+    def __init__(self, ports, directory):
+        self.streams = {} 
+        self.ports = ports 
+        
+        for port in ports:
+            self.streams[port] = RecordedStream(port, directory)
+
+    def play_videos(self):
+        for port in ports:
+            self.streams[port].play_video()
+        
+
 if __name__ == "__main__":
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
     import time
-
+    from src.cameras.synchronizer import Synchronizer
+    
     repo = Path(__file__).parent.parent.parent
     print(repo)
     video_directory = Path(repo, "examples", "recordings", "sample2")
 
-    port = 1
-    recorded_stream = RecordedStream(port=port, directory=video_directory)
-    recorded_stream.start_video_to_reel()
+    ports = [0,1]
+    recorded_stream_pool = RecordedStreamPool(ports, video_directory)
+    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
+    recorded_stream_pool.play_videos() 
+    # recorded_stream = RecordedStream(port=port, directory=video_directory)
+    # recorded_stream.start_video_to_reel()
+    
+    notification_q = Queue()
+    syncr.subscribers.append(notification_q)
 
     while True:
-        # time.sleep(0.03)
-        frame_time, reel_frame = recorded_stream.reel.get()
-        if frame_time == -1:
+        frame_bundle_notice = notification_q.get()
+        for port, frame_data in syncr.current_bundle.items():
+            if frame_data:
+                cv2.imshow(f"Port {port}", frame_data["frame"])
+
+        key = cv2.waitKey(1)
+
+        if key == ord("q"):
             cv2.destroyAllWindows()
             break
+
+    # while True:
         
-        cv2.imshow(str(port), reel_frame)
-        key = cv2.waitKey(1)
-        # print(frame_time)
+    #     for port, stream in recorded_stream_pool.streams.items():
+    #         # time.sleep(0.03)
+    #         frame_time, reel_frame = stream.reel.get()
+    #         if frame_time == -1:
+    #             cv2.destroyAllWindows()
+    #             break
+        
+    #         cv2.imshow(str(port), reel_frame)
+        
+    #         key = cv2.waitKey(1)

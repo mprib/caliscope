@@ -7,7 +7,7 @@
 
 import logging
 
-LOG_FILE = r"log\video_recorder.log"
+LOG_FILE = r"log\recorded_stream.log"
 LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 

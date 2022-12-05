@@ -15,7 +15,7 @@ logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LO
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-
+import numpy as np
 import cv2
 import pandas as pd
 
@@ -38,9 +38,13 @@ class PlaybackStream:
         self.thread.start()
 
     def video_to_reel(self):
+        """Places list of [frame_time, frame] on the reel for reading by a synchronizer,
+        mimicking the behaviour of the VideoStream. 
+        """
 
         port_history = self.bundle_history[self.bundle_history["port"] == port]
         frame_index = port_history["frame_index"].min()
+        last_frame = port_history["frame_index"].max()
 
         while True:
             frame_time = port_history[port_history["frame_index"] == frame_index][
@@ -48,13 +52,19 @@ class PlaybackStream:
             ]
             frame_time = float(frame_time)
             success, frame = self.capture.read()
-            
+
+            # print(frame_time)
+
             if not success:
                 break
-            
+
             self.reel.put([frame_time, frame])
-            
-            frame_index+=1
+
+            frame_index += 1
+
+            if frame_index > last_frame:
+                self.reel.put([-1, np.array([], dtype="uint8")])
+                break
 
 
 if __name__ == "__main__":
@@ -63,16 +73,19 @@ if __name__ == "__main__":
 
     repo = Path(__file__).parent.parent.parent
     print(repo)
-    video_directory = Path(repo, "examples", "recordings", "sample1")
+    video_directory = Path(repo, "examples", "recordings", "sample2")
 
     port = 1
     playback_stream = PlaybackStream(port=port, directory=video_directory)
     playback_stream.start_video_to_reel()
-    
-    while True:
 
-        # time.sleep(.03)
+    while True:
+        # time.sleep(0.03)
         frame_time, reel_frame = playback_stream.reel.get()
+        if frame_time == -1:
+            cv2.destroyAllWindows()
+            break
+        
         cv2.imshow(str(port), reel_frame)
         key = cv2.waitKey(1)
-        print(frame_time)
+        # print(frame_time)

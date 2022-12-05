@@ -176,6 +176,7 @@ class Session:
                 )
 
     def load_stereo_tools(self):
+        self.corner_tracker = CornerTracker(self.charuco)
         self.stereocalibrator = StereoCalibrator(self.synchronizer, self.corner_tracker)
         self.stereo_frame_builder = StereoFrameBuilder(self.stereocalibrator)
 

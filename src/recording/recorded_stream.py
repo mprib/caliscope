@@ -20,7 +20,7 @@ import cv2
 import pandas as pd
 
 
-class PlaybackStream:
+class RecordedStream:
     def __init__(self, port, directory):
         self.port = port
         self.directory = directory
@@ -76,12 +76,12 @@ if __name__ == "__main__":
     video_directory = Path(repo, "examples", "recordings", "sample2")
 
     port = 1
-    playback_stream = PlaybackStream(port=port, directory=video_directory)
-    playback_stream.start_video_to_reel()
+    recorded_stream = RecordedStream(port=port, directory=video_directory)
+    recorded_stream.start_video_to_reel()
 
     while True:
         # time.sleep(0.03)
-        frame_time, reel_frame = playback_stream.reel.get()
+        frame_time, reel_frame = recorded_stream.reel.get()
         if frame_time == -1:
             cv2.destroyAllWindows()
             break

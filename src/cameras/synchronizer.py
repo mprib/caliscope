@@ -214,7 +214,6 @@ if __name__ == "__main__":
 
     syncr.subscribers.append(notification_q)
 
-    all_bundles = []
     while True:
         frame_bundle_notice = notification_q.get()
         for port, frame_data in syncr.current_bundle.items():

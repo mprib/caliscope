@@ -116,7 +116,7 @@ if __name__ == "__main__":
     import time
 
     from src.cameras.camera import Camera
-    from src.cameras.video_stream import VideoStream
+    from src.cameras.live_stream import LiveStream
 
     cameras = []
     ports = [0, 1]
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
     streams = {}
     for cam in cameras:
-        streams[cam.port] = VideoStream(cam)
+        streams[cam.port] = LiveStream(cam)
 
     syncr = Synchronizer(streams, fps_target=30)
     notification_q = Queue()

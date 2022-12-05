@@ -194,7 +194,7 @@ if __name__ == "__main__":
 
     # DON"T DEAL WITH THE SESSION OBJECT IN TESTS...ONLY MORE FOUNDATIONAL ELEMENTS
     from src.cameras.camera import Camera
-    from src.cameras.video_stream import VideoStream
+    from src.cameras.live_stream import LiveStream
 
     repo = Path(__file__).parent.parent.parent
     config_path = Path(repo, "default_session")
@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
     streams = {}
     for cam in cameras:
-        streams[cam.port] = VideoStream(cam)
+        streams[cam.port] = LiveStream(cam)
 
     syncr = Synchronizer(streams, fps_target=25)
 

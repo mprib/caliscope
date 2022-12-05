@@ -124,7 +124,7 @@ if __name__ == "__main__":
     session = Session(config_path)
     session.load_cameras()
     session.load_stream_tools()
-    session.load_monocalibrators()
+    # session.load_monocalibrators()
     session.load_stereo_tools()
 
     logging.info("Creating Camera Config Dialog")
@@ -132,7 +132,9 @@ if __name__ == "__main__":
     App = QApplication(sys.argv)
     stereo_frame_emitter = StereoFrameEmitter(session.stereo_frame_builder)
     stereo_frame_emitter.start()
+
     # cam_dialog = StereoPairWidget(session, test_pair)
+
     stereo_cal = StereoCalDialog(session, stereo_frame_emitter)
     logging.info("About to show camera config dialog")
     stereo_cal.show()

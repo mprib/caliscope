@@ -40,7 +40,8 @@ from camera_table import CameraTable
 from src.gui.camera_config_dialogue import CameraConfigDialog
 from src.gui.charuco_builder import CharucoBuilder
 from src.session import Session
-
+from src.gui.stereo_cal_dialog import StereoCalDialog
+from src.gui.stereo_frame_emitter import StereoFrameEmitter
 
 class MainWindow(QMainWindow):
     def __init__(self, session):
@@ -71,6 +72,7 @@ class MainWindow(QMainWindow):
         self.summary.open_cameras_btn.clicked.connect(self.open_cams)
         self.summary.connect_cams_btn.clicked.connect(self.connect_cams)
         self.summary.find_cams_btn.clicked.connect(self.find_additional_cams)
+        self.summary.launch_stereo_cal_btn.clicked.connect(self.launch_stereo_cal)
 
     def open_cams(self):
 
@@ -109,17 +111,24 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.charuco_builder, "Charuco Builder")
         # self.tabs["Charuco Builder"].setClosable(True)
 
+    def launch_stereo_cal(self):
+        self.session.load_stereo_tools()
+        self.stereo_frame_emitter = StereoFrameEmitter(self.session.stereo_frame_builder)
+        self.stereo_frame_emitter.start()
+        self.stereocal_dialog = StereoCalDialog(self.session,self.stereo_frame_emitter) 
+        self.tabs.addTab(self.stereocal_dialog, "Stereocalibration")
+
     def find_additional_cams(self):
         def find_cam_worker():
 
             self.session.find_additional_cameras()
-            logging.debug("Loading streams")
+            logging.info("Loading streams")
             self.session.load_stream_tools()
-            logging.debug("Loading monocalibrators")
+            logging.info("Loading monocalibrators")
             self.session.load_monocalibrators()
-            logging.debug("Adjusting resolutions")
+            logging.info("Adjusting resolutions")
             self.session.adjust_resolutions()
-            logging.debug("Updating Camera Table")
+            logging.info("Updating Camera Table")
             self.summary.camera_table.update_data()
 
             self.summary.open_cameras_btn.click()
@@ -136,15 +145,15 @@ class MainWindow(QMainWindow):
     def connect_cams(self):
         def connect_cam_worker():
             self.cams_in_process = True
-            logging.debug("Loading Cameras")
+            logging.info("Loading Cameras")
             self.session.load_cameras()
-            logging.debug("Loading streams")
+            logging.info("Loading streams")
             self.session.load_stream_tools()
-            logging.debug("Adjusting resolutions")
+            logging.info("Adjusting resolutions")
             self.session.adjust_resolutions()
-            logging.debug("Loading monocalibrators")
+            logging.info("Loading monocalibrators")
             self.session.load_monocalibrators()
-            logging.debug("Updating Camera Table")
+            logging.info("Updating Camera Table")
             self.summary.camera_table.update_data()
 
             # trying to call open_cams() directly created a weird bug that
@@ -272,13 +281,18 @@ class SessionSummary(QMainWindow):
     def build_stereo_summary(self):
         stereo_summary = QGroupBox("Stereocalibration")
         self.vbox.addWidget(stereo_summary)
-
+        self.launch_stereo_cal_btn = QPushButton("Launch Stereocalibrator")
+        stereo_vbox = QVBoxLayout()
+        stereo_summary.setLayout(stereo_vbox)
+        stereo_vbox.addWidget(self.launch_stereo_cal_btn)
 
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent
     config_path = Path(repo, "examples", "default_session")
     print(config_path)
     session = Session(config_path)
+    # session.delete_all_cam_data()
+
     app = QApplication(sys.argv)
 
     window = MainWindow(session)

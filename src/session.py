@@ -102,6 +102,22 @@ class Session:
         self.config["charuco"] = self.charuco.__dict__
         logging.info(f"Saving charuco with params {self.charuco.__dict__} to config")
         self.update_config()
+        
+    def delete_camera(self, port_to_delete):
+        for key, params in self.config.copy().items():
+            if key.startswith("cam"):
+                port = params["port"]
+                if port == port_to_delete:
+                    del self.config[key]
+                    
+    def delete_all_cam_data(self):
+        for key, params in self.config.copy().items():
+            if key.startswith("cam"):
+                del self.config[key]
+            if key.startswith("stereo"):
+                del self.config[key]
+                
+        self.update_config()
 
     def load_cameras(self):
         def add_preconfigured_cam(params):

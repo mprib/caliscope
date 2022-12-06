@@ -4,8 +4,6 @@
 from collections import defaultdict
 from itertools import combinations
 import cv2
-from numpy import char
-import json
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QImage, QPixmap
 
@@ -220,7 +218,7 @@ if __name__ == "__main__":
 
     print(f"Charuco dictionary: {charuco.__dict__}") 
     while True:
-        cv2.imshow("Charuco Board", charuco.board_img)
+        cv2.imshow("Charuco Board...'q' to quit", charuco.board_img)
         # 
         key = cv2.waitKey(0)
         if key == ord('q'):

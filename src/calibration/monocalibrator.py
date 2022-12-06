@@ -1,7 +1,3 @@
-# There may be a mixed functionality here...I'm not sure. Between the corner
-# detector and the corner drawer...like, there will need to be something that
-# accumulates a frame of corners to be drawn onto the displayed frame.
-
 import logging
 
 LOG_LEVEL = logging.DEBUG
@@ -79,19 +75,20 @@ class MonoCalibrator:
         that enough time has past since the last set was recorded
 
         Side Effect 2: updates the image
-        #TODO #13 Split out the image update to its own method that returns a modified frame
         """
         # wait for camera to start rolling
         logging.debug("Entering collect_corners thread loop")
         while True:
-            frame_bundle_notice = self.bundle_ready_q.get()  # enforces pause
+            _ = self.bundle_ready_q.get()  # enforces pause
             frame_data = self.synchronizer.current_bundle[self.port]
 
+            # create  a blank frame to fill dropped frames
             if frame_data:
                 self.frame = frame_data["frame"]
             else:
                 self.frame = np.zeros(self.image_size, dtype="uint8")
 
+            # need to initialize to numpy arrays otherwise error if no corners detected
             self.ids = np.array([])
             self.img_loc = np.array([])
             self.board_loc = np.array([])

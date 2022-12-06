@@ -104,6 +104,7 @@ class Session:
         self.update_config()
         
     def delete_camera(self, port_to_delete):
+        # note: needs to be a copy to avoid errors while dict changes with deletion
         for key, params in self.config.copy().items():
             if key.startswith("cam"):
                 port = params["port"]
@@ -111,6 +112,7 @@ class Session:
                     del self.config[key]
                     
     def delete_all_cam_data(self):
+        # note: needs to be a copy to avoid errors while dict changes with deletion
         for key, params in self.config.copy().items():
             if key.startswith("cam"):
                 del self.config[key]
@@ -119,6 +121,13 @@ class Session:
                 
         self.update_config()
 
+    def camera_count(self):
+        cam_count = 0
+        for key in self.config.keys():
+            if key.startswith("cam"):
+                cam_count+=1
+        return cam_count
+    
     def load_cameras(self):
         def add_preconfigured_cam(params):
             try:

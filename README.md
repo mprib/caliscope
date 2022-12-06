@@ -1,4 +1,4 @@
-# Overview
+# Current Functionality
 
 To launch the primary functionality of the repo, run `src\gui\main.py`. This will open a dialog to begin a calibration session. The session data is stored in `src\examples\default_session\config.toml`, though this will largely be overwritten when first launched. The over-write can be turned off by commenting out a line of code in the `if __name__ == "__main__"` section of the module (comments point this line of code out).
 

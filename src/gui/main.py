@@ -17,7 +17,7 @@ from threading import Thread
 
 from numpy import char
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QIcon, QPalette
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QGroupBox,
@@ -42,6 +42,7 @@ from src.gui.charuco_builder import CharucoBuilder
 from src.session import Session
 from src.gui.stereo_cal_dialog import StereoCalDialog
 from src.gui.stereo_frame_emitter import StereoFrameEmitter
+
 
 class MainWindow(QMainWindow):
     def __init__(self, session):
@@ -113,9 +114,11 @@ class MainWindow(QMainWindow):
 
     def launch_stereo_cal(self):
         self.session.load_stereo_tools()
-        self.stereo_frame_emitter = StereoFrameEmitter(self.session.stereo_frame_builder)
+        self.stereo_frame_emitter = StereoFrameEmitter(
+            self.session.stereo_frame_builder
+        )
         self.stereo_frame_emitter.start()
-        self.stereocal_dialog = StereoCalDialog(self.session,self.stereo_frame_emitter) 
+        self.stereocal_dialog = StereoCalDialog(self.session, self.stereo_frame_emitter)
         self.tabs.addTab(self.stereocal_dialog, "Stereocalibration")
 
     def find_additional_cams(self):
@@ -134,7 +137,8 @@ class MainWindow(QMainWindow):
             self.summary.open_cameras_btn.click()
 
             self.cams_in_process = False
-
+            self.summary.connect_cams_btn.setEnabled(True)
+            
         if not self.cams_in_process:
             print("Searching for additional cameras...This may take a moment.")
             self.find = Thread(target=find_cam_worker, args=(), daemon=True)
@@ -260,20 +264,17 @@ class SessionSummary(QMainWindow):
         left_vbox = QVBoxLayout()
 
         self.camera_table = CameraTable(self.session)
-        # self.camera_table.setFixedSize(self.width(),self.height() )
         self.camera_table.setFixedSize(250, 150)
-        # self.camera_table.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
         left_vbox.addWidget(self.camera_table)
         self.connect_cams_btn = QPushButton("&Connect to Cameras")
 
+        if self.session.camera_count() == 0:
+            self.connect_cams_btn.setEnabled(False)
+            
         left_vbox.addWidget(self.connect_cams_btn)
         self.find_cams_btn = QPushButton("&Find Additional Cameras")
         left_vbox.addWidget(self.find_cams_btn)
-        # self.close_cameras_btn = QPushButton("Close Cameras")
-        # self.open_cameras_btn.clicked.connect(open_cams)
 
-        # left_vbox.addWidget(self.open_cameras_btn)
-        # left_vbox.addWidget(self.close_cameras_btn)
         self.open_cameras_btn = QPushButton("Open Cameras")  # this button is invisible
 
         self.cam_hbox.addLayout(left_vbox)
@@ -286,12 +287,15 @@ class SessionSummary(QMainWindow):
         stereo_summary.setLayout(stereo_vbox)
         stereo_vbox.addWidget(self.launch_stereo_cal_btn)
 
+
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent
     config_path = Path(repo, "examples", "default_session")
     print(config_path)
     session = Session(config_path)
-    # session.delete_all_cam_data()
+
+    # comment out this next line if you want to save cameras after closing
+    session.delete_all_cam_data() 
 
     app = QApplication(sys.argv)
 

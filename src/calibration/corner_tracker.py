@@ -34,9 +34,8 @@ class CornerTracker:
         self.conv_size = (11, 11)  # Don't make this too large.
 
     def get_corners(self, frame):
-        """Will check for corners in the default board image, if it doesn't
-        find any, then it will look for images in the mirror image of the
-        default board"""
+        """Will check for charuco corners in the frame, if it doesn't find any, 
+        then it will look for corners in the mirror image of the frame"""
 
         self.ids = np.array([])
         self.img_loc = np.array([])

@@ -34,8 +34,8 @@ class CameraData:
     error: float
 
     def __post_init__(self): 
-        # initialize to origin
         self.mesh = CameraMesh(self.resolution, self.camera_matrix).mesh
+        # initialize to origin
         self.translation = np.array([0,0,0])
         self.rotation = np.array([[1,0,0],[0,1,0],[0,0,1]])
 
@@ -103,7 +103,7 @@ class StereoTriangulator:
         # express location of camera B relative to Camera A
         rot, trans = self.extrinsic_params()
         self.camera_B.rotation = rot
-        self.camera_B.translation = trans.squeeze() # may come in with extra dims        
+        self.camera_B.translation = trans # may come in with extra dims        
 
         self.camera_B.translate_mesh()
         self.camera_B.rotate_mesh()
@@ -111,9 +111,12 @@ class StereoTriangulator:
     def get_camera_at_origin(self, port):
         
         data = self.config[f"cam_{port}"]
+
         resolution = tuple(data["resolution"])
         camera_matrix = np.array(data["camera_matrix"], dtype=np.float64)
-        cam_data = CameraData(port, resolution, camera_matrix, data["error"]) 
+        error = data["error"]
+
+        cam_data = CameraData(port, resolution, camera_matrix, error) 
         logging.info(f"Loading camera data at port {port}: {str(cam_data)}")
 
         return cam_data
@@ -121,9 +124,9 @@ class StereoTriangulator:
     def extrinsic_params(self):
              
         data = self.config[f"stereo_{self.portA}_{self.portB}"]
-        rotation = np.array(data["rotation"], dtype= np.float64)
-        translation = np.array(data["translation"], dtype= np.float64)
-        error = data["RMSE"]
+        rotation = np.array(data["rotation"], dtype= np.float64).squeeze()
+        translation = np.array(data["translation"], dtype= np.float64).squeeze()
+        stereo_error = data["RMSE"]
 
         logging.info(f"Loading stereo data for ports {self.portA} and {self.portB}: {data}")
         

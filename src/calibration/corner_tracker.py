@@ -53,7 +53,7 @@ class CornerTracker:
             self.gray = cv2.flip(self.gray, 1)
             self.find_corners_single_frame(mirror=True)
 
-        return self.ids, self.img_loc, self.board_loc
+        return self.ids.squeeze(), self.img_loc.squeeze(), self.board_loc.squeeze()
 
     def find_points(self, frame):
         """Used as the interface for the paired points locator which will expect to get 

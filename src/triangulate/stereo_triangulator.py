@@ -92,16 +92,11 @@ class StereoTriangulator:
         
         return rotation, translation   
     
-    
-    
         
 if __name__ == "__main__":
 
     sample_config_path  = str(Path(Path(__file__).parent, "sample_data", "config.toml"))
     triangulatr = StereoTriangulator(0,1,sample_config_path)    
     
-    
-    # meshA = triangulatr.get_mesh(0)
-    # meshB = triangulatr.get_mesh(1)
 
    

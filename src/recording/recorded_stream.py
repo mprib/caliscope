@@ -80,7 +80,7 @@ class RecordedStreamPool:
             self.streams[port] = RecordedStream(port, directory)
 
     def play_videos(self):
-        for port in ports:
+        for port in self.ports:
             self.streams[port].play_video()
         
 
@@ -116,16 +116,3 @@ if __name__ == "__main__":
         if key == ord("q"):
             cv2.destroyAllWindows()
             break
-
-    # while True:
-        
-    #     for port, stream in recorded_stream_pool.streams.items():
-    #         # time.sleep(0.03)
-    #         frame_time, reel_frame = stream.reel.get()
-    #         if frame_time == -1:
-    #             cv2.destroyAllWindows()
-    #             break
-        
-    #         cv2.imshow(str(port), reel_frame)
-        
-    #         key = cv2.waitKey(1)

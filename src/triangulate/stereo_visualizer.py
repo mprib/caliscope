@@ -26,9 +26,6 @@ class StereoVisualizer:
     def __init__(self, triangulator):
         self.triangulator = triangulator
         
-        # self.cam_A = triangulator.camera_A
-        # self.cam_B = triangulator.camera_B
-
         self.mesh_A = mesh_from_camera(triangulator.camera_A)
         self.mesh_B = mesh_from_camera(triangulator.camera_B)
 

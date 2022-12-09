@@ -103,7 +103,7 @@ if __name__ == "__main__":
     # recorded_stream.start_video_to_reel()
     
     notification_q = Queue()
-    syncr.subscribers.append(notification_q)
+    syncr.notice_subscribers.append(notification_q)
 
     while True:
         frame_bundle_notice = notification_q.get()

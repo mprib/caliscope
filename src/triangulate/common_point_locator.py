@@ -71,6 +71,7 @@ class PairedPointsLocator:
                     logging.debug(
                         f"Points in common for ports {pair}: \n {common_points}"
                     )
+                    self.paired_points_q.put(common_points)
 
 
 if __name__ == "__main__":
@@ -105,14 +106,18 @@ if __name__ == "__main__":
         pairs=pairs,
     )
 
-    while syncr.continue_synchronizing:
-        frame_bundle_notice = notification_q.get()
-        for port, frame_data in syncr.current_bundle.items():
-            if frame_data:
-                cv2.imshow(f"Port {port}", frame_data["frame"])
+    # while syncr.continue_synchronizing:
+    #     frame_bundle_notice = notification_q.get()
+    #     for port, frame_data in syncr.current_bundle.items():
+    #         if frame_data:
+    #             cv2.imshow(f"Port {port}", frame_data["frame"])
 
-        key = cv2.waitKey(1)
+    #     key = cv2.waitKey(1)
 
-        if key == ord("q"):
-            cv2.destroyAllWindows()
-            break
+    #     if key == ord("q"):
+    #         cv2.destroyAllWindows()
+    #         break
+
+    while True:
+        common_points = locatr.paired_points_q.get()
+        print(common_points)

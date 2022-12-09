@@ -66,9 +66,11 @@ class PairedPointsLocator:
                         points[pair[1]],
                         on="ids",
                         how="inner",
-                        suffixes=[f"_{pair[0]}",f"_{pair[1]}"]
+                        suffixes=[f"_{pair[0]}", f"_{pair[1]}"],
                     )
-                    logging.debug(f"Points in common for ports {pair}: \n {common_points}")
+                    logging.debug(
+                        f"Points in common for ports {pair}: \n {common_points}"
+                    )
 
 
 if __name__ == "__main__":

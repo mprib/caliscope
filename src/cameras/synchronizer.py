@@ -20,14 +20,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 class Synchronizer:
-
     def __init__(self, streams: dict, fps_target):
         self.streams = streams
 
         self.current_bundle = None
-        self.record_q = None    #used to transmit frame bundles to recorder
-        self.subscribers = []  # queues that will be notified of new bundles
 
+        self.notice_subscribers = []  # queues that will be notified of new bundles
+        self.bundle_subscribers = []
+        
         self.frame_data = {}
 
         self.ports = []
@@ -56,16 +56,20 @@ class Synchronizer:
         self.bundler = Thread(target=self.bundle_frames, args=(), daemon=True)
         self.bundler.start()
 
-    def subscribe(self, q):
-        self.subscribers.append(q)
+    def subscribe_to_notice(self, q):
+        # subscribers are notified via the queue that a new frame bundle is available
+        # this is intended to avoid issues with latency due to multiple iterations
+        # of frames being passed from one queue to another
+        logging.info("Adding queue to receive notice of bundle update")
+        self.notice_subscribers.append(q)
 
-    def set_record_q(self, q):
-        logging.info("Setting record queue")
-        self.record_q = q
-        
-    def release_record_q(self):
+    def subscribe_to_bundle(self, q):
+        logging.info("Adding queue to receive frame bundle")
+        self.bundle_subscribers.append(q)
+
+    def release_bundle_q(self,q):
         logging.info("Releasing record queue")
-        self.record_q = None
+        self.bundle_subscribers.remov(q)
 
     def harvest_frames(self, stream):
         port = stream.port
@@ -179,15 +183,14 @@ class Synchronizer:
             self.current_bundle = next_layer
             # notify other processes that the current bundle is ready for processing
             # only for tasks that can risk missing a frame bundle
-            for q in self.subscribers:
+            for q in self.notice_subscribers:
                 q.put("new bundle available")
 
-            if self.record_q is not None:
+            for q in self.bundle_subscribers:
                 logging.debug("Placing bundle on record queue")
-                self.record_q.put(self.current_bundle)
+                q.put(self.current_bundle)
 
             self.fps = self.average_fps()
-
 
 
 if __name__ == "__main__":
@@ -212,7 +215,7 @@ if __name__ == "__main__":
 
     notification_q = Queue()
 
-    syncr.subscribers.append(notification_q)
+    syncr.subscribe_to_notice(notification_q)
 
     while True:
         frame_bundle_notice = notification_q.get()

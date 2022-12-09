@@ -16,7 +16,7 @@ from pathlib import Path
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 
-sys.path.insert(0,str(Path(__file__).parent.parent.parent))
+sys.path.insert(0,str(Path(__file__).parent.parent.parent.parent))
 
 from src.triangulate.visualization.camera_mesh import CameraMesh
 from src.triangulate.stereo_triangulator import CameraData
@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     from src.triangulate.stereo_triangulator import StereoTriangulator
     
-    sample_config_path  = str(Path(Path(__file__).parent, "sample_data", "config.toml"))
+    sample_config_path  = str(Path(Path(__file__).parent.parent, "sample_data", "config.toml"))
     trigr = StereoTriangulator(0,1,sample_config_path)    
 
     vizr = StereoVisualizer(trigr)

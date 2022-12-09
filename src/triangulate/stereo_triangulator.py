@@ -39,45 +39,7 @@ class CameraData:
         self.translation = np.array([0,0,0])
         self.rotation = np.array([[1,0,0],[0,1,0],[0,0,1]])
 
-    def translate_mesh(self):
-        scale_factor = 100
-        x,y,z = [t/scale_factor for t in self.translation]
-        self.mesh.translate(x,y,z)
-        logging.info(f"Translating: {self.translation}")
-        logging.info(f"Translation: x: {x}, y: {y}, z: {z}")
-
-    def rotate_mesh(self):
-
-        logging.info(f"Rotating: {self.rotation}")
-        euler_angles = rotationMatrixToEulerAngles(self.rotation)
-        euler_angles_deg = [x*(180/math.pi) for x in euler_angles] 
-        x = euler_angles_deg[0]
-        y = euler_angles_deg[1]
-        z = euler_angles_deg[2]
-
-        logging.info(f"Rotating (x,y,z euler angles): {euler_angles_deg}")
-        logging.info(f"x: {x}, y: {y}, z: {z}")
-        self.mesh.rotate(x,1,0,0, local=True)
-        self.mesh.rotate(y,0,1,0, local=True)
-        self.mesh.rotate(z,0,0,1, local=True)
-
  
-def rotationMatrixToEulerAngles(R):
- 
-    sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
- 
-    singular = sy < 1e-6
- 
-    if  not singular :
-        x = math.atan2(R[2,1] , R[2,2])
-        y = math.atan2(-R[2,0], sy)
-        z = math.atan2(R[1,0], R[0,0])
-    else :
-        x = math.atan2(-R[1,2], R[1,1])
-        y = math.atan2(-R[2,0], sy)
-        z = 0
- 
-    return np.array([x, y, z])   
     
 class StereoTriangulator:
     # created from a config.toml file, points within each camera frame can be provided to it
@@ -105,8 +67,6 @@ class StereoTriangulator:
         self.camera_B.rotation = rot
         self.camera_B.translation = trans # may come in with extra dims        
 
-        self.camera_B.translate_mesh()
-        self.camera_B.rotate_mesh()
 
     def get_camera_at_origin(self, port):
         

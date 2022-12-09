@@ -44,6 +44,8 @@ class Synchronizer:
         if fps_target is not None:
             self.fps = fps_target
 
+        self.continue_synchronizing = True
+
         logging.info("About to submit Threadpool of frame Harvesters")
         self.threads = []
         for port, stream in self.streams.items():
@@ -78,7 +80,7 @@ class Synchronizer:
         logging.info(f"Beginning to collect data generated at port {port}")
         frame_index = 0
 
-        while True:
+        while self.continue_synchronizing:
 
             (
                 frame_time,
@@ -91,6 +93,9 @@ class Synchronizer:
                 "frame_index": frame_index,
                 "frame_time": frame_time,
             }
+
+            if frame_time == -1:    # signals end of recorded files
+                self.continue_synchronizing=False
 
             frame_index += 1
             self.port_frame_count[port] = frame_index
@@ -139,7 +144,7 @@ class Synchronizer:
         sync_time = time.perf_counter()
 
         logging.info("About to start bundling frames...")
-        while True:
+        while self.continue_synchronizing:
 
             # if too much slack, need to burn off so skip waiting and adding new frames
             if self.frame_slack() < 2:
@@ -174,8 +179,10 @@ class Synchronizer:
                     next_layer[port] = self.frame_data.pop(port_index_key)
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
+                    logging.debug(f"Frame Time: {frame_time}")
                 else:
                     next_layer[port] = None
+                    
             logging.debug(f"Unassigned Frames: {len(self.frame_data)}")
 
             self.mean_frame_times.append(np.mean(layer_frame_times))
@@ -187,7 +194,7 @@ class Synchronizer:
                 q.put("new bundle available")
 
             for q in self.bundle_subscribers:
-                logging.debug("Placing bundle on record queue")
+                logging.debug("Placing bundle on subscribers queue")
                 q.put(self.current_bundle)
 
             self.fps = self.average_fps()

@@ -52,7 +52,7 @@ class VideoRecorder:
         bundle_index = 0
 
         self.bundle_in_q = Queue(-1)
-        self.syncronizer.set_record_q(self.bundle_in_q)       
+        self.syncronizer.subscribe_to_bundle(self.bundle_in_q)       
 
         while self.recording:
             frame_bundle = self.bundle_in_q.get() 
@@ -80,7 +80,7 @@ class VideoRecorder:
 
             bundle_index += 1
 
-        self.syncronizer.release_record_q()
+        self.syncronizer.release_bundle_q(self.bundle_in_q)
 
         # a proper release is strictly necessary to ensure file is readable
         for port, bundle in frame_bundle.items():
@@ -124,33 +124,22 @@ if __name__ == "__main__":
     print(f"Config Path: {config_path}")
     session = Session(config_path)
 
-    # cameras = []
-    # ports = [0, 1]
-    # for port in ports:
-    #     cameras.append(Camera(port))
-
-    # streams = {}
-    # for cam in cameras:
-    #     streams[cam.port] = LiveStream(cam)
-
-    # syncr = Synchronizer(streams, fps_target=30)
-
     session.load_cameras()
-    time.sleep(5)
+    # time.sleep(5)
     #TODO: camera resolution adjustment not happening prior to recording
     session.load_stream_tools()
-    session.adjust_resolutions()
+    # session.adjust_resolutions()
 
     syncr = Synchronizer(session.streams, fps_target=30)
     notification_q = Queue()
-    syncr.subscribers.append(notification_q)
+    syncr.notice_subscribers.append(notification_q)
 
     video_recorder = VideoRecorder(syncr)
 
     # time.sleep(2)
     repo = Path(__file__).parent.parent.parent
     print(repo)
-    video_path = Path(repo,"examples", "recordings", "stereo_track_charuco")
+    video_path = Path(repo,"examples", "recordings", "sample1")
     video_recorder.start_recording(video_path)
-    time.sleep(10)
+    time.sleep(5)
     video_recorder.stop_recording()

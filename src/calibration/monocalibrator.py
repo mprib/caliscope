@@ -34,7 +34,7 @@ class MonoCalibrator:
         self.synchronizer = synchronizer
         self.bundle_ready_q = Queue()
         self.grid_frame_ready_q = Queue()
-        self.synchronizer.subscribe(self.bundle_ready_q)
+        self.synchronizer.subscribe_to_notice(self.bundle_ready_q)
 
         # TODO...this is going deeper into the hierarchy than I would like
         # and may deserve a refactor
@@ -202,7 +202,7 @@ if __name__ == "__main__":
     cam = Camera(0)
     streams = {cam.port: LiveStream(cam)}
 
-    syncr = Synchronizer(streams, fps_target=10)
+    syncr = Synchronizer(streams, fps_target=20)
 
     monocal = MonoCalibrator(cam, syncr, trackr)
     monocal.capture_corners = True

@@ -37,7 +37,7 @@ class StereoCalibrator:
 
         # self.stacked_frames = Queue()  # ultimately will be removing this
         self.bundle_available_q = Queue()
-        self.synchronizer.subscribe(self.bundle_available_q)
+        self.synchronizer.subscribe_to_notice(self.bundle_available_q)
         self.cal_frames_ready_q = Queue()
 
         self.build_port_list()

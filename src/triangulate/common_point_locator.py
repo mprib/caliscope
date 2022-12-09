@@ -24,7 +24,8 @@ class PairedPointsLocator:
     def __init__(self, synchronizer, finder, pairs):
 
         self.bundle_in_q = Queue()
-        synchronizer.subscribe_to_bundle(self.bundle_in_q)
+        self.synchronizer = synchronizer
+        self.synchronizer.subscribe_to_bundle(self.bundle_in_q)
 
         # finder must have a function called "find_points" which takes a
         # frame as the single argument and returns a list of ids and a img_locations
@@ -38,7 +39,7 @@ class PairedPointsLocator:
 
     def find_paired_points(self):
 
-        while True:
+        while self.synchronizer.continue_synchronizing:
             bundle = self.bundle_in_q.get()
 
             points = {}  # will be populated with dataframes of: id | x | y
@@ -102,7 +103,7 @@ if __name__ == "__main__":
         pairs=pairs,
     )
 
-    while True:
+    while syncr.continue_synchronizing:
         frame_bundle_notice = notification_q.get()
         for port, frame_data in syncr.current_bundle.items():
             if frame_data:

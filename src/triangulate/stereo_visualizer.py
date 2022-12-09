@@ -2,7 +2,7 @@
 import logging
 import pprint
 
-LOG_FILE = r"log\stereo_triangulator.log"
+LOG_FILE = r"log\stereo_visualizer.log"
 LOG_LEVEL = logging.DEBUG
 # LOG_LEVEL = logging.INFO
 
@@ -26,9 +26,8 @@ class StereoVisualizer:
         self.cam_B = triangulator.camera_B
  
         # create the overhead for display 
-        self.app = pg.mkQApp("GLMeshItem Example")
+        self.app = pg.mkQApp("Stereo Visualizer")
         self.scene = gl.GLViewWidget()
-        self.scene.show()
         self.scene.setWindowTitle('Camera Calibration')
         self.scene.setCameraPosition(distance=4)
         
@@ -37,7 +36,9 @@ class StereoVisualizer:
 
         self.scene.addItem(grid)
         self.scene.addItem(self.cam_A.mesh)
+        self.scene.addItem(self.cam_B.mesh)
 
+        self.scene.show()
         pg.exec()
 
 

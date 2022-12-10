@@ -94,13 +94,7 @@ class StereoTriangulator:
 
     def get_3D_points(self, common_points):
         logging.debug("You are doing it, man. You are doing it.")
-
-        _id = ""
-        x = ""
-        y = ""
-        z = ""
-
-        return _id, x,y,z
+        logging.debug(common_points)
 
 if __name__ == "__main__":
 
@@ -144,11 +138,6 @@ if __name__ == "__main__":
 
     while True:
         common_points = locatr.paired_points_q.get()
-        # ids = common_points["ids"]
-        # loc_img_x_A = common_points["loc_img_x_A"]
-        # loc_img_y_A = common_points["loc_img_y_A"]
-        # loc_img_x_B = common_points["loc_img_x_B"]
-        # loc_img_y_B = common_points["loc_img_y_B"]
 
         _ = triangulatr.get_3D_points(common_points)
 

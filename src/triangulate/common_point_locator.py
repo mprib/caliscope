@@ -32,12 +32,12 @@ class PairedPointsLocator:
         self.paired_points_q = Queue()
         self.pairs = pairs
 
-        self.thread = Thread(target=self.find_paired_points, args=[], daemon=False)
+        self.thread = Thread(target=self.find_paired_points, args=[], daemon=True)
         self.thread.start()
 
     def find_paired_points(self):
 
-        while self.synchronizer.continue_synchronizing:
+        while True:
             bundle = self.bundle_in_q.get()
 
             points = {}  # will be populated with dataframes of: id | img_x | img_y | board_x | board_y

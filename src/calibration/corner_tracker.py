@@ -55,12 +55,6 @@ class CornerTracker:
 
         return self.ids.squeeze(), self.img_loc.squeeze(), self.board_loc.squeeze()
 
-    def find_points(self, frame):
-        """Used as the interface for the paired points locator which will expect to get 
-        a reduced return of an ID and x,y coordinates"""
-        ids, img_loc, _ = self.get_corners(frame)
-        return ids, img_loc 
-
     def find_corners_single_frame(self, mirror):
 
         # detect if aruco markers are present

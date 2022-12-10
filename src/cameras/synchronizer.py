@@ -96,18 +96,26 @@ class Synchronizer:
             if frame_time == -1:    # signals end of recorded files
                 self.continue_synchronizing=False
 
+            logging.debug(f"Frame data harvested from reel {port} with index {frame_index}")
             frame_index += 1
             self.port_frame_count[port] = frame_index
 
     # get minimum value of frame_time for next layer
-    def earliest_next_frame(self):
+    def earliest_next_frame(self, port):
         """Looks at next unassigned frame across the ports to determine
         the earliest time at which each of them was read"""
         times_of_next_frames = []
-        for port in self.ports:
-            next_index = self.port_current_frame[port] + 1
-            next_frame_time = self.frame_data[f"{port}_{next_index}"]["frame_time"]
-            times_of_next_frames.append(next_frame_time)
+        for p in self.ports:
+            next_index = self.port_current_frame[p] + 1
+            frame_data_key =  f"{p}_{next_index}"
+            
+            # problem with outpacing the threads reading data in, so wait if need be
+            while frame_data_key not in self.frame_data.keys():
+                time.sleep(.0001)
+
+            next_frame_time = self.frame_data[frame_data_key]["frame_time"]
+            if p != port:
+                times_of_next_frames.append(next_frame_time)
 
         return min(times_of_next_frames)
     
@@ -115,8 +123,8 @@ class Synchronizer:
         """Provides the latest frame_time of the current frames not inclusive of the provided port """
         times_of_current_frames = []
         for p in self.ports:
-            current_index = self.port_current_frame[port]
-            current_frame_time = self.frame_data[f"{port}_{current_index}"]["frame_time"]
+            current_index = self.port_current_frame[p]
+            current_frame_time = self.frame_data[f"{p}_{current_index}"]["frame_time"]
             if p != port:
                 times_of_current_frames.append(current_frame_time)
                 
@@ -157,7 +165,7 @@ class Synchronizer:
         while self.continue_synchronizing:
 
             # if too much slack, need to burn off so skip waiting and adding new frames
-            if self.frame_slack() < 2:
+            if self.frame_slack() < 3:
                 # Trigger device to proceed with reading frame and pushing to reel
                 if self.fps_target is not None:
                     wait_time = 1 / self.fps_target
@@ -172,8 +180,6 @@ class Synchronizer:
             while self.frame_slack() < 2:
                 time.sleep(0.01)
 
-            # don't put a frame in a bundle if the next bundle has a frame before it
-            earliest_next = self.earliest_next_frame()
 
             next_layer = {}
             layer_frame_times = []
@@ -184,18 +190,23 @@ class Synchronizer:
                 current_frame_data = self.frame_data[port_index_key]
                 frame_time = current_frame_data["frame_time"]
 
+                # don't put a frame in a bundle if the next bundle has a frame before it
+                earliest_next = self.earliest_next_frame(port)
+                latest_current = self.latest_current_frame(port)
+
                 if frame_time > earliest_next:
                     # definitly should be put in the next layer and not this one
                     next_layer[port] = None
-                elif abs(frame_time - earliest_next) < abs(frame_time-self.latest_current_frame(port)): # frame time is closer to earliest next than latest current
+                elif abs(frame_time - earliest_next) < abs(frame_time-latest_current): # frame time is closer to earliest next than latest current
                     # if it's closer to the earliest next frame than the latest current frame, bump it up
+                    # print("using new rule")
                     next_layer[port] = None
                 else:
                     # add the data and increment the index
                     next_layer[port] = self.frame_data.pop(port_index_key)
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
-                    logging.debug(f"Frame Time: {frame_time}")
+                    logging.debug(f"Adding to layer from port {port} at index {current_frame_index} and frame time: {frame_time}")
                     
             logging.debug(f"Unassigned Frames: {len(self.frame_data)}")
 

@@ -61,7 +61,7 @@ class RecordedStream:
             if not success:
                 break
 
-            logging.debug(f"Placing frame on reel for frame time: {frame_time}")
+            logging.debug(f"Placing frame on reel {self.port} for frame time: {frame_time} and frame index: {frame_index}")
             self.reel.put([frame_time, frame])
             frame_index += 1
 

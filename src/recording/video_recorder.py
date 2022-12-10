@@ -125,10 +125,7 @@ if __name__ == "__main__":
     session = Session(config_path)
 
     session.load_cameras()
-    # time.sleep(5)
-    #TODO: camera resolution adjustment not happening prior to recording
     session.load_stream_tools()
-    # session.adjust_resolutions()
 
     syncr = Synchronizer(session.streams, fps_target=30)
     notification_q = Queue()

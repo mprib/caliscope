@@ -20,7 +20,7 @@ from src.cameras.synchronizer import Synchronizer
 from src.calibration.corner_tracker import CornerTracker
 
 
-class PairedPointsLocator:
+class CommonPointFinder:
     def __init__(self, synchronizer, pairs, tracker):
 
         self.bundle_in_q = Queue()
@@ -64,7 +64,7 @@ class PairedPointsLocator:
             # create a dataframe of the shared points for each pair of frames
             for pair in self.pairs:
                 if pair[0] in points.keys() and pair[1] in points.keys():
-                    print("Entering inner join loop")
+                    # print("Entering inner join loop")
                     common_points = points[pair[0]].merge(
                         points[pair[1]],
                         on="ids",
@@ -81,7 +81,6 @@ if __name__ == "__main__":
     from src.recording.recorded_stream import RecordedStreamPool
 
     from src.calibration.charuco import Charuco
-    import time
 
     repo = Path(__file__).parent.parent.parent
     print(repo)
@@ -94,32 +93,17 @@ if __name__ == "__main__":
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()
 
-    notification_q = Queue()  # used internally here just to display frames
-    syncr.subscribe_to_notice(notification_q)
-
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
     )
 
     trackr = CornerTracker(charuco)
     pairs = [(0, 1)]
-    locatr = PairedPointsLocator(
+    locatr = CommonPointFinder(
         synchronizer=syncr,
         pairs=pairs,
         tracker=trackr, 
     )
-
-    # while syncr.continue_synchronizing:
-    #     frame_bundle_notice = notification_q.get()
-    #     for port, frame_data in syncr.current_bundle.items():
-    #         if frame_data:
-    #             cv2.imshow(f"Port {port}", frame_data["frame"])
-
-    #     key = cv2.waitKey(1)
-
-    #     if key == ord("q"):
-    #         cv2.destroyAllWindows()
-    #         break
 
     while True:
         common_points = locatr.paired_points_q.get()

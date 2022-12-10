@@ -35,7 +35,7 @@ class CameraData:
     error: float
 
     def __post_init__(self):
-        self.mesh = CameraMesh(self.resolution, self.camera_matrix).mesh
+        # self.mesh = CameraMesh(self.resolution, self.camera_matrix).mesh
         # initialize to origin
         self.translation = np.array([0, 0, 0])
         self.rotation = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
@@ -62,7 +62,7 @@ class StereoTriangulator:
         self.camera_B = self.get_camera_at_origin(1)
 
         # express location of camera B relative to Camera A
-        rot, trans = self.extrinsic_params()
+        rot, trans = self.get_extrinsic_params()
         self.camera_B.rotation = rot
         self.camera_B.translation = trans  # may come in with extra dims
 
@@ -79,7 +79,7 @@ class StereoTriangulator:
 
         return cam_data
 
-    def extrinsic_params(self):
+    def get_extrinsic_params(self):
 
         data = self.config[f"stereo_{self.portA}_{self.portB}"]
         rotation = np.array(data["rotation"], dtype=np.float64).squeeze()
@@ -92,8 +92,63 @@ class StereoTriangulator:
 
         return rotation, translation
 
+    def get_3D_points(self, common_points):
+        logging.debug("You are doing it, man. You are doing it.")
+
+        _id = ""
+        x = ""
+        y = ""
+        z = ""
+
+        return _id, x,y,z
 
 if __name__ == "__main__":
 
-    sample_config_path = str(Path(Path(__file__).parent, "sample_data", "config.toml"))
+    from src.recording.recorded_stream import RecordedStreamPool
+    from src.cameras.synchronizer import Synchronizer
+    from src.calibration.charuco import Charuco
+    from src.triangulate.common_point_finder import CommonPointFinder
+    from src.calibration.corner_tracker import CornerTracker
+    
+    # set the location for the sample data used for testing
+    repo = Path(__file__).parent.parent.parent
+    print(repo)
+    video_directory = Path(
+        repo, "src", "triangulate", "sample_data", "stereo_track_charuco"
+    )
+
+    # create playback streams to provide to synchronizer
+    ports = [0, 1]
+    recorded_stream_pool = RecordedStreamPool(ports, video_directory)
+    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
+    recorded_stream_pool.play_videos()
+
+
+    # create a corner tracker to locate board corners
+    charuco = Charuco(
+        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
+    )
+    trackr = CornerTracker(charuco)
+    
+    # create a commmon point finder to grab charuco corners shared between the pair of ports
+    pairs = [(0, 1)]
+    locatr = CommonPointFinder(
+        synchronizer=syncr,
+        pairs=pairs,
+        tracker=trackr, 
+    )
+
+
+    sample_config_path = str(Path(video_directory.parent, "config.toml"))
     triangulatr = StereoTriangulator(0, 1, sample_config_path)
+
+    while True:
+        common_points = locatr.paired_points_q.get()
+        # ids = common_points["ids"]
+        # loc_img_x_A = common_points["loc_img_x_A"]
+        # loc_img_y_A = common_points["loc_img_y_A"]
+        # loc_img_x_B = common_points["loc_img_x_B"]
+        # loc_img_y_B = common_points["loc_img_y_B"]
+
+        _ = triangulatr.get_3D_points(common_points)
+

@@ -9,12 +9,12 @@ import numpy as np
 
 def grid_history(frame, ids, img_locs, connected_corners):
 
-    possible_pairs = {pair for pair in combinations(ids.squeeze().tolist(), 2)}
+    possible_pairs = {pair for pair in combinations(ids.tolist(), 2)}
     connected_pairs = connected_corners.intersection(possible_pairs)
 
     # build dictionary of corner positions:
     observed_corners = {}
-    for crnr_id, crnr in zip(ids.squeeze(), img_locs.squeeze()):
+    for crnr_id, crnr in zip(ids, img_locs):
         observed_corners[crnr_id] = (round(crnr[0]), round(crnr[1]))
 
     # add them to the visual representation of the grid capture history
@@ -32,8 +32,8 @@ def corners(frame, locs):
     #     locs = np.array(locs, dtype=np.float32)
 
     if locs.any():
-        for coord in locs[:, 0]:
-            coord = list(coord)
+        for coord in locs:
+            # coord = list(coord)
             # print(frame.shape[1])
             x = round(coord[0])
             y = round(coord[1])

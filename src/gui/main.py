@@ -295,7 +295,7 @@ if __name__ == "__main__":
     session = Session(config_path)
 
     # comment out this next line if you want to save cameras after closing
-    session.delete_all_cam_data() 
+    # session.delete_all_cam_data() 
 
     app = QApplication(sys.argv)
 

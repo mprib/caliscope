@@ -39,7 +39,7 @@ class StereoFrameBuilder:
         self.current_bundle = self.stereo_calibrator.current_bundle
 
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
-        """Return unaltered frame if no corner information dedected, otherwise
+        """Return unaltered frame if no corner information detected, otherwise
         return two frames with same corners drawn"""
         if (
             "ids" not in self.current_bundle[portA]
@@ -57,15 +57,15 @@ class StereoFrameBuilder:
 
             for _id, img_loc in zip(ids_A, img_loc_A):
                 if _id in common_ids:
-                    x = round(float(img_loc[:, 0]))
-                    y = round(float(img_loc[:, 1]))
+                    x = round(float(img_loc[0]))
+                    y = round(float(img_loc[1]))
 
                     cv2.circle(frameA, (x, y), 5, (0, 0, 220), 3)
 
             for _id, img_loc in zip(ids_B, img_loc_B):
                 if _id in common_ids:
-                    x = round(float(img_loc[:, 0]))
-                    y = round(float(img_loc[:, 1]))
+                    x = round(float(img_loc[0]))
+                    y = round(float(img_loc[1]))
 
                     cv2.circle(frameB, (x, y), 5, (0, 0, 220), 3)
             return frameA, frameB

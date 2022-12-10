@@ -165,7 +165,7 @@ class Synchronizer:
         while self.continue_synchronizing:
 
             # if too much slack, need to burn off so skip waiting and adding new frames
-            if self.frame_slack() < 3:
+            if self.frame_slack() < 2:
                 # Trigger device to proceed with reading frame and pushing to reel
                 if self.fps_target is not None:
                     wait_time = 1 / self.fps_target
@@ -183,6 +183,15 @@ class Synchronizer:
 
             next_layer = {}
             layer_frame_times = []
+            
+            # build earliest next/latest current dictionaries for each port to determine where to put frames           
+            # must be done before going in and making any updates to the frame index
+            earliest_next = {}
+            latest_current = {}
+            for port in self.ports:
+                earliest_next[port] = self.earliest_next_frame(port)
+                latest_current[port] = self.latest_current_frame(port)
+                
             for port in self.ports:
                 current_frame_index = self.port_current_frame[port]
 
@@ -191,13 +200,11 @@ class Synchronizer:
                 frame_time = current_frame_data["frame_time"]
 
                 # don't put a frame in a bundle if the next bundle has a frame before it
-                earliest_next = self.earliest_next_frame(port)
-                latest_current = self.latest_current_frame(port)
 
-                if frame_time > earliest_next:
+                if frame_time > earliest_next[port]:
                     # definitly should be put in the next layer and not this one
                     next_layer[port] = None
-                elif abs(frame_time - earliest_next) < abs(frame_time-latest_current): # frame time is closer to earliest next than latest current
+                elif abs(frame_time - earliest_next[port]) < abs(frame_time-latest_current[port]): # frame time is closer to earliest next than latest current
                     # if it's closer to the earliest next frame than the latest current frame, bump it up
                     # print("using new rule")
                     next_layer[port] = None

@@ -21,15 +21,13 @@ from src.calibration.corner_tracker import CornerTracker
 
 
 class PairedPointsLocator:
-    def __init__(self, synchronizer, finder, pairs):
+    def __init__(self, synchronizer, pairs, tracker):
 
         self.bundle_in_q = Queue()
         self.synchronizer = synchronizer
         self.synchronizer.subscribe_to_bundle(self.bundle_in_q)
 
-        # finder must have a function called "find_points" which takes a
-        # frame as the single argument and returns a list of ids and a img_locations
-        self.finder = finder
+        self.tracker = tracker # this is just for charuco tracking...will need to expand on this for mediapipe later
 
         self.paired_points_q = Queue()
         self.pairs = pairs
@@ -42,23 +40,28 @@ class PairedPointsLocator:
         while self.synchronizer.continue_synchronizing:
             bundle = self.bundle_in_q.get()
 
-            points = {}  # will be populated with dataframes of: id | x | y
+            points = {}  # will be populated with dataframes of: id | img_x | img_y | board_x | board_y
+            
+            # find points in each of the frames
             for port in bundle.keys():
                 if bundle[port] is not None:
                     frame = bundle[port]["frame"]
-                    ids, loc_img = self.finder.find_points(frame)
+                    frame_time = bundle[port]["frame_time"]
+                    ids, loc_img, loc_board = self.tracker.get_corners(frame)
                     if ids.any():
                         points[port] = pd.DataFrame(
                             {
+                                "frame_time":frame_time,
                                 "ids": ids,
                                 "loc_img_x": loc_img[:, 0],
                                 "loc_img_y": loc_img[:, 1],
+                                "loc_board_x":loc_board[:, 1],
+                                "loc_board_y":loc_board[:, 1],
                             }
                         )
                         logging.debug(f"Port: {port}: \n {points[port]}")
-                        # logging.debug(f"Port: {port}: ids: {ids}, loc: {loc_img}")
-                        # data = np.hstack(ids.squeeze(), loc_img.squeeze())
 
+            # create a dataframe of the shared points for each pair of frames
             for pair in self.pairs:
                 if pair[0] in points.keys() and pair[1] in points.keys():
                     print("Entering inner join loop")
@@ -102,8 +105,8 @@ if __name__ == "__main__":
     pairs = [(0, 1)]
     locatr = PairedPointsLocator(
         synchronizer=syncr,
-        finder=trackr,
         pairs=pairs,
+        tracker=trackr, 
     )
 
     # while syncr.continue_synchronizing:

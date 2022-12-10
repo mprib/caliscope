@@ -22,11 +22,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 class Synchronizer:
     def __init__(self, streams: dict, fps_target):
         self.streams = streams
-
         self.current_bundle = None
 
         self.notice_subscribers = []  # queues that will be notified of new bundles
-        self.bundle_subscribers = []
+        self.bundle_subscribers = []    # queues that will receive actual frame data
         
         self.frame_data = {}
 
@@ -104,14 +103,25 @@ class Synchronizer:
     def earliest_next_frame(self):
         """Looks at next unassigned frame across the ports to determine
         the earliest time at which each of them was read"""
-        time_of_next_frames = []
+        times_of_next_frames = []
         for port in self.ports:
             next_index = self.port_current_frame[port] + 1
             next_frame_time = self.frame_data[f"{port}_{next_index}"]["frame_time"]
-            time_of_next_frames.append(next_frame_time)
+            times_of_next_frames.append(next_frame_time)
 
-        return min(time_of_next_frames)
-
+        return min(times_of_next_frames)
+    
+    def latest_current_frame(self, port):
+        """Provides the latest frame_time of the current frames not inclusive of the provided port """
+        times_of_current_frames = []
+        for p in self.ports:
+            current_index = self.port_current_frame[port]
+            current_frame_time = self.frame_data[f"{port}_{current_index}"]["frame_time"]
+            if p != port:
+                times_of_current_frames.append(current_frame_time)
+                
+        return max(times_of_current_frames)
+    
     def frame_slack(self):
         """Determine how many unassigned frames are sitting in self.dataframe"""
 
@@ -163,7 +173,7 @@ class Synchronizer:
                 time.sleep(0.01)
 
             # don't put a frame in a bundle if the next bundle has a frame before it
-            bundle_cutoff_time = self.earliest_next_frame()
+            earliest_next = self.earliest_next_frame()
 
             next_layer = {}
             layer_frame_times = []
@@ -174,14 +184,18 @@ class Synchronizer:
                 current_frame_data = self.frame_data[port_index_key]
                 frame_time = current_frame_data["frame_time"]
 
-                if frame_time < bundle_cutoff_time:
+                if frame_time > earliest_next:
+                    # definitly should be put in the next layer and not this one
+                    next_layer[port] = None
+                elif abs(frame_time - earliest_next) < abs(frame_time-self.latest_current_frame(port)): # frame time is closer to earliest next than latest current
+                    # if it's closer to the earliest next frame than the latest current frame, bump it up
+                    next_layer[port] = None
+                else:
                     # add the data and increment the index
                     next_layer[port] = self.frame_data.pop(port_index_key)
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
                     logging.debug(f"Frame Time: {frame_time}")
-                else:
-                    next_layer[port] = None
                     
             logging.debug(f"Unassigned Frames: {len(self.frame_data)}")
 

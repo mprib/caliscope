@@ -108,14 +108,6 @@ class StereoTriangulator:
     def get_3D_point(self, point_A, point_B):
         
         
-        u_A = common_points[f"loc_img_x_{self.portA}"]    
-        v_A = common_points[f"loc_img_y_{self.portA}"]    
-        u_B = common_points[f"loc_img_x_{self.portB}"]    
-        v_B = common_points[f"loc_img_y_{self.portB}"]    
-
-        # point_A = np.array([u_A, v_A]).squeeze()
-        # point_B = np.array([u_B, v_B]).squeeze()
-
         A = [point_A[1]*self.proj_A[2,:] - self.proj_A[1,:],
              self.proj_A[0,:] - point_A[0]*self.proj_A[2,:],
              point_B[1]*self.proj_B[2,:] - self.proj_B[1,:],

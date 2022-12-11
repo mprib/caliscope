@@ -13,6 +13,8 @@ LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
+from queue import Queue
+from threading import Thread
 from dataclasses import dataclass
 import math
 from os.path import exists
@@ -25,6 +27,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from src.triangulate.paired_point_stream import PairedPointStream
 
 @dataclass
 class CameraData:
@@ -42,15 +45,35 @@ class CameraData:
 
 class StereoTriangulator:
     # created from a config.toml file, points within each camera frame can be provided to it
-    # via self.get_3D_points(CommonPoints: pd.DataFrame)
+    # via self.triangulates(CommonPoints: pd.DataFrame)
 
-    def __init__(self, portA, portB, config_path):
-        self.portA = portA
-        self.portB = portB
+    def __init__(self, point_stream:PairedPointStream, config_path):
+        self.point_stream = point_stream
+        self.pair = point_stream.pairs[0] # currently focussing on stereoscopic only. will need to refactor to include more pairs
+        self.portA = self.pair[0]
+        self.portB = self.pair[1]
         self.config_path = config_path
+        self.processing = True
+
+        self.out_q = Queue()
 
         self.load_cams_from_config()
         self.build_projection_matrices()
+        self.thread = Thread(target = self.create_3D_points, args=[], daemon =True)
+        self.thread.start()
+        
+         
+    def create_3D_points(self):
+        while self.processing:
+            common_points = self.point_stream.out_q.get()
+            all_points_3D = []
+            for index, row in common_points.iterrows():
+                point_A = (row["loc_img_x_0"], row["loc_img_y_0"])
+                point_B = (row["loc_img_x_1"], row["loc_img_y_1"])
+                point_3D = self.triangulate(point_A, point_B)
+                all_points_3D.append(point_3D)
+            all_points_3D = np.array(all_points_3D)
+            self.out_q.put(all_points_3D)
 
     def load_cams_from_config(self):
         with open(self.config_path, "r") as f:
@@ -103,10 +126,9 @@ class StereoTriangulator:
         trans_B = np.array([[t] for t in self.camera_B.translation])
         rot_trans_B = np.concatenate([rot_B, trans_B], axis = -1)
         mtx_B = self.camera_B.camera_matrix
-        self.proj_B = mtx_B @ rot_trans_B #projection matrix for C2
+        self.proj_B = mtx_B @ rot_trans_B #projection matrix for CamB
 
-    def get_3D_point(self, point_A, point_B):
-        
+    def triangulate(self, point_A, point_B):
         
         A = [point_A[1]*self.proj_A[2,:] - self.proj_A[1,:],
              self.proj_A[0,:] - point_A[0]*self.proj_A[2,:],
@@ -117,10 +139,11 @@ class StereoTriangulator:
  
         B = A.transpose() @ A
         U, s, Vh = scipy.linalg.svd(B, full_matrices = False)
-        # logging.debug("You are doing it, man. You are doing it.")
-        # logging.debug(common_points)
         coord_3D = Vh[3,0:3]/Vh[3,3] 
         return coord_3D
+
+
+
 
 
 if __name__ == "__main__":
@@ -128,7 +151,6 @@ if __name__ == "__main__":
     from src.recording.recorded_stream import RecordedStreamPool
     from src.cameras.synchronizer import Synchronizer
     from src.calibration.charuco import Charuco
-    from src.triangulate.common_point_finder import CommonPointFinder
     from src.calibration.corner_tracker import CornerTracker
 
     # set the location for the sample data used for testing
@@ -152,19 +174,16 @@ if __name__ == "__main__":
 
     # create a commmon point finder to grab charuco corners shared between the pair of ports
     pairs = [(0, 1)]
-    locatr = CommonPointFinder(
+    point_stream = PairedPointStream(
         synchronizer=syncr,
         pairs=pairs,
         tracker=trackr,
     )
 
     sample_config_path = str(Path(video_directory.parent, "config.toml"))
-    triangulatr = StereoTriangulator(0, 1, sample_config_path)
+    triangulatr = StereoTriangulator(point_stream, sample_config_path)
 
     while True:
-        common_points = locatr.paired_points_q.get()
-        for index, row in common_points.iterrows():
-            point_A = (row["loc_img_x_0"], row["loc_img_y_0"])
-            point_B = (row["loc_img_x_1"], row["loc_img_y_1"])
-
-            print(triangulatr.get_3D_point(point_A, point_B))
+        all_point_3D = triangulatr.out_q.get()
+        print(all_point_3D)
+        # print(triangulatr.out_q.qsize())

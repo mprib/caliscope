@@ -73,6 +73,8 @@ class StereoTriangulator:
                 point_3D = self.triangulate(point_A, point_B)
                 all_points_3D.append(point_3D)
             all_points_3D = np.array(all_points_3D)
+            logging.debug(f"Placing current bundle of 3d points on queue")
+            logging.debug(all_points_3D)
             self.out_q.put(all_points_3D)
 
     def load_cams_from_config(self):

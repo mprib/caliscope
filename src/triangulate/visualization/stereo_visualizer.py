@@ -15,6 +15,8 @@ import numpy as np
 from pathlib import Path
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
+from pyqtgraph.Qt import QtCore
+
 
 sys.path.insert(0,str(Path(__file__).parent.parent.parent.parent))
 
@@ -43,10 +45,36 @@ class StereoVisualizer:
         self.scene.addItem(self.mesh_B)
 
         self.scene.show()
+        self.add_scatter()
+    def add_scatter(self):
+            
+        self.phase = 0  # working variable while figuring out scatter
+        ##### START NEW TEST PYQTGRAPH STUFF
+        self.pos3 = np.zeros((100,100,3))
+        self.pos3[:,:,:2] = np.mgrid[:100, :100].transpose(1,2,0) * [-0.1,0.1]
+        self.pos3 = self.pos3.reshape(10000,3)
+        self.d3 = (self.pos3**2).sum(axis=1)**0.5
+        self.color = (1,1,1,.1)
+        self.sp3 = gl.GLScatterPlotItem(pos=self.pos3, color=self.color, size=0.1, pxMode=False)
+
+        self.scene.addItem(self.sp3)
+
+    def update(self):
+        ## update surface positions and colors
+            ## update volume colors
+        self.phase -= 0.1
+        z = -np.cos(self.d3*2+self.phase)
+        self.pos3[:,2] = z
+
+        self.sp3.setData(pos=self.pos3, color=self.color)
+
+        ################ END TEST NEW PYQTGRAPHSTUFF
+
+    def start(self):
+        t = QtCore.QTimer()
+        t.timeout.connect(self.update)
+        t.start(50)
         pg.exec()
-        
-    def show(self):
-        pass
 
 # helper functions to assist with scene creation
 def mesh_from_camera(cd: CameraData):
@@ -96,6 +124,7 @@ if __name__ == '__main__':
     from src.triangulate.stereo_triangulator import StereoTriangulator
     
     sample_config_path  = str(Path(Path(__file__).parent.parent, "sample_data", "config.toml"))
-    trigr = StereoTriangulator(0,1,sample_config_path)    
+    triangulatr = StereoTriangulator(0,1,sample_config_path)    
 
-    vizr = StereoVisualizer(trigr)
+    vizr = StereoVisualizer(triangulatr)
+    vizr.start()

@@ -20,7 +20,7 @@ from src.cameras.synchronizer import Synchronizer
 from src.calibration.corner_tracker import CornerTracker
 
 
-class CommonPointFinder:
+class PairedPointStream:
     def __init__(self, synchronizer, pairs, tracker):
 
         self.bundle_in_q = Queue()
@@ -29,7 +29,7 @@ class CommonPointFinder:
 
         self.tracker = tracker # this is just for charuco tracking...will need to expand on this for mediapipe later
 
-        self.paired_points_q = Queue()
+        self.out_q = Queue()
         self.pairs = pairs
 
         self.thread = Thread(target=self.find_paired_points, args=[], daemon=True)
@@ -74,7 +74,7 @@ class CommonPointFinder:
                     logging.debug(
                         f"Points in common for ports {pair}: \n {common_points}"
                     )
-                    self.paired_points_q.put(common_points)
+                    self.out_q.put(common_points)
 
 
 if __name__ == "__main__":
@@ -99,12 +99,12 @@ if __name__ == "__main__":
 
     trackr = CornerTracker(charuco)
     pairs = [(0, 1)]
-    locatr = CommonPointFinder(
+    locatr = PairedPointStream(
         synchronizer=syncr,
         pairs=pairs,
         tracker=trackr, 
     )
 
     while True:
-        common_points = locatr.paired_points_q.get()
+        common_points = locatr.out_q.get()
         print(common_points)

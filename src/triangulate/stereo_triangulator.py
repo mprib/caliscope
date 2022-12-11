@@ -14,17 +14,16 @@ LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 from dataclasses import dataclass
-
 import math
 from os.path import exists
 import toml
 import numpy as np
+import pandas as pd
+import scipy
 from pathlib import Path
-
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.triangulate.visualization.camera_mesh import CameraMesh
 
 
 @dataclass
@@ -43,17 +42,17 @@ class CameraData:
 
 class StereoTriangulator:
     # created from a config.toml file, points within each camera frame can be provided to it
-    # via self.locate(ArrayOfPointsA, ArrayOfPointsB)
-    # perhaps I should be using pandas for some of this data processing?
+    # via self.get_3D_points(CommonPoints: pd.DataFrame)
 
     def __init__(self, portA, portB, config_path):
         self.portA = portA
         self.portB = portB
         self.config_path = config_path
 
-        self.load_config_data()
+        self.load_cams_from_config()
+        self.build_projection_matrices()
 
-    def load_config_data(self):
+    def load_cams_from_config(self):
         with open(self.config_path, "r") as f:
             logging.info(f"Loading config data located at: {self.config_path}")
             self.config = toml.load(self.config_path)
@@ -92,9 +91,45 @@ class StereoTriangulator:
 
         return rotation, translation
 
-    def get_3D_points(self, common_points):
-        logging.debug("You are doing it, man. You are doing it.")
-        logging.debug(common_points)
+    def build_projection_matrices(self):
+
+        # camA orientation will define the global frame of reference, so
+        # translation vector is [0,0,0]
+        rot_trans_A = np.concatenate([np.eye(3), [[0],[0],[0]]], axis = -1)
+        mtx_A = self.camera_A.camera_matrix
+        self.proj_A = mtx_A @ rot_trans_A #projection matrix for CamA
+
+        rot_B = self.camera_B.rotation
+        trans_B = np.array([[t] for t in self.camera_B.translation])
+        rot_trans_B = np.concatenate([rot_B, trans_B], axis = -1)
+        mtx_B = self.camera_B.camera_matrix
+        self.proj_B = mtx_B @ rot_trans_B #projection matrix for C2
+
+    def get_3D_point(self, point_A, point_B):
+        
+        
+        u_A = common_points[f"loc_img_x_{self.portA}"]    
+        v_A = common_points[f"loc_img_y_{self.portA}"]    
+        u_B = common_points[f"loc_img_x_{self.portB}"]    
+        v_B = common_points[f"loc_img_y_{self.portB}"]    
+
+        # point_A = np.array([u_A, v_A]).squeeze()
+        # point_B = np.array([u_B, v_B]).squeeze()
+
+        A = [point_A[1]*self.proj_A[2,:] - self.proj_A[1,:],
+             self.proj_A[0,:] - point_A[0]*self.proj_A[2,:],
+             point_B[1]*self.proj_B[2,:] - self.proj_B[1,:],
+             self.proj_B[0,:] - point_B[0]*self.proj_B[2,:]
+            ]
+        A = np.array(A).reshape((4,4))
+ 
+        B = A.transpose() @ A
+        U, s, Vh = scipy.linalg.svd(B, full_matrices = False)
+        # logging.debug("You are doing it, man. You are doing it.")
+        # logging.debug(common_points)
+        coord_3D = Vh[3,0:3]/Vh[3,3] 
+        return coord_3D
+
 
 if __name__ == "__main__":
 
@@ -103,7 +138,7 @@ if __name__ == "__main__":
     from src.calibration.charuco import Charuco
     from src.triangulate.common_point_finder import CommonPointFinder
     from src.calibration.corner_tracker import CornerTracker
-    
+
     # set the location for the sample data used for testing
     repo = Path(__file__).parent.parent.parent
     print(repo)
@@ -117,27 +152,27 @@ if __name__ == "__main__":
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()
 
-
     # create a corner tracker to locate board corners
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
     )
     trackr = CornerTracker(charuco)
-    
+
     # create a commmon point finder to grab charuco corners shared between the pair of ports
     pairs = [(0, 1)]
     locatr = CommonPointFinder(
         synchronizer=syncr,
         pairs=pairs,
-        tracker=trackr, 
+        tracker=trackr,
     )
-
 
     sample_config_path = str(Path(video_directory.parent, "config.toml"))
     triangulatr = StereoTriangulator(0, 1, sample_config_path)
 
     while True:
         common_points = locatr.paired_points_q.get()
+        for index, row in common_points.iterrows():
+            point_A = (row["loc_img_x_0"], row["loc_img_y_0"])
+            point_B = (row["loc_img_x_1"], row["loc_img_y_1"])
 
-        _ = triangulatr.get_3D_points(common_points)
-
+            print(triangulatr.get_3D_point(point_A, point_B))

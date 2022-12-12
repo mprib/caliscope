@@ -95,7 +95,7 @@ def mesh_from_camera(cd: CameraData):
     mesh = CameraMesh(cd.resolution, cd.camera_matrix).mesh
 
     # translate mesh which defaults to origin
-    translation_scale_factor = 100
+    translation_scale_factor = 1
     x, y, z = [t / translation_scale_factor for t in cd.translation]
     mesh.translate(x, y, z)
     logging.info(f"Translation: x: {x}, y: {y}, z: {z}")
@@ -148,12 +148,10 @@ if __name__ == "__main__":
 
     # set the location for the sample data used for testing
     repo = Path(__file__).parent.parent.parent.parent
-    video_directory = Path(
-        repo, "src", "triangulate", "sample_data", "stereo_track_charuco"
-    )
+    session_directory =Path(repo, "examples", "high_res_session")
     # create playback streams to provide to synchronizer
     ports = [0, 1]
-    recorded_stream_pool = RecordedStreamPool(ports, video_directory)
+    recorded_stream_pool = RecordedStreamPool(ports, session_directory)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()
     # create a corner tracker to locate board corners
@@ -168,8 +166,8 @@ if __name__ == "__main__":
         pairs=pairs,
         tracker=trackr,
     )
-    sample_config_path = str(Path(video_directory.parent, "config.toml"))
-    triangulatr = StereoTriangulator(point_stream, sample_config_path)
+    config_path = str(Path(session_directory, "config.toml"))
+    triangulatr = StereoTriangulator(point_stream, config_path)
 
     test_board_corners = np.array(
         [

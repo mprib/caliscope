@@ -53,7 +53,16 @@ class CornerTracker:
             self.gray = cv2.flip(self.gray, 1)
             self.find_corners_single_frame(mirror=True)
 
-        return self.ids.squeeze(), self.img_loc.squeeze(), self.board_loc.squeeze()
+        ids = self.ids.squeeze()
+        img_loc = self.img_loc.squeeze()
+        board_loc = self.board_loc.squeeze()
+        
+        # prevent sending out floats rather than arrays 
+        if type(ids) != np.ndarray:
+            ids = np.array([ids])
+            img_loc = np.array([img_loc])
+            board_loc = np.array([board_loc])
+        return ids, img_loc, board_loc
 
     def find_corners_single_frame(self, mirror):
 

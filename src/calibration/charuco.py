@@ -11,8 +11,6 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QImage, QPixmap
 
 INCHES_PER_CM = 0.393701
-
-
 class Charuco:
     """
     create a charuco board that can be printed out and used for camera
@@ -77,8 +75,11 @@ class Charuco:
         if self.square_size_overide:
             square_length = self.square_size_overide  # note: in meters
         else:
+            board_height_m = self.board_height_cm / 10
+            board_width_m = self.board_width_cm / 10
+            
             square_length = min(
-                [self.board_height_cm / self.rows, self.board_width_cm / self.columns]
+                [board_height_m / self.rows, board_width_m / self.columns]
             )
 
         aruco_length = square_length * self.aruco_scale
@@ -95,7 +96,7 @@ class Charuco:
     @property
     def board_img(self):
         """A cv2 image (numpy array) of the board printing at 300 dpi.
-        Conversion to mm back to inches is strange, but done due to
+        Conversion to inches is strange, but done due to
         ubiquity of inch measurement for familiar printing standard"""
 
         width_inch = self.board_width_cm * INCHES_PER_CM

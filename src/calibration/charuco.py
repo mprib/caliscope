@@ -1,5 +1,8 @@
-
-#%%
+# NOTE: Conversions are being made here between inches and cm because
+# this seems like a reasonable scale for discussing the board, but when
+# it is actually created in OpenCV, the board height is expressed
+# in meters as a standard convention of science, and to improve
+# readability of 3D positional output downstream
 
 from collections import defaultdict
 from itertools import combinations
@@ -7,26 +10,28 @@ import cv2
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QImage, QPixmap
 
-INCHES_PER_CM = .393701
+INCHES_PER_CM = 0.393701
 
-class Charuco():
+
+class Charuco:
     """
-    create a charuco board that can be printed out and used for camera 
-    calibration, and used for drawing a grid during calibration    
+    create a charuco board that can be printed out and used for camera
+    calibration, and used for drawing a grid during calibration
     """
 
     def __init__(
-        self, 
-        columns, 
-        rows, 
-        board_height, 
-        board_width, 
+        self,
+        columns,
+        rows,
+        board_height,
+        board_width,
         dictionary="DICT_4X4_50",
-        units="inch", 
-        aruco_scale=0.75, 
+        units="inch",
+        aruco_scale=0.75,
         square_size_overide=None,
-        inverted=False): # after printing, measure actual and return to overide
-        
+        inverted=False,
+    ):  # after printing, measure actual and return to overide
+
         """
         Create board based on shape and dimensions
         square_size_overide: correct for the actual printed size of the board
@@ -48,19 +53,18 @@ class Charuco():
     @property
     def board_height_cm(self):
         """Internal calculations will always use mm for consistency"""
-        if self.units == "inch": 
-            return self.board_height/INCHES_PER_CM
+        if self.units == "inch":
+            return self.board_height / INCHES_PER_CM
         else:
             return self.board_height
 
     @property
     def board_width_cm(self):
         """Internal calculations will always use mm for consistency"""
-        if self.units == "inch": 
-            return self.board_width/INCHES_PER_CM
+        if self.units == "inch":
+            return self.board_width / INCHES_PER_CM
         else:
             return self.board_width
-
 
     @property
     def dictionary_object(self):
@@ -71,59 +75,60 @@ class Charuco():
     @property
     def board(self):
         if self.square_size_overide:
-            square_length = self.square_size_overide # note: in meters
+            square_length = self.square_size_overide  # note: in meters
         else:
-            square_length = min([self.board_height_cm/self.rows, 
-                                self.board_width_cm/self.columns]) 
+            square_length = min(
+                [self.board_height_cm / self.rows, self.board_width_cm / self.columns]
+            )
 
-        aruco_length = square_length * self.aruco_scale 
+        aruco_length = square_length * self.aruco_scale
         # create the board
         return cv2.aruco.CharucoBoard_create(
-                            self.columns,
-                            self.rows,
-                            square_length,
-                            aruco_length,
-                            # property based on dictionary text 
-                            self.dictionary_object) 
+            self.columns,
+            self.rows,
+            square_length,
+            aruco_length,
+            # property based on dictionary text
+            self.dictionary_object,
+        )
 
     @property
     def board_img(self):
         """A cv2 image (numpy array) of the board printing at 300 dpi.
-        Conversion to mm back to inches is strange, but done due to 
+        Conversion to mm back to inches is strange, but done due to
         ubiquity of inch measurement for familiar printing standard"""
 
-        width_inch = self.board_width_cm* INCHES_PER_CM
+        width_inch = self.board_width_cm * INCHES_PER_CM
         height_inch = self.board_height_cm * INCHES_PER_CM
 
-        img  = self.board.draw((int(width_inch*300), int(height_inch*300)))
+        img = self.board.draw((int(width_inch * 300), int(height_inch * 300)))
         if self.inverted:
             img = ~img
-        
+
         return img
 
-
     def board_pixmap(self, width, height):
-        """Convert from an opencv image to QPixmap..this can be used for 
+        """Convert from an opencv image to QPixmap..this can be used for
         creating thumbnail images"""
         rgb_image = cv2.cvtColor(self.board_img, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
-        charuco_QImage = QImage(rgb_image.data, 
-                                w, 
-                                h, 
-                                bytes_per_line, 
-                                QImage.Format.Format_RGB888)
-        p = charuco_QImage.scaled(width, height,
-                                  Qt.AspectRatioMode.KeepAspectRatio, 
-                                  Qt.TransformationMode.SmoothTransformation)
+        charuco_QImage = QImage(
+            rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
+        )
+        p = charuco_QImage.scaled(
+            width,
+            height,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
         return QPixmap.fromImage(p)
 
-    
     def save_image(self, path):
         cv2.imwrite(path, self.board_img)
 
     def save_mirror_image(self, path):
-        mirror = cv2.flip(self.board_img,1)
+        mirror = cv2.flip(self.board_img, 1)
         cv2.imwrite(path, mirror)
 
     def get_connected_corners(self):
@@ -136,8 +141,8 @@ class Charuco():
         """
         # create sets of the vertical and horizontal line positions
         corners = self.board.chessboardCorners
-        corners_x = corners[:,0]
-        corners_y = corners[:,1]
+        corners_x = corners[:, 0]
+        corners_y = corners[:, 1]
         x_set = set(corners_x)
         y_set = set(corners_y)
 
@@ -163,11 +168,9 @@ class Charuco():
 
         return connected_corners
 
-
-
     def get_object_corners(self, corner_ids):
         """
-        Given an array of corner IDs, provide an array of their relative 
+        Given an array of corner IDs, provide an array of their relative
         position in a board from of reference, originating from a corner position.
         """
 
@@ -177,51 +180,57 @@ class Charuco():
 
         text = f"Columns: {self.columns}\n"
         text = text + f"Rows: {self.rows}\n"
-        text = text + f"Board Size: {self.board_width} x {self.board_height} {self.units}\n"
+        text = (
+            text
+            + f"Board Size: {self.board_width} x {self.board_height} {self.units}\n"
+        )
         text = text + f"Inverted:  {self.inverted}\n"
         text = text + f"\n"
         text = text + f"Square Edge Length: {self.square_size_overide} cm"
         return text
+
+
 ################################## REFERENCE ###################################
 ARUCO_DICTIONARIES = {
-	"DICT_4X4_50": cv2.aruco.DICT_4X4_50,
-	"DICT_4X4_100": cv2.aruco.DICT_4X4_100,
-	"DICT_4X4_250": cv2.aruco.DICT_4X4_250,
-	"DICT_4X4_1000": cv2.aruco.DICT_4X4_1000,
-	"DICT_5X5_50": cv2.aruco.DICT_5X5_50,
-	"DICT_5X5_100": cv2.aruco.DICT_5X5_100,
-	"DICT_5X5_250": cv2.aruco.DICT_5X5_250,
-	"DICT_5X5_1000": cv2.aruco.DICT_5X5_1000,
-	"DICT_6X6_50": cv2.aruco.DICT_6X6_50,
-	"DICT_6X6_100": cv2.aruco.DICT_6X6_100,
-	"DICT_6X6_250": cv2.aruco.DICT_6X6_250,
-	"DICT_6X6_1000": cv2.aruco.DICT_6X6_1000,
-	"DICT_7X7_50": cv2.aruco.DICT_7X7_50,
-	"DICT_7X7_100": cv2.aruco.DICT_7X7_100,
-	"DICT_7X7_250": cv2.aruco.DICT_7X7_250,
-	"DICT_7X7_1000": cv2.aruco.DICT_7X7_1000,
-	"DICT_ARUCO_ORIGINAL": cv2.aruco.DICT_ARUCO_ORIGINAL,
-	"DICT_APRILTAG_16h5": cv2.aruco.DICT_APRILTAG_16h5,
-	"DICT_APRILTAG_25h9": cv2.aruco.DICT_APRILTAG_25h9,
-	"DICT_APRILTAG_36h10": cv2.aruco.DICT_APRILTAG_36h10,
-	"DICT_APRILTAG_36h11": cv2.aruco.DICT_APRILTAG_36h11
+    "DICT_4X4_50": cv2.aruco.DICT_4X4_50,
+    "DICT_4X4_100": cv2.aruco.DICT_4X4_100,
+    "DICT_4X4_250": cv2.aruco.DICT_4X4_250,
+    "DICT_4X4_1000": cv2.aruco.DICT_4X4_1000,
+    "DICT_5X5_50": cv2.aruco.DICT_5X5_50,
+    "DICT_5X5_100": cv2.aruco.DICT_5X5_100,
+    "DICT_5X5_250": cv2.aruco.DICT_5X5_250,
+    "DICT_5X5_1000": cv2.aruco.DICT_5X5_1000,
+    "DICT_6X6_50": cv2.aruco.DICT_6X6_50,
+    "DICT_6X6_100": cv2.aruco.DICT_6X6_100,
+    "DICT_6X6_250": cv2.aruco.DICT_6X6_250,
+    "DICT_6X6_1000": cv2.aruco.DICT_6X6_1000,
+    "DICT_7X7_50": cv2.aruco.DICT_7X7_50,
+    "DICT_7X7_100": cv2.aruco.DICT_7X7_100,
+    "DICT_7X7_250": cv2.aruco.DICT_7X7_250,
+    "DICT_7X7_1000": cv2.aruco.DICT_7X7_1000,
+    "DICT_ARUCO_ORIGINAL": cv2.aruco.DICT_ARUCO_ORIGINAL,
+    "DICT_APRILTAG_16h5": cv2.aruco.DICT_APRILTAG_16h5,
+    "DICT_APRILTAG_25h9": cv2.aruco.DICT_APRILTAG_25h9,
+    "DICT_APRILTAG_36h10": cv2.aruco.DICT_APRILTAG_36h10,
+    "DICT_APRILTAG_36h11": cv2.aruco.DICT_APRILTAG_36h11,
 }
 
 
 ########################## DEMO  ###########################################
 
 if __name__ == "__main__":
-    charuco = Charuco(4,5,4,8.5,aruco_scale = .75, units = "inch", square_size_overide=0)
-    charuco.save_image("test_charuco.png")  
+    charuco = Charuco(
+        4, 5, 4, 8.5, aruco_scale=0.75, units="inch", square_size_overide=0
+    )
+    charuco.save_image("test_charuco.png")
     width, height = charuco.board_img.shape
     print(f"Board width is {width}\nBoard height is {height}")
 
-    print(f"Charuco dictionary: {charuco.__dict__}") 
+    print(f"Charuco dictionary: {charuco.__dict__}")
     while True:
         cv2.imshow("Charuco Board...'q' to quit", charuco.board_img)
-        # 
+        #
         key = cv2.waitKey(0)
-        if key == ord('q'):
+        if key == ord("q"):
             cv2.destroyAllWindows()
             break
-            

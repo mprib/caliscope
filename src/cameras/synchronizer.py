@@ -70,7 +70,7 @@ class Synchronizer:
 
     def release_bundle_q(self,q):
         logging.info("Releasing record queue")
-        self.bundle_subscribers.remov(q)
+        self.bundle_subscribers.remove(q)
 
     def harvest_frames(self, stream):
         port = stream.port

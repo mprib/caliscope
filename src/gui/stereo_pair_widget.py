@@ -103,6 +103,7 @@ class StereoPairWidget(QWidget):
         self.reset_btn = QPushButton("Reset")
 
         def reset_stereo_cal():
+            logging.debug(f"Resetting stereocal data associated with pair {self.pair}")
             self.session.stereocalibrator.reset_pair(self.pair)
 
         self.reset_btn.clicked.connect(reset_stereo_cal)
@@ -122,7 +123,7 @@ if __name__ == "__main__":
     App = QApplication(sys.argv)
 
     repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "examples", "default_session")
+    config_path = Path(repo, "examples", "default_res_session")
     print(config_path)
     session = Session(config_path)
     session.load_cameras()

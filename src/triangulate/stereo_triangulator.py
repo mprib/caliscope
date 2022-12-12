@@ -158,13 +158,12 @@ if __name__ == "__main__":
     # set the location for the sample data used for testing
     repo = Path(__file__).parent.parent.parent
     print(repo)
-    video_directory = Path(
-        repo, "src", "triangulate", "sample_data", "stereo_track_charuco"
-    )
+
+    session_path = Path(repo, "examples", "high_res_session")
 
     # create playback streams to provide to synchronizer
     ports = [0, 1]
-    recorded_stream_pool = RecordedStreamPool(ports, video_directory)
+    recorded_stream_pool = RecordedStreamPool(ports, session_path)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()
 
@@ -182,7 +181,8 @@ if __name__ == "__main__":
         tracker=trackr,
     )
 
-    sample_config_path = str(Path(video_directory.parent, "config.toml"))
+    sample_config_path = str(Path(session_path, "config.toml"))
+    print(f"using config at: {sample_config_path}")
     triangulatr = StereoTriangulator(point_stream, sample_config_path)
 
     while True:

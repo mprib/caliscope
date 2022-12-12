@@ -120,23 +120,23 @@ if __name__ == "__main__":
     from src.session import Session
     
     repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "examples", "default_session")
-    print(f"Config Path: {config_path}")
-    session = Session(config_path)
+    # config_path = Path(repo, "examples", "default_session")
+    session_path = Path(repo, "examples", "high_res_session")
+    print(f"Config Path: {session_path}")
+    session = Session(session_path)
 
     session.load_cameras()
     session.load_stream_tools()
+    session.adjust_resolutions()
 
-    syncr = Synchronizer(session.streams, fps_target=30)
+    syncr = Synchronizer(session.streams, fps_target=15)
     notification_q = Queue()
     syncr.notice_subscribers.append(notification_q)
 
     video_recorder = VideoRecorder(syncr)
 
-    # time.sleep(2)
-    repo = Path(__file__).parent.parent.parent
     print(repo)
-    video_path = Path(repo,"examples", "recordings", "sample1")
-    video_recorder.start_recording(video_path)
-    time.sleep(5)
+    # video_path = Path(repo,"examples", "recordings", "sample1")
+    video_recorder.start_recording(session_path)
+    time.sleep(10)
     video_recorder.stop_recording()

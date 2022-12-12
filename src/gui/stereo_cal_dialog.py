@@ -106,7 +106,7 @@ class StereoCalDialog(QScrollArea):
         self.save_btn = QPushButton("Save Calibration")
 
         def on_save_btn(click):
-            print(click)
+            logging.debug("Saving stereocalibration")
             self.session.save_stereocalibration()
 
         self.save_btn.clicked.connect(on_save_btn)
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     from src.session import Session
 
     repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "examples", "default_session")
+    config_path = Path(repo, "examples", "default_res_session")
     session = Session(config_path)
     session.load_cameras()
     session.load_stream_tools()

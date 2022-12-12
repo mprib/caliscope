@@ -94,10 +94,10 @@ if __name__ == "__main__":
     
     repo = Path(__file__).parent.parent.parent
     print(repo)
-    video_directory = Path(repo, "examples", "recordings", "sample2")
+    session_directory = Path(repo, "examples", "high_res_session")
 
     ports = [0,1]
-    recorded_stream_pool = RecordedStreamPool(ports, video_directory)
+    recorded_stream_pool = RecordedStreamPool(ports, session_directory)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos() 
     # recorded_stream = RecordedStream(port=port, directory=video_directory)

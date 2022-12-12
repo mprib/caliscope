@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
                 if "translation" in key:
                     translation = [float(x[0]) for x in params]
-                    translation_scale = 100
+                    translation_scale = 1
 
                     # reverse translation if origin is the second item
                     if origin_port == pair[1]:

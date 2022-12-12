@@ -27,7 +27,7 @@ class PairedPointStream:
         self.synchronizer = synchronizer
         self.synchronizer.subscribe_to_bundle(self.bundle_in_q)
 
-        self.tracker = tracker # this is just for charuco tracking...will need to expand on this for mediapipe later
+        self.tracker = tracker  # this is just for charuco tracking...will need to expand on this for mediapipe later
 
         self.out_q = Queue()
         self.pairs = pairs
@@ -40,8 +40,10 @@ class PairedPointStream:
         while True:
             bundle = self.bundle_in_q.get()
 
-            points = {}  # will be populated with dataframes of: id | img_x | img_y | board_x | board_y
-            
+            points = (
+                {}
+            )  # will be populated with dataframes of: id | img_x | img_y | board_x | board_y
+
             # find points in each of the frames
             for port in bundle.keys():
                 if bundle[port] is not None:
@@ -51,12 +53,12 @@ class PairedPointStream:
                     if ids.any():
                         points[port] = pd.DataFrame(
                             {
-                                "frame_time":frame_time,
+                                "frame_time": frame_time,
                                 "ids": ids,
                                 "loc_img_x": loc_img[:, 0],
                                 "loc_img_y": loc_img[:, 1],
-                                "loc_board_x":loc_board[:, 1],
-                                "loc_board_y":loc_board[:, 1],
+                                "loc_board_x": loc_board[:, 0],
+                                "loc_board_y": loc_board[:, 1],
                             }
                         )
                         logging.debug(f"Port: {port}: \n {points[port]}")
@@ -84,12 +86,10 @@ if __name__ == "__main__":
 
     repo = Path(__file__).parent.parent.parent
     print(repo)
-    video_directory = Path(
-        repo, "src", "triangulate", "sample_data", "stereo_track_charuco"
-    )
+    session_directory = Path(repo, "examples", "high_res_session")
 
     ports = [0, 1]
-    recorded_stream_pool = RecordedStreamPool(ports, video_directory)
+    recorded_stream_pool = RecordedStreamPool(ports, session_directory)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()
 
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     locatr = PairedPointStream(
         synchronizer=syncr,
         pairs=pairs,
-        tracker=trackr, 
+        tracker=trackr,
     )
 
     while True:

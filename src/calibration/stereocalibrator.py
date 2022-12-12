@@ -75,6 +75,7 @@ class StereoCalibrator:
             if i > j:
                 i, j = j, i
             self.uncalibrated_pairs.append((i, j))
+            logging.debug(f"Uncalibrated pairs are: {self.uncalibrated_pairs}")
 
         self.pairs = (
             self.uncalibrated_pairs.copy()
@@ -236,8 +237,13 @@ class StereoCalibrator:
             "RMSE": ret,
         }
 
-        self.uncalibrated_pairs.remove(pair)
-
+        # TODO: #29 track down why this is necessary 
+        if pair in self.uncalibrated_pairs:
+            logging.info(f"Removing pair {pair}")
+            self.uncalibrated_pairs.remove(pair)
+        else:
+            logging.warn(f"Attempted to remove pair {pair} but it was not present")
+            
         logging.info(
             f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}"
         )
@@ -302,8 +308,8 @@ if __name__ == "__main__":
     logging.debug("Test live stereocalibration processing")
 
     repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "examples", "default_session")
-    session = Session(config_path)
+    session_path = Path(repo, "examples", "default_session")
+    session = Session(session_path)
 
     session.load_cameras()
     session.load_stream_tools()

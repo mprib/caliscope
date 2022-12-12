@@ -3,7 +3,7 @@
 # it is actually created in OpenCV, the board height is expressed
 # in meters as a standard convention of science, and to improve
 # readability of 3D positional output downstream
-
+import logging
 from collections import defaultdict
 from itertools import combinations
 import cv2
@@ -73,7 +73,7 @@ class Charuco:
     @property
     def board(self):
         if self.square_size_overide:
-            square_length = self.square_size_overide  # note: in meters
+            square_length = self.square_size_overide/10 # note: in cm within GUI
         else:
             board_height_m = self.board_height_cm / 10
             board_width_m = self.board_width_cm / 10
@@ -81,6 +81,7 @@ class Charuco:
             square_length = min(
                 [board_height_m / self.rows, board_width_m / self.columns]
             )
+        logging.debug(f"Creating charuco with square length of {square_length}")
 
         aruco_length = square_length * self.aruco_scale
         # create the board
@@ -221,8 +222,7 @@ ARUCO_DICTIONARIES = {
 
 if __name__ == "__main__":
     charuco = Charuco(
-        4, 5, 4, 8.5, aruco_scale=0.75, units="inch", square_size_overide=0
-    )
+        4, 5, 4, 8.5, aruco_scale=0.75, units="inch",inverted=True, square_size_overide=5.25)
     charuco.save_image("test_charuco.png")
     width, height = charuco.board_img.shape
     print(f"Board width is {width}\nBoard height is {height}")

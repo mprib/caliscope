@@ -65,4 +65,8 @@ subgraph triangulate
 PairedPointStream --> StereoTriangulator
 end
 
+subgraph visualization
+CameraMesh --> Visualizer
+StereoTriangulator --> Visualizer
+end
 ```

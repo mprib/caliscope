@@ -143,7 +143,7 @@ if __name__ == "__main__":
     from src.calibration.charuco import Charuco
     from src.triangulate.paired_point_stream import PairedPointStream
     from src.triangulate.stereo_triangulator import StereoTriangulator
-    from src.triangulate.visualization.stereo_visualizer import StereoVisualizer
+    from triangulate.visualization.visualizer import StereoVisualizer
     from src.calibration.corner_tracker import CornerTracker
 
     # set the location for the sample data used for testing

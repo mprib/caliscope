@@ -24,10 +24,50 @@ Don't carry these packages forward as they are not actually necessary for core w
 ## Current Object Relationships
 
 I need to see where everything is at the moment. As I go back to address issues with the scale of the charuco board impacting the scale of the calibration output data and how that is reflected in the visualization of the data, I'm realizing I need to take a step back and look at things more broadly.
+```mermaid
+graph
 
+subgraph calibration
+Charuco --> CornerTracker
+CornerTracker --> Monocalibrator
+CornerTracker --> Stereocalibrator
+end
+
+subgraph cameras
+Camera -.only for writing settings.- Monocalibrator
+Camera --> LiveStream
+LiveStream --> Synchronizer
+Synchronizer --> Monocalibrator
+Synchronizer --> Stereocalibrator
+end
+
+Synchronizer --> PairedPointStream 
+
+subgraph SavedData
+port_#.mp4 --> RecordedStream
+frame_time_history.csv --> RecordedStream
+
+RecordedStream --> Synchronizer
+Synchronizer --> VideoRecorder
+
+VideoRecorder --> port_#.mp4
+VideoRecorder --> frame_time_history.csv
+end
+CornerTracker -.temporary \nfor testing .- PairedPointStream
+
+subgraph triangulate
+PairedPointStream -->StereoTriangulator
+end
+
+subgraph visualization
+CameraMesh --> Visualizer
+StereoTriangulator --> Visualizer
+end
+
+```
 
 ```mermaid
-graph TD
+graph
 
 subgraph calibration
 Charuco --> CornerTracker

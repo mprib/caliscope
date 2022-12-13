@@ -237,11 +237,11 @@ class CharucoBuilder(QWidget):
         self.printed_edge_length = QDoubleSpinBox()
         self.printed_edge_length.setMaximumWidth(100)
         # self.set_true_edge_length()
-        overide = self.session.config["charuco"]["square_size_overide"]
+        overide = self.session.config["charuco"]["square_size_overide_cm"]
         self.printed_edge_length.setValue(overide)
 
         def update_charuco():
-            self.charuco.square_size_overide = self.printed_edge_length.value()
+            self.charuco.square_size_overide_cm = self.printed_edge_length.value()
             print("Updated Square Size Overide")
 
         self.printed_edge_length.valueChanged.connect(update_charuco)
@@ -317,7 +317,7 @@ class CharucoBuilder(QWidget):
             units=units,
             dictionary=dictionary_str,
             aruco_scale=aruco_scale,
-            square_size_overide=square_edge_length,
+            square_size_overide_cm=square_edge_length,
             inverted=inverted,
         )
         # working_charuco_img = cv2.imencode(".png",charuco.board_img)

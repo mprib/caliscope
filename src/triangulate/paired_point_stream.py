@@ -94,7 +94,7 @@ if __name__ == "__main__":
     recorded_stream_pool.play_videos()
 
     charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide=0.0525, inverted=True
+        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
     trackr = CornerTracker(charuco)

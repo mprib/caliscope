@@ -91,7 +91,7 @@ class VideoRecorder:
     def store_bundle_history(self):
         df = pd.DataFrame(self.bundle_history)
         # TODO: #25 if file exists then change the name
-        bundle_hist_path = str(Path(self.destination_folder, "bundle_history.csv"))
+        bundle_hist_path = str(Path(self.destination_folder, "frame_time_history.csv"))
         logging.info(f"Storing bundle history to {bundle_hist_path}")
         df.to_csv(bundle_hist_path, index = False, header = True)
         

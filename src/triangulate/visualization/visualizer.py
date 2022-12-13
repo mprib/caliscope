@@ -26,6 +26,7 @@ from src.triangulate.stereo_triangulator import CameraData
 class StereoVisualizer:
     def __init__(self, triangulator):
         self.triangulator = triangulator
+        self.point_in_q = None
 
         self.mesh_A = mesh_from_camera(triangulator.camera_A)
         self.mesh_B = mesh_from_camera(triangulator.camera_B)
@@ -65,27 +66,38 @@ class StereoVisualizer:
         self.board_data = board_data   
 
         self.color = (1, 0, 0, 1)
-        self.sp1 = gl.GLScatterPlotItem(
+        self.board_viz = gl.GLScatterPlotItem(
             pos=self.board_data , color=self.color, size=.1, pxMode=False
         )
 
-        self.scene.addItem(self.sp1)
+        self.scene.addItem(self.board_viz)
 
+    def add_point_q(self,q):
+        self.point_in_q = q
+        
+        self.board_data = self.point_in_q.get()   
+
+        self.color = (1, 0, 0, 1)
+        self.board_viz = gl.GLScatterPlotItem(
+            pos=self.board_data , color=self.color, size=.01, pxMode=False
+        )
+
+        self.scene.addItem(self.board_viz)
 
     def update(self):
         # update surface positions and colors
         # update volume colors
-        self.phase -= 0.1
-        z = -np.cos(self.d3*2+self.phase)
-        self.pos3[:,2] = z
-
-        self.sp3.setData(pos=self.pos3, color=self.color)
+        # self.phase -= 0.1
+        # z = -np.cos(self.d3*2+self.phase)
+        # self.pos3[:,2] = z
+        self.board_data = self.point_in_q.get()
+        self.board_viz.setData(pos=self.board_data, color=self.color)
         ################ END TEST NEW PYQTGRAPHSTUFF
 
     def start(self):
         t = QtCore.QTimer()
         t.timeout.connect(self.update)
-        t.start(50)
+        t.start(1000)
         pg.exec()
 
 
@@ -143,7 +155,7 @@ if __name__ == "__main__":
     from src.calibration.charuco import Charuco
     from src.triangulate.paired_point_stream import PairedPointStream
     from src.triangulate.stereo_triangulator import StereoTriangulator
-    from triangulate.visualization.visualizer import StereoVisualizer
+    from src.triangulate.visualization.visualizer import StereoVisualizer
     from src.calibration.corner_tracker import CornerTracker
 
     # set the location for the sample data used for testing
@@ -169,25 +181,7 @@ if __name__ == "__main__":
     config_path = str(Path(session_directory, "config.toml"))
     triangulatr = StereoTriangulator(point_stream, config_path)
 
-    test_board_corners = np.array(
-        [
-            [-8.97169043, 8.58954463, 56.44145603],
-            [-9.28875076, 4.38558929, 54.45100235],
-            [-9.65045165, 0.20856289, 52.33586731],
-            [-13.50551906, 9.2943572, 55.70972394],
-            [-13.80153222, 5.0210905, 53.37978951],
-            [-14.07910444, 0.84995609, 51.34233615],
-            [-17.93996941, 9.86696736, 54.15030867],
-            [-18.18285319, 5.69386964, 52.21569521],
-            [-18.5111405, 1.50492472, 49.85212552],
-            [-22.37649957, 10.55513425, 53.03158067],
-            [-22.6366339, 6.28469088, 50.85093531],
-            [-22.8193701, 2.1501825, 48.45748189],
-        ]
-    )
 
-    test_board_corners = test_board_corners/10
     vizr = StereoVisualizer(triangulatr)
-    vizr.add_test_scatter()
-    vizr.add_test_board_scatter(test_board_corners)
+    vizr.add_point_q(triangulatr.out_q)
     vizr.start()

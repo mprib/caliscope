@@ -28,7 +28,7 @@ board_width = 8.5
 dictionary = "DICT_4X4_1000"
 units = "inch"
 aruco_scale = 0.75
-square_size_overide = 4.4
+square_size_overide_cm = 4.4
 inverted = true
 
 [stereo_0_1]

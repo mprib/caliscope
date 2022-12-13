@@ -1,6 +1,6 @@
 # Current Functionality
 
-To launch the primary functionality of the repo, run `src\gui\main.py`. This will open an ugly dialog to begin a calibration session. Session data is stored in the `examples` folder in the root directory. The session being launched is coded at the bottom of `main.py`. The general workflow:
+To launch the primary functionality of the repo, run `src\gui\main.py`. This will open an ugly dialog to begin a calibration session. Session data is stored in the `sessions` folder in the root directory. The session being launched is coded at the bottom of `main.py`. The general workflow:
 
 1. Print out a charuco board from the Charuco Builder tab
 2. Click "Find Additional Cameras" to connect to them

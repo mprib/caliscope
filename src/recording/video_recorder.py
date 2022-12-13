@@ -120,8 +120,8 @@ if __name__ == "__main__":
     from src.session import Session
     
     repo = Path(__file__).parent.parent.parent
-    # config_path = Path(repo, "examples", "default_session")
-    session_path = Path(repo, "examples", "high_res_session")
+    # config_path = Path(repo, "sessions", "default_session")
+    session_path = Path(repo, "sessions", "high_res_session")
     print(f"Config Path: {session_path}")
     session = Session(session_path)
 
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     video_recorder = VideoRecorder(syncr)
 
     print(repo)
-    # video_path = Path(repo,"examples", "recordings", "sample1")
+    # video_path = Path(repo,"sessions", "recordings", "sample1")
     video_recorder.start_recording(session_path)
     time.sleep(10)
     video_recorder.stop_recording()

@@ -159,7 +159,7 @@ if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent
     print(repo)
 
-    session_path = Path(repo, "examples", "high_res_session")
+    session_path = Path(repo, "sessions", "high_res_session")
 
     # create playback streams to provide to synchronizer
     ports = [0, 1]

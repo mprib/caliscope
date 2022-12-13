@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     # set the location for the sample data used for testing
     repo = Path(__file__).parent.parent.parent.parent
-    session_directory =Path(repo, "examples", "high_res_session")
+    session_directory =Path(repo, "sessions", "high_res_session")
     # create playback streams to provide to synchronizer
     ports = [0, 1]
     recorded_stream_pool = RecordedStreamPool(ports, session_directory)

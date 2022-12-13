@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     repo = Path(__file__).parent.parent.parent
     print(repo)
-    session_directory = Path(repo, "examples", "high_res_session")
+    session_directory = Path(repo, "sessions", "high_res_session")
 
     ports = [0, 1]
     recorded_stream_pool = RecordedStreamPool(ports, session_directory)

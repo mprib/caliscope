@@ -308,7 +308,7 @@ if __name__ == "__main__":
     logging.debug("Test live stereocalibration processing")
 
     repo = Path(__file__).parent.parent.parent
-    session_path = Path(repo, "examples", "default_session")
+    session_path = Path(repo, "sessions", "default_session")
     session = Session(session_path)
 
     session.load_cameras()

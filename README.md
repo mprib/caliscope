@@ -44,16 +44,16 @@ end
 Synchronizer --> PairedPointStream 
 
 subgraph SavedData
-port_#.mp4 --> RecordedStream
-frame_time_history.csv --> RecordedStream
-
-RecordedStream --> Synchronizer
 Synchronizer --> VideoRecorder
-
 VideoRecorder --> port_#.mp4
 VideoRecorder --> frame_time_history.csv
+
+port_#.mp4 --> RecordedStream
+frame_time_history.csv --> RecordedStream
+RecordedStream --> Synchronizer
 end
-CornerTracker -.temporary \nfor testing .- PairedPointStream
+
+CornerTracker -.temporary for testing .- PairedPointStream
 
 subgraph triangulate
 PairedPointStream -->StereoTriangulator

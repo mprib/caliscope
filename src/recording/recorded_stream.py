@@ -26,7 +26,7 @@ class RecordedStream:
         self.directory = directory
 
         video_path = str(Path(self.directory, f"port_{port}.mp4"))
-        bundle_history_path = str(Path(self.directory, f"bundle_history.csv"))
+        bundle_history_path = str(Path(self.directory, f"frame_time_history.csv"))
         self.reel = Queue(-1)
         self.capture = cv2.VideoCapture(video_path)
 

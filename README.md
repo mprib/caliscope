@@ -48,7 +48,7 @@ Synchronizer --> PairedPointStream
 subgraph SavedData
 port_0.mp4
 port_1.mp4
-bundle_history.csv
+frame_time_history.csv
 end
 
 CornerTracker -..- PairedPointStream

@@ -1,0 +1,1 @@
+NOTE: This is just some sandbox code to get a sense of how to do 3D rendering directly in PyQt without pyqtgraph. This may be something worth looking at in more detail later but is certainly a low priority at the moment.

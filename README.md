@@ -27,7 +27,7 @@ I need to see where everything is at the moment. As I go back to address issues 
 
 
 ```mermaid
-graph 
+graph TD
 
 subgraph calibration
 Charuco --> CornerTracker

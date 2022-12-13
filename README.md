@@ -36,7 +36,7 @@ CornerTracker --> Stereocalibrator
 end
 
 subgraph cameras
-Camera -..- Monocalibrator
+Camera -.only for \nwriting settings.- Monocalibrator
 Camera --> LiveStream
 LiveStream --> Synchronizer
 Synchronizer --> Monocalibrator
@@ -51,7 +51,7 @@ port_1.mp4
 frame_time_history.csv
 end
 
-CornerTracker -..- PairedPointStream
+CornerTracker -.temporary \nfor testing .- PairedPointStream
 
 subgraph recording
 RecordedStream --> Synchronizer
@@ -62,7 +62,7 @@ VideoRecorder --> SavedData
 SavedData --> RecordedStream
 
 subgraph triangulate
-PairedPointStream --> StereoTriangulator
+PairedPointStream -->StereoTriangulator
 end
 
 subgraph visualization

@@ -257,7 +257,7 @@ class Session:
 #%%
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent
-    config_path = Path(repo, "examples", "default_session")
+    config_path = Path(repo, "sessions", "default_session")
     print(config_path)
     session = Session(config_path)
     session.update_config()

@@ -59,6 +59,7 @@ class CornerTracker:
         
         # prevent sending out floats rather than arrays 
         if type(ids) != np.ndarray:
+            logging.debug(f"IDs come in with type {type(ids)} so converting to array: {np.array([ids])}")
             ids = np.array([ids])
             img_loc = np.array([img_loc])
             board_loc = np.array([board_loc])

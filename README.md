@@ -23,16 +23,10 @@ The Visualizer constructs camera meshes based on `config.toml` to allow a gut ch
 
 Currently, the origin is the base camera from the stereocalibration pair. Next planned steps include a way to set the origin.
 
-
-## Things to Uninstall
-
-Going back to Temuge B notebook I instaled plotly and something called nbformat just to visualize the output. 
-
-Don't carry these packages forward as they are not actually necessary for core work.
-
 ## Current Object Relationships
 
-I need to see where everything is at the moment. As I go back to address issues with the scale of the charuco board impacting the scale of the calibration output data and how that is reflected in the visualization of the data, I'm realizing I need to take a step back and look at things more broadly.
+The general flow of processing is illustrated in the graph below. This does not represent any of the GUI elements which are still a work in progress. My immediate next steps are to stabilize the GUI, making it easier to incorporate the full set of actions that are currently permitted by the back-end of the code base.
+
 ```mermaid
 graph
 

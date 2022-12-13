@@ -73,10 +73,10 @@ class Charuco:
     @property
     def board(self):
         if self.square_size_overide_cm:
-            square_length = self.square_size_overide_cm/10 # note: in cm within GUI
+            square_length = self.square_size_overide_cm/100 # note: in cm within GUI
         else:
-            board_height_m = self.board_height_cm / 10
-            board_width_m = self.board_width_cm / 10
+            board_height_m = self.board_height_cm / 100
+            board_width_m = self.board_width_cm / 100
             
             square_length = min(
                 [board_height_m / self.rows, board_width_m / self.columns]

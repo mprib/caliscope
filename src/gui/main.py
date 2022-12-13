@@ -36,9 +36,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.session import Session
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, session=None):
         super().__init__()
         self.repo = Path(__file__).parent.parent.parent
+        if session is not None:
+            self.session = session
+
         app = QApplication.instance()
         screen = app.primaryScreen()
         DISPLAY_WIDTH = screen.size().width()
@@ -68,16 +71,15 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent
-    # config_path = Path(repo, "sessions", "default_res_session")
     config_path = Path(repo, "sessions", "high_res_session")
     # print(config_path)
-    # session = Session(config_path)
+    session = Session(config_path)
 
     # comment out this next line if you want to save cameras after closing
     # session.delete_all_cam_data() 
 
     app = QApplication(sys.argv)
-    window = MainWindow()
+    window = MainWindow(session)
     # window = SessionSummary(session)
     window.show()
 

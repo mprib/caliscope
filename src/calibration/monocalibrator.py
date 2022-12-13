@@ -2,7 +2,7 @@ import logging
 
 LOG_LEVEL = logging.DEBUG
 # LOG_LEVEL = logging.INFO
-LOG_FILE = "monocalibrator.log"
+LOG_FILE = "log\monocalibrator.log"
 logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
 
 import sys

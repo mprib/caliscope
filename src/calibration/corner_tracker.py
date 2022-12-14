@@ -53,18 +53,6 @@ class CornerTracker:
             self.gray = cv2.flip(self.gray, 1)
             self.find_corners_single_frame(mirror=True)
 
-        # attempts to "presqeeuze" just end up creating issues down the line...
-        # at least this way, output follows a standard convention that I can deal with
-        # ids = self.ids.squeeze()
-        # img_loc = self.img_loc.squeeze()
-        # board_loc = self.board_loc.squeeze()
-        
-        # # prevent sending out floats rather than arrays 
-        # if type(ids) != np.ndarray:
-        #     logging.debug(f"IDs come in with type {type(ids)} so converting to array: {np.array([ids])}")
-        #     ids = np.array([ids])
-        #     img_loc = np.array([img_loc])
-        #     board_loc = np.array([board_loc])
         return self.ids, self.img_loc, self.board_loc
 
     def find_corners_single_frame(self, mirror):

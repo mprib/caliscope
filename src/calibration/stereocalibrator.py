@@ -267,8 +267,8 @@ class StereoCalibrator:
         a port that are on the list of common ids"""
 
         ids = self.current_bundle[port]["ids"]
-        img_loc = self.current_bundle[port]["img_loc"].squeeze().tolist()
-        board_loc = self.current_bundle[port]["board_loc"].squeeze().tolist()
+        img_loc = self.current_bundle[port]["img_loc"].tolist()
+        board_loc = self.current_bundle[port]["board_loc"].tolist()
 
         common_img_loc = []
         common_board_loc = []

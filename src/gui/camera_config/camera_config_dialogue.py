@@ -12,7 +12,7 @@ from threading import Thread
 
 import cv2
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtGui import QImage, QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QSpinBox,
@@ -172,7 +172,13 @@ class CameraConfigDialog(QDialog):
 
         # Undistort
         self.undistort_btn = QPushButton("Undistort")
-        self.undistort_btn.setEnabled(False)
+        
+        # check here to see if distortion params are available for this camera
+        if self.monocal.camera.distortion is None:
+            self.undistort_btn.setEnabled(False)
+        else:
+            self.undistort_btn.setEnabled(True)
+
         self.undistort_btn.setMaximumWidth(100)
         vbox.addWidget(self.undistort_btn)
 
@@ -192,9 +198,6 @@ class CameraConfigDialog(QDialog):
         self.save_cal_btn.setMaximumWidth(100)
         vbox.addWidget(self.save_cal_btn)
 
-        # TODO: refactor so saves managed elsewhere...why build a whole session
-        # here just to save. There's got to be a more modular approach to this
-        # that I expect will pay dividends later
         def save_cal():
             self.session.save_camera(self.port)
 
@@ -273,14 +276,14 @@ class CameraConfigDialog(QDialog):
         self.frame_emitter.GridCountBroadcast.connect(grid_count_update_slot)
 
     def build_cw_rotation_btn(self):
-        self.cw_rotation_btn = QPushButton("Rotate CW")
+        self.cw_rotation_btn = QPushButton(QIcon("src/gui/icons/rotate-camera-right.svg"), "")
         self.cw_rotation_btn.setMaximumSize(100, 50)
 
         # Counter Clockwise rotation called because the display image is flipped
         self.cw_rotation_btn.clicked.connect(self.monocal.camera.rotate_CCW)
 
     def build_ccw_rotation_btn(self):
-        self.ccw_rotation_btn = QPushButton("Rotate CCW")
+        self.ccw_rotation_btn = QPushButton(QIcon("src/gui/icons/rotate-camera-left.svg"), "")
         self.ccw_rotation_btn.setMaximumSize(100, 50)
 
         # Clockwise rotation called because the display image is flipped

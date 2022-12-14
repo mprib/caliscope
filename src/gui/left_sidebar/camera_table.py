@@ -33,7 +33,7 @@ from PyQt6.QtWidgets import (
 )
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-from gui.camera_config.camera_config_dialogue import CameraConfigDialog
+from src.gui.camera_config.camera_config_dialogue import CameraConfigDialog
 from src.gui.charuco_builder import CharucoBuilder
 from src.session import Session
 

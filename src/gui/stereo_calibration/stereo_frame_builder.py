@@ -51,11 +51,6 @@ class StereoFrameBuilder:
             ids_B = self.current_bundle[portB]["ids"]
             common_ids = np.intersect1d(ids_A, ids_B)
             
-            print(ids_A)
-            print(ids_A.shape)
-            print(len(ids_A))
-            # common_ids = common_ids.tolist()
-
             img_loc_A = self.current_bundle[portA]["img_loc"]
             img_loc_B = self.current_bundle[portB]["img_loc"]
 

@@ -8,8 +8,10 @@ import numpy as np
 
 
 def grid_history(frame, ids, img_locs, connected_corners):
-
-    possible_pairs = {pair for pair in combinations(ids.tolist(), 2)}
+    ids = ids.squeeze().tolist()
+    img_locs = img_locs.squeeze().tolist()
+    
+    possible_pairs = {pair for pair in combinations(ids, 2)}
     connected_pairs = connected_corners.intersection(possible_pairs)
 
     # build dictionary of corner positions:
@@ -32,7 +34,7 @@ def corners(frame, locs):
     #     locs = np.array(locs, dtype=np.float32)
 
     if locs.any():
-        for coord in locs:
+        for coord in locs[:,0]:
             # coord = list(coord)
             # print(frame.shape[1])
             x = round(coord[0])

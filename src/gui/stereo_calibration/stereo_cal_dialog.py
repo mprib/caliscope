@@ -32,8 +32,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.gui.stereo_pair_widget import StereoPairWidget
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from src.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
 
 
 class StereoCalDialog(QScrollArea):
@@ -116,10 +116,10 @@ class StereoCalDialog(QScrollArea):
 if __name__ == "__main__":
     from time import time
 
-    from src.gui.stereo_frame_emitter import StereoFrameEmitter
+    from src.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
     from src.session import Session
 
-    repo = Path(__file__).parent.parent.parent
+    repo = Path(__file__).parent.parent.parent.parent
     config_path = Path(repo, "sessions", "default_res_session")
     session = Session(config_path)
     session.load_cameras()

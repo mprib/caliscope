@@ -37,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from camera_table import CameraTable
 
-from src.gui.camera_config_dialogue import CameraConfigDialog
+from gui.camera_config.camera_config_dialogue import CameraConfigDialog
 from src.gui.charuco_builder import CharucoBuilder
 from src.session import Session
 from src.gui.stereo_cal_dialog import StereoCalDialog

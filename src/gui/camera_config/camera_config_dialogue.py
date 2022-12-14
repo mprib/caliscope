@@ -27,8 +27,8 @@ from PyQt6.QtWidgets import (
 )
 
 # Append main repo to top of path to allow import of backend
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from frame_emitter import FrameEmitter
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from src.gui.camera_config.frame_emitter import FrameEmitter
 
 from src.session import Session
 
@@ -335,8 +335,8 @@ class CameraConfigDialog(QDialog):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
 
-    repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "sessions", "default_session")
+    repo = Path(__file__).parent.parent.parent.parent
+    config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
     session = Session(config_path)
     session.load_cameras()

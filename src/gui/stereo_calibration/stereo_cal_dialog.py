@@ -91,9 +91,9 @@ class StereoCalDialog(QScrollArea):
 
         # and a spin box to control the wait time between captures
         self.wait_time_spin = QDoubleSpinBox()
-        self.wait_time_spin.setValue(0.5)
+        self.wait_time_spin.setValue(self.session.stereocalibrator.wait_time)
         self.wait_time_spin.setSingleStep(0.1)
-        self.session.stereocalibrator.wait_time = self.wait_time_spin.value()
+        # self.session.stereocalibrator.wait_time = self.wait_time_spin.value()
 
         def on_wait_time_spin(wait_time):
             self.session.stereocalibrator.wait_time = wait_time

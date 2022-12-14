@@ -202,7 +202,7 @@ class Camera(object):
     def calibration_summary(self):
         # Calibration output presented in label on far right
         grid_count = "Grid Count:\t" + str(self.grid_count)
-        size_text = "Size:\t" + str(self.resolution[0]) + "x" + str(self.resolution[1])
+        size_text = "Resolution:\t" + str(self.resolution[0]) + "x" + str(self.resolution[1])
 
         # only grab if they exist
         if self.error and self.error != "NA":

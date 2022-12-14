@@ -28,7 +28,7 @@ from src.calibration.stereocalibrator import StereoCalibrator
 from src.cameras.camera import Camera
 from src.cameras.synchronizer import Synchronizer
 from src.cameras.live_stream import LiveStream
-from src.gui.stereo_frame_builder import StereoFrameBuilder
+from src.gui.stereo_calibration.stereo_frame_builder import StereoFrameBuilder
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10
@@ -257,7 +257,7 @@ class Session:
 #%%
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent
-    config_path = Path(repo, "sessions", "default_session")
+    config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
     session = Session(config_path)
     session.update_config()

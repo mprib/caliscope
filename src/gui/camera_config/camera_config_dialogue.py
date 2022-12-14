@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QGroupBox,
+    QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -62,7 +63,8 @@ class CameraConfigDialog(QDialog):
         self.build_cw_rotation_btn()
         self.build_resolution_combo()
         self.build_exposure_hbox()
-        self.build_fps_capture_controls()
+        self.build_fps_grp()
+        self.build_grid_group()
         self.build_calibrate_grp()
         ###################################################################
         self.v_box = QVBoxLayout(self)
@@ -85,13 +87,15 @@ class CameraConfigDialog(QDialog):
         self.v_box.addLayout(self.exposure_hbox)
 
         #######################     FPS   + Grid Count #########################
-        self.v_box.addLayout(self.fps_cap_controls)
+        controls = QHBoxLayout()
+        controls.addWidget(self.fps_grp)
+        controls.addWidget(self.grid_grp)
+        # self.v_box.addWidget(self.fps_grp)
+        # self.v_box.addWidget(self.grid_grp)
+        self.v_box.addLayout(controls)
 
         ###################### CALIBRATION  ################################
         self.v_box.addWidget(self.calibrate_grp)
-
-        for w in self.children():
-            self.v_box.setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
 
     ####################### SUB_WIDGET CONSTRUCTION ###############################
 
@@ -102,13 +106,6 @@ class CameraConfigDialog(QDialog):
         hbox = QHBoxLayout()
         self.calibrate_grp.setLayout(hbox)
 
-        # Build Charuco Image Display
-        # self.charuco_display = QLabel()
-        # charuco_img = self.monocal.corner_tracker.charuco.board_pixmap(
-        #     self.pixmap_edge / 3, self.pixmap_edge / 3
-        # )
-        # self.charuco_display.setPixmap(charuco_img)
-        # hbox.addWidget(self.charuco_display)
 
         # Collect Calibration Corners
         vbox = QVBoxLayout()
@@ -213,12 +210,16 @@ class CameraConfigDialog(QDialog):
         hbox.addWidget(self.cal_output)
         # calib_output.setMaximumWidth()
 
-    def build_fps_capture_controls(self):
-        self.fps_cap_controls = QHBoxLayout()
+    def build_fps_grp(self):
+        
+        self.fps_grp = QGroupBox("FPS")
+        fps_hbox = QHBoxLayout()
+        self.fps_grp.setLayout(fps_hbox)
         # self.realtime_text_hbox = QHBoxLayout()
         logging.debug("Building FPS Control")
+        fps_hbox.addWidget(QLabel("Target:"))
         self.frame_rate_spin = QSpinBox()
-        self.frame_rate_spin.setValue(6)
+        self.frame_rate_spin.setValue(self.session.synchronizer.fps_target)
 
         self.session.synchronizer.fps_target = (
             self.frame_rate_spin.value()
@@ -228,28 +229,46 @@ class CameraConfigDialog(QDialog):
             self.session.synchronizer.fps_target = fps_rate
 
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
-        self.fps_cap_controls.addWidget(self.frame_rate_spin)
+        fps_hbox.addWidget(self.frame_rate_spin)
 
         self.fps_display = QLabel()
         self.fps_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.fps_cap_controls.addWidget(self.fps_display)
+        fps_hbox.addWidget(self.fps_display)
         
         def FPSUpdateSlot(fps):
             if self.monocal.camera.is_rolling:
                 # rounding to nearest integer should be close enough for our purposes
-                self.fps_display.setText("FPS: " + str(round(fps, 0)))
+                self.fps_display.setText("Actual: " + str(round(fps, 1)))
             else:
                 self.fps_display.setText("reconnecting to camera...")
 
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
+
+    def build_grid_group(self):
         
+        # Built capture wait time
+        self.grid_grp = QGroupBox("Grid Collection")
+        hbox = QHBoxLayout()
+        self.grid_grp.setLayout(hbox)
+        
+        hbox.addWidget(QLabel("Wait Time:"))
+        self.wait_time_spin = QDoubleSpinBox()
+        self.wait_time_spin.setValue(self.monocal.wait_time)
+        self.wait_time_spin.setSingleStep(0.1)
+
+        def on_wait_time_spin(wait_time):
+            self. monocal.wait_time = wait_time
+
+        self.wait_time_spin.valueChanged.connect(on_wait_time_spin)     
+        hbox.addWidget(self.wait_time_spin)
+
         logging.debug("Building Grid Count Display")
         self.grid_count_display = QLabel()
-        self.fps_cap_controls.addWidget(self.grid_count_display)
+        hbox.addWidget(self.grid_count_display)
         self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         def grid_count_update_slot(grid_count):
-            self.grid_count_display.setText(f"Grid Count: {grid_count}")
+            self.grid_count_display.setText(f"Count: {grid_count}")
 
         self.frame_emitter.GridCountBroadcast.connect(grid_count_update_slot)
 

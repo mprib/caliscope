@@ -32,8 +32,8 @@ from PyQt6.QtWidgets import (
 )
 
 # Append main repo to top of path to allow import of backend
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.gui.stereo_frame_emitter import StereoFrameEmitter
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from src.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
 
 
 class StereoPairWidget(QWidget):
@@ -122,7 +122,8 @@ if __name__ == "__main__":
 
     App = QApplication(sys.argv)
 
-    repo = Path(__file__).parent.parent.parent
+    repo = Path(__file__).parent.parent.parent.parent
+
     config_path = Path(repo, "sessions", "default_res_session")
     print(config_path)
     session = Session(config_path)
@@ -132,7 +133,7 @@ if __name__ == "__main__":
     session.load_stereo_tools()
 
     logging.info("Creating Camera Config Dialog")
-    test_pair = (0, 2)
+    test_pair = (0, 1)
     stereo_frame_emitter = StereoFrameEmitter(session.stereo_frame_builder)
     stereo_frame_emitter.start()
     cam_dialog = StereoPairWidget(session, stereo_frame_emitter, test_pair)

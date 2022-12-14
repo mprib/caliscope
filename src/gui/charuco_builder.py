@@ -335,8 +335,10 @@ class CharucoBuilder(QWidget):
 
 if __name__ == "__main__":
     App = QApplication(sys.argv)
-
-    session = Session(r"C:\Users\Mac Prible\repos\learn-opencv\test_session")
+    repo = Path(__file__).parent.parent.parent
+    config_path = Path(repo, "sessions", "high_res_session")
+    print(config_path)
+    session = Session(config_path)
 
     screen = App.primaryScreen()
     DISPLAY_WIDTH = screen.size().width()

@@ -50,6 +50,10 @@ class StereoFrameBuilder:
             ids_A = self.current_bundle[portA]["ids"]
             ids_B = self.current_bundle[portB]["ids"]
             common_ids = np.intersect1d(ids_A, ids_B)
+            
+            print(ids_A)
+            print(ids_A.shape)
+            print(len(ids_A))
             # common_ids = common_ids.tolist()
 
             img_loc_A = self.current_bundle[portA]["img_loc"]
@@ -57,15 +61,15 @@ class StereoFrameBuilder:
 
             for _id, img_loc in zip(ids_A, img_loc_A):
                 if _id in common_ids:
-                    x = round(float(img_loc[0]))
-                    y = round(float(img_loc[1]))
+                    x = round(float(img_loc[0,0]))
+                    y = round(float(img_loc[0,1]))
 
                     cv2.circle(frameA, (x, y), 5, (0, 0, 220), 3)
 
             for _id, img_loc in zip(ids_B, img_loc_B):
                 if _id in common_ids:
-                    x = round(float(img_loc[0]))
-                    y = round(float(img_loc[1]))
+                    x = round(float(img_loc[0,0]))
+                    y = round(float(img_loc[0,1]))
 
                     cv2.circle(frameB, (x, y), 5, (0, 0, 220), 3)
             return frameA, frameB
@@ -78,12 +82,12 @@ class StereoFrameBuilder:
 
         for cornerset in img_loc_A:
             for corner in cornerset:
-                corner = (int(corner[0]), int(corner[1]))
+                corner = (int(corner[0][0]), int(corner[0][1]))
                 cv2.circle(frameA, corner, 2, (255, 165, 0), 2, 1)
 
         for cornerset in img_loc_B:
             for corner in cornerset:
-                corner = (int(corner[0]), int(corner[1]))
+                corner = (int(corner[0][0]), int(corner[0][1]))
                 cv2.circle(frameB, corner, 2, (255, 165, 0), 2, 1)
 
         return frameA, frameB

@@ -8,8 +8,8 @@ import numpy as np
 
 
 def grid_history(frame, ids, img_locs, connected_corners):
-    ids = ids.squeeze().tolist()
-    img_locs = img_locs.squeeze().tolist()
+    ids = ids[:,0]
+    img_locs = img_locs[:,0]
     
     possible_pairs = {pair for pair in combinations(ids, 2)}
     connected_pairs = connected_corners.intersection(possible_pairs)

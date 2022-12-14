@@ -106,8 +106,8 @@ class StereoTriangulator:
     def get_extrinsic_params(self):
 
         data = self.config[f"stereo_{self.portA}_{self.portB}"]
-        rotation = np.array(data["rotation"], dtype=np.float64).squeeze()
-        translation = np.array(data["translation"], dtype=np.float64).squeeze()
+        rotation = np.array(data["rotation"], dtype=np.float64)
+        translation = np.array(data["translation"], dtype=np.float64)
         stereo_error = data["RMSE"]
 
         logging.info(

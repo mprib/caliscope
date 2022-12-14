@@ -68,27 +68,3 @@ StereoTriangulator --> Visualizer
 end
 
 ```
-
-
-# GUI
-
-Attemptign to sketch out the primary relationship of the GUI here:
-
-```mermaid
-graph
-
-subgraph Main
-
-File --> NewSession
-File --> OpenPreviousSession
-
-end
-
-subgraph LeftSideBar
-CharucoPanel --> CharucoBuilder
-SingleCamCalibration
-StereoCamCalibration
-SetOrigin
-end
-
-```

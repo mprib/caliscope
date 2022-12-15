@@ -34,6 +34,7 @@ from PyQt6.QtWidgets import (
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.session import Session
+from src.gui.left_sidebar.sidebar import SideBar
 
 class MainWindow(QMainWindow):
     def __init__(self, session=None):
@@ -53,21 +54,41 @@ class MainWindow(QMainWindow):
         
         menu = self.menuBar()
         file_menu = menu.addMenu("&File")
-        new_session = QAction("Create &New Session", self)
-        new_session.triggered.connect(self.open_session)
-        file_menu.addAction(new_session)
+        file_new_session = QAction("Create &New Session", self)
+        file_new_session.triggered.connect(self.open_session)
+        file_menu.addAction(file_new_session)
 
-        saved_session = QAction("&Open Saved Session", self)
-        saved_session.triggered.connect(self.open_session)
-        file_menu.addAction(saved_session)
+        file_saved_session = QAction("&Open Saved Session", self)
+        file_saved_session.triggered.connect(self.open_session)
+        file_menu.addAction(file_saved_session)
 
+        view_menu = menu.addMenu("&View")
+        
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.hbox = QHBoxLayout()
+        self.central_widget.setLayout(self.hbox)
+        
+         
     def open_session(self):
         # folder_dialog = QFileDialog
         sessions_directory = str(Path(self.repo, "sessions"))
         session_path = QFileDialog.getExistingDirectory(self,"Select Session Folder", sessions_directory )
+        logging.info(f"Opening session located at {session_path}")
         self.session = Session(session_path)
-        print(session_path)
+        self.sidebar = SideBar(self.session)
+        
+        # https://www.youtube.com/watch?v=gGIlLOqRBs4
+        # see above for guidance regarding dockable widget, which I think is
+        # what I want for the SessionSummary. Also, I think I can rename the 
+        # left_side_bar to SessionSummary. And then the true central widget of the
+        # QMainWindow can become that actual item of focus, which I think is a good
+        # indication that this is the right way to set things up.
 
+        self.sidebar.setMaximumWidth(self.width()/3)
+        self.hbox.addWidget(self.sidebar)
+
+    
 
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent

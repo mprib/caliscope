@@ -127,7 +127,8 @@ class MainWindow(QMainWindow):
         # actions.addAction(cameras)
 
     def launch_cam_config_dialog(self):
-
+        
+        self.camera_tabs = None
         self.camera_tabs = CameraTabs(self.session)
             
         def on_save_cam_click():
@@ -169,10 +170,10 @@ class MainWindow(QMainWindow):
             self.session.find_additional_cameras()
             logging.info("Loading streams")
             self.session.load_stream_tools()
+            # logging.info("Adjusting resolutions")
+            # self.session.adjust_resolutions()
             logging.info("Loading monocalibrators")
             self.session.load_monocalibrators()
-            logging.info("Adjusting resolutions")
-            self.session.adjust_resolutions()
             logging.info("Updating Camera Table")
             self.summary.camera_summary.camera_table.update_data()
 

@@ -1,5 +1,17 @@
 CreationDate = 2022-12-13T12:57:48.928480
 
+[cam_0]
+port = 0
+resolution = [ 640, 480,]
+rotation_count = 0
+exposure = -6.0
+
+[cam_1]
+port = 1
+resolution = [ 640, 480,]
+rotation_count = 0
+exposure = -6.0
+
 [charuco]
 columns = 4
 rows = 5

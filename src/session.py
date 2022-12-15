@@ -46,6 +46,8 @@ class Session:
 
         # dictionaries of calibration related objects.
         self.monocalibrators = {}  # key = port
+        
+        self.synchronizer_created = False
 
         self.load_config()
         self.load_charuco()
@@ -165,6 +167,7 @@ class Session:
                 logging.info(f"Success at port {port}")
                 self.cameras[port] = cam
                 self.save_camera(port)
+                self.streams[port] = LiveStream(cam)
             except:
                 logging.info(f"No camera at port {port}")
 
@@ -185,8 +188,14 @@ class Session:
             else:
                 logging.info(f"Loading Stream for port {port}")
                 self.streams[port] = LiveStream(cam)
-
-        self.synchronizer = Synchronizer(self.streams, fps_target=6.2)
+        
+        # recreating the synchronizer may have been at the source of some GUI weirdness.
+        # Make one synchronizer and don't add more...
+        # this will likely create issues when the number of streams changes, but I'll need
+        # to deal with that then.
+        if not self.synchronizer_created:
+            self.synchronizer = Synchronizer(self.streams, fps_target=6.2)
+            self.synchronizer_created = True
 
     def load_monocalibrators(self):
         self.corner_tracker = CornerTracker(self.charuco)

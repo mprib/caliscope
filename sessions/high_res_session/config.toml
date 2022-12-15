@@ -1,18 +1,6 @@
 CreationDate = 2022-12-12T13:14:20.080680
 
-[cam_0]
-port = 0
-resolution = [ 1024, 576,]
-rotation_count = 0
-exposure = -6
-grid_count = 0
 
-[cam_1]
-port = 1
-resolution = [ 800, 600,]
-rotation_count = 0
-exposure = -6.0
-grid_count = 0
 
 [charuco]
 columns = 4
@@ -25,8 +13,4 @@ aruco_scale = 0.75
 square_size_overide_cm = 5.25
 inverted = true
 
-[stereo_0_1]
-grid_count = 21
-rotation = [ [ "0.9095045444472464", "-0.06959784129141633", "-0.40982633409455477",], [ "0.028034627198610072", "0.993909602005143", "-0.10657280478533501",], [ "0.41474756576457655", "0.08543912177423757", "0.9059164493278645",],]
-translation = [ [ "0.4484180165158357",], [ "-0.06835114071959121",], [ "0.11364485344275702",],]
-RMSE = 1.2905409877160794
+

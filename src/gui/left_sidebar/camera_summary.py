@@ -42,23 +42,29 @@ class CameraSummary(QWidget):
         self.hbox = QHBoxLayout()
         self.setLayout(self.hbox)
 
-        left_vbox = QVBoxLayout()
+        vbox = QVBoxLayout()
+
+        self.cam_count_box = QHBoxLayout()
+        vbox.addLayout(self.cam_count_box)
+        self.cam_count_box.addWidget(QLabel("Connected Cameras Count:"))
+        self.connected_cam_count = QLabel("0")
+        self.cam_count_box.addWidget(self.connected_cam_count)
 
         self.camera_table = CameraTable(self.session)
         self.camera_table.setFixedSize(250, 150)
-        left_vbox.addWidget(self.camera_table)
+        vbox.addWidget(self.camera_table)
         self.connect_cams_btn = QPushButton("&Connect to Cameras")
 
         if self.session.camera_count() == 0:
             self.connect_cams_btn.setEnabled(False)
             
-        left_vbox.addWidget(self.connect_cams_btn)
+        vbox.addWidget(self.connect_cams_btn)
         self.find_cams_btn = QPushButton("&Find Additional Cameras")
-        left_vbox.addWidget(self.find_cams_btn)
+        vbox.addWidget(self.find_cams_btn)
 
         self.open_cameras_btn = QPushButton("Open Cameras")  # this button is invisible
 
-        self.hbox.addLayout(left_vbox)
+        self.hbox.addLayout(vbox)
         
         # self.open_cameras_btn.clicked.connect(self.open_cams)
         self.connect_cams_btn.clicked.connect(self.connect_cams)
@@ -82,7 +88,7 @@ class CameraSummary(QWidget):
             # may be due to all the different threads. This seemed to kick it
             # back to the main thread...
             # self.summary.open_cameras_btn.click()
-
+            self.connected_cam_count.setText(str(len(self.session.cameras)))
             self.cams_in_process = False
 
         if not self.cams_in_process:
@@ -111,11 +117,11 @@ class CameraSummary(QWidget):
             self.connect_cams_btn.setEnabled(True)
             
         if not self.cams_in_process:
-            print("Searching for additional cameras...This may take a moment.")
+            logging.info("Searching for additional cameras...This may take a moment.")
             self.find = Thread(target=find_cam_worker, args=(), daemon=True)
             self.find.start()
         else:
-            print("Cameras already connected or in process.")
+            logging.info("Cameras already connected or in process.")
         
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent.parent

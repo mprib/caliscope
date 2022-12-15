@@ -44,17 +44,16 @@ class CameraTabs(QTabWidget):
         self.session = session
 
         self.setTabPosition(QTabWidget.TabPosition.North)
-
         self.add_cam_tabs()
 
     def add_cam_tabs(self):
-        tab_names = [self.widget(i).text() for i in range(self.count())]
-        logging.debug(f"Current tabs are: {tab_names}")
+        tab_names = [self.tabText(i) for i in range(self.count())]
+        logging.info(f"Current tabs are: {tab_names}")
 
         if len(self.session.streams) > 0:
             for port, stream in self.session.streams.items():
                 tab_name = f"Camera {port}"
-                logging.debug(f"Potentially adding {tab_name}")
+                logging.info(f"Potentially adding {tab_name}")
                 if tab_name in tab_names:
                     pass  # already here, don't bother
                 else:

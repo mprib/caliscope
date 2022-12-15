@@ -2,8 +2,8 @@ import logging
 import sys
 
 LOG_FILE = "log\main.log"
-# LOG_LEVEL = logging.DEBUG
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
+# LOG_LEVEL = logging.INFO
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
         DISPLAY_WIDTH = screen.size().width()
         DISPLAY_HEIGHT = screen.size().height()
 
-        self.setMinimumSize(DISPLAY_WIDTH * 0.30, DISPLAY_HEIGHT * 0.7)
+        self.setMinimumSize(DISPLAY_WIDTH * 0.45, DISPLAY_HEIGHT * 0.7)
         self.setWindowTitle("FreeMocap Camera Calibration")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
 
@@ -62,7 +62,9 @@ class MainWindow(QMainWindow):
         # State Variables
         self.CAMERAS_CONNECTED = False
         self.CHARUCO_BUILDER_MADE = False
-        
+        self.CAMERA_CONFIG_TABS_MADE = False
+        self.CAMS_IN_PROCESS = False        
+
         self.build_file_menu()
         self.build_actions_menu()
         
@@ -110,22 +112,22 @@ class MainWindow(QMainWindow):
         cameras = actions.addMenu("Cameras")
         connect_cameras = QAction("Connect to Cameras", self)
         cameras.addAction(connect_cameras)
+        connect_cameras.triggered.connect(self.connect_to_cameras)
+
         self.configure_cameras = QAction("Configure Cameras")
         self.configure_cameras.setEnabled(False)
         cameras.addAction(self.configure_cameras)
-
-        # configure_cameras = QAction("Configure Cameras", self)
-        # actions.addAction(cameras)
-        connect_cameras.triggered.connect(self.connect_to_cameras)
         self.configure_cameras.triggered.connect(self.launch_cam_config_dialog)
 
+        self.find_additional = QAction("Find Additional...")
+        cameras.addAction(self.find_additional)
+        self.find_additional.triggered.connect(self.find_cameras)
+        
+        # configure_cameras = QAction("Configure Cameras", self)
+        # actions.addAction(cameras)
+
     def launch_cam_config_dialog(self):
-        
-        # self.connect_to_cameras()
-        
-        # while not self.CAMERAS_CONNECTED:
-            # time.sleep(.2)
-          
+
         self.camera_tabs = CameraTabs(self.session)
             
         def on_save_cam_click():
@@ -136,6 +138,7 @@ class MainWindow(QMainWindow):
             
         self.central_stack.addWidget(self.camera_tabs)
         self.central_stack.setCurrentWidget(self.camera_tabs) 
+        self.CAMERA_CONFIG_TABS_MADE = True
 
     def close_cam_config(self):
         pass
@@ -154,11 +157,36 @@ class MainWindow(QMainWindow):
                 self.session.load_monocalibrators()
                 self.CAMERAS_CONNECTED = True
                 self.configure_cameras.setEnabled(True)
+                self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
                 
             self.connect_cams = Thread(target = connect_to_cams_worker, args=[], daemon=True)
             self.connect_cams.start()
     
-        
+    def find_cameras(self):
+
+        def find_cam_worker():
+
+            self.session.find_additional_cameras()
+            logging.info("Loading streams")
+            self.session.load_stream_tools()
+            logging.info("Loading monocalibrators")
+            self.session.load_monocalibrators()
+            logging.info("Adjusting resolutions")
+            self.session.adjust_resolutions()
+            logging.info("Updating Camera Table")
+            self.summary.camera_summary.camera_table.update_data()
+
+            self.CAMS_IN_PROCESS = False
+            self.configure_cameras.setEnabled(True)
+            self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
+
+        if not self.CAMS_IN_PROCESS:
+            logging.info("Searching for additional cameras...This may take a moment.")
+            self.find = Thread(target=find_cam_worker, args=(), daemon=True)
+            self.find.start()
+        else:
+            logging.info("Cameras already connected or in process.")        
+
     def create_charuco_builder(self):
 
         self.charuco_builder = CharucoBuilder(self.session)

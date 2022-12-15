@@ -53,75 +53,75 @@ class CameraSummary(QWidget):
         self.camera_table = CameraTable(self.session)
         self.camera_table.setFixedSize(250, 150)
         vbox.addWidget(self.camera_table)
-        self.connect_cams_btn = QPushButton("&Connect to Cameras")
+        # self.connect_cams_btn = QPushButton("&Connect to Cameras")
 
-        if self.session.camera_count() == 0:
-            self.connect_cams_btn.setEnabled(False)
+        # if self.session.camera_count() == 0:
+        #     self.connect_cams_btn.setEnabled(False)
             
-        vbox.addWidget(self.connect_cams_btn)
-        self.find_cams_btn = QPushButton("&Find Additional Cameras")
-        vbox.addWidget(self.find_cams_btn)
+        # vbox.addWidget(self.connect_cams_btn)
+        # self.find_cams_btn = QPushButton("&Find Additional Cameras")
+        # vbox.addWidget(self.find_cams_btn)
 
-        self.open_cameras_btn = QPushButton("Open Cameras")  # this button is invisible
+        # self.open_cameras_btn = QPushButton("Open Cameras")  # this button is invisible
 
         self.hbox.addLayout(vbox)
         
         # self.open_cameras_btn.clicked.connect(self.open_cams)
-        self.connect_cams_btn.clicked.connect(self.connect_cams)
-        self.find_cams_btn.clicked.connect(self.find_additional_cams)
+        # self.connect_cams_btn.clicked.connect(self.connect_cams)
+        # self.find_cams_btn.clicked.connect(self.find_additional_cams)
 
-    def connect_cams(self):
-        def connect_cam_worker():
-            self.cams_in_process = True
-            logging.info("Loading Cameras")
-            self.session.load_cameras()
-            logging.info("Loading streams")
-            self.session.load_stream_tools()
-            logging.info("Adjusting resolutions")
-            self.session.adjust_resolutions()
-            logging.info("Loading monocalibrators")
-            self.session.load_monocalibrators()
-            logging.info("Updating Camera Table")
-            self.camera_table.update_data()
+    # def connect_cams(self):
+    #     def connect_cam_worker():
+    #         self.cams_in_process = True
+    #         logging.info("Loading Cameras")
+    #         self.session.load_cameras()
+    #         logging.info("Loading streams")
+    #         self.session.load_stream_tools()
+    #         logging.info("Adjusting resolutions")
+    #         self.session.adjust_resolutions()
+    #         logging.info("Loading monocalibrators")
+    #         self.session.load_monocalibrators()
+    #         logging.info("Updating Camera Table")
+    #         self.camera_table.update_data()
 
-            # trying to call open_cams() directly created a weird bug that
-            # may be due to all the different threads. This seemed to kick it
-            # back to the main thread...
-            # self.summary.open_cameras_btn.click()
-            self.connected_cam_count.setText(str(len(self.session.cameras)))
-            self.cams_in_process = False
+    #         # trying to call open_cams() directly created a weird bug that
+    #         # may be due to all the different threads. This seemed to kick it
+    #         # back to the main thread...
+    #         # self.summary.open_cameras_btn.click()
+    #         self.connected_cam_count.setText(str(len(self.session.cameras)))
+    #         self.cams_in_process = False
 
-        if not self.cams_in_process:
-            print("Connecting to cameras...This may take a moment.")
-            self.connect = Thread(target=connect_cam_worker, args=(), daemon=True)
-            self.connect.start()
-        else:
-            print("Cameras already connected or in process.")
+    #     if not self.cams_in_process:
+    #         print("Connecting to cameras...This may take a moment.")
+    #         self.connect = Thread(target=connect_cam_worker, args=(), daemon=True)
+    #         self.connect.start()
+    #     else:
+    #         print("Cameras already connected or in process.")
 
-    def find_additional_cams(self):
-        def find_cam_worker():
+    # def find_additional_cams(self):
+    #     def find_cam_worker():
 
-            self.session.find_additional_cameras()
-            logging.info("Loading streams")
-            self.session.load_stream_tools()
-            logging.info("Loading monocalibrators")
-            self.session.load_monocalibrators()
-            logging.info("Adjusting resolutions")
-            self.session.adjust_resolutions()
-            logging.info("Updating Camera Table")
-            self.camera_table.update_data()
+    #         self.session.find_additional_cameras()
+    #         logging.info("Loading streams")
+    #         self.session.load_stream_tools()
+    #         logging.info("Loading monocalibrators")
+    #         self.session.load_monocalibrators()
+    #         logging.info("Adjusting resolutions")
+    #         self.session.adjust_resolutions()
+    #         logging.info("Updating Camera Table")
+    #         self.camera_table.update_data()
 
-            self.open_cameras_btn.click()
+    #         self.open_cameras_btn.click()
 
-            self.cams_in_process = False
-            self.connect_cams_btn.setEnabled(True)
+    #         self.cams_in_process = False
+    #         self.connect_cams_btn.setEnabled(True)
             
-        if not self.cams_in_process:
-            logging.info("Searching for additional cameras...This may take a moment.")
-            self.find = Thread(target=find_cam_worker, args=(), daemon=True)
-            self.find.start()
-        else:
-            logging.info("Cameras already connected or in process.")
+    #     if not self.cams_in_process:
+    #         logging.info("Searching for additional cameras...This may take a moment.")
+    #         self.find = Thread(target=find_cam_worker, args=(), daemon=True)
+    #         self.find.start()
+    #     else:
+    #         logging.info("Cameras already connected or in process.")
         
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent.parent

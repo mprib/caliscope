@@ -1,6 +1,18 @@
 CreationDate = 2022-12-12T13:14:20.080680
 
+[cam_0]
+port = 0
+resolution = [ 640, 480,]
+rotation_count = 0
+exposure = -6.0
+grid_count = 0
 
+[cam_1]
+port = 1
+resolution = [ 1024, 576,]
+rotation_count = 0
+exposure = -6.0
+grid_count = 0
 
 [charuco]
 columns = 4
@@ -12,5 +24,3 @@ units = "inch"
 aruco_scale = 0.75
 square_size_overide_cm = 5.25
 inverted = true
-
-

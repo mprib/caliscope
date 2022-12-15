@@ -17,6 +17,7 @@ from PyQt6.QtCore import Qt, QDir
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtWidgets import (
     QApplication,
+    QDockWidget,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -29,12 +30,13 @@ from PyQt6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
     QWidget,
-    QToolBar
+    QToolBar,
 )
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.session import Session
 from src.gui.left_sidebar.sidebar import SideBar
+
 
 class MainWindow(QMainWindow):
     def __init__(self, session=None):
@@ -51,44 +53,43 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(DISPLAY_WIDTH * 0.30, DISPLAY_HEIGHT * 0.7)
         self.setWindowTitle("FreeMocap Camera Calibration")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
-        
+
         menu = self.menuBar()
-        file_menu = menu.addMenu("&File")
+        file = menu.addMenu("&File")
         file_new_session = QAction("Create &New Session", self)
         file_new_session.triggered.connect(self.open_session)
-        file_menu.addAction(file_new_session)
-
+        file.addAction(file_new_session)
+        
         file_saved_session = QAction("&Open Saved Session", self)
         file_saved_session.triggered.connect(self.open_session)
-        file_menu.addAction(file_saved_session)
+        file.addAction(file_saved_session)
 
         view_menu = menu.addMenu("&View")
-        
+
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
-        self.hbox = QHBoxLayout()
-        self.central_widget.setLayout(self.hbox)
         
-         
     def open_session(self):
         # folder_dialog = QFileDialog
         sessions_directory = str(Path(self.repo, "sessions"))
-        session_path = QFileDialog.getExistingDirectory(self,"Select Session Folder", sessions_directory )
+        session_path = QFileDialog.getExistingDirectory(
+            self, "Select Session Folder", sessions_directory
+        )
         logging.info(f"Opening session located at {session_path}")
         self.session = Session(session_path)
         self.sidebar = SideBar(self.session)
-        
+        self.dock = QDockWidget("Session Summary", self)
+        self.dock.setWidget(self.sidebar)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
+
         # https://www.youtube.com/watch?v=gGIlLOqRBs4
         # see above for guidance regarding dockable widget, which I think is
-        # what I want for the SessionSummary. Also, I think I can rename the 
+        # what I want for the SessionSummary. Also, I think I can rename the
         # left_side_bar to SessionSummary. And then the true central widget of the
         # QMainWindow can become that actual item of focus, which I think is a good
         # indication that this is the right way to set things up.
 
-        self.sidebar.setMaximumWidth(self.width()/3)
-        self.hbox.addWidget(self.sidebar)
 
-    
 
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent
@@ -97,7 +98,7 @@ if __name__ == "__main__":
     session = Session(config_path)
 
     # comment out this next line if you want to save cameras after closing
-    # session.delete_all_cam_data() 
+    # session.delete_all_cam_data()
 
     app = QApplication(sys.argv)
     window = MainWindow(session)
@@ -105,4 +106,3 @@ if __name__ == "__main__":
     window.show()
 
     app.exec()
-

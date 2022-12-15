@@ -147,7 +147,7 @@ class CharucoBuilder(QWidget):
         # step4.setMaximumWidth(self.charuco_display.height())
         step4.setMinimumWidth(self.width() * 0.5)
         VBL.addWidget(step4)
-        VBL.addWidget(self.export_btn)
+        VBL.addWidget(self.save_btn)
 
         for w in self.children():
             VBL.setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
@@ -249,14 +249,14 @@ class CharucoBuilder(QWidget):
         self.true_up_group.layout().addWidget(self.printed_edge_length)
 
     def build_save_config(self):
-        self.export_btn = QPushButton("&Save Charuco")
-        self.export_btn.setMaximumSize(100, 30)
+        self.save_btn = QPushButton("&Save Charuco")
+        self.save_btn.setMaximumSize(100, 30)
 
         def save_charuco():
             self.session.charuco = self.charuco
             self.session.save_charuco()
 
-        self.export_btn.clicked.connect(save_charuco)
+        self.save_btn.clicked.connect(save_charuco)
 
     def build_column_spinbox(self):
         self.column_spin = QSpinBox()

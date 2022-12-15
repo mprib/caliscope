@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
                 return
 
         self.charuco_builder = CharucoBuilder(self.session)
-        self.charuco_builder.export_btn.clicked.connect(self.update_summary_image)
+        self.charuco_builder.save_btn.clicked.connect(self.update_summary_image)
         self.tabs.addTab(self.charuco_builder, "Charuco Builder")
         # self.tabs["Charuco Builder"].setClosable(True)
 

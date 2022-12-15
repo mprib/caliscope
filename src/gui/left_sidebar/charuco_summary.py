@@ -62,12 +62,12 @@ class CharucoSummary(QWidget):
         hbox.setAlignment(self.charuco_display, Qt.AlignmentFlag.AlignBaseline)
         hbox.setAlignment(self.charuco_summary, Qt.AlignmentFlag.AlignBaseline)
 
-        self.launch_charuco_builder_btn = QPushButton("&Launch Builder")
-        self.launch_charuco_builder_btn.setMaximumSize(150, 30)
-        vbox.addWidget(self.launch_charuco_builder_btn)
-        vbox.setAlignment(
-            self.launch_charuco_builder_btn, Qt.AlignmentFlag.AlignHCenter
-        )
+        # self.launch_charuco_builder_btn = QPushButton("&Launch Builder")
+        # self.launch_charuco_builder_btn.setMaximumSize(150, 30)
+        # vbox.addWidget(self.launch_charuco_builder_btn)
+        # vbox.setAlignment(
+        #     self.launch_charuco_builder_btn, Qt.AlignmentFlag.AlignHCenter
+        # )
 
         self.update_charuco_summary()
 

@@ -2,8 +2,8 @@ import logging
 import sys
 
 LOG_FILE = "log\main.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
+# LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
+    QStackedWidget,
     QLabel,
     QMainWindow,
     QPushButton,
@@ -35,9 +36,9 @@ from PyQt6.QtWidgets import (
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.session import Session
-from src.gui.left_sidebar.sidebar import SideBar
-
-
+from src.gui.left_sidebar.session_summary import SessionSummary
+from src.gui.charuco_builder import CharucoBuilder
+from src.gui.camera_config.camera_tabs import CameraTabs
 class MainWindow(QMainWindow):
     def __init__(self, session=None):
         super().__init__()
@@ -54,55 +55,140 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("FreeMocap Camera Calibration")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
 
-        menu = self.menuBar()
-        file = menu.addMenu("&File")
+        self.menu = self.menuBar()
+        self.central_stack = QStackedWidget()
+        self.setCentralWidget(self.central_stack)
+
+        # State Variables
+        self.CAMERAS_CONNECTED = False
+        self.CHARUCO_BUILDER_MADE = False
+        
+        self.build_file_menu()
+        self.build_actions_menu()
+        
+        
+    def build_file_menu(self):
+        
+        file = self.menu.addMenu("&File")
         file_new_session = QAction("Create &New Session", self)
-        file_new_session.triggered.connect(self.open_session)
+        file_new_session.triggered.connect(self.get_session)
         file.addAction(file_new_session)
         
         file_saved_session = QAction("&Open Saved Session", self)
-        file_saved_session.triggered.connect(self.open_session)
+        file_saved_session.triggered.connect(self.get_session)
         file.addAction(file_saved_session)
 
-        view_menu = menu.addMenu("&View")
-
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
+    def get_session(self):
         
-    def open_session(self):
-        # folder_dialog = QFileDialog
+        logging.info("Prompting for session path...")
         sessions_directory = str(Path(self.repo, "sessions"))
         session_path = QFileDialog.getExistingDirectory(
             self, "Select Session Folder", sessions_directory
         )
+
+        self.open_session(session_path)
+
+    def open_session(self, session_path):
+        """The primary action of choosing File--Open or New session"""
+
         logging.info(f"Opening session located at {session_path}")
         self.session = Session(session_path)
-        self.sidebar = SideBar(self.session)
+        self.summary = SessionSummary(self.session)
         self.dock = QDockWidget("Session Summary", self)
-        self.dock.setWidget(self.sidebar)
+        self.dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea)
+        self.dock.setWidget(self.summary)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
 
-        # https://www.youtube.com/watch?v=gGIlLOqRBs4
-        # see above for guidance regarding dockable widget, which I think is
-        # what I want for the SessionSummary. Also, I think I can rename the
-        # left_side_bar to SessionSummary. And then the true central widget of the
-        # QMainWindow can become that actual item of focus, which I think is a good
-        # indication that this is the right way to set things up.
+    
+    def build_actions_menu(self): 
+        actions = self.menu.addMenu("&Actions")
+
+        build_charuco = QAction("&Build Charuco", self)
+        actions.addAction(build_charuco)
+        build_charuco.triggered.connect(self.activate_charuco_builder)
+
+        cameras = actions.addMenu("Cameras")
+        connect_cameras = QAction("Connect to Cameras", self)
+        cameras.addAction(connect_cameras)
+        self.configure_cameras = QAction("Configure Cameras")
+        self.configure_cameras.setEnabled(False)
+        cameras.addAction(self.configure_cameras)
+
+        # configure_cameras = QAction("Configure Cameras", self)
+        # actions.addAction(cameras)
+        connect_cameras.triggered.connect(self.connect_to_cameras)
+        self.configure_cameras.triggered.connect(self.launch_cam_config_dialog)
+
+    def launch_cam_config_dialog(self):
+        
+        # self.connect_to_cameras()
+        
+        # while not self.CAMERAS_CONNECTED:
+            # time.sleep(.2)
+          
+        self.camera_tabs = CameraTabs(self.session)
+            
+        def on_save_cam_click():
+            self.summary.camera_summary.camera_table.update_data()
+            
+        for tab_index in range(self.camera_tabs.count()):
+            self.camera_tabs.widget(tab_index).save_cal_btn.clicked.connect(on_save_cam_click)
+            
+        self.central_stack.addWidget(self.camera_tabs)
+        self.central_stack.setCurrentWidget(self.camera_tabs) 
+
+    def close_cam_config(self):
+        pass
+    
+    def connect_to_cameras(self):
+        
+        if self.CAMERAS_CONNECTED:
+            logging.info("Cameras already connected")
+            pass
+        else:
+
+            def connect_to_cams_worker():
+                self.session.load_cameras()
+                self.session.load_stream_tools()
+                self.session.adjust_resolutions()
+                self.session.load_monocalibrators()
+                self.CAMERAS_CONNECTED = True
+                self.configure_cameras.setEnabled(True)
+                
+            self.connect_cams = Thread(target = connect_to_cams_worker, args=[], daemon=True)
+            self.connect_cams.start()
+    
+        
+    def create_charuco_builder(self):
+
+        self.charuco_builder = CharucoBuilder(self.session)
+        self.central_stack.addWidget(self.charuco_builder)
+        self.central_stack.setCurrentWidget(self.charuco_builder)
+
+        def update_summary():
+            self.summary.charuco_summary.update_charuco_summary()
+        
+        self.charuco_builder.save_btn.clicked.connect(update_summary)
+        
+        self.CHARUCO_BUILDER_MADE = True
 
 
+    def activate_charuco_builder(self):
+        if self.CHARUCO_BUILDER_MADE:
+            self.central_stack.setCurrentWidget(self.charuco_builder)
+        else:
+            self.create_charuco_builder()
 
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent
     config_path = Path(repo, "sessions", "high_res_session")
-    # print(config_path)
-    session = Session(config_path)
-
-    # comment out this next line if you want to save cameras after closing
-    # session.delete_all_cam_data()
-
+    
     app = QApplication(sys.argv)
-    window = MainWindow(session)
-    # window = SessionSummary(session)
+    window = MainWindow()
+    
+    # open in a session already so you don't have to go through the menu each time
+    window.open_session(config_path)
+    
     window.show()
 
     app.exec()

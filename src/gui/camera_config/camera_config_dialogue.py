@@ -230,6 +230,7 @@ class CameraConfigDialog(QDialog):
 
         def on_frame_rate_spin(fps_rate):
             self.session.synchronizer.fps_target = fps_rate
+            logging.info(f"Changing synchronizer frame rate via port{self.port}")
 
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
         fps_hbox.addWidget(self.frame_rate_spin)

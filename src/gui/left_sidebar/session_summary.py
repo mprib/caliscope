@@ -38,7 +38,7 @@ from src.gui.left_sidebar.camera_summary import CameraSummary
 # from src.gui.left_sidebar.charuco_summary import CharucoSummary
 
 
-class SideBar(QWidget):
+class SessionSummary(QWidget):
     def __init__(self, session):
         super().__init__()
         self.session = session
@@ -46,17 +46,17 @@ class SideBar(QWidget):
         vbox = QVBoxLayout()
         self.setLayout(vbox)
 
-        charuco_grp = QGroupBox("Charuco Builder")
+        charuco_grp = QGroupBox("Charuco Board")
         # ch_lay = QHBoxLayout()
         charuco_grp.setLayout(QHBoxLayout())
-        charuco_summary = CharucoSummary(self.session)
-        charuco_grp.layout().addWidget(charuco_summary)
+        self.charuco_summary = CharucoSummary(self.session)
+        charuco_grp.layout().addWidget(self.charuco_summary)
         vbox.addWidget(charuco_grp)
        
         cam_grp = QGroupBox("Single Camera Calibration") 
         cam_grp.setLayout(QHBoxLayout())
-        camera_summary = CameraSummary(self.session)
-        cam_grp.layout().addWidget(camera_summary)
+        self.camera_summary = CameraSummary(self.session)
+        cam_grp.layout().addWidget(self.camera_summary)
         vbox.addWidget(cam_grp)
 
 
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     print(session.config)
     app = QApplication(sys.argv)
 
-    side_bar = SideBar(session)
+    side_bar = SessionSummary(session)
     side_bar.show()
 
     sys.exit(app.exec())

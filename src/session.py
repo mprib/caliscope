@@ -134,6 +134,7 @@ class Session:
         def add_preconfigured_cam(params):
             try:
                 port = params["port"]
+                logging.info(f"Attempting to add pre-configured camera at port {port}")
                 self.cameras[port] = Camera(port)
 
                 cam = self.cameras[port]
@@ -144,7 +145,7 @@ class Session:
 
             # if calibration done, then populate those
             if "error" in params.keys():
-                logging.info(params["error"])
+                logging.info(f"Camera RMSE error for port {port}: {params['error']}")
                 cam.error = params["error"]
                 cam.camera_matrix = np.array(params["camera_matrix"]).astype(float)
                 cam.distortion = np.array(params["distortion"]).astype(float)
@@ -194,14 +195,58 @@ class Session:
         # this will likely create issues when the number of streams changes, but I'll need
         # to deal with that then.
         if not self.synchronizer_created:
+            logging.info("Creating Synchronizer")
             self.synchronizer = Synchronizer(self.streams, fps_target=6.2)
             self.synchronizer_created = True
+        else:
+            logging.info("No Synchronizer Created")
+
+    def disconnect_cameras(self):
+        try:
+            self.synchronizer.continue_synchronizing=False
+            self.synchronizer_created = False
+            del self.synchronizer
+            logging.info("Successfully deleted Synchronizer")
+        except(AttributeError):
+            pass
+        
+        try:
+            for port, monocal in self.monocalibrators.items():
+                del monocal
+            self.monocalibrators = {}
+            # del self.monocalibrators
+            logging.info("Successfully deleted Monocalibrators")
+        except(AttributeError): 
+            pass
+
+        try:
+            del self.stereocalibrator 
+            logging.info("Successfully deleted stereocalibrator")
+        except(AttributeError):
+            pass # don't worry if it doesn't exist
+
+        try:
+            for port, stream in self.streams.items():
+                del stream
+            self.streams = {}
+
+            for port, cam in self.cameras.items():
+                del cam
+            self.cameras = {}
+
+            logging.info("Successfully deleted streams and cameras")
+
+        except(AttributeError):
+            pass
+        
+        # self.monocalibrators = {}
 
     def load_monocalibrators(self):
         self.corner_tracker = CornerTracker(self.charuco)
 
         for port, cam in self.cameras.items():
             if port in self.monocalibrators.keys():
+                logging.info(f"Skipping over monocalibrator creation for port {port}")
                 pass  # only add if not added yet
             else:
                 logging.info(f"Loading Monocalibrator for port {port}")

@@ -14,7 +14,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from os.path import exists
-from pathlib import Path
+from pathlib import Path, PurePath
 
 import numpy as np
 import toml
@@ -37,8 +37,9 @@ MAX_CAMERA_PORT_CHECK = 10
 class Session:
     def __init__(self, directory):
 
-        self.dir = str(directory)
-        self.config_path = str(Path(self.dir, "config.toml"))
+        self.folder = PurePath(directory).name
+        self.path = directory
+        self.config_path = str(Path(directory, "config.toml"))
 
         # dictionaries of streaming related objects. key = port
         self.cameras = {}

@@ -50,6 +50,9 @@ class MonoCalibrator:
         self.collecting_corners = True
         self.thread = Thread(target=self.collect_corners, args=(), daemon=True)
         self.thread.start()
+        
+        logging.info(f"Beginning monocalibrator for port {self.port}")
+        
 
     @property
     def grid_count(self):

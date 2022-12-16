@@ -2,8 +2,8 @@ import logging
 import sys
 
 LOG_FILE = "log\main.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
+# LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
@@ -123,46 +123,70 @@ class MainWindow(QMainWindow):
         cameras.addAction(self.find_additional)
         self.find_additional.triggered.connect(self.find_cameras)
         
+        self.delete_cams = QAction("&Disconnect Cameras")
+        cameras.addAction(self.delete_cams)
+        self.delete_cams.triggered.connect(self.disconnect_cameras)
+
         # configure_cameras = QAction("Configure Cameras", self)
         # actions.addAction(cameras)
 
     def launch_cam_config_dialog(self):
         
-        self.camera_tabs = None
-        self.camera_tabs = CameraTabs(self.session)
+        # self.camera_tabs = None
+        if not self.CAMERA_CONFIG_TABS_MADE:
+            self.camera_tabs = CameraTabs(self.session)
             
-        def on_save_cam_click():
-            self.summary.camera_summary.camera_table.update_data()
+            def on_save_cam_click():
+                self.summary.camera_summary.camera_table.update_data()
             
-        for tab_index in range(self.camera_tabs.count()):
-            self.camera_tabs.widget(tab_index).save_cal_btn.clicked.connect(on_save_cam_click)
+            for tab_index in range(self.camera_tabs.count()):
+                self.camera_tabs.widget(tab_index).save_cal_btn.clicked.connect(on_save_cam_click)
             
-        self.central_stack.addWidget(self.camera_tabs)
-        self.central_stack.setCurrentWidget(self.camera_tabs) 
-        self.CAMERA_CONFIG_TABS_MADE = True
-
+            self.central_stack.addWidget(self.camera_tabs)
+            self.central_stack.setCurrentWidget(self.camera_tabs) 
+            self.CAMERA_CONFIG_TABS_MADE = True
+        else:
+            self.central_stack.setCurrentWidget(self.camera_tabs)
+        
     def close_cam_config(self):
         pass
     
     def connect_to_cameras(self):
-        
+
         if self.CAMERAS_CONNECTED:
             logging.info("Cameras already connected")
             pass
         else:
 
             def connect_to_cams_worker():
+                logging.info("Initiating camera connect worker")
                 self.session.load_cameras()
+                logging.info("Camera connect worker about to load stream tools")
                 self.session.load_stream_tools()
+                logging.info("Camera connect worker about to adjust resolutions")
                 self.session.adjust_resolutions()
+
+                logging.info("Camera connect worker about to load monocalibrators")
                 self.session.load_monocalibrators()
                 self.CAMERAS_CONNECTED = True
+                
                 self.configure_cameras.setEnabled(True)
                 self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
                 
             self.connect_cams = Thread(target = connect_to_cams_worker, args=[], daemon=True)
             self.connect_cams.start()
-    
+            
+    def disconnect_cameras(self):
+        print("Attempting to disconnect cameras")
+        self.central_stack.removeWidget(self.camera_tabs) 
+        self.camera_tabs = None
+        self.CAMERA_CONFIG_TABS_MADE = False
+
+        self.session.disconnect_cameras()
+        self.summary.camera_summary.connected_cam_count.setText("0")
+        self.configure_cameras.setEnabled(False) 
+        self.CAMERAS_CONNECTED = False
+        
     def find_cameras(self):
 
         def find_cam_worker():

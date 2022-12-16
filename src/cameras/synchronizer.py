@@ -29,6 +29,17 @@ class Synchronizer:
         
         self.frame_data = {}
 
+        self.refresh_port_streams()
+
+        self.fps_target = fps_target
+        if fps_target is not None:
+            self.fps = fps_target
+
+        self.spin_up() 
+
+    def refresh_port_streams(self):
+        self.continue_synchronizing = False
+
         self.ports = []
         for port, stream in self.streams.items():
             self.ports.append(port)
@@ -37,12 +48,8 @@ class Synchronizer:
         self.port_current_frame = {port: 0 for port in self.ports}
 
         self.mean_frame_times = []
-
-        # self.shutter_sync = Queue()
-        self.fps_target = fps_target
-        if fps_target is not None:
-            self.fps = fps_target
-
+    
+    def spin_up(self):
         self.continue_synchronizing = True
 
         logging.info("About to submit Threadpool of frame Harvesters")
@@ -56,7 +63,8 @@ class Synchronizer:
         logging.info("Starting frame bundler...")
         self.bundler = Thread(target=self.bundle_frames, args=(), daemon=True)
         self.bundler.start()
-
+        
+        
     def subscribe_to_notice(self, q):
         # subscribers are notified via the queue that a new frame bundle is available
         # this is intended to avoid issues with latency due to multiple iterations

@@ -1,7 +1,7 @@
 # This widget is the primary functional unit of the motion capture. It
 # establishes the connection with the video source and manages the thread
 # that reads in frames.
-
+import logging
 import sys
 import time
 from datetime import datetime
@@ -57,6 +57,8 @@ class LiveStream:
         """
         self.start_time = time.time()  # used to get initial delta_t for FPS
         while True:
+            if not self.camera.is_rolling:
+                logging.info(f"Camera now rolling at port {self.port}")
             self.camera.is_rolling = True
             if self.camera.capture.isOpened():
 
@@ -85,7 +87,9 @@ class LiveStream:
                     break
 
     def change_resolution(self, res):
+
         # pull cam.stop_rolling_trigger and wait for roll_camera to stop
+        logging.info(f"About to stop camera at port {self.port}")
         self.camera.stop_rolling()
 
         # if the display isn't up and running this may error out (as when trying
@@ -99,11 +103,14 @@ class LiveStream:
         self.avg_delta_time = None
 
         # reconnecting a few times without disconnnect sometimes crashed python
+        logging.info(f"Disconnecting from port {self.port}")
         self.camera.disconnect()
+        logging.info(f"Reconnecting to port {self.port}")
         self.camera.connect()
 
         self.camera.resolution = res
         # Spin up the thread again now that resolution is changed
+        logging.info(f"Beginning roll_camera thread at port {self.port}")
         self.cap_thread = Thread(target=self.roll_camera, args=(), daemon=True)
         self.cap_thread.start()
 
@@ -111,7 +118,7 @@ class LiveStream:
         """NOTE: this is used in code at bottom, not in external use"""
         self.fps_text = str(int(round(self.FPS_actual, 0)))
         cv2.putText(
-            self.frame,
+            self._working_frame,
             "FPS:" + self.fps_text,
             (10, 70),
             cv2.FONT_HERSHEY_PLAIN,
@@ -139,10 +146,11 @@ if __name__ == "__main__":
     while True:
         try:
             for stream in streams:
+                print(stream.port)
                 stream._add_fps()
                 cv2.imshow(
-                    str(stream.frame_name + ": 'q' to quit and attempt calibration"),
-                    stream.frame,
+                    (str(stream.port) + ": 'q' to quit and attempt calibration"),
+                    stream._working_frame,
                 )
 
         # bad reads until connection to src established

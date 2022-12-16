@@ -9,7 +9,7 @@ LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 import time
-from pathlib import Path
+from pathlib import Path, PurePath
 from threading import Thread
 
 from numpy import char
@@ -92,10 +92,17 @@ class MainWindow(QMainWindow):
 
     def open_session(self, session_path):
         """The primary action of choosing File--Open or New session"""
-
+        try:
+            # self.summary.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose,True)
+            self.summary.close()
+        except(AttributeError):
+            pass
+        
         logging.info(f"Opening session located at {session_path}")
         self.session = Session(session_path)
         self.summary = SessionSummary(self.session)
+        
+        
         self.dock = QDockWidget("Session Summary", self)
         self.dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea)
         self.dock.setWidget(self.summary)
@@ -170,9 +177,12 @@ class MainWindow(QMainWindow):
                 self.session.load_monocalibrators()
                 self.CAMERAS_CONNECTED = True
                 
+                # enabling GUI elements 
                 self.configure_cameras.setEnabled(True)
+                self.summary.synch_fps.frame_rate_spin.setEnabled(True)
                 self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
                 
+                     
             self.connect_cams = Thread(target = connect_to_cams_worker, args=[], daemon=True)
             self.connect_cams.start()
             

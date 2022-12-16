@@ -120,7 +120,7 @@ if __name__ == "__main__":
     from src.session import Session
 
     repo = Path(__file__).parent.parent.parent.parent
-    config_path = Path(repo, "sessions", "default_res_session")
+    config_path = Path(repo, "sessions", "high_res_session")
     session = Session(config_path)
     session.load_cameras()
     session.load_stream_tools()

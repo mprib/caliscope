@@ -36,6 +36,7 @@ from src.session import Session
 from src.gui.left_sidebar.charuco_summary import CharucoSummary
 from src.gui.left_sidebar.camera_summary import CameraSummary
 # from src.gui.left_sidebar.charuco_summary import CharucoSummary
+from src.gui.left_sidebar.fps_control import FPSControl
 
 
 class SessionSummary(QWidget):
@@ -46,12 +47,24 @@ class SessionSummary(QWidget):
         vbox = QVBoxLayout()
         self.setLayout(vbox)
 
+        folder_grp = QGroupBox("Session Directory")
+        folder_grp.setLayout(QVBoxLayout())
+
+        folder_grp.layout().addWidget(QLabel(f"{session.path}"))
+        vbox.addWidget(folder_grp)
+
+
         charuco_grp = QGroupBox("Charuco Board")
-        # ch_lay = QHBoxLayout()
         charuco_grp.setLayout(QHBoxLayout())
         self.charuco_summary = CharucoSummary(self.session)
         charuco_grp.layout().addWidget(self.charuco_summary)
         vbox.addWidget(charuco_grp)
+       
+        synch_grp = QGroupBox("Synchronizer FPS")
+        synch_grp.setLayout(QHBoxLayout())
+        self.synch_fps = FPSControl(self.session)
+        synch_grp.layout().addWidget(self.synch_fps)
+        vbox.addWidget(synch_grp)
        
         cam_grp = QGroupBox("Single Camera Calibration") 
         cam_grp.setLayout(QHBoxLayout())

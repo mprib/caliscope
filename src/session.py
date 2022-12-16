@@ -202,6 +202,9 @@ class Session:
             logging.info("No Synchronizer Created")
 
     def disconnect_cameras(self):
+        """Destroy all camera reading associated threads working down to the cameras
+        themselves so that the session cameras can be later reconstructed (likely
+        with additional or fewer cameras)"""
         try:
             self.synchronizer.continue_synchronizing=False
             self.synchronizer_created = False

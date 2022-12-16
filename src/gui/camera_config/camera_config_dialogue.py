@@ -1,7 +1,8 @@
 import logging
 
 LOG_FILE = "log/camera_config_dialog.log"
-LOG_LEVEL = logging.DEBUG
+# LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
@@ -41,7 +42,7 @@ class CameraConfigDialog(QDialog):
 
         self.session = session
         self.port = port
-
+        self.camera = session.cameras[port]
         self.monocal = session.monocalibrators[port]
         self.stream = session.streams[port]
         # stream reference needed to change resolution
@@ -333,7 +334,7 @@ class CameraConfigDialog(QDialog):
     def build_resolution_combo(self):
         def resolutions_text():
             res_text = []
-            for w, h in self.monocal.camera.possible_resolutions:
+            for w, h in self.camera.possible_resolutions:
                 res_text.append(f"{int(w)} x {int(h)}")
             return res_text
 
@@ -345,16 +346,17 @@ class CameraConfigDialog(QDialog):
             w, h = int(w), int(h)
             new_res = (w, h)
             # self.cam_cap.change_resolution(new_res)
+            logging.info(f"Attempting to change resolution of camera at port {self.port}")
             self.change_res_thread = Thread(
                 target=self.stream.change_resolution, args=(new_res,), daemon=True
             )
             self.change_res_thread.start()
 
             # whenever resolution changes, calibration parameters no longer apply
-            self.monocal.camera.error = None
-            self.monocal.camera.camera_matrix = None
-            self.monocal.camera.distortion = None
-            self.monocal.camera.grid_count = 0
+            self.camera.error = None
+            self.camera.camera_matrix = None
+            self.camera.distortion = None
+            self.camera.grid_count = 0
             self.frame_emitter.undistort = False
 
             self.cal_output.setText(self.monocal.camera.calibration_summary())

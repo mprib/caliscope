@@ -134,8 +134,8 @@ class MonoCalibrator:
             )
 
     def set_grid_frame(self):
-        logging.debug(f"Frame Size is {self.frame.shape}")
-        logging.debug(f"camera resolution is {self.camera.resolution}")
+        logging.debug(f"Frame Size is {self.frame.shape} at port {self.port}")
+        logging.debug(f"camera resolution is {self.camera.resolution} at port {self.port}")
 
         # check to see if the camera resolution changed from the last round
         if (

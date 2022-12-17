@@ -29,24 +29,23 @@ class Synchronizer:
         
         self.frame_data = {}
 
-        self.refresh_port_streams()
-
-        self.fps_target = fps_target
-        if fps_target is not None:
-            self.fps = fps_target
-
-        self.spin_up() 
-
-    def refresh_port_streams(self):
         self.continue_synchronizing = False
 
         self.ports = []
         for port, stream in self.streams.items():
             self.ports.append(port)
 
+        self.fps_target = fps_target
+        if fps_target is not None:
+            self.fps = fps_target
+
+        self.set_counts()
+        self.spin_up() 
+
+    def set_counts(self):
+
         self.port_frame_count = {port: 0 for port in self.ports}
         self.port_current_frame = {port: 0 for port in self.ports}
-
         self.mean_frame_times = []
     
     def spin_up(self):
@@ -64,7 +63,9 @@ class Synchronizer:
         self.bundler = Thread(target=self.bundle_frames, args=(), daemon=True)
         self.bundler.start()
         
-        
+    def change_resolution(self,port, resolution):
+        self.streams[port].change_resolution(resolution)
+                
     def subscribe_to_notice(self, q):
         # subscribers are notified via the queue that a new frame bundle is available
         # this is intended to avoid issues with latency due to multiple iterations
@@ -173,7 +174,7 @@ class Synchronizer:
         logging.info("About to start bundling frames...")
         while self.continue_synchronizing:
 
-            # if too much slack, need to burn off so skip waiting and adding new frames
+            # Enforce a wait period to hit target FPS, unless you have excess slack
             if self.frame_slack() < 2:
                 # Trigger device to proceed with reading frame and pushing to reel
                 if self.fps_target is not None:
@@ -259,7 +260,7 @@ if __name__ == "__main__":
     for cam in cameras:
         streams[cam.port] = LiveStream(cam)
 
-    syncr = Synchronizer(streams, fps_target=4)
+    syncr = Synchronizer(streams, fps_target=1)
 
     notification_q = Queue()
 

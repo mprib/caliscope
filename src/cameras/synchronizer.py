@@ -85,9 +85,10 @@ class Synchronizer:
         stream.push_to_reel = True
 
         logging.info(f"Beginning to collect data generated at port {port}")
-        frame_index = 0
+        # frame_index = 0
 
         while self.continue_synchronizing:
+            frame_index = self.port_frame_count[port] 
 
             (
                 frame_time,
@@ -105,8 +106,8 @@ class Synchronizer:
                 self.continue_synchronizing=False
 
             logging.debug(f"Frame data harvested from reel {port} with index {frame_index}")
-            frame_index += 1
-            self.port_frame_count[port] = frame_index
+            # frame_index += 1
+            self.port_frame_count[port] += 1
 
     # get minimum value of frame_time for next layer
     def earliest_next_frame(self, port):
@@ -258,7 +259,7 @@ if __name__ == "__main__":
     for cam in cameras:
         streams[cam.port] = LiveStream(cam)
 
-    syncr = Synchronizer(streams, fps_target=25)
+    syncr = Synchronizer(streams, fps_target=4)
 
     notification_q = Queue()
 
@@ -275,3 +276,7 @@ if __name__ == "__main__":
         if key == ord("q"):
             cv2.destroyAllWindows()
             break
+
+        if key == ord("v"):
+            print("Attempting to change resolution")
+            syncr.change_resolution(1, (1280, 720))

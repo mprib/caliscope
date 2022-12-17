@@ -347,7 +347,7 @@ class CameraConfigDialog(QDialog):
             # self.cam_cap.change_resolution(new_res)
             logging.info(f"Attempting to change resolution of camera at port {self.port}")
             self.change_res_thread = Thread(
-                target=self.stream.change_resolution, args=(new_res,), daemon=True
+                target=self.session.synchronizer.change_resolution, args=(self.port, new_res,), daemon=True
             )
             self.change_res_thread.start()
 

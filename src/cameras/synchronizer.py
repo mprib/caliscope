@@ -64,7 +64,10 @@ class Synchronizer:
         self.bundler.start()
         
     def change_resolution(self,port, resolution):
+        self.continue_synchronizing = False
         self.streams[port].change_resolution(resolution)
+        self.set_counts()
+        self.spin_up()
                 
     def subscribe_to_notice(self, q):
         # subscribers are notified via the queue that a new frame bundle is available
@@ -86,7 +89,6 @@ class Synchronizer:
         stream.push_to_reel = True
 
         logging.info(f"Beginning to collect data generated at port {port}")
-        # frame_index = 0
 
         while self.continue_synchronizing:
             frame_index = self.port_frame_count[port] 
@@ -107,7 +109,6 @@ class Synchronizer:
                 self.continue_synchronizing=False
 
             logging.debug(f"Frame data harvested from reel {port} with index {frame_index}")
-            # frame_index += 1
             self.port_frame_count[port] += 1
 
     # get minimum value of frame_time for next layer
@@ -214,10 +215,12 @@ class Synchronizer:
                 if frame_time > earliest_next[port]:
                     # definitly should be put in the next layer and not this one
                     next_layer[port] = None
+                    logging.debug(f"Skipped frame at port {port}: > earliest_next")
                 elif abs(frame_time - earliest_next[port]) < abs(frame_time-latest_current[port]): # frame time is closer to earliest next than latest current
                     # if it's closer to the earliest next frame than the latest current frame, bump it up
                     # print("using new rule")
                     next_layer[port] = None
+                    logging.debug(f"Skipped frame at port {port}: delta < time-latest_current")
                 else:
                     # add the data and increment the index
                     next_layer[port] = self.frame_data.pop(port_index_key)
@@ -233,9 +236,11 @@ class Synchronizer:
             # notify other processes that the current bundle is ready for processing
             # only for tasks that can risk missing a frame bundle
             for q in self.notice_subscribers:
+                logging.debug(f"Giving notice of new bundle via {q}")
                 q.put("new bundle available")
 
             for q in self.bundle_subscribers:
+                logging.debug(f"Placing new bundle on queue: {q}")
                 logging.debug("Placing bundle on subscribers queue")
                 q.put(self.current_bundle)
 
@@ -260,7 +265,7 @@ if __name__ == "__main__":
     for cam in cameras:
         streams[cam.port] = LiveStream(cam)
 
-    syncr = Synchronizer(streams, fps_target=1)
+    syncr = Synchronizer(streams, fps_target=10)
 
     notification_q = Queue()
 

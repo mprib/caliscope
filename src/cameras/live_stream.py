@@ -2,8 +2,13 @@
 # establishes the connection with the video source and manages the thread
 # that reads in frames.
 import logging
+LOG_FILE = "log\live_stream.log"
+LOG_LEVEL = logging.DEBUG
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 import sys
-import time
+import time as time_module # peculier bug popped up during module testing...perhaps related to conda environment?
 from datetime import datetime
 from pathlib import Path
 from queue import Queue
@@ -24,6 +29,7 @@ class LiveStream:
         self.port = camera.port
 
         self.reel = Queue(-1)  # infinite size....hopefully doesn't blow up
+        self.shutter_sync = Queue()
         self.push_to_reel = False
 
         # Start the thread to read frames from the video stream
@@ -31,15 +37,14 @@ class LiveStream:
         self.cap_thread.start()
 
         # initialize time trackers for actual FPS determination
-        self.frame_time = time.perf_counter()
+        self.frame_time = time_module.perf_counter()
         self.avg_delta_time = 1 # trying to avoid div 0 error...not sure about this though
         
-        self.shutter_sync = Queue()
 
     def get_FPS_actual(self):
         """set the actual frame rate; called within roll_camera()"""
-        self.delta_time = time.time() - self.start_time
-        self.start_time = time.time()
+        self.delta_time = time_module.time() - self.start_time
+        self.start_time = time_module.time()
         if not self.avg_delta_time:
             self.avg_delta_time = self.delta_time
 
@@ -55,24 +60,27 @@ class LiveStream:
         calls various frame processing methods on it, and updates the exposed
         frame
         """
-        self.start_time = time.time()  # used to get initial delta_t for FPS
+        self.start_time = time_module.time()  # used to get initial delta_t for FPS
         while True:
             if not self.camera.is_rolling:
                 logging.info(f"Camera now rolling at port {self.port}")
             self.camera.is_rolling = True
+
             if self.camera.capture.isOpened():
 
                 # wait for sync_shutter to fire
                 if self.push_to_reel:
                     _ = self.shutter_sync.get()
+                    logging.debug(f"Shutter fire signal retrieved at port {self.port}")
 
                 # read in working frame
-                read_start = time.perf_counter()
+                read_start = time_module.perf_counter()
                 self.status, self._working_frame = self.camera.capture.read()
-                read_stop = time.perf_counter()
+                read_stop = time_module.perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
 
                 if self.push_to_reel:
+                    logging.debug(f"Pushing frame to reel at port {self.port}")
                     self.reel.put([self.frame_time, self._working_frame])
 
                 # this may no longer be necessary...consider removing in the future
@@ -96,8 +104,8 @@ class LiveStream:
         # to initialize the resolution to a non-default value)
         blank_image = np.zeros(self._working_frame.shape, dtype=np.uint8)
         # multiple blank images to account for sync issues
-        self.reel.put([time.perf_counter(), blank_image])
-        self.reel.put([time.perf_counter(), blank_image])
+        self.reel.put([time_module.perf_counter(), blank_image])
+        self.reel.put([time_module.perf_counter(), blank_image])
 
         self.FPS_actual = 0
         self.avg_delta_time = None
@@ -140,17 +148,22 @@ if __name__ == "__main__":
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
         stream = LiveStream(cam)
+        stream.push_to_reel = True
+        stream.shutter_sync.put("Fire")
+        stream.shutter_sync.put("Fire")
         # stream.assign_charuco(charuco)
         streams.append(stream)
-
+        
     while True:
         try:
             for stream in streams:
                 print(stream.port)
                 stream._add_fps()
+                stream.shutter_sync.put("Fire")
+                time, img = stream.reel.get()
                 cv2.imshow(
                     (str(stream.port) + ": 'q' to quit and attempt calibration"),
-                    stream._working_frame,
+                    img,
                 )
 
         # bad reads until connection to src established

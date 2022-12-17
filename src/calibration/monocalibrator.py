@@ -59,10 +59,15 @@ class MonoCalibrator:
         """How many sets of corners have been collected up to this point"""
         return len(self.all_ids)
 
+    @property
+    def image_size(self):
+        image_size = list(self.camera.resolution)
+        image_size.reverse()  # for some reason...
+        image_size.append(3)
+        
+        return image_size
+
     def initialize_grid_history(self):
-        self.image_size = list(self.camera.resolution)
-        self.image_size.reverse()  # for some reason...
-        self.image_size.append(3)
         self.grid_capture_history = np.zeros(self.image_size, dtype="uint8")
 
         # roll back collected corners to the beginning

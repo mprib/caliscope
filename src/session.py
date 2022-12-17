@@ -207,7 +207,6 @@ class Session:
         themselves so that the session cameras can be later reconstructed (likely
         with additional or fewer cameras)"""
         try:
-            self.synchronizer.continue_synchronizing=False
             self.synchronizer_created = False
             del self.synchronizer
             logging.info("Successfully deleted Synchronizer")

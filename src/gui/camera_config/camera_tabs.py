@@ -8,26 +8,10 @@ logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LO
 
 import sys
 from pathlib import Path
-from threading import Thread
 
-import cv2
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QImage, QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QTabWidget,
-    QWidget,
-    QSpinBox,
-    QComboBox,
-    QDialog,
-    QGroupBox,
-    QDoubleSpinBox,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QRadioButton,
-    QSlider,
-    QVBoxLayout,
 )
 
 # Append main repo to top of path to allow import of backend

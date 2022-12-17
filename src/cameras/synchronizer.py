@@ -65,6 +65,11 @@ class Synchronizer:
         
     def change_resolution(self,port, resolution):
         self.continue_synchronizing = False
+       
+        # note: this is where you need to come back to after you get better logging  
+        # self.bundler.join()
+        # logging.info("Frame Bundler Stopped")
+        
         self.streams[port].change_resolution(resolution)
         self.set_counts()
         self.spin_up()
@@ -122,6 +127,7 @@ class Synchronizer:
             
             # problem with outpacing the threads reading data in, so wait if need be
             while frame_data_key not in self.frame_data.keys():
+                logging.debug(f"Waiting in a loop for frame data to populate with key: {frame_data_key}")
                 time.sleep(.0001)
 
             next_frame_time = self.frame_data[frame_data_key]["frame_time"]
@@ -185,6 +191,7 @@ class Synchronizer:
 
                 sync_time = time.perf_counter()
                 for port in self.ports:
+                    self.streams[port].shutter_sync.put("fire")
                     self.streams[port].shutter_sync.put("fire")
 
             # wait for frame data to populate

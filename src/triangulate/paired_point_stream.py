@@ -54,11 +54,11 @@ class PairedPointStream:
                         points[port] = pd.DataFrame(
                             {
                                 "frame_time": frame_time,
-                                "ids": ids,
-                                "loc_img_x": loc_img[:, 0],
-                                "loc_img_y": loc_img[:, 1],
-                                "loc_board_x": loc_board[:, 0],
-                                "loc_board_y": loc_board[:, 1],
+                                "ids": ids[:,0].tolist(),
+                                "loc_img_x": loc_img[:,0][:, 0].tolist(),
+                                "loc_img_y": loc_img[:,0][:, 1].tolist(),
+                                "loc_board_x": loc_board[:,0][:, 0].tolist(),
+                                "loc_board_y": loc_board[:,0][:, 1].tolist(),
                             }
                         )
                         logging.debug(f"Port: {port}: \n {points[port]}")

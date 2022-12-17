@@ -29,8 +29,6 @@ class Synchronizer:
         
         self.frame_data = {}
 
-        self.continue_synchronizing = False
-
         self.ports = []
         for port, stream in self.streams.items():
             self.ports.append(port)
@@ -39,17 +37,16 @@ class Synchronizer:
         if fps_target is not None:
             self.fps = fps_target
 
-        self.set_counts()
+        self.initialize_ledgers()
         self.spin_up() 
 
-    def set_counts(self):
+    def initialize_ledgers(self):
 
         self.port_frame_count = {port: 0 for port in self.ports}
         self.port_current_frame = {port: 0 for port in self.ports}
         self.mean_frame_times = []
     
     def spin_up(self):
-        self.continue_synchronizing = True
 
         logging.info("About to submit Threadpool of frame Harvesters")
         self.threads = []
@@ -63,17 +60,6 @@ class Synchronizer:
         self.bundler = Thread(target=self.bundle_frames, args=(), daemon=True)
         self.bundler.start()
         
-    def change_resolution(self,port, resolution):
-        self.continue_synchronizing = False
-       
-        # note: this is where you need to come back to after you get better logging  
-        # self.bundler.join()
-        # logging.info("Frame Bundler Stopped")
-        
-        self.streams[port].change_resolution(resolution)
-        self.set_counts()
-        self.spin_up()
-                
     def subscribe_to_notice(self, q):
         # subscribers are notified via the queue that a new frame bundle is available
         # this is intended to avoid issues with latency due to multiple iterations
@@ -95,7 +81,7 @@ class Synchronizer:
 
         logging.info(f"Beginning to collect data generated at port {port}")
 
-        while self.continue_synchronizing:
+        while True:
             frame_index = self.port_frame_count[port] 
 
             (
@@ -103,6 +89,10 @@ class Synchronizer:
                 frame,
             ) = stream.reel.get()
 
+            if frame_time == -1: # signal from recorded stream that end of file reached
+                break
+            # once toggled, keep pushing the poison pill
+            
             self.frame_data[f"{port}_{frame_index}"] = {
                 "port": port,
                 "frame": frame,
@@ -110,11 +100,10 @@ class Synchronizer:
                 "frame_time": frame_time,
             }
 
-            if frame_time == -1:    # signals end of recorded files
-                self.continue_synchronizing=False
-
             logging.debug(f"Frame data harvested from reel {port} with index {frame_index}")
             self.port_frame_count[port] += 1
+
+        logging.info(f"Frame harvester for port {port} completed")
 
     # get minimum value of frame_time for next layer
     def earliest_next_frame(self, port):
@@ -128,7 +117,7 @@ class Synchronizer:
             # problem with outpacing the threads reading data in, so wait if need be
             while frame_data_key not in self.frame_data.keys():
                 logging.debug(f"Waiting in a loop for frame data to populate with key: {frame_data_key}")
-                time.sleep(.0001)
+                time.sleep(.001)
 
             next_frame_time = self.frame_data[frame_data_key]["frame_time"]
             if p != port:
@@ -179,7 +168,8 @@ class Synchronizer:
         sync_time = time.perf_counter()
 
         logging.info("About to start bundling frames...")
-        while self.continue_synchronizing:
+        while True:
+            
 
             # Enforce a wait period to hit target FPS, unless you have excess slack
             if self.frame_slack() < 2:
@@ -193,11 +183,6 @@ class Synchronizer:
                 for port in self.ports:
                     self.streams[port].shutter_sync.put("fire")
                     self.streams[port].shutter_sync.put("fire")
-
-            # wait for frame data to populate
-            while self.frame_slack() < 2:
-                time.sleep(0.01)
-
 
             next_layer = {}
             layer_frame_times = []
@@ -218,7 +203,6 @@ class Synchronizer:
                 frame_time = current_frame_data["frame_time"]
 
                 # don't put a frame in a bundle if the next bundle has a frame before it
-
                 if frame_time > earliest_next[port]:
                     # definitly should be put in the next layer and not this one
                     next_layer[port] = None
@@ -264,7 +248,7 @@ if __name__ == "__main__":
     config_path = Path(repo, "default_session")
 
     cameras = []
-    ports = [0, 1]
+    ports = [0, 1, 2]
     for port in ports:
         cameras.append(Camera(port))
 
@@ -289,7 +273,3 @@ if __name__ == "__main__":
         if key == ord("q"):
             cv2.destroyAllWindows()
             break
-
-        if key == ord("v"):
-            print("Attempting to change resolution")
-            syncr.change_resolution(1, (1280, 720))

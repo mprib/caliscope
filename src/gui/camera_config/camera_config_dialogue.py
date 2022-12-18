@@ -24,7 +24,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QRadioButton,
     QSlider,
     QVBoxLayout,
 )
@@ -37,15 +36,14 @@ from src.session import Session
 
 
 class CameraConfigDialog(QDialog):
-    def __init__(self, session, port):
+    def __init__(self, monocalibrator):
         super(CameraConfigDialog, self).__init__()
 
-        self.session = session
-        self.port = port
-        self.camera = session.cameras[port]
-        self.monocal = session.monocalibrators[port]
-        self.stream = session.streams[port]
-        # stream reference needed to change resolution
+        # set up variables for ease of reference
+        self.monocal = monocalibrator
+        self.port = monocalibrator.port
+        self.stream = monocalibrator.stream
+        self.camera = self.stream.camera
 
         App = QApplication.instance()
         DISPLAY_WIDTH = App.primaryScreen().size().width()
@@ -199,10 +197,11 @@ class CameraConfigDialog(QDialog):
         self.save_cal_btn.setMaximumWidth(100)
         vbox.addWidget(self.save_cal_btn)
 
-        def save_cal():
-            self.session.save_camera(self.port)
+        # ignore for now...link up on Camera Tabs GUI
+        # def save_cal():
+        #     self.session.save_camera(self.port)
 
-        self.save_cal_btn.clicked.connect(save_cal)
+        # self.save_cal_btn.clicked.connect(save_cal)
 
         # include calibration grid in horizontal box
         hbox.addLayout(vbox)
@@ -223,7 +222,7 @@ class CameraConfigDialog(QDialog):
         logging.debug("Building FPS Control")
         fps_hbox.addWidget(QLabel("Target:"))
         self.frame_rate_spin = QSpinBox()
-        self.frame_rate_spin.setValue(self.session.synchronizer.fps_target)
+        self.frame_rate_spin.setValue(self.stream.fps_target)
 
         self.session.synchronizer.fps_target = (
             self.frame_rate_spin.value()
@@ -376,6 +375,7 @@ if __name__ == "__main__":
 
     repo = Path(__file__).parent.parent.parent.parent
     config_path = Path(repo, "sessions", "high_res_session")
+
     print(config_path)
     session = Session(config_path)
     session.load_cameras()

@@ -3,7 +3,10 @@ import logging
 LOG_LEVEL = logging.DEBUG
 # LOG_LEVEL = logging.INFO
 LOG_FILE = "log\monocalibrator.log"
-logging.basicConfig(filename=LOG_FILE, filemode="w", level=LOG_LEVEL)
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+
 
 import sys
 import time
@@ -22,22 +25,20 @@ from src.calibration.corner_tracker import CornerTracker
 
 class MonoCalibrator:
     def __init__(
-        self, camera, synchronizer, corner_tracker, board_threshold=0.7, wait_time=0.5
+        self, stream, corner_tracker, target_fps, board_threshold=0.7, wait_time=0.5
     ):
-
-        self.camera = camera  # reference needed to update params
-        self.port = camera.port
+        self.stream = stream
+        self.camera = stream.camera  # reference needed to update params
+        self.port = self.camera.port
         self.corner_tracker = corner_tracker
         self.wait_time = wait_time
         self.capture_corners = False  # start out not doing anything
 
-        self.synchronizer = synchronizer
+        self.target_fps = target_fps
+        # self.synchronizer = synchronizer
         self.bundle_ready_q = Queue()
         self.grid_frame_ready_q = Queue()
-        self.synchronizer.subscribe_to_notice(self.bundle_ready_q)
 
-        # TODO...this is going deeper into the hierarchy than I would like
-        # and may deserve a refactor
         self.connected_corners = self.corner_tracker.charuco.get_connected_corners()
         board_corner_count = len(self.corner_tracker.charuco.board.chessboardCorners)
         self.min_points_to_process = int(board_corner_count * board_threshold)
@@ -50,9 +51,8 @@ class MonoCalibrator:
         self.collecting_corners = True
         self.thread = Thread(target=self.collect_corners, args=(), daemon=True)
         self.thread.start()
-        
+
         logging.info(f"Beginning monocalibrator for port {self.port}")
-        
 
     @property
     def grid_count(self):
@@ -64,7 +64,7 @@ class MonoCalibrator:
         image_size = list(self.camera.resolution)
         image_size.reverse()  # for some reason...
         image_size.append(3)
-        
+
         return image_size
 
     def initialize_grid_history(self):
@@ -79,20 +79,22 @@ class MonoCalibrator:
         """
         Input: opencv frame
 
-        Side Effect 1: records corner ids, positions, and board positions provided
+        Primary Action: records corner ids, positions, and board positions provided
         that enough time has past since the last set was recorded
 
-        Side Effect 2: updates the image
         """
         # wait for camera to start rolling
         logging.debug("Entering collect_corners thread loop")
-        while True:
-            _ = self.bundle_ready_q.get()  # enforces pause
-            frame_data = self.synchronizer.current_bundle[self.port]
+        self.stream.push_to_reel = True
 
+        while True:
+            self.stream.shutter_sync.put("Fire")
+            frame_data = self.stream.reel.get()
+        
+            time.sleep(.003)
             # create  a blank frame to fill dropped frames
             if frame_data:
-                self.frame = frame_data["frame"]
+                self.frame_time, self.frame = frame_data
             else:
                 self.frame = np.zeros(self.image_size, dtype="uint8")
 
@@ -139,8 +141,13 @@ class MonoCalibrator:
             )
 
     def set_grid_frame(self):
+        """Merges the current frame with the currently detected corners (red circles) 
+        and a history of the stored grid information."""
+
         logging.debug(f"Frame Size is {self.frame.shape} at port {self.port}")
-        logging.debug(f"camera resolution is {self.camera.resolution} at port {self.port}")
+        logging.debug(
+            f"camera resolution is {self.camera.resolution} at port {self.port}"
+        )
 
         # check to see if the camera resolution changed from the last round
         if (
@@ -171,8 +178,8 @@ class MonoCalibrator:
 
         objpoints = self.all_board_loc
         imgpoints = self.all_img_loc
-        height = self.image_size[0]
-        width = self.image_size[1]
+        height = self.grid_capture_history.shape[0]
+        width = self.grid_capture_history.shape[1]
 
         self.error, self.mtx, self.dist, self.rvecs, self.tvecs = cv2.calibrateCamera(
             objpoints, imgpoints, (width, height), None, None
@@ -194,7 +201,6 @@ class MonoCalibrator:
         self.camera.distortion = self.dist
         self.camera.grid_count = len(self.all_ids)
 
-
 if __name__ == "__main__":
 
     from src.cameras.camera import Camera
@@ -208,18 +214,17 @@ if __name__ == "__main__":
     trackr = CornerTracker(charuco)
     test_port = 0
     cam = Camera(0)
-    streams = {cam.port: LiveStream(cam)}
+    stream = LiveStream(cam)
 
-    syncr = Synchronizer(streams, fps_target=20)
+    # syncr = Synchronizer(streams, fps_target=20)
 
-    monocal = MonoCalibrator(cam, syncr, trackr)
+    monocal = MonoCalibrator(stream, trackr, target_fps=6)
+
     monocal.capture_corners = True
 
     print("About to enter main loop")
     while True:
         # read_success, frame = cam.capture.read()
-        # logging.debug("Placing frame in queue to process")
-        # monocal.frame_ready_q.put({test_port: frame})
         frame_ready = monocal.grid_frame_ready_q.get()
         logging.debug("Getting grid frame to display")
         frame = monocal.grid_frame
@@ -232,6 +237,10 @@ if __name__ == "__main__":
             cam.capture.release()
             cv2.destroyAllWindows()
             break
+        
+    
+        if key == ord("v"):
+            stream.change_resolution((1280,720))
 
     monocal.calibrate()
     monocal.update_camera()

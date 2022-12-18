@@ -93,7 +93,7 @@ class LiveStream:
                 if self.camera.stop_rolling_trigger:
                     self.camera.is_rolling = False
                     break
-
+            
     def change_resolution(self, res):
 
         # pull cam.stop_rolling_trigger and wait for roll_camera to stop
@@ -118,7 +118,7 @@ class LiveStream:
 
         self.camera.resolution = res
         # Spin up the thread again now that resolution is changed
-        logging.info(f"Beginning roll_camera thread at port {self.port}")
+        logging.info(f"Beginning roll_camera thread at port {self.port} with resolution {res}")
         self.cap_thread = Thread(target=self.roll_camera, args=(), daemon=True)
         self.cap_thread.start()
 

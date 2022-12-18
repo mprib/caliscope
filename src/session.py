@@ -136,21 +136,26 @@ class Session:
             try:
                 port = params["port"]
                 logging.info(f"Attempting to add pre-configured camera at port {port}")
-                self.cameras[port] = Camera(port)
+                
+                if params["ignore"]:
+                    logging.info(f"Ignoring camera at port {port}")
+                    pass # don't load it in
+                else:
+                    self.cameras[port] = Camera(port)
+                    cam = self.cameras[port] # just for ease of reference
+                    cam.rotation_count = params["rotation_count"]
+                    cam.exposure = params["exposure"]
 
-                cam = self.cameras[port]
-                cam.rotation_count = params["rotation_count"]
-                cam.exposure = params["exposure"]
+                    # if calibration done, then populate those as well
+                    if "error" in params.keys():
+                        logging.info(f"Camera RMSE error for port {port}: {params['error']}")
+                        cam.error = params["error"]
+                        cam.camera_matrix = np.array(params["camera_matrix"]).astype(float)
+                        cam.distortion = np.array(params["distortion"]).astype(float)
+                        cam.grid_count = params["grid_count"]
             except:
                 logging.info("Unable to connect... camera may be in use.")
 
-            # if calibration done, then populate those
-            if "error" in params.keys():
-                logging.info(f"Camera RMSE error for port {port}: {params['error']}")
-                cam.error = params["error"]
-                cam.camera_matrix = np.array(params["camera_matrix"]).astype(float)
-                cam.distortion = np.array(params["distortion"]).astype(float)
-                cam.grid_count = params["grid_count"]
 
         with ThreadPoolExecutor() as executor:
             for key, params in self.config.items():
@@ -297,6 +302,7 @@ class Session:
             "distortion": cam.distortion,
             "exposure": cam.exposure,
             "grid_count": cam.grid_count,
+            "ignore": cam.ignore
         }
 
         logging.info(f"Saving camera parameters...{params}")

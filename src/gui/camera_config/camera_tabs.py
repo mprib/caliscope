@@ -34,22 +34,23 @@ class CameraTabs(QTabWidget):
         tab_names = [self.tabText(i) for i in range(self.count())]
         logging.info(f"Current tabs are: {tab_names}")
 
-        if len(self.session.streams) > 0:
-            for port, stream in self.session.streams.items():
+        if len(self.session.monocalibrators) > 0:
+            for port, monocal in self.session.monocalibrators.items():
                 tab_name = f"Camera {port}"
                 logging.info(f"Potentially adding {tab_name}")
                 if tab_name in tab_names:
                     pass  # already here, don't bother
                 else:
-                    cam_tab = CameraConfigDialog(self.session, port)
+                    cam_tab = CameraConfigDialog(monocal)
 
-                    # def on_save_click():
-                    #     self.summary.camera_table.update_data()
+                    def on_save_click():
+                        self.summary.camera_table.update_data()
 
-                    # cam_tab.save_cal_btn.clicked.connect(on_save_click)
+                    cam_tab.save_cal_btn.clicked.connect(on_save_click)
+                    # move code below to main.py
+                    # cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
 
                     self.insertTab(port, cam_tab, tab_name)
-                    # cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
         else:
             logging.info("No cameras available")
 

@@ -188,9 +188,10 @@ class MainWindow(QMainWindow):
             
     def disconnect_cameras(self):
         print("Attempting to disconnect cameras")
-        self.central_stack.removeWidget(self.camera_tabs) 
-        self.camera_tabs = None
-        self.CAMERA_CONFIG_TABS_MADE = False
+        if hasattr(self, "camera_tabs"):
+            self.central_stack.removeWidget(self.camera_tabs) 
+            # self.camera_tabs = None
+            self.CAMERA_CONFIG_TABS_MADE = False
 
         self.session.disconnect_cameras()
         self.summary.camera_summary.connected_cam_count.setText("0")

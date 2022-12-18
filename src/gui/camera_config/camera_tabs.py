@@ -41,12 +41,12 @@ class CameraTabs(QTabWidget):
                 if tab_name in tab_names:
                     pass  # already here, don't bother
                 else:
-                    cam_tab = CameraConfigDialog(monocal)
+                    cam_tab = CameraConfigDialog(self.session, port)
 
-                    def on_save_click():
-                        self.summary.camera_table.update_data()
+                    # def on_save_click():
+                    #     self.summary.camera_table.update_data()
 
-                    cam_tab.save_cal_btn.clicked.connect(on_save_click)
+                    # cam_tab.save_cal_btn.clicked.connect(on_save_click)
                     # move code below to main.py
                     # cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
 

@@ -59,13 +59,10 @@ class MainWindow(QMainWindow):
         self.central_stack = QStackedWidget()
         self.setCentralWidget(self.central_stack)
 
-        # State Variables
-        self.CAMERAS_CONNECTED = False
-        self.CHARUCO_BUILDER_MADE = False
-        self.CAMERA_CONFIG_TABS_MADE = False
-        self.CAMS_IN_PROCESS = False        
-
+        self.CAMS_IN_PROCESS = False
+        # self.
         self.build_file_menu()
+        self.build_view_menu()
         self.build_actions_menu()
         
         
@@ -109,38 +106,39 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
 
     
-    def build_actions_menu(self): 
-        actions = self.menu.addMenu("&Actions")
+    def build_view_menu(self): 
+        view = self.menu.addMenu("&View")
 
         build_charuco = QAction("&Build Charuco", self)
-        actions.addAction(build_charuco)
+        view.addAction(build_charuco)
         build_charuco.triggered.connect(self.activate_charuco_builder)
 
-        cameras = actions.addMenu("Cameras")
-        connect_cameras = QAction("Connect to Cameras", self)
-        cameras.addAction(connect_cameras)
-        connect_cameras.triggered.connect(self.connect_to_cameras)
-
-        self.configure_cameras = QAction("Configure Cameras")
+        self.configure_cameras = QAction("Configure Cameras", self)
         self.configure_cameras.setEnabled(False)
-        cameras.addAction(self.configure_cameras)
+        view.addAction(self.configure_cameras)
         self.configure_cameras.triggered.connect(self.launch_cam_config_dialog)
 
-        self.find_additional = QAction("Find Additional...")
-        cameras.addAction(self.find_additional)
-        self.find_additional.triggered.connect(self.find_cameras)
-        
-        self.delete_cams = QAction("&Disconnect Cameras")
-        cameras.addAction(self.delete_cams)
-        self.delete_cams.triggered.connect(self.disconnect_cameras)
+    def build_actions_menu(self):
+        actions = self.menu.addMenu("&Actions")
+        # self.menu.addMenu(actions)
 
-        # configure_cameras = QAction("Configure Cameras", self)
-        # actions.addAction(cameras)
+        self.connect_cameras_action = QAction("Connect to &Saved Cameras", self)
+        actions.addAction(self.connect_cameras_action)
+        self.connect_cameras_action.triggered.connect(self.connect_to_cameras)
+        
+        self.find_additional_action = QAction("&Find Cameras", self)
+        actions.addAction(self.find_additional_action)
+        self.find_additional_action.triggered.connect(self.find_cameras)
+        
+        self.disconnect_cam_action = QAction("&Disconnect Cameras", self)
+        self.disconnect_cam_action.setEnabled(False)
+        actions.addAction(self.disconnect_cam_action)
+        self.disconnect_cam_action.triggered.connect(self.disconnect_cameras)
 
     def launch_cam_config_dialog(self):
         
         # self.camera_tabs = None
-        if not self.CAMERA_CONFIG_TABS_MADE:
+        if not hasattr(self,"camera_tabs"):
             self.camera_tabs = CameraTabs(self.session)
             
             def on_save_cam_click():
@@ -151,7 +149,6 @@ class MainWindow(QMainWindow):
             
             self.central_stack.addWidget(self.camera_tabs)
             self.central_stack.setCurrentWidget(self.camera_tabs) 
-            self.CAMERA_CONFIG_TABS_MADE = True
         else:
             self.central_stack.setCurrentWidget(self.camera_tabs)
         
@@ -160,7 +157,7 @@ class MainWindow(QMainWindow):
     
     def connect_to_cameras(self):
 
-        if self.CAMERAS_CONNECTED:
+        if len(self.session.cameras) > 0:
             logging.info("Cameras already connected")
             pass
         else:
@@ -182,26 +179,33 @@ class MainWindow(QMainWindow):
                 self.summary.synch_fps.frame_rate_spin.setEnabled(True)
                 self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
                 
-                     
+                self.disconnect_cam_action.setEnabled(True) #now have cameras to delete
+                self.connect_cameras_action.setEnabled(False)
+                self.find_additional_action.setEnabled(False)
+
+                self.configure_cameras.trigger()
+
             self.connect_cams = Thread(target = connect_to_cams_worker, args=[], daemon=True)
             self.connect_cams.start()
             
     def disconnect_cameras(self):
         print("Attempting to disconnect cameras")
+        self.configure_cameras.setEnabled(False) 
+        self.disconnect_cam_action.setEnabled(False)
+        self.connect_cameras_action.setEnabled(True)
+        self.find_additional_action.setEnabled(True)
+
         if hasattr(self, "camera_tabs"):
             self.central_stack.removeWidget(self.camera_tabs) 
-            # self.camera_tabs = None
-            self.CAMERA_CONFIG_TABS_MADE = False
 
         self.session.disconnect_cameras()
         self.summary.camera_summary.connected_cam_count.setText("0")
-        self.configure_cameras.setEnabled(False) 
-        self.CAMERAS_CONNECTED = False
-        
+        del self.camera_tabs 
+
     def find_cameras(self):
 
         def find_cam_worker():
-
+            self.CAMS_IN_PROCESS = True
             self.session.find_additional_cameras()
             logging.info("Loading streams")
             self.session.load_streams()
@@ -215,7 +219,11 @@ class MainWindow(QMainWindow):
             self.CAMS_IN_PROCESS = False
             self.configure_cameras.setEnabled(True)
             self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
-
+            self.disconnect_cam_action.setEnabled(True) #now have cameras to delete
+            self.connect_cameras_action.setEnabled(False)
+            self.find_additional_action.setEnabled(False)
+            self.configure_cameras.trigger()
+            
         if not self.CAMS_IN_PROCESS:
             logging.info("Searching for additional cameras...This may take a moment.")
             self.find = Thread(target=find_cam_worker, args=(), daemon=True)
@@ -238,7 +246,7 @@ class MainWindow(QMainWindow):
 
 
     def activate_charuco_builder(self):
-        if self.CHARUCO_BUILDER_MADE:
+        if hasattr(self, "charuco_builder"):
             self.central_stack.setCurrentWidget(self.charuco_builder)
         else:
             self.create_charuco_builder()

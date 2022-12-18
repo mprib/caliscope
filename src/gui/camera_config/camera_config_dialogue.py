@@ -1,8 +1,8 @@
 import logging
 
 LOG_FILE = "log/camera_config_dialog.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
+# LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QSpinBox,
     QComboBox,
+    QCheckBox,
     QDialog,
     QGroupBox,
     QDoubleSpinBox,
@@ -36,13 +37,14 @@ from src.session import Session
 
 
 class CameraConfigDialog(QDialog):
-    def __init__(self, monocalibrator):
+    def __init__(self, session, port ):
         super(CameraConfigDialog, self).__init__()
 
         # set up variables for ease of reference
-        self.monocal = monocalibrator
-        self.port = monocalibrator.port
-        self.stream = monocalibrator.stream
+        self.session = session
+        self.monocal = session.monocalibrators[port]
+        self.port = port
+        self.stream = self.monocal.stream
         self.camera = self.stream.camera
 
         App = QApplication.instance()
@@ -62,6 +64,7 @@ class CameraConfigDialog(QDialog):
         self.build_cw_rotation_btn()
         self.build_resolution_combo()
         self.build_exposure_hbox()
+        self.build_ignore_checkbox()
         self.build_fps_grp()
         self.build_grid_group()
         self.build_calibrate_grp()
@@ -191,17 +194,14 @@ class CameraConfigDialog(QDialog):
 
         self.undistort_btn.clicked.connect(undistort)
 
+        def on_save_click():
+            self.session.save_camera(self.port)
         # Save Calibration
         self.save_cal_btn = QPushButton("Save Calibration")
         # self.save_cal_btn.setEnabled(False)
         self.save_cal_btn.setMaximumWidth(100)
+        self.save_cal_btn.clicked.connect(on_save_click)
         vbox.addWidget(self.save_cal_btn)
-
-        # ignore for now...link up on Camera Tabs GUI
-        # def save_cal():
-        #     self.session.save_camera(self.port)
-
-        # self.save_cal_btn.clicked.connect(save_cal)
 
         # include calibration grid in horizontal box
         hbox.addLayout(vbox)
@@ -315,6 +315,22 @@ class CameraConfigDialog(QDialog):
         self.exposure_hbox.addWidget(exp_number)
 
         self.exposure_hbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    
+    def build_ignore_checkbox(self):
+        
+        self.ignore_box = QCheckBox("Ignore", self)
+        self.exposure_hbox.addWidget(self.ignore_box)
+        
+        def ignore_cam(signal):
+            print(signal)
+            if signal == 0: # not checked
+                logging.info(f"Don't ignore camera at port {self.port}")
+                self.camera.ignore = False
+            else: # value of checkState() might be 2?
+                logging.info(f"Ignore camera at port {self.port}")
+                self.camera.ignore = True
+            
+        self.ignore_box.stateChanged.connect(ignore_cam)
 
     def build_frame_display(self):
         # return a QLabel that is linked to the constantly changing image
@@ -387,7 +403,7 @@ if __name__ == "__main__":
     test_port = 0
 
     logging.info("Creating Camera Config Dialog")
-    cam_dialog = CameraConfigDialog(session.monocalibrators[test_port])
+    cam_dialog = CameraConfigDialog(session, test_port)
 
     logging.info("About to show camera config dialog")
     cam_dialog.show()

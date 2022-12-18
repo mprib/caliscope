@@ -25,7 +25,7 @@ from src.calibration.corner_tracker import CornerTracker
 
 class MonoCalibrator:
     def __init__(
-        self, stream, corner_tracker, target_fps, board_threshold=0.7, wait_time=0.5
+        self, stream, corner_tracker, target_fps=6, board_threshold=0.7, wait_time=0.5
     ):
         self.stream = stream
         self.camera = stream.camera  # reference needed to update params

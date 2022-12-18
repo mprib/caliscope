@@ -189,7 +189,7 @@ if __name__ == "__main__":
     session = Session(config_path)
     session.load_cameras()
     session.adjust_resolutions()
-    session.load_stream_tools()
+    session.load_streams()
     # time.sleep(3)
 
     trackr = CornerTracker(session.charuco)

@@ -169,7 +169,7 @@ class MainWindow(QMainWindow):
                 logging.info("Initiating camera connect worker")
                 self.session.load_cameras()
                 logging.info("Camera connect worker about to load stream tools")
-                self.session.load_stream_tools()
+                self.session.load_streams()
                 logging.info("Camera connect worker about to adjust resolutions")
                 self.session.adjust_resolutions()
 
@@ -203,7 +203,7 @@ class MainWindow(QMainWindow):
 
             self.session.find_additional_cameras()
             logging.info("Loading streams")
-            self.session.load_stream_tools()
+            self.session.load_streams()
             # logging.info("Adjusting resolutions")
             # self.session.adjust_resolutions()
             logging.info("Loading monocalibrators")

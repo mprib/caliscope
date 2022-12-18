@@ -123,7 +123,7 @@ if __name__ == "__main__":
     config_path = Path(repo, "sessions", "high_res_session")
     session = Session(config_path)
     session.load_cameras()
-    session.load_stream_tools()
+    session.load_streams()
     # session.load_monocalibrators()
     session.load_stereo_tools()
 

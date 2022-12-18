@@ -54,6 +54,7 @@ class Camera(object):
             self.is_connected = True
             self.is_rolling = False
             self.stop_rolling_trigger = False  # used for managing threads
+            self.ignore = False
 
             # read by RealTimeDevice to set orientation
             self.rotation_count = 0  # +1 for each 90 degree CW rotation, -1 for CCW

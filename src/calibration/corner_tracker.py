@@ -28,6 +28,8 @@ class CornerTracker:
         # need camera to know resolution and to assign calibration parameters
         # to camera
         self.charuco = charuco
+        self.board = charuco.board
+        self.dictionary = self.charuco.board.dictionary
 
         # for subpixel corner correction
         self.criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -59,7 +61,7 @@ class CornerTracker:
 
         # detect if aruco markers are present
         aruco_corners, aruco_ids, rejected = cv2.aruco.detectMarkers(
-            self.gray, self.charuco.board.dictionary
+            self.gray, self.dictionary
         )
 
         frame_width = self.frame.shape[1]  # used for flipping mirrored corners back
@@ -71,7 +73,7 @@ class CornerTracker:
         # if so, then interpolate to the Charuco Corners and return what you found
         if len(aruco_corners) > 3:
             (success, _img_loc, _ids,) = cv2.aruco.interpolateCornersCharuco(
-                aruco_corners, aruco_ids, self.gray, self.charuco.board
+                aruco_corners, aruco_ids, self.gray, self.board
             )
 
             # This occasionally errors out...

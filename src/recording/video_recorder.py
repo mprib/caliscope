@@ -126,7 +126,7 @@ if __name__ == "__main__":
     session = Session(session_path)
 
     session.load_cameras()
-    session.load_stream_tools()
+    session.load_streams()
     session.adjust_resolutions()
 
     syncr = Synchronizer(session.streams, fps_target=15)

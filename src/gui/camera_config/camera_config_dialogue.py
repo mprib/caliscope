@@ -222,14 +222,14 @@ class CameraConfigDialog(QDialog):
         logging.debug("Building FPS Control")
         fps_hbox.addWidget(QLabel("Target:"))
         self.frame_rate_spin = QSpinBox()
-        self.frame_rate_spin.setValue(self.stream.fps_target)
+        self.frame_rate_spin.setValue(self.monocal.target_fps)
 
-        self.session.synchronizer.fps_target = (
+        self.stream.target_fps = (
             self.frame_rate_spin.value()
         )
 
         def on_frame_rate_spin(fps_rate):
-            self.session.synchronizer.fps_target = fps_rate
+            self.monocal.target_fps = fps_rate
             logging.info(f"Changing synchronizer frame rate via port{self.port}")
 
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
@@ -346,7 +346,7 @@ class CameraConfigDialog(QDialog):
             # self.cam_cap.change_resolution(new_res)
             logging.info(f"Attempting to change resolution of camera at port {self.port}")
             self.change_res_thread = Thread(
-                target=self.session.synchronizer.change_resolution, args=(self.port, new_res,), daemon=True
+                target=self.monocal.stream.change_resolution, args=(new_res,), daemon=True
             )
             self.change_res_thread.start()
 
@@ -376,17 +376,18 @@ if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent.parent
     config_path = Path(repo, "sessions", "high_res_session")
 
+    # THIS IS WHERE YOU START TOMORROW, MAC. MAKE THIS WORK WITH JUST monocalibrator INPUT
     print(config_path)
     session = Session(config_path)
     session.load_cameras()
-    session.load_stream_tools()
+    session.load_streams()
     # session.adjust_resolutions()
     session.load_monocalibrators()
 
     test_port = 0
 
     logging.info("Creating Camera Config Dialog")
-    cam_dialog = CameraConfigDialog(session, test_port)
+    cam_dialog = CameraConfigDialog(session.monocalibrators[test_port])
 
     logging.info("About to show camera config dialog")
     cam_dialog.show()

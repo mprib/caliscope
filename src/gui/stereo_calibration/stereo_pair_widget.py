@@ -128,7 +128,7 @@ if __name__ == "__main__":
     print(config_path)
     session = Session(config_path)
     session.load_cameras()
-    session.load_stream_tools()
+    session.load_streams()
     session.load_monocalibrators()
     session.load_stereo_tools()
 

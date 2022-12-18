@@ -181,7 +181,7 @@ class Session:
                 else:
                     executor.submit(add_cam, i)
 
-    def load_stream_tools(self):
+    def load_streams(self):
         # in addition to populating the active streams, this loads a frame synchronizer
 
         for port, cam in self.cameras.items():
@@ -190,7 +190,9 @@ class Session:
             else:
                 logging.info(f"Loading Stream for port {port}")
                 self.streams[port] = LiveStream(cam)
-        
+       
+       
+    def load_synchronizer(self): 
         # recreating the synchronizer may have been at the source of some GUI weirdness.
         # Make one synchronizer and don't add more...
         # this will likely create issues when the number of streams changes, but I'll need
@@ -254,7 +256,7 @@ class Session:
             else:
                 logging.info(f"Loading Monocalibrator for port {port}")
                 self.monocalibrators[port] = MonoCalibrator(
-                    cam, self.synchronizer, self.corner_tracker
+                    self.streams[port], self.corner_tracker
                 )
 
     def load_stereo_tools(self):

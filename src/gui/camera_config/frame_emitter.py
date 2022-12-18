@@ -51,7 +51,7 @@ class FrameEmitter(QThread):
                     Qt.AspectRatioMode.KeepAspectRatio,
                 )
             self.ImageBroadcast.emit(pixmap)
-            self.FPSBroadcast.emit(self.monocalibrator.synchronizer.fps)
+            self.FPSBroadcast.emit(self.monocalibrator.stream.FPS_actual)
             self.GridCountBroadcast.emit(self.monocalibrator.grid_count)
 
     def stop(self):

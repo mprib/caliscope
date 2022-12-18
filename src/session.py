@@ -217,7 +217,9 @@ class Session:
         
         try:
             for port, monocal in self.monocalibrators.items():
-                del monocal
+                monocal.continue_thread = False
+                monocal.thread.join()
+
             self.monocalibrators = {}
             # del self.monocalibrators
             logging.info("Successfully deleted Monocalibrators")
@@ -236,6 +238,7 @@ class Session:
             self.streams = {}
 
             for port, cam in self.cameras.items():
+                cam.capture.release()
                 del cam
             self.cameras = {}
 

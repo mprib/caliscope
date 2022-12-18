@@ -33,12 +33,12 @@ class MonoCalibrator:
         self.corner_tracker = corner_tracker
         self.wait_time = wait_time
         self.capture_corners = False  # start out not doing anything
+        self.continue_thread = True
 
         self.target_fps = target_fps
         # self.synchronizer = synchronizer
         self.bundle_ready_q = Queue()
         self.grid_frame_ready_q = Queue()
-
         self.connected_corners = self.corner_tracker.charuco.get_connected_corners()
         board_corner_count = len(self.corner_tracker.charuco.board.chessboardCorners)
         self.min_points_to_process = int(board_corner_count * board_threshold)
@@ -86,12 +86,14 @@ class MonoCalibrator:
         # wait for camera to start rolling
         logging.debug("Entering collect_corners thread loop")
         self.stream.push_to_reel = True
-
-        while True:
+        
+        while self.continue_thread:
             self.stream.shutter_sync.put("Fire")
             frame_data = self.stream.reel.get()
-        
-            time.sleep(.003)
+            
+            # this is a dumb placeholder to throttle the frame rate
+            time.sleep(1/self.target_fps)
+
             # create  a blank frame to fill dropped frames
             if frame_data:
                 self.frame_time, self.frame = frame_data

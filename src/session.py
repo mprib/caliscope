@@ -125,19 +125,21 @@ class Session:
                 
         self.update_config()
 
-    def camera_count(self):
+    def connected_camera_count(self):
         cam_count = 0
-        for key in self.config.keys():
-            if key.startswith("cam"):
-                cam_count+=1
-        return cam_count
+
+        # for key in self.config.keys():
+        #     if key.startswith("cam"):
+        #         cam_count+=1
+        return len(self.cameras)
     
     def calibrated_camera_count(self):
         count = 0
         for key in self.config.keys():
             if key.startswith("cam"):
                 if "error" in self.config[key].keys():
-                    count+=1
+                    if self.config[key]["error"] is not None:
+                        count+=1
         return count
     
     def camera_pairs(self):
@@ -192,7 +194,9 @@ class Session:
                         logging.info(f"Beginning to load {key} with params {params}")
                         executor.submit(add_preconfigured_cam, params)
 
-    def find_additional_cameras(self):
+    def find_cameras(self):
+        """This will seek to connect to the first N cameras. It will clear out any previous calibration
+        data, including stereocalibration data"""
         def add_cam(port):
             try:
                 logging.info(f"Trying port {port}")
@@ -212,6 +216,13 @@ class Session:
                 else:
                     executor.submit(add_cam, i)
 
+        # remove potential stereocalibration data
+
+        for key in self.config.copy().keys():
+            if key.startswith("stereo"):
+                del self.config[key]
+        self.update_config() 
+        
     def load_streams(self):
         # in addition to populating the active streams, this loads a frame synchronizer
 
@@ -348,18 +359,19 @@ class Session:
         self.update_config()
 
     def get_stage(self):
-        # checking conditions in reverse chronological order to avoid premature return        
+        if self.connected_camera_count() == 0:
+            return stage.NO_CAMERAS
+
+        if self.calibrated_camera_count() < self.connected_camera_count():
+            return stage.UNCALIBRATED_CAMERAS
+
         if len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
             return stage.STEREOCALIBRATION_DONE
         
-        if self.camera_count() > 0 and self.calibrated_camera_count() == self.camera_count():
+        if self.connected_camera_count() > 0 and self.calibrated_camera_count() == self.connected_camera_count():
             return stage.MONOCALIBRATED_CAMERAS
         
-        if self.camera_count() == 0:
-            return stage.NO_CAMERAS
 
-        if self.calibrated_camera_count() < self.camera_count():
-            return stage.UNCALIBRATED_CAMERAS
 
           
 class stage(Enum):
@@ -380,8 +392,11 @@ if __name__ == "__main__":
     session = Session(config_path)
     print(session.get_stage())
     session.update_config()
-    print("Loading Cameras...")
-    session.load_cameras()
+    # print("Loading Cameras...")
+    # session.load_cameras()
+
+    print("Finding Cameras...")
+    session.find_cameras()
     print(session.get_stage())
     print(f"Camera pairs: {session.camera_pairs()}")
     print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")

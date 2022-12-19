@@ -41,7 +41,6 @@ from src.gui.charuco_builder import CharucoBuilder
 from src.gui.camera_config.camera_tabs import CameraTabs
 
 
-
 class MainWindow(QMainWindow):
     def __init__(self, session=None):
         super().__init__()
@@ -138,7 +137,21 @@ class MainWindow(QMainWindow):
         self.dock.setWidget(self.summary)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
 
-
+    def enable_disable_menu(self):
+        print(self.session.get_stage())
+        if self.session.get_stage() == stage.NO_CAMERAS:
+            self.configure_cameras.setEnabled(False)
+            self.disconnect_cam_action.setEnabled(False) #now have cameras to delete
+            self.connect_cameras_action.setEnabled(True)
+            self.find_additional_action.setEnabled(True)
+        else:
+            self.configure_cameras.setEnabled(True)
+            self.disconnect_cam_action.setEnabled(True) #now have cameras to delete
+            self.connect_cameras_action.setEnabled(False)
+            self.find_additional_action.setEnabled(False)
+        
+        
+        
     def launch_cam_config_dialog(self):
         
         # self.camera_tabs = None
@@ -172,19 +185,13 @@ class MainWindow(QMainWindow):
                 self.session.load_streams()
                 logging.info("Camera connect worker about to adjust resolutions")
                 self.session.adjust_resolutions()
-
                 logging.info("Camera connect worker about to load monocalibrators")
                 self.session.load_monocalibrators()
                 self.CAMS_IN_PROCESS = False
                 
                 self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
                 
-                # enabling GUI elements 
-                self.configure_cameras.setEnabled(True)
-                self.disconnect_cam_action.setEnabled(True) #now have cameras to delete
-                self.connect_cameras_action.setEnabled(False)
-                self.find_additional_action.setEnabled(False)
-
+                self.enable_disable_menu()
                 self.configure_cameras.trigger()
 
         if self.CAMS_IN_PROCESS:
@@ -195,10 +202,6 @@ class MainWindow(QMainWindow):
             
     def disconnect_cameras(self):
         print("Attempting to disconnect cameras")
-        self.configure_cameras.setEnabled(False) 
-        self.disconnect_cam_action.setEnabled(False)
-        self.connect_cameras_action.setEnabled(True)
-        self.find_additional_action.setEnabled(True)
 
         if hasattr(self, "camera_tabs"):
             self.central_stack.removeWidget(self.camera_tabs) 
@@ -206,27 +209,23 @@ class MainWindow(QMainWindow):
         self.session.disconnect_cameras()
         self.summary.camera_summary.connected_cam_count.setText("0")
         del self.camera_tabs 
+        self.enable_disable_menu()
 
     def find_cameras(self):
 
         def find_cam_worker():
             self.CAMS_IN_PROCESS = True
-            self.session.find_additional_cameras()
+            self.session.find_cameras()
             logging.info("Loading streams")
             self.session.load_streams()
-            # logging.info("Adjusting resolutions")
-            # self.session.adjust_resolutions()
             logging.info("Loading monocalibrators")
             self.session.load_monocalibrators()
             logging.info("Updating Camera Table")
             self.summary.camera_summary.camera_table.update_data()
 
             self.CAMS_IN_PROCESS = False
-            self.configure_cameras.setEnabled(True)
             self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
-            self.disconnect_cam_action.setEnabled(True) #now have cameras to delete
-            self.connect_cameras_action.setEnabled(False)
-            self.find_additional_action.setEnabled(False)
+            self.enable_disable_menu()
             self.configure_cameras.trigger()
             
         if self.CAMS_IN_PROCESS:

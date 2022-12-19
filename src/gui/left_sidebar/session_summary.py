@@ -46,7 +46,7 @@ class SessionSummary(QWidget):
 
         vbox = QVBoxLayout()
         self.setLayout(vbox)
-
+        
         folder_grp = QGroupBox("Session Directory")
         folder_grp.setLayout(QVBoxLayout())
 
@@ -60,13 +60,13 @@ class SessionSummary(QWidget):
         charuco_grp.layout().addWidget(self.charuco_summary)
         vbox.addWidget(charuco_grp)
        
-        synch_grp = QGroupBox("Synchronizer FPS")
-        synch_grp.setLayout(QHBoxLayout())
-        self.synch_fps = FPSControl(self.session)
-        synch_grp.layout().addWidget(self.synch_fps)
-        vbox.addWidget(synch_grp)
+        # synch_grp = QGroupBox("Synchronizer FPS")
+        # synch_grp.setLayout(QHBoxLayout())
+        # self.synch_fps = FPSControl(self.session)
+        # synch_grp.layout().addWidget(self.synch_fps)
+        # vbox.addWidget(synch_grp)
        
-        cam_grp = QGroupBox("Single Camera Calibration") 
+        cam_grp = QGroupBox("Saved Cameras") 
         cam_grp.setLayout(QHBoxLayout())
         self.camera_summary = CameraSummary(self.session)
         cam_grp.layout().addWidget(self.camera_summary)

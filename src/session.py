@@ -1,4 +1,4 @@
-# Manager of all created objects and the primary interface for the GUI.
+# Environment for managing all created objects and the primary interface for the GUI.
 
 
 import logging
@@ -15,9 +15,10 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from os.path import exists
 from pathlib import Path, PurePath
-
+from enum import Enum, auto
 import numpy as np
 import toml
+from itertools import combinations
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -60,7 +61,7 @@ class Session:
             with open(self.config_path, "r") as f:
                 self.config = toml.load(self.config_path)
         else:
-            logging.info("Creating it")
+            logging.info("No existing config.toml found; creating starter file with charuco")
 
             self.config = toml.loads("")
             self.config["CreationDate"] = datetime.now()
@@ -131,6 +132,31 @@ class Session:
                 cam_count+=1
         return cam_count
     
+    def calibrated_camera_count(self):
+        count = 0
+        for key in self.config.keys():
+            if key.startswith("cam"):
+                if "error" in self.config[key].keys():
+                    count+=1
+        return count
+    
+    def camera_pairs(self):
+        ports = [key for key in self.cameras.keys()]
+        pairs = [pair for pair in combinations(ports,2)] 
+        sorted_ports = [(min(pair), max(pair)) for pair in pairs ] # sort as in (b,a) --> (a,b)
+        sorted_ports = sorted(sorted_ports) # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
+        return sorted_ports
+    
+    def calibrated_camera_pairs(self):
+       
+        calibrated_pairs = [] 
+        for key in self.config.keys():
+            if key.startswith("stereo"):
+                portA, portB = key.split("_")[1:3]
+                calibrated_pairs.append((int(portA), int(portB)))
+        calibrated_pairs = sorted(calibrated_pairs)# sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
+        return calibrated_pairs
+                 
     def load_cameras(self):
         def add_preconfigured_cam(params):
             try:
@@ -198,10 +224,7 @@ class Session:
        
        
     def load_synchronizer(self): 
-        # recreating the synchronizer may have been at the source of some GUI weirdness.
         # Make one synchronizer and don't add more...
-        # this will likely create issues when the number of streams changes, but I'll need
-        # to deal with that then.
         if not self.synchronizer_created:
             logging.info("Creating Synchronizer")
             self.synchronizer = Synchronizer(self.streams, fps_target=6.2)
@@ -211,13 +234,14 @@ class Session:
 
     def disconnect_cameras(self):
         """Destroy all camera reading associated threads working down to the cameras
-        themselves so that the session cameras can be later reconstructed (likely
+        themselves so that the session cameras can be later reconstructed (potentially 
         with additional or fewer cameras)"""
         try:
             self.synchronizer_created = False
             del self.synchronizer
             logging.info("Successfully deleted Synchronizer")
         except(AttributeError):
+            logging.warning("No synchronizer to delete")
             pass
         
         try:
@@ -229,12 +253,14 @@ class Session:
             # del self.monocalibrators
             logging.info("Successfully deleted Monocalibrators")
         except(AttributeError): 
+            logging.warning("No monocalibrators to delete")
             pass
 
         try:
             del self.stereocalibrator 
             logging.info("Successfully deleted stereocalibrator")
         except(AttributeError):
+            logging.warning("No stereocalibrator to delete.")
             pass # don't worry if it doesn't exist
 
         try:
@@ -250,16 +276,16 @@ class Session:
             logging.info("Successfully deleted streams and cameras")
 
         except(AttributeError):
+            logging.warning("No streams to delete.")
             pass
         
-        # self.monocalibrators = {}
 
     def load_monocalibrators(self):
         self.corner_tracker = CornerTracker(self.charuco)
 
         for port, cam in self.cameras.items():
             if port in self.monocalibrators.keys():
-                logging.info(f"Skipping over monocalibrator creation for port {port}")
+                logging.info(f"Skipping over monocalibrator creation for port {port} because it already exists.")
                 pass  # only add if not added yet
             else:
                 logging.info(f"Loading Monocalibrator for port {port}")
@@ -321,11 +347,45 @@ class Session:
 
         self.update_config()
 
+    def get_stage(self):
+        # checking conditions in reverse chronological order to avoid premature return        
+        if len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
+            return stage.STEREOCALIBRATION_DONE
+        
+        if self.camera_count() > 0 and self.calibrated_camera_count() == self.camera_count():
+            return stage.MONOCALIBRATED_CAMERAS
+        
+        if self.camera_count() == 0:
+            return stage.NO_CAMERAS
+
+        if self.calibrated_camera_count() < self.camera_count():
+            return stage.UNCALIBRATED_CAMERAS
+
+          
+class stage(Enum):
+    NO_CAMERAS = auto()
+    UNCALIBRATED_CAMERAS = auto()
+    MONOCALIBRATED_CAMERAS =  auto()
+    STEREOCALIBRATION_IN_PROCESS = auto() 
+    STEREOCALIBRATION_DONE = auto()
+    ORIGIN_SET = auto()     
+    
 
 #%%
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent
     config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
+    print("Loading session config")
     session = Session(config_path)
+    print(session.get_stage())
     session.update_config()
+    print("Loading Cameras...")
+    session.load_cameras()
+    print(session.get_stage())
+    print(f"Camera pairs: {session.camera_pairs()}")
+    print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
+    session.disconnect_cameras()
+    print(session.get_stage())
+    print(f"Camera pairs: {session.camera_pairs()}")
+    print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")

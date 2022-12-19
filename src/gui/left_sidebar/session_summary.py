@@ -47,10 +47,12 @@ class SessionSummary(QWidget):
         vbox = QVBoxLayout()
         self.setLayout(vbox)
         
-        folder_grp = QGroupBox("Session Directory")
+        folder_grp = QGroupBox("Session")
         folder_grp.setLayout(QVBoxLayout())
 
-        folder_grp.layout().addWidget(QLabel(f"{session.path}"))
+        folder_grp.layout().addWidget(QLabel(f"Name: {session.folder}"))
+        self.stage_label = QLabel(f"Stage: {session.get_stage()}")
+        folder_grp.layout().addWidget(self.stage_label)
         vbox.addWidget(folder_grp)
 
 

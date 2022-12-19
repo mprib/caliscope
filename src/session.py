@@ -30,6 +30,7 @@ from src.cameras.camera import Camera
 from src.cameras.synchronizer import Synchronizer
 from src.cameras.live_stream import LiveStream
 from src.gui.stereo_calibration.stereo_frame_builder import StereoFrameBuilder
+from src.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10
@@ -234,14 +235,6 @@ class Session:
                 self.streams[port] = LiveStream(cam)
        
        
-    def load_synchronizer(self): 
-        # Make one synchronizer and don't add more...
-        if not self.synchronizer_created:
-            logging.info("Creating Synchronizer")
-            self.synchronizer = Synchronizer(self.streams, fps_target=6.2)
-            self.synchronizer_created = True
-        else:
-            logging.info("No Synchronizer Created")
 
     def disconnect_cameras(self):
         """Destroy all camera reading associated threads working down to the cameras
@@ -304,10 +297,18 @@ class Session:
                     self.streams[port], self.corner_tracker
                 )
 
+
     def load_stereo_tools(self):
-        self.corner_tracker = CornerTracker(self.charuco)
-        self.stereocalibrator = StereoCalibrator(self.synchronizer, self.corner_tracker)
-        self.stereo_frame_builder = StereoFrameBuilder(self.stereocalibrator)
+        if hasattr(self, "synchronizer"):
+            logging.info("No stereotools created...synchronizer already exists")
+        else:
+            logging.info("Creating stereo tools...")
+            self.synchronizer = Synchronizer(self.streams, fps_target=6.2)
+            self.corner_tracker = CornerTracker(self.charuco)
+            self.stereocalibrator = StereoCalibrator(self.synchronizer, self.corner_tracker)
+            self.stereo_frame_builder = StereoFrameBuilder(self.stereocalibrator)
+            self.stereo_frame_emitter = StereoFrameEmitter(self.stereo_frame_builder)
+            self.stereo_frame_emitter.start()
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as

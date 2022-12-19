@@ -39,7 +39,7 @@ from src.session import Session, stage
 from src.gui.left_sidebar.session_summary import SessionSummary
 from src.gui.charuco_builder import CharucoBuilder
 from src.gui.camera_config.camera_tabs import CameraTabs
-
+from src.gui.stereo_calibration.stereo_cal_dialog import StereoCalDialog
 
 class MainWindow(QMainWindow):
     def __init__(self, session=None):
@@ -68,7 +68,8 @@ class MainWindow(QMainWindow):
         self.build_view_menu()
         self.build_actions_menu()
         
-        
+        self.enable_disable_menu()
+         
     def build_file_menu(self):
         
         file = self.menu.addMenu("&File")
@@ -97,10 +98,23 @@ class MainWindow(QMainWindow):
         view.addAction(build_charuco)
         build_charuco.triggered.connect(self.activate_charuco_builder)
 
-        self.configure_cameras = QAction("Configure Cameras", self)
-        self.configure_cameras.setEnabled(False)
+        self.configure_cameras = QAction("Configure &Cameras", self)
         view.addAction(self.configure_cameras)
         self.configure_cameras.triggered.connect(self.launch_cam_config_dialog)
+        
+        self.stereocalibrate = QAction("&Stereocalibrate", self)
+        view.addAction(self.stereocalibrate)
+        self.stereocalibrate.triggered.connect(self.launch_stereocal_dialog)
+    
+    def launch_stereocal_dialog(self):
+        if hasattr(self, "stereo_cal_dialog"):
+            self.central_stack.setCurrentWidget(self.stereo_cal_dialog)
+        else:
+            # self.session.load_synchronizer()
+            self.session.load_stereo_tools()
+            self.stereo_cal_dialog = StereoCalDialog(self.session)
+            self.central_stack.addWidget(self.stereo_cal_dialog)
+            self.central_stack.setCurrentWidget(self.stereo_cal_dialog)
 
     def build_actions_menu(self):
         actions = self.menu.addMenu("&Actions")
@@ -115,7 +129,6 @@ class MainWindow(QMainWindow):
         self.find_additional_action.triggered.connect(self.find_cameras)
         
         self.disconnect_cam_action = QAction("&Disconnect Cameras", self)
-        self.disconnect_cam_action.setEnabled(False)
         actions.addAction(self.disconnect_cam_action)
         self.disconnect_cam_action.triggered.connect(self.disconnect_cameras)
 
@@ -130,7 +143,7 @@ class MainWindow(QMainWindow):
         logging.info(f"Opening session located at {session_path}")
         self.session = Session(session_path)
         self.summary = SessionSummary(self.session)
-        
+        self.enable_disable_menu()
         
         self.dock = QDockWidget("Session Summary", self)
         self.dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea)
@@ -138,21 +151,29 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
 
     def enable_disable_menu(self):
-        print(self.session.get_stage())
+        if not hasattr(self, "session"):
+            self.configure_cameras.setEnabled(False)
+            self.disconnect_cam_action.setEnabled(False) 
+            self.connect_cameras_action.setEnabled(False)
+            self.find_additional_action.setEnabled(False)
+            self.stereocalibrate.setEnabled(False)
+            return
         
         self.summary.stage_label.setText(f"Stage: {self.session.get_stage()}")
         if self.session.get_stage() == stage.NO_CAMERAS:
             self.configure_cameras.setEnabled(False)
-            self.disconnect_cam_action.setEnabled(False) #now have cameras to delete
+            self.disconnect_cam_action.setEnabled(False) 
             self.connect_cameras_action.setEnabled(True)
             self.find_additional_action.setEnabled(True)
+            self.stereocalibrate.setEnabled(False)
         else:
             self.configure_cameras.setEnabled(True)
-            self.disconnect_cam_action.setEnabled(True) #now have cameras to delete
+            self.disconnect_cam_action.setEnabled(True) 
             self.connect_cameras_action.setEnabled(False)
             self.find_additional_action.setEnabled(False)
         
-        
+        if self.session.get_stage().value >= stage.MONOCALIBRATED_CAMERAS.value:
+            self.stereocalibrate.setEnabled(True)        
         
     def launch_cam_config_dialog(self):
         
@@ -203,14 +224,16 @@ class MainWindow(QMainWindow):
             self.connect_cams.start()
             
     def disconnect_cameras(self):
-        print("Attempting to disconnect cameras")
+        logging.info("Attempting to disconnect cameras")
 
         if hasattr(self, "camera_tabs"):
             self.central_stack.removeWidget(self.camera_tabs) 
-
+            del self.camera_tabs 
+        if hasattr(self, "stereo_cal_dialog"):
+            self.central_stack.removeWidget(self.stereo_cal_dialog)
+            del self.stereo_cal_dialog
         self.session.disconnect_cameras()
         self.summary.camera_summary.connected_cam_count.setText("0")
-        del self.camera_tabs 
         self.enable_disable_menu()
 
     def find_cameras(self):
@@ -266,7 +289,9 @@ if __name__ == "__main__":
     
     # open in a session already so you don't have to go through the menu each time
     window.open_session(config_path)
-    
     window.show()
+    window.connect_cameras_action.trigger()
+    window.stereocalibrate.trigger()
+        
 
     app.exec()

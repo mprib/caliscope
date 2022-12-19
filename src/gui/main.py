@@ -35,10 +35,13 @@ from PyQt6.QtWidgets import (
 )
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.session import Session
+from src.session import Session, stage
 from src.gui.left_sidebar.session_summary import SessionSummary
 from src.gui.charuco_builder import CharucoBuilder
 from src.gui.camera_config.camera_tabs import CameraTabs
+
+
+
 class MainWindow(QMainWindow):
     def __init__(self, session=None):
         super().__init__()
@@ -60,7 +63,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_stack)
 
         self.CAMS_IN_PROCESS = False
-        # self.
+        self.stage = stage.NO_CAMERAS
+    
         self.build_file_menu()
         self.build_view_menu()
         self.build_actions_menu()
@@ -87,25 +91,6 @@ class MainWindow(QMainWindow):
 
         self.open_session(session_path)
 
-    def open_session(self, session_path):
-        """The primary action of choosing File--Open or New session"""
-        try:
-            # self.summary.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose,True)
-            self.summary.close()
-        except(AttributeError):
-            pass
-        
-        logging.info(f"Opening session located at {session_path}")
-        self.session = Session(session_path)
-        self.summary = SessionSummary(self.session)
-        
-        
-        self.dock = QDockWidget("Session Summary", self)
-        self.dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea)
-        self.dock.setWidget(self.summary)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
-
-    
     def build_view_menu(self): 
         view = self.menu.addMenu("&View")
 
@@ -135,6 +120,25 @@ class MainWindow(QMainWindow):
         actions.addAction(self.disconnect_cam_action)
         self.disconnect_cam_action.triggered.connect(self.disconnect_cameras)
 
+    def open_session(self, session_path):
+        """The primary action of choosing File--Open or New session"""
+        try:
+            # self.summary.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose,True)
+            self.summary.close()
+        except(AttributeError):
+            pass
+        
+        logging.info(f"Opening session located at {session_path}")
+        self.session = Session(session_path)
+        self.summary = SessionSummary(self.session)
+        
+        
+        self.dock = QDockWidget("Session Summary", self)
+        self.dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea)
+        self.dock.setWidget(self.summary)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
+
+
     def launch_cam_config_dialog(self):
         
         # self.camera_tabs = None
@@ -152,8 +156,6 @@ class MainWindow(QMainWindow):
         else:
             self.central_stack.setCurrentWidget(self.camera_tabs)
         
-    def close_cam_config(self):
-        pass
     
     def connect_to_cameras(self):
 
@@ -163,6 +165,7 @@ class MainWindow(QMainWindow):
         else:
 
             def connect_to_cams_worker():
+                self.CAMS_IN_PROCESS = True
                 logging.info("Initiating camera connect worker")
                 self.session.load_cameras()
                 logging.info("Camera connect worker about to load stream tools")
@@ -172,19 +175,21 @@ class MainWindow(QMainWindow):
 
                 logging.info("Camera connect worker about to load monocalibrators")
                 self.session.load_monocalibrators()
-                self.CAMERAS_CONNECTED = True
+                self.CAMS_IN_PROCESS = False
+                
+                self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
                 
                 # enabling GUI elements 
                 self.configure_cameras.setEnabled(True)
-                self.summary.synch_fps.frame_rate_spin.setEnabled(True)
-                self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
-                
                 self.disconnect_cam_action.setEnabled(True) #now have cameras to delete
                 self.connect_cameras_action.setEnabled(False)
                 self.find_additional_action.setEnabled(False)
 
                 self.configure_cameras.trigger()
 
+        if self.CAMS_IN_PROCESS:
+            logging.info("Already attempting to connect to cameras...")
+        else:
             self.connect_cams = Thread(target = connect_to_cams_worker, args=[], daemon=True)
             self.connect_cams.start()
             
@@ -224,12 +229,12 @@ class MainWindow(QMainWindow):
             self.find_additional_action.setEnabled(False)
             self.configure_cameras.trigger()
             
-        if not self.CAMS_IN_PROCESS:
+        if self.CAMS_IN_PROCESS:
+            logging.info("Cameras already connected or in process.")        
+        else:
             logging.info("Searching for additional cameras...This may take a moment.")
             self.find = Thread(target=find_cam_worker, args=(), daemon=True)
             self.find.start()
-        else:
-            logging.info("Cameras already connected or in process.")        
 
     def create_charuco_builder(self):
 

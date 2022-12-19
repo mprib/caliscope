@@ -37,10 +37,10 @@ from src.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
 
 
 class StereoCalDialog(QScrollArea):
-    def __init__(self, session, frame_emitter):
+    def __init__(self, session):
         super(StereoCalDialog, self).__init__()
         self.session = session
-        self.frame_emitter = frame_emitter
+        self.stereo_frame_emitter = session.stereo_frame_emitter
         self.vbox = QVBoxLayout()
         self.setLayout(self.vbox)
 
@@ -48,7 +48,7 @@ class StereoCalDialog(QScrollArea):
         self.vbox.addLayout(self.top_controls)
 
         for pair in session.stereocalibrator.pairs:
-            pair_widget = StereoPairWidget(self.session, self.frame_emitter, pair)
+            pair_widget = StereoPairWidget(self.session, self.stereo_frame_emitter, pair)
             self.vbox.addWidget(pair_widget)
 
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
     # cam_dialog = StereoPairWidget(session, test_pair)
 
-    stereo_cal = StereoCalDialog(session, stereo_frame_emitter)
+    stereo_cal = StereoCalDialog(session)
     logging.info("About to show camera config dialog")
     stereo_cal.show()
 

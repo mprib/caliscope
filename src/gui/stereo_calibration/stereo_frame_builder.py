@@ -41,7 +41,9 @@ class StereoFrameBuilder:
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
         """Return unaltered frame if no corner information detected, otherwise
         return two frames with same corners drawn"""
-        if (
+        if self.current_bundle[portA] is None or self.current_bundle[portB] is None:
+            return frameA, frameB
+        elif (
             "ids" not in self.current_bundle[portA]
             or "ids" not in self.current_bundle[portB]
         ):

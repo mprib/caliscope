@@ -139,6 +139,8 @@ class MainWindow(QMainWindow):
 
     def enable_disable_menu(self):
         print(self.session.get_stage())
+        
+        self.summary.stage_label.setText(f"Stage: {self.session.get_stage()}")
         if self.session.get_stage() == stage.NO_CAMERAS:
             self.configure_cameras.setEnabled(False)
             self.disconnect_cam_action.setEnabled(False) #now have cameras to delete

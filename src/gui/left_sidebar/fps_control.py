@@ -58,7 +58,7 @@ class FPSControl(QWidget):
                 self.session.synchronizer.fps_target = fps_rate
                 logging.info(f"Changing synchronizer frame rate")
             except(AttributeError):
-                logging.warn("Unable to change synch fps...may need to load stream tools") 
+                logging.warning("Unable to change synch fps...may need to load stream tools") 
 
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
 

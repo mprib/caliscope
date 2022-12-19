@@ -85,20 +85,22 @@ class MonoCalibrator:
         """
         # wait for camera to start rolling
         logging.debug("Entering collect_corners thread loop")
-        self.stream.push_to_reel = True
+        # self.stream.push_to_reel = True
+        while not hasattr(self.stream, "_working_frame"):
+            time.sleep(.01) # wait for initial frame data to populate
         
         while self.continue_thread:
-            self.stream.shutter_sync.put("Fire")
-            frame_data = self.stream.reel.get()
-            
+            # self.stream.shutter_sync.put("Fire")
+            # frame_data = self.stream.reel.get()
+            self.frame = self.stream._working_frame
             # this is a dumb placeholder to throttle the frame rate
             time.sleep(1/self.target_fps)
 
             # create  a blank frame to fill dropped frames
-            if frame_data:
-                self.frame_time, self.frame = frame_data
-            else:
-                self.frame = np.zeros(self.image_size, dtype="uint8")
+            # if frame_data:
+            #     self.frame_time, self.frame = frame_data
+            # else:
+            #     self.frame = np.zeros(self.image_size, dtype="uint8")
 
             # need to initialize to numpy arrays otherwise error if no corners detected
             self.ids = np.array([])

@@ -242,7 +242,7 @@ class StereoCalibrator:
             logging.info(f"Removing pair {pair}")
             self.uncalibrated_pairs.remove(pair)
         else:
-            logging.warn(f"Attempted to remove pair {pair} but it was not present")
+            logging.warning(f"Attempted to remove pair {pair} but it was not present")
             
         logging.info(
             f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}"

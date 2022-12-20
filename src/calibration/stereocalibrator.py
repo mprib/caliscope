@@ -61,6 +61,7 @@ class StereoCalibrator:
 
     def stop(self):
         self.stop_event.set()
+        self.bundle_available_q.put("Terminate")
         logging.info("Stop signal sent in stereocalibrator")
         # self.thread.join()
                 
@@ -101,6 +102,7 @@ class StereoCalibrator:
         """Constructs dictionary to hold growing lists of input parameters .
         When a list grows to the lengths of the grid_count_trigger, it will
         commence calibration"""
+
         self.stereo_outputs = {
             pair: {
                 "grid_count": None,
@@ -118,7 +120,13 @@ class StereoCalibrator:
 
         while not self.stop_event.set():
             self.bundle_available_q.get()
+            
+            # may get hung up on get, so additional item put on queue
+            if self.stop_event.set():
+                break
+            
             self.current_bundle = self.synchronizer.current_bundle
+            logging.debug("Frame bundle harvested by stereocalibrator")
 
             self.add_corner_data()
             for pair in self.uncalibrated_pairs:

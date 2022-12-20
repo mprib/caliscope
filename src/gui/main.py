@@ -2,8 +2,8 @@ import logging
 import sys
 
 LOG_FILE = "log\main.log"
-# LOG_LEVEL = logging.DEBUG
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
+# LOG_LEVEL = logging.INFO
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)

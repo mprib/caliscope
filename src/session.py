@@ -278,6 +278,7 @@ class Session:
                 # stream.push_to_reel = False
 
             self.synchronizer.stop()
+            del self.synchronizer   # important for session to know to recreate stereotools
         except(AttributeError):
             logging.warning("No synchronizer to delete")
             pass

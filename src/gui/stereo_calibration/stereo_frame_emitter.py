@@ -8,6 +8,7 @@ logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LO
 
 from datetime import datetime
 from pathlib import Path
+from threading import Event
 
 import cv2
 from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
@@ -26,13 +27,13 @@ class StereoFrameEmitter(QThread):
     def __init__(self, stereo_frame_builder):
         super(StereoFrameEmitter, self).__init__()
         self.stereo_frame_builder = stereo_frame_builder
-
+        self.stop_event = Event()
         self.stereo_outputs = self.stereo_frame_builder.stereo_calibrator.stereo_outputs
 
     def run(self):
         self.ThreadActive = True
 
-        while self.ThreadActive:
+        while not self.stop_event.is_set():
             # wait for newly processed frames to become available
             self.stereo_frame_builder.set_current_bundle()
 
@@ -47,9 +48,10 @@ class StereoFrameEmitter(QThread):
             self.StereoFramesBroadcast.emit(frame_dict)
             self.StereoCalOutBroadcast.emit(self.stereo_outputs)
             logging.debug(f"stereo output dictionary: {self.stereo_outputs}")
+        logging.info("Stereoframe emitter successfully shutdown...")
 
     def stop(self):
-        self.ThreadActive = False
+        self.stop_event.set()
         self.quit()
 
     def cv2_to_qlabel(self, frame):

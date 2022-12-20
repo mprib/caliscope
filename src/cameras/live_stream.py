@@ -12,7 +12,7 @@ import time as time_module # peculier bug popped up during module testing...perh
 from datetime import datetime
 from pathlib import Path
 from queue import Queue
-from threading import Thread
+from threading import Thread, Event
 
 import cv2
 import mediapipe as mp
@@ -30,7 +30,7 @@ class LiveStream:
 
         self.reel = Queue(-1)  # infinite size....hopefully doesn't blow up
         self.shutter_sync = Queue()
-        self.end_thread = Queue()
+        self.stop_event = Event() 
 
         self.push_to_reel = False
         self.keep_going = True
@@ -59,9 +59,10 @@ class LiveStream:
     
     def stop(self):
         # self.camera.stop_rolling()
-        self.end_thread.put("Stop")
-        self.thread.join()    
-        self.camera.capture.release()
+        self.push_to_reel=False
+        self.stop_event.set()
+        logging.info(f"Stop signal sent at stream {self.port}")
+        # self.thread.join()    
 
     def roll_camera(self):
         """
@@ -70,7 +71,7 @@ class LiveStream:
         frame
         """
         self.start_time = time_module.time()  # used to get initial delta_t for FPS
-        while self.end_thread.empty():
+        while not self.stop_event.is_set():
             if not self.camera.is_rolling:
                 logging.info(f"Camera now rolling at port {self.port}")
             self.camera.is_rolling = True
@@ -102,7 +103,8 @@ class LiveStream:
                 if self.camera.stop_rolling_trigger:
                     self.camera.is_rolling = False
                     break
-            
+        logging.info(f"Stream stopped at port {self.port}") 
+
     def change_resolution(self, res):
 
         # pull cam.stop_rolling_trigger and wait for roll_camera to stop

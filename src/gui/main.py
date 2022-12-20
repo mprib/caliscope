@@ -194,7 +194,8 @@ class MainWindow(QMainWindow):
             
             def on_save_cam_click():
                 self.summary.camera_summary.camera_table.update_data()
-            
+                self.enable_disable_menu() 
+
             for tab_index in range(self.camera_tabs.count()):
                 self.camera_tabs.widget(tab_index).save_cal_btn.clicked.connect(on_save_cam_click)
             
@@ -293,13 +294,13 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     repo = Path(__file__).parent.parent.parent
-    # config_path = Path(repo, "sessions", "high_res_session")
+    config_path = Path(repo, "sessions", "high_res_session")
     
     app = QApplication(sys.argv)
     window = MainWindow()
     
     # open in a session already so you don't have to go through the menu each time
-    # window.open_session(config_path)
+    window.open_session(config_path)
     window.show()
     # window.connect_cameras_action.trigger()
 

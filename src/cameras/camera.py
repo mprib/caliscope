@@ -197,6 +197,7 @@ class Camera(object):
         if self.is_rolling:  # don't create a loop if can't break out
             self.stop_rolling_trigger = True
             while self.is_rolling:  # give the thread time to wrap up
+                logging.warn("Stuck in a dangerous loop in camera.py!")
                 time.sleep(0.01)
         self.stop_rolling_trigger = False  # reset the trigger
 

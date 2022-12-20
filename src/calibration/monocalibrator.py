@@ -12,7 +12,7 @@ import sys
 import time
 from pathlib import Path
 from queue import Queue
-from threading import Thread
+from threading import Thread, Event
 
 import cv2
 import numpy as np
@@ -33,8 +33,8 @@ class MonoCalibrator:
         self.corner_tracker = corner_tracker
         self.wait_time = wait_time
         self.capture_corners = False  # start out not doing anything
-        self.keep_going = True
-
+        self.stop_event = Event()
+        
         self.target_fps = target_fps
         # self.synchronizer = synchronizer
         self.bundle_ready_q = Queue()
@@ -76,7 +76,7 @@ class MonoCalibrator:
         self.all_board_loc = []
 
     def stop(self):
-        self.keep_going = False
+        self.stop_event.set()
         self.thread.join()
         
     def collect_corners(self):
@@ -93,7 +93,7 @@ class MonoCalibrator:
         while not hasattr(self.stream, "_working_frame"):
             time.sleep(.01) # wait for initial frame data to populate
         
-        while self.keep_going:
+        while not self.stop_event.is_set():
             # self.stream.shutter_sync.put("Fire")
             # frame_data = self.stream.reel.get()
             self.frame = self.stream._working_frame

@@ -107,14 +107,20 @@ class MainWindow(QMainWindow):
         self.stereocalibrate.triggered.connect(self.launch_stereocal_dialog)
     
     def launch_stereocal_dialog(self):
-        if hasattr(self, "stereo_cal_dialog"):
-            self.central_stack.setCurrentWidget(self.stereo_cal_dialog)
-        else:
+        logging.info("Launching stereocalibration dialog")
+        # if hasattr(self, "stereo_cal_dialog"):
+            # self.central_stack.setCurrentWidget(self.stereo_cal_dialog)
+        # else:
             # self.session.load_synchronizer()
-            self.session.load_stereo_tools()
-            self.stereo_cal_dialog = StereoCalDialog(self.session)
-            self.central_stack.addWidget(self.stereo_cal_dialog)
-            self.central_stack.setCurrentWidget(self.stereo_cal_dialog)
+        self.session.remove_monocalibrators()
+        if hasattr(self,"camera_tabs"):
+            logging.info("Removing camera tabs")
+            del self.camera_tabs
+
+        self.session.load_stereo_tools()
+        self.stereo_cal_dialog = StereoCalDialog(self.session)
+        self.central_stack.addWidget(self.stereo_cal_dialog)
+        self.central_stack.setCurrentWidget(self.stereo_cal_dialog)
 
     def build_actions_menu(self):
         actions = self.menu.addMenu("&Actions")
@@ -176,6 +182,11 @@ class MainWindow(QMainWindow):
             self.stereocalibrate.setEnabled(True)        
         
     def launch_cam_config_dialog(self):
+        logging.info("Launching camera configuration dialog tabs")
+
+        while self.CAMS_IN_PROCESS:
+            logging.warning("Cams in process and waiting")
+            time.sleep(.3)
         
         # self.camera_tabs = None
         if not hasattr(self,"camera_tabs"):
@@ -190,6 +201,7 @@ class MainWindow(QMainWindow):
             self.central_stack.addWidget(self.camera_tabs)
             self.central_stack.setCurrentWidget(self.camera_tabs) 
         else:
+            logging.info("Camera tabs already exist....not deleting")
             self.central_stack.setCurrentWidget(self.camera_tabs)
         
     
@@ -237,7 +249,6 @@ class MainWindow(QMainWindow):
         self.enable_disable_menu()
 
     def find_cameras(self):
-
         def find_cam_worker():
             self.CAMS_IN_PROCESS = True
             self.session.find_cameras()
@@ -292,6 +303,5 @@ if __name__ == "__main__":
     window.show()
     window.connect_cameras_action.trigger()
     window.stereocalibrate.trigger()
-        
 
     app.exec()

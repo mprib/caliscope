@@ -28,7 +28,7 @@ class Synchronizer:
         self.bundle_subscribers = []    # queues that will receive actual frame data
         
         self.frame_data = {}
-
+        self.keep_going = True
         self.ports = []
         for port, stream in self.streams.items():
             self.ports.append(port)
@@ -40,6 +40,13 @@ class Synchronizer:
         self.initialize_ledgers()
         self.spin_up() 
 
+    def stop(self):
+        self.keep_going = False
+        self.bundler.join()
+        for t in self.threads:
+            t.join()
+            
+        
     def initialize_ledgers(self):
 
         self.port_frame_count = {port: 0 for port in self.ports}
@@ -81,7 +88,7 @@ class Synchronizer:
 
         logging.info(f"Beginning to collect data generated at port {port}")
 
-        while True:
+        while self.keep_going:
             frame_index = self.port_frame_count[port] 
 
             (
@@ -168,8 +175,7 @@ class Synchronizer:
         sync_time = time.perf_counter()
 
         logging.info("About to start bundling frames...")
-        while True:
-            
+        while self.keep_going:
 
             # Enforce a wait period to hit target FPS, unless you have excess slack
             if self.frame_slack() < 2:
@@ -249,6 +255,7 @@ if __name__ == "__main__":
 
     cameras = []
     ports = [0, 1, 2]
+
     for port in ports:
         cameras.append(Camera(port))
 

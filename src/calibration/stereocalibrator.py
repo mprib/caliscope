@@ -14,7 +14,7 @@ import time
 from itertools import combinations
 from pathlib import Path
 from queue import Queue
-from threading import Thread
+from threading import Thread, Event
 
 import cv2
 import numpy as np
@@ -35,10 +35,12 @@ class StereoCalibrator:
         self.wait_time = 0.5  # seconds between snapshots
         self.grid_count_trigger = 5  #  move on to calibration
 
+
         # self.stacked_frames = Queue()  # ultimately will be removing this
         self.bundle_available_q = Queue()
         self.synchronizer.subscribe_to_notice(self.bundle_available_q)
         self.cal_frames_ready_q = Queue()
+        self.stop_event = Event()
 
         self.build_port_list()
         self.build_uncalibrated_pairs()
@@ -58,8 +60,9 @@ class StereoCalibrator:
         self.thread.start()
 
     def stop(self):
-        self.keep_going = False
-        self.thread.join()
+        self.stop_event.set()
+        logging.info("Stop signal sent in stereocalibrator")
+        # self.thread.join()
                 
     def build_port_list(self):
         """Construct list of ports associated with incoming frames"""
@@ -113,7 +116,7 @@ class StereoCalibrator:
         processing of it."""
         logging.debug(f"Currently {len(self.uncalibrated_pairs)} uncalibrated pairs ")
 
-        while self.keep_going:
+        while not self.stop_event.set():
             self.bundle_available_q.get()
             self.current_bundle = self.synchronizer.current_bundle
 
@@ -135,6 +138,7 @@ class StereoCalibrator:
 
             # if len(self.uncalibrated_pairs) == 0:
             #     self.stereo_calibrate()
+        logging.info("Stereocalibration bundle harvester successfully shut-down...")
 
     def add_corner_data(self):
         """Assign corner data for each frame"""

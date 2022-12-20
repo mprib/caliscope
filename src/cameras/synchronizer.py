@@ -10,7 +10,7 @@ import sys
 import time
 from pathlib import Path
 from queue import Queue
-from threading import Thread
+from threading import Thread, Event
 
 import cv2
 import numpy as np
@@ -28,7 +28,8 @@ class Synchronizer:
         self.bundle_subscribers = []    # queues that will receive actual frame data
         
         self.frame_data = {}
-        self.keep_going = True
+        self.stop_event = Event()
+
         self.ports = []
         for port, stream in self.streams.items():
             self.ports.append(port)
@@ -41,10 +42,10 @@ class Synchronizer:
         self.spin_up() 
 
     def stop(self):
-        self.keep_going = False
-        self.bundler.join()
-        for t in self.threads:
-            t.join()
+        self.stop_event.set()
+        # self.bundler.join()
+        # for t in self.threads:
+            # t.join()
             
         
     def initialize_ledgers(self):
@@ -88,7 +89,7 @@ class Synchronizer:
 
         logging.info(f"Beginning to collect data generated at port {port}")
 
-        while self.keep_going:
+        while not self.stop_event.is_set():
             frame_index = self.port_frame_count[port] 
 
             (
@@ -175,7 +176,7 @@ class Synchronizer:
         sync_time = time.perf_counter()
 
         logging.info("About to start bundling frames...")
-        while self.keep_going:
+        while not self.stop_event.is_set():
 
             # Enforce a wait period to hit target FPS, unless you have excess slack
             if self.frame_slack() < 2:
@@ -243,6 +244,7 @@ class Synchronizer:
 
             self.fps = self.average_fps()
 
+        logging.info("Frame bundler successfully ended")
 
 if __name__ == "__main__":
 

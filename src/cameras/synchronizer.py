@@ -43,9 +43,9 @@ class Synchronizer:
 
     def stop(self):
         self.stop_event.set()
-        # self.bundler.join()
-        # for t in self.threads:
-            # t.join()
+        self.bundler.join()
+        for t in self.threads:
+            t.join()
             
         
     def initialize_ledgers(self):

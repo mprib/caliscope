@@ -33,7 +33,7 @@ class MonoCalibrator:
         self.corner_tracker = corner_tracker
         self.wait_time = wait_time
         self.capture_corners = False  # start out not doing anything
-        self.continue_thread = True
+        self.keep_going = True
 
         self.target_fps = target_fps
         # self.synchronizer = synchronizer
@@ -75,6 +75,10 @@ class MonoCalibrator:
         self.all_img_loc = []
         self.all_board_loc = []
 
+    def stop(self):
+        self.keep_going = False
+        self.thread.join()
+        
     def collect_corners(self):
         """
         Input: opencv frame
@@ -89,7 +93,7 @@ class MonoCalibrator:
         while not hasattr(self.stream, "_working_frame"):
             time.sleep(.01) # wait for initial frame data to populate
         
-        while self.continue_thread:
+        while self.keep_going:
             # self.stream.shutter_sync.put("Fire")
             # frame_data = self.stream.reel.get()
             self.frame = self.stream._working_frame

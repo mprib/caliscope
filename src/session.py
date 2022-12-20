@@ -240,6 +240,7 @@ class Session:
         """Destroy all camera reading associated threads working down to the cameras
         themselves so that the session cameras can be later reconstructed (potentially 
         with additional or fewer cameras)"""
+        
         try:
             self.synchronizer_created = False
             del self.synchronizer
@@ -283,6 +284,14 @@ class Session:
             logging.warning("No streams to delete.")
             pass
         
+        try:
+            self.remove_stereo_tools()
+            logging.info("Stereo tools successfully removed")
+        except: 
+            logging.warning("Stereo tools not successfully removed...may crash soon.")
+            pass            
+
+        
 
     def load_monocalibrators(self):
         self.corner_tracker = CornerTracker(self.charuco)
@@ -297,6 +306,12 @@ class Session:
                     self.streams[port], self.corner_tracker
                 )
 
+    def remove_monocalibrators(self):
+        for port, monocal in self.monocalibrators.copy().items():
+            logging.info(f"Attempting to stop Monocalibrator for port {port}")
+            monocal.stop()
+            del self.monocalibrators[port]
+            logging.info(f"Successfuly stopped monocalibrator at port {port}") 
 
     def load_stereo_tools(self):
         if hasattr(self, "synchronizer"):
@@ -309,6 +324,14 @@ class Session:
             self.stereo_frame_builder = StereoFrameBuilder(self.stereocalibrator)
             self.stereo_frame_emitter = StereoFrameEmitter(self.stereo_frame_builder)
             self.stereo_frame_emitter.start()
+
+    def remove_stereo_tools(self):
+        self.stereocalibrator.stop()
+        del self.stereocalibrator
+        self.synchronizer.stop()
+        del self.synchronizer
+        # self.stereo_frame_builder
+        # self.stereo_frame_emitter
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as

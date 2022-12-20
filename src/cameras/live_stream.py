@@ -30,11 +30,13 @@ class LiveStream:
 
         self.reel = Queue(-1)  # infinite size....hopefully doesn't blow up
         self.shutter_sync = Queue()
-        self.push_to_reel = False
+        self.end_thread = Queue()
 
+        self.push_to_reel = False
+        self.keep_going = True
         # Start the thread to read frames from the video stream
-        self.cap_thread = Thread(target=self.roll_camera, args=(), daemon=True)
-        self.cap_thread.start()
+        self.thread = Thread(target=self.roll_camera, args=(), daemon=True)
+        self.thread.start()
 
         # initialize time trackers for actual FPS determination
         self.frame_time = time_module.perf_counter()
@@ -51,9 +53,16 @@ class LiveStream:
         # folding in current frame rate to trailing average to smooth out
         self.avg_delta_time = 0.9 * self.avg_delta_time + 0.1 * self.delta_time
         self.previous_time = self.start_time
-
+        self.keep_going = True
         return 1 / self.avg_delta_time
         # TODO: #23 avg_delta_time was zero when testing on the laptop...is this necessary?
+    
+    def stop(self):
+        # self.camera.stop_rolling()
+        self.end_thread.put("Stop")
+        self.thread.join()    
+        self.camera.capture.release()
+
     def roll_camera(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame,
@@ -61,7 +70,7 @@ class LiveStream:
         frame
         """
         self.start_time = time_module.time()  # used to get initial delta_t for FPS
-        while True:
+        while self.end_thread.empty():
             if not self.camera.is_rolling:
                 logging.info(f"Camera now rolling at port {self.port}")
             self.camera.is_rolling = True
@@ -119,8 +128,8 @@ class LiveStream:
         self.camera.resolution = res
         # Spin up the thread again now that resolution is changed
         logging.info(f"Beginning roll_camera thread at port {self.port} with resolution {res}")
-        self.cap_thread = Thread(target=self.roll_camera, args=(), daemon=True)
-        self.cap_thread.start()
+        self.thread = Thread(target=self.roll_camera, args=(), daemon=True)
+        self.thread.start()
 
     def _add_fps(self):
         """NOTE: this is used in code at bottom, not in external use"""
@@ -181,3 +190,11 @@ if __name__ == "__main__":
         if key == ord("v"):
             for stream in streams:
                 stream.change_resolution((1280, 720))
+
+        if key == ord("s"):
+            for stream in streams:
+                stream.stop()
+            cv2.destroyAllWindows()
+            exit(0)
+                
+    

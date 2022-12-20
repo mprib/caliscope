@@ -244,12 +244,12 @@ class Session:
 
         
         try:
+            logging.info("Attempting to shutdown monocalibrators")
             for port, monocal in self.monocalibrators.items():
                 monocal.stop()
-                # del monocal
-            # del self.monocalibrators
+                # monocal.thread.join()
+
             self.monocalibrators = {}
-            logging.info("Successfully deleted Monocalibrators")
         except(AttributeError): 
             logging.warning("No monocalibrators to delete")
             pass
@@ -257,44 +257,36 @@ class Session:
         try: 
             logging.info("Attempting to stop stereo frame emitter")
             self.stereo_frame_emitter.stop()
-            # del self.stereo_frame_emitter
-            logging.info("Successfully stopped stereo frame emitter")
+            # self.stereo_frame_emitter.thread.join()
             
         except(AttributeError):
-            logging.info("No stereo frame emitterto stop")
+            logging.info("No stereo frame emitter to stop")
 
-        try:
-            logging.info("Attempting to stop synchronizer...")
-            self.synchronizer_created = False
-            for port,stream in self.streams.items():
-                stream.push_to_reel = False
-
-            self.synchronizer.stop()
-            # del self.synchronizer
-            logging.info("Successfully deleted Synchronizer")
-        except(AttributeError):
-            logging.warning("No synchronizer to delete")
-            pass
         
         try:
             logging.info("Attempting to stop stereocalibrator")
             self.stereocalibrator.stop()
-            # del self.stereocalibrator 
-            logging.info("Successfully deleted stereocalibrator")
+            
         except(AttributeError):
             logging.warning("No stereocalibrator to delete.")
             pass # don't worry if it doesn't exist
 
+        try:
+            logging.info("Attempting to stop synchronizer...")
+            # self.synchronizer_created = False
+            # for port,stream in self.streams.items():
+                # stream.push_to_reel = False
+
+            self.synchronizer.stop()
+        except(AttributeError):
+            logging.warning("No synchronizer to delete")
+            pass
 
         try:
             logging.info("Attempting to stop streams...")
             for port, stream in self.streams.items():
                 stream.stop()
-                logging.info(f"Stream stopped at port {port}")
-                # del stream
-            # del self.streams
             self.streams = {}
-            logging.info("Successfully ended streams")
 
             for port, cam in self.cameras.items():
                 cam.capture.release()
@@ -302,20 +294,10 @@ class Session:
                 # del cam
             # del self.cameras
             self.cameras = {}
-
-            logging.info("Successfully disconnected cameras")
-
         except(AttributeError):
+
             logging.warning("Unable to delete all streams...")
             pass
-        
-        # try:
-        #     self.remove_stereo_tools()
-        #     logging.info("Stereo tools successfully removed")
-        # except: 
-        #     logging.warning("Stereo tools not successfully removed...may crash soon.")
-        #     pass            
-
         
 
     def load_monocalibrators(self):

@@ -30,19 +30,19 @@ The general flow of processing is illustrated in the graph below. This does not 
 ```mermaid
 graph
 
+subgraph cameras
+Camera --> LiveStream
+LiveStream --> Monocalibrator
+LiveStream --> Synchronizer
+Synchronizer --> Stereocalibrator
+end
+
 subgraph calibration
 Charuco --> CornerTracker
 CornerTracker --> Monocalibrator
 CornerTracker --> Stereocalibrator
 end
 
-subgraph cameras
-Camera -.only for writing settings.- Monocalibrator
-Camera --> LiveStream
-LiveStream --> Synchronizer
-Synchronizer --> Monocalibrator
-Synchronizer --> Stereocalibrator
-end
 
 Synchronizer --> PairedPointStream 
 

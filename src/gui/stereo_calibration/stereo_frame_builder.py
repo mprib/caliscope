@@ -163,7 +163,6 @@ class StereoFrameBuilder:
         return frame_pairs
 
     def apply_rotation(self, frame, port):
-        logging.info("Applying Rotation")
         rotation_count = self.rotation_counts[port]
         if rotation_count == 0:
             pass

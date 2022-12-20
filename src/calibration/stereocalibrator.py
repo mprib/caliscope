@@ -53,10 +53,14 @@ class StereoCalibrator:
         logging.info(
             f"Initiating data collection of uncalibrated pairs: {self.uncalibrated_pairs}"
         )
-        self.stereo_cal_running = True
+        self.keep_going = True
         self.thread = Thread(target=self.harvest_frame_bundles, args=(), daemon=True)
         self.thread.start()
 
+    def stop(self):
+        self.keep_going = False
+        self.thread.join()
+                
     def build_port_list(self):
         """Construct list of ports associated with incoming frames"""
         logging.debug("Creating port list...")
@@ -109,7 +113,7 @@ class StereoCalibrator:
         processing of it."""
         logging.debug(f"Currently {len(self.uncalibrated_pairs)} uncalibrated pairs ")
 
-        while self.stereo_cal_running:
+        while self.keep_going:
             self.bundle_available_q.get()
             self.current_bundle = self.synchronizer.current_bundle
 

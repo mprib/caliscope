@@ -148,7 +148,7 @@ class LiveStream:
 
 
 if __name__ == "__main__":
-    ports = [0]
+    ports = [2,1,0]
 
     cams = []
     for port in ports:
@@ -168,7 +168,6 @@ if __name__ == "__main__":
     while True:
         try:
             for stream in streams:
-                print(stream.port)
                 stream._add_fps()
                 stream.shutter_sync.put("Fire")
                 time, img = stream.reel.get()
@@ -191,7 +190,8 @@ if __name__ == "__main__":
 
         if key == ord("v"):
             for stream in streams:
-                stream.change_resolution((1280, 720))
+                print(f"Attempting to change resolution at port {stream.port}")
+                stream.change_resolution((1024, 576))
 
         if key == ord("s"):
             for stream in streams:

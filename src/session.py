@@ -280,9 +280,6 @@ class Session:
 
         try:
             logging.info("Attempting to stop synchronizer...")
-            # self.synchronizer_created = False
-            # for port,stream in self.streams.items():
-            # stream.push_to_reel = False
 
             self.synchronizer.stop()
             del (
@@ -361,12 +358,11 @@ class Session:
             stream = self.streams[port]
             resolution = self.config[f"cam_{port}"]["resolution"]
             default_res = self.cameras[port].default_resolution
-            logging.info(f"Port {port} resolution is {resolution[0:2]}")
-            logging.info(f"Port {port} default res is {default_res[0:2]}")
 
             if resolution[0] != default_res[0] or resolution[1] != default_res[1]:
-                logging.info(f"Attempting to change resolution on port {port}")
+                logging.info(f"Beginning to change resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}")
                 stream.change_resolution(resolution)
+                logging.info(f"Completed change of resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}")
 
         with ThreadPoolExecutor() as executor:
             for port in self.cameras.keys():

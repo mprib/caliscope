@@ -108,7 +108,7 @@ class Synchronizer:
                 "frame_time": frame_time,
             }
 
-            logging.debug(f"Frame data harvested from reel {port} with index {frame_index}")
+            logging.debug(f"Frame data harvested from reel {port} with index {frame_index} and frame time of {frame_time}")
             self.port_frame_count[port] += 1
 
         logging.info(f"Frame harvester for port {port} completed")
@@ -213,12 +213,12 @@ class Synchronizer:
                 if frame_time > earliest_next[port]:
                     # definitly should be put in the next layer and not this one
                     next_layer[port] = None
-                    logging.debug(f"Skipped frame at port {port}: > earliest_next")
+                    logging.warning(f"Skipped frame at port {port}: > earliest_next")
                 elif abs(frame_time - earliest_next[port]) < abs(frame_time-latest_current[port]): # frame time is closer to earliest next than latest current
                     # if it's closer to the earliest next frame than the latest current frame, bump it up
                     # print("using new rule")
                     next_layer[port] = None
-                    logging.debug(f"Skipped frame at port {port}: delta < time-latest_current")
+                    logging.warning(f"Skipped frame at port {port}: delta < time-latest_current")
                 else:
                     # add the data and increment the index
                     next_layer[port] = self.frame_data.pop(port_index_key)
@@ -251,21 +251,28 @@ if __name__ == "__main__":
     # DON"T DEAL WITH THE SESSION OBJECT IN TESTS...ONLY MORE FOUNDATIONAL ELEMENTS
     from src.cameras.camera import Camera
     from src.cameras.live_stream import LiveStream
+    from src.session import Session
 
     repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "default_session")
+    config_path = Path(repo, "sessions", "high_res_session")
 
-    cameras = []
-    ports = [0, 1, 2]
+    session = Session(config_path)
 
-    for port in ports:
-        cameras.append(Camera(port))
+    session.load_cameras()
+    session.load_streams()
+    session.adjust_resolutions()
 
-    streams = {}
-    for cam in cameras:
-        streams[cam.port] = LiveStream(cam)
+    # cameras = []
+    # ports = [0, 1, 2]
 
-    syncr = Synchronizer(streams, fps_target=10)
+    # for port in ports:
+    #     cameras.append(Camera(port))
+
+    # streams = {}
+    # for cam in cameras:
+    #     streams[cam.port] = LiveStream(cam)
+
+    syncr = Synchronizer(session.streams, fps_target=10)
 
     notification_q = Queue()
 

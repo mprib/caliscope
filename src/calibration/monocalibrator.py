@@ -89,7 +89,6 @@ class MonoCalibrator:
         """
         # wait for camera to start rolling
         logging.debug("Entering collect_corners thread loop")
-        # self.stream.push_to_reel = True
         while not hasattr(self.stream, "_working_frame"):
             time.sleep(.01) # wait for initial frame data to populate
         

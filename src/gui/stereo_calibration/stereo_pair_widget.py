@@ -129,7 +129,7 @@ if __name__ == "__main__":
     session = Session(config_path)
     session.load_cameras()
     session.load_streams()
-    session.load_monocalibrators()
+    # session.adjust_resolutions()
     session.load_stereo_tools()
 
     logging.info("Creating Camera Config Dialog")

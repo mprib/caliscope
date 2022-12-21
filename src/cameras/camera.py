@@ -183,11 +183,9 @@ class Camera(object):
 
     def disconnect(self):
         self.capture.release()
-        self.is_connected = False
 
     def connect(self):
         self.capture = cv2.VideoCapture(self.port)
-        self.is_connected = True
 
     def stop_rolling(self):
         """

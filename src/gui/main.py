@@ -300,7 +300,7 @@ if __name__ == "__main__":
     window = MainWindow()
     
     # open in a session already so you don't have to go through the menu each time
-    window.open_session(config_path)
+    # window.open_session(config_path)
     window.show()
     # window.connect_cameras_action.trigger()
 

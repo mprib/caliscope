@@ -3,7 +3,8 @@
 # that reads in frames.
 import logging
 LOG_FILE = "log\live_stream.log"
-LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO
+# LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
@@ -30,10 +31,12 @@ class LiveStream:
 
         self.reel = Queue(-1)  # infinite size....hopefully doesn't blow up
         self.shutter_sync = Queue()
+        self.stop_confirm = Queue()
         self.stop_event = Event() 
 
         self.push_to_reel = False
-        self.keep_going = True
+        self.show_fps = False
+        self.FPS_actual = 0
         # Start the thread to read frames from the video stream
         self.thread = Thread(target=self.roll_camera, args=(), daemon=True)
         self.thread.start()
@@ -53,7 +56,6 @@ class LiveStream:
         # folding in current frame rate to trailing average to smooth out
         self.avg_delta_time = 0.9 * self.avg_delta_time + 0.1 * self.delta_time
         self.previous_time = self.start_time
-        self.keep_going = True
         return 1 / self.avg_delta_time
         # TODO: #23 avg_delta_time was zero when testing on the laptop...is this necessary?
     
@@ -71,10 +73,11 @@ class LiveStream:
         frame
         """
         self.start_time = time_module.time()  # used to get initial delta_t for FPS
+        first_time = True
         while not self.stop_event.is_set():
-            if not self.camera.is_rolling:
+            if first_time:
                 logging.info(f"Camera now rolling at port {self.port}")
-            self.camera.is_rolling = True
+                first_time = False
 
             if self.camera.capture.isOpened():
 
@@ -85,38 +88,32 @@ class LiveStream:
 
                 # read in working frame
                 read_start = time_module.perf_counter()
-                self.status, self._working_frame = self.camera.capture.read()
+                self.success, self._working_frame = self.camera.capture.read()
+                
+                if self.show_fps:
+                    self._add_fps()
+                
                 read_stop = time_module.perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
 
-                if self.push_to_reel:
+                if self.push_to_reel and self.success:
                     logging.debug(f"Pushing frame to reel at port {self.port}")
                     self.reel.put([self.frame_time, self._working_frame])
-
-                # this may no longer be necessary...consider removing in the future
-                # self.frame = self._working_frame.copy()
 
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
 
-                # Stop thread if camera pulls trigger
-                if self.camera.stop_rolling_trigger:
-                    self.camera.is_rolling = False
-                    break
         logging.info(f"Stream stopped at port {self.port}") 
+        self.stop_event.clear()
+        self.stop_confirm.put("Successful Stop")
 
     def change_resolution(self, res):
 
-        # pull cam.stop_rolling_trigger and wait for roll_camera to stop
         logging.info(f"About to stop camera at port {self.port}")
-        self.camera.stop_rolling()
-
-        # if the display isn't up and running this may error out (as when trying
-        # to initialize the resolution to a non-default value)
-        blank_image = np.zeros(self._working_frame.shape, dtype=np.uint8)
-        # multiple blank images to account for sync issues
-        self.reel.put([time_module.perf_counter(), blank_image])
-        self.reel.put([time_module.perf_counter(), blank_image])
+        self.stop_event.set()
+        self.shutter_sync.put("dummy to force to complete loop")
+        self.stop_confirm.get()
+        logging.info(f"Roll camera stop confirmed at port {self.port}")
 
         self.FPS_actual = 0
         self.avg_delta_time = None
@@ -148,7 +145,7 @@ class LiveStream:
 
 
 if __name__ == "__main__":
-    ports = [2,1,0]
+    ports = [0, 1, 2]
 
     cams = []
     for port in ports:
@@ -160,6 +157,7 @@ if __name__ == "__main__":
         print(f"Creating Video Stream for camera {cam.port}")
         stream = LiveStream(cam)
         stream.push_to_reel = True
+        stream.show_fps = True
         stream.shutter_sync.put("Fire")
         stream.shutter_sync.put("Fire")
         # stream.assign_charuco(charuco)
@@ -168,7 +166,6 @@ if __name__ == "__main__":
     while True:
         try:
             for stream in streams:
-                stream._add_fps()
                 stream.shutter_sync.put("Fire")
                 time, img = stream.reel.get()
                 cv2.imshow(

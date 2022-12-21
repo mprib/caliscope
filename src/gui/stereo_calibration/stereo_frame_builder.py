@@ -202,7 +202,7 @@ if __name__ == "__main__":
     trackr = CornerTracker(session.charuco)
 
     logging.info("Creating Synchronizer")
-    syncr = Synchronizer(session.streams, fps_target=1)
+    syncr = Synchronizer(session.streams, fps_target=4)
     logging.info("Creating Stereocalibrator")
     stereo_cal = StereoCalibrator(syncr, trackr)
     frame_builder = StereoFrameBuilder(stereo_cal)

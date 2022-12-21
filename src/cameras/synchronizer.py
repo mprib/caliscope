@@ -172,6 +172,8 @@ class Synchronizer:
         # need to have 2 frames to assess bundling
         for port in self.ports:
             self.streams[port].shutter_sync.put("fire")
+            self.streams[port].shutter_sync.put("fire")
+
 
         sync_time = time.perf_counter()
 
@@ -189,7 +191,6 @@ class Synchronizer:
                 sync_time = time.perf_counter()
                 for port in self.ports:
                     self.streams[port].shutter_sync.put("fire")
-                    self.streams[port].shutter_sync.put("fire")
 
             next_layer = {}
             layer_frame_times = []
@@ -198,9 +199,23 @@ class Synchronizer:
             # must be done before going in and making any updates to the frame index
             earliest_next = {}
             latest_current = {}
+            
+            # the two dictionaries below are for debugging purposes
+            # frame_time_current = {}
+            # frame_time_next = {}
+
             for port in self.ports:
                 earliest_next[port] = self.earliest_next_frame(port)
                 latest_current[port] = self.latest_current_frame(port)
+                current_frame_index = self.port_current_frame[port]
+                
+                # inserting the dictionaries below to debug issue with all frames dropping
+                # port_index_key = f"{port}_{current_frame_index}"
+                # current_frame_data = self.frame_data[port_index_key]
+                # frame_time_current[port] = current_frame_data["frame_time"]
+                # port_next_index_key = f"{port}_{current_frame_index+1}"
+                # next_frame_data = self.frame_data[port_next_index_key]
+                # frame_time_next[port] = next_frame_data["frame_time"]
                 
             for port in self.ports:
                 current_frame_index = self.port_current_frame[port]
@@ -214,9 +229,9 @@ class Synchronizer:
                     # definitly should be put in the next layer and not this one
                     next_layer[port] = None
                     logging.warning(f"Skipped frame at port {port}: > earliest_next")
-                elif abs(frame_time - earliest_next[port]) < abs(frame_time-latest_current[port]): # frame time is closer to earliest next than latest current
+                elif earliest_next[port] - frame_time < frame_time-latest_current[port]: # frame time is closer to earliest next than latest current
                     # if it's closer to the earliest next frame than the latest current frame, bump it up
-                    # print("using new rule")
+                    # only applying for 2 camera setup where I noticed this was an issue (frames stay out of synch)
                     next_layer[port] = None
                     logging.warning(f"Skipped frame at port {port}: delta < time-latest_current")
                 else:
@@ -252,6 +267,7 @@ if __name__ == "__main__":
     from src.cameras.camera import Camera
     from src.cameras.live_stream import LiveStream
     from src.session import Session
+    import pandas as pd
 
     repo = Path(__file__).parent.parent.parent
     config_path = Path(repo, "sessions", "high_res_session")
@@ -272,20 +288,36 @@ if __name__ == "__main__":
     # for cam in cameras:
     #     streams[cam.port] = LiveStream(cam)
 
-    syncr = Synchronizer(session.streams, fps_target=10)
+    syncr = Synchronizer(session.streams, fps_target=None)
 
     notification_q = Queue()
 
     syncr.subscribe_to_notice(notification_q)
-
+    
+    bundle_data = {"Bundle":[],
+                   "Port_0_Time":[],
+                   "Port_1_Time":[],
+                   "Port_2_Time":[]}
+    bundle_index = 0
     while True:
         frame_bundle_notice = notification_q.get()
+        bundle_data["Bundle"].append(bundle_index)
+        bundle_index += 1
+
         for port, frame_data in syncr.current_bundle.items():
+            
             if frame_data:
                 cv2.imshow(f"Port {port}", frame_data["frame"])
-
+                bundle_data[f"Port_{port}_Time"].append(frame_data["frame_time"])
+            else:
+                bundle_data[f"Port_{port}_Time"].append("dropped")
+                
         key = cv2.waitKey(1)
 
         if key == ord("q"):
             cv2.destroyAllWindows()
             break
+
+    SynchData = pd.DataFrame(bundle_data)
+    SynchData.to_csv(Path(config_path,"synch_data.csv"))
+    # print(bundle_data) 

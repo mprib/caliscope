@@ -1,8 +1,8 @@
 import logging
 
 LOG_FILE = "log\stereoframe_builder.log"
-# LOG_LEVEL = logging.DEBUG
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
+# LOG_LEVEL = logging.INFO
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
@@ -41,8 +41,14 @@ class StereoFrameBuilder:
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
         """Return unaltered frame if no corner information detected, otherwise
         return two frames with same corners drawn"""
-        if self.current_bundle[portA] is None or self.current_bundle[portB] is None:
+        if self.current_bundle[portA] is None:
+            logging.warn(f"Dropped frame at port {portA}")
             return frameA, frameB
+
+        elif self.current_bundle[portB] is None:
+            logging.warn(f"Dropped frame at port {portB}")
+            return frameA, frameB
+
         elif (
             "ids" not in self.current_bundle[portA]
             or "ids" not in self.current_bundle[portB]
@@ -189,14 +195,14 @@ if __name__ == "__main__":
 
     session = Session(config_path)
     session.load_cameras()
-    session.adjust_resolutions()
     session.load_streams()
+    session.adjust_resolutions()
     # time.sleep(3)
 
     trackr = CornerTracker(session.charuco)
 
     logging.info("Creating Synchronizer")
-    syncr = Synchronizer(session.streams, fps_target=6)
+    syncr = Synchronizer(session.streams, fps_target=1)
     logging.info("Creating Stereocalibrator")
     stereo_cal = StereoCalibrator(syncr, trackr)
     frame_builder = StereoFrameBuilder(stereo_cal)

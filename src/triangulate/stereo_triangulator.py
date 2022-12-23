@@ -68,8 +68,8 @@ class StereoTriangulator:
             common_points = self.point_stream.out_q.get()
             all_points_3D = []
             for index, row in common_points.iterrows():
-                point_A = (row["loc_img_x_0"], row["loc_img_y_0"])
-                point_B = (row["loc_img_x_1"], row["loc_img_y_1"])
+                point_A = (row[f"loc_img_x_{self.portA}"], row[f"loc_img_y_{self.portA}"])
+                point_B = (row[f"loc_img_x_{self.portB}"], row[f"loc_img_y_{self.portB}"])
                 point_3D = self.triangulate(point_A, point_B)
                 all_points_3D.append(point_3D)
             all_points_3D = np.array(all_points_3D)
@@ -108,6 +108,7 @@ class StereoTriangulator:
         data = self.config[f"stereo_{self.portA}_{self.portB}"]
         rotation = np.array(data["rotation"], dtype=np.float64)
         translation = np.array(data["translation"], dtype=np.float64)
+        translation = translation[:,0] # extra dimension
         stereo_error = data["RMSE"]
 
         logging.info(

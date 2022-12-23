@@ -129,7 +129,7 @@ if __name__ == "__main__":
     session.load_streams()
     session.adjust_resolutions()
 
-    syncr = Synchronizer(session.streams, fps_target=15)
+    syncr = Synchronizer(session.streams, fps_target=30)
     notification_q = Queue()
     syncr.notice_subscribers.append(notification_q)
 

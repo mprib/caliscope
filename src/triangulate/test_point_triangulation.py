@@ -11,7 +11,7 @@ from src.cameras.synchronizer import Synchronizer
 from src.calibration.charuco import Charuco
 from src.triangulate.paired_point_stream import PairedPointStream
 from src.triangulate.stereo_triangulator import StereoTriangulator
-from triangulate.visualization.visualizer import StereoVisualizer
+from triangulate.visualization.visualizer import CaptureVolumeVisualizer
 from src.calibration.corner_tracker import CornerTracker
 
 
@@ -39,14 +39,14 @@ point_stream = PairedPointStream(
 sample_config_path = str(Path(video_directory.parent, "config.toml"))
 triangulatr = StereoTriangulator(point_stream, sample_config_path)
 
-vizr = StereoVisualizer(triangulatr)
+vizr = CaptureVolumeVisualizer(triangulatr)
 
 # while True:
 all_point_3D = triangulatr.out_q.get()
 vizr.add_scatter(all_point_3D)
 print(all_point_3D)
 
-vizr.start()
+vizr.begin()
 
 test_board_corners = np.array(
     [
@@ -64,8 +64,8 @@ test_board_corners = np.array(
         [-22.8193701, 2.1501825, 48.45748189],
     ]
 )
-vizr = StereoVisualizer(triangulatr)
+vizr = CaptureVolumeVisualizer(triangulatr)
 vizr.add_scatter(test_board_corners)
-vizr.start()
+vizr.begin()
 
     # print(triangulatr.out_q.qsize())orts = [0, 1]

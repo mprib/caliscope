@@ -15,11 +15,7 @@ from pathlib import Path
 from threading import Thread
 
 import numpy as np
-import pyqtgraph as pg
 import pyqtgraph.opengl as gl
-from PyQt6.QtWidgets import QLayout, QWidget
-
-# from pyqtgraph.Qt import QtCore
 
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))

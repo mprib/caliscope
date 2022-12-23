@@ -89,19 +89,8 @@ if __name__ == "__main__":
 
     vizr = CaptureVolumeVisualizer(triangulatr)
     vizr.add_point_q(triangulatr.out_q)
-    # vizr.begin()
+
     vizr_dialog = CaptureVolumeDialog(vizr)
     vizr_dialog.show()
-    # vizr_dialog.start()
-    # vizr.start()
 
-
-
-    
-    # vizr_dialog.visualizer.begin()
-    # t = pg.QtCore.QTimer()
-    # t.timeout.connect(vizr_dialog.visualizer.next_frame)
-    # t.start(500)
-
-    # pg.exec()
     app.exec()

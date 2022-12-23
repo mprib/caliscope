@@ -138,5 +138,5 @@ if __name__ == "__main__":
     print(repo)
     # video_path = Path(repo,"sessions", "recordings", "sample1")
     video_recorder.start_recording(session_path)
-    time.sleep(10)
+    time.sleep(15)
     video_recorder.stop_recording()

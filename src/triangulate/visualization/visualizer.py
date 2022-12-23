@@ -8,20 +8,24 @@ LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
-import sys
 import math
-import numpy as np
+import sys
+import time
 from pathlib import Path
+from threading import Thread
+
+import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
-from pyqtgraph.Qt import QtCore
+from PyQt6.QtWidgets import QLayout, QWidget
 
-from PyQt6.QtWidgets import QWidget, QLayout
+# from pyqtgraph.Qt import QtCore
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from src.triangulate.visualization.camera_mesh import CameraMesh
 from src.triangulate.stereo_triangulator import CameraData
+from src.triangulate.visualization.camera_mesh import CameraMesh
 
 
 class CaptureVolumeVisualizer():
@@ -86,11 +90,14 @@ class CaptureVolumeVisualizer():
         self.board_viz.setData(pos=self.board_data, color=self.color)
 
     def begin(self):
-        # self.scene.show()
-        t = QtCore.QTimer()
-        t.timeout.connect(self.next_frame)
-        t.start(500)
-        # pg.exec()
+        
+        def timer_wrkr():
+            for i in range(0,100):
+                time.sleep(.05)
+            # self.scene.show()
+                self.next_frame() 
+        self.timer_thread = Thread(target=timer_wrkr, args=[],daemon=True)
+        self.timer_thread.start()
 # 
 
 # helper functions to assist with scene creation
@@ -140,17 +147,17 @@ def rotationMatrixToEulerAngles(R):
 
 if __name__ == "__main__":
 
-    from src.triangulate.stereo_triangulator import StereoTriangulator
+    from PyQt6.QtWidgets import QApplication
 
-    from src.recording.recorded_stream import RecordedStreamPool
-    from src.cameras.synchronizer import Synchronizer
     from src.calibration.charuco import Charuco
+    from src.calibration.corner_tracker import CornerTracker
+    from src.cameras.synchronizer import Synchronizer
+    from src.recording.recorded_stream import RecordedStreamPool
     from src.triangulate.paired_point_stream import PairedPointStream
     from src.triangulate.stereo_triangulator import StereoTriangulator
-    from src.triangulate.visualization.visualizer import CaptureVolumeVisualizer
-    from src.calibration.corner_tracker import CornerTracker
-    from PyQt6.QtWidgets import QApplication
-    
+    from src.triangulate.visualization.visualizer import \
+        CaptureVolumeVisualizer
+
     # set the location for the sample data used for testing
     repo = Path(__file__).parent.parent.parent.parent
     session_directory =Path(repo, "sessions", "high_res_session")
@@ -183,4 +190,3 @@ if __name__ == "__main__":
     vizr.begin()
     
     sys.exit(app.exec())
-

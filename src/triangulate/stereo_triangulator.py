@@ -35,6 +35,7 @@ class CameraData:
     resolution: tuple
     camera_matrix: np.ndarray
     error: float
+    distortion: np.ndarray
 
     def __post_init__(self):
         # self.mesh = CameraMesh(self.resolution, self.camera_matrix).mesh
@@ -82,8 +83,8 @@ class StereoTriangulator:
             logging.info(f"Loading config data located at: {self.config_path}")
             self.config = toml.load(self.config_path)
 
-        self.camera_A = self.get_camera_at_origin(0)
-        self.camera_B = self.get_camera_at_origin(1)
+        self.camera_A = self.get_camera_at_origin(self.portA)
+        self.camera_B = self.get_camera_at_origin(self.portB)
 
         # express location of camera B relative to Camera A
         rot, trans = self.get_extrinsic_params()
@@ -97,8 +98,9 @@ class StereoTriangulator:
         resolution = tuple(data["resolution"])
         camera_matrix = np.array(data["camera_matrix"], dtype=np.float64)
         error = data["error"]
+        distortion = np.array(data["distortion"], dtype=np.float64)
 
-        cam_data = CameraData(port, resolution, camera_matrix, error)
+        cam_data = CameraData(port, resolution, camera_matrix, error, distortion)
         logging.info(f"Loading camera data at port {port}: {str(cam_data)}")
 
         return cam_data
@@ -132,7 +134,10 @@ class StereoTriangulator:
         self.proj_B = mtx_B @ rot_trans_B #projection matrix for CamB
 
     def triangulate(self, point_A, point_B):
-        
+       
+        point_A = self.undistort(point_A,self.camera_A)
+        point_B = self.undistort(point_B,self.camera_B)
+             
         A = [point_A[1]*self.proj_A[2,:] - self.proj_A[1,:],
              self.proj_A[0,:] - point_A[0]*self.proj_A[2,:],
              point_B[1]*self.proj_B[2,:] - self.proj_B[1,:],
@@ -146,6 +151,28 @@ class StereoTriangulator:
         return coord_3D
 
 
+    def undistort(self, point, camera: CameraData, iter_num=3):
+        # implementing a function described here: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html
+        # supposedly a better implementation than OpenCV? Maybe I should just try stock opencv...
+        k1, k2, p1, p2, k3 = camera.distortion[0] 
+        fx, fy = camera.camera_matrix[0, 0], camera.camera_matrix[1, 1]
+        cx, cy = camera.camera_matrix[:2, 2]
+        x, y = float(point[0]), float(point[1])
+        
+        x = (x - cx) / fx
+        x0 = x
+        y = (y - cy) / fy
+        y0 = y
+
+        for _ in range(iter_num):
+            r2 = x ** 2 + y ** 2
+            k_inv = 1 / (1 + k1 * r2 + k2 * r2**2 + k3 * r2**3)
+            delta_x = 2 * p1 * x*y + p2 * (r2 + 2 * x**2)
+            delta_y = p1 * (r2 + 2 * y**2) + 2 * p2 * x*y
+            x = (x0 - delta_x) * k_inv
+            y = (y0 - delta_y) * k_inv
+        return np.array((x * fx + cx, y * fy + cy))
+
 
 
 
@@ -157,9 +184,10 @@ if __name__ == "__main__":
     from src.calibration.corner_tracker import CornerTracker
 
     # set the location for the sample data used for testing
-    repo = Path(__file__).parent.parent.parent
-    print(repo)
-
+    # repo = Path(__file__).parent.parent.parent
+    # print(repo)
+    repo = str(Path(__file__)).split("src")[0]
+    sys.path.insert(0,repo)
     session_path = Path(repo, "sessions", "high_res_session")
 
     # create playback streams to provide to synchronizer

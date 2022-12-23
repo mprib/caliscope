@@ -36,7 +36,6 @@ from PyQt6.QtWidgets import (
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from src.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
 from src.triangulate.visualization.visualizer import CaptureVolumeVisualizer
-from PyQt6.QtCore import QTimer
 
 class CaptureVolumeDialog(QWidget):
     def __init__(self, CaptureVolumeVisualizer):
@@ -46,15 +45,7 @@ class CaptureVolumeDialog(QWidget):
         self.layout().addWidget(QLabel("This is a test"))
         self.layout().addWidget(self.visualizer.scene)
         self.setMinimumSize(500,500)
-        # self.start()
-
-    def start(self):
         self.visualizer.begin()
-        # self.scene.show()
-        t = pg.QtCore.QTimer()
-        t.timeout.connect(self.visualizer.next_frame)
-        t.start(500)
-        pg.exec()
         
 if __name__ == "__main__":
 
@@ -101,7 +92,16 @@ if __name__ == "__main__":
     # vizr.begin()
     vizr_dialog = CaptureVolumeDialog(vizr)
     vizr_dialog.show()
-    vizr_dialog.start()
+    # vizr_dialog.start()
     # vizr.start()
+
+
+
+    
+    # vizr_dialog.visualizer.begin()
+    # t = pg.QtCore.QTimer()
+    # t.timeout.connect(vizr_dialog.visualizer.next_frame)
+    # t.start(500)
+
+    # pg.exec()
     app.exec()
-    # sys.exit(app.exec())

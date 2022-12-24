@@ -88,8 +88,8 @@ class CaptureVolumeVisualizer():
     def begin(self):
         
         def timer_wrkr():
-            for i in range(0,100):
-                time.sleep(.05)
+            while True:
+                time.sleep(1/30)
             # self.scene.show()
                 self.next_frame() 
         self.timer_thread = Thread(target=timer_wrkr, args=[],daemon=True)
@@ -155,8 +155,10 @@ if __name__ == "__main__":
         CaptureVolumeVisualizer
 
     # set the location for the sample data used for testing
-    repo = Path(__file__).parent.parent.parent.parent
+    repo = str(Path(__file__)).split("src")[0]
+
     session_directory =Path(repo, "sessions", "high_res_session")
+
     # create playback streams to provide to synchronizer
     ports = [0, 1]
     recorded_stream_pool = RecordedStreamPool(ports, session_directory)

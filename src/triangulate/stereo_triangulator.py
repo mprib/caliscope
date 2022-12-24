@@ -82,8 +82,8 @@ class StereoTriangulator:
             logging.info(f"Loading config data located at: {self.config_path}")
             self.config = toml.load(self.config_path)
 
-        self.camera_A = self.get_camera_at_origin(0)
-        self.camera_B = self.get_camera_at_origin(1)
+        self.camera_A = self.get_camera_at_origin(self.portA)
+        self.camera_B = self.get_camera_at_origin(self.portB)
 
         # express location of camera B relative to Camera A
         rot, trans = self.get_extrinsic_params()

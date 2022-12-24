@@ -29,6 +29,7 @@ from src.calibration.stereocalibrator import StereoCalibrator
 from src.cameras.camera import Camera
 from src.cameras.synchronizer import Synchronizer
 from src.cameras.live_stream import LiveStream
+from src.recording.video_recorder import VideoRecorder
 from src.gui.stereo_calibration.stereo_frame_builder import StereoFrameBuilder
 from src.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
 
@@ -349,6 +350,13 @@ class Session:
         del self.synchronizer
         # self.stereo_frame_builder
         # self.stereo_frame_emitter
+
+
+    def load_video_recorder(self):
+        if hasattr(self, "synchronizer"):
+            self.video_recorder = VideoRecorder(self.synchronizer)
+        else:
+            logging.warning("No synchronizer available to record video")
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as

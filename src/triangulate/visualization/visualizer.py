@@ -157,10 +157,11 @@ if __name__ == "__main__":
     repo = str(Path(__file__)).split("src")[0]
 
     session_directory =Path(repo, "sessions", "high_res_session")
-
+    video_directory = Path(session_directory,"recording")
     # create playback streams to provide to synchronizer
     ports = [0, 2]
-    recorded_stream_pool = RecordedStreamPool(ports, session_directory)
+
+    recorded_stream_pool = RecordedStreamPool(ports, video_directory)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()
     # create a corner tracker to locate board corners

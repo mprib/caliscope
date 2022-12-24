@@ -138,6 +138,21 @@ class MainWindow(QMainWindow):
         actions.addAction(self.disconnect_cam_action)
         self.disconnect_cam_action.triggered.connect(self.disconnect_cameras)
 
+        self.record_action = QAction("&Record")
+        actions.addAction(self.record_action)
+        self.record_action.triggered.connect(self.start_stop_recording)
+        
+    
+    def start_stop_recording(self):
+        if not hasattr(self.session, "video_recorder"):
+            self.session.load_video_recorder()
+        if not self.session.video_recorder.recording:
+            self.session.video_recorder.start_recording(Path(self.session.path, "recording"))
+            self.record_action.setText("Stop &Recording")
+        else:
+            self.session.video_recorder.stop_recording()
+            self.record_action.setText("&Record")
+    
     def open_session(self, session_path):
         """The primary action of choosing File--Open or New session"""
         try:
@@ -300,8 +315,8 @@ if __name__ == "__main__":
     window = MainWindow()
     
     # open in a session already so you don't have to go through the menu each time
-    # window.open_session(config_path)
+    window.open_session(config_path)
     window.show()
-    # window.connect_cameras_action.trigger()
+    window.connect_cameras_action.trigger()
 
     app.exec()

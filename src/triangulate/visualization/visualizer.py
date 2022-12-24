@@ -1,5 +1,4 @@
 import logging
-import pprint
 
 LOG_FILE = r"log\stereo_visualizer.log"
 LOG_LEVEL = logging.DEBUG
@@ -160,7 +159,7 @@ if __name__ == "__main__":
     session_directory =Path(repo, "sessions", "high_res_session")
 
     # create playback streams to provide to synchronizer
-    ports = [0, 1]
+    ports = [0, 2]
     recorded_stream_pool = RecordedStreamPool(ports, session_directory)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()

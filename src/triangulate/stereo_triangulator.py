@@ -153,7 +153,7 @@ class StereoTriangulator:
 
     def undistort(self, point, camera: CameraData, iter_num=3):
         # implementing a function described here: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html
-        # supposedly a better implementation than OpenCV? Maybe I should just try stock opencv...
+        # supposedly a better implementation than OpenCV
         k1, k2, p1, p2, k3 = camera.distortion[0] 
         fx, fy = camera.camera_matrix[0, 0], camera.camera_matrix[1, 1]
         cx, cy = camera.camera_matrix[:2, 2]

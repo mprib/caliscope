@@ -29,22 +29,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.triangulate.paired_point_stream import PairedPointStream
 
-@dataclass
-class CameraData:
-    port: int
-    resolution: tuple
-    camera_matrix: np.ndarray
-    error: float
-    distortion: np.ndarray
-
-    def __post_init__(self):
-        # self.mesh = CameraMesh(self.resolution, self.camera_matrix).mesh
-        # initialize to origin
-        self.translation = np.array([0, 0, 0])
-        self.rotation = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
 
 class StereoTriangulator:
+    # TODO: Going to be refactoring this to take a pair of cameras as the primary 
+    # inputs...likely also some kind of reference to a paired point stream specific 
+    # to that pair...
+        
+    
+
     # created from a config.toml file, points within each camera frame can be provided to it
     # via self.triangulates(CommonPoints: pd.DataFrame)
 

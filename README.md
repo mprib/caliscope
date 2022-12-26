@@ -28,13 +28,11 @@ Currently, the origin is the base camera from the stereocalibration pair. Next p
 The general flow of processing is illustrated in the graph below. This does not represent any of the GUI elements which are still a work in progress. My immediate next steps are to stabilize the GUI, making it easier to incorporate the full set of actions that are currently permitted by the back-end of the code base.
 
 ```mermaid
-graph
+graph TD
 
 subgraph cameras
 Camera --> LiveStream
-LiveStream --> Monocalibrator
 LiveStream --> Synchronizer
-Synchronizer --> Stereocalibrator
 end
 
 subgraph calibration
@@ -43,6 +41,22 @@ CornerTracker --> Monocalibrator
 CornerTracker --> Stereocalibrator
 end
 
+Synchronizer --> Stereocalibrator
+LiveStream --> Monocalibrator
+
+subgraph calibration_data
+config.toml
+StereoCalRecordings
+end
+
+Stereocalibrator -.via Session.-> config.toml
+calibration -.via Session.-> StereoCalRecordings
+Monocalibrator -.via Session.-> config.toml
+calibration_data --> ArrayConstructor
+
+subgraph array
+ArrayConstructor
+end
 
 Synchronizer --> PairedPointStream 
 
@@ -56,10 +70,10 @@ frame_time_history.csv --> RecordedStream
 RecordedStream --> Synchronizer
 end
 
-CornerTracker -.temporary for testing .- PairedPointStream
+CornerTracker -.temporary for testing.- PairedPointStream
 
 subgraph triangulate
-PairedPointStream -->StereoTriangulator
+PairedPointStream --> StereoTriangulator
 end
 
 subgraph visualization

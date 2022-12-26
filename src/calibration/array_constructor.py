@@ -1,15 +1,20 @@
-# Building out the beginnings of something that will be a large part of this whole thing.
-# Going to start with video footage from a calibration and the resulting set of mono/stereo calibration
-# config file, and then iteratively refine those using methods similar to anipose
-
-#%%
 import pandas as pd
 import toml
 import sys
 from pathlib import Path
 import numpy as np
 
-def get_initial_array(calibration_data):
+
+class ArrayConstructor:
+    def __init__(self, calibration_data):
+        self.initial_array, self.pairs, self.anchor = get_calibration_data(
+            calibration_data
+        )
+
+        # self.pairs =
+
+
+def get_calibration_data(calibration_data):
     config = toml.load(Path(calibration_data, "config.toml"))
 
     daisy_chain = {
@@ -43,17 +48,16 @@ def get_initial_array(calibration_data):
 
     # create an inverted version of these to determine best Anchor camera
     inverted_chain = daisy_chain.copy()
-    inverted_chain.Primary, inverted_chain.Secondary = inverted_chain.Secondary, inverted_chain.Primary
+    inverted_chain.Primary, inverted_chain.Secondary = (
+        inverted_chain.Secondary,
+        inverted_chain.Primary,
+    )
     inverted_chain.Translation = inverted_chain.Translation * -1
     inverted_chain.Rotation = inverted_chain.Rotation.apply(np.linalg.inv)
 
-    daisy_chain_w_inverted = pd.concat([daisy_chain,inverted_chain], axis=0)
+    daisy_chain_w_inverted = pd.concat([daisy_chain, inverted_chain], axis=0)
 
-    #%%
     all_pairs = daisy_chain["Pair"].unique()
-    print(all_pairs)
-    #%%
-    # create the inverted formats for all of the rows
 
     mean_error = (
         daisy_chain_w_inverted.filter(["Primary", "error"])
@@ -64,35 +68,34 @@ def get_initial_array(calibration_data):
     )
 
     anchor_camera = mean_error.index[0]
-    # %%
-    daisy_chain_w_inverted = daisy_chain_w_inverted.merge(mean_error, how="left", on="Primary").sort_values(
-        "MeanError"
-    )
+    daisy_chain_w_inverted = daisy_chain_w_inverted.merge(
+        mean_error, how="left", on="Primary"
+    ).sort_values("MeanError")
 
-    # %%
-    daisy_chain_w_inverted.insert(4, 'MeanError', daisy_chain_w_inverted.pop('MeanError'))
+    daisy_chain_w_inverted.insert(
+        4, "MeanError", daisy_chain_w_inverted.pop("MeanError")
+    )
     daisy_chain_w_inverted.sort_values(["MeanError"])
 
-    # %%
     # need to build an array of cameras in a common frame of reference a starting point for the calibration
-    # if one of the stereo pairs did not get calibrated, then some additional tricks will need to get 
+    # if one of the stereo pairs did not get calibrated, then some additional tricks will need to get
     # deployed to make things work. But fortunately this is the simpler case now.
-    initial_array = daisy_chain_w_inverted[daisy_chain_w_inverted.Primary==anchor_camera]
+    initial_array = daisy_chain_w_inverted[
+        daisy_chain_w_inverted.Primary == anchor_camera
+    ]
     initial_array = initial_array[["Primary", "Secondary", "Rotation", "Translation"]]
-    # %%
 
-    return initial_array
-
+    return initial_array, all_pairs, anchor_camera
 
 
 #%%
-if __name__=="__main__":
-    print("Inside main")
+if __name__ == "__main__":
     repo = str(Path(__file__)).split("src")[0]
 
-    print("Inside main")
     sys.path.insert(0, repo)
     calibration_data = Path(repo, "sessions", "iterative_adjustment")
-    init_array = get_initial_array(calibration_data)
-    print(init_array)
+    array = ArrayConstructor(calibration_data)
+    # init_array = get_initial_array(calibration_data)
+    print(array.initial_array)
+    print(array.pairs)
 # %%

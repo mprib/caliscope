@@ -43,30 +43,6 @@ class CaptureVolumeVisualizer():
         self.scene.addItem(self.mesh_A)
         self.scene.addItem(self.mesh_B)
 
-    def add_test_scatter(self):
-
-        self.phase = 0  # working variable while figuring out scatter
-        ##### START NEW TEST PYQTGRAPH STUFF
-        self.pos3 = np.zeros((10, 10, 3))
-        self.pos3[:, :, :2] = np.mgrid[:10, :10].transpose(1, 2, 0) * [-0.1, 0.1]
-        self.pos3 = self.pos3.reshape(100, 3)
-        self.d3 = (self.pos3**2).sum(axis=1) ** 0.5
-        self.color = (1, 1, 1, 0.1)
-        self.sp3 = gl.GLScatterPlotItem(
-            pos=self.pos3, color=self.color, size=0.1, pxMode= False
-        )
-
-        self.scene.addItem(self.sp3)
-
-    def add_test_board_scatter(self, board_data):
-        self.board_data = board_data   
-
-        self.color = (1, 0, 0, 1)
-        self.board_viz = gl.GLScatterPlotItem(
-            pos=self.board_data , color=self.color, size=.1, pxMode=False
-        )
-
-        self.scene.addItem(self.board_viz)
 
     def add_point_q(self,q):
         self.point_in_q = q
@@ -89,7 +65,6 @@ class CaptureVolumeVisualizer():
         def timer_wrkr():
             while True:
                 time.sleep(1/30)
-            # self.scene.show()
                 self.next_frame() 
         self.timer_thread = Thread(target=timer_wrkr, args=[],daemon=True)
         self.timer_thread.start()

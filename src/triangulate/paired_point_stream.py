@@ -64,10 +64,11 @@ class PairedPointStream:
                         logging.debug(f"Port: {port}: \n {points[port]}")
 
             # create a dataframe of the shared points for each pair of frames
+            common_points = {}
             for pair in self.pairs:
                 if pair[0] in points.keys() and pair[1] in points.keys():
                     # print("Entering inner join loop")
-                    common_points = points[pair[0]].merge(
+                    common_points[pair] = points[pair[0]].merge(
                         points[pair[1]],
                         on="ids",
                         how="inner",
@@ -76,19 +77,21 @@ class PairedPointStream:
                     logging.debug(
                         f"Points in common for ports {pair}: \n {common_points}"
                     )
-                    self.out_q.put(common_points)
+                else:
+                    common_points[pair] = None
+                
+            self.out_q.put(common_points)
 
 
 if __name__ == "__main__":
     from src.recording.recorded_stream import RecordedStreamPool
-
     from src.calibration.charuco import Charuco
 
     repo = Path(__file__).parent.parent.parent
     print(repo)
-    session_directory = Path(repo, "sessions", "high_res_session")
+    session_directory = Path(repo, "sessions", "iterative_adjustment")
 
-    ports = [0, 1]
+    ports = [0, 1, 2]
     recorded_stream_pool = RecordedStreamPool(ports, session_directory)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()
@@ -98,7 +101,7 @@ if __name__ == "__main__":
     )
 
     trackr = CornerTracker(charuco)
-    pairs = [(0, 1)]
+    pairs = [(0, 1), (0,2)]
     locatr = PairedPointStream(
         synchronizer=syncr,
         pairs=pairs,

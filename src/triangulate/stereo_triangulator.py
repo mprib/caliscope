@@ -39,8 +39,8 @@ class StereoTriangulator:
    # MAC: start here tomorrow...refactor to take in a pair of camera_data objects 
     # also integrate with paired point stream
 
-    def __init__(self, camera_A: CameraData , camera_B: CameraData, point_stream:PairedPointStream):
-        self.point_stream = point_stream
+    def __init__(self, camera_A: CameraData , camera_B: CameraData):
+        self.in_q = Queue()
 
         self.portA = camera_A.port
         self.portB = camera_B.port
@@ -58,20 +58,20 @@ class StereoTriangulator:
     def build_projection_matrices(self):
 
         rot_A = self.camera_A.rotation
-        trans_A = np.array([[t] for t in self.camera_A.translation])
+        trans_A = np.array([t for t in self.camera_A.translation])
         rot_trans_A = np.concatenate([rot_A, trans_A], axis = -1)
         mtx_A = self.camera_A.camera_matrix
         self.proj_A = mtx_A @ rot_trans_A #projection matrix for CamA
 
         rot_B = self.camera_B.rotation
-        trans_B = np.array([[t] for t in self.camera_B.translation])
+        trans_B = np.array([t for t in self.camera_B.translation])
         rot_trans_B = np.concatenate([rot_B, trans_B], axis = -1)
         mtx_B = self.camera_B.camera_matrix
         self.proj_B = mtx_B @ rot_trans_B #projection matrix for CamB
          
     def create_3D_points(self):
         while self.processing:
-            common_points = self.point_stream.out_q.get()
+            common_points = self.in_q.get()
             all_points_3D = []
             # this is a clear candidate for vectorization...going to not worry about it now
             for index, row in common_points.iterrows():
@@ -148,8 +148,8 @@ if __name__ == "__main__":
     # print(repo)
 
     # create playback streams to provide to synchronizer
-    ports = [0, 1]
-    recorded_stream_pool = RecordedStreamPool(ports, session_path)
+    ports = [0, 1, 2]
+    recorded_stream_pool = RecordedStreamPool(ports, calibration_data)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None) # no fps target b/c not playing back for visual display
     recorded_stream_pool.play_videos()
 
@@ -160,18 +160,25 @@ if __name__ == "__main__":
     trackr = CornerTracker(charuco)
 
     # create a commmon point finder to grab charuco corners shared between the pair of ports
-    pairs = [(0, 1)]
+    pairs = [(0, 1), (0,2), (1,2)]
     point_stream = PairedPointStream(
         synchronizer=syncr,
         pairs=pairs,
         tracker=trackr,
     )
 
-    sample_config_path = str(Path(session_path, "config.toml"))
-    print(f"using config at: {sample_config_path}")
-    triangulatr = StereoTriangulator(point_stream, sample_config_path)
 
+    camA, camB = camera_array.cameras[0], camera_array.cameras[2]
+    pair = (camA.port, camB.port)
+     
+    triangulatr = StereoTriangulator(camA, camB)
+    
     while True:
-        all_point_3D = triangulatr.out_q.get()
-        print(all_point_3D)
+        all_pairs_common_points = point_stream.out_q.get()
+        
+        pair_points = all_pairs_common_points[pair]
+        if pair_points is not None:
+            triangulatr.in_q.put(pair_points)
+            all_point_3D = triangulatr.out_q.get()
+            print(all_point_3D)
         # print(triangulatr.out_q.qsize())

@@ -58,13 +58,13 @@ class StereoTriangulator:
     def build_projection_matrices(self):
 
         rot_A = self.camera_A.rotation
-        trans_A = np.array([t for t in self.camera_A.translation])
+        trans_A = np.array(self.camera_A.translation)
         rot_trans_A = np.concatenate([rot_A, trans_A], axis = -1)
         mtx_A = self.camera_A.camera_matrix
         self.proj_A = mtx_A @ rot_trans_A #projection matrix for CamA
 
         rot_B = self.camera_B.rotation
-        trans_B = np.array([t for t in self.camera_B.translation])
+        trans_B = np.array(self.camera_B.translation)
         rot_trans_B = np.concatenate([rot_B, trans_B], axis = -1)
         mtx_B = self.camera_B.camera_matrix
         self.proj_B = mtx_B @ rot_trans_B #projection matrix for CamB

@@ -8,8 +8,9 @@ from dataclasses import dataclass
 
 @dataclass
 class CameraData:
-    """A place to hold the calibration data associated with a camera thas was determined. For use with
-    final setting of the array and triangulation, but no actual camera management"""
+    """A place to hold the calibration data associated with a camera thas was determined. 
+    For use with final setting of the array and triangulation, but no actual camera management.
+    """
 
     port: int
     resolution: tuple
@@ -19,13 +20,19 @@ class CameraData:
     translation: np.ndarray
     rotation: np.ndarray
 
-
+@dataclass
+class CameraArray:
+    """The plan is that this will expand to become and interface for setting the origin.
+    At the moment all it is doing is holding a dictionary of CameraData objects"""
+    camaras: dict
+    
 class CameraArrayBuilder:
-    """A somewhat ugly class to wrangle the config data into a useful set of camera
-    data objects in a common frame of reference which will then be the primary
-    input of the CameraArray object;
+    """An ugly class to wrangle the config data into a useful set of camera
+    data objects in a common frame of reference and then return it as a CameraArray object;
     Currently set up to only work when all possible stereo pairs have been stereocalibrated;
-    I anticipate this is something that will need to be expanded in the future"""
+    I anticipate this is something that will need to be expanded in the future to account
+    for second order position estimates. This might be solved cleanly by putting a frame of reference
+    in the CameraData object and extending the CameraArray to place elements in a common frame of reference"""
 
     def __init__(self, calibration_data):
 
@@ -40,7 +47,7 @@ class CameraArrayBuilder:
             if key.startswith("cam_"):
                 port = data["port"]
                 resolution = data["resolution"]
-                camera_matrix = data["camera_matrix"]
+                camera_matrix = np.array(data["camera_matrix"], dtype=np.float64)
                 error = data["error"]
                 distortion = np.array(data["distortion"], dtype=np.float64)
 
@@ -118,7 +125,7 @@ class CameraArrayBuilder:
             .sort_values("MeanError")
         )
 
-        anchor_camera = int(mean_error.index[0])
+        anchor_camera = int(mean_error.index[0]) # array anchored by camera with the lowest mean RMSE
 
         daisy_chain_w_inverted = daisy_chain_w_inverted.merge(
             mean_error, how="left", on="Primary"
@@ -139,15 +146,15 @@ class CameraArrayBuilder:
             ["Primary", "Secondary", "Rotation", "Translation"]
         ]
 
-        # fix format of Primary/Secondary labels
+        # fix format of Primary/Secondary labels to be integers
         initial_array[["Primary", "Secondary"]] = initial_array[
             ["Primary", "Secondary"]
         ].apply(pd.to_numeric)
 
         return initial_array, all_pairs, anchor_camera
 
-    def set_camera_extrinsics(self):
-        pass
+    def get_camera_array(self):
+        return CameraArray(self.cameras)
 
 
 if __name__ == "__main__":
@@ -157,17 +164,6 @@ if __name__ == "__main__":
     calibration_data = Path(repo, "sessions", "iterative_adjustment")
     array_builder = CameraArrayBuilder(calibration_data)
 
-    # anchor = int(array_builder.anchor)
-    # for port, camera_data in array_builder.cameras.items():
-    #     print(f"{port}: {camera_data}")
-    #     if port == anchor:
-    #         camera_data.translation = np.array([[0], [0], [0]], dtype=np.float64)
-    #         camera_data.rotation = np.array(
-    #             [[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64
-    #         )
-    #     else:
-    #         anchored_pair = array_builder.extrinsics.query(f"Secondary == {port}")
-    #         camera_data.translation = anchored_pair.Translation.to_list()[0]
-    #         camera_data.rotation = anchored_pair.Rotation.to_list()[0]
-
-    print("Test")
+    camera_array = array_builder.get_camera_array()
+    
+    print("pause")

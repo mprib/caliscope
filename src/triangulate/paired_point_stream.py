@@ -101,7 +101,7 @@ if __name__ == "__main__":
     )
 
     trackr = CornerTracker(charuco)
-    pairs = [(0, 1), (0,2)]
+    pairs = [(0, 1), (0,2), (1,2)]
     locatr = PairedPointStream(
         synchronizer=syncr,
         pairs=pairs,
@@ -110,4 +110,7 @@ if __name__ == "__main__":
 
     while True:
         common_points = locatr.out_q.get()
-        print(common_points)
+        print("--------------------------------------")
+        for pair, points in common_points.items():
+            print(pair)
+            print(points)

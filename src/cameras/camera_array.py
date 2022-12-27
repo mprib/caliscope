@@ -24,7 +24,7 @@ class CameraData:
 class CameraArray:
     """The plan is that this will expand to become and interface for setting the origin.
     At the moment all it is doing is holding a dictionary of CameraData objects"""
-    camaras: dict
+    cameras: dict
     
 class CameraArrayBuilder:
     """An ugly class to wrangle the config data into a useful set of camera

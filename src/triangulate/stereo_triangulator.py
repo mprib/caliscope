@@ -28,7 +28,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.triangulate.paired_point_stream import PairedPointStream
-
+from src.cameras.camera_array import CameraData
 
 
 class StereoTriangulator:
@@ -36,31 +36,44 @@ class StereoTriangulator:
     # inputs...likely also some kind of reference to a paired point stream specific 
     # to that pair...
         
-    
+   # MAC: start here tomorrow...refactor to take in a pair of camera_data objects 
+    # also integrate with paired point stream
 
-    # created from a config.toml file, points within each camera frame can be provided to it
-    # via self.triangulates(CommonPoints: pd.DataFrame)
-
-    def __init__(self, point_stream:PairedPointStream, config_path):
+    def __init__(self, camera_A: CameraData , camera_B: CameraData, point_stream:PairedPointStream):
         self.point_stream = point_stream
-        self.pair = point_stream.pairs[0] # currently focussing on stereoscopic only. will need to refactor to include more pairs
-        self.portA = self.pair[0]
-        self.portB = self.pair[1]
-        self.config_path = config_path
+
+        self.portA = camera_A.port
+        self.portB = camera_B.port
+
+        self.camera_A = camera_A
+        self.camera_B = camera_B
         self.processing = True
 
         self.out_q = Queue()
-
-        self.load_cams_from_config()
         self.build_projection_matrices()
+        
         self.thread = Thread(target = self.create_3D_points, args=[], daemon =True)
         self.thread.start()
         
+    def build_projection_matrices(self):
+
+        rot_A = self.camera_A.rotation
+        trans_A = np.array([[t] for t in self.camera_A.translation])
+        rot_trans_A = np.concatenate([rot_A, trans_A], axis = -1)
+        mtx_A = self.camera_A.camera_matrix
+        self.proj_A = mtx_A @ rot_trans_A #projection matrix for CamA
+
+        rot_B = self.camera_B.rotation
+        trans_B = np.array([[t] for t in self.camera_B.translation])
+        rot_trans_B = np.concatenate([rot_B, trans_B], axis = -1)
+        mtx_B = self.camera_B.camera_matrix
+        self.proj_B = mtx_B @ rot_trans_B #projection matrix for CamB
          
     def create_3D_points(self):
         while self.processing:
             common_points = self.point_stream.out_q.get()
             all_points_3D = []
+            # this is a clear candidate for vectorization...going to not worry about it now
             for index, row in common_points.iterrows():
                 point_A = (row[f"loc_img_x_{self.portA}"], row[f"loc_img_y_{self.portA}"])
                 point_B = (row[f"loc_img_x_{self.portB}"], row[f"loc_img_y_{self.portB}"])
@@ -71,60 +84,6 @@ class StereoTriangulator:
             logging.debug(all_points_3D)
             self.out_q.put(all_points_3D)
 
-    def load_cams_from_config(self):
-        with open(self.config_path, "r") as f:
-            logging.info(f"Loading config data located at: {self.config_path}")
-            self.config = toml.load(self.config_path)
-
-        self.camera_A = self.get_camera_at_origin(self.portA)
-        self.camera_B = self.get_camera_at_origin(self.portB)
-
-        # express location of camera B relative to Camera A
-        rot, trans = self.get_extrinsic_params()
-        self.camera_B.rotation = rot
-        self.camera_B.translation = trans  # may come in with extra dims
-
-    def get_camera_at_origin(self, port):
-
-        data = self.config[f"cam_{port}"]
-
-        resolution = tuple(data["resolution"])
-        camera_matrix = np.array(data["camera_matrix"], dtype=np.float64)
-        error = data["error"]
-        distortion = np.array(data["distortion"], dtype=np.float64)
-
-        cam_data = CameraData(port, resolution, camera_matrix, error, distortion)
-        logging.info(f"Loading camera data at port {port}: {str(cam_data)}")
-
-        return cam_data
-
-    def get_extrinsic_params(self):
-
-        data = self.config[f"stereo_{self.portA}_{self.portB}"]
-        rotation = np.array(data["rotation"], dtype=np.float64)
-        translation = np.array(data["translation"], dtype=np.float64)
-        translation = translation[:,0] # extra dimension
-        stereo_error = data["RMSE"]
-
-        logging.info(
-            f"Loading stereo data for ports {self.portA} and {self.portB}: {data}"
-        )
-
-        return rotation, translation
-
-    def build_projection_matrices(self):
-
-        # camA orientation will define the global frame of reference, so
-        # translation vector is [0,0,0]
-        rot_trans_A = np.concatenate([np.eye(3), [[0],[0],[0]]], axis = -1)
-        mtx_A = self.camera_A.camera_matrix
-        self.proj_A = mtx_A @ rot_trans_A #projection matrix for CamA
-
-        rot_B = self.camera_B.rotation
-        trans_B = np.array([[t] for t in self.camera_B.translation])
-        rot_trans_B = np.concatenate([rot_B, trans_B], axis = -1)
-        mtx_B = self.camera_B.camera_matrix
-        self.proj_B = mtx_B @ rot_trans_B #projection matrix for CamB
 
     def triangulate(self, point_A, point_B):
        
@@ -175,18 +134,23 @@ if __name__ == "__main__":
     from src.cameras.synchronizer import Synchronizer
     from src.calibration.charuco import Charuco
     from src.calibration.corner_tracker import CornerTracker
+    from src.cameras.camera_array import CameraArrayBuilder, CameraArray, CameraData
+    
+    repo = str(Path(__file__)).split("src")[0]
 
+    sys.path.insert(0, repo)
+    calibration_data = Path(repo, "sessions", "iterative_adjustment")
+    camera_array = CameraArrayBuilder(calibration_data).get_camera_array()
+    
+    print("pause")
     # set the location for the sample data used for testing
     # repo = Path(__file__).parent.parent.parent
     # print(repo)
-    repo = str(Path(__file__)).split("src")[0]
-    sys.path.insert(0,repo)
-    session_path = Path(repo, "sessions", "high_res_session")
 
     # create playback streams to provide to synchronizer
     ports = [0, 1]
     recorded_stream_pool = RecordedStreamPool(ports, session_path)
-    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
+    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None) # no fps target b/c not playing back for visual display
     recorded_stream_pool.play_videos()
 
     # create a corner tracker to locate board corners

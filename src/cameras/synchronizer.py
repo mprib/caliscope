@@ -15,10 +15,6 @@ from threading import Thread, Event
 import cv2
 import numpy as np
 
-# Append main repo to top of path to allow import of backend
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-
 class Synchronizer:
     def __init__(self, streams: dict, fps_target):
         self.streams = streams
@@ -278,16 +274,6 @@ if __name__ == "__main__":
     session.load_streams()
     session.adjust_resolutions()
 
-    # cameras = []
-    # ports = [0, 1, 2]
-
-    # for port in ports:
-    #     cameras.append(Camera(port))
-
-    # streams = {}
-    # for cam in cameras:
-    #     streams[cam.port] = LiveStream(cam)
-
     syncr = Synchronizer(session.streams, fps_target=None)
 
     notification_q = Queue()
@@ -320,4 +306,3 @@ if __name__ == "__main__":
 
     SynchData = pd.DataFrame(bundle_data)
     SynchData.to_csv(Path(config_path,"synch_data.csv"))
-    # print(bundle_data) 

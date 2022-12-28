@@ -16,9 +16,6 @@ from threading import Thread
 import numpy as np
 import pyqtgraph.opengl as gl
 
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-
 from src.triangulate.stereo_triangulator import CameraData
 from src.triangulate.visualization.camera_mesh import CameraMesh
 

@@ -38,8 +38,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-# Append main repo to top of path to allow import of backend
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from src.cameras.camera import Camera
 from src.cameras.live_stream import LiveStream

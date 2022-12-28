@@ -20,8 +20,6 @@ import numpy as np
 import toml
 from itertools import combinations
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.monocalibrator import MonoCalibrator

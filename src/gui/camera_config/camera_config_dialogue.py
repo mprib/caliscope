@@ -30,7 +30,6 @@ from PyQt6.QtWidgets import (
 )
 
 # Append main repo to top of path to allow import of backend
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from src.gui.camera_config.frame_emitter import FrameEmitter
 
 from src.session import Session

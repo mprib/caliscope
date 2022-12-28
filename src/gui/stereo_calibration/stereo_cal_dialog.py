@@ -32,7 +32,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from src.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
 
 

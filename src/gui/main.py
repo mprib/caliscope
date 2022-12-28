@@ -34,7 +34,6 @@ from PyQt6.QtWidgets import (
     QToolBar,
 )
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.session import Session, stage
 from src.gui.left_sidebar.session_summary import SessionSummary
 from src.gui.charuco_builder import CharucoBuilder

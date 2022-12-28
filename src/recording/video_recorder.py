@@ -14,7 +14,6 @@ import cv2
 import sys
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.synchronizer import Synchronizer
 
 class VideoRecorder:

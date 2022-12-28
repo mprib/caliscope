@@ -33,8 +33,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from camera_table import CameraTable
 
 from gui.camera_config.camera_config_dialogue import CameraConfigDialog

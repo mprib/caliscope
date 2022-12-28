@@ -160,7 +160,6 @@ class CameraArrayBuilder:
 if __name__ == "__main__":
     repo = str(Path(__file__)).split("src")[0]
 
-    sys.path.insert(0, repo)
     calibration_data = Path(repo, "sessions", "iterative_adjustment")
     array_builder = CameraArrayBuilder(calibration_data)
 

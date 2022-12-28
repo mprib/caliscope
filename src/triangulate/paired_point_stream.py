@@ -15,7 +15,6 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.synchronizer import Synchronizer
 from src.calibration.corner_tracker import CornerTracker
 
@@ -101,7 +100,9 @@ if __name__ == "__main__":
     )
 
     trackr = CornerTracker(charuco)
+
     pairs = [(0, 1), (0,2), (1,2)]
+
     locatr = PairedPointStream(
         synchronizer=syncr,
         pairs=pairs,

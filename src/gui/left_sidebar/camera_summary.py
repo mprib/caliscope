@@ -30,7 +30,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from src.session import Session
 from src.gui.left_sidebar.camera_table import CameraTable
 

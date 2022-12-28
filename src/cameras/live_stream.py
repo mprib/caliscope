@@ -19,8 +19,6 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-# Append main repo to top of path to allow import of backend
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.cameras.camera import Camera
 
 

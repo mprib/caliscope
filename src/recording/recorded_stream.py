@@ -87,8 +87,6 @@ class RecordedStreamPool:
 
 if __name__ == "__main__":
     import sys
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
     import time
     from src.cameras.synchronizer import Synchronizer
     

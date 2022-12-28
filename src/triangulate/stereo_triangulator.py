@@ -25,8 +25,6 @@ import scipy
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from src.triangulate.paired_point_stream import PairedPointStream
 from src.cameras.camera_array import CameraData
 
@@ -138,7 +136,6 @@ if __name__ == "__main__":
     
     repo = str(Path(__file__)).split("src")[0]
 
-    sys.path.insert(0, repo)
     calibration_data = Path(repo, "sessions", "iterative_adjustment")
     camera_array = CameraArrayBuilder(calibration_data).get_camera_array()
     

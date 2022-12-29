@@ -35,14 +35,14 @@ class Camera(object):
 
         # check if source has a data feed before proceeding...if not it is
         # either in use or fake
-        logging.debug(f"Attempting to connect video capure at port {port}")
+        logging.info(f"Attempting to connect video capure at port {port}")
         test_capture = cv2.VideoCapture(port)
         for _ in range(0, TEST_FRAME_COUNT):
             good_read, frame = test_capture.read()
 
             # pass # dealing with this in the else statemetn below...not a real camera
         if good_read:
-            logging.debug(f"Good read at port {port}...proceeding")
+            logging.info(f"Good read at port {port}...proceeding")
             self.port = port
             self.capture = test_capture
             self.active_port = True
@@ -51,12 +51,9 @@ class Camera(object):
                 cv2.CAP_PROP_BUFFERSIZE, 1
             )  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-getanother thread signaled a change to mediapipe overley-sync
 
-            self.is_connected = True
-            self.is_rolling = False
-            self.stop_rolling_trigger = False  # used for managing threads
-            self.ignore = False
+            self.ignore = False # flag camera during single camera setup to be ignored in the future
 
-            # read by RealTimeDevice to set orientation
+            # sets orientation in the GUI, but otherwise does not affect the frame
             self.rotation_count = 0  # +1 for each 90 degree CW rotation, -1 for CCW
 
             self.set_exposure()
@@ -187,18 +184,6 @@ class Camera(object):
     def connect(self):
         self.capture = cv2.VideoCapture(self.port)
 
-    def stop_rolling(self):
-        """
-        Use .is_rolling as a trigger to kill threads
-        that are reading in camera data
-        """
-        if self.is_rolling:  # don't create a loop if can't break out
-            self.stop_rolling_trigger = True
-            while self.is_rolling:  # give the thread time to wrap up
-                logging.warning("Performing one cycle of loop that has danger of getting stuck.")
-                time.sleep(0.01)
-        self.stop_rolling_trigger = False  # reset the trigger
-
     def calibration_summary(self):
         # Calibration output presented in label on far right
         grid_count = "Grid Count:\t" + str(self.grid_count)
@@ -236,77 +221,48 @@ class Camera(object):
             return "No Calibration Stored"
 
 
-############################ DEBUG / TEST ######################################
-# Here I include some helper functions to exhibit/test the functionality
-# of the module
-def display_worker(camera, win_name=None):
-    if not win_name:
-        win_name = f"'q' to quit video {camera.port}"
-
-    frame_displayed = False
-    while True:
-        success, frame = camera.capture.read()
-
-        if success:
-            cv2.imshow(win_name, frame)
-            frame_displayed = True
-
-        if camera.stop_rolling_trigger:
-            if frame_displayed:
-                print("Successful Display")
-                cv2.destroyWindow(win_name)
-            camera.is_rolling = False
-            break
-
-        if cv2.waitKey(1) == ord("q"):
-            if frame_displayed:
-                print("Successful Display")
-                cv2.destroyWindow(win_name)
-            camera.is_rolling = False
-            break
-
-
-def display(camera, win_name=None):
-    """Note, this is just for general observation purposes,
-    while in the process of verifying this module.
-    """
-    camera.is_rolling = True
-    display_thread = Thread(target=display_worker, args=(camera, win_name), daemon=True)
-    display_thread.start()
-
-
 ######################### TEST FUNCTIONALITY OF CAMERAS ########################
-#%%
 if __name__ == "__main__":
-    # if True:
 
     cam = Camera(2)
     print(cam.possible_resolutions)
-    #%%
 
     for res in cam.possible_resolutions:
         print(f"Testing Resolution {res}")
 
-        # cv2.imshow appears to throw errors after ~3 changes in resolution
-        # disconnecting and reconnecting may not be necessary with other
-        # display implementations
         cam.disconnect()
         cam.connect()
         cam.resolution = res
-        display(cam)
-        time.sleep(3)
-        cam.stop_rolling()
+            
+        while True:
+            success, frame = cam.capture.read()
+            cv2.imshow(f"Resolution: {res}; press 'q' to move to next resolution", frame)
+            if cv2.waitKey(1) == ord("q"):
+                cv2.destroyAllWindows()
+                break
 
     cam.connect()
-    display(cam)
 
-    for exp in range(-10, 0):
-        print(f"Testing Exposure Level {exp}")
-        cam.exposure = exp
-        time.sleep(2)
+    # while not cam.capture.isOpened():
+    #     time.sleep(.01)
 
-    cam.stop_rolling()
-    cam.exposure = -5
-    cam.disconnect()
+    exposure_test_started = False
+    
+    start_time = time.perf_counter()
+    
+    while True:
+        success, frame = cam.capture.read()
+        elapsed_seconds = int(time.perf_counter()-start_time)
+        print(elapsed_seconds)
 
-    # %%
+        cv2.imshow(f"Exposure Test", frame)
+       
+        cam.exposure = -10+elapsed_seconds 
+         
+        if cv2.waitKey(1) == ord("q"):
+            cv2.destroyAllWindows()
+            break     
+        
+        if elapsed_seconds > 10:
+            cv2.destroyAllWindows()
+            break 

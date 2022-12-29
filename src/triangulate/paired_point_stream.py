@@ -18,7 +18,6 @@ import numpy as np
 from src.cameras.synchronizer import Synchronizer
 from src.calibration.corner_tracker import CornerTracker
 
-
 class PairedPointStream:
     def __init__(self, synchronizer, pairs, tracker):
 

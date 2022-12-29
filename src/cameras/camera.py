@@ -124,7 +124,7 @@ class Camera(object):
 
     def set_exposure(self):
         """Need an initial value, though it does not appear that updates to
-        exposure reliably read back from"""
+        exposure reliably read back"""
         self._exposure = self.capture.get(cv2.CAP_PROP_EXPOSURE)
         self.exposure = self._exposure  # port seemed to hold on to old exposure
 

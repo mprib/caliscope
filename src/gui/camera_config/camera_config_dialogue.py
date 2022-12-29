@@ -239,7 +239,7 @@ class CameraConfigDialog(QDialog):
         fps_hbox.addWidget(self.fps_display)
         
         def FPSUpdateSlot(fps):
-            if self.monocal.camera.is_rolling:
+            if self.monocal.camera.capture.isOpened():
                 # rounding to nearest integer should be close enough for our purposes
                 self.fps_display.setText("Actual: " + str(round(fps, 1)))
             else:

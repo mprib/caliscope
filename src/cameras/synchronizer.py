@@ -196,22 +196,12 @@ class Synchronizer:
             earliest_next = {}
             latest_current = {}
             
-            # the two dictionaries below are for debugging purposes
-            # frame_time_current = {}
-            # frame_time_next = {}
 
             for port in self.ports:
                 earliest_next[port] = self.earliest_next_frame(port)
                 latest_current[port] = self.latest_current_frame(port)
                 current_frame_index = self.port_current_frame[port]
                 
-                # inserting the dictionaries below to debug issue with all frames dropping
-                # port_index_key = f"{port}_{current_frame_index}"
-                # current_frame_data = self.frame_data[port_index_key]
-                # frame_time_current[port] = current_frame_data["frame_time"]
-                # port_next_index_key = f"{port}_{current_frame_index+1}"
-                # next_frame_data = self.frame_data[port_next_index_key]
-                # frame_time_next[port] = next_frame_data["frame_time"]
                 
             for port in self.ports:
                 current_frame_index = self.port_current_frame[port]

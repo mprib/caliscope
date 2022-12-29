@@ -128,14 +128,14 @@ if __name__ == "__main__":
     session.load_streams()
     session.adjust_resolutions()
 
-    syncr = Synchronizer(session.streams, fps_target=30)
+    syncr = Synchronizer(session.streams, fps_target=50)
     notification_q = Queue()
     syncr.notice_subscribers.append(notification_q)
 
     video_recorder = VideoRecorder(syncr)
 
     print(repo)
-    # video_path = Path(repo,"sessions", "recordings", "sample1")
-    video_recorder.start_recording(session_path)
-    time.sleep(15)
+    video_path = Path(repo,"sessions", "high_res_session", "recording")
+    video_recorder.start_recording(video_path)
+    time.sleep(30)
     video_recorder.stop_recording()

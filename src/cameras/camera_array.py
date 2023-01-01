@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 @dataclass
 class CameraData:
-    """A place to hold the calibration data associated with a camera thas was determined. 
+    """A place to hold the calibration data associated with a camera that has been populated from a config file.
     For use with final setting of the array and triangulation, but no actual camera management.
     """
 

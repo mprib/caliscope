@@ -14,7 +14,7 @@ LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 from queue import Queue
-from threading import Thread
+from threading import Thread, Event
 from dataclasses import dataclass
 import math
 from os.path import exists
@@ -30,26 +30,20 @@ from src.cameras.camera_array import CameraData
 
 
 class StereoTriangulator:
-    # TODO: Going to be refactoring this to take a pair of cameras as the primary 
-    # inputs...likely also some kind of reference to a paired point stream specific 
-    # to that pair...
-        
-   # MAC: start here tomorrow...refactor to take in a pair of camera_data objects 
-    # also integrate with paired point stream
 
     def __init__(self, camera_A: CameraData , camera_B: CameraData):
-        self.in_q = Queue()
-
-        self.portA = camera_A.port
-        self.portB = camera_B.port
 
         self.camera_A = camera_A
         self.camera_B = camera_B
-        self.processing = True
+        self.portA = camera_A.port
+        self.portB = camera_B.port
 
-        self.out_q = Queue()
         self.build_projection_matrices()
         
+        self.in_q = Queue(-1)
+        self.out_q = Queue(-1)
+        self.stop = Event()
+
         self.thread = Thread(target = self.create_3D_points, args=[], daemon =True)
         self.thread.start()
         
@@ -68,20 +62,22 @@ class StereoTriangulator:
         self.proj_B = mtx_B @ rot_trans_B #projection matrix for CamB
          
     def create_3D_points(self):
-        while self.processing:
+        while not self.stop.is_set():
             common_points = self.in_q.get()
             all_points_3D = []
             # this is a clear candidate for vectorization...going to not worry about it now
             for index, row in common_points.iterrows():
                 point_A = (row[f"loc_img_x_{self.portA}"], row[f"loc_img_y_{self.portA}"])
                 point_B = (row[f"loc_img_x_{self.portB}"], row[f"loc_img_y_{self.portB}"])
+                # time_A = 
+                # time_B = 
                 point_3D = self.triangulate(point_A, point_B)
                 all_points_3D.append(point_3D)
             all_points_3D = np.array(all_points_3D)
+            
             logging.debug(f"Placing current bundle of 3d points on queue")
             logging.debug(all_points_3D)
             self.out_q.put(all_points_3D)
-
 
     def triangulate(self, point_A, point_B):
        
@@ -123,7 +119,12 @@ class StereoTriangulator:
             y = (y0 - delta_y) * k_inv
         return np.array((x * fx + cx, y * fy + cy))
 
-
+# @dataclass
+# class TriangulatedPoints:
+#     pair: tuple # parent pair
+#     time: float # mean time
+#     point_ids: list
+#     xyz: np.ndarray
 
 
 if __name__ == "__main__":
@@ -138,14 +139,9 @@ if __name__ == "__main__":
 
     calibration_data = Path(repo, "sessions", "iterative_adjustment")
     camera_array = CameraArrayBuilder(calibration_data).get_camera_array()
-    
-    print("pause")
-    # set the location for the sample data used for testing
-    # repo = Path(__file__).parent.parent.parent
-    # print(repo)
 
     # create playback streams to provide to synchronizer
-    ports = [0, 1, 2]
+    ports = [0, 2]
     recorded_stream_pool = RecordedStreamPool(ports, calibration_data)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None) # no fps target b/c not playing back for visual display
     recorded_stream_pool.play_videos()
@@ -157,25 +153,27 @@ if __name__ == "__main__":
     trackr = CornerTracker(charuco)
 
     # create a commmon point finder to grab charuco corners shared between the pair of ports
-    pairs = [(0, 1), (0,2), (1,2)]
+    pairs = [(0, 2)]
     point_stream = PairedPointStream(
         synchronizer=syncr,
         pairs=pairs,
         tracker=trackr,
     )
 
-
     camA, camB = camera_array.cameras[0], camera_array.cameras[2]
     pair = (camA.port, camB.port)
      
     triangulatr = StereoTriangulator(camA, camB)
-    
+    frames_processed = 0
+
     while True:
         all_pairs_common_points = point_stream.out_q.get()
         
+        print(all_pairs_common_points)
         pair_points = all_pairs_common_points[pair]
         if pair_points is not None:
             triangulatr.in_q.put(pair_points)
             all_point_3D = triangulatr.out_q.get()
-            print(all_point_3D)
-        # print(triangulatr.out_q.qsize())
+            # print(all_point_3D)
+            frames_processed+=1
+        print(f"Frames Processed: {frames_processed}")

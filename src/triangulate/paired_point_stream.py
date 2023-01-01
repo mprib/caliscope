@@ -21,13 +21,13 @@ from src.calibration.corner_tracker import CornerTracker
 class PairedPointStream:
     def __init__(self, synchronizer, pairs, tracker):
 
-        self.bundle_in_q = Queue()
+        self.bundle_in_q = Queue(-1)
         self.synchronizer = synchronizer
         self.synchronizer.subscribe_to_bundle(self.bundle_in_q)
 
         self.tracker = tracker  # this is just for charuco tracking...will need to expand on this for mediapipe later
 
-        self.out_q = Queue()
+        self.out_q = Queue(-1) # no size limitations...should be small data
         self.pairs = pairs
 
         self.thread = Thread(target=self.find_paired_points, args=[], daemon=True)

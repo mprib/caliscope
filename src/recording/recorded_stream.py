@@ -21,6 +21,9 @@ import pandas as pd
 
 
 class RecordedStream:
+    """Analogous to the live stream, this will place frames on a queue ("reel", probably need to 
+    change that cutesy little thing). These can then be harvested and bundled by a Synchronizer"""
+
     def __init__(self, port, directory):
         self.port = port
         self.directory = directory

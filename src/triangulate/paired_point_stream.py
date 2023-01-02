@@ -49,11 +49,14 @@ class PairedPointStream:
                 if bundle[port] is not None:
                     frame = bundle[port]["frame"]
                     frame_time = bundle[port]["frame_time"]
+                    bundle_index = bundle[port]["bundle_index"]
+
                     ids, loc_img, loc_board = self.tracker.get_corners(frame)
                     if ids.any():
                         points[port] = pd.DataFrame(
                             {
                                 "frame_time": frame_time,
+                                "bundle_index": bundle_index,
                                 "ids": ids[:, 0].tolist(),
                                 "loc_img_x": loc_img[:, 0][:, 0].tolist(),
                                 "loc_img_y": loc_img[:, 0][:, 1].tolist(),
@@ -79,6 +82,8 @@ class PairedPointStream:
                     time_A = bundle[port_A]["frame_time"]
                     time_B = bundle[port_B]["frame_time"]
 
+                    bundle_index = bundle[port_A]["bundle_index"]
+
                     point_id = np.array(common_points["ids"], dtype=np.int64)
 
                     loc_img_x_A = np.array(
@@ -103,6 +108,7 @@ class PairedPointStream:
                     )
 
                     packet = PairedPointsPacket(
+                        bundle_index=bundle_index,
                         port_A=port_A,
                         port_B=port_B,
                         time_A=time_A,
@@ -130,7 +136,8 @@ class PairedPointStream:
 
 @dataclass
 class PairedPointsPacket:
-    # pair: tuple
+    bundle_index: int
+
     port_A: int
     port_B: int
 

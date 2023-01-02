@@ -173,6 +173,8 @@ class Synchronizer:
 
         sync_time = time.perf_counter()
 
+        bundle_index = 0
+
         logging.info("About to start bundling frames...")
         while not self.stop_event.is_set():
 
@@ -223,6 +225,7 @@ class Synchronizer:
                 else:
                     # add the data and increment the index
                     next_layer[port] = self.frame_data.pop(port_index_key)
+                    next_layer[port]["bundle_index"] = bundle_index
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
                     logging.debug(f"Adding to layer from port {port} at index {current_frame_index} and frame time: {frame_time}")
@@ -242,10 +245,13 @@ class Synchronizer:
                 logging.debug(f"Placing new bundle on queue: {q}")
                 logging.debug("Placing bundle on subscribers queue")
                 q.put(self.current_bundle)
-
+            
+            bundle_index += 1
             self.fps = self.average_fps()
 
         logging.info("Frame bundler successfully ended")
+
+
 
 if __name__ == "__main__":
 

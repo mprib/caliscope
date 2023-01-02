@@ -67,8 +67,6 @@ class CaptureVolumeVisualizer:
         self.timer_thread.start()
 
 
-#
-
 # helper functions to assist with scene creation
 def mesh_from_camera(cd: CameraData):
     # cd = camera_data
@@ -162,21 +160,16 @@ if __name__ == "__main__":
     test_pair_in_q = Queue(-1)
 
     triangulatr = StereoTriangulator(camA, camB, test_pair_in_q)
-  
-  
-    # create a thread that will feed the test_pair_in_q with new datapoints 
+
+    # create a thread that will feed the test_pair_in_q with new datapoints
     def coordinate_feeder_worker():
         while True:
             point_packet = point_stream.out_q.get()
             if point_packet.pair == pairs[0]:
                 test_pair_in_q.put(point_packet)
-  
-    thread = Thread(target=coordinate_feeder_worker,args=[],daemon=True)
+
+    thread = Thread(target=coordinate_feeder_worker, args=[], daemon=True)
     thread.start()
-    
-    # TODO TOMORROW: Mac, start here. There is a problem with the visualizer
-    # not receiving points from the triangulator out_q
-    # brain getting fuzzy, but you can figure it out....
 
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(triangulatr)

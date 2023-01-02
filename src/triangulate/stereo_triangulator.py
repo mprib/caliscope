@@ -46,7 +46,6 @@ class StereoTriangulator:
 
         self.thread = Thread(target=self.create_3D_points, args=[], daemon=True)
         self.thread.start()
-        
 
     def build_projection_matrices(self):
 
@@ -68,10 +67,6 @@ class StereoTriangulator:
             all_points_3D = []
 
             # this is a clear candidate for vectorization...going to not worry about it now
-            # for index, row in points_packet.iterrows():
-            #     point_A = (row[f"loc_img_x_{self.portA}"], row[f"loc_img_y_{self.portA}"])
-            #     point_B = (row[f"loc_img_x_{self.portB}"], row[f"loc_img_y_{self.portB}"])
-            #     time_A = (row[f"frame_time_{self.portA}"])
 
             for point_id, x_A, y_A, x_B, y_B in zip(
                 points_packet.point_id,
@@ -185,7 +180,7 @@ if __name__ == "__main__":
 
     while True:
         paired_points = point_stream.out_q.get()
-        if paired_points.pair == (0,2):
+        if paired_points.pair == (0, 2):
             test_pair_out_q.put(paired_points)
 
         # print(all_pairs_common_points)

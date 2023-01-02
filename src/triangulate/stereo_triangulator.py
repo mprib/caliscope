@@ -68,6 +68,8 @@ class StereoTriangulator:
 
             # this is a clear candidate for vectorization...going to not worry about it now
 
+            time = (points_packet.time_A + points_packet.time_B) / 2
+
             for point_id, x_A, y_A, x_B, y_B in zip(
                 points_packet.point_id,
                 points_packet.loc_img_x_A,
@@ -77,15 +79,21 @@ class StereoTriangulator:
             ):
                 point_A = (x_A, y_A)
                 point_B = (x_B, y_B)
-                # time = (time_A+time_B)/2
 
                 point_3D = self.triangulate(point_A, point_B)
                 all_points_3D.append(point_3D)
             all_points_3D = np.array(all_points_3D)
-            # packet = TriangulatedPointsPacket(pair=self.pair, time)
+
+            packet = TriangulatedPointsPacket(
+                pair=self.pair,
+                time=time,
+                point_ids=points_packet.point_id,
+                xyz=all_points_3D,
+            )
+
             logging.debug(f"Placing current bundle of 3d points on queue")
-            logging.debug(all_points_3D)
-            self.out_q.put(all_points_3D)
+            # logging.debug(all_points_3D)
+            self.out_q.put(packet)
 
     def triangulate(self, point_A, point_B):
 
@@ -187,7 +195,8 @@ if __name__ == "__main__":
         # pair_points = all_pairs_common_points[pair]
         # if pair_points is not None:
         # triangulatr.in_q.put(paired_points)
-        points_3D = triangulatr.out_q.get()
-        print(points_3D)
+        packet_3d = triangulatr.out_q.get()
+        print(packet_3d)
         frames_processed += 1
         print(f"Frames Processed: {frames_processed}")
+        print(f"Time: {packet_3d.time}")

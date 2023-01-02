@@ -152,6 +152,7 @@ class PairedPointsPacket:
     def pair(self):
         return (self.port_A, self.port_B)
 
+
 if __name__ == "__main__":
     from src.recording.recorded_stream import RecordedStreamPool
     from src.calibration.charuco import Charuco

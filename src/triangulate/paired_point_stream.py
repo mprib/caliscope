@@ -124,11 +124,6 @@ class PairedPointStream:
                     logging.debug(
                         f"Points in common for ports {pair}: \n {common_points}"
                     )
-                # else:
-                # common_points[pair] = None
-
-                # packet = PairedPointsPacket(pair=pair,
-                #                             time_A=)
 
             if common_points is not None:
                 self.out_q.put(packet)
@@ -192,6 +187,4 @@ if __name__ == "__main__":
 
         print("--------------------------------------")
         print(points_packet)
-        # for pair, points in common_points.items():
-        #     print(pair)
-        #     print(points)
+

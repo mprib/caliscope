@@ -85,6 +85,7 @@ class StereoTriangulator:
             all_points_3D = np.array(all_points_3D)
 
             packet = TriangulatedPointsPacket(
+                bundle_index= points_packet.bundle_index,
                 pair=self.pair,
                 time=time,
                 point_ids=points_packet.point_id,
@@ -142,6 +143,7 @@ class TriangulatedPointsPacket:
     time: float  # mean time
     point_ids: list
     xyz: np.ndarray
+    bundle_index: int
 
 
 if __name__ == "__main__":

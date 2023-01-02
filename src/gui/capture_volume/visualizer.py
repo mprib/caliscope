@@ -43,19 +43,20 @@ class CaptureVolumeVisualizer:
 
     def add_point_q(self, q):
         self.point_in_q = q
-
-        self.board_data = self.point_in_q.get()
+        
+        board_data = self.point_in_q.get()
 
         self.color = (1, 0, 0, 1)
         self.board_viz = gl.GLScatterPlotItem(
-            pos=self.board_data, color=self.color, size=0.01, pxMode=False
+            pos=board_data.xyz, color=self.color, size=0.01, pxMode=False
         )
 
         self.scene.addItem(self.board_viz)
 
     def next_frame(self):
-        self.board_data = self.point_in_q.get()
-        self.board_viz.setData(pos=self.board_data, color=self.color)
+        board_data = self.point_in_q.get()
+        print(board_data.time)
+        self.board_viz.setData(pos=board_data.xyz, color=self.color)
 
     def begin(self):
         def timer_wrkr():
@@ -63,7 +64,7 @@ class CaptureVolumeVisualizer:
                 time.sleep(1 / 30)
                 self.next_frame()
 
-        self.timer_thread = Thread(target=timer_wrkr, args=[], daemon=True)
+        self.timer_thread = Thread(target=timer_wrkr, args=[], daemon=False)
         self.timer_thread.start()
 
 
@@ -168,7 +169,7 @@ if __name__ == "__main__":
             if point_packet.pair == pairs[0]:
                 test_pair_in_q.put(point_packet)
 
-    thread = Thread(target=coordinate_feeder_worker, args=[], daemon=True)
+    thread = Thread(target=coordinate_feeder_worker, args=[], daemon=False)
     thread.start()
 
     app = QApplication(sys.argv)

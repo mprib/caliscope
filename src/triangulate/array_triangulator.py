@@ -15,6 +15,7 @@ logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LO
 
 from itertools import combinations
 from threading import Thread, Event
+from queue import Queue
 
 from src.cameras.camera_array import CameraArray, CameraArrayBuilder
 from src.cameras.synchronizer import Synchronizer
@@ -32,13 +33,16 @@ class ArrayTriangulator:
         
         # initialize stereo triangulators for each pair        
         self.stereo_triangulators = {}
+        self.paired_point_qs = {}   # means to pass stereotriangulators new paired points to process
         for pair in self.paired_point_stream.pairs:
             logging.info(f"Creating StereoTriangulator for camera pair {pair}")
             portA = pair[0]
             portB = pair[1]
             camA = self.camera_array.cameras[portA]
             camB = self.camera_array.cameras[portB]
-            self.stereo_triangulators[pair] = StereoTriangulator(camA, camB)
+            pair_q = Queue(-1)
+            self.paired_point_qs[pair] = pair_q
+            self.stereo_triangulators[pair] = StereoTriangulator(camA, camB, pair_q)
 
         self.stop = Event() 
 
@@ -48,13 +52,14 @@ class ArrayTriangulator:
     def triangulate_points_worker(self):
         
         while not self.stop.is_set():
-            all_pairs_common_points = self.paired_point_stream.out_q.get()
-            # print(all_pairs_common_points)
-            for pair, paired_points in all_pairs_common_points.items():
-                if paired_points is not None:
-                    self.stereo_triangulators[pair].in_q.put(paired_points)
-                    points_3d = self.stereo_triangulators[pair].out_q.get()
-                    print(f"{pair}: {points_3d}")
+            new_paired_point_packet = self.paired_point_stream.out_q.get()
+            self.paired_point_qs[new_paired_point_packet.pair].put(new_paired_point_packet)
+            
+            for pair, triangulator in self.stereo_triangulators.items():
+                if not triangulator.out_q.empty():
+                    triangulated_packet = triangulator.out_q.get()
+                    print(pair)
+                    print(triangulated_packet.xyz)
 
 if __name__ == "__main__":
     from pathlib import Path 
@@ -91,7 +96,3 @@ if __name__ == "__main__":
 
     # Build triangulator    
     array_triangulator = ArrayTriangulator(camera_array, point_stream)
-
-
-
-

@@ -14,9 +14,11 @@ import sys
 from pathlib import Path
 import pandas as pd
 import numpy as np
+from dataclasses import dataclass
 
 from src.cameras.synchronizer import Synchronizer
 from src.calibration.corner_tracker import CornerTracker
+
 
 class PairedPointStream:
     def __init__(self, synchronizer, pairs, tracker):
@@ -27,7 +29,7 @@ class PairedPointStream:
 
         self.tracker = tracker  # this is just for charuco tracking...will need to expand on this for mediapipe later
 
-        self.out_q = Queue(-1) # no size limitations...should be small data
+        self.out_q = Queue(-1)  # no size limitations...should be small data
         self.pairs = pairs
 
         self.thread = Thread(target=self.find_paired_points, args=[], daemon=True)
@@ -52,34 +54,103 @@ class PairedPointStream:
                         points[port] = pd.DataFrame(
                             {
                                 "frame_time": frame_time,
-                                "ids": ids[:,0].tolist(),
-                                "loc_img_x": loc_img[:,0][:, 0].tolist(),
-                                "loc_img_y": loc_img[:,0][:, 1].tolist(),
-                                "loc_board_x": loc_board[:,0][:, 0].tolist(),
-                                "loc_board_y": loc_board[:,0][:, 1].tolist(),
+                                "ids": ids[:, 0].tolist(),
+                                "loc_img_x": loc_img[:, 0][:, 0].tolist(),
+                                "loc_img_y": loc_img[:, 0][:, 1].tolist(),
+                                "loc_board_x": loc_board[:, 0][:, 0].tolist(),
+                                "loc_board_y": loc_board[:, 0][:, 1].tolist(),
                             }
                         )
                         logging.debug(f"Port: {port}: \n {points[port]}")
 
-            # create a dataframe of the shared points for each pair of frames
-            common_points = {}
+            common_points = None
             for pair in self.pairs:
                 if pair[0] in points.keys() and pair[1] in points.keys():
                     # print("Entering inner join loop")
-                    common_points[pair] = points[pair[0]].merge(
+                    common_points = points[pair[0]].merge(
                         points[pair[1]],
                         on="ids",
                         how="inner",
-                        suffixes=[f"_{pair[0]}", f"_{pair[1]}"],
+                        suffixes=[f"_A", f"_B"],
+                    )
+                    port_A = pair[0]
+                    port_B = pair[1]
+
+                    time_A = bundle[port_A]["frame_time"]
+                    time_B = bundle[port_B]["frame_time"]
+
+                    point_id = np.array(common_points["ids"], dtype=np.int64)
+
+                    loc_img_x_A = np.array(
+                        common_points["loc_img_x_A"], dtype=np.float64
+                    )
+                    loc_img_x_B = np.array(
+                        common_points["loc_img_x_B"], dtype=np.float64
+                    )
+
+                    loc_img_y_A = np.array(
+                        common_points["loc_img_y_A"], dtype=np.float64
+                    )
+                    loc_img_y_B = np.array(
+                        common_points["loc_img_y_B"], dtype=np.float64
+                    )
+
+                    loc_board_x = np.array(
+                        common_points["loc_board_x_A"], dtype=np.float64
+                    )
+                    loc_board_y = np.array(
+                        common_points["loc_board_y_A"], dtype=np.float64
+                    )
+
+                    packet = PairedPointsPacket(
+                        port_A=port_A,
+                        port_B=port_B,
+                        time_A=time_A,
+                        time_B=time_B,
+                        point_id=point_id,
+                        loc_board_x=loc_board_x,
+                        loc_board_y=loc_board_y,
+                        loc_img_x_A=loc_img_x_A,
+                        loc_img_y_A=loc_img_y_A,
+                        loc_img_x_B=loc_img_x_B,
+                        loc_img_y_B=loc_img_y_B,
                     )
                     logging.debug(
                         f"Points in common for ports {pair}: \n {common_points}"
                     )
-                else:
-                    common_points[pair] = None
-                
-            self.out_q.put(common_points)
+                # else:
+                # common_points[pair] = None
 
+                # packet = PairedPointsPacket(pair=pair,
+                #                             time_A=)
+
+            if common_points is not None:
+                self.out_q.put(packet)
+
+
+@dataclass
+class PairedPointsPacket:
+    # pair: tuple
+    port_A: int
+    port_B: int
+
+    time_A: float
+    time_B: float
+
+    point_id: np.ndarray
+
+    loc_board_x: np.ndarray
+    loc_board_y: np.ndarray
+
+    loc_img_x_A: np.ndarray
+    loc_img_y_A: np.ndarray
+
+    loc_img_x_B: np.ndarray
+    loc_img_y_B: np.ndarray
+
+    @property
+    def pair(self):
+        return (self.port_A, self.port_B)
 
 if __name__ == "__main__":
     from src.recording.recorded_stream import RecordedStreamPool
@@ -100,7 +171,7 @@ if __name__ == "__main__":
 
     trackr = CornerTracker(charuco)
 
-    pairs = [(0, 1), (0,2), (1,2)]
+    pairs = [(0, 1), (0, 2), (1, 2)]
 
     locatr = PairedPointStream(
         synchronizer=syncr,
@@ -109,8 +180,10 @@ if __name__ == "__main__":
     )
 
     while True:
-        common_points = locatr.out_q.get()
+        points_packet = locatr.out_q.get()
+
         print("--------------------------------------")
-        for pair, points in common_points.items():
-            print(pair)
-            print(points)
+        print(points_packet)
+        # for pair, points in common_points.items():
+        #     print(pair)
+        #     print(points)

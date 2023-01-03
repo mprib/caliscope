@@ -85,7 +85,7 @@ class StereoTriangulator:
             all_points_3D = np.array(all_points_3D)
 
             packet = TriangulatedPointsPacket(
-                bundle_index= points_packet.bundle_index,
+                bundle_index=points_packet.bundle_index,
                 pair=self.pair,
                 time=time,
                 point_ids=points_packet.point_id,
@@ -141,9 +141,44 @@ class StereoTriangulator:
 class TriangulatedPointsPacket:
     pair: tuple  # parent pair
     time: float  # mean time
-    point_ids: list
+    point_ids: np.ndarray
     xyz: np.ndarray
     bundle_index: int
+
+    def to_dict(self):
+        num_rows = len(self.point_ids)
+
+        if num_rows == 0:
+            data = {
+                "pair": [],
+                "time": [],
+                "bundle": [],
+                "id": [],
+                "x_pos": [],
+                "y_pos": [],
+                "z_pos": [],
+            }
+            return data
+        else:
+            pair_list = [self.pair] * num_rows
+            time_list = [self.time] * num_rows
+            bundle_list = [self.bundle_index] * num_rows
+            id_list = self.point_ids.tolist()
+            x_list = self.xyz[:, 0].tolist()
+            y_list = self.xyz[:, 1].tolist()
+            z_list = self.xyz[:, 2].tolist()
+
+            data = {
+                "pair": pair_list,
+                "time": time_list,
+                "bundle": bundle_list,
+                "id": id_list,
+                "x_pos": x_list,
+                "y_pos": y_list,
+                "z_pos": z_list,
+            }
+
+            return data
 
 
 if __name__ == "__main__":
@@ -198,7 +233,7 @@ if __name__ == "__main__":
         # if pair_points is not None:
         # triangulatr.in_q.put(paired_points)
         packet_3d = triangulatr.out_q.get()
-        print(packet_3d)
+        print(packet_3d.to_dict())
         frames_processed += 1
         print(f"Frames Processed: {frames_processed}")
         print(f"Time: {packet_3d.time}")

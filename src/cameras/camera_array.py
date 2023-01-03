@@ -36,7 +36,7 @@ class CameraArrayBuilder:
 
     def __init__(self, calibration_data):
 
-        self.config = toml.load(Path(calibration_data, "config.toml"))
+        self.config = toml.load(Path(calibration_data))
         self.extrinsics, self.pairs, self.anchor = self.get_extrinsic_data()
         self.set_cameras()
 
@@ -160,8 +160,8 @@ class CameraArrayBuilder:
 if __name__ == "__main__":
     repo = str(Path(__file__)).split("src")[0]
 
-    calibration_data = Path(repo, "sessions", "iterative_adjustment")
-    array_builder = CameraArrayBuilder(calibration_data)
+    config_file = Path(repo, "sessions", "iterative_adjustment", "config.toml")
+    array_builder = CameraArrayBuilder(config_file)
 
     camera_array = array_builder.get_camera_array()
     

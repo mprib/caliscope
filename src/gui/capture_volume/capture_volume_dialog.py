@@ -34,7 +34,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
-from src.triangulate.visualization.visualizer import CaptureVolumeVisualizer
+from src.gui.capture_volume.visualizer import CaptureVolumeVisualizer
 
 class CaptureVolumeDialog(QWidget):
     def __init__(self, CaptureVolumeVisualizer):
@@ -55,7 +55,6 @@ if __name__ == "__main__":
     from src.triangulate.paired_point_stream import PairedPointStream
     from src.triangulate.stereo_triangulator import StereoTriangulator
     from src.triangulate.stereo_triangulator import StereoTriangulator
-    from src.triangulate.visualization.visualizer import CaptureVolumeVisualizer
 
     # set the location for the sample data used for testing
     repo = Path(__file__).parent.parent.parent.parent

@@ -33,9 +33,7 @@ class CaptureVolumeVisualizer:
         self.scene = gl.GLViewWidget()
         self.scene.setCameraPosition(distance=4)
 
-        # grid = gl.GLGridItem()
-        # grid.scale(1, 1, 1)
-        # self.scene.addItem(grid)
+
 
         axis = gl.GLAxisItem()
         self.scene.addItem(axis)

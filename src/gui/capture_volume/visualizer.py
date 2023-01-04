@@ -21,15 +21,13 @@ from src.triangulate.stereo_triangulator import CameraData
 from src.gui.capture_volume.camera_mesh import CameraMesh
 from src.cameras.camera_array import CameraArray, CameraArrayBuilder
 
+
 class CaptureVolumeVisualizer:
-    def __init__(self, camera_array: CameraArray, point_data: pd.DataFrame):
+    def __init__(self, camera_array: CameraArray, xyz_pos_path: Path = None):
 
         self.camera_array = camera_array
-        self.point_data = point_data
 
         self.current_frame = 0
-        
-        self.pairs = self.point_data["pair"].unique().tolist()
 
         # constuct a scene
         self.scene = gl.GLViewWidget()
@@ -40,27 +38,65 @@ class CaptureVolumeVisualizer:
 
         self.scene.addItem(grid)
 
+
         # build meshes for all cameras
         self.meshes = {}
         for port, cam in self.camera_array.cameras.items():
             print(port)
             print(cam)
-            mesh = mesh_from_camera(cam) 
+            mesh = mesh_from_camera(cam)
             self.meshes[port] = mesh
             self.scene.addItem(mesh)
 
-    def get_frame(self, frame_number): 
+        self.scene.show()
+        if xyz_pos_path is not None:
+
+            # read in contents of file and get important parameters
+            self.point_data = pd.read_csv(xyz_pos_path)
+            self.pairs = self.point_data["pair"].unique().tolist()
+
+            # build the initial scatters that will be updated
+            self.scatters = {}
+            self.colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
+            for pair in self.pairs:
+
+                board_scatter = gl.GLScatterPlotItem(
+                    pos=np.array([0, 0, 0]),
+                    color=self.colors.pop(),
+                    size=0.01,
+                    pxMode=False,
+                )
+                self.scene.addItem(board_scatter)
+                self.scatters[pair] = board_scatter
+   
+            self.thread = Thread(target=self.play_data, args=[], daemon=False)
+            self.thread.start()
+
+    def play_data(self):
+            bundles = self.point_data["bundle"].unique().tolist()
+            for bundle in bundles:
+                self.display_frame_bundle(bundle)
+                print(f"Displaying bundle {bundle}")
+                time.sleep(1/3)
+    
+    def display_frame_bundle(self, bundle_index):
         # note: i'm writing this up as frames, though really these are
         # referenced as "bundles" elsewhere. Might change in the future
-        
-        frame_data = self.point_data.query(f"bundle == {frame_number}")
-        
+
+        frame_data = self.point_data.query(f"bundle == {bundle_index}")
+
         for pair in self.pairs:
-            pass
-        
+            single_board = frame_data.query(f"pair == '{str(pair)}'")
+            x = single_board.x_pos.to_numpy()
+            y = single_board.y_pos.to_numpy()
+            z = single_board.z_pos.to_numpy()
+
+            board_xyz_pos = np.stack([x, y, z], axis=1)
+            self.scatters[pair].setData(pos=board_xyz_pos)
+
     def add_point_q(self, q):
         self.point_in_q = q
-        
+
         board_data = self.point_in_q.get()
 
         self.color = (1, 0, 0, 1)
@@ -129,6 +165,7 @@ def rotationMatrixToEulerAngles(R):
 
     return np.array([x, y, z])
 
+
 # %%
 if __name__ == "__main__":
 
@@ -140,13 +177,14 @@ if __name__ == "__main__":
     config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
     camera_array = CameraArrayBuilder(config_path).get_camera_array()
 
-    point_data_path = Path(repo, "sessions", "iterative_adjustment", "triangulated_points.csv")
-    point_data = pd.read_csv(point_data_path)
+    point_data_path = Path(
+        repo, "sessions", "iterative_adjustment", "triangulated_points.csv"
+    )
 
     app = QApplication(sys.argv)
-    vizr = CaptureVolumeVisualizer(camera_array, point_data)
+    vizr = CaptureVolumeVisualizer(camera_array, point_data_path)
     # vizr.add_point_q(triangulatr.out_q)
-    vizr.scene.show()
+    # vizr.scene.show()
     # vizr.begin()
 
     sys.exit(app.exec())

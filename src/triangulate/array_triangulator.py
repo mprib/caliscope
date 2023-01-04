@@ -62,6 +62,7 @@ class ArrayTriangulator:
         self.thread.start()
 
     def triangulate_points_worker(self):
+        # build a dictionary of lists that will form basis of dataframe output to csv
         aggregate_3d_points = {
             "pair": [],
             "time": [],
@@ -74,7 +75,12 @@ class ArrayTriangulator:
 
 
         while not self.stop.is_set():
+            # read in a paired point stream
             new_paired_point_packet = self.paired_point_stream.out_q.get()
+            
+            #hand off the paired points to the appropriate triangulator via queue
+            # honestly, the more I look at this the more I hate it. make it explicit
+            # that you are handing off to a stereo triangulator
             self.paired_point_qs[new_paired_point_packet.pair].put(
                 new_paired_point_packet
             )
@@ -107,7 +113,8 @@ if __name__ == "__main__":
     # Build camera array from stored config file
     repo = str(Path(__file__)).split("src")[0]
     session_directory = Path(repo, "sessions", "iterative_adjustment")
-    array_builder = CameraArrayBuilder(session_directory)
+    config_file = Path(session_directory, "config.toml")
+    array_builder = CameraArrayBuilder(config_file)
     camera_array = array_builder.get_camera_array()
 
     # Build streams from pre-recorded video

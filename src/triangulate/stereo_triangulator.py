@@ -75,7 +75,7 @@ class StereoTriangulator:
                 points_packet.loc_img_x_A,
                 points_packet.loc_img_y_A,
                 points_packet.loc_img_x_B,
-                points_packet.loc_img_y_A,
+                points_packet.loc_img_y_B,
             ):
                 point_A = (x_A, y_A)
                 point_B = (x_B, y_B)

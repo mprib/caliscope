@@ -77,7 +77,7 @@ class ArrayTriangulator:
         while not self.stop.is_set():
             # read in a paired point stream
             new_paired_point_packet = self.paired_point_stream.out_q.get()
-            
+            logging.info(f"Bundle: {new_paired_point_packet.bundle_index} | Pair: {new_paired_point_packet.pair}") 
             #hand off the paired points to the appropriate triangulator via queue
             # honestly, the more I look at this the more I hate it. make it explicit
             # that you are handing off to a stereo triangulator

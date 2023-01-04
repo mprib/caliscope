@@ -125,8 +125,8 @@ class PairedPointStream:
                         f"Points in common for ports {pair}: \n {common_points}"
                     )
 
-            if common_points is not None:
-                self.out_q.put(packet)
+                if common_points is not None:
+                    self.out_q.put(packet)
 
 
 @dataclass
@@ -187,4 +187,3 @@ if __name__ == "__main__":
 
         print("--------------------------------------")
         print(points_packet)
-

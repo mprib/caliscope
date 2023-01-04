@@ -13,34 +13,51 @@ import time
 from pathlib import Path
 from threading import Thread
 from queue import Queue
-
+import pandas as pd
 import numpy as np
 import pyqtgraph.opengl as gl
 
 from src.triangulate.stereo_triangulator import CameraData
 from src.gui.capture_volume.camera_mesh import CameraMesh
-
+from src.cameras.camera_array import CameraArray, CameraArrayBuilder
 
 class CaptureVolumeVisualizer:
-    def __init__(self, triangulator):
-        self.triangulator = triangulator
-        self.point_in_q = None
-        self.mesh_A = mesh_from_camera(triangulator.camera_A)
-        self.mesh_B = mesh_from_camera(triangulator.camera_B)
+    def __init__(self, camera_array: CameraArray, point_data: pd.DataFrame):
 
-        # create the overhead for display
-        # self.app = pg.mkQApp("Stereo Visualizer")
+        self.camera_array = camera_array
+        self.point_data = point_data
+
+        self.current_frame = 0
+        
+        self.pairs = self.point_data["pair"].unique().tolist()
+
+        # constuct a scene
         self.scene = gl.GLViewWidget()
-        # self.scene.setWindowTitle("Camera Calibration")
         self.scene.setCameraPosition(distance=4)
 
         grid = gl.GLGridItem()
         grid.scale(1, 1, 1)
 
         self.scene.addItem(grid)
-        self.scene.addItem(self.mesh_A)
-        self.scene.addItem(self.mesh_B)
 
+        # build meshes for all cameras
+        self.meshes = {}
+        for port, cam in self.camera_array.cameras.items():
+            print(port)
+            print(cam)
+            mesh = mesh_from_camera(cam) 
+            self.meshes[port] = mesh
+            self.scene.addItem(mesh)
+
+    def get_frame(self, frame_number): 
+        # note: i'm writing this up as frames, though really these are
+        # referenced as "bundles" elsewhere. Might change in the future
+        
+        frame_data = self.point_data.query(f"bundle == {frame_number}")
+        
+        for pair in self.pairs:
+            pass
+        
     def add_point_q(self, q):
         self.point_in_q = q
         
@@ -112,70 +129,24 @@ def rotationMatrixToEulerAngles(R):
 
     return np.array([x, y, z])
 
-
+# %%
 if __name__ == "__main__":
 
     from PyQt6.QtWidgets import QApplication
 
-    from src.calibration.charuco import Charuco
-    from src.calibration.corner_tracker import CornerTracker
-    from src.cameras.synchronizer import Synchronizer
-    from src.recording.recorded_stream import RecordedStreamPool
-    from src.triangulate.paired_point_stream import PairedPointStream
-    from src.triangulate.stereo_triangulator import StereoTriangulator
-    from src.gui.capture_volume.visualizer import CaptureVolumeVisualizer
-    from src.cameras.camera_array import CameraArray, CameraArrayBuilder
-
     # set the location for the sample data used for testing
     repo = str(Path(__file__)).split("src")[0]
 
-    # session_directory = Path(repo, "sessions", "high_res_session")
-    calibration_data = Path(repo, "sessions", "iterative_adjustment")
-    video_directory = Path(calibration_data, "recording")
-    # create playback streams to provide to synchronizer
-    ports = [0, 2]
+    config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
+    camera_array = CameraArrayBuilder(config_path).get_camera_array()
 
-    camera_array = CameraArrayBuilder(calibration_data).get_camera_array()
-
-    recorded_stream_pool = RecordedStreamPool(ports, video_directory)
-    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
-    recorded_stream_pool.play_videos()
-    # create a corner tracker to locate board corners
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-    )
-    trackr = CornerTracker(charuco)
-
-    # create a commmon point finder to grab charuco corners shared between the pair of ports
-    pairs = [(ports[0], ports[1])]
-    point_stream = PairedPointStream(
-        synchronizer=syncr,
-        pairs=pairs,
-        tracker=trackr,
-    )
-
-    camA, camB = camera_array.cameras[0], camera_array.cameras[2]
-    pair = (camA.port, camB.port)
-
-    config_path = str(Path(calibration_data, "config.toml"))
-    test_pair_in_q = Queue(-1)
-
-    triangulatr = StereoTriangulator(camA, camB, test_pair_in_q)
-
-    # create a thread that will feed the test_pair_in_q with new datapoints
-    def coordinate_feeder_worker():
-        while True:
-            point_packet = point_stream.out_q.get()
-            if point_packet.pair == pairs[0]:
-                test_pair_in_q.put(point_packet)
-
-    thread = Thread(target=coordinate_feeder_worker, args=[], daemon=False)
-    thread.start()
+    point_data_path = Path(repo, "sessions", "iterative_adjustment", "triangulated_points.csv")
+    point_data = pd.read_csv(point_data_path)
 
     app = QApplication(sys.argv)
-    vizr = CaptureVolumeVisualizer(triangulatr)
-    vizr.add_point_q(triangulatr.out_q)
+    vizr = CaptureVolumeVisualizer(camera_array, point_data)
+    # vizr.add_point_q(triangulatr.out_q)
     vizr.scene.show()
-    vizr.begin()
+    # vizr.begin()
 
     sys.exit(app.exec())

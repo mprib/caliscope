@@ -77,7 +77,7 @@ class CaptureVolumeVisualizer:
             for bundle in bundles:
                 self.display_frame_bundle(bundle)
                 print(f"Displaying bundle {bundle}")
-                time.sleep(1/3)
+                time.sleep(1/10)
     
     def display_frame_bundle(self, bundle_index):
         # note: i'm writing this up as frames, though really these are

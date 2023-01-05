@@ -17,6 +17,7 @@ from queue import Queue
 from threading import Thread, Event
 from dataclasses import dataclass
 import math
+import cv2
 from os.path import exists
 import toml
 import numpy as np
@@ -24,6 +25,7 @@ import pandas as pd
 import scipy
 from pathlib import Path
 import sys
+from numba import jit
 
 from src.triangulate.paired_point_stream import PairedPointStream
 from src.cameras.camera_array import CameraData
@@ -44,7 +46,8 @@ class StereoTriangulator:
         self.out_q = Queue(-1)
         self.stop = Event()
 
-        self.thread = Thread(target=self.create_3D_points, args=[], daemon=True)
+        self.thread = Thread(target=self.create_3D_points_cv2, args=[], daemon=True)
+        # self.thread = Thread(target=self.create_3D_points, args=[], daemon=True)
         self.thread.start()
 
     def build_projection_matrices(self):
@@ -84,6 +87,7 @@ class StereoTriangulator:
                 all_points_3D.append(point_3D)
             all_points_3D = np.array(all_points_3D)
 
+            print(all_points_3D)
             packet = TriangulatedPointsPacket(
                 bundle_index=points_packet.bundle_index,
                 pair=self.pair,
@@ -96,6 +100,46 @@ class StereoTriangulator:
             # logging.debug(all_points_3D)
             self.out_q.put(packet)
 
+    def create_3D_points_cv2(self):
+
+        while not self.stop.is_set():
+            packet_2D = self.in_q.get()
+            all_points_3D = []
+
+            # this is a clear candidate for vectorization...going to not worry about it now
+
+            time = (packet_2D.time_A + packet_2D.time_B) / 2
+
+            if len(packet_2D.point_id) > 0:
+                points_A = np.stack([packet_2D.loc_img_x_A, packet_2D.loc_img_y_A], axis=0)
+                points_B = np.stack([packet_2D.loc_img_x_B, packet_2D.loc_img_y_B], axis=0)
+
+                # triangulate points outputs data in 4D homogenous coordinate system
+                xyzw_h = cv2.triangulatePoints(
+                    self.proj_A, self.proj_B, points_A, points_B
+                )
+
+                xyz_h = xyzw_h.T[:,:3]
+                w = xyzw_h[3,:]
+                xyz = np.divide(xyz_h.T,w).T
+                # print(xyz)
+            else:
+                xyz = np.array([])
+
+            packet_3D = TriangulatedPointsPacket(
+                bundle_index=packet_2D.bundle_index,
+                pair=self.pair,
+                time=time,
+                point_ids=packet_2D.point_id,
+                xyz=xyz
+            )
+
+            logging.debug(f"Placing current bundle of 3d points on queue")
+            # logging.debug(all_points_3D)
+            self.out_q.put(packet_3D)
+
+
+    # @jit(nopython=False, parallel=True)
     def triangulate(self, point_A, point_B):
 
         point_A = self.undistort(point_A, self.camera_A)
@@ -191,12 +235,13 @@ if __name__ == "__main__":
 
     repo = str(Path(__file__)).split("src")[0]
 
-    calibration_data = Path(repo, "sessions", "iterative_adjustment")
-    camera_array = CameraArrayBuilder(calibration_data).get_camera_array()
+    config_data = Path(repo, "sessions", "iterative_adjustment", "config.toml")
+    camera_array = CameraArrayBuilder(config_data).get_camera_array()
 
     # create playback streams to provide to synchronizer
+    recorded_data = Path(repo, "sessions", "iterative_adjustment")
     ports = [0, 2]
-    recorded_stream_pool = RecordedStreamPool(ports, calibration_data)
+    recorded_stream_pool = RecordedStreamPool(ports, recorded_data)
     syncr = Synchronizer(
         recorded_stream_pool.streams, fps_target=None
     )  # no fps target b/c not playing back for visual display

@@ -46,8 +46,7 @@ class StereoTriangulator:
         self.out_q = Queue(-1)
         self.stop = Event()
 
-        self.thread = Thread(target=self.create_3D_points_cv2, args=[], daemon=True)
-        # self.thread = Thread(target=self.create_3D_points, args=[], daemon=True)
+        self.thread = Thread(target=self.create_3D_points, args=[], daemon=True)
         self.thread.start()
 
     def build_projection_matrices(self):
@@ -64,43 +63,9 @@ class StereoTriangulator:
         mtx_B = self.camera_B.camera_matrix
         self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
 
+
+
     def create_3D_points(self):
-        while not self.stop.is_set():
-            points_packet = self.in_q.get()
-            all_points_3D = []
-
-            # this is a clear candidate for vectorization...going to not worry about it now
-
-            time = (points_packet.time_A + points_packet.time_B) / 2
-
-            for point_id, x_A, y_A, x_B, y_B in zip(
-                points_packet.point_id,
-                points_packet.loc_img_x_A,
-                points_packet.loc_img_y_A,
-                points_packet.loc_img_x_B,
-                points_packet.loc_img_y_B,
-            ):
-                point_A = (x_A, y_A)
-                point_B = (x_B, y_B)
-
-                point_3D = self.triangulate(point_A, point_B)
-                all_points_3D.append(point_3D)
-            all_points_3D = np.array(all_points_3D)
-
-            print(all_points_3D)
-            packet = TriangulatedPointsPacket(
-                bundle_index=points_packet.bundle_index,
-                pair=self.pair,
-                time=time,
-                point_ids=points_packet.point_id,
-                xyz=all_points_3D,
-            )
-
-            logging.debug(f"Placing current bundle of 3d points on queue")
-            # logging.debug(all_points_3D)
-            self.out_q.put(packet)
-
-    def create_3D_points_cv2(self):
 
         while not self.stop.is_set():
             packet_2D = self.in_q.get()
@@ -139,24 +104,7 @@ class StereoTriangulator:
             self.out_q.put(packet_3D)
 
 
-    # @jit(nopython=False, parallel=True)
-    def triangulate(self, point_A, point_B):
 
-        point_A = self.undistort(point_A, self.camera_A)
-        point_B = self.undistort(point_B, self.camera_B)
-
-        A = [
-            point_A[1] * self.proj_A[2, :] - self.proj_A[1, :],
-            self.proj_A[0, :] - point_A[0] * self.proj_A[2, :],
-            point_B[1] * self.proj_B[2, :] - self.proj_B[1, :],
-            self.proj_B[0, :] - point_B[0] * self.proj_B[2, :],
-        ]
-        A = np.array(A).reshape((4, 4))
-
-        B = A.transpose() @ A
-        U, s, Vh = scipy.linalg.svd(B, full_matrices=False)
-        coord_3D = Vh[3, 0:3] / Vh[3, 3]
-        return coord_3D
 
     def undistort(self, point, camera: CameraData, iter_num=3):
         # implementing a function described here: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html

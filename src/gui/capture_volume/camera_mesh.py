@@ -123,9 +123,9 @@ if __name__ == '__main__':
     scene.addItem(grid)
 
 
-    config_path = r"config 1.toml"
+    repo = str(Path(__file__)).split("src")[0]
     # config_path = r"config 2.toml"
-    config = toml.load(Path(Path(__file__).parent, config_path))
+    config = toml.load(Path(repo, "sessions", "iterative_adjustment", "config.toml"))
     cams = {}    
     ports = []
 

@@ -1,5 +1,5 @@
 # Example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
-
+#%%
 from __future__ import print_function
 
 import urllib.request
@@ -19,7 +19,7 @@ URL = BASE_URL + FILE_NAME
 if not os.path.isfile(FILE_NAME):
     urllib.request.urlretrieve(URL, FILE_NAME)
 
-
+#%%
 def read_bal_data(file_name):
     with bz2.open(file_name, "rt") as file:
         n_cameras, n_points, n_observations = map(int, file.readline().split())
@@ -27,6 +27,7 @@ def read_bal_data(file_name):
         camera_indices = np.empty(n_observations, dtype=int)
         point_indices = np.empty(n_observations, dtype=int)
         points_2d = np.empty((n_observations, 2))
+
 
         for i in range(n_observations):
             camera_index, point_index, x, y = file.readline().split()
@@ -58,11 +59,15 @@ Here we have numpy arrays:
 camera_params with shape (n_cameras, 9) contains initial estimates of parameters for all cameras. 
 First 3 components in each row form a rotation vector (https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula), 
 next 3 components form a translation vector, then a focal distance and two distortion parameters.
-points_3d with shape (n_points, 3) contains initial estimates of point coordinates in the world frame.
-camera_ind with shape (n_observations,) contains indices of cameras (from 0 to n_cameras - 1) involved in each observation.
-point_ind with shape (n_observations,) contatins indices of points (from 0 to n_points - 1) involved in each observation.
-points_2d with shape (n_observations, 2) contains measured 2-D coordinates of points projected on images in each observations.
 
+
+points_3d with shape (n_points, 3) contains initial estimates of point coordinates in the world frame.
+
+camera_id with shape (n_observations,) contains indices of cameras (from 0 to n_cameras - 1) involved in each observation.
+
+point_ind with shape (n_observations,) contains indices of points (from 0 to n_points - 1) involved in each observation.
+
+points_2d with shape (n_observations, 2) contains measured 2-D coordinates of points projected on images in each observations.
 """
 
 n_cameras = camera_params.shape[0]
@@ -78,7 +83,7 @@ print("Total number of residuals: {}".format(m))
 
 
 # Now define the function which returns a vector of residuals. We use numpy vectorized computations:
-
+#%% 
 
 def rotate(points, rot_vecs):
     """Rotate points by given rotation vectors.

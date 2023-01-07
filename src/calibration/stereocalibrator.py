@@ -224,7 +224,7 @@ class StereoCalibrator:
             ret,
             camera_matrix_1,
             distortion_1,
-            camera_matrix_32,
+            camera_matrix_2,
             distortion_2,
             rotation,
             translation,
@@ -243,8 +243,6 @@ class StereoCalibrator:
             flags=stereocalibration_flags,
         )
 
-        # TODO: update config outside of the stereocalibrator
-
         self.stereo_outputs[pair] = {
             "grid_count": len(obj),
             "rotation": rotation,
@@ -252,7 +250,6 @@ class StereoCalibrator:
             "RMSE": ret,
         }
 
-        # TODO: #29 track down why this is necessary 
         if pair in self.uncalibrated_pairs:
             logging.info(f"Removing pair {pair}")
             self.uncalibrated_pairs.remove(pair)
@@ -263,19 +260,7 @@ class StereoCalibrator:
             f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}"
         )
         logging.info(f"RMSE of reprojection is {ret}")
-        # self.session.update_config()
 
-    # def calibrate_full_pairs(self):
-
-    #     for pair in self.uncalibrated_pairs:
-    #         grid_count = len(self.stereo_inputs[pair]["common_board_loc"])
-    #         self.stereo_outputs["grid_count"] = grid_count
-
-    #         if grid_count > self.grid_count_trigger:
-    #             self.calibrate_thread = Thread(
-    #                 target=self.stereo_calibrate, args=[pair], daemon=True
-    #             )
-    #             self.calibrate_thread.start()
 
     def get_common_locs(self, port, common_ids):
         """Pull out objective location and image location of board corners for

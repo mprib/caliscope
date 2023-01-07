@@ -134,8 +134,6 @@ def mesh_from_camera(cd: CameraData):
     z = euler_angles_deg[2]
 
     logging.info(f"x: {x}, y: {y}, z: {z}")
-    # fix for the orientation of the camera (y axis is down/x axis is right)
-    mesh.rotate(180, 0, 0, 1, local=True)
 
     mesh.rotate(x, 1, 0, 0, local=True)
     mesh.rotate(y, 0, 1, 0, local=True)
@@ -145,7 +143,7 @@ def mesh_from_camera(cd: CameraData):
     # translate mesh which defaults to origin
     translation_scale_factor = 1
     x, y, z = [t / translation_scale_factor for t in cd.translation]
-    mesh.translate(-x, -y, z) # quick and dirty hack to get the cameras to look right
+    mesh.translate(x, y, z) 
     logging.info(f"Translation: x: {x}, y: {y}, z: {z}")
 
 

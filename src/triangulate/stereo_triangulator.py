@@ -70,7 +70,7 @@ class StereoTriangulator:
         while not self.stop.is_set():
             packet_2D = self.in_q.get()
             all_points_3D = []
-
+            # print(f"Packet for bundle: {packet_2D.bundle_index}, for pair: {packet_2D.pair}")
             # this is a clear candidate for vectorization...going to not worry about it now
 
             time = (packet_2D.time_A + packet_2D.time_B) / 2
@@ -101,7 +101,6 @@ class StereoTriangulator:
             )
 
             logging.debug(f"Placing current bundle of 3d points on queue")
-            # logging.debug(all_points_3D)
             self.out_q.put(packet_3D)
 
 
@@ -227,7 +226,7 @@ if __name__ == "__main__":
         # if pair_points is not None:
         # triangulatr.in_q.put(paired_points)
         packet_3d = triangulatr.out_q.get()
-        print(packet_3d.to_dict())
+        print(packet_3d)
         frames_processed += 1
-        print(f"Frames Processed: {frames_processed}")
-        print(f"Time: {packet_3d.time}")
+        # print(f"Frames Processed: {frames_processed}")
+        # print(f"Time: {packet_3d.time}")

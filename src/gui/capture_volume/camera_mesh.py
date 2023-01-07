@@ -118,9 +118,11 @@ if __name__ == '__main__':
     scene.setWindowTitle('Camera Calibration')
     scene.setCameraPosition(distance=4)
 
-    grid = gl.GLGridItem()
-    grid.scale(1,1,1)
-    scene.addItem(grid)
+    # grid = gl.GLGridItem()
+    # grid.scale(1,1,1)
+    # scene.addItem(grid)
+    axis = gl.GLAxisItem()
+    scene.addItem(axis)
 
 
     repo = str(Path(__file__)).split("src")[0]
@@ -162,46 +164,45 @@ if __name__ == '__main__':
             pair = [int(p) for p in pair]
             
             if origin_port in pair:
+                for param_key, value in params.items(): 
+                    if "translation" in param_key:
+                        translation = [float(x[0]) for x in value]
+                        translation_scale = 1
 
+                        # reverse translation if origin is the second item
+                        if origin_port == pair[1]:
+                            translation = [-i for i in translation]
+                            other_port = pair[0]
+                        else:
+                            other_port = pair[1]
 
-                if "translation" in key:
-                    translation = [float(x[0]) for x in params]
-                    translation_scale = 1
+                        x,y,z = [t/translation_scale for t in translation]
+                        cams[other_port].mesh.translate(x,y,z)
+                        logging.info(f"Translation: x: {x}, y: {y}, z: {z}")
+                        # cams[other_port].mesh.setGLOptions('additive')
 
-                    # reverse translation if origin is the second item
-                    if origin_port == pair[1]:
-                        translation = [-i for i in translation]
-                        other_port = pair[0]
-                    else:
-                        other_port = pair[1]
+                        scene.addItem(cams[other_port].mesh)
+                    if "rotation" in param_key:
+                        rotation = rotation_to_float(value) # feeding in 3x3 rotation matrix  from config file
+                        rotation = rotationMatrixToEulerAngles(rotation) # convert to angles
+                        if origin_port == pair[1]:
+                            rotation = -rotation
+                            other_port = pair[0]
+                        else:
+                            other_port = pair[1]
 
-                    x,y,z = [t/translation_scale for t in translation]
-                    cams[other_port].mesh.translate(x,y,z)
-                    logging.info(f"Translation: x: {x}, y: {y}, z: {z}")
-                    # cams[other_port].mesh.setGLOptions('additive')
+                        rot_deg = [x*(180/math.pi) for x in rotation] # convert to degrees
+                        print(f"Rotation (deg) for port {other_port}: {rot_deg}")
+                        x = rot_deg[0]
+                        y = rot_deg[1]
+                        z = rot_deg[2]
 
-                    # scene.addItem(cams[other_port].mesh)
-                if "rotation" in key:
-                    rotation = rotation_to_float(params) # feeding in 3x3 rotation matrix  from config file
-                    rotation = rotationMatrixToEulerAngles(rotation) # convert to angles
-                    if origin_port == pair[1]:
-                        rotation = -rotation
-                        other_port = pair[0]
-                    else:
-                        other_port = pair[1]
+                        logging.info(f"ROTATION: x: {x}, y: {y}, z: {z}")
+                        cams[other_port].mesh.rotate(x,1,0,0, local=True)
+                        cams[other_port].mesh.rotate(y,0,1,0, local=True)
+                        cams[other_port].mesh.rotate(z,0,0,1, local=True)
+                        # cams[other_port].mesh.setGLOptions('additive')
 
-                    rot_deg = [x*(180/math.pi) for x in rotation] # convert to degrees
-                    print(f"Rotation (deg) for port {other_port}: {rot_deg}")
-                    x = rot_deg[0]
-                    y = rot_deg[1]
-                    z = rot_deg[2]
-
-                    logging.info(f"ROTATION: x: {x}, y: {y}, z: {z}")
-                    cams[other_port].mesh.rotate(x,1,0,0, local=True)
-                    cams[other_port].mesh.rotate(y,0,1,0, local=True)
-                    cams[other_port].mesh.rotate(z,0,0,1, local=True)
-                    # cams[other_port].mesh.setGLOptions('additive')
-
-                    scene.addItem(cams[other_port].mesh)
+                        scene.addItem(cams[other_port].mesh)
 
     pg.exec()

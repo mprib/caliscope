@@ -39,6 +39,10 @@ class PairedPointStream:
         self.thread.start()
 
     def add_to_tidy_output(self, packet):
+        """
+        Convert the packet to a dictionary and add it to a running dict of lists
+        Creates something that can be quickly exported to csv
+        """
         if self.csv_output_path is None:
             return
 
@@ -55,9 +59,9 @@ class PairedPointStream:
         while True:
             bundle = self.bundle_in_q.get()
 
-            points = (
-                {}
-            )  # will be populated with dataframes of: id | img_x | img_y | board_x | board_y
+            # will be populated with dataframes of:
+            # id | img_x | img_y | board_x | board_y
+            points = {}
 
             # find points in each of the frames
             for port in bundle.keys():
@@ -126,12 +130,12 @@ class PairedPointStream:
                     )
                     logging.debug(f"Points in common for ports {pair}: \n {paired}")
 
-                if paired is not None:
-                    self.out_q.put(packet)
-                    self.add_to_tidy_output(packet)
-                    
-                if bundle_index == 100:
-                    pd.DataFrame(self.tidy_output).to_csv(self.csv_output_path)
+            if paired is not None:
+                self.out_q.put(packet)
+                self.add_to_tidy_output(packet)
+
+            if bundle_index == 100:
+                pd.DataFrame(self.tidy_output).to_csv(self.csv_output_path)
 
 
 @dataclass

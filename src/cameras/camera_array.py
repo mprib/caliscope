@@ -95,8 +95,13 @@ class CameraArrayBuilder:
                 error = float(params["RMSE"])
 
                 daisy_chain["Pair"].append(pair)
-                daisy_chain["Primary"].append(port_A)
-                daisy_chain["Secondary"].append(port_B)
+                
+                # it will likely appear strange to make B the primary and A the secondary
+                # because cv2.stereocalibrate returns R and t such that it is the 
+                # position of the first camera relative to the second camera, I have 
+                # switched things up for purposes of constructing the array
+                daisy_chain["Primary"].append(port_B)
+                daisy_chain["Secondary"].append(port_A)
 
                 daisy_chain["Rotation"].append(rotation)
                 daisy_chain["Translation"].append(translation)
@@ -162,7 +167,6 @@ if __name__ == "__main__":
 
     config_file = Path(repo, "sessions", "iterative_adjustment", "config.toml")
     array_builder = CameraArrayBuilder(config_file)
-
     camera_array = array_builder.get_camera_array()
     
     print("pause")

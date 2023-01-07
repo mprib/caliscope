@@ -31,7 +31,10 @@ from src.triangulate.paired_point_stream import PairedPointStream
 
 class ArrayTriangulator:
     def __init__(
-        self, camera_array: CameraArray, paired_point_stream: PairedPointStream, save_directory=None
+        self,
+        camera_array: CameraArray,
+        paired_point_stream: PairedPointStream,
+        save_directory=None,
     ):
         self.camera_array = camera_array
         self.paired_point_stream = paired_point_stream
@@ -52,7 +55,9 @@ class ArrayTriangulator:
             camB = self.camera_array.cameras[portB]
             # pair_q = Queue(-1)
             self.paired_point_qs[pair] = Queue(-1)
-            self.stereo_triangulators[pair] = StereoTriangulator(camA, camB, self.paired_point_qs[pair])
+            self.stereo_triangulators[pair] = StereoTriangulator(
+                camA, camB, self.paired_point_qs[pair]
+            )
 
         self.stop = Event()
 
@@ -73,37 +78,40 @@ class ArrayTriangulator:
             "z_pos": [],
         }
 
-
         while not self.stop.is_set():
             # read in a paired point stream
             new_paired_point_packet = self.paired_point_stream.out_q.get()
-            logging.info(f"Bundle: {new_paired_point_packet.bundle_index} | Pair: {new_paired_point_packet.pair}") 
+            logging.info(
+                f"Bundle: {new_paired_point_packet.bundle_index} | Pair: {new_paired_point_packet.pair}"
+            )
             # hand off the paired points to the appropriate triangulator via queue
             # honestly, the more I look at this the more I hate it. make it explicit
             # that you are handing off to a stereo triangulator
-            self.paired_point_qs[new_paired_point_packet.pair].put(
-                new_paired_point_packet
-            )
+            pair = new_paired_point_packet.pair
+            self.paired_point_qs[pair].put(new_paired_point_packet)
+            triangulated_packet = self.stereo_triangulators[pair].out_q.get()
 
-            for pair, triangulator in self.stereo_triangulators.items():
-                if not triangulator.out_q.empty():
-                    triangulated_packet = triangulator.out_q.get()
-                    packet_data = triangulated_packet.to_dict()
+            # for pair, triangulator in self.stereo_triangulators.items():
+            #     if not triangulator.out_q.empty():
+            #         triangulated_packet = triangulator.out_q.get()
+            packet_data = triangulated_packet.to_dict()
 
-                    for key, value in packet_data.items():
-                        aggregate_3d_points[key].extend(value)
+            for key, value in packet_data.items():
+                aggregate_3d_points[key].extend(value)
 
-                    print(triangulated_packet.bundle_index)
-                    #TODO: #45 figure out how to get this to stop automatically
-                    # might want to get the frame counts for the saved port data
-                    if triangulated_packet.bundle_index > 270:
-                        self.stop.set()
+            print(f"Bundle: {triangulated_packet.bundle_index}  Pair: {pair}")
+            # TODO: #45 figure out how to get this to stop automatically
+            # might want to get the frame counts for the saved port data
+            if triangulated_packet.bundle_index > 30:
+                self.stop.set()
 
-        
         if self.save_directory is not None:
             logging.info(f"Saving triangulated point csv to {self.save_directory}")
             aggregate_3d_points = pd.DataFrame(aggregate_3d_points)
-            aggregate_3d_points.to_csv(Path(self.save_directory, "triangulated_points.csv"))
+            aggregate_3d_points.to_csv(
+                Path(self.save_directory, "triangulated_points.csv")
+            )
+
 
 if __name__ == "__main__":
     from pathlib import Path
@@ -143,4 +151,6 @@ if __name__ == "__main__":
     # Build triangulator
     # Note that this will automatically create the summarized output of the projected points
     # this is just a temporary setup while I try to figure out something more suitable long-term
-    array_triangulator = ArrayTriangulator(camera_array, point_stream, session_directory)
+    array_triangulator = ArrayTriangulator(
+        camera_array, point_stream, session_directory
+    )

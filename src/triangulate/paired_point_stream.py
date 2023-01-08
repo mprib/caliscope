@@ -54,8 +54,56 @@ class PairedPointStream:
             for key, value in tidy_packet.copy().items():
                 self.tidy_output[key].extend(value)
 
-    def find_paired_points(self):
+    def get_paired_points_packet(self, pair, points_df):
+        
+        paired_points = points_df[pair[0]].merge(
+            points_df[pair[1]],
+            on="ids",
+            how="inner",
+            suffixes=[f"_A", f"_B"],
+        )
+        port_A = pair[0]
+        port_B = pair[1]
 
+        time_A = points_df[port_A]["frame_time"][0]
+        time_B = points_df[port_B]["frame_time"][0]
+
+        bundle_index = points_df[port_A]["bundle_index"][0]
+
+        point_id = np.array(paired_points["ids"], dtype=np.int64)
+
+        loc_img_x_A = np.array(paired_points["loc_img_x_A"], dtype=np.float64)
+        loc_img_x_B = np.array(paired_points["loc_img_x_B"], dtype=np.float64)
+
+        loc_img_y_A = np.array(paired_points["loc_img_y_A"], dtype=np.float64)
+        loc_img_y_B = np.array(paired_points["loc_img_y_B"], dtype=np.float64)
+
+        loc_board_x = np.array(paired_points["loc_board_x_A"], dtype=np.float64)
+        loc_board_y = np.array(paired_points["loc_board_y_A"], dtype=np.float64)
+
+        if len(point_id) == 0:
+            packet = None
+        else:
+            packet = PairedPointsPacket(
+                bundle_index=bundle_index,
+                port_A=port_A,
+                port_B=port_B,
+                time_A=time_A,
+                time_B=time_B,
+                point_id=point_id,
+                loc_board_x=loc_board_x,
+                loc_board_y=loc_board_y,
+                loc_img_x_A=loc_img_x_A,
+                loc_img_y_A=loc_img_y_A,
+                loc_img_x_B=loc_img_x_B,
+                loc_img_y_B=loc_img_y_B,
+            )
+            logging.debug(f"Points in common for ports {pair}: \n {paired_points}")
+        return packet
+        
+        
+        
+    def find_paired_points(self):
         while True:
             bundle = self.bundle_in_q.get()
 
@@ -85,57 +133,18 @@ class PairedPointStream:
                         )
                         logging.debug(f"Port: {port}: \n {points[port]}")
 
-            paired = None
+            # paired_points = None
             for pair in self.pairs:
                 if pair[0] in points.keys() and pair[1] in points.keys():
-                    # print("Entering inner join loop")
-                    paired = points[pair[0]].merge(
-                        points[pair[1]],
-                        on="ids",
-                        how="inner",
-                        suffixes=[f"_A", f"_B"],
-                    )
-                    port_A = pair[0]
-                    port_B = pair[1]
 
-                    time_A = bundle[port_A]["frame_time"]
-                    time_B = bundle[port_B]["frame_time"]
-
-                    bundle_index = bundle[port_A]["bundle_index"]
-
-                    point_id = np.array(paired["ids"], dtype=np.int64)
-
-                    loc_img_x_A = np.array(paired["loc_img_x_A"], dtype=np.float64)
-                    loc_img_x_B = np.array(paired["loc_img_x_B"], dtype=np.float64)
-
-                    loc_img_y_A = np.array(paired["loc_img_y_A"], dtype=np.float64)
-                    loc_img_y_B = np.array(paired["loc_img_y_B"], dtype=np.float64)
-
-                    loc_board_x = np.array(paired["loc_board_x_A"], dtype=np.float64)
-                    loc_board_y = np.array(paired["loc_board_y_A"], dtype=np.float64)
-
-                    packet = PairedPointsPacket(
-                        bundle_index=bundle_index,
-                        port_A=port_A,
-                        port_B=port_B,
-                        time_A=time_A,
-                        time_B=time_B,
-                        point_id=point_id,
-                        loc_board_x=loc_board_x,
-                        loc_board_y=loc_board_y,
-                        loc_img_x_A=loc_img_x_A,
-                        loc_img_y_A=loc_img_y_A,
-                        loc_img_x_B=loc_img_x_B,
-                        loc_img_y_B=loc_img_y_B,
-                    )
-                    logging.debug(f"Points in common for ports {pair}: \n {paired}")
-
-            if paired is not None:
-                self.out_q.put(packet)
-                self.add_to_tidy_output(packet)
-
-            if bundle_index == 100:
-                pd.DataFrame(self.tidy_output).to_csv(self.csv_output_path)
+                    packet = self.get_paired_points_packet(pair, points)
+                    
+                    # if no points in common, then don't do anything
+                    if packet is None:
+                        pass
+                    else:
+                        self.out_q.put(packet)
+                        self.add_to_tidy_output(packet)
 
 
 @dataclass
@@ -208,12 +217,12 @@ if __name__ == "__main__":
 
     pairs = [(0, 1), (0, 2), (1, 2)]
 
-    locatr = PairedPointStream(
+    point_stream = PairedPointStream(
         synchronizer=syncr, pairs=pairs, tracker=trackr, csv_output_path=csv_output
     )
 
     while True:
-        points_packet = locatr.out_q.get()
+        points_packet = point_stream.out_q.get()
 
         print("--------------------------------------")
         print(points_packet)

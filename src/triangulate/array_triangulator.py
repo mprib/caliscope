@@ -109,7 +109,7 @@ class ArrayTriangulator:
             print(f"Bundle: {triangulated_packet.bundle_index}  Pair: {pair}")
             # TODO: #45 figure out how to get this to stop automatically
             # might want to get the frame counts for the saved port data
-            if triangulated_packet.bundle_index > 30:
+            if triangulated_packet.bundle_index > 100:
                 self.stop.set()
 
         if self.save_directory is not None:

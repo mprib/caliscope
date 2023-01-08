@@ -16,23 +16,17 @@ logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LO
 from queue import Queue
 from threading import Thread, Event
 from dataclasses import dataclass
-import math
 import cv2
-from os.path import exists
-import toml
 import numpy as np
 import pandas as pd
-import scipy
 from pathlib import Path
-import sys
-from numba import jit
 
 from src.triangulate.paired_point_stream import PairedPointStream
 from src.cameras.camera_array import CameraData
 
 
 class StereoTriangulator:
-    def __init__(self, camera_A: CameraData, camera_B: CameraData, in_q: Queue):
+    def __init__(self, camera_A: CameraData, camera_B: CameraData):
 
         self.camera_A = camera_A
         self.camera_B = camera_B
@@ -42,7 +36,7 @@ class StereoTriangulator:
 
         self.build_projection_matrices()
 
-        self.in_q = in_q
+        self.in_q = Queue(-1)
         self.out_q = Queue(-1)
         self.stop = Event()
 
@@ -216,14 +210,14 @@ if __name__ == "__main__":
     camA, camB = camera_array.cameras[0], camera_array.cameras[2]
     pair = (camA.port, camB.port)
 
-    test_pair_out_q = Queue(-1)
-    triangulatr = StereoTriangulator(camA, camB, test_pair_out_q)
+    # test_pair_out_q = Queue(-1)
+    triangulatr = StereoTriangulator(camA, camB)
     frames_processed = 0
 
     while True:
         paired_points = point_stream.out_q.get()
         if paired_points.pair == (0, 2):
-            test_pair_out_q.put(paired_points)
+            triangulatr.in_q.put(paired_points)
 
         # print(all_pairs_common_points)
         # pair_points = all_pairs_common_points[pair]

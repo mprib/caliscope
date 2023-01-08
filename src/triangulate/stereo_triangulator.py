@@ -45,10 +45,12 @@ class StereoTriangulator:
 
     def build_projection_matrices(self):
         
-        # Note that the inversion / negation in the code below appears
-        # to yield accurate results... I think it is an issue with 
-        # which frame of reference is being represented
-        # remains murky in my brain, but this produces sensible results
+        # Camera parameters are position in a world frame of reference
+        # which is synonymous to the anchor camera frame prior to setting origin
+        # Projection matrix is to re-orient a point from the world position 
+        # to a camera frame of reference, therefore is inverted (rotation)/negated (translation)
+        # I believe this is the correct interpretation and appears to yield
+        # reasonable results
         rot_A = np.linalg.inv(self.camera_A.rotation)
         trans_A = np.array(self.camera_A.translation)*-1
         rot_trans_A = np.concatenate([rot_A, trans_A], axis=-1)
@@ -67,9 +69,6 @@ class StereoTriangulator:
 
         while not self.stop.is_set():
             packet_2D = self.in_q.get()
-            all_points_3D = []
-            # print(f"Packet for bundle: {packet_2D.bundle_index}, for pair: {packet_2D.pair}")
-            # this is a clear candidate for vectorization...going to not worry about it now
 
             time = (packet_2D.time_A + packet_2D.time_B) / 2
 
@@ -85,8 +84,7 @@ class StereoTriangulator:
 
                 xyz_h = xyzw_h.T[:,:3]
                 w = xyzw_h[3,:]
-                xyz = np.divide(xyz_h.T,w).T
-                # print(xyz)
+                xyz = np.divide(xyz_h.T,w).T # convert to euclidean coordinates
             else:
                 xyz = np.array([])
 

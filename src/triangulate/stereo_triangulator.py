@@ -50,7 +50,11 @@ class StereoTriangulator:
         self.thread.start()
 
     def build_projection_matrices(self):
-
+        
+        # Note that the inversion / negation in the code below appears
+        # to yield accurate results... I think it is an issue with 
+        # which frame of reference is being represented
+        # remains murky in my brain, but this produces sensible results
         rot_A = np.linalg.inv(self.camera_A.rotation)
         trans_A = np.array(self.camera_A.translation)*-1
         rot_trans_A = np.concatenate([rot_A, trans_A], axis=-1)

@@ -70,23 +70,69 @@ for port, cam in camera_array.cameras.items():
 # more than one pair of cameras. In the three camera case, it will mean
 # observed by all three cameras, which I think will be a fairly small number
 
+# points_3d with shape (n_points, 3) contains initial estimates of point coordinates in the world frame.
 #%%
 points_3d_csv_path = Path(session_directory, "triangulated_points.csv")
 points_3d = pd.read_csv(points_3d_csv_path)
 
-
+# select only the 3d points that are shared across more than one pair of cameras
 points_3d = (
     points_3d[["bundle", "id", "pair", "x_pos", "y_pos", "z_pos"]]
+    .sort_values(["bundle", "id"])
     .groupby(["bundle", "id"])
-    .agg({"x_pos": "mean", "y_pos": "mean", "z_pos": "mean", "id": "size"})
-    .rename(columns={"id": "count"})
+    .agg({"x_pos": "mean", "y_pos": "mean", "z_pos": "mean", "pair": "size"})
+    .rename(
+        columns={"pair": "count", "x_pos": "x_3d", "y_pos": "y_3d", "z_pos": "z_3d"}
+    )
     .query("count > 1")
+    .drop(["count"], axis=1)
+    .reset_index()
+    .reset_index()
+    .rename(columns={"index":"index_3d"})
 )
 
-points_3d
 # %%
+# Convert paired_points_csv into a format that will be amenable to the bundle adjustment.
+# This may end up being rather convoluted but I think is for more time efficient (for me)
+# than going back and figuring out how to create these files live during processing
+paired_point_csv_path = Path(session_directory, "paired_point_data.csv")
+paired_points = pd.read_csv(paired_point_csv_path)
+
+paired_points_A = paired_points[
+    ["port_A", "bundle_index", "point_id", "loc_img_x_A", "loc_img_y_A"]
+].rename(
+    columns={
+        "bundle_index": "bundle",
+        "port_A": "camera",
+        "point_id": "id",
+        "loc_img_x_A": "x_2d",
+        "loc_img_y_A": "y_2d",
+    }
+)
+
+paired_points_B = paired_points[
+    ["port_B", "bundle_index", "point_id", "loc_img_x_B", "loc_img_y_B"]
+].rename(
+    columns={
+        "bundle_index": "bundle",
+        "port_B": "camera",
+        "point_id": "id",
+        "loc_img_x_B": "x_2d",
+        "loc_img_y_B": "y_2d",
+    }
+)
+
+paired_points = pd.concat([paired_points_A, paired_points_B]).drop_duplicates(
+    ["camera", "bundle", "id"]
+)
 # Get points by camera...go back to paired point data
 
+#%%
+merged_point_data = (
+    paired_points.merge(points_3d, how="left", on=["bundle", "id"])
+    .sort_values(["bundle", "id"])
+    .dropna()
+)
 # camera_id
 # camera_id with shape (n_observations,) contains indices of cameras (from 0 to n_cameras - 1) involved in each observation.
 
@@ -98,8 +144,5 @@ points_3d
 # points_2d
 # points_2d with shape (n_observations, 2) contains measured 2-D coordinates of points projected on images in each observations.
 
-
 # %%
 # points_3d
-# points_3d with shape (n_points, 3) contains initial estimates of point coordinates in the world frame.
-# %%

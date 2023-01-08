@@ -19,7 +19,6 @@ session_directory = Path(repo, "sessions", "iterative_adjustment")
 config_file = Path(session_directory, "config.toml")
 
 array_builder = CameraArrayBuilder(config_file)
-
 camera_array = array_builder.get_camera_array()
 
 #%%
@@ -73,11 +72,11 @@ for port, cam in camera_array.cameras.items():
 # points_3d with shape (n_points, 3) contains initial estimates of point coordinates in the world frame.
 #%%
 points_3d_csv_path = Path(session_directory, "triangulated_points.csv")
-points_3d = pd.read_csv(points_3d_csv_path)
+points_3d_df = pd.read_csv(points_3d_csv_path)
 
 # select only the 3d points that are shared across more than one pair of cameras
-points_3d = (
-    points_3d[["bundle", "id", "pair", "x_pos", "y_pos", "z_pos"]]
+points_3d_df = (
+    points_3d_df[["bundle", "id", "pair", "x_pos", "y_pos", "z_pos"]]
     .sort_values(["bundle", "id"])
     .groupby(["bundle", "id"])
     .agg({"x_pos": "mean", "y_pos": "mean", "z_pos": "mean", "pair": "size"})
@@ -129,10 +128,19 @@ paired_points = pd.concat([paired_points_A, paired_points_B]).drop_duplicates(
 
 #%%
 merged_point_data = (
-    paired_points.merge(points_3d, how="left", on=["bundle", "id"])
+    paired_points.merge(points_3d_df, how="left", on=["bundle", "id"])
     .sort_values(["bundle", "id"])
     .dropna()
 )
+
+#%%
+points_3d = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
+
+n_points = points_3d.shape[0]
+point_indices = np.array(merged_point_data["index_3d"], dtype=np.int32)
+camera_indices = np.array(merged_point_data["camera"], dtype=np.int32)
+points_2d = np.array(merged_point_data[["x_2d","x_3d"]])
+
 # camera_id
 # camera_id with shape (n_observations,) contains indices of cameras (from 0 to n_cameras - 1) involved in each observation.
 
@@ -146,3 +154,112 @@ merged_point_data = (
 
 # %%
 # points_3d
+n_cameras = camera_params.shape[0]
+n_points = points_3d.shape[0]
+
+n = 9 * n_cameras + 3 * n_points
+m = 2 * points_2d.shape[0]
+
+print("n_cameras: {}".format(n_cameras))
+print("n_points: {}".format(n_points))
+print("Total number of parameters: {}".format(n))
+print("Total number of residuals: {}".format(m))
+
+
+# Now define the function which returns a vector of residuals. We use numpy vectorized computations:
+
+def rotate(points, rot_vecs):
+    """Rotate points by given rotation vectors.
+
+    Rodrigues' rotation formula is used.
+    """
+    theta = np.linalg.norm(rot_vecs, axis=1)[:, np.newaxis]
+    with np.errstate(invalid="ignore"):
+        v = rot_vecs / theta
+        v = np.nan_to_num(v)
+    dot = np.sum(points * v, axis=1)[:, np.newaxis]
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+
+    return (
+        cos_theta * points + sin_theta * np.cross(v, points) + dot * (1 - cos_theta) * v
+    )
+
+
+def project(points, camera_params):
+    """Convert 3-D points to 2-D by projecting onto images."""
+    points_proj = rotate(points, camera_params[:, :3])
+    points_proj += camera_params[:, 3:6]
+    points_proj = -points_proj[:, :2] / points_proj[:, 2, np.newaxis]
+    f = camera_params[:, 6]
+    k1 = camera_params[:, 7]
+    k2 = camera_params[:, 8]
+    n = np.sum(points_proj**2, axis=1)
+    r = 1 + k1 * n + k2 * n**2
+    points_proj *= (r * f)[:, np.newaxis]
+    return points_proj
+
+
+def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d):
+    """Compute residuals.
+    `params` contains camera parameters and 3-D coordinates.
+    """
+    camera_params = params[: n_cameras * 9].reshape((n_cameras, 9))
+    points_3d = params[n_cameras * 9 :].reshape((n_points, 3))
+    points_proj = project(points_3d[point_indices], camera_params[camera_indices])
+    return (points_proj - points_2d).ravel()
+
+
+# You can see that computing Jacobian of fun is cumbersome,
+# thus we will rely on the finite difference approximation.
+# To make this process time feasible we provide Jacobian
+# sparsity structure (i. e. mark elements which are known to be non-zero):
+
+
+from scipy.sparse import lil_matrix
+
+
+def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices):
+    m = camera_indices.size * 2
+    n = n_cameras * 9 + n_points * 3
+    A = lil_matrix((m, n), dtype=int)
+
+    i = np.arange(camera_indices.size)
+    for s in range(9):
+        A[2 * i, camera_indices * 9 + s] = 1
+        A[2 * i + 1, camera_indices * 9 + s] = 1
+
+    for s in range(3):
+        A[2 * i, n_cameras * 9 + point_indices * 3 + s] = 1
+        A[2 * i + 1, n_cameras * 9 + point_indices * 3 + s] = 1
+
+    return A
+
+
+# %matplotlib inline
+import matplotlib.pyplot as plt
+
+x0 = np.hstack((camera_params.ravel(), points_3d.ravel()))
+f0 = fun(x0, n_cameras, n_points, camera_indices, point_indices, points_2d)
+# plt.plot(f0)
+
+A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices)
+
+import time
+from scipy.optimize import least_squares
+
+t0 = time.time()
+res = least_squares(
+    fun,
+    x0,
+    jac_sparsity=A,
+    verbose=2,      
+    x_scale="jac",
+    ftol=1e-4,
+    method="trf",
+    args=(n_cameras, n_points, camera_indices, point_indices, points_2d),
+)
+t1 = time.time()
+
+
+# %%

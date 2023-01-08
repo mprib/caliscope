@@ -47,6 +47,9 @@ class ArrayTriangulator:
         self.paired_point_qs = (
             {}
         )  # means to pass stereotriangulators new paired points to process
+        
+        self.agg_3d_points = None
+        
         for pair in self.paired_point_stream.pairs:
             logging.info(f"Creating StereoTriangulator for camera pair {pair}")
             portA = pair[0]
@@ -54,9 +57,11 @@ class ArrayTriangulator:
             camA = self.camera_array.cameras[portA]
             camB = self.camera_array.cameras[portB]
             # pair_q = Queue(-1)
-            self.paired_point_qs[pair] = Queue(-1)
+            # self.paired_point_qs[pair] = Queue(-1)
             self.stereo_triangulators[pair] = StereoTriangulator(
-                camA, camB, self.paired_point_qs[pair]
+                camA, 
+                camB, 
+                # self.paired_point_qs[pair]
             )
 
         self.stop = Event()
@@ -66,17 +71,27 @@ class ArrayTriangulator:
         )
         self.thread.start()
 
+    def store_3d_points(self, packet):
+        
+        if self.agg_3d_points is None:
+            # build a dictionary of lists that will form basis of dataframe output to csv
+            self.agg_3d_points = {
+                "pair": [],
+                "time": [],
+                "bundle": [],
+                "id": [],
+                "x_pos": [],
+                "y_pos": [],
+                "z_pos": [],
+            }
+       
+        packet_dict = packet.to_dict()
+
+        for key, value in packet_dict.items():
+            self.agg_3d_points[key].extend(value)
+       
+        
     def triangulate_points_worker(self):
-        # build a dictionary of lists that will form basis of dataframe output to csv
-        aggregate_3d_points = {
-            "pair": [],
-            "time": [],
-            "bundle": [],
-            "id": [],
-            "x_pos": [],
-            "y_pos": [],
-            "z_pos": [],
-        }
 
         while not self.stop.is_set():
             # read in a paired point stream
@@ -84,20 +99,12 @@ class ArrayTriangulator:
             logging.info(
                 f"Bundle: {new_paired_point_packet.bundle_index} | Pair: {new_paired_point_packet.pair}"
             )
-            # hand off the paired points to the appropriate triangulator via queue
-            # honestly, the more I look at this the more I hate it. make it explicit
-            # that you are handing off to a stereo triangulator
+           
             pair = new_paired_point_packet.pair
-            self.paired_point_qs[pair].put(new_paired_point_packet)
+            self.stereo_triangulators[pair].in_q.put(new_paired_point_packet)
             triangulated_packet = self.stereo_triangulators[pair].out_q.get()
 
-            # for pair, triangulator in self.stereo_triangulators.items():
-            #     if not triangulator.out_q.empty():
-            #         triangulated_packet = triangulator.out_q.get()
-            packet_data = triangulated_packet.to_dict()
-
-            for key, value in packet_data.items():
-                aggregate_3d_points[key].extend(value)
+            self.store_3d_points(triangulated_packet)
 
             print(f"Bundle: {triangulated_packet.bundle_index}  Pair: {pair}")
             # TODO: #45 figure out how to get this to stop automatically
@@ -107,8 +114,8 @@ class ArrayTriangulator:
 
         if self.save_directory is not None:
             logging.info(f"Saving triangulated point csv to {self.save_directory}")
-            aggregate_3d_points = pd.DataFrame(aggregate_3d_points)
-            aggregate_3d_points.to_csv(
+            self.agg_3d_points = pd.DataFrame(self.agg_3d_points)
+            self.agg_3d_points.to_csv(
                 Path(self.save_directory, "triangulated_points.csv")
             )
 

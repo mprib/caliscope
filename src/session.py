@@ -270,7 +270,7 @@ class Session:
             logging.info("No stereo frame emitter to stop")
 
         try:
-            logging.info("Attempting to stop stereocalibrator")
+            logging.info("Attemptidg to stop stereocalibrator")
             self.stereocalibrator.stop()
 
         except (AttributeError):

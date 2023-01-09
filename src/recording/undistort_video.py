@@ -28,15 +28,16 @@ def undistort_file(camera: CameraData, video_directory, fps=30):
         success, raw_frame = capture.read()
 
         if success:
-            if raw_frame is None:
-                break
-            else:
-                undistorted_frame = cv2.undistort(
-                    raw_frame, camera.camera_matrix, camera.distortion
-                )
-                print(f"Writing frame at port {camera.port}")
-                writer.write(undistorted_frame) 
-    
+            # if raw_frame is None:
+            #     break
+            # else:
+            undistorted_frame = cv2.undistort(
+                raw_frame, camera.camera_matrix, camera.distortion
+            )
+            print(f"Writing frame at port {camera.port}")
+            writer.write(undistorted_frame) 
+        else:
+            break 
     # must release writer to finalize file save after EOF reached
     print(f"Releasing writer at port {camera.port}")
     writer.release()

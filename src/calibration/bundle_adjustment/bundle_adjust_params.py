@@ -265,3 +265,20 @@ t1 = time.time()
 
 
 # %%
+# ok. Progress has been made, but I now need to pull the parameters out of the 
+# res.x, reconstruct the camera array, and then compare the results in the vizualizer
+# at least I think that's the best path forward. And whatever happens, this 
+# will at least help me to develop the pipeline needed to assess future iterations
+# of the bundle adjustment process
+
+
+res.x
+
+flat_camera_params = res.x[0:n_cameras*9]
+n_params = 9
+new_camera_params = flat_camera_params.reshape(n_cameras,n_params )
+#%%
+for cam_index in range(n_cameras):
+    print(cam_index)
+
+# %%

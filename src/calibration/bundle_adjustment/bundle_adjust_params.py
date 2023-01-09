@@ -36,10 +36,12 @@ camera_params = None
 for port, cam in camera_array.cameras.items():
 
     # pull rotation matrix and convert to Rodrigues
-    rotation_matrix = camera_array.cameras[port].rotation
-    rotation_rodrigues = cv2.Rodrigues(rotation_matrix)[0]  # elements 0,1,2
-    translation = camera_array.cameras[port].translation  # elements 3,4,5
+    rotation_matrix_world = camera_array.cameras[port].rotation # rotation of the camera relative to the world
+    rotation_matrix_proj = np.linalg.inv(rotation_matrix_world) # rotation of the world relative to camera
+    rotation_rodrigues = cv2.Rodrigues(rotation_matrix_proj)[0]  # elements 0,1,2
 
+    translation_world = camera_array.cameras[port].translation  # elements 3,4,5
+    translation_proj = translation_world * -1
     # two focal lengths for potentially rectangular pixels...
     # I'm assuming they are square
     fx = camera_array.cameras[port].camera_matrix[0, 0]
@@ -54,7 +56,7 @@ for port, cam in camera_array.cameras.items():
     k1 = camera_array.cameras[port].distortion[0, 0]  # element 7
     k2 = camera_array.cameras[port].distortion[0, 1]  # element 8
 
-    port_param = np.hstack([rotation_rodrigues[:, 0], translation[:, 0], f, k1, k2])
+    port_param = np.hstack([rotation_rodrigues[:, 0], translation_proj[:, 0], f, k1, k2])
 
     if camera_params is None:
         camera_params = port_param

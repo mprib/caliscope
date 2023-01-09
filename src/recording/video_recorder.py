@@ -9,7 +9,7 @@ logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LO
 
 from pathlib import Path
 from queue import Queue
-from threading import Thread
+from threading import Thread, Event
 import cv2
 import sys
 import pandas as pd
@@ -21,8 +21,9 @@ class VideoRecorder:
     def __init__(self, synchronizer):
         self.syncronizer = synchronizer
 
-        # connect video recorder to synchronizer via a "bundle in" queue
+        # build dict that will be stored to csv
         self.recording = False
+        self.trigger_stop = Event()
 
     def build_video_writers(self):
         
@@ -41,9 +42,9 @@ class VideoRecorder:
 
 
     def save_frame_worker(self):
-
+        # connect video recorder to synchronizer via a "bundle in" queue
         self.build_video_writers()
-        # build dict that will be stored to csv
+
         self.bundle_history = {"bundle_index": [],
                                "port":[],
                                "frame_index":[],
@@ -53,7 +54,7 @@ class VideoRecorder:
         self.bundle_in_q = Queue(-1)
         self.syncronizer.subscribe_to_bundle(self.bundle_in_q)       
 
-        while self.recording:
+        while not self.trigger_stop.is_set():
             frame_bundle = self.bundle_in_q.get() 
             logging.debug("Pulling bundle from record queue")
 
@@ -78,7 +79,7 @@ class VideoRecorder:
                     key = cv2.waitKey(1)
 
             bundle_index += 1
-
+        self.trigger_stop.clear() # reset stop recording trigger
         self.syncronizer.release_bundle_q(self.bundle_in_q)
 
         # a proper release is strictly necessary to ensure file is readable
@@ -106,8 +107,7 @@ class VideoRecorder:
 
 
     def stop_recording(self):
-        self.recording = False
-
+        self.trigger_stop.set()
 
 
 if __name__ == "__main__":
@@ -118,8 +118,7 @@ if __name__ == "__main__":
     from src.cameras.live_stream import LiveStream
     from src.session import Session
     
-    repo = Path(__file__).parent.parent.parent
-    # config_path = Path(repo, "sessions", "default_session")
+    repo = str(Path(__file__)).split("src")[0]
     session_path = Path(repo, "sessions", "high_res_session")
     print(f"Config Path: {session_path}")
     session = Session(session_path)
@@ -137,5 +136,5 @@ if __name__ == "__main__":
     print(repo)
     video_path = Path(repo,"sessions", "high_res_session", "recording")
     video_recorder.start_recording(video_path)
-    time.sleep(30)
+    time.sleep(5)
     video_recorder.stop_recording()

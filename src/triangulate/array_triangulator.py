@@ -109,7 +109,7 @@ class ArrayTriangulator:
             print(f"Bundle: {triangulated_packet.bundle_index}  Pair: {pair}")
             # TODO: #45 figure out how to get this to stop automatically
             # might want to get the frame counts for the saved port data
-            if triangulated_packet.bundle_index > 100:
+            if triangulated_packet.bundle_index > 300:
                 self.stop.set()
 
         if self.save_directory is not None:
@@ -129,12 +129,13 @@ if __name__ == "__main__":
     repo = str(Path(__file__)).split("src")[0]
     session_directory = Path(repo, "sessions", "iterative_adjustment")
     config_file = Path(session_directory, "config.toml")
+    recording_directory = Path(session_directory,"recording")
     array_builder = CameraArrayBuilder(config_file)
     camera_array = array_builder.get_camera_array()
 
     # Build streams from pre-recorded video
     ports = [0, 1, 2]
-    recorded_stream_pool = RecordedStreamPool(ports, session_directory)
+    recorded_stream_pool = RecordedStreamPool(ports, recording_directory)
 
     recorded_stream_pool.play_videos()
     syncr = Synchronizer(

@@ -44,26 +44,24 @@ class StereoTriangulator:
         self.thread.start()
 
     def build_projection_matrices(self):
-        
+
         # Camera parameters are position in a world frame of reference
         # which is synonymous to the anchor camera frame prior to setting origin
-        # Projection matrix is to re-orient a point from the world position 
+        # Projection matrix is to re-orient a point from the world position
         # to a camera frame of reference, therefore is inverted (rotation)/negated (translation)
         # I believe this is the correct interpretation and appears to yield
         # reasonable results
         rot_A = np.linalg.inv(self.camera_A.rotation)
-        trans_A = np.array(self.camera_A.translation)*-1
+        trans_A = np.array(self.camera_A.translation) * -1
         rot_trans_A = np.concatenate([rot_A, trans_A], axis=-1)
         mtx_A = self.camera_A.camera_matrix
         self.proj_A = mtx_A @ rot_trans_A  # projection matrix for CamA
 
         rot_B = np.linalg.inv(self.camera_B.rotation)
-        trans_B = np.array(self.camera_B.translation)*-1
+        trans_B = np.array(self.camera_B.translation) * -1
         rot_trans_B = np.concatenate([rot_B, trans_B], axis=-1)
         mtx_B = self.camera_B.camera_matrix
         self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
-
-
 
     def create_3D_points(self):
 
@@ -82,9 +80,9 @@ class StereoTriangulator:
                     self.proj_A, self.proj_B, points_A, points_B
                 )
 
-                xyz_h = xyzw_h.T[:,:3]
-                w = xyzw_h[3,:]
-                xyz = np.divide(xyz_h.T,w).T # convert to euclidean coordinates
+                xyz_h = xyzw_h.T[:, :3]
+                w = xyzw_h[3, :]
+                xyz = np.divide(xyz_h.T, w).T  # convert to euclidean coordinates
             else:
                 xyz = np.array([])
 
@@ -93,14 +91,13 @@ class StereoTriangulator:
                 pair=self.pair,
                 time=time,
                 point_ids=packet_2D.point_id,
-                xyz=xyz
+                xyz=xyz,
+                xy_A=points_A,
+                xy_B=points_B,
             )
 
             logging.debug(f"Placing current bundle of 3d points on queue")
             self.out_q.put(packet_3D)
-
-
-
 
     def undistort(self, point, camera: CameraData, iter_num=3):
         # implementing a function described here: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html
@@ -132,38 +129,43 @@ class TriangulatedPointsPacket:
     point_ids: np.ndarray
     xyz: np.ndarray
     bundle_index: int
+    xy_A: np.ndarray
+    xy_B: np.ndarray
 
     def to_dict(self):
         num_rows = len(self.point_ids)
 
         if num_rows == 0:
-            data = {
-                "pair": [],
-                "time": [],
-                "bundle": [],
-                "id": [],
-                "x_pos": [],
-                "y_pos": [],
-                "z_pos": [],
-            }
-            return data
+            return None 
         else:
             pair_list = [self.pair] * num_rows
             time_list = [self.time] * num_rows
             bundle_list = [self.bundle_index] * num_rows
             id_list = self.point_ids.tolist()
+            port_A_list = [self.pair[0]] * num_rows
+            port_B_list = [self.pair[1]] * num_rows
             x_list = self.xyz[:, 0].tolist()
             y_list = self.xyz[:, 1].tolist()
             z_list = self.xyz[:, 2].tolist()
+            x_A_list = self.xy_A[0,:].tolist()
+            y_A_list = self.xy_A[1,:].tolist()
+            x_B_list = self.xy_B[0,: ].tolist()
+            y_B_list = self.xy_B[1,: ].tolist()
 
             data = {
                 "pair": pair_list,
+                "port_A": port_A_list,
+                "port_B": port_B_list,
                 "time": time_list,
                 "bundle": bundle_list,
                 "id": id_list,
                 "x_pos": x_list,
                 "y_pos": y_list,
                 "z_pos": z_list,
+                "x_A_list": x_A_list,
+                "y_A_list": y_A_list,
+                "x_B_list": x_B_list,
+                "y_B_list": y_B_list,
             }
 
             return data
@@ -183,8 +185,8 @@ if __name__ == "__main__":
     camera_array = CameraArrayBuilder(config_data).get_camera_array()
 
     # create playback streams to provide to synchronizer
-    recorded_data = Path(repo, "sessions", "iterative_adjustment")
-    ports = [0, 2]
+    recorded_data = Path(repo, "sessions", "iterative_adjustment", "recording")
+    ports = [0, 1]
     recorded_stream_pool = RecordedStreamPool(ports, recorded_data)
     syncr = Synchronizer(
         recorded_stream_pool.streams, fps_target=None
@@ -198,7 +200,7 @@ if __name__ == "__main__":
     trackr = CornerTracker(charuco)
 
     # create a commmon point finder to grab charuco corners shared between the pair of ports
-    pairs = [(0, 2)]
+    pairs = [(0, 1)]
     point_stream = PairedPointStream(
         synchronizer=syncr,
         pairs=pairs,
@@ -214,7 +216,7 @@ if __name__ == "__main__":
 
     while True:
         paired_points = point_stream.out_q.get()
-        if paired_points.pair == (0, 2):
+        if paired_points.pair == (0, 1):
             triangulatr.in_q.put(paired_points)
 
         # print(all_pairs_common_points)
@@ -222,7 +224,7 @@ if __name__ == "__main__":
         # if pair_points is not None:
         # triangulatr.in_q.put(paired_points)
         packet_3d = triangulatr.out_q.get()
-        print(packet_3d)
+        print(packet_3d.to_dict())
         frames_processed += 1
         # print(f"Frames Processed: {frames_processed}")
         # print(f"Time: {packet_3d.time}")

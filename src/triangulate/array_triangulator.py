@@ -56,12 +56,9 @@ class ArrayTriangulator:
             portB = pair[1]
             camA = self.camera_array.cameras[portA]
             camB = self.camera_array.cameras[portB]
-            # pair_q = Queue(-1)
-            # self.paired_point_qs[pair] = Queue(-1)
             self.stereo_triangulators[pair] = StereoTriangulator(
                 camA, 
                 camB, 
-                # self.paired_point_qs[pair]
             )
 
         self.stop = Event()
@@ -71,18 +68,24 @@ class ArrayTriangulator:
         )
         self.thread.start()
 
-    def store_3d_points(self, packet):
+    def store_point_data(self, packet):
         
         if self.agg_3d_points is None:
             # build a dictionary of lists that will form basis of dataframe output to csv
             self.agg_3d_points = {
                 "pair": [],
+                "port_A": [],
+                "port_B": [],
                 "time": [],
                 "bundle": [],
                 "id": [],
                 "x_pos": [],
                 "y_pos": [],
                 "z_pos": [],
+                "x_A_list": [],
+                "y_A_list": [],
+                "x_B_list": [],
+                "y_B_list": [],
             }
        
         packet_dict = packet.to_dict()
@@ -104,7 +107,7 @@ class ArrayTriangulator:
             self.stereo_triangulators[pair].in_q.put(new_paired_point_packet)
             triangulated_packet = self.stereo_triangulators[pair].out_q.get()
 
-            self.store_3d_points(triangulated_packet)
+            self.store_point_data(triangulated_packet)
 
             print(f"Bundle: {triangulated_packet.bundle_index}  Pair: {pair}")
             # TODO: #45 figure out how to get this to stop automatically
@@ -129,14 +132,15 @@ if __name__ == "__main__":
     repo = str(Path(__file__)).split("src")[0]
     session_directory = Path(repo, "sessions", "iterative_adjustment")
     config_file = Path(session_directory, "config.toml")
-    recording_directory = Path(session_directory,"recording")
     array_builder = CameraArrayBuilder(config_file)
     camera_array = array_builder.get_camera_array()
-
+    
     # Build streams from pre-recorded video
+    recording_directory = Path(session_directory,"recording")
     ports = [0, 1, 2]
     recorded_stream_pool = RecordedStreamPool(ports, recording_directory)
 
+    # synchronize videos
     recorded_stream_pool.play_videos()
     syncr = Synchronizer(
         recorded_stream_pool.streams, fps_target=None

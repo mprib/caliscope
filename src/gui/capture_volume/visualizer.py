@@ -180,13 +180,10 @@ if __name__ == "__main__":
     camera_array = CameraArrayBuilder(config_path).get_camera_array()
 
     point_data_path = Path(
-        repo, "sessions", "iterative_adjustment", "triangulated_points.csv"
+        repo, "sessions", "iterative_adjustment", "recording", "triangulated_points.csv"
     )
 
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(camera_array, point_data_path)
-    # vizr.add_point_q(triangulatr.out_q)
-    # vizr.scene.show()
-    # vizr.begin()
 
     sys.exit(app.exec())

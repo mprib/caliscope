@@ -16,8 +16,9 @@ from src.cameras.camera_array import CameraArray, CameraArrayBuilder
 # sample code from scipy.org
 
 session_directory = Path(repo, "sessions", "iterative_adjustment")
-config_file = Path(session_directory, "config.toml")
 
+# get camera array
+config_file = Path(session_directory, "config.toml")
 array_builder = CameraArrayBuilder(config_file)
 camera_array = array_builder.get_camera_array()
 
@@ -73,10 +74,11 @@ for port, cam in camera_array.cameras.items():
 
 # points_3d with shape (n_points, 3) contains initial estimates of point coordinates in the world frame.
 #%%
-points_3d_csv_path = Path(session_directory, "triangulated_points.csv")
+points_3d_csv_path = Path(session_directory,"recording", "triangulated_points.csv")
 points_3d_df = pd.read_csv(points_3d_csv_path)
 
 # select only the 3d points that are shared across more than one pair of cameras
+# take the average as the initial guess of where the points are in 3d space
 points_3d_df = (
     points_3d_df[["bundle", "id", "pair", "x_pos", "y_pos", "z_pos"]]
     .sort_values(["bundle", "id"])
@@ -96,7 +98,11 @@ points_3d_df = (
 # Convert paired_points_csv into a format that will be amenable to the bundle adjustment.
 # This may end up being rather convoluted but I think is for more time efficient (for me)
 # than going back and figuring out how to create these files live during processing
-paired_point_csv_path = Path(session_directory, "paired_point_data.csv")
+
+# NOTE: running paired points appears to be more time intensive than the 
+# triangulation...perhaps look for a way to create the point output needed
+# from within the array triangulator
+paired_point_csv_path = Path(session_directory, "recording", "paired_point_data.csv")
 paired_points = pd.read_csv(paired_point_csv_path)
 
 paired_points_A = paired_points[
@@ -277,8 +283,5 @@ res.x
 flat_camera_params = res.x[0:n_cameras*9]
 n_params = 9
 new_camera_params = flat_camera_params.reshape(n_cameras,n_params )
-#%%
-for cam_index in range(n_cameras):
-    print(cam_index)
 
 # %%

@@ -37,8 +37,12 @@ camera_params = None
 for port, cam in camera_array.cameras.items():
 
     # pull rotation matrix and convert to Rodrigues
-    rotation_matrix_world = camera_array.cameras[port].rotation # rotation of the camera relative to the world
-    rotation_matrix_proj = np.linalg.inv(rotation_matrix_world) # rotation of the world relative to camera
+    rotation_matrix_world = camera_array.cameras[
+        port
+    ].rotation  # rotation of the camera relative to the world
+    rotation_matrix_proj = np.linalg.inv(
+        rotation_matrix_world
+    )  # rotation of the world relative to camera
     rotation_rodrigues = cv2.Rodrigues(rotation_matrix_proj)[0]  # elements 0,1,2
 
     translation_world = camera_array.cameras[port].translation  # elements 3,4,5
@@ -57,7 +61,9 @@ for port, cam in camera_array.cameras.items():
     k1 = camera_array.cameras[port].distortion[0, 0]  # element 7
     k2 = camera_array.cameras[port].distortion[0, 1]  # element 8
 
-    port_param = np.hstack([rotation_rodrigues[:, 0], translation_proj[:, 0], f, k1, k2])
+    port_param = np.hstack(
+        [rotation_rodrigues[:, 0], translation_proj[:, 0], f, k1, k2]
+    )
 
     if camera_params is None:
         camera_params = port_param
@@ -74,70 +80,39 @@ for port, cam in camera_array.cameras.items():
 
 # points_3d with shape (n_points, 3) contains initial estimates of point coordinates in the world frame.
 #%%
-points_3d_csv_path = Path(session_directory,"recording", "triangulated_points.csv")
-points_3d_df = pd.read_csv(points_3d_csv_path)
+points_csv_path = Path(session_directory, "recording", "triangulated_points.csv")
+points_df = pd.read_csv(points_csv_path)
 
-# select only the 3d points that are shared across more than one pair of cameras
-# take the average as the initial guess of where the points are in 3d space
-points_3d_df = (
-    points_3d_df[["bundle", "id", "pair", "x_pos", "y_pos", "z_pos"]]
+points_2d_port_A = (points_df[["port_A", "bundle", "id", "x_A_list", "y_A_list"]]
+                 .rename(columns={"port_A":"camera", "bundle":"bundle_index","id":"point_id", "x_A_list":"x_2d", "y_A_list":"y_2d"}))
+
+points_2d_port_B = (points_df[["port_B", "bundle", "id", "x_B_list", "y_B_list"]]
+                 .rename(columns={"port_B":"camera", "bundle":"bundle_index","id":"point_id", "x_B_list":"x_2d", "y_B_list":"y_2d"}))
+
+points_2d_df = (pd.concat([points_2d_port_A, points_2d_port_B])
+                    .drop_duplicates()
+                    .sort_values(["bundle_index", "point_id", "camera"])
+                    .rename(columns={"bundle_index":"bundle"}))
+
+#%%
+# get 3d points with indices to merge back into points_2d
+
+points_3d_df = (points_df[["bundle", "id", "pair", "x_pos", "y_pos", "z_pos"]]
     .sort_values(["bundle", "id"])
     .groupby(["bundle", "id"])
     .agg({"x_pos": "mean", "y_pos": "mean", "z_pos": "mean", "pair": "size"})
     .rename(
         columns={"pair": "count", "x_pos": "x_3d", "y_pos": "y_3d", "z_pos": "z_3d"}
     )
-    .query("count > 1")
-    .drop(["count"], axis=1)
     .reset_index()
     .reset_index()
-    .rename(columns={"index":"index_3d"})
+    .rename(columns={"index": "index_3d", "id":"point_id"})
 )
-
-# %%
-# Convert paired_points_csv into a format that will be amenable to the bundle adjustment.
-# This may end up being rather convoluted but I think is for more time efficient (for me)
-# than going back and figuring out how to create these files live during processing
-
-# NOTE: running paired points appears to be more time intensive than the 
-# triangulation...perhaps look for a way to create the point output needed
-# from within the array triangulator
-paired_point_csv_path = Path(session_directory, "recording", "paired_point_data.csv")
-paired_points = pd.read_csv(paired_point_csv_path)
-
-paired_points_A = paired_points[
-    ["port_A", "bundle_index", "point_id", "loc_img_x_A", "loc_img_y_A"]
-].rename(
-    columns={
-        "bundle_index": "bundle",
-        "port_A": "camera",
-        "point_id": "id",
-        "loc_img_x_A": "x_2d",
-        "loc_img_y_A": "y_2d",
-    }
-)
-
-paired_points_B = paired_points[
-    ["port_B", "bundle_index", "point_id", "loc_img_x_B", "loc_img_y_B"]
-].rename(
-    columns={
-        "bundle_index": "bundle",
-        "port_B": "camera",
-        "point_id": "id",
-        "loc_img_x_B": "x_2d",
-        "loc_img_y_B": "y_2d",
-    }
-)
-
-paired_points = pd.concat([paired_points_A, paired_points_B]).drop_duplicates(
-    ["camera", "bundle", "id"]
-)
-# Get points by camera...go back to paired point data
 
 #%%
 merged_point_data = (
-    paired_points.merge(points_3d_df, how="left", on=["bundle", "id"])
-    .sort_values(["bundle", "id"])
+    points_2d_df.merge(points_3d_df, how="left", on=["bundle", "point_id"])
+    .sort_values(["bundle", "point_id"])
     .dropna()
 )
 
@@ -147,7 +122,7 @@ points_3d = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
 n_points = points_3d.shape[0]
 point_indices = np.array(merged_point_data["index_3d"], dtype=np.int32)
 camera_indices = np.array(merged_point_data["camera"], dtype=np.int32)
-points_2d = np.array(merged_point_data[["x_2d","x_3d"]])
+points_2d = np.array(merged_point_data[["x_2d", "y_2d"]])
 
 # camera_id
 # camera_id with shape (n_observations,) contains indices of cameras (from 0 to n_cameras - 1) involved in each observation.
@@ -175,6 +150,7 @@ print("Total number of residuals: {}".format(m))
 
 
 # Now define the function which returns a vector of residuals. We use numpy vectorized computations:
+
 
 def rotate(points, rot_vecs):
     """Rotate points by given rotation vectors.
@@ -261,7 +237,7 @@ res = least_squares(
     fun,
     x0,
     jac_sparsity=A,
-    verbose=2,      
+    verbose=2,
     x_scale="jac",
     ftol=1e-4,
     method="trf",
@@ -270,18 +246,17 @@ res = least_squares(
 t1 = time.time()
 
 
-# %%
-# ok. Progress has been made, but I now need to pull the parameters out of the 
+# ok. Progress has been made, but I now need to pull the parameters out of the
 # res.x, reconstruct the camera array, and then compare the results in the vizualizer
-# at least I think that's the best path forward. And whatever happens, this 
+# at least I think that's the best path forward. And whatever happens, this
 # will at least help me to develop the pipeline needed to assess future iterations
 # of the bundle adjustment process
 
 
 res.x
 
-flat_camera_params = res.x[0:n_cameras*9]
+flat_camera_params = res.x[0 : n_cameras * 9]
 n_params = 9
-new_camera_params = flat_camera_params.reshape(n_cameras,n_params )
+new_camera_params = flat_camera_params.reshape(n_cameras, n_params)
 
 # %%

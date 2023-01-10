@@ -12,7 +12,7 @@ def undistort_directory(camera_array: CameraArray, video_directory: Path):
 
     for port, camera in camera_array.cameras.items():
         print(f"Port: {port}")
-        thread = Thread(target=undistort_file, args=[camera, video_directory,], daemon=True)
+        thread = Thread(target=undistort_file, args=[camera, video_directory,], daemon=False)
         thread.start()
         
 def undistort_file(camera: CameraData, video_directory, fps=30):
@@ -28,9 +28,6 @@ def undistort_file(camera: CameraData, video_directory, fps=30):
         success, raw_frame = capture.read()
 
         if success:
-            # if raw_frame is None:
-            #     break
-            # else:
             undistorted_frame = cv2.undistort(
                 raw_frame, camera.camera_matrix, camera.distortion
             )
@@ -49,8 +46,8 @@ if __name__ == "__main__":
     array_builder = CameraArrayBuilder(config_file)
     camera_array = array_builder.get_camera_array()
 
-    video_directory = Path(repo, "sessions", "iterative_adjustment")
+    video_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
 
-    # undistort_directory(camera_array, video_directory)
+    undistort_directory(camera_array, video_directory)
     
-    undistort_file(camera_array.cameras[0],video_directory)
+    # undistort_file(camera_array.cameras[0],video_directory)

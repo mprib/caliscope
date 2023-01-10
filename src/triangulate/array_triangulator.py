@@ -160,5 +160,5 @@ if __name__ == "__main__":
     # Note that this will automatically create the summarized output of the projected points
     # this is just a temporary setup while I try to figure out something more suitable long-term
     array_triangulator = ArrayTriangulator(
-        camera_array, point_stream, session_directory
+        camera_array, point_stream, recording_directory
     )

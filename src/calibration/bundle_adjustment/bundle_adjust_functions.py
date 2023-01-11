@@ -1,4 +1,11 @@
-#%%
+import logging
+
+LOG_LEVEL = logging.DEBUG
+# LOG_LEVEL = logging.INFO
+LOG_FILE = r"log\bundle_adjust_functions.log"
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 from pathlib import Path
 
 import sys
@@ -6,83 +13,74 @@ import cv2
 import numpy as np
 import pandas as pd
 
+from scipy.optimize import least_squares
+from scipy.sparse import lil_matrix
+import time
 
 from src.cameras.camera_array import CameraArray, CameraArrayBuilder
 
 
 def get_camera_params(camera_array):
-    """ for each camera build the 9 element parameter index
-     camera_params with shape (n_cameras, 9) contains initial estimates of parameters for all cameras.
-     First 3 components in each row form a rotation vector (https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula),
-     next 3 components form a translation vector, then a focal distance and two distortion parameters.
-     note that the distortion parameters only reflect the radial distortion (not the tangential)
+    """for each camera build the 9 element parameter index
+    camera_params with shape (n_cameras, 9) contains initial estimates of parameters for all cameras.
+    First 3 components in each row form a rotation vector (https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula),
+    next 3 components form a translation vector, then a focal distance and two distortion parameters.
+    note that the distortion parameters only reflect the radial distortion (not the tangential)
     """
-
-
     camera_params = None
     for port, cam in camera_array.cameras.items():
 
-        rotation_matrix_world = camera_array.cameras[
-            port
-        ].rotation  # rotation of the camera relative to the world
-        rotation_matrix_proj = np.linalg.inv(
-            rotation_matrix_world
-        )  # rotation of the world relative to camera
-        rotation_rodrigues = cv2.Rodrigues(rotation_matrix_proj)[0]  # elements 0,1,2
-
-        translation_world = camera_array.cameras[port].translation  # elements 3,4,5
-        translation_proj = translation_world * -1
-        # two focal lengths for potentially rectangular pixels...
-        # I'm assuming they are square
-        fx = camera_array.cameras[port].camera_matrix[0, 0]
-        fy = camera_array.cameras[port].camera_matrix[1, 1]
-        f = (fx + fy) / 2  # element 6
-
-        # get k1 and k2 from distortion
-        # note that a future plan my pre-undistort the image
-        # and hard code this to zero within the `project` function
-        # this will reduce parameter estimates and still account for
-        # intrinsics (I think)
-        k1 = camera_array.cameras[port].distortion[0, 0]  # element 7
-        k2 = camera_array.cameras[port].distortion[0, 1]  # element 8
-
-        port_param = np.hstack(
-            [rotation_rodrigues[:, 0], translation_proj[:, 0], f, k1, k2]
-        )
-
+        port_param = cam.to_vector()
+        
         if camera_params is None:
             camera_params = port_param
         else:
             camera_params = np.vstack([camera_params, port_param])
 
-    print("--------")
-    print(camera_params)
-    n_cameras = len(camera_array.cameras)
-
-    print(f"Number of cameras: {n_cameras}")
     return camera_params
 
-# points_3d with shape (n_points, 3) contains initial estimates of point coordinates in the world frame.
+
 def get_points_2d_df(points_csv_path):
     points_df = pd.read_csv(points_csv_path)
 
-    points_2d_port_A = (points_df[["port_A", "bundle", "id", "x_A_list", "y_A_list"]]
-                    .rename(columns={"port_A":"camera", "bundle":"bundle_index","id":"point_id", "x_A_list":"x_2d", "y_A_list":"y_2d"}))
+    points_2d_port_A = points_df[
+        ["port_A", "bundle", "id", "x_A_list", "y_A_list"]
+    ].rename(
+        columns={
+            "port_A": "camera",
+            "bundle": "bundle_index",
+            "id": "point_id",
+            "x_A_list": "x_2d",
+            "y_A_list": "y_2d",
+        }
+    )
 
-    points_2d_port_B = (points_df[["port_B", "bundle", "id", "x_B_list", "y_B_list"]]
-                    .rename(columns={"port_B":"camera", "bundle":"bundle_index","id":"point_id", "x_B_list":"x_2d", "y_B_list":"y_2d"}))
+    points_2d_port_B = points_df[
+        ["port_B", "bundle", "id", "x_B_list", "y_B_list"]
+    ].rename(
+        columns={
+            "port_B": "camera",
+            "bundle": "bundle_index",
+            "id": "point_id",
+            "x_B_list": "x_2d",
+            "y_B_list": "y_2d",
+        }
+    )
 
-    points_2d_df = (pd.concat([points_2d_port_A, points_2d_port_B])
-                        .drop_duplicates()
-                        .sort_values(["bundle_index", "point_id", "camera"])
-                        .rename(columns={"bundle_index":"bundle"}))
+    points_2d_df = (
+        pd.concat([points_2d_port_A, points_2d_port_B])
+        .drop_duplicates()
+        .sort_values(["bundle_index", "point_id", "camera"])
+        .rename(columns={"bundle_index": "bundle"})
+    )
     return points_2d_df
 
 
 # get 3d points with indices to merge back into points_2d
 def get_points_3d_df(points_csv_path):
     points_df = pd.read_csv(points_csv_path)
-    points_3d_df = (points_df[["bundle", "id", "pair", "x_pos", "y_pos", "z_pos"]]
+    points_3d_df = (
+        points_df[["bundle", "id", "pair", "x_pos", "y_pos", "z_pos"]]
         .sort_values(["bundle", "id"])
         .groupby(["bundle", "id"])
         .agg({"x_pos": "mean", "y_pos": "mean", "z_pos": "mean", "pair": "size"})
@@ -91,14 +89,14 @@ def get_points_3d_df(points_csv_path):
         )
         .reset_index()
         .reset_index()
-        .rename(columns={"index": "index_3d", "id":"point_id"})
+        .rename(columns={"index": "index_3d", "id": "point_id"})
     )
-    
     return points_3d_df
 
-#%%
-def get_bundle_adjust_params(points_2d_df:pd.DataFrame, points_3d_df: pd.DataFrame):
+
+def get_bundle_adjust_params(points_2d_df: pd.DataFrame, points_3d_df: pd.DataFrame):
     """
+    Parameters need to be in numpy vectors for use in least_squares function
     camera_id with shape (n_observations,) contains indices of cameras (from 0 to n_cameras - 1) involved in each observation.
     point_ind with shape (n_observations,) contains indices of points (from 0 to n_points - 1) involved in each observation.
     points_2d with shape (n_observations, 2) contains measured 2-D coordinates of points projected on images in each observations.
@@ -168,9 +166,6 @@ def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d):
 # sparsity structure (i. e. mark elements which are known to be non-zero):
 
 
-from scipy.sparse import lil_matrix
-
-
 def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices):
     m = camera_indices.size * 2
     n = n_cameras * 9 + n_points * 3
@@ -187,3 +182,52 @@ def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indice
 
     return A
 
+
+def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
+
+    camera_params = get_camera_params(camera_array)
+    points_2d_df = get_points_2d_df(points_csv_path)
+    points_3d_df = get_points_3d_df(points_csv_path)
+
+    (
+        camera_indices,
+        point_indices,
+        points_2d,
+        points_3d,
+        n_points,
+    ) = get_bundle_adjust_params(points_2d_df, points_3d_df)
+
+    n_cameras = camera_params.shape[0]
+    n_points = points_3d.shape[0]
+
+    n = 9 * n_cameras + 3 * n_points
+    m = 2 * points_2d.shape[0]
+
+    logging.info("n_cameras: {}".format(n_cameras))
+    logging.info("n_points: {}".format(n_points))
+    logging.info("Total number of parameters: {}".format(n))
+    logging.info("Total number of residuals: {}".format(m))
+
+    x0 = np.hstack((camera_params.ravel(), points_3d.ravel()))
+    f0 = fun(x0, n_cameras, n_points, camera_indices, point_indices, points_2d)
+
+    A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices)
+
+
+    t0 = time.time()
+    logging.info(f"Start time of bundle adjustment calculations is {t0}")
+    res = least_squares(
+        fun,
+        x0,
+        jac_sparsity=A,
+        verbose=2,
+        x_scale="jac",
+        ftol=1e-4,
+        method="trf",
+        args=(n_cameras, n_points, camera_indices, point_indices, points_2d),
+    )
+    t1 = time.time()
+    logging.info(f"Completion time of bundle adjustment calculations is {t1}")
+    logging.info(f"Total time to perform bundle adjustment: {t1-t0}")
+    
+    return res

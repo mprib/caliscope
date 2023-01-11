@@ -34,9 +34,9 @@ class CameraArrayBuilder:
     for second order position estimates. This might be solved cleanly by putting a frame of reference
     in the CameraData object and extending the CameraArray to place elements in a common frame of reference"""
 
-    def __init__(self, calibration_data):
+    def __init__(self, config_path: Path):
 
-        self.config = toml.load(Path(calibration_data))
+        self.config = toml.load(config_path)
         self.extrinsics, self.pairs, self.anchor = self.get_extrinsic_data()
         self.set_cameras()
 
@@ -165,8 +165,8 @@ class CameraArrayBuilder:
 if __name__ == "__main__":
     repo = str(Path(__file__)).split("src")[0]
 
-    config_file = Path(repo, "sessions", "iterative_adjustment", "config.toml")
-    array_builder = CameraArrayBuilder(config_file)
+    config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
+    array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
     
     print("pause")

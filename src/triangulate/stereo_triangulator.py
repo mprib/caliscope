@@ -181,8 +181,8 @@ if __name__ == "__main__":
 
     repo = str(Path(__file__)).split("src")[0]
 
-    config_data = Path(repo, "sessions", "iterative_adjustment", "config.toml")
-    camera_array = CameraArrayBuilder(config_data).get_camera_array()
+    config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
+    camera_array = CameraArrayBuilder(config_path).get_camera_array()
 
     # create playback streams to provide to synchronizer
     recorded_data = Path(repo, "sessions", "iterative_adjustment", "recording")

@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 import numpy as np
 from dataclasses import dataclass
-
+import cv2
 
 @dataclass
 class CameraData:
@@ -19,6 +19,53 @@ class CameraData:
     distortion: np.ndarray
     translation: np.ndarray
     rotation: np.ndarray
+    
+    def to_vector(self):
+        """
+        Converts camera parameters to a numpy vector for use with bundle adjustment.
+        This will undergo refactoring along with the bundle adjustment
+        """
+
+        # rotation of the camera relative to the world
+        rotation_matrix_world = self.rotation
+
+        # rotation of the world relative to camera
+        rotation_matrix_proj = np.linalg.inv(rotation_matrix_world)
+
+        rotation_rodrigues = cv2.Rodrigues(rotation_matrix_proj)[0]  # elements 0,1,2
+
+        translation_world = self.translation  # elements 3,4,5
+        translation_proj = translation_world * -1
+        # two focal lengths for potentially rectangular pixels...
+        # I'm assuming they are square
+        fx = self.camera_matrix[0, 0]
+        fy = self.camera_matrix[1, 1]
+        f = (fx + fy) / 2  # element 6
+
+        # get k1 and k2 from distortion
+        k1 = self.distortion[0, 0]  # element 7
+        k2 = self.distortion[0, 1]  # element 8
+
+        port_param = np.hstack(
+            [rotation_rodrigues[:, 0], translation_proj[:, 0], f, k1, k2]
+        )
+        
+        return port_param
+        
+    def from_vector(self, row):
+        """
+        Takes a vector in the same format that is output and updates the camera 
+        with those parameters
+        """
+        self.rotation = cv2.Rodrigues(row[0:3])[0]  # note it is first element
+        self.translation = row[3:6]
+        f = row[6]
+        k1 = row[7]
+        k2 = row[8]
+        self.camera_matrix[0,0] = f
+        self.camera_matrix[1,1] = f
+        self.distortion[0,0] = k1
+        self.distortion[0,1] = k2
 
 @dataclass
 class CameraArray:

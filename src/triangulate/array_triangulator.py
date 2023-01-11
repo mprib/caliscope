@@ -131,8 +131,8 @@ if __name__ == "__main__":
     # Build camera array from stored config file
     repo = str(Path(__file__)).split("src")[0]
     session_directory = Path(repo, "sessions", "iterative_adjustment")
-    config_file = Path(session_directory, "config.toml")
-    array_builder = CameraArrayBuilder(config_file)
+    config_path = Path(session_directory, "config.toml")
+    array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
     
     # Build streams from pre-recorded video

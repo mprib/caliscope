@@ -42,8 +42,8 @@ def undistort_file(camera: CameraData, video_directory, fps=30):
 if __name__ == "__main__":
 
     repo = str(Path(__file__)).split("src")[0]
-    config_file = Path(repo, "sessions", "iterative_adjustment", "config.toml")
-    array_builder = CameraArrayBuilder(config_file)
+    config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
+    array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
 
     video_directory = Path(repo, "sessions", "iterative_adjustment", "recording")

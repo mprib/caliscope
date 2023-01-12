@@ -74,6 +74,9 @@ class StereoTriangulator:
                 points_A = np.stack([packet_2D.loc_img_x_A, packet_2D.loc_img_y_A], axis=0)
                 points_B = np.stack([packet_2D.loc_img_x_B, packet_2D.loc_img_y_B], axis=0)
 
+                points_A = self.undistort(points_A,self.camera_A)
+                points_B = self.undistort(points_B,self.camera_B)
+
                 # triangulate points outputs data in 4D homogenous coordinate system
                 # note that these are in a world frame of reference
                 xyzw_h = cv2.triangulatePoints(
@@ -105,7 +108,8 @@ class StereoTriangulator:
         k1, k2, p1, p2, k3 = camera.distortion[0]
         fx, fy = camera.camera_matrix[0, 0], camera.camera_matrix[1, 1]
         cx, cy = camera.camera_matrix[:2, 2]
-        x, y = float(point[0]), float(point[1])
+        x, y = point[0], point[1]
+        # x, y = float(point[0]), float(point[1])
 
         x = (x - cx) / fx
         x0 = x

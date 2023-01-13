@@ -19,19 +19,20 @@ import time
 
 from src.cameras.camera_array import CameraArray, CameraArrayBuilder
 
+# note I'm changing this from 9 as I'm reducing the values being solved for
+CAMERA_PARAM_COUNT = 6
+
 
 def get_camera_params(camera_array):
-    """for each camera build the 9 element parameter index
-    camera_params with shape (n_cameras, 9) contains initial estimates of parameters for all cameras.
+    """for each camera build the CAMERA_PARAM_COUNT element parameter index
+    camera_params with shape (n_cameras, CAMERA_PARAM_COUNT) contains initial estimates of parameters for all cameras.
     First 3 components in each row form a rotation vector (https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula),
     next 3 components form a translation vector, then a focal distance and two distortion parameters.
     note that the distortion parameters only reflect the radial distortion (not the tangential)
     """
     camera_params = None
     for port, cam in camera_array.cameras.items():
-
         port_param = cam.to_vector()
-        
         if camera_params is None:
             camera_params = port_param
         else:
@@ -44,26 +45,26 @@ def get_points_2d_df(points_csv_path):
     points_df = pd.read_csv(points_csv_path)
 
     points_2d_port_A = points_df[
-        ["port_A", "bundle", "id", "x_A_list", "y_A_list"]
+        ["port_A", "bundle", "id", "x_A_raw", "y_A_raw"]
     ].rename(
         columns={
             "port_A": "camera",
             "bundle": "bundle_index",
             "id": "point_id",
-            "x_A_list": "x_2d",
-            "y_A_list": "y_2d",
+            "x_A_raw": "x_2d",
+            "y_A_raw": "y_2d",
         }
     )
 
     points_2d_port_B = points_df[
-        ["port_B", "bundle", "id", "x_B_list", "y_B_list"]
+        ["port_B", "bundle", "id", "x_B_raw", "y_B_raw"]
     ].rename(
         columns={
             "port_B": "camera",
             "bundle": "bundle_index",
             "id": "point_id",
-            "x_B_list": "x_2d",
-            "y_B_list": "y_2d",
+            "x_B_raw": "x_2d",
+            "y_B_raw": "y_2d",
         }
     )
 
@@ -104,12 +105,12 @@ def get_bundle_adjust_params(points_2d_df: pd.DataFrame, points_3d_df: pd.DataFr
     """
     merged_point_data = (
         points_2d_df.merge(points_3d_df, how="left", on=["bundle", "point_id"])
-        .sort_values(["bundle", "point_id"])
+        .sort_values(["camera", "bundle", "point_id"])
         .dropna()
     )
 
-    camera_indices = np.array(merged_point_data["camera"], dtype=np.int32)
-    point_indices = np.array(merged_point_data["index_3d"], dtype=np.int32)
+    camera_indices = np.array(merged_point_data["camera"], dtype=np.int64)
+    point_indices = np.array(merged_point_data["index_3d"], dtype=np.int64)
     points_2d = np.array(merged_point_data[["x_2d", "y_2d"]])
     points_3d = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
     n_points = points_3d.shape[0]
@@ -118,67 +119,98 @@ def get_bundle_adjust_params(points_2d_df: pd.DataFrame, points_3d_df: pd.DataFr
 
 
 # Now define the function which returns a vector of residuals. We use numpy vectorized computations:
-def rotate(points, rot_vecs):
-    """Rotate points by given rotation vectors.
+# def rotate(points, rot_vecs):
+#     """Rotate points by given rotation vectors.
+#     Rodrigues' rotation formula is used.
+#     """
+#     theta = np.linalg.norm(rot_vecs, axis=1)[:, np.newaxis]
+#     with np.errstate(invalid="ignore"):
+#         v = rot_vecs / theta
+#         v = np.nan_to_num(v)
+#     dot = np.sum(points * v, axis=1)[:, np.newaxis]
+#     cos_theta = np.cos(theta)
+#     sin_theta = np.sin(theta)
 
-    Rodrigues' rotation formula is used.
+#     return (
+#         cos_theta * points + sin_theta * np.cross(v, points) + dot * (1 - cos_theta) * v
+#     )
+
+
+# def project(points, camera_params):
+#     """Convert 3-D points to 2-D by projecting onto images."""
+#     points_proj = rotate(points, camera_params[:, :3])
+#     points_proj += camera_params[:, 3:6]
+#     points_proj = -points_proj[:, :2] / points_proj[:, 2, np.newaxis]
+#     # f = focal_lengths
+#     # k1 = camera_params[:, 7]
+#     # k2 = camera_params[:, 8]
+#     n = np.sum(points_proj**2, axis=1)
+#     # r = 1 + k1 * n + k2 * n**2
+#     r = 1
+#     points_proj *= (r * f)[:, np.newaxis]
+#     return points_proj
+
+
+# def reprojection_error_old(
+#     params, n_cameras, n_points, camera_indices, point_indices, points_2d
+# ):
+#     """Compute residuals.
+#     `params` contains camera parameters and 3-D coordinates.
+#     """
+#     camera_params = params[: n_cameras * CAMERA_PARAM_COUNT].reshape(
+#         (n_cameras, CAMERA_PARAM_COUNT)
+#     )
+#     points_3d = params[n_cameras * CAMERA_PARAM_COUNT :].reshape((n_points, 3))
+#     points_proj = project(points_3d[point_indices], camera_params[camera_indices])
+#     return (points_proj - points_2d).ravel()
+
+
+def reprojection_error(
+    params, n_cameras, n_points, camera_indices, point_indices, points_2d, camera_array
+):
     """
-    theta = np.linalg.norm(rot_vecs, axis=1)[:, np.newaxis]
-    with np.errstate(invalid="ignore"):
-        v = rot_vecs / theta
-        v = np.nan_to_num(v)
-    dot = np.sum(points * v, axis=1)[:, np.newaxis]
-    cos_theta = np.cos(theta)
-    sin_theta = np.sin(theta)
-
-    return (
-        cos_theta * points + sin_theta * np.cross(v, points) + dot * (1 - cos_theta) * v
-    )
-
-
-def project(points, camera_params):
-    """Convert 3-D points to 2-D by projecting onto images."""
-    points_proj = rotate(points, camera_params[:, :3])
-    points_proj += camera_params[:, 3:6]
-    points_proj = -points_proj[:, :2] / points_proj[:, 2, np.newaxis]
-    f = camera_params[:, 6]
-    k1 = camera_params[:, 7]
-    k2 = camera_params[:, 8]
-    n = np.sum(points_proj**2, axis=1)
-    r = 1 + k1 * n + k2 * n**2
-    points_proj *= (r * f)[:, np.newaxis]
-    return points_proj
-
-
-def fun(params, n_cameras, n_points, camera_indices, point_indices, points_2d):
-    """Compute residuals.
+    Compute residuals.
+    Currently just trying to get something to run, so I'm going to not
+    worry about vectorized solutions at all and just create something I'm confident works
     `params` contains camera parameters and 3-D coordinates.
     """
-    camera_params = params[: n_cameras * 9].reshape((n_cameras, 9))
-    points_3d = params[n_cameras * 9 :].reshape((n_points, 3))
-    points_proj = project(points_3d[point_indices], camera_params[camera_indices])
+
+    # unpack the estimate parameteres into easier to manage shapes
+    camera_params = params[: n_cameras * CAMERA_PARAM_COUNT].reshape(
+        (n_cameras, CAMERA_PARAM_COUNT)
+    )
+    points_3d = params[n_cameras * CAMERA_PARAM_COUNT :].reshape((n_points, 3))
+
+    points_3d_and_2d = np.hstack([np.array([camera_indices]).T, points_3d[point_indices], points_2d])
+   
+    for port, cam in camera_array.cameras.items():
+        cam_points = np.where(camera_indices == port)
+        object_points = points_3d_and_2d[cam_points][:, 1:4]
+        rvec = camera_params[port][0:3]
+        tvec = camera_params[port][3:6]
+        
+        cam_proj_points = cv2.projectPoints(object_points, rvec, tvec,cam.camera_matrix, cam.distortion)
+
+        pass
+    points_proj = None
+    # points_proj = project(points_3d[point_indices], camera_params[camera_indices])
     return (points_proj - points_2d).ravel()
 
 
-# You can see that computing Jacobian of fun is cumbersome,
-# thus we will rely on the finite difference approximation.
-# To make this process time feasible we provide Jacobian
-# sparsity structure (i. e. mark elements which are known to be non-zero):
-
-
-def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices):
+def get_sparsity_pattern(n_cameras, n_points, camera_indices, point_indices):
+    """provide the sparsity structure for the Jacobian (elements that are not zero)"""
     m = camera_indices.size * 2
-    n = n_cameras * 9 + n_points * 3
+    n = n_cameras * CAMERA_PARAM_COUNT + n_points * 3
     A = lil_matrix((m, n), dtype=int)
 
     i = np.arange(camera_indices.size)
-    for s in range(9):
-        A[2 * i, camera_indices * 9 + s] = 1
-        A[2 * i + 1, camera_indices * 9 + s] = 1
+    for s in range(CAMERA_PARAM_COUNT):
+        A[2 * i, camera_indices * CAMERA_PARAM_COUNT + s] = 1
+        A[2 * i + 1, camera_indices * CAMERA_PARAM_COUNT + s] = 1
 
     for s in range(3):
-        A[2 * i, n_cameras * 9 + point_indices * 3 + s] = 1
-        A[2 * i + 1, n_cameras * 9 + point_indices * 3 + s] = 1
+        A[2 * i, n_cameras * CAMERA_PARAM_COUNT + point_indices * 3 + s] = 1
+        A[2 * i + 1, n_cameras * CAMERA_PARAM_COUNT + point_indices * 3 + s] = 1
 
     return A
 
@@ -186,6 +218,7 @@ def bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indice
 def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
 
     camera_params = get_camera_params(camera_array)
+
     points_2d_df = get_points_2d_df(points_csv_path)
     points_3d_df = get_points_3d_df(points_csv_path)
 
@@ -200,7 +233,7 @@ def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
     n_cameras = camera_params.shape[0]
     n_points = points_3d.shape[0]
 
-    n = 9 * n_cameras + 3 * n_points
+    n = CAMERA_PARAM_COUNT * n_cameras + 3 * n_points
     m = 2 * points_2d.shape[0]
 
     logging.info("n_cameras: {}".format(n_cameras))
@@ -208,26 +241,44 @@ def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
     logging.info("Total number of parameters: {}".format(n))
     logging.info("Total number of residuals: {}".format(m))
 
-    x0 = np.hstack((camera_params.ravel(), points_3d.ravel()))
-    f0 = fun(x0, n_cameras, n_points, camera_indices, point_indices, points_2d)
+    initial_estimate = np.hstack((camera_params.ravel(), points_3d.ravel()))
 
-    A = bundle_adjustment_sparsity(n_cameras, n_points, camera_indices, point_indices)
+    # test the reprojection_error
+    objective_value = reprojection_error(
+        initial_estimate,
+        n_cameras,
+        n_points,
+        camera_indices,
+        point_indices,
+        points_2d,
+        camera_array,
+    )
 
+    sparsity_pattern = get_sparsity_pattern(
+        n_cameras, n_points, camera_indices, point_indices
+    )
 
     t0 = time.time()
     logging.info(f"Start time of bundle adjustment calculations is {t0}")
     res = least_squares(
-        fun,
-        x0,
-        jac_sparsity=A,
+        reprojection_error,
+        initial_estimate,
+        jac_sparsity=sparsity_pattern,
         verbose=2,
         x_scale="jac",
         ftol=1e-4,
         method="trf",
-        args=(n_cameras, n_points, camera_indices, point_indices, points_2d),
+        args=(
+            n_cameras,
+            n_points,
+            camera_indices,
+            point_indices,
+            points_2d,
+            camera_array,
+        ),
     )
     t1 = time.time()
     logging.info(f"Completion time of bundle adjustment calculations is {t1}")
     logging.info(f"Total time to perform bundle adjustment: {t1-t0}")
-    
+
     return res

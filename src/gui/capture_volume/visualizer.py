@@ -180,7 +180,10 @@ if __name__ == "__main__":
     camera_array = CameraArrayBuilder(config_path).get_camera_array()
 
     point_data_path = Path(
-        repo, "sessions", "iterative_adjustment", "recording", "triangulated_points.csv"
+        repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted.csv"
+        # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_daisy_chain.csv"
+        # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted_300.csv"
+        # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_daisy_chain_300.csv"
     )
 
     app = QApplication(sys.argv)

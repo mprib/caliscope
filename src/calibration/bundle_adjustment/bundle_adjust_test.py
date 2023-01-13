@@ -19,17 +19,15 @@ array_builder = CameraArrayBuilder(config_path)
 camera_array = array_builder.get_camera_array()
 
 
-points_csv_path = Path(
-    session_directory, "recording", "triangulated_points.csv"
-)
+points_csv_path = Path(session_directory, "recording", "triangulated_points.csv")
 
-# res = bundle_adjust(camera_array, points_csv_path)
+res = bundle_adjust(camera_array, points_csv_path)
 
 res_path = Path(session_directory, "res.pkl")
 # with open(res_path, "wb") as file:
-    # pickle.dump(res, file)
+# pickle.dump(res, file)
 
-with open(res_path, 'rb') as file:
+with open(res_path, "rb") as file:
     res = pickle.load(file)
 
 #%%
@@ -44,9 +42,8 @@ new_camera_params = flat_camera_params.reshape(n_cameras, n_params)
 # update camera array with new positional data
 for index in range(len(new_camera_params)):
     print(index)
-    cam_vec = new_camera_params[index,:] 
+    cam_vec = new_camera_params[index, :]
     camera_array.cameras[index].from_vector(cam_vec)
-    
 
 
 from src.gui.capture_volume.visualizer import CaptureVolumeVisualizer

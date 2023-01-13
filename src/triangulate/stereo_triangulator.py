@@ -71,16 +71,16 @@ class StereoTriangulator:
             time = (packet_2D.time_A + packet_2D.time_B) / 2
 
             if len(packet_2D.point_id) > 0:
-                points_A = np.stack([packet_2D.loc_img_x_A, packet_2D.loc_img_y_A], axis=0)
-                points_B = np.stack([packet_2D.loc_img_x_B, packet_2D.loc_img_y_B], axis=0)
+                points_A_raw = np.stack([packet_2D.loc_img_x_A, packet_2D.loc_img_y_A], axis=0)
+                points_B_raw = np.stack([packet_2D.loc_img_x_B, packet_2D.loc_img_y_B], axis=0)
 
-                points_A = self.undistort(points_A,self.camera_A)
-                points_B = self.undistort(points_B,self.camera_B)
+                points_A_undistorted = self.undistort(points_A_raw,self.camera_A)
+                points_B_undistorted = self.undistort(points_B_raw,self.camera_B)
 
                 # triangulate points outputs data in 4D homogenous coordinate system
                 # note that these are in a world frame of reference
                 xyzw_h = cv2.triangulatePoints(
-                    self.proj_A, self.proj_B, points_A, points_B
+                    self.proj_A, self.proj_B, points_A_undistorted, points_B_undistorted
                 )
 
                 xyz_h = xyzw_h.T[:, :3]
@@ -95,8 +95,10 @@ class StereoTriangulator:
                 time=time,
                 point_ids=packet_2D.point_id,
                 xyz=xyz,
-                xy_A=points_A,
-                xy_B=points_B,
+                xy_A_raw=points_A_raw,
+                xy_B_raw=points_B_raw,
+                xy_A_undistorted=points_A_undistorted,
+                xy_B_undistorted=points_B_undistorted,
             )
 
             logging.debug(f"Placing current bundle of 3d points on queue")
@@ -133,8 +135,10 @@ class TriangulatedPointsPacket:
     point_ids: np.ndarray
     xyz: np.ndarray
     bundle_index: int
-    xy_A: np.ndarray
-    xy_B: np.ndarray
+    xy_A_raw: np.ndarray
+    xy_B_raw: np.ndarray
+    xy_A_undistorted: np.ndarray
+    xy_B_undistorted: np.ndarray
 
     def to_dict(self):
         num_rows = len(self.point_ids)
@@ -151,10 +155,14 @@ class TriangulatedPointsPacket:
             x_list = self.xyz[:, 0].tolist()
             y_list = self.xyz[:, 1].tolist()
             z_list = self.xyz[:, 2].tolist()
-            x_A_list = self.xy_A[0,:].tolist()
-            y_A_list = self.xy_A[1,:].tolist()
-            x_B_list = self.xy_B[0,: ].tolist()
-            y_B_list = self.xy_B[1,: ].tolist()
+            x_A_raw = self.xy_A_raw[0,:].tolist()
+            y_A_raw = self.xy_A_raw[1,:].tolist()
+            x_B_raw = self.xy_B_raw[0,: ].tolist()
+            y_B_raw = self.xy_B_raw[1,: ].tolist()
+            x_A_undistorted = self.xy_A_undistorted[0,:].tolist()
+            y_A_undistorted = self.xy_A_undistorted[1,:].tolist()
+            x_B_undistorted = self.xy_B_undistorted[0,: ].tolist()
+            y_B_undistorted = self.xy_B_undistorted[1,: ].tolist()
 
             data = {
                 "pair": pair_list,
@@ -166,10 +174,14 @@ class TriangulatedPointsPacket:
                 "x_pos": x_list,
                 "y_pos": y_list,
                 "z_pos": z_list,
-                "x_A_list": x_A_list,
-                "y_A_list": y_A_list,
-                "x_B_list": x_B_list,
-                "y_B_list": y_B_list,
+                "x_A_raw": x_A_raw,
+                "y_A_raw": y_A_raw,
+                "x_B_raw": x_B_raw,
+                "y_B_raw": y_B_raw,
+                "x_A_undistorted": x_A_undistorted,
+                "y_A_undistorted": y_A_undistorted,
+                "x_B_undistorted": x_B_undistorted,
+                "y_B_undistorted": y_B_undistorted,
             }
 
             return data

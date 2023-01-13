@@ -21,6 +21,7 @@ from itertools import combinations
 from threading import Thread, Event
 from queue import Queue
 import pandas as pd
+from pathlib import Path
 
 from src.cameras.camera_array import CameraArray, CameraArrayBuilder
 from src.cameras.synchronizer import Synchronizer
@@ -34,11 +35,11 @@ class ArrayTriangulator:
         self,
         camera_array: CameraArray,
         paired_point_stream: PairedPointStream,
-        save_directory=None,
+        output_file: Path=None,
     ):
         self.camera_array = camera_array
         self.paired_point_stream = paired_point_stream
-        self.save_directory = save_directory
+        self.output_file = output_file
 
         self.ports = [key for key in self.camera_array.cameras.keys()]
 
@@ -47,9 +48,9 @@ class ArrayTriangulator:
         self.paired_point_qs = (
             {}
         )  # means to pass stereotriangulators new paired points to process
-        
+
         self.agg_3d_points = None
-        
+
         for pair in self.paired_point_stream.pairs:
             logging.info(f"Creating StereoTriangulator for camera pair {pair}")
             portA = pair[0]
@@ -57,8 +58,8 @@ class ArrayTriangulator:
             camA = self.camera_array.cameras[portA]
             camB = self.camera_array.cameras[portB]
             self.stereo_triangulators[pair] = StereoTriangulator(
-                camA, 
-                camB, 
+                camA,
+                camB,
             )
 
         self.stop = Event()
@@ -69,19 +70,18 @@ class ArrayTriangulator:
         self.thread.start()
 
     def store_point_data(self, packet):
-        
+
         packet_dict = packet.to_dict()
 
         if self.agg_3d_points is None:
             # build a dictionary of lists that will form basis of dataframe output to csv
             self.agg_3d_points = {}
-            for key,value in packet_dict.items():
+            for key, value in packet_dict.items():
                 self.agg_3d_points[key] = []
 
         for key, value in packet_dict.items():
             self.agg_3d_points[key].extend(value)
-       
-        
+
     def triangulate_points_worker(self):
 
         while not self.stop.is_set():
@@ -90,7 +90,7 @@ class ArrayTriangulator:
             logging.info(
                 f"Bundle: {new_paired_point_packet.bundle_index} | Pair: {new_paired_point_packet.pair}"
             )
-           
+
             pair = new_paired_point_packet.pair
             self.stereo_triangulators[pair].in_q.put(new_paired_point_packet)
             triangulated_packet = self.stereo_triangulators[pair].out_q.get()
@@ -103,12 +103,10 @@ class ArrayTriangulator:
             if triangulated_packet.bundle_index > 300:
                 self.stop.set()
 
-        if self.save_directory is not None:
-            logging.info(f"Saving triangulated point csv to {self.save_directory}")
+        if self.output_file is not None:
+            logging.info(f"Saving triangulated point csv to {self.output_file}")
             self.agg_3d_points = pd.DataFrame(self.agg_3d_points)
-            self.agg_3d_points.to_csv(
-                Path(self.save_directory, "triangulated_points.csv")
-            )
+            self.agg_3d_points.to_csv(self.output_file)
 
 
 if __name__ == "__main__":
@@ -122,9 +120,9 @@ if __name__ == "__main__":
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
-    
+
     # Build streams from pre-recorded video
-    recording_directory = Path(session_directory,"recording")
+    recording_directory = Path(session_directory, "recording")
     ports = [0, 1, 2]
     recorded_stream_pool = RecordedStreamPool(ports, recording_directory)
 
@@ -151,6 +149,6 @@ if __name__ == "__main__":
     # Build triangulator
     # Note that this will automatically create the summarized output of the projected points
     # this is just a temporary setup while I try to figure out something more suitable long-term
-    array_triangulator = ArrayTriangulator(
-        camera_array, point_stream, recording_directory
-    )
+
+    output_file = Path(recording_directory, "triangulated_points.csv")
+    array_triangulator = ArrayTriangulator(camera_array, point_stream, output_file)

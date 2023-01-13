@@ -70,25 +70,13 @@ class ArrayTriangulator:
 
     def store_point_data(self, packet):
         
+        packet_dict = packet.to_dict()
+
         if self.agg_3d_points is None:
             # build a dictionary of lists that will form basis of dataframe output to csv
-            self.agg_3d_points = {
-                "pair": [],
-                "port_A": [],
-                "port_B": [],
-                "time": [],
-                "bundle": [],
-                "id": [],
-                "x_pos": [],
-                "y_pos": [],
-                "z_pos": [],
-                "x_A_list": [],
-                "y_A_list": [],
-                "x_B_list": [],
-                "y_B_list": [],
-            }
-       
-        packet_dict = packet.to_dict()
+            self.agg_3d_points = {}
+            for key,value in packet_dict.items():
+                self.agg_3d_points[key] = []
 
         for key, value in packet_dict.items():
             self.agg_3d_points[key].extend(value)

@@ -6,6 +6,7 @@ import numpy as np
 from dataclasses import dataclass
 import cv2
 
+
 @dataclass
 class CameraData:
     """A place to hold the calibration data associated with a camera that has been populated from a config file.
@@ -19,7 +20,7 @@ class CameraData:
     distortion: np.ndarray
     translation: np.ndarray
     rotation: np.ndarray
-    
+
     def to_vector(self):
         """
         Converts camera parameters to a numpy vector for use with bundle adjustment.
@@ -31,49 +32,39 @@ class CameraData:
 
         # rotation of the world relative to camera
         rotation_matrix_proj = np.linalg.inv(rotation_matrix_world)
-
         rotation_rodrigues = cv2.Rodrigues(rotation_matrix_proj)[0]  # elements 0,1,2
-
         translation_world = self.translation  # elements 3,4,5
         translation_proj = translation_world * -1
-        # two focal lengths for potentially rectangular pixels...
-        # I'm assuming they are square
-        # fx = self.camera_matrix[0, 0]
-        # fy = self.camera_matrix[1, 1]
-        # f = (fx + fy) / 2  # element 6
-
-        # # get k1 and k2 from distortion
-        # k1 = self.distortion[0, 0]  # element 7
-        # k2 = self.distortion[0, 1]  # element 8
 
         port_param = np.hstack(
             # [rotation_rodrigues[:, 0], translation_proj[:, 0], f, k1, k2]
             [rotation_rodrigues[:, 0], translation_proj[:, 0]]
         )
-        
+
         return port_param
-        
+
     def from_vector(self, row):
         """
-        Takes a vector in the same format that is output and updates the camera 
+        Takes a vector in the same format that is output and updates the camera
         with those parameters
         """
-        self.rotation = cv2.Rodrigues(row[0:3])[0]  # note it is first element
-        self.translation = row[3:6]
-        # f = row[6]
-        # k1 = row[7]
-        # k2 = row[8]
-        # self.camera_matrix[0,0] = f
-        # self.camera_matrix[1,1] = f
-        # self.distortion[0,0] = k1
-        # self.distortion[0,1] = k2
+        self.rotation = np.linalg.inv(
+            cv2.Rodrigues(row[0:3])[0]
+        )  # convert back to world frame of reference
+
+        self.translation = np.array([row[3:6] * -1], dtype=np.float64).T
+        
+        # print("wait")
+
 
 @dataclass
 class CameraArray:
     """The plan is that this will expand to become and interface for setting the origin.
     At the moment all it is doing is holding a dictionary of CameraData objects"""
+
     cameras: dict
-    
+
+
 class CameraArrayBuilder:
     """An ugly class to wrangle the config data into a useful set of camera
     data objects in a common frame of reference and then return it as a CameraArray object;
@@ -143,10 +134,10 @@ class CameraArrayBuilder:
                 error = float(params["RMSE"])
 
                 daisy_chain["Pair"].append(pair)
-                
+
                 # it will likely appear strange to make B the primary and A the secondary
-                # because cv2.stereocalibrate returns R and t such that it is the 
-                # position of the first camera relative to the second camera, I have 
+                # because cv2.stereocalibrate returns R and t such that it is the
+                # position of the first camera relative to the second camera, I have
                 # switched things up for purposes of constructing the array
                 daisy_chain["Primary"].append(port_B)
                 daisy_chain["Secondary"].append(port_A)
@@ -178,7 +169,9 @@ class CameraArrayBuilder:
             .sort_values("MeanError")
         )
 
-        anchor_camera = int(mean_error.index[0]) # array anchored by camera with the lowest mean RMSE
+        anchor_camera = int(
+            mean_error.index[0]
+        )  # array anchored by camera with the lowest mean RMSE
 
         daisy_chain_w_inverted = daisy_chain_w_inverted.merge(
             mean_error, how="left", on="Primary"
@@ -216,5 +209,5 @@ if __name__ == "__main__":
     config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
-    
+
     print("pause")

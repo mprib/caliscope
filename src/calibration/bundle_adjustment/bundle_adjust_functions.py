@@ -181,8 +181,10 @@ def reprojection_error(
     )
     points_3d = params[n_cameras * CAMERA_PARAM_COUNT :].reshape((n_points, 3))
 
-    points_3d_and_2d = np.hstack([np.array([camera_indices]).T, points_3d[point_indices], points_2d])
-   
+    rows = camera_indices.shape[0]
+    blanks = np.zeros((rows,2), dtype=np.float64)
+    points_3d_and_2d = np.hstack([np.array([camera_indices]).T, points_3d[point_indices], points_2d, blanks])
+    
     for port, cam in camera_array.cameras.items():
         cam_points = np.where(camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
@@ -191,10 +193,12 @@ def reprojection_error(
         cam_matrix = cam.camera_matrix
         distortion = cam.distortion[0] # this may need some cleanup...
 
+        # get the projection of the 2d points on the image plane and ignore the jacobian
         cam_proj_points, _jac = cv2.projectPoints(object_points.astype(np.float64), rvec, tvec,cam_matrix, distortion)
 
-        pass
-    points_proj = None
+        points_3d_and_2d[cam_points][:,6:8] = cam_proj_points[:,0,:]
+        
+    points_proj = points_3d_and_2d[:,6:8]
     # points_proj = project(points_3d[point_indices], camera_params[camera_indices])
     return (points_proj - points_2d).ravel()
 

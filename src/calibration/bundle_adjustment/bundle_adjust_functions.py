@@ -188,8 +188,10 @@ def reprojection_error(
         object_points = points_3d_and_2d[cam_points][:, 1:4]
         rvec = camera_params[port][0:3]
         tvec = camera_params[port][3:6]
-        
-        cam_proj_points = cv2.projectPoints(object_points, rvec, tvec,cam.camera_matrix, cam.distortion)
+        cam_matrix = cam.camera_matrix
+        distortion = cam.distortion[0] # this may need some cleanup...
+
+        cam_proj_points, _jac = cv2.projectPoints(object_points.astype(np.float64), rvec, tvec,cam_matrix, distortion)
 
         pass
     points_proj = None

@@ -60,13 +60,9 @@ camera_params with shape (n_cameras, 9) contains initial estimates of parameters
 First 3 components in each row form a rotation vector (https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula), 
 next 3 components form a translation vector, then a focal distance and two distortion parameters.
 
-
 points_3d with shape (n_points, 3) contains initial estimates of point coordinates in the world frame.
-
 camera_id with shape (n_observations,) contains indices of cameras (from 0 to n_cameras - 1) involved in each observation.
-
 point_ind with shape (n_observations,) contains indices of points (from 0 to n_points - 1) involved in each observation.
-
 points_2d with shape (n_observations, 2) contains measured 2-D coordinates of points projected on images in each observations.
 """
 

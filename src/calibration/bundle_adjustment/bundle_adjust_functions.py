@@ -169,6 +169,7 @@ def get_sparsity_pattern(n_cameras, n_points, camera_indices, point_indices):
 
 
 def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
+# Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
     camera_params = get_camera_params(camera_array)
 

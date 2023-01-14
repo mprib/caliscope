@@ -25,7 +25,7 @@ CAMERA_PARAM_COUNT = 6
 
 def get_camera_params(camera_array):
     """for each camera build the CAMERA_PARAM_COUNT element parameter index
-    camera_params with shape (n_cameras, CAMERA_PARAM_COUNT) 
+    camera_params with shape (n_cameras, CAMERA_PARAM_COUNT)
     contains initial estimates of parameters for all cameras.
     First 3 components in each row form a rotation vector (https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula),
     next 3 components form a translation vector
@@ -96,7 +96,7 @@ def get_points_3d_df(points_csv_path):
 
 
 def get_bundle_adjust_params(points_2d_df: pd.DataFrame, points_3d_df: pd.DataFrame):
-    
+
     merged_point_data = (
         points_2d_df.merge(points_3d_df, how="left", on=["bundle", "point_id"])
         .sort_values(["camera", "bundle", "point_id"])
@@ -116,10 +116,12 @@ def reprojection_error(
     params, n_cameras, n_points, camera_indices, point_indices, points_2d, camera_array
 ):
 
-    # unpack the estimate parameteres into easier to manage shapes
+    # reshape the camera parameter estimates into one row per camera
     camera_params = params[: n_cameras * CAMERA_PARAM_COUNT].reshape(
         (n_cameras, CAMERA_PARAM_COUNT)
     )
+    
+    # reshape the 3d points from vector to nx3
     points_3d = params[n_cameras * CAMERA_PARAM_COUNT :].reshape((n_points, 3))
 
     rows = camera_indices.shape[0]
@@ -187,10 +189,10 @@ def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
     n = CAMERA_PARAM_COUNT * n_cameras + 3 * n_points
     m = 2 * points_2d.shape[0]
 
-    logging.info("n_cameras: {}".format(n_cameras))
-    logging.info("n_points: {}".format(n_points))
-    logging.info("Total number of parameters: {}".format(n))
-    logging.info("Total number of residuals: {}".format(m))
+    logging.info(f"n_cameras: {n_cameras}")
+    logging.info(f"n_points: {n_points}")
+    logging.info(f"Total number of parameters: {n}")
+    logging.info(f"Total number of residuals: {m}")
 
     initial_estimate = np.hstack((camera_params.ravel(), points_3d.ravel()))
 
@@ -211,13 +213,14 @@ def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
 
     t0 = time.time()
     logging.info(f"Start time of bundle adjustment calculations is {t0}")
-    res = least_squares(
+    optimized = least_squares(
         reprojection_error,
         initial_estimate,
         jac_sparsity=sparsity_pattern,
         verbose=2,
         x_scale="jac",
-        ftol=1e-4,
+        loss="linear",
+        ftol=1e-8,
         method="trf",
         args=(
             n_cameras,
@@ -232,4 +235,4 @@ def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
     logging.info(f"Completion time of bundle adjustment calculations is {t1}")
     logging.info(f"Total time to perform bundle adjustment: {t1-t0}")
 
-    return res
+    return optimized

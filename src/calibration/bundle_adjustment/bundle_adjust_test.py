@@ -28,7 +28,7 @@ session_directory = Path(repo, "sessions", "iterative_adjustment")
 config_path = Path(session_directory, "config.toml")
 array_builder = CameraArrayBuilder(config_path)
 camera_array = array_builder.get_camera_array()
-points_csv_path = Path(session_directory, "recording", "triangulated_points.csv")
+points_csv_path = Path(session_directory, "recording", "triangulated_points_daisy_chain.csv")
 
 res_path = Path(session_directory, "res.pkl")
 
@@ -36,6 +36,8 @@ if REFRESH_BUNDLE_ADJUST:
     res = bundle_adjust(camera_array, points_csv_path)
     with open(res_path, "wb") as file:
         pickle.dump(res, file)
+        
+    print(f"RMSE: {np.sqrt(np.mean(res.fun**2))}")
 else:
     with open(res_path, "rb") as file:
         res = pickle.load(file)
@@ -92,11 +94,11 @@ if RERUN_POINT_TRIANGULATION:
     array_triangulator = ArrayTriangulator(camera_array, point_stream, output_file)
 
 
-from src.gui.capture_volume.visualizer import CaptureVolumeVisualizer
+# from src.gui.capture_volume.visualizer import CaptureVolumeVisualizer
 
-from PyQt6.QtWidgets import QApplication
+# from PyQt6.QtWidgets import QApplication
 
-app = QApplication(sys.argv)
-vizr = CaptureVolumeVisualizer(camera_array)
-sys.exit(app.exec())
+# app = QApplication(sys.argv)
+# vizr = CaptureVolumeVisualizer(camera_array)
+# sys.exit(app.exec())
 # %%

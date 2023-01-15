@@ -55,7 +55,7 @@ class PairedPointStream:
                 self.tidy_output[key].extend(value)
 
     def get_paired_points_packet(self, pair, points_df):
-        
+        #TODO: #54 refactor paired point finder to use numpy rather than relying on pandas        
         paired_points = points_df[pair[0]].merge(
             points_df[pair[1]],
             on="ids",
@@ -132,7 +132,7 @@ class PairedPointStream:
                             }
                         )
                         logging.debug(f"Port: {port}: \n {points[port]}")
-
+                        
             # paired_points = None
             for pair in self.pairs:
                 if pair[0] in points.keys() and pair[1] in points.keys():
@@ -224,5 +224,9 @@ if __name__ == "__main__":
     while True:
         points_packet = point_stream.out_q.get()
 
-        print("--------------------------------------")
-        print(points_packet)
+        # print("--------------------------------------")
+        # print(points_packet)
+        
+        if points_packet.sync_index ==300:
+            save_data = pd.DataFrame(point_stream.tidy_output)
+            save_data.to_csv(csv_output)

@@ -72,20 +72,18 @@ class CaptureVolumeVisualizer:
             self.thread.start()
 
     def play_data(self):
-            bundles = self.point_data["bundle"].unique().tolist()
-            for bundle in bundles:
-                self.display_frame_bundle(bundle)
-                print(f"Displaying bundle {bundle}")
+            sync_indices = self.point_data["sync_index"].unique().tolist()
+            for sync_index in sync_indices:
+                self.display_points(sync_index)
+                print(f"Displaying frames from index: {sync_index}")
                 time.sleep(1/10)
     
-    def display_frame_bundle(self, sync_index):
-        # note: i'm writing this up as frames, though really these are
-        # referenced as "bundles" elsewhere. Might change in the future
+    def display_points(self, sync_index):
 
-        frame_data = self.point_data.query(f"bundle == {sync_index}")
+        point_data = self.point_data.query(f"sync_index == {sync_index}")
 
         for pair in self.pairs:
-            single_board = frame_data.query(f"pair == '{str(pair)}'")
+            single_board = point_data.query(f"pair == '{str(pair)}'")
             x = single_board.x_pos.to_numpy()
             y = single_board.y_pos.to_numpy()
             z = single_board.z_pos.to_numpy()
@@ -180,7 +178,8 @@ if __name__ == "__main__":
     camera_array = CameraArrayBuilder(config_path).get_camera_array()
 
     point_data_path = Path(
-        repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted.csv"
+        repo, "sessions", "iterative_adjustment", "recording", "triangulated_points.csv"
+        # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted.csv"
         # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_daisy_chain.csv"
         # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted_300.csv"
         # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_daisy_chain_300.csv"

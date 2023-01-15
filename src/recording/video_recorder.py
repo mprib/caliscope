@@ -91,9 +91,9 @@ class VideoRecorder:
     def store_frame_history(self):
         df = pd.DataFrame(self.frame_history)
         # TODO: #25 if file exists then change the name
-        bundle_hist_path = str(Path(self.destination_folder, "frame_time_history.csv"))
-        logging.info(f"Storing bundle history to {bundle_hist_path}")
-        df.to_csv(bundle_hist_path, index = False, header = True)
+        frame_hist_path = str(Path(self.destination_folder, "frame_time_history.csv"))
+        logging.info(f"Storing frame history to {frame_hist_path}")
+        df.to_csv(frame_hist_path, index = False, header = True)
         
          
     def start_recording(self, destination_folder):

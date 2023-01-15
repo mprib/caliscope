@@ -78,11 +78,11 @@ class CaptureVolumeVisualizer:
                 print(f"Displaying bundle {bundle}")
                 time.sleep(1/10)
     
-    def display_frame_bundle(self, bundle_index):
+    def display_frame_bundle(self, sync_index):
         # note: i'm writing this up as frames, though really these are
         # referenced as "bundles" elsewhere. Might change in the future
 
-        frame_data = self.point_data.query(f"bundle == {bundle_index}")
+        frame_data = self.point_data.query(f"bundle == {sync_index}")
 
         for pair in self.pairs:
             single_board = frame_data.query(f"pair == '{str(pair)}'")

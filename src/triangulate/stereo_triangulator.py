@@ -90,7 +90,7 @@ class StereoTriangulator:
                 xyz = np.array([])
 
             packet_3D = TriangulatedPointsPacket(
-                bundle_index=packet_2D.bundle_index,
+                sync_index=packet_2D.sync_index,
                 pair=self.pair,
                 time=time,
                 point_ids=packet_2D.point_id,
@@ -101,7 +101,7 @@ class StereoTriangulator:
                 xy_B_undistorted=points_B_undistorted,
             )
 
-            logging.debug(f"Placing current bundle of 3d points on queue")
+            logging.debug(f"Placing current set of synched 3d points on queue")
             self.out_q.put(packet_3D)
 
     def undistort(self, point, camera: CameraData, iter_num=3):
@@ -134,7 +134,7 @@ class TriangulatedPointsPacket:
     time: float  # mean time
     point_ids: np.ndarray
     xyz: np.ndarray
-    bundle_index: int
+    sync_index: int
     xy_A_raw: np.ndarray
     xy_B_raw: np.ndarray
     xy_A_undistorted: np.ndarray
@@ -148,7 +148,7 @@ class TriangulatedPointsPacket:
         else:
             pair_list = [self.pair] * num_rows
             time_list = [self.time] * num_rows
-            bundle_list = [self.bundle_index] * num_rows
+            sync_index_list = [self.sync_index] * num_rows
             id_list = self.point_ids.tolist()
             port_A_list = [self.pair[0]] * num_rows
             port_B_list = [self.pair[1]] * num_rows
@@ -169,7 +169,7 @@ class TriangulatedPointsPacket:
                 "port_A": port_A_list,
                 "port_B": port_B_list,
                 "time": time_list,
-                "bundle": bundle_list,
+                "sync_index": sync_index_list,
                 "id": id_list,
                 "x_pos": x_list,
                 "y_pos": y_list,

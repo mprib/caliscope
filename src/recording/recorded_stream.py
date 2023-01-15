@@ -22,20 +22,20 @@ import pandas as pd
 
 class RecordedStream:
     """Analogous to the live stream, this will place frames on a queue ("reel", probably need to 
-    change that cutesy little thing). These can then be harvested and bundled by a Synchronizer"""
+    change that cutesy little thing). These can then be harvested and synchronized by a Synchronizer"""
 
     def __init__(self, port, directory):
         self.port = port
         self.directory = directory
 
         video_path = str(Path(self.directory, f"port_{port}.mp4"))
-        bundle_history_path = str(Path(self.directory, f"frame_time_history.csv"))
+        synched_frames_history_path = str(Path(self.directory, f"frame_time_history.csv"))
         self.reel = Queue(-1)
         self.capture = cv2.VideoCapture(video_path)
 
-        bundle_history = pd.read_csv(bundle_history_path)
+        synched_frames_history = pd.read_csv(synched_frames_history_path)
 
-        self.port_history = bundle_history[bundle_history["port"] == port]
+        self.port_history = synched_frames_history[synched_frames_history["port"] == port]
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
         self.shutter_sync = Queue(-1)
@@ -106,11 +106,11 @@ if __name__ == "__main__":
     # recorded_stream.start_video_to_reel()
     
     notification_q = Queue()
-    syncr.notice_subscribers.append(notification_q)
+    syncr.synch_notice_subscribers.append(notification_q)
 
     while True:
-        frame_bundle_notice = notification_q.get()
-        for port, frame_data in syncr.current_bundle.items():
+        synched_frames_notice = notification_q.get()
+        for port, frame_data in syncr.current_synched_frames.items():
             if frame_data:
                 cv2.imshow(f"Port {port}", frame_data["frame"])
 

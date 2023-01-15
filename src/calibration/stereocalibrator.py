@@ -36,8 +36,8 @@ class StereoCalibrator:
 
 
         # self.stacked_frames = Queue()  # ultimately will be removing this
-        self.bundle_available_q = Queue()
-        self.synchronizer.subscribe_to_notice(self.bundle_available_q)
+        self.synched_frames_available_q = Queue()
+        self.synchronizer.subscribe_to_notice(self.synched_frames_available_q)
         self.cal_frames_ready_q = Queue()
         self.stop_event = Event()
 
@@ -55,12 +55,12 @@ class StereoCalibrator:
             f"Initiating data collection of uncalibrated pairs: {self.uncalibrated_pairs}"
         )
         self.keep_going = True
-        self.thread = Thread(target=self.harvest_frame_bundles, args=(), daemon=True)
+        self.thread = Thread(target=self.harvest_synched_frames, args=(), daemon=True)
         self.thread.start()
 
     def stop(self):
         self.stop_event.set()
-        self.bundle_available_q.put("Terminate")
+        self.synched_frames_available_q.put("Terminate")
         logging.info("Stop signal sent in stereocalibrator")
         # self.thread.join()
                 
@@ -112,20 +112,20 @@ class StereoCalibrator:
             for pair in self.pairs
         }
 
-    def harvest_frame_bundles(self):
-        """Monitors the bundle_available_q to grab a new frame bundle and inititiate
+    def harvest_synched_frames(self):
+        """Monitors the synched_frames_available_q to grab a new frames and inititiate
         processing of it."""
         logging.debug(f"Currently {len(self.uncalibrated_pairs)} uncalibrated pairs ")
 
         while not self.stop_event.set():
-            self.bundle_available_q.get()
+            self.synched_frames_available_q.get()
             
             # may get hung up on get, so additional item put on queue
             if self.stop_event.set():
                 break
             
-            self.current_bundle = self.synchronizer.current_bundle
-            logging.debug("Frame bundle harvested by stereocalibrator")
+            self.current_synched_frames = self.synchronizer.current_synched_frames
+            logging.debug("Synched frames harvested by stereocalibrator")
 
             self.add_corner_data()
             for pair in self.uncalibrated_pairs:
@@ -145,24 +145,24 @@ class StereoCalibrator:
 
             # if len(self.uncalibrated_pairs) == 0:
             #     self.stereo_calibrate()
-        logging.info("Stereocalibration bundle harvester successfully shut-down...")
+        logging.info("Stereocalibration synched frames harvester successfully shut-down...")
 
     def add_corner_data(self):
         """Assign corner data for each frame"""
-        for port in self.current_bundle.keys():
-            if self.current_bundle[port] is not None:
+        for port in self.current_synched_frames.keys():
+            if self.current_synched_frames[port] is not None:
                 ids, img_loc, board_loc = self.corner_tracker.get_corners(
-                    self.current_bundle[port]["frame"]
+                    self.current_synched_frames[port]["frame"]
                 )
 
-                self.current_bundle[port]["ids"] = ids
-                self.current_bundle[port]["img_loc"] = img_loc
-                self.current_bundle[port]["board_loc"] = board_loc
+                self.current_synched_frames[port]["ids"] = ids
+                self.current_synched_frames[port]["img_loc"] = img_loc
+                self.current_synched_frames[port]["board_loc"] = board_loc
 
                 logging.debug(f"Port {port}: {ids}")
 
     def store_stereo_data(self, pair):
-        logging.debug("About to process current frame bundle")
+        logging.debug("About to process current synched frames")
 
         # for pair in self.uncalibrated_pairs:
         portA = pair[0]
@@ -187,9 +187,9 @@ class StereoCalibrator:
 
     def get_common_ids(self, portA, portB):
         """Intersection of grid corners observed in the active grid pair"""
-        if self.current_bundle[portA] and self.current_bundle[portB]:
-            ids_A = self.current_bundle[portA]["ids"]
-            ids_B = self.current_bundle[portB]["ids"]
+        if self.current_synched_frames[portA] and self.current_synched_frames[portB]:
+            ids_A = self.current_synched_frames[portA]["ids"]
+            ids_B = self.current_synched_frames[portB]["ids"]
             common_ids = np.intersect1d(ids_A, ids_B)
             common_ids = common_ids.tolist()
 
@@ -266,9 +266,9 @@ class StereoCalibrator:
         """Pull out objective location and image location of board corners for
         a port that are on the list of common ids"""
 
-        ids = self.current_bundle[port]["ids"]
-        img_loc = self.current_bundle[port]["img_loc"].tolist()
-        board_loc = self.current_bundle[port]["board_loc"].tolist()
+        ids = self.current_synched_frames[port]["ids"]
+        img_loc = self.current_synched_frames[port]["img_loc"].tolist()
+        board_loc = self.current_synched_frames[port]["board_loc"].tolist()
 
         common_img_loc = []
         common_board_loc = []
@@ -308,7 +308,7 @@ if __name__ == "__main__":
     logging.debug("Test live stereocalibration processing")
 
     repo = Path(__file__).parent.parent.parent
-    session_path = Path(repo, "sessions", "default_session")
+    session_path = Path(repo, "sessions", "high_res_session")
     session = Session(session_path)
 
     session.load_cameras()
@@ -329,11 +329,11 @@ if __name__ == "__main__":
     while len(stereo_cal.uncalibrated_pairs) > 0:
 
         frame_ready = stereo_cal.cal_frames_ready_q.get()
-        bundle = stereo_cal.current_bundle
+        synched_frames = stereo_cal.current_synched_frames
 
-        for port in bundle.keys():
-            if bundle[port] is not None:
-                cv2.imshow(str(port), bundle[port]["frame"])
+        for port in synched_frames.keys():
+            if synched_frames[port] is not None:
+                cv2.imshow(str(port), synched_frames[port]["frame"])
 
         key = cv2.waitKey(1)
         if key == ord("q"):

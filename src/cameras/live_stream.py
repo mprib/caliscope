@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
+from dataclasses import dataclass
 
 import cv2
 import mediapipe as mp
@@ -43,9 +44,13 @@ class LiveStream:
         self.frame_time = time_module.perf_counter()
         self.avg_delta_time = 1 # trying to avoid div 0 error...not sure about this though
         
-
+    def set_fps(self, fps):
+        self.fps = fps
+        
     def get_FPS_actual(self):
-        """set the actual frame rate; called within roll_camera()"""
+        """set the actual frame rate; called within roll_camera()
+        needs to be called from within roll_camera to actually work
+        Note that this is a smoothed running average"""
         self.delta_time = time_module.time() - self.start_time
         self.start_time = time_module.time()
         if not self.avg_delta_time:
@@ -55,7 +60,6 @@ class LiveStream:
         self.avg_delta_time = 0.9 * self.avg_delta_time + 0.1 * self.delta_time
         self.previous_time = self.start_time
         return 1 / self.avg_delta_time
-        # TODO: #23 avg_delta_time was zero when testing on the laptop...is this necessary?
     
     def stop(self):
         # self.camera.stop_rolling()

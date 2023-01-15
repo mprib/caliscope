@@ -23,9 +23,9 @@ from src.calibration.corner_tracker import CornerTracker
 class PairedPointStream:
     def __init__(self, synchronizer, pairs, tracker, csv_output_path=None):
 
-        self.bundle_in_q = Queue(-1)
+        self.synched_frames_in_q = Queue(-1)
         self.synchronizer = synchronizer
-        self.synchronizer.subscribe_to_bundle(self.bundle_in_q)
+        self.synchronizer.subscribe_to_synched_frames(self.synched_frames_in_q)
 
         self.tracker = tracker  # this is just for charuco tracking...will need to expand on this for mediapipe later
 
@@ -68,7 +68,7 @@ class PairedPointStream:
         time_A = points_df[port_A]["frame_time"][0]
         time_B = points_df[port_B]["frame_time"][0]
 
-        bundle_index = points_df[port_A]["bundle_index"][0]
+        sync_index = points_df[port_A]["sync_index"][0]
 
         point_id = np.array(paired_points["ids"], dtype=np.int64)
 
@@ -85,7 +85,7 @@ class PairedPointStream:
             packet = None
         else:
             packet = PairedPointsPacket(
-                bundle_index=bundle_index,
+                sync_index=sync_index,
                 port_A=port_A,
                 port_B=port_B,
                 time_A=time_A,
@@ -105,25 +105,25 @@ class PairedPointStream:
         
     def find_paired_points(self):
         while True:
-            bundle = self.bundle_in_q.get()
+            synched_frames = self.synched_frames_in_q.get()
 
             # will be populated with dataframes of:
             # id | img_x | img_y | board_x | board_y
             points = {}
 
             # find points in each of the frames
-            for port in bundle.keys():
-                if bundle[port] is not None:
-                    frame = bundle[port]["frame"]
-                    frame_time = bundle[port]["frame_time"]
-                    bundle_index = bundle[port]["bundle_index"]
+            for port in synched_frames.keys():
+                if synched_frames[port] is not None:
+                    frame = synched_frames[port]["frame"]
+                    frame_time = synched_frames[port]["frame_time"]
+                    sync_index = synched_frames[port]["sync_index"]
 
                     ids, loc_img, loc_board = self.tracker.get_corners(frame)
                     if ids.any():
                         points[port] = pd.DataFrame(
                             {
                                 "frame_time": frame_time,
-                                "bundle_index": bundle_index,
+                                "sync_index": sync_index,
                                 "ids": ids[:, 0].tolist(),
                                 "loc_img_x": loc_img[:, 0][:, 0].tolist(),
                                 "loc_img_y": loc_img[:, 0][:, 1].tolist(),
@@ -149,7 +149,7 @@ class PairedPointStream:
 
 @dataclass
 class PairedPointsPacket:
-    bundle_index: int
+    sync_index: int
 
     port_A: int
     port_B: int
@@ -179,7 +179,7 @@ class PairedPointsPacket:
 
         packet_dict = {}
         length = len(self.point_id)
-        packet_dict["bundle_index"] = [self.bundle_index] * length
+        packet_dict["sync_index"] = [self.sync_index] * length
         packet_dict["port_A"] = [self.port_A] * length
         packet_dict["port_B"] = [self.port_B] * length
         packet_dict["time_A"] = [self.time_A] * length
@@ -201,7 +201,7 @@ if __name__ == "__main__":
 
     repo = Path(__file__).parent.parent.parent
     print(repo)
-    session_directory = Path(repo, "sessions", "iterative_adjustment")
+    session_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
     csv_output = Path(session_directory, "paired_point_data.csv")
 
     ports = [0, 1, 2]

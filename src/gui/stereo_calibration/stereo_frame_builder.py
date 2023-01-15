@@ -33,33 +33,33 @@ class StereoFrameBuilder:
         for port, stream in self.stereo_calibrator.synchronizer.streams.items():
             self.rotation_counts[port] = stream.camera.rotation_count
 
-    def set_current_bundle(self):
+    def set_current_synched_frames(self):
         self.stereo_calibrator.cal_frames_ready_q.get()  # impose wait until update
-        self.current_bundle = self.stereo_calibrator.current_bundle
+        self.current_synched_frames = self.stereo_calibrator.current_synched_frames
 
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
         """Return unaltered frame if no corner information detected, otherwise
         return two frames with same corners drawn"""
-        if self.current_bundle[portA] is None:
+        if self.current_synched_frames[portA] is None:
             logging.warn(f"Dropped frame at port {portA}")
             return frameA, frameB
 
-        elif self.current_bundle[portB] is None:
+        elif self.current_synched_frames[portB] is None:
             logging.warn(f"Dropped frame at port {portB}")
             return frameA, frameB
 
         elif (
-            "ids" not in self.current_bundle[portA]
-            or "ids" not in self.current_bundle[portB]
+            "ids" not in self.current_synched_frames[portA]
+            or "ids" not in self.current_synched_frames[portB]
         ):
             return frameA, frameB
         else:
-            ids_A = self.current_bundle[portA]["ids"]
-            ids_B = self.current_bundle[portB]["ids"]
+            ids_A = self.current_synched_frames[portA]["ids"]
+            ids_B = self.current_synched_frames[portB]["ids"]
             common_ids = np.intersect1d(ids_A, ids_B)
             
-            img_loc_A = self.current_bundle[portA]["img_loc"]
-            img_loc_B = self.current_bundle[portB]["img_loc"]
+            img_loc_A = self.current_synched_frames[portA]["img_loc"]
+            img_loc_B = self.current_synched_frames[portB]["img_loc"]
 
             for _id, img_loc in zip(ids_A, img_loc_A):
                 if _id in common_ids:
@@ -125,16 +125,16 @@ class StereoFrameBuilder:
         return frame
 
     def get_frame_or_blank(self, port):
-        """Synchronization issues can lead to some frames being None in the
-        bundle, so plug that with a blank frame"""
+        """Synchronization issues can lead to some frames being None among
+        the synched frames, so plug that with a blank frame"""
 
         edge = self.single_frame_height
-        bundle = self.current_bundle[port]
-        if bundle is None:
+        synched_frames = self.current_synched_frames[port]
+        if synched_frames is None:
             logging.debug("plugging blank frame data")
             frame = np.zeros((edge, edge, 3), dtype=np.uint8)
         else:
-            frame = self.current_bundle[port]["frame"]
+            frame = self.current_synched_frames[port]["frame"]
 
         frame = frame.copy()
         return frame
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     while len(stereo_cal.uncalibrated_pairs) > 0:
         # wait for newly processed frame to be available
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
-        frame_builder.set_current_bundle()
+        frame_builder.set_current_synched_frames()
 
         for pair, frame in frame_builder.get_stereoframe_pairs().items():
             cv2.imshow(str(pair), frame)

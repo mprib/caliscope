@@ -35,7 +35,7 @@ class StereoFrameEmitter(QThread):
 
         while not self.stop_event.is_set():
             # wait for newly processed frames to become available
-            self.stereo_frame_builder.set_current_bundle()
+            self.stereo_frame_builder.set_current_synched_frames()
 
             frame_dict = self.stereo_frame_builder.get_stereoframe_pairs()
 

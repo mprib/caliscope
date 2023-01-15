@@ -18,10 +18,10 @@ import numpy as np
 class Synchronizer:
     def __init__(self, streams: dict, fps_target):
         self.streams = streams
-        self.current_bundle = None
+        self.current_synched_frames = None
 
-        self.notice_subscribers = []  # queues that will be notified of new bundles
-        self.bundle_subscribers = []    # queues that will receive actual frame data
+        self.synch_notice_subscribers = []  # queues that will be notified of new synched frames
+        self.synched_frames_subscribers = []    # queues that will receive actual frame data
         
         self.frame_data = {}
         self.stop_event = Event()
@@ -39,7 +39,7 @@ class Synchronizer:
 
     def stop(self):
         self.stop_event.set()
-        self.bundler.join()
+        self.thread.join()
         for t in self.threads:
             t.join()
             
@@ -60,24 +60,24 @@ class Synchronizer:
             self.threads.append(t)
         logging.info("Frame harvesters just submitted")
 
-        logging.info("Starting frame bundler...")
-        self.bundler = Thread(target=self.bundle_frames, args=(), daemon=True)
-        self.bundler.start()
+        logging.info("Starting frame synchronizer...")
+        self.thread = Thread(target=self.synch_frames_worker, args=(), daemon=True)
+        self.thread.start()
         
     def subscribe_to_notice(self, q):
-        # subscribers are notified via the queue that a new frame bundle is available
+        # subscribers are notified via the queue that new frames are available
         # this is intended to avoid issues with latency due to multiple iterations
         # of frames being passed from one queue to another
-        logging.info("Adding queue to receive notice of bundle update")
-        self.notice_subscribers.append(q)
+        logging.info("Adding queue to receive notice of synched frames update")
+        self.synch_notice_subscribers.append(q)
 
-    def subscribe_to_bundle(self, q):
-        logging.info("Adding queue to receive frame bundle")
-        self.bundle_subscribers.append(q)
+    def subscribe_to_synched_frames(self, q):
+        logging.info("Adding queue to receive synched frames")
+        self.synched_frames_subscribers.append(q)
 
-    def release_bundle_q(self,q):
+    def release_synched_frames_q(self,q):
         logging.info("Releasing record queue")
-        self.bundle_subscribers.remove(q)
+        self.synched_frames_subscribers.remove(q)
 
     def harvest_frames(self, stream):
         port = stream.port
@@ -161,7 +161,7 @@ class Synchronizer:
 
         return 1 / mean_delta_t
 
-    def bundle_frames(self):
+    def synch_frames_worker(self):
 
         logging.info(f"Waiting for all ports to begin harvesting corners...")
 
@@ -173,9 +173,9 @@ class Synchronizer:
 
         sync_time = time.perf_counter()
 
-        bundle_index = 0
+        sync_index = 0
 
-        logging.info("About to start bundling frames...")
+        logging.info("About to start synchronizing frames...")
         while not self.stop_event.is_set():
 
             # Enforce a wait period to hit target FPS, unless you have excess slack
@@ -212,7 +212,7 @@ class Synchronizer:
                 current_frame_data = self.frame_data[port_index_key]
                 frame_time = current_frame_data["frame_time"]
 
-                # don't put a frame in a bundle if the next bundle has a frame before it
+                # don't put a frame in a synched frame packet if the next packet has a frame before it
                 if frame_time > earliest_next[port]:
                     # definitly should be put in the next layer and not this one
                     next_layer[port] = None
@@ -225,7 +225,7 @@ class Synchronizer:
                 else:
                     # add the data and increment the index
                     next_layer[port] = self.frame_data.pop(port_index_key)
-                    next_layer[port]["bundle_index"] = bundle_index
+                    next_layer[port]["sync_index"] = sync_index
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
                     logging.debug(f"Adding to layer from port {port} at index {current_frame_index} and frame time: {frame_time}")
@@ -234,22 +234,21 @@ class Synchronizer:
 
             self.mean_frame_times.append(np.mean(layer_frame_times))
 
-            self.current_bundle = next_layer
-            # notify other processes that the current bundle is ready for processing
-            # only for tasks that can risk missing a frame bundle
-            for q in self.notice_subscribers:
-                logging.debug(f"Giving notice of new bundle via {q}")
-                q.put("new bundle available")
+            self.current_synched_frames = next_layer
+            # notify other processes that the new frames are ready for processing
+            # only for tasks that can risk missing frames (i.e. only for gui purposes)
+            for q in self.synch_notice_subscribers:
+                logging.debug(f"Giving notice of new synched frames packet via {q}")
+                q.put("new synched frames available")
 
-            for q in self.bundle_subscribers:
-                logging.debug(f"Placing new bundle on queue: {q}")
-                logging.debug("Placing bundle on subscribers queue")
-                q.put(self.current_bundle)
+            for q in self.synched_frames_subscribers:
+                logging.debug(f"Placing new synched frames packet on queue: {q}")
+                q.put(self.current_synched_frames)
             
-            bundle_index += 1
+            sync_index += 1
             self.fps = self.average_fps()
 
-        logging.info("Frame bundler successfully ended")
+        logging.info("Frame synch worker successfully ended")
 
 
 
@@ -276,23 +275,23 @@ if __name__ == "__main__":
 
     syncr.subscribe_to_notice(notification_q)
     
-    bundle_data = {"Bundle":[],
+    synched_frames = {"Sync_Index":[],
                    "Port_0_Time":[],
                    "Port_1_Time":[],
                    "Port_2_Time":[]}
-    bundle_index = 0
+    sync_index = 0
     while True:
-        frame_bundle_notice = notification_q.get()
-        bundle_data["Bundle"].append(bundle_index)
-        bundle_index += 1
+        synched_frames_notice = notification_q.get()
+        synched_frames["Sync_Index"].append(sync_index)
+        sync_index += 1
 
-        for port, frame_data in syncr.current_bundle.items():
+        for port, frame_data in syncr.current_synched_frames.items():
             
             if frame_data:
                 cv2.imshow(f"Port {port}", frame_data["frame"])
-                bundle_data[f"Port_{port}_Time"].append(frame_data["frame_time"])
+                synched_frames[f"Port_{port}_Time"].append(frame_data["frame_time"])
             else:
-                bundle_data[f"Port_{port}_Time"].append("dropped")
+                synched_frames[f"Port_{port}_Time"].append("dropped")
                 
         key = cv2.waitKey(1)
 
@@ -300,5 +299,5 @@ if __name__ == "__main__":
             cv2.destroyAllWindows()
             break
 
-    SynchData = pd.DataFrame(bundle_data)
+    SynchData = pd.DataFrame(synched_frames)
     SynchData.to_csv(Path(config_path,"synch_data.csv"))

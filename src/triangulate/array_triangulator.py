@@ -88,7 +88,7 @@ class ArrayTriangulator:
             # read in a paired point stream
             new_paired_point_packet = self.paired_point_stream.out_q.get()
             logging.info(
-                f"Bundle: {new_paired_point_packet.bundle_index} | Pair: {new_paired_point_packet.pair}"
+                f"Bundle: {new_paired_point_packet.sync_index} | Pair: {new_paired_point_packet.pair}"
             )
 
             pair = new_paired_point_packet.pair
@@ -97,10 +97,10 @@ class ArrayTriangulator:
 
             self.store_point_data(triangulated_packet)
 
-            print(f"Bundle: {triangulated_packet.bundle_index}  Pair: {pair}")
+            print(f"Bundle: {triangulated_packet.sync_index}  Pair: {pair}")
             # TODO: #45 figure out how to get this to stop automatically
             # might want to get the frame counts for the saved port data
-            if triangulated_packet.bundle_index > 300:
+            if triangulated_packet.sync_index > 300:
                 self.stop.set()
 
         if self.output_file is not None:

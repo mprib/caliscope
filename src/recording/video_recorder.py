@@ -42,54 +42,54 @@ class VideoRecorder:
 
 
     def save_frame_worker(self):
-        # connect video recorder to synchronizer via a "bundle in" queue
+        # connect video recorder to synchronizer via an "in" queue
         self.build_video_writers()
 
-        self.bundle_history = {"bundle_index": [],
+        self.frame_history = {"sync_index": [],
                                "port":[],
                                "frame_index":[],
                                "frame_time":[]}
-        bundle_index = 0
+        sync_index = 0
 
-        self.bundle_in_q = Queue(-1)
-        self.syncronizer.subscribe_to_bundle(self.bundle_in_q)       
+        self.synched_frames_in_q = Queue(-1)
+        self.syncronizer.subscribe_to_synched_frames(self.synched_frames_in_q)       
 
         while not self.trigger_stop.is_set():
-            frame_bundle = self.bundle_in_q.get() 
-            logging.debug("Pulling bundle from record queue")
+            synched_frames = self.synched_frames_in_q.get() 
+            logging.debug("Pulling synched frames from record queue")
 
-            for port, bundle in frame_bundle.items():
-                if bundle is not None:
+            for port, synched_frame_data in synched_frames.items():
+                if synched_frame_data is not None:
                     # read in the data for this frame for this port
-                    frame = bundle["frame"]
-                    frame_index = bundle["frame_index"]
-                    frame_time = bundle["frame_time"]
+                    frame = synched_frame_data["frame"]
+                    frame_index = synched_frame_data["frame_index"]
+                    frame_time = synched_frame_data["frame_time"]
 
                     # store the frame
                     self.video_writers[port].write(frame)
 
                     # store to assocated data in the dictionary
-                    self.bundle_history["bundle_index"].append(bundle_index)
-                    self.bundle_history["port"].append(port)
-                    self.bundle_history["frame_index"].append(frame_index)
-                    self.bundle_history["frame_time"].append(frame_time)
+                    self.frame_history["sync_index"].append(sync_index)
+                    self.frame_history["port"].append(port)
+                    self.frame_history["frame_index"].append(frame_index)
+                    self.frame_history["frame_time"].append(frame_time)
 
                     # these two lines of code are just for ease of debugging 
                     cv2.imshow(f"port: {port}", frame)
                     key = cv2.waitKey(1)
 
-            bundle_index += 1
+            sync_index += 1
         self.trigger_stop.clear() # reset stop recording trigger
-        self.syncronizer.release_bundle_q(self.bundle_in_q)
+        self.syncronizer.release_synched_frames_q(self.synched_frames_in_q)
 
         # a proper release is strictly necessary to ensure file is readable
-        for port, bundle in frame_bundle.items():
+        for port, synched_frame_data in synched_frames.items():
             self.video_writers[port].release()
 
-        self.store_bundle_history()
+        self.store_frame_history()
     
-    def store_bundle_history(self):
-        df = pd.DataFrame(self.bundle_history)
+    def store_frame_history(self):
+        df = pd.DataFrame(self.frame_history)
         # TODO: #25 if file exists then change the name
         bundle_hist_path = str(Path(self.destination_folder, "frame_time_history.csv"))
         logging.info(f"Storing bundle history to {bundle_hist_path}")
@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
     syncr = Synchronizer(session.streams, fps_target=50)
     notification_q = Queue()
-    syncr.notice_subscribers.append(notification_q)
+    syncr.synch_notice_subscribers.append(notification_q)
 
     video_recorder = VideoRecorder(syncr)
 

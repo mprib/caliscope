@@ -36,7 +36,6 @@ class MonoCalibrator:
         
         self.target_fps = target_fps
         # self.synchronizer = synchronizer
-        self.bundle_ready_q = Queue()
         self.grid_frame_ready_q = Queue()
         self.connected_corners = self.corner_tracker.charuco.get_connected_corners()
         board_corner_count = len(self.corner_tracker.charuco.board.chessboardCorners)

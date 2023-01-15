@@ -15,7 +15,7 @@ The file `src\recording\video_recorder.py` will launch a VideoRecorder and store
 
 # Triangulating
 
-Recorded video can be played back through the synchronizer with synched frame bundles passed to the PairedPointStream which uses the charuco tracker to identify the same point in space between paired frames. Point ID and (X,Y) position for each frame are passed to an `out_q`. The triangulator pulls from this queue, calculates values for ID: (X,Y,Z) and places that calculation on its own `out_q`
+Recorded video can be played back through the synchronizer with synched frames passed to the PairedPointStream which uses the charuco tracker to identify the same point in space between paired frames. Point ID and (X,Y) position for each frame are passed to an `out_q`. The triangulator pulls from this queue, calculates values for ID: (X,Y,Z) and places that calculation on its own `out_q`
 
 # Visualization
 

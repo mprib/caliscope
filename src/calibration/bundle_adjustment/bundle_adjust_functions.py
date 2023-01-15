@@ -49,7 +49,7 @@ def get_points_2d_df(points_csv_path):
     ].rename(
         columns={
             "port_A": "camera",
-            "bundle": "bundle_index",
+            "bundle": "sync_index",
             "id": "point_id",
             "x_A_raw": "x_2d",
             "y_A_raw": "y_2d",
@@ -61,7 +61,7 @@ def get_points_2d_df(points_csv_path):
     ].rename(
         columns={
             "port_B": "camera",
-            "bundle": "bundle_index",
+            "bundle": "sync_index",
             "id": "point_id",
             "x_B_raw": "x_2d",
             "y_B_raw": "y_2d",
@@ -71,8 +71,8 @@ def get_points_2d_df(points_csv_path):
     points_2d_df = (
         pd.concat([points_2d_port_A, points_2d_port_B])
         .drop_duplicates()
-        .sort_values(["bundle_index", "point_id", "camera"])
-        .rename(columns={"bundle_index": "bundle"})
+        .sort_values(["sync_index", "point_id", "camera"])
+        .rename(columns={"sync_index": "bundle"})
     )
     return points_2d_df
 

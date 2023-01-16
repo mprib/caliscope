@@ -55,55 +55,57 @@ class PairedPointStream:
                 self.tidy_output[key].extend(value)
 
     def get_paired_points_packet(self, pair, points_df):
-        #TODO: #54 refactor paired point finder to use numpy rather than relying on pandas        
-        paired_points = points_df[pair[0]].merge(
-            points_df[pair[1]],
-            on="ids",
-            how="inner",
-            suffixes=[f"_A", f"_B"],
-        )
+
         port_A = pair[0]
         port_B = pair[1]
 
-        time_A = points_df[port_A]["frame_time"][0]
-        time_B = points_df[port_B]["frame_time"][0]
+        FramePoints_A = points_df[port_A]
+        FramePoints_B = points_df[port_B]
 
-        sync_index = points_df[port_A]["sync_index"][0]
+        time_A = FramePoints_A.frame_time
+        time_B = FramePoints_B.frame_time
 
-        point_id = np.array(paired_points["ids"], dtype=np.int64)
+        sync_index = FramePoints_A.sync_index
+      
+        # get ids in common
+        common_ids = np.intersect1d(FramePoints_A.ids, FramePoints_B.ids)
 
-        loc_img_x_A = np.array(paired_points["loc_img_x_A"], dtype=np.float64)
-        loc_img_x_B = np.array(paired_points["loc_img_x_B"], dtype=np.float64)
 
-        loc_img_y_A = np.array(paired_points["loc_img_y_A"], dtype=np.float64)
-        loc_img_y_B = np.array(paired_points["loc_img_y_B"], dtype=np.float64)
-
-        loc_board_x = np.array(paired_points["loc_board_x_A"], dtype=np.float64)
-        loc_board_y = np.array(paired_points["loc_board_y_A"], dtype=np.float64)
-
-        if len(point_id) == 0:
+   
+        if len(common_ids) == 0:
             packet = None
         else:
+            # common_ids = common_ids[:,0]
+            # for both ports, get the indices of the common ids
+            sorter_A = np.argsort(FramePoints_A.ids)
+            shared_indices_A = sorter_A[np.searchsorted(FramePoints_A.ids,common_ids,sorter= sorter_A) ]
+            shared_indices_A
+
+            sorter_B = np.argsort(FramePoints_B.ids)
+            shared_indices_B = sorter_B[np.searchsorted(FramePoints_B.ids,common_ids,sorter= sorter_B) ]
+            shared_indices_B
+
             packet = PairedPointsPacket(
                 sync_index=sync_index,
                 port_A=port_A,
                 port_B=port_B,
                 time_A=time_A,
                 time_B=time_B,
-                point_id=point_id,
-                loc_board_x=loc_board_x,
-                loc_board_y=loc_board_y,
-                loc_img_x_A=loc_img_x_A,
-                loc_img_y_A=loc_img_y_A,
-                loc_img_x_B=loc_img_x_B,
-                loc_img_y_B=loc_img_y_B,
+                point_id=common_ids,
+                loc_board_x=FramePoints_A.loc_board_x[shared_indices_A],
+                loc_board_y=FramePoints_A.loc_board_y[shared_indices_A],
+                loc_img_x_A=FramePoints_A.loc_img_x[shared_indices_A],
+                loc_img_y_A=FramePoints_A.loc_img_y[shared_indices_A],
+                loc_img_x_B=FramePoints_B.loc_img_x[shared_indices_B],
+                loc_img_y_B=FramePoints_B.loc_img_y[shared_indices_B],
             )
-            logging.debug(f"Points in common for ports {pair}: \n {paired_points}")
+            logging.debug(f"Points in common for ports {pair}: {common_ids}")
+
         return packet
-        
-        
-        
+
     def find_paired_points(self):
+        
+        
         while True:
             synched_frames = self.synched_frames_in_q.get()
 
@@ -113,42 +115,63 @@ class PairedPointStream:
 
             # find points in each of the frames
             for port in synched_frames.keys():
+
                 if synched_frames[port] is not None:
+
+                    # create a frame_point packet for this board
                     frame = synched_frames[port]["frame"]
                     frame_time = synched_frames[port]["frame_time"]
                     sync_index = synched_frames[port]["sync_index"]
 
+                    # TODO: #56 in the future, this could perhaps get pushed to the corner tracker
                     ids, loc_img, loc_board = self.tracker.get_corners(frame)
                     if ids.any():
-                        points[port] = pd.DataFrame(
-                            {
-                                "frame_time": frame_time,
-                                "sync_index": sync_index,
-                                "ids": ids[:, 0].tolist(),
-                                "loc_img_x": loc_img[:, 0][:, 0].tolist(),
-                                "loc_img_y": loc_img[:, 0][:, 1].tolist(),
-                                "loc_board_x": loc_board[:, 0][:, 0].tolist(),
-                                "loc_board_y": loc_board[:, 0][:, 1].tolist(),
-                            }
+                        points[port] = FramePointsPacket(
+                            frame_time,
+                            sync_index,
+                            ids[:,0],
+                            loc_img_x=loc_img[:, 0][:, 0],
+                            loc_img_y=loc_img[:, 0][:, 1],
+                            loc_board_x=loc_board[:, 0][:, 0],
+                            loc_board_y=loc_board[:, 0][:, 1],
                         )
+
                         logging.debug(f"Port: {port}: \n {points[port]}")
-                        
+
             # paired_points = None
             for pair in self.pairs:
                 if pair[0] in points.keys() and pair[1] in points.keys():
 
                     packet = self.get_paired_points_packet(pair, points)
-                    
+
                     # if no points in common, then don't do anything
                     if packet is None:
                         pass
                     else:
                         self.out_q.put(packet)
+                        print(packet.sync_index)
                         self.add_to_tidy_output(packet)
+
+
+
+
+@dataclass
+class FramePointsPacket:
+    """The points identified in a single frame by the point tracker"""
+
+    frame_time: float
+    sync_index: int
+    ids: np.ndarray
+    loc_img_x: np.ndarray
+    loc_img_y: np.ndarray
+    loc_board_x: np.ndarray
+    loc_board_y: np.ndarray
 
 
 @dataclass
 class PairedPointsPacket:
+    """The points shared by two FramePointsPackets"""
+
     sync_index: int
 
     port_A: int
@@ -226,7 +249,7 @@ if __name__ == "__main__":
 
         # print("--------------------------------------")
         # print(points_packet)
-        
-        if points_packet.sync_index ==300:
+
+        if points_packet.sync_index == 300:
             save_data = pd.DataFrame(point_stream.tidy_output)
             save_data.to_csv(csv_output)

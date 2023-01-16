@@ -9,6 +9,8 @@ LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 import sys
+
+from time import perf_counter, sleep
 import time as time_module # peculier bug popped up during module testing...perhaps related to conda environment?
 from datetime import datetime
 from pathlib import Path
@@ -24,7 +26,7 @@ from src.cameras.camera import Camera
 
 
 class LiveStream:
-    def __init__(self, camera):
+    def __init__(self, camera, fps=6):
         self.camera = camera
         self.port = camera.port
 
@@ -35,6 +37,7 @@ class LiveStream:
 
         self.push_to_reel = False
         self.show_fps = False
+        self.set_fps(fps)
         self.FPS_actual = 0
         # Start the thread to read frames from the video stream
         self.thread = Thread(target=self.roll_camera, args=(), daemon=True)
@@ -46,7 +49,27 @@ class LiveStream:
         
     def set_fps(self, fps):
         self.fps = fps
-        
+        milestones = []
+        for i in range(0, fps):
+            milestones.append(i/fps)
+        logging.info(f"Setting fps to {self.fps}")
+        self.milestones = np.array(milestones)       
+
+    def wait_to_next_frame(self):
+        """based on the target fps, return the time needed to sleep so that
+        a frame read immediately after would occur when needed"""
+
+        time = perf_counter()
+        fractional_time = time%1
+        all_wait_times = self.milestones-fractional_time
+        future_wait_times = all_wait_times[all_wait_times>0]
+    
+        if len(future_wait_times) ==0:
+            # print("wait")
+            return 1-fractional_time
+        else:
+            return future_wait_times[0]
+
     def get_FPS_actual(self):
         """set the actual frame rate; called within roll_camera()
         needs to be called from within roll_camera to actually work
@@ -57,7 +80,7 @@ class LiveStream:
             self.avg_delta_time = self.delta_time
 
         # folding in current frame rate to trailing average to smooth out
-        self.avg_delta_time = 0.9 * self.avg_delta_time + 0.1 * self.delta_time
+        self.avg_delta_time = 0.5 * self.avg_delta_time + 0.5 * self.delta_time
         self.previous_time = self.start_time
         return 1 / self.avg_delta_time
     
@@ -84,19 +107,19 @@ class LiveStream:
             if self.camera.capture.isOpened():
 
                 # wait for sync_shutter to fire
-                if self.push_to_reel:
-                    _ = self.shutter_sync.get()
-                    logging.debug(f"Shutter fire signal retrieved at port {self.port}")
-
+                # if self.push_to_reel:
+                    # _ = self.shutter_sync.get()
+                    # logging.debug(f"Shutter fire signal retrieved at port {self.port}")
                 # read in working frame
+                sleep(self.wait_to_next_frame())
                 read_start = time_module.perf_counter()
                 self.success, self._working_frame = self.camera.capture.read()
                 
-                if self.show_fps:
-                    self._add_fps()
-                
                 read_stop = time_module.perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
+
+                if self.show_fps:
+                    self._add_fps()
 
                 if self.push_to_reel and self.success:
                     logging.debug(f"Pushing frame to reel at port {self.port}")

@@ -24,7 +24,7 @@ from src.calibration.corner_tracker import CornerTracker
 
 class MonoCalibrator:
     def __init__(
-        self, stream, corner_tracker, target_fps=6, board_threshold=0.7, wait_time=0.5
+        self, stream, corner_tracker, board_threshold=0.7, wait_time=0.5
     ):
         self.stream = stream
         self.camera = stream.camera  # reference needed to update params
@@ -34,7 +34,9 @@ class MonoCalibrator:
         self.capture_corners = False  # start out not doing anything
         self.stop_event = Event()
         
-        self.target_fps = target_fps
+        # self.target_fps = target_fps
+        # self.set_stream_fps(self.target_fps)
+
         # self.synchronizer = synchronizer
         self.grid_frame_ready_q = Queue()
         self.connected_corners = self.corner_tracker.charuco.get_connected_corners()
@@ -52,6 +54,7 @@ class MonoCalibrator:
 
         logging.info(f"Beginning monocalibrator for port {self.port}")
 
+        
     @property
     def grid_count(self):
         """How many sets of corners have been collected up to this point"""
@@ -72,7 +75,7 @@ class MonoCalibrator:
         self.all_ids = []
         self.all_img_loc = []
         self.all_board_loc = []
-
+    
     def stop(self):
         self.stop_event.set()
         self.thread.join()
@@ -85,23 +88,13 @@ class MonoCalibrator:
         that enough time has past since the last set was recorded
 
         """
-        # wait for camera to start rolling
         logging.debug("Entering collect_corners thread loop")
-        while not hasattr(self.stream, "_working_frame"):
-            time.sleep(.01) # wait for initial frame data to populate
+        
+        self.stream.push_to_reel = True        
         
         while not self.stop_event.is_set():
-            # self.stream.shutter_sync.put("Fire")
-            # frame_data = self.stream.reel.get()
-            self.frame = self.stream._working_frame
-            # this is a dumb placeholder to throttle the frame rate
-            time.sleep(1/self.target_fps)
-
-            # create  a blank frame to fill dropped frames
-            # if frame_data:
-            #     self.frame_time, self.frame = frame_data
-            # else:
-            #     self.frame = np.zeros(self.image_size, dtype="uint8")
+            
+            frame_time, self.frame = self.stream.reel.get()
 
             # need to initialize to numpy arrays otherwise error if no corners detected
             self.ids = np.array([])
@@ -224,7 +217,7 @@ if __name__ == "__main__":
 
     # syncr = Synchronizer(streams, fps_target=20)
 
-    monocal = MonoCalibrator(stream, trackr, target_fps=6)
+    monocal = MonoCalibrator(stream, trackr)
 
     monocal.capture_corners = True
 

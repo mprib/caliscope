@@ -123,7 +123,6 @@ class PairedPointStream:
                     frame_time = synched_frames[port]["frame_time"]
                     sync_index = synched_frames[port]["sync_index"]
 
-                    # TODO: #56 in the future, this could perhaps get pushed to the corner tracker
                     ids, loc_img, loc_board = self.tracker.get_corners(frame)
                     if ids.any():
                         points[port] = FramePointsPacket(

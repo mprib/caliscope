@@ -36,7 +36,7 @@ from src.session import Session
 
 
 class CameraConfigDialog(QDialog):
-    def __init__(self, session, port ):
+    def __init__(self, session, port):
         super(CameraConfigDialog, self).__init__()
 
         # set up variables for ease of reference
@@ -107,7 +107,6 @@ class CameraConfigDialog(QDialog):
         hbox = QHBoxLayout()
         self.calibrate_grp.setLayout(hbox)
 
-
         # Collect Calibration Corners
         vbox = QVBoxLayout()
         vbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -173,7 +172,7 @@ class CameraConfigDialog(QDialog):
 
         # Undistort
         self.undistort_btn = QPushButton("Undistort")
-        
+
         # check here to see if distortion params are available for this camera
         if self.monocal.camera.distortion is None:
             self.undistort_btn.setEnabled(False)
@@ -195,6 +194,7 @@ class CameraConfigDialog(QDialog):
 
         def on_save_click():
             self.session.save_camera(self.port)
+
         # Save Calibration
         self.save_cal_btn = QPushButton("Save Calibration")
         # self.save_cal_btn.setEnabled(False)
@@ -213,23 +213,20 @@ class CameraConfigDialog(QDialog):
         # calib_output.setMaximumWidth()
 
     def build_fps_grp(self):
-        
+
         self.fps_grp = QGroupBox("FPS")
         fps_hbox = QHBoxLayout()
         self.fps_grp.setLayout(fps_hbox)
-        # self.realtime_text_hbox = QHBoxLayout()
+
         logging.debug("Building FPS Control")
         fps_hbox.addWidget(QLabel("Target:"))
         self.frame_rate_spin = QSpinBox()
-        self.frame_rate_spin.setValue(self.monocal.target_fps)
+        self.frame_rate_spin.setValue(self.stream.fps)
 
-        self.stream.target_fps = (
-            self.frame_rate_spin.value()
-        )
 
         def on_frame_rate_spin(fps_rate):
-            self.monocal.target_fps = fps_rate
-            logging.info(f"Changing synchronizer frame rate via port{self.port}")
+            self.stream.set_fps(fps_rate)
+            logging.info(f"Changing monocalibrator frame rate for port{self.port}")
 
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
         fps_hbox.addWidget(self.frame_rate_spin)
@@ -237,7 +234,7 @@ class CameraConfigDialog(QDialog):
         self.fps_display = QLabel()
         self.fps_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         fps_hbox.addWidget(self.fps_display)
-        
+
         def FPSUpdateSlot(fps):
             if self.monocal.camera.capture.isOpened():
                 # rounding to nearest integer should be close enough for our purposes
@@ -252,16 +249,16 @@ class CameraConfigDialog(QDialog):
         self.grid_grp = QGroupBox("Grid Collection")
         hbox = QHBoxLayout()
         self.grid_grp.setLayout(hbox)
-        
+
         hbox.addWidget(QLabel("Wait Time:"))
         self.wait_time_spin = QDoubleSpinBox()
         self.wait_time_spin.setValue(self.monocal.wait_time)
         self.wait_time_spin.setSingleStep(0.1)
 
         def on_wait_time_spin(wait_time):
-            self. monocal.wait_time = wait_time
+            self.monocal.wait_time = wait_time
 
-        self.wait_time_spin.valueChanged.connect(on_wait_time_spin)     
+        self.wait_time_spin.valueChanged.connect(on_wait_time_spin)
         hbox.addWidget(self.wait_time_spin)
 
         logging.debug("Building Grid Count Display")
@@ -275,14 +272,18 @@ class CameraConfigDialog(QDialog):
         self.frame_emitter.GridCountBroadcast.connect(grid_count_update_slot)
 
     def build_cw_rotation_btn(self):
-        self.cw_rotation_btn = QPushButton(QIcon("src/gui/icons/rotate-camera-right.svg"), "")
+        self.cw_rotation_btn = QPushButton(
+            QIcon("src/gui/icons/rotate-camera-right.svg"), ""
+        )
         self.cw_rotation_btn.setMaximumSize(100, 50)
 
         # Counter Clockwise rotation called because the display image is flipped
         self.cw_rotation_btn.clicked.connect(self.monocal.camera.rotate_CCW)
 
     def build_ccw_rotation_btn(self):
-        self.ccw_rotation_btn = QPushButton(QIcon("src/gui/icons/rotate-camera-left.svg"), "")
+        self.ccw_rotation_btn = QPushButton(
+            QIcon("src/gui/icons/rotate-camera-left.svg"), ""
+        )
         self.ccw_rotation_btn.setMaximumSize(100, 50)
 
         # Clockwise rotation called because the display image is flipped
@@ -314,21 +315,21 @@ class CameraConfigDialog(QDialog):
         self.exposure_hbox.addWidget(exp_number)
 
         self.exposure_hbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    
+
     def build_ignore_checkbox(self):
-        
+
         self.ignore_box = QCheckBox("Ignore", self)
         self.exposure_hbox.addWidget(self.ignore_box)
-        
+
         def ignore_cam(signal):
             print(signal)
-            if signal == 0: # not checked
+            if signal == 0:  # not checked
                 logging.info(f"Don't ignore camera at port {self.port}")
                 self.camera.ignore = False
-            else: # value of checkState() might be 2?
+            else:  # value of checkState() might be 2?
                 logging.info(f"Ignore camera at port {self.port}")
                 self.camera.ignore = True
-            
+
         self.ignore_box.stateChanged.connect(ignore_cam)
 
     def build_frame_display(self):
@@ -359,9 +360,13 @@ class CameraConfigDialog(QDialog):
             w, h = int(w), int(h)
             new_res = (w, h)
             # self.cam_cap.change_resolution(new_res)
-            logging.info(f"Attempting to change resolution of camera at port {self.port}")
+            logging.info(
+                f"Attempting to change resolution of camera at port {self.port}"
+            )
             self.change_res_thread = Thread(
-                target=self.monocal.stream.change_resolution, args=(new_res,), daemon=True
+                target=self.monocal.stream.change_resolution,
+                args=(new_res,),
+                daemon=True,
             )
             self.change_res_thread.start()
 

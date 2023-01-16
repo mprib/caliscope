@@ -95,7 +95,6 @@ class Synchronizer:
 
             if frame_time == -1: # signal from recorded stream that end of file reached
                 break
-            # once toggled, keep pushing the poison pill
             
             self.frame_data[f"{port}_{frame_index}"] = {
                 "port": port,
@@ -166,9 +165,9 @@ class Synchronizer:
         logging.info(f"Waiting for all ports to begin harvesting corners...")
 
         # need to have 2 frames to assess bundling
-        for port in self.ports:
-            self.streams[port].shutter_sync.put("fire")
-            self.streams[port].shutter_sync.put("fire")
+        # for port in self.ports:
+        #     self.streams[port].shutter_sync.put("fire")
+        #     self.streams[port].shutter_sync.put("fire")
 
 
         sync_time = time.perf_counter()
@@ -179,16 +178,16 @@ class Synchronizer:
         while not self.stop_event.is_set():
 
             # Enforce a wait period to hit target FPS, unless you have excess slack
-            if self.frame_slack() < 2:
-                # Trigger device to proceed with reading frame and pushing to reel
-                if self.fps_target is not None:
-                    wait_time = 1 / self.fps_target
-                    while time.perf_counter() < sync_time + wait_time:
-                        time.sleep(0.001)
+            # if self.frame_slack() < 2:
+            #     # Trigger device to proceed with reading frame and pushing to reel
+            #     if self.fps_target is not None:
+            #         wait_time = 1 / self.fps_target
+            #         while time.perf_counter() < sync_time + wait_time:
+            #             time.sleep(0.001)
 
-                sync_time = time.perf_counter()
-                for port in self.ports:
-                    self.streams[port].shutter_sync.put("fire")
+            sync_time = time.perf_counter()
+                # for port in self.ports:
+                #     self.streams[port].shutter_sync.put("fire")
 
             next_layer = {}
             layer_frame_times = []

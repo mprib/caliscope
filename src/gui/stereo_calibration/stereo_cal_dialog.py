@@ -66,7 +66,7 @@ class StereoCalDialog(QScrollArea):
         )
 
         def on_frame_rate_spin(fps_rate):
-            self.session.stereocalibrator.synchronizer.fps_target = fps_rate
+            self.session.stereocalibrator.synchronizer.update_fps_targets(fps_rate)
 
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
 

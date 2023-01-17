@@ -38,7 +38,7 @@ class LiveStream:
         self.thread.start()
 
         # initialize time trackers for actual FPS determination
-        self.frame_time = time_module.perf_counter()
+        self.frame_time = perf_counter()
         self.avg_delta_time = (
             1  # trying to avoid div 0 error...not sure about this though
         )
@@ -69,8 +69,8 @@ class LiveStream:
         """set the actual frame rate; called within roll_camera()
         needs to be called from within roll_camera to actually work
         Note that this is a smoothed running average"""
-        self.delta_time = time_module.time() - self.start_time
-        self.start_time = time_module.time()
+        self.delta_time = perf_counter() - self.start_time
+        self.start_time = perf_counter()
         if not self.avg_delta_time:
             self.avg_delta_time = self.delta_time
 
@@ -90,7 +90,7 @@ class LiveStream:
         calls various frame processing methods on it, and updates the exposed
         frame
         """
-        self.start_time = time_module.time()  # used to get initial delta_t for FPS
+        self.start_time = perf_counter() # used to get initial delta_t for FPS
         first_time = True
         while not self.stop_event.is_set():
             if first_time:
@@ -101,10 +101,10 @@ class LiveStream:
 
                 # Wait an appropriate amount of time to hit the frame rate target
                 sleep(self.wait_to_next_frame())
-                read_start = time_module.perf_counter()
+                read_start = perf_counter()
                 self.success, self._working_frame = self.camera.capture.read()
 
-                read_stop = time_module.perf_counter()
+                read_stop = perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
 
                 if self.show_fps:

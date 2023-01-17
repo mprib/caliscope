@@ -12,7 +12,6 @@ logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LO
 import sys
 
 from time import perf_counter, sleep
-import time as time_module  # peculier bug popped up during module testing...perhaps related to conda environment?
 from datetime import datetime
 from pathlib import Path
 from queue import Queue

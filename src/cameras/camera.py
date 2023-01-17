@@ -224,7 +224,7 @@ class Camera(object):
 ######################### TEST FUNCTIONALITY OF CAMERAS ########################
 if __name__ == "__main__":
 
-    cam = Camera(2)
+    cam = Camera(0)
     print(cam.possible_resolutions)
 
     for res in cam.possible_resolutions:

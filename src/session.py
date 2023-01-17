@@ -332,7 +332,7 @@ class Session:
             logging.info("No stereotools created...synchronizer already exists")
         else:
             logging.info("Creating stereo tools...")
-            self.synchronizer = Synchronizer(self.streams, fps_target=6.2)
+            self.synchronizer = Synchronizer(self.streams)
             self.corner_tracker = CornerTracker(self.charuco)
             self.stereocalibrator = StereoCalibrator(
                 self.synchronizer, self.corner_tracker

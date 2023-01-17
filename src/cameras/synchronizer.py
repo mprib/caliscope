@@ -16,7 +16,7 @@ import cv2
 import numpy as np
 
 class Synchronizer:
-    def __init__(self, streams: dict, fps_target):
+    def __init__(self, streams: dict, fps_target =6):
         self.streams = streams
         self.current_synched_frames = None
 
@@ -31,12 +31,18 @@ class Synchronizer:
             self.ports.append(port)
 
         self.fps_target = fps_target
-        if fps_target is not None:
-            self.fps = fps_target
+        # if fps_target is not None:
+        self.update_fps_targets(fps_target)
+        self.fps = fps_target
 
         self.initialize_ledgers()
         self.spin_up() 
 
+    def update_fps_targets(self, target):
+        print(f"Attempting to change target fps in streams to {target}")
+        for port, stream in self.streams.items():
+            stream.set_fps(target)
+    
     def stop(self):
         self.stop_event.set()
         self.thread.join()

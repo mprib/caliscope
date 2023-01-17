@@ -9,17 +9,12 @@ LOG_LEVEL = logging.INFO
 LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-import sys
 
 from time import perf_counter, sleep
-from datetime import datetime
-from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
-from dataclasses import dataclass
 
 import cv2
-import mediapipe as mp
 import numpy as np
 
 from src.cameras.camera import Camera

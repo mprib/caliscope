@@ -23,7 +23,7 @@ from src.calibration.bundle_adjustment.get_init_params import get_2d_3d_points, 
 CAMERA_PARAM_COUNT = 6
 
 
-def reprojection_error(
+def xy_reprojection_error(
     params, n_cameras, n_points, camera_indices, point_indices, points_2d, camera_array
 ):
 
@@ -109,7 +109,7 @@ def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
     initial_estimate = np.hstack((camera_params.ravel(), points_3d.ravel()))
 
     # test the reprojection_error...here ahead of least squares for debugging purposes
-    objective_value = reprojection_error(
+    objective_value = xy_reprojection_error(
         initial_estimate,
         n_cameras,
         n_points,
@@ -126,7 +126,7 @@ def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
     t0 = time.time()
     logging.info(f"Start time of bundle adjustment calculations is {t0}")
     optimized = least_squares(
-        reprojection_error,
+        xy_reprojection_error,
         initial_estimate,
         jac_sparsity=sparsity_pattern,
         verbose=2,

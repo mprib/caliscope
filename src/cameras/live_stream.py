@@ -125,7 +125,6 @@ class LiveStream:
 
         logging.info(f"About to stop camera at port {self.port}")
         self.stop_event.set()
-        self.shutter_sync.put("dummy to force to complete loop")
         self.stop_confirm.get()
         logging.info(f"Roll camera stop confirmed at port {self.port}")
 

@@ -33,24 +33,24 @@ points_csv_path = Path(
     session_directory, "recording", "triangulated_points_daisy_chain.csv"
 )
 
-res_path = Path(session_directory, "res.pkl")
+optimized_path = Path(session_directory, "recording", "optimized_params.pkl")
 
 if REFRESH_BUNDLE_ADJUST:
-    res = bundle_adjust(camera_array, points_csv_path)
-    with open(res_path, "wb") as file:
-        pickle.dump(res, file)
+    optimized = bundle_adjust(camera_array, points_csv_path)
+    with open(optimized_path, "wb") as file:
+        pickle.dump(optimized, file)
 
-    print(f"RMSE: {np.sqrt(np.mean(res.fun**2))}")
+    print(f"RMSE: {np.sqrt(np.mean(optimized.fun**2))}")
 else:
-    with open(res_path, "rb") as file:
-        res = pickle.load(file)
+    with open(optimized_path, "rb") as file:
+        optimized = pickle.load(file)
 
 
 n_cameras = len(camera_array.cameras)
-flat_camera_params = res.x[0 : n_cameras * CAMERA_PARAM_COUNT]
+flat_camera_params = optimized.x[0 : n_cameras * CAMERA_PARAM_COUNT]
 new_camera_params = flat_camera_params.reshape(n_cameras, CAMERA_PARAM_COUNT)
 # print(new_camera_params)
-xyz_points = res.x[n_cameras * CAMERA_PARAM_COUNT :]
+xyz_points = optimized.x[n_cameras * CAMERA_PARAM_COUNT :]
 point_count = int(xyz_points.shape[0] / 3)
 xyz_points = xyz_points.reshape(point_count, 3)
 

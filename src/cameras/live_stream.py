@@ -2,6 +2,7 @@
 # establishes the connection with the video source and manages the thread
 # that reads in frames.
 import logging
+
 LOG_FILE = "log\live_stream.log"
 LOG_LEVEL = logging.INFO
 # LOG_LEVEL = logging.DEBUG
@@ -11,7 +12,7 @@ logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LO
 import sys
 
 from time import perf_counter, sleep
-import time as time_module # peculier bug popped up during module testing...perhaps related to conda environment?
+import time as time_module  # peculier bug popped up during module testing...perhaps related to conda environment?
 from datetime import datetime
 from pathlib import Path
 from queue import Queue
@@ -31,9 +32,8 @@ class LiveStream:
         self.port = camera.port
 
         self.reel = Queue(-1)  # infinite size....hopefully doesn't blow up
-        self.shutter_sync = Queue()
         self.stop_confirm = Queue()
-        self.stop_event = Event() 
+        self.stop_event = Event()
 
         self.push_to_reel = False
         self.show_fps = False
@@ -45,28 +45,29 @@ class LiveStream:
 
         # initialize time trackers for actual FPS determination
         self.frame_time = time_module.perf_counter()
-        self.avg_delta_time = 1 # trying to avoid div 0 error...not sure about this though
-        
+        self.avg_delta_time = (
+            1  # trying to avoid div 0 error...not sure about this though
+        )
+
     def set_fps(self, fps):
         self.fps = fps
         milestones = []
         for i in range(0, fps):
-            milestones.append(i/fps)
+            milestones.append(i / fps)
         logging.info(f"Setting fps to {self.fps}")
-        self.milestones = np.array(milestones)       
+        self.milestones = np.array(milestones)
 
     def wait_to_next_frame(self):
         """based on the target fps, return the time needed to sleep so that
         a frame read immediately after would occur when needed"""
 
         time = perf_counter()
-        fractional_time = time%1
-        all_wait_times = self.milestones-fractional_time
-        future_wait_times = all_wait_times[all_wait_times>0]
-    
-        if len(future_wait_times) ==0:
-            # print("wait")
-            return 1-fractional_time
+        fractional_time = time % 1
+        all_wait_times = self.milestones - fractional_time
+        future_wait_times = all_wait_times[all_wait_times > 0]
+
+        if len(future_wait_times) == 0:
+            return 1 - fractional_time
         else:
             return future_wait_times[0]
 
@@ -83,13 +84,11 @@ class LiveStream:
         self.avg_delta_time = 0.5 * self.avg_delta_time + 0.5 * self.delta_time
         self.previous_time = self.start_time
         return 1 / self.avg_delta_time
-    
+
     def stop(self):
-        # self.camera.stop_rolling()
-        self.push_to_reel=False
+        self.push_to_reel = False
         self.stop_event.set()
         logging.info(f"Stop signal sent at stream {self.port}")
-        # self.thread.join()    
 
     def roll_camera(self):
         """
@@ -106,15 +105,11 @@ class LiveStream:
 
             if self.camera.capture.isOpened():
 
-                # wait for sync_shutter to fire
-                # if self.push_to_reel:
-                    # _ = self.shutter_sync.get()
-                    # logging.debug(f"Shutter fire signal retrieved at port {self.port}")
-                # read in working frame
+                # Wait an appropriate amount of time to hit the frame rate target
                 sleep(self.wait_to_next_frame())
                 read_start = time_module.perf_counter()
                 self.success, self._working_frame = self.camera.capture.read()
-                
+
                 read_stop = time_module.perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
 
@@ -128,7 +123,7 @@ class LiveStream:
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
 
-        logging.info(f"Stream stopped at port {self.port}") 
+        logging.info(f"Stream stopped at port {self.port}")
         self.stop_event.clear()
         self.stop_confirm.put("Successful Stop")
 
@@ -151,7 +146,9 @@ class LiveStream:
 
         self.camera.resolution = res
         # Spin up the thread again now that resolution is changed
-        logging.info(f"Beginning roll_camera thread at port {self.port} with resolution {res}")
+        logging.info(
+            f"Beginning roll_camera thread at port {self.port} with resolution {res}"
+        )
         self.thread = Thread(target=self.roll_camera, args=(), daemon=True)
         self.thread.start()
 
@@ -183,15 +180,11 @@ if __name__ == "__main__":
         stream = LiveStream(cam)
         stream.push_to_reel = True
         stream.show_fps = True
-        stream.shutter_sync.put("Fire")
-        stream.shutter_sync.put("Fire")
-        # stream.assign_charuco(charuco)
         streams.append(stream)
-        
+
     while True:
         try:
             for stream in streams:
-                stream.shutter_sync.put("Fire")
                 time, img = stream.reel.get()
                 cv2.imshow(
                     (str(stream.port) + ": 'q' to quit and attempt calibration"),
@@ -220,5 +213,3 @@ if __name__ == "__main__":
                 stream.stop()
             cv2.destroyAllWindows()
             exit(0)
-                
-    

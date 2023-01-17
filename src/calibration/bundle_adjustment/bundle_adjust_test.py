@@ -21,14 +21,17 @@ CAMERA_PARAM_COUNT = 6
 # RERUN_POINT_TRIANGULATION = True
 RERUN_POINT_TRIANGULATION = False
 
-REFRESH_BUNDLE_ADJUST = True 
-# REFRESH_BUNDLE_ADJUST = False 
+REFRESH_BUNDLE_ADJUST = True
+# REFRESH_BUNDLE_ADJUST = False
+
 
 session_directory = Path(repo, "sessions", "iterative_adjustment")
 config_path = Path(session_directory, "config.toml")
 array_builder = CameraArrayBuilder(config_path)
 camera_array = array_builder.get_camera_array()
-points_csv_path = Path(session_directory, "recording", "triangulated_points_daisy_chain.csv")
+points_csv_path = Path(
+    session_directory, "recording", "triangulated_points_daisy_chain.csv"
+)
 
 res_path = Path(session_directory, "res.pkl")
 
@@ -36,7 +39,7 @@ if REFRESH_BUNDLE_ADJUST:
     res = bundle_adjust(camera_array, points_csv_path)
     with open(res_path, "wb") as file:
         pickle.dump(res, file)
-        
+
     print(f"RMSE: {np.sqrt(np.mean(res.fun**2))}")
 else:
     with open(res_path, "rb") as file:
@@ -47,15 +50,15 @@ n_cameras = len(camera_array.cameras)
 flat_camera_params = res.x[0 : n_cameras * CAMERA_PARAM_COUNT]
 new_camera_params = flat_camera_params.reshape(n_cameras, CAMERA_PARAM_COUNT)
 # print(new_camera_params)
-xyz_points = res.x[n_cameras * CAMERA_PARAM_COUNT:]
-point_count = int(xyz_points.shape[0]/3)
+xyz_points = res.x[n_cameras * CAMERA_PARAM_COUNT :]
+point_count = int(xyz_points.shape[0] / 3)
 xyz_points = xyz_points.reshape(point_count, 3)
 
 
 # update camera array with new positional data
 for index in range(len(new_camera_params)):
     print(index)
-    port = index # just to be explicit
+    port = index  # just to be explicit
     cam_vec = new_camera_params[index, :]
     camera_array.cameras[port].from_vector(cam_vec)
 
@@ -68,9 +71,7 @@ if RERUN_POINT_TRIANGULATION:
 
     # synchronize videos
     recorded_stream_pool.play_videos()
-    syncr = Synchronizer(
-        recorded_stream_pool.streams, fps_target=None
-    )  # no fps target b/c not playing back for visual display
+    syncr = Synchronizer(recorded_stream_pool.streams)
 
     # create a corner tracker to locate board corners
     charuco = Charuco(
@@ -92,13 +93,3 @@ if RERUN_POINT_TRIANGULATION:
 
     output_file = Path(recording_directory, "triangulated_points_bundle_adjusted.csv")
     array_triangulator = ArrayTriangulator(camera_array, point_stream, output_file)
-
-
-# from src.gui.capture_volume.visualizer import CaptureVolumeVisualizer
-
-# from PyQt6.QtWidgets import QApplication
-
-# app = QApplication(sys.argv)
-# vizr = CaptureVolumeVisualizer(camera_array)
-# sys.exit(app.exec())
-# %%

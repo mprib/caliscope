@@ -96,9 +96,8 @@ def get_2d_3d_points(points_csv_path:Path):
     point_indices = np.array(merged_point_data["index_3d"], dtype=np.int64)
     points_2d = np.array(merged_point_data[["x_2d", "y_2d"]])
     points_3d = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
-    n_points = points_3d.shape[0]
 
-    return camera_indices, point_indices, points_2d, points_3d, n_points
+    return camera_indices, point_indices, points_2d, points_3d
 
 
 if __name__ == "__main__":

@@ -12,8 +12,13 @@ from src.cameras.synchronizer import Synchronizer
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.bundle_adjustment.bundle_adjust_functions import *
+from src.calibration.bundle_adjustment.get_init_params import (
+    get_2d_3d_points,
+    get_camera_params,
+)
 from src.triangulate.paired_point_stream import PairedPointStream
 from src.triangulate.array_triangulator import ArrayTriangulator
+
 
 CAMERA_PARAM_COUNT = 6
 
@@ -35,7 +40,14 @@ points_csv_path = Path(
 optimized_path = Path(session_directory, "recording", "optimized_params.pkl")
 
 if REFRESH_BUNDLE_ADJUST:
-    optimized = bundle_adjust(camera_array, points_csv_path)
+
+    (camera_indices, point_indices, points_2d, points_3d) = get_2d_3d_points(
+        points_csv_path
+    )
+
+    optimized = bundle_adjust(
+        camera_array, camera_indices, point_indices, points_2d, points_3d
+    )
     with open(optimized_path, "wb") as file:
         pickle.dump(optimized, file)
 

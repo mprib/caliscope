@@ -1,4 +1,8 @@
 # import saved point data and initial array configuration data
+# currently this is for the convenience of not having to rerun everything
+# though this workflow may be useful into the future. Save out milestone calculations
+# along the way that allow for blocks of dataprocessing 
+
 from pathlib import Path
 
 import pandas as pd
@@ -95,3 +99,20 @@ def get_2d_3d_points(points_csv_path:Path):
     n_points = points_3d.shape[0]
 
     return camera_indices, point_indices, points_2d, points_3d, n_points
+
+
+if __name__ == "__main__":
+    
+    import sys    
+    from src.cameras.camera_array import CameraArrayBuilder
+    repo = str(Path(__file__)).split("src")[0]
+
+    print(repo)
+
+    session_directory = Path(repo, "sessions", "iterative_adjustment")
+    config_path = Path(session_directory, "config.toml")
+    array_builder = CameraArrayBuilder(config_path)
+    camera_array = array_builder.get_camera_array()
+
+    params = get_camera_params(camera_array)
+    print(params)

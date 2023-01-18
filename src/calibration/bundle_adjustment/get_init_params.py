@@ -7,7 +7,27 @@ from pathlib import Path
 
 import pandas as pd
 import numpy as np
+from dataclasses import dataclass
 
+
+@dataclass
+class PointData:
+
+    camera_indices: np.ndarray
+    img: np.ndarray
+    obj_indices: np.ndarray
+    obj: np.ndarray
+
+    def filter(self, include):
+        """Provide a vector of booleans...only keep the data associaed with True"""
+        self.camera_indices = self.camera_indices[include]
+        self.obj_indices = self.obj_indices[include]
+        self.img = self.img[include]
+
+        # if filtering means that some 3d points are no longer referenced, then remove 
+        used_obj = np.unique(self.obj_indices)
+        used_obj.sort()
+        self.obj = self.obj[used_obj]
 
 def get_camera_params(camera_array):
     """for each camera build the CAMERA_PARAM_COUNT element parameter index
@@ -81,7 +101,7 @@ def get_points_3d_df(points_csv_path):
     return points_3d_df
 
 
-def get_2d_3d_points(points_csv_path:Path):
+def get_point_data(points_csv_path:Path) -> PointData:
 
     points_2d_df = get_points_2d_df(points_csv_path)
     points_3d_df = get_points_3d_df(points_csv_path)
@@ -93,12 +113,11 @@ def get_2d_3d_points(points_csv_path:Path):
     )
 
     camera_indices = np.array(merged_point_data["camera"], dtype=np.int64)
-    point_indices = np.array(merged_point_data["index_3d"], dtype=np.int64)
-    points_2d = np.array(merged_point_data[["x_2d", "y_2d"]])
-    points_3d = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
+    img = np.array(merged_point_data[["x_2d", "y_2d"]])
+    obj_indices = np.array(merged_point_data["index_3d"], dtype=np.int64)
+    obj = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
 
-    return camera_indices, point_indices, points_2d, points_3d
-
+    return PointData(camera_indices, img, obj_indices, obj)
 
 if __name__ == "__main__":
     

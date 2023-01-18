@@ -26,21 +26,35 @@ CAMERA_PARAM_COUNT = 6
 def xy_reprojection_error(
     params, n_cameras, n_points, camera_indices, point_indices, points_2d, camera_array
 ):
+    """
+    params: the current iteration of the vector that was originally initialized for the x0 input of least squares
 
-    # reshape the camera parameter estimates into one row per camera
+    """
+
+
+    # Create one combined array primarily to make sure all calculations line up
+
+    ## convert current vectorized camera parameter estimates to matrix for ease of reference 
     camera_params = params[: n_cameras * CAMERA_PARAM_COUNT].reshape(
         (n_cameras, CAMERA_PARAM_COUNT)
     )
 
-    # reshape the 3d points from vector to nx3
+    ## similarly convert the current vectorized 3d point estimates to matrix for ease of reference
     points_3d = params[n_cameras * CAMERA_PARAM_COUNT :].reshape((n_points, 3))
 
+    ## created zero columns as placeholders for the reprojected 2d points
     rows = camera_indices.shape[0]
     blanks = np.zeros((rows, 2), dtype=np.float64)
+
+
+    ## hstack these arrays for ease of reference
     points_3d_and_2d = np.hstack(
         [np.array([camera_indices]).T, points_3d[point_indices], points_2d, blanks]
     )
 
+    # iterate across cameras...while this injects a loop in the residual function
+    # it should scale linearly with the number of cameras...a tradeoff for stable
+    # and explicit calculations...
     for port, cam in camera_array.cameras.items():
         cam_points = np.where(camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
@@ -49,7 +63,7 @@ def xy_reprojection_error(
         cam_matrix = cam.camera_matrix
         distortion = cam.distortion[0]  # this may need some cleanup...
 
-        # get the projection of the 2d points on the image plane and ignore the jacobian
+        # get the projection of the 2d points on the image plane; ignore the jacobian
         cam_proj_points, _jac = cv2.projectPoints(
             object_points.astype(np.float64), rvec, tvec, cam_matrix, distortion
         )
@@ -62,7 +76,10 @@ def xy_reprojection_error(
 
 
 def get_sparsity_pattern(n_cameras, n_points, camera_indices, point_indices):
-    """provide the sparsity structure for the Jacobian (elements that are not zero)"""
+    """provide the sparsity structure for the Jacobian (elements that are not zero)
+        n_points: number of unique 3d points; these will each have at least one but potentially more associated 2d points
+        point_indices: a vector that maps the 2d points to their associated 3d point
+    """
     m = camera_indices.size * 2
     n = n_cameras * CAMERA_PARAM_COUNT + n_points * 3
     A = lil_matrix((m, n), dtype=int)
@@ -78,6 +95,7 @@ def get_sparsity_pattern(n_cameras, n_points, camera_indices, point_indices):
 
     return A
 
+# TODO: #60 don't pass a csv_path...you can't really reuse this function if that is the case
 
 def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
     # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
@@ -109,15 +127,15 @@ def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
     initial_estimate = np.hstack((camera_params.ravel(), points_3d.ravel()))
 
     # test the reprojection_error...here ahead of least squares for debugging purposes
-    objective_value = xy_reprojection_error(
-        initial_estimate,
-        n_cameras,
-        n_points,
-        camera_indices,
-        point_indices,
-        points_2d,
-        camera_array,
-    )
+    # objective_value = xy_reprojection_error(
+    #     initial_estimate,
+    #     n_cameras,
+    #     n_points,
+    #     camera_indices,
+    #     point_indices,
+    #     points_2d,
+    #     camera_array,
+    # )
 
     sparsity_pattern = get_sparsity_pattern(
         n_cameras, n_points, camera_indices, point_indices

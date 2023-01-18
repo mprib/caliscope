@@ -16,7 +16,10 @@ from scipy.sparse import lil_matrix
 import time
 
 from src.cameras.camera_array import CameraArray, CameraArrayBuilder
-from src.calibration.bundle_adjustment.get_init_params import get_2d_3d_points, get_camera_params
+from src.calibration.bundle_adjustment.get_init_params import (
+    get_2d_3d_points,
+    get_camera_params,
+)
 
 
 # note I'm changing this from 9 as I'm reducing the values being solved for
@@ -31,10 +34,9 @@ def xy_reprojection_error(
 
     """
 
-
     # Create one combined array primarily to make sure all calculations line up
 
-    ## convert current vectorized camera parameter estimates to matrix for ease of reference 
+    ## convert current vectorized camera parameter estimates to matrix for ease of reference
     camera_params = params[: n_cameras * CAMERA_PARAM_COUNT].reshape(
         (n_cameras, CAMERA_PARAM_COUNT)
     )
@@ -45,7 +47,6 @@ def xy_reprojection_error(
     ## created zero columns as placeholders for the reprojected 2d points
     rows = camera_indices.shape[0]
     blanks = np.zeros((rows, 2), dtype=np.float64)
-
 
     ## hstack these arrays for ease of reference
     points_3d_and_2d = np.hstack(
@@ -77,8 +78,8 @@ def xy_reprojection_error(
 
 def get_sparsity_pattern(n_cameras, n_points, camera_indices, point_indices):
     """provide the sparsity structure for the Jacobian (elements that are not zero)
-        n_points: number of unique 3d points; these will each have at least one but potentially more associated 2d points
-        point_indices: a vector that maps the 2d points to their associated 3d point
+    n_points: number of unique 3d points; these will each have at least one but potentially more associated 2d points
+    point_indices: a vector that maps the 2d points to their associated 3d point
     """
     m = camera_indices.size * 2
     n = n_cameras * CAMERA_PARAM_COUNT + n_points * 3
@@ -95,23 +96,19 @@ def get_sparsity_pattern(n_cameras, n_points, camera_indices, point_indices):
 
     return A
 
+
 # TODO: #60 don't pass a csv_path...you can't really reuse this function if that is the case
 
-def bundle_adjust(camera_array: CameraArray, points_csv_path: Path):
+
+def bundle_adjust(
+    camera_array: CameraArray, camera_indices, point_indices, points_2d, points_3d
+):
     # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
     # MAC: start here tomorrow. You need to figure out how to cull the points
     # based on reproj error and rerun bundle adjustment
 
     camera_params = get_camera_params(camera_array)
-
-    (
-        camera_indices,
-        point_indices,
-        points_2d,
-        points_3d,
-        n_points,
-    ) = get_2d_3d_points(points_csv_path)
 
     n_cameras = camera_params.shape[0]
     n_points = points_3d.shape[0]

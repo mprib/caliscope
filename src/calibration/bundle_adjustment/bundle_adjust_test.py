@@ -1,3 +1,4 @@
+
 #%%
 from pathlib import Path
 import pickle
@@ -9,13 +10,12 @@ print(repo)
 
 from src.recording.recorded_stream import RecordedStreamPool
 from src.cameras.synchronizer import Synchronizer
+from src.cameras.camera_array import CameraArrayBuilder
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.bundle_adjustment.bundle_adjust_functions import *
-from src.calibration.bundle_adjustment.get_init_params import (
-    get_2d_3d_points,
-    get_camera_params,
-)
+from src.calibration.bundle_adjustment.get_init_params import get_2d_3d_points
+
 from src.triangulate.paired_point_stream import PairedPointStream
 from src.triangulate.array_triangulator import ArrayTriangulator
 
@@ -45,26 +45,23 @@ if REFRESH_BUNDLE_ADJUST:
         points_csv_path
     )
 
+    include = points_2d[0] >= 0
+
     optimized = bundle_adjust(
-        camera_array, camera_indices, point_indices, points_2d, points_3d
+        camera_array, camera_indices, point_indices, points_2d, points_3d, include
     )
     with open(optimized_path, "wb") as file:
         pickle.dump(optimized, file)
 
-    print(f"RMSE: {np.sqrt(np.mean(optimized.fun**2))}")
+    print(f"RMSE of x, y errors: {np.sqrt(np.mean(optimized.fun**2))}")
 else:
     with open(optimized_path, "rb") as file:
         optimized = pickle.load(file)
 
-
+#%%
 n_cameras = len(camera_array.cameras)
 flat_camera_params = optimized.x[0 : n_cameras * CAMERA_PARAM_COUNT]
 new_camera_params = flat_camera_params.reshape(n_cameras, CAMERA_PARAM_COUNT)
-# print(new_camera_params)
-xyz_points = optimized.x[n_cameras * CAMERA_PARAM_COUNT :]
-point_count = int(xyz_points.shape[0] / 3)
-xyz_points = xyz_points.reshape(point_count, 3)
-
 
 # update camera array with new positional data
 for index in range(len(new_camera_params)):
@@ -73,6 +70,37 @@ for index in range(len(new_camera_params)):
     cam_vec = new_camera_params[index, :]
     camera_array.cameras[port].from_vector(cam_vec)
 
+
+# get the 3d point estimates
+xyz_points = optimized.x[n_cameras * CAMERA_PARAM_COUNT :]
+point_count = int(xyz_points.shape[0] / 3)
+xyz_points = xyz_points.reshape(point_count, 3)
+
+# get the reprojection errors for each 2d
+xy_repoj_error = optimized.fun.reshape(-1, 2)
+euclidean_distance_error = np.sqrt(np.sum((xy_repoj_error) ** 2, axis=1))
+rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
+print(f"RMSE of reprojection is {rmse_reproj_error}")
+
+
+percent_cutoff = 0.8
+error_rank = np.argsort(euclidean_distance_error)
+n_2d_points = error_rank.shape[0]
+error_percent_rank = error_rank / n_2d_points
+
+include = error_percent_rank < percent_cutoff
+
+
+optimized = bundle_adjust(
+    camera_array, camera_indices, point_indices, points_2d, points_3d, include
+)
+
+xy_repoj_error = optimized.fun.reshape(-1, 2)
+euclidean_distance_error = np.sqrt(np.sum((xy_repoj_error) ** 2, axis=1))
+rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
+print(f"RMSE of reprojection is {rmse_reproj_error}")
+
+#%%
 # rerun triangulation of points
 if RERUN_POINT_TRIANGULATION:
     # Build streams from pre-recorded video

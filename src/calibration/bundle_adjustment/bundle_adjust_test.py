@@ -1,4 +1,3 @@
-
 #%%
 from pathlib import Path
 import pickle
@@ -14,7 +13,7 @@ from src.cameras.camera_array import CameraArrayBuilder
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.bundle_adjustment.bundle_adjust_functions import *
-from src.calibration.bundle_adjustment.get_init_params import get_2d_3d_points
+from src.calibration.bundle_adjustment.get_init_params import get_point_data, PointData
 
 from src.triangulate.paired_point_stream import PairedPointStream
 from src.triangulate.array_triangulator import ArrayTriangulator
@@ -41,15 +40,12 @@ optimized_path = Path(session_directory, "recording", "optimized_params.pkl")
 
 if REFRESH_BUNDLE_ADJUST:
 
-    (camera_indices, point_indices, points_2d, points_3d) = get_2d_3d_points(
-        points_csv_path
-    )
+    point_data = get_point_data(points_csv_path)
 
-    include = points_2d[0] >= 0
+    include = point_data.img[0] >= 0
 
-    optimized = bundle_adjust(
-        camera_array, camera_indices, point_indices, points_2d, points_3d, include
-    )
+    optimized = bundle_adjust(camera_array, point_data)
+
     with open(optimized_path, "wb") as file:
         pickle.dump(optimized, file)
 
@@ -74,7 +70,7 @@ for index in range(len(new_camera_params)):
 # get the 3d point estimates
 xyz_points = optimized.x[n_cameras * CAMERA_PARAM_COUNT :]
 point_count = int(xyz_points.shape[0] / 3)
-xyz_points = xyz_points.reshape(point_count, 3)
+points_3d = xyz_points.reshape(point_count, 3)
 
 # get the reprojection errors for each 2d
 xy_repoj_error = optimized.fun.reshape(-1, 2)
@@ -90,10 +86,9 @@ error_percent_rank = error_rank / n_2d_points
 
 include = error_percent_rank < percent_cutoff
 
+point_data.filter(include)
 
-optimized = bundle_adjust(
-    camera_array, camera_indices, point_indices, points_2d, points_3d, include
-)
+optimized = bundle_adjust(camera_array, point_data)
 
 xy_repoj_error = optimized.fun.reshape(-1, 2)
 euclidean_distance_error = np.sqrt(np.sum((xy_repoj_error) ** 2, axis=1))

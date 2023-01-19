@@ -81,11 +81,15 @@ def xy_reprojection_error(
     return (points_proj - points_2d).ravel()
 
 
-def get_sparsity_pattern(n_cameras, n_points, camera_indices, obj_indices):
+def get_sparsity_pattern(point_data: PointData):
     """provide the sparsity structure for the Jacobian (elements that are not zero)
     n_points: number of unique 3d points; these will each have at least one but potentially more associated 2d points
     point_indices: a vector that maps the 2d points to their associated 3d point
     """
+    camera_indices = point_data.camera_indices
+    n_cameras = np.unique(point_data.camera_indices).size
+    n_points = point_data.obj.shape[0]
+    obj_indices = point_data.obj_indices
 
     m = camera_indices.size * 2
     n = n_cameras * CAMERA_PARAM_COUNT + n_points * 3
@@ -103,26 +107,24 @@ def get_sparsity_pattern(n_cameras, n_points, camera_indices, obj_indices):
     return A
 
 
-def bundle_adjust(camera_array: CameraArray, pts: PointData):
+def bundle_adjust(camera_array: CameraArray, point_data: PointData):
     # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
     camera_params = camera_array.get_camera_params()
     n_cameras = camera_params.shape[0]
 
-    n_obj_points = pts.obj.shape[0]
+    n_obj_points = point_data.obj.shape[0]
 
     n = CAMERA_PARAM_COUNT * n_cameras + 3 * n_obj_points
-    m = 2 * pts.img.shape[0]
+    m = 2 * point_data.img.shape[0]
 
     logging.info(f"n_cameras: {n_cameras}")
     logging.info(f"n_points: {n_obj_points}")
     logging.info(f"Total number of parameters: {n}")
     logging.info(f"Total number of residuals: {m}")
 
-    initial_param_estimate = np.hstack((camera_params.ravel(), pts.obj.ravel()))
+    initial_param_estimate = np.hstack((camera_params.ravel(), point_data.obj.ravel()))
 
-    sparsity_pattern = get_sparsity_pattern(
-        n_cameras, n_obj_points, pts.camera_indices, pts.obj_indices
-    )
+    sparsity_pattern = get_sparsity_pattern(point_data)
 
     t0 = time.time()
     logging.info(f"Start time of bundle adjustment calculations is {t0}")
@@ -139,9 +141,9 @@ def bundle_adjust(camera_array: CameraArray, pts: PointData):
         args=(
             n_cameras,
             n_obj_points,
-            pts.camera_indices,
-            pts.obj_indices,
-            pts.img,
+            point_data.camera_indices,
+            point_data.obj_indices,
+            point_data.img,
             camera_array,
         ),
     )

@@ -21,10 +21,9 @@ class CameraData:
     translation: np.ndarray
     rotation: np.ndarray
 
-    def to_vector(self):
+    def extrinsics_to_vector(self):
         """
         Converts camera parameters to a numpy vector for use with bundle adjustment.
-        This will undergo refactoring along with the bundle adjustment
         """
 
         # rotation of the camera relative to the world
@@ -43,18 +42,14 @@ class CameraData:
 
         return port_param
 
-    def from_vector(self, row):
+    def extrinsics_from_vector(self, row):
         """
-        Takes a vector in the same format that is output and updates the camera
-        with those parameters
+        Takes a vector in the same format that is output of `extrinsics_to_vector` and updates the camera
         """
-        self.rotation = np.linalg.inv(
-            cv2.Rodrigues(row[0:3])[0]
-        )  # convert back to world frame of reference
 
+        # convert back to world frame of reference
+        self.rotation = np.linalg.inv(cv2.Rodrigues(row[0:3])[0])
         self.translation = np.array([row[3:6] * -1], dtype=np.float64).T
-        
-        # print("wait")
 
 
 @dataclass
@@ -64,6 +59,23 @@ class CameraArray:
 
     cameras: dict
 
+
+    def get_camera_params(self):
+        """for each camera build the CAMERA_PARAM_COUNT element parameter index
+        camera_params with shape (n_cameras, CAMERA_PARAM_COUNT)
+        contains initial estimates of parameters for all cameras.
+        First 3 components in each row form a rotation vector (https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula),
+        next 3 components form a translation vector
+        """
+        camera_params = None
+        for port, cam in self.cameras.items():
+            port_param = cam.extrinsics_to_vector()
+            if camera_params is None:
+                camera_params = port_param
+            else:
+                camera_params = np.vstack([camera_params, port_param])
+
+        return camera_params
 
 class CameraArrayBuilder:
     """An ugly class to wrangle the config data into a useful set of camera

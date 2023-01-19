@@ -17,10 +17,7 @@ from scipy.sparse import lil_matrix
 import time
 
 from src.cameras.camera_array import CameraArray, CameraArrayBuilder
-from src.calibration.bundle_adjustment.get_init_params import (
-    PointData,
-    get_camera_params,
-)
+from src.calibration.bundle_adjustment.get_init_params import PointData
 
 
 CAMERA_PARAM_COUNT = 6
@@ -84,11 +81,12 @@ def xy_reprojection_error(
     return (points_proj - points_2d).ravel()
 
 
-def get_sparsity_pattern(n_cameras, n_points, camera_indices, point_indices):
+def get_sparsity_pattern(n_cameras, n_points, camera_indices, obj_indices):
     """provide the sparsity structure for the Jacobian (elements that are not zero)
     n_points: number of unique 3d points; these will each have at least one but potentially more associated 2d points
     point_indices: a vector that maps the 2d points to their associated 3d point
     """
+
     m = camera_indices.size * 2
     n = n_cameras * CAMERA_PARAM_COUNT + n_points * 3
     A = lil_matrix((m, n), dtype=int)
@@ -99,15 +97,15 @@ def get_sparsity_pattern(n_cameras, n_points, camera_indices, point_indices):
         A[2 * i + 1, camera_indices * CAMERA_PARAM_COUNT + s] = 1
 
     for s in range(3):
-        A[2 * i, n_cameras * CAMERA_PARAM_COUNT + point_indices * 3 + s] = 1
-        A[2 * i + 1, n_cameras * CAMERA_PARAM_COUNT + point_indices * 3 + s] = 1
+        A[2 * i, n_cameras * CAMERA_PARAM_COUNT + obj_indices * 3 + s] = 1
+        A[2 * i + 1, n_cameras * CAMERA_PARAM_COUNT + obj_indices * 3 + s] = 1
 
     return A
 
 
 def bundle_adjust(camera_array: CameraArray, pts: PointData):
     # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
-    camera_params = get_camera_params(camera_array)
+    camera_params = camera_array.get_camera_params()
     n_cameras = camera_params.shape[0]
 
     n_obj_points = pts.obj.shape[0]
@@ -123,7 +121,7 @@ def bundle_adjust(camera_array: CameraArray, pts: PointData):
     initial_param_estimate = np.hstack((camera_params.ravel(), pts.obj.ravel()))
 
     sparsity_pattern = get_sparsity_pattern(
-        n_cameras, n_obj_points, pts.camera_indices, pts.obj_indices 
+        n_cameras, n_obj_points, pts.camera_indices, pts.obj_indices
     )
 
     t0 = time.time()

@@ -25,26 +25,10 @@ class PointData:
         self.img = self.img[include]
 
         # if filtering means that some 3d points are no longer referenced, then remove 
-        used_obj = np.unique(self.obj_indices)
-        used_obj.sort()
-        self.obj = self.obj[used_obj]
+        # used_obj = np.unique(self.obj_indices)
+        # used_obj.sort()
+        # self.obj = self.obj[used_obj]
 
-def get_camera_params(camera_array):
-    """for each camera build the CAMERA_PARAM_COUNT element parameter index
-    camera_params with shape (n_cameras, CAMERA_PARAM_COUNT)
-    contains initial estimates of parameters for all cameras.
-    First 3 components in each row form a rotation vector (https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula),
-    next 3 components form a translation vector
-    """
-    camera_params = None
-    for port, cam in camera_array.cameras.items():
-        port_param = cam.to_vector()
-        if camera_params is None:
-            camera_params = port_param
-        else:
-            camera_params = np.vstack([camera_params, port_param])
-
-    return camera_params
 
 
 def get_points_2d_df(points_csv_path):
@@ -132,5 +116,5 @@ if __name__ == "__main__":
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
 
-    params = get_camera_params(camera_array)
+    params = camera_array.get_camera_params()
     print(params)

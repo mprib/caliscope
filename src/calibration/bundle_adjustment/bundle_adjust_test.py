@@ -21,8 +21,8 @@ from src.triangulate.array_triangulator import ArrayTriangulator
 
 CAMERA_PARAM_COUNT = 6
 
-# RERUN_POINT_TRIANGULATION = True
-RERUN_POINT_TRIANGULATION = False
+RERUN_POINT_TRIANGULATION = True
+# RERUN_POINT_TRIANGULATION = False
 
 REFRESH_BUNDLE_ADJUST = True
 # REFRESH_BUNDLE_ADJUST = False
@@ -49,7 +49,7 @@ if REFRESH_BUNDLE_ADJUST:
     with open(optimized_path, "wb") as file:
         pickle.dump(optimized, file)
 
-    print(f"RMSE of x, y errors: {np.sqrt(np.mean(optimized.fun**2))}")
+    # print(f"RMSE of x, y errors: {np.sqrt(np.mean(optimized.fun**2))}")
 else:
     with open(optimized_path, "rb") as file:
         optimized = pickle.load(file)
@@ -64,22 +64,18 @@ for index in range(len(new_camera_params)):
     print(index)
     port = index  # just to be explicit
     cam_vec = new_camera_params[index, :]
-    camera_array.cameras[port].from_vector(cam_vec)
+    camera_array.cameras[port].extrinsics_from_vector(cam_vec)
 
-
-# get the 3d point estimates
-xyz_points = optimized.x[n_cameras * CAMERA_PARAM_COUNT :]
-point_count = int(xyz_points.shape[0] / 3)
-points_3d = xyz_points.reshape(point_count, 3)
 
 # get the reprojection errors for each 2d
 xy_repoj_error = optimized.fun.reshape(-1, 2)
 euclidean_distance_error = np.sqrt(np.sum((xy_repoj_error) ** 2, axis=1))
 rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
+print(f"Optimization run with {optimized.fun.shape[0]/2} image points")
 print(f"RMSE of reprojection is {rmse_reproj_error}")
 
 
-percent_cutoff = 0.8
+percent_cutoff = 0.3
 error_rank = np.argsort(euclidean_distance_error)
 n_2d_points = error_rank.shape[0]
 error_percent_rank = error_rank / n_2d_points
@@ -93,6 +89,7 @@ optimized = bundle_adjust(camera_array, point_data)
 xy_repoj_error = optimized.fun.reshape(-1, 2)
 euclidean_distance_error = np.sqrt(np.sum((xy_repoj_error) ** 2, axis=1))
 rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
+print(f"Optimization run with {optimized.fun.shape[0]/2} image points")
 print(f"RMSE of reprojection is {rmse_reproj_error}")
 
 #%%

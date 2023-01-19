@@ -38,7 +38,10 @@ class RecordedStream:
         self.port_history = synched_frames_history[synched_frames_history["port"] == port]
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
-        self.shutter_sync = Queue(-1)
+        # self.shutter_sync = Queue(-1)
+
+    def set_fps(self, fps):
+        logging.info("No frame rate for recorded playback, push to synchronizer as rapidly as possible")
 
     def play_video(self):
 
@@ -53,7 +56,7 @@ class RecordedStream:
 
         while True:
             
-            _ = self.shutter_sync.get()
+            # _ = self.shutter_sync.get()
 
             frame_time = self.port_history[self.port_history["frame_index"] == frame_index][
                 "frame_time"

@@ -9,20 +9,27 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 
-
 @dataclass
 class PointData:
+    """Establish point data with complete initial dataset""" 
+    camera_indices_full: np.ndarray
+    img_full: np.ndarray
+    obj_indices_full: np.ndarray
+    obj: np.ndarray # note,this will never get reduced...it is used as refrence via indices which are reduced
 
-    camera_indices: np.ndarray
-    img: np.ndarray
-    obj_indices: np.ndarray
-    obj: np.ndarray
+    def __post_init__(self):
+        self.camera_indices = self.camera_indices_full
+        self.img = self.img_full
+        self.obj_indices = self.obj_indices_full   
+    
 
     def filter(self, include):
         """Provide a vector of booleans...only keep the data associaed with True"""
         self.camera_indices = self.camera_indices[include]
         self.obj_indices = self.obj_indices[include]
         self.img = self.img[include]
+
+
 
         # if filtering means that some 3d points are no longer referenced, then remove 
         # used_obj = np.unique(self.obj_indices)

@@ -1,7 +1,7 @@
 # import saved point data and initial array configuration data
 # currently this is for the convenience of not having to rerun everything
 # though this workflow may be useful into the future. Save out milestone calculations
-# along the way that allow for blocks of dataprocessing 
+# along the way that allow for blocks of dataprocessing
 
 from pathlib import Path
 
@@ -9,19 +9,20 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 
+
 @dataclass
 class PointData:
-    """Establish point data with complete initial dataset""" 
+    """Establish point data with complete initial dataset"""
+
     camera_indices_full: np.ndarray
     img_full: np.ndarray
     obj_indices_full: np.ndarray
-    obj: np.ndarray # note,this will never get reduced...it is used as refrence via indices which are reduced
+    obj: np.ndarray  # note,this will never get reduced...it is used as refrence via indices which are reduced
 
     def __post_init__(self):
         self.camera_indices = self.camera_indices_full
         self.img = self.img_full
-        self.obj_indices = self.obj_indices_full   
-    
+        self.obj_indices = self.obj_indices_full
 
     def filter(self, include):
         """Provide a vector of booleans...only keep the data associaed with True"""
@@ -29,13 +30,13 @@ class PointData:
         self.obj_indices = self.obj_indices[include]
         self.img = self.img[include]
 
+    # @property
+    # def n_cameras(self):
 
-
-        # if filtering means that some 3d points are no longer referenced, then remove 
-        # used_obj = np.unique(self.obj_indices)
-        # used_obj.sort()
-        # self.obj = self.obj[used_obj]
-
+    # if filtering means that some 3d points are no longer referenced, then remove
+    # used_obj = np.unique(self.obj_indices)
+    # used_obj.sort()
+    # self.obj = self.obj[used_obj]
 
 
 def get_points_2d_df(points_csv_path):
@@ -92,7 +93,7 @@ def get_points_3d_df(points_csv_path):
     return points_3d_df
 
 
-def get_point_data(points_csv_path:Path) -> PointData:
+def get_point_data(points_csv_path: Path) -> PointData:
 
     points_2d_df = get_points_2d_df(points_csv_path)
     points_3d_df = get_points_3d_df(points_csv_path)
@@ -110,10 +111,12 @@ def get_point_data(points_csv_path:Path) -> PointData:
 
     return PointData(camera_indices, img, obj_indices, obj)
 
+
 if __name__ == "__main__":
-    
-    import sys    
+
+    import sys
     from src.cameras.camera_array import CameraArrayBuilder
+
     repo = str(Path(__file__)).split("src")[0]
 
     print(repo)

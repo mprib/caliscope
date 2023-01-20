@@ -5,10 +5,13 @@
 
 from pathlib import Path
 
+from scipy.sparse import lil_matrix
+
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 
+CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrinsic
 
 @dataclass
 class PointData:
@@ -30,13 +33,32 @@ class PointData:
         self.obj_indices = self.obj_indices[include]
         self.img = self.img[include]
 
-    # @property
-    # def n_cameras(self):
+    def get_sparsity_pattern(self):
+        """provide the sparsity structure for the Jacobian (elements that are not zero)
+        n_points: number of unique 3d points; these will each have at least one but potentially more associated 2d points
+        point_indices: a vector that maps the 2d points to their associated 3d point
+        """
 
-    # if filtering means that some 3d points are no longer referenced, then remove
-    # used_obj = np.unique(self.obj_indices)
-    # used_obj.sort()
-    # self.obj = self.obj[used_obj]
+        camera_indices = self.camera_indices
+        n_cameras = np.unique(self.camera_indices).size
+        n_points = self.obj.shape[0]
+        obj_indices = self.obj_indices
+
+        m = camera_indices.size * 2
+        n = n_cameras * CAMERA_PARAM_COUNT + n_points * 3
+        A = lil_matrix((m, n), dtype=int)
+
+        i = np.arange(camera_indices.size)
+        for s in range(CAMERA_PARAM_COUNT):
+            A[2 * i, camera_indices * CAMERA_PARAM_COUNT + s] = 1
+            A[2 * i + 1, camera_indices * CAMERA_PARAM_COUNT + s] = 1
+
+        for s in range(3):
+            A[2 * i, n_cameras * CAMERA_PARAM_COUNT + obj_indices * 3 + s] = 1
+            A[2 * i + 1, n_cameras * CAMERA_PARAM_COUNT + obj_indices * 3 + s] = 1
+
+        return A
+
 
 
 def get_points_2d_df(points_csv_path):
@@ -126,5 +148,5 @@ if __name__ == "__main__":
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
 
-    params = camera_array.get_camera_params()
+    params = camera_array.get_extrinsic_params()
     print(params)

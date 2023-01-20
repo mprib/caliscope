@@ -60,11 +60,6 @@ class PointData:
         point_indices: a vector that maps the 2d points to their associated 3d point
         """
 
-        # self.camera_indices = self.camera_indices
-        # self.n_cameras = np.unique(self.camera_indices).size
-        # self.n_points = self.obj.shape[0]
-        # self.obj_indices = self.obj_indices
-
         m = self.camera_indices.size * 2
         n = self.n_cameras * CAMERA_PARAM_COUNT + self.n_points * 3
         A = lil_matrix((m, n), dtype=int)

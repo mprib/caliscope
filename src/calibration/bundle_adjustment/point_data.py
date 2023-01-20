@@ -33,13 +33,28 @@ class PointData:
     obj: np.ndarray  # x,y,z estimates of object points; note,this will never get reduced...it is used as refrence via indices which are reduced
 
     def __post_init__(self):
+        self.reset()
+        
+    def reset(self):
         self.camera_indices = self.camera_indices_full
         self.img = self.img_full
         self.corner_id = self.corner_id_full    
         self.obj_indices = self.obj_indices_full
 
-    def filter(self, include):
-        """Provide a vector of booleans...only keep the data associaed with True"""
+    def filter(self, optimized_fun, percent_cutoff):
+
+        xy_reproj_error = optimized_fun.reshape(-1, 2)
+        euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
+        rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
+        print(f"Optimization run with {optimized_fun.shape[0]/2} image points")
+        print(f"RMSE of reprojection is {rmse_reproj_error}")
+
+        error_rank = np.argsort(euclidean_distance_error)
+        n_2d_points = error_rank.shape[0]
+        error_percent_rank = error_rank / n_2d_points
+
+        include = error_percent_rank < percent_cutoff
+
         self.camera_indices = self.camera_indices[include]
         self.obj_indices = self.obj_indices[include]
         self.corner_id = self.corner_id_full[include]

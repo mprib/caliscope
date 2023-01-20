@@ -19,7 +19,7 @@ from src.triangulate.paired_point_stream import PairedPointStream
 from src.triangulate.array_triangulator import ArrayTriangulator
 
 
-CAMERA_PARAM_COUNT = 6
+n_cam_param = 6
 
 # RERUN_POINT_TRIANGULATION = True
 RERUN_POINT_TRIANGULATION = False
@@ -38,44 +38,27 @@ points_csv_path = Path(
 
 optimized_path = Path(session_directory, "recording", "optimized_params.pkl")
 
-if REFRESH_BUNDLE_ADJUST:
+for port, cam in camera_array.cameras.items():
+    print(f"Port {port} translation: {cam.translation.T}")
 
-    point_data = get_point_data(points_csv_path)
 
-    include = point_data.img[0] >= 0
+point_data = get_point_data(points_csv_path)
 
-    optimized = bundle_adjust(camera_array, point_data)
+optimized = bundle_adjust(camera_array, point_data)
+camera_array.update_extrinsic_params(optimized.x)
 
-    with open(optimized_path, "wb") as file:
-        pickle.dump(optimized, file)
-
-    # print(f"RMSE of x, y errors: {np.sqrt(np.mean(optimized.fun**2))}")
-else:
-    with open(optimized_path, "rb") as file:
-        optimized = pickle.load(file)
-
-#%%
-n_cameras = len(camera_array.cameras)
-flat_camera_params = optimized.x[0 : n_cameras * CAMERA_PARAM_COUNT]
-new_camera_params = flat_camera_params.reshape(n_cameras, CAMERA_PARAM_COUNT)
-
-# update camera array with new positional data
-for index in range(len(new_camera_params)):
-    print(index)
-    port = index  # just to be explicit
-    cam_vec = new_camera_params[index, :]
-    camera_array.cameras[port].extrinsics_from_vector(cam_vec)
-
+for port, cam in camera_array.cameras.items():
+    print(f"Port {port} translation: {cam.translation.T}")
 
 # get the reprojection errors for each 2d
-xy_repoj_error = optimized.fun.reshape(-1, 2)
-euclidean_distance_error = np.sqrt(np.sum((xy_repoj_error) ** 2, axis=1))
+xy_reproj_error = optimized.fun.reshape(-1, 2)
+euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
 rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
 print(f"Optimization run with {optimized.fun.shape[0]/2} image points")
 print(f"RMSE of reprojection is {rmse_reproj_error}")
 
 
-percent_cutoff = 0.3
+percent_cutoff = 0.5
 error_rank = np.argsort(euclidean_distance_error)
 n_2d_points = error_rank.shape[0]
 error_percent_rank = error_rank / n_2d_points
@@ -86,11 +69,15 @@ point_data.filter(include)
 
 optimized = bundle_adjust(camera_array, point_data)
 
-xy_repoj_error = optimized.fun.reshape(-1, 2)
-euclidean_distance_error = np.sqrt(np.sum((xy_repoj_error) ** 2, axis=1))
+xy_reproj_error = optimized.fun.reshape(-1, 2)
+euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
 rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
 print(f"Optimization run with {optimized.fun.shape[0]/2} image points")
 print(f"RMSE of reprojection is {rmse_reproj_error}")
+
+camera_array.update_extrinsic_params(optimized.x)
+for port, cam in camera_array.cameras.items():
+    print(f"Port {port} translation: {cam.translation.T}")
 
 #%%
 # rerun triangulation of points

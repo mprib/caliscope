@@ -59,8 +59,7 @@ class CameraArray:
 
     cameras: dict
 
-
-    def get_camera_params(self):
+    def get_extrinsic_params(self):
         """for each camera build the CAMERA_PARAM_COUNT element parameter index
         camera_params with shape (n_cameras, CAMERA_PARAM_COUNT)
         contains initial estimates of parameters for all cameras.
@@ -76,6 +75,20 @@ class CameraArray:
                 camera_params = np.vstack([camera_params, port_param])
 
         return camera_params
+    
+    def update_extrinsic_params(self, optimized_x):
+
+        n_cameras = len(self.cameras)
+        n_cam_param = 6    # 6 DoF
+        flat_camera_params = optimized_x[0 : n_cameras * n_cam_param]
+        new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
+
+        # update camera array with new positional data
+        for index in range(len(new_camera_params)):
+            print(index)
+            port = index  # just to be explicit
+            cam_vec = new_camera_params[index, :]
+            self.cameras[port].extrinsics_from_vector(cam_vec)
 
 class CameraArrayBuilder:
     """An ugly class to wrangle the config data into a useful set of camera

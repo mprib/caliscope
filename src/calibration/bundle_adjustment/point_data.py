@@ -42,7 +42,17 @@ class PointData:
         """Provide a vector of booleans...only keep the data associaed with True"""
         self.camera_indices = self.camera_indices[include]
         self.obj_indices = self.obj_indices[include]
+        self.corner_id = self.corner_id_full[include]
         self.img = self.img[include]
+
+
+    @property
+    def n_cameras(self):
+        return np.unique(self.camera_indices).size
+    
+    @property
+    def n_points(self):
+        return self.obj.shape[0]
 
     def get_sparsity_pattern(self):
         """provide the sparsity structure for the Jacobian (elements that are not zero)
@@ -50,23 +60,23 @@ class PointData:
         point_indices: a vector that maps the 2d points to their associated 3d point
         """
 
-        camera_indices = self.camera_indices
-        n_cameras = np.unique(self.camera_indices).size
-        n_points = self.obj.shape[0]
-        obj_indices = self.obj_indices
+        # self.camera_indices = self.camera_indices
+        # self.n_cameras = np.unique(self.camera_indices).size
+        # self.n_points = self.obj.shape[0]
+        # self.obj_indices = self.obj_indices
 
-        m = camera_indices.size * 2
-        n = n_cameras * CAMERA_PARAM_COUNT + n_points * 3
+        m = self.camera_indices.size * 2
+        n = self.n_cameras * CAMERA_PARAM_COUNT + self.n_points * 3
         A = lil_matrix((m, n), dtype=int)
 
-        i = np.arange(camera_indices.size)
+        i = np.arange(self.camera_indices.size)
         for s in range(CAMERA_PARAM_COUNT):
-            A[2 * i, camera_indices * CAMERA_PARAM_COUNT + s] = 1
-            A[2 * i + 1, camera_indices * CAMERA_PARAM_COUNT + s] = 1
+            A[2 * i, self.camera_indices * CAMERA_PARAM_COUNT + s] = 1
+            A[2 * i + 1, self.camera_indices * CAMERA_PARAM_COUNT + s] = 1
 
         for s in range(3):
-            A[2 * i, n_cameras * CAMERA_PARAM_COUNT + obj_indices * 3 + s] = 1
-            A[2 * i + 1, n_cameras * CAMERA_PARAM_COUNT + obj_indices * 3 + s] = 1
+            A[2 * i, self.n_cameras * CAMERA_PARAM_COUNT + self.obj_indices * 3 + s] = 1
+            A[2 * i + 1, self.n_cameras * CAMERA_PARAM_COUNT + self.obj_indices * 3 + s] = 1
 
         return A
 

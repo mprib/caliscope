@@ -13,7 +13,6 @@ import numpy as np
 
 from dataclasses import dataclass
 from scipy.optimize import least_squares
-from scipy.sparse import lil_matrix
 import time
 
 from src.cameras.camera_array import CameraArray, CameraArrayBuilder
@@ -81,35 +80,10 @@ def xy_reprojection_error(
     return (points_proj - points_2d).ravel()
 
 
-def get_sparsity_pattern(point_data: PointData):
-    """provide the sparsity structure for the Jacobian (elements that are not zero)
-    n_points: number of unique 3d points; these will each have at least one but potentially more associated 2d points
-    point_indices: a vector that maps the 2d points to their associated 3d point
-    """
-    camera_indices = point_data.camera_indices
-    n_cameras = np.unique(point_data.camera_indices).size
-    n_points = point_data.obj.shape[0]
-    obj_indices = point_data.obj_indices
-
-    m = camera_indices.size * 2
-    n = n_cameras * CAMERA_PARAM_COUNT + n_points * 3
-    A = lil_matrix((m, n), dtype=int)
-
-    i = np.arange(camera_indices.size)
-    for s in range(CAMERA_PARAM_COUNT):
-        A[2 * i, camera_indices * CAMERA_PARAM_COUNT + s] = 1
-        A[2 * i + 1, camera_indices * CAMERA_PARAM_COUNT + s] = 1
-
-    for s in range(3):
-        A[2 * i, n_cameras * CAMERA_PARAM_COUNT + obj_indices * 3 + s] = 1
-        A[2 * i + 1, n_cameras * CAMERA_PARAM_COUNT + obj_indices * 3 + s] = 1
-
-    return A
-
 
 def bundle_adjust(camera_array: CameraArray, point_data: PointData):
     # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
-    camera_params = camera_array.get_camera_params()
+    camera_params = camera_array.get_extrinsic_params()
     n_cameras = camera_params.shape[0]
 
     n_obj_points = point_data.obj.shape[0]
@@ -124,7 +98,7 @@ def bundle_adjust(camera_array: CameraArray, point_data: PointData):
 
     initial_param_estimate = np.hstack((camera_params.ravel(), point_data.obj.ravel()))
 
-    sparsity_pattern = get_sparsity_pattern(point_data)
+    # sparsity_pattern = get_sparsity_pattern(point_data)
 
     t0 = time.time()
     logging.info(f"Start time of bundle adjustment calculations is {t0}")
@@ -132,7 +106,7 @@ def bundle_adjust(camera_array: CameraArray, point_data: PointData):
     optimized = least_squares(
         xy_reprojection_error,
         initial_param_estimate,
-        jac_sparsity=sparsity_pattern,
+        jac_sparsity=point_data.get_sparsity_pattern(),
         verbose=2,
         x_scale="jac",
         loss="linear",

@@ -51,8 +51,12 @@ class PointData:
         return np.unique(self.camera_indices).size
     
     @property
-    def n_points(self):
+    def n_obj_points(self):
         return self.obj.shape[0]
+
+    @property
+    def n_img_points(self):
+        return self.img.shape[0]
 
     def get_sparsity_pattern(self):
         """provide the sparsity structure for the Jacobian (elements that are not zero)
@@ -61,7 +65,7 @@ class PointData:
         """
 
         m = self.camera_indices.size * 2
-        n = self.n_cameras * CAMERA_PARAM_COUNT + self.n_points * 3
+        n = self.n_cameras * CAMERA_PARAM_COUNT + self.n_obj_points * 3
         A = lil_matrix((m, n), dtype=int)
 
         i = np.arange(self.camera_indices.size)

@@ -96,7 +96,7 @@ class CameraArray:
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
     def optimize(self, point_data: PointData):
-
+    
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
         camera_params = self.get_extrinsic_params()
 
@@ -125,7 +125,8 @@ class CameraArray:
                 point_data,
             ),
         )
-
+        # TODO: #65
+        # Start Here Mac
         print(f"Following bundle adjustment, RMSE is: {point_data.rms_reproj_error(optimized.fun)}")
         return optimized
 

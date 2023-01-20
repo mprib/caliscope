@@ -3,6 +3,14 @@
 # though this workflow may be useful into the future. Save out milestone calculations
 # along the way that allow for blocks of dataprocessing
 
+import logging
+
+LOG_FILE = "log\point_data.log"
+LOG_LEVEL = logging.DEBUG
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+
 from pathlib import Path
 
 from scipy.sparse import lil_matrix
@@ -62,6 +70,13 @@ class PointData:
 
         return A
 
+    def rms_reproj_error(self, optimized_fun):
+        
+        xy_reproj_error = optimized_fun.reshape(-1, 2)
+        euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
+        rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
+        logging.info(f"Optimization run with {optimized_fun.shape[0]/2} image points")
+        logging.info(f"RMSE of reprojection is {rmse_reproj_error}")
 
 def get_points_2d_df(points_csv_path):
     points_df = pd.read_csv(points_csv_path)

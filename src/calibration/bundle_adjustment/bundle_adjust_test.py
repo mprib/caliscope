@@ -13,7 +13,7 @@ from src.cameras.camera_array import CameraArrayBuilder
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.bundle_adjustment.bundle_adjust_functions import *
-from calibration.bundle_adjustment.point_data import get_point_data, PointData
+from src.calibration.bundle_adjustment.point_data import get_point_data, PointData
 
 from src.triangulate.paired_point_stream import PairedPointStream
 from src.triangulate.array_triangulator import ArrayTriangulator
@@ -58,7 +58,7 @@ print(f"Optimization run with {optimized.fun.shape[0]/2} image points")
 print(f"RMSE of reprojection is {rmse_reproj_error}")
 
 
-percent_cutoff = 0.5
+percent_cutoff = 0.3
 error_rank = np.argsort(euclidean_distance_error)
 n_2d_points = error_rank.shape[0]
 error_percent_rank = error_rank / n_2d_points

@@ -13,7 +13,7 @@ from src.cameras.camera_array import CameraArrayBuilder
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.bundle_adjustment.bundle_adjust_functions import *
-from calibration.bundle_adjustment.PointData import get_point_data, PointData
+from calibration.bundle_adjustment.point_data import get_point_data, PointData
 
 from src.triangulate.paired_point_stream import PairedPointStream
 from src.triangulate.array_triangulator import ArrayTriangulator

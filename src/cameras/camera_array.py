@@ -5,6 +5,11 @@ from pathlib import Path
 import numpy as np
 from dataclasses import dataclass
 import cv2
+from scipy.optimize import least_squares
+
+from src.calibration.bundle_adjustment.point_data import PointData
+
+CAMERA_PARAM_COUNT = 6
 
 
 @dataclass
@@ -75,11 +80,11 @@ class CameraArray:
                 camera_params = np.vstack([camera_params, port_param])
 
         return camera_params
-    
+
     def update_extrinsic_params(self, optimized_x):
 
         n_cameras = len(self.cameras)
-        n_cam_param = 6    # 6 DoF
+        n_cam_param = 6  # 6 DoF
         flat_camera_params = optimized_x[0 : n_cameras * n_cam_param]
         new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
 
@@ -90,149 +95,111 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
-class CameraArrayBuilder:
-    """An ugly class to wrangle the config data into a useful set of camera
-    data objects in a common frame of reference and then return it as a CameraArray object;
-    Currently set up to only work when all possible stereo pairs have been stereocalibrated;
-    I anticipate this is something that will need to be expanded in the future to account
-    for second order position estimates. This might be solved cleanly by putting a frame of reference
-    in the CameraData object and extending the CameraArray to place elements in a common frame of reference"""
+    def optimize(self, point_data: PointData):
 
-    def __init__(self, config_path: Path):
+        # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
+        camera_params = self.get_extrinsic_params()
 
-        self.config = toml.load(config_path)
-        self.extrinsics, self.pairs, self.anchor = self.get_extrinsic_data()
-        self.set_cameras()
+        n = CAMERA_PARAM_COUNT * point_data.n_cameras + 3 * point_data.n_obj_points
+        m = 2 * point_data.n_img_points
 
-    def set_cameras(self):
-        self.cameras = {}
-        # create the basic cameras based off of intrinsic params stored in config
-        for key, data in self.config.items():
-            if key.startswith("cam_"):
-                port = data["port"]
-                resolution = data["resolution"]
-                camera_matrix = np.array(data["camera_matrix"], dtype=np.float64)
-                error = data["error"]
-                distortion = np.array(data["distortion"], dtype=np.float64)
-
-                # update with extrinsics, though place anchor camera at origin
-                if port == self.anchor:
-                    translation = np.array([[0], [0], [0]], dtype=np.float64)
-                    rotation = np.array(
-                        [[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64
-                    )
-                else:
-                    anchored_pair = self.extrinsics.query(f"Secondary == {port}")
-                    translation = anchored_pair.Translation.to_list()[0]
-                    rotation = anchored_pair.Rotation.to_list()[0]
-
-                cam_data = CameraData(
-                    port,
-                    resolution,
-                    camera_matrix,
-                    error,
-                    distortion,
-                    translation,
-                    rotation,
-                )
-                self.cameras[port] = cam_data
-
-    def get_extrinsic_data(self):
-
-        daisy_chain = {
-            "Pair": [],
-            "Primary": [],
-            "Secondary": [],
-            "error": [],
-            "Rotation": [],
-            "Translation": [],
-        }
-
-        for key, params in self.config.items():
-            if key.split("_")[0] == "stereo":
-                port_A = int(key.split("_")[1])
-                port_B = int(key.split("_")[2])
-
-                pair = (port_A, port_B)
-                rotation = np.array(params["rotation"], dtype=np.float64)
-                translation = np.array(params["translation"], dtype=np.float64)
-                error = float(params["RMSE"])
-
-                daisy_chain["Pair"].append(pair)
-
-                # it will likely appear strange to make B the primary and A the secondary
-                # because cv2.stereocalibrate returns R and t such that it is the
-                # position of the first camera relative to the second camera, I have
-                # switched things up for purposes of constructing the array
-                daisy_chain["Primary"].append(port_B)
-                daisy_chain["Secondary"].append(port_A)
-
-                daisy_chain["Rotation"].append(rotation)
-                daisy_chain["Translation"].append(translation)
-                daisy_chain["error"].append(error)
-
-        daisy_chain = pd.DataFrame(daisy_chain).sort_values("error")
-
-        # create an inverted version of these to determine best Anchor camera
-        inverted_chain = daisy_chain.copy()
-        inverted_chain.Primary, inverted_chain.Secondary = (
-            inverted_chain.Secondary,
-            inverted_chain.Primary,
-        )
-        inverted_chain.Translation = inverted_chain.Translation * -1
-        inverted_chain.Rotation = inverted_chain.Rotation.apply(np.linalg.inv)
-
-        daisy_chain_w_inverted = pd.concat([daisy_chain, inverted_chain], axis=0)
-
-        all_pairs = daisy_chain["Pair"].unique()
-
-        mean_error = (
-            daisy_chain_w_inverted.filter(["Primary", "error"])
-            .groupby("Primary")
-            .agg("mean")
-            .rename(columns={"error": "MeanError"})
-            .sort_values("MeanError")
+        initial_param_estimate = np.hstack(
+            (camera_params.ravel(), point_data.obj.ravel())
         )
 
-        anchor_camera = int(
-            mean_error.index[0]
-        )  # array anchored by camera with the lowest mean RMSE
+        initial_xy_error = xy_reprojection_error(initial_param_estimate,self,point_data)
+        
+        print(f"Prior to bundle adjustment, RMSE is: {point_data.rms_reproj_error(initial_xy_error)}")
 
-        daisy_chain_w_inverted = daisy_chain_w_inverted.merge(
-            mean_error, how="left", on="Primary"
-        ).sort_values("MeanError")
-
-        daisy_chain_w_inverted.insert(
-            4, "MeanError", daisy_chain_w_inverted.pop("MeanError")
+        optimized = least_squares(
+            xy_reprojection_error,
+            initial_param_estimate,
+            jac_sparsity=point_data.get_sparsity_pattern(),
+            verbose=2,
+            x_scale="jac",
+            loss="linear",
+            ftol=1e-8,
+            method="trf",
+            args=(
+                self,
+                point_data,
+            ),
         )
-        daisy_chain_w_inverted.sort_values(["MeanError"])
 
-        # need to build an array of cameras in a common frame of reference a starting point for the calibration
-        # if one of the stereo pairs did not get calibrated, then some additional tricks will need to get
-        # deployed to make things work. But fortunately this is the simpler case now.
-        initial_array = daisy_chain_w_inverted[
-            daisy_chain_w_inverted.Primary == anchor_camera
-        ]
-        initial_array = initial_array[
-            ["Primary", "Secondary", "Rotation", "Translation"]
-        ]
+        print(f"Following bundle adjustment, RMSE is: {point_data.rms_reproj_error(optimized.fun)}")
+        return optimized
 
-        # fix format of Primary/Secondary labels to be integers
-        initial_array[["Primary", "Secondary"]] = initial_array[
-            ["Primary", "Secondary"]
-        ].apply(pd.to_numeric)
 
-        return initial_array, all_pairs, anchor_camera
-
-    def get_camera_array(self):
-        return CameraArray(self.cameras)
+def xy_reprojection_error(
+    current_param_estimates,
+        camera_array,
+        point_data
+    ):
+        """
+        current_param_estimates: the current iteration of the vector that was originally initialized for the x0 input of least squares
+        """
+    
+        # Create one combined array primarily to make sure all calculations line up
+        ## unpack the working estimates of the camera 6dof
+        camera_params = current_param_estimates[: point_data.n_cameras * CAMERA_PARAM_COUNT].reshape(
+            (point_data.n_cameras, CAMERA_PARAM_COUNT)
+        )
+    
+        ## similarly unpack the 3d points estimates
+        points_3d = current_param_estimates[point_data.n_cameras * CAMERA_PARAM_COUNT :].reshape(
+            (point_data.n_obj_points, 3)
+        )
+    
+        ## created zero columns as placeholders for the reprojected 2d points
+        rows = point_data.camera_indices.shape[0]
+        blanks = np.zeros((rows, 2), dtype=np.float64)
+    
+        ## hstack all these arrays for ease of reference
+        points_3d_and_2d = np.hstack(
+            [np.array([point_data.camera_indices]).T, points_3d[point_data.obj_indices], point_data.img, blanks]
+        )
+    
+        # iterate across cameras...while this injects a loop in the residual function
+        # it should scale linearly with the number of cameras...a tradeoff for stable
+        # and explicit calculations...
+        for port, cam in camera_array.cameras.items():
+            cam_points = np.where(point_data.camera_indices == port)
+            object_points = points_3d_and_2d[cam_points][:, 1:4]
+            rvec = camera_params[port][0:3]
+            tvec = camera_params[port][3:6]
+            cam_matrix = cam.camera_matrix
+            distortion = cam.distortion[0]  # this may need some cleanup...
+    
+            # get the projection of the 2d points on the image plane; ignore the jacobian
+            cam_proj_points, _jac = cv2.projectPoints(
+                object_points.astype(np.float64), rvec, tvec, cam_matrix, distortion
+            )
+    
+            points_3d_and_2d[cam_points, 6:8] = cam_proj_points[:, 0, :]
+    
+        points_proj = points_3d_and_2d[:, 6:8]
+    
+        # reshape the x,y reprojection error to a single vector
+        return (points_proj - point_data.img).ravel()
 
 
 if __name__ == "__main__":
+    from src.cameras.camera_array_builder import CameraArrayBuilder
+    from src.calibration.bundle_adjustment.point_data import PointData, get_point_data  
+    
     repo = str(Path(__file__)).split("src")[0]
 
     config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
+
+    session_directory = Path(repo, "sessions", "iterative_adjustment")
+    points_csv_path = Path(
+        session_directory, "recording", "triangulated_points_daisy_chain.csv"
+    )
+    
+    point_data = get_point_data(points_csv_path)
+    print(f"Optimizing initial camera array configuration ")
+    camera_array.optimize(point_data)
 
     print("pause")

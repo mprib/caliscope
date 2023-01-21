@@ -175,21 +175,27 @@ class CameraArray:
             5. Return to step 1. Repeat as long as RMSE of reprojection of complete dataset improves
         """
 
-        least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
+        for port, cam in self.cameras.items():
+            print(f"Port {port} translation: {cam.translation.T}")
 
-        self.update_extrinsic_params(least_sq_result.x)
-        point_data.filter(least_sq_result.fun, 0.3)
-
-        least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
+        least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC) 
         self.update_extrinsic_params(least_sq_result.x)
 
-        point_data.reset()
-        least_sq_result = self.bundle_adjust(point_data, ParamType.INTRINSIC)
+        # only examine best X% of fits...likely less impacted by distortion
+        # point_data.filter(least_sq_result.fun, 0.5)
+        # least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
+        # self.update_extrinsic_params(least_sq_result.x)
 
-        print("wait")
+        # point_data.reset()  # return to the full dataset
+        # least_sq_result = self.bundle_adjust(point_data, ParamType.INTRINSIC)
+        # self.update_intrinsic_params(least_sq_result.x)
 
 
-# TODO: #66 Update xy_reprojection_error to allow intrinsic parameter variation
+        for port, cam in self.cameras.items():
+            print(f"Port {port} translation: {cam.translation.T}")
+        # least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
+        # self.update_extrinsic_params(least_sq_result.x)
+
 def xy_reprojection_error(
     current_param_estimates, camera_array, point_data, param_type: ParamType
 ):
@@ -233,19 +239,19 @@ def xy_reprojection_error(
     for port, cam in camera_array.cameras.items():
         cam_points = np.where(point_data.camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
-        
+
         cam_matrix = cam.camera_matrix
         if param_type.value == ParamType.EXTRINSIC.value:
             rvec = camera_params[port][0:3]
             tvec = camera_params[port][3:6]
             distortion = cam.distortion[0]  # this may need some cleanup...
 
-        elif param_type.value == ParamType.INTRINSIC.value: 
+        elif param_type.value == ParamType.INTRINSIC.value:
             extrinsics = cam.extrinsics_to_vector()
             rvec = extrinsics[0:3]
             tvec = extrinsics[3:6]
             distortion = camera_params[port][0:5]
-            
+
         # get the projection of the 2d points on the image plane; ignore the jacobian
         cam_proj_points, _jac = cv2.projectPoints(
             object_points.astype(np.float64), rvec, tvec, cam_matrix, distortion

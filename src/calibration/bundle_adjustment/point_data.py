@@ -99,14 +99,7 @@ class PointData:
 
         return A
 
-    def rms_reproj_error(self, optimized_fun):
-        
-        xy_reproj_error = optimized_fun.reshape(-1, 2)
-        euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
-        rmse = np.sqrt(np.mean(euclidean_distance_error**2))
-        logging.info(f"Optimization run with {optimized_fun.shape[0]/2} image points")
-        logging.info(f"RMSE of reprojection is {rmse}")
-        return rmse
+
 
 def get_points_2d_df(points_csv_path):
     points_df = pd.read_csv(points_csv_path)

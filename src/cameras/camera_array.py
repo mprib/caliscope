@@ -10,14 +10,7 @@ from enum import Enum
 
 from src.calibration.bundle_adjustment.point_data import PointData
 
-# CAMERA_PARAM_COUNT = 6
-
-
-class ParamType(Enum):
-    """when performing bundle adjustment, specify which parameters are being refined"""
-
-    EXTRINSIC = 1
-    INTRINSIC = 2
+CAMERA_PARAM_COUNT = 6
 
 
 @dataclass
@@ -99,49 +92,17 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
-    def get_intrinsic_params(self):
-        camera_params = None
-        for port, cam in self.cameras.items():
-            port_param = cam.distortion
-            if camera_params is None:
-                camera_params = port_param
-            else:
-                camera_params = np.vstack([camera_params, port_param])
-        return camera_params
-
-    def update_intrinsic_params(self, optimized_x):
-
-        n_cameras = len(self.cameras)
-        n_cam_param = 5  # 3 radial and 2 tangential distortion params
-        flat_camera_params = optimized_x[0 : n_cameras * n_cam_param]
-        new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
-
-        # update camera array with new distortion estimates
-        for index in range(len(new_camera_params)):
-            print(index)
-            port = index  # just to be explicit
-            cam_vec = new_camera_params[index, :]
-            self.cameras[port].distortion = cam_vec
-
-    def bundle_adjust(self, point_data: PointData, param_type: ParamType):
+    def bundle_adjust(self, point_data: PointData):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
-        if param_type.value == ParamType.EXTRINSIC.value:
-            camera_param_count = 6
-            camera_params = self.get_extrinsic_params()
-            initial_param_estimate = np.hstack(
-                (camera_params.ravel(), point_data.obj.ravel())
-            )
-
-        elif param_type.value == ParamType.INTRINSIC.value:
-            camera_param_count = 5
-            camera_params = self.get_intrinsic_params()
-            initial_param_estimate = np.hstack(
-                (camera_params.ravel(), point_data.obj.ravel())
-            )
+        camera_param_count = 6
+        camera_params = self.get_extrinsic_params()
+        initial_param_estimate = np.hstack(
+            (camera_params.ravel(), point_data.obj.ravel())
+        )
 
         initial_xy_error = xy_reprojection_error(
-            initial_param_estimate, self, point_data, param_type
+            initial_param_estimate, self, point_data, camera_param_count
         )
 
         print(
@@ -157,7 +118,7 @@ class CameraArray:
             loss="linear",
             ftol=1e-8,
             method="trf",
-            args=(self, point_data, param_type),
+            args=(self, point_data, camera_param_count),
         )
 
         print(
@@ -167,18 +128,14 @@ class CameraArray:
 
     def optimize(self, point_data: PointData):
         """
-        Implements the following steps:
-            1. Improve estimate of extrinsics (6dof) using all point data
-            2. Subset point data to only include those with lower reprojection error
-            3. Re-estimate extrinsics (6dof) with only the better-fit subset of point data
-            4. Using all original data and newly optimized extrinsics, refine estimate of intrinsics (distortion)
-            5. Return to step 1. Repeat as long as RMSE of reprojection of complete dataset improves
+        Currently, just run a simple bundle adjustment, noting the baseline reprojection errors before and after
+        Use this as a way to characterize the quality of the camera configuration
         """
 
         for port, cam in self.cameras.items():
             print(f"Port {port} translation: {cam.translation.T}")
 
-        least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC) 
+        least_sq_result = self.bundle_adjust(point_data)
         self.update_extrinsic_params(least_sq_result.x)
 
         # only examine best X% of fits...likely less impacted by distortion
@@ -186,27 +143,18 @@ class CameraArray:
         # least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
         # self.update_extrinsic_params(least_sq_result.x)
 
-        # point_data.reset()  # return to the full dataset
-        # least_sq_result = self.bundle_adjust(point_data, ParamType.INTRINSIC)
-        # self.update_intrinsic_params(least_sq_result.x)
-
-
         for port, cam in self.cameras.items():
             print(f"Port {port} translation: {cam.translation.T}")
         # least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
         # self.update_extrinsic_params(least_sq_result.x)
 
+
 def xy_reprojection_error(
-    current_param_estimates, camera_array, point_data, param_type: ParamType
+    current_param_estimates, camera_array, point_data, camera_param_count
 ):
     """
     current_param_estimates: the current iteration of the vector that was originally initialized for the x0 input of least squares
     """
-
-    if param_type.value == ParamType.EXTRINSIC.value:
-        camera_param_count = 6
-    elif param_type.value == ParamType.INTRINSIC.value:
-        camera_param_count = 5
 
     # Create one combined array primarily to make sure all calculations line up
     ## unpack the working estimates of the camera parameters (could be extr. or intr.)
@@ -241,16 +189,9 @@ def xy_reprojection_error(
         object_points = points_3d_and_2d[cam_points][:, 1:4]
 
         cam_matrix = cam.camera_matrix
-        if param_type.value == ParamType.EXTRINSIC.value:
-            rvec = camera_params[port][0:3]
-            tvec = camera_params[port][3:6]
-            distortion = cam.distortion[0]  # this may need some cleanup...
-
-        elif param_type.value == ParamType.INTRINSIC.value:
-            extrinsics = cam.extrinsics_to_vector()
-            rvec = extrinsics[0:3]
-            tvec = extrinsics[3:6]
-            distortion = camera_params[port][0:5]
+        rvec = camera_params[port][0:3]
+        tvec = camera_params[port][3:6]
+        distortion = cam.distortion[0]  # this may need some cleanup...
 
         # get the projection of the 2d points on the image plane; ignore the jacobian
         cam_proj_points, _jac = cv2.projectPoints(
@@ -282,8 +223,6 @@ if __name__ == "__main__":
 
     point_data = get_point_data(points_csv_path)
     print(f"Optimizing initial camera array configuration ")
-    # camera_array.bundle_adjust(point_data, ParamType.EXTRINSIC)
-    # camera_array.bundle_adjust(point_data, ParamType.INTRINSIC)
     camera_array.optimize(point_data)
 
     print("pause")

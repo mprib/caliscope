@@ -15,6 +15,7 @@ from src.calibration.bundle_adjustment.point_data import PointData
 
 class ParamType(Enum):
     """when performing bundle adjustment, specify which parameters are being refined"""
+
     EXTRINSIC = 1
     INTRINSIC = 2
 
@@ -58,7 +59,7 @@ class CameraData:
         # convert back to world frame of reference
         self.rotation = np.linalg.inv(cv2.Rodrigues(row[0:3])[0])
         self.translation = np.array([row[3:6] * -1], dtype=np.float64).T
-        
+
 
 @dataclass
 class CameraArray:
@@ -107,7 +108,7 @@ class CameraArray:
             else:
                 camera_params = np.vstack([camera_params, port_param])
         return camera_params
-    
+
     def update_intrinsic_params(self, optimized_x):
 
         n_cameras = len(self.cameras)
@@ -122,19 +123,19 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].distortion = cam_vec
 
-    
     def bundle_adjust(self, point_data: PointData, param_type: ParamType):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
         if param_type.value == ParamType.EXTRINSIC.value:
-            camera_params = self.get_extrinsic_params()
             camera_param_count = 6
+            camera_params = self.get_extrinsic_params()
             initial_param_estimate = np.hstack(
                 (camera_params.ravel(), point_data.obj.ravel())
             )
+
         elif param_type.value == ParamType.INTRINSIC.value:
-            camera_params = self.get_intrinsic_params()
             camera_param_count = 5
+            camera_params = self.get_intrinsic_params()
             initial_param_estimate = np.hstack(
                 (camera_params.ravel(), point_data.obj.ravel())
             )
@@ -164,7 +165,30 @@ class CameraArray:
         )
         return least_sq_result
 
+    def optimize(self, point_data: PointData):
+        """
+        Implements the following steps:
+            1. Improve estimate of extrinsics (6dof) using all point data
+            2. Subset point data to only include those with lower reprojection error
+            3. Re-estimate extrinsics (6dof) with only the better-fit subset of point data
+            4. Using all original data and newly optimized extrinsics, refine estimate of intrinsics (distortion)
+            5. Return to step 1. Repeat as long as RMSE of reprojection of complete dataset improves
+        """
 
+        least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
+
+        self.update_extrinsic_params(least_sq_result.x)
+        point_data.filter(least_sq_result.fun,.3)
+        
+        least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
+        self.update_extrinsic_params(least_sq_result.x)
+        
+        point_data.reset()
+        least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
+        
+        print("wait")        
+        
+# TODO: #66 Update xy_reprojection_error to allow intrinsic parameter variation
 def xy_reprojection_error(
     current_param_estimates, camera_array, point_data, camera_param_count
 ):
@@ -238,7 +262,8 @@ if __name__ == "__main__":
 
     point_data = get_point_data(points_csv_path)
     print(f"Optimizing initial camera array configuration ")
-    camera_array.bundle_adjust(point_data, ParamType.EXTRINSIC)
+    # camera_array.bundle_adjust(point_data, ParamType.EXTRINSIC)
     # camera_array.bundle_adjust(point_data, ParamType.INTRINSIC)
+    camera_array.optimize(point_data)
 
     print("pause")

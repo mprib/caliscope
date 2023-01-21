@@ -14,6 +14,7 @@ from src.calibration.bundle_adjustment.point_data import PointData
 
 
 class ParamType(Enum):
+    """when performing bundle adjustment, specify which parameters are being refined"""
     EXTRINSIC = 1
     INTRINSIC = 2
 
@@ -57,7 +58,7 @@ class CameraData:
         # convert back to world frame of reference
         self.rotation = np.linalg.inv(cv2.Rodrigues(row[0:3])[0])
         self.translation = np.array([row[3:6] * -1], dtype=np.float64).T
-
+        
 
 @dataclass
 class CameraArray:
@@ -97,6 +98,31 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
+    def get_intrinsic_params(self):
+        camera_params = None
+        for port, cam in self.cameras.items():
+            port_param = cam.distortion
+            if camera_params is None:
+                camera_params = port_param
+            else:
+                camera_params = np.vstack([camera_params, port_param])
+        return camera_params
+    
+    def update_intrinsic_params(self, optimized_x):
+
+        n_cameras = len(self.cameras)
+        n_cam_param = 5  # 3 radial and 2 tangential distortion params
+        flat_camera_params = optimized_x[0 : n_cameras * n_cam_param]
+        new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
+
+        # update camera array with new distortion estimates
+        for index in range(len(new_camera_params)):
+            print(index)
+            port = index  # just to be explicit
+            cam_vec = new_camera_params[index, :]
+            self.cameras[port].distortion = cam_vec
+
+    
     def bundle_adjust(self, point_data: PointData, param_type: ParamType):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
@@ -132,8 +158,7 @@ class CameraArray:
             method="trf",
             args=(self, point_data, camera_param_count),
         )
-        # TODO: #65
-        # Start Here Mac
+
         print(
             f"Following bundle adjustment, RMSE is: {point_data.rms_reproj_error(least_sq_result.fun)}"
         )
@@ -214,5 +239,6 @@ if __name__ == "__main__":
     point_data = get_point_data(points_csv_path)
     print(f"Optimizing initial camera array configuration ")
     camera_array.bundle_adjust(point_data, ParamType.EXTRINSIC)
+    # camera_array.bundle_adjust(point_data, ParamType.INTRINSIC)
 
     print("pause")

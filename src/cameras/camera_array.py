@@ -141,7 +141,7 @@ class CameraArray:
             )
 
         initial_xy_error = xy_reprojection_error(
-            initial_param_estimate, self, point_data, camera_param_count
+            initial_param_estimate, self, point_data, param_type
         )
 
         print(
@@ -157,7 +157,7 @@ class CameraArray:
             loss="linear",
             ftol=1e-8,
             method="trf",
-            args=(self, point_data, camera_param_count),
+            args=(self, point_data, param_type),
         )
 
         print(
@@ -178,36 +178,42 @@ class CameraArray:
         least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
 
         self.update_extrinsic_params(least_sq_result.x)
-        point_data.filter(least_sq_result.fun,.3)
-        
+        point_data.filter(least_sq_result.fun, 0.3)
+
         least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
         self.update_extrinsic_params(least_sq_result.x)
-        
+
         point_data.reset()
         least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
-        
-        print("wait")        
-        
+
+        print("wait")
+
+
 # TODO: #66 Update xy_reprojection_error to allow intrinsic parameter variation
 def xy_reprojection_error(
-    current_param_estimates, camera_array, point_data, camera_param_count
+    current_param_estimates, camera_array, point_data, param_type: ParamType
 ):
     """
     current_param_estimates: the current iteration of the vector that was originally initialized for the x0 input of least squares
     """
 
+    if param_type.value == ParamType.EXTRINSIC.value:
+        camera_param_count = 6
+    elif param_type.value == ParamType.INTRINSIC.value:
+        camera_param_count = 5
+
     # Create one combined array primarily to make sure all calculations line up
-    ## unpack the working estimates of the camera 6dof
+    ## unpack the working estimates of the camera parameters (could be extr. or intr.)
     camera_params = current_param_estimates[
         : point_data.n_cameras * camera_param_count
     ].reshape((point_data.n_cameras, camera_param_count))
 
-    ## similarly unpack the 3d points estimates
+    ## similarly unpack the 3d point location estimates
     points_3d = current_param_estimates[
         point_data.n_cameras * camera_param_count :
     ].reshape((point_data.n_obj_points, 3))
 
-    ## created zero columns as placeholders for the reprojected 2d points
+    ## create zero columns as placeholders for the reprojected 2d points
     rows = point_data.camera_indices.shape[0]
     blanks = np.zeros((rows, 2), dtype=np.float64)
 
@@ -227,11 +233,19 @@ def xy_reprojection_error(
     for port, cam in camera_array.cameras.items():
         cam_points = np.where(point_data.camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
-        rvec = camera_params[port][0:3]
-        tvec = camera_params[port][3:6]
+        
         cam_matrix = cam.camera_matrix
-        distortion = cam.distortion[0]  # this may need some cleanup...
+        if param_type.value == ParamType.EXTRINSIC.value:
+            rvec = camera_params[port][0:3]
+            tvec = camera_params[port][3:6]
+            distortion = cam.distortion[0]  # this may need some cleanup...
 
+        elif param_type.value == ParamType.INTRINSIC.value: 
+            extrinsics = cam.extrinsics_to_vector()
+            rvec = extrinsics[port][0:3]
+            tvec = extrinsics[port][3:6]
+            distortion = camera_params[port][0:5]
+            
         # get the projection of the 2d points on the image plane; ignore the jacobian
         cam_proj_points, _jac = cv2.projectPoints(
             object_points.astype(np.float64), rvec, tvec, cam_matrix, distortion

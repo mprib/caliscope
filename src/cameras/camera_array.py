@@ -11,6 +11,7 @@ import numpy as np
 from dataclasses import dataclass
 import cv2
 from scipy.optimize import least_squares
+import pickle
 
 from src.calibration.bundle_adjustment.point_data import PointData
 
@@ -96,7 +97,7 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
-    def bundle_adjust(self, point_data: PointData):
+    def bundle_adjust(self, point_data: PointData, output_path = None):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
         camera_params = self.get_extrinsic_params()
@@ -113,6 +114,11 @@ class CameraArray:
         print(
             f"Prior to bundle adjustment, RMSE is: {rms_reproj_error(initial_xy_error)}"
         )
+        
+        if output_path is not None:
+            diagnostic_data = ArrayDiagnosticData(point_data, initial_param_estimate,initial_xy_error)
+            diagnostic_data.save(Path(output_path, "before_bund_adj.pkl"))
+
 
         least_sq_result = least_squares(
             xy_reprojection_error,
@@ -129,12 +135,16 @@ class CameraArray:
             ),
         )
 
+        if output_path is not None:
+            diagnostic_data = ArrayDiagnosticData(point_data, least_sq_result.x,least_sq_result.fun)
+            diagnostic_data.save(Path(output_path, "after_bund_adj.pkl"))
+
         print(
             f"Following bundle adjustment, RMSE is: {rms_reproj_error(least_sq_result.fun)}"
         )
         return least_sq_result
 
-    def optimize(self, point_data: PointData):
+    def optimize(self, point_data: PointData, output_path = None):
         """
         Currently, just run a simple bundle adjustment, noting the baseline reprojection errors before and after
         Use this as a way to characterize the quality of the camera configuration
@@ -156,6 +166,15 @@ class CameraArray:
         # least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
         # self.update_extrinsic_params(least_sq_result.x)
 
+@dataclass
+class ArrayDiagnosticData:
+    point_data: PointData
+    model_params: np.ndarray
+    xy_reprojection_error: np.ndarray
+    
+    def save(self, output_path):
+        with open(Path(output_path), 'wb') as file:
+            pickle.dump(self,file)     
 
 def xy_reprojection_error(
     current_param_estimates,
@@ -215,12 +234,12 @@ def xy_reprojection_error(
     # reshape the x,y reprojection error to a single vector
     return (points_proj - point_data.img).ravel()
 
-def rms_reproj_error(optimized_fun):
+def rms_reproj_error(xy_reproj_error):
         
-    xy_reproj_error = optimized_fun.reshape(-1, 2)
+    xy_reproj_error = xy_reproj_error.reshape(-1, 2)
     euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
     rmse = np.sqrt(np.mean(euclidean_distance_error**2))
-    logging.info(f"Optimization run with {optimized_fun.shape[0]/2} image points")
+    logging.info(f"Optimization run with {xy_reproj_error.shape[0]/2} image points")
     logging.info(f"RMSE of reprojection is {rmse}")
     return rmse
 
@@ -241,6 +260,5 @@ if __name__ == "__main__":
 
     point_data = get_point_data(points_csv_path)
     print(f"Optimizing initial camera array configuration ")
-    camera_array.optimize(point_data)
-
-    print("pause")
+    # camera_array.optimize(point_data, output_path = points_csv_path.parent)
+    camera_array.bundle_adjust(point_data, output_path = points_csv_path.parent)

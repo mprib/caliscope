@@ -6,10 +6,16 @@ import numpy as np
 from dataclasses import dataclass
 import cv2
 from scipy.optimize import least_squares
+from enum import Enum
 
 from src.calibration.bundle_adjustment.point_data import PointData
 
-CAMERA_PARAM_COUNT = 6
+# CAMERA_PARAM_COUNT = 6
+
+
+class ParamType(Enum):
+    EXTRINSIC = 1
+    INTRINSIC = 2
 
 
 @dataclass
@@ -30,7 +36,6 @@ class CameraData:
         """
         Converts camera parameters to a numpy vector for use with bundle adjustment.
         """
-
         # rotation of the camera relative to the world
         rotation_matrix_world = self.rotation
 
@@ -40,10 +45,7 @@ class CameraData:
         translation_world = self.translation  # elements 3,4,5
         translation_proj = translation_world * -1
 
-        port_param = np.hstack(
-            # [rotation_rodrigues[:, 0], translation_proj[:, 0], f, k1, k2]
-            [rotation_rodrigues[:, 0], translation_proj[:, 0]]
-        )
+        port_param = np.hstack([rotation_rodrigues[:, 0], translation_proj[:, 0]])
 
         return port_param
 
@@ -95,23 +97,31 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
-    def optimize(self, point_data: PointData):
-    
+    def bundle_adjust(self, point_data: PointData, param_type: ParamType):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
-        camera_params = self.get_extrinsic_params()
 
-        n = CAMERA_PARAM_COUNT * point_data.n_cameras + 3 * point_data.n_obj_points
-        m = 2 * point_data.n_img_points
+        if param_type.value == ParamType.EXTRINSIC.value:
+            camera_params = self.get_extrinsic_params()
+            camera_param_count = 6
+            initial_param_estimate = np.hstack(
+                (camera_params.ravel(), point_data.obj.ravel())
+            )
+        elif param_type.value == ParamType.INTRINSIC.value:
+            camera_params = self.get_intrinsic_params()
+            camera_param_count = 5
+            initial_param_estimate = np.hstack(
+                (camera_params.ravel(), point_data.obj.ravel())
+            )
 
-        initial_param_estimate = np.hstack(
-            (camera_params.ravel(), point_data.obj.ravel())
+        initial_xy_error = xy_reprojection_error(
+            initial_param_estimate, self, point_data, camera_param_count
         )
 
-        initial_xy_error = xy_reprojection_error(initial_param_estimate,self,point_data)
-        
-        print(f"Prior to bundle adjustment, RMSE is: {point_data.rms_reproj_error(initial_xy_error)}")
+        print(
+            f"Prior to bundle adjustment, RMSE is: {point_data.rms_reproj_error(initial_xy_error)}"
+        )
 
-        optimized = least_squares(
+        least_sq_result = least_squares(
             xy_reprojection_error,
             initial_param_estimate,
             jac_sparsity=point_data.get_sparsity_pattern(),
@@ -120,74 +130,76 @@ class CameraArray:
             loss="linear",
             ftol=1e-8,
             method="trf",
-            args=(
-                self,
-                point_data,
-            ),
+            args=(self, point_data, camera_param_count),
         )
         # TODO: #65
         # Start Here Mac
-        print(f"Following bundle adjustment, RMSE is: {point_data.rms_reproj_error(optimized.fun)}")
-        return optimized
+        print(
+            f"Following bundle adjustment, RMSE is: {point_data.rms_reproj_error(least_sq_result.fun)}"
+        )
+        return least_sq_result
 
 
 def xy_reprojection_error(
-    current_param_estimates,
-        camera_array,
-        point_data
-    ):
-        """
-        current_param_estimates: the current iteration of the vector that was originally initialized for the x0 input of least squares
-        """
-    
-        # Create one combined array primarily to make sure all calculations line up
-        ## unpack the working estimates of the camera 6dof
-        camera_params = current_param_estimates[: point_data.n_cameras * CAMERA_PARAM_COUNT].reshape(
-            (point_data.n_cameras, CAMERA_PARAM_COUNT)
+    current_param_estimates, camera_array, point_data, camera_param_count
+):
+    """
+    current_param_estimates: the current iteration of the vector that was originally initialized for the x0 input of least squares
+    """
+
+    # Create one combined array primarily to make sure all calculations line up
+    ## unpack the working estimates of the camera 6dof
+    camera_params = current_param_estimates[
+        : point_data.n_cameras * camera_param_count
+    ].reshape((point_data.n_cameras, camera_param_count))
+
+    ## similarly unpack the 3d points estimates
+    points_3d = current_param_estimates[
+        point_data.n_cameras * camera_param_count :
+    ].reshape((point_data.n_obj_points, 3))
+
+    ## created zero columns as placeholders for the reprojected 2d points
+    rows = point_data.camera_indices.shape[0]
+    blanks = np.zeros((rows, 2), dtype=np.float64)
+
+    ## hstack all these arrays for ease of reference
+    points_3d_and_2d = np.hstack(
+        [
+            np.array([point_data.camera_indices]).T,
+            points_3d[point_data.obj_indices],
+            point_data.img,
+            blanks,
+        ]
+    )
+
+    # iterate across cameras...while this injects a loop in the residual function
+    # it should scale linearly with the number of cameras...a tradeoff for stable
+    # and explicit calculations...
+    for port, cam in camera_array.cameras.items():
+        cam_points = np.where(point_data.camera_indices == port)
+        object_points = points_3d_and_2d[cam_points][:, 1:4]
+        rvec = camera_params[port][0:3]
+        tvec = camera_params[port][3:6]
+        cam_matrix = cam.camera_matrix
+        distortion = cam.distortion[0]  # this may need some cleanup...
+
+        # get the projection of the 2d points on the image plane; ignore the jacobian
+        cam_proj_points, _jac = cv2.projectPoints(
+            object_points.astype(np.float64), rvec, tvec, cam_matrix, distortion
         )
-    
-        ## similarly unpack the 3d points estimates
-        points_3d = current_param_estimates[point_data.n_cameras * CAMERA_PARAM_COUNT :].reshape(
-            (point_data.n_obj_points, 3)
-        )
-    
-        ## created zero columns as placeholders for the reprojected 2d points
-        rows = point_data.camera_indices.shape[0]
-        blanks = np.zeros((rows, 2), dtype=np.float64)
-    
-        ## hstack all these arrays for ease of reference
-        points_3d_and_2d = np.hstack(
-            [np.array([point_data.camera_indices]).T, points_3d[point_data.obj_indices], point_data.img, blanks]
-        )
-    
-        # iterate across cameras...while this injects a loop in the residual function
-        # it should scale linearly with the number of cameras...a tradeoff for stable
-        # and explicit calculations...
-        for port, cam in camera_array.cameras.items():
-            cam_points = np.where(point_data.camera_indices == port)
-            object_points = points_3d_and_2d[cam_points][:, 1:4]
-            rvec = camera_params[port][0:3]
-            tvec = camera_params[port][3:6]
-            cam_matrix = cam.camera_matrix
-            distortion = cam.distortion[0]  # this may need some cleanup...
-    
-            # get the projection of the 2d points on the image plane; ignore the jacobian
-            cam_proj_points, _jac = cv2.projectPoints(
-                object_points.astype(np.float64), rvec, tvec, cam_matrix, distortion
-            )
-    
-            points_3d_and_2d[cam_points, 6:8] = cam_proj_points[:, 0, :]
-    
-        points_proj = points_3d_and_2d[:, 6:8]
-    
-        # reshape the x,y reprojection error to a single vector
-        return (points_proj - point_data.img).ravel()
+
+        points_3d_and_2d[cam_points, 6:8] = cam_proj_points[:, 0, :]
+
+    points_proj = points_3d_and_2d[:, 6:8]
+
+    # reshape the x,y reprojection error to a single vector
+    return (points_proj - point_data.img).ravel()
 
 
 if __name__ == "__main__":
     from src.cameras.camera_array_builder import CameraArrayBuilder
-    from src.calibration.bundle_adjustment.point_data import PointData, get_point_data  
-    
+    from src.calibration.bundle_adjustment.point_data import PointData, get_point_data
+
     repo = str(Path(__file__)).split("src")[0]
 
     config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
@@ -198,9 +210,9 @@ if __name__ == "__main__":
     points_csv_path = Path(
         session_directory, "recording", "triangulated_points_daisy_chain.csv"
     )
-    
+
     point_data = get_point_data(points_csv_path)
     print(f"Optimizing initial camera array configuration ")
-    camera_array.optimize(point_data)
+    camera_array.bundle_adjust(point_data, ParamType.EXTRINSIC)
 
     print("pause")

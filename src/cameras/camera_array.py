@@ -1,12 +1,16 @@
-import pandas as pd
-import toml
-import sys
+import logging
+
+LOG_FILE = "log\camera_array.log"
+LOG_LEVEL = logging.DEBUG
+LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+
+logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+
 from pathlib import Path
 import numpy as np
 from dataclasses import dataclass
 import cv2
 from scipy.optimize import least_squares
-from enum import Enum
 
 from src.calibration.bundle_adjustment.point_data import PointData
 
@@ -107,7 +111,7 @@ class CameraArray:
         )
 
         print(
-            f"Prior to bundle adjustment, RMSE is: {point_data.rms_reproj_error(initial_xy_error)}"
+            f"Prior to bundle adjustment, RMSE is: {rms_reproj_error(initial_xy_error)}"
         )
 
         least_sq_result = least_squares(
@@ -126,7 +130,7 @@ class CameraArray:
         )
 
         print(
-            f"Following bundle adjustment, RMSE is: {point_data.rms_reproj_error(least_sq_result.fun)}"
+            f"Following bundle adjustment, RMSE is: {rms_reproj_error(least_sq_result.fun)}"
         )
         return least_sq_result
 
@@ -211,6 +215,14 @@ def xy_reprojection_error(
     # reshape the x,y reprojection error to a single vector
     return (points_proj - point_data.img).ravel()
 
+def rms_reproj_error(optimized_fun):
+        
+    xy_reproj_error = optimized_fun.reshape(-1, 2)
+    euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
+    rmse = np.sqrt(np.mean(euclidean_distance_error**2))
+    logging.info(f"Optimization run with {optimized_fun.shape[0]/2} image points")
+    logging.info(f"RMSE of reprojection is {rmse}")
+    return rmse
 
 if __name__ == "__main__":
     from src.cameras.camera_array_builder import CameraArrayBuilder

@@ -116,7 +116,7 @@ class CameraArray:
         )
         
         if output_path is not None:
-            diagnostic_data = ArrayDiagnosticData(point_data, initial_param_estimate,initial_xy_error)
+            diagnostic_data = ArrayDiagnosticData(point_data, initial_param_estimate,initial_xy_error, self)
             diagnostic_data.save(Path(output_path, "before_bund_adj.pkl"))
 
 
@@ -136,7 +136,7 @@ class CameraArray:
         )
 
         if output_path is not None:
-            diagnostic_data = ArrayDiagnosticData(point_data, least_sq_result.x,least_sq_result.fun)
+            diagnostic_data = ArrayDiagnosticData(point_data, least_sq_result.x,least_sq_result.fun, self)
             diagnostic_data.save(Path(output_path, "after_bund_adj.pkl"))
 
         print(
@@ -171,6 +171,7 @@ class ArrayDiagnosticData:
     point_data: PointData
     model_params: np.ndarray
     xy_reprojection_error: np.ndarray
+    camera_array: CameraArray
     
     def save(self, output_path):
         with open(Path(output_path), 'wb') as file:

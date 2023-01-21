@@ -43,11 +43,11 @@ class PointData:
 
     def filter(self, optimized_fun, percent_cutoff):
 
+        # print(f"Optimization run with {optimized_fun.shape[0]/2} image points")
         xy_reproj_error = optimized_fun.reshape(-1, 2)
         euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
-        rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
-        print(f"Optimization run with {optimized_fun.shape[0]/2} image points")
-        print(f"RMSE of reprojection is {rmse_reproj_error}")
+        # rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
+        # print(f"RMSE of reprojection is {rmse_reproj_error}")
 
         error_rank = np.argsort(euclidean_distance_error)
         n_2d_points = error_rank.shape[0]
@@ -55,6 +55,11 @@ class PointData:
 
         include = error_percent_rank < percent_cutoff
 
+        full_count = include.size
+        subset_count = include[include==True].size
+
+        print(f"Reducing point data to {subset_count} image points (full count: {full_count})")
+        
         self.camera_indices = self.camera_indices[include]
         self.obj_indices = self.obj_indices[include]
         self.corner_id = self.corner_id_full[include]

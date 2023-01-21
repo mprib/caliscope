@@ -151,7 +151,7 @@ class CameraArray:
         least_sq_result = least_squares(
             xy_reprojection_error,
             initial_param_estimate,
-            jac_sparsity=point_data.get_sparsity_pattern(),
+            jac_sparsity=point_data.get_sparsity_pattern(camera_param_count),
             verbose=2,
             x_scale="jac",
             loss="linear",
@@ -184,7 +184,7 @@ class CameraArray:
         self.update_extrinsic_params(least_sq_result.x)
 
         point_data.reset()
-        least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
+        least_sq_result = self.bundle_adjust(point_data, ParamType.INTRINSIC)
 
         print("wait")
 
@@ -242,8 +242,8 @@ def xy_reprojection_error(
 
         elif param_type.value == ParamType.INTRINSIC.value: 
             extrinsics = cam.extrinsics_to_vector()
-            rvec = extrinsics[port][0:3]
-            tvec = extrinsics[port][3:6]
+            rvec = extrinsics[0:3]
+            tvec = extrinsics[3:6]
             distortion = camera_params[port][0:5]
             
         # get the projection of the 2d points on the image plane; ignore the jacobian

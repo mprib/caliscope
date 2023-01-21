@@ -95,14 +95,15 @@ class CameraArray:
     def bundle_adjust(self, point_data: PointData):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
-        camera_param_count = 6
         camera_params = self.get_extrinsic_params()
         initial_param_estimate = np.hstack(
             (camera_params.ravel(), point_data.obj.ravel())
         )
 
         initial_xy_error = xy_reprojection_error(
-            initial_param_estimate, self, point_data, camera_param_count
+            initial_param_estimate,
+            self,
+            point_data,
         )
 
         print(
@@ -112,13 +113,16 @@ class CameraArray:
         least_sq_result = least_squares(
             xy_reprojection_error,
             initial_param_estimate,
-            jac_sparsity=point_data.get_sparsity_pattern(camera_param_count),
+            jac_sparsity=point_data.get_sparsity_pattern(),
             verbose=2,
             x_scale="jac",
             loss="linear",
             ftol=1e-8,
             method="trf",
-            args=(self, point_data, camera_param_count),
+            args=(
+                self,
+                point_data,
+            ),
         )
 
         print(
@@ -150,7 +154,9 @@ class CameraArray:
 
 
 def xy_reprojection_error(
-    current_param_estimates, camera_array, point_data, camera_param_count
+    current_param_estimates,
+    camera_array,
+    point_data,
 ):
     """
     current_param_estimates: the current iteration of the vector that was originally initialized for the x0 input of least squares
@@ -159,12 +165,12 @@ def xy_reprojection_error(
     # Create one combined array primarily to make sure all calculations line up
     ## unpack the working estimates of the camera parameters (could be extr. or intr.)
     camera_params = current_param_estimates[
-        : point_data.n_cameras * camera_param_count
-    ].reshape((point_data.n_cameras, camera_param_count))
+        : point_data.n_cameras * CAMERA_PARAM_COUNT
+    ].reshape((point_data.n_cameras, CAMERA_PARAM_COUNT))
 
     ## similarly unpack the 3d point location estimates
     points_3d = current_param_estimates[
-        point_data.n_cameras * camera_param_count :
+        point_data.n_cameras * CAMERA_PARAM_COUNT :
     ].reshape((point_data.n_obj_points, 3))
 
     ## create zero columns as placeholders for the reprojected 2d points

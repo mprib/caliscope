@@ -78,24 +78,24 @@ class PointData:
     def n_img_points(self):
         return self.img.shape[0]
 
-    def get_sparsity_pattern(self, camera_param_count):
+    def get_sparsity_pattern(self):
         """provide the sparsity structure for the Jacobian (elements that are not zero)
         n_points: number of unique 3d points; these will each have at least one but potentially more associated 2d points
         point_indices: a vector that maps the 2d points to their associated 3d point
         """
 
         m = self.camera_indices.size * 2
-        n = self.n_cameras * camera_param_count + self.n_obj_points * 3
+        n = self.n_cameras * CAMERA_PARAM_COUNT + self.n_obj_points * 3
         A = lil_matrix((m, n), dtype=int)
 
         i = np.arange(self.camera_indices.size)
-        for s in range(camera_param_count):
-            A[2 * i, self.camera_indices * camera_param_count + s] = 1
-            A[2 * i + 1, self.camera_indices * camera_param_count + s] = 1
+        for s in range(CAMERA_PARAM_COUNT):
+            A[2 * i, self.camera_indices * CAMERA_PARAM_COUNT + s] = 1
+            A[2 * i + 1, self.camera_indices * CAMERA_PARAM_COUNT + s] = 1
 
         for s in range(3):
-            A[2 * i, self.n_cameras * camera_param_count + self.obj_indices * 3 + s] = 1
-            A[2 * i + 1, self.n_cameras * camera_param_count + self.obj_indices * 3 + s] = 1
+            A[2 * i, self.n_cameras * CAMERA_PARAM_COUNT + self.obj_indices * 3 + s] = 1
+            A[2 * i + 1, self.n_cameras * CAMERA_PARAM_COUNT + self.obj_indices * 3 + s] = 1
 
         return A
 

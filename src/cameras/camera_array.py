@@ -105,6 +105,8 @@ class CameraArray:
             (camera_params.ravel(), point_data.obj.ravel())
         )
 
+
+        # get a snapshot of where things are at the start
         initial_xy_error = xy_reprojection_error(
             initial_param_estimate,
             self,
@@ -115,6 +117,7 @@ class CameraArray:
             f"Prior to bundle adjustment, RMSE is: {rms_reproj_error(initial_xy_error)}"
         )
         
+        # save out this snapshot if path provided
         if output_path is not None:
             diagnostic_data = ArrayDiagnosticData(point_data, initial_param_estimate,initial_xy_error, self)
             diagnostic_data.save(Path(output_path, "before_bund_adj.pkl"))
@@ -169,13 +172,15 @@ class CameraArray:
 @dataclass
 class ArrayDiagnosticData:
     point_data: PointData
-    model_params: np.ndarray
+    model_params: np.ndarray # the first argument of the residual function
     xy_reprojection_error: np.ndarray
     camera_array: CameraArray
     
     def save(self, output_path):
         with open(Path(output_path), 'wb') as file:
             pickle.dump(self,file)     
+
+
 
 def xy_reprojection_error(
     current_param_estimates,

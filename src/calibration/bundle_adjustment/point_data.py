@@ -26,26 +26,28 @@ CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrins
 class PointData:
     """Establish point data with complete initial dataset"""
 
-    camera_indices_full: np.ndarray # camera id of image
-    img_full: np.ndarray # x,y coords on all images of
+    camera_indices_full: np.ndarray  # camera id of image
+    img_full: np.ndarray  # x,y coords on point
     corner_id_full: np.ndarray
-    obj_indices_full: np.ndarray 
+    obj_indices_full: np.ndarray
     obj: np.ndarray  # x,y,z estimates of object points; note,this will never get reduced...it is used as refrence via indices which are reduced
+    sync_indices_full: np.ndarray  # the sync_index from when the image was taken
 
     def __post_init__(self):
         self.reset()
-        
+
     def reset(self):
         self.camera_indices = self.camera_indices_full
         self.img = self.img_full
-        self.corner_id = self.corner_id_full    
+        self.corner_id = self.corner_id_full
         self.obj_indices = self.obj_indices_full
+        self.sync_indices = self.sync_indices_full
 
     def filter(self, optimized_fun, percent_cutoff):
 
         # print(f"Optimization run with {optimized_fun.shape[0]/2} image points")
         xy_reproj_error = optimized_fun.reshape(-1, 2)
-        euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
+        euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))
         # rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
         # print(f"RMSE of reprojection is {rmse_reproj_error}")
 
@@ -56,20 +58,22 @@ class PointData:
         include = error_percent_rank < percent_cutoff
 
         full_count = include.size
-        subset_count = include[include==True].size
+        subset_count = include[include == True].size
 
-        print(f"Reducing point data to {subset_count} image points (full count: {full_count})")
-        
-        self.camera_indices = self.camera_indices[include]
-        self.obj_indices = self.obj_indices[include]
+        print(
+            f"Reducing point data to {subset_count} image points (full count: {full_count})"
+        )
+
+        self.camera_indices = self.camera_indices_full[include]
+        self.obj_indices = self.obj_indices_full[include]
         self.corner_id = self.corner_id_full[include]
-        self.img = self.img[include]
-
+        self.img = self.img_full[include]
+        self.sync_indices = self.sync_indices_full[include]
 
     @property
     def n_cameras(self):
         return np.unique(self.camera_indices).size
-    
+
     @property
     def n_obj_points(self):
         return self.obj.shape[0]
@@ -95,10 +99,12 @@ class PointData:
 
         for s in range(3):
             A[2 * i, self.n_cameras * CAMERA_PARAM_COUNT + self.obj_indices * 3 + s] = 1
-            A[2 * i + 1, self.n_cameras * CAMERA_PARAM_COUNT + self.obj_indices * 3 + s] = 1
+            A[
+                2 * i + 1,
+                self.n_cameras * CAMERA_PARAM_COUNT + self.obj_indices * 3 + s,
+            ] = 1
 
         return A
-
 
 
 def get_points_2d_df(points_csv_path):
@@ -155,7 +161,7 @@ def get_points_3d_df(points_csv_path):
     return points_3d_df
 
 
-def get_point_data(points_csv_path: Path) -> PointData:
+def get_merged_2d_3d(points_csv_path):
 
     points_2d_df = get_points_2d_df(points_csv_path)
     points_3d_df = get_points_3d_df(points_csv_path)
@@ -166,13 +172,28 @@ def get_point_data(points_csv_path: Path) -> PointData:
         .dropna()
     )
 
+    return merged_point_data
+
+
+def get_point_data(points_csv_path: Path) -> PointData:
+    points_3d_df = get_points_3d_df(points_csv_path)
+    merged_point_data = get_merged_2d_3d(points_csv_path)
+
     camera_indices = np.array(merged_point_data["camera"], dtype=np.int64)
     img = np.array(merged_point_data[["x_2d", "y_2d"]])
     corner_id = np.array(merged_point_data["corner_id"], dtype=np.int64)
     obj_indices = np.array(merged_point_data["index_3d"], dtype=np.int64)
+    sync_index = np.array(merged_point_data["sync_index"], dtype=np.int64)
     obj = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
-    
-    return PointData(camera_indices, img, corner_id,obj_indices, obj)
+
+    return PointData(
+        camera_indices_full=camera_indices,
+        img_full=img,
+        corner_id_full=corner_id,
+        obj_indices_full=obj_indices,
+        obj=obj,
+        sync_indices_full=sync_index,
+    )
 
 
 if __name__ == "__main__":

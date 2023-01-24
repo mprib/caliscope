@@ -9,7 +9,7 @@ print(repo)
 
 from src.recording.recorded_stream import RecordedStreamPool
 from src.cameras.synchronizer import Synchronizer
-from src.cameras.camera_array import CameraArrayBuilder
+from src.cameras.camera_array_builder import CameraArrayBuilder
 from src.calibration.charuco import Charuco
 from src.calibration.corner_tracker import CornerTracker
 from src.calibration.bundle_adjustment.bundle_adjust_functions import *
@@ -33,7 +33,7 @@ config_path = Path(session_directory, "config.toml")
 array_builder = CameraArrayBuilder(config_path)
 camera_array = array_builder.get_camera_array()
 points_csv_path = Path(
-    session_directory, "recording", "triangulated_points_daisy_chain.csv"
+    session_directory, "recording", "triangulated_points.csv"
 )
 
 optimized_path = Path(session_directory, "recording", "optimized_params.pkl")
@@ -58,14 +58,14 @@ print(f"Optimization run with {optimized.fun.shape[0]/2} image points")
 print(f"RMSE of reprojection is {rmse_reproj_error}")
 
 
-percent_cutoff = 0.3
-error_rank = np.argsort(euclidean_distance_error)
-n_2d_points = error_rank.shape[0]
-error_percent_rank = error_rank / n_2d_points
+percent_cutoff = 0.9
+# error_rank = np.argsort(euclidean_distance_error)
+# n_2d_points = error_rank.shape[0]
+# error_percent_rank = error_rank / n_2d_points
 
-include = error_percent_rank < percent_cutoff
+# include = error_percent_rank < percent_cutoff
 
-point_data.filter(include)
+point_data.filter(optimized.fun, percent_cutoff)
 
 optimized = bundle_adjust(camera_array, point_data)
 

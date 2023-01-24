@@ -261,7 +261,7 @@ if __name__ == "__main__":
 
     session_directory = Path(repo, "sessions", "iterative_adjustment")
     points_csv_path = Path(
-        session_directory, "recording", "triangulated_points_daisy_chain.csv"
+        session_directory, "recording", "triangulated_points.csv"
     )
 
     point_data = get_point_data(points_csv_path)

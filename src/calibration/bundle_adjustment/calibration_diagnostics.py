@@ -43,9 +43,7 @@ def create_summary_df(diagnostic_data_path:Path, label):
     array_data_xy_error = array_data.xy_reprojection_error.reshape(-1,2)
     # build out error as singular distanc
     
-    n_cameras = len(array_data.camera_array.cameras)
-    xyz = array_data.model_params[n_cameras*CAMERA_PARAM_COUNT:]
-    xyz = xyz.reshape(-1,3)
+    xyz = get_xyz_points(array_data.model_params, array_data.camera_array)
     
     euclidean_distance_error = np.sqrt(np.sum(array_data_xy_error ** 2, axis=1))
     row_count = euclidean_distance_error.shape[0]
@@ -69,8 +67,12 @@ def create_summary_df(diagnostic_data_path:Path, label):
     array_data_df = pd.DataFrame(array_data_dict)
     return array_data_df
 
+def get_xyz_points(model_params, camera_array):
+    n_cameras = len(camera_array.cameras)
+    xyz = model_params[n_cameras*CAMERA_PARAM_COUNT:]
+    xyz = xyz.reshape(-1,3)   
 
-    
+    return xyz
 
 
 if __name__ == "__main__":

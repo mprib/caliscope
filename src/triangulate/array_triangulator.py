@@ -101,7 +101,7 @@ class ArrayTriangulator:
             print(f"Sync Index: {triangulated_packet.sync_index}  Pair: {pair}")
             # TODO: #45 figure out how to get this to stop automatically
             # might want to get the frame counts for the saved port data
-            if triangulated_packet.sync_index > 320:
+            if triangulated_packet.sync_index > 350:
                 self.stop.set()
 
         if self.output_file is not None:
@@ -117,7 +117,8 @@ if __name__ == "__main__":
 
     # Build camera array from stored config file
     repo = str(Path(__file__)).split("src")[0]
-    session_directory = Path(repo, "sessions", "iterative_adjustment")
+    # session_directory = Path(repo, "sessions", "iterative_adjustment")
+    session_directory = Path(repo, "sessions", "default_res_session")
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()

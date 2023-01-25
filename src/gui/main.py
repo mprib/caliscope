@@ -52,7 +52,7 @@ class MainWindow(QMainWindow):
         DISPLAY_WIDTH = screen.size().width()
         DISPLAY_HEIGHT = screen.size().height()
 
-        self.setMinimumSize(DISPLAY_WIDTH * 0.45, DISPLAY_HEIGHT * 0.7)
+        self.setMinimumSize(int(DISPLAY_WIDTH * 0.45), int(DISPLAY_HEIGHT * 0.7))
         self.setWindowTitle("FreeMocap Camera Calibration")
         self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
 

@@ -101,7 +101,7 @@ class ArrayTriangulator:
             print(f"Sync Index: {triangulated_packet.sync_index}  Pair: {pair}")
             # TODO: #45 figure out how to get this to stop automatically
             # might want to get the frame counts for the saved port data
-            if triangulated_packet.sync_index > 130:
+            if triangulated_packet.sync_index > 320:
                 self.stop.set()
 
         if self.output_file is not None:

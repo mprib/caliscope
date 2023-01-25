@@ -46,8 +46,8 @@ class FrameEmitter(QThread):
 
             if self.pixmap_edge_length:
                 pixmap = pixmap.scaled(
-                    self.pixmap_edge_length,
-                    self.pixmap_edge_length,
+                    int(self.pixmap_edge_length),
+                    int(self.pixmap_edge_length),
                     Qt.AspectRatioMode.KeepAspectRatio,
                 )
             self.ImageBroadcast.emit(pixmap)

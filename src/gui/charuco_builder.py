@@ -93,7 +93,7 @@ class CharucoBuilder(QWidget):
         # Strange wrinkle: charuco display height and width seem flipped
         # step1.setMaximumWidth(self.charuco_display.height())
 
-        step1.setMinimumWidth(self.width() * 0.5)
+        step1.setMinimumWidth(int(self.width() * 0.5))
         VBL.addWidget(step1)
         VBL.addWidget(self.charuco_config)
         ##### PRINT ##########################################################
@@ -111,7 +111,7 @@ class CharucoBuilder(QWidget):
         step2 = QLabel(step2_text)
         step2.setWordWrap(True)
         # Strange wrinkle: charuco display height and width seem flipped
-        step2.setMinimumWidth(self.width() * 0.5)
+        step2.setMinimumWidth(int(self.width() * 0.5))
         VBL.addWidget(step2)
         VBL.addLayout(self.save_png_hbox)
         VBL.addSpacing(20)
@@ -129,7 +129,7 @@ class CharucoBuilder(QWidget):
         step3.setWordWrap(True)
         # Strange wrinkle: charuco display height and width seem flipped
         # step3.setMaximumWidth(self.charuco_display.height())
-        step3.setMinimumWidth(self.width() * 0.5)
+        step3.setMinimumWidth(int(self.width() * 0.5))
         VBL.addWidget(step3)
         VBL.addWidget(self.true_up_group)
         VBL.addSpacing(20)
@@ -143,7 +143,7 @@ class CharucoBuilder(QWidget):
         step4.setWordWrap(True)
         # Strange wrinkle: charuco display height and width seem flipped
         # step4.setMaximumWidth(self.charuco_display.height())
-        step4.setMinimumWidth(self.width() * 0.5)
+        step4.setMinimumWidth(int(self.width() * 0.5))
         VBL.addWidget(step4)
         VBL.addWidget(self.save_btn)
 
@@ -323,7 +323,7 @@ class CharucoBuilder(QWidget):
         if not self.charuco_added:
             self.charuco_display = QLabel()
             self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-            self.charuco_display.setMaximumSize(self.height() / 2, self.width() / 2)
+            self.charuco_display.setMaximumSize(int(self.height() / 2), int(self.width() / 2))
         charuco_height = self.charuco_display.height()
         charuco_width = self.charuco_display.width()
         print("Building charuco thumbnail...")

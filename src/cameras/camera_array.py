@@ -259,7 +259,8 @@ if __name__ == "__main__":
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
 
-    session_directory = Path(repo, "sessions", "iterative_adjustment")
+    # session_directory = Path(repo, "sessions", "iterative_adjustment")
+    session_directory = Path(repo, "sessions", "default_res_session")
     points_csv_path = Path(
         session_directory, "recording", "triangulated_points.csv"
     )

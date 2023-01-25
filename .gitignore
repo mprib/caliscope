@@ -6,4 +6,4 @@
 .idea*
 *.mp4
 *.bz2
-*.venv
+.venv*

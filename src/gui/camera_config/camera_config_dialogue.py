@@ -207,7 +207,7 @@ class CameraConfigDialog(QDialog):
 
         self.cal_output = QLabel()
         self.cal_output.setWordWrap(True)
-        self.cal_output.setMaximumWidth(self.pixmap_edge / 3)
+        self.cal_output.setMaximumWidth(int(self.pixmap_edge / 3))
         self.cal_output.setText(self.monocal.camera.calibration_summary())
         hbox.addWidget(self.cal_output)
         # calib_output.setMaximumWidth()

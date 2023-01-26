@@ -31,8 +31,9 @@ class PointData:
     corner_id_full: np.ndarray
     obj_indices_full: np.ndarray
     obj: np.ndarray  # x,y,z estimates of object points; note,this will never get reduced...it is used as refrence via indices which are reduced
+    obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point
     sync_indices_full: np.ndarray  # the sync_index from when the image was taken
-
+    
     def __post_init__(self):
         self.reset()
 
@@ -185,6 +186,7 @@ def get_point_data(points_csv_path: Path) -> PointData:
     obj_indices = np.array(merged_point_data["index_3d"], dtype=np.int64)
     sync_index = np.array(merged_point_data["sync_index"], dtype=np.int64)
     obj = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
+    obj_corner_id = np.array(points_3d_df[["corner_id"]])
 
     return PointData(
         camera_indices_full=camera_indices,
@@ -192,6 +194,7 @@ def get_point_data(points_csv_path: Path) -> PointData:
         corner_id_full=corner_id,
         obj_indices_full=obj_indices,
         obj=obj,
+        obj_corner_id=obj_corner_id,
         sync_indices_full=sync_index,
     )
 

@@ -6,3 +6,4 @@ pandas==1.5.2
 pyqtgraph==0.13.1
 toml
 imutils
+seaborn

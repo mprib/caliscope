@@ -7,11 +7,9 @@ LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
-import sys
 from pathlib import Path
 
 import cv2
-import imutils
 import numpy as np
 
 from src.cameras.synchronizer import Synchronizer
@@ -121,7 +119,7 @@ class StereoFrameBuilder:
             value=pad_color,
         )
 
-        frame = imutils.resize(frame, height=self.single_frame_height)
+        frame = resize(frame, new_height=self.single_frame_height)
         return frame
 
     def get_frame_or_blank(self, port):
@@ -179,6 +177,20 @@ class StereoFrameBuilder:
             frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
         return frame
+    
+def resize(image, new_height):
+    # Get current dimensions
+    (current_height, current_width) = image.shape[:2]
+
+    # ratio to scale by
+    ratio = new_height / float(current_height)
+    
+    # New dimensions
+    dim = (int(current_width * ratio), new_height)
+
+    resized = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
+
+    return resized
 
 
 if __name__ == "__main__":

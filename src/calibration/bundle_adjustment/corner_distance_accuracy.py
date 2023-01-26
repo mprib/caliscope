@@ -56,16 +56,41 @@ def cartesian_product(*arrays):
     
 
 # %%
+from time import perf_counter
+
+# get columns out from data frame for numpy calculations
 sync_indices = corners_3d["sync_index"].to_numpy()
 unique_sync_indices = np.unique(sync_indices)
-
 obj_id = corners_3d["obj_id"].to_numpy()
+corner_xyz = corners_3d[["obj_x", "obj_y", "obj_z"]]
+charuco_ids = corners_3d["charuco_id"]
 
+start = perf_counter()
+
+# for a given sync index (i.e. one board snapshot) get all pairs of object ids
+paired_corner_indices = None
 for x in unique_sync_indices:
-    frame_corners = obj_id[sync_indices==x]
-    all_pairs = cartesian_product(frame_corners,frame_corners)
-    print(all_pairs)
+    board_corners = obj_id[sync_indices==x]
+    all_pairs = cartesian_product(board_corners,board_corners)
+    if paired_corner_indices is None:
+        paired_corner_indices = all_pairs
+    else:
+        paired_corner_indices = np.vstack([paired_corner_indices,all_pairs])
+    # print(all_pairs)
+    
+# paired_corner_indices will contain duplicates (i.e. [0,1] and [1,0]) as well as self-pairs ([0,0], [1,1])
+# this need to get filtered out
+reformatted_paired_corner_indices = np.zeros(paired_corner_indices.shape)
+reformatted_paired_corner_indices[:,0] = np.min(paired_corner_indices,axis=1)
+reformatted_paired_corner_indices[:,1] = np.max(paired_corner_indices,axis=1)
+reformatted_paired_corner_indices = np.unique(reformatted_paired_corner_indices,axis=0)
+reformatted_paired_corner_indices = reformatted_paired_corner_indices[reformatted_paired_corner_indices[:,0]!=reformatted_paired_corner_indices[:,1]]
+stop = perf_counter()
 
+elapsed = stop - start
+print(elapsed)
+
+#%%
 charuco = get_charuco(config_path)
 corner_count = charuco.board.chessboardCorners.shape[0]
 board_ids = np.arange(corner_count)

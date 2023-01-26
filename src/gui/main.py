@@ -9,29 +9,17 @@ LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 import time
-from pathlib import Path, PurePath
+from pathlib import Path
 from threading import Thread
 
-from numpy import char
-from PyQt6.QtCore import Qt, QDir
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtWidgets import (
     QApplication,
     QDockWidget,
     QFileDialog,
-    QGroupBox,
-    QHBoxLayout,
     QStackedWidget,
-    QLabel,
     QMainWindow,
-    QPushButton,
-    QScrollArea,
-    QSizePolicy,
-    QTableWidget,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-    QToolBar,
 )
 
 from src.session import Session, stage

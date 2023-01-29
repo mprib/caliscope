@@ -1,0 +1,49 @@
+# pyproject.toml
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "calicam" #change this to your project name (do a global search and replace for this string, including folder names)
+description = "Basic template of a python repository"
+readme = "README.md"
+authors = [{ name = "Mac Prible", email = "prible@gmail.com" }]
+license = { file = "LICENSE" }
+
+classifiers = [
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)", #https://www.gnu.org/philosophy/open-source-misses-the-point.en.html
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+] #additional classifiers can be found here: https://pypi.org/classifiers/
+
+keywords = ["basic",
+            "template",
+            "python",
+            "repository"] #change these to your project keywords
+
+dependencies = ["numpy"] #add additional dependencies here - try to pin versions as minimally as possible
+
+requires-python = ">=3.10"
+
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = ["black", "bumpver", "isort", "pip-tools", "pytest"]
+
+[tool.bumpver] #bump the version by entering `bumpver update` in the terminal
+current_version = "0.0.0"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message  = "Bump version {old_version} -> {new_version}"
+commit          = true
+tag             = true
+push            = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = ["{version}"]
+"calicam/__init__.py" = ["{version}"]
+
+
+[project.scripts]
+calicam = "calicam.__main__:main"
+

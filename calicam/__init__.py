@@ -1,7 +1,7 @@
 """Top-level package for basic_template_repo."""
 
 __package_name__ = "calicam"
-__version__ = "0.0.0"
+__version__ = "0.0.1"
 
 __author__ = """Mac Prible"""
 __email__ = "prible@gmail.com"

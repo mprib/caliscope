@@ -9,7 +9,7 @@ name = "calicam" #change this to your project name (do a global search and repla
 description = "Basic template of a python repository"
 readme = "README.md"
 authors = [{ name = "Mac Prible", email = "prible@gmail.com" }]
-license = { file = "LICENSE" }
+license = { file = "LICENSE.md" }
 
 classifiers = [
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)", #https://www.gnu.org/philosophy/open-source-misses-the-point.en.html
@@ -22,7 +22,7 @@ keywords = ["basic",
             "python",
             "repository"] #change these to your project keywords
 
-dependencies = ["numpy"] #add additional dependencies here - try to pin versions as minimally as possible
+dependencies = ["numpy", "opencv-contrib-python", "pyqt6", "scipy", "pandas", "pyqtgraph", "toml", "seaborn"] #add additional dependencies here - try to pin versions as minimally as possible
 
 requires-python = ">=3.10"
 
@@ -45,5 +45,5 @@ push            = true
 
 
 [project.scripts]
-calicam = "calicam.__main__:main"
+calicam = "calicam.__main__:launch_main_window"
 

@@ -15,8 +15,8 @@ from dataclasses import dataclass
 from scipy.optimize import least_squares
 import time
 
-from src.cameras.camera_array import CameraArray
-from src.calibration.bundle_adjustment.point_data import PointData
+from calicam.cameras.camera_array import CameraArray
+from calicam.calibration.bundle_adjustment.point_data import PointData
 
 
 CAMERA_PARAM_COUNT = 6

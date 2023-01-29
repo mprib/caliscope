@@ -4,8 +4,8 @@ import sys
 import numpy as np
 import pandas as pd
 import toml
-from src.calibration.charuco import Charuco
-from src.cameras.camera_array import ArrayDiagnosticData
+from calicam.calibration.charuco import Charuco
+from calicam.cameras.camera_array import ArrayDiagnosticData
 
 CAMERA_PARAM_COUNT = 6
 
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     # update path
     sys.path.insert(0, repo)
     # which enables import of relevant class
-    from src.cameras.camera_array import ArrayDiagnosticData
+    from calicam.cameras.camera_array import ArrayDiagnosticData
 
     # calibration_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
     calibration_directory = Path(repo, "sessions", "default_res_session", "recording")

@@ -12,7 +12,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from src.cameras.synchronizer import Synchronizer
+from calicam.cameras.synchronizer import Synchronizer
 
 
 class StereoFrameBuilder:
@@ -194,9 +194,9 @@ def resize(image, new_height):
 
 
 if __name__ == "__main__":
-    from src.calibration.corner_tracker import CornerTracker
-    from src.calibration.stereocalibrator import StereoCalibrator
-    from src.session import Session
+    from calicam.calibration.corner_tracker import CornerTracker
+    from calicam.calibration.stereocalibrator import StereoCalibrator
+    from calicam.session import Session
 
     logging.debug("Test live stereocalibration processing")
 

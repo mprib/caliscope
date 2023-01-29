@@ -2,7 +2,7 @@ import pandas as pd
 import toml
 from pathlib import Path
 import numpy as np
-from src.cameras.camera_array import CameraData, CameraArray
+from calicam.cameras.camera_array import CameraData, CameraArray
 
 
 class CameraArrayBuilder:

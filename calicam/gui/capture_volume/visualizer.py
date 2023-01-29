@@ -17,9 +17,9 @@ import pandas as pd
 import numpy as np
 import pyqtgraph.opengl as gl
 
-from src.triangulate.stereo_triangulator import CameraData
-from src.gui.capture_volume.camera_mesh import CameraMesh
-from src.cameras.camera_array import CameraArray, CameraArrayBuilder
+from calicam.triangulate.stereo_triangulator import CameraData
+from calicam.gui.capture_volume.camera_mesh import CameraMesh
+from calicam.cameras.camera_array import CameraArray, CameraArrayBuilder
 
 
 class CaptureVolumeVisualizer:

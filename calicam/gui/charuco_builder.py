@@ -38,10 +38,10 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.calibration.charuco import ARUCO_DICTIONARIES, Charuco
-from src.cameras.camera import Camera
-from src.cameras.live_stream import LiveStream
-from src.session import Session
+from calicam.calibration.charuco import ARUCO_DICTIONARIES, Charuco
+from calicam.cameras.camera import Camera
+from calicam.cameras.live_stream import LiveStream
+from calicam.session import Session
 
 
 class CharucoBuilder(QWidget):

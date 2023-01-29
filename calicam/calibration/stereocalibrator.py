@@ -19,7 +19,7 @@ from threading import Thread, Event
 import cv2
 import numpy as np
 
-from src.cameras.synchronizer import Synchronizer
+from calicam.cameras.synchronizer import Synchronizer
 
 
 class StereoCalibrator:
@@ -302,8 +302,8 @@ class StereoCalibrator:
 if __name__ == "__main__":
     import pprint
 
-    from src.calibration.corner_tracker import CornerTracker
-    from src.session import Session
+    from calicam.calibration.corner_tracker import CornerTracker
+    from calicam.session import Session
 
     logging.debug("Test live stereocalibration processing")
 

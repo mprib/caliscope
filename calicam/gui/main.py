@@ -22,11 +22,11 @@ from PyQt6.QtWidgets import (
     QMainWindow,
 )
 
-from src.session import Session, stage
-from src.gui.left_sidebar.session_summary import SessionSummary
-from src.gui.charuco_builder import CharucoBuilder
-from src.gui.camera_config.camera_tabs import CameraTabs
-from src.gui.stereo_calibration.stereo_cal_dialog import StereoCalDialog
+from calicam.session import Session, stage
+from calicam.gui.left_sidebar.session_summary import SessionSummary
+from calicam.gui.charuco_builder import CharucoBuilder
+from calicam.gui.camera_config.camera_tabs import CameraTabs
+from calicam.gui.stereo_calibration.stereo_cal_dialog import StereoCalDialog
 
 class MainWindow(QMainWindow):
     def __init__(self, session=None):

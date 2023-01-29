@@ -14,8 +14,8 @@ from PyQt6.QtWidgets import (
     QTabWidget,
 )
 
-from src.gui.camera_config.camera_config_dialogue import CameraConfigDialog
-from src.session import Session
+from calicam.gui.camera_config.camera_config_dialogue import CameraConfigDialog
+from calicam.session import Session
 
 class CameraTabs(QTabWidget):
     

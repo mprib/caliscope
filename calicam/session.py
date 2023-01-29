@@ -20,16 +20,16 @@ import numpy as np
 import toml
 from itertools import combinations
 
-from src.calibration.charuco import Charuco
-from src.calibration.corner_tracker import CornerTracker
-from src.calibration.monocalibrator import MonoCalibrator
-from src.calibration.stereocalibrator import StereoCalibrator
-from src.cameras.camera import Camera
-from src.cameras.synchronizer import Synchronizer
-from src.cameras.live_stream import LiveStream
-from src.recording.video_recorder import VideoRecorder
-from src.gui.stereo_calibration.stereo_frame_builder import StereoFrameBuilder
-from src.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
+from calicam.calibration.charuco import Charuco
+from calicam.calibration.corner_tracker import CornerTracker
+from calicam.calibration.monocalibrator import MonoCalibrator
+from calicam.calibration.stereocalibrator import StereoCalibrator
+from calicam.cameras.camera import Camera
+from calicam.cameras.synchronizer import Synchronizer
+from calicam.cameras.live_stream import LiveStream
+from calicam.recording.video_recorder import VideoRecorder
+from calicam.gui.stereo_calibration.stereo_frame_builder import StereoFrameBuilder
+from calicam.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10

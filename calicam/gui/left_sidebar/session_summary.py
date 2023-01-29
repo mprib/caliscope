@@ -31,10 +31,10 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.session import Session
-from src.gui.left_sidebar.charuco_summary import CharucoSummary
-from src.gui.left_sidebar.camera_summary import CameraSummary
-from src.gui.left_sidebar.fps_control import FPSControl
+from calicam.session import Session
+from calicam.gui.left_sidebar.charuco_summary import CharucoSummary
+from calicam.gui.left_sidebar.camera_summary import CameraSummary
+from calicam.gui.left_sidebar.fps_control import FPSControl
 
 
 class SessionSummary(QWidget):

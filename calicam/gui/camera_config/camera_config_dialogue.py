@@ -30,9 +30,9 @@ from PyQt6.QtWidgets import (
 )
 
 # Append main repo to top of path to allow import of backend
-from src.gui.camera_config.frame_emitter import FrameEmitter
+from calicam.gui.camera_config.frame_emitter import FrameEmitter
 
-from src.session import Session
+from calicam.session import Session
 
 
 class CameraConfigDialog(QDialog):

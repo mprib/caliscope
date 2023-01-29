@@ -17,7 +17,7 @@ from threading import Thread, Event
 import cv2
 import numpy as np
 
-from src.cameras.camera import Camera
+from calicam.cameras.camera import Camera
 
 
 class LiveStream:

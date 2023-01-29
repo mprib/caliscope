@@ -33,8 +33,8 @@ from PyQt6.QtWidgets import (
 )
 
 from gui.camera_config.camera_config_dialogue import CameraConfigDialog
-from src.gui.charuco_builder import CharucoBuilder
-from src.session import Session
+from calicam.gui.charuco_builder import CharucoBuilder
+from calicam.session import Session
 
 
 class CameraTable(QWidget):

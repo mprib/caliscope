@@ -294,7 +294,7 @@ class MainWindow(QMainWindow):
         else:
             self.create_charuco_builder()
 
-if __name__ == "__main__":
+def launch_main_window():
     repo = Path(__file__).parent.parent.parent
     config_path = Path(repo, "sessions", "high_res_session")
     
@@ -307,3 +307,5 @@ if __name__ == "__main__":
     window.connect_cameras_action.trigger()
 
     app.exec()
+if __name__ == "__main__":
+    launch_main_window()

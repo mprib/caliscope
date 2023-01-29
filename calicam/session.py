@@ -136,6 +136,7 @@ class Session:
         return len(self.cameras)
 
     def calibrated_camera_count(self):
+        """Used to keep track of where the user is in the calibration process"""
         count = 0
         for key in self.config.keys():
             if key.startswith("cam"):
@@ -145,6 +146,7 @@ class Session:
         return count
 
     def camera_pairs(self):
+        """Used to keep track of where the user is in the calibration process"""
         ports = [key for key in self.cameras.keys()]
         pairs = [pair for pair in combinations(ports, 2)]
         sorted_ports = [
@@ -156,7 +158,7 @@ class Session:
         return sorted_ports
 
     def calibrated_camera_pairs(self):
-
+        """Used to keep track of where the user is in the calibration process"""
         calibrated_pairs = []
         for key in self.config.keys():
             if key.startswith("stereo"):
@@ -168,6 +170,8 @@ class Session:
         return calibrated_pairs
 
     def load_cameras(self):
+
+        # worker function that will be spun up to connect to a previously configured camera
         def add_preconfigured_cam(params):
             try:
                 port = params["port"]
@@ -206,7 +210,7 @@ class Session:
                         executor.submit(add_preconfigured_cam, params)
 
     def find_cameras(self):
-        """This will seek to connect to the first N cameras. It will clear out any previous calibration
+        """Attempt to connect to the first N cameras. It will clear out any previous calibration
         data, including stereocalibration data"""
 
         def add_cam(port):
@@ -349,7 +353,6 @@ class Session:
         # self.stereo_frame_builder
         # self.stereo_frame_emitter
 
-
     def load_video_recorder(self):
         if hasattr(self, "synchronizer"):
             self.video_recorder = VideoRecorder(self.synchronizer)
@@ -366,9 +369,13 @@ class Session:
             default_res = self.cameras[port].default_resolution
 
             if resolution[0] != default_res[0] or resolution[1] != default_res[1]:
-                logging.info(f"Beginning to change resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}")
+                logging.info(
+                    f"Beginning to change resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}"
+                )
                 stream.change_resolution(resolution)
-                logging.info(f"Completed change of resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}")
+                logging.info(
+                    f"Completed change of resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}"
+                )
 
         with ThreadPoolExecutor() as executor:
             for port in self.cameras.keys():

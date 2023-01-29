@@ -6,7 +6,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "calicam" #change this to your project name (do a global search and replace for this string, including folder names)
-description = "Basic template of a python repository"
+description = "GUI tool for calibrating motion capture systems composed of multiple standard webcams"
 readme = "README.md"
 authors = [{ name = "Mac Prible", email = "prible@gmail.com" }]
 license = { file = "LICENSE.md" }
@@ -17,12 +17,13 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ] #additional classifiers can be found here: https://pypi.org/classifiers/
 
-keywords = ["basic",
-            "template",
+keywords = ["opencv",
+            "tracking",
+            "calibration", 
             "python",
-            "repository"] #change these to your project keywords
+            "webcam"] #change these to your project keywords
 
-dependencies = ["numpy", "opencv-contrib-python", "pyqt6", "scipy", "pandas", "pyqtgraph", "toml", "seaborn"] #add additional dependencies here - try to pin versions as minimally as possible
+dependencies = ["numpy", "opencv-contrib-python", "pyqt6", "scipy", "pandas", "pyqtgraph", "toml", "seaborn", "platformdirs"] #add additional dependencies here - try to pin versions as minimally as possible
 
 requires-python = ">=3.10"
 
@@ -43,7 +44,5 @@ push            = true
 "pyproject.toml" = ["{version}"]
 "calicam/__init__.py" = ["{version}"]
 
-
 [project.scripts]
 calicam = "calicam.__main__:launch_main_window"
-

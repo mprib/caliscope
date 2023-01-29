@@ -14,7 +14,7 @@ import cv2
 from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QImage, QPixmap
 
-# from src.calibration.stereo_frame_builder import StereoFrameBuilder
+# from calicam.calibration.stereo_frame_builder import StereoFrameBuilder
 
 
 class StereoFrameEmitter(QThread):

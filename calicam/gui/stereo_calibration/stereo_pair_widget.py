@@ -31,7 +31,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
+from calicam.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
 
 
 class StereoPairWidget(QWidget):
@@ -116,7 +116,7 @@ class StereoPairWidget(QWidget):
 
 
 if __name__ == "__main__":
-    from src.session import Session
+    from calicam.session import Session
 
     App = QApplication(sys.argv)
 

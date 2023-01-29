@@ -33,8 +33,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
-from src.gui.capture_volume.visualizer import CaptureVolumeVisualizer
+from calicam.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
+from calicam.gui.capture_volume.visualizer import CaptureVolumeVisualizer
 
 class CaptureVolumeDialog(QWidget):
     def __init__(self, CaptureVolumeVisualizer):
@@ -48,13 +48,13 @@ class CaptureVolumeDialog(QWidget):
         
 if __name__ == "__main__":
 
-    from src.recording.recorded_stream import RecordedStreamPool
-    from src.cameras.synchronizer import Synchronizer
-    from src.calibration.charuco import Charuco
-    from src.calibration.corner_tracker import CornerTracker
-    from src.triangulate.paired_point_stream import PairedPointStream
-    from src.triangulate.stereo_triangulator import StereoTriangulator
-    from src.triangulate.stereo_triangulator import StereoTriangulator
+    from calicam.recording.recorded_stream import RecordedStreamPool
+    from calicam.cameras.synchronizer import Synchronizer
+    from calicam.calibration.charuco import Charuco
+    from calicam.calibration.corner_tracker import CornerTracker
+    from calicam.triangulate.paired_point_stream import PairedPointStream
+    from calicam.triangulate.stereo_triangulator import StereoTriangulator
+    from calicam.triangulate.stereo_triangulator import StereoTriangulator
 
     # set the location for the sample data used for testing
     repo = Path(__file__).parent.parent.parent.parent

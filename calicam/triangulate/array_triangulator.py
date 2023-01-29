@@ -23,12 +23,12 @@ from queue import Queue
 import pandas as pd
 from pathlib import Path
 
-from src.cameras.camera_array import CameraArray
-from src.cameras.camera_array_builder import  CameraArrayBuilder
-from src.cameras.synchronizer import Synchronizer
-from src.recording.recorded_stream import RecordedStreamPool
-from src.triangulate.stereo_triangulator import StereoTriangulator
-from src.triangulate.paired_point_stream import PairedPointStream
+from calicam.cameras.camera_array import CameraArray
+from calicam.cameras.camera_array_builder import  CameraArrayBuilder
+from calicam.cameras.synchronizer import Synchronizer
+from calicam.recording.recorded_stream import RecordedStreamPool
+from calicam.triangulate.stereo_triangulator import StereoTriangulator
+from calicam.triangulate.paired_point_stream import PairedPointStream
 
 
 class ArrayTriangulator:
@@ -112,8 +112,8 @@ class ArrayTriangulator:
 
 if __name__ == "__main__":
     from pathlib import Path
-    from src.calibration.charuco import Charuco
-    from src.calibration.corner_tracker import CornerTracker
+    from calicam.calibration.charuco import Charuco
+    from calicam.calibration.corner_tracker import CornerTracker
 
     # Build camera array from stored config file
     repo = str(Path(__file__)).split("src")[0]

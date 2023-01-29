@@ -1,6 +1,6 @@
 # this is likely just going to be a set of functions to save out a version of videos that has been undistorted.
 
-from src.cameras.camera_array import CameraArray, CameraArrayBuilder, CameraData
+from calicam.cameras.camera_array import CameraArray, CameraArrayBuilder, CameraData
 from pathlib import Path
 import cv2
 from threading import Thread

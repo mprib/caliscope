@@ -30,8 +30,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.session import Session
-from src.gui.left_sidebar.camera_table import CameraTable
+from calicam.session import Session
+from calicam.gui.left_sidebar.camera_table import CameraTable
 
 class CameraSummary(QWidget):
     def __init__(self, session):

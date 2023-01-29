@@ -94,7 +94,7 @@ class RecordedStreamPool:
 if __name__ == "__main__":
     import sys
     import time
-    from src.cameras.synchronizer import Synchronizer
+    from calicam.cameras.synchronizer import Synchronizer
     
     repo = Path(__file__).parent.parent.parent
     print(repo)

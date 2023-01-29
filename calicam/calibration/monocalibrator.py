@@ -17,9 +17,9 @@ from threading import Thread, Event
 import cv2
 import numpy as np
 
-import src.calibration.draw_charuco as draw_charuco
-from src.calibration.charuco import Charuco
-from src.calibration.corner_tracker import CornerTracker
+import calicam.calibration.draw_charuco as draw_charuco
+from calicam.calibration.charuco import Charuco
+from calicam.calibration.corner_tracker import CornerTracker
 
 
 class MonoCalibrator:
@@ -202,9 +202,9 @@ class MonoCalibrator:
 
 if __name__ == "__main__":
 
-    from src.cameras.camera import Camera
-    from src.cameras.synchronizer import Synchronizer
-    from src.cameras.live_stream import LiveStream
+    from calicam.cameras.camera import Camera
+    from calicam.cameras.synchronizer import Synchronizer
+    from calicam.cameras.live_stream import LiveStream
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True

@@ -13,7 +13,7 @@ import cv2
 from scipy.optimize import least_squares
 import pickle
 
-from src.calibration.bundle_adjustment.point_data import PointData
+from calicam.calibration.bundle_adjustment.point_data import PointData
 
 CAMERA_PARAM_COUNT = 6
 
@@ -250,8 +250,8 @@ def rms_reproj_error(xy_reproj_error):
     return rmse
 
 if __name__ == "__main__":
-    from src.cameras.camera_array_builder import CameraArrayBuilder
-    from src.calibration.bundle_adjustment.point_data import PointData, get_point_data
+    from calicam.cameras.camera_array_builder import CameraArrayBuilder
+    from calicam.calibration.bundle_adjustment.point_data import PointData, get_point_data
 
     repo = str(Path(__file__)).split("src")[0]
 

@@ -250,9 +250,9 @@ class Synchronizer:
 if __name__ == "__main__":
 
     # DON"T DEAL WITH THE SESSION OBJECT IN TESTS...ONLY MORE FOUNDATIONAL ELEMENTS
-    from src.cameras.camera import Camera
-    from src.cameras.live_stream import LiveStream
-    from src.session import Session
+    from calicam.cameras.camera import Camera
+    from calicam.cameras.live_stream import LiveStream
+    from calicam.session import Session
     import pandas as pd
 
     repo = Path(__file__).parent.parent.parent

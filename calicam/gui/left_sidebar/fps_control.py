@@ -35,7 +35,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.session import Session
+from calicam.session import Session
 
 
 class FPSControl(QWidget):

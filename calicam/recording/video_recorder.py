@@ -14,7 +14,7 @@ import cv2
 import sys
 import pandas as pd
 
-from src.cameras.synchronizer import Synchronizer
+from calicam.cameras.synchronizer import Synchronizer
 
 class VideoRecorder:
 
@@ -114,9 +114,9 @@ if __name__ == "__main__":
 
     import time
 
-    from src.cameras.camera import Camera
-    from src.cameras.live_stream import LiveStream
-    from src.session import Session
+    from calicam.cameras.camera import Camera
+    from calicam.cameras.live_stream import LiveStream
+    from calicam.session import Session
     
     repo = str(Path(__file__)).split("src")[0]
     session_path = Path(repo, "sessions", "high_res_session")

@@ -21,8 +21,8 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from src.triangulate.paired_point_stream import PairedPointStream
-from src.cameras.camera_array import CameraData
+from calicam.triangulate.paired_point_stream import PairedPointStream
+from calicam.cameras.camera_array import CameraData
 
 
 class StereoTriangulator:
@@ -189,11 +189,11 @@ class TriangulatedPointsPacket:
 
 if __name__ == "__main__":
 
-    from src.recording.recorded_stream import RecordedStreamPool
-    from src.cameras.synchronizer import Synchronizer
-    from src.calibration.charuco import Charuco
-    from src.calibration.corner_tracker import CornerTracker
-    from src.cameras.camera_array import CameraArrayBuilder, CameraArray, CameraData
+    from calicam.recording.recorded_stream import RecordedStreamPool
+    from calicam.cameras.synchronizer import Synchronizer
+    from calicam.calibration.charuco import Charuco
+    from calicam.calibration.corner_tracker import CornerTracker
+    from calicam.cameras.camera_array import CameraArrayBuilder, CameraArray, CameraData
 
     repo = str(Path(__file__)).split("src")[0]
 

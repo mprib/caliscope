@@ -16,8 +16,8 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 
-from src.cameras.synchronizer import Synchronizer
-from src.calibration.corner_tracker import CornerTracker
+from calicam.cameras.synchronizer import Synchronizer
+from calicam.calibration.corner_tracker import CornerTracker
 
 
 class PairedPointStream:
@@ -218,8 +218,8 @@ class PairedPointsPacket:
 
 
 if __name__ == "__main__":
-    from src.recording.recorded_stream import RecordedStreamPool
-    from src.calibration.charuco import Charuco
+    from calicam.recording.recorded_stream import RecordedStreamPool
+    from calicam.calibration.charuco import Charuco
 
     repo = Path(__file__).parent.parent.parent
     print(repo)

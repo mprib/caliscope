@@ -17,8 +17,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-import src.calibration.draw_charuco
-from src.calibration.charuco import Charuco
+import calicam.calibration.draw_charuco
+from calicam.calibration.charuco import Charuco
 
 
 class CornerTracker:
@@ -108,7 +108,7 @@ class CornerTracker:
 
 if __name__ == "__main__":
 
-    from src.cameras.camera import Camera
+    from calicam.cameras.camera import Camera
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
         read_success, frame = cam.capture.read()
         ids, locations, board_corners = trackr.get_corners(frame)
-        drawn_frame = src.calibration.draw_charuco.corners(frame, locations)
+        drawn_frame = calicam.calibration.draw_charuco.corners(frame, locations)
 
         cv2.imshow("Press 'q' to quit", drawn_frame)
         key = cv2.waitKey(1)

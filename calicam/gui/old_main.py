@@ -36,10 +36,10 @@ from PyQt6.QtWidgets import (
 from camera_table import CameraTable
 
 from gui.camera_config.camera_config_dialogue import CameraConfigDialog
-from src.gui.charuco_builder import CharucoBuilder
-from src.session import Session
-from src.gui.stereo_cal_dialog import StereoCalDialog
-from src.gui.stereo_frame_emitter import StereoFrameEmitter
+from calicam.gui.charuco_builder import CharucoBuilder
+from calicam.session import Session
+from calicam.gui.stereo_cal_dialog import StereoCalDialog
+from calicam.gui.stereo_frame_emitter import StereoFrameEmitter
 
 
 class MainWindow(QMainWindow):

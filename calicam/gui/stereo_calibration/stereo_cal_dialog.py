@@ -32,7 +32,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
+from calicam.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
 
 
 class StereoCalDialog(QScrollArea):
@@ -115,8 +115,8 @@ class StereoCalDialog(QScrollArea):
 if __name__ == "__main__":
     from time import time
 
-    from src.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
-    from src.session import Session
+    from calicam.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
+    from calicam.session import Session
 
     repo = Path(__file__).parent.parent.parent.parent
     config_path = Path(repo, "sessions", "high_res_session")

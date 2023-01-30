@@ -146,7 +146,7 @@ class Camera(object):
         min_width = min_res[0]
         max_width = max_res[0]
 
-        STEPS_TO_CHECK = 10  # fast to check so cover your bases
+        STEPS_TO_CHECK = 20  # fast to check so cover your bases
 
         # the size of jump to make before checking on the resolution
         step_size = int((max_width - min_width) / STEPS_TO_CHECK)

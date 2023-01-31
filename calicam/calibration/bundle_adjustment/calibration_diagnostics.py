@@ -1,3 +1,7 @@
+
+import calicam.logger
+logger = calicam.logger.get(__name__)
+
 from pathlib import Path
 import pickle
 import sys

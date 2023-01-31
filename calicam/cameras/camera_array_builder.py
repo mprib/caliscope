@@ -1,3 +1,7 @@
+
+import calicam.logger
+logger = calicam.logger.get(__name__)
+
 import pandas as pd
 import toml
 from pathlib import Path

@@ -1,10 +1,9 @@
 # I'm just going to say that for now this is working. The next step will be to build something
 # to create a more comprehensive visualization of all the cameras at once.
 # there will likey be some refactoring to come back to this, but here we are
-import logging
-logging.basicConfig(filename="log\camera_mesh.log",
-                    filemode="w",
-                    level = logging.DEBUG)
+
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl

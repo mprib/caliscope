@@ -1,4 +1,6 @@
 """Top-level package for basic_template_repo."""
+import os
+from pathlib import Path
 
 __package_name__ = "calicam"
 __version__ = "v0.0.3"
@@ -10,11 +12,15 @@ __repo_url__ = f"https://github.com/{__repo_owner_github_user_name__}/{__package
 __repo_issues_url__ = f"{__repo_url__}issues"
 
 
+# set up local app data folder and logging
+__app_dir__ = Path(os.getenv("LOCALAPPDATA"), __package_name__)
+__app_dir__.mkdir(exist_ok=True, parents=True)
+
+__log_dir__ = Path(__app_dir__, "logs")
+__log_dir__.mkdir(exist_ok=True, parents=True)
+
+
 print(f"Thank you for using {__package_name__}!")
 print(f"This is printing from: {__file__}")
 print(f"Source code for this package is available at: {__repo_url__}")
-
-# from calicam.system.default_paths import get_log_file_path
-# from calicam.system.logging_configuration import configure_logging
-
-# configure_logging(log_file_path=get_log_file_path())
+print(f"Data and Log files associated with {__package_name__} are stored in {__app_dir__}")

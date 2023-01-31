@@ -32,7 +32,7 @@ class VideoRecorder:
         for port, stream in self.syncronizer.streams.items():
 
             path = str(Path(self.destination_folder, f"port_{port}.mp4"))
-            logging.info(f"Building video writer for port {port}; recording to {path}")
+            logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
             fps = self.syncronizer.fps_target
             frame_size = stream.camera.resolution
@@ -56,7 +56,7 @@ class VideoRecorder:
 
         while not self.trigger_stop.is_set():
             synched_frames = self.synched_frames_in_q.get() 
-            logging.debug("Pulling synched frames from record queue")
+            logger.debug("Pulling synched frames from record queue")
 
             for port, synched_frame_data in synched_frames.items():
                 if synched_frame_data is not None:
@@ -92,13 +92,13 @@ class VideoRecorder:
         df = pd.DataFrame(self.frame_history)
         # TODO: #25 if file exists then change the name
         frame_hist_path = str(Path(self.destination_folder, "frame_time_history.csv"))
-        logging.info(f"Storing frame history to {frame_hist_path}")
+        logger.info(f"Storing frame history to {frame_hist_path}")
         df.to_csv(frame_hist_path, index = False, header = True)
         
          
     def start_recording(self, destination_folder):
 
-        logging.info(f"All video data to be saved to {destination_folder}")
+        logger.info(f"All video data to be saved to {destination_folder}")
 
         self.destination_folder = destination_folder
         self.recording = True

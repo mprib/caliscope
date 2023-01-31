@@ -240,8 +240,8 @@ def rms_reproj_error(xy_reproj_error):
     xy_reproj_error = xy_reproj_error.reshape(-1, 2)
     euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
     rmse = np.sqrt(np.mean(euclidean_distance_error**2))
-    logging.info(f"Optimization run with {xy_reproj_error.shape[0]/2} image points")
-    logging.info(f"RMSE of reprojection is {rmse}")
+    logger.info(f"Optimization run with {xy_reproj_error.shape[0]/2} image points")
+    logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
 
 if __name__ == "__main__":

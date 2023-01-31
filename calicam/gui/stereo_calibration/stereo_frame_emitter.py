@@ -47,8 +47,8 @@ class StereoFrameEmitter(QThread):
 
             self.StereoFramesBroadcast.emit(frame_dict)
             self.StereoCalOutBroadcast.emit(self.stereo_outputs)
-            logging.debug(f"stereo output dictionary: {self.stereo_outputs}")
-        logging.info("Stereoframe emitter successfully shutdown...")
+            logger.debug(f"stereo output dictionary: {self.stereo_outputs}")
+        logger.info("Stereoframe emitter successfully shutdown...")
 
     def stop(self):
         self.stop_event.set()

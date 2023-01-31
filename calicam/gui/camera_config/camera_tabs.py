@@ -28,12 +28,12 @@ class CameraTabs(QTabWidget):
 
     def add_cam_tabs(self):
         tab_names = [self.tabText(i) for i in range(self.count())]
-        logging.info(f"Current tabs are: {tab_names}")
+        logger.info(f"Current tabs are: {tab_names}")
 
         if len(self.session.monocalibrators) > 0:
             for port, monocal in self.session.monocalibrators.items():
                 tab_name = f"Camera {port}"
-                logging.info(f"Potentially adding {tab_name}")
+                logger.info(f"Potentially adding {tab_name}")
                 if tab_name in tab_names:
                     pass  # already here, don't bother
                 else:
@@ -48,7 +48,7 @@ class CameraTabs(QTabWidget):
 
                     self.insertTab(port, cam_tab, tab_name)
         else:
-            logging.info("No cameras available")
+            logger.info("No cameras available")
 
 
 if __name__ == "__main__":

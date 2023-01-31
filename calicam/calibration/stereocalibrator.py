@@ -23,7 +23,7 @@ from calicam.cameras.synchronizer import Synchronizer
 
 
 class StereoCalibrator:
-    logging.info("Building Stereocalibrator...")
+    logger.info("Building Stereocalibrator...")
 
     def __init__(self, synchronizer, corner_tracker):
 
@@ -51,7 +51,7 @@ class StereoCalibrator:
             pair: time.perf_counter() for pair in self.uncalibrated_pairs
         }
 
-        logging.info(
+        logger.info(
             f"Initiating data collection of uncalibrated pairs: {self.uncalibrated_pairs}"
         )
         self.keep_going = True
@@ -61,15 +61,15 @@ class StereoCalibrator:
     def stop(self):
         self.stop_event.set()
         self.synched_frames_available_q.put("Terminate")
-        logging.info("Stop signal sent in stereocalibrator")
+        logger.info("Stop signal sent in stereocalibrator")
         # self.thread.join()
                 
     def build_port_list(self):
         """Construct list of ports associated with incoming frames"""
-        logging.debug("Creating port list...")
+        logger.debug("Creating port list...")
         self.ports = []
         for port, stream in self.synchronizer.streams.items():
-            logging.debug(f"Appending port {port}...")
+            logger.debug(f"Appending port {port}...")
             self.ports.append(port)
 
     def build_uncalibrated_pairs(self):
@@ -82,7 +82,7 @@ class StereoCalibrator:
             if i > j:
                 i, j = j, i
             self.uncalibrated_pairs.append((i, j))
-            logging.debug(f"Uncalibrated pairs are: {self.uncalibrated_pairs}")
+            logger.debug(f"Uncalibrated pairs are: {self.uncalibrated_pairs}")
 
         self.pairs = (
             self.uncalibrated_pairs.copy()
@@ -115,7 +115,7 @@ class StereoCalibrator:
     def harvest_synched_frames(self):
         """Monitors the synched_frames_available_q to grab a new frames and inititiate
         processing of it."""
-        logging.debug(f"Currently {len(self.uncalibrated_pairs)} uncalibrated pairs ")
+        logger.debug(f"Currently {len(self.uncalibrated_pairs)} uncalibrated pairs ")
 
         while not self.stop_event.set():
             self.synched_frames_available_q.get()
@@ -125,7 +125,7 @@ class StereoCalibrator:
                 break
             
             self.current_synched_frames = self.synchronizer.current_synched_frames
-            logging.debug("Synched frames harvested by stereocalibrator")
+            logger.debug("Synched frames harvested by stereocalibrator")
 
             self.add_corner_data()
             for pair in self.uncalibrated_pairs:
@@ -145,7 +145,7 @@ class StereoCalibrator:
 
             # if len(self.uncalibrated_pairs) == 0:
             #     self.stereo_calibrate()
-        logging.info("Stereocalibration synched frames harvester successfully shut-down...")
+        logger.info("Stereocalibration synched frames harvester successfully shut-down...")
 
     def add_corner_data(self):
         """Assign corner data for each frame"""
@@ -159,10 +159,10 @@ class StereoCalibrator:
                 self.current_synched_frames[port]["img_loc"] = img_loc
                 self.current_synched_frames[port]["board_loc"] = board_loc
 
-                logging.debug(f"Port {port}: {ids}")
+                logger.debug(f"Port {port}: {ids}")
 
     def store_stereo_data(self, pair):
-        logging.debug("About to process current synched frames")
+        logger.debug("About to process current synched frames")
 
         # for pair in self.uncalibrated_pairs:
         portA = pair[0]
@@ -202,7 +202,7 @@ class StereoCalibrator:
         """Iterates across all camera pairs. Intrinsic parameters are pulled
         from camera and combined with obj and img points for each pair.
         """
-        logging.info(f"About to stereocalibrate pair {pair}")
+        logger.info(f"About to stereocalibrate pair {pair}")
 
         stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.0001)
@@ -251,15 +251,15 @@ class StereoCalibrator:
         }
 
         if pair in self.uncalibrated_pairs:
-            logging.info(f"Removing pair {pair}")
+            logger.info(f"Removing pair {pair}")
             self.uncalibrated_pairs.remove(pair)
         else:
-            logging.warning(f"Attempted to remove pair {pair} but it was not present")
+            logger.warning(f"Attempted to remove pair {pair} but it was not present")
             
-        logging.info(
+        logger.info(
             f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}"
         )
-        logging.info(f"RMSE of reprojection is {ret}")
+        logger.info(f"RMSE of reprojection is {ret}")
 
 
     def get_common_locs(self, port, common_ids):
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     from calicam.calibration.corner_tracker import CornerTracker
     from calicam.session import Session
 
-    logging.debug("Test live stereocalibration processing")
+    logger.debug("Test live stereocalibration processing")
 
     repo = Path(__file__).parent.parent.parent
     session_path = Path(repo, "sessions", "high_res_session")
@@ -318,14 +318,14 @@ if __name__ == "__main__":
 
     trackr = CornerTracker(session.charuco)
 
-    logging.info("Creating Synchronizer")
+    logger.info("Creating Synchronizer")
     syncr = Synchronizer(session.streams, fps_target=6)
-    logging.info("Creating Stereocalibrator")
+    logger.info("Creating Stereocalibrator")
     stereo_cal = StereoCalibrator(syncr, trackr)
 
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
-    logging.info("Showing Stacked Frames")
+    logger.info("Showing Stacked Frames")
     while len(stereo_cal.uncalibrated_pairs) > 0:
 
         frame_ready = stereo_cal.cal_frames_ready_q.get()
@@ -341,4 +341,4 @@ if __name__ == "__main__":
             break
 
     cv2.destroyAllWindows()
-    logging.debug(pprint.pformat(stereo_cal.stereo_inputs))
+    logger.debug(pprint.pformat(stereo_cal.stereo_inputs))

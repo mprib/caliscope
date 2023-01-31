@@ -77,7 +77,7 @@ class CameraTable(QWidget):
                 params["resolution"] = f"{res[0]} x {res[1]}"
                 self.data.append(params)
 
-        logging.debug(f"Updating cam data to {self.data}")
+        logger.debug(f"Updating cam data to {self.data}")
 
         row_count = len(self.data)
         column_count = len(self._headers)

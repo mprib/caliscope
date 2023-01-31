@@ -71,7 +71,7 @@ class FrameEmitter(QThread):
         return qt_frame
 
     def apply_rotation(self):
-        # logging.debug("Applying Rotation")
+        # logger.debug("Applying Rotation")
         if self.monocalibrator.camera.rotation_count == 0:
             pass
         elif self.monocalibrator.camera.rotation_count in [1, -3]:

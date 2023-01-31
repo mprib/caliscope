@@ -53,7 +53,7 @@ class ArrayTriangulator:
         self.agg_3d_points = None
 
         for pair in self.paired_point_stream.pairs:
-            logging.info(f"Creating StereoTriangulator for camera pair {pair}")
+            logger.info(f"Creating StereoTriangulator for camera pair {pair}")
             portA = pair[0]
             portB = pair[1]
             camA = self.camera_array.cameras[portA]
@@ -88,7 +88,7 @@ class ArrayTriangulator:
         while not self.stop.is_set():
             # read in a paired point stream
             new_paired_point_packet = self.paired_point_stream.out_q.get()
-            logging.info(
+            logger.info(
                 f"Sync Index: {new_paired_point_packet.sync_index} | Pair: {new_paired_point_packet.pair}"
             )
 
@@ -105,7 +105,7 @@ class ArrayTriangulator:
                 self.stop.set()
 
         if self.output_file is not None:
-            logging.info(f"Saving triangulated point csv to {self.output_file}")
+            logger.info(f"Saving triangulated point csv to {self.output_file}")
             self.agg_3d_points = pd.DataFrame(self.agg_3d_points)
             self.agg_3d_points.to_csv(self.output_file)
 

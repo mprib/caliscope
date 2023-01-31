@@ -44,7 +44,7 @@ class FPSControl(QWidget):
         self.session = session
         self.setLayout(QHBoxLayout())
 
-        logging.debug("Building FPS Control")
+        logger.debug("Building FPS Control")
 
         self.layout().addWidget(QLabel("Target:"))
         self.frame_rate_spin = QSpinBox()
@@ -55,9 +55,9 @@ class FPSControl(QWidget):
         def on_frame_rate_spin(fps_rate):
             try:
                 self.session.synchronizer.fps_target = fps_rate
-                logging.info(f"Changing synchronizer frame rate")
+                logger.info(f"Changing synchronizer frame rate")
             except(AttributeError):
-                logging.warning("Unable to change synch fps...may need to load stream tools") 
+                logger.warning("Unable to change synch fps...may need to load stream tools") 
 
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
 

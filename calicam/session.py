@@ -57,11 +57,11 @@ class Session:
     def load_config(self):
 
         if exists(self.config_path):
-            logging.info("Found previous config")
+            logger.info("Found previous config")
             with open(self.config_path, "r") as f:
                 self.config = toml.load(self.config_path)
         else:
-            logging.info(
+            logger.info(
                 "No existing config.toml found; creating starter file with charuco"
             )
 
@@ -84,7 +84,7 @@ class Session:
     def load_charuco(self):
 
         if "charuco" in self.config:
-            logging.info("Loading charuco from config")
+            logger.info("Loading charuco from config")
             params = self.config["charuco"]
 
             self.charuco = Charuco(
@@ -99,14 +99,14 @@ class Session:
                 inverted=params["inverted"],
             )
         else:
-            logging.info("Loading default charuco")
+            logger.info("Loading default charuco")
             self.charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
             self.config["charuco"] = self.charuco.__dict__
             self.update_config()
 
     def save_charuco(self):
         self.config["charuco"] = self.charuco.__dict__
-        logging.info(f"Saving charuco with params {self.charuco.__dict__} to config")
+        logger.info(f"Saving charuco with params {self.charuco.__dict__} to config")
         self.update_config()
 
     def delete_camera(self, port_to_delete):
@@ -175,10 +175,10 @@ class Session:
         def add_preconfigured_cam(params):
             try:
                 port = params["port"]
-                logging.info(f"Attempting to add pre-configured camera at port {port}")
+                logger.info(f"Attempting to add pre-configured camera at port {port}")
 
                 if params["ignore"]:
-                    logging.info(f"Ignoring camera at port {port}")
+                    logger.info(f"Ignoring camera at port {port}")
                     pass  # don't load it in
                 else:
                     self.cameras[port] = Camera(port)
@@ -188,7 +188,7 @@ class Session:
 
                     # if calibration done, then populate those as well
                     if "error" in params.keys():
-                        logging.info(
+                        logger.info(
                             f"Camera RMSE error for port {port}: {params['error']}"
                         )
                         cam.error = params["error"]
@@ -198,15 +198,15 @@ class Session:
                         cam.distortion = np.array(params["distortion"]).astype(float)
                         cam.grid_count = params["grid_count"]
             except:
-                logging.info("Unable to connect... camera may be in use.")
+                logger.info("Unable to connect... camera may be in use.")
 
         with ThreadPoolExecutor() as executor:
             for key, params in self.config.items():
                 if key.startswith("cam"):
                     if params["port"] in self.streams.keys():
-                        logging.info(f"Don't reload a camera at port {params['port']}")
+                        logger.info(f"Don't reload a camera at port {params['port']}")
                     else:
-                        logging.info(f"Beginning to load {key} with params {params}")
+                        logger.info(f"Beginning to load {key} with params {params}")
                         executor.submit(add_preconfigured_cam, params)
 
     def find_cameras(self):
@@ -215,14 +215,14 @@ class Session:
 
         def add_cam(port):
             try:
-                logging.info(f"Trying port {port}")
+                logger.info(f"Trying port {port}")
                 cam = Camera(port)
-                logging.info(f"Success at port {port}")
+                logger.info(f"Success at port {port}")
                 self.cameras[port] = cam
                 self.save_camera(port)
                 self.streams[port] = LiveStream(cam)
             except:
-                logging.info(f"No camera at port {port}")
+                logger.info(f"No camera at port {port}")
 
         with ThreadPoolExecutor() as executor:
             for i in range(0, MAX_CAMERA_PORT_CHECK):
@@ -246,7 +246,7 @@ class Session:
             if port in self.streams.keys():
                 pass  # only add if not added yet
             else:
-                logging.info(f"Loading Stream for port {port}")
+                logger.info(f"Loading Stream for port {port}")
                 self.streams[port] = LiveStream(cam)
 
     def disconnect_cameras(self):
@@ -255,58 +255,58 @@ class Session:
         with additional or fewer cameras)"""
 
         try:
-            logging.info("Attempting to shutdown monocalibrators")
+            logger.info("Attempting to shutdown monocalibrators")
             for port, monocal in self.monocalibrators.items():
                 monocal.stop()
                 # monocal.thread.join()
 
             self.monocalibrators = {}
         except (AttributeError):
-            logging.warning("No monocalibrators to delete")
+            logger.warning("No monocalibrators to delete")
             pass
 
         try:
-            logging.info("Attempting to stop stereo frame emitter")
+            logger.info("Attempting to stop stereo frame emitter")
             self.stereo_frame_emitter.stop()
             # self.stereo_frame_emitter.thread.join()
 
         except (AttributeError):
-            logging.info("No stereo frame emitter to stop")
+            logger.info("No stereo frame emitter to stop")
 
         try:
-            logging.info("Attempting to stop stereocalibrator")
+            logger.info("Attempting to stop stereocalibrator")
             self.stereocalibrator.stop()
 
         except (AttributeError):
-            logging.warning("No stereocalibrator to delete.")
+            logger.warning("No stereocalibrator to delete.")
             pass  # don't worry if it doesn't exist
 
         try:
-            logging.info("Attempting to stop synchronizer...")
+            logger.info("Attempting to stop synchronizer...")
 
             self.synchronizer.stop()
             del (
                 self.synchronizer
             )  # important for session to know to recreate stereotools
         except (AttributeError):
-            logging.warning("No synchronizer to delete")
+            logger.warning("No synchronizer to delete")
             pass
 
         try:
-            logging.info("Attempting to stop streams...")
+            logger.info("Attempting to stop streams...")
             for port, stream in self.streams.items():
                 stream.stop()
             self.streams = {}
 
             for port, cam in self.cameras.items():
                 cam.capture.release()
-                logging.info(f"Capture released at port {port}")
+                logger.info(f"Capture released at port {port}")
                 # del cam
             # del self.cameras
             self.cameras = {}
         except (AttributeError):
 
-            logging.warning("Unable to delete all streams...")
+            logger.warning("Unable to delete all streams...")
             pass
 
     def load_monocalibrators(self):
@@ -314,28 +314,28 @@ class Session:
 
         for port, cam in self.cameras.items():
             if port in self.monocalibrators.keys():
-                logging.info(
+                logger.info(
                     f"Skipping over monocalibrator creation for port {port} because it already exists."
                 )
                 pass  # only add if not added yet
             else:
-                logging.info(f"Loading Monocalibrator for port {port}")
+                logger.info(f"Loading Monocalibrator for port {port}")
                 self.monocalibrators[port] = MonoCalibrator(
                     self.streams[port], self.corner_tracker
                 )
 
     def remove_monocalibrators(self):
         for port, monocal in self.monocalibrators.copy().items():
-            logging.info(f"Attempting to stop Monocalibrator for port {port}")
+            logger.info(f"Attempting to stop Monocalibrator for port {port}")
             monocal.stop()
             del self.monocalibrators[port]
-            logging.info(f"Successfuly stopped monocalibrator at port {port}")
+            logger.info(f"Successfuly stopped monocalibrator at port {port}")
 
     def load_stereo_tools(self):
         if hasattr(self, "synchronizer"):
-            logging.info("No stereotools created...synchronizer already exists")
+            logger.info("No stereotools created...synchronizer already exists")
         else:
-            logging.info("Creating stereo tools...")
+            logger.info("Creating stereo tools...")
             self.synchronizer = Synchronizer(self.streams)
             self.corner_tracker = CornerTracker(self.charuco)
             self.stereocalibrator = StereoCalibrator(
@@ -357,7 +357,7 @@ class Session:
         if hasattr(self, "synchronizer"):
             self.video_recorder = VideoRecorder(self.synchronizer)
         else:
-            logging.warning("No synchronizer available to record video")
+            logger.warning("No synchronizer available to record video")
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as
@@ -369,11 +369,11 @@ class Session:
             default_res = self.cameras[port].default_resolution
 
             if resolution[0] != default_res[0] or resolution[1] != default_res[1]:
-                logging.info(
+                logger.info(
                     f"Beginning to change resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}"
                 )
                 stream.change_resolution(resolution)
-                logging.info(
+                logger.info(
                     f"Completed change of resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}"
                 )
 
@@ -395,14 +395,14 @@ class Session:
             "ignore": cam.ignore,
         }
 
-        logging.info(f"Saving camera parameters...{params}")
+        logger.info(f"Saving camera parameters...{params}")
 
         self.config["cam_" + str(port)] = params
         self.update_config()
 
     def save_stereocalibration(self):
-        logging.info(f"Saving stereocalibration....")
-        logging.info(self.stereocalibrator.stereo_outputs)
+        logger.info(f"Saving stereocalibration....")
+        logger.info(self.stereocalibrator.stereo_outputs)
 
         stereo_out = self.stereocalibrator.stereo_outputs
         for pair, stereo_params in stereo_out.items():

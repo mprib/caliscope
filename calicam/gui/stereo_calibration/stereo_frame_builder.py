@@ -95,7 +95,7 @@ class StereoFrameBuilder:
     def resize_to_square(self, frame):
         """To make sure that frames align well, scale them all to thumbnails
         squares with black borders."""
-        logging.debug("resizing square")
+        logger.debug("resizing square")
 
         frame = cv2.flip(frame, 1)
 
@@ -108,7 +108,7 @@ class StereoFrameBuilder:
         width_pad = int((padded_size - width) / 2)
         pad_color = [0, 0, 0]
 
-        logging.debug("about to pad border")
+        logger.debug("about to pad border")
         frame = cv2.copyMakeBorder(
             frame,
             height_pad,
@@ -129,7 +129,7 @@ class StereoFrameBuilder:
         edge = self.single_frame_height
         synched_frames = self.current_synched_frames[port]
         if synched_frames is None:
-            logging.debug("plugging blank frame data")
+            logger.debug("plugging blank frame data")
             frame = np.zeros((edge, edge, 3), dtype=np.uint8)
         else:
             frame = self.current_synched_frames[port]["frame"]
@@ -141,7 +141,7 @@ class StereoFrameBuilder:
         """place paired frames side by side"""
 
         portA, portB = pair
-        logging.debug("Horizontally stacking paired frames")
+        logger.debug("Horizontally stacking paired frames")
         frameA = self.get_frame_or_blank(portA)
         frameB = self.get_frame_or_blank(portB)
 
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     from calicam.calibration.stereocalibrator import StereoCalibrator
     from calicam.session import Session
 
-    logging.debug("Test live stereocalibration processing")
+    logger.debug("Test live stereocalibration processing")
 
     repo = Path(__file__).parent.parent.parent.parent
     config_path = Path(repo, "sessions", "high_res_session")
@@ -212,15 +212,15 @@ if __name__ == "__main__":
 
     trackr = CornerTracker(session.charuco)
 
-    logging.info("Creating Synchronizer")
+    logger.info("Creating Synchronizer")
     syncr = Synchronizer(session.streams, fps_target=4)
-    logging.info("Creating Stereocalibrator")
+    logger.info("Creating Stereocalibrator")
     stereo_cal = StereoCalibrator(syncr, trackr)
     frame_builder = StereoFrameBuilder(stereo_cal)
 
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
-    logging.info("Showing Stacked Frames")
+    logger.info("Showing Stacked Frames")
     while len(stereo_cal.uncalibrated_pairs) > 0:
         # wait for newly processed frame to be available
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()

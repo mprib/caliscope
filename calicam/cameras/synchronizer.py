@@ -39,7 +39,7 @@ class Synchronizer:
         self.spin_up()
 
     def update_fps_targets(self, target):
-        logging.info(f"Attempting to change target fps in streams to {target}")
+        logger.info(f"Attempting to change target fps in streams to {target}")
         for port, stream in self.streams.items():
             stream.set_fps(target)
 
@@ -57,15 +57,15 @@ class Synchronizer:
 
     def spin_up(self):
 
-        logging.info("About to submit Threadpool of frame Harvesters")
+        logger.info("About to submit Threadpool of frame Harvesters")
         self.threads = []
         for port, stream in self.streams.items():
             t = Thread(target=self.harvest_frames, args=(stream,), daemon=True)
             t.start()
             self.threads.append(t)
-        logging.info("Frame harvesters just submitted")
+        logger.info("Frame harvesters just submitted")
 
-        logging.info("Starting frame synchronizer...")
+        logger.info("Starting frame synchronizer...")
         self.thread = Thread(target=self.synch_frames_worker, args=(), daemon=True)
         self.thread.start()
 
@@ -73,22 +73,22 @@ class Synchronizer:
         # subscribers are notified via the queue that new frames are available
         # this is intended to avoid issues with latency due to multiple iterations
         # of frames being passed from one queue to another
-        logging.info("Adding queue to receive notice of synched frames update")
+        logger.info("Adding queue to receive notice of synched frames update")
         self.synch_notice_subscribers.append(q)
 
     def subscribe_to_synched_frames(self, q):
-        logging.info("Adding queue to receive synched frames")
+        logger.info("Adding queue to receive synched frames")
         self.synched_frames_subscribers.append(q)
 
     def release_synched_frames_q(self, q):
-        logging.info("Releasing record queue")
+        logger.info("Releasing record queue")
         self.synched_frames_subscribers.remove(q)
 
     def harvest_frames(self, stream):
         port = stream.port
         stream.push_to_reel = True
 
-        logging.info(f"Beginning to collect data generated at port {port}")
+        logger.info(f"Beginning to collect data generated at port {port}")
 
         while not self.stop_event.is_set():
             frame_index = self.port_frame_count[port]
@@ -108,12 +108,12 @@ class Synchronizer:
                 "frame_time": frame_time,
             }
 
-            logging.debug(
+            logger.debug(
                 f"Frame data harvested from reel {port} with index {frame_index} and frame time of {frame_time}"
             )
             self.port_frame_count[port] += 1
 
-        logging.info(f"Frame harvester for port {port} completed")
+        logger.info(f"Frame harvester for port {port} completed")
 
     # get minimum value of frame_time for next layer
     def earliest_next_frame(self, port):
@@ -126,7 +126,7 @@ class Synchronizer:
 
             # problem with outpacing the threads reading data in, so wait if need be
             while frame_data_key not in self.frame_data.keys():
-                logging.debug(
+                logger.debug(
                     f"Waiting in a loop for frame data to populate with key: {frame_data_key}"
                 )
                 time.sleep(0.001)
@@ -154,7 +154,7 @@ class Synchronizer:
             self.port_frame_count[port] - self.port_current_frame[port]
             for port in self.ports
         ]
-        logging.debug(f"Slack in frames is {slack}")
+        logger.debug(f"Slack in frames is {slack}")
         return min(slack)
 
     def average_fps(self):
@@ -168,13 +168,13 @@ class Synchronizer:
 
     def synch_frames_worker(self):
 
-        logging.info(f"Waiting for all ports to begin harvesting corners...")
+        logger.info(f"Waiting for all ports to begin harvesting corners...")
 
         sync_time = time.perf_counter()
 
         sync_index = 0
 
-        logging.info("About to start synchronizing frames...")
+        logger.info("About to start synchronizing frames...")
         while not self.stop_event.is_set():
 
             next_layer = {}
@@ -201,14 +201,14 @@ class Synchronizer:
                 if frame_time > earliest_next[port]:
                     # definitly should be put in the next layer and not this one
                     next_layer[port] = None
-                    logging.warning(f"Skipped frame at port {port}: > earliest_next")
+                    logger.warning(f"Skipped frame at port {port}: > earliest_next")
                 elif (
                     earliest_next[port] - frame_time < frame_time - latest_current[port]
                 ):  # frame time is closer to earliest next than latest current
                     # if it's closer to the earliest next frame than the latest current frame, bump it up
                     # only applying for 2 camera setup where I noticed this was an issue (frames stay out of synch)
                     next_layer[port] = None
-                    logging.warning(
+                    logger.warning(
                         f"Skipped frame at port {port}: delta < time-latest_current"
                     )
                 else:
@@ -217,11 +217,11 @@ class Synchronizer:
                     next_layer[port]["sync_index"] = sync_index
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
-                    logging.debug(
+                    logger.debug(
                         f"Adding to layer from port {port} at index {current_frame_index} and frame time: {frame_time}"
                     )
 
-            logging.debug(f"Unassigned Frames: {len(self.frame_data)}")
+            logger.debug(f"Unassigned Frames: {len(self.frame_data)}")
 
             self.mean_frame_times.append(np.mean(layer_frame_times))
 
@@ -230,17 +230,17 @@ class Synchronizer:
             # notify other processes that the new frames are ready for processing
             # only for tasks that can risk missing frames (i.e. only for gui purposes)
             for q in self.synch_notice_subscribers:
-                logging.debug(f"Giving notice of new synched frames packet via {q}")
+                logger.debug(f"Giving notice of new synched frames packet via {q}")
                 q.put("new synched frames available")
 
             for q in self.synched_frames_subscribers:
-                logging.debug(f"Placing new synched frames packet on queue: {q}")
+                logger.debug(f"Placing new synched frames packet on queue: {q}")
                 q.put(self.current_synched_frames)
 
             sync_index += 1
             self.fps = self.average_fps()
 
-        logging.info("Frame synch worker successfully ended")
+        logger.info("Frame synch worker successfully ended")
 
 
 if __name__ == "__main__":

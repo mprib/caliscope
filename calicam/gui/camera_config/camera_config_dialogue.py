@@ -101,7 +101,7 @@ class CameraConfigDialog(QDialog):
     ####################### SUB_WIDGET CONSTRUCTION ###############################
 
     def build_calibrate_grp(self):
-        logging.debug("Building Calibrate Group")
+        logger.debug("Building Calibrate Group")
         self.calibrate_grp = QGroupBox("Calibrate")
         # Generally Horizontal Configuration
         hbox = QHBoxLayout()
@@ -218,7 +218,7 @@ class CameraConfigDialog(QDialog):
         fps_hbox = QHBoxLayout()
         self.fps_grp.setLayout(fps_hbox)
 
-        logging.debug("Building FPS Control")
+        logger.debug("Building FPS Control")
         fps_hbox.addWidget(QLabel("Target:"))
         self.frame_rate_spin = QSpinBox()
         self.frame_rate_spin.setValue(self.stream.fps)
@@ -226,7 +226,7 @@ class CameraConfigDialog(QDialog):
 
         def on_frame_rate_spin(fps_rate):
             self.stream.set_fps(fps_rate)
-            logging.info(f"Changing monocalibrator frame rate for port{self.port}")
+            logger.info(f"Changing monocalibrator frame rate for port{self.port}")
 
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
         fps_hbox.addWidget(self.frame_rate_spin)
@@ -261,7 +261,7 @@ class CameraConfigDialog(QDialog):
         self.wait_time_spin.valueChanged.connect(on_wait_time_spin)
         hbox.addWidget(self.wait_time_spin)
 
-        logging.debug("Building Grid Count Display")
+        logger.debug("Building Grid Count Display")
         self.grid_count_display = QLabel()
         hbox.addWidget(self.grid_count_display)
         self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -324,10 +324,10 @@ class CameraConfigDialog(QDialog):
         def ignore_cam(signal):
             print(signal)
             if signal == 0:  # not checked
-                logging.info(f"Don't ignore camera at port {self.port}")
+                logger.info(f"Don't ignore camera at port {self.port}")
                 self.camera.ignore = False
             else:  # value of checkState() might be 2?
-                logging.info(f"Ignore camera at port {self.port}")
+                logger.info(f"Ignore camera at port {self.port}")
                 self.camera.ignore = True
 
         self.ignore_box.stateChanged.connect(ignore_cam)
@@ -360,7 +360,7 @@ class CameraConfigDialog(QDialog):
             w, h = int(w), int(h)
             new_res = (w, h)
             # self.cam_cap.change_resolution(new_res)
-            logging.info(
+            logger.info(
                 f"Attempting to change resolution of camera at port {self.port}"
             )
             self.change_res_thread = Thread(
@@ -406,10 +406,10 @@ if __name__ == "__main__":
 
     test_port = 0
 
-    logging.info("Creating Camera Config Dialog")
+    logger.info("Creating Camera Config Dialog")
     cam_dialog = CameraConfigDialog(session, test_port)
 
-    logging.info("About to show camera config dialog")
+    logger.info("About to show camera config dialog")
     cam_dialog.show()
 
     sys.exit(App.exec())

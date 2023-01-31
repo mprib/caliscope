@@ -2,31 +2,29 @@
 # Detail will be logged to a single file with INFO logged to the console
 
 import logging
-import logging.config
 
-DEFAULT_LOGGING = {"version": 1, "disable_existing_loggers": True}
-logging.config.dictConfig(DEFAULT_LOGGING)
-
-logging.basicConfig(filemode='w', force=True)
-logger = logging.getLogger(__name__)
-
-file_log_format = " %(levelname)8s [%(filename)20s:%(lineno)3d] %(message)s"
-file_formatter = logging.Formatter(file_log_format)
-
-
-file_handler = logging.FileHandler('calibration.log')
+# only one file handler accross package so all messages logged to one file
+file_handler = logging.FileHandler('calibration.log', "w+")
 file_handler.setLevel(logging.DEBUG)
+
+file_log_format = " %(levelname)8s| %(name)30s| %(lineno)3d|  %(message)s"
+file_formatter = logging.Formatter(file_log_format)
 file_handler.setFormatter(file_formatter)
 
 
-console_log_format =" %(levelname)8s [%(filename)s:%(lineno)d] %(message)s"
-
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(console_log_format)
 
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
+console_log_format =" %(levelname)8s| %(name)30s| %(lineno)3d|  %(message)s"
+console_formatter = logging.Formatter(console_log_format)
+console_handler.setFormatter(console_formatter)
 
-def get():
+def get(name): # as in __name__
+    print(f"Creating logger for {name}")
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG) 
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
     return logger

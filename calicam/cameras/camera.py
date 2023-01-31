@@ -16,11 +16,12 @@
 # New camera configurations
 #%%
 
-import calicam.system.logger
+import calicam.logger
+logger = calicam.logger.get(__name__)
 import time
 from threading import Thread
-
-logger = calicam.system.logger.get()
+import logging
+import sys
 
 import cv2
 
@@ -255,7 +256,7 @@ if __name__ == "__main__":
     while True:
         success, frame = cam.capture.read()
         elapsed_seconds = int(time.perf_counter()-start_time)
-        logger.info(f"{elapsed_seconds} seconds have elapsed since loop began")
+        logger.debug(f"{elapsed_seconds} seconds have elapsed since loop began")
 
         cv2.imshow(f"Exposure Test", frame)
        

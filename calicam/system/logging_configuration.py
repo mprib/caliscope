@@ -41,3 +41,5 @@ def configure_logging(log_file_path: Optional[str] = ""):
     else:
         logger = logging.getLogger(__name__)
         logger.info("Logging already configured!")
+
+# import test_log

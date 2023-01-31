@@ -14,7 +14,7 @@ print(f"Thank you for using {__package_name__}!")
 print(f"This is printing from: {__file__}")
 print(f"Source code for this package is available at: {__repo_url__}")
 
-from calicam.system.default_paths import get_log_file_path
-from calicam.system.logging_configuration import configure_logging
+# from calicam.system.default_paths import get_log_file_path
+# from calicam.system.logging_configuration import configure_logging
 
-configure_logging(log_file_path=get_log_file_path())
+# configure_logging(log_file_path=get_log_file_path())

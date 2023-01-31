@@ -1,16 +1,8 @@
-import logging
 
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-LOG_FILE = "log\monocalibrator.log"
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-
-
-import sys
 import time
-from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
 

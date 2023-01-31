@@ -1,11 +1,12 @@
 # a set of helper functions meant to provide visual feedback
 # regarding the capture history and corner identification of
 # the charuco board
+import calicam.logger
+logger = calicam.logger.get(__name__)
+
 from itertools import combinations
 
 import cv2
-import numpy as np
-
 
 def grid_history(frame, ids, img_locs, connected_corners):
     ids = ids[:,0]

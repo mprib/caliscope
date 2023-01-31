@@ -1,15 +1,7 @@
-import logging
 
-FILE_NAME = "log\stereocalibration.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
-logging.basicConfig(
-    filename=FILE_NAME, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL
-)
-
-import sys
 import time
 from itertools import combinations
 from pathlib import Path

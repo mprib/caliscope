@@ -3,7 +3,10 @@
 # it is actually created in OpenCV, the board height is expressed
 # in meters as a standard convention of science, and to improve
 # readability of 3D positional output downstream
-import logging
+
+import calicam.logger
+logger = calicam.logger.get(__name__)
+
 from collections import defaultdict
 from itertools import combinations
 import cv2

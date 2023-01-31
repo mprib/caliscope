@@ -39,9 +39,9 @@ class CameraMesh:
                                   edgeColor=(0,0,1,1))
         self.mesh.setGLOptions('additive')
 
-        logging.debug(self.verts)
-        logging.debug(self.faces)
-        logging.debug(self.colors)
+        logger.debug(self.verts)
+        logger.debug(self.faces)
+        logger.debug(self.colors)
 
     def build_verts(self):
         right_side_border = self.width-self.cx
@@ -178,7 +178,7 @@ if __name__ == '__main__':
 
                         x,y,z = [t/translation_scale for t in translation]
                         cams[other_port].mesh.translate(x,y,z)
-                        logging.info(f"Translation: x: {x}, y: {y}, z: {z}")
+                        logger.info(f"Translation: x: {x}, y: {y}, z: {z}")
                         # cams[other_port].mesh.setGLOptions('additive')
 
                         scene.addItem(cams[other_port].mesh)
@@ -197,7 +197,7 @@ if __name__ == '__main__':
                         y = rot_deg[1]
                         z = rot_deg[2]
 
-                        logging.info(f"ROTATION: x: {x}, y: {y}, z: {z}")
+                        logger.info(f"ROTATION: x: {x}, y: {y}, z: {z}")
                         cams[other_port].mesh.rotate(x,1,0,0, local=True)
                         cams[other_port].mesh.rotate(y,0,1,0, local=True)
                         cams[other_port].mesh.rotate(z,0,0,1, local=True)

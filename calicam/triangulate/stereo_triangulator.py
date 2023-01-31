@@ -101,7 +101,7 @@ class StereoTriangulator:
                 xy_B_undistorted=points_B_undistorted,
             )
 
-            logging.debug(f"Placing current set of synched 3d points on queue")
+            logger.debug(f"Placing current set of synched 3d points on queue")
             self.out_q.put(packet_3D)
 
     def undistort(self, point, camera: CameraData, iter_num=3):

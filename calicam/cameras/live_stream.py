@@ -1,14 +1,9 @@
 # This widget is the primary functional unit of the motion capture. It
 # establishes the connection with the video source and manages the thread
 # that reads in frames.
-import logging
 
-LOG_FILE = "log\live_stream.log"
-LOG_LEVEL = logging.INFO
-# LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 from time import perf_counter, sleep
 from queue import Queue
@@ -48,7 +43,7 @@ class LiveStream:
         milestones = []
         for i in range(0, fps):
             milestones.append(i / fps)
-        logging.info(f"Setting fps to {self.fps}")
+        logger.info(f"Setting fps to {self.fps}")
         self.milestones = np.array(milestones)
 
     def wait_to_next_frame(self):
@@ -82,7 +77,7 @@ class LiveStream:
     def stop(self):
         self.push_to_reel = False
         self.stop_event.set()
-        logging.info(f"Stop signal sent at stream {self.port}")
+        logger.info(f"Stop signal sent at stream {self.port}")
 
     def roll_camera(self):
         """
@@ -94,7 +89,7 @@ class LiveStream:
         first_time = True
         while not self.stop_event.is_set():
             if first_time:
-                logging.info(f"Camera now rolling at port {self.port}")
+                logger.info(f"Camera now rolling at port {self.port}")
                 first_time = False
 
             if self.camera.capture.isOpened():
@@ -111,35 +106,35 @@ class LiveStream:
                     self._add_fps()
 
                 if self.push_to_reel and self.success:
-                    logging.debug(f"Pushing frame to reel at port {self.port}")
+                    logger.debug(f"Pushing frame to reel at port {self.port}")
                     self.reel.put([self.frame_time, self._working_frame])
 
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
 
-        logging.info(f"Stream stopped at port {self.port}")
+        logger.info(f"Stream stopped at port {self.port}")
         self.stop_event.clear()
         self.stop_confirm.put("Successful Stop")
 
     def change_resolution(self, res):
 
-        logging.info(f"About to stop camera at port {self.port}")
+        logger.info(f"About to stop camera at port {self.port}")
         self.stop_event.set()
         self.stop_confirm.get()
-        logging.info(f"Roll camera stop confirmed at port {self.port}")
+        logger.info(f"Roll camera stop confirmed at port {self.port}")
 
         self.FPS_actual = 0
         self.avg_delta_time = None
 
         # reconnecting a few times without disconnnect sometimes crashed python
-        logging.info(f"Disconnecting from port {self.port}")
+        logger.info(f"Disconnecting from port {self.port}")
         self.camera.disconnect()
-        logging.info(f"Reconnecting to port {self.port}")
+        logger.info(f"Reconnecting to port {self.port}")
         self.camera.connect()
 
         self.camera.resolution = res
         # Spin up the thread again now that resolution is changed
-        logging.info(
+        logger.info(
             f"Beginning roll_camera thread at port {self.port} with resolution {res}"
         )
         self.thread = Thread(target=self.roll_camera, args=(), daemon=True)

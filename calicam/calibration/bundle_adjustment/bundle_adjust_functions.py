@@ -1,17 +1,9 @@
-import logging
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-LOG_FILE = r"log\bundle_adjust_functions.log"
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-
-from pathlib import Path
 import cv2
 import numpy as np
 
-from dataclasses import dataclass
 from scipy.optimize import least_squares
 import time
 

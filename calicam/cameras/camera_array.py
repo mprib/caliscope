@@ -1,10 +1,5 @@
-import logging
-
-LOG_FILE = "log\camera_array.log"
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 from pathlib import Path
 import numpy as np
@@ -245,8 +240,8 @@ def rms_reproj_error(xy_reproj_error):
     xy_reproj_error = xy_reproj_error.reshape(-1, 2)
     euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
     rmse = np.sqrt(np.mean(euclidean_distance_error**2))
-    logging.info(f"Optimization run with {xy_reproj_error.shape[0]/2} image points")
-    logging.info(f"RMSE of reprojection is {rmse}")
+    logger.info(f"Optimization run with {xy_reproj_error.shape[0]/2} image points")
+    logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
 
 if __name__ == "__main__":

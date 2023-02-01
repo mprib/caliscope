@@ -1,16 +1,8 @@
-import logging
 
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-LOG_FILE = "log\monocalibrator.log"
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-
-
-import sys
 import time
-from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
 
@@ -52,7 +44,7 @@ class MonoCalibrator:
         self.thread = Thread(target=self.collect_corners, args=(), daemon=True)
         self.thread.start()
 
-        logging.info(f"Beginning monocalibrator for port {self.port}")
+        logger.info(f"Beginning monocalibrator for port {self.port}")
 
         
     @property
@@ -88,7 +80,7 @@ class MonoCalibrator:
         that enough time has past since the last set was recorded
 
         """
-        logging.debug("Entering collect_corners thread loop")
+        logger.debug("Entering collect_corners thread loop")
         
         self.stream.push_to_reel = True        
         
@@ -128,7 +120,7 @@ class MonoCalibrator:
                     self.update_grid_history()
 
             self.set_grid_frame()
-        logging.info(f"Monocalibrator at port {self.port} successfully shutdown...")
+        logger.info(f"Monocalibrator at port {self.port} successfully shutdown...")
 
     def update_grid_history(self):
         if len(self.ids) > 2:
@@ -143,8 +135,8 @@ class MonoCalibrator:
         """Merges the current frame with the currently detected corners (red circles) 
         and a history of the stored grid information."""
 
-        logging.debug(f"Frame Size is {self.frame.shape} at port {self.port}")
-        logging.debug(
+        logger.debug(f"Frame Size is {self.frame.shape} at port {self.port}")
+        logger.debug(
             f"camera resolution is {self.camera.resolution} at port {self.port}"
         )
 
@@ -160,7 +152,7 @@ class MonoCalibrator:
             self.grid_frame_ready_q.put("frame ready")
 
         else:
-            logging.debug("Reinitializing Grid Capture History")
+            logger.debug("Reinitializing Grid Capture History")
             self.initialize_grid_history()
             self.grid_frame = self.grid_capture_history
             self.grid_frame_ready_q.put("frame ready")
@@ -171,7 +163,7 @@ class MonoCalibrator:
         corner positions based on the board definition to calculated
         the camera matrix and distortion parameters
         """
-        logging.info(f"Calibrating camera {self.camera.port}....")
+        logger.info(f"Calibrating camera {self.camera.port}....")
 
         self.collecting_corners = False
 
@@ -187,13 +179,13 @@ class MonoCalibrator:
         self.update_camera()
         self.is_calibrated = True
 
-        logging.info(f"Error: {self.error}")
-        logging.info(f"Camera Matrix: {self.mtx}")
-        logging.info(f"Distortion: {self.dist}")
-        logging.info(f"Grid Count: {self.camera.grid_count}")
+        logger.info(f"Error: {self.error}")
+        logger.info(f"Camera Matrix: {self.mtx}")
+        logger.info(f"Distortion: {self.dist}")
+        logger.info(f"Grid Count: {self.camera.grid_count}")
 
     def update_camera(self):
-        logging.info(f"Setting calibration params on camera {self.camera.port}")
+        logger.info(f"Setting calibration params on camera {self.camera.port}")
         # ret is RMSE of reprojection
         self.camera.error = round(self.error, 3)
         self.camera.camera_matrix = self.mtx
@@ -225,7 +217,7 @@ if __name__ == "__main__":
     while True:
         # read_success, frame = cam.capture.read()
         frame_ready = monocal.grid_frame_ready_q.get()
-        logging.debug("Getting grid frame to display")
+        logger.debug("Getting grid frame to display")
         frame = monocal.grid_frame
 
         cv2.imshow("Press 'q' to quit", frame)

@@ -1,17 +1,9 @@
-import logging
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-LOG_FILE = r"log\bundle_adjust_functions.log"
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-
-from pathlib import Path
 import cv2
 import numpy as np
 
-from dataclasses import dataclass
 from scipy.optimize import least_squares
 import time
 
@@ -86,17 +78,17 @@ def bundle_adjust(camera_array: CameraArray, point_data: PointData):
     n = CAMERA_PARAM_COUNT * point_data.n_cameras + 3 * point_data.n_obj_points
     m = 2 * point_data.n_img_points
 
-    logging.info(f"n_cameras: {point_data.n_cameras}")
-    logging.info(f"n_points: {point_data.n_obj_points}")
-    logging.info(f"Total number of parameters: {n}")
-    logging.info(f"Total number of residuals: {m}")
+    logger.info(f"n_cameras: {point_data.n_cameras}")
+    logger.info(f"n_points: {point_data.n_obj_points}")
+    logger.info(f"Total number of parameters: {n}")
+    logger.info(f"Total number of residuals: {m}")
 
     initial_param_estimate = np.hstack((camera_params.ravel(), point_data.obj.ravel()))
 
     # sparsity_pattern = get_sparsity_pattern(point_data)
 
     t0 = time.time()
-    logging.info(f"Start time of bundle adjustment calculations is {t0}")
+    logger.info(f"Start time of bundle adjustment calculations is {t0}")
 
     optimized = least_squares(
         xy_reprojection_error,
@@ -114,7 +106,7 @@ def bundle_adjust(camera_array: CameraArray, point_data: PointData):
     )
 
     t1 = time.time()
-    logging.info(f"Completion time of bundle adjustment calculations is {t1}")
-    logging.info(f"Total time to perform bundle adjustment: {t1-t0}")
+    logger.info(f"Completion time of bundle adjustment calculations is {t1}")
+    logger.info(f"Total time to perform bundle adjustment: {t1-t0}")
 
     return optimized

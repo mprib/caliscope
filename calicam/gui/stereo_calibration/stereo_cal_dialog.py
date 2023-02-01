@@ -1,12 +1,6 @@
-import logging
 
-LOG_FILE = "log\stereo_cal_dialog.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -105,7 +99,7 @@ class StereoCalDialog(QScrollArea):
         self.save_btn = QPushButton("Save Calibration")
 
         def on_save_btn(click):
-            logging.debug("Saving stereocalibration")
+            logger.debug("Saving stereocalibration")
             self.session.save_stereocalibration()
 
         self.save_btn.clicked.connect(on_save_btn)
@@ -126,7 +120,7 @@ if __name__ == "__main__":
     session.adjust_resolutions()
     session.load_stereo_tools()
 
-    logging.info("Creating Camera Config Dialog")
+    logger.info("Creating Camera Config Dialog")
 
     App = QApplication(sys.argv)
     stereo_frame_emitter = StereoFrameEmitter(session.stereo_frame_builder)
@@ -135,7 +129,7 @@ if __name__ == "__main__":
     # cam_dialog = StereoPairWidget(session, test_pair)
 
     stereo_cal = StereoCalDialog(session)
-    logging.info("About to show camera config dialog")
+    logger.info("About to show camera config dialog")
     stereo_cal.show()
 
     sys.exit(App.exec())

@@ -2,17 +2,8 @@
 # detector and the corner drawer...like, there will need to be something that
 # accumulates a frame of corners to be drawn onto the displayed frame.
 
-import logging
-
-LOG_FILE = "log\corner_tracker.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-
-import sys
-from pathlib import Path
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 import cv2
 import numpy as np

@@ -16,9 +16,12 @@
 # New camera configurations
 #%%
 
-import logging
+import calicam.logger
+logger = calicam.logger.get(__name__)
 import time
 from threading import Thread
+import logging
+import sys
 
 import cv2
 
@@ -35,14 +38,14 @@ class Camera(object):
 
         # check if source has a data feed before proceeding...if not it is
         # either in use or fake
-        logging.info(f"Attempting to connect video capure at port {port}")
+        logger.info(f"Attempting to connect video capure at port {port}")
         test_capture = cv2.VideoCapture(port)
         for _ in range(0, TEST_FRAME_COUNT):
             good_read, frame = test_capture.read()
 
             # pass # dealing with this in the else statemetn below...not a real camera
         if good_read:
-            logging.info(f"Good read at port {port}...proceeding")
+            logger.info(f"Good read at port {port}...proceeding")
             self.port = port
             self.capture = test_capture
             self.active_port = True
@@ -70,14 +73,14 @@ class Camera(object):
             self.port = port
             self.capture = None
             self.active_port = False
-            logging.info(f"Camera at port {port} appears to be busy")
+            logger.info(f"Camera at port {port} appears to be busy")
             raise Exception(f"Not reading at port {port}...likely in use")
         if isinstance(self.possible_resolutions[0], int):
             # probably not real
             self.port = port
             self.capture = None
             self.active_port = False
-            logging.info(f"Camera at port {port} may be virtual")
+            logger.info(f"Camera at port {port} may be virtual")
             raise Exception(f"{port}...likely not real")
 
     @property
@@ -225,10 +228,10 @@ class Camera(object):
 if __name__ == "__main__":
 
     cam = Camera(0)
-    print(cam.possible_resolutions)
+    logger.info(f"Camera {cam.port} has possible resolutions: {cam.possible_resolutions}")
 
     for res in cam.possible_resolutions:
-        print(f"Testing Resolution {res}")
+        logger.info(f"Testing Resolution {res}")
 
         cam.disconnect()
         cam.connect()
@@ -253,7 +256,7 @@ if __name__ == "__main__":
     while True:
         success, frame = cam.capture.read()
         elapsed_seconds = int(time.perf_counter()-start_time)
-        print(elapsed_seconds)
+        logger.debug(f"{elapsed_seconds} seconds have elapsed since loop began")
 
         cv2.imshow(f"Exposure Test", frame)
        

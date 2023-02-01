@@ -2,13 +2,8 @@
 # then the widget for a single pair before rolling them up into one
 # larger set of dialogs
 
-import logging
-
-LOG_FILE = "log/stereo_dialog.log"
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -101,7 +96,7 @@ class StereoPairWidget(QWidget):
         self.reset_btn = QPushButton("Reset")
 
         def reset_stereo_cal():
-            logging.debug(f"Resetting stereocal data associated with pair {self.pair}")
+            logger.debug(f"Resetting stereocal data associated with pair {self.pair}")
             self.session.stereocalibrator.reset_pair(self.pair)
 
         self.reset_btn.clicked.connect(reset_stereo_cal)
@@ -130,13 +125,13 @@ if __name__ == "__main__":
     # session.adjust_resolutions()
     session.load_stereo_tools()
 
-    logging.info("Creating Camera Config Dialog")
+    logger.info("Creating Camera Config Dialog")
     test_pair = (0, 1)
     stereo_frame_emitter = StereoFrameEmitter(session.stereo_frame_builder)
     stereo_frame_emitter.start()
     cam_dialog = StereoPairWidget(session, stereo_frame_emitter, test_pair)
 
-    logging.info("About to show camera config dialog")
+    logger.info("About to show camera config dialog")
     cam_dialog.show()
 
     sys.exit(App.exec())

@@ -1,13 +1,7 @@
 # Built following the tutorials that begin here:
 # https://www.pythonguis.com/tutorials/pyqt6-creating-your-first-window/
-import logging
-
-LOG_FILE = "log\camera_table.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -77,7 +71,7 @@ class CameraTable(QWidget):
                 params["resolution"] = f"{res[0]} x {res[1]}"
                 self.data.append(params)
 
-        logging.debug(f"Updating cam data to {self.data}")
+        logger.debug(f"Updating cam data to {self.data}")
 
         row_count = len(self.data)
         column_count = len(self._headers)

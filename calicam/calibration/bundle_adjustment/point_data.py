@@ -3,13 +3,8 @@
 # though this workflow may be useful into the future. Save out milestone calculations
 # along the way that allow for blocks of dataprocessing
 
-import logging
-
-LOG_FILE = "log\point_data.log"
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 from pathlib import Path
 

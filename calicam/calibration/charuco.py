@@ -3,7 +3,10 @@
 # it is actually created in OpenCV, the board height is expressed
 # in meters as a standard convention of science, and to improve
 # readability of 3D positional output downstream
-import logging
+
+import calicam.logger
+logger = calicam.logger.get(__name__)
+
 from collections import defaultdict
 from itertools import combinations
 import cv2
@@ -81,7 +84,7 @@ class Charuco:
             square_length = min(
                 [board_height_m / self.rows, board_width_m / self.columns]
             )
-        logging.debug(f"Creating charuco with square length of {square_length}")
+        logger.debug(f"Creating charuco with square length of {square_length}")
 
         aruco_length = square_length * self.aruco_scale
         # create the board

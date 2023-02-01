@@ -34,11 +34,11 @@ class StereoFrameBuilder:
         """Return unaltered frame if no corner information detected, otherwise
         return two frames with same corners drawn"""
         if self.current_synched_frames[portA] is None:
-            logging.warn(f"Dropped frame at port {portA}")
+            logger.warn(f"Dropped frame at port {portA}")
             return frameA, frameB
 
         elif self.current_synched_frames[portB] is None:
-            logging.warn(f"Dropped frame at port {portB}")
+            logger.warn(f"Dropped frame at port {portB}")
             return frameA, frameB
 
         elif (

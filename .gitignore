@@ -10,3 +10,4 @@
 *tar.gz
 *.whl
 dist/*
+*.epgz

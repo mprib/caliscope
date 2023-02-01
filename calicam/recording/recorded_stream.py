@@ -5,13 +5,9 @@
 #   1: future testing (don't have to keep recording live video)
 #   2: future off-line processing of pre-recorded video.
 
-import logging
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
-LOG_FILE = r"log\recorded_stream.log"
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 from pathlib import Path
 from queue import Queue
 from threading import Thread
@@ -41,7 +37,7 @@ class RecordedStream:
         # self.shutter_sync = Queue(-1)
 
     def set_fps(self, fps):
-        logging.info("No frame rate for recorded playback, push to synchronizer as rapidly as possible")
+        logger.info("No frame rate for recorded playback, push to synchronizer as rapidly as possible")
 
     def play_video(self):
 
@@ -67,12 +63,12 @@ class RecordedStream:
             if not success:
                 break
 
-            logging.debug(f"Placing frame on reel {self.port} for frame time: {frame_time} and frame index: {frame_index}")
+            logger.debug(f"Placing frame on reel {self.port} for frame time: {frame_time} and frame index: {frame_index}")
             self.reel.put([frame_time, frame])
             frame_index += 1
 
             if frame_index > self.last_frame_index:
-                logging.info(f"Ending recorded playback at port {self.port}")
+                logger.info(f"Ending recorded playback at port {self.port}")
                 self.reel.put([-1, np.array([], dtype="uint8")])
                 break
 

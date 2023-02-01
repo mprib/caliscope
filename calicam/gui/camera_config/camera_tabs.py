@@ -1,10 +1,6 @@
-import logging
 
-LOG_FILE = "log/camera_tabs.log"
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -28,12 +24,12 @@ class CameraTabs(QTabWidget):
 
     def add_cam_tabs(self):
         tab_names = [self.tabText(i) for i in range(self.count())]
-        logging.info(f"Current tabs are: {tab_names}")
+        logger.info(f"Current tabs are: {tab_names}")
 
         if len(self.session.monocalibrators) > 0:
             for port, monocal in self.session.monocalibrators.items():
                 tab_name = f"Camera {port}"
-                logging.info(f"Potentially adding {tab_name}")
+                logger.info(f"Potentially adding {tab_name}")
                 if tab_name in tab_names:
                     pass  # already here, don't bother
                 else:
@@ -48,7 +44,7 @@ class CameraTabs(QTabWidget):
 
                     self.insertTab(port, cam_tab, tab_name)
         else:
-            logging.info("No cameras available")
+            logger.info("No cameras available")
 
 
 if __name__ == "__main__":

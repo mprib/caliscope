@@ -1,11 +1,6 @@
-import logging
 
-LOG_FILE = "log\common_point_locator.log"
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 from queue import Queue
 from threading import Thread
@@ -99,7 +94,7 @@ class PairedPointStream:
                 loc_img_x_B=FramePoints_B.loc_img_x[shared_indices_B],
                 loc_img_y_B=FramePoints_B.loc_img_y[shared_indices_B],
             )
-            logging.debug(f"Points in common for ports {pair}: {common_ids}")
+            logger.debug(f"Points in common for ports {pair}: {common_ids}")
 
         return packet
 
@@ -135,7 +130,7 @@ class PairedPointStream:
                             loc_board_y=loc_board[:, 0][:, 1],
                         )
 
-                        logging.debug(f"Port: {port}: \n {points[port]}")
+                        logger.debug(f"Port: {port}: \n {points[port]}")
 
             # paired_points = None
             for pair in self.pairs:

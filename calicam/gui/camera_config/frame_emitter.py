@@ -1,10 +1,6 @@
-import logging
 
-LOG_FILE = "log/frame_emitter.log"
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 from datetime import datetime
 from pathlib import Path
@@ -71,7 +67,7 @@ class FrameEmitter(QThread):
         return qt_frame
 
     def apply_rotation(self):
-        # logging.debug("Applying Rotation")
+        # logger.debug("Applying Rotation")
         if self.monocalibrator.camera.rotation_count == 0:
             pass
         elif self.monocalibrator.camera.rotation_count in [1, -3]:

@@ -1,5 +1,7 @@
 #%%
 
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 import seaborn as sns
 from time import perf_counter
@@ -160,3 +162,4 @@ distance_error_df["Distance_Error_mm_abs"] = abs(distance_error_df["Distance_Err
 distance_error_df.describe()
 
 # %%
+

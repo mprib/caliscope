@@ -1,10 +1,6 @@
-import logging
 
-LOG_FILE = "log/stereo_frame_emitter.log"
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 from datetime import datetime
 from pathlib import Path
@@ -47,8 +43,8 @@ class StereoFrameEmitter(QThread):
 
             self.StereoFramesBroadcast.emit(frame_dict)
             self.StereoCalOutBroadcast.emit(self.stereo_outputs)
-            logging.debug(f"stereo output dictionary: {self.stereo_outputs}")
-        logging.info("Stereoframe emitter successfully shutdown...")
+            logger.debug(f"stereo output dictionary: {self.stereo_outputs}")
+        logger.info("Stereoframe emitter successfully shutdown...")
 
     def stop(self):
         self.stop_event.set()

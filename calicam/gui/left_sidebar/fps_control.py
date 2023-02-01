@@ -2,23 +2,13 @@
 # Built following the tutorials that begin here:
 # https://www.pythonguis.com/tutorials/pyqt6-creating-your-first-window/
 
-import logging
+import calicam.logger
+logger = calicam.logger.get(__name__)
 import sys
 
-LOG_FILE = r"log\fps_control.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
 
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-
-import time
 from pathlib import Path
-from threading import Thread
 
-from numpy import char
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QGroupBox,

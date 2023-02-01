@@ -1,5 +1,8 @@
 # this is likely just going to be a set of functions to save out a version of videos that has been undistorted.
 
+import calicam.logger
+logger = calicam.logger.get(__name__)
+
 from calicam.cameras.camera_array import CameraArray, CameraArrayBuilder, CameraData
 from pathlib import Path
 import cv2

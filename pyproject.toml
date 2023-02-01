@@ -28,10 +28,10 @@ dependencies = ["numpy",
                 "pyqt6", 
                 "scipy", 
                 "pandas", 
-                "pyqtgraph", 
+                "pyqtgraph",
+                "pyopengl",
                 "toml", 
-                "seaborn", 
-                "platformdirs"] #add additional dependencies here - try to pin versions as minimally as possible
+                "seaborn"] #add additional dependencies here - try to pin versions as minimally as possible
 
 requires-python = ">=3.10"
 

@@ -1,12 +1,7 @@
-import logging
+
+import calicam.logger
+logger = calicam.logger.get(__name__)
 import sys
-
-LOG_FILE = "log\camera_summary.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 
 import time
 from pathlib import Path

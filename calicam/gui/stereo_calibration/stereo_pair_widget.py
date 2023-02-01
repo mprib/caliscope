@@ -2,13 +2,8 @@
 # then the widget for a single pair before rolling them up into one
 # larger set of dialogs
 
-import logging
-
-LOG_FILE = "log/stereo_dialog.log"
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 import sys
 from pathlib import Path

@@ -267,7 +267,7 @@ class CameraConfigDialog(QDialog):
 
     def build_cw_rotation_btn(self):
         self.cw_rotation_btn = QPushButton(
-            QIcon("src/gui/icons/rotate-camera-right.svg"), ""
+            QIcon("calicam/gui/icons/rotate-camera-right.svg"), ""
         )
         self.cw_rotation_btn.setMaximumSize(100, 50)
 
@@ -276,7 +276,7 @@ class CameraConfigDialog(QDialog):
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton(
-            QIcon("src/gui/icons/rotate-camera-left.svg"), ""
+            QIcon("calicam/gui/icons/rotate-camera-left.svg"), ""
         )
         self.ccw_rotation_btn.setMaximumSize(100, 50)
 

@@ -1,5 +1,5 @@
-
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 
 import math
@@ -27,8 +27,6 @@ class CaptureVolumeVisualizer:
         # constuct a scene
         self.scene = gl.GLViewWidget()
         self.scene.setCameraPosition(distance=4)
-
-
 
         axis = gl.GLAxisItem()
         self.scene.addItem(axis)
@@ -62,17 +60,17 @@ class CaptureVolumeVisualizer:
                 )
                 self.scene.addItem(board_scatter)
                 self.scatters[pair] = board_scatter
-   
+
             self.thread = Thread(target=self.play_data, args=[], daemon=False)
             self.thread.start()
 
     def play_data(self):
-            sync_indices = self.point_data["sync_index"].unique().tolist()
-            for sync_index in sync_indices:
-                self.display_points(sync_index)
-                print(f"Displaying frames from index: {sync_index}")
-                time.sleep(1/10)
-    
+        sync_indices = self.point_data["sync_index"].unique().tolist()
+        for sync_index in sync_indices:
+            self.display_points(sync_index)
+            print(f"Displaying frames from index: {sync_index}")
+            time.sleep(1 / 10)
+
     def display_points(self, sync_index):
 
         point_data = self.point_data.query(f"sync_index == {sync_index}")
@@ -132,13 +130,11 @@ def mesh_from_camera(cd: CameraData):
     mesh.rotate(y, 0, 1, 0, local=True)
     mesh.rotate(z, 0, 0, 1, local=True)
 
-    
     # translate mesh which defaults to origin
     translation_scale_factor = 1
     x, y, z = [t / translation_scale_factor for t in cd.translation]
-    mesh.translate(x, y, z) 
+    mesh.translate(x, y, z)
     logger.info(f"Translation: x: {x}, y: {y}, z: {z}")
-
 
     return mesh
 
@@ -167,13 +163,17 @@ if __name__ == "__main__":
     from PyQt6.QtWidgets import QApplication
 
     # set the location for the sample data used for testing
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
+    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
 
     config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
     camera_array = CameraArrayBuilder(config_path).get_camera_array()
 
     point_data_path = Path(
-        repo, "sessions", "iterative_adjustment", "recording", "triangulated_points.csv"
+        repo,
+        "sessions",
+        "iterative_adjustment",
+        "recording",
+        "triangulated_points.csv"
         # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted.csv"
         # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_daisy_chain.csv"
         # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted_300.csv"

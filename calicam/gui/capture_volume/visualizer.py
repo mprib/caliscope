@@ -167,7 +167,7 @@ if __name__ == "__main__":
     from PyQt6.QtWidgets import QApplication
 
     # set the location for the sample data used for testing
-    repo = str(Path(__file__)).split("src")[0]
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
 
     config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
     camera_array = CameraArrayBuilder(config_path).get_camera_array()

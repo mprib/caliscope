@@ -110,7 +110,7 @@ if __name__ == "__main__":
     from calicam.calibration.corner_tracker import CornerTracker
 
     # Build camera array from stored config file
-    repo = str(Path(__file__)).split("src")[0]
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     # session_directory = Path(repo, "sessions", "iterative_adjustment")
     session_directory = Path(repo, "sessions", "default_res_session")
     config_path = Path(session_directory, "config.toml")

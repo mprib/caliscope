@@ -196,7 +196,7 @@ def get_point_data(points_csv_path: Path) -> PointData:
 
 if __name__ == "__main__":
 
-    repo = str(Path(__file__)).split("src")[0]
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     session_directory = Path(repo, "sessions", "iterative_adjustment")
     points_csv_path = Path(
         session_directory, "recording", "triangulated_points_daisy_chain.csv"

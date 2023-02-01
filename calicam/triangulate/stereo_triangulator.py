@@ -4,14 +4,8 @@
 # but I want something that is designed to be simple and not actually manage the cameras, just
 # organize the saved data
 
-import logging
-
-LOG_FILE = r"log\stereo_triangulator.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 from queue import Queue
 from threading import Thread, Event

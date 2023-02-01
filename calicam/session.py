@@ -1,16 +1,7 @@
 # Environment for managing all created objects and the primary interface for the GUI.
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
-
-import logging
-
-LOG_FILE = "log\session.log"
-LOG_LEVEL = logging.DEBUG
-# LOG_LEVEL = logging.INFO
-
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-
-import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from os.path import exists

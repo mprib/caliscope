@@ -1,11 +1,6 @@
-import logging
 
-LOG_FILE = "log\common_point_locator.log"
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
-
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 from queue import Queue
 from threading import Thread

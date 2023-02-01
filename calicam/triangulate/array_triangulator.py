@@ -8,14 +8,8 @@ At the moment the priority is getting triangulated data saved out in a csv that 
 then be played back into a visualizer, or used as the basis for an array config optimization.
 
 """
-import logging
-
-LOG_FILE = r"log\array_triangulator.log"
-LOG_LEVEL = logging.INFO
-# LOG_LEVEL = logging.INFO
-
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 from itertools import combinations
 from threading import Thread, Event

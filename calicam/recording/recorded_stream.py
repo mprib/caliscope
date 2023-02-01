@@ -5,13 +5,9 @@
 #   1: future testing (don't have to keep recording live video)
 #   2: future off-line processing of pre-recorded video.
 
-import logging
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
-LOG_FILE = r"log\recorded_stream.log"
-LOG_LEVEL = logging.DEBUG
-LOG_FORMAT = " %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s"
-
-logging.basicConfig(filename=LOG_FILE, filemode="w", format=LOG_FORMAT, level=LOG_LEVEL)
 from pathlib import Path
 from queue import Queue
 from threading import Thread

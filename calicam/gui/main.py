@@ -2,10 +2,10 @@
 import calicam.logger
 logger = calicam.logger.get(__name__)
 
+import sys
 import time
 from pathlib import Path
 from threading import Thread
-
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtWidgets import (

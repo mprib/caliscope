@@ -113,7 +113,7 @@ if __name__ == "__main__":
     from calicam.cameras.live_stream import LiveStream
     from calicam.session import Session
     
-    repo = str(Path(__file__)).split("src")[0]
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     session_path = Path(repo, "sessions", "high_res_session")
     print(f"Config Path: {session_path}")
     session = Session(session_path)

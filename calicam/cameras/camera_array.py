@@ -248,7 +248,7 @@ if __name__ == "__main__":
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
     from calicam.calibration.bundle_adjustment.point_data import PointData, get_point_data
 
-    repo = str(Path(__file__)).split("src")[0]
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
 
     session_directory = Path(repo, "sessions", "default_res_session")
     config_path = Path(session_directory, "config.toml")

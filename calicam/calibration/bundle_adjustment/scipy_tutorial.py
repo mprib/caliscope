@@ -8,7 +8,7 @@ import os
 import numpy as np
 from pathlib import Path
 
-repo = str(Path(__file__)).split("src")[0]
+repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
 directory = Path(repo, r"src\calibration\bundle_adjustment")
 
 BASE_URL = "http://grail.cs.washington.edu/projects/bal/data/ladybug/"

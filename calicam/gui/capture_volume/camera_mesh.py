@@ -124,7 +124,7 @@ if __name__ == '__main__':
     scene.addItem(axis)
 
 
-    repo = str(Path(__file__)).split("src")[0]
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     # config_path = r"config 2.toml"
     config = toml.load(Path(repo, "sessions", "iterative_adjustment", "config.toml"))
     cams = {}    

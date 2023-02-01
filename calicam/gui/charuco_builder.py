@@ -1,6 +1,9 @@
 # Want to create a small window that allows for the charuco params to be set
 # and a board to be constructed that will be used for the calibration
 
+import calicam.logger
+logger = calicam.logger.get(__name__)
+
 import sys
 
 #%%

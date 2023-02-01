@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
 
         self.setMinimumSize(int(DISPLAY_WIDTH * 0.45), int(DISPLAY_HEIGHT * 0.7))
         self.setWindowTitle("FreeMocap Camera Calibration")
-        self.setWindowIcon(QIcon("src/gui/icons/fmc_logo.ico"))
+        self.setWindowIcon(QIcon("calicam/gui/icons/fmc_logo.ico"))
 
         self.menu = self.menuBar()
         self.central_stack = QStackedWidget()

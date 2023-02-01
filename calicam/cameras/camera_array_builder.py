@@ -149,7 +149,7 @@ class CameraArrayBuilder:
 
 if __name__ == "__main__":
     repo = str(Path(__file__)).split("src")[0]
-
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()

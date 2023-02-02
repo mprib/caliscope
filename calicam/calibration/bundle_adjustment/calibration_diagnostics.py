@@ -113,7 +113,7 @@ def get_xyz_points(diagnostic_data: ArrayDiagnosticData):
 if __name__ == "__main__":
 
     # some convenient reference paths
-    repo = str(Path.cwd()).split("src")[0]
+    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
     # update path
     sys.path.insert(0, repo)
     # which enables import of relevant class

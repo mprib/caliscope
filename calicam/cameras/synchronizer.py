@@ -251,7 +251,7 @@ if __name__ == "__main__":
     from calicam.session import Session
     import pandas as pd
 
-    repo = Path(__file__).parent.parent.parent
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     config_path = Path(repo, "sessions", "high_res_session")
 
     session = Session(config_path)

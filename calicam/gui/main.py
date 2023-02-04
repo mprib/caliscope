@@ -25,7 +25,7 @@ from calicam.gui.stereo_calibration.stereo_cal_dialog import StereoCalDialog
 class MainWindow(QMainWindow):
     def __init__(self, session=None):
         super().__init__()
-        self.repo = Path(__file__).parent.parent.parent
+        self.repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
         if session is not None:
             self.session = session
 
@@ -289,7 +289,7 @@ class MainWindow(QMainWindow):
             self.create_charuco_builder()
 
 def launch_main_window():
-    repo = Path(__file__).parent.parent.parent
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     config_path = Path(repo, "sessions", "high_res_session")
     
     app = QApplication(sys.argv)

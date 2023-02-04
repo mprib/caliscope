@@ -1,0 +1,33 @@
+CreationDate = 2023-02-02T07:57:16.310058
+
+[cam_0]
+port = 0
+resolution = [ 640, 480,]
+rotation_count = 0
+exposure = -6.0
+ignore = false
+
+[cam_1]
+port = 1
+resolution = [ 640, 480,]
+rotation_count = 0
+exposure = -6.0
+ignore = false
+
+[cam_2]
+port = 2
+resolution = [ 640, 480,]
+rotation_count = 0
+exposure = -7.0
+ignore = false
+
+[charuco]
+columns = 4
+rows = 5
+board_height = 11.0
+board_width = 8.5
+dictionary = "DICT_4X4_1000"
+units = "inch"
+aruco_scale = 0.75
+square_size_overide_cm = 5.4
+inverted = true

@@ -24,7 +24,7 @@ class WizardIntro(QWizardPage):
         self.setTitle("Something old or something new?")
 
         text = QLabel(
-            "This wizard will help you calibrate your camera system. \nWill you be starting with a previous configuration or creating a new configuration"
+            "This wizard will help you calibrate your camera system. \nWill you be starting with a previous configuration \nor creating a new one?"
         )
 
         self.from_previous_radio = QRadioButton("From Previous Configuration")
@@ -43,15 +43,15 @@ class WizardIntro(QWizardPage):
 
         self.vbox.addWidget(self.from_previous_radio)
 
-        self.original_path = DirectorySelector()
+        self.original_path = DirectorySelector("Original Config")
         self.vbox.addWidget(self.original_path)
         self.original_path.setHidden(True)
-        self.modified_path = DirectorySelector()
+        self.modified_path = DirectorySelector("New Config")
         self.vbox.addWidget(self.modified_path)
         self.modified_path.setHidden(True)
         self.vbox.addWidget(self.create_new_radio)
 
-        self.new_path = DirectorySelector()
+        self.new_path = DirectorySelector("New Config")
         self.vbox.addWidget(self.new_path)
         self.new_path.setHidden(True)
 
@@ -82,10 +82,10 @@ class WizardIntro(QWizardPage):
 
 
 class DirectorySelector(QWidget):
-    def __init__(self):
+    def __init__(self, button_text):
         super().__init__()
         self.textbox = QLineEdit()
-        self.button = QPushButton("Select Directory")
+        self.button = QPushButton(button_text)
         self.button.clicked.connect(self.select_directory)
 
         layout = QHBoxLayout()

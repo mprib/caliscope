@@ -112,7 +112,7 @@ if __name__ == "__main__":
     from calicam.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
     from calicam.session import Session
 
-    repo = Path(__file__).parent.parent.parent.parent
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam").parent
     config_path = Path(repo, "sessions", "high_res_session")
     session = Session(config_path)
     session.load_cameras()

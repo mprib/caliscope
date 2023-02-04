@@ -216,7 +216,7 @@ if __name__ == "__main__":
     from calicam.recording.recorded_stream import RecordedStreamPool
     from calicam.calibration.charuco import Charuco
 
-    repo = Path(__file__).parent.parent.parent
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     print(repo)
     session_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
     csv_output = Path(session_directory, "paired_point_data.csv")

@@ -92,7 +92,7 @@ if __name__ == "__main__":
     import time
     from calicam.cameras.synchronizer import Synchronizer
     
-    repo = Path(__file__).parent.parent.parent
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     print(repo)
 
     session_directory = Path(repo, "sessions", "iterative_adjustment", "recording")

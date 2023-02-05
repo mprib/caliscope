@@ -430,7 +430,7 @@ class stage(Enum):
 
 #%%
 if __name__ == "__main__":
-    repo = Path(__file__).parent.parent
+    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
     config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
     print("Loading session config")

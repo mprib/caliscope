@@ -42,7 +42,6 @@ class WizardIntro(QWidget):
     
     def __init__(self):
         super().__init__()
-        # self.setTitle("Something old or something new?")
 
         text = QLabel(
             "This wizard will help you calibrate your camera system. \nWill you be starting with a previous configuration \nor creating a new one?"
@@ -81,8 +80,18 @@ class WizardIntro(QWidget):
         
         # create the button that will initiate the wizard once file(s) chosen 
         self.launch_wizard_btn = QPushButton("Launch Calibration Wizard")
+            
+        self.launch_wizard_btn.clicked.connect(self.launch_wizard)
         self.launch_wizard_btn.setEnabled(False)
+        
         self.vbox.addWidget(self.launch_wizard_btn)
+        
+    def launch_wizard(self):
+        # where you'll need to link up the next dialog in the chain
+        print(self.original_path.textbox.text())
+        print(self.modified_path.textbox.text())
+        print(self.new_path.textbox.text())
+        print("Time to move on...")
         
     def click_from_previous(self):
         print(self.button_group.checkedButton().text())
@@ -92,7 +101,6 @@ class WizardIntro(QWidget):
         self.new_path.setHidden(True)
         self.isComplete.emit(self.check_complete())
        
-
         
     def click_new(self):
         print(self.button_group.checkedButton().text())

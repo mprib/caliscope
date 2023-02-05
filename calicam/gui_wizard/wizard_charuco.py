@@ -51,7 +51,7 @@ class WizardCharuco(QWidget):
         # Build primary actions
         self.build_save_png_group()
         self.build_true_up_group()
-        self.build_save_config()
+        # self.build_save_config()
 
         # Build display of board
         self.charuco_added = False  # track to handle redrawing of board
@@ -132,15 +132,15 @@ class WizardCharuco(QWidget):
 
         self.true_up_group.layout().addWidget(self.printed_edge_length)
 
-    def build_save_config(self):
-        self.save_btn = QPushButton("&Save Charuco")
-        self.save_btn.setMaximumSize(100, 30)
+    # def build_save_config(self):
+    #     self.save_btn = QPushButton("&Save Charuco")
+    #     self.save_btn.setMaximumSize(100, 30)
 
-        def save_charuco():
-            self.session.charuco = self.charuco
-            self.session.save_charuco()
+    #     def save_charuco():
+    #         self.session.charuco = self.charuco
+    #         self.session.save_charuco()
 
-        self.save_btn.clicked.connect(save_charuco)
+    #     self.save_btn.clicked.connect(save_charuco)
 
 
     def build_charuco(self):
@@ -175,12 +175,15 @@ class WizardCharuco(QWidget):
             self.charuco_display.setMaximumSize(
                 int(self.height() / 2), int(self.width() / 2)
             )
+
         charuco_height = self.charuco_display.height()
         charuco_width = self.charuco_display.width()
         logger.info("Building charuco thumbnail...")
         charuco_img = self.charuco.board_pixmap(charuco_width, charuco_height)
         self.charuco_display.setPixmap(charuco_img)
 
+        self.session.charuco = self.charuco
+        self.session.save_charuco()
 
 class CharucoConfigurator(QWidget):
    
@@ -190,10 +193,12 @@ class CharucoConfigurator(QWidget):
         self.params = self.session.config["charuco"]
   
         self.column_spin = QSpinBox()
+        self.column_spin.setMinimum(2)
         self.column_spin.setValue(self.params["columns"])
         self.column_spin.setMaximumWidth(50)
 
         self.row_spin = QSpinBox()
+        self.row_spin.setMinimum(2)
         self.row_spin.setValue(self.params["rows"])
         self.row_spin.setMaximumWidth(50)
 

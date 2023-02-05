@@ -5,18 +5,14 @@ import sys
 from pathlib import Path
 from threading import Thread
 
-import cv2
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QImage, QPixmap, QIcon
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QSpinBox,
     QComboBox,
     QCheckBox,
-    QDialog,
     QWidget,
-    QGroupBox,
-    QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
     QPushButton,

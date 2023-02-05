@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QCheckBox,
     QDialog,
+    QWidget,
     QGroupBox,
     QDoubleSpinBox,
     QHBoxLayout,
@@ -28,18 +29,18 @@ from calicam.gui_wizard.wizard_camera_config.wizard_frame_emitter import FrameEm
 
 from calicam.session import Session
 
+FPS_TARGET = 100 # don't bother with fps at the moment. Just show at max actual fps
 
-class CameraConfigDialog(QDialog):
+class CameraConfigDialog(QWidget):
     def __init__(self, session, port):
         super(CameraConfigDialog, self).__init__()
 
         # set up variables for ease of reference
         self.session = session
-        # self.monocal = session.monocalibrators[port]
         self.port = port
         self.stream = self.session.streams[self.port]
-        # self.stream.camera = self.stream.camera
-
+        self.stream.set_fps_target(FPS_TARGET)
+        
         App = QApplication.instance()
         DISPLAY_WIDTH = App.primaryScreen().size().width()
         DISPLAY_HEIGHT = App.primaryScreen().size().height()
@@ -80,157 +81,43 @@ class CameraConfigDialog(QDialog):
         self.v_box.addLayout(self.exposure_hbox)
 
         #######################     FPS   + Grid Count #########################
-        controls = QHBoxLayout()
-        # controls.addWidget(self.fps_grp)
+        self.other_controls = QHBoxLayout()
+        self.other_controls.addLayout(self.fps_hbox)
         # controls.addWidget(self.grid_grp)
-        self.v_box.addWidget(self.fps_grp)
+        # self.v_box.addLayout(self.fps_hbox)
         # self.v_box.addWidget(self.grid_grp)
-        self.v_box.addLayout(controls)
-
-        ###################### CALIBRATION  ################################
-        # self.v_box.addWidget(self.calibrate_grp)
+        self.v_box.addLayout(self.other_controls)
+        self.other_controls.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.v_box.addWidget(self.ignore_box)
 
     ####################### SUB_WIDGET CONSTRUCTION ###############################
 
-    def build_calibrate_grp(self):
-        logger.debug("Building Calibrate Group")
-        self.calibrate_grp = QGroupBox("Calibrate")
-        # Generally Horizontal Configuration
-        hbox = QHBoxLayout()
-        self.calibrate_grp.setLayout(hbox)
-
-        # Collect Calibration Corners
-        vbox = QVBoxLayout()
-        vbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        collect_crnr_btn = QPushButton("Capture")
-        collect_crnr_btn.setMaximumWidth(100)
-        vbox.addWidget(collect_crnr_btn)
-
-        def capture():
-            """change to turn on/off"""
-            if not self.monocal.capture_corners:
-                self.monocal.capture_corners = True
-                collect_crnr_btn.setText("Stop Capture")
-                self.calibrate_btn.setEnabled(False)
-            else:
-                self.monocal.capture_corners = False
-                collect_crnr_btn.setText("Capture")
-                if self.monocal.grid_count > 1:
-                    self.calibrate_btn.setEnabled(True)
-                    self.clear_grid_history_btn.setEnabled(True)
-
-        collect_crnr_btn.clicked.connect(capture)
-
-        # Calibrate Button
-        self.calibrate_btn = QPushButton("Calibrate")
-        self.calibrate_btn.setEnabled(False)
-        self.calibrate_btn.setMaximumWidth(100)
-        vbox.addWidget(self.calibrate_btn)
-
-        def calibrate():
-            if len(self.monocal.all_ids) > 0:
-                self.cal_output.setText("Calibration can take a moment...")
-                self.calibrate_btn.setEnabled(False)
-                self.clear_grid_history_btn.setEnabled(True)
-                self.save_cal_btn.setEnabled(True)
-                self.undistort_btn.setEnabled(True)
-
-                def wrker():
-                    self.monocal.calibrate()
-                    self.cal_output.setText(self.stream.camera.calibration_summary())
-
-                self.calib_thread = Thread(target=wrker, args=(), daemon=True)
-                self.calib_thread.start()
-            else:
-                self.cal_output.setText("Need to Collect Grids")
-
-        # self.calibrate_btn.clicked.connect(calibrate)
-
-        # Clear calibration history
-        self.clear_grid_history_btn = QPushButton("Clear History")
-        self.clear_grid_history_btn.setMaximumWidth(100)
-        self.clear_grid_history_btn.setEnabled(False)
-        vbox.addWidget(self.clear_grid_history_btn)
-
-        def clear_capture_history():
-            self.monocal.initialize_grid_history()
-            self.calibrate_btn.setEnabled(False)
-            self.clear_grid_history_btn.setEnabled(False)
-            # self.save_cal_btn.setEnabled(False)
-            self.undistort_btn.setEnabled(False)
-            self.frame_emitter.undistort = False
-
-        self.clear_grid_history_btn.clicked.connect(clear_capture_history)
-
-        # Undistort
-        self.undistort_btn = QPushButton("Undistort")
-
-        # check here to see if distortion params are available for this camera
-        if self.stream.camera.distortion is None:
-            self.undistort_btn.setEnabled(False)
-        else:
-            self.undistort_btn.setEnabled(True)
-
-        self.undistort_btn.setMaximumWidth(100)
-        vbox.addWidget(self.undistort_btn)
-
-        def undistort():
-            if self.frame_emitter.undistort:
-                self.frame_emitter.undistort = False
-                self.undistort_btn.setText("Undistort")
-            else:
-                self.frame_emitter.undistort = True
-                self.undistort_btn.setText("Revert")
-
-        self.undistort_btn.clicked.connect(undistort)
-
-        def on_save_click():
-            self.session.save_camera(self.port)
-
-        # Save Calibration
-        self.save_cal_btn = QPushButton("Save Calibration")
-        # self.save_cal_btn.setEnabled(False)
-        self.save_cal_btn.setMaximumWidth(100)
-        self.save_cal_btn.clicked.connect(on_save_click)
-        vbox.addWidget(self.save_cal_btn)
-
-        # include calibration grid in horizontal box
-        hbox.addLayout(vbox)
-
-        self.cal_output = QLabel()
-        self.cal_output.setWordWrap(True)
-        self.cal_output.setMaximumWidth(int(self.pixmap_edge / 3))
-        self.cal_output.setText(self.stream.camera.calibration_summary())
-        hbox.addWidget(self.cal_output)
-        # calib_output.setMaximumWidth()
-
     def build_fps_grp(self):
 
-        self.fps_grp = QGroupBox("FPS")
-        fps_hbox = QHBoxLayout()
-        self.fps_grp.setLayout(fps_hbox)
+        # self.fps_grp = QGroupBox("FPS")
+        self.fps_hbox = QHBoxLayout()
+        # self.fps_grp.setLayout(self.fps_hbox)
 
-        logger.debug("Building FPS Control")
-        fps_hbox.addWidget(QLabel("Target:"))
-        self.frame_rate_spin = QSpinBox()
-        self.frame_rate_spin.setValue(self.stream.fps)
+        # logger.debug("Building FPS Control")
+        # self.fps_hbox.addWidget(QLabel("Target FPS:"))
+        # self.frame_rate_spin = QSpinBox()
+        # self.frame_rate_spin.setValue(self.stream.fps)
 
 
-        def on_frame_rate_spin(fps_rate):
-            self.stream.set_fps_target(fps_rate)
-            logger.info(f"Changing stream frame rate for port{self.port}")
+        # def on_frame_rate_spin(fps_rate):
+            # self.stream.set_fps_target(fps_rate)
+            # logger.info(f"Changing stream frame rate for port{self.port}")
 
-        self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
-        fps_hbox.addWidget(self.frame_rate_spin)
+        # self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
+        # self.fps_hbox.addWidget(self.frame_rate_spin)
 
         self.fps_display = QLabel()
         self.fps_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        fps_hbox.addWidget(self.fps_display)
+        self.fps_hbox.addWidget(self.fps_display)
 
         def FPSUpdateSlot(fps):
             if self.stream.camera.capture.isOpened():
-                # rounding to nearest integer should be close enough for our purposes
-                self.fps_display.setText("Actual: " + str(round(fps, 1)))
+                self.fps_display.setText("FPS: " + str(round(fps, 1)))
             else:
                 self.fps_display.setText("reconnecting to camera...")
 
@@ -285,8 +172,6 @@ class CameraConfigDialog(QDialog):
     def build_ignore_checkbox(self):
 
         self.ignore_box = QCheckBox("Ignore", self)
-        self.exposure_hbox.addWidget(self.ignore_box)
-
         def ignore_cam(signal):
             print(signal)
             if signal == 0:  # not checked
@@ -335,16 +220,6 @@ class CameraConfigDialog(QDialog):
                 daemon=True,
             )
             self.change_res_thread.start()
-
-            # whenever resolution changes, calibration parameters no longer apply
-            self.stream.camera.error = None
-            self.stream.camera.camera_matrix = None
-            self.stream.camera.distortion = None
-            self.stream.camera.grid_count = 0
-            self.frame_emitter.undistort = False
-
-            self.cal_output.setText(self.stream.camera.calibration_summary())
-            self.clear_grid_history_btn.click()
 
         self.resolution_combo = QComboBox()
 

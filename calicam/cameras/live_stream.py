@@ -16,17 +16,17 @@ from calicam.cameras.camera import Camera
 
 
 class LiveStream:
-    def __init__(self, camera, fps=6):
+    def __init__(self, camera, fps_target=6):
         self.camera = camera
         self.port = camera.port
 
-        self.reel = Queue(-1)  # infinite size....hopefully doesn't blow up
+        self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
         self.stop_confirm = Queue()
         self.stop_event = Event()
 
         self.push_to_reel = False
         self.show_fps = False
-        self.set_fps(fps)
+        self.set_fps_target(fps_target)
         self.FPS_actual = 0
         # Start the thread to read frames from the video stream
         self.thread = Thread(target=self.roll_camera, args=(), daemon=True)
@@ -38,7 +38,7 @@ class LiveStream:
             1  # trying to avoid div 0 error...not sure about this though
         )
 
-    def set_fps(self, fps):
+    def set_fps_target(self, fps):
         self.fps = fps
         milestones = []
         for i in range(0, fps):
@@ -107,7 +107,7 @@ class LiveStream:
 
                 if self.push_to_reel and self.success:
                     logger.debug(f"Pushing frame to reel at port {self.port}")
-                    self.reel.put([self.frame_time, self._working_frame])
+                    self.out_q.put([self.frame_time, self._working_frame])
 
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     while True:
         try:
             for stream in streams:
-                time, img = stream.reel.get()
+                time, img = stream.out_q.get()
                 cv2.imshow(
                     (str(stream.port) + ": 'q' to quit and attempt calibration"),
                     img,

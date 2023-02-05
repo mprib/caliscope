@@ -96,7 +96,7 @@ class Synchronizer:
             (
                 frame_time,
                 frame,
-            ) = stream.reel.get()
+            ) = stream.out_q.get()
 
             if frame_time == -1:  # signal from recorded stream that end of file reached
                 break

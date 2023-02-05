@@ -64,12 +64,12 @@ class RecordedStream:
                 break
 
             logger.debug(f"Placing frame on reel {self.port} for frame time: {frame_time} and frame index: {frame_index}")
-            self.reel.put([frame_time, frame])
+            self.out_q.put([frame_time, frame])
             frame_index += 1
 
             if frame_index > self.last_frame_index:
                 logger.info(f"Ending recorded playback at port {self.port}")
-                self.reel.put([-1, np.array([], dtype="uint8")])
+                self.out_q.put([-1, np.array([], dtype="uint8")])
                 break
 
 

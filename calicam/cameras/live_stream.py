@@ -24,7 +24,7 @@ class LiveStream:
         self.stop_confirm = Queue()
         self.stop_event = Event()
 
-        self.push_to_reel = False
+        self.push_to_out_q = False
         self.show_fps = False
         self.set_fps_target(fps_target)
         self.FPS_actual = 0
@@ -75,7 +75,7 @@ class LiveStream:
         return 1 / self.avg_delta_time
 
     def stop(self):
-        self.push_to_reel = False
+        self.push_to_out_q = False
         self.stop_event.set()
         logger.info(f"Stop signal sent at stream {self.port}")
 
@@ -105,7 +105,7 @@ class LiveStream:
                 if self.show_fps:
                     self._add_fps()
 
-                if self.push_to_reel and self.success:
+                if self.push_to_out_q and self.success:
                     logger.debug(f"Pushing frame to reel at port {self.port}")
                     self.out_q.put([self.frame_time, self._working_frame])
 
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
         stream = LiveStream(cam)
-        stream.push_to_reel = True
+        stream.push_to_out_q = True
         stream.show_fps = True
         streams.append(stream)
 

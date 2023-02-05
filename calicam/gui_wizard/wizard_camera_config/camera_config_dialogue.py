@@ -28,6 +28,7 @@ from calicam.session import Session
 FPS_TARGET = 100 # don't bother with fps at the moment. Just show at max actual fps
 
 class CameraConfigDialog(QWidget):
+    
     def __init__(self, session, port):
         super(CameraConfigDialog, self).__init__()
 
@@ -79,33 +80,19 @@ class CameraConfigDialog(QWidget):
         #######################     FPS   + Grid Count #########################
         self.other_controls = QHBoxLayout()
         self.other_controls.addLayout(self.fps_hbox)
-        # controls.addWidget(self.grid_grp)
-        # self.v_box.addLayout(self.fps_hbox)
-        # self.v_box.addWidget(self.grid_grp)
         self.v_box.addLayout(self.other_controls)
         self.other_controls.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.v_box.addWidget(self.ignore_box)
 
     ####################### SUB_WIDGET CONSTRUCTION ###############################
-
+    def save_camera(self):
+        self.session.save_camera(self.port)
+        
+        
     def build_fps_grp(self):
 
         # self.fps_grp = QGroupBox("FPS")
         self.fps_hbox = QHBoxLayout()
-        # self.fps_grp.setLayout(self.fps_hbox)
-
-        # logger.debug("Building FPS Control")
-        # self.fps_hbox.addWidget(QLabel("Target FPS:"))
-        # self.frame_rate_spin = QSpinBox()
-        # self.frame_rate_spin.setValue(self.stream.fps)
-
-
-        # def on_frame_rate_spin(fps_rate):
-            # self.stream.set_fps_target(fps_rate)
-            # logger.info(f"Changing stream frame rate for port{self.port}")
-
-        # self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
-        # self.fps_hbox.addWidget(self.frame_rate_spin)
 
         self.fps_display = QLabel()
         self.fps_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -128,6 +115,7 @@ class CameraConfigDialog(QWidget):
 
         # Counter Clockwise rotation called because the display image is flipped
         self.cw_rotation_btn.clicked.connect(self.stream.camera.rotate_CCW)
+        self.cw_rotation_btn.clicked.connect(self.save_camera)
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton(
@@ -137,6 +125,7 @@ class CameraConfigDialog(QWidget):
 
         # Clockwise rotation called because the display image is flipped
         self.ccw_rotation_btn.clicked.connect(self.stream.camera.rotate_CW)
+        self.ccw_rotation_btn.clicked.connect(self.save_camera)
 
     def build_exposure_hbox(self):
         # construct a horizontal widget with label: slider: value display
@@ -158,6 +147,7 @@ class CameraConfigDialog(QWidget):
             exp_number.setText(str(s))
 
         self.exp_slider.valueChanged.connect(update_exposure)
+        self.exp_slider.valueChanged.connect(self.save_camera)
 
         self.exposure_hbox.addWidget(label)
         self.exposure_hbox.addWidget(self.exp_slider)
@@ -178,6 +168,7 @@ class CameraConfigDialog(QWidget):
                 self.stream.camera.ignore = True
 
         self.ignore_box.stateChanged.connect(ignore_cam)
+        self.ignore_box.stateChanged.connect(self.save_camera)
 
     def build_frame_display(self):
         # return a QLabel that is linked to the constantly changing image
@@ -225,6 +216,7 @@ class CameraConfigDialog(QWidget):
         w, h = self.stream.camera.resolution
         self.resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
         self.resolution_combo.currentTextChanged.connect(change_resolution)
+        self.resolution_combo.currentTextChanged.connect(self.save_camera)
 
 
 if __name__ == "__main__":
@@ -233,13 +225,10 @@ if __name__ == "__main__":
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     config_path = Path(repo, "sessions", "default_res_session")
 
-    # THIS IS WHERE YOU START TOMORROW, MAC. MAKE THIS WORK WITH JUST monocalibrator INPUT
     print(config_path)
     session = Session(config_path)
     session.load_cameras()
     session.load_streams()
-    # session.adjust_resolutions()
-    # session.load_monocalibrators()
 
     test_port = 0
 

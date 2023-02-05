@@ -41,7 +41,7 @@ class Synchronizer:
     def update_fps_targets(self, target):
         logger.info(f"Attempting to change target fps in streams to {target}")
         for port, stream in self.streams.items():
-            stream.set_fps(target)
+            stream.set_fps_target(target)
 
     def stop(self):
         self.stop_event.set()

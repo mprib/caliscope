@@ -17,13 +17,15 @@ class FrameEmitter(QThread):
     FPSBroadcast = pyqtSignal(float)
     GridCountBroadcast = pyqtSignal(int)
 
-    def __init__(self, monocalibrator, pixmap_edge_length=None):
+    def __init__(self, stream, pixmap_edge_length=None):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(FrameEmitter, self).__init__()
-        self.monocalibrator = monocalibrator
+        # self.monocalibrator = monocalibrator
+        self.stream = stream
+        self.stream.push_to_out_q = True
         self.pixmap_edge_length = pixmap_edge_length
-        self.rotation_count = monocalibrator.camera.rotation_count
+        self.rotation_count = stream.camera.rotation_count
         self.undistort = False
 
     def run(self):
@@ -33,7 +35,7 @@ class FrameEmitter(QThread):
             # Grab a frame from the queue and broadcast to displays
             # self.monocalibrator.grid_frame_ready_q.get()
 
-            self.frame = self.monocalibrator.grid_frame
+            self.frame_time, self.frame = self.stream.out_q.get()
             self.apply_undistortion()
             self.apply_rotation()
 
@@ -47,11 +49,12 @@ class FrameEmitter(QThread):
                     Qt.AspectRatioMode.KeepAspectRatio,
                 )
             self.ImageBroadcast.emit(pixmap)
-            self.FPSBroadcast.emit(self.monocalibrator.stream.FPS_actual)
-            self.GridCountBroadcast.emit(self.monocalibrator.grid_count)
+            self.FPSBroadcast.emit(self.stream.FPS_actual)
+            # self.GridCountBroadcast.emit(self.monocalibrator.grid_count)
 
     def stop(self):
         self.ThreadActive = False
+        self.stream.push_to_out_q = False
         self.quit()
 
     def cv2_to_qlabel(self, frame):
@@ -68,13 +71,13 @@ class FrameEmitter(QThread):
 
     def apply_rotation(self):
         # logger.debug("Applying Rotation")
-        if self.monocalibrator.camera.rotation_count == 0:
+        if self.stream.camera.rotation_count == 0:
             pass
-        elif self.monocalibrator.camera.rotation_count in [1, -3]:
+        elif self.stream.camera.rotation_count in [1, -3]:
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_CLOCKWISE)
-        elif self.monocalibrator.camera.rotation_count in [2, -2]:
+        elif self.stream.camera.rotation_count in [2, -2]:
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_180)
-        elif self.monocalibrator.camera.rotation_count in [-1, 3]:
+        elif self.stream.camera.rotation_count in [-1, 3]:
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     def apply_undistortion(self):
@@ -82,8 +85,8 @@ class FrameEmitter(QThread):
         if self.undistort == True:  # and self.mono_cal.is_calibrated:
             self.frame = cv2.undistort(
                 self.frame,
-                self.monocalibrator.camera.camera_matrix,
-                self.monocalibrator.camera.distortion,
+                self.stream.camera.camera_matrix,
+                self.stream.camera.distortion,
             )
 
 

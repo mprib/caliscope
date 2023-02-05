@@ -83,7 +83,7 @@ class WizardCharuco(QWidget):
 
         def save_png():
             save_file_tuple = QFileDialog.getSaveFileName(
-                self, "Save As", "charuco.png", "PNG (*.png)"
+                self, "Save As", str(Path(__app_dir__,"charuco.png")), "PNG (*.png)"
             )
             print(save_file_tuple)
             save_file_name = str(Path(save_file_tuple[0]))
@@ -99,7 +99,7 @@ class WizardCharuco(QWidget):
 
         def save_mirror_png():
             save_file_tuple = QFileDialog.getSaveFileName(
-                self, "Save As", "charuco_mirror.png", "PNG (*.png)"
+                self, "Save As", str(Path(__app_dir__,"charuco_mirror.png")), "PNG (*.png)"
             )
             print(save_file_tuple)
             save_file_name = str(Path(save_file_tuple[0]))
@@ -119,14 +119,18 @@ class WizardCharuco(QWidget):
         self.true_up_group.layout().addWidget(QLabel("Actual Length (cm):"))
 
         self.printed_edge_length = QDoubleSpinBox()
+        self.printed_edge_length.setSingleStep(.01)
         self.printed_edge_length.setMaximumWidth(100)
         # self.set_true_edge_length()
         overide = self.session.config["charuco"]["square_size_overide_cm"]
         self.printed_edge_length.setValue(overide)
 
         def update_charuco():
-            self.charuco.square_size_overide_cm = self.printed_edge_length.value()
-            print("Updated Square Size Overide")
+            self.charuco.square_size_overide_cm = round(self.printed_edge_length.value(),2)
+
+            logger.info(f"Updated Square Size Overide to {self.printed_edge_length.value}")
+            self.session.charuco = self.charuco
+            self.session.save_charuco()
 
         self.printed_edge_length.valueChanged.connect(update_charuco)
 
@@ -139,13 +143,10 @@ class WizardCharuco(QWidget):
     #     def save_charuco():
     #         self.session.charuco = self.charuco
     #         self.session.save_charuco()
-
     #     self.save_btn.clicked.connect(save_charuco)
 
 
     def build_charuco(self):
-        ####################### PNG DISPLAY     ###########################
-
         columns = self.configurator.column_spin.value()
         rows = self.configurator.row_spin.value()
         board_height = self.configurator.length_spin.value()
@@ -175,9 +176,17 @@ class WizardCharuco(QWidget):
             self.charuco_display.setMaximumSize(
                 int(self.height() / 2), int(self.width() / 2)
             )
+        
+        
+        # interesting problem comes up when scaling this... I want to switch between scaling the width and height
+        # based on how these two things relate....
+        if board_height>board_width:
+            charuco_height = int(self.height() / 2)
+            charuco_width = int(charuco_height*(board_width/board_height))
+        else:
+            charuco_width = int(self.width() / 2)
+            charuco_height = int(charuco_width*(board_height/board_width))
 
-        charuco_height = self.charuco_display.height()
-        charuco_width = self.charuco_display.width()
         logger.info("Building charuco thumbnail...")
         charuco_img = self.charuco.board_pixmap(charuco_width, charuco_height)
         self.charuco_display.setPixmap(charuco_img)
@@ -203,10 +212,12 @@ class CharucoConfigurator(QWidget):
         self.row_spin.setMaximumWidth(50)
 
         self.width_spin = QDoubleSpinBox()
+        self.width_spin.setMinimum(1)
         self.width_spin.setValue(self.params["board_width"])
         self.width_spin.setMaximumWidth(50)
 
         self.length_spin = QDoubleSpinBox()
+        self.length_spin.setMinimum(1)
         self.length_spin.setValue(self.params["board_height"])
         self.length_spin.setMaximumWidth(50)
 

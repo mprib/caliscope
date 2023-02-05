@@ -219,7 +219,7 @@ class CameraConfigDialog(QDialog):
 
 
         def on_frame_rate_spin(fps_rate):
-            self.stream.set_fps(fps_rate)
+            self.stream.set_fps_target(fps_rate)
             logger.info(f"Changing monocalibrator frame rate for port{self.port}")
 
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)

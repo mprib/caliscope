@@ -36,7 +36,7 @@ class RecordedStream:
         self.last_frame_index = self.port_history["frame_index"].max()
         # self.shutter_sync = Queue(-1)
 
-    def set_fps(self, fps):
+    def set_fps_target(self, fps):
         logger.info("No frame rate for recorded playback, push to synchronizer as rapidly as possible")
 
     def play_video(self):

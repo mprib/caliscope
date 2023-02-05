@@ -38,7 +38,7 @@ class CameraConfigDialog(QDialog):
         # self.monocal = session.monocalibrators[port]
         self.port = port
         self.stream = self.session.streams[self.port]
-        self.camera = self.stream.camera
+        # self.stream.camera = self.stream.camera
 
         App = QApplication.instance()
         DISPLAY_WIDTH = App.primaryScreen().size().width()
@@ -47,7 +47,7 @@ class CameraConfigDialog(QDialog):
         self.setWindowTitle("Camera Configuration and Calibration")
 
         self.pixmap_edge = min(DISPLAY_WIDTH / 3, DISPLAY_HEIGHT / 3)
-        self.frame_emitter = FrameEmitter(self.monocal, self.pixmap_edge)
+        self.frame_emitter = FrameEmitter(self.stream, self.pixmap_edge)
         self.frame_emitter.start()
         self.setContentsMargins(0, 0, 0, 0)
 
@@ -58,9 +58,7 @@ class CameraConfigDialog(QDialog):
         self.build_resolution_combo()
         self.build_exposure_hbox()
         self.build_ignore_checkbox()
-        # self.build_fps_grp()
-        # self.build_grid_group()
-        # self.build_calibrate_grp()
+        self.build_fps_grp()
         ###################################################################
         self.v_box = QVBoxLayout(self)
         self.v_box.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -85,7 +83,7 @@ class CameraConfigDialog(QDialog):
         controls = QHBoxLayout()
         # controls.addWidget(self.fps_grp)
         # controls.addWidget(self.grid_grp)
-        # self.v_box.addWidget(self.fps_grp)
+        self.v_box.addWidget(self.fps_grp)
         # self.v_box.addWidget(self.grid_grp)
         self.v_box.addLayout(controls)
 
@@ -139,7 +137,7 @@ class CameraConfigDialog(QDialog):
 
                 def wrker():
                     self.monocal.calibrate()
-                    self.cal_output.setText(self.monocal.camera.calibration_summary())
+                    self.cal_output.setText(self.stream.camera.calibration_summary())
 
                 self.calib_thread = Thread(target=wrker, args=(), daemon=True)
                 self.calib_thread.start()
@@ -168,7 +166,7 @@ class CameraConfigDialog(QDialog):
         self.undistort_btn = QPushButton("Undistort")
 
         # check here to see if distortion params are available for this camera
-        if self.monocal.camera.distortion is None:
+        if self.stream.camera.distortion is None:
             self.undistort_btn.setEnabled(False)
         else:
             self.undistort_btn.setEnabled(True)
@@ -202,7 +200,7 @@ class CameraConfigDialog(QDialog):
         self.cal_output = QLabel()
         self.cal_output.setWordWrap(True)
         self.cal_output.setMaximumWidth(int(self.pixmap_edge / 3))
-        self.cal_output.setText(self.monocal.camera.calibration_summary())
+        self.cal_output.setText(self.stream.camera.calibration_summary())
         hbox.addWidget(self.cal_output)
         # calib_output.setMaximumWidth()
 
@@ -220,7 +218,7 @@ class CameraConfigDialog(QDialog):
 
         def on_frame_rate_spin(fps_rate):
             self.stream.set_fps(fps_rate)
-            logger.info(f"Changing monocalibrator frame rate for port{self.port}")
+            logger.info(f"Changing stream frame rate for port{self.port}")
 
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
         fps_hbox.addWidget(self.frame_rate_spin)
@@ -230,7 +228,7 @@ class CameraConfigDialog(QDialog):
         fps_hbox.addWidget(self.fps_display)
 
         def FPSUpdateSlot(fps):
-            if self.monocal.camera.capture.isOpened():
+            if self.stream.camera.capture.isOpened():
                 # rounding to nearest integer should be close enough for our purposes
                 self.fps_display.setText("Actual: " + str(round(fps, 1)))
             else:
@@ -238,32 +236,6 @@ class CameraConfigDialog(QDialog):
 
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
 
-    def build_grid_group(self):
-        # Built capture wait time
-        self.grid_grp = QGroupBox("Grid Collection")
-        hbox = QHBoxLayout()
-        self.grid_grp.setLayout(hbox)
-
-        hbox.addWidget(QLabel("Wait Time:"))
-        self.wait_time_spin = QDoubleSpinBox()
-        self.wait_time_spin.setValue(self.monocal.wait_time)
-        self.wait_time_spin.setSingleStep(0.1)
-
-        def on_wait_time_spin(wait_time):
-            self.monocal.wait_time = wait_time
-
-        self.wait_time_spin.valueChanged.connect(on_wait_time_spin)
-        hbox.addWidget(self.wait_time_spin)
-
-        logger.debug("Building Grid Count Display")
-        self.grid_count_display = QLabel()
-        hbox.addWidget(self.grid_count_display)
-        self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-
-        def grid_count_update_slot(grid_count):
-            self.grid_count_display.setText(f"Count: {grid_count}")
-
-        self.frame_emitter.GridCountBroadcast.connect(grid_count_update_slot)
 
     def build_cw_rotation_btn(self):
         self.cw_rotation_btn = QPushButton(
@@ -272,7 +244,7 @@ class CameraConfigDialog(QDialog):
         self.cw_rotation_btn.setMaximumSize(100, 50)
 
         # Counter Clockwise rotation called because the display image is flipped
-        self.cw_rotation_btn.clicked.connect(self.monocal.camera.rotate_CCW)
+        self.cw_rotation_btn.clicked.connect(self.stream.camera.rotate_CCW)
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton(
@@ -281,7 +253,7 @@ class CameraConfigDialog(QDialog):
         self.ccw_rotation_btn.setMaximumSize(100, 50)
 
         # Clockwise rotation called because the display image is flipped
-        self.ccw_rotation_btn.clicked.connect(self.monocal.camera.rotate_CW)
+        self.ccw_rotation_btn.clicked.connect(self.stream.camera.rotate_CW)
 
     def build_exposure_hbox(self):
         # construct a horizontal widget with label: slider: value display
@@ -291,15 +263,15 @@ class CameraConfigDialog(QDialog):
 
         self.exp_slider = QSlider(Qt.Orientation.Horizontal)
         self.exp_slider.setRange(-10, 0)
-        self.exp_slider.setSliderPosition(int(self.monocal.camera.exposure))
+        self.exp_slider.setSliderPosition(int(self.stream.camera.exposure))
         self.exp_slider.setPageStep(1)
         self.exp_slider.setSingleStep(1)
         self.exp_slider.setMaximumWidth(200)
         exp_number = QLabel()
-        exp_number.setText(str(int(self.monocal.camera.exposure)))
+        exp_number.setText(str(int(self.stream.camera.exposure)))
 
         def update_exposure(s):
-            self.monocal.camera.exposure = s
+            self.stream.camera.exposure = s
             exp_number.setText(str(s))
 
         self.exp_slider.valueChanged.connect(update_exposure)
@@ -319,10 +291,10 @@ class CameraConfigDialog(QDialog):
             print(signal)
             if signal == 0:  # not checked
                 logger.info(f"Don't ignore camera at port {self.port}")
-                self.camera.ignore = False
+                self.stream.camera.ignore = False
             else:  # value of checkState() might be 2?
                 logger.info(f"Ignore camera at port {self.port}")
-                self.camera.ignore = True
+                self.stream.camera.ignore = True
 
         self.ignore_box.stateChanged.connect(ignore_cam)
 
@@ -342,7 +314,7 @@ class CameraConfigDialog(QDialog):
     def build_resolution_combo(self):
         def resolutions_text():
             res_text = []
-            for w, h in self.camera.possible_resolutions:
+            for w, h in self.stream.camera.possible_resolutions:
                 res_text.append(f"{int(w)} x {int(h)}")
             return res_text
 
@@ -358,20 +330,20 @@ class CameraConfigDialog(QDialog):
                 f"Attempting to change resolution of camera at port {self.port}"
             )
             self.change_res_thread = Thread(
-                target=self.monocal.stream.change_resolution,
+                target=self.stream.change_resolution,
                 args=(new_res,),
                 daemon=True,
             )
             self.change_res_thread.start()
 
             # whenever resolution changes, calibration parameters no longer apply
-            self.camera.error = None
-            self.camera.camera_matrix = None
-            self.camera.distortion = None
-            self.camera.grid_count = 0
+            self.stream.camera.error = None
+            self.stream.camera.camera_matrix = None
+            self.stream.camera.distortion = None
+            self.stream.camera.grid_count = 0
             self.frame_emitter.undistort = False
 
-            self.cal_output.setText(self.monocal.camera.calibration_summary())
+            self.cal_output.setText(self.stream.camera.calibration_summary())
             self.clear_grid_history_btn.click()
 
         self.resolution_combo = QComboBox()
@@ -379,7 +351,7 @@ class CameraConfigDialog(QDialog):
         self.resolution_combo.addItems(resolutions_text())
         self.resolution_combo.setMaximumSize(100, 50)
 
-        w, h = self.monocal.camera.resolution
+        w, h = self.stream.camera.resolution
         self.resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
         self.resolution_combo.currentTextChanged.connect(change_resolution)
 
@@ -388,7 +360,7 @@ if __name__ == "__main__":
     App = QApplication(sys.argv)
 
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
-    config_path = Path(repo, "sessions", "high_res_session")
+    config_path = Path(repo, "sessions", "default_res_session")
 
     # THIS IS WHERE YOU START TOMORROW, MAC. MAKE THIS WORK WITH JUST monocalibrator INPUT
     print(config_path)

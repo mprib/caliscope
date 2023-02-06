@@ -387,10 +387,10 @@ class CameraConfigDialog(QDialog):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
 
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam").parent
-    config_path = Path(repo, "sessions", "high_res_session")
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
+    config_path = Path(repo, "sessions", "default_res_session")
+    # ports = [0, 1, 2]
 
-    # THIS IS WHERE YOU START TOMORROW, MAC. MAKE THIS WORK WITH JUST monocalibrator INPUT
     print(config_path)
     session = Session(config_path)
     session.load_cameras()

@@ -6,6 +6,7 @@ resolution = [ 1280, 960,]
 rotation_count = 0
 exposure = -7.0
 ignore = false
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,],]
 
 [cam_1]
 port = 1
@@ -13,6 +14,7 @@ resolution = [ 1280, 960,]
 rotation_count = 0
 exposure = -5.0
 ignore = false
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,],]
 
 [cam_2]
 port = 2
@@ -20,6 +22,7 @@ resolution = [ 1280, 960,]
 rotation_count = 0
 exposure = -9.0
 ignore = false
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,],]
 
 [charuco]
 columns = 4

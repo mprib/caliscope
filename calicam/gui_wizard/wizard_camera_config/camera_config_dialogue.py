@@ -186,7 +186,7 @@ class CameraConfigDialog(QWidget):
     def build_resolution_combo(self):
         def resolutions_text():
             res_text = []
-            for w, h in self.stream.camera.possible_resolutions:
+            for w, h in self.stream.camera.verified_resolutions:
                 res_text.append(f"{int(w)} x {int(h)}")
             return res_text
 

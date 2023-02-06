@@ -32,7 +32,7 @@ class Camera(object):
 
     # https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
     # see above for constants used to access properties
-    def __init__(self, port):
+    def __init__(self, port, verified_resolutions = None):
 
         # get the platform in use:
         if platform.system() == "Windows":
@@ -85,14 +85,16 @@ class Camera(object):
             self.virtual_camera = False
 
         if not self.virtual_camera:
-            self.set_possible_resolutions()
-
+            if verified_resolutions is None:
+                self.set_possible_resolutions()
+            else:
+                self.verified_resolutions = verified_resolutions
             # camera initializes as uncalibrated
             self.error = None
             self.camera_matrix = None
             self.distortion = None
             self.grid_count = None
-        if isinstance(self.possible_resolutions[0], int):
+        if isinstance(self.verified_resolutions[0], int):
             # probably not real
             self.port = port
             self.capture = None
@@ -160,14 +162,14 @@ class Camera(object):
         return resolution
 
     def set_possible_resolutions(self):
-        self.possible_resolutions = []
+        self.verified_resolutions = []
         for resolution in RESOLUTIONS_TO_CHECK:
             # attempt to set the camera to the given resolution
             self.resolution = resolution
             
             # if it sticks, then that resolution is verified
             if resolution == self.resolution:
-                self.possible_resolutions.append(resolution)
+                self.verified_resolutions.append(resolution)
                 
         # min_res = self.get_nearest_resolution(MIN_RESOLUTION_CHECK)
         # max_res = self.get_nearest_resolution(MAX_RESOLUTION_CHECK)
@@ -282,9 +284,9 @@ RESOLUTIONS_TO_CHECK = [
 if __name__ == "__main__":
 
     cam = Camera(0)
-    logger.info(f"Camera {cam.port} has possible resolutions: {cam.possible_resolutions}")
+    logger.info(f"Camera {cam.port} has possible resolutions: {cam.verified_resolutions}")
 
-    for res in cam.possible_resolutions:
+    for res in cam.verified_resolutions:
         logger.info(f"Testing Resolution {res}")
 
         cam.disconnect()

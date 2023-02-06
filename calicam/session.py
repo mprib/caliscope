@@ -172,7 +172,8 @@ class Session:
                     logger.info(f"Ignoring camera at port {port}")
                     pass  # don't load it in
                 else:
-                    self.cameras[port] = Camera(port)
+                    verified_resolutions = params["verified_resolutions"]
+                    self.cameras[port] = Camera(port, verified_resolutions)
                     cam = self.cameras[port]  # just for ease of reference
                     cam.rotation_count = params["rotation_count"]
                     cam.exposure = params["exposure"]
@@ -384,6 +385,7 @@ class Session:
             "exposure": cam.exposure,
             "grid_count": cam.grid_count,
             "ignore": cam.ignore,
+            "verified_resolutions": cam.verified_resolutions
         }
 
         logger.info(f"Saving camera parameters...{params}")

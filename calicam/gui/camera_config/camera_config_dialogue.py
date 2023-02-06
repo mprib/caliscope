@@ -342,7 +342,7 @@ class CameraConfigDialog(QDialog):
     def build_resolution_combo(self):
         def resolutions_text():
             res_text = []
-            for w, h in self.camera.possible_resolutions:
+            for w, h in self.camera.verified_resolutions:
                 res_text.append(f"{int(w)} x {int(h)}")
             return res_text
 

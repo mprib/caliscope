@@ -86,7 +86,7 @@ class Synchronizer:
 
     def harvest_frames(self, stream):
         port = stream.port
-        stream.push_to_reel = True
+        stream.push_to_out_q = True
 
         logger.info(f"Beginning to collect data generated at port {port}")
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     import pandas as pd
 
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
-    config_path = Path(repo, "sessions", "high_res_session")
+    config_path = Path(repo, "sessions", "default_res_session")
 
     session = Session(config_path)
 
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     session.load_streams()
     session.adjust_resolutions()
 
-    syncr = Synchronizer(session.streams, fps_target=None)
+    syncr = Synchronizer(session.streams, fps_target=16) # fps high to see full speed
 
     notification_q = Queue()
 

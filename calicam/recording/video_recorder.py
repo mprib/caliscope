@@ -114,7 +114,7 @@ if __name__ == "__main__":
     from calicam.session import Session
     
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
-    session_path = Path(repo, "sessions", "high_res_session")
+    session_path = Path(repo, "sessions", "default_res_session")
     print(f"Config Path: {session_path}")
     session = Session(session_path)
 
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     video_recorder = VideoRecorder(syncr)
 
     print(repo)
-    video_path = Path(repo,"sessions", "high_res_session", "recording")
+    video_path = Path(session_path, "recording")
     video_recorder.start_recording(video_path)
-    time.sleep(5)
+    time.sleep(10)
     video_recorder.stop_recording()

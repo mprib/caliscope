@@ -195,7 +195,7 @@ if __name__ == "__main__":
 
     logger.debug("Test live stereocalibration processing")
 
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam").parent
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
 
@@ -208,7 +208,7 @@ if __name__ == "__main__":
     trackr = CornerTracker(session.charuco)
 
     logger.info("Creating Synchronizer")
-    syncr = Synchronizer(session.streams, fps_target=4)
+    syncr = Synchronizer(session.streams, fps_target=6)
     logger.info("Creating Stereocalibrator")
     stereo_cal = StereoCalibrator(syncr, trackr)
     frame_builder = StereoFrameBuilder(stereo_cal)

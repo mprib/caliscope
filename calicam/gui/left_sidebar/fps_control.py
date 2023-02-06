@@ -52,7 +52,7 @@ class FPSControl(QWidget):
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
 
 if __name__ == "__main__":
-    repo = Path(__file__).parent.parent.parent.parent
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam").parent
     config_path = Path(repo, "sessions", "high_res_session")
     
 

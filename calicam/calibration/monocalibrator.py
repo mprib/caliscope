@@ -82,11 +82,11 @@ class MonoCalibrator:
         """
         logger.debug("Entering collect_corners thread loop")
         
-        self.stream.push_to_reel = True        
+        # self.stream.push_to_reel = True        
         
         while not self.stop_event.is_set():
             
-            frame_time, self.frame = self.stream.reel.get()
+            frame_time, self.frame = self.stream.out_q.get()
 
             # need to initialize to numpy arrays otherwise error if no corners detected
             self.ids = np.array([])

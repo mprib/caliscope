@@ -195,7 +195,7 @@ if __name__ == "__main__":
 
     logger.debug("Test live stereocalibration processing")
 
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam").parent
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
 

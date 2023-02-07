@@ -1,4 +1,6 @@
-
+# NOTE: You may want to just roll this whole thing back to what it was before to preserve the old GUI functionality
+# at least until you decide to jettison it all together...
+# really you are just tracking corners between pairs of images in the new framework, so just call it what it is...
 import calicam.logger
 logger = calicam.logger.get(__name__)
 
@@ -14,7 +16,7 @@ import numpy as np
 from calicam.cameras.synchronizer import Synchronizer
 
 
-class StereoCalibrator:
+class StereoTracker:
     logger.info("Building Stereocalibrator...")
 
     def __init__(self, synchronizer, corner_tracker):
@@ -253,7 +255,7 @@ if __name__ == "__main__":
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(session.streams, fps_target=6)
     logger.info("Creating Stereocalibrator")
-    stereo_cal = StereoCalibrator(syncr, trackr)
+    stereo_cal = StereoTracker(syncr, trackr)
 
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)

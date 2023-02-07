@@ -216,7 +216,7 @@ if __name__ == "__main__":
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
     logger.info("Showing Stacked Frames")
-    while len(stereo_cal.uncalibrated_pairs) > 0:
+    while len(stereo_cal.pairs) > 0:
         # wait for newly processed frame to be available
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
         frame_builder.set_current_synched_frames()

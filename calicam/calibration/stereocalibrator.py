@@ -27,24 +27,43 @@ class StereoCalibrator:
         self.grid_count_trigger = 5  #  move on to calibration
 
 
-        # self.stacked_frames = Queue()  # ultimately will be removing this
         self.synched_frames_available_q = Queue()
         self.synchronizer.subscribe_to_notice(self.synched_frames_available_q)
         self.cal_frames_ready_q = Queue()
         self.stop_event = Event()
 
-        self.build_port_list()
-        self.build_uncalibrated_pairs()
-        self.build_stereo_inputs()
-        self.build_stereo_outputs()
+        # build port list
+        self.ports = []
+        for port, stream in self.synchronizer.streams.items():
+            logger.debug(f"Appending port {port}...")
+            self.ports.append(port)
+        
+        # build list of pairs, but with pairs ordered (smaller, larger)
+        unordered_pairs = [(i, j) for i, j in combinations(self.ports, 2)]
+        self.pairs = []
+        for pair in unordered_pairs:
+            i, j = pair[0], pair[1]
+
+            if i > j:
+                i, j = j, i
+            self.pairs.append((i, j))
+            logger.debug(f"Camera pairs for calibration are: {self.pairs}")
+
+
+        # Build Stereo Inputs: dictionary to hold growing lists of input parameters .
+        
+        self.stereo_inputs = {
+            pair: {"common_board_loc": [], "img_loc_A": [], "img_loc_B": []}
+            for pair in self.pairs
+        }
 
         # needed to determine if enough time has passed since last capture
         self.last_corner_save_time = {
-            pair: time.perf_counter() for pair in self.uncalibrated_pairs
+            pair: time.perf_counter() for pair in self.pairs
         }
 
         logger.info(
-            f"Initiating data collection of uncalibrated pairs: {self.uncalibrated_pairs}"
+            f"Initiating data collection of uncalibrated pairs: {self.pairs}"
         )
         self.keep_going = True
         self.thread = Thread(target=self.harvest_synched_frames, args=(), daemon=True)
@@ -54,60 +73,12 @@ class StereoCalibrator:
         self.stop_event.set()
         self.synched_frames_available_q.put("Terminate")
         logger.info("Stop signal sent in stereocalibrator")
-        # self.thread.join()
-                
-    def build_port_list(self):
-        """Construct list of ports associated with incoming frames"""
-        logger.debug("Creating port list...")
-        self.ports = []
-        for port, stream in self.synchronizer.streams.items():
-            logger.debug(f"Appending port {port}...")
-            self.ports.append(port)
 
-    def build_uncalibrated_pairs(self):
-        """construct a list of uncalibrated pairs with smaller number port first"""
-        unordered_pairs = [(i, j) for i, j in combinations(self.ports, 2)]
-        self.uncalibrated_pairs = []
-        for pair in unordered_pairs:
-            i, j = pair[0], pair[1]
-
-            if i > j:
-                i, j = j, i
-            self.uncalibrated_pairs.append((i, j))
-            logger.debug(f"Uncalibrated pairs are: {self.uncalibrated_pairs}")
-
-        self.pairs = (
-            self.uncalibrated_pairs.copy()
-        )  # save original list for later reference
-
-    def build_stereo_inputs(self):
-        """Constructs dictionary to hold growing lists of input parameters .
-        When a list grows to the lengths of the grid_count_trigger, it will
-        commence calibration"""
-        self.stereo_inputs = {
-            pair: {"common_board_loc": [], "img_loc_A": [], "img_loc_B": []}
-            for pair in self.pairs
-        }
-
-    def build_stereo_outputs(self):
-        """Constructs dictionary to hold growing lists of input parameters .
-        When a list grows to the lengths of the grid_count_trigger, it will
-        commence calibration"""
-
-        self.stereo_outputs = {
-            pair: {
-                "grid_count": None,
-                "rotation": None,
-                "translation": None,
-                "RMSE": None,
-            }
-            for pair in self.pairs
-        }
 
     def harvest_synched_frames(self):
         """Monitors the synched_frames_available_q to grab a new frames and inititiate
         processing of it."""
-        logger.debug(f"Currently {len(self.uncalibrated_pairs)} uncalibrated pairs ")
+        logger.info(f"Beginning to harvest corners on synched frames from port pairs: {self.pairs}")
 
         while not self.stop_event.set():
             self.synched_frames_available_q.get()
@@ -117,26 +88,14 @@ class StereoCalibrator:
                 break
             
             self.current_synched_frames = self.synchronizer.current_synched_frames
-            logger.debug("Synched frames harvested by stereocalibrator")
 
             self.add_corner_data()
-            for pair in self.uncalibrated_pairs:
+            logger.debug("Begin determination of shared corners within current frame pairs")
+            for pair in self.pairs:
                 self.store_stereo_data(pair)
-
-                grid_count = len(self.stereo_inputs[pair]["common_board_loc"])
-                self.stereo_outputs[pair]["grid_count"] = grid_count
-
-                if grid_count > self.grid_count_trigger:
-                    self.calibrate_thread = Thread(
-                        target=self.stereo_calibrate, args=[pair], daemon=True
-                    )
-                    self.calibrate_thread.start()
-            # self.calibrate_full_pairs()
 
             self.cal_frames_ready_q.put("frames ready")
 
-            # if len(self.uncalibrated_pairs) == 0:
-            #     self.stereo_calibrate()
         logger.info("Stereocalibration synched frames harvester successfully shut-down...")
 
     def add_corner_data(self):
@@ -150,11 +109,10 @@ class StereoCalibrator:
                 self.current_synched_frames[port]["ids"] = ids
                 self.current_synched_frames[port]["img_loc"] = img_loc
                 self.current_synched_frames[port]["board_loc"] = board_loc
-
-                logger.debug(f"Port {port}: {ids}")
+                
+                logger.debug(f"At port {port} the following corners are located {ids}")
 
     def store_stereo_data(self, pair):
-        logger.debug("About to process current synched frames")
 
         # for pair in self.uncalibrated_pairs:
         portA = pair[0]
@@ -167,7 +125,7 @@ class StereoCalibrator:
             time.perf_counter() - self.last_corner_save_time[pair] > self.wait_time
         )
 
-        if enough_corners and enough_time and pair in self.uncalibrated_pairs:
+        if enough_corners and enough_time and pair in self.pairs:
             # add corner data to stereo_inputs
             obj, img_loc_A = self.get_common_locs(portA, common_ids)
             _, img_loc_B = self.get_common_locs(portB, common_ids)
@@ -242,9 +200,9 @@ class StereoCalibrator:
             "RMSE": ret,
         }
 
-        if pair in self.uncalibrated_pairs:
+        if pair in self.pairs:
             logger.info(f"Removing pair {pair}")
-            self.uncalibrated_pairs.remove(pair)
+            self.pairs.remove(pair)
         else:
             logger.warning(f"Attempted to remove pair {pair} but it was not present")
             
@@ -271,24 +229,6 @@ class StereoCalibrator:
                 common_img_loc.append(obj)
 
         return common_img_loc, common_board_loc
-
-    def reset_pair(self, pair):
-        """Delete the stereo_inputs for a pair of cameras and add them back
-        to the list of uncalibrated pairs"""
-
-        self.stereo_inputs[pair]["common_board_loc"] = []
-        self.stereo_inputs[pair]["img_loc_A"] = []
-        self.stereo_inputs[pair]["img_loc_B"] = []
-
-        self.stereo_outputs[pair] = {
-            "grid_count": 0,
-            "rotation": None,
-            "translation": None,
-            "RMSE": None,
-        }
-
-        if pair not in self.uncalibrated_pairs:
-            self.uncalibrated_pairs.append(pair)
 
 
 if __name__ == "__main__":
@@ -318,7 +258,7 @@ if __name__ == "__main__":
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
     logger.info("Showing Stacked Frames")
-    while len(stereo_cal.uncalibrated_pairs) > 0:
+    while len(stereo_cal.pairs) > 0:
 
         frame_ready = stereo_cal.cal_frames_ready_q.get()
         synched_frames = stereo_cal.current_synched_frames

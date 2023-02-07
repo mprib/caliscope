@@ -1,5 +1,5 @@
-import calicam.logger
 
+import calicam.logger
 logger = calicam.logger.get(__name__)
 
 from pathlib import Path
@@ -22,6 +22,9 @@ class StereoPairFrameBuilder:
         self.rotation_counts = {}
         for port, stream in self.stereo_tracker.synchronizer.streams.items():
             self.rotation_counts[port] = stream.camera.rotation_count
+            
+        self.pair_order = self.stereo_tracker.pairs
+        self.pair_order.sort()
 
     def get_new_raw_frames(self):
         self.stereo_tracker.cal_frames_ready_q.get()  # impose wait until update
@@ -47,21 +50,21 @@ class StereoPairFrameBuilder:
             ids_A = self.current_synched_frames[portA]["ids"]
             ids_B = self.current_synched_frames[portB]["ids"]
             common_ids = np.intersect1d(ids_A, ids_B)
-
+            
             img_loc_A = self.current_synched_frames[portA]["img_loc"]
             img_loc_B = self.current_synched_frames[portB]["img_loc"]
 
             for _id, img_loc in zip(ids_A, img_loc_A):
                 if _id in common_ids:
-                    x = round(float(img_loc[0, 0]))
-                    y = round(float(img_loc[0, 1]))
+                    x = round(float(img_loc[0,0]))
+                    y = round(float(img_loc[0,1]))
 
                     cv2.circle(frameA, (x, y), 5, (0, 0, 220), 3)
 
             for _id, img_loc in zip(ids_B, img_loc_B):
                 if _id in common_ids:
-                    x = round(float(img_loc[0, 0]))
-                    y = round(float(img_loc[0, 1]))
+                    x = round(float(img_loc[0,0]))
+                    y = round(float(img_loc[0,1]))
 
                     cv2.circle(frameB, (x, y), 5, (0, 0, 220), 3)
             return frameA, frameB
@@ -145,8 +148,10 @@ class StereoPairFrameBuilder:
 
         frameA = self.apply_rotation(frameA, portA)
         frameB = self.apply_rotation(frameB, portB)
+        
+        board_count = np.zeros(frameA.shape, np.uint8)
 
-        hstacked_pair = np.hstack((frameA, frameB))
+        hstacked_pair = np.hstack((board_count, frameA, frameB))
 
         return hstacked_pair
 
@@ -156,15 +161,15 @@ class StereoPairFrameBuilder:
         for pair in self.stereo_tracker.pairs:
             stereo_frames[pair] = self.hstack_frames(pair)
         return stereo_frames
-
+    
     def get_pair_board_counts(self):
         board_counts = {}
         for pair in self.stereo_tracker.pairs:
             corner_history = self.stereo_tracker.stereo_inputs[pair]
-            board_counts[pair] = len(corner_history["common_board_loc"])
+            board_counts[pair] =len(corner_history["common_board_loc"]) 
 
         return board_counts
-
+    
     def apply_rotation(self, frame, port):
         rotation_count = self.rotation_counts[port]
         if rotation_count == 0:
@@ -177,20 +182,31 @@ class StereoPairFrameBuilder:
             frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
         return frame
+    
+    def get_omni_frame(self):
+        """
+        This glues together the stereopairs with summary blocks of the common board count
+        """
+
+        pair_board_counts = self.get_pair_board_counts()        
+
+        omni_frame = None
+        for pair in self.pair_order:
+            if omni_frame is None:
+                omni_frame = self.hstack_frames(pair)
+            else:
+                omni_frame = np.vstack([omni_frame,self.hstack_frames(pair)])
+        
+        return omni_frame
+    
 
 
+    
 def resize(image, new_height):
-    # Get current dimensions
     (current_height, current_width) = image.shape[:2]
-
-    # ratio to scale by
     ratio = new_height / float(current_height)
-
-    # New dimensions
     dim = (int(current_width * ratio), new_height)
-
     resized = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
-
     return resized
 
 
@@ -201,7 +217,7 @@ if __name__ == "__main__":
 
     logger.debug("Test live stereocalibration processing")
 
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     config_path = Path(repo, "sessions", "high_res_session")
     # config_path = Path(repo, "sessions", "5_cameras")
     print(config_path)
@@ -228,7 +244,11 @@ if __name__ == "__main__":
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
         frame_builder.get_new_raw_frames()
         board_counts = frame_builder.get_pair_board_counts()
-
+       
+        omni_frame = frame_builder.get_omni_frame()
+        
+        cv2.imshow("omni frame", omni_frame)
+         
         for pair, pair_frame in frame_builder.get_stereoframes().items():
             cv2.imshow(str(pair), pair_frame)
             common_boards = board_counts[pair]

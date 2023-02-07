@@ -10,7 +10,7 @@ import numpy as np
 from calicam.cameras.synchronizer import Synchronizer
 
 
-class StereoTrackedFrameBuilder:
+class StereoPairFrameBuilder:
     def __init__(self, stereo_tracker, single_frame_height=250):
         self.stereo_tracker = stereo_tracker
         self.single_frame_height = single_frame_height
@@ -23,7 +23,7 @@ class StereoTrackedFrameBuilder:
         for port, stream in self.stereo_tracker.synchronizer.streams.items():
             self.rotation_counts[port] = stream.camera.rotation_count
 
-    def set_current_synched_frames(self):
+    def get_new_raw_frames(self):
         self.stereo_tracker.cal_frames_ready_q.get()  # impose wait until update
         self.current_synched_frames = self.stereo_tracker.current_synched_frames
 
@@ -194,6 +194,7 @@ if __name__ == "__main__":
 
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     config_path = Path(repo, "sessions", "high_res_session")
+    # config_path = Path(repo, "sessions", "5_cameras")
     print(config_path)
 
     session = Session(config_path)
@@ -205,18 +206,18 @@ if __name__ == "__main__":
     trackr = CornerTracker(session.charuco)
 
     logger.info("Creating Synchronizer")
-    syncr = Synchronizer(session.streams, fps_target=4)
+    syncr = Synchronizer(session.streams, fps_target=2)
     logger.info("Creating Stereocalibrator")
     stereo_cal = StereoTracker(syncr, trackr)
-    frame_builder = StereoTrackedFrameBuilder(stereo_cal)
+    frame_builder = StereoPairFrameBuilder(stereo_cal)
 
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
-    logger.info("Showing Stacked Frames")
+    logger.info("Showing Paired Frames")
     while len(stereo_cal.pairs) > 0:
         # wait for newly processed frame to be available
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
-        frame_builder.set_current_synched_frames()
+        frame_builder.get_new_raw_frames()
 
         for pair, frame in frame_builder.get_stereoframe_pairs().items():
             cv2.imshow(str(pair), frame)

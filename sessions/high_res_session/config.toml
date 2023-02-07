@@ -2,15 +2,15 @@ CreationDate = 2022-12-22T10:43:16.354534
 
 [cam_0]
 port = 0
-resolution = [ 1280, 960,]
+resolution = [ 640, 480,]
 rotation_count = 0
-exposure = -5.0
+exposure = -4
 ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,],]
 
 [cam_1]
 port = 1
-resolution = [ 1280, 960,]
+resolution = [ 640, 480,]
 rotation_count = 0
 exposure = -5.0
 ignore = false
@@ -18,7 +18,7 @@ verified_resolutions = [ [ 640, 480,], [ 1280, 720,],]
 
 [cam_2]
 port = 2
-resolution = [ 1280, 960,]
+resolution = [ 640, 480,]
 rotation_count = 0
 exposure = -6.0
 ignore = false
@@ -32,5 +32,5 @@ board_width = 8.5
 dictionary = "DICT_4X4_1000"
 units = "inch"
 aruco_scale = 0.75
-square_size_overide_cm = 5.25
+square_size_overide_cm = 5.26
 inverted = true

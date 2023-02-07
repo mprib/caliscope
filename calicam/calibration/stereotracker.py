@@ -22,7 +22,7 @@ class StereoTracker:
         self.corner_tracker = corner_tracker
         self.synchronizer = synchronizer
 
-        self.corner_threshold = 7  # board corners in common for capture
+        self.corner_threshold = 4  # board corners in common for capture
         self.wait_time = 0.5  # seconds between snapshots
         self.grid_count_trigger = 5  #  move on to calibration
 

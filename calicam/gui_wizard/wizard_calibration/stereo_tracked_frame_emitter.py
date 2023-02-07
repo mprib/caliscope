@@ -13,7 +13,7 @@ from PyQt6.QtGui import QFont, QIcon, QImage, QPixmap
 # from calicam.calibration.stereo_frame_builder import StereoFrameBuilder
 
 
-class StereoFrameEmitter(QThread):
+class StereoTrackedFrameEmitter(QThread):
     # establish signals from the frame that will be displayed in real time
     # within the GUI
     StereoFramesBroadcast = pyqtSignal(object)
@@ -21,7 +21,7 @@ class StereoFrameEmitter(QThread):
     # GridCountBroadcast = pyqtSignal(int)
 
     def __init__(self, stereo_frame_builder):
-        super(StereoFrameEmitter, self).__init__()
+        super(StereoTrackedFrameEmitter, self).__init__()
         self.stereo_frame_builder = stereo_frame_builder
         self.stop_event = Event()
         self.stereo_outputs = self.stereo_frame_builder.stereo_calibrator.stereo_outputs

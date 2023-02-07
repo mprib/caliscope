@@ -19,9 +19,7 @@
 import calicam.logger
 logger = calicam.logger.get(__name__)
 import time
-from threading import Thread
-import logging
-import sys
+import platform
 
 import cv2
 
@@ -34,12 +32,21 @@ class Camera(object):
 
     # https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
     # see above for constants used to access properties
-    def __init__(self, port):
+    def __init__(self, port, verified_resolutions = None):
+
+        # get the platform in use:
+        if platform.system() == "Windows":
+            logger.debug(f"Windows machine detected - using backend `cv2.CAP_DSHOW`")
+            self.device_connection = cv2.CAP_DSHOW
+        else:
+            logger.debug(f"Non-Windows machine detected - using backend `cv2.CAP_ANY`")
+            self.device_connection = cv2.CAP_ANY
+
 
         # check if source has a data feed before proceeding...if not it is
         # either in use or fake
         logger.info(f"Attempting to connect video capure at port {port}")
-        test_capture = cv2.VideoCapture(port)
+        test_capture = cv2.VideoCapture(port,self.device_connection)
         for _ in range(0, TEST_FRAME_COUNT):
             good_read, frame = test_capture.read()
 
@@ -61,21 +68,33 @@ class Camera(object):
 
             self.set_exposure()
             self.set_default_resolution()
-            self.set_possible_resolutions()
+        else: 
+            # probably busy
+            logger.info(f"Camera at port {port} appears to be busy")
+            self.port = port
+            self.capture = None
+            self.active_port = False
+            raise Exception(f"Not reading at port {port}...likely in use")
 
+        # Test to see if camera is virtual
+        spoof_resolution = (599,599)
+        self.resolution = spoof_resolution
+        if self.resolution == spoof_resolution:
+            self.virtual_camera = True
+        else:
+            self.virtual_camera = False
+
+        if not self.virtual_camera:
+            if verified_resolutions is None:
+                self.set_possible_resolutions()
+            else:
+                self.verified_resolutions = verified_resolutions
             # camera initializes as uncalibrated
             self.error = None
             self.camera_matrix = None
             self.distortion = None
             self.grid_count = None
-        else:
-            # probably busy
-            self.port = port
-            self.capture = None
-            self.active_port = False
-            logger.info(f"Camera at port {port} appears to be busy")
-            raise Exception(f"Not reading at port {port}...likely in use")
-        if isinstance(self.possible_resolutions[0], int):
+        if isinstance(self.verified_resolutions[0], int):
             # probably not real
             self.port = port
             self.capture = None
@@ -143,31 +162,40 @@ class Camera(object):
         return resolution
 
     def set_possible_resolutions(self):
-        min_res = self.get_nearest_resolution(MIN_RESOLUTION_CHECK)
-        max_res = self.get_nearest_resolution(MAX_RESOLUTION_CHECK)
+        self.verified_resolutions = []
+        for resolution in RESOLUTIONS_TO_CHECK:
+            # attempt to set the camera to the given resolution
+            self.resolution = resolution
+            
+            # if it sticks, then that resolution is verified
+            if resolution == self.resolution:
+                self.verified_resolutions.append(resolution)
+                
+        # min_res = self.get_nearest_resolution(MIN_RESOLUTION_CHECK)
+        # max_res = self.get_nearest_resolution(MAX_RESOLUTION_CHECK)
 
-        min_width = min_res[0]
-        max_width = max_res[0]
+        # min_width = min_res[0]
+        # max_width = max_res[0]
 
-        STEPS_TO_CHECK = 20  # fast to check so cover your bases
+        # STEPS_TO_CHECK = 20  # fast to check so cover your bases
 
-        # the size of jump to make before checking on the resolution
-        step_size = int((max_width - min_width) / STEPS_TO_CHECK)
+        # # the size of jump to make before checking on the resolution
+        # step_size = int((max_width - min_width) / STEPS_TO_CHECK)
 
-        resolutions = {min_res, max_res}
+        # resolutions = {min_res, max_res}
 
-        if max_width > min_width:  # i.e. only one size avaialable
-            for test_width in range(
-                int(min_width + step_size), int(max_width - step_size), int(step_size)
-            ):
-                new_res = self.get_nearest_resolution(test_width)
-                # print(new_res)
-                resolutions.add(new_res)
-            resolutions = list(resolutions)
-            resolutions.sort()
-            self.possible_resolutions = resolutions
-        else:
-            self.possible_resolutions = self.default_resolution
+        # if max_width > min_width:  # i.e. only one size avaialable
+        #     for test_width in range(
+        #         int(min_width + step_size), int(max_width - step_size), int(step_size)
+        #     ):
+        #         new_res = self.get_nearest_resolution(test_width)
+        #         # print(new_res)
+        #         resolutions.add(new_res)
+        #     resolutions = list(resolutions)
+        #     resolutions.sort()
+        #     self.possible_resolutions = resolutions
+        # else:
+        #     self.possible_resolutions = self.default_resolution
 
     def rotate_CW(self):
         if self.rotation_count == 3:
@@ -185,7 +213,7 @@ class Camera(object):
         self.capture.release()
 
     def connect(self):
-        self.capture = cv2.VideoCapture(self.port)
+        self.capture = cv2.VideoCapture(self.port, self.device_connection)
 
     def calibration_summary(self):
         # Calibration output presented in label on far right
@@ -223,14 +251,42 @@ class Camera(object):
         else:
             return "No Calibration Stored"
 
+# common possibilities taken from https://en.wikipedia.org/wiki/List_of_common_resolutions
+RESOLUTIONS_TO_CHECK = [
+    # (352, 240),
+    # (352, 288),
+    # (352, 480),
+    # (352, 576),
+    # (352, 480),
+    # (480, 480),
+    # (480, 576),
+    # (480, 480),
+    # (480, 576),
+    # (528, 480),
+    # (544, 480),
+    # (544, 576),
+    (640, 480),
+    # (704, 480),
+    # (704, 576),
+    # (720, 480),
+    # (720, 576),
+    # (720, 480),
+    # (720, 576),
+    (1280, 720),
+    (1280, 1080),
+    # (1440, 1080),
+    # (1920, 1080),
+    # (3840, 2160),
+    # (7680, 4320),
+]
 
 ######################### TEST FUNCTIONALITY OF CAMERAS ########################
 if __name__ == "__main__":
 
     cam = Camera(0)
-    logger.info(f"Camera {cam.port} has possible resolutions: {cam.possible_resolutions}")
+    logger.info(f"Camera {cam.port} has possible resolutions: {cam.verified_resolutions}")
 
-    for res in cam.possible_resolutions:
+    for res in cam.verified_resolutions:
         logger.info(f"Testing Resolution {res}")
 
         cam.disconnect()
@@ -241,6 +297,7 @@ if __name__ == "__main__":
             success, frame = cam.capture.read()
             cv2.imshow(f"Resolution: {res}; press 'q' to move to next resolution", frame)
             if cv2.waitKey(1) == ord("q"):
+                cam.disconnect()
                 cv2.destroyAllWindows()
                 break
 
@@ -263,9 +320,11 @@ if __name__ == "__main__":
         cam.exposure = -10+elapsed_seconds 
          
         if cv2.waitKey(1) == ord("q"):
+            cam.disconnect()
             cv2.destroyAllWindows()
             break     
         
         if elapsed_seconds > 10:
+            cam.disconnect()
             cv2.destroyAllWindows()
             break 

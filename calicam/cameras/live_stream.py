@@ -156,11 +156,14 @@ class LiveStream:
 
 if __name__ == "__main__":
     ports = [0, 1, 2]
+    # ports = [2]
 
     cams = []
     for port in ports:
         print(f"Creating camera {port}")
-        cams.append(Camera(port))
+        cam = Camera(port)
+        cam.exposure = -7
+        cams.append(cam)
 
     streams = []
     for cam in cams:

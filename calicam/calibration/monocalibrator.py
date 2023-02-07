@@ -82,7 +82,7 @@ class MonoCalibrator:
         """
         logger.debug("Entering collect_corners thread loop")
         
-        # self.stream.push_to_reel = True        
+        self.stream.push_to_out_q = True        
         
         while not self.stop_event.is_set():
             
@@ -121,7 +121,8 @@ class MonoCalibrator:
 
             self.set_grid_frame()
         logger.info(f"Monocalibrator at port {self.port} successfully shutdown...")
-
+        self.stream.push_to_out_q = False
+        
     def update_grid_history(self):
         if len(self.ids) > 2:
             self.grid_capture_history = draw_charuco.grid_history(

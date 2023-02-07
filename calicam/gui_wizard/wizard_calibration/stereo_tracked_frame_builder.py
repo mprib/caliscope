@@ -10,15 +10,12 @@ import numpy as np
 from calicam.cameras.synchronizer import Synchronizer
 
 
-class StereoFrameBuilder:
+class StereoTrackedFrameBuilder:
     def __init__(self, stereo_tracker, single_frame_height=250):
         self.stereo_tracker = stereo_tracker
         self.single_frame_height = single_frame_height
 
-        self.get_camera_rotation()
-
-    def get_camera_rotation(self):
-        # need to get rotation of each camera/port
+        # get rotation counts
         # not happy with how deep this reach is into the object hierarchy,
         # but doing rotation at the end avoids having to appy corrections for
         # drawing of corners during stereocalibration
@@ -211,7 +208,7 @@ if __name__ == "__main__":
     syncr = Synchronizer(session.streams, fps_target=4)
     logger.info("Creating Stereocalibrator")
     stereo_cal = StereoTracker(syncr, trackr)
-    frame_builder = StereoFrameBuilder(stereo_cal)
+    frame_builder = StereoTrackedFrameBuilder(stereo_cal)
 
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)

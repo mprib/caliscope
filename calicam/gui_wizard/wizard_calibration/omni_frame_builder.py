@@ -10,7 +10,7 @@ import numpy as np
 from calicam.cameras.synchronizer import Synchronizer
 
 
-class StereoPairFrameBuilder:
+class OmniFrameBuilder:
     def __init__(self, stereo_tracker, single_frame_height=250):
         self.stereo_tracker = stereo_tracker
         self.single_frame_height = single_frame_height
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     syncr = Synchronizer(session.streams, fps_target=2)
     logger.info("Creating Stereocalibrator")
     stereo_cal = StereoTracker(syncr, trackr)
-    frame_builder = StereoPairFrameBuilder(stereo_cal)
+    frame_builder = OmniFrameBuilder(stereo_cal)
 
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)

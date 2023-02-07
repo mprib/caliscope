@@ -19,19 +19,25 @@ class OmniFrameBuilder:
         self.rotation_counts = {}
         for port, stream in self.stereo_tracker.synchronizer.streams.items():
             self.rotation_counts[port] = stream.camera.rotation_count
-
-        self.omni_frame_order = self.stereo_tracker.pairs.copy()
-        self.omni_frame_order.sort()
         
-        self.board_counts = {pair:0 for pair in self.omni_frame_order}
+        self.board_counts = {pair:0 for pair in self.stereo_tracker.pairs}
 
     def get_new_raw_frames(self):
         self.stereo_tracker.cal_frames_ready_q.get()  # impose wait until update
         self.current_synched_frames = self.stereo_tracker.current_synched_frames
 
         # update the board_counts here
+        for pair in self.board_counts.keys():
+            capture_history = self.stereo_tracker.stereo_inputs[pair]
+            self.board_counts[pair] = len(capture_history["common_board_loc"])
+
+    @property
+    def omni_frame_order(self):
         
-        
+        omni_list = [key for key, value in self.board_counts.items() if value < self.board_count_target]
+        omni_list = sorted(omni_list,key = self.board_counts.get)
+        return omni_list
+     
         
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
         """Return unaltered frame if no corner information detected, otherwise
@@ -186,13 +192,6 @@ class OmniFrameBuilder:
             stereo_frames[pair] = self.hstack_frames(pair)
         return stereo_frames
 
-    def get_pair_board_counts(self):
-        board_counts = {}
-        for pair in self.omni_frame_order:
-            corner_history = self.stereo_tracker.stereo_inputs[pair]
-            board_counts[pair] = len(corner_history["common_board_loc"])
-
-        return board_counts
 
     def apply_rotation(self, frame, port):
         rotation_count = self.rotation_counts[port]
@@ -211,23 +210,15 @@ class OmniFrameBuilder:
         """
         This glues together the stereopairs with summary blocks of the common board count
         """
-
-        pair_board_counts = self.get_pair_board_counts()
-
         omni_frame = None
         for pair in self.omni_frame_order:
-            board_count = pair_board_counts[pair]
+            board_count = self.board_counts[pair]
             if omni_frame is None:
                 omni_frame = self.hstack_frames(pair, board_count)
             else:
                 omni_frame = np.vstack([omni_frame, self.hstack_frames(pair, board_count)])
 
         return omni_frame
-    
-    def reorder_omni_frame(self):
-
-        pass
-
 
 def resize(image, new_height):
     (current_height, current_width) = image.shape[:2]
@@ -245,7 +236,7 @@ if __name__ == "__main__":
     logger.debug("Test live stereocalibration processing")
 
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    # config_path = Path(repo, "sessions", "high_res_session")
+    # config_path = Path(repo, "sessions", "default_res_session")
     config_path = Path(repo, "sessions", "5_cameras")
     print(config_path)
 
@@ -270,7 +261,7 @@ if __name__ == "__main__":
         # wait for newly processed frame to be available
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
         frame_builder.get_new_raw_frames()
-        board_counts = frame_builder.get_pair_board_counts()
+        # board_counts = frame_builder.get_pair_board_counts()
 
         omni_frame = frame_builder.get_omni_frame()
 

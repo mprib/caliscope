@@ -14,13 +14,14 @@ class OmniFrameBuilder:
     def __init__(self, stereo_tracker, single_frame_height=250):
         self.stereo_tracker = stereo_tracker
         self.single_frame_height = single_frame_height
-        self.board_count_target = 50    # used to determine sort order. 
+        self.board_count_target = 15    # used to determine sort order. 
 
         self.rotation_counts = {}
         for port, stream in self.stereo_tracker.synchronizer.streams.items():
             self.rotation_counts[port] = stream.camera.rotation_count
         
         self.board_counts = {pair:0 for pair in self.stereo_tracker.pairs}
+        self.omni_list = [key for key, value in self.board_counts.items()]
 
     def get_new_raw_frames(self):
         self.stereo_tracker.cal_frames_ready_q.get()  # impose wait until update
@@ -31,12 +32,12 @@ class OmniFrameBuilder:
             capture_history = self.stereo_tracker.stereo_inputs[pair]
             self.board_counts[pair] = len(capture_history["common_board_loc"])
 
-    @property
-    def omni_frame_order(self):
-        
-        omni_list = [key for key, value in self.board_counts.items() if value < self.board_count_target]
-        omni_list = sorted(omni_list,key = self.board_counts.get)
-        return omni_list
+    def update_omni_list(self):
+        # need to revise this so that it will only update if one of the board counts crosses
+        # the target
+        # also... it should sort the frames in descending order by board count
+        self.omni_list = [key for key, value in self.board_counts.items() if value < self.board_count_target]
+        self.omni_list = sorted(self.omni_list,key = self.board_counts.get, reverse=True)
      
         
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
@@ -211,13 +212,22 @@ class OmniFrameBuilder:
         This glues together the stereopairs with summary blocks of the common board count
         """
         omni_frame = None
-        for pair in self.omni_frame_order:
+        board_target_reached = False
+        for pair in self.omni_list:
+            
+            # figure out if you need to update the omni frame list
             board_count = self.board_counts[pair]
+            if board_count > self.board_count_target:
+                board_target_reached = True
+                
             if omni_frame is None:
                 omni_frame = self.hstack_frames(pair, board_count)
             else:
                 omni_frame = np.vstack([omni_frame, self.hstack_frames(pair, board_count)])
 
+        if board_target_reached:
+            self.update_omni_list()
+            
         return omni_frame
 
 def resize(image, new_height):
@@ -264,6 +274,9 @@ if __name__ == "__main__":
         # board_counts = frame_builder.get_pair_board_counts()
 
         omni_frame = frame_builder.get_omni_frame()
+        if omni_frame is None:
+            cv2.destroyAllWindows()
+            break
 
         cv2.imshow("omni frame", omni_frame)
 

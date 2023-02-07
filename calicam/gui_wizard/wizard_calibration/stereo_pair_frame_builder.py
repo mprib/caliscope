@@ -150,13 +150,21 @@ class StereoPairFrameBuilder:
 
         return hstacked_pair
 
-    def get_stereoframe_pairs(self):
+    def get_stereoframes(self):
         """Build a dictionary of paired frames to be broadcast to interface"""
-        frame_pairs = {}
+        stereo_frames = {}
         for pair in self.stereo_tracker.pairs:
-            frame_pairs[pair] = self.hstack_frames(pair)
-        return frame_pairs
+            stereo_frames[pair] = self.hstack_frames(pair)
+        return stereo_frames
+    
+    def get_pair_board_counts(self):
+        board_counts = {}
+        for pair in self.stereo_tracker.pairs:
+            corner_history = self.stereo_tracker.stereo_inputs[pair]
+            board_counts[pair] =len(corner_history["common_board_loc"]) 
 
+        return board_counts
+    
     def apply_rotation(self, frame, port):
         rotation_count = self.rotation_counts[port]
         if rotation_count == 0:
@@ -218,11 +226,15 @@ if __name__ == "__main__":
         # wait for newly processed frame to be available
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
         frame_builder.get_new_raw_frames()
-
-        for pair, frame in frame_builder.get_stereoframe_pairs().items():
-            cv2.imshow(str(pair), frame)
+        board_counts = frame_builder.get_pair_board_counts()
+        
+        for pair, pair_frame in frame_builder.get_stereoframes().items():
+            cv2.imshow(str(pair), pair_frame)
+            common_boards = board_counts[pair]
+            print(f"Camera Pair {pair} has {common_boards} common board snapshots...")
 
         key = cv2.waitKey(1)
+
         if key == ord("q"):
             cv2.destroyAllWindows()
             break

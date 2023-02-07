@@ -1,5 +1,5 @@
-
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 
 from pathlib import Path
@@ -50,21 +50,21 @@ class StereoFrameBuilder:
             ids_A = self.current_synched_frames[portA]["ids"]
             ids_B = self.current_synched_frames[portB]["ids"]
             common_ids = np.intersect1d(ids_A, ids_B)
-            
+
             img_loc_A = self.current_synched_frames[portA]["img_loc"]
             img_loc_B = self.current_synched_frames[portB]["img_loc"]
 
             for _id, img_loc in zip(ids_A, img_loc_A):
                 if _id in common_ids:
-                    x = round(float(img_loc[0,0]))
-                    y = round(float(img_loc[0,1]))
+                    x = round(float(img_loc[0, 0]))
+                    y = round(float(img_loc[0, 1]))
 
                     cv2.circle(frameA, (x, y), 5, (0, 0, 220), 3)
 
             for _id, img_loc in zip(ids_B, img_loc_B):
                 if _id in common_ids:
-                    x = round(float(img_loc[0,0]))
-                    y = round(float(img_loc[0,1]))
+                    x = round(float(img_loc[0, 0]))
+                    y = round(float(img_loc[0, 1]))
 
                     cv2.circle(frameB, (x, y), 5, (0, 0, 220), 3)
             return frameA, frameB
@@ -172,14 +172,15 @@ class StereoFrameBuilder:
             frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
         return frame
-    
+
+
 def resize(image, new_height):
     # Get current dimensions
     (current_height, current_width) = image.shape[:2]
 
     # ratio to scale by
     ratio = new_height / float(current_height)
-    
+
     # New dimensions
     dim = (int(current_width * ratio), new_height)
 
@@ -195,7 +196,7 @@ if __name__ == "__main__":
 
     logger.debug("Test live stereocalibration processing")
 
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam").parent
+    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
     config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
 
@@ -208,7 +209,7 @@ if __name__ == "__main__":
     trackr = CornerTracker(session.charuco)
 
     logger.info("Creating Synchronizer")
-    syncr = Synchronizer(session.streams, fps_target=4)
+    syncr = Synchronizer(session.streams, fps_target=6)
     logger.info("Creating Stereocalibrator")
     stereo_cal = StereoCalibrator(syncr, trackr)
     frame_builder = StereoFrameBuilder(stereo_cal)
@@ -216,7 +217,7 @@ if __name__ == "__main__":
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
     logger.info("Showing Stacked Frames")
-    while len(stereo_cal.uncalibrated_pairs) > 0:
+    while len(stereo_cal.pairs) > 0:
         # wait for newly processed frame to be available
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
         frame_builder.set_current_synched_frames()

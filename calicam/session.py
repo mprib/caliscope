@@ -14,7 +14,7 @@ from itertools import combinations
 from calicam.calibration.charuco import Charuco
 from calicam.calibration.corner_tracker import CornerTracker
 from calicam.calibration.monocalibrator import MonoCalibrator
-from calicam.calibration.stereocalibrator import StereoCalibrator
+from calicam.calibration.stereotracker import StereoTracker
 from calicam.cameras.camera import Camera
 from calicam.cameras.synchronizer import Synchronizer
 from calicam.cameras.live_stream import LiveStream
@@ -334,7 +334,7 @@ class Session:
             logger.info("Creating stereo tools...")
             self.synchronizer = Synchronizer(self.streams)
             self.corner_tracker = CornerTracker(self.charuco)
-            self.stereocalibrator = StereoCalibrator(
+            self.stereocalibrator = StereoTracker(
                 self.synchronizer, self.corner_tracker
             )
             self.stereo_frame_builder = StereoFrameBuilder(self.stereocalibrator)

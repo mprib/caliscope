@@ -11,8 +11,8 @@ from calicam.cameras.synchronizer import Synchronizer
 
 
 class StereoFrameBuilder:
-    def __init__(self, stereo_calibrator, single_frame_height=250):
-        self.stereo_calibrator = stereo_calibrator
+    def __init__(self, stereo_tracker, single_frame_height=250):
+        self.stereo_tracker = stereo_tracker
         self.single_frame_height = single_frame_height
 
         self.get_camera_rotation()
@@ -23,12 +23,12 @@ class StereoFrameBuilder:
         # but doing rotation at the end avoids having to appy corrections for
         # drawing of corners during stereocalibration
         self.rotation_counts = {}
-        for port, stream in self.stereo_calibrator.synchronizer.streams.items():
+        for port, stream in self.stereo_tracker.synchronizer.streams.items():
             self.rotation_counts[port] = stream.camera.rotation_count
 
     def set_current_synched_frames(self):
-        self.stereo_calibrator.cal_frames_ready_q.get()  # impose wait until update
-        self.current_synched_frames = self.stereo_calibrator.current_synched_frames
+        self.stereo_tracker.cal_frames_ready_q.get()  # impose wait until update
+        self.current_synched_frames = self.stereo_tracker.current_synched_frames
 
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
         """Return unaltered frame if no corner information detected, otherwise
@@ -72,8 +72,8 @@ class StereoFrameBuilder:
     def draw_common_corner_history(self, frameA, portA, frameB, portB):
 
         pair = (portA, portB)
-        img_loc_A = self.stereo_calibrator.stereo_inputs[pair]["img_loc_A"]
-        img_loc_B = self.stereo_calibrator.stereo_inputs[pair]["img_loc_B"]
+        img_loc_A = self.stereo_tracker.stereo_inputs[pair]["img_loc_A"]
+        img_loc_B = self.stereo_tracker.stereo_inputs[pair]["img_loc_B"]
 
         for cornerset in img_loc_A:
             for corner in cornerset:
@@ -156,7 +156,7 @@ class StereoFrameBuilder:
     def get_stereoframe_pairs(self):
         """Build a dictionary of paired frames to be broadcast to interface"""
         frame_pairs = {}
-        for pair in self.stereo_calibrator.pairs:
+        for pair in self.stereo_tracker.pairs:
             frame_pairs[pair] = self.hstack_frames(pair)
         return frame_pairs
 
@@ -190,7 +190,7 @@ def resize(image, new_height):
 
 if __name__ == "__main__":
     from calicam.calibration.corner_tracker import CornerTracker
-    from calicam.calibration.stereocalibrator import StereoCalibrator
+    from calicam.calibration.stereocalibrator import StereoTracker
     from calicam.session import Session
 
     logger.debug("Test live stereocalibration processing")
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(session.streams, fps_target=4)
     logger.info("Creating Stereocalibrator")
-    stereo_cal = StereoCalibrator(syncr, trackr)
+    stereo_cal = StereoTracker(syncr, trackr)
     frame_builder = StereoFrameBuilder(stereo_cal)
 
     # while len(stereo_cal.uncalibrated_pairs) == 0:

@@ -50,7 +50,7 @@ if __name__ == "__main__":
     from calicam.triangulate.stereo_triangulator import StereoTriangulator
 
     # set the location for the sample data used for testing
-    repo = Path(__file__).parent.parent.parent.parent
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam").parent
     session_directory =Path(repo, "sessions", "high_res_session")
     # create playback streams to provide to synchronizer
     ports = [0, 2]

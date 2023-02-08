@@ -11,4 +11,5 @@
 *.whl
 dist/*
 *.epgz
+*.pdf
 calicam_wizard_mockup*

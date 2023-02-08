@@ -14,13 +14,13 @@ class OmniFrameBuilder:
     def __init__(self, stereo_tracker, single_frame_height=250):
         self.stereo_tracker = stereo_tracker
         self.single_frame_height = single_frame_height
-        self.board_count_target = 15    # used to determine sort order. 
+        self.board_count_target = 5  # used to determine sort order. Should this be in the stereo_tracker?
 
         self.rotation_counts = {}
         for port, stream in self.stereo_tracker.synchronizer.streams.items():
             self.rotation_counts[port] = stream.camera.rotation_count
-        
-        self.board_counts = {pair:0 for pair in self.stereo_tracker.pairs}
+
+        self.board_counts = {pair: 0 for pair in self.stereo_tracker.pairs}
         self.omni_list = [key for key, value in self.board_counts.items()]
 
     def get_new_raw_frames(self):
@@ -33,13 +33,13 @@ class OmniFrameBuilder:
             self.board_counts[pair] = len(capture_history["common_board_loc"])
 
     def update_omni_list(self):
-        # need to revise this so that it will only update if one of the board counts crosses
-        # the target
-        # also... it should sort the frames in descending order by board count
-        self.omni_list = [key for key, value in self.board_counts.items() if value < self.board_count_target]
-        self.omni_list = sorted(self.omni_list,key = self.board_counts.get, reverse=True)
-     
-        
+        self.omni_list = [
+            key
+            for key, value in self.board_counts.items()
+            if value < self.board_count_target
+        ]
+        self.omni_list = sorted(self.omni_list, key=self.board_counts.get, reverse=True)
+
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
         """Return unaltered frame if no corner information detected, otherwise
         return two frames with same corners drawn"""
@@ -142,8 +142,8 @@ class OmniFrameBuilder:
         frame = frame.copy()
         return frame
 
-    def hstack_frames(self, pair,  board_count):
-        """place paired frames side by side"""
+    def hstack_frames(self, pair, board_count):
+        """place paired frames side by side with an info box to the left"""
 
         portA, portB = pair
         logger.debug("Horizontally stacking paired frames")
@@ -164,18 +164,18 @@ class OmniFrameBuilder:
         )
         label_display = cv2.putText(
             label_display,
-            f"{pair[0]} | {pair[1]}",
-            (10, int(self.single_frame_height/3)),
+            f"{pair[0]} & {pair[1]}",
+            (10, int(self.single_frame_height / 3)),
             fontFace=cv2.FONT_HERSHEY_SIMPLEX,
             fontScale=1,
             color=(255, 165, 0),
             thickness=1,
         )
-        
+
         label_display = cv2.putText(
             label_display,
             str(board_count),
-            (10, int(self.single_frame_height*(2/3))),
+            (10, int(self.single_frame_height * (2 / 3))),
             fontFace=cv2.FONT_HERSHEY_SIMPLEX,
             fontScale=1,
             color=(255, 165, 0),
@@ -185,14 +185,6 @@ class OmniFrameBuilder:
         hstacked_pair = np.hstack((label_display, frameA, frameB))
 
         return hstacked_pair
-
-    def get_stereoframes(self):
-        """Build a dictionary of paired frames to be broadcast to interface"""
-        stereo_frames = {}
-        for pair in self.stereo_tracker.pairs:
-            stereo_frames[pair] = self.hstack_frames(pair)
-        return stereo_frames
-
 
     def apply_rotation(self, frame, port):
         rotation_count = self.rotation_counts[port]
@@ -207,6 +199,25 @@ class OmniFrameBuilder:
 
         return frame
 
+    def get_completion_frame(self):
+        height = int(self.single_frame_height)
+        # because the label box to the left is half of the single frame width
+        width = int(self.single_frame_height * 2.5)
+
+        blank = np.zeros((height, width, 3), np.uint8)
+
+        blank = cv2.putText(
+            blank,
+            "DATA COLLECTION COMPLETE",
+            (20, int(self.single_frame_height / 2)),
+            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+            fontScale=1,
+            color=(255, 165, 0),
+            thickness=1,
+        )
+        
+        return blank
+    
     def get_omni_frame(self):
         """
         This glues together the stereopairs with summary blocks of the common board count
@@ -214,21 +225,27 @@ class OmniFrameBuilder:
         omni_frame = None
         board_target_reached = False
         for pair in self.omni_list:
-            
+
             # figure out if you need to update the omni frame list
             board_count = self.board_counts[pair]
-            if board_count > self.board_count_target:
+            if board_count > self.board_count_target - 1:
                 board_target_reached = True
-                
+
             if omni_frame is None:
                 omni_frame = self.hstack_frames(pair, board_count)
             else:
-                omni_frame = np.vstack([omni_frame, self.hstack_frames(pair, board_count)])
+                omni_frame = np.vstack(
+                    [omni_frame, self.hstack_frames(pair, board_count)]
+                )
 
         if board_target_reached:
             self.update_omni_list()
-            
+
+        if omni_frame is None:
+            omni_frame = self.get_completion_frame()
+            self.stereo_tracker.stop_event.set()
         return omni_frame
+
 
 def resize(image, new_height):
     (current_height, current_width) = image.shape[:2]
@@ -285,5 +302,6 @@ if __name__ == "__main__":
         if key == ord("q"):
             cv2.destroyAllWindows()
             break
+        
 
     cv2.destroyAllWindows()

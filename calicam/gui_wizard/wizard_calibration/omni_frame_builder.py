@@ -10,28 +10,35 @@ import numpy as np
 from calicam.cameras.synchronizer import Synchronizer
 
 
-class StereoPairFrameBuilder:
+class OmniFrameBuilder:
     def __init__(self, stereo_tracker, single_frame_height=250):
         self.stereo_tracker = stereo_tracker
         self.single_frame_height = single_frame_height
-        self.board_count_target = 50    # used to determine sort order. 
+        self.board_count_target = 15    # used to determine sort order. 
 
         self.rotation_counts = {}
         for port, stream in self.stereo_tracker.synchronizer.streams.items():
             self.rotation_counts[port] = stream.camera.rotation_count
-
-        self.omni_frame_order = self.stereo_tracker.pairs.copy()
-        self.omni_frame_order.sort()
         
-        self.board_counts = {pair:0 for pair in self.omni_frame_order}
+        self.board_counts = {pair:0 for pair in self.stereo_tracker.pairs}
+        self.omni_list = [key for key, value in self.board_counts.items()]
 
     def get_new_raw_frames(self):
         self.stereo_tracker.cal_frames_ready_q.get()  # impose wait until update
         self.current_synched_frames = self.stereo_tracker.current_synched_frames
 
         # update the board_counts here
-        
-        
+        for pair in self.board_counts.keys():
+            capture_history = self.stereo_tracker.stereo_inputs[pair]
+            self.board_counts[pair] = len(capture_history["common_board_loc"])
+
+    def update_omni_list(self):
+        # need to revise this so that it will only update if one of the board counts crosses
+        # the target
+        # also... it should sort the frames in descending order by board count
+        self.omni_list = [key for key, value in self.board_counts.items() if value < self.board_count_target]
+        self.omni_list = sorted(self.omni_list,key = self.board_counts.get, reverse=True)
+     
         
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
         """Return unaltered frame if no corner information detected, otherwise
@@ -186,13 +193,6 @@ class StereoPairFrameBuilder:
             stereo_frames[pair] = self.hstack_frames(pair)
         return stereo_frames
 
-    def get_pair_board_counts(self):
-        board_counts = {}
-        for pair in self.omni_frame_order:
-            corner_history = self.stereo_tracker.stereo_inputs[pair]
-            board_counts[pair] = len(corner_history["common_board_loc"])
-
-        return board_counts
 
     def apply_rotation(self, frame, port):
         rotation_count = self.rotation_counts[port]
@@ -211,23 +211,24 @@ class StereoPairFrameBuilder:
         """
         This glues together the stereopairs with summary blocks of the common board count
         """
-
-        pair_board_counts = self.get_pair_board_counts()
-
         omni_frame = None
-        for pair in self.omni_frame_order:
-            board_count = pair_board_counts[pair]
+        board_target_reached = False
+        for pair in self.omni_list:
+            
+            # figure out if you need to update the omni frame list
+            board_count = self.board_counts[pair]
+            if board_count > self.board_count_target:
+                board_target_reached = True
+                
             if omni_frame is None:
                 omni_frame = self.hstack_frames(pair, board_count)
             else:
                 omni_frame = np.vstack([omni_frame, self.hstack_frames(pair, board_count)])
 
+        if board_target_reached:
+            self.update_omni_list()
+            
         return omni_frame
-    
-    def reorder_omni_frame(self):
-
-        pass
-
 
 def resize(image, new_height):
     (current_height, current_width) = image.shape[:2]
@@ -245,7 +246,7 @@ if __name__ == "__main__":
     logger.debug("Test live stereocalibration processing")
 
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    # config_path = Path(repo, "sessions", "high_res_session")
+    # config_path = Path(repo, "sessions", "default_res_session")
     config_path = Path(repo, "sessions", "5_cameras")
     print(config_path)
 
@@ -261,7 +262,7 @@ if __name__ == "__main__":
     syncr = Synchronizer(session.streams, fps_target=2)
     logger.info("Creating Stereocalibrator")
     stereo_cal = StereoTracker(syncr, trackr)
-    frame_builder = StereoPairFrameBuilder(stereo_cal)
+    frame_builder = OmniFrameBuilder(stereo_cal)
 
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
@@ -270,9 +271,12 @@ if __name__ == "__main__":
         # wait for newly processed frame to be available
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
         frame_builder.get_new_raw_frames()
-        board_counts = frame_builder.get_pair_board_counts()
+        # board_counts = frame_builder.get_pair_board_counts()
 
         omni_frame = frame_builder.get_omni_frame()
+        if omni_frame is None:
+            cv2.destroyAllWindows()
+            break
 
         cv2.imshow("omni frame", omni_frame)
 

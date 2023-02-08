@@ -34,10 +34,14 @@ class RecordedStream:
         self.port_history = synched_frames_history[synched_frames_history["port"] == port]
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
-        # self.shutter_sync = Queue(-1)
-
+        
+        #initializing to something to avoid errors elsewhere
+        self.frame_index = 0
+        self.frame_time = 0 
+        self.fps_target = None
+        
     def set_fps_target(self, fps):
-        logger.info("No frame rate for recorded playback, push to synchronizer as rapidly as possible")
+        self.fps_target = fps
 
     def play_video(self):
 
@@ -48,31 +52,30 @@ class RecordedStream:
         """Places list of [frame_time, frame] on the reel for reading by a synchronizer,
         mimicking the behaviour of the LiveStream. 
         """
-        frame_index = self.start_frame_index
+        self.frame_index = self.start_frame_index
 
         while True:
-            
-            # _ = self.shutter_sync.get()
 
-            frame_time = self.port_history[self.port_history["frame_index"] == frame_index][
+            self.frame_time = self.port_history[self.port_history["frame_index"] == self.frame_index][
                 "frame_time"
             ]
-            frame_time = float(frame_time)
+            self.frame_time = float(self.frame_time)
             success, frame = self.capture.read()
 
             if not success:
                 break
 
-            logger.debug(f"Placing frame on reel {self.port} for frame time: {frame_time} and frame index: {frame_index}")
-            self.out_q.put([frame_time, frame])
-            frame_index += 1
+            logger.debug(f"Placing frame on reel {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}")
+            self.out_q.put([self.frame_time, frame])
+            self.frame_index += 1
 
-            if frame_index > self.last_frame_index:
+            if self.frame_index >= self.last_frame_index:
                 logger.info(f"Ending recorded playback at port {self.port}")
                 self.out_q.put([-1, np.array([], dtype="uint8")])
                 break
 
-
+    def at_end_of_file(self):
+        return self.frame_index == self.last_frame_index
 class RecordedStreamPool:
     
     def __init__(self, ports, directory):
@@ -82,11 +85,20 @@ class RecordedStreamPool:
         for port in ports:
             self.streams[port] = RecordedStream(port, directory)
 
-    def play_videos(self):
+        self.thread = Thread(target=self.play_videos_worker, args=[],daemon=True)
+        self.thread.start()
+        
+    def play_videos_worker(self):
         for port in self.ports:
             self.streams[port].play_video()
         
-
+    def playback_complete(self):
+        for port, stream in self.streams.items():
+            if stream.at_end_of_file():
+                return True
+            else:
+                return False
+        
 if __name__ == "__main__":
     from calicam.cameras.synchronizer import Synchronizer
     
@@ -99,12 +111,11 @@ if __name__ == "__main__":
     ports = [0,1,2,3,4]
     recorded_stream_pool = RecordedStreamPool(ports, session_directory)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
-    recorded_stream_pool.play_videos() 
     
     notification_q = Queue()
     syncr.synch_notice_subscribers.append(notification_q)
 
-    while True:
+    while not recorded_stream_pool.playback_complete():
         synched_frames_notice = notification_q.get()
         for port, frame_data in syncr.current_synched_frames.items():
             if frame_data:
@@ -115,3 +126,5 @@ if __name__ == "__main__":
         if key == ord("q"):
             cv2.destroyAllWindows()
             break
+
+    cv2.destroyAllWindows()

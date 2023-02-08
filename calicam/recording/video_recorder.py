@@ -70,8 +70,8 @@ class VideoRecorder:
                     self.frame_history["frame_time"].append(frame_time)
 
                     # these two lines of code are just for ease of debugging 
-                    cv2.imshow(f"port: {port}", frame)
-                    key = cv2.waitKey(1)
+                    # cv2.imshow(f"port: {port}", frame)
+                    # key = cv2.waitKey(1)
 
             sync_index += 1
         self.trigger_stop.clear() # reset stop recording trigger
@@ -96,6 +96,9 @@ class VideoRecorder:
         logger.info(f"All video data to be saved to {destination_folder}")
 
         self.destination_folder = destination_folder
+        # create the folder if it doesn't already exist
+        self.destination_folder.mkdir(exist_ok=True, parents=True)
+
         self.recording = True
         self.recording_thread = Thread(target=self.save_frame_worker, args=[], daemon=True)
         self.recording_thread.start() 
@@ -123,8 +126,6 @@ if __name__ == "__main__":
     session.adjust_resolutions()
 
     syncr = Synchronizer(session.streams, fps_target=50)
-    notification_q = Queue()
-    syncr.synch_notice_subscribers.append(notification_q)
 
     video_recorder = VideoRecorder(syncr)
 

@@ -26,7 +26,7 @@ class RecordedStream:
 
         video_path = str(Path(self.directory, f"port_{port}.mp4"))
         synched_frames_history_path = str(Path(self.directory, f"frame_time_history.csv"))
-        self.reel = Queue(-1)
+        self.out_q = Queue(-1)
         self.capture = cv2.VideoCapture(video_path)
 
         synched_frames_history = pd.read_csv(synched_frames_history_path)
@@ -88,21 +88,18 @@ class RecordedStreamPool:
         
 
 if __name__ == "__main__":
-    import sys
-    import time
     from calicam.cameras.synchronizer import Synchronizer
     
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     print(repo)
 
-    session_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
+    # session_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
+    session_directory = Path(repo, "sessions", "5_cameras", "recording")
 
-    ports = [0,1]
+    ports = [0,1,2,3,4]
     recorded_stream_pool = RecordedStreamPool(ports, session_directory)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos() 
-    # recorded_stream = RecordedStream(port=port, directory=video_directory)
-    # recorded_stream.start_video_to_reel()
     
     notification_q = Queue()
     syncr.synch_notice_subscribers.append(notification_q)

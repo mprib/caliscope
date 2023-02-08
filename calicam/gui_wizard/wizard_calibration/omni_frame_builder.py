@@ -14,7 +14,7 @@ class OmniFrameBuilder:
     def __init__(self, stereo_tracker, single_frame_height=250):
         self.stereo_tracker = stereo_tracker
         self.single_frame_height = single_frame_height
-        self.board_count_target = 5  # used to determine sort order. Should this be in the stereo_tracker?
+        self.board_count_target = 50  # used to determine sort order. Should this be in the stereo_tracker?
 
         self.rotation_counts = {}
         for port, stream in self.stereo_tracker.synchronizer.streams.items():
@@ -259,12 +259,14 @@ if __name__ == "__main__":
     from calicam.calibration.corner_tracker import CornerTracker
     from calicam.calibration.stereocalibrator import StereoTracker
     from calicam.session import Session
+    from calicam.recording.video_recorder import VideoRecorder
 
     logger.debug("Test live stereocalibration processing")
 
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
     # config_path = Path(repo, "sessions", "default_res_session")
     config_path = Path(repo, "sessions", "5_cameras")
+    recording_path = Path(config_path, "recording")
     print(config_path)
 
     session = Session(config_path)
@@ -279,8 +281,10 @@ if __name__ == "__main__":
     syncr = Synchronizer(session.streams, fps_target=2)
     logger.info("Creating Stereocalibrator")
     stereo_cal = StereoTracker(syncr, trackr)
+    recorder = VideoRecorder(syncr)
     frame_builder = OmniFrameBuilder(stereo_cal)
 
+    recorder.start_recording(recording_path)
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
     logger.info("Showing Paired Frames")
@@ -303,5 +307,5 @@ if __name__ == "__main__":
             cv2.destroyAllWindows()
             break
         
-
+    recorder.stop_recording()
     cv2.destroyAllWindows()

@@ -1,31 +1,14 @@
-# Current Functionality
+## Current Flow
 
-To launch the primary functionality of the repo, run `src\gui\main.py`. This will open an ugly dialog to begin a calibration session. Session data is stored in the `sessions` folder in the root directory. The session being launched is coded at the bottom of `main.py`. The general workflow:
+The general flow of processing is illustrated in the graph below. 
 
-1. Print out a charuco board from the Charuco Builder tab
-2. Click "Find Additional Cameras" to connect to them
-3. Go to the camera tabs and configure resolution/exposure before collecting calibration corners and calibrating.
-4. Save calibration parameters on camera tab
-5. Once all cameras intrinsic factors are estimated, click the stereocalibration button and calibrate each pair of cameras.
-6. Save calibration to `config.toml`.
+Not illustrated is the omniframe which is the primary GUI element providing feedback to the user regarding position of the charuco board to provide the best input data to the calibrator.
 
-# Recording
+A future organizational improvement may be to perform corner tracking *prior to* synchronization. This will avoid the frequent reuse of the tracker in some ad-hoc data processing. Just save the corner data during the initial streaming of video data, Mac. Don't keep going back to the well.
 
-The file `src\recording\video_recorder.py` will launch a VideoRecorder and store the mp4 and frametime data in the session folder. 
+Another potential advantage of this it may facilitate a future refactor where the camera/stream/tracking stack is pushed into its own process which may take some load off of the primary process. Frame, time, and corner data can be passed back into the synchronizer for a single-point-of-contact for the rest of the program.
 
-# Triangulating
-
-Recorded video can be played back through the synchronizer with synched frames passed to the PairedPointStream which uses the charuco tracker to identify the same point in space between paired frames. Point ID and (X,Y) position for each frame are passed to an `out_q`. The triangulator pulls from this queue, calculates values for ID: (X,Y,Z) and places that calculation on its own `out_q`
-
-# Visualization
-
-The Visualizer constructs camera meshes based on `config.toml` to allow a gut check of the stereocalibration parameters. The camera mesh shape is determined by the actual camera properties and provides another way of assessing reasonableness at a glance. (X,Y,Z) points are read from `triangulator.out_q` and updated to the scene. 
-
-Currently, the origin is the base camera from the stereocalibration pair. Next planned steps include a way to set the origin.
-
-## Current Object Relationships
-
-The general flow of processing is illustrated in the graph below. This does not represent any of the GUI elements which are still a work in progress. My immediate next steps are to stabilize the GUI, making it easier to incorporate the full set of actions that are currently permitted by the back-end of the code base.
+I think I might be returning to the original design I had of including the point tracker *within* the running stream thread. This set itself up nicely for real time point tracking as the frame-rate would self-throttle based on the processing demands of the point tracker...
 
 ```mermaid
 graph TD
@@ -37,21 +20,17 @@ end
 
 subgraph calibration
 Charuco --> CornerTracker
-CornerTracker --> Monocalibrator
-CornerTracker --> Stereocalibrator
+CornerTracker --> Stereotracker
 end
 
-Synchronizer --> Stereocalibrator
-LiveStream --> Monocalibrator
-
+Synchronizer --> Stereotracker
 subgraph calibration_data
 config.toml
 StereoCalRecordings
 end
 
-Stereocalibrator -.via Session.-> config.toml
+Stereotracker -.via Session.-> config.toml
 calibration -.via Session.-> StereoCalRecordings
-Monocalibrator -.via Session.-> config.toml
 calibration_data --> ArrayConstructor
 
 subgraph array

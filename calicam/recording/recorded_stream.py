@@ -36,7 +36,7 @@ class RecordedStream:
         self.last_frame_index = self.port_history["frame_index"].max()
         # self.shutter_sync = Queue(-1)
 
-    def set_fps(self, fps):
+    def set_fps_target(self, fps):
         logger.info("No frame rate for recorded playback, push to synchronizer as rapidly as possible")
 
     def play_video(self):
@@ -64,12 +64,12 @@ class RecordedStream:
                 break
 
             logger.debug(f"Placing frame on reel {self.port} for frame time: {frame_time} and frame index: {frame_index}")
-            self.reel.put([frame_time, frame])
+            self.out_q.put([frame_time, frame])
             frame_index += 1
 
             if frame_index > self.last_frame_index:
                 logger.info(f"Ending recorded playback at port {self.port}")
-                self.reel.put([-1, np.array([], dtype="uint8")])
+                self.out_q.put([-1, np.array([], dtype="uint8")])
                 break
 
 
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     import time
     from calicam.cameras.synchronizer import Synchronizer
     
-    repo = Path(__file__).parent.parent.parent
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     print(repo)
 
     session_directory = Path(repo, "sessions", "iterative_adjustment", "recording")

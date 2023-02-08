@@ -14,7 +14,7 @@ from itertools import combinations
 from calicam.calibration.charuco import Charuco
 from calicam.calibration.corner_tracker import CornerTracker
 from calicam.calibration.monocalibrator import MonoCalibrator
-from calicam.calibration.stereocalibrator import StereoCalibrator
+from calicam.calibration.stereotracker import StereoTracker
 from calicam.cameras.camera import Camera
 from calicam.cameras.synchronizer import Synchronizer
 from calicam.cameras.live_stream import LiveStream
@@ -172,7 +172,12 @@ class Session:
                     logger.info(f"Ignoring camera at port {port}")
                     pass  # don't load it in
                 else:
-                    self.cameras[port] = Camera(port)
+                    if "verified_resolutions" in params.keys():
+                        verified_resolutions = params["verified_resolutions"]
+                        self.cameras[port] = Camera(port, verified_resolutions)
+                    else:
+                        self.cameras[port] = Camera(port)
+                        
                     cam = self.cameras[port]  # just for ease of reference
                     cam.rotation_count = params["rotation_count"]
                     cam.exposure = params["exposure"]
@@ -329,7 +334,7 @@ class Session:
             logger.info("Creating stereo tools...")
             self.synchronizer = Synchronizer(self.streams)
             self.corner_tracker = CornerTracker(self.charuco)
-            self.stereocalibrator = StereoCalibrator(
+            self.stereocalibrator = StereoTracker(
                 self.synchronizer, self.corner_tracker
             )
             self.stereo_frame_builder = StereoFrameBuilder(self.stereocalibrator)
@@ -384,6 +389,7 @@ class Session:
             "exposure": cam.exposure,
             "grid_count": cam.grid_count,
             "ignore": cam.ignore,
+            "verified_resolutions": cam.verified_resolutions
         }
 
         logger.info(f"Saving camera parameters...{params}")
@@ -430,7 +436,7 @@ class stage(Enum):
 
 #%%
 if __name__ == "__main__":
-    repo = Path(__file__).parent.parent
+    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
     config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
     print("Loading session config")

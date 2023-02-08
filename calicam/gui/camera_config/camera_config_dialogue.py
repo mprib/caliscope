@@ -219,7 +219,7 @@ class CameraConfigDialog(QDialog):
 
 
         def on_frame_rate_spin(fps_rate):
-            self.stream.set_fps(fps_rate)
+            self.stream.set_fps_target(fps_rate)
             logger.info(f"Changing monocalibrator frame rate for port{self.port}")
 
         self.frame_rate_spin.valueChanged.connect(on_frame_rate_spin)
@@ -342,7 +342,7 @@ class CameraConfigDialog(QDialog):
     def build_resolution_combo(self):
         def resolutions_text():
             res_text = []
-            for w, h in self.camera.possible_resolutions:
+            for w, h in self.camera.verified_resolutions:
                 res_text.append(f"{int(w)} x {int(h)}")
             return res_text
 
@@ -387,10 +387,10 @@ class CameraConfigDialog(QDialog):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
 
-    repo = Path(__file__).parent.parent.parent.parent
-    config_path = Path(repo, "sessions", "high_res_session")
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
+    config_path = Path(repo, "sessions", "default_res_session")
+    # ports = [0, 1, 2]
 
-    # THIS IS WHERE YOU START TOMORROW, MAC. MAKE THIS WORK WITH JUST monocalibrator INPUT
     print(config_path)
     session = Session(config_path)
     session.load_cameras()

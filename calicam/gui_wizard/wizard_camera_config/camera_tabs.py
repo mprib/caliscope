@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QTabWidget,
 )
 
-from calicam.gui.camera_config.camera_config_dialogue import CameraConfigDialog
+from calicam.gui_wizard.wizard_camera_config.camera_config_dialogue import CameraConfigDialog
 from calicam.session import Session
 
 class CameraTabs(QTabWidget):
@@ -26,21 +26,15 @@ class CameraTabs(QTabWidget):
         tab_names = [self.tabText(i) for i in range(self.count())]
         logger.info(f"Current tabs are: {tab_names}")
 
-        if len(self.session.monocalibrators) > 0:
-            for port, monocal in self.session.monocalibrators.items():
+        if len(self.session.streams) > 0:
+            for port, stream in self.session.streams.items():
                 tab_name = f"Camera {port}"
+                
                 logger.info(f"Potentially adding {tab_name}")
                 if tab_name in tab_names:
                     pass  # already here, don't bother
                 else:
                     cam_tab = CameraConfigDialog(self.session, port)
-
-                    # def on_save_click():
-                    #     self.summary.camera_table.update_data()
-
-                    # cam_tab.save_cal_btn.clicked.connect(on_save_click)
-                    # move code below to main.py
-                    # cam_tab.save_cal_btn.clicked.connect(self.summary.camera_table.update_data)
 
                     self.insertTab(port, cam_tab, tab_name)
         else:
@@ -50,14 +44,15 @@ class CameraTabs(QTabWidget):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
 
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam").parent
-    config_path = Path(repo, "sessions", "high_res_session")
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
+    # config_path = Path(repo, "sessions", "high_res_session")
+    config_path = Path(repo, "sessions", "5_cameras")
     print(config_path)
     session = Session(config_path)
     session.load_cameras()
     session.load_streams()
     # session.adjust_resolutions()
-    session.load_monocalibrators()
+    # session.load_monocalibrators()
 
     test_port = 0
 

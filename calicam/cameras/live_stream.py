@@ -16,17 +16,17 @@ from calicam.cameras.camera import Camera
 
 
 class LiveStream:
-    def __init__(self, camera, fps=6):
+    def __init__(self, camera, fps_target=6):
         self.camera = camera
         self.port = camera.port
 
-        self.reel = Queue(-1)  # infinite size....hopefully doesn't blow up
+        self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
         self.stop_confirm = Queue()
         self.stop_event = Event()
 
-        self.push_to_reel = False
+        self.push_to_out_q = False
         self.show_fps = False
-        self.set_fps(fps)
+        self.set_fps_target(fps_target)
         self.FPS_actual = 0
         # Start the thread to read frames from the video stream
         self.thread = Thread(target=self.roll_camera, args=(), daemon=True)
@@ -38,7 +38,7 @@ class LiveStream:
             1  # trying to avoid div 0 error...not sure about this though
         )
 
-    def set_fps(self, fps):
+    def set_fps_target(self, fps):
         self.fps = fps
         milestones = []
         for i in range(0, fps):
@@ -75,7 +75,7 @@ class LiveStream:
         return 1 / self.avg_delta_time
 
     def stop(self):
-        self.push_to_reel = False
+        self.push_to_out_q = False
         self.stop_event.set()
         logger.info(f"Stop signal sent at stream {self.port}")
 
@@ -105,9 +105,9 @@ class LiveStream:
                 if self.show_fps:
                     self._add_fps()
 
-                if self.push_to_reel and self.success:
+                if self.push_to_out_q and self.success:
                     logger.debug(f"Pushing frame to reel at port {self.port}")
-                    self.reel.put([self.frame_time, self._working_frame])
+                    self.out_q.put([self.frame_time, self._working_frame])
 
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
@@ -156,24 +156,27 @@ class LiveStream:
 
 if __name__ == "__main__":
     ports = [0, 1, 2]
+    # ports = [2]
 
     cams = []
     for port in ports:
         print(f"Creating camera {port}")
-        cams.append(Camera(port))
+        cam = Camera(port)
+        cam.exposure = -7
+        cams.append(cam)
 
     streams = []
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
         stream = LiveStream(cam)
-        stream.push_to_reel = True
+        stream.push_to_out_q = True
         stream.show_fps = True
         streams.append(stream)
 
     while True:
         try:
             for stream in streams:
-                time, img = stream.reel.get()
+                time, img = stream.out_q.get()
                 cv2.imshow(
                     (str(stream.port) + ": 'q' to quit and attempt calibration"),
                     img,

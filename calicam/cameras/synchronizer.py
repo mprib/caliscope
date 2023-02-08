@@ -41,7 +41,7 @@ class Synchronizer:
     def update_fps_targets(self, target):
         logger.info(f"Attempting to change target fps in streams to {target}")
         for port, stream in self.streams.items():
-            stream.set_fps(target)
+            stream.set_fps_target(target)
 
     def stop(self):
         self.stop_event.set()
@@ -86,7 +86,7 @@ class Synchronizer:
 
     def harvest_frames(self, stream):
         port = stream.port
-        stream.push_to_reel = True
+        stream.push_to_out_q = True
 
         logger.info(f"Beginning to collect data generated at port {port}")
 
@@ -96,7 +96,7 @@ class Synchronizer:
             (
                 frame_time,
                 frame,
-            ) = stream.reel.get()
+            ) = stream.out_q.get()
 
             if frame_time == -1:  # signal from recorded stream that end of file reached
                 break
@@ -251,8 +251,8 @@ if __name__ == "__main__":
     from calicam.session import Session
     import pandas as pd
 
-    repo = Path(__file__).parent.parent.parent
-    config_path = Path(repo, "sessions", "high_res_session")
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
+    config_path = Path(repo, "sessions", "default_res_session")
 
     session = Session(config_path)
 
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     session.load_streams()
     session.adjust_resolutions()
 
-    syncr = Synchronizer(session.streams, fps_target=None)
+    syncr = Synchronizer(session.streams, fps_target=16) # fps high to see full speed
 
     notification_q = Queue()
 

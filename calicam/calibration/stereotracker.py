@@ -1,7 +1,5 @@
-# NOTE: You may want to just roll this whole thing back to what it was before to preserve the old GUI functionality
-# at least until you decide to jettison it all together...
-# really you are just tracking corners between pairs of images in the new framework, so just call it what it is...
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 
 import time
@@ -24,10 +22,9 @@ class StereoTracker:
         self.corner_tracker = corner_tracker
         self.synchronizer = synchronizer
 
-        self.corner_threshold = 7  # board corners in common for capture
+        self.corner_threshold = 4  # board corners in common for capture
         self.wait_time = 0.5  # seconds between snapshots
         self.grid_count_trigger = 5  #  move on to calibration
-
 
         self.synched_frames_available_q = Queue()
         self.synchronizer.subscribe_to_notice(self.synched_frames_available_q)
@@ -39,7 +36,7 @@ class StereoTracker:
         for port, stream in self.synchronizer.streams.items():
             logger.debug(f"Appending port {port}...")
             self.ports.append(port)
-        
+
         # build list of pairs, but with pairs ordered (smaller, larger)
         unordered_pairs = [(i, j) for i, j in combinations(self.ports, 2)]
         self.pairs = []
@@ -51,22 +48,16 @@ class StereoTracker:
             self.pairs.append((i, j))
             logger.debug(f"Camera pairs for calibration are: {self.pairs}")
 
-
         # Build Stereo Inputs: dictionary to hold growing lists of input parameters .
-        
         self.stereo_inputs = {
             pair: {"common_board_loc": [], "img_loc_A": [], "img_loc_B": []}
             for pair in self.pairs
         }
 
         # needed to determine if enough time has passed since last capture
-        self.last_corner_save_time = {
-            pair: time.perf_counter() for pair in self.pairs
-        }
+        self.last_corner_save_time = {pair: time.perf_counter() for pair in self.pairs}
 
-        logger.info(
-            f"Initiating data collection of uncalibrated pairs: {self.pairs}"
-        )
+        logger.info(f"Initiating data collection of uncalibrated pairs: {self.pairs}")
         self.keep_going = True
         self.thread = Thread(target=self.harvest_synched_frames, args=(), daemon=True)
         self.thread.start()
@@ -76,29 +67,34 @@ class StereoTracker:
         self.synched_frames_available_q.put("Terminate")
         logger.info("Stop signal sent in stereocalibrator")
 
-
     def harvest_synched_frames(self):
         """Monitors the synched_frames_available_q to grab a new frames and inititiate
         processing of it."""
-        logger.info(f"Beginning to harvest corners on synched frames from port pairs: {self.pairs}")
+        logger.info(
+            f"Beginning to harvest corners on synched frames from port pairs: {self.pairs}"
+        )
 
         while not self.stop_event.set():
             self.synched_frames_available_q.get()
-            
+
             # may get hung up on get, so additional item put on queue
             if self.stop_event.set():
                 break
-            
+
             self.current_synched_frames = self.synchronizer.current_synched_frames
 
             self.add_corner_data()
-            logger.debug("Begin determination of shared corners within current frame pairs")
+            logger.debug(
+                "Begin determination of shared corners within current frame pairs"
+            )
             for pair in self.pairs:
                 self.store_stereo_data(pair)
 
             self.cal_frames_ready_q.put("frames ready")
 
-        logger.info("Stereocalibration synched frames harvester successfully shut-down...")
+        logger.info(
+            "Stereocalibration synched frames harvester successfully shut-down..."
+        )
 
     def add_corner_data(self):
         """Assign corner data for each frame"""
@@ -111,7 +107,7 @@ class StereoTracker:
                 self.current_synched_frames[port]["ids"] = ids
                 self.current_synched_frames[port]["img_loc"] = img_loc
                 self.current_synched_frames[port]["board_loc"] = board_loc
-                
+
                 logger.debug(f"At port {port} the following corners are located {ids}")
 
     def store_stereo_data(self, pair):
@@ -207,12 +203,11 @@ class StereoTracker:
             self.pairs.remove(pair)
         else:
             logger.warning(f"Attempted to remove pair {pair} but it was not present")
-            
+
         logger.info(
             f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}"
         )
         logger.info(f"RMSE of reprojection is {ret}")
-
 
     def get_common_locs(self, port, common_ids):
         """Pull out objective location and image location of board corners for
@@ -241,7 +236,7 @@ if __name__ == "__main__":
 
     logger.debug("Test live stereocalibration processing")
 
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
+    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
     session_path = Path(repo, "sessions", "high_res_session")
     session = Session(session_path)
 

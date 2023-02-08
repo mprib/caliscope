@@ -88,7 +88,7 @@ class CameraTable(QWidget):
 
 
 if __name__ == "__main__":
-    repo = Path(__file__).parent.parent.parent
+    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     config_path = Path(repo, "sessions", "default_session")
     print(config_path)
     session = Session(config_path)

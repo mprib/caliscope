@@ -46,9 +46,9 @@ class CornerTracker:
             self.gray = cv2.flip(self.gray, 1)
             self.find_corners_single_frame(mirror=True)
         
-        point_data = PointPacket(self.ids, self.img_loc, self.board_loc)
+        point_packet = PointPacket(self.ids, self.img_loc, self.board_loc)
 
-        return point_data
+        return point_packet
 
     def find_corners_single_frame(self, mirror):
 

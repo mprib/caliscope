@@ -17,19 +17,29 @@ subgraph cameras
 Camera --> LiveStream
 LiveStream --> Synchronizer
 end
-
 subgraph tracking
 Charuco --> CornerTracker
 CornerTracker --> LiveStream
-
 end
-CornerTracker -.needs to be implemented.-> RecordedStream
+
+
+subgraph recording
+Synchronizer --> VideoRecorder
+VideoRecorder --> port_#.mp4
+VideoRecorder --> frame_time_history.csv
+
+port_#.mp4 --> RecordedStream
+frame_time_history.csv --> RecordedStream
+RecordedStream --> Synchronizer
+end
 
 Synchronizer --> Stereotracker
 subgraph calibration_data
 config.toml
 StereoCalRecordings
 end
+
+CornerTracker -.needs to be implemented.-> RecordedStream
 
 Stereotracker -.via Session.-> config.toml
 calibration -.via Session.-> StereoCalRecordings
@@ -41,15 +51,6 @@ end
 
 Synchronizer --> PairedPointStream 
 
-subgraph recording
-Synchronizer --> VideoRecorder
-VideoRecorder --> port_#.mp4
-VideoRecorder --> frame_time_history.csv
-
-port_#.mp4 --> RecordedStream
-frame_time_history.csv --> RecordedStream
-RecordedStream --> Synchronizer
-end
 
 CornerTracker -.temporary for testing.- PairedPointStream
 

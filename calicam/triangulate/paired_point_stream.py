@@ -222,7 +222,10 @@ class PairedPointsPacket:
 if __name__ == "__main__":
     from calicam.recording.recorded_stream import RecordedStreamPool
     from calicam.calibration.charuco import Charuco
-
+    # MAC: START HERE...
+    # let the synchronizer grab the max synch frame from the recorder playback...
+    # then the synchronizer can end its loop when it puts the last thing on the queue
+     
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     print(repo)
     session_directory = Path(repo, "sessions", "5_cameras", "recording")

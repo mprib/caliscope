@@ -10,9 +10,13 @@ class PointPacket:
 
 @dataclass
 class FramePacket:
-    port: int
-    frame_time:float
-    frame: np.ndarray
-    points: PointPacket=None 
+   port: int
+   frame_time:float
+   frame: np.ndarray
+   frame_index: int=None
+   points: PointPacket=None 
         
-    
+@dataclass
+class SyncPacket:
+   sync_index: int
+   frame_packets: dict[FramePacket]

@@ -36,7 +36,7 @@ class Synchronizer:
         self.fps = fps_target
 
         self.initialize_ledgers()
-        self.spin_up()
+        self.start()
 
     def update_fps_targets(self, target):
         logger.info(f"Attempting to change target fps in streams to {target}")
@@ -55,7 +55,7 @@ class Synchronizer:
         self.port_current_frame = {port: 0 for port in self.ports}
         self.mean_frame_times = []
 
-    def spin_up(self):
+    def start(self):
 
         logger.info("About to submit Threadpool of frame Harvesters")
         self.threads = []
@@ -66,7 +66,7 @@ class Synchronizer:
         logger.info("Frame harvesters just submitted")
 
         logger.info("Starting frame synchronizer...")
-        self.thread = Thread(target=self.synch_frames_worker, args=(), daemon=True)
+        self.thread = Thread(target=self.synch_frames_worker, args=(), daemon=False)
         self.thread.start()
 
     def subscribe_to_notice(self, q):

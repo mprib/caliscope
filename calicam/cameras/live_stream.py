@@ -130,13 +130,14 @@ class LiveStream:
                         )  # id / img_loc / world_loc (if applicable as in ChAruco)
                     else:
                         point_data = None
-                    # frame_packet = FramePacket(
-                    #     port=self.port,
-                    #     frame_time=self.frame_time,
-                    #     frame=self._working_frame,
-                    #     points=point_data,
-                    # )
-                    self.out_q.put([self.frame_time, self._working_frame])
+                    frame_packet = FramePacket(
+                        port=self.port,
+                        frame_time=self.frame_time,
+                        frame=self._working_frame,
+                        points=point_data,
+                    )
+                    # self.out_q.put([self.frame_time, self._working_frame])
+                    self.out_q.put(frame_packet)
 
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()

@@ -9,6 +9,12 @@ from itertools import combinations
 import cv2
 
 def grid_history(frame, ids, img_locs, connected_corners):
+    """
+    NOTE: This is used in the monocalibrator, which is somewhat deliberately broken
+    right now while I sort out an alternate calibration framework. The long
+    term plan is to re-integrate the monocalibration workflow as a final "touch-up"
+    step in the event that the intrinsics have a poor RMSE of reprojection
+    """
     ids = ids[:,0]
     img_locs = img_locs[:,0]
     
@@ -30,17 +36,12 @@ def grid_history(frame, ids, img_locs, connected_corners):
     return frame
 
 
-def corners(frame, locs):
-    # if type(locs) == list:
-    #     locs = np.array(locs, dtype=np.float32)
-
+def corners(frame_packet):
+    frame = frame_packet.frame
+    locs = frame_packet.points.img_loc
     if locs.any():
         for coord in locs[:,0]:
-            # coord = list(coord)
-            # print(frame.shape[1])
             x = round(coord[0])
             y = round(coord[1])
 
             cv2.circle(frame, (x, y), 5, (0, 0, 220), 3)
-            # cv2.putText(self.frame,str(ID), (x, y), cv2.FONT_HERSHEY_SIMPLEX, .5,(220,0,0), 3)
-    return frame

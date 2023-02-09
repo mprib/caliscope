@@ -10,6 +10,7 @@ import numpy as np
 
 import calicam.calibration.draw_charuco
 from calicam.calibration.charuco import Charuco
+from calicam.cameras.data_packets import PointPacket
 
 
 class CornerTracker:
@@ -25,7 +26,7 @@ class CornerTracker:
         self.criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         self.conv_size = (11, 11)  # Don't make this too large.
 
-    def get_corners(self, frame):
+    def get_point_data(self, frame):
         """Will check for charuco corners in the frame, if it doesn't find any, 
         then it will look for corners in the mirror image of the frame"""
 
@@ -44,8 +45,10 @@ class CornerTracker:
             # print("Checking mirror image")
             self.gray = cv2.flip(self.gray, 1)
             self.find_corners_single_frame(mirror=True)
+        
+        point_data = PointPacket(self.ids, self.img_loc, self.board_loc)
 
-        return self.ids, self.img_loc, self.board_loc
+        return point_data
 
     def find_corners_single_frame(self, mirror):
 
@@ -113,7 +116,7 @@ if __name__ == "__main__":
     while True:
 
         read_success, frame = cam.capture.read()
-        ids, locations, board_corners = trackr.get_corners(frame)
+        ids, locations, board_corners = trackr.get_point_data(frame)
         drawn_frame = calicam.calibration.draw_charuco.corners(frame, locations)
 
         cv2.imshow("Press 'q' to quit", drawn_frame)

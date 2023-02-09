@@ -113,7 +113,7 @@ class LiveStream:
                 # Wait an appropriate amount of time to hit the frame rate target
                 sleep(self.wait_to_next_frame())
                 read_start = perf_counter()
-                self.success, self._working_frame = self.camera.capture.read()
+                self.success, self.frame = self.camera.capture.read()
 
                 read_stop = perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
@@ -124,19 +124,20 @@ class LiveStream:
                 if self.push_to_out_q and self.success:
                     logger.debug(f"Pushing frame to reel at port {self.port}")
 
-                    if self.tracker:
+                    if self.track_points:
                         point_data = self.tracker.get_points(
-                            self._working_frame
+                            self.frame
                         )  # id / img_loc / world_loc (if applicable as in ChAruco)
                     else:
                         point_data = None
+
                     frame_packet = FramePacket(
                         port=self.port,
                         frame_time=self.frame_time,
-                        frame=self._working_frame,
+                        frame=self.frame,
                         points=point_data,
                     )
-                    # self.out_q.put([self.frame_time, self._working_frame])
+                    # self.out_q.put([self.frame_time, self.frame])
                     self.out_q.put(frame_packet)
 
                 # Rate of calling recalc must be frequency of this loop
@@ -174,7 +175,7 @@ class LiveStream:
         """NOTE: this is used in code at bottom, not in external use"""
         self.fps_text = str(int(round(self.FPS_actual, 0)))
         cv2.putText(
-            self._working_frame,
+            self.frame,
             "FPS:" + self.fps_text,
             (10, 70),
             cv2.FONT_HERSHEY_PLAIN,
@@ -185,8 +186,8 @@ class LiveStream:
 
 
 if __name__ == "__main__":
-    ports = [0, 2, 3, 4]
-    # ports = [2]
+    # ports = [0, 2, 3, 4]
+    ports = [3]
 
     cams = []
     for port in ports:
@@ -198,7 +199,7 @@ if __name__ == "__main__":
     streams = []
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
-        stream = LiveStream(cam, fps_target=20)
+        stream = LiveStream(cam, fps_target=30)
         stream.push_to_out_q = True
         stream.show_fps = True
         streams.append(stream)
@@ -206,11 +207,11 @@ if __name__ == "__main__":
     while True:
         try:
             for stream in streams:
-                frame_time, frame, point_data = stream.out_q.get()
-
+                frame_packet = stream.out_q.get()
+                
                 cv2.imshow(
-                    (str(stream.port) + ": 'q' to quit and attempt calibration"),
-                    frame,
+                    (str(frame_packet.port) + ": 'q' to quit and attempt calibration"),
+                    frame_packet.frame,
                 )
 
         # bad reads until connection to src established

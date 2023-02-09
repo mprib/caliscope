@@ -32,7 +32,7 @@ class LiveStream:
         self.stop_confirm = Queue()
         self.stop_event = Event()
 
-        self.push_to_out_q = False
+        self.push_to_out_q = True
         self.show_fps = False  # used for F5 testing
         self.set_fps_target(fps_target)
         self.FPS_actual = 0

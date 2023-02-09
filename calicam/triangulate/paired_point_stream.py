@@ -1,9 +1,12 @@
 
+import logging
 import calicam.logger
 logger = calicam.logger.get(__name__)
-
+if __name__ == "__main__":
+    logger.setLevel(logging.DEBUG)
+    
 from queue import Queue
-from threading import Thread
+from threading import Thread, Event
 import cv2
 import sys
 from pathlib import Path
@@ -26,10 +29,12 @@ class PairedPointStream:
 
         self.out_q = Queue(-1)  # no size limitations...should be small data
         self.pairs = pairs
-
+        
         self.csv_output_path = csv_output_path
         self.tidy_output = {}  # a holding place for data to be saved to csv
 
+        self.stop_event = Event()
+        self.frames_complete = False
         self.thread = Thread(target=self.find_paired_points, args=[], daemon=True)
         self.thread.start()
 
@@ -101,8 +106,14 @@ class PairedPointStream:
     def find_paired_points(self):
         
         
-        while True:
+        while not self.frames_complete:
             synched_frames = self.synched_frames_in_q.get()
+            
+            if synched_frames is None:
+                logging.info("End of frames signaled...paired point stream shutting down")
+                self.frames_complete = True
+                self.out_q.put(None)
+                break
 
             # will be populated with dataframes of:
             # id | img_x | img_y | board_x | board_y
@@ -143,7 +154,7 @@ class PairedPointStream:
                         pass
                     else:
                         self.out_q.put(packet)
-                        print(packet.sync_index)
+                        logger.info(f"Placing packet for sync index {packet.sync_index}")
                         self.add_to_tidy_output(packet)
 
 
@@ -215,10 +226,11 @@ class PairedPointsPacket:
 if __name__ == "__main__":
     from calicam.recording.recorded_stream import RecordedStreamPool
     from calicam.calibration.charuco import Charuco
-
+    logger.setLevel(logging.DEBUG)
+     
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     print(repo)
-    session_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
+    session_directory = Path(repo, "sessions", "5_cameras", "recording")
     csv_output = Path(session_directory, "paired_point_data.csv")
 
     ports = [0, 1, 2]
@@ -238,12 +250,13 @@ if __name__ == "__main__":
         synchronizer=syncr, pairs=pairs, tracker=trackr, csv_output_path=csv_output
     )
 
-    while True:
+    # I think that EOF needs to propogate up
+    while not point_stream.frames_complete:
         points_packet = point_stream.out_q.get()
 
         # print("--------------------------------------")
         # print(points_packet)
 
-        if points_packet.sync_index == 300:
-            save_data = pd.DataFrame(point_stream.tidy_output)
-            save_data.to_csv(csv_output)
+    print("Saving data....")
+    save_data = pd.DataFrame(point_stream.tidy_output)
+    save_data.to_csv(csv_output)

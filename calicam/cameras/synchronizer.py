@@ -1,5 +1,5 @@
-
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 
 import sys
@@ -26,6 +26,7 @@ class Synchronizer:
 
         self.frame_data = {}
         self.stop_event = Event()
+        self.frames_complete = False  # only relevant for video playback, but provides a way to wrap up the thread
 
         self.ports = []
         for port, stream in self.streams.items():
@@ -36,7 +37,7 @@ class Synchronizer:
         self.fps = fps_target
 
         self.initialize_ledgers()
-        self.spin_up()
+        self.start()
 
     def update_fps_targets(self, target):
         logger.info(f"Attempting to change target fps in streams to {target}")
@@ -55,7 +56,7 @@ class Synchronizer:
         self.port_current_frame = {port: 0 for port in self.ports}
         self.mean_frame_times = []
 
-    def spin_up(self):
+    def start(self):
 
         logger.info("About to submit Threadpool of frame Harvesters")
         self.threads = []
@@ -98,9 +99,6 @@ class Synchronizer:
                 frame,
             ) = stream.out_q.get()
 
-            if frame_time == -1:  # signal from recorded stream that end of file reached
-                break
-
             self.frame_data[f"{port}_{frame_index}"] = {
                 "port": port,
                 "frame": frame,
@@ -132,6 +130,13 @@ class Synchronizer:
                 time.sleep(0.001)
 
             next_frame_time = self.frame_data[frame_data_key]["frame_time"]
+           
+             
+            if next_frame_time == -1:
+                logger.info(f"End of frames at port {p} detected; ending synchronization")
+                self.frames_complete = True
+                self.stop_event.set()
+            
             if p != port:
                 times_of_next_frames.append(next_frame_time)
 
@@ -238,6 +243,14 @@ class Synchronizer:
                 q.put(self.current_synched_frames)
 
             sync_index += 1
+            
+            if self.stop_event.is_set():
+                logger.info("Sending `None` on queue to signal end of synced frames.")
+                for q in self.synch_notice_subscribers:
+                    q.put(None)
+                for q in self.synched_frames_subscribers:
+                    q.put(None)
+                    
             self.fps = self.average_fps()
 
         logger.info("Frame synch worker successfully ended")
@@ -251,8 +264,9 @@ if __name__ == "__main__":
     from calicam.session import Session
     import pandas as pd
 
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
+    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
     config_path = Path(repo, "sessions", "default_res_session")
+    # config_path = Path(repo, "sessions", "high_res_session")
 
     session = Session(config_path)
 
@@ -260,7 +274,7 @@ if __name__ == "__main__":
     session.load_streams()
     session.adjust_resolutions()
 
-    syncr = Synchronizer(session.streams, fps_target=16) # fps high to see full speed
+    syncr = Synchronizer(session.streams, fps_target=30)  # fps high to see full speed
 
     notification_q = Queue()
 

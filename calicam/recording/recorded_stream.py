@@ -107,7 +107,7 @@ if __name__ == "__main__":
     recorded_stream_pool.play_videos()
      
     notification_q = Queue()
-    syncr.synch_notice_subscribers.append(notification_q)
+    syncr.sync_notice_subscribers.append(notification_q)
 
     while not syncr.frames_complete:
         synched_frames_notice = notification_q.get()

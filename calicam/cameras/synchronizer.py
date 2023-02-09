@@ -2,7 +2,6 @@ import calicam.logger
 
 logger = calicam.logger.get(__name__)
 
-import sys
 import time
 from pathlib import Path
 from queue import Queue
@@ -17,7 +16,7 @@ class Synchronizer:
         self.streams = streams
         self.current_synched_frames = None
 
-        self.synch_notice_subscribers = (
+        self.sync_notice_subscribers = (
             []
         )  # queues that will be notified of new synched frames
         self.synched_frames_subscribers = (
@@ -75,7 +74,7 @@ class Synchronizer:
         # this is intended to avoid issues with latency due to multiple iterations
         # of frames being passed from one queue to another
         logger.info("Adding queue to receive notice of synched frames update")
-        self.synch_notice_subscribers.append(q)
+        self.sync_notice_subscribers.append(q)
 
     def subscribe_to_synched_frames(self, q):
         logger.info("Adding queue to receive synched frames")
@@ -230,7 +229,7 @@ class Synchronizer:
 
             # notify other processes that the new frames are ready for processing
             # only for tasks that can risk missing frames (i.e. only for gui purposes)
-            for q in self.synch_notice_subscribers:
+            for q in self.sync_notice_subscribers:
                 logger.debug(f"Giving notice of new synched frames packet via {q}")
                 q.put("new synched frames available")
 
@@ -240,7 +239,7 @@ class Synchronizer:
 
             if self.stop_event.is_set():
                 logger.info("Sending `None` on queue to signal end of synced frames.")
-                for q in self.synch_notice_subscribers:
+                for q in self.sync_notice_subscribers:
                     q.put(None)
                 for q in self.synched_frames_subscribers:
                     q.put(None)

@@ -6,7 +6,9 @@
 #   2: future off-line processing of pre-recorded video.
 
 import calicam.logger
+import logging
 logger = calicam.logger.get(__name__)
+logger.setLevel(logging.INFO)
 
 from pathlib import Path
 from queue import Queue
@@ -53,7 +55,7 @@ class RecordedStream:
         mimicking the behaviour of the LiveStream. 
         """
         self.frame_index = self.start_frame_index
-
+        logger.info(f"Beginning playback of video for port {self.port}")
         while True:
 
             self.frame_time = self.port_history[self.port_history["frame_index"] == self.frame_index][
@@ -74,8 +76,6 @@ class RecordedStream:
                 self.out_q.put([-1, np.array([], dtype="uint8")])
                 break
 
-    def at_end_of_file(self):
-        return self.frame_index == self.last_frame_index
 class RecordedStreamPool:
     
     def __init__(self, ports, directory):
@@ -85,19 +85,9 @@ class RecordedStreamPool:
         for port in ports:
             self.streams[port] = RecordedStream(port, directory)
 
-        self.thread = Thread(target=self.play_videos_worker, args=[],daemon=True)
-        self.thread.start()
-        
-    def play_videos_worker(self):
+    def play_videos(self):
         for port in self.ports:
             self.streams[port].play_video()
-        
-    def playback_complete(self):
-        for port, stream in self.streams.items():
-            if stream.at_end_of_file():
-                return True
-            else:
-                return False
         
 if __name__ == "__main__":
     from calicam.cameras.synchronizer import Synchronizer
@@ -106,16 +96,20 @@ if __name__ == "__main__":
     print(repo)
 
     # session_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
-    session_directory = Path(repo, "sessions", "5_cameras", "recording")
+    # session_directory = Path(repo, "sessions", "5_cameras", "recording")
 
-    ports = [0,1,2,3,4]
+    session_directory = Path(repo, "sessions", "high_res_session", "recording")
+
+    # ports = [0,1,2,3,4]
+    ports = [0,1,2]
     recorded_stream_pool = RecordedStreamPool(ports, session_directory)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
-    
+    recorded_stream_pool.play_videos()
+     
     notification_q = Queue()
     syncr.synch_notice_subscribers.append(notification_q)
 
-    while not recorded_stream_pool.playback_complete():
+    while not syncr.frames_complete:
         synched_frames_notice = notification_q.get()
         for port, frame_data in syncr.current_synched_frames.items():
             if frame_data:

@@ -1,6 +1,8 @@
 
+import logging
 import calicam.logger
 logger = calicam.logger.get(__name__)
+logger.setLevel(logging.INFO)
 
 from queue import Queue
 from threading import Thread
@@ -30,7 +32,7 @@ class PairedPointStream:
         self.csv_output_path = csv_output_path
         self.tidy_output = {}  # a holding place for data to be saved to csv
 
-        self.thread = Thread(target=self.find_paired_points, args=[], daemon=True)
+        self.thread = Thread(target=self.find_paired_points, args=[], daemon=False)
         self.thread.start()
 
     def add_to_tidy_output(self, packet):
@@ -117,7 +119,12 @@ class PairedPointStream:
                     frame = synched_frames[port]["frame"]
                     frame_time = synched_frames[port]["frame_time"]
                     sync_index = synched_frames[port]["sync_index"]
-
+                    # cv2.imshow("test", frame)
+                    
+                    # key = cv2.waitKey()
+                    # if key == ord('q'):
+                    #     cv2.destroyAllWindows()
+                    #     break
                     ids, loc_img, loc_board = self.tracker.get_corners(frame)
                     if ids.any():
                         points[port] = FramePointsPacket(
@@ -218,7 +225,7 @@ if __name__ == "__main__":
 
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     print(repo)
-    session_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
+    session_directory = Path(repo, "sessions", "5_cameras", "recording")
     csv_output = Path(session_directory, "paired_point_data.csv")
 
     ports = [0, 1, 2]
@@ -238,12 +245,13 @@ if __name__ == "__main__":
         synchronizer=syncr, pairs=pairs, tracker=trackr, csv_output_path=csv_output
     )
 
+    # I think that EOF needs to propogate up
     while True:
         points_packet = point_stream.out_q.get()
 
-        # print("--------------------------------------")
-        # print(points_packet)
+        print("--------------------------------------")
+        print(points_packet)
 
-        if points_packet.sync_index == 300:
-            save_data = pd.DataFrame(point_stream.tidy_output)
-            save_data.to_csv(csv_output)
+    print("Saving data....")
+    save_data = pd.DataFrame(point_stream.tidy_output)
+    save_data.to_csv(csv_output)

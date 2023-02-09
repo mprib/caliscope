@@ -6,7 +6,9 @@
 #   2: future off-line processing of pre-recorded video.
 
 import calicam.logger
+import logging
 logger = calicam.logger.get(__name__)
+logger.setLevel(logging.INFO)
 
 from pathlib import Path
 from queue import Queue
@@ -53,7 +55,7 @@ class RecordedStream:
         mimicking the behaviour of the LiveStream. 
         """
         self.frame_index = self.start_frame_index
-
+        logger.info(f"Beginning playback of video for port {self.port}")
         while True:
 
             self.frame_time = self.port_history[self.port_history["frame_index"] == self.frame_index][
@@ -85,6 +87,7 @@ class RecordedStreamPool:
         for port in ports:
             self.streams[port] = RecordedStream(port, directory)
 
+    def play_videos(self):
         self.thread = Thread(target=self.play_videos_worker, args=[],daemon=True)
         self.thread.start()
         
@@ -93,8 +96,10 @@ class RecordedStreamPool:
             self.streams[port].play_video()
         
     def playback_complete(self):
+        
         for port, stream in self.streams.items():
             if stream.at_end_of_file():
+                
                 return True
             else:
                 return False
@@ -111,7 +116,8 @@ if __name__ == "__main__":
     ports = [0,1,2,3,4]
     recorded_stream_pool = RecordedStreamPool(ports, session_directory)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
-    
+    recorded_stream_pool.play_videos()
+     
     notification_q = Queue()
     syncr.synch_notice_subscribers.append(notification_q)
 

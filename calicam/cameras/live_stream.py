@@ -3,6 +3,7 @@
 # that reads in frames.
 
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 
 from time import perf_counter, sleep
@@ -13,19 +14,26 @@ import cv2
 import numpy as np
 
 from calicam.cameras.camera import Camera
+from calicam.cameras.data_packets import FramePacket
 
 
 class LiveStream:
-    def __init__(self, camera, fps_target=6):
+    def __init__(self, camera, fps_target=6, tracker=None):
         self.camera = camera
         self.port = camera.port
+
+        self.tracker = tracker
+        if self.tracker is not None:
+            self.track_points = True
+        else:
+            self.track_points = False
 
         self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
         self.stop_confirm = Queue()
         self.stop_event = Event()
 
-        self.push_to_out_q = False
-        self.show_fps = False
+        self.push_to_out_q = True
+        self.show_fps = False  # used for F5 testing
         self.set_fps_target(fps_target)
         self.FPS_actual = 0
         # Start the thread to read frames from the video stream
@@ -34,11 +42,15 @@ class LiveStream:
 
         # initialize time trackers for actual FPS determination
         self.frame_time = perf_counter()
-        self.avg_delta_time = (
-            1  # trying to avoid div 0 error...not sure about this though
-        )
+        # trying to avoid div 0 error...not sure about this though
+        self.avg_delta_time = 1
 
     def set_fps_target(self, fps):
+        """
+        This is done through a method as it will also do a one-time determination of the times as which
+        frames should be read (the milestones)
+        """
+
         self.fps = fps
         milestones = []
         for i in range(0, fps):
@@ -47,8 +59,10 @@ class LiveStream:
         self.milestones = np.array(milestones)
 
     def wait_to_next_frame(self):
-        """based on the target fps, return the time needed to sleep so that
-        a frame read immediately after would occur when needed"""
+        """
+        based on the next milestone time, return the time needed to sleep so that
+        a frame read immediately after would occur when needed
+        """
 
         time = perf_counter()
         fractional_time = time % 1
@@ -61,9 +75,11 @@ class LiveStream:
             return future_wait_times[0]
 
     def get_FPS_actual(self):
-        """set the actual frame rate; called within roll_camera()
+        """
+        set the actual frame rate; called within roll_camera()
         needs to be called from within roll_camera to actually work
-        Note that this is a smoothed running average"""
+        Note that this is a smoothed running average
+        """
         self.delta_time = perf_counter() - self.start_time
         self.start_time = perf_counter()
         if not self.avg_delta_time:
@@ -85,7 +101,7 @@ class LiveStream:
         calls various frame processing methods on it, and updates the exposed
         frame
         """
-        self.start_time = perf_counter() # used to get initial delta_t for FPS
+        self.start_time = perf_counter()  # used to get initial delta_t for FPS
         first_time = True
         while not self.stop_event.is_set():
             if first_time:
@@ -97,7 +113,7 @@ class LiveStream:
                 # Wait an appropriate amount of time to hit the frame rate target
                 sleep(self.wait_to_next_frame())
                 read_start = perf_counter()
-                self.success, self._working_frame = self.camera.capture.read()
+                self.success, self.frame = self.camera.capture.read()
 
                 read_stop = perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
@@ -107,7 +123,22 @@ class LiveStream:
 
                 if self.push_to_out_q and self.success:
                     logger.debug(f"Pushing frame to reel at port {self.port}")
-                    self.out_q.put([self.frame_time, self._working_frame])
+
+                    if self.track_points:
+                        point_data = self.tracker.get_points(
+                            self.frame
+                        )  # id / img_loc / world_loc (if applicable as in ChAruco)
+                    else:
+                        point_data = None
+
+                    frame_packet = FramePacket(
+                        port=self.port,
+                        frame_time=self.frame_time,
+                        frame=self.frame,
+                        points=point_data,
+                    )
+                    # self.out_q.put([self.frame_time, self.frame])
+                    self.out_q.put(frame_packet)
 
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
@@ -144,7 +175,7 @@ class LiveStream:
         """NOTE: this is used in code at bottom, not in external use"""
         self.fps_text = str(int(round(self.FPS_actual, 0)))
         cv2.putText(
-            self._working_frame,
+            self.frame,
             "FPS:" + self.fps_text,
             (10, 70),
             cv2.FONT_HERSHEY_PLAIN,
@@ -155,8 +186,8 @@ class LiveStream:
 
 
 if __name__ == "__main__":
-    ports = [0, 1, 2]
-    # ports = [2]
+    # ports = [0, 2, 3, 4]
+    ports = [3]
 
     cams = []
     for port in ports:
@@ -168,7 +199,7 @@ if __name__ == "__main__":
     streams = []
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
-        stream = LiveStream(cam)
+        stream = LiveStream(cam, fps_target=30)
         stream.push_to_out_q = True
         stream.show_fps = True
         streams.append(stream)
@@ -176,10 +207,11 @@ if __name__ == "__main__":
     while True:
         try:
             for stream in streams:
-                time, img = stream.out_q.get()
+                frame_packet = stream.out_q.get()
+                
                 cv2.imshow(
-                    (str(stream.port) + ": 'q' to quit and attempt calibration"),
-                    img,
+                    (str(frame_packet.port) + ": 'q' to quit and attempt calibration"),
+                    frame_packet.frame,
                 )
 
         # bad reads until connection to src established

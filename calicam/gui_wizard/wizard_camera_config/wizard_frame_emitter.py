@@ -8,7 +8,7 @@ from pathlib import Path
 import cv2
 from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QImage, QPixmap
-
+from calicam.cameras.data_packets import FramePacket
 
 class FrameEmitter(QThread):
     # establish signals from the frame that will be displayed in real time
@@ -35,7 +35,9 @@ class FrameEmitter(QThread):
             # Grab a frame from the queue and broadcast to displays
             # self.monocalibrator.grid_frame_ready_q.get()
 
-            self.frame_time, self.frame = self.stream.out_q.get()
+            frame_packet = self.stream.out_q.get()
+            self.frame_time = frame_packet.frame_time
+            self.frame = frame_packet.frame
             self.apply_undistortion()
             self.apply_rotation()
 

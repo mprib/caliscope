@@ -2,10 +2,11 @@
 import logging
 import calicam.logger
 logger = calicam.logger.get(__name__)
-logger.setLevel(logging.INFO)
-
+if __name__ == "__main__":
+    logger.setLevel(logging.DEBUG)
+    
 from queue import Queue
-from threading import Thread
+from threading import Thread, Event
 import cv2
 import sys
 from pathlib import Path
@@ -28,11 +29,13 @@ class PairedPointStream:
 
         self.out_q = Queue(-1)  # no size limitations...should be small data
         self.pairs = pairs
-
+        
         self.csv_output_path = csv_output_path
         self.tidy_output = {}  # a holding place for data to be saved to csv
 
-        self.thread = Thread(target=self.find_paired_points, args=[], daemon=False)
+        self.stop_event = Event()
+        self.frames_complete = False
+        self.thread = Thread(target=self.find_paired_points, args=[], daemon=True)
         self.thread.start()
 
     def add_to_tidy_output(self, packet):
@@ -103,8 +106,14 @@ class PairedPointStream:
     def find_paired_points(self):
         
         
-        while True:
+        while not self.frames_complete:
             synched_frames = self.synched_frames_in_q.get()
+            
+            if synched_frames is None:
+                logging.info("End of frames signaled...paired point stream shutting down")
+                self.frames_complete = True
+                self.out_q.put(None)
+                break
 
             # will be populated with dataframes of:
             # id | img_x | img_y | board_x | board_y
@@ -119,12 +128,7 @@ class PairedPointStream:
                     frame = synched_frames[port]["frame"]
                     frame_time = synched_frames[port]["frame_time"]
                     sync_index = synched_frames[port]["sync_index"]
-                    # cv2.imshow("test", frame)
-                    
-                    # key = cv2.waitKey()
-                    # if key == ord('q'):
-                    #     cv2.destroyAllWindows()
-                    #     break
+
                     ids, loc_img, loc_board = self.tracker.get_corners(frame)
                     if ids.any():
                         points[port] = FramePointsPacket(
@@ -150,7 +154,7 @@ class PairedPointStream:
                         pass
                     else:
                         self.out_q.put(packet)
-                        print(packet.sync_index)
+                        logger.info(f"Placing packet for sync index {packet.sync_index}")
                         self.add_to_tidy_output(packet)
 
 
@@ -222,9 +226,7 @@ class PairedPointsPacket:
 if __name__ == "__main__":
     from calicam.recording.recorded_stream import RecordedStreamPool
     from calicam.calibration.charuco import Charuco
-    # MAC: START HERE...
-    # let the synchronizer grab the max synch frame from the recorder playback...
-    # then the synchronizer can end its loop when it puts the last thing on the queue
+    logger.setLevel(logging.DEBUG)
      
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     print(repo)
@@ -249,11 +251,11 @@ if __name__ == "__main__":
     )
 
     # I think that EOF needs to propogate up
-    while True:
+    while not point_stream.frames_complete:
         points_packet = point_stream.out_q.get()
 
-        print("--------------------------------------")
-        print(points_packet)
+        # print("--------------------------------------")
+        # print(points_packet)
 
     print("Saving data....")
     save_data = pd.DataFrame(point_stream.tidy_output)

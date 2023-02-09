@@ -18,10 +18,12 @@ Camera --> LiveStream
 LiveStream --> Synchronizer
 end
 
-subgraph calibration
+subgraph tracking
 Charuco --> CornerTracker
-CornerTracker --> Stereotracker
+CornerTracker --> LiveStream
+
 end
+CornerTracker --> RecordedStream
 
 Synchronizer --> Stereotracker
 subgraph calibration_data

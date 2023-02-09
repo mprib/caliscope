@@ -23,7 +23,7 @@ Charuco --> CornerTracker
 CornerTracker --> LiveStream
 
 end
-CornerTracker --> RecordedStream
+CornerTracker -.needs to be implemented.-> RecordedStream
 
 Synchronizer --> Stereotracker
 subgraph calibration_data

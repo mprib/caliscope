@@ -10,6 +10,10 @@ class PointPacket:
 
 @dataclass
 class FramePacket:
+   """
+   Holds the data for a single frame from a camera, including the frame itself, 
+   the frame time and the points if they were generated
+   """
    port: int
    frame_time:float
    frame: np.ndarray
@@ -18,5 +22,8 @@ class FramePacket:
         
 @dataclass
 class SyncPacket:
+   """
+   SyncPacket holds syncronized frame packets.
+   """
    sync_index: int
    frame_packets: dict[FramePacket]

@@ -1,5 +1,4 @@
 import calicam.logger
-
 logger = calicam.logger.get(__name__)
 
 from pathlib import Path
@@ -280,15 +279,15 @@ if __name__ == "__main__":
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(session.streams, fps_target=2)
     logger.info("Creating Stereocalibrator")
-    stereo_cal = StereoTracker(syncr, trackr)
+    stereo_tracker = StereoTracker(syncr, trackr)
     recorder = VideoRecorder(syncr)
-    frame_builder = OmniFrameBuilder(stereo_cal)
+    frame_builder = OmniFrameBuilder(stereo_tracker)
 
     recorder.start_recording(recording_path)
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
     logger.info("Showing Paired Frames")
-    while len(stereo_cal.pairs) > 0:
+    while len(stereo_tracker.pairs) > 0:
         # wait for newly processed frame to be available
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
         frame_builder.get_new_raw_frames()

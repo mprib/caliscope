@@ -34,6 +34,11 @@ RecordedStream --> Synchronizer
 end
 
 Synchronizer --> Stereotracker
+
+CornerTracker --> Stereotracker
+Stereotracker --> OmniFrame
+
+
 subgraph calibration_data
 config.toml
 StereoCalRecordings

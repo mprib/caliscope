@@ -47,7 +47,10 @@ class CornerTracker:
             self.find_corners_single_frame(mirror=True)
         
         point_packet = PointPacket(self.ids, self.img_loc, self.board_loc)
-
+        
+        # if len(self.ids) > 0:
+        #     print("wait")
+        
         return point_packet
 
     def find_corners_single_frame(self, mirror):
@@ -84,12 +87,12 @@ class CornerTracker:
 
             if success:
                 # assign to tracker
-                self.ids = _ids
-                self.img_loc = _img_loc
+                self.ids = _ids[:,0]
+                self.img_loc = _img_loc[:,0]
 
                 # flip coordinates if mirrored image fed in
                 if mirror:
-                    self.img_loc[:, :, 0] = frame_width - self.img_loc[:, :, 0]
+                    self.img_loc[:, 0] = frame_width - self.img_loc[:, 0]
 
     @property
     def board_loc(self):

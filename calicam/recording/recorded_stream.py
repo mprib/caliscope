@@ -109,12 +109,12 @@ class RecordedStream:
 
 
 class RecordedStreamPool:
-    def __init__(self, ports, directory):
+    def __init__(self, ports, directory, tracker = None):
         self.streams = {}
         self.ports = ports
 
         for port in ports:
-            self.streams[port] = RecordedStream(port, directory)
+            self.streams[port] = RecordedStream(port, directory, tracker=tracker)
 
     def play_videos(self):
         for port in self.ports:
@@ -127,9 +127,6 @@ if __name__ == "__main__":
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
     print(repo)
 
-    # session_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
-
-    # session_directory = Path(repo, "sessions", "high_res_session", "recording")
     session_directory = Path(repo, "sessions", "5_cameras", "recording")
 
     ports = [0, 1, 2, 3, 4]

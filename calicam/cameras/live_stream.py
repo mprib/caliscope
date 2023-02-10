@@ -29,21 +29,23 @@ class LiveStream:
             self.track_points = False
 
         self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
-        self.stop_confirm = Queue()
+        self.push_to_out_q = True
         self.stop_event = Event()
 
-        self.push_to_out_q = True
+        self.stop_confirm = (
+            Queue()
+        )  # make sure camera no longer reading before trying to change resolution
+
         self.show_fps = False  # used for F5 testing
         self.set_fps_target(fps_target)
         self.FPS_actual = 0
         # Start the thread to read frames from the video stream
-        self.thread = Thread(target=self.roll_camera, args=(), daemon=True)
+        self.thread = Thread(target=self.worker, args=(), daemon=True)
         self.thread.start()
 
         # initialize time trackers for actual FPS determination
         self.frame_time = perf_counter()
-        # trying to avoid div 0 error...not sure about this though
-        self.avg_delta_time = 1
+        self.avg_delta_time = 1  # initialize to something to avoid errors elsewhere
 
     def set_fps_target(self, fps):
         """
@@ -95,7 +97,7 @@ class LiveStream:
         self.stop_event.set()
         logger.info(f"Stop signal sent at stream {self.port}")
 
-    def roll_camera(self):
+    def worker(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame,
         calls various frame processing methods on it, and updates the exposed
@@ -125,9 +127,7 @@ class LiveStream:
                     logger.debug(f"Pushing frame to reel at port {self.port}")
 
                     if self.track_points:
-                        point_data = self.tracker.get_points(
-                            self.frame
-                        )  # id / img_loc / world_loc (if applicable as in ChAruco)
+                        point_data = self.tracker.get_points(self.frame)
                     else:
                         point_data = None
 
@@ -168,11 +168,11 @@ class LiveStream:
         logger.info(
             f"Beginning roll_camera thread at port {self.port} with resolution {res}"
         )
-        self.thread = Thread(target=self.roll_camera, args=(), daemon=True)
+        self.thread = Thread(target=self.worker, args=(), daemon=True)
         self.thread.start()
 
     def _add_fps(self):
-        """NOTE: this is used in code at bottom, not in external use"""
+        """NOTE: this is used in F5 test, not in external use"""
         self.fps_text = str(int(round(self.FPS_actual, 0)))
         cv2.putText(
             self.frame,
@@ -208,7 +208,7 @@ if __name__ == "__main__":
         try:
             for stream in streams:
                 frame_packet = stream.out_q.get()
-                
+
                 cv2.imshow(
                     (str(frame_packet.port) + ": 'q' to quit and attempt calibration"),
                     frame_packet.frame,

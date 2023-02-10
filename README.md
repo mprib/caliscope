@@ -13,24 +13,22 @@ I think I might be returning to the original design I had of including the point
 ```mermaid
 graph TD
 
+
+LiveStream --> Synchronizer
+RecordedStream --> Synchronizer
+Synchronizer --> VideoRecorder
+
 subgraph cameras
 Camera --> LiveStream
-LiveStream --> Synchronizer
 end
 subgraph tracking
 Charuco --> CornerTracker
 CornerTracker --> LiveStream
 end
 
-
 subgraph recording
-Synchronizer --> VideoRecorder
-VideoRecorder --> port_#.mp4
-VideoRecorder --> frame_time_history.csv
-
-port_#.mp4 --> RecordedStream
-frame_time_history.csv --> RecordedStream
-RecordedStream --> Synchronizer
+VideoRecorder --> RecordingDirectory
+RecordingDirectory --> RecordedStream
 end
 
 Synchronizer --> Stereotracker
@@ -44,7 +42,7 @@ config.toml
 StereoCalRecordings
 end
 
-CornerTracker -.needs to be implemented.-> RecordedStream
+CornerTracker --> RecordedStream
 
 Stereotracker -.via Session.-> config.toml
 calibration -.via Session.-> StereoCalRecordings

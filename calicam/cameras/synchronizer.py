@@ -12,6 +12,7 @@ import numpy as np
 from calicam.cameras.data_packets import SyncPacket
 
 class Synchronizer:
+    
     def __init__(self, streams: dict, fps_target=6):
         self.streams = streams
         self.current_synched_frames = None
@@ -118,7 +119,7 @@ class Synchronizer:
                 logger.debug(
                     f"Waiting in a loop for frame data to populate with key: {frame_data_key}"
                 )
-                time.sleep(0.001)
+                time.sleep(0.01)
 
             next_frame_time = self.all_frame_packets[frame_data_key].frame_time
 
@@ -200,14 +201,14 @@ class Synchronizer:
                 if frame_time > earliest_next[port]:
                     # definitly should be put in the next layer and not this one
                     current_frame_packets[port] = None
-                    logger.warning(f"Skipped frame at port {port}: > earliest_next")
+                    logger.warn(f"Skipped frame at port {port}: > earliest_next")
                 elif (
                     earliest_next[port] - frame_time < frame_time - latest_current[port]
                 ):  # frame time is closer to earliest next than latest current
                     # if it's closer to the earliest next frame than the latest current frame, bump it up
                     # only applying for 2 camera setup where I noticed this was an issue (frames stay out of synch)
                     current_frame_packets[port] = None
-                    logger.warning(
+                    logger.warn(
                         f"Skipped frame at port {port}: delta < time-latest_current"
                     )
                 else:
@@ -227,6 +228,10 @@ class Synchronizer:
             self.current_sync_packet = SyncPacket(sync_index, current_frame_packets)
             sync_index += 1
 
+            if self.stop_event.is_set():
+                logger.info("Sending `None` on queue to signal end of synced frames.")
+                self.current_sync_packet = None
+
             # notify other processes that the new frames are ready for processing
             # only for tasks that can risk missing frames (i.e. only for gui purposes)
             for q in self.sync_notice_subscribers:
@@ -237,67 +242,56 @@ class Synchronizer:
                 logger.debug(f"Placing new synched frames packet on queue: {q}")
                 q.put(self.current_sync_packet)
 
-            if self.stop_event.is_set():
-                logger.info("Sending `None` on queue to signal end of synced frames.")
-                for q in self.sync_notice_subscribers:
-                    q.put(None)
-                for q in self.synched_frames_subscribers:
-                    q.put(None)
-
             self.fps = self.average_fps()
 
         logger.info("Frame synch worker successfully ended")
 
 
 if __name__ == "__main__":
-
+    from calicam.calibration.charuco import Charuco
+    from calicam.calibration.corner_tracker import CornerTracker
+    from calicam.recording.recorded_stream import RecordedStream, RecordedStreamPool
+    
     # DON"T DEAL WITH THE SESSION OBJECT IN TESTS...ONLY MORE FOUNDATIONAL ELEMENTS
     from calicam.cameras.camera import Camera
     from calicam.cameras.live_stream import LiveStream
     from calicam.session import Session
     import pandas as pd
-
+    import time
+    
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    config_path = Path(repo, "sessions", "default_res_session")
-    # config_path = Path(repo, "sessions", "high_res_session")
+    recording_directory = Path(repo, "sessions", "5_cameras", "recording")
 
-    session = Session(config_path)
+    ports = [ 1, 2, 3, 4]
+    # ports = [0,1]
+    charuco = Charuco(
+        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+    )
 
-    session.load_cameras()
-    session.load_streams()
-    session.adjust_resolutions()
-
-    syncr = Synchronizer(session.streams, fps_target=30)  # fps high to see full speed
+    trackr = CornerTracker(charuco)
+    recorded_stream_pool = RecordedStreamPool(ports, recording_directory, tracker=trackr)
+    logger.info("Creating Synchronizer")
+    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
+    recorded_stream_pool.play_videos()
 
     notification_q = Queue()
 
     syncr.subscribe_to_notice(notification_q)
-
-    synched_frames = {
-        "Sync_Index": [],
-        "Port_0_Time": [],
-        "Port_1_Time": [],
-        "Port_2_Time": [],
-    }
-    sync_index = 0
-    while True:
+    logger.info(f"Beginning playback at {time.perf_counter()}")
+    while not syncr.stop_event.is_set():
         synched_frames_notice = notification_q.get()
-        synched_frames["Sync_Index"].append(sync_index)
-        sync_index += 1
-
-        for port, frame_packet in syncr.current_sync_packet.frame_packets.items():
+        sync_packet = syncr.current_sync_packet
+        for port, frame_packet in sync_packet.frame_packets.items():
             
             if frame_packet:
                 cv2.imshow(f"Port {port}", frame_packet.frame)
-                synched_frames[f"Port_{port}_Time"].append(frame_packet.frame_time)
-            else:
-                synched_frames[f"Port_{port}_Time"].append("dropped")
-
+                # print(frame_packet.points)
+                
         key = cv2.waitKey(1)
 
         if key == ord("q"):
             cv2.destroyAllWindows()
             break
 
-    SynchData = pd.DataFrame(synched_frames)
-    SynchData.to_csv(Path(config_path, "synch_data.csv"))
+
+    logger.info(f"Playback finished at {time.perf_counter()}")

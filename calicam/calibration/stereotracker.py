@@ -1,5 +1,4 @@
 import calicam.logger
-
 logger = calicam.logger.get(__name__)
 
 import time
@@ -17,9 +16,8 @@ from calicam.cameras.synchronizer import Synchronizer
 class StereoTracker:
     logger.info("Building Stereocalibrator...")
 
-    def __init__(self, synchronizer, corner_tracker):
+    def __init__(self, synchronizer):
 
-        self.corner_tracker = corner_tracker
         self.synchronizer = synchronizer
 
         self.corner_threshold = 4  # board corners in common for capture
@@ -74,41 +72,27 @@ class StereoTracker:
             f"Beginning to harvest corners on synched frames from port pairs: {self.pairs}"
         )
 
-        while not self.stop_event.set():
+        while not self.stop_event.is_set():
             self.synched_frames_available_q.get()
+            self.current_sync_packet = self.synchronizer.current_sync_packet
 
-            # may get hung up on get, so additional item put on queue
-            if self.stop_event.set():
+            if self.current_sync_packet is None:
+                logger.info("Triggering stop event for stereotracker")
+                self.stop_event.set()
                 break
-
-            self.current_synched_frames = self.synchronizer.current_synched_frames
-
-            self.add_corner_data()
+        
             logger.debug(
                 "Begin determination of shared corners within current frame pairs"
             )
             for pair in self.pairs:
                 self.store_stereo_data(pair)
-
+            print("Something happening")
             self.cal_frames_ready_q.put("frames ready")
 
         logger.info(
-            "Stereocalibration synched frames harvester successfully shut-down..."
+            "Stereotracker synched frames harvester successfully shut-down..."
         )
 
-    def add_corner_data(self):
-        """Assign corner data for each frame"""
-        for port in self.current_synched_frames.keys():
-            if self.current_synched_frames[port] is not None:
-                ids, img_loc, board_loc = self.corner_tracker.get_corners(
-                    self.current_synched_frames[port]["frame"]
-                )
-
-                self.current_synched_frames[port]["ids"] = ids
-                self.current_synched_frames[port]["img_loc"] = img_loc
-                self.current_synched_frames[port]["board_loc"] = board_loc
-
-                logger.debug(f"At port {port} the following corners are located {ids}")
 
     def store_stereo_data(self, pair):
 
@@ -135,9 +119,10 @@ class StereoTracker:
 
     def get_common_ids(self, portA, portB):
         """Intersection of grid corners observed in the active grid pair"""
-        if self.current_synched_frames[portA] and self.current_synched_frames[portB]:
-            ids_A = self.current_synched_frames[portA]["ids"]
-            ids_B = self.current_synched_frames[portB]["ids"]
+        frame_packets = self.current_sync_packet.frame_packets
+        if frame_packets[portA] and frame_packets[portB]:
+            ids_A = frame_packets[portA].points.point_id
+            ids_B = frame_packets[portB].points.point_id
             common_ids = np.intersect1d(ids_A, ids_B)
             common_ids = common_ids.tolist()
 
@@ -146,76 +131,14 @@ class StereoTracker:
 
         return common_ids
 
-    def stereo_calibrate(self, pair):
-        """Iterates across all camera pairs. Intrinsic parameters are pulled
-        from camera and combined with obj and img points for each pair.
-        """
-        logger.info(f"About to stereocalibrate pair {pair}")
-
-        stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
-        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.0001)
-
-        camA = self.synchronizer.streams[pair[0]].camera
-        camB = self.synchronizer.streams[pair[1]].camera
-
-        # pull calibration parameters for pair
-        obj = self.stereo_inputs[pair]["common_board_loc"]
-        img_A = self.stereo_inputs[pair]["img_loc_A"]
-        img_B = self.stereo_inputs[pair]["img_loc_B"]
-
-        # convert to list of vectors for OpenCV function
-        obj = [np.array(x, dtype=np.float32) for x in obj]
-        img_A = [np.array(x, dtype=np.float32) for x in img_A]
-        img_B = [np.array(x, dtype=np.float32) for x in img_B]
-
-        (
-            ret,
-            camera_matrix_1,
-            distortion_1,
-            camera_matrix_2,
-            distortion_2,
-            rotation,
-            translation,
-            essential,
-            fundamental,
-        ) = cv2.stereoCalibrate(
-            obj,
-            img_A,
-            img_B,
-            camA.camera_matrix,
-            camA.distortion,
-            camB.camera_matrix,
-            camB.distortion,
-            imageSize=None,  # this does not matter. from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
-            criteria=criteria,
-            flags=stereocalibration_flags,
-        )
-
-        self.stereo_outputs[pair] = {
-            "grid_count": len(obj),
-            "rotation": rotation,
-            "translation": translation,
-            "RMSE": ret,
-        }
-
-        if pair in self.pairs:
-            logger.info(f"Removing pair {pair}")
-            self.pairs.remove(pair)
-        else:
-            logger.warning(f"Attempted to remove pair {pair} but it was not present")
-
-        logger.info(
-            f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}"
-        )
-        logger.info(f"RMSE of reprojection is {ret}")
-
     def get_common_locs(self, port, common_ids):
         """Pull out objective location and image location of board corners for
         a port that are on the list of common ids"""
 
-        ids = self.current_synched_frames[port]["ids"]
-        img_loc = self.current_synched_frames[port]["img_loc"].tolist()
-        board_loc = self.current_synched_frames[port]["board_loc"].tolist()
+        # ids = self.current_sync_packet[port]["ids"]
+        ids = self.current_sync_packet.frame_packets[port].points.point_id.tolist()
+        img_loc = self.current_sync_packet.frame_packets[port].points.img_loc.tolist()
+        board_loc = self.current_sync_packet.frame_packets[port].points.board_loc.tolist()
 
         common_img_loc = []
         common_board_loc = []
@@ -233,36 +156,39 @@ if __name__ == "__main__":
 
     from calicam.calibration.corner_tracker import CornerTracker
     from calicam.session import Session
-
+    from calicam.recording.recorded_stream import RecordedStream, RecordedStreamPool
+    from calicam.calibration.charuco import Charuco
+    
     logger.debug("Test live stereocalibration processing")
 
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    session_path = Path(repo, "sessions", "high_res_session")
-    session = Session(session_path)
+    recording_directory = Path(repo, "sessions", "5_cameras", "recording")
 
-    session.load_cameras()
-    session.load_streams()
-    session.adjust_resolutions()
-    # time.sleep(3)
-
-    trackr = CornerTracker(session.charuco)
-
+    # ports = [0, 1, 2, 3, 4]
+    ports = [0,1,2]
+    charuco = Charuco(
+        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+    )
+    trackr = CornerTracker(charuco)
+    recorded_stream_pool = RecordedStreamPool(ports, recording_directory, tracker=trackr)
     logger.info("Creating Synchronizer")
-    syncr = Synchronizer(session.streams, fps_target=6)
+    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
+    recorded_stream_pool.play_videos()
+
     logger.info("Creating Stereocalibrator")
-    stereo_cal = StereoTracker(syncr, trackr)
+    stereo_tracker = StereoTracker(syncr)
 
     # while len(stereo_cal.uncalibrated_pairs) == 0:
     # time.sleep(.1)
     logger.info("Showing Stacked Frames")
-    while len(stereo_cal.pairs) > 0:
+    while not stereo_tracker.stop_event.is_set():
 
-        frame_ready = stereo_cal.cal_frames_ready_q.get()
-        synched_frames = stereo_cal.current_synched_frames
+        frame_ready = stereo_tracker.cal_frames_ready_q.get()
+        synched_frames = stereo_tracker.current_sync_packet.frame_packets
 
         for port in synched_frames.keys():
             if synched_frames[port] is not None:
-                cv2.imshow(str(port), synched_frames[port]["frame"])
+                cv2.imshow(str(port), synched_frames[port].frame)
 
         key = cv2.waitKey(1)
         if key == ord("q"):
@@ -270,4 +196,4 @@ if __name__ == "__main__":
             break
 
     cv2.destroyAllWindows()
-    logger.debug(pprint.pformat(stereo_cal.stereo_inputs))
+    print(stereo_tracker.stereo_inputs)

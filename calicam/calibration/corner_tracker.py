@@ -111,12 +111,12 @@ if __name__ == "__main__":
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
-    cam = Camera(2)
+    cam = Camera(1)
 
     print(f"Using Optimized Code?: {cv2.useOptimized()}")
     trackr = CornerTracker(charuco)
     stream = LiveStream(cam,fps_target=10,tracker=trackr)
-    stream.show_fps = True
+    stream._show_fps = True
         
     print("About to enter main loop")
     while True:

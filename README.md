@@ -2,7 +2,11 @@
 
 The general flow of processing is illustrated in the graph below. 
 
-Incremental improvements in the flow of the information processing are reflected below. The primary change for this branch is that they synchronizer will push a SyncPacket to the StereoTracker. The StereoTracker will then use the SyncPacket create a PairedPointsPacket. This will provide the primary input for the OmniFrame. One aspect of this that I have not sorted out is where the history of points used by the OmniFrame for feedback to the user will be stored.
+The `Synchronizer` is now producing `SyncPackets` from the set of  `LiveStream` objects provided to it. The previous code for recording video will no longer work, so must be updated. Additionally, when recording video the `VideoRecorder` should save out any point data that is calculated during the recording session so that it can be processed downstream.
+
+The general plan for a revision to the current process is shown here.
+
+Note that the sections of code that do not have a link in some way to the synchronizer are not currently functional.
 
 ```mermaid
 graph TD
@@ -10,7 +14,7 @@ graph TD
 
 LiveStream --FramePacket--> Synchronizer
 RecordedStream --FramePacket--> Synchronizer
-Synchronizer --> VideoRecorder
+Synchronizer --SyncPacket--> VideoRecorder
 
 subgraph cameras
 Camera --> LiveStream
@@ -20,18 +24,26 @@ Charuco --> CornerTracker
 CornerTracker --PointPacket--> LiveStream
 end
 
-subgraph recording
-VideoRecorder --> RecordingDirectory
-RecordingDirectory --> RecordedStream
-end
 
 Synchronizer --SyncPacket-->  OmniFrame
+recording <-..-> RecordingDirectory
 
+
+subgraph recording
+RecordedStream
+VideoRecorder 
+end
+subgraph RecordingDirectory
+port_P.mp4
+frame_time_history.csv
+point_data.csv
+end
 
 subgraph calibration_data
 config.toml
 StereoCalRecordings
 end
+
 
 CornerTracker --PointPacket--> RecordedStream
 
@@ -43,8 +55,6 @@ ArrayConstructor
 end
 
 
-
-CornerTracker -.temporary for testing.- PairedPointStream
 
 subgraph triangulate
 PairedPointStream --> StereoTriangulator

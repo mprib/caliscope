@@ -97,7 +97,9 @@ class CornerTracker:
     @property
     def board_loc(self):
         """Objective position of charuco corners in a board frame of reference"""
-        if self.ids.any():
+        # if self.ids == np.array([0]):
+            # print("wait")
+        if len(self.ids) > 0:
             return self.board.chessboardCorners[self.ids, :]
         else:
             return np.array([])

@@ -23,7 +23,7 @@ class PairedPointStream:
 
         self.synched_frames_in_q = Queue(-1)
         self.synchronizer = synchronizer
-        self.synchronizer.subscribe_to_synched_frames(self.synched_frames_in_q)
+        self.synchronizer.subscribe_to_sync_packets(self.synched_frames_in_q)
 
         self.tracker = tracker  # this is just for charuco tracking...will need to expand on this for mediapipe later
 

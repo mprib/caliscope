@@ -2,6 +2,7 @@ import calicam.logger
 
 logger = calicam.logger.get(__name__)
 import logging
+
 logger.setLevel(logging.DEBUG)
 
 import time
@@ -13,8 +14,8 @@ import cv2
 import numpy as np
 from calicam.cameras.data_packets import SyncPacket
 
+
 class Synchronizer:
-    
     def __init__(self, streams: dict, fps_target=6):
         self.streams = streams
         self.current_synched_frames = None
@@ -182,7 +183,7 @@ class Synchronizer:
         while not self.stop_event.is_set():
 
             current_frame_packets = {}
-            
+
             layer_frame_times = []
 
             # build earliest next/latest current dictionaries for each port to determine where to put frames
@@ -218,7 +219,9 @@ class Synchronizer:
                     )
                 else:
                     # add the data and increment the index
-                    current_frame_packets[port] = self.all_frame_packets.pop(port_index_key)
+                    current_frame_packets[port] = self.all_frame_packets.pop(
+                        port_index_key
+                    )
                     # frame_packets[port]["sync_index"] = sync_index
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
@@ -256,29 +259,43 @@ if __name__ == "__main__":
     from calicam.calibration.charuco import Charuco
     from calicam.calibration.corner_tracker import CornerTracker
     from calicam.recording.recorded_stream import RecordedStream, RecordedStreamPool
-    
-    # DON"T DEAL WITH THE SESSION OBJECT IN TESTS...ONLY MORE FOUNDATIONAL ELEMENTS
-    from calicam.cameras.camera import Camera
-    from calicam.cameras.live_stream import LiveStream
+
     from calicam.session import Session
-    import pandas as pd
     import time
-    
+
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    recording_directory = Path(repo, "sessions", "5_cameras", "recording")
 
     ports = [0, 1, 2, 3, 4]
     # ports = [0,1]
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-    )
 
-    trackr = CornerTracker(charuco)
-    # recorded_stream_pool = RecordedStreamPool(ports, recording_directory, tracker=trackr)
-    recorded_stream_pool = RecordedStreamPool(ports, recording_directory, tracker=None)
-    logger.info("Creating Synchronizer")
-    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
-    recorded_stream_pool.play_videos()
+    test_live = True
+    # test_live = False
+
+    if test_live:
+
+        session_directory = Path(repo, "sessions", "5_cameras")
+        # config = Path(session_directory, "config.toml")
+        session = Session(session_directory)
+        session.load_cameras()
+        session.load_streams()
+
+        for port, stream in session.streams.items():
+            stream._show_fps = True
+            stream._show_charuco = True
+
+        logger.info("Creating Synchronizer")
+        syncr = Synchronizer(session.streams, fps_target=15)
+    else:
+        recording_directory = Path(repo, "sessions", "5_cameras", "recording")
+        charuco = Charuco(
+                4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+            )
+        recorded_stream_pool = RecordedStreamPool(
+            ports, recording_directory, charuco=charuco
+        )
+        logger.info("Creating Synchronizer")
+        syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
+        recorded_stream_pool.play_videos()
 
     notification_q = Queue()
 
@@ -288,16 +305,15 @@ if __name__ == "__main__":
         synched_frames_notice = notification_q.get()
         sync_packet = syncr.current_sync_packet
         for port, frame_packet in sync_packet.frame_packets.items():
-            
+
             if frame_packet:
                 cv2.imshow(f"Port {port}", frame_packet.frame)
                 # print(frame_packet.points)
-                
+
         key = cv2.waitKey(1)
 
         if key == ord("q"):
             cv2.destroyAllWindows()
             break
-
 
     logger.info(f"Playback finished at {time.perf_counter()}")

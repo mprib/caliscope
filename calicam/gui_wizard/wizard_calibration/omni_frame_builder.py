@@ -11,10 +11,12 @@ from itertools import combinations
 from queue import Queue
 
 class OmniFrameBuilder:
-    def __init__(self, synchronizer: Synchronizer, single_frame_height=250):
+    def __init__(self, synchronizer: Synchronizer, single_frame_height=250,board_count_target=50):
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
-        self.board_count_target = 50  # used to determine sort order. Should this be in the stereo_tracker?
+
+        # used to determine sort order. Should this be in the stereo_tracker?
+        self.board_count_target = board_count_target 
         self.common_corner_target = 5
         
         self.rotation_counts = {}
@@ -290,14 +292,12 @@ if __name__ == "__main__":
     from calicam.calibration.corner_tracker import CornerTracker
     from calicam.recording.recorded_stream import RecordedStreamPool,RecordedStream
     from calicam.session import Session
-
+    from calicam.calibration.charuco import Charuco
+    
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
 
     ports = [0, 1, 2, 3, 4]
     # ports = [1,2, 3]
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-    )
 
     test_live = True
     # test_live = False
@@ -312,12 +312,15 @@ if __name__ == "__main__":
         syncr = Synchronizer(session.streams, fps_target=3)
     else:
         recording_directory = Path(repo, "sessions", "5_cameras", "recording")
+        charuco = Charuco(
+            4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+        )
         recorded_stream_pool = RecordedStreamPool(ports, recording_directory, charuco=charuco)
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
         recorded_stream_pool.play_videos()
 
-    frame_builder = OmniFrameBuilder(synchronizer=syncr)
+    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=10)
 
     while not syncr.stop_event.is_set():
         # wait for newly processed frame to be available

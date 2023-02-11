@@ -15,7 +15,8 @@ class OmniFrameBuilder:
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
         self.board_count_target = 50  # used to determine sort order. Should this be in the stereo_tracker?
-
+        self.common_corner_target = 5
+        
         self.rotation_counts = {}
         for port, stream in self.synchronizer.streams.items():
             # override here while testing this out with pre-recorded video
@@ -25,6 +26,9 @@ class OmniFrameBuilder:
 
         self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
         self.omni_list = self.pairs.copy()
+        
+        self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
+        
         self.new_sync_packet_notice = Queue()
         self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
         
@@ -97,17 +101,26 @@ class OmniFrameBuilder:
             img_loc_A = frame_packet_A.points.img_loc
             img_loc_B = frame_packet_B.points.img_loc
 
+            # bit of an important side effect in here. Not best practice,
+            # but the convenience is hard to pass up...
+            # if there are enough corners in common, then store the corner locations
+            # in the stereo history and update the board counts
+            if len(common_ids) > self.common_corner_target:
+                self.stereo_history[(portA,portB)]['img_loc_A'].extend(img_loc_A.tolist())
+                self.stereo_history[(portA,portB)]['img_loc_B'].extend(img_loc_B.tolist())
+                self.board_counts[(portA,portB)]+=1
+                
             for _id, img_loc in zip(ids_A, img_loc_A):
                 if _id in common_ids:
-                    x = round(float(img_loc[0, 0]))
-                    y = round(float(img_loc[0, 1]))
+                    x = round(float(img_loc[0]))
+                    y = round(float(img_loc[1]))
 
                     cv2.circle(frameA, (x, y), 5, (0, 0, 220), 3)
 
             for _id, img_loc in zip(ids_B, img_loc_B):
                 if _id in common_ids:
-                    x = round(float(img_loc[0, 0]))
-                    y = round(float(img_loc[0, 1]))
+                    x = round(float(img_loc[0]))
+                    y = round(float(img_loc[1]))
 
                     cv2.circle(frameB, (x, y), 5, (0, 0, 220), 3)
             return frameA, frameB
@@ -115,18 +128,16 @@ class OmniFrameBuilder:
     def draw_common_corner_history(self, frameA, portA, frameB, portB):
         ### TODO: Part of next round of refactor...
         pair = (portA, portB)
-        img_loc_A = self.stereo_tracker.stereo_inputs[pair]["img_loc_A"]
-        img_loc_B = self.stereo_tracker.stereo_inputs[pair]["img_loc_B"]
+        img_loc_A = self.stereo_history[pair]["img_loc_A"]
+        img_loc_B = self.stereo_history[pair]["img_loc_B"]
 
-        for cornerset in img_loc_A:
-            for corner in cornerset:
-                corner = (int(corner[0][0]), int(corner[0][1]))
-                cv2.circle(frameA, corner, 2, (255, 165, 0), 2, 1)
+        for coord_xy in img_loc_A:
+            corner = (int(coord_xy[0]), int(coord_xy[1]))
+            cv2.circle(frameA, corner, 2, (255, 165, 0), 2, 1)
 
-        for cornerset in img_loc_B:
-            for corner in cornerset:
-                corner = (int(corner[0][0]), int(corner[0][1]))
-                cv2.circle(frameB, corner, 2, (255, 165, 0), 2, 1)
+        for coord_xy in img_loc_B:
+            corner = (int(coord_xy[0]), int(coord_xy[1]))
+            cv2.circle(frameB, corner, 2, (255, 165, 0), 2, 1)
 
         return frameA, frameB
 
@@ -183,8 +194,8 @@ class OmniFrameBuilder:
         frameB = self.get_frame_or_blank(portB)
 
         # this will be part of next round of refactor
-        # frameA, frameB = self.draw_common_corner_history(frameA, portA, frameB, portB)
-        # frameA, frameB = self.draw_common_corner_current(frameA, portA, frameB, portB)
+        frameA, frameB = self.draw_common_corner_history(frameA, portA, frameB, portB)
+        frameA, frameB = self.draw_common_corner_current(frameA, portA, frameB, portB)
 
         frameA = self.resize_to_square(frameA)
         frameB = self.resize_to_square(frameB)
@@ -264,7 +275,6 @@ class OmniFrameBuilder:
 
         if omni_frame is None:
             omni_frame = self.get_completion_frame()
-            self.stereo_tracker.stop_event.set()
         return omni_frame
 
 
@@ -278,35 +288,37 @@ def resize(image, new_height):
 
 if __name__ == "__main__":
     from calicam.calibration.corner_tracker import CornerTracker
-    from calicam.calibration.stereotracker import StereoTracker
-    from calicam.calibration.charuco import Charuco
     from calicam.recording.recorded_stream import RecordedStreamPool,RecordedStream
-
-    logger.debug("Test live stereocalibration processing")
+    from calicam.session import Session
 
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    recording_directory = Path(repo, "sessions", "5_cameras", "recording")
 
-    # ports = [0, 1, 2, 3, 4]
-    ports = [1,2, 3]
+    ports = [0, 1, 2, 3, 4]
+    # ports = [1,2, 3]
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
-    trackr = CornerTracker(charuco)
-    recorded_stream_pool = RecordedStreamPool(ports, recording_directory, tracker=trackr)
-    logger.info("Creating Synchronizer")
-    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
-    recorded_stream_pool.play_videos()
+    test_live = True
+    # test_live = False
+    
+    if test_live:
 
-    logger.info("Creating Stereotracker")
-    # stereo_tracker = StereoTracker(syncr)
+        session_directory = Path(repo, "sessions", "5_cameras")
+        session = Session(session_directory)
+        session.load_cameras()
+        session.load_streams()
+        logger.info("Creating Synchronizer")
+        syncr = Synchronizer(session.streams, fps_target=3)
+    else:
+        recording_directory = Path(repo, "sessions", "5_cameras", "recording")
+        recorded_stream_pool = RecordedStreamPool(ports, recording_directory, charuco=charuco)
+        logger.info("Creating Synchronizer")
+        syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
+        recorded_stream_pool.play_videos()
+
     frame_builder = OmniFrameBuilder(synchronizer=syncr)
 
-    # recorder.start_recording(recording_path)
-    # while len(stereo_cal.uncalibrated_pairs) == 0:
-    # time.sleep(.1)
-    logger.info("Showing Paired Frames")
     while not syncr.stop_event.is_set():
         # wait for newly processed frame to be available
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()

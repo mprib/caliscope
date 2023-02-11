@@ -6,13 +6,15 @@ The `Synchronizer` is now producing `SyncPackets` from the set of  `LiveStream` 
 
 The general plan for a revision to the current process is shown here.
 
+Note that the sections of code that do not have a link in some way to the synchronizer are not currently functional.
+
 ```mermaid
 graph TD
 
 
 LiveStream --FramePacket--> Synchronizer
 RecordedStream --FramePacket--> Synchronizer
-Synchronizer --> VideoRecorder
+Synchronizer --SyncPacket--> VideoRecorder
 
 subgraph cameras
 Camera --> LiveStream
@@ -24,17 +26,17 @@ end
 
 
 Synchronizer --SyncPacket-->  OmniFrame
-recording <--> RecordingDirectory
+recording <-..-> RecordingDirectory
 
+
+subgraph recording
+RecordedStream
+VideoRecorder 
+end
 subgraph RecordingDirectory
 port_P.mp4
 frame_time_history.csv
 point_data.csv
-end
-
-subgraph recording
-VideoRecorder 
-RecordedStream
 end
 
 subgraph calibration_data
@@ -53,8 +55,6 @@ ArrayConstructor
 end
 
 
-
-CornerTracker -.temporary for testing.- PairedPointStream
 
 subgraph triangulate
 PairedPointStream --> StereoTriangulator

@@ -45,21 +45,21 @@ class VideoRecorder:
             "frame_index": [],
             "frame_time": [],
         }
-        sync_index = 0
 
         self.sync_packet_in_q = Queue(-1)
         self.syncronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
 
         while not self.trigger_stop.is_set():
-            synched_frames = self.sync_packet_in_q.get()
-            logger.debug("Pulling synched frames from record queue")
-
-            for port, synched_frame_data in synched_frames.items():
-                if synched_frame_data is not None:
+            sync_packet = self.sync_packet_in_q.get()
+            logger.debug("Pulling sync packet from queue")
+            sync_index = sync_packet.sync_index
+            
+            for port, frame_packet in sync_packet.frame_packets.items():
+                if frame_packet is not None:
                     # read in the data for this frame for this port
-                    frame = synched_frame_data["frame"]
-                    frame_index = synched_frame_data["frame_index"]
-                    frame_time = synched_frame_data["frame_time"]
+                    frame = frame_packet.frame
+                    frame_index = frame_packet.frame_index
+                    frame_time = frame_packet.frame_time
 
                     # store the frame
                     self.video_writers[port].write(frame)
@@ -70,16 +70,12 @@ class VideoRecorder:
                     self.frame_history["frame_index"].append(frame_index)
                     self.frame_history["frame_time"].append(frame_time)
 
-                    # these two lines of code are just for ease of debugging
-                    # cv2.imshow(f"port: {port}", frame)
-                    # key = cv2.waitKey(1)
 
-            sync_index += 1
         self.trigger_stop.clear()  # reset stop recording trigger
         self.syncronizer.release_sync_packet_q(self.sync_packet_in_q)
 
         # a proper release is strictly necessary to ensure file is readable
-        for port, synched_frame_data in synched_frames.items():
+        for port, frame_packet in sync_packet.frame_packets.items():
             self.video_writers[port].release()
 
         self.store_frame_history()
@@ -142,7 +138,7 @@ if __name__ == "__main__":
             stream._show_charuco = True
 
         logger.info("Creating Synchronizer")
-        syncr = Synchronizer(session.streams, fps_target=15)
+        syncr = Synchronizer(session.streams, fps_target=30)
         video_path = Path(session_directory, "recording2")
     else:
         recording_directory = Path(repo, "sessions", "5_cameras", "recording")

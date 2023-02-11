@@ -39,13 +39,25 @@ class VideoRecorder:
         # connect video recorder to synchronizer via an "in" queue
         self.build_video_writers()
 
+        # I think I put this here so that it will get reset if you reuse the same recorder..
         self.frame_history = {
             "sync_index": [],
             "port": [],
             "frame_index": [],
             "frame_time": [],
         }
-
+        self.tidy_table = {
+                    "sync_index":[],
+                    "port":[],
+                    "frame_index":[],
+                    "frame_time":[],
+                    "point_id":[],
+                    "img_loc_x":[],
+                    "img_loc_y":[],
+                    "board_loc_x":[],
+                    "board_loc_y":[],
+        }
+        
         self.sync_packet_in_q = Queue(-1)
         self.syncronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
 
@@ -56,6 +68,7 @@ class VideoRecorder:
             
             for port, frame_packet in sync_packet.frame_packets.items():
                 if frame_packet is not None:
+                    # logger.info("Processiong frame packet...")
                     # read in the data for this frame for this port
                     frame = frame_packet.frame
                     frame_index = frame_packet.frame_index
@@ -69,7 +82,12 @@ class VideoRecorder:
                     self.frame_history["port"].append(port)
                     self.frame_history["frame_index"].append(frame_index)
                     self.frame_history["frame_time"].append(frame_time)
-
+                    
+                    new_tidy_table = frame_packet.to_tidy_table(sync_index)
+                    if new_tidy_table is not None:
+                        for key, value in self.tidy_table.copy().items():
+                            self.tidy_table[key].extend(new_tidy_table[key])
+                        print(new_tidy_table)
 
         self.trigger_stop.clear()  # reset stop recording trigger
         self.syncronizer.release_sync_packet_q(self.sync_packet_in_q)
@@ -79,6 +97,15 @@ class VideoRecorder:
             self.video_writers[port].release()
 
         self.store_frame_history()
+        self.store_point_history()
+        
+        
+    def store_point_history(self):
+        df = pd.DataFrame(self.tidy_table)
+        # TODO: #25 if file exists then change the name
+        point_data_path = str(Path(self.destination_folder, "point_data.csv"))
+        logger.info(f"Storing point data in {point_data_path}")
+        df.to_csv(point_data_path, index=False, header=True)
 
     def store_frame_history(self):
         df = pd.DataFrame(self.frame_history)

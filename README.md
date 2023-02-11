@@ -25,9 +25,7 @@ VideoRecorder --> RecordingDirectory
 RecordingDirectory --> RecordedStream
 end
 
-Synchronizer --SyncPacket--> Stereotracker
-
-Stereotracker --> OmniFrame
+Synchronizer --SyncPacket-->  OmniFrame
 
 
 subgraph calibration_data

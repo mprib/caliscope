@@ -72,6 +72,8 @@ class RecordedStream:
         self.frame_index = self.start_frame_index
         logger.info(f"Beginning playback of video for port {self.port}")
         while not self.stop_event.is_set():
+            # if self.port == 0:
+                # print("wait")
             current_frame = self.port_history["frame_index"] == self.frame_index
             self.frame_time = self.port_history[current_frame]["frame_time"]
             self.frame_time = float(self.frame_time)
@@ -89,10 +91,9 @@ class RecordedStream:
                 port=self.port,
                 frame_time=self.frame_time,
                 frame=frame,
+                frame_index=self.frame_index,
                 points=point_data,
             )
-            # self.out_q.put([self.frame_time, self.frame])
-            self.out_q.put(frame_packet)
 
             logger.debug(
                 f"Placing frame on reel {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"

@@ -1,6 +1,8 @@
 import calicam.logger
 
 logger = calicam.logger.get(__name__)
+import logging
+logger.setLevel(logging.DEBUG)
 
 import time
 from pathlib import Path
@@ -88,20 +90,22 @@ class Synchronizer:
     def harvest_frame_packets(self, stream):
         port = stream.port
         stream.push_to_out_q = True
+        if port == 0:
+            print("wait")
 
         logger.info(f"Beginning to collect data generated at port {port}")
 
         while not self.stop_event.is_set():
-            frame_index = self.port_frame_count[port]
             frame_packet = stream.out_q.get()
+            frame_index = self.port_frame_count[port]
             frame_packet.frame_index = frame_index
 
-            self.all_frame_packets[f"{port}_{frame_index}"] = frame_packet
+            self.all_frame_packets[f"{port}_{frame_packet.frame_index}"] = frame_packet
+            self.port_frame_count[port] += 1
 
             logger.debug(
                 f"Frame data harvested from reel {frame_packet.port} with index {frame_packet.frame_index} and frame time of {frame_packet.frame_time}"
             )
-            self.port_frame_count[port] += 1
 
         logger.info(f"Frame harvester for port {port} completed")
 
@@ -121,6 +125,7 @@ class Synchronizer:
                 )
                 time.sleep(0.01)
 
+            # this is off by one...don't understand why
             next_frame_time = self.all_frame_packets[frame_data_key].frame_time
 
             if next_frame_time == -1:
@@ -262,14 +267,15 @@ if __name__ == "__main__":
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
     recording_directory = Path(repo, "sessions", "5_cameras", "recording")
 
-    ports = [ 1, 2, 3, 4]
+    ports = [0, 1, 2, 3, 4]
     # ports = [0,1]
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
     trackr = CornerTracker(charuco)
-    recorded_stream_pool = RecordedStreamPool(ports, recording_directory, tracker=trackr)
+    # recorded_stream_pool = RecordedStreamPool(ports, recording_directory, tracker=trackr)
+    recorded_stream_pool = RecordedStreamPool(ports, recording_directory, tracker=None)
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()

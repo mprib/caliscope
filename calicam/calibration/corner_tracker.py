@@ -47,7 +47,10 @@ class CornerTracker:
             self.find_corners_single_frame(mirror=True)
         
         point_packet = PointPacket(self.ids, self.img_loc, self.board_loc)
-
+        
+        # if len(self.ids) > 0:
+        #     print("wait")
+        
         return point_packet
 
     def find_corners_single_frame(self, mirror):
@@ -84,12 +87,12 @@ class CornerTracker:
 
             if success:
                 # assign to tracker
-                self.ids = _ids
-                self.img_loc = _img_loc
+                self.ids = _ids[:,0]
+                self.img_loc = _img_loc[:,0]
 
                 # flip coordinates if mirrored image fed in
                 if mirror:
-                    self.img_loc[:, :, 0] = frame_width - self.img_loc[:, :, 0]
+                    self.img_loc[:, 0] = frame_width - self.img_loc[:, 0]
 
     @property
     def board_loc(self):
@@ -108,12 +111,12 @@ if __name__ == "__main__":
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
-    cam = Camera(2)
+    cam = Camera(1)
 
     print(f"Using Optimized Code?: {cv2.useOptimized()}")
     trackr = CornerTracker(charuco)
     stream = LiveStream(cam,fps_target=10,tracker=trackr)
-    stream.show_fps = True
+    stream._show_fps = True
         
     print("About to enter main loop")
     while True:

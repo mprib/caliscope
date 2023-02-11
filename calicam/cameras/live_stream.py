@@ -15,15 +15,17 @@ import numpy as np
 
 from calicam.cameras.camera import Camera
 from calicam.cameras.data_packets import FramePacket
-
+from calicam.calibration.charuco import Charuco
+from calicam.calibration.corner_tracker import CornerTracker
+import calicam.calibration.draw_charuco as draw_charuco
 
 class LiveStream:
-    def __init__(self, camera, fps_target=6, tracker=None):
+    def __init__(self, camera, fps_target=6,  charuco = None):
         self.camera = camera
         self.port = camera.port
 
-        self.tracker = tracker
-        if self.tracker is not None:
+        if charuco is not None:
+            self.tracker = CornerTracker(charuco)
             self.track_points = True
         else:
             self.track_points = False
@@ -36,7 +38,9 @@ class LiveStream:
             Queue()
         )  # make sure camera no longer reading before trying to change resolution
 
-        self.show_fps = False  # used for F5 testing
+        self._show_fps = False  # used for testing
+        self._show_charuco = False # used for testing
+        
         self.set_fps_target(fps_target)
         self.FPS_actual = 0
         # Start the thread to read frames from the video stream
@@ -120,8 +124,6 @@ class LiveStream:
                 read_stop = perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
 
-                if self.show_fps:
-                    self._add_fps()
 
                 if self.push_to_out_q and self.success:
                     logger.debug(f"Pushing frame to reel at port {self.port}")
@@ -130,14 +132,22 @@ class LiveStream:
                         point_data = self.tracker.get_points(self.frame)
                     else:
                         point_data = None
+                
+                if self._show_fps:
+                    self._add_fps()
 
-                    frame_packet = FramePacket(
-                        port=self.port,
-                        frame_time=self.frame_time,
-                        frame=self.frame,
-                        points=point_data,
-                    )
+                frame_packet = FramePacket(
+                    port=self.port,
+                    frame_time=self.frame_time,
+                    frame=self.frame,
+                    points=point_data,
+                )
+                
+                if self._show_charuco:
+                    draw_charuco.corners(frame_packet)
                     # self.out_q.put([self.frame_time, self.frame])
+                
+                if self.push_to_out_q:
                     self.out_q.put(frame_packet)
 
                 # Rate of calling recalc must be frequency of this loop
@@ -186,7 +196,7 @@ class LiveStream:
 
 
 if __name__ == "__main__":
-    # ports = [0, 2, 3, 4]
+    # ports = [2, 3, 4]
     ports = [3]
 
     cams = []
@@ -196,12 +206,18 @@ if __name__ == "__main__":
         cam.exposure = -7
         cams.append(cam)
 
+    # standard inverted charuco
+    charuco = Charuco(
+            4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+        )
+
     streams = []
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
-        stream = LiveStream(cam, fps_target=30)
+        stream = LiveStream(cam, fps_target=30, charuco = charuco)
         stream.push_to_out_q = True
-        stream.show_fps = True
+        stream._show_fps = True
+        stream._show_charuco = True
         streams.append(stream)
 
     while True:

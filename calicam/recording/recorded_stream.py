@@ -15,8 +15,11 @@ from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
 import cv2
+from time import perf_counter, sleep
 import pandas as pd
+import numpy as np
 
+from calicam.calibration.corner_tracker import CornerTracker
 from calicam.cameras.data_packets import FramePacket
 
 
@@ -24,12 +27,12 @@ class RecordedStream:
     """Analogous to the live stream, this will place frames on a queue ("reel", probably need to
     change that cutesy little thing). These can then be harvested and synchronized by a Synchronizer"""
 
-    def __init__(self, port, directory, fps_target=None, tracker=None):
+    def __init__(self, port, directory, fps_target=6, charuco=None):
         self.port = port
         self.directory = directory
 
-        self.tracker = tracker
-        if self.tracker is not None:
+        if charuco is not None:
+            self.tracker = CornerTracker(charuco)
             self.track_points = True
         else:
             self.track_points = False
@@ -54,10 +57,31 @@ class RecordedStream:
         # initializing to something to avoid errors elsewhere
         self.frame_index = 0
         self.frame_time = 0
-        self.fps_target = None
+        self.set_fps_target(fps_target)
 
     def set_fps_target(self, fps):
-        self.fps_target = fps
+        self.fps = fps
+        milestones = []
+        for i in range(0, fps):
+            milestones.append(i / fps)
+        logger.info(f"Setting fps to {self.fps}")
+        self.milestones = np.array(milestones)
+
+    def wait_to_next_frame(self):
+        """
+        based on the next milestone time, return the time needed to sleep so that
+        a frame read immediately after would occur when needed
+        """
+
+        time = perf_counter()
+        fractional_time = time % 1
+        all_wait_times = self.milestones - fractional_time
+        future_wait_times = all_wait_times[all_wait_times > 0]
+
+        if len(future_wait_times) == 0:
+            return 1 - fractional_time
+        else:
+            return future_wait_times[0]
 
     def play_video(self):
 
@@ -75,24 +99,25 @@ class RecordedStream:
             current_frame = self.port_history["frame_index"] == self.frame_index
             self.frame_time = self.port_history[current_frame]["frame_time"]
             self.frame_time = float(self.frame_time)
-            success, frame = self.capture.read()
+                
+            sleep(self.wait_to_next_frame())
+            success, self.frame = self.capture.read()
 
             if not success:
                 break
 
             if self.track_points:
-                point_data = self.tracker.get_points(frame)
+                self.point_data = self.tracker.get_points(self.frame)
             else:
-                point_data = None
+                self.point_data = None
 
             frame_packet = FramePacket(
                 port=self.port,
                 frame_time=self.frame_time,
-                frame=frame,
-                points=point_data,
+                frame=self.frame,
+                frame_index=self.frame_index,
+                points=self.point_data,
             )
-            # self.out_q.put([self.frame_time, self.frame])
-            self.out_q.put(frame_packet)
 
             logger.debug(
                 f"Placing frame on reel {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"
@@ -109,12 +134,13 @@ class RecordedStream:
 
 
 class RecordedStreamPool:
-    def __init__(self, ports, directory):
+    def __init__(self, ports, directory, fps_target=6, charuco=None):
+
         self.streams = {}
         self.ports = ports
 
         for port in ports:
-            self.streams[port] = RecordedStream(port, directory)
+            self.streams[port] = RecordedStream(port, directory, fps_target=fps_target, charuco=charuco)
 
     def play_videos(self):
         for port in self.ports:
@@ -123,19 +149,22 @@ class RecordedStreamPool:
 
 if __name__ == "__main__":
     from calicam.cameras.synchronizer import Synchronizer
-
+    from calicam.calibration.charuco import Charuco
+    
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
     print(repo)
 
-    # session_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
-
-    # session_directory = Path(repo, "sessions", "high_res_session", "recording")
     session_directory = Path(repo, "sessions", "5_cameras", "recording")
 
-    ports = [0, 1, 2, 3, 4]
-    # ports = [0,1]
-    recorded_stream_pool = RecordedStreamPool(ports, session_directory)
-    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
+    charuco = Charuco(
+        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+    )
+
+    # ports = [0, 1, 2, 3, 4]
+    ports = [1,2, 3]
+    # ports = [0]
+    recorded_stream_pool = RecordedStreamPool(ports, session_directory, charuco=charuco)
+    syncr = Synchronizer(recorded_stream_pool.streams)
     recorded_stream_pool.play_videos()
 
     notification_q = Queue()

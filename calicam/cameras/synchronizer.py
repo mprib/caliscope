@@ -1,6 +1,9 @@
 import calicam.logger
 
 logger = calicam.logger.get(__name__)
+import logging
+
+logger.setLevel(logging.DEBUG)
 
 import time
 from pathlib import Path
@@ -10,6 +13,7 @@ from threading import Thread, Event
 import cv2
 import numpy as np
 from calicam.cameras.data_packets import SyncPacket
+
 
 class Synchronizer:
     def __init__(self, streams: dict, fps_target=6):
@@ -87,20 +91,22 @@ class Synchronizer:
     def harvest_frame_packets(self, stream):
         port = stream.port
         stream.push_to_out_q = True
+        if port == 0:
+            print("wait")
 
         logger.info(f"Beginning to collect data generated at port {port}")
 
         while not self.stop_event.is_set():
-            frame_index = self.port_frame_count[port]
             frame_packet = stream.out_q.get()
+            frame_index = self.port_frame_count[port]
             frame_packet.frame_index = frame_index
 
-            self.all_frame_packets[f"{port}_{frame_index}"] = frame_packet
+            self.all_frame_packets[f"{port}_{frame_packet.frame_index}"] = frame_packet
+            self.port_frame_count[port] += 1
 
             logger.debug(
                 f"Frame data harvested from reel {frame_packet.port} with index {frame_packet.frame_index} and frame time of {frame_packet.frame_time}"
             )
-            self.port_frame_count[port] += 1
 
         logger.info(f"Frame harvester for port {port} completed")
 
@@ -118,8 +124,9 @@ class Synchronizer:
                 logger.debug(
                     f"Waiting in a loop for frame data to populate with key: {frame_data_key}"
                 )
-                time.sleep(0.001)
+                time.sleep(0.01)
 
+            # this is off by one...don't understand why
             next_frame_time = self.all_frame_packets[frame_data_key].frame_time
 
             if next_frame_time == -1:
@@ -176,7 +183,7 @@ class Synchronizer:
         while not self.stop_event.is_set():
 
             current_frame_packets = {}
-            
+
             layer_frame_times = []
 
             # build earliest next/latest current dictionaries for each port to determine where to put frames
@@ -200,19 +207,21 @@ class Synchronizer:
                 if frame_time > earliest_next[port]:
                     # definitly should be put in the next layer and not this one
                     current_frame_packets[port] = None
-                    logger.warning(f"Skipped frame at port {port}: > earliest_next")
+                    logger.warn(f"Skipped frame at port {port}: > earliest_next")
                 elif (
                     earliest_next[port] - frame_time < frame_time - latest_current[port]
                 ):  # frame time is closer to earliest next than latest current
                     # if it's closer to the earliest next frame than the latest current frame, bump it up
                     # only applying for 2 camera setup where I noticed this was an issue (frames stay out of synch)
                     current_frame_packets[port] = None
-                    logger.warning(
+                    logger.warn(
                         f"Skipped frame at port {port}: delta < time-latest_current"
                     )
                 else:
                     # add the data and increment the index
-                    current_frame_packets[port] = self.all_frame_packets.pop(port_index_key)
+                    current_frame_packets[port] = self.all_frame_packets.pop(
+                        port_index_key
+                    )
                     # frame_packets[port]["sync_index"] = sync_index
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
@@ -227,6 +236,10 @@ class Synchronizer:
             self.current_sync_packet = SyncPacket(sync_index, current_frame_packets)
             sync_index += 1
 
+            if self.stop_event.is_set():
+                logger.info("Sending `None` on queue to signal end of synced frames.")
+                self.current_sync_packet = None
+
             # notify other processes that the new frames are ready for processing
             # only for tasks that can risk missing frames (i.e. only for gui purposes)
             for q in self.sync_notice_subscribers:
@@ -237,61 +250,65 @@ class Synchronizer:
                 logger.debug(f"Placing new synched frames packet on queue: {q}")
                 q.put(self.current_sync_packet)
 
-            if self.stop_event.is_set():
-                logger.info("Sending `None` on queue to signal end of synced frames.")
-                for q in self.sync_notice_subscribers:
-                    q.put(None)
-                for q in self.synched_frames_subscribers:
-                    q.put(None)
-
             self.fps = self.average_fps()
 
         logger.info("Frame synch worker successfully ended")
 
 
 if __name__ == "__main__":
+    from calicam.calibration.charuco import Charuco
+    from calicam.calibration.corner_tracker import CornerTracker
+    from calicam.recording.recorded_stream import RecordedStream, RecordedStreamPool
 
-    # DON"T DEAL WITH THE SESSION OBJECT IN TESTS...ONLY MORE FOUNDATIONAL ELEMENTS
-    from calicam.cameras.camera import Camera
-    from calicam.cameras.live_stream import LiveStream
     from calicam.session import Session
-    import pandas as pd
+    import time
 
     repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    config_path = Path(repo, "sessions", "default_res_session")
-    # config_path = Path(repo, "sessions", "high_res_session")
 
-    session = Session(config_path)
+    ports = [0, 1, 2, 3, 4]
+    # ports = [0,1]
 
-    session.load_cameras()
-    session.load_streams()
-    session.adjust_resolutions()
+    test_live = True
+    # test_live = False
 
-    syncr = Synchronizer(session.streams, fps_target=30)  # fps high to see full speed
+    if test_live:
+
+        session_directory = Path(repo, "sessions", "5_cameras")
+        # config = Path(session_directory, "config.toml")
+        session = Session(session_directory)
+        session.load_cameras()
+        session.load_streams()
+
+        for port, stream in session.streams.items():
+            stream._show_fps = True
+            stream._show_charuco = True
+
+        logger.info("Creating Synchronizer")
+        syncr = Synchronizer(session.streams, fps_target=15)
+    else:
+        recording_directory = Path(repo, "sessions", "5_cameras", "recording")
+        charuco = Charuco(
+                4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+            )
+        recorded_stream_pool = RecordedStreamPool(
+            ports, recording_directory, charuco=charuco
+        )
+        logger.info("Creating Synchronizer")
+        syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
+        recorded_stream_pool.play_videos()
 
     notification_q = Queue()
 
     syncr.subscribe_to_notice(notification_q)
-
-    synched_frames = {
-        "Sync_Index": [],
-        "Port_0_Time": [],
-        "Port_1_Time": [],
-        "Port_2_Time": [],
-    }
-    sync_index = 0
-    while True:
+    logger.info(f"Beginning playback at {time.perf_counter()}")
+    while not syncr.stop_event.is_set():
         synched_frames_notice = notification_q.get()
-        synched_frames["Sync_Index"].append(sync_index)
-        sync_index += 1
+        sync_packet = syncr.current_sync_packet
+        for port, frame_packet in sync_packet.frame_packets.items():
 
-        for port, frame_packet in syncr.current_sync_packet.frame_packets.items():
-            
             if frame_packet:
                 cv2.imshow(f"Port {port}", frame_packet.frame)
-                synched_frames[f"Port_{port}_Time"].append(frame_packet.frame_time)
-            else:
-                synched_frames[f"Port_{port}_Time"].append("dropped")
+                # print(frame_packet.points)
 
         key = cv2.waitKey(1)
 
@@ -299,5 +316,4 @@ if __name__ == "__main__":
             cv2.destroyAllWindows()
             break
 
-    SynchData = pd.DataFrame(synched_frames)
-    SynchData.to_csv(Path(config_path, "synch_data.csv"))
+    logger.info(f"Playback finished at {time.perf_counter()}")

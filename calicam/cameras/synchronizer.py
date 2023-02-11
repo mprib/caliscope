@@ -80,11 +80,11 @@ class Synchronizer:
         logger.info("Adding queue to receive notice of synched frames update")
         self.sync_notice_subscribers.append(q)
 
-    def subscribe_to_synched_frames(self, q):
+    def subscribe_to_sync_packets(self, q):
         logger.info("Adding queue to receive synched frames")
         self.synched_frames_subscribers.append(q)
 
-    def release_synched_frames_q(self, q):
+    def release_sync_packet_q(self, q):
         logger.info("Releasing record queue")
         self.synched_frames_subscribers.remove(q)
 

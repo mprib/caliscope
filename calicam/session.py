@@ -243,7 +243,7 @@ class Session:
                 pass  # only add if not added yet
             else:
                 logger.info(f"Loading Stream for port {port}")
-                self.streams[port] = LiveStream(cam)
+                self.streams[port] = LiveStream(cam, charuco=self.charuco)
 
     def disconnect_cameras(self):
         """Destroy all camera reading associated threads working down to the cameras

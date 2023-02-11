@@ -40,7 +40,7 @@ def corners(frame_packet):
     frame = frame_packet.frame
     locs = frame_packet.points.img_loc
     if locs.any():
-        for coord in locs[:,0]:
+        for coord in locs:
             x = round(coord[0])
             y = round(coord[1])
 

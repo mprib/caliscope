@@ -14,7 +14,6 @@ from itertools import combinations
 from calicam.calibration.charuco import Charuco
 from calicam.calibration.corner_tracker import CornerTracker
 from calicam.calibration.monocalibrator import MonoCalibrator
-from calicam.calibration.stereotracker import StereoTracker
 from calicam.cameras.camera import Camera
 from calicam.cameras.synchronizer import Synchronizer
 from calicam.cameras.live_stream import LiveStream
@@ -243,7 +242,7 @@ class Session:
                 pass  # only add if not added yet
             else:
                 logger.info(f"Loading Stream for port {port}")
-                self.streams[port] = LiveStream(cam)
+                self.streams[port] = LiveStream(cam, charuco=self.charuco)
 
     def disconnect_cameras(self):
         """Destroy all camera reading associated threads working down to the cameras

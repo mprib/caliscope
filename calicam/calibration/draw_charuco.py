@@ -15,8 +15,8 @@ def grid_history(frame, ids, img_locs, connected_corners):
     term plan is to re-integrate the monocalibration workflow as a final "touch-up"
     step in the event that the intrinsics have a poor RMSE of reprojection
     """
-    ids = ids[:,0]
-    img_locs = img_locs[:,0]
+    # ids = ids[:,0] pretty sure no longer needed
+    # img_locs = img_locs[:,0] pretty sure no longer needed
     
     possible_pairs = {pair for pair in combinations(ids, 2)}
     connected_pairs = connected_corners.intersection(possible_pairs)
@@ -38,8 +38,8 @@ def grid_history(frame, ids, img_locs, connected_corners):
 
 def corners(frame_packet):
     frame = frame_packet.frame
-    locs = frame_packet.points.img_loc
-    if locs.any():
+    if frame_packet.points is not None:
+        locs = frame_packet.points.img_loc
         for coord in locs:
             x = round(coord[0])
             y = round(coord[1])

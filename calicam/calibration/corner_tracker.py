@@ -117,7 +117,7 @@ if __name__ == "__main__":
 
     print(f"Using Optimized Code?: {cv2.useOptimized()}")
     trackr = CornerTracker(charuco)
-    stream = LiveStream(cam,fps_target=10,tracker=trackr)
+    stream = LiveStream(cam,fps_target=10,charuco=charuco)
     stream._show_fps = True
         
     print("About to enter main loop")

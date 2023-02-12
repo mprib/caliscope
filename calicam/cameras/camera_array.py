@@ -56,7 +56,7 @@ class CameraData:
 
 @dataclass
 class CameraArray:
-    """The plan is that this will expand to become and interface for setting the origin.
+    """The plan is that this will expand to become an interface for setting the origin.
     At the moment all it is doing is holding a dictionary of CameraData objects"""
 
     cameras: dict

@@ -15,15 +15,16 @@ CAMERA_PARAM_COUNT = 6
 
 @dataclass
 class CameraData:
-    """A place to hold the calibration data associated with a camera that has been populated from a config file.
+    """
+    A place to hold the calibration data associated with a camera that has been populated from a config file.
     For use with final setting of the array and triangulation, but no actual camera management.
     """
 
     port: int
-    resolution: tuple
+    resolution: tuple[int,int]
     camera_matrix: np.ndarray
-    error: float
-    distortion: np.ndarray
+    error: float    # the RMSE of reprojection associated with the intrinsic calibration
+    distortion: np.ndarray # 
     translation: np.ndarray
     rotation: np.ndarray
 
@@ -56,7 +57,7 @@ class CameraData:
 
 @dataclass
 class CameraArray:
-    """The plan is that this will expand to become and interface for setting the origin.
+    """The plan is that this will expand to become an interface for setting the origin.
     At the moment all it is doing is holding a dictionary of CameraData objects"""
 
     cameras: dict

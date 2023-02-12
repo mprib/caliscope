@@ -1,7 +1,8 @@
 
 import calicam.logger
 logger = calicam.logger.get(__name__)
-
+import logging
+logger.setLevel(logging.DEBUG)
 import time
 from queue import Queue
 from threading import Thread, Event
@@ -12,16 +13,15 @@ import numpy as np
 import calicam.calibration.draw_charuco as draw_charuco
 from calicam.calibration.charuco import Charuco
 from calicam.calibration.corner_tracker import CornerTracker
-
+from calicam.cameras.data_packets import FramePacket
 
 class MonoCalibrator:
     def __init__(
-        self, stream, corner_tracker, board_threshold=0.7, wait_time=0.5
+        self, stream,  board_threshold=0.7, wait_time=0.5
     ):
         self.stream = stream
         self.camera = stream.camera  # reference needed to update params
         self.port = self.camera.port
-        self.corner_tracker = corner_tracker
         self.wait_time = wait_time
         self.capture_corners = False  # start out not doing anything
         self.stop_event = Event()
@@ -31,8 +31,8 @@ class MonoCalibrator:
 
         # self.synchronizer = synchronizer
         self.grid_frame_ready_q = Queue()
-        self.connected_corners = self.corner_tracker.charuco.get_connected_corners()
-        board_corner_count = len(self.corner_tracker.charuco.board.chessboardCorners)
+        self.connected_corners = self.stream.charuco.get_connected_corners()
+        board_corner_count = len(self.stream.charuco.board.chessboardCorners)
         self.min_points_to_process = int(board_corner_count * board_threshold)
 
         self.initialize_grid_history()
@@ -86,19 +86,18 @@ class MonoCalibrator:
         
         while not self.stop_event.is_set():
             
-            frame_time, self.frame = self.stream.out_q.get()
-
+            self.frame_packet: FramePacket = self.stream.out_q.get()
+            self.frame = self.frame_packet.frame
             # need to initialize to numpy arrays otherwise error if no corners detected
             self.ids = np.array([])
             self.img_loc = np.array([])
             self.board_loc = np.array([])
 
-            if self.capture_corners:
-                (
-                    self.ids,
-                    self.img_loc,
-                    self.board_loc,
-                ) = self.corner_tracker.get_corners(self.frame)
+            if self.capture_corners and self.frame_packet.points is not None:
+                logger.info("Points found and being processed...")
+                self.ids = self.frame_packet.points.point_id
+                self.img_loc = self.frame_packet.points.img_loc
+                self.board_loc = self.frame_packet.points.board_loc
 
                 if self.ids.any():
                     enough_corners = len(self.ids) > self.min_points_to_process
@@ -119,7 +118,9 @@ class MonoCalibrator:
                     self.last_calibration_time = time.perf_counter()
                     self.update_grid_history()
 
-            self.set_grid_frame()
+            if self.frame_packet.frame is not None:
+                self.set_grid_frame()
+
         logger.info(f"Monocalibrator at port {self.port} successfully shutdown...")
         self.stream.push_to_out_q = False
         
@@ -136,7 +137,7 @@ class MonoCalibrator:
         """Merges the current frame with the currently detected corners (red circles) 
         and a history of the stored grid information."""
 
-        logger.debug(f"Frame Size is {self.frame.shape} at port {self.port}")
+        logger.info(f"Frame Size is {self.frame.shape} at port {self.port}")
         logger.debug(
             f"camera resolution is {self.camera.resolution} at port {self.port}"
         )
@@ -146,10 +147,10 @@ class MonoCalibrator:
             self.frame.shape[0] == self.grid_capture_history.shape[0]
             and self.frame.shape[1] == self.grid_capture_history.shape[1]
         ):
-            grid_frame = cv2.addWeighted(self.frame, 1, self.grid_capture_history, 1, 0)
-            grid_frame = draw_charuco.corners(grid_frame, self.img_loc)
+            self.frame_packet.frame = cv2.addWeighted(self.frame_packet.frame, 1, self.grid_capture_history, 1, 0)
+            draw_charuco.corners(self.frame_packet)
 
-            self.grid_frame = grid_frame
+            self.grid_frame = self.frame_packet.frame
             self.grid_frame_ready_q.put("frame ready")
 
         else:
@@ -203,14 +204,13 @@ if __name__ == "__main__":
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
-    trackr = CornerTracker(charuco)
     test_port = 0
     cam = Camera(0)
-    stream = LiveStream(cam)
+    stream = LiveStream(cam, charuco=charuco)
 
     # syncr = Synchronizer(streams, fps_target=20)
 
-    monocal = MonoCalibrator(stream, trackr)
+    monocal = MonoCalibrator(stream)
 
     monocal.capture_corners = True
 

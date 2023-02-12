@@ -19,6 +19,10 @@ __app_dir__.mkdir(exist_ok=True, parents=True)
 __log_dir__ = Path(__app_dir__, "logs")
 __log_dir__.mkdir(exist_ok=True, parents=True)
 
+# a helpful reference
+__root__ = Path(__file__).parent.parent
+
+
 
 print(f"Thank you for using {__package_name__}!")
 print(f"This is printing from: {__file__}")

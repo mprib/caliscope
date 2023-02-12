@@ -25,6 +25,7 @@ class LiveStream:
         self.port = camera.port
 
         if charuco is not None:
+            self.charuco = charuco
             self.tracker = CornerTracker(charuco)
             self.track_points = True
         else:

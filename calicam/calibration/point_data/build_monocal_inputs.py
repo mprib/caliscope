@@ -14,29 +14,8 @@ import toml
 
 
 
-# specify the session folder
-session_path =  Path(__root__,"tests", "5_cameras")
-
-config_path = Path(session_path,"config.toml")
-
-#%%
-
-ports = [0,1,2,3,4]
-
-corner_count_threshold = 11
-top_x_count = 9
-
-port = 0
-camera_resolution = [640,480]
-point_data_path = Path(session_path, "recording",  "point_data.csv")
-
 def get_monocal_data(port, camera_resolution, point_data_path, corner_count_threshold, top_x_count):
-    """
-    returns a dictionary o
-    """
     #%%
-    port = 0
-    camera_resolution = [640,480]
     point_data_path = Path(session_path, "recording",  "point_data.csv")
     point_data = pd.read_csv(point_data_path)
     corner_count_threshold = 11
@@ -49,9 +28,10 @@ def get_monocal_data(port, camera_resolution, point_data_path, corner_count_thre
                         .fillna('')
     )
 
-    def get_multiport(row, ports):
+    def get_multiport_label(row, ports):
         """
-        returns a string of the format "_0_1_2" for points which were captured by cameras 0,1 and 2.
+        returns a string of the format "_0_1_2" for points which were captured 
+        by cameras 0,1 and 2, etc...
         """
         text = ""
         for port in ports:
@@ -62,7 +42,7 @@ def get_monocal_data(port, camera_resolution, point_data_path, corner_count_thre
     
         return text
 
-    points_by_multiport["captured_by"] = points_by_multiport.apply(get_multiport,axis=1, args=(ports,))
+    points_by_multiport["captured_by"] = points_by_multiport.apply(get_multiport_label,axis=1, args=(ports,))
 
     single_port_points = (points_by_multiport
                         .loc[points_by_multiport[port]==port]
@@ -104,23 +84,24 @@ def get_monocal_data(port, camera_resolution, point_data_path, corner_count_thre
 
     port_monocal_data = point_data.merge(board_counts_most_seen_by,"right", ["sync_index", "port"])
     
-#%%
-    
     return port_monocal_data    
 
   
 
 
-def calibrate(port, resolution, port_monocal_data):
+def calibrate(port, resolution:tuple[int,int], port_monocal_data:pd.DataFrame):
 
     """
+    port_monocal_data: a DataFrame that is a curated flat-file version of the 
+        point_data.csv file. This contains only data for one camera port, and 
+        only a subset of the boards are represented. 
+        
+        This subset is determined previously by the 
     Use the recorded image corner positions along with the objective
     corner positions based on the board definition to calculated
     the camera matrix and distortion parameters
     """
     
-    #%%
-    resolution = (640,480)
     sync_indices = port_monocal_data["sync_index"].to_numpy().round().astype(int)
     img_loc_x = port_monocal_data["img_loc_x"].to_numpy().astype(np.float32)
     img_loc_y = port_monocal_data["img_loc_y"].to_numpy().astype(np.float32)
@@ -153,21 +134,39 @@ def calibrate(port, resolution, port_monocal_data):
     logger.info(f"Camera Matrix: {mtx}")
     logger.info(f"Distortion: {dist}")
 
+    print(f"Using {len(img_locs)} board captures to calibrate camera....")
+    start = time.time()
+    calibrate(port = port, resolution=resolution, img_loc=img_locs, board_loc=board_locs )
+    elapsed = time.time()-start
+    print(f"{elapsed} seconds elapsed to perform one camera calibration")
 
-from calicam.session import Session
-session = Session(session_path)
 
+#%%
+def get_ports(config:dict):
+    ports =  [int(key[4:]) for key in config.keys() if key[0:3]=="cam"]
 
+    return ports
 
+def get_resolution(config:dict, port:int):
+    return config["cam_"+str(port)]["resolution"]
 
+#%%
+if __name__ == "__main__":
+    #%%
+    #set inputs 
+    session_path =  Path(__root__,"tests", "5_cameras")
 
-# board_locs = np.array(board_locs, dtype='object')
+    config_path = Path(session_path,"config.toml")
+    point_data_path = Path(session_path, "recording",  "point_data.csv")
 
-# %%
-print(f"Using {len(img_locs)} board captures to calibrate camera....")
-start = time.time()
-calibrate(port = port, resolution=resolution, img_loc=img_locs, board_loc=board_locs )
-elapsed = time.time()-start
-print(f"{elapsed} seconds elapsed to perform one camera calibration")
+    config:dict = toml.load(config_path)
+    
+    ports = get_ports(config)
+     
+    corner_count_threshold = 11
+    top_x_count = 9
 
+    port = 0
+
+    camera_resolution = get_resolution(config, port)
 # %%

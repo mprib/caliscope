@@ -1,8 +1,8 @@
 
 import calicam.logger
 logger = calicam.logger.get(__name__)
-import logging
-logger.setLevel(logging.DEBUG)
+# import logging
+# logger.setLevel(logging.DEBUG)
 import time
 from queue import Queue
 from threading import Thread, Event
@@ -133,7 +133,7 @@ class MonoCalibrator:
         """Merges the current frame with the currently detected corners (red circles) 
         and a history of the stored grid information."""
 
-        logger.info(f"Frame Size is {self.frame.shape} at port {self.port}")
+        logger.debug(f"Frame Size is {self.frame.shape} at port {self.port}")
         logger.debug(
             f"camera resolution is {self.camera.resolution} at port {self.port}"
         )

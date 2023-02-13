@@ -26,10 +26,6 @@ class MonoCalibrator:
         self.capture_corners = False  # start out not doing anything
         self.stop_event = Event()
         
-        # self.target_fps = target_fps
-        # self.set_stream_fps(self.target_fps)
-
-        # self.synchronizer = synchronizer
         self.grid_frame_ready_q = Queue()
         self.connected_corners = self.stream.charuco.get_connected_corners()
         board_corner_count = len(self.stream.charuco.board.chessboardCorners)

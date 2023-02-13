@@ -21,18 +21,14 @@ class BulkMonocalibrator:
         self.config = toml.load(config_path)
         self.point_data = pd.read_csv(point_data_path)
 
-        self.ports = [int(key[4:]) for key in config.keys() if key[0:3] == "cam"]
-
-        self.resolutions = {
-            port: config["cam_" + str(port)]["resolution"] for port in self.ports
-        }
+        self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
 
         self.corner_count_threshold = 11
         self.top_x_count = 9
 
-        self.get_points_by_multiport = self.get_points_by_multiport()
+        self.points_with_multiport = self.get_points_with_multiport()
 
-    def get_points_by_multiport(self):
+    def get_points_with_multiport(self):
         """
         Pivot the port columns and assemble a new string field that will show all of the cameras that
         observed a given corner at a single sync index.
@@ -44,13 +40,13 @@ class BulkMonocalibrator:
             .fillna("")
         )
 
-        def get_multiport_label(row, ports):
+        def get_multiport_label(row):
             """
             returns a string of the format "_0_1_2" for points which were captured
             by cameras 0,1 and 2, etc...
             """
             text = ""
-            for port in ports:
+            for port in self.ports:
                 label = row[port]
                 if label != "":
                     label = str(int(label))
@@ -59,14 +55,19 @@ class BulkMonocalibrator:
             return text
 
         points_by_multiport["captured_by"] = points_by_multiport.apply(
-            get_multiport_label, axis=1, args=(ports,)
+            get_multiport_label, axis=1, args=()
         )
 
         return points_by_multiport
 
     def get_port_points(self, port):
-        single_port_points = self.points_by_multiport.loc[
-            self.points_by_multiport[port] == port
+        #%%
+        # self = bulk_monocal
+        # port = 2
+        
+        #%%
+        single_port_points = self.points_with_multiport.loc[
+            self.points_with_multiport[port] == port
         ].assign(port=port)
 
         board_counts = (
@@ -114,10 +115,10 @@ class BulkMonocalibrator:
         port_monocal_data = self.point_data.merge(
             board_counts_most_seen_by, "right", ["sync_index", "port"]
         )
+        #%%
 
         return port_monocal_data
-
-
+        
     def calibrate(self, port):
 
         """
@@ -131,8 +132,8 @@ class BulkMonocalibrator:
         the camera matrix and distortion parameters
         """
         port_monocal_data = self.get_port_points(port)
-        
-        resolution = self.config["cam_"+str(port)]["resolution"]
+
+        resolution = self.config["cam_" + str(port)]["resolution"]
 
         sync_indices = port_monocal_data["sync_index"].to_numpy().round().astype(int)
         img_loc_x = port_monocal_data["img_loc_x"].to_numpy().astype(np.float32)
@@ -160,23 +161,25 @@ class BulkMonocalibrator:
         print(time.time())
         print(f"Using {len(img_locs)} board captures to calibrate camera....")
 
+        start = time.time()
         logger.info(f"Calibrating camera {port}....")
         error, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
             board_locs, img_locs, resolution, None, None
         )
+        elapsed = time.time() - start
 
         print(f"{elapsed} seconds elapsed to perform one camera calibration")
         logger.info(f"Error: {error}")
         logger.info(f"Camera Matrix: {mtx}")
         logger.info(f"Distortion: {dist}")
 
-        start = time.time()
-        elapsed = time.time() - start
 
 
 #%%
 if __name__ == "__main__":
     #%%
+    from pathlib import Path
+    
     # set inputs
     session_path = Path(__root__, "tests", "5_cameras")
 
@@ -184,5 +187,6 @@ if __name__ == "__main__":
     point_data_path = Path(session_path, "recording", "point_data.csv")
 
     bulk_monocal = BulkMonocalibrator(config_path, point_data_path)
+    bulk_monocal.calibrate(3)
 
 # %%

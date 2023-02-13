@@ -12,79 +12,90 @@ from pathlib import Path
 import numpy as np
 import toml
 
+class BulkMonocalibrator:
+    def __init__(self, config_path: Path, point_data_path:Path):
 
+        self.config = toml.load(config_path)
 
-def get_monocal_data(port, camera_resolution, point_data_path, corner_count_threshold, top_x_count):
-    #%%
-    point_data_path = Path(session_path, "recording",  "point_data.csv")
-    point_data = pd.read_csv(point_data_path)
-    corner_count_threshold = 11
-    top_x_count = 9
+        self.point_data = point_data = pd.read_csv(point_data_path)
+        self.ports =  [int(key[4:]) for key in config.keys() if key[0:3]=="cam"]
+        self.resolutions = {port: config["cam_"+str(port)]["resolution"] for port in self.ports}
+        self.corner_count_threshold = 11
+        self.top_x_count = 9
 
-    points_by_multiport = (point_data
-                        .filter(["sync_index", "point_id", "port"])
-                        .pivot(index=["sync_index", "point_id"], columns="port", values="port")
-                        .reset_index()
-                        .fillna('')
-    )
-
-    def get_multiport_label(row, ports):
+        
+    def get_points_by_multiport(self):
         """
-        returns a string of the format "_0_1_2" for points which were captured 
-        by cameras 0,1 and 2, etc...
+        Pivot the port columns and assemble a new string field that will show all of the cameras that
+        observed a given corner at a single sync index.
         """
-        text = ""
-        for port in ports:
-            label = row[port]
-            if label != "":
-                label = str(int(label))
-                text = text + "_"+label
+        points_by_multiport = (self.point_data
+                            .filter(["sync_index", "point_id", "port"])
+                            .pivot(index=["sync_index", "point_id"], columns="port", values="port")
+                            .reset_index()
+                            .fillna('')
+        )
+
+        def get_multiport_label(row, ports):
+            """
+            returns a string of the format "_0_1_2" for points which were captured 
+            by cameras 0,1 and 2, etc...
+            """
+            text = ""
+            for port in ports:
+                label = row[port]
+                if label != "":
+                    label = str(int(label))
+                    text = text + "_"+label
     
-        return text
+            return text
 
-    points_by_multiport["captured_by"] = points_by_multiport.apply(get_multiport_label,axis=1, args=(ports,))
+        points_by_multiport["captured_by"] = points_by_multiport.apply(get_multiport_label,axis=1, args=(ports,))
 
-    single_port_points = (points_by_multiport
-                        .loc[points_by_multiport[port]==port]
-                        .assign(port=port)
-    )
-
-    board_counts = (single_port_points
-                    .filter(["sync_index", "point_id"])
-                    .groupby("sync_index")
-                    .count()
-                    .rename({"point_id":"corner_count"}, axis=1)
-                    )
+        return points_by_multiport
     
-    board_seen_by = (single_port_points
-                    .groupby(["port", "sync_index", "captured_by"])
-                    .agg("count")
-                    .rename({"point_id":"seen_by_count"}, axis=1)
-                    .reset_index()
-    )
+    
+        single_port_points = (points_by_multiport
+                            .loc[points_by_multiport[port]==port]
+                            .assign(port=port)
+        )
 
-    board_most_seen_by = (board_seen_by
-                        .groupby(["port", "sync_index"])
-                        .first()
-                        .drop(columns="seen_by_count") # this no longer means much...only for one "seenby group"
-                        .rename({"captured_by":"most_captured_by"}, axis=1)
+        board_counts = (single_port_points
+                        .filter(["sync_index", "point_id"])
+                        .groupby("sync_index")
+                        .count()
+                        .rename({"point_id":"corner_count"}, axis=1)
+                        )
+    
+        board_seen_by = (single_port_points
+                        .groupby(["port", "sync_index", "captured_by"])
+                        .agg("count")
+                        .rename({"point_id":"seen_by_count"}, axis=1)
                         .reset_index()
-    )
+        )
 
-    board_counts_most_seen_by = board_counts.merge(board_most_seen_by,"left", on=["sync_index"])
+        board_most_seen_by = (board_seen_by
+                            .groupby(["port", "sync_index"])
+                            .first()
+                            .drop(columns="seen_by_count") # this no longer means much...only for one "seenby group"
+                            .rename({"captured_by":"most_captured_by"}, axis=1)
+                            .reset_index()
+        )
 
-    criteria = board_counts_most_seen_by["corner_count"] >= corner_count_threshold
-    board_counts_most_seen_by = board_counts_most_seen_by[criteria]
-    board_counts_most_seen_by = (board_counts_most_seen_by
-                                #  .reset_index()
-                                .groupby("most_captured_by")
-                                .head(top_x_count)
-                                .reset_index()
-                                .sort_values(["most_captured_by"]))
+        board_counts_most_seen_by = board_counts.merge(board_most_seen_by,"left", on=["sync_index"])
 
-    port_monocal_data = point_data.merge(board_counts_most_seen_by,"right", ["sync_index", "port"])
+        criteria = board_counts_most_seen_by["corner_count"] >= self.corner_count_threshold
+        board_counts_most_seen_by = board_counts_most_seen_by[criteria]
+        board_counts_most_seen_by = (board_counts_most_seen_by
+                                    #  .reset_index()
+                                    .groupby("most_captured_by")
+                                    .head(self.top_x_count)
+                                    .reset_index()
+                                    .sort_values(["most_captured_by"]))
+
+        port_monocal_data = point_data.merge(board_counts_most_seen_by,"right", ["sync_index", "port"])
     
-    return port_monocal_data    
+        return port_monocal_data    
 
   
 
@@ -141,14 +152,7 @@ def calibrate(port, resolution:tuple[int,int], port_monocal_data:pd.DataFrame):
     print(f"{elapsed} seconds elapsed to perform one camera calibration")
 
 
-#%%
-def get_ports(config:dict):
-    ports =  [int(key[4:]) for key in config.keys() if key[0:3]=="cam"]
 
-    return ports
-
-def get_resolution(config:dict, port:int):
-    return config["cam_"+str(port)]["resolution"]
 
 #%%
 if __name__ == "__main__":

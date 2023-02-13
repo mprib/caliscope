@@ -15,7 +15,6 @@ session_path =  Path(__root__,"tests", "5_cameras")
 point_data_path = Path(session_path, "recording",  "point_data.csv")
 point_data = pd.read_csv(point_data_path)
 
-# %%
 
 def captured_at(row, ports):
     text = ""
@@ -36,9 +35,7 @@ points_by_multiport = (point_data
                        .fillna('')
 )
 
-#%%
 points_by_multiport["captured_at"] = points_by_multiport.apply(captured_at,axis=1, args=(ports,))
-# %%
 # get all the points seen at an individual port
 
 single_port = 0
@@ -56,8 +53,6 @@ board_counts = (single_port_points
                 .rename({"point_id":"corner_count"}, axis=1)
                 )
 
-#%%
-# convert to a summary of where each board was captured at
 # this will provide the initial basis for choosing data for monocalibration
 board_seen_by = (single_port_points
                  .groupby(["port", "sync_index", "captured_at"])
@@ -74,9 +69,8 @@ board_most_seen_by = (board_seen_by
                       .reset_index()
 )
 
-# %%
 board_counts_most_seen_by = board_counts.merge(board_most_seen_by,"left", on=["sync_index"])
-corner_count_threshold = 7
+corner_count_threshold = 11
 top_x_count = 9
 
 criteria = board_counts_most_seen_by["corner_count"] >= corner_count_threshold
@@ -88,9 +82,7 @@ board_counts_most_seen_by = (board_counts_most_seen_by
                              .reset_index()
                              .sort_values(["most_captured_at"]))
 
-#%%
 port_monocal_data = point_data.merge(board_counts_most_seen_by,"right", ["sync_index", "port"])
-# %%
 
 # construct properly formatted inputs for monocalibration
 
@@ -99,7 +91,6 @@ port_monocal_data = point_data.merge(board_counts_most_seen_by,"right", ["sync_i
 # it will end with things being more robust/clear. But those are *different* considerations. 
 
 
-#%%
 def calibrate(port, resolution, img_loc, board_loc):
 
     """
@@ -112,31 +103,28 @@ def calibrate(port, resolution, img_loc, board_loc):
     error, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
         board_loc, img_loc, resolution, None, None
     )
-
     logger.info(f"Error: {error}")
     logger.info(f"Camera Matrix: {mtx}")
     logger.info(f"Distortion: {dist}")
 
 
-#%%
 from calicam.session import Session
 session = Session(session_path)
-#%%
 
 resolution = (640,480)
 sync_indices = port_monocal_data["sync_index"].to_numpy().round().astype(int)
-img_loc_x = port_monocal_data["img_loc_x"].to_numpy().round().astype(np.float32)
-img_loc_y = port_monocal_data["img_loc_y"].to_numpy().round().astype(np.float32)
+img_loc_x = port_monocal_data["img_loc_x"].to_numpy().astype(np.float32)
+img_loc_y = port_monocal_data["img_loc_y"].to_numpy().astype(np.float32)
 board_loc_x = port_monocal_data["board_loc_x"].to_numpy().astype(np.float32)
 board_loc_y = port_monocal_data["board_loc_y"].to_numpy().astype(np.float32)
 board_loc_z = board_loc_x*0 # all on the same plane
-# %%
+
+
 # build the actual inputs for the calibration...
 img_x_y = np.vstack([img_loc_x, img_loc_y]).T
 # board_x_y_z = np.vstack([board_loc_x, board_loc_y, board_loc_z]).T
 board_x_y_z = np.vstack([board_loc_x, board_loc_y, board_loc_z]).T
 
-#%%
 
 import time
 print(time.time())
@@ -153,7 +141,10 @@ print(time.time())
 # board_locs = np.array(board_locs, dtype='object')
 
 # %%
+print(f"Using {len(img_locs)} board captures to calibrate camera....")
+start = time.time()
 calibrate(port = single_port, resolution=resolution, img_loc=img_locs, board_loc=board_locs )
-
+elapsed = time.time()-start
+print(f"{elapsed} seconds elapsed to perform one camera calibration")
 
 # %%

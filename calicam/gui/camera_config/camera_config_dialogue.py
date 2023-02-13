@@ -388,8 +388,7 @@ if __name__ == "__main__":
     App = QApplication(sys.argv)
 
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
-    config_path = Path(repo, "sessions", "default_res_session")
-    # ports = [0, 1, 2]
+    config_path = Path(repo, "sessions", "high_res_session")
 
     print(config_path)
     session = Session(config_path)

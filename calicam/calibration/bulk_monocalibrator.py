@@ -16,109 +16,112 @@ import toml
 
 
 class BulkMonocalibrator:
-    def __init__(self, config_path: Path, point_data_path: Path):
+    def __init__(
+        self,
+        config_path: Path,
+        point_data_path: Path,
+        calibration_sample_size: int =40,
+        random_state: int = None,
+    ):
 
         self.config = toml.load(config_path)
         self.point_data = pd.read_csv(point_data_path)
 
         self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
 
-        self.corner_count_threshold = 11
-        self.top_x_count = 9
+        # self.corner_count_threshold = 5
+        self.calibration_sample_size = calibration_sample_size
+        self.random_state = (
+            random_state  # if set to a number, then selections will be repeatable
+        )
+        self.select_calibration_points()
 
-        self.points_with_multiport = self.get_points_with_multiport()
 
-    def get_points_with_multiport(self):
-        """
-        Pivot the port columns and assemble a new string field that will show all of the cameras that
-        observed a given corner at a single sync index.
-        """
-        points_by_multiport = (
-            self.point_data.filter(["sync_index", "point_id", "port"])
-            .pivot(index=["sync_index", "point_id"], columns="port", values="port")
+    def select_calibration_points(self):
+        # get the mean board positions
+        all_board_captures  = (self.point_data.filter(
+                ["port", "sync_index", "frame_time", "point_id", "img_loc_x", "img_loc_y"]
+            )
+            .groupby(["port", "sync_index", "frame_time"])
+            .agg({"point_id": "count", "img_loc_x": "mean", "img_loc_y": "mean"})
+            .rename(
+                {"img_loc_x": "x_mean", "img_loc_y": "y_mean", "point_id": "point_count"},
+                axis=1,
+            )
             .reset_index()
-            .fillna("")
         )
-
-        def get_multiport_label(row):
-            """
-            returns a string of the format "_0_1_2" for points which were captured
-            by cameras 0,1 and 2, etc...
-            """
-            text = ""
-            for port in self.ports:
-                label = row[port]
-                if label != "":
-                    label = str(int(label))
-                    text = text + "_" + label
-
-            return text
-
-        points_by_multiport["captured_by"] = points_by_multiport.apply(
-            get_multiport_label, axis=1, args=()
-        )
-
-        return points_by_multiport
-
-    def get_port_points(self, port):
-        #%%
-        # self = bulk_monocal
-        # port = 2
         
-        #%%
-        single_port_points = self.points_with_multiport.loc[
-            self.points_with_multiport[port] == port
-        ].assign(port=port)
-
-        board_counts = (
-            single_port_points.filter(["sync_index", "point_id"])
-            .groupby("sync_index")
-            .count()
-            .rename({"point_id": "corner_count"}, axis=1)
-        )
-
-        board_seen_by = (
-            single_port_points.groupby(["port", "sync_index", "captured_by"])
-            .agg("count")
-            .rename({"point_id": "seen_by_count"}, axis=1)
-            .reset_index()
-        )
-
-        board_most_seen_by = (
-            board_seen_by.groupby(["port", "sync_index"])
-            .first()
-            .drop(
-                columns="seen_by_count"
-            )  # this no longer means much...only for one "seenby group"
-            .rename({"captured_by": "most_captured_by"}, axis=1)
-            .reset_index()
-        )
-
-        board_counts_most_seen_by = board_counts.merge(
-            board_most_seen_by, "left", on=["sync_index"]
-        )
-
-        criteria = (
-            board_counts_most_seen_by["corner_count"] >= self.corner_count_threshold
-        )
-
-        board_counts_most_seen_by = board_counts_most_seen_by[criteria]
-        board_counts_most_seen_by = (
-            board_counts_most_seen_by
-            #  .reset_index()
-            .groupby("most_captured_by")
-            .head(self.top_x_count)
-            .reset_index()
-            .sort_values(["most_captured_by"])
-        )
-
-        port_monocal_data = self.point_data.merge(
-            board_counts_most_seen_by, "right", ["sync_index", "port"]
-        )
-        #%%
-
-        return port_monocal_data
         
+        # self.board_captures = (
+        #     self.point_data.filter(["port", "sync_index", "point_id"])
+        #     .groupby(["port", "sync_index"])
+        #     .agg({"point_id": "count"})
+        #     .rename(
+        #         {
+        #             "point_id": "point_count",
+        #         },
+        #         axis=1,
+        #     )
+        #     .reset_index()
+        # )
+
+        # DLT algorithm needs at least 6 points for pose estimation from 3D-2D point correspondences
+        # point_count_cutoff = 6
+        point_count_cutoff = 12
+        self.good_board_captures = all_board_captures[all_board_captures["point_count"]>=point_count_cutoff]
+
+        self.randomly_selected_boards = self.good_board_captures.groupby("port").sample(
+            n=self.calibration_sample_size, random_state=self.random_state, replace=True
+        )
+
+
+        # this is what I need to expand on...
+        self.selected_boards = self.good_board_captures
+
+        # TODO: START HERE TOMORROW, MAC: 
+        # use the code below as a starting place. Get the overlap_regions
+        # for the points, and use that to get the "PrimaryOverlapRegion" for the board
+        # for a give port, find out how many are in each Region
+        # and how many are in each port
+        # Proportionally sample from the regions to achieve the desired number of boards
+        
+            #def get_points_with_multiport(self):
+                # """
+                # Pivot the port columns and assemble a new string field that will show all of the cameras that
+                # observed a given corner at a single sync index.
+                # """
+                # points_by_multiport = (
+                #     self.point_data.filter(["sync_index", "point_id", "port"])
+                #     .pivot(index=["sync_index", "point_id"], columns="port", values="port")
+                #     .reset_index()
+                #     .fillna("")
+                # )
+
+                # def get_multiport_label(row):
+                #     """
+                #     returns a string of the format "_0_1_2" for points which were captured
+                #     by cameras 0,1 and 2, etc...
+                #     """
+                #     text = ""
+                #     for port in self.ports:
+                #         label = row[port]
+                #         if label != "":
+                #             label = str(int(label))
+                #             text = text + "_" + label
+
+                #     return text
+
+                # points_by_multiport["captured_by"] = points_by_multiport.apply(
+                #     get_multiport_label, axis=1, args=()
+                # )
+
+                # return points_by_multiport
+
+        self.calibration_points = self.point_data.merge(
+            self.randomly_selected_boards, "right", ["port", "sync_index"]
+        )
+
+
     def calibrate(self, port):
 
         """
@@ -131,7 +134,7 @@ class BulkMonocalibrator:
         corner positions based on the board definition to calculated
         the camera matrix and distortion parameters
         """
-        port_monocal_data = self.get_port_points(port)
+        port_monocal_data = self.calibration_points[self.calibration_points["port"]==port]
 
         resolution = self.config["cam_" + str(port)]["resolution"]
 
@@ -174,12 +177,11 @@ class BulkMonocalibrator:
         logger.info(f"Distortion: {dist}")
 
 
-
 #%%
 if __name__ == "__main__":
     #%%
     from pathlib import Path
-    
+
     # set inputs
     session_path = Path(__root__, "tests", "5_cameras")
 
@@ -187,6 +189,34 @@ if __name__ == "__main__":
     point_data_path = Path(session_path, "recording", "point_data.csv")
 
     bulk_monocal = BulkMonocalibrator(config_path, point_data_path)
-    bulk_monocal.calibrate(3)
+    # bulk_monocal.calibrate(3)
 
+    #%%
+
+    # get the mean board positions
+    # mean_board_xy = (
+    #     bulk_monocal.point_data.filter(
+    #         ["port", "sync_index", "frame_time", "point_id", "img_loc_x", "img_loc_y"]
+    #     )
+    #     .groupby(["port", "sync_index", "frame_time"])
+    #     .agg({"point_id": "count", "img_loc_x": "mean", "img_loc_y": "mean"})
+    #     .rename(
+    #         {"img_loc_x": "x_mean", "img_loc_y": "y_mean", "point_id": "point_count"},
+    #         axis=1,
+    #     )
+    #     .reset_index()
+    # )
+
+    # target_board_count = 30
+    # port = 3
+    # point_count_cutoff = 9
+
+    # mean_port_board_xy = mean_board_xy.loc[
+    #     (mean_board_xy["port"] == port)
+    #     & (mean_board_xy["point_count"] >= point_count_cutoff)
+    # ].assign(use_for_calibration=False)
+
+    # if mean_port_board_xy.shape[0] > target_board_count:
+    #     pass
+    # need to reduces this down even more
 # %%

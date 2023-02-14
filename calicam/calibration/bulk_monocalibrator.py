@@ -257,9 +257,9 @@ if __name__ == "__main__":
     point_data_path = Path(session_path, "recording", "point_data.csv")
 
     bulk_monocal = BulkMonocalibrator(
-        config_path, point_data_path, calibration_sample_size=10
+        config_path, point_data_path, calibration_sample_size=30
     )
 
-    bulk_monocal.calibrate_all(parallel=False)
-    # bulk_monocal.calibrate_all()
+    # bulk_monocal.calibrate_all(parallel=False)
+    bulk_monocal.calibrate_all()
 # %%

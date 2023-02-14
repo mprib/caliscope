@@ -228,6 +228,12 @@ class BulkMonocalibrator:
         if not parallel:
             start = time.time()
             for port in self.ports:
+                _, error, mtx, dist, grid_count = self.calibrate(port)
+                
+                self.config["cam_"+str(port)]["error"] = error
+                self.config["cam_"+str(port)]["camera_matrix"] = mtx
+                self.config["cam_"+str(port)]["distortion"] = dist
+                self.config["cam_"+str(port)]["grid_count"] = grid_count   
                 self.calibrate(port)
 
             elapsed = time.time() - start
@@ -251,9 +257,9 @@ if __name__ == "__main__":
     point_data_path = Path(session_path, "recording", "point_data.csv")
 
     bulk_monocal = BulkMonocalibrator(
-        config_path, point_data_path, calibration_sample_size=25
+        config_path, point_data_path, calibration_sample_size=10
     )
 
-    # bulk_monocal.calibrate_all(parallel=False)
-    bulk_monocal.calibrate_all()
+    bulk_monocal.calibrate_all(parallel=False)
+    # bulk_monocal.calibrate_all()
 # %%

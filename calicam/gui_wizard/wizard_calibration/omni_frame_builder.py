@@ -74,7 +74,7 @@ class OmniFrameBuilder:
             logger.debug("plugging blank frame data")
             frame = np.zeros((edge, edge, 3), dtype=np.uint8)
         else:
-            frame = frame_packet.frame
+            frame = frame_packet.frame.copy()
 
         # frame = frame.copy()
         return frame

@@ -251,13 +251,13 @@ if __name__ == "__main__":
     from pathlib import Path
 
     # set inputs
-    session_path = Path(__root__, "tests", "5_cameras")
+    session_path = Path(__root__, "sessions", "5_cameras")
 
     config_path = Path(session_path, "config.toml")
     point_data_path = Path(session_path, "recording", "point_data.csv")
 
     bulk_monocal = BulkMonocalibrator(
-        config_path, point_data_path, calibration_sample_size=30
+        config_path, point_data_path, calibration_sample_size=20
     )
 
     # bulk_monocal.calibrate_all(parallel=False)

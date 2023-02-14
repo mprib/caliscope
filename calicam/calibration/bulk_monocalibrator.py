@@ -1,7 +1,4 @@
-#%%
-
 import calicam.logger
-
 logger = calicam.logger.get(__name__)
 
 import cv2
@@ -9,6 +6,7 @@ import sys
 import pandas as pd
 from calicam import __root__
 
+import time
 sys.path.insert(0, __root__)
 from pathlib import Path
 import numpy as np
@@ -23,7 +21,7 @@ class BulkMonocalibrator:
         calibration_sample_size: int = 40,
         random_state: int = None,
     ):
-
+        self.config_path = config_path
         self.config = toml.load(config_path)
         self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
         self.calibration_sample_size = calibration_sample_size
@@ -82,6 +80,13 @@ class BulkMonocalibrator:
         return all_boards
 
     def get_calibration_points(self, port: int):
+        """
+        Provides a curated dataframe of point data. The overall point data is initially 
+        restricted to only those boards that have at least 6 points. This remaining data
+        is grouped according to the Primary Coverage Region, which should hopefully provide
+        more breadth of coverage. The random selection is weighted to strongly favor boards that
+        have more points in view. 
+        """
 
         # DLT algorithm needs at least 6 points for pose estimation from 3D-2D point correspondences
         point_count_cutoff = 6
@@ -94,9 +99,11 @@ class BulkMonocalibrator:
 
         board_count = good_board_captures.shape[0]
         sampled_proportion = min(self.calibration_sample_size/board_count,1)
+       
+        sampling_weights = good_board_captures["point_count"]**3
         
         randomly_selected_boards = good_board_captures.groupby("primary_coverage_region").sample(
-            frac=sampled_proportion, random_state=self.random_state, replace=False
+            frac=sampled_proportion, weights=sampling_weights, random_state=self.random_state, replace=False
         )
 
         calibration_points = self.all_point_data.merge(
@@ -147,17 +154,6 @@ class BulkMonocalibrator:
         return points_w_regions
 
     def calibrate(self, port):
-
-        """
-        port_monocal_data: a DataFrame that is a curated flat-file version of the
-            point_data.csv file. This contains only data for one camera port, and
-            only a subset of the boards are represented.
-
-            This subset is determined previously by the
-        Use the recorded image corner positions along with the objective
-        corner positions based on the board definition to calculated
-        the camera matrix and distortion parameters
-        """
         port_monocal_data = self.get_calibration_points(port)
 
         resolution = self.config["cam_" + str(port)]["resolution"]
@@ -173,9 +169,8 @@ class BulkMonocalibrator:
         img_x_y = np.vstack([img_loc_x, img_loc_y]).T
         board_x_y_z = np.vstack([board_loc_x, board_loc_y, board_loc_z]).T
 
-        import time
 
-        print(time.time())
+        # print(time.time())
         img_locs = []  
         board_locs = []  
         for sync_index in np.unique(sync_indices):
@@ -183,8 +178,8 @@ class BulkMonocalibrator:
             img_locs.append(img_x_y[same_frame])
             board_locs.append(board_x_y_z[same_frame])
 
-        print(time.time())
-        print(f"Using {len(img_locs)} board captures to calibrate camera....")
+        # print(time.time())
+        logger.info(f"Using {len(img_locs)} board captures to calibrate camera {port}...")
 
         start = time.time()
         logger.info(f"Calibrating camera {port}....")
@@ -193,25 +188,52 @@ class BulkMonocalibrator:
         )
         elapsed = time.time() - start
 
-        print(f"{elapsed} seconds elapsed to perform one camera calibration")
+        logger.info(f"{round(elapsed,2)} seconds elapsed to perform calibration of camera at port {port}")
         logger.info(f"Error: {error}")
-        logger.info(f"Camera Matrix: {mtx}")
-        logger.info(f"Distortion: {dist}")
+        # logger.info(f"Camera Matrix: {mtx}")
+        # logger.info(f"Distortion: {dist}")
 
+    def calibrate_all(self, parallel=True, join=True):
+       
+        if parallel: 
+            start = time.time()
+            processes = []
+            for port in bulk_monocal.ports:
+                p = Process(target=bulk_monocal.calibrate, args=(port,))
+                print(f"Starting calibrate process for port {port}")
+                p.start()
+                processes.append(p)
+     
+            if join:
+                for p in processes:
+                    p.join() 
+    
+            elapsed = time.time()-start
+            print(f"Total time to calibrate all ports in parallel is {round(elapsed, 2)} seconds")
+        
+        if not parallel:
+            start = time.time()
+            for port in bulk_monocal.ports:
+                bulk_monocal.calibrate(port)
 
+            elapsed = time.time()-start
+            print(f"Total time to calibrate all ports synchronously is {round(elapsed, 2)} seconds")
+        
 #%%
 if __name__ == "__main__":
     #%%
     from pathlib import Path
-
+    from multiprocessing import Process
+    
+    
     # set inputs
     session_path = Path(__root__, "tests", "5_cameras")
 
     config_path = Path(session_path, "config.toml")
     point_data_path = Path(session_path, "recording", "point_data.csv")
 
-    bulk_monocal = BulkMonocalibrator(config_path, point_data_path, calibration_sample_size=30)
-
-    bulk_monocal.calibrate(1)
-
+    bulk_monocal = BulkMonocalibrator(config_path, point_data_path, calibration_sample_size=10)
+    
+    bulk_monocal.calibrate_all(parallel=False) 
+    bulk_monocal.calibrate_all() 
 # %%

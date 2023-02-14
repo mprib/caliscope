@@ -84,10 +84,6 @@ class MonoCalibrator:
             
             self.frame_packet: FramePacket = self.stream.out_q.get()
             self.frame = self.frame_packet.frame
-            # need to initialize to numpy arrays otherwise error if no corners detected
-            self.ids = np.array([])
-            self.img_loc = np.array([])
-            self.board_loc = np.array([])
 
             if self.capture_corners and self.frame_packet.points is not None:
                 logger.info("Points found and being processed...")

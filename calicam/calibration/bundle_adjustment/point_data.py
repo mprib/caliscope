@@ -33,6 +33,8 @@ class PointData:
         self.reset()
 
     def reset(self):
+        # used when also applying the filter method below and needing to return to the original
+        # data set. I do not believe this is currently being used anywhere...
         self.camera_indices = self.camera_indices_full
         self.img = self.img_full
         self.corner_id = self.corner_id_full
@@ -40,7 +42,9 @@ class PointData:
         self.sync_indices = self.sync_indices_full
 
     def filter(self, optimized_fun, percent_cutoff):
-
+        # I believe this was indentended for use with some iterative approach to bundle adjustment
+        # that skimmed off the poor fits and reran, akin to anipose. 
+        # The results were not compelling and I believe this is now not being used anywhere
         # print(f"Optimization run with {optimized_fun.shape[0]/2} image points")
         xy_reproj_error = optimized_fun.reshape(-1, 2)
         euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))

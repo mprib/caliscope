@@ -1,6 +1,7 @@
-# NOTE: You may want to just roll this whole thing back to what it was before to preserve the old GUI functionality
-# at least until you decide to jettison it all together...
-# really you are just tracking corners between pairs of images in the new framework, so just call it what it is...
+# This is backing up where things used to be before the most recent 
+# major refactor. Primarily it maintains the stereocalibration code
+# which I anticipate will get recycled into a better integrated form
+
 import calicam.logger
 logger = calicam.logger.get(__name__)
 

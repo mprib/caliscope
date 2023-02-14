@@ -2,54 +2,65 @@
 
 The general flow of processing is illustrated in the graph below. 
 
-Not illustrated is the omniframe which is the primary GUI element providing feedback to the user regarding position of the charuco board to provide the best input data to the calibrator.
+The `Synchronizer` is now producing `SyncPackets` from the set of  `LiveStream` objects provided to it. The previous code for recording video will no longer work, so must be updated. Additionally, when recording video the `VideoRecorder` should save out any point data that is calculated during the recording session so that it can be processed downstream.
 
-A future organizational improvement may be to perform corner tracking *prior to* synchronization. This will avoid the frequent reuse of the tracker in some ad-hoc data processing. Just save the corner data during the initial streaming of video data, Mac. Don't keep going back to the well.
+The general plan for a revision to the current process is shown here.
 
-Another potential advantage of this it may facilitate a future refactor where the camera/stream/tracking stack is pushed into its own process which may take some load off of the primary process. Frame, time, and corner data can be passed back into the synchronizer for a single-point-of-contact for the rest of the program.
-
-I think I might be returning to the original design I had of including the point tracker *within* the running stream thread. This set itself up nicely for real time point tracking as the frame-rate would self-throttle based on the processing demands of the point tracker...
+Note that the sections of code that do not have a link in some way to the synchronizer are not currently functional.
 
 ```mermaid
 graph TD
 
+
+LiveStream --FramePacket--> Synchronizer
+RecordedStream --FramePacket--> Synchronizer
+Synchronizer --SyncPacket--> VideoRecorder
+
 subgraph cameras
 Camera --> LiveStream
-LiveStream --> Synchronizer
 end
-
-subgraph calibration
+subgraph tracking
 Charuco --> CornerTracker
-CornerTracker --> Stereotracker
+CornerTracker --PointPacket--> LiveStream
 end
 
-Synchronizer --> Stereotracker
+
+Synchronizer --SyncPacket-->  OmniFrame
+
+subgraph recording
+RecordedStream
+VideoRecorder 
+end
+
+
+VideoRecorder --> frame_time_history.csv
+VideoRecorder --> port_X.mp4 
+VideoRecorder -.During OmniFrame.-> point_data.csv
+
+subgraph RecordingDirectory
+port_X.mp4 --> RecordedStream
+frame_time_history.csv --> RecordedStream
+end
+
+
+point_data.csv --> BulkMonocalibrator
+config.toml --CameraSettings--> BulkMonocalibrator
+BulkMonocalibrator -.Intrinsics.-> config.toml
+
+
 subgraph calibration_data
+point_data.csv
 config.toml
-StereoCalRecordings
 end
 
-Stereotracker -.via Session.-> config.toml
-calibration -.via Session.-> StereoCalRecordings
-calibration_data --> ArrayConstructor
+
+CornerTracker --PointPacket--> RecordedStream
 
 subgraph array
 ArrayConstructor
 end
 
-Synchronizer --> PairedPointStream 
 
-subgraph recording
-Synchronizer --> VideoRecorder
-VideoRecorder --> port_#.mp4
-VideoRecorder --> frame_time_history.csv
-
-port_#.mp4 --> RecordedStream
-frame_time_history.csv --> RecordedStream
-RecordedStream --> Synchronizer
-end
-
-CornerTracker -.temporary for testing.- PairedPointStream
 
 subgraph triangulate
 PairedPointStream --> StereoTriangulator

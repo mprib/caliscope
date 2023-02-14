@@ -3,6 +3,7 @@
 # that reads in frames.
 
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 
 from time import perf_counter, sleep
@@ -13,32 +14,50 @@ import cv2
 import numpy as np
 
 from calicam.cameras.camera import Camera
-
+from calicam.cameras.data_packets import FramePacket
+from calicam.calibration.charuco import Charuco
+from calicam.calibration.corner_tracker import CornerTracker
+import calicam.calibration.draw_charuco as draw_charuco
 
 class LiveStream:
-    def __init__(self, camera, fps_target=6):
+    def __init__(self, camera, fps_target=6,  charuco = None):
         self.camera = camera
         self.port = camera.port
 
+        if charuco is not None:
+            self.charuco = charuco
+            self.tracker = CornerTracker(charuco)
+            self.track_points = True
+        else:
+            self.track_points = False
+
         self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
-        self.stop_confirm = Queue()
+        self.push_to_out_q = True
         self.stop_event = Event()
 
-        self.push_to_out_q = False
-        self.show_fps = False
+        self.stop_confirm = (
+            Queue()
+        )  # make sure camera no longer reading before trying to change resolution
+
+        self._show_fps = False  # used for testing
+        self._show_charuco = False # used for testing
+        
         self.set_fps_target(fps_target)
         self.FPS_actual = 0
         # Start the thread to read frames from the video stream
-        self.thread = Thread(target=self.roll_camera, args=(), daemon=True)
+        self.thread = Thread(target=self.worker, args=(), daemon=True)
         self.thread.start()
 
         # initialize time trackers for actual FPS determination
         self.frame_time = perf_counter()
-        self.avg_delta_time = (
-            1  # trying to avoid div 0 error...not sure about this though
-        )
+        self.avg_delta_time = 1  # initialize to something to avoid errors elsewhere
 
     def set_fps_target(self, fps):
+        """
+        This is done through a method as it will also do a one-time determination of the times as which
+        frames should be read (the milestones)
+        """
+
         self.fps = fps
         milestones = []
         for i in range(0, fps):
@@ -47,8 +66,10 @@ class LiveStream:
         self.milestones = np.array(milestones)
 
     def wait_to_next_frame(self):
-        """based on the target fps, return the time needed to sleep so that
-        a frame read immediately after would occur when needed"""
+        """
+        based on the next milestone time, return the time needed to sleep so that
+        a frame read immediately after would occur when needed
+        """
 
         time = perf_counter()
         fractional_time = time % 1
@@ -61,9 +82,11 @@ class LiveStream:
             return future_wait_times[0]
 
     def get_FPS_actual(self):
-        """set the actual frame rate; called within roll_camera()
+        """
+        set the actual frame rate; called within roll_camera()
         needs to be called from within roll_camera to actually work
-        Note that this is a smoothed running average"""
+        Note that this is a smoothed running average
+        """
         self.delta_time = perf_counter() - self.start_time
         self.start_time = perf_counter()
         if not self.avg_delta_time:
@@ -79,13 +102,13 @@ class LiveStream:
         self.stop_event.set()
         logger.info(f"Stop signal sent at stream {self.port}")
 
-    def roll_camera(self):
+    def worker(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame,
         calls various frame processing methods on it, and updates the exposed
         frame
         """
-        self.start_time = perf_counter() # used to get initial delta_t for FPS
+        self.start_time = perf_counter()  # used to get initial delta_t for FPS
         first_time = True
         while not self.stop_event.is_set():
             if first_time:
@@ -97,17 +120,36 @@ class LiveStream:
                 # Wait an appropriate amount of time to hit the frame rate target
                 sleep(self.wait_to_next_frame())
                 read_start = perf_counter()
-                self.success, self._working_frame = self.camera.capture.read()
+                self.success, self.frame = self.camera.capture.read()
 
                 read_stop = perf_counter()
                 self.frame_time = (read_start + read_stop) / 2
 
-                if self.show_fps:
-                    self._add_fps()
 
                 if self.push_to_out_q and self.success:
                     logger.debug(f"Pushing frame to reel at port {self.port}")
-                    self.out_q.put([self.frame_time, self._working_frame])
+
+                    if self.track_points:
+                        point_data = self.tracker.get_points(self.frame)
+                    else:
+                        point_data = None
+                
+                if self._show_fps:
+                    self._add_fps()
+
+                frame_packet = FramePacket(
+                    port=self.port,
+                    frame_time=self.frame_time,
+                    frame=self.frame,
+                    points=point_data,
+                )
+                
+                if self._show_charuco:
+                    draw_charuco.corners(frame_packet)
+                    # self.out_q.put([self.frame_time, self.frame])
+                
+                if self.push_to_out_q:
+                    self.out_q.put(frame_packet)
 
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
@@ -137,14 +179,14 @@ class LiveStream:
         logger.info(
             f"Beginning roll_camera thread at port {self.port} with resolution {res}"
         )
-        self.thread = Thread(target=self.roll_camera, args=(), daemon=True)
+        self.thread = Thread(target=self.worker, args=(), daemon=True)
         self.thread.start()
 
     def _add_fps(self):
-        """NOTE: this is used in code at bottom, not in external use"""
+        """NOTE: this is used in F5 test, not in external use"""
         self.fps_text = str(int(round(self.FPS_actual, 0)))
         cv2.putText(
-            self._working_frame,
+            self.frame,
             "FPS:" + self.fps_text,
             (10, 70),
             cv2.FONT_HERSHEY_PLAIN,
@@ -155,8 +197,8 @@ class LiveStream:
 
 
 if __name__ == "__main__":
-    ports = [0, 1, 2]
-    # ports = [2]
+    # ports = [2, 3, 4]
+    ports = [3]
 
     cams = []
     for port in ports:
@@ -165,21 +207,28 @@ if __name__ == "__main__":
         cam.exposure = -7
         cams.append(cam)
 
+    # standard inverted charuco
+    charuco = Charuco(
+            4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+        )
+
     streams = []
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
-        stream = LiveStream(cam)
+        stream = LiveStream(cam, fps_target=30, charuco = charuco)
         stream.push_to_out_q = True
-        stream.show_fps = True
+        stream._show_fps = True
+        stream._show_charuco = True
         streams.append(stream)
 
     while True:
         try:
             for stream in streams:
-                time, img = stream.out_q.get()
+                frame_packet = stream.out_q.get()
+
                 cv2.imshow(
-                    (str(stream.port) + ": 'q' to quit and attempt calibration"),
-                    img,
+                    (str(frame_packet.port) + ": 'q' to quit and attempt calibration"),
+                    frame_packet.frame,
                 )
 
         # bad reads until connection to src established

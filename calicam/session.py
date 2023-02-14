@@ -1,5 +1,6 @@
 # Environment for managing all created objects and the primary interface for the GUI.
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 
 from concurrent.futures import ThreadPoolExecutor
@@ -14,7 +15,6 @@ from itertools import combinations
 from calicam.calibration.charuco import Charuco
 from calicam.calibration.corner_tracker import CornerTracker
 from calicam.calibration.monocalibrator import MonoCalibrator
-from calicam.calibration.stereotracker import StereoTracker
 from calicam.cameras.camera import Camera
 from calicam.cameras.synchronizer import Synchronizer
 from calicam.cameras.live_stream import LiveStream
@@ -177,7 +177,7 @@ class Session:
                         self.cameras[port] = Camera(port, verified_resolutions)
                     else:
                         self.cameras[port] = Camera(port)
-                        
+
                     cam = self.cameras[port]  # just for ease of reference
                     cam.rotation_count = params["rotation_count"]
                     cam.exposure = params["exposure"]
@@ -243,7 +243,7 @@ class Session:
                 pass  # only add if not added yet
             else:
                 logger.info(f"Loading Stream for port {port}")
-                self.streams[port] = LiveStream(cam)
+                self.streams[port] = LiveStream(cam, charuco=self.charuco)
 
     def disconnect_cameras(self):
         """Destroy all camera reading associated threads working down to the cameras
@@ -316,9 +316,7 @@ class Session:
                 pass  # only add if not added yet
             else:
                 logger.info(f"Loading Monocalibrator for port {port}")
-                self.monocalibrators[port] = MonoCalibrator(
-                    self.streams[port], self.corner_tracker
-                )
+                self.monocalibrators[port] = MonoCalibrator(self.streams[port])
 
     def remove_monocalibrators(self):
         for port, monocal in self.monocalibrators.copy().items():
@@ -389,7 +387,7 @@ class Session:
             "exposure": cam.exposure,
             "grid_count": cam.grid_count,
             "ignore": cam.ignore,
-            "verified_resolutions": cam.verified_resolutions
+            "verified_resolutions": cam.verified_resolutions,
         }
 
         logger.info(f"Saving camera parameters...{params}")

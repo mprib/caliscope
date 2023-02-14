@@ -13,7 +13,8 @@ sys.path.insert(0, __root__)
 from pathlib import Path
 import numpy as np
 import toml
-
+from multiprocessing import Process
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 class BulkMonocalibrator:
     def __init__(
@@ -183,9 +184,10 @@ class BulkMonocalibrator:
             img_locs.append(img_x_y[same_frame])
             board_locs.append(board_x_y_z[same_frame])
 
+        grid_count = len(img_locs)
         # print(time.time())
         logger.info(
-            f"Using {len(img_locs)} board captures to calibrate camera {port}..."
+            f"Using {grid_count} board captures to calibrate camera {port}..."
         )
 
         start = time.time()
@@ -198,45 +200,49 @@ class BulkMonocalibrator:
         logger.info(
             f"{round(elapsed,2)} seconds elapsed to perform calibration of camera at port {port}"
         )
-        logger.info(f"Error: {error}")
-        # logger.info(f"Camera Matrix: {mtx}")
-        # logger.info(f"Distortion: {dist}")
+        logger.info(f"Camera {port} Error: {error}")
+        
+        return port, error, mtx, dist, grid_count
 
     def calibrate_all(self, parallel=True):
 
         if parallel:
             start = time.time()
-            processes = []
-            for port in bulk_monocal.ports:
-                p = Process(target=bulk_monocal.calibrate, args=(port,))
-                print(f"Starting calibrate process for port {port}")
-                p.start()
-                processes.append(p)
-
-            for p in processes:
-                p.join()
+            
+            with ProcessPoolExecutor() as executor:
+                processes = [executor.submit(self.calibrate, port) for port in self.ports]
+                
+                for p in as_completed(processes):
+                    port, error, mtx, dist, grid_count = p.result()
+                
+                    self.config["cam_"+str(port)]["error"] = error
+                    self.config["cam_"+str(port)]["camera_matrix"] = mtx
+                    self.config["cam_"+str(port)]["distortion"] = dist
+                    self.config["cam_"+str(port)]["grid_count"] = grid_count   
 
             elapsed = time.time() - start
-            print(
+            logger.info(
                 f"Total time to calibrate all ports in parallel is {round(elapsed, 2)} seconds"
             )
 
         if not parallel:
             start = time.time()
-            for port in bulk_monocal.ports:
-                bulk_monocal.calibrate(port)
+            for port in self.ports:
+                self.calibrate(port)
 
             elapsed = time.time() - start
-            print(
+            logger.info(
                 f"Total time to calibrate all ports synchronously is {round(elapsed, 2)} seconds"
             )
+         
+        with open(self.config_path, "w") as f:
+            toml.dump(self.config, f)
 
 
 #%%
 if __name__ == "__main__":
     #%%
     from pathlib import Path
-    from multiprocessing import Process
 
     # set inputs
     session_path = Path(__root__, "tests", "5_cameras")
@@ -245,9 +251,9 @@ if __name__ == "__main__":
     point_data_path = Path(session_path, "recording", "point_data.csv")
 
     bulk_monocal = BulkMonocalibrator(
-        config_path, point_data_path, calibration_sample_size=10
+        config_path, point_data_path, calibration_sample_size=25
     )
 
-    bulk_monocal.calibrate_all(parallel=False)
+    # bulk_monocal.calibrate_all(parallel=False)
     bulk_monocal.calibrate_all()
 # %%

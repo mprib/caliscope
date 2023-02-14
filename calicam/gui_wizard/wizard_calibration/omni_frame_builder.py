@@ -287,10 +287,10 @@ def resize(image, new_height):
     resized = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
     return resized
 
-
 if __name__ == "__main__":
     from calicam.calibration.corner_tracker import CornerTracker
     from calicam.recording.recorded_stream import RecordedStreamPool,RecordedStream
+    from calicam.recording.video_recorder import VideoRecorder
     from calicam.session import Session
     from calicam.calibration.charuco import Charuco
     
@@ -300,6 +300,7 @@ if __name__ == "__main__":
     # ports = [1,2, 3]
 
     test_live = True
+    record = True
     # test_live = False
     
     if test_live:
@@ -320,8 +321,14 @@ if __name__ == "__main__":
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
         recorded_stream_pool.play_videos()
 
-    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=10)
+    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=40)
 
+    if record:
+        video_path = Path(repo, "sessions", "5_cameras", "recording")
+        video_recorder = VideoRecorder(syncr)
+        video_recorder.start_recording(video_path)
+
+    
     while not syncr.stop_event.is_set():
         # wait for newly processed frame to be available
         # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
@@ -342,3 +349,6 @@ if __name__ == "__main__":
         
     # recorder.stop_recording()
     cv2.destroyAllWindows()
+    
+    if record:
+        video_recorder.stop_recording()

@@ -320,7 +320,7 @@ if __name__ == "__main__":
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
         recorded_stream_pool.play_videos()
 
-    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=40)
+    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=20)
 
     if record:
         video_path = Path(repo, "sessions", "5_cameras", "recording")

@@ -1,17 +1,19 @@
 #%%
-import calicam.logger
+import sys
+from pathlib import Path
+# sys.path.insert(0,Path(__file__).parent.parent.parent)
 
+
+import calicam.logger
 logger = calicam.logger.get(__name__)
 
 import cv2
-import sys
 import pandas as pd
 from calicam import __root__
 
 import time
 
 sys.path.insert(0, __root__)
-from pathlib import Path
 import numpy as np
 import toml
 from multiprocessing import Process
@@ -164,6 +166,9 @@ class OmniCalibrator:
 
 
     def monocalibrate(self, port, sample_size, random_state):
+        # NOTE: This data cleanup can be refactored to take advantage of the cal input method
+        # currently used with the stereocal method. Just not really a priority right now given
+        # that I'm not terribly happy with this monocalibration outcome anyways...
         port_monocal_data = self.get_monocalibration_points(port)
 
         resolution = self.config["cam_" + str(port)]["resolution"]
@@ -255,7 +260,7 @@ class OmniCalibrator:
 
     ##################################### BEGIN STEREOCALIBRATION SPECIFIC CODE ################################################
     
-    def get_stereocalibration_boards(self, pair, target_sample_size, random_state=1):
+    def get_stereopair_data(self, pair, boards_sampled, random_state=1):
         
         # convenience function to get the points that are in the overlap regions of the pairs
         def in_pair(row, pair):
@@ -287,7 +292,8 @@ class OmniCalibrator:
     
         # configure random sampling
         board_count = pair_boards.shape[0]
-        sample_size = min(board_count, target_sample_size)
+        sample_size = min(board_count, boards_sampled)
+
         # bias toward selecting boards with more overlap
         sample_weight = pair_boards["point_count"] ** 2 
 
@@ -296,8 +302,99 @@ class OmniCalibrator:
             n=sample_size, weights=sample_weight, random_state=random_state
         )
         
-        return selected_boards
+        selected_pair_points = pair_points.merge(selected_boards,"right","sync_index")
+        
+        return selected_pair_points
+
+
+    def stereo_calibrate(self, pair):
+        """Iterates across all camera pairs. Intrinsic parameters are pulled
+        from camera and combined with obj and img points for each pair.
+        """
+        logger.info(f"About to stereocalibrate pair {pair}")
+
+        stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.0001)
+
+        camA = self.synchronizer.streams[pair[0]].camera
+        camB = self.synchronizer.streams[pair[1]].camera
+
+        # pull calibration parameters for pair
+        obj = self.stereo_inputs[pair]["common_board_loc"]
+        img_A = self.stereo_inputs[pair]["img_loc_A"]
+        img_B = self.stereo_inputs[pair]["img_loc_B"]
+
+        # convert to list of vectors for OpenCV function
+        obj = [np.array(x, dtype=np.float32) for x in obj]
+        img_A = [np.array(x, dtype=np.float32) for x in img_A]
+        img_B = [np.array(x, dtype=np.float32) for x in img_B]
+
+        (
+            ret,
+            camera_matrix_1,
+            distortion_1,
+            camera_matrix_2,
+            distortion_2,
+            rotation,
+            translation,
+            essential,
+            fundamental,
+        ) = cv2.stereoCalibrate(
+            obj,
+            img_A,
+            img_B,
+            camA.camera_matrix,
+            camA.distortion,
+            camB.camera_matrix,
+            camB.distortion,
+            imageSize=None,  # this does not matter. from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
+            criteria=criteria,
+            flags=stereocalibration_flags,
+        )
+
+        self.stereo_outputs[pair] = {
+            "grid_count": len(obj),
+            "rotation": rotation,
+            "translation": translation,
+            "RMSE": ret,
+        }
+
+        if pair in self.pairs:
+            logger.info(f"Removing pair {pair}")
+            self.pairs.remove(pair)
+        else:
+            logger.warning(f"Attempted to remove pair {pair} but it was not present")
+            
+        logger.info(
+            f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}"
+        )
+        logger.info(f"RMSE of reprojection is {ret}")
+
+    def get_stereocal_inputs(self,port, stereo_pair_data):
+        
+        port_point_data = paired_point_data .query(f"port == {port}")
     
+        sync_indices = port_point_data["sync_index"].to_numpy().round().astype(int)
+        img_loc_x = port_point_data["img_loc_x"].to_numpy().astype(np.float32)
+        img_loc_y = port_point_data["img_loc_y"].to_numpy().astype(np.float32)
+        board_loc_x = port_point_data["board_loc_x"].to_numpy().astype(np.float32)
+        board_loc_y = port_point_data["board_loc_y"].to_numpy().astype(np.float32)
+        board_loc_z = board_loc_x * 0
+
+        # build the actual inputs for the calibration...
+        img_x_y = np.vstack([img_loc_x, img_loc_y]).T
+        board_x_y_z = np.vstack([board_loc_x, board_loc_y, board_loc_z]).T
+
+        # print(time.time())
+        img_locs = []
+        board_locs = []
+        for sync_index in np.unique(sync_indices):
+            same_frame = sync_indices == sync_index
+            img_locs.append(img_x_y[same_frame])
+            board_locs.append(board_x_y_z[same_frame])
+
+        return img_locs,board_locs
+ 
 # if __name__ == "__main__":
 if True:
     from pathlib import Path
@@ -310,6 +407,10 @@ if True:
 
     omnical = OmniCalibrator(config_path, point_data_path,)
 
-    pair_board_sample = omnical.get_stereocalibration_boards((0,1), target_sample_size=20)
+    pair = (0,1)
+    paired_point_data = omnical.get_stereopair_data(pair, boards_sampled=20)
+    img_locs_A, board_locs_A = omnical.get_stereocal_inputs(pair[0],paired_point_data)
+    img_locs_B, board_locs_B = omnical.get_stereocal_inputs(pair[1],paired_point_data)
 
+    
 # %%

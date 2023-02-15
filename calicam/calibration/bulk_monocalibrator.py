@@ -82,7 +82,7 @@ class BulkMonocalibrator:
 
         return all_boards
 
-    def get_calibration_points(self, port: int):
+    def get_monocalibration_points(self, port: int):
         """
         Provides a curated dataframe of point data. The overall point data is initially
         restricted to only those boards that have at least 6 points. This remaining data
@@ -160,8 +160,8 @@ class BulkMonocalibrator:
 
         return points_w_regions
 
-    def calibrate(self, port):
-        port_monocal_data = self.get_calibration_points(port)
+    def monocalibrate(self, port):
+        port_monocal_data = self.get_monocalibration_points(port)
 
         resolution = self.config["cam_" + str(port)]["resolution"]
 
@@ -204,13 +204,13 @@ class BulkMonocalibrator:
         
         return port, error, mtx, dist, grid_count
 
-    def calibrate_all(self, parallel=True):
+    def monocalibrate_all(self, parallel=True):
 
         if parallel:
             start = time.time()
             
             with ProcessPoolExecutor() as executor:
-                processes = [executor.submit(self.calibrate, port) for port in self.ports]
+                processes = [executor.submit(self.monocalibrate, port) for port in self.ports]
                 
                 for p in as_completed(processes):
                     port, error, mtx, dist, grid_count = p.result()
@@ -228,13 +228,13 @@ class BulkMonocalibrator:
         if not parallel:
             start = time.time()
             for port in self.ports:
-                _, error, mtx, dist, grid_count = self.calibrate(port)
+                _, error, mtx, dist, grid_count = self.monocalibrate(port)
                 
                 self.config["cam_"+str(port)]["error"] = error
                 self.config["cam_"+str(port)]["camera_matrix"] = mtx
                 self.config["cam_"+str(port)]["distortion"] = dist
                 self.config["cam_"+str(port)]["grid_count"] = grid_count   
-                self.calibrate(port)
+                self.monocalibrate(port)
 
             elapsed = time.time() - start
             logger.info(
@@ -261,5 +261,5 @@ if __name__ == "__main__":
     )
 
     # bulk_monocal.calibrate_all(parallel=False)
-    bulk_monocal.calibrate_all()
+    bulk_monocal.monocalibrate_all()
 # %%

@@ -1,3 +1,4 @@
+#%%
 import calicam.logger
 
 logger = calicam.logger.get(__name__)
@@ -15,6 +16,8 @@ import numpy as np
 import toml
 from multiprocessing import Process
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from itertools import combinations
+
 
 class OmniCalibrator:
     def __init__(
@@ -27,6 +30,8 @@ class OmniCalibrator:
         self.config_path = config_path
         self.config = toml.load(config_path)
         self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
+        self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
+
         self.calibration_sample_size = calibration_sample_size
 
         # import point data, adding coverage regions to each port
@@ -145,6 +150,8 @@ class OmniCalibrator:
                     label = str(int(label))
                     text = text + "_" + label
 
+            text = text + "_"
+
             return text
 
         points_w_pivoted_ports["coverage_region"] = points_w_pivoted_ports.apply(
@@ -186,9 +193,7 @@ class OmniCalibrator:
 
         grid_count = len(img_locs)
         # print(time.time())
-        logger.info(
-            f"Using {grid_count} board captures to calibrate camera {port}..."
-        )
+        logger.info(f"Using {grid_count} board captures to calibrate camera {port}...")
 
         start = time.time()
         logger.info(f"Calibrating camera {port}....")
@@ -201,24 +206,32 @@ class OmniCalibrator:
             f"{round(elapsed,2)} seconds elapsed to perform calibration of camera at port {port}"
         )
         logger.info(f"Camera {port} Error: {error}")
-        
+
         return port, error, mtx, dist, grid_count
 
     def monocalibrate_all(self, parallel=True):
-
+        """
+        NOTE: This will run and provide calibration outputs, however it appears that these come with higher errors
+        and more bizarre fits than you get when calibrating each camera individualy. I suspect that the central
+        challenge is providing the most appropriate boards to the calibrator. Future iterations of this may seek to
+        select boards that likely have foreshortening (more variation in connected corner length?) and that come
+        from a broader swath of the frame. The random selections here may just not be enough to get the job done.
+        """
         if parallel:
             start = time.time()
-            
+
             with ProcessPoolExecutor() as executor:
-                processes = [executor.submit(self.monocalibrate, port) for port in self.ports]
-                
+                processes = [
+                    executor.submit(self.monocalibrate, port) for port in self.ports
+                ]
+
                 for p in as_completed(processes):
                     port, error, mtx, dist, grid_count = p.result()
-                
-                    self.config["cam_"+str(port)]["error"] = error
-                    self.config["cam_"+str(port)]["camera_matrix"] = mtx
-                    self.config["cam_"+str(port)]["distortion"] = dist
-                    self.config["cam_"+str(port)]["grid_count"] = grid_count   
+
+                    self.config["cam_" + str(port)]["error"] = error
+                    self.config["cam_" + str(port)]["camera_matrix"] = mtx
+                    self.config["cam_" + str(port)]["distortion"] = dist
+                    self.config["cam_" + str(port)]["grid_count"] = grid_count
 
             elapsed = time.time() - start
             logger.info(
@@ -229,37 +242,79 @@ class OmniCalibrator:
             start = time.time()
             for port in self.ports:
                 _, error, mtx, dist, grid_count = self.monocalibrate(port)
-                
-                self.config["cam_"+str(port)]["error"] = error
-                self.config["cam_"+str(port)]["camera_matrix"] = mtx
-                self.config["cam_"+str(port)]["distortion"] = dist
-                self.config["cam_"+str(port)]["grid_count"] = grid_count   
+
+                self.config["cam_" + str(port)]["error"] = error
+                self.config["cam_" + str(port)]["camera_matrix"] = mtx
+                self.config["cam_" + str(port)]["distortion"] = dist
+                self.config["cam_" + str(port)]["grid_count"] = grid_count
                 self.monocalibrate(port)
 
             elapsed = time.time() - start
             logger.info(
                 f"Total time to calibrate all ports synchronously is {round(elapsed, 2)} seconds"
             )
-         
+
         with open(self.config_path, "w") as f:
             toml.dump(self.config, f)
 
 
-#%%
-if __name__ == "__main__":
-    #%%
+# if __name__ == "__main__":
+if True:
     from pathlib import Path
 
     # set inputs
-    session_path = Path(__root__, "sessions", "5_cameras")
+    session_path = Path(__root__, "tests", "5_cameras")
 
     config_path = Path(session_path, "config.toml")
     point_data_path = Path(session_path, "recording", "point_data.csv")
 
-    bulk_monocal = OmniCalibrator(
-        config_path, point_data_path, calibration_sample_size=20
+    omnical = OmniCalibrator(config_path, point_data_path, calibration_sample_size=20)
+
+    ### DON'T RUN...these result in bad calibrations currently
+    # bulk_monocal.calibrate_all(parallel=False)
+    # omnical.monocalibrate_all()
+
+    all_points = omnical.all_point_data
+
+    def in_pair(row, pair):
+
+        a, b = pair
+        port_check = row.port == a or row.port == b
+
+        a, b = str(a), str(b)
+
+        # region_check = True
+        region_check = ("_" + a + "_") in row.coverage_region and (
+            "_" + b + "_"
+        ) in row.coverage_region
+        # port_check = True
+        return region_check and port_check
+
+    # get points in a specific pair
+    target_sample_size = 20
+    pair = (0, 2)
+    random_state = 2
+
+    all_points["in_pair"] = all_points.apply(in_pair, axis=1, args=(pair,))
+
+    pair_points = all_points[all_points["in_pair"] == True]
+    pair_boards = (
+        pair_points.filter(["sync_index", "port", "point_id"])
+        .groupby(["sync_index", "port"])
+        .agg("count")
+        .rename({"point_id": "point_count"}, axis=1)
+        .reset_index()
+        .query(f"port == {pair[0]}") # will be the same..only need one copy
+        .drop("port", axis=1)
+    )
+    
+    # configure random sampling
+    board_count = pair_boards.shape[0]
+    sample_size = min(board_count, target_sample_size)
+    sample_weight = pair_boards["point_count"] ** 2
+
+    selected_boards = pair_boards.sample(
+        n=sample_size, weights=sample_weight, random_state=random_state
     )
 
-    # bulk_monocal.calibrate_all(parallel=False)
-    bulk_monocal.monocalibrate_all()
 # %%

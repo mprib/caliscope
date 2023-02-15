@@ -24,23 +24,58 @@ class OmniCalibrator:
         self,
         config_path: Path,
         point_data_path: Path,
-        calibration_sample_size: int = 40,
-        random_state: int = None,
     ):
         self.config_path = config_path
         self.config = toml.load(config_path)
         self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
-        self.calibration_sample_size = calibration_sample_size
-
         # import point data, adding coverage regions to each port
         raw_point_data = pd.read_csv(point_data_path)
         self.all_point_data = self.points_with_coverage_region(raw_point_data)
         self.all_boards = self.get_boards_with_coverage()
 
-        # if set to a number, then selections will be repeatable. primarily used for testing
-        self.random_state = random_state
+    def points_with_coverage_region(self, point_data: pd.DataFrame):
+        """
+        Pivot the port columns and assemble a new string field that will show all of the cameras that
+        observed a given corner at a single sync index.
+        """
+
+        points_w_pivoted_ports = (
+            point_data.filter(["sync_index", "point_id", "port"])
+            .pivot(index=["sync_index", "point_id"], columns="port", values="port")
+            .reset_index()
+            .fillna("")
+        )
+
+        def get_coverage_region(row, ports):
+            """
+            returns a string of the format "_0_1_2" for points which were captured
+            by cameras 0,1 and 2, etc...
+            """
+            text = ""
+            for port in ports:
+                label = row[port]
+                if label != "":
+                    label = str(int(label))
+                    text = text + "_" + label
+
+            text = text + "_"
+
+            return text
+
+        points_w_pivoted_ports["coverage_region"] = points_w_pivoted_ports.apply(
+            get_coverage_region, axis=1, args=(self.ports,)
+        )
+
+        points_w_pivoted_ports = points_w_pivoted_ports.filter(
+            ["sync_index", "point_id", "coverage_region"]
+        )
+        points_w_regions = point_data.merge(
+            points_w_pivoted_ports, "left", ["sync_index", "point_id"]
+        )
+
+        return points_w_regions
 
     def get_boards_with_coverage(self):
         """
@@ -87,7 +122,9 @@ class OmniCalibrator:
 
         return all_boards
 
-    def get_monocalibration_points(self, port: int):
+
+    ########################################## BEGIN MONOCALIBRATION SPECIFIC CODE #######################################################
+    def get_monocalibration_points(self, port: int, sample_size: int, random_state:int):
         """
         Provides a curated dataframe of point data. The overall point data is initially
         restricted to only those boards that have at least 6 points. This remaining data
@@ -106,7 +143,7 @@ class OmniCalibrator:
         ]
 
         board_count = good_board_captures.shape[0]
-        sampled_proportion = min(self.calibration_sample_size / board_count, 1)
+        sampled_proportion = min(sample_size / board_count, 1)
 
         sampling_weights = good_board_captures["point_count"] ** 3
 
@@ -115,7 +152,7 @@ class OmniCalibrator:
         ).sample(
             frac=sampled_proportion,
             weights=sampling_weights,
-            random_state=self.random_state,
+            random_state=random_state,
             replace=False,
         )
 
@@ -125,49 +162,8 @@ class OmniCalibrator:
 
         return calibration_points
 
-    def points_with_coverage_region(self, point_data: pd.DataFrame):
-        """
-        Pivot the port columns and assemble a new string field that will show all of the cameras that
-        observed a given corner at a single sync index.
-        """
 
-        points_w_pivoted_ports = (
-            point_data.filter(["sync_index", "point_id", "port"])
-            .pivot(index=["sync_index", "point_id"], columns="port", values="port")
-            .reset_index()
-            .fillna("")
-        )
-
-        def get_coverage_region(row, ports):
-            """
-            returns a string of the format "_0_1_2" for points which were captured
-            by cameras 0,1 and 2, etc...
-            """
-            text = ""
-            for port in ports:
-                label = row[port]
-                if label != "":
-                    label = str(int(label))
-                    text = text + "_" + label
-
-            text = text + "_"
-
-            return text
-
-        points_w_pivoted_ports["coverage_region"] = points_w_pivoted_ports.apply(
-            get_coverage_region, axis=1, args=(self.ports,)
-        )
-
-        points_w_pivoted_ports = points_w_pivoted_ports.filter(
-            ["sync_index", "point_id", "coverage_region"]
-        )
-        points_w_regions = point_data.merge(
-            points_w_pivoted_ports, "left", ["sync_index", "point_id"]
-        )
-
-        return points_w_regions
-
-    def monocalibrate(self, port):
+    def monocalibrate(self, port, sample_size, random_state):
         port_monocal_data = self.get_monocalibration_points(port)
 
         resolution = self.config["cam_" + str(port)]["resolution"]
@@ -209,7 +205,7 @@ class OmniCalibrator:
 
         return port, error, mtx, dist, grid_count
 
-    def monocalibrate_all(self, parallel=True):
+    def monocalibrate_all(self, sample_size=20, random_state=1, parallel=True):
         """
         NOTE: This will run and provide calibration outputs, however it appears that these come with higher errors
         and more bizarre fits than you get when calibrating each camera individualy. I suspect that the central
@@ -222,7 +218,7 @@ class OmniCalibrator:
 
             with ProcessPoolExecutor() as executor:
                 processes = [
-                    executor.submit(self.monocalibrate, port) for port in self.ports
+                    executor.submit(self.monocalibrate, port, sample_size,random_state) for port in self.ports
                 ]
 
                 for p in as_completed(processes):
@@ -241,7 +237,7 @@ class OmniCalibrator:
         if not parallel:
             start = time.time()
             for port in self.ports:
-                _, error, mtx, dist, grid_count = self.monocalibrate(port)
+                _, error, mtx, dist, grid_count = self.monocalibrate(port,sample_size, random_state)
 
                 self.config["cam_" + str(port)]["error"] = error
                 self.config["cam_" + str(port)]["camera_matrix"] = mtx
@@ -257,7 +253,51 @@ class OmniCalibrator:
         with open(self.config_path, "w") as f:
             toml.dump(self.config, f)
 
+    ##################################### BEGIN STEREOCALIBRATION SPECIFIC CODE ################################################
+    
+    def get_stereocalibration_boards(self, pair, target_sample_size, random_state=1):
+        
+        # convenience function to get the points that are in the overlap regions of the pairs
+        def in_pair(row, pair):
 
+            a, b = pair
+            port_check = row.port == a or row.port == b
+
+            a, b = str(a), str(b)
+
+            region_check = ("_" + a + "_") in row.coverage_region and (
+                "_" + b + "_"
+            ) in row.coverage_region
+            return region_check and port_check
+
+        # flag the points that belong to the pair overlap regions
+        self.all_point_data["in_pair"] = self.all_point_data.apply(in_pair, axis=1, args=(pair,))
+
+        # group points into boards and get the total count for sample weighting below
+        pair_points = self.all_point_data[self.all_point_data["in_pair"] == True]
+        pair_boards = (
+            pair_points.filter(["sync_index", "port", "point_id"])
+            .groupby(["sync_index", "port"])
+            .agg("count")
+            .rename({"point_id": "point_count"}, axis=1)
+            .reset_index()
+            .query(f"port == {pair[0]}") # will be the same..only need one copy
+            .drop("port", axis=1)
+        )
+    
+        # configure random sampling
+        board_count = pair_boards.shape[0]
+        sample_size = min(board_count, target_sample_size)
+        # bias toward selecting boards with more overlap
+        sample_weight = pair_boards["point_count"] ** 2 
+
+        # get the randomly selected subset
+        selected_boards = pair_boards.sample(
+            n=sample_size, weights=sample_weight, random_state=random_state
+        )
+        
+        return selected_boards
+    
 # if __name__ == "__main__":
 if True:
     from pathlib import Path
@@ -268,53 +308,8 @@ if True:
     config_path = Path(session_path, "config.toml")
     point_data_path = Path(session_path, "recording", "point_data.csv")
 
-    omnical = OmniCalibrator(config_path, point_data_path, calibration_sample_size=20)
+    omnical = OmniCalibrator(config_path, point_data_path,)
 
-    ### DON'T RUN...these result in bad calibrations currently
-    # bulk_monocal.calibrate_all(parallel=False)
-    # omnical.monocalibrate_all()
-
-    all_points = omnical.all_point_data
-
-    def in_pair(row, pair):
-
-        a, b = pair
-        port_check = row.port == a or row.port == b
-
-        a, b = str(a), str(b)
-
-        # region_check = True
-        region_check = ("_" + a + "_") in row.coverage_region and (
-            "_" + b + "_"
-        ) in row.coverage_region
-        # port_check = True
-        return region_check and port_check
-
-    # get points in a specific pair
-    target_sample_size = 20
-    pair = (0, 2)
-    random_state = 2
-
-    all_points["in_pair"] = all_points.apply(in_pair, axis=1, args=(pair,))
-
-    pair_points = all_points[all_points["in_pair"] == True]
-    pair_boards = (
-        pair_points.filter(["sync_index", "port", "point_id"])
-        .groupby(["sync_index", "port"])
-        .agg("count")
-        .rename({"point_id": "point_count"}, axis=1)
-        .reset_index()
-        .query(f"port == {pair[0]}") # will be the same..only need one copy
-        .drop("port", axis=1)
-    )
-    
-    # configure random sampling
-    board_count = pair_boards.shape[0]
-    sample_size = min(board_count, target_sample_size)
-    sample_weight = pair_boards["point_count"] ** 2
-
-    selected_boards = pair_boards.sample(
-        n=sample_size, weights=sample_weight, random_state=random_state
-    )
+    pair_board_sample = omnical.get_stereocalibration_boards((0,1), target_sample_size=20)
 
 # %%

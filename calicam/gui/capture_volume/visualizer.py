@@ -162,25 +162,24 @@ if __name__ == "__main__":
 
     from PyQt6.QtWidgets import QApplication
 
-    # set the location for the sample data used for testing
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-
-    config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
+    from calicam import __root__
+    config_path = Path(__root__, "tests", "5_cameras", "config.toml")
     camera_array = CameraArrayBuilder(config_path).get_camera_array()
 
-    point_data_path = Path(
-        repo,
-        "sessions",
-        "iterative_adjustment",
-        "recording",
-        "triangulated_points.csv"
-        # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted.csv"
-        # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_daisy_chain.csv"
-        # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted_300.csv"
-        # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_daisy_chain_300.csv"
-    )
+    # point_data_path = Path(
+    #     repo,
+    #     "sessions",
+    #     "iterative_adjustment",
+    #     "recording",
+    #     "triangulated_points.csv"
+    #     # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted.csv"
+    #     # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_daisy_chain.csv"
+    #     # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted_300.csv"
+    #     # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_daisy_chain_300.csv"
+    # )
 
     app = QApplication(sys.argv)
-    vizr = CaptureVolumeVisualizer(camera_array, point_data_path)
+    # vizr = CaptureVolumeVisualizer(camera_array, point_data_path)
+    vizr = CaptureVolumeVisualizer(camera_array)
 
     sys.exit(app.exec())

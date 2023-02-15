@@ -46,7 +46,7 @@ class VideoRecorder:
             "frame_index": [],
             "frame_time": [],
         }
-        self.tidy_table = {
+        self.point_data_history = {
                     "sync_index":[],
                     "port":[],
                     "frame_index":[],
@@ -85,8 +85,8 @@ class VideoRecorder:
                     
                     new_tidy_table = frame_packet.to_tidy_table(sync_index)
                     if new_tidy_table is not None:
-                        for key, value in self.tidy_table.copy().items():
-                            self.tidy_table[key].extend(new_tidy_table[key])
+                        for key, value in self.point_data_history.copy().items():
+                            self.point_data_history[key].extend(new_tidy_table[key])
                         print(new_tidy_table)
 
         self.trigger_stop.clear()  # reset stop recording trigger
@@ -101,7 +101,7 @@ class VideoRecorder:
         
         
     def store_point_history(self):
-        df = pd.DataFrame(self.tidy_table)
+        df = pd.DataFrame(self.point_data_history)
         # TODO: #25 if file exists then change the name
         point_data_path = str(Path(self.destination_folder, "point_data.csv"))
         logger.info(f"Storing point data in {point_data_path}")
@@ -159,10 +159,11 @@ if __name__ == "__main__":
         session = Session(session_directory)
         session.load_cameras()
         session.load_streams()
+        session.adjust_resolutions()
 
         for port, stream in session.streams.items():
             stream._show_fps = True
-            stream._show_charuco = True
+            # stream._show_charuco = True
 
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(session.streams, fps_target=30)
@@ -182,7 +183,7 @@ if __name__ == "__main__":
     video_recorder = VideoRecorder(syncr)
 
     video_recorder.start_recording(video_path)
-    time.sleep(10)
+    time.sleep(20)
     # while not syncr.stop_event.is_set():
     #     time.sleep(1)
 

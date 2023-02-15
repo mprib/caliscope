@@ -45,6 +45,7 @@ if __name__ == "__main__":
 
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     config_path = Path(repo, "sessions", "5_cameras")
+    # config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
     session = Session(config_path)
     session.load_cameras()

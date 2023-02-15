@@ -55,6 +55,9 @@ point_data.csv --> BulkCalibrator
 config.toml --CameraSettings--> BulkCalibrator
 BulkCalibrator -.StereoPairs.-> config.toml
 
+point_data.csv --> PairedPointStream
+ArrayConstructor --> StereoTriangulator
+
 
 subgraph calibration_data
 point_data.csv

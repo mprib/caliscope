@@ -27,25 +27,33 @@ end
 
 Synchronizer --SyncPacket-->  OmniFrame
 
-subgraph recording
-RecordedStream
-VideoRecorder 
-end
-
+LiveStream -.FramePacket.-> MonoCalibrator
+MonoCalibrator -.Intrinsics.-> config.toml
 
 VideoRecorder --> frame_time_history.csv
 VideoRecorder --> port_X.mp4 
 VideoRecorder -.During OmniFrame.-> point_data.csv
-
-subgraph RecordingDirectory
 port_X.mp4 --> RecordedStream
 frame_time_history.csv --> RecordedStream
+
+
+subgraph recording
+
+RecordedStream
+VideoRecorder 
+
+subgraph RecordingDirectory
+port_X.mp4
+frame_time_history.csv
+end
+
 end
 
 
-point_data.csv --> BulkMonocalibrator
-config.toml --CameraSettings--> BulkMonocalibrator
-BulkMonocalibrator -.Intrinsics.-> config.toml
+
+point_data.csv --> BulkCalibrator
+config.toml --CameraSettings--> BulkCalibrator
+BulkCalibrator -.StereoPairs.-> config.toml
 
 
 subgraph calibration_data
@@ -57,8 +65,10 @@ end
 CornerTracker --PointPacket--> RecordedStream
 
 subgraph array
-ArrayConstructor
+config.toml --> ArrayConstructor
+
 end
+ArrayConstructor -.CameraArray.-> Visualizer
 
 
 

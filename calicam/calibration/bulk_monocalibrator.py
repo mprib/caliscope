@@ -16,7 +16,7 @@ import toml
 from multiprocessing import Process
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-class BulkMonocalibrator:
+class BulkCalibrator:
     def __init__(
         self,
         config_path: Path,
@@ -256,7 +256,7 @@ if __name__ == "__main__":
     config_path = Path(session_path, "config.toml")
     point_data_path = Path(session_path, "recording", "point_data.csv")
 
-    bulk_monocal = BulkMonocalibrator(
+    bulk_monocal = BulkCalibrator(
         config_path, point_data_path, calibration_sample_size=20
     )
 

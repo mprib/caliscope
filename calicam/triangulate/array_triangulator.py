@@ -9,6 +9,7 @@ then be played back into a visualizer, or used as the basis for an array config 
 
 """
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 
 from itertools import combinations
@@ -18,11 +19,14 @@ import pandas as pd
 from pathlib import Path
 
 from calicam.cameras.camera_array import CameraArray
-from calicam.cameras.camera_array_builder import  CameraArrayBuilder
+from calicam.cameras.camera_array_builder import CameraArrayBuilder
 from calicam.cameras.synchronizer import Synchronizer
 from calicam.recording.recorded_stream import RecordedStreamPool
 from calicam.triangulate.stereo_triangulator import StereoTriangulator
-from calicam.triangulate.paired_point_stream import PairedPointStream
+from calicam.triangulate.paired_point_stream import (
+    PairedPointStream,
+    PairedPointsPacket,
+)
 
 
 class ArrayTriangulator:
@@ -30,7 +34,7 @@ class ArrayTriangulator:
         self,
         camera_array: CameraArray,
         paired_point_stream: PairedPointStream,
-        output_file: Path=None,
+        output_file: Path = None,
     ):
         self.camera_array = camera_array
         self.paired_point_stream = paired_point_stream
@@ -81,23 +85,31 @@ class ArrayTriangulator:
 
         while not self.stop.is_set():
             # read in a paired point stream
-            new_paired_point_packet = self.paired_point_stream.out_q.get()
-            logger.info(
-                f"Sync Index: {new_paired_point_packet.sync_index} | Pair: {new_paired_point_packet.pair}"
+            new_paired_point_packet: PairedPointsPacket = (
+                self.paired_point_stream.out_q.get()
             )
 
-            pair = new_paired_point_packet.pair
-            self.stereo_triangulators[pair].in_q.put(new_paired_point_packet)
-            triangulated_packet = self.stereo_triangulators[pair].out_q.get()
-
-            self.store_point_data(triangulated_packet)
-
-            print(f"Sync Index: {triangulated_packet.sync_index}  Pair: {pair}")
-            # TODO: #45 figure out how to get this to stop automatically
-            # might want to get the frame counts for the saved port data
-            if triangulated_packet.sync_index > 350:
+            if new_paired_point_packet is None:
+                logger.info(
+                    "`None` detected on paired points stream...shutting down triangulator"
+                )
                 self.stop.set()
 
+            else:
+                logger.info(
+                    f"Sync Index: {new_paired_point_packet.sync_index} | Pair: {new_paired_point_packet.pair}"
+                )
+
+                pair = new_paired_point_packet.pair
+                triangulated_packet = self.stereo_triangulators[pair].get_3D_points(
+                    new_paired_point_packet
+                )
+
+                self.store_point_data(triangulated_packet)
+
+                print(f"Sync Index: {triangulated_packet.sync_index}  Pair: {pair}")
+
+        # after processing is complete, save out the data   
         if self.output_file is not None:
             logger.info(f"Saving triangulated point csv to {self.output_file}")
             self.agg_3d_points = pd.DataFrame(self.agg_3d_points)
@@ -108,39 +120,29 @@ if __name__ == "__main__":
     from pathlib import Path
     from calicam.calibration.charuco import Charuco
     from calicam.calibration.corner_tracker import CornerTracker
+    from calicam import __root__
 
-    # Build camera array from stored config file
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
-    # session_directory = Path(repo, "sessions", "iterative_adjustment")
-    session_directory = Path(repo, "sessions", "default_res_session")
+    session_directory = Path(__root__, "tests", "5_cameras")
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
 
     # Build streams from pre-recorded video
     recording_directory = Path(session_directory, "recording")
-    ports = [0, 1, 2]
-    recorded_stream_pool = RecordedStreamPool(ports, recording_directory)
-
-    # synchronize videos
-    recorded_stream_pool.play_videos()
-    syncr = Synchronizer(
-        recorded_stream_pool.streams, fps_target=None
-    )  # no fps target b/c not playing back for visual display
-
-    # create a corner tracker to locate board corners
+    ports = [0, 1, 2, 3, 4]
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
-    trackr = CornerTracker(charuco)
+    recorded_stream_pool = RecordedStreamPool(
+        ports, recording_directory, charuco=charuco
+    )
+
+    # synchronize videos
+    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=100)
+    recorded_stream_pool.play_videos()
 
     # create a commmon point finder to grab charuco corners shared between the pair of ports
-    pairs = [(0, 1), (0, 2), (1, 2)]
-    point_stream = PairedPointStream(
-        synchronizer=syncr,
-        pairs=pairs,
-        tracker=trackr,
-    )
+    point_stream = PairedPointStream(synchronizer=syncr)
 
     # Build triangulator
     # Note that this will automatically create the summarized output of the projected points

@@ -51,7 +51,7 @@ class CaptureVolumeVisualizer:
 
             # build the initial scatters that will be updated
             self.scatters = {}
-            self.colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
+            # self.colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
             for pair in self.pairs:
 
                 board_scatter = gl.GLScatterPlotItem(

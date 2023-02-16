@@ -15,9 +15,8 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from calicam.triangulate.paired_point_stream import PairedPointStream
+from calicam.triangulate.paired_point_stream import PairedPointStream, PairedPointsPacket
 from calicam.cameras.camera_array import CameraData
-
 
 class StereoTriangulator:
     def __init__(self, camera_A: CameraData, camera_B: CameraData):
@@ -29,13 +28,6 @@ class StereoTriangulator:
         self.pair = (self.portA, self.portB)
 
         self.build_projection_matrices()
-
-        self.in_q = Queue(-1)
-        self.out_q = Queue(-1)
-        self.stop = Event()
-
-        self.thread = Thread(target=self.create_3D_points, args=[], daemon=True)
-        self.thread.start()
 
     def build_projection_matrices(self):
 
@@ -57,54 +49,51 @@ class StereoTriangulator:
         mtx_B = self.camera_B.camera_matrix
         self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
 
-    def create_3D_points(self):
+    def get_3D_points(self, paired_points:PairedPointsPacket):
+            
+        if len(paired_points.common_ids) > 0:
+            points_A_raw = paired_points.img_loc_A
+            points_B_raw = paired_points.img_loc_B
 
-        while not self.stop.is_set():
-            packet_2D = self.in_q.get()
+            points_A_undistorted = self.undistort(points_A_raw,self.camera_A)
+            points_B_undistorted = self.undistort(points_B_raw,self.camera_B)
 
-            time = (packet_2D.time_A + packet_2D.time_B) / 2
-
-            if len(packet_2D.point_id) > 0:
-                points_A_raw = np.stack([packet_2D.loc_img_x_A, packet_2D.loc_img_y_A], axis=0)
-                points_B_raw = np.stack([packet_2D.loc_img_x_B, packet_2D.loc_img_y_B], axis=0)
-
-                points_A_undistorted = self.undistort(points_A_raw,self.camera_A)
-                points_B_undistorted = self.undistort(points_B_raw,self.camera_B)
-
-                # triangulate points outputs data in 4D homogenous coordinate system
-                # note that these are in a world frame of reference
-                xyzw_h = cv2.triangulatePoints(
-                    self.proj_A, self.proj_B, points_A_undistorted, points_B_undistorted
-                )
-
-                xyz_h = xyzw_h.T[:, :3]
-                w = xyzw_h[3, :]
-                xyz = np.divide(xyz_h.T, w).T  # convert to euclidean coordinates
-            else:
-                xyz = np.array([])
-
-            packet_3D = TriangulatedPointsPacket(
-                sync_index=packet_2D.sync_index,
-                pair=self.pair,
-                time=time,
-                point_ids=packet_2D.point_id,
-                xyz=xyz,
-                xy_A_raw=points_A_raw,
-                xy_B_raw=points_B_raw,
-                xy_A_undistorted=points_A_undistorted,
-                xy_B_undistorted=points_B_undistorted,
+            # triangulate points outputs data in 4D homogenous coordinate system
+            # note that these are in a world frame of reference
+            xyzw_h = cv2.triangulatePoints(
+                self.proj_A, self.proj_B, points_A_undistorted, points_B_undistorted
             )
 
-            logger.debug(f"Placing current set of synched 3d points on queue")
-            self.out_q.put(packet_3D)
+            xyz_h = xyzw_h.T[:, :3]
+            w = xyzw_h[3, :]
+            xyz = np.divide(xyz_h.T, w).T  # convert to euclidean coordinates
+        else:
+            xyz = np.array([])
 
-    def undistort(self, point, camera: CameraData, iter_num=3):
+        triangulated_points = TriangulatedPointsPacket(
+            sync_index=paired_points.sync_index,
+            pair=self.pair,
+            point_ids=paired_points.common_ids,
+            xyz=xyz,
+            xy_A_raw=points_A_raw,
+            xy_B_raw=points_B_raw,
+            xy_A_undistorted=points_A_undistorted,
+            xy_B_undistorted=points_B_undistorted,
+        )
+
+
+        return triangulated_points
+
+    def undistort(self, points, camera: CameraData, iter_num=3):
         # implementing a function described here: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html
         # supposedly a better implementation than OpenCV
         k1, k2, p1, p2, k3 = camera.distortion[0]
         fx, fy = camera.camera_matrix[0, 0], camera.camera_matrix[1, 1]
         cx, cy = camera.camera_matrix[:2, 2]
-        x, y = point[0], point[1]
+        
+        # note I just made an edit to transpose these...I believe this is a consequence
+        # of the recent switch to the PointPacket in the processing pipeline
+        x, y = points.T[0], points.T[1]
         # x, y = float(point[0]), float(point[1])
 
         x = (x - cx) / fx
@@ -125,7 +114,6 @@ class StereoTriangulator:
 @dataclass
 class TriangulatedPointsPacket:
     pair: tuple  # parent pair
-    time: float  # mean time
     point_ids: np.ndarray
     xyz: np.ndarray
     sync_index: int
@@ -141,7 +129,7 @@ class TriangulatedPointsPacket:
             return None 
         else:
             pair_list = [self.pair] * num_rows
-            time_list = [self.time] * num_rows
+            # time_list = [self.time] * num_rows
             sync_index_list = [self.sync_index] * num_rows
             id_list = self.point_ids.tolist()
             port_A_list = [self.pair[0]] * num_rows
@@ -149,10 +137,10 @@ class TriangulatedPointsPacket:
             x_list = self.xyz[:, 0].tolist()
             y_list = self.xyz[:, 1].tolist()
             z_list = self.xyz[:, 2].tolist()
-            x_A_raw = self.xy_A_raw[0,:].tolist()
-            y_A_raw = self.xy_A_raw[1,:].tolist()
-            x_B_raw = self.xy_B_raw[0,: ].tolist()
-            y_B_raw = self.xy_B_raw[1,: ].tolist()
+            x_A_raw = self.xy_A_raw.T[0,:].tolist()
+            y_A_raw = self.xy_A_raw.T[1,:].tolist()
+            x_B_raw = self.xy_B_raw.T[0,: ].tolist()
+            y_B_raw = self.xy_B_raw.T[1,: ].tolist()
             x_A_undistorted = self.xy_A_undistorted[0,:].tolist()
             y_A_undistorted = self.xy_A_undistorted[1,:].tolist()
             x_B_undistorted = self.xy_B_undistorted[0,: ].tolist()
@@ -162,7 +150,7 @@ class TriangulatedPointsPacket:
                 "pair": pair_list,
                 "port_A": port_A_list,
                 "port_B": port_B_list,
-                "time": time_list,
+                # "time": time_list,
                 "sync_index": sync_index_list,
                 "id": id_list,
                 "x_pos": x_list,

@@ -1,10 +1,10 @@
-
 import logging
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
-    
+
 from queue import Queue
 from threading import Thread, Event
 import cv2
@@ -13,29 +13,31 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
-
+from itertools import combinations
 from calicam.cameras.synchronizer import Synchronizer
 from calicam.calibration.corner_tracker import CornerTracker
+from calicam.cameras.data_packets import SyncPacket, FramePacket, PointPacket
 
 
 class PairedPointStream:
-    def __init__(self, synchronizer, pairs, tracker, csv_output_path=None):
+    def __init__(self, synchronizer, csv_output_path=None):
 
-        self.synched_frames_in_q = Queue(-1)
         self.synchronizer = synchronizer
+        self.synched_frames_in_q = Queue(
+            -1
+        )  # receive from synchronizer...no size limit to queue
         self.synchronizer.subscribe_to_sync_packets(self.synched_frames_in_q)
 
-        self.tracker = tracker  # this is just for charuco tracking...will need to expand on this for mediapipe later
-
         self.out_q = Queue(-1)  # no size limitations...should be small data
-        self.pairs = pairs
-        
+        self.ports = synchronizer.ports
+        self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
+
         self.csv_output_path = csv_output_path
         self.tidy_output = {}  # a holding place for data to be saved to csv
 
         self.stop_event = Event()
         self.frames_complete = False
-        self.thread = Thread(target=self.find_paired_points, args=[], daemon=True)
+        self.thread = Thread(target=self.create_paired_points, args=[], daemon=True)
         self.thread.start()
 
     def add_to_tidy_output(self, packet):
@@ -54,201 +56,135 @@ class PairedPointStream:
             for key, value in tidy_packet.copy().items():
                 self.tidy_output[key].extend(value)
 
-    def get_paired_points_packet(self, pair, points_df):
+    def get_paired_points_packet(
+        self,
+        sync_index,
+        port_A,
+        points_A,
+        port_B,
+        points_B
+    ):
 
-        port_A = pair[0]
-        port_B = pair[1]
-
-        FramePoints_A = points_df[port_A]
-        FramePoints_B = points_df[port_B]
-
-        time_A = FramePoints_A.frame_time
-        time_B = FramePoints_B.frame_time
-
-        sync_index = FramePoints_A.sync_index
-      
         # get ids in common
-        common_ids = np.intersect1d(FramePoints_A.ids, FramePoints_B.ids)
-
-
-   
+        if len(points_A.point_id)>0 and len(points_B.point_id)>0:
+            common_ids = np.intersect1d(points_A.point_id, points_B.point_id)
+        else:
+            common_ids = np.array([])
+        
         if len(common_ids) == 0:
             packet = None
         else:
             # common_ids = common_ids[:,0]
             # for both ports, get the indices of the common ids
-            sorter_A = np.argsort(FramePoints_A.ids)
-            shared_indices_A = sorter_A[np.searchsorted(FramePoints_A.ids,common_ids,sorter= sorter_A) ]
+            sorter_A = np.argsort(points_A.point_id)
+            shared_indices_A = sorter_A[
+                np.searchsorted(points_A.point_id, common_ids, sorter=sorter_A)
+            ]
             shared_indices_A
 
-            sorter_B = np.argsort(FramePoints_B.ids)
-            shared_indices_B = sorter_B[np.searchsorted(FramePoints_B.ids,common_ids,sorter= sorter_B) ]
+            sorter_B = np.argsort(points_B.point_id)
+            shared_indices_B = sorter_B[
+                np.searchsorted(points_B.point_id, common_ids, sorter=sorter_B)
+            ]
             shared_indices_B
 
             packet = PairedPointsPacket(
                 sync_index=sync_index,
                 port_A=port_A,
                 port_B=port_B,
-                time_A=time_A,
-                time_B=time_B,
-                point_id=common_ids,
-                loc_board_x=FramePoints_A.loc_board_x[shared_indices_A],
-                loc_board_y=FramePoints_A.loc_board_y[shared_indices_A],
-                loc_img_x_A=FramePoints_A.loc_img_x[shared_indices_A],
-                loc_img_y_A=FramePoints_A.loc_img_y[shared_indices_A],
-                loc_img_x_B=FramePoints_B.loc_img_x[shared_indices_B],
-                loc_img_y_B=FramePoints_B.loc_img_y[shared_indices_B],
+                common_ids=common_ids,
+                img_loc_A = points_A.img_loc[shared_indices_A],
+                img_loc_B = points_B.img_loc[shared_indices_B]
             )
-            logger.debug(f"Points in common for ports {pair}: {common_ids}")
+
+            logger.debug(f"Points in common for ports ({port_A}, {port_B}): {common_ids}")
 
         return packet
 
-    def find_paired_points(self):
-        
-        
+    def create_paired_points(self):
+
         while not self.frames_complete:
-            synched_frames = self.synched_frames_in_q.get()
-            
+            synched_frames: SyncPacket = self.synched_frames_in_q.get()
+
             if synched_frames is None:
-                logging.info("End of frames signaled...paired point stream shutting down")
+                logging.info(
+                    "End of frames signaled...paired point stream shutting down"
+                )
                 self.frames_complete = True
                 self.out_q.put(None)
                 break
 
             # will be populated with dataframes of:
             # id | img_x | img_y | board_x | board_y
-            points = {}
-
-            # find points in each of the frames
-            for port in synched_frames.keys():
-
-                if synched_frames[port] is not None:
-
-                    # create a frame_point packet for this board
-                    frame = synched_frames[port]["frame"]
-                    frame_time = synched_frames[port]["frame_time"]
-                    sync_index = synched_frames[port]["sync_index"]
-
-                    ids, loc_img, loc_board = self.tracker.get_corners(frame)
-                    if ids.any():
-                        points[port] = FramePointsPacket(
-                            frame_time,
-                            sync_index,
-                            ids[:,0],
-                            loc_img_x=loc_img[:, 0][:, 0],
-                            loc_img_y=loc_img[:, 0][:, 1],
-                            loc_board_x=loc_board[:, 0][:, 0],
-                            loc_board_y=loc_board[:, 0][:, 1],
-                        )
-
-                        logger.debug(f"Port: {port}: \n {points[port]}")
+            sync_index = synched_frames.sync_index
 
             # paired_points = None
             for pair in self.pairs:
-                if pair[0] in points.keys() and pair[1] in points.keys():
+                port_A = pair[0]
+                port_B = pair[1]
 
-                    packet = self.get_paired_points_packet(pair, points)
+
+                if (
+                    synched_frames.frame_packets[port_A] is not None
+                    and synched_frames.frame_packets[port_B] is not None
+                ):
+
+                    points_A = synched_frames.frame_packets[port_A].points
+                    points_B = synched_frames.frame_packets[port_B].points
+
+                    paired_points: PairedPointsPacket = self.get_paired_points_packet(
+                        sync_index, port_A, points_A, port_B, points_B
+                    )
 
                     # if no points in common, then don't do anything
-                    if packet is None:
+                    if paired_points is None:
                         pass
                     else:
-                        self.out_q.put(packet)
-                        logger.info(f"Placing packet for sync index {packet.sync_index}")
-                        self.add_to_tidy_output(packet)
-
-
-
-
-@dataclass
-class FramePointsPacket:
-    """The points identified in a single frame by the point tracker"""
-
-    frame_time: float
-    sync_index: int
-    ids: np.ndarray
-    loc_img_x: np.ndarray
-    loc_img_y: np.ndarray
-    loc_board_x: np.ndarray
-    loc_board_y: np.ndarray
+                        self.out_q.put(paired_points)
+                        logger.info(
+                            f"Placing packet for sync index {paired_points.sync_index} and pair {pair}"
+                        )
+                        # self.add_to_tidy_output(paired_points)
 
 
 @dataclass
 class PairedPointsPacket:
     """The points shared by two FramePointsPackets"""
-
     sync_index: int
 
     port_A: int
     port_B: int
 
-    time_A: float
-    time_B: float
-
-    point_id: np.ndarray
-
-    loc_board_x: np.ndarray
-    loc_board_y: np.ndarray
-
-    loc_img_x_A: np.ndarray
-    loc_img_y_A: np.ndarray
-
-    loc_img_x_B: np.ndarray
-    loc_img_y_B: np.ndarray
+    common_ids: np.ndarray
+    img_loc_A: np.ndarray
+    img_loc_B: np.ndarray
 
     @property
     def pair(self):
         return (self.port_A, self.port_B)
 
-    def to_dict(self):
-        """A method that can be used by the caller of the point stream to create a
-        dictionary of lists that is well-formatted to be turned into a tidy dataframe
-        for export to csv."""
-
-        packet_dict = {}
-        length = len(self.point_id)
-        packet_dict["sync_index"] = [self.sync_index] * length
-        packet_dict["port_A"] = [self.port_A] * length
-        packet_dict["port_B"] = [self.port_B] * length
-        packet_dict["time_A"] = [self.time_A] * length
-        packet_dict["time_B"] = [self.time_B] * length
-        packet_dict["point_id"] = self.point_id.tolist()
-        packet_dict["loc_board_x"] = self.loc_board_x.tolist()
-        packet_dict["loc_board_y"] = self.loc_board_y.tolist()
-        packet_dict["loc_img_x_A"] = self.loc_img_x_A.tolist()
-        packet_dict["loc_img_y_A"] = self.loc_img_y_A.tolist()
-        packet_dict["loc_img_x_B"] = self.loc_img_x_B.tolist()
-        packet_dict["loc_img_y_B"] = self.loc_img_y_B.tolist()
-
-        return packet_dict
-
 
 if __name__ == "__main__":
     from calicam.recording.recorded_stream import RecordedStreamPool
     from calicam.calibration.charuco import Charuco
+
     logger.setLevel(logging.DEBUG)
-     
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
-    print(repo)
-    session_directory = Path(repo, "sessions", "5_cameras", "recording")
+    from calicam import __root__
+
+    session_directory = Path(__root__, "tests", "5_cameras", "recording")
     csv_output = Path(session_directory, "paired_point_data.csv")
 
-    ports = [0, 1, 2]
-    recorded_stream_pool = RecordedStreamPool(ports, session_directory)
-    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
-    recorded_stream_pool.play_videos()
+    ports = [0, 1, 2, 3, 4]
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
-    trackr = CornerTracker(charuco)
+    recorded_stream_pool = RecordedStreamPool(ports, session_directory, charuco=charuco)
+    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=200)
+    recorded_stream_pool.play_videos()
 
-    pairs = [(0, 1), (0, 2), (1, 2)]
-
-    point_stream = PairedPointStream(
-        synchronizer=syncr, pairs=pairs, tracker=trackr, csv_output_path=csv_output
-    )
+    point_stream = PairedPointStream(synchronizer=syncr, csv_output_path=csv_output)
 
     # I think that EOF needs to propogate up
     while not point_stream.frames_complete:

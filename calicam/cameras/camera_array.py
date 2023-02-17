@@ -232,7 +232,7 @@ if __name__ == "__main__":
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
     from calicam.calibration.bundle_adjustment.bundle_adjustment_data import (
         BundleAdustmentData,
-        get_point_data,
+        get_bundle_adjustment_data,
     )
 
     from calicam import __root__
@@ -245,7 +245,7 @@ if __name__ == "__main__":
     # session_directory = Path(repo, "sessions", "iterative_adjustment")
     points_csv_path = Path(session_directory, "recording", "triangulated_points.csv")
 
-    # point_data = get_point_data(points_csv_path)
+    bund_adj_data = get_bundle_adjustment_data(points_csv_path)
     print(f"Optimizing initial camera array configuration ")
     # camera_array.optimize(point_data, output_path = points_csv_path.parent)
-    camera_array.bundle_adjust(point_data, output_path=points_csv_path.parent)
+    camera_array.bundle_adjust(bund_adj_data, output_path=points_csv_path.parent)

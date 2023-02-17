@@ -91,8 +91,6 @@ class Synchronizer:
     def harvest_frame_packets(self, stream):
         port = stream.port
         stream.push_to_out_q = True
-        if port == 0:
-            print("wait")
 
         logger.info(f"Beginning to collect data generated at port {port}")
 
@@ -225,7 +223,7 @@ class Synchronizer:
                     # frame_packets[port]["sync_index"] = sync_index
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
-                    logger.debug(
+                    logger.info(
                         f"Adding to layer from port {port} at index {current_frame_index} and frame time: {frame_time}"
                     )
 
@@ -263,17 +261,17 @@ if __name__ == "__main__":
     from calicam.session import Session
     import time
 
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-
+    from calicam import __root__
+    
     ports = [0, 1, 2, 3, 4]
     # ports = [0,1]
 
-    test_live = True
-    # test_live = False
+    # test_live = True
+    test_live = False
 
     if test_live:
 
-        session_directory = Path(repo, "sessions", "5_cameras")
+        session_directory = Path(__root__, "sessions", "5_cameras")
         # config = Path(session_directory, "config.toml")
         session = Session(session_directory)
         session.load_cameras()
@@ -286,7 +284,7 @@ if __name__ == "__main__":
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(session.streams, fps_target=15)
     else:
-        recording_directory = Path(repo, "sessions", "5_cameras", "recording")
+        recording_directory = Path(__root__, "tests", "5_cameras", "recording")
         charuco = Charuco(
                 4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
             )
@@ -294,13 +292,14 @@ if __name__ == "__main__":
             ports, recording_directory, charuco=charuco
         )
         logger.info("Creating Synchronizer")
-        syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
+        syncr = Synchronizer(recorded_stream_pool.streams, fps_target=20)
         recorded_stream_pool.play_videos()
 
     notification_q = Queue()
 
     syncr.subscribe_to_notice(notification_q)
     logger.info(f"Beginning playback at {time.perf_counter()}")
+
     while not syncr.stop_event.is_set():
         synched_frames_notice = notification_q.get()
         sync_packet = syncr.current_sync_packet
@@ -308,7 +307,6 @@ if __name__ == "__main__":
 
             if frame_packet:
                 cv2.imshow(f"Port {port}", frame_packet.frame)
-                # print(frame_packet.points)
 
         key = cv2.waitKey(1)
 

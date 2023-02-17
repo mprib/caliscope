@@ -101,6 +101,8 @@ class RecordedStream:
             self.frame_time = float(self.frame_time)
                 
             sleep(self.wait_to_next_frame())
+            
+
             success, self.frame = self.capture.read()
 
             if not success:
@@ -151,10 +153,10 @@ if __name__ == "__main__":
     from calicam.cameras.synchronizer import Synchronizer
     from calicam.calibration.charuco import Charuco
     
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    print(repo)
+    
+    from calicam import __root__
 
-    session_directory = Path(repo, "sessions", "5_cameras", "recording")
+    recording_directory = Path(__root__, "tests", "5_cameras", "recording")
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
@@ -163,8 +165,8 @@ if __name__ == "__main__":
     # ports = [0, 1, 2, 3, 4]
     ports = [1,2, 3]
     # ports = [0]
-    recorded_stream_pool = RecordedStreamPool(ports, session_directory, charuco=charuco)
-    syncr = Synchronizer(recorded_stream_pool.streams)
+    recorded_stream_pool = RecordedStreamPool(ports, recording_directory, charuco=charuco)
+    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=20)
     recorded_stream_pool.play_videos()
 
     notification_q = Queue()

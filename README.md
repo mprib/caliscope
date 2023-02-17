@@ -77,15 +77,15 @@ end
 
 CameraArray --> Visualizer
 CameraArray --> StereoTriangulator
-Synchronizer -.FramePacket.-> PairedPointStream
+Synchronizer -.SyncPacket.-> PairedPointStream
 
-subgraph triangulate
+subgraph triangulate:Factor Out PairedPacket Queue
     PairedPointStream -.PairedPointPacket.-> ArrayTriangulator
     StereoTriangulator
 end
 
 StereoTriangulator --> ArrayTriangulator
-ArrayTriangulator -.To Be Done.-> triangulated_points.csv
+ArrayTriangulator --> triangulated_points.csv
 triangulated_points.csv --> Visualizer
 
 subgraph visualization

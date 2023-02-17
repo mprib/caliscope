@@ -1,4 +1,5 @@
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 
 from pathlib import Path
@@ -21,10 +22,10 @@ class CameraData:
     """
 
     port: int
-    resolution: tuple[int,int]
+    resolution: tuple[int, int]
     camera_matrix: np.ndarray
-    error: float    # the RMSE of reprojection associated with the intrinsic calibration
-    distortion: np.ndarray # 
+    error: float  # the RMSE of reprojection associated with the intrinsic calibration
+    distortion: np.ndarray  #
     translation: np.ndarray
     rotation: np.ndarray
 
@@ -93,14 +94,13 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
-    def bundle_adjust(self, point_data: PointData, output_path = None):
+    def bundle_adjust(self, point_data: PointData, output_path=None):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
         camera_params = self.get_extrinsic_params()
         initial_param_estimate = np.hstack(
             (camera_params.ravel(), point_data.obj.ravel())
         )
-
 
         # get a snapshot of where things are at the start
         initial_xy_error = xy_reprojection_error(
@@ -112,12 +112,13 @@ class CameraArray:
         print(
             f"Prior to bundle adjustment, RMSE is: {rms_reproj_error(initial_xy_error)}"
         )
-        
+
         # save out this snapshot if path provided
         if output_path is not None:
-            diagnostic_data = ArrayDiagnosticData(point_data, initial_param_estimate,initial_xy_error, self)
+            diagnostic_data = ArrayDiagnosticData(
+                point_data, initial_param_estimate, initial_xy_error, self
+            )
             diagnostic_data.save(Path(output_path, "before_bund_adj.pkl"))
-
 
         least_sq_result = least_squares(
             xy_reprojection_error,
@@ -135,7 +136,9 @@ class CameraArray:
         )
 
         if output_path is not None:
-            diagnostic_data = ArrayDiagnosticData(point_data, least_sq_result.x,least_sq_result.fun, self)
+            diagnostic_data = ArrayDiagnosticData(
+                point_data, least_sq_result.x, least_sq_result.fun, self
+            )
             diagnostic_data.save(Path(output_path, "after_bund_adj.pkl"))
 
         print(
@@ -143,7 +146,7 @@ class CameraArray:
         )
         return least_sq_result
 
-    def optimize(self, point_data: PointData, output_path = None):
+    def optimize(self, point_data: PointData, output_path=None):
         """
         Currently, just run a simple bundle adjustment, noting the baseline reprojection errors before and after
         Use this as a way to characterize the quality of the camera configuration
@@ -165,17 +168,17 @@ class CameraArray:
         # least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
         # self.update_extrinsic_params(least_sq_result.x)
 
+
 @dataclass
 class ArrayDiagnosticData:
     point_data: PointData
-    model_params: np.ndarray # the first argument of the residual function
+    model_params: np.ndarray  # the first argument of the residual function
     xy_reprojection_error: np.ndarray
     camera_array: CameraArray
-    
-    def save(self, output_path):
-        with open(Path(output_path), 'wb') as file:
-            pickle.dump(self,file)     
 
+    def save(self, output_path):
+        with open(Path(output_path), "wb") as file:
+            pickle.dump(self, file)
 
 
 def xy_reprojection_error(
@@ -236,34 +239,35 @@ def xy_reprojection_error(
     # reshape the x,y reprojection error to a single vector
     return (points_proj - point_data.img).ravel()
 
+
 def rms_reproj_error(xy_reproj_error):
-        
+
     xy_reproj_error = xy_reproj_error.reshape(-1, 2)
-    euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
+    euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))
     rmse = np.sqrt(np.mean(euclidean_distance_error**2))
     logger.info(f"Optimization run with {xy_reproj_error.shape[0]/2} image points")
     logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
 
+
 if __name__ == "__main__":
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.bundle_adjustment.point_data import PointData, get_point_data
+    from calicam.calibration.bundle_adjustment.point_data import (
+        PointData,
+        get_point_data,
+    )
 
     from calicam import __root__
-    
-    
-    
+
     session_directory = Path(__root__, "tests", "5_cameras")
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
 
     # session_directory = Path(repo, "sessions", "iterative_adjustment")
-    points_csv_path = Path(
-        session_directory, "recording", "triangulated_points.csv"
-    )
+    points_csv_path = Path(session_directory, "recording", "triangulated_points.csv")
 
     point_data = get_point_data(points_csv_path)
     print(f"Optimizing initial camera array configuration ")
     # camera_array.optimize(point_data, output_path = points_csv_path.parent)
-    camera_array.bundle_adjust(point_data, output_path = points_csv_path.parent)
+    camera_array.bundle_adjust(point_data, output_path=points_csv_path.parent)

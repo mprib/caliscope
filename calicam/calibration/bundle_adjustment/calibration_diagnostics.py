@@ -112,15 +112,11 @@ def get_xyz_points(diagnostic_data: ArrayDiagnosticData):
 
 if __name__ == "__main__":
 
-    # some convenient reference paths
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    # update path
-    sys.path.insert(0, repo)
-    # which enables import of relevant class
     from calicam.cameras.camera_array import ArrayDiagnosticData
+    from calicam import __root__
+    # which enables import of relevant class
 
-    # calibration_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
-    calibration_directory = Path(repo, "sessions", "default_res_session", "recording")
+    calibration_directory = Path(__root__, "tests", "5_cameras", "recording")
 
     before_path = Path(calibration_directory, "before_bund_adj.pkl")
     after_path = Path(calibration_directory, "after_bund_adj.pkl")

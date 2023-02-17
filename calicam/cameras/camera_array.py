@@ -13,7 +13,6 @@ from calicam.calibration.bundle_adjustment.bundle_adjustment_data import BundleA
 
 CAMERA_PARAM_COUNT = 6
 
-
 @dataclass
 class CameraData:
     """
@@ -62,7 +61,8 @@ class CameraArray:
     At the moment all it is doing is holding a dictionary of CameraData objects"""
 
     cameras: dict
-
+    least_sq_result = None
+    
     def get_extrinsic_params(self):
         """for each camera build the CAMERA_PARAM_COUNT element parameter index
         camera_params with shape (n_cameras, CAMERA_PARAM_COUNT)
@@ -80,11 +80,11 @@ class CameraArray:
 
         return camera_params
 
-    def update_extrinsic_params(self, optimized_x):
+    def update_extrinsic_params(self, least_sq_results_x):
 
         n_cameras = len(self.cameras)
         n_cam_param = 6  # 6 DoF
-        flat_camera_params = optimized_x[0 : n_cameras * n_cam_param]
+        flat_camera_params = least_sq_results_x[0 : n_cameras * n_cam_param]
         new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
 
         # update camera array with new positional data
@@ -120,7 +120,7 @@ class CameraArray:
             )
             diagnostic_data.save(Path(output_path, "before_bund_adj.pkl"))
 
-        least_sq_result = least_squares(
+        self.least_sq_result = least_squares(
             xy_reprojection_error,
             initial_param_estimate,
             jac_sparsity=bund_adj_data.get_sparsity_pattern(),
@@ -137,14 +137,14 @@ class CameraArray:
 
         if output_path is not None:
             diagnostic_data = ArrayDiagnosticData(
-                bund_adj_data, least_sq_result.x, least_sq_result.fun, self
+                bund_adj_data, self.least_sq_result.x, self.least_sq_result.fun, self
             )
             diagnostic_data.save(Path(output_path, "after_bund_adj.pkl"))
 
         print(
-            f"Following bundle adjustment, RMSE is: {rms_reproj_error(least_sq_result.fun)}"
+            f"Following bundle adjustment, RMSE is: {rms_reproj_error(self.least_sq_result.fun)}"
         )
-        return least_sq_result
+        return self.least_sq_result
 
 
 @dataclass

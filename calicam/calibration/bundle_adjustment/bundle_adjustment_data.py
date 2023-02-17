@@ -166,7 +166,9 @@ def get_points_3d_df(points_csv_path):
 
 
 def get_merged_2d_3d(points_csv_path):
-
+    """
+    For each 2d point line, add in the estimated 3d point position
+    """
     points_2d_df = get_points_2d_df(points_csv_path)
     points_3d_df = get_points_3d_df(points_csv_path)
 
@@ -179,7 +181,7 @@ def get_merged_2d_3d(points_csv_path):
     return merged_point_data
 
 
-def get_point_data(points_csv_path: Path) -> BundleAdustmentData:
+def get_bundle_adjustment_data(points_csv_path: Path) -> BundleAdustmentData:
     #NOTE: Not a method of the dataclass, the is a convenience constructor
     points_3d_df = get_points_3d_df(points_csv_path)
     merged_point_data = get_merged_2d_3d(points_csv_path)
@@ -211,6 +213,6 @@ if __name__ == "__main__":
         session_directory, "recording", "triangulated_points_daisy_chain.csv"
     )
 
-    point_data = get_point_data(points_csv_path)
+    point_data = get_bundle_adjustment_data(points_csv_path)
 
     print(point_data)

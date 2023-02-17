@@ -88,6 +88,8 @@ StereoTriangulator --> ArrayTriangulator
 ArrayTriangulator --> triangulated_points.csv
 triangulated_points.csv --> Visualizer
 
+triangulated_points.csv -.via bundle_adjust function.-> CameraArray
+
 subgraph visualization
     CameraMesh --> Visualizer
 end

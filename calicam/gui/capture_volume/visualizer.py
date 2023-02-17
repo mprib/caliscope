@@ -12,6 +12,8 @@ import pandas as pd
 import numpy as np
 import pyqtgraph.opengl as gl
 
+from random import random
+
 from calicam.triangulate.stereo_triangulator import CameraData
 from calicam.gui.capture_volume.camera_mesh import CameraMesh
 from calicam.cameras.camera_array_builder import CameraArray, CameraArrayBuilder
@@ -49,12 +51,13 @@ class CaptureVolumeVisualizer:
 
             # build the initial scatters that will be updated
             self.scatters = {}
-            self.colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
+            # self.colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
             for pair in self.pairs:
 
                 board_scatter = gl.GLScatterPlotItem(
                     pos=np.array([0, 0, 0]),
-                    color=self.colors.pop(),
+                    # color=self.colors.pop(),
+                    color=[random(), random(), random(),1],
                     size=0.01,
                     pxMode=False,
                 )
@@ -69,7 +72,7 @@ class CaptureVolumeVisualizer:
         for sync_index in sync_indices:
             self.display_points(sync_index)
             print(f"Displaying frames from index: {sync_index}")
-            time.sleep(1 / 10)
+            time.sleep(1 / 5)
 
     def display_points(self, sync_index):
 
@@ -98,13 +101,12 @@ class CaptureVolumeVisualizer:
 
     def next_frame(self):
         board_data = self.point_in_q.get()
-        print(board_data.time)
         self.board_viz.setData(pos=board_data.xyz, color=self.color)
 
     def begin(self):
         def timer_wrkr():
             while True:
-                time.sleep(1 / 30)
+                time.sleep(1 / 15)
                 self.next_frame()
 
         self.timer_thread = Thread(target=timer_wrkr, args=[], daemon=False)
@@ -166,20 +168,15 @@ if __name__ == "__main__":
     config_path = Path(__root__, "tests", "5_cameras", "config.toml")
     camera_array = CameraArrayBuilder(config_path).get_camera_array()
 
-    # point_data_path = Path(
-    #     repo,
-    #     "sessions",
-    #     "iterative_adjustment",
-    #     "recording",
-    #     "triangulated_points.csv"
-    #     # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted.csv"
-    #     # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_daisy_chain.csv"
-    #     # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_bundle_adjusted_300.csv"
-    #     # repo, "sessions", "iterative_adjustment", "recording", "triangulated_points_daisy_chain_300.csv"
-    # )
+    point_data_path = Path(
+        __root__,
+        "tests",
+        "5_cameras",
+        "recording",
+        "triangulated_points.csv")
 
     app = QApplication(sys.argv)
-    # vizr = CaptureVolumeVisualizer(camera_array, point_data_path)
-    vizr = CaptureVolumeVisualizer(camera_array)
+    vizr = CaptureVolumeVisualizer(camera_array, point_data_path)
+    # vizr = CaptureVolumeVisualizer(camera_array)
 
     sys.exit(app.exec())

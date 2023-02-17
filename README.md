@@ -17,13 +17,18 @@ RecordedStream --FramePacket--> Synchronizer
 Synchronizer --SyncPacket--> VideoRecorder
 
 subgraph cameras
-Camera --> LiveStream
-end
-subgraph tracking
-Charuco --> CornerTracker
-CornerTracker --PointPacket--> LiveStream
+    Camera --> LiveStream
 end
 
+subgraph tracking
+    Charuco --> CornerTracker
+    CornerTracker --PointPacket--> LiveStream
+end
+
+subgraph GUI
+    MonoCalibrator
+    OmniFrame
+end
 
 Synchronizer --SyncPacket-->  OmniFrame
 
@@ -39,46 +44,52 @@ frame_time_history.csv --> RecordedStream
 
 subgraph recording
 
-RecordedStream
-VideoRecorder 
+    RecordedStream
+    VideoRecorder 
 
-subgraph RecordingDirectory
-port_X.mp4
-frame_time_history.csv
+    subgraph RecordingDirectory
+        port_X.mp4
+        frame_time_history.csv
+    end
+
 end
 
-end
 
 
+point_data.csv --> OmniCalibrator
+config.toml --CameraSettings--> OmniCalibrator
+OmniCalibrator -.StereoPairs.-> config.toml
 
-point_data.csv --> BulkCalibrator
-config.toml --CameraSettings--> BulkCalibrator
-BulkCalibrator -.StereoPairs.-> config.toml
 
 
 subgraph calibration_data
-point_data.csv
-config.toml
+    point_data.csv
+    config.toml
 end
 
 
 CornerTracker --PointPacket--> RecordedStream
 
 subgraph array
-config.toml --> ArrayConstructor
-
+    config.toml --> ArrayConstructor
+    ArrayConstructor --> CameraArray
 end
-ArrayConstructor -.CameraArray.-> Visualizer
 
+CameraArray --> Visualizer
+CameraArray --> StereoTriangulator
+Synchronizer -.SyncPacket.-> PairedPointStream
 
-
-subgraph triangulate
-PairedPointStream --> StereoTriangulator
+subgraph triangulate:Factor Out PairedPacket Queue
+    PairedPointStream -.PairedPointPacket.-> ArrayTriangulator
+    StereoTriangulator
 end
+
+StereoTriangulator --> ArrayTriangulator
+ArrayTriangulator --> triangulated_points.csv
+triangulated_points.csv --> Visualizer
 
 subgraph visualization
-CameraMesh --> Visualizer
-StereoTriangulator --> Visualizer
+    CameraMesh --> Visualizer
 end
 
 ```

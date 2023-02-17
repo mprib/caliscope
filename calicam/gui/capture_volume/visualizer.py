@@ -72,7 +72,7 @@ class CaptureVolumeVisualizer:
         for sync_index in sync_indices:
             self.display_points(sync_index)
             print(f"Displaying frames from index: {sync_index}")
-            time.sleep(1 / 10)
+            time.sleep(1 / 5)
 
     def display_points(self, sync_index):
 
@@ -101,13 +101,12 @@ class CaptureVolumeVisualizer:
 
     def next_frame(self):
         board_data = self.point_in_q.get()
-        print(board_data.time)
         self.board_viz.setData(pos=board_data.xyz, color=self.color)
 
     def begin(self):
         def timer_wrkr():
             while True:
-                time.sleep(1 / 30)
+                time.sleep(1 / 15)
                 self.next_frame()
 
         self.timer_thread = Thread(target=timer_wrkr, args=[], daemon=False)

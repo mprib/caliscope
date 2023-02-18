@@ -18,10 +18,14 @@ CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrins
 
 
 @dataclass
-class PointData:
-    """Establish point data with complete initial dataset"""
+class PointEstimateData:
+    """
+    Initialized from triangulated_points.csv to provide the formatting of data required for bundle adjustment
+    "full" is used here because there is currently a method to filter the data based on reprojection error
+    Not sure if it will be used going forward, but it remains here if so.
+    """ 
 
-    camera_indices_full: np.ndarray  # camera id of image
+    camera_indices_full: np.ndarray  # camera id of image associated with a given point
     img_full: np.ndarray  # x,y coords on point
     corner_id_full: np.ndarray
     obj_indices_full: np.ndarray
@@ -41,12 +45,12 @@ class PointData:
         self.obj_indices = self.obj_indices_full
         self.sync_indices = self.sync_indices_full
 
-    def filter(self, optimized_fun, percent_cutoff):
+    def filter(self, least_squares_result_fun, percent_cutoff):
         # I believe this was indentended for use with some iterative approach to bundle adjustment
         # that skimmed off the poor fits and reran, akin to anipose. 
         # The results were not compelling and I believe this is now not being used anywhere
         # print(f"Optimization run with {optimized_fun.shape[0]/2} image points")
-        xy_reproj_error = optimized_fun.reshape(-1, 2)
+        xy_reproj_error = least_squares_result_fun.reshape(-1, 2)
         euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))
         # rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
         # print(f"RMSE of reprojection is {rmse_reproj_error}")
@@ -162,7 +166,9 @@ def get_points_3d_df(points_csv_path):
 
 
 def get_merged_2d_3d(points_csv_path):
-
+    """
+    For each 2d point line, add in the estimated 3d point position
+    """
     points_2d_df = get_points_2d_df(points_csv_path)
     points_3d_df = get_points_3d_df(points_csv_path)
 
@@ -175,7 +181,8 @@ def get_merged_2d_3d(points_csv_path):
     return merged_point_data
 
 
-def get_point_data(points_csv_path: Path) -> PointData:
+def get_point_estimate_data(points_csv_path: Path) -> PointEstimateData:
+    #NOTE: Not a method of the dataclass, the is a convenience constructor
     points_3d_df = get_points_3d_df(points_csv_path)
     merged_point_data = get_merged_2d_3d(points_csv_path)
 
@@ -187,7 +194,7 @@ def get_point_data(points_csv_path: Path) -> PointData:
     obj = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
     obj_corner_id = np.array(points_3d_df[["corner_id"]])
 
-    return PointData(
+    return PointEstimateData(
         camera_indices_full=camera_indices,
         img_full=img,
         corner_id_full=corner_id,
@@ -206,6 +213,6 @@ if __name__ == "__main__":
         session_directory, "recording", "triangulated_points_daisy_chain.csv"
     )
 
-    point_data = get_point_data(points_csv_path)
+    point_data = get_point_estimate_data(points_csv_path)
 
     print(point_data)

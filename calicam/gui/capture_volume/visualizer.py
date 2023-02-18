@@ -173,7 +173,8 @@ if __name__ == "__main__":
         "tests",
         "5_cameras",
         "recording",
-        "stereotriangulated_points.csv")
+        "triangulated_points_post_BA.csv")
+        # "stereotriangulated_points.csv")
 
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(camera_array, point_data_path)

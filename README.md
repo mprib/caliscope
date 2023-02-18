@@ -2,11 +2,9 @@
 
 The general flow of processing is illustrated in the graph below. 
 
-The `Synchronizer` is now producing `SyncPackets` from the set of  `LiveStream` objects provided to it. The previous code for recording video will no longer work, so must be updated. Additionally, when recording video the `VideoRecorder` should save out any point data that is calculated during the recording session so that it can be processed downstream.
+This graph needs to be updated to reflect the centrality of the ArrayPointsErrorData dataclass in the post-processing analysis. This is turning into a useful construct that can summarize the complete state of the model and tracking data, while also containing the data necessary to relate each 3d projected point to the precice frames it came from.
 
-The general plan for a revision to the current process is shown here.
-
-Note that the sections of code that do not have a link in some way to the synchronizer are not currently functional.
+It is quite tightly coupled to the camera array object. I would like to refactor to decouple these things into seperate modules, but the best way to do that isn't immediately clear to me. It may ultimately be the case that the bundle adjustment function is going to need to come out of the camera array, and go into something like an Optimizer that could manage both the camera array optimization during calibration, and the 3d point optimization during general triangulation.
 
 ```mermaid
 graph TD

@@ -9,7 +9,7 @@ import cv2
 from scipy.optimize import least_squares
 import pickle
 
-from calicam.calibration.bundle_adjustment.bundle_adjustment_data import BundleAdustmentData
+from calicam.calibration.bundle_adjustment.point_estimate_data import PointEstimateData
 
 CAMERA_PARAM_COUNT = 6
 
@@ -94,7 +94,7 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
-    def bundle_adjust(self, bund_adj_data: BundleAdustmentData, output_path=None):
+    def bundle_adjust(self, bund_adj_data: PointEstimateData, output_path=None):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
         camera_params = self.get_extrinsic_params()
@@ -149,7 +149,7 @@ class CameraArray:
 
 @dataclass
 class ArrayDiagnosticData:
-    bund_adj_data: BundleAdustmentData
+    point_estimate_data: PointEstimateData
     model_params: np.ndarray  # the first argument of the residual function
     xy_reprojection_error: np.ndarray
     camera_array: CameraArray
@@ -162,7 +162,7 @@ class ArrayDiagnosticData:
 def xy_reprojection_error(
     current_param_estimates,
     camera_array: CameraArray,
-    bund_adj_data: BundleAdustmentData,
+    bund_adj_data: PointEstimateData,
 ):
     """
     current_param_estimates: the current iteration of the vector that was originally initialized for the x0 input of least squares
@@ -230,8 +230,8 @@ def rms_reproj_error(xy_reproj_error):
 
 if __name__ == "__main__":
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.bundle_adjustment.bundle_adjustment_data import (
-        BundleAdustmentData,
+    from calicam.calibration.bundle_adjustment.point_estimate_data import (
+        PointEstimateData,
         get_bundle_adjustment_data,
     )
 

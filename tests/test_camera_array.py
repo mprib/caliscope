@@ -8,8 +8,8 @@ from pathlib import Path
 
 from calicam.cameras.camera_array import CameraArray
 from calicam.cameras.camera_array_builder import CameraArrayBuilder
-from calicam.calibration.bundle_adjustment.bundle_adjustment_data import (
-    BundleAdustmentData,
+from calicam.calibration.bundle_adjustment.point_estimate_data import (
+    PointEstimateData,
     get_bundle_adjustment_data,
 )
 
@@ -26,7 +26,7 @@ config_path = Path(session_directory, "config.toml")
 
 recording_directory = Path(session_directory, "recording")
 
-points_csv_path = Path(recording_directory, "triangulated_points.csv")
+points_csv_path = Path(recording_directory, "stereotriangulated_points.csv")
 bund_adj_data = get_bundle_adjustment_data(points_csv_path)
 
 array_builder = CameraArrayBuilder(config_path)

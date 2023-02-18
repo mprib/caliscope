@@ -8,7 +8,7 @@ from scipy.optimize import least_squares
 import time
 
 from calicam.cameras.camera_array import CameraArray
-from calicam.calibration.bundle_adjustment.bundle_adjustment_data import BundleAdustmentData
+from calicam.calibration.bundle_adjustment.bundle_adjustment_data import PointEstimateData
 
 
 CAMERA_PARAM_COUNT = 6

@@ -18,11 +18,11 @@ CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrins
 
 
 @dataclass
-class BundleAdustmentData:
+class PointEstimateData:
     """
     Initialized from triangulated_points.csv to provide the formatting of data required for bundle adjustment
     "full" is used here because there is currently a method to filter the data based on reprojection error
-    
+    Not sure if it will be used going forward, but it remains here if so.
     """ 
 
     camera_indices_full: np.ndarray  # camera id of image associated with a given point
@@ -181,7 +181,7 @@ def get_merged_2d_3d(points_csv_path):
     return merged_point_data
 
 
-def get_bundle_adjustment_data(points_csv_path: Path) -> BundleAdustmentData:
+def get_bundle_adjustment_data(points_csv_path: Path) -> PointEstimateData:
     #NOTE: Not a method of the dataclass, the is a convenience constructor
     points_3d_df = get_points_3d_df(points_csv_path)
     merged_point_data = get_merged_2d_3d(points_csv_path)
@@ -194,7 +194,7 @@ def get_bundle_adjustment_data(points_csv_path: Path) -> BundleAdustmentData:
     obj = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
     obj_corner_id = np.array(points_3d_df[["corner_id"]])
 
-    return BundleAdustmentData(
+    return PointEstimateData(
         camera_indices_full=camera_indices,
         img_full=img,
         corner_id_full=corner_id,

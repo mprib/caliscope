@@ -17,7 +17,7 @@ repo = str(Path.cwd()).split("src")[0]
 sys.path.insert(0, repo)
 # which enables import of relevant class
 # from calicam.cameras.camera_array import ArrayDiagnosticData
-from calicam.calibration.bundle_adjustment.bundle_adjustment_data import BundleAdustmentData
+from calicam.calibration.bundle_adjustment.point_estimate_data import PointEstimateData
 from calicam.calibration.bundle_adjustment.calibration_diagnostics import (
     get_charuco,
     create_summary_df,

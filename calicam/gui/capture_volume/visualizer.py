@@ -173,7 +173,8 @@ if __name__ == "__main__":
         "tests",
         "5_cameras",
         "recording",
-        "triangulated_points_post_BA.csv")
+        "bund_adj_points_for_vizualizer.csv")
+        # "triangulated_points_post_BA.csv")
         # "stereotriangulated_points.csv")
 
     app = QApplication(sys.argv)

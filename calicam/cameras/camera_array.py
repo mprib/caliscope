@@ -1,4 +1,5 @@
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 
 from pathlib import Path
@@ -7,11 +8,11 @@ from dataclasses import dataclass
 import cv2
 from scipy.optimize import least_squares
 import pickle
+from calicam.calibration.bundle_adjustment.point_estimate_data import PointEstimateData
+import pandas as pd
 
-from calicam.calibration.bundle_adjustment.point_data import PointData
 
 CAMERA_PARAM_COUNT = 6
-
 
 @dataclass
 class CameraData:
@@ -21,10 +22,10 @@ class CameraData:
     """
 
     port: int
-    resolution: tuple[int,int]
+    resolution: tuple[int, int]
     camera_matrix: np.ndarray
-    error: float    # the RMSE of reprojection associated with the intrinsic calibration
-    distortion: np.ndarray # 
+    error: float  # the RMSE of reprojection associated with the intrinsic calibration
+    distortion: np.ndarray  #
     translation: np.ndarray
     rotation: np.ndarray
 
@@ -61,7 +62,8 @@ class CameraArray:
     At the moment all it is doing is holding a dictionary of CameraData objects"""
 
     cameras: dict
-
+    least_sq_result = None
+    
     def get_extrinsic_params(self):
         """for each camera build the CAMERA_PARAM_COUNT element parameter index
         camera_params with shape (n_cameras, CAMERA_PARAM_COUNT)
@@ -79,11 +81,11 @@ class CameraArray:
 
         return camera_params
 
-    def update_extrinsic_params(self, optimized_x):
+    def update_extrinsic_params(self):
 
         n_cameras = len(self.cameras)
         n_cam_param = 6  # 6 DoF
-        flat_camera_params = optimized_x[0 : n_cameras * n_cam_param]
+        flat_camera_params = self.least_sq_result.x[0 : n_cameras * n_cam_param]
         new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
 
         # update camera array with new positional data
@@ -93,36 +95,36 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
-    def bundle_adjust(self, point_data: PointData, output_path = None):
+    def bundle_adjust(self, point_estimate_data: PointEstimateData, output_path=None):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
         camera_params = self.get_extrinsic_params()
         initial_param_estimate = np.hstack(
-            (camera_params.ravel(), point_data.obj.ravel())
+            (camera_params.ravel(), point_estimate_data.obj.ravel())
         )
-
 
         # get a snapshot of where things are at the start
         initial_xy_error = xy_reprojection_error(
             initial_param_estimate,
             self,
-            point_data,
+            point_estimate_data,
         )
 
         print(
             f"Prior to bundle adjustment, RMSE is: {rms_reproj_error(initial_xy_error)}"
         )
-        
+
         # save out this snapshot if path provided
         if output_path is not None:
-            diagnostic_data = ArrayDiagnosticData(point_data, initial_param_estimate,initial_xy_error, self)
+            diagnostic_data = ArrayPointsErrorData(
+                point_estimate_data, initial_param_estimate, initial_xy_error, self
+            )
             diagnostic_data.save(Path(output_path, "before_bund_adj.pkl"))
 
-
-        least_sq_result = least_squares(
+        self.least_sq_result = least_squares(
             xy_reprojection_error,
             initial_param_estimate,
-            jac_sparsity=point_data.get_sparsity_pattern(),
+            jac_sparsity=point_estimate_data.get_sparsity_pattern(),
             verbose=2,
             x_scale="jac",
             loss="linear",
@@ -130,58 +132,78 @@ class CameraArray:
             method="trf",
             args=(
                 self,
-                point_data,
+                point_estimate_data,
             ),
         )
 
         if output_path is not None:
-            diagnostic_data = ArrayDiagnosticData(point_data, least_sq_result.x,least_sq_result.fun, self)
+            diagnostic_data = ArrayPointsErrorData(
+                point_estimate_data, self.least_sq_result.x, self.least_sq_result.fun, self
+            )
             diagnostic_data.save(Path(output_path, "after_bund_adj.pkl"))
 
         print(
-            f"Following bundle adjustment, RMSE is: {rms_reproj_error(least_sq_result.fun)}"
+            f"Following bundle adjustment, RMSE is: {rms_reproj_error(self.least_sq_result.fun)}"
         )
-        return least_sq_result
+        return self.least_sq_result
 
-    def optimize(self, point_data: PointData, output_path = None):
-        """
-        Currently, just run a simple bundle adjustment, noting the baseline reprojection errors before and after
-        Use this as a way to characterize the quality of the camera configuration
-        """
-
-        for port, cam in self.cameras.items():
-            print(f"Port {port} translation: {cam.translation.T}")
-
-        least_sq_result = self.bundle_adjust(point_data)
-        self.update_extrinsic_params(least_sq_result.x)
-
-        # only examine best X% of fits...likely less impacted by distortion
-        # point_data.filter(least_sq_result.fun, 0.5)
-        # least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
-        # self.update_extrinsic_params(least_sq_result.x)
-
-        for port, cam in self.cameras.items():
-            print(f"Port {port} translation: {cam.translation.T}")
-        # least_sq_result = self.bundle_adjust(point_data, ParamType.EXTRINSIC)
-        # self.update_extrinsic_params(least_sq_result.x)
 
 @dataclass
-class ArrayDiagnosticData:
-    point_data: PointData
-    model_params: np.ndarray # the first argument of the residual function
+class ArrayPointsErrorData:
+    point_estimate_data: PointEstimateData
+    model_params: np.ndarray  # the first argument of the residual function
     xy_reprojection_error: np.ndarray
     camera_array: CameraArray
-    
+
     def save(self, output_path):
-        with open(Path(output_path), 'wb') as file:
-            pickle.dump(self,file)     
+        with open(Path(output_path), "wb") as file:
+            pickle.dump(self, file)
 
+    
+    def get_xyz_points(self):
+        """Get 3d positions arrived at by bundle adjustment"""
+        n_cameras = len(self.camera_array.cameras)
+        xyz = self.model_params[n_cameras * CAMERA_PARAM_COUNT :]
+        xyz = xyz.reshape(-1, 3)
 
+        return xyz
+    
+    def get_summary_df(self, label:str):
+        
+        array_data_xy_error = self.xy_reprojection_error.reshape(-1, 2)
+        # build out error as singular distance
 
+        xyz = self.get_xyz_points()
+
+        euclidean_distance_error = np.sqrt(np.sum(array_data_xy_error**2, axis=1))
+        row_count = euclidean_distance_error.shape[0]
+
+        array_data_dict = {
+            "label": [label] * row_count,
+            "camera": self.point_estimate_data.camera_indices_full.tolist(),
+            "sync_index": self.point_estimate_data.sync_indices.astype(int).tolist(),
+            "charuco_id": self.point_estimate_data.corner_id.tolist(),
+            "img_x": self.point_estimate_data.img_full[:, 0].tolist(),
+            "img_y": self.point_estimate_data.img_full[:, 1].tolist(),
+            "reproj_error_x": array_data_xy_error[:, 0].tolist(),
+            "reproj_error_y": array_data_xy_error[:, 1].tolist(),
+            "reproj_error": euclidean_distance_error.tolist(),
+            "obj_id": self.point_estimate_data.obj_indices.tolist(),
+            "obj_x": xyz[self.point_estimate_data.obj_indices_full][:, 0].tolist(),
+            "obj_y": xyz[self.point_estimate_data.obj_indices_full][:, 1].tolist(),
+            "obj_z": xyz[self.point_estimate_data.obj_indices_full][:, 2].tolist(),
+        }
+
+        summarized_data = (pd.DataFrame(array_data_dict)
+                            .astype({"sync_index":'int32', "charuco_id":"int32", "obj_id":"int32"})
+        )
+        return summarized_data
+    
+    
 def xy_reprojection_error(
     current_param_estimates,
-    camera_array,
-    point_data,
+    camera_array: CameraArray,
+    bund_adj_data: PointEstimateData,
 ):
     """
     current_param_estimates: the current iteration of the vector that was originally initialized for the x0 input of least squares
@@ -190,24 +212,24 @@ def xy_reprojection_error(
     # Create one combined array primarily to make sure all calculations line up
     ## unpack the working estimates of the camera parameters (could be extr. or intr.)
     camera_params = current_param_estimates[
-        : point_data.n_cameras * CAMERA_PARAM_COUNT
-    ].reshape((point_data.n_cameras, CAMERA_PARAM_COUNT))
+        : bund_adj_data.n_cameras * CAMERA_PARAM_COUNT
+    ].reshape((bund_adj_data.n_cameras, CAMERA_PARAM_COUNT))
 
     ## similarly unpack the 3d point location estimates
     points_3d = current_param_estimates[
-        point_data.n_cameras * CAMERA_PARAM_COUNT :
-    ].reshape((point_data.n_obj_points, 3))
+        bund_adj_data.n_cameras * CAMERA_PARAM_COUNT :
+    ].reshape((bund_adj_data.n_obj_points, 3))
 
     ## create zero columns as placeholders for the reprojected 2d points
-    rows = point_data.camera_indices.shape[0]
+    rows = bund_adj_data.camera_indices.shape[0]
     blanks = np.zeros((rows, 2), dtype=np.float64)
 
     ## hstack all these arrays for ease of reference
     points_3d_and_2d = np.hstack(
         [
-            np.array([point_data.camera_indices]).T,
-            points_3d[point_data.obj_indices],
-            point_data.img,
+            np.array([bund_adj_data.camera_indices]).T,
+            points_3d[bund_adj_data.obj_indices],
+            bund_adj_data.img,
             blanks,
         ]
     )
@@ -216,7 +238,7 @@ def xy_reprojection_error(
     # it should scale linearly with the number of cameras...a tradeoff for stable
     # and explicit calculations...
     for port, cam in camera_array.cameras.items():
-        cam_points = np.where(point_data.camera_indices == port)
+        cam_points = np.where(bund_adj_data.camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
 
         cam_matrix = cam.camera_matrix
@@ -234,36 +256,37 @@ def xy_reprojection_error(
     points_proj = points_3d_and_2d[:, 6:8]
 
     # reshape the x,y reprojection error to a single vector
-    return (points_proj - point_data.img).ravel()
+    return (points_proj - bund_adj_data.img).ravel()
+
 
 def rms_reproj_error(xy_reproj_error):
-        
+
     xy_reproj_error = xy_reproj_error.reshape(-1, 2)
-    euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error ** 2, axis=1))
+    euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))
     rmse = np.sqrt(np.mean(euclidean_distance_error**2))
-    logger.info(f"Optimization run with {xy_reproj_error.shape[0]/2} image points")
+    logger.info(f"Optimization run with {xy_reproj_error.shape[0]} image points")
     logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
 
+
 if __name__ == "__main__":
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.bundle_adjustment.point_data import PointData, get_point_data
+    from calicam.calibration.bundle_adjustment.point_estimate_data import (
+        PointEstimateData,
+        get_point_estimate_data,
+    )
 
     from calicam import __root__
-    
-    
-    
+
     session_directory = Path(__root__, "tests", "5_cameras")
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
 
     # session_directory = Path(repo, "sessions", "iterative_adjustment")
-    points_csv_path = Path(
-        session_directory, "recording", "triangulated_points.csv"
-    )
+    points_csv_path = Path(session_directory, "recording", "stereotriangulated_points.csv")
 
-    point_data = get_point_data(points_csv_path)
+    point_estimate_data = get_point_estimate_data(points_csv_path)
     print(f"Optimizing initial camera array configuration ")
     # camera_array.optimize(point_data, output_path = points_csv_path.parent)
-    camera_array.bundle_adjust(point_data, output_path = points_csv_path.parent)
+    camera_array.bundle_adjust(point_estimate_data, output_path=points_csv_path.parent)

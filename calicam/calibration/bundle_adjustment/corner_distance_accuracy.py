@@ -17,17 +17,17 @@ repo = str(Path.cwd()).split("src")[0]
 sys.path.insert(0, repo)
 # which enables import of relevant class
 # from calicam.cameras.camera_array import ArrayDiagnosticData
-from calicam.calibration.bundle_adjustment.point_data import PointData
+from calicam.calibration.bundle_adjustment.point_estimate_data import PointEstimateData
 from calicam.calibration.bundle_adjustment.calibration_diagnostics import (
     get_charuco,
     create_summary_df,
-    get_diagnostic_data,
+    load_array_points_error,
     get_corners_xyz,
 )
 
 
 # calibration_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
-calibration_directory = Path(repo, "sessions", "default_res_session", "recording")
+calibration_directory = Path(repo, "tests", "5_cameras", "recording")
 before_path = Path(calibration_directory, "before_bund_adj.pkl")
 after_path = Path(calibration_directory, "after_bund_adj.pkl")
 
@@ -159,7 +159,7 @@ print(f"Time to multiply by 1,000:  {stop-start}")
 sns.displot(data=distance_error_df,x="Distance_Error_mm")
 # %%
 distance_error_df["Distance_Error_mm_abs"] = abs(distance_error_df["Distance_Error_mm"])
-distance_error_df.describe()
+print(distance_error_df.describe())
 
 # %%
 

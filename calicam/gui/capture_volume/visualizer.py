@@ -52,12 +52,16 @@ class CaptureVolumeVisualizer:
             # build the initial scatters that will be updated
             self.scatters = {}
             # self.colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
+            pair_count = len(self.pairs)
             for pair in self.pairs:
+                if pair_count == 1:
+                    color = [1,1,1,1]
+                else:
+                    color = [random(), random(), random(),1]
 
                 board_scatter = gl.GLScatterPlotItem(
                     pos=np.array([0, 0, 0]),
-                    # color=self.colors.pop(),
-                    color=[random(), random(), random(),1],
+                    color = color,
                     size=0.01,
                     pxMode=False,
                 )
@@ -173,9 +177,9 @@ if __name__ == "__main__":
         "tests",
         "5_cameras",
         "recording",
-        "bund_adj_points_for_vizualizer.csv")
-        # "triangulated_points_post_BA.csv")
         # "stereotriangulated_points.csv")
+        # "triangulated_points_post_BA.csv")
+        "bund_adj_points_for_vizualizer.csv")
 
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(camera_array, point_data_path)

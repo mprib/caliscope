@@ -29,7 +29,7 @@ class PointEstimateData:
     img_full: np.ndarray  # x,y coords on point
     corner_id_full: np.ndarray
     obj_indices_full: np.ndarray
-    obj: np.ndarray  # x,y,z estimates of object points; note,this will never get reduced...it is used as refrence via indices which are reduced
+    obj: np.ndarray  # x,y,z estimates of object points; note,this will never get reduced...it is used as reference via indices which are reduced
     obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point
     sync_indices_full: np.ndarray  # the sync_index from when the image was taken
     
@@ -110,7 +110,21 @@ class PointEstimateData:
 
         return A
 
+    def update_obj_xyz(self, least_sq_result_x):
+        """
+        Provided with the least_squares estimate of the best fit of model parameters (including camera 6DoF)
+        parse out the x,y,z object positions and update self.obj
+        """
+        
+        xyz = least_sq_result_x[self.n_cameras * CAMERA_PARAM_COUNT :]
+        xyz = xyz.reshape(-1, 3)
 
+        self.obj = xyz
+        
+        
+        
+        
+        
 def get_points_2d_df(points_csv_path):
     points_df = pd.read_csv(points_csv_path)
 
@@ -181,10 +195,14 @@ def get_merged_2d_3d(points_csv_path):
     return merged_point_data
 
 
-def get_point_estimate_data(points_csv_path: Path) -> PointEstimateData:
+def get_point_estimate_data(stereo_points_csv_path: Path) -> PointEstimateData:
+    """
+    formats the triangulated_points.csv file into a PointEstimateData that has the 
+    data structured in a way that is amenable to bundle adjustment
+    """
     #NOTE: Not a method of the dataclass, the is a convenience constructor
-    points_3d_df = get_points_3d_df(points_csv_path)
-    merged_point_data = get_merged_2d_3d(points_csv_path)
+    points_3d_df = get_points_3d_df(stereo_points_csv_path)
+    merged_point_data = get_merged_2d_3d(stereo_points_csv_path)
 
     camera_indices = np.array(merged_point_data["camera"], dtype=np.int64)
     img = np.array(merged_point_data[["x_2d", "y_2d"]])
@@ -209,10 +227,10 @@ if __name__ == "__main__":
 
     repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
     session_directory = Path(repo, "sessions", "iterative_adjustment")
-    points_csv_path = Path(
+    stereo_points_csv_path = Path(
         session_directory, "recording", "triangulated_points_daisy_chain.csv"
     )
 
-    point_data = get_point_estimate_data(points_csv_path)
+    point_data = get_point_estimate_data(stereo_points_csv_path)
 
     print(point_data)

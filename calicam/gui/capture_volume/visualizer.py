@@ -17,18 +17,18 @@ from random import random
 from calicam.triangulate.stereo_triangulator import CameraData
 from calicam.gui.capture_volume.camera_mesh import CameraMesh
 from calicam.cameras.camera_array_builder import CameraArray, CameraArrayBuilder
-
+from calicam.calibration.capture_volume.capture_volume import CaptureVolume
 
 class CaptureVolumeVisualizer:
-    def __init__(self, camera_array: CameraArray, xyz_pos_path: Path = None):
-
-        self.camera_array = camera_array
+    def __init__(self, capture_volume:CaptureVolume):
+        self.capture_volume = capture_volume
+        self.camera_array = capture_volume.camera_array
 
         self.current_frame = 0
 
         # constuct a scene
         self.scene = gl.GLViewWidget()
-        self.scene.setCameraPosition(distance=4)
+        self.scene.setCameraPosition(distance=4) # the scene camera, not a real Camera
 
         axis = gl.GLAxisItem()
         self.scene.addItem(axis)
@@ -43,53 +43,68 @@ class CaptureVolumeVisualizer:
             self.scene.addItem(mesh)
 
         self.scene.show()
-        if xyz_pos_path is not None:
 
-            # read in contents of file and get important parameters
-            self.point_data = pd.read_csv(xyz_pos_path)
-            self.pairs = self.point_data["pair"].unique().tolist()
+        # read in contents of file and get important parameters
+        self.point_estimate_data = self.capture_volume.point_estimate_data
+        # self.pairs = self.point_estimate_data["pair"].unique().tolist()
 
-            # build the initial scatters that will be updated
-            self.scatters = {}
-            # self.colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
-            pair_count = len(self.pairs)
-            for pair in self.pairs:
-                if pair_count == 1:
-                    color = [1,1,1,1]
-                else:
-                    color = [random(), random(), random(),1]
+        # build the initial scatters that will be updated
+        # self.scatters = {}
+        # self.colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
+        # pair_count = len(self.pairs)
+        # for pair in self.pairs:
+        #     if pair_count == 1:
+        #         color = [1,1,1,1]
+        #     else:
+        #         color = [random(), random(), random(),1]
 
-                board_scatter = gl.GLScatterPlotItem(
-                    pos=np.array([0, 0, 0]),
-                    color = color,
-                    size=0.01,
-                    pxMode=False,
-                )
-                self.scene.addItem(board_scatter)
-                self.scatters[pair] = board_scatter
+        #     board_scatter = gl.GLScatterPlotItem(
+        #         pos=np.array([0, 0, 0]),
+        #         color = color,
+        #         size=0.01,
+        #         pxMode=False,
+        #     )
+        #     self.scene.addItem(board_scatter)
+        #     self.scatters[pair] = board_scatter
 
-            self.thread = Thread(target=self.play_data, args=[], daemon=False)
-            self.thread.start()
+        self.scatter = gl.GLScatterPlotItem(
+            pos=np.array([0, 0, 0]),
+            color = [1,1,1,1],
+            size=0.01,
+            pxMode=False,
+        )
+        self.scene.addItem(self.scatter)
+        
+        self.thread = Thread(target=self.play_data, args=[], daemon=False)
+        self.thread.start()
 
     def play_data(self):
-        sync_indices = self.point_data["sync_index"].unique().tolist()
+        # sync_indices = self.point_estimate_data["sync_index"].unique().tolist()
+        sync_indices = np.unique(self.point_estimate_data.sync_indices)
+        sync_indices = np.sort(sync_indices)
+
         for sync_index in sync_indices:
             self.display_points(sync_index)
             print(f"Displaying frames from index: {sync_index}")
             time.sleep(1 / 5)
 
     def display_points(self, sync_index):
+        current_sync_index_flag = self.point_estimate_data.sync_indices == sync_index
+        single_board_indices = np.unique(self.point_estimate_data.obj_indices[current_sync_index_flag])
+        
+        single_board_points = self.point_estimate_data.obj[single_board_indices]
 
-        point_data = self.point_data.query(f"sync_index == {sync_index}")
+        self.scatter.setData(pos=single_board_points)
+        # point_data = self.point_estimate_data.query(f"sync_index == {sync_index}")
 
-        for pair in self.pairs:
-            single_board = point_data.query(f"pair == '{str(pair)}'")
-            x = single_board.x_pos.to_numpy()
-            y = single_board.y_pos.to_numpy()
-            z = single_board.z_pos.to_numpy()
+        # for pair in self.pairs:
+            # single_board = point_data.query(f"pair == '{str(pair)}'")
+            # x = single_board.x_pos.to_numpy()
+            # y = single_board.y_pos.to_numpy()
+            # z = single_board.z_pos.to_numpy()
 
-            board_xyz_pos = np.stack([x, y, z], axis=1)
-            self.scatters[pair].setData(pos=board_xyz_pos)
+            # board_xyz_pos = np.stack([x, y, z], axis=1)
+            # self.scatters[pair].setData(pos=board_xyz_pos)
 
     def add_point_q(self, q):
         self.point_in_q = q
@@ -168,21 +183,38 @@ if __name__ == "__main__":
 
     from PyQt6.QtWidgets import QApplication
 
-    from calicam import __root__
-    config_path = Path(__root__, "tests", "5_cameras", "config.toml")
-    camera_array = CameraArrayBuilder(config_path).get_camera_array()
 
-    point_data_path = Path(
-        __root__,
-        "tests",
-        "5_cameras",
-        "recording",
-        # "stereotriangulated_points.csv")
-        # "triangulated_points_post_BA.csv")
-        "bund_adj_points_for_vizualizer.csv")
+
+    from calicam import __root__
+    from calicam.cameras.camera_array_builder import CameraArrayBuilder
+    from calicam.calibration.capture_volume.point_estimate_data import (
+        get_point_estimate_data,
+    )
+    from calicam.calibration.capture_volume.capture_volume import CaptureVolume
+    import pickle
+    
+    session_directory = Path(__root__, "tests", "5_cameras")
+    # stereo_points_csv_path = Path(
+        # session_directory, "recording", "stereotriangulated_points.csv"
+    # )
+
+    # point_estimate_data = get_point_estimate_data(stereo_points_csv_path)
+
+    # config_path = Path(session_directory, "config.toml")
+    # array_builder = CameraArrayBuilder(config_path)
+    # camera_array = array_builder.get_camera_array()
+
+    print(f"Optimizing initial camera array configuration ")
+
+    # capture_volume = CaptureVolume(camera_array, point_estimate_data)
+
+    saved_CV_path = Path(session_directory, "recording", "post_optimized_capture_volume.pkl") 
+    with open(saved_CV_path, "rb") as f:
+        capture_volume = pickle.load(f)
+    
+
 
     app = QApplication(sys.argv)
-    vizr = CaptureVolumeVisualizer(camera_array, point_data_path)
-    # vizr = CaptureVolumeVisualizer(camera_array)
+    vizr = CaptureVolumeVisualizer(capture_volume)
 
     sys.exit(app.exec())

@@ -62,7 +62,7 @@ class CaptureVolume:
 
         # save out this snapshot if path provided
         if output_path is not None:
-            self.save(Path(output_path, "before_bund_adj.pkl"))
+            self.save(Path(output_path, "pre_optimized_capture_volume.pkl"))
 
         self.least_sq_result = least_squares(
             xy_reprojection_error,
@@ -82,7 +82,7 @@ class CaptureVolume:
         self.point_estimate_data.update_obj_xyz(self.least_sq_result.x)
 
         if output_path is not None:
-            self.save(Path(output_path, "after_bund_adj.pkl"))
+            self.save(Path(output_path, "post_optimized_capture_volume.pkl"))
 
         print(
             f"Following bundle adjustment, RMSE is: {rms_reproj_error(self.least_sq_result.fun)}"

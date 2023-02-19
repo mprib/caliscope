@@ -2,7 +2,7 @@
 # currently this is for the convenience of not having to rerun everything
 # though this workflow may be useful into the future. Save out milestone calculations
 # along the way that allow for blocks of dataprocessing
-
+#%%
 import calicam.logger
 logger = calicam.logger.get(__name__)
 
@@ -29,7 +29,7 @@ class PointEstimateData:
     img_full: np.ndarray  # x,y coords on point
     corner_id_full: np.ndarray
     obj_indices_full: np.ndarray
-    obj: np.ndarray  # x,y,z estimates of object points; note,this will never get reduced...it is used as refrence via indices which are reduced
+    obj: np.ndarray  # x,y,z estimates of object points; note,this will never get reduced...it is used as reference via indices which are reduced
     obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point
     sync_indices_full: np.ndarray  # the sync_index from when the image was taken
     
@@ -37,7 +37,7 @@ class PointEstimateData:
         self.reset()
 
     def reset(self):
-        # used when also applying the filter method below and needing to return to the original
+        # used when the filter method below has previously been applied and needing to return to the original
         # data set. I do not believe this is currently being used anywhere...
         self.camera_indices = self.camera_indices_full
         self.img = self.img_full
@@ -48,12 +48,10 @@ class PointEstimateData:
     def filter(self, least_squares_result_fun, percent_cutoff):
         # I believe this was indentended for use with some iterative approach to bundle adjustment
         # that skimmed off the poor fits and reran, akin to anipose. 
-        # The results were not compelling and I believe this is now not being used anywhere
-        # print(f"Optimization run with {optimized_fun.shape[0]/2} image points")
+        # it may still be a useful tool...
+
         xy_reproj_error = least_squares_result_fun.reshape(-1, 2)
         euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))
-        # rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
-        # print(f"RMSE of reprojection is {rmse_reproj_error}")
 
         error_rank = np.argsort(euclidean_distance_error)
         n_2d_points = error_rank.shape[0]
@@ -110,7 +108,21 @@ class PointEstimateData:
 
         return A
 
+    def update_obj_xyz(self, least_sq_result_x):
+        """
+        Provided with the least_squares estimate of the best fit of model parameters (including camera 6DoF)
+        parse out the x,y,z object positions and update self.obj
+        """
+        
+        xyz = least_sq_result_x[self.n_cameras * CAMERA_PARAM_COUNT :]
+        xyz = xyz.reshape(-1, 3)
 
+        self.obj = xyz
+        
+        
+        
+        
+        
 def get_points_2d_df(points_csv_path):
     points_df = pd.read_csv(points_csv_path)
 
@@ -181,10 +193,14 @@ def get_merged_2d_3d(points_csv_path):
     return merged_point_data
 
 
-def get_point_estimate_data(points_csv_path: Path) -> PointEstimateData:
+def get_point_estimate_data(stereo_points_csv_path: Path) -> PointEstimateData:
+    """
+    formats the triangulated_points.csv file into a PointEstimateData that has the 
+    data structured in a way that is amenable to bundle adjustment
+    """
     #NOTE: Not a method of the dataclass, the is a convenience constructor
-    points_3d_df = get_points_3d_df(points_csv_path)
-    merged_point_data = get_merged_2d_3d(points_csv_path)
+    points_3d_df = get_points_3d_df(stereo_points_csv_path)
+    merged_point_data = get_merged_2d_3d(stereo_points_csv_path)
 
     camera_indices = np.array(merged_point_data["camera"], dtype=np.int64)
     img = np.array(merged_point_data[["x_2d", "y_2d"]])
@@ -204,15 +220,17 @@ def get_point_estimate_data(points_csv_path: Path) -> PointEstimateData:
         sync_indices_full=sync_index,
     )
 
-
+#%%
 if __name__ == "__main__":
-
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
-    session_directory = Path(repo, "sessions", "iterative_adjustment")
-    points_csv_path = Path(
-        session_directory, "recording", "triangulated_points_daisy_chain.csv"
+    #%%
+    from calicam import __root__
+    
+    session_directory = Path(__root__, "tests", "5_cameras")
+    stereo_points_csv_path = Path(
+        session_directory, "recording", "stereotriangulated_points.csv"
     )
 
-    point_data = get_point_estimate_data(points_csv_path)
+    point_data = get_point_estimate_data(stereo_points_csv_path)
 
-    print(point_data)
+
+# %%

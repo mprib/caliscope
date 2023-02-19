@@ -9,7 +9,7 @@ import pickle
 
 from calicam.cameras.camera_array import CameraArray
 from calicam.cameras.camera_array_builder import CameraArrayBuilder
-from calicam.calibration.bundle_adjustment.point_estimate_data import (
+from calicam.calibration.capture_volume.point_estimate_data import (
     PointEstimateData,
     get_point_estimate_data,
 )

@@ -74,13 +74,12 @@ class CaptureVolume:
             ftol=1e-8,
             method="trf",
             args=(
-                self.camera_array,
-                self.point_estimate_data,
-            ),
+                self,
+            ),  # xy_reprojection error takes the vectorized param estimates as first arg and capture volume as second
         )
 
         self.camera_array.update_extrinsic_params(self.least_sq_result.x)
-        self.point_estimate_data.update_estimate(self.least_sq_result.x)
+        self.point_estimate_data.update_obj_xyz(self.least_sq_result.x)
 
         if output_path is not None:
             self.save(Path(output_path, "after_bund_adj.pkl"))
@@ -190,9 +189,8 @@ def rms_reproj_error(xy_reproj_error):
     return rmse
 
 
-#%%
-if __name__ == "__main__":
-    #%%
+# if __name__ == "__main__":
+if True:
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
     from calicam.calibration.capture_volume.point_estimate_data import (
@@ -212,5 +210,7 @@ if __name__ == "__main__":
 
     print(f"Optimizing initial camera array configuration ")
 
+    capture_volume = CaptureVolume(camera_array, point_estimate_data)
+    capture_volume.optimize(output_path=Path(session_directory, "recording"))
 
-    capture_volume = CaptureVolume(camera_array,point_estimate_data)
+# %%

@@ -37,7 +37,7 @@ class PointEstimateData:
         self.reset()
 
     def reset(self):
-        # used when also applying the filter method below and needing to return to the original
+        # used when the filter method below has previously been applied and needing to return to the original
         # data set. I do not believe this is currently being used anywhere...
         self.camera_indices = self.camera_indices_full
         self.img = self.img_full
@@ -48,12 +48,10 @@ class PointEstimateData:
     def filter(self, least_squares_result_fun, percent_cutoff):
         # I believe this was indentended for use with some iterative approach to bundle adjustment
         # that skimmed off the poor fits and reran, akin to anipose. 
-        # The results were not compelling and I believe this is now not being used anywhere
-        # print(f"Optimization run with {optimized_fun.shape[0]/2} image points")
+        # it may still be a useful tool...
+
         xy_reproj_error = least_squares_result_fun.reshape(-1, 2)
         euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))
-        # rmse_reproj_error = np.sqrt(np.mean(euclidean_distance_error**2))
-        # print(f"RMSE of reprojection is {rmse_reproj_error}")
 
         error_rank = np.argsort(euclidean_distance_error)
         n_2d_points = error_rank.shape[0]

@@ -2,7 +2,7 @@
 # currently this is for the convenience of not having to rerun everything
 # though this workflow may be useful into the future. Save out milestone calculations
 # along the way that allow for blocks of dataprocessing
-
+#%%
 import calicam.logger
 logger = calicam.logger.get(__name__)
 
@@ -222,15 +222,17 @@ def get_point_estimate_data(stereo_points_csv_path: Path) -> PointEstimateData:
         sync_indices_full=sync_index,
     )
 
-
+#%%
 if __name__ == "__main__":
-
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
-    session_directory = Path(repo, "sessions", "iterative_adjustment")
+    #%%
+    from calicam import __root__
+    
+    session_directory = Path(__root__, "tests", "5_cameras")
     stereo_points_csv_path = Path(
-        session_directory, "recording", "triangulated_points_daisy_chain.csv"
+        session_directory, "recording", "stereotriangulated_points.csv"
     )
 
     point_data = get_point_estimate_data(stereo_points_csv_path)
 
-    print(point_data)
+
+# %%

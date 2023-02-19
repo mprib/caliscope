@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import numpy as np
 import cv2
 from scipy.optimize import least_squares
+import pandas as pd
 
 from calicam.calibration.capture_volume.point_estimate_data import PointEstimateData
 from calicam.cameras.camera_array import CameraArray
@@ -32,6 +33,74 @@ class CaptureVolume:
         xyz = xyz.reshape(-1, 3)
 
         return xyz
+    
+    @property
+    def vectorized_params(self):    
+        
+        camera_params = self.camera_array.get_extrinsic_params()
+        combined = np.hstack(
+            (camera_params.ravel(), self.point_estimate_data.obj.ravel())
+        )
+        
+        return combined
+        
+    # Mac: Start here tomorrow. This code was copied over but not revised to account for its new position.
+    # This is a substantial refactor of high level objects that will substantially simplify their interaction
+    # but it's going to be an adventure getting this to run again
+    def optimize(self,  output_path=None):
+        # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
+
+        camera_params = self.camera_array.get_extrinsic_params()
+        initial_param_estimate = np.hstack(
+            (camera_params.ravel(), self.point_estimate_data.obj.ravel())
+        )
+
+        # get a snapshot of where things are at the start
+        initial_xy_error = xy_reprojection_error(
+            initial_param_estimate,
+            self,
+            self.point_estimate_data,
+        )
+
+        print(
+            f"Prior to bundle adjustment, RMSE is: {rms_reproj_error(initial_xy_error)}"
+        )
+
+        # save out this snapshot if path provided
+        if output_path is not None:
+            diagnostic_data = CaptureVolume(
+                self.point_estimate_data, initial_param_estimate, initial_xy_error, self
+            )
+            diagnostic_data.save(Path(output_path, "before_bund_adj.pkl"))
+
+        self.least_sq_result = least_squares(
+            xy_reprojection_error,
+            initial_param_estimate,
+            jac_sparsity=self.point_estimate_data.get_sparsity_pattern(),
+            verbose=2,
+            x_scale="jac",
+            loss="linear",
+            ftol=1e-8,
+            method="trf",
+            args=(
+                self.camera_array,
+                self.point_estimate_data,
+            ),
+        )
+
+        self.camera_array.update_extrinsic_params(self.least_sq_result.x)
+        self.point_estimate_data.update_estimate(self.least_sq_result.x)
+
+        if output_path is not None:
+            diagnostic_data = CaptureVolume(
+                self.point_estimate_data, self.least_sq_result.x, self.least_sq_result.fun, self
+            )
+            diagnostic_data.save(Path(output_path, "after_bund_adj.pkl"))
+
+        print(
+            f"Following bundle adjustment, RMSE is: {rms_reproj_error(self.least_sq_result.fun)}"
+        )
+    
     
     def get_summary_df(self, label:str):
         
@@ -65,66 +134,10 @@ class CaptureVolume:
         return summarized_data
     
     
-    
-    def bundle_adjust(self, point_estimate_data: PointEstimateData, output_path=None):
-        # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
-
-        camera_params = self.get_extrinsic_params()
-        initial_param_estimate = np.hstack(
-            (camera_params.ravel(), point_estimate_data.obj.ravel())
-        )
-
-        # get a snapshot of where things are at the start
-        initial_xy_error = xy_reprojection_error(
-            initial_param_estimate,
-            self,
-            point_estimate_data,
-        )
-
-        print(
-            f"Prior to bundle adjustment, RMSE is: {rms_reproj_error(initial_xy_error)}"
-        )
-
-        # save out this snapshot if path provided
-        if output_path is not None:
-            diagnostic_data = CaptureVolume(
-                point_estimate_data, initial_param_estimate, initial_xy_error, self
-            )
-            diagnostic_data.save(Path(output_path, "before_bund_adj.pkl"))
-
-        self.least_sq_result = least_squares(
-            xy_reprojection_error,
-            initial_param_estimate,
-            jac_sparsity=point_estimate_data.get_sparsity_pattern(),
-            verbose=2,
-            x_scale="jac",
-            loss="linear",
-            ftol=1e-8,
-            method="trf",
-            args=(
-                self,
-                point_estimate_data,
-            ),
-        )
-
-        if output_path is not None:
-            diagnostic_data = CaptureVolume(
-                point_estimate_data, self.least_sq_result.x, self.least_sq_result.fun, self
-            )
-            diagnostic_data.save(Path(output_path, "after_bund_adj.pkl"))
-
-        print(
-            f"Following bundle adjustment, RMSE is: {rms_reproj_error(self.least_sq_result.fun)}"
-        )
-        return self.least_sq_result
-    
-    
-    
-    
 def xy_reprojection_error(
     current_param_estimates,
-    camera_array: CameraArray,
-    bund_adj_data: PointEstimateData,
+    camera_array: CameraArray, # needed for intrinsics
+    point_estimate_data: PointEstimateData,  # needed to restructure param estimates for projection
 ):
     """
     current_param_estimates: the current iteration of the vector that was originally initialized for the x0 input of least squares
@@ -133,24 +146,24 @@ def xy_reprojection_error(
     # Create one combined array primarily to make sure all calculations line up
     ## unpack the working estimates of the camera parameters (could be extr. or intr.)
     camera_params = current_param_estimates[
-        : bund_adj_data.n_cameras * CAMERA_PARAM_COUNT
-    ].reshape((bund_adj_data.n_cameras, CAMERA_PARAM_COUNT))
+        : point_estimate_data.n_cameras * CAMERA_PARAM_COUNT
+    ].reshape((point_estimate_data.n_cameras, CAMERA_PARAM_COUNT))
 
     ## similarly unpack the 3d point location estimates
     points_3d = current_param_estimates[
-        bund_adj_data.n_cameras * CAMERA_PARAM_COUNT :
-    ].reshape((bund_adj_data.n_obj_points, 3))
+        point_estimate_data.n_cameras * CAMERA_PARAM_COUNT :
+    ].reshape((point_estimate_data.n_obj_points, 3))
 
     ## create zero columns as placeholders for the reprojected 2d points
-    rows = bund_adj_data.camera_indices.shape[0]
+    rows = point_estimate_data.camera_indices.shape[0]
     blanks = np.zeros((rows, 2), dtype=np.float64)
 
     ## hstack all these arrays for ease of reference
     points_3d_and_2d = np.hstack(
         [
-            np.array([bund_adj_data.camera_indices]).T,
-            points_3d[bund_adj_data.obj_indices],
-            bund_adj_data.img,
+            np.array([point_estimate_data.camera_indices]).T,
+            points_3d[point_estimate_data.obj_indices],
+            point_estimate_data.img,
             blanks,
         ]
     )
@@ -159,7 +172,7 @@ def xy_reprojection_error(
     # it should scale linearly with the number of cameras...a tradeoff for stable
     # and explicit calculations...
     for port, cam in camera_array.cameras.items():
-        cam_points = np.where(bund_adj_data.camera_indices == port)
+        cam_points = np.where(point_estimate_data.camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
 
         cam_matrix = cam.camera_matrix
@@ -177,7 +190,7 @@ def xy_reprojection_error(
     points_proj = points_3d_and_2d[:, 6:8]
 
     # reshape the x,y reprojection error to a single vector
-    return (points_proj - bund_adj_data.img).ravel()
+    return (points_proj - point_estimate_data.img).ravel()
 
 
 

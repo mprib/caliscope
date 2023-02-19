@@ -68,12 +68,9 @@ end
 
 CornerTracker --PointPacket--> RecordedStream
 
-subgraph array
-    config.toml --> ArrayConstructor
-    ArrayConstructor --> CameraArray
-end
+ArrayConstructor --> CameraArray
+config.toml --> ArrayConstructor
 
-CameraArray --> Visualizer
 CameraArray --> StereoTriangulator
 Synchronizer -.SyncPacket.-> PairedPointStream
 
@@ -84,13 +81,15 @@ end
 
 StereoTriangulator --> ArrayTriangulator
 ArrayTriangulator --> triangulated_points.csv
-triangulated_points.csv --> Visualizer
+CaptureVolume --> CaptureVolumeVisualizer
 
-triangulated_points.csv --> BundleAdjustmentData
+triangulated_points.csv --> PointEstimateData
 
-subgraph bundle_adjustment
-BundleAdjustmentData --> CameraArray
+subgraph capture_volume
+CameraArray --> CaptureVolume
+PointEstimateData --> CaptureVolume
 
+CaptureVolume
 end
 
 

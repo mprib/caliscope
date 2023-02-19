@@ -79,11 +79,11 @@ class CameraArray:
 
         return camera_params
 
-    def update_extrinsic_params(self):
+    def update_extrinsic_params(self, least_sq_result_x:np.array):
 
         n_cameras = len(self.cameras)
         n_cam_param = 6  # 6 DoF
-        flat_camera_params = self.least_sq_result.x[0 : n_cameras * n_cam_param]
+        flat_camera_params = least_sq_result_x[0 : n_cameras * n_cam_param]
         new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
 
         # update camera array with new positional data

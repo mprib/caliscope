@@ -189,8 +189,8 @@ def rms_reproj_error(xy_reproj_error):
     return rmse
 
 
-# if __name__ == "__main__":
-if True:
+if __name__ == "__main__":
+# if True:
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
     from calicam.calibration.capture_volume.point_estimate_data import (

@@ -264,7 +264,10 @@ class OmniCalibrator:
         
         # convenience function to get the points that are in the overlap regions of the pairs
         def in_pair(row, pair):
-
+            """
+            Uses the coverage_region string generated previously to flag points that are in 
+            a shared region of the pair
+            """
             a, b = pair
             port_check = row.port == a or row.port == b
 
@@ -291,11 +294,11 @@ class OmniCalibrator:
             .drop("port", axis=1)
         )
     
-        # configure random sampling
+        # configure random sampling. If you have to few boards, then only take what you have
         board_count = pair_boards.shape[0]
         sample_size = min(board_count, boards_sampled)
 
-        # bias toward selecting boards with more overlap
+        # bias toward selecting boards with more overlapping points
         sample_weight = pair_boards["point_count"] ** 2 
 
         # get the randomly selected subset
@@ -308,6 +311,9 @@ class OmniCalibrator:
         return selected_pair_points
 
     def stereo_calibrate_all(self, boards_sampled=10):
+        """Iterates across all camera pairs. Intrinsic parameters are pulled
+        from camera and combined with obj and img points for each pair.
+        """
         
         for pair in self.pairs:
             error, rotation, translation = self.stereo_calibrate(pair, boards_sampled)
@@ -322,9 +328,6 @@ class OmniCalibrator:
             toml.dump(self.config, f) 
 
     def stereo_calibrate(self, pair, boards_sampled=10):
-        """Iterates across all camera pairs. Intrinsic parameters are pulled
-        from camera and combined with obj and img points for each pair.
-        """
         logger.info(f"About to stereocalibrate pair {pair}")
 
         stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC

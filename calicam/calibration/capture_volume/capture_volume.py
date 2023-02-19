@@ -1,3 +1,5 @@
+#%%
+
 import calicam.logger
 
 logger = calicam.logger.get(__name__)
@@ -186,3 +188,29 @@ def rms_reproj_error(xy_reproj_error):
     logger.info(f"Optimization run with {xy_reproj_error.shape[0]} image points")
     logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
+
+
+#%%
+if __name__ == "__main__":
+    #%%
+    from calicam import __root__
+    from calicam.cameras.camera_array_builder import CameraArrayBuilder
+    from calicam.calibration.capture_volume.point_estimate_data import (
+        get_point_estimate_data,
+    )
+
+    session_directory = Path(__root__, "tests", "5_cameras")
+    stereo_points_csv_path = Path(
+        session_directory, "recording", "stereotriangulated_points.csv"
+    )
+
+    point_estimate_data = get_point_estimate_data(stereo_points_csv_path)
+
+    config_path = Path(session_directory, "config.toml")
+    array_builder = CameraArrayBuilder(config_path)
+    camera_array = array_builder.get_camera_array()
+
+    print(f"Optimizing initial camera array configuration ")
+
+
+    capture_volume = CaptureVolume(camera_array,point_estimate_data)

@@ -116,7 +116,7 @@ class CameraArray:
 
         # save out this snapshot if path provided
         if output_path is not None:
-            diagnostic_data = ArrayPointsErrorData(
+            diagnostic_data = CaptureVolume(
                 point_estimate_data, initial_param_estimate, initial_xy_error, self
             )
             diagnostic_data.save(Path(output_path, "before_bund_adj.pkl"))
@@ -137,7 +137,7 @@ class CameraArray:
         )
 
         if output_path is not None:
-            diagnostic_data = ArrayPointsErrorData(
+            diagnostic_data = CaptureVolume(
                 point_estimate_data, self.least_sq_result.x, self.least_sq_result.fun, self
             )
             diagnostic_data.save(Path(output_path, "after_bund_adj.pkl"))
@@ -149,7 +149,7 @@ class CameraArray:
 
 
 @dataclass
-class ArrayPointsErrorData:
+class CaptureVolume:
     point_estimate_data: PointEstimateData
     model_params: np.ndarray  # the first argument of the residual function
     xy_reprojection_error: np.ndarray

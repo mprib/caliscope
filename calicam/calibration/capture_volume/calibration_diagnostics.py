@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import toml
 from calicam.calibration.charuco import Charuco
-from calicam.cameras.camera_array import ArrayPointsErrorData
+from calicam.cameras.camera_array import CaptureVolume
 
 CAMERA_PARAM_COUNT = 6
 
@@ -113,7 +113,7 @@ def load_array_points_error(array_points_error_path):
 
 if __name__ == "__main__":
 
-    from calicam.cameras.camera_array import ArrayPointsErrorData
+    from calicam.cameras.camera_array import CaptureVolume
     from calicam import __root__
     # which enables import of relevant class
 

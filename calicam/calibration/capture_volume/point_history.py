@@ -25,25 +25,14 @@ class PointHistory:
     Not sure if it will be used going forward, but it remains here if so.
     """ 
 
-    camera_indices_full: np.ndarray  # camera id associated with the img point
-    img_full: np.ndarray  # x,y coords of point
-    corner_id_full: np.ndarray # point id (i.e. charuco corner currently)
-    obj_indices_full: np.ndarray # mapping of x,y img points to their respective list of estimated x,y,z obj points
+    camera_indices: np.ndarray  # camera id associated with the img point
+    img: np.ndarray  # x,y coords of point
+    point_id: np.ndarray # point id (i.e. charuco corner currently)
+    obj_indices: np.ndarray # mapping of x,y img points to their respective list of estimated x,y,z obj points
     obj: np.ndarray  # x,y,z estimates of object points
     obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point; is this necessary?
-    sync_indices_full: np.ndarray  # the sync_index from when the image was taken
+    sync_indices: np.ndarray  # the sync_index from when the image was taken
     
-    def __post_init__(self):
-        self.reset()
-
-    def reset(self):
-        # used when the filter method below has previously been applied and needing to return to the original
-        # data set. I do not believe this is currently being used anywhere...
-        self.camera_indices = self.camera_indices_full
-        self.img = self.img_full
-        self.corner_id = self.corner_id_full
-        self.obj_indices = self.obj_indices_full
-        self.sync_indices = self.sync_indices_full
 
     def filter(self, least_squares_result_fun, percent_cutoff):
         # I believe this was indentended for use with some iterative approach to bundle adjustment
@@ -66,11 +55,11 @@ class PointHistory:
             f"Reducing point data to {subset_count} image points (full count: {full_count})"
         )
 
-        self.camera_indices = self.camera_indices_full[include]
-        self.obj_indices = self.obj_indices_full[include]
-        self.corner_id = self.corner_id_full[include]
-        self.img = self.img_full[include]
-        self.sync_indices = self.sync_indices_full[include]
+        self.camera_indices = self.camera_indices[include]
+        self.obj_indices = self.obj_indices[include]
+        self.point_id = self.point_id[include]
+        self.img = self.img[include]
+        self.sync_indices = self.sync_indices[include]
 
     @property
     def n_cameras(self):
@@ -211,13 +200,13 @@ def get_point_history(stereo_points_csv_path: Path) -> PointHistory:
     obj_corner_id = np.array(points_3d_df[["corner_id"]])
 
     return PointHistory(
-        camera_indices_full=camera_indices,
-        img_full=img,
-        corner_id_full=corner_id,
-        obj_indices_full=obj_indices,
+        camera_indices=camera_indices,
+        img=img,
+        point_id=corner_id,
+        obj_indices=obj_indices,
         obj=obj,
         obj_corner_id=obj_corner_id,
-        sync_indices_full=sync_index,
+        sync_indices=sync_index,
     )
 
 #%%

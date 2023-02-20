@@ -100,18 +100,18 @@ class CaptureVolume:
 
         array_data_dict = {
             "label": [label] * row_count,
-            "camera": self.point_history.camera_indices_full.tolist(),
+            "camera": self.point_history.camera_indices.tolist(),
             "sync_index": self.point_history.sync_indices.astype(int).tolist(),
-            "charuco_id": self.point_history.corner_id.tolist(),
-            "img_x": self.point_history.img_full[:, 0].tolist(),
-            "img_y": self.point_history.img_full[:, 1].tolist(),
+            "charuco_id": self.point_history.point_id.tolist(),
+            "img_x": self.point_history.img[:, 0].tolist(),
+            "img_y": self.point_history.img[:, 1].tolist(),
             "reproj_error_x": array_data_xy_error[:, 0].tolist(),
             "reproj_error_y": array_data_xy_error[:, 1].tolist(),
             "reproj_error": euclidean_distance_error.tolist(),
             "obj_id": self.point_history.obj_indices.tolist(),
-            "obj_x": xyz[self.point_history.obj_indices_full][:, 0].tolist(),
-            "obj_y": xyz[self.point_history.obj_indices_full][:, 1].tolist(),
-            "obj_z": xyz[self.point_history.obj_indices_full][:, 2].tolist(),
+            "obj_x": xyz[self.point_history.obj_indices][:, 0].tolist(),
+            "obj_y": xyz[self.point_history.obj_indices][:, 1].tolist(),
+            "obj_z": xyz[self.point_history.obj_indices][:, 2].tolist(),
         }
 
         summarized_data = pd.DataFrame(array_data_dict).astype(

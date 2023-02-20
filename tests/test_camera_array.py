@@ -9,9 +9,9 @@ import pickle
 
 from calicam.cameras.camera_array import CameraArray
 from calicam.cameras.camera_array_builder import CameraArrayBuilder
-from calicam.calibration.capture_volume.point_estimate_data import (
-    PointEstimateData,
-    get_point_estimate_data,
+from calicam.calibration.capture_volume.point_history import (
+    PointHistory,
+    get_point_history,
 )
 
 from calicam.cameras.synchronizer import Synchronizer
@@ -28,7 +28,7 @@ config_path = Path(session_directory, "config.toml")
 recording_directory = Path(session_directory, "recording")
 
 points_csv_path = Path(recording_directory, "stereotriangulated_points.csv")
-bund_adj_data = get_point_estimate_data(points_csv_path)
+point_history = get_point_history(points_csv_path)
 
 array_builder = CameraArrayBuilder(config_path)
 camera_array:CameraArray = array_builder.get_camera_array()
@@ -36,7 +36,7 @@ camera_array:CameraArray = array_builder.get_camera_array()
 print(f"Optimizing initial camera array configuration ")
 
 # camera_array.optimize(point_data, output_path = points_csv_path.parent)
-camera_array.bundle_adjust(bund_adj_data, output_path=points_csv_path.parent)
+camera_array.bundle_adjust(point_history, output_path=points_csv_path.parent)
 camera_array.update_extrinsic_params()
 # %%
 #### This cell was used to create the post BA stereotriangulated pairs 

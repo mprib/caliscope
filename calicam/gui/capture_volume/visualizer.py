@@ -45,7 +45,7 @@ class CaptureVolumeVisualizer:
         self.scene.show()
 
         # read in contents of file and get important parameters
-        self.point_estimate_data = self.capture_volume.point_estimate_data
+        self.point_history = self.capture_volume.point_history
         # self.pairs = self.point_estimate_data["pair"].unique().tolist()
 
         # build the initial scatters that will be updated
@@ -80,7 +80,7 @@ class CaptureVolumeVisualizer:
 
     def play_data(self):
         # sync_indices = self.point_estimate_data["sync_index"].unique().tolist()
-        sync_indices = np.unique(self.point_estimate_data.sync_indices)
+        sync_indices = np.unique(self.point_history.sync_indices)
         sync_indices = np.sort(sync_indices)
 
         for sync_index in sync_indices:
@@ -89,10 +89,10 @@ class CaptureVolumeVisualizer:
             time.sleep(1 / 5)
 
     def display_points(self, sync_index):
-        current_sync_index_flag = self.point_estimate_data.sync_indices == sync_index
-        single_board_indices = np.unique(self.point_estimate_data.obj_indices[current_sync_index_flag])
+        current_sync_index_flag = self.point_history.sync_indices == sync_index
+        single_board_indices = np.unique(self.point_history.obj_indices[current_sync_index_flag])
         
-        single_board_points = self.point_estimate_data.obj[single_board_indices]
+        single_board_points = self.point_history.obj[single_board_indices]
 
         self.scatter.setData(pos=single_board_points)
         # point_data = self.point_estimate_data.query(f"sync_index == {sync_index}")
@@ -187,8 +187,8 @@ if __name__ == "__main__":
 
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.point_estimate_data import (
-        get_point_estimate_data,
+    from calicam.calibration.capture_volume.point_history import (
+        get_point_history,
     )
     from calicam.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle

@@ -18,19 +18,19 @@ CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrins
 
 
 @dataclass
-class PointEstimateData:
+class PointHistory:
     """
     Initialized from triangulated_points.csv to provide the formatting of data required for bundle adjustment
     "full" is used here because there is currently a method to filter the data based on reprojection error
     Not sure if it will be used going forward, but it remains here if so.
     """ 
 
-    camera_indices_full: np.ndarray  # camera id of image associated with a given point
-    img_full: np.ndarray  # x,y coords on point
-    corner_id_full: np.ndarray
-    obj_indices_full: np.ndarray
-    obj: np.ndarray  # x,y,z estimates of object points; note,this will never get reduced...it is used as reference via indices which are reduced
-    obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point
+    camera_indices_full: np.ndarray  # camera id associated with the img point
+    img_full: np.ndarray  # x,y coords of point
+    corner_id_full: np.ndarray # point id (i.e. charuco corner currently)
+    obj_indices_full: np.ndarray # mapping of x,y img points to their respective list of estimated x,y,z obj points
+    obj: np.ndarray  # x,y,z estimates of object points
+    obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point; is this necessary?
     sync_indices_full: np.ndarray  # the sync_index from when the image was taken
     
     def __post_init__(self):
@@ -193,7 +193,7 @@ def get_merged_2d_3d(points_csv_path):
     return merged_point_data
 
 
-def get_point_estimate_data(stereo_points_csv_path: Path) -> PointEstimateData:
+def get_point_history(stereo_points_csv_path: Path) -> PointHistory:
     """
     formats the triangulated_points.csv file into a PointEstimateData that has the 
     data structured in a way that is amenable to bundle adjustment
@@ -210,7 +210,7 @@ def get_point_estimate_data(stereo_points_csv_path: Path) -> PointEstimateData:
     obj = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
     obj_corner_id = np.array(points_3d_df[["corner_id"]])
 
-    return PointEstimateData(
+    return PointHistory(
         camera_indices_full=camera_indices,
         img_full=img,
         corner_id_full=corner_id,
@@ -230,7 +230,7 @@ if __name__ == "__main__":
         session_directory, "recording", "stereotriangulated_points.csv"
     )
 
-    point_data = get_point_estimate_data(stereo_points_csv_path)
+    point_data = get_point_history(stereo_points_csv_path)
 
 
 # %%

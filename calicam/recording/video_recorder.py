@@ -84,7 +84,7 @@ class VideoRecorder:
                     self.frame_history["frame_time"].append(frame_time)
                     
                     new_tidy_table = frame_packet.to_tidy_table(sync_index)
-                    if new_tidy_table is not None:
+                    if new_tidy_table is not None: # i.e. it has data
                         for key, value in self.point_data_history.copy().items():
                             self.point_data_history[key].extend(new_tidy_table[key])
                         print(new_tidy_table)
@@ -143,9 +143,8 @@ if __name__ == "__main__":
 
     from calicam.recording.recorded_stream import RecordedStream, RecordedStreamPool
     
-    # from calicam import __app_dir__
+    from calicam import __root__
 
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
 
     # ports = [0, 1, 2, 3, 4]
     ports = [0,1]
@@ -155,7 +154,7 @@ if __name__ == "__main__":
 
     if test_live:
 
-        session_directory = Path(repo, "sessions", "5_cameras")
+        session_directory = Path(__root__, "sessions", "5_cameras")
         session = Session(session_directory)
         session.load_cameras()
         session.load_streams()
@@ -169,7 +168,7 @@ if __name__ == "__main__":
         syncr = Synchronizer(session.streams, fps_target=30)
         video_path = Path(session_directory, "recording2")
     else:
-        recording_directory = Path(repo, "sessions", "5_cameras", "recording")
+        recording_directory = Path(__root__, "sessions", "5_cameras", "recording")
         charuco = Charuco(
             4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
         )
@@ -177,7 +176,7 @@ if __name__ == "__main__":
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(stream_pool.streams, fps_target=3)
         stream_pool.play_videos()
-        new_recording_directory = Path(repo, "sessions", "5_cameras", "recording2")
+        new_recording_directory = Path(__root__, "sessions", "5_cameras", "recording2")
         video_path = Path(new_recording_directory)
 
     video_recorder = VideoRecorder(syncr)

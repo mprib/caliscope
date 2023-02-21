@@ -17,6 +17,10 @@ from pathlib import Path
 from itertools import combinations
 
 from calicam.triangulate.paired_point_builder import PairedPointBuilder, PairedPointsPacket
+from calicam.cameras.data_packets import PointPacket, FramePacket, SyncPacket
+from calicam.triangulate.paired_point_builder import PairedPointsPacket, SynchedPairedPoints
+
+
 from calicam.cameras.camera_array import CameraData, CameraArray
 
 
@@ -25,8 +29,9 @@ class ArrayTriangulator:
     def __init__(self, camera_array: CameraArray):
         self.camera_array = camera_array
         
-        self.ports = camera_array.cameras.key() 
+        self.ports = list(camera_array.cameras.keys())
         self.pairs = [(i,j) for i,j in combinations(self.ports,2) if i<j]
+
 
         # create the triangulators for each pair of cameras
         self.triangulators = {}
@@ -39,9 +44,10 @@ class ArrayTriangulator:
 
             self.triangulators[pair] = StereoTriangulator(camera_A, camera_B)
             
-    def triangulate_point_data(self, point_data_path:Path): 
-        self.point_data = pd.read_csv(point_data_path)
-        pass
+    def triangulate_synced_points(self, synced_paired_points:SynchedPairedPoints):
+        for pair,paired_point_packet  in synced_paired_points.paired_points_packets.items():
+            if paired_point_packet is not None:
+                self.triangulators[pair].add_3D_points(paired_point_packet)
 
 
 
@@ -76,8 +82,11 @@ class StereoTriangulator:
         mtx_B = self.camera_B.camera_matrix
         self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
 
-    def get_3D_points(self, xy_A:np.ndarray, xy_B:np.ndarray):
-        
+    def add_3D_points(self, paired_points:PairedPointsPacket):
+            
+        if len(paired_points.common_ids) > 0:
+            xy_A = paired_points.img_loc_A
+            xy_B = paired_points.img_loc_B
          
         if xy_A.shape[0] > 0:
 
@@ -96,8 +105,10 @@ class StereoTriangulator:
         else:
             xyz = np.array([])
 
-        return xyz
-
+        # update the paired point packet with the 3d positions
+        paired_points.xyz = xyz
+        
+        
     def undistort(self, points, camera: CameraData, iter_num=3):
         # implementing a function described here: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html
         # supposedly a better implementation than OpenCV

@@ -25,13 +25,13 @@ class PointHistory:
     Not sure if it will be used going forward, but it remains here if so.
     """ 
 
+    sync_indices: np.ndarray  # the sync_index from when the image was taken
     camera_indices: np.ndarray  # camera id associated with the img point
-    img: np.ndarray  # x,y coords of point
     point_id: np.ndarray # point id (i.e. charuco corner currently)
+    img: np.ndarray  # x,y coords of point
     obj_indices: np.ndarray # mapping of x,y img points to their respective list of estimated x,y,z obj points
     obj: np.ndarray  # x,y,z estimates of object points
     obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point; is this necessary?
-    sync_indices: np.ndarray  # the sync_index from when the image was taken
     
 
     def filter(self, least_squares_result_fun, percent_cutoff):
@@ -182,7 +182,7 @@ def get_merged_2d_3d(points_csv_path):
     return merged_point_data
 
 
-def get_point_history(stereo_points_csv_path: Path) -> PointHistory:
+def get_point_history_old(stereo_points_csv_path: Path) -> PointHistory:
     """
     formats the triangulated_points.csv file into a PointEstimateData that has the 
     data structured in a way that is amenable to bundle adjustment
@@ -209,6 +209,9 @@ def get_point_history(stereo_points_csv_path: Path) -> PointHistory:
         sync_indices=sync_index,
     )
 
+
+
+
 #%%
 if __name__ == "__main__":
     #%%
@@ -219,7 +222,7 @@ if __name__ == "__main__":
         session_directory, "recording", "stereotriangulated_points.csv"
     )
 
-    point_data = get_point_history(stereo_points_csv_path)
+    point_data = get_point_history_old(stereo_points_csv_path)
 
 
 # %%

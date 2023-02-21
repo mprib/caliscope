@@ -13,6 +13,7 @@ from calicam import __root__
 from calicam.cameras.data_packets import PointPacket, FramePacket, SyncPacket
 from calicam.cameras.camera_array_builder import CameraArrayBuilder
 from calicam.cameras.camera_array import CameraArray    
+from calicam.triangulate.triangulator import ArrayTriangulator
 
 from calicam.triangulate.paired_point_builder import PairedPointBuilder
 
@@ -36,6 +37,9 @@ paired_point_builder = PairedPointBuilder(ports)
 sync_indices = np.unique(xy_sync_indices)
 pairs = [(i,j) for i,j in combinations(ports,2) if i<j]
 
+# Create the infrastructure for the pairwise triangulation
+camera_array:CameraArray = CameraArrayBuilder(Path(session_path,"config.toml")).get_camera_array()
+array_triangulator = ArrayTriangulator(camera_array)
 
 print(time.time())
 # for sync_index in [0,1,2,3]: 
@@ -75,11 +79,10 @@ for sync_index in sync_indices:
     # get the paired point packets for all port pairs at this sync index
     synched_paired_points = paired_point_builder.get_synched_paired_points(sync_packet)
     # print(synched_paired_points)
+    array_triangulator.triangulate_synced_points(synched_paired_points)
     
-    # get triangulated points from all of the pairs...
     
      
 print(time.time())
-camera_array:CameraArray = CameraArrayBuilder(Path(session_path,"config.toml")).get_camera_array()
 # %%
-array_triangulator = 
+# %%

@@ -44,7 +44,7 @@ class ArrayTriangulator:
 
             self.triangulators[pair] = StereoTriangulator(camera_A, camera_B)
             
-    def triangulate_synced_points(self, synced_paired_points:SynchedPairedPoints):
+    def triangulate_synched_points(self, synced_paired_points:SynchedPairedPoints):
         for pair,paired_point_packet  in synced_paired_points.paired_points_packets.items():
             if paired_point_packet is not None:
                 self.triangulators[pair].add_3D_points(paired_point_packet)

@@ -19,42 +19,12 @@ from calicam.calibration.corner_tracker import CornerTracker
 from calicam.cameras.data_packets import SyncPacket, FramePacket, PointPacket
 
 
-class PairedPointStream:
-    def __init__(self, synchronizer, csv_output_path=None):
+class PairedPointBuilder:
+    def __init__(self, ports:list):
 
-        self.synchronizer = synchronizer
-        self.synched_frames_in_q = Queue(
-            -1
-        )  # receive from synchronizer...no size limit to queue
-        self.synchronizer.subscribe_to_sync_packets(self.synched_frames_in_q)
-
-        self.out_q = Queue(-1)  # no size limitations...should be small data
-        self.ports = synchronizer.ports
+        self.ports = ports
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
-        self.csv_output_path = csv_output_path
-        self.tidy_output = {}  # a holding place for data to be saved to csv
-
-        self.stop_event = Event()
-        self.frames_complete = False
-        self.thread = Thread(target=self.create_paired_points, args=[], daemon=True)
-        self.thread.start()
-
-    def add_to_tidy_output(self, packet):
-        """
-        Convert the packet to a dictionary and add it to a running dict of lists
-        Creates something that can be quickly exported to csv
-        """
-        if self.csv_output_path is None:
-            return
-
-        tidy_packet = packet.to_dict()
-        if len(self.tidy_output) == 0:
-            for key, value in tidy_packet.copy().items():
-                self.tidy_output[key] = value
-        else:
-            for key, value in tidy_packet.copy().items():
-                self.tidy_output[key].extend(value)
 
     def get_paired_points_packet(
         self,
@@ -101,51 +71,32 @@ class PairedPointStream:
 
         return packet
 
-    def create_paired_points(self):
+    def get_synched_paired_points(self, synched_frames:SyncPacket):
+        
+        # will be populated with dataframes of:
+        # id | img_x | img_y | board_x | board_y
+        sync_index = synched_frames.sync_index
+        paired_points_packets = {}
 
-        while not self.frames_complete:
-            synched_frames: SyncPacket = self.synched_frames_in_q.get()
+        for pair in self.pairs:
+            port_A = pair[0]
+            port_B = pair[1]
 
-            if synched_frames is None:
-                logging.info(
-                    "End of frames signaled...paired point stream shutting down"
+            if (
+                synched_frames.frame_packets[port_A] is not None
+                and synched_frames.frame_packets[port_B] is not None
+            ):
+
+                points_A = synched_frames.frame_packets[port_A].points
+                points_B = synched_frames.frame_packets[port_B].points
+
+                paired_points: PairedPointsPacket = self.get_paired_points_packet(
+                    sync_index, port_A, points_A, port_B, points_B
                 )
-                self.frames_complete = True
-                self.out_q.put(None)
-                break
 
-            # will be populated with dataframes of:
-            # id | img_x | img_y | board_x | board_y
-            sync_index = synched_frames.sync_index
+                paired_points_packets[pair] = paired_points
 
-            # paired_points = None
-            for pair in self.pairs:
-                port_A = pair[0]
-                port_B = pair[1]
-
-
-                if (
-                    synched_frames.frame_packets[port_A] is not None
-                    and synched_frames.frame_packets[port_B] is not None
-                ):
-
-                    points_A = synched_frames.frame_packets[port_A].points
-                    points_B = synched_frames.frame_packets[port_B].points
-
-                    paired_points: PairedPointsPacket = self.get_paired_points_packet(
-                        sync_index, port_A, points_A, port_B, points_B
-                    )
-
-                    # if no points in common, then don't do anything
-                    if paired_points is None:
-                        pass
-                    else:
-                        self.out_q.put(paired_points)
-                        logger.info(
-                            f"Placing packet for sync index {paired_points.sync_index} and pair {pair}"
-                        )
-                        # self.add_to_tidy_output(paired_points)
-
+        return paired_points_packets
 
 @dataclass
 class PairedPointsPacket:
@@ -163,6 +114,9 @@ class PairedPointsPacket:
     def pair(self):
         return (self.port_A, self.port_B)
 
+class SynchedPairedPoints:
+    sync_index: int
+    paired_points_packets: dict[tuple,PairedPointsPacket]
 
 if __name__ == "__main__":
     from calicam.recording.recorded_stream import RecordedStreamPool
@@ -184,7 +138,7 @@ if __name__ == "__main__":
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=200)
     recorded_stream_pool.play_videos()
 
-    point_stream = PairedPointStream(synchronizer=syncr, csv_output_path=csv_output)
+    point_stream = PairedPointBuilder(synchronizer=syncr, csv_output_path=csv_output)
 
     # I think that EOF needs to propogate up
     while not point_stream.frames_complete:

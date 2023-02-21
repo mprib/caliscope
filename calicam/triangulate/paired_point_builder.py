@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from itertools import combinations
 from calicam.cameras.synchronizer import Synchronizer
 from calicam.calibration.corner_tracker import CornerTracker
-from calicam.cameras.data_packets import SyncPacket, FramePacket, PointPacket
+from calicam.cameras.data_packets import SyncPacket
 
 
 class PairedPointBuilder:
@@ -90,7 +90,7 @@ class PairedPointBuilder:
 
                 paired_points_packets[pair] = paired_points
 
-        return SynchedPairedPoints(sync_index, sync_packet, paired_points_packets)
+        return SynchedPairedPoints(sync_index, paired_points_packets)
 
 
 @dataclass
@@ -105,30 +105,50 @@ class PairedPointsPacket:
     common_ids: np.ndarray
     img_loc_A: np.ndarray
     img_loc_B: np.ndarray
-    xyz: np.ndarray = (
-        None  # a place to hold the pairwise triangulated value down the line
-    )
+
+    # a place to hold the pairwise triangulated value down the line
+    xyz: np.ndarray = None
 
     @property
     def pair(self):
         return (self.port_A, self.port_B)
 
+    def to_table(self):
+        # table will be in the form of a dictionary of lists of equal length
+        table = {}
+
+        point_count = len(self.common_ids)
+
+        table["pair"] = [self.pair] * point_count
+        table["port_A"] = [self.port_A] * point_count
+        table["port_B"] = [self.port_B] * point_count
+        table["sync_index"] = [self.sync_index] * point_count
+        table["point_id"] = list(self.common_ids)
+        table["x_pos"] = list(self.xyz[:, 0])
+        table["y_pos"] = list(self.xyz[:, 1])
+        table["z_pos"] = list(self.xyz[:, 2])
+        table["x_A"] = list(self.img_loc_A[:, 0])
+        table["y_A"] = list(self.img_loc_A[:, 1])
+        table["x_B"] = list(self.img_loc_B[:, 0])
+        table["y_B"] = list(self.img_loc_B[:, 1])
+
+        return table
+
 
 @dataclass
 class SynchedPairedPoints:
     sync_index: int
-    sync_packet: SyncPacket
     paired_points_packets: dict[tuple, PairedPointsPacket]
 
-    @property
-    def ports(self):
-        return list(self.sync_packet.frame_packets.keys())
-        
+
     @property
     def pairs(self):
-        return [(i,j) for i,j in combinations(self.ports,2) if i < j]
-    
-    
+        return list(self.paired_points_packets.keys())
+
+    def to_table(self):
+        pass
+
+
 if __name__ == "__main__":
     from calicam.recording.recorded_stream import RecordedStreamPool
     from calicam.calibration.charuco import Charuco

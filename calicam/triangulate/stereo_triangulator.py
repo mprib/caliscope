@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from calicam.triangulate.paired_point_stream import PairedPointStream, PairedPointsPacket
+from calicam.triangulate.paired_point_builder import PairedPointBuilder, PairedPointsPacket
 from calicam.cameras.camera_array import CameraData
 
 class StereoTriangulator:
@@ -199,7 +199,7 @@ if __name__ == "__main__":
 
     # create a commmon point finder to grab charuco corners shared between the pair of ports
     pairs = [(0, 1)]
-    point_stream = PairedPointStream(
+    point_stream = PairedPointBuilder(
         synchronizer=syncr,
         pairs=pairs,
         tracker=trackr,

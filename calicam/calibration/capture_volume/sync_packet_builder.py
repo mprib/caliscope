@@ -11,9 +11,12 @@ import time
 
 from calicam import __root__
 from calicam.cameras.data_packets import PointPacket, FramePacket, SyncPacket
-from calicam.triangulate.paired_point_builder import PairedPointBuilder
-#%%
+from calicam.cameras.camera_array_builder import CameraArrayBuilder
+from calicam.cameras.camera_array import CameraArray    
 
+from calicam.triangulate.paired_point_builder import PairedPointBuilder
+
+session_path = Path(__root__, "tests", "5_cameras")
 point_data_path = Path(__root__, "tests", "5_cameras", "recording", "point_data.csv")
 point_data = pd.read_csv(point_data_path)
 
@@ -34,19 +37,17 @@ sync_indices = np.unique(xy_sync_indices)
 pairs = [(i,j) for i,j in combinations(ports,2) if i<j]
 
 
-#%% 
 print(time.time())
-for sync_index in [0,1,2,3]: 
-# for sync_index in sync_indices:
+# for sync_index in [0,1,2,3]: 
+for sync_index in sync_indices:
+    # pull in the data that shares the same sync index
     port_points = point_data.query(f"sync_index == {sync_index}")
 
-    # ports = port_points["port"].unique()
-    # print(f"{sync_index}: {ports}")
-
+    # initialize a dict to hold all the frame packets
     frame_packets = {}
 
     for port in ports:
-        
+        # Create the Frame packet for each port at this sync_index    
         if port in port_points["port"].unique():
             points = port_points.query(f"port == {port}")
             frame_time = points["frame_time"].iloc[0]
@@ -67,11 +68,18 @@ for sync_index in [0,1,2,3]:
             frame_packets[port] = frame_packet
         else:
             frame_packets[port] = None
-        
+    
+    # create the sync packet for this sync index 
     sync_packet = SyncPacket(sync_index, frame_packets)        
 
+    # get the paired point packets for all port pairs at this sync index
     synched_paired_points = paired_point_builder.get_synched_paired_points(sync_packet)
     # print(synched_paired_points)
     
+    # get triangulated points from all of the pairs...
+    
+     
 print(time.time())
+camera_array:CameraArray = CameraArrayBuilder(Path(session_path,"config.toml")).get_camera_array()
 # %%
+array_triangulator = 

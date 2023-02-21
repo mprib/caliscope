@@ -20,27 +20,19 @@ from calicam.cameras.data_packets import SyncPacket, FramePacket, PointPacket
 
 
 class PairedPointBuilder:
-    def __init__(self, ports:list):
+    def __init__(self, ports: list):
 
         self.ports = ports
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
-
-    def get_paired_points_packet(
-        self,
-        sync_index,
-        port_A,
-        points_A,
-        port_B,
-        points_B
-    ):
+    def get_paired_points_packet(self, sync_index, port_A, points_A, port_B, points_B):
 
         # get ids in common
-        if len(points_A.point_id)>0 and len(points_B.point_id)>0:
+        if len(points_A.point_id) > 0 and len(points_B.point_id) > 0:
             common_ids = np.intersect1d(points_A.point_id, points_B.point_id)
         else:
             common_ids = np.array([])
-        
+
         if len(common_ids) == 0:
             packet = None
         else:
@@ -63,19 +55,21 @@ class PairedPointBuilder:
                 port_A=port_A,
                 port_B=port_B,
                 common_ids=common_ids,
-                img_loc_A = points_A.img_loc[shared_indices_A],
-                img_loc_B = points_B.img_loc[shared_indices_B]
+                img_loc_A=points_A.img_loc[shared_indices_A],
+                img_loc_B=points_B.img_loc[shared_indices_B],
             )
 
-            logger.debug(f"Points in common for ports ({port_A}, {port_B}): {common_ids}")
+            logger.debug(
+                f"Points in common for ports ({port_A}, {port_B}): {common_ids}"
+            )
 
         return packet
 
-    def get_synched_paired_points(self, synched_frames:SyncPacket):
-        
+    def get_synched_paired_points(self, sync_packet: SyncPacket):
+
         # will be populated with dataframes of:
         # id | img_x | img_y | board_x | board_y
-        sync_index = synched_frames.sync_index
+        sync_index = sync_packet.sync_index
         paired_points_packets = {}
 
         for pair in self.pairs:
@@ -83,12 +77,12 @@ class PairedPointBuilder:
             port_B = pair[1]
 
             if (
-                synched_frames.frame_packets[port_A] is not None
-                and synched_frames.frame_packets[port_B] is not None
+                sync_packet.frame_packets[port_A] is not None
+                and sync_packet.frame_packets[port_B] is not None
             ):
 
-                points_A = synched_frames.frame_packets[port_A].points
-                points_B = synched_frames.frame_packets[port_B].points
+                points_A = sync_packet.frame_packets[port_A].points
+                points_B = sync_packet.frame_packets[port_B].points
 
                 paired_points: PairedPointsPacket = self.get_paired_points_packet(
                     sync_index, port_A, points_A, port_B, points_B
@@ -96,11 +90,13 @@ class PairedPointBuilder:
 
                 paired_points_packets[pair] = paired_points
 
-        return paired_points_packets
+        return SynchedPairedPoints(sync_index, sync_packet, paired_points_packets)
+
 
 @dataclass
 class PairedPointsPacket:
     """The points shared by two FramePointsPackets"""
+
     sync_index: int
 
     port_A: int
@@ -109,15 +105,30 @@ class PairedPointsPacket:
     common_ids: np.ndarray
     img_loc_A: np.ndarray
     img_loc_B: np.ndarray
+    xyz: np.ndarray = (
+        None  # a place to hold the pairwise triangulated value down the line
+    )
 
     @property
     def pair(self):
         return (self.port_A, self.port_B)
 
+
+@dataclass
 class SynchedPairedPoints:
     sync_index: int
-    paired_points_packets: dict[tuple,PairedPointsPacket]
+    sync_packet: SyncPacket
+    paired_points_packets: dict[tuple, PairedPointsPacket]
 
+    @property
+    def ports(self):
+        return list(self.sync_packet.frame_packets.keys())
+        
+    @property
+    def pairs(self):
+        return [(i,j) for i,j in combinations(self.ports,2) if i < j]
+    
+    
 if __name__ == "__main__":
     from calicam.recording.recorded_stream import RecordedStreamPool
     from calicam.calibration.charuco import Charuco

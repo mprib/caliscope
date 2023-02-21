@@ -15,7 +15,7 @@ from calicam.cameras.camera_array_builder import CameraArrayBuilder
 from calicam.cameras.camera_array import CameraArray    
 from calicam.triangulate.triangulator import ArrayTriangulator
 
-from calicam.triangulate.paired_point_builder import PairedPointBuilder
+from calicam.triangulate.paired_point_builder import PairedPointBuilder, PairedPointsPacket, SynchedPairedPoints
 
 session_path = Path(__root__, "tests", "5_cameras")
 point_data_path = Path(__root__, "tests", "5_cameras", "recording", "point_data.csv")
@@ -40,6 +40,8 @@ pairs = [(i,j) for i,j in combinations(ports,2) if i<j]
 # Create the infrastructure for the pairwise triangulation
 camera_array:CameraArray = CameraArrayBuilder(Path(session_path,"config.toml")).get_camera_array()
 array_triangulator = ArrayTriangulator(camera_array)
+
+stereotriangulated_table = None
 
 print(time.time())
 # for sync_index in [0,1,2,3]: 
@@ -77,12 +79,20 @@ for sync_index in sync_indices:
     sync_packet = SyncPacket(sync_index, frame_packets)        
 
     # get the paired point packets for all port pairs at this sync index
-    synched_paired_points = paired_point_builder.get_synched_paired_points(sync_packet)
+    synched_paired_points: SynchedPairedPoints = paired_point_builder.get_synched_paired_points(sync_packet)
     # print(synched_paired_points)
-    array_triangulator.triangulate_synced_points(synched_paired_points)
-    
-    
+    array_triangulator.triangulate_synched_points(synched_paired_points)
      
+    for pair in synched_paired_points.pairs:
+        triangulated_pair:PairedPointsPacket = synched_paired_points.paired_points_packets[pair]
+        if triangulated_pair is not None:
+            if stereotriangulated_table is None:
+                stereotriangulated_table = triangulated_pair.to_table()
+            else:
+                new_table = triangulated_pair.to_table()
+                for key,value in new_table.items():
+                    stereotriangulated_table[key] = stereotriangulated_table[key].append(value)
+    
 print(time.time())
 # %%
 # %%

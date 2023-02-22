@@ -163,10 +163,10 @@ if __name__ == "__main__":
     )
 
     # ports = [0, 1, 2, 3, 4]
-    ports = [1,2, 3, 4]
+    ports = [0,1,2, 3, 4]
     # ports = [0]
     recorded_stream_pool = RecordedStreamPool(ports, recording_directory, charuco=charuco)
-    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=20)
+    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=6)
     recorded_stream_pool.play_videos()
 
     notification_q = Queue()

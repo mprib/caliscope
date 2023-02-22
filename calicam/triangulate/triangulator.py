@@ -14,9 +14,42 @@ import cv2
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from itertools import combinations
 
 from calicam.triangulate.paired_point_builder import PairedPointBuilder, PairedPointsPacket
-from calicam.cameras.camera_array import CameraData
+from calicam.cameras.data_packets import PointPacket, FramePacket, SyncPacket
+from calicam.triangulate.paired_point_builder import PairedPointsPacket, SynchedPairedPoints
+
+
+from calicam.cameras.camera_array import CameraData, CameraArray
+
+
+class ArrayTriangulator:
+    
+    def __init__(self, camera_array: CameraArray):
+        self.camera_array = camera_array
+        
+        self.ports = list(camera_array.cameras.keys())
+        self.pairs = [(i,j) for i,j in combinations(self.ports,2) if i<j]
+
+
+        # create the triangulators for each pair of cameras
+        self.triangulators = {}
+        for pair in self.pairs:
+            port_A = pair[0]
+            port_B = pair[1]
+            
+            camera_A:CameraData = self.camera_array.cameras[port_A]
+            camera_B:CameraData = self.camera_array.cameras[port_B]
+
+            self.triangulators[pair] = StereoTriangulator(camera_A, camera_B)
+            
+    def triangulate_synched_points(self, synced_paired_points:SynchedPairedPoints):
+        for pair,paired_point_packet  in synced_paired_points.paired_points_packets.items():
+            if paired_point_packet is not None:
+                self.triangulators[pair].add_3D_points(paired_point_packet)
+
+
 
 class StereoTriangulator:
     def __init__(self, camera_A: CameraData, camera_B: CameraData):
@@ -49,14 +82,16 @@ class StereoTriangulator:
         mtx_B = self.camera_B.camera_matrix
         self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
 
-    def get_3D_points(self, paired_points:PairedPointsPacket):
+    def add_3D_points(self, paired_points:PairedPointsPacket):
             
         if len(paired_points.common_ids) > 0:
-            points_A_raw = paired_points.img_loc_A
-            points_B_raw = paired_points.img_loc_B
+            xy_A = paired_points.img_loc_A
+            xy_B = paired_points.img_loc_B
+         
+        if xy_A.shape[0] > 0:
 
-            points_A_undistorted = self.undistort(points_A_raw,self.camera_A)
-            points_B_undistorted = self.undistort(points_B_raw,self.camera_B)
+            points_A_undistorted = self.undistort(xy_A,self.camera_A)
+            points_B_undistorted = self.undistort(xy_B,self.camera_B)
 
             # triangulate points outputs data in 4D homogenous coordinate system
             # note that these are in a world frame of reference
@@ -70,20 +105,10 @@ class StereoTriangulator:
         else:
             xyz = np.array([])
 
-        triangulated_points = TriangulatedPointsPacket(
-            sync_index=paired_points.sync_index,
-            pair=self.pair,
-            point_ids=paired_points.common_ids,
-            xyz=xyz,
-            xy_A_raw=points_A_raw,
-            xy_B_raw=points_B_raw,
-            xy_A_undistorted=points_A_undistorted,
-            xy_B_undistorted=points_B_undistorted,
-        )
-
-
-        return triangulated_points
-
+        # update the paired point packet with the 3d positions
+        paired_points.xyz = xyz
+        
+        
     def undistort(self, points, camera: CameraData, iter_num=3):
         # implementing a function described here: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html
         # supposedly a better implementation than OpenCV
@@ -111,62 +136,6 @@ class StereoTriangulator:
         return np.array((x * fx + cx, y * fy + cy))
 
 
-@dataclass
-class TriangulatedPointsPacket:
-    pair: tuple  # parent pair
-    point_ids: np.ndarray
-    xyz: np.ndarray
-    sync_index: int
-    xy_A_raw: np.ndarray
-    xy_B_raw: np.ndarray
-    xy_A_undistorted: np.ndarray
-    xy_B_undistorted: np.ndarray
-
-    def to_dict(self):
-        num_rows = len(self.point_ids)
-
-        if num_rows == 0:
-            return None 
-        else:
-            pair_list = [self.pair] * num_rows
-            # time_list = [self.time] * num_rows
-            sync_index_list = [self.sync_index] * num_rows
-            id_list = self.point_ids.tolist()
-            port_A_list = [self.pair[0]] * num_rows
-            port_B_list = [self.pair[1]] * num_rows
-            x_list = self.xyz[:, 0].tolist()
-            y_list = self.xyz[:, 1].tolist()
-            z_list = self.xyz[:, 2].tolist()
-            x_A_raw = self.xy_A_raw.T[0,:].tolist()
-            y_A_raw = self.xy_A_raw.T[1,:].tolist()
-            x_B_raw = self.xy_B_raw.T[0,: ].tolist()
-            y_B_raw = self.xy_B_raw.T[1,: ].tolist()
-            x_A_undistorted = self.xy_A_undistorted[0,:].tolist()
-            y_A_undistorted = self.xy_A_undistorted[1,:].tolist()
-            x_B_undistorted = self.xy_B_undistorted[0,: ].tolist()
-            y_B_undistorted = self.xy_B_undistorted[1,: ].tolist()
-
-            data = {
-                "pair": pair_list,
-                "port_A": port_A_list,
-                "port_B": port_B_list,
-                # "time": time_list,
-                "sync_index": sync_index_list,
-                "id": id_list,
-                "x_pos": x_list,
-                "y_pos": y_list,
-                "z_pos": z_list,
-                "x_A_raw": x_A_raw,
-                "y_A_raw": y_A_raw,
-                "x_B_raw": x_B_raw,
-                "y_B_raw": y_B_raw,
-                "x_A_undistorted": x_A_undistorted,
-                "y_A_undistorted": y_A_undistorted,
-                "x_B_undistorted": x_B_undistorted,
-                "y_B_undistorted": y_B_undistorted,
-            }
-
-            return data
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ if __name__ == "__main__":
     from calicam.cameras.synchronizer import Synchronizer
     from calicam.calibration.charuco import Charuco
     from calicam.calibration.corner_tracker import CornerTracker
-    from calicam.triangulate.paired_point_builder import PairedPointBuilder
+    from calicam.triangulate.paired_point_builder import StereoPointBuilder
     from calicam.triangulate.stereo_triangulator import StereoTriangulator
     from calicam.triangulate.stereo_triangulator import StereoTriangulator
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     # create a commmon point finder to grab charuco corners shared between the pair of ports
     pairs = [(ports[0], ports[1])]
-    point_stream = PairedPointBuilder(
+    point_stream = StereoPointBuilder(
         synchronizer=syncr,
         pairs=pairs,
         tracker=trackr,

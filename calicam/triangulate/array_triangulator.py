@@ -24,8 +24,8 @@ from calicam.cameras.synchronizer import Synchronizer
 from calicam.recording.recorded_stream import RecordedStreamPool
 from calicam.triangulate.stereo_triangulator import StereoTriangulator
 from calicam.triangulate.paired_point_builder import (
-    PairedPointBuilder,
-    PairedPointsPacket,
+    StereoPointBuilder,
+    StereoPointsPacket,
 )
 
 
@@ -33,7 +33,7 @@ class ArrayTriangulator:
     def __init__(
         self,
         camera_array: CameraArray,
-        paired_point_stream: PairedPointBuilder,
+        paired_point_stream: StereoPointBuilder,
         output_file: Path = None,
     ):
         self.camera_array = camera_array
@@ -85,7 +85,7 @@ class ArrayTriangulator:
 
         while not self.stop.is_set():
             # read in a paired point stream
-            new_paired_point_packet: PairedPointsPacket = (
+            new_paired_point_packet: StereoPointsPacket = (
                 self.paired_point_stream.out_q.get()
             )
 
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     recorded_stream_pool.play_videos()
 
     # create a commmon point finder to grab charuco corners shared between the pair of ports
-    point_stream = PairedPointBuilder(synchronizer=syncr)
+    point_stream = StereoPointBuilder(synchronizer=syncr)
 
     # Build triangulator
     # Note that this will automatically create the summarized output of the projected points

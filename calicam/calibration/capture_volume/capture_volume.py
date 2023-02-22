@@ -12,7 +12,7 @@ import cv2
 from scipy.optimize import least_squares
 import pandas as pd
 
-from calicam.calibration.capture_volume.point_estimate_data import PointEstimateData
+from calicam.calibration.capture_volume.point_history import PointHistory
 from calicam.cameras.camera_array import CameraArray
 
 CAMERA_PARAM_COUNT = 6
@@ -21,7 +21,7 @@ CAMERA_PARAM_COUNT = 6
 @dataclass
 class CaptureVolume:
     camera_array: CameraArray
-    point_estimate_data: PointEstimateData
+    point_history: PointHistory
 
     def save(self, output_path):
         with open(Path(output_path), "wb") as file:
@@ -34,7 +34,7 @@ class CaptureVolume:
         """
         camera_params = self.camera_array.get_extrinsic_params()
         combined = np.hstack(
-            (camera_params.ravel(), self.point_estimate_data.obj.ravel())
+            (camera_params.ravel(), self.point_history.obj.ravel())
         )
 
         return combined
@@ -67,7 +67,7 @@ class CaptureVolume:
         self.least_sq_result = least_squares(
             xy_reprojection_error,
             initial_param_estimate,
-            jac_sparsity=self.point_estimate_data.get_sparsity_pattern(),
+            jac_sparsity=self.point_history.get_sparsity_pattern(),
             verbose=2,
             x_scale="jac",
             loss="linear",
@@ -79,7 +79,7 @@ class CaptureVolume:
         )
 
         self.camera_array.update_extrinsic_params(self.least_sq_result.x)
-        self.point_estimate_data.update_obj_xyz(self.least_sq_result.x)
+        self.point_history.update_obj_xyz(self.least_sq_result.x)
 
         if output_path is not None:
             self.save(Path(output_path, "post_optimized_capture_volume.pkl"))
@@ -88,36 +88,36 @@ class CaptureVolume:
             f"Following bundle adjustment, RMSE is: {rms_reproj_error(self.least_sq_result.fun)}"
         )
 
-    def get_summary_df(self, label: str):
+    # def get_summary_df(self, label: str):
 
-        array_data_xy_error = self.xy_reprojection_error.reshape(-1, 2)
-        # build out error as singular distance
+    #     array_data_xy_error = self.xy_reprojection_error.reshape(-1, 2)
+    #     # build out error as singular distance
 
-        xyz = self.get_xyz_points()
+    #     xyz = self.get_xyz_points()
 
-        euclidean_distance_error = np.sqrt(np.sum(array_data_xy_error**2, axis=1))
-        row_count = euclidean_distance_error.shape[0]
+    #     euclidean_distance_error = np.sqrt(np.sum(array_data_xy_error**2, axis=1))
+    #     row_count = euclidean_distance_error.shape[0]
 
-        array_data_dict = {
-            "label": [label] * row_count,
-            "camera": self.point_estimate_data.camera_indices_full.tolist(),
-            "sync_index": self.point_estimate_data.sync_indices.astype(int).tolist(),
-            "charuco_id": self.point_estimate_data.corner_id.tolist(),
-            "img_x": self.point_estimate_data.img_full[:, 0].tolist(),
-            "img_y": self.point_estimate_data.img_full[:, 1].tolist(),
-            "reproj_error_x": array_data_xy_error[:, 0].tolist(),
-            "reproj_error_y": array_data_xy_error[:, 1].tolist(),
-            "reproj_error": euclidean_distance_error.tolist(),
-            "obj_id": self.point_estimate_data.obj_indices.tolist(),
-            "obj_x": xyz[self.point_estimate_data.obj_indices_full][:, 0].tolist(),
-            "obj_y": xyz[self.point_estimate_data.obj_indices_full][:, 1].tolist(),
-            "obj_z": xyz[self.point_estimate_data.obj_indices_full][:, 2].tolist(),
-        }
+    #     array_data_dict = {
+    #         "label": [label] * row_count,
+    #         "camera": self.point_history.camera_indices.tolist(),
+    #         "sync_index": self.point_history.sync_indices.astype(int).tolist(),
+    #         "charuco_id": self.point_history.point_id.tolist(),
+    #         "img_x": self.point_history.img[:, 0].tolist(),
+    #         "img_y": self.point_history.img[:, 1].tolist(),
+    #         "reproj_error_x": array_data_xy_error[:, 0].tolist(),
+    #         "reproj_error_y": array_data_xy_error[:, 1].tolist(),
+    #         "reproj_error": euclidean_distance_error.tolist(),
+    #         "obj_id": self.point_history.obj_indices.tolist(),
+    #         "obj_x": xyz[self.point_history.obj_indices][:, 0].tolist(),
+    #         "obj_y": xyz[self.point_history.obj_indices][:, 1].tolist(),
+    #         "obj_z": xyz[self.point_history.obj_indices][:, 2].tolist(),
+    #     }
 
-        summarized_data = pd.DataFrame(array_data_dict).astype(
-            {"sync_index": "int32", "charuco_id": "int32", "obj_id": "int32"}
-        )
-        return summarized_data
+    #     summarized_data = pd.DataFrame(array_data_dict).astype(
+    #         {"sync_index": "int32", "charuco_id": "int32", "obj_id": "int32"}
+    #     )
+    #     return summarized_data
 
 
 def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume):
@@ -132,24 +132,24 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     # Create one combined array primarily to make sure all calculations line up
     ## unpack the working estimates of the camera parameters (could be extr. or intr.)
     camera_params = current_param_estimates[
-        : capture_volume.point_estimate_data.n_cameras * CAMERA_PARAM_COUNT
-    ].reshape((capture_volume.point_estimate_data.n_cameras, CAMERA_PARAM_COUNT))
+        : capture_volume.point_history.n_cameras * CAMERA_PARAM_COUNT
+    ].reshape((capture_volume.point_history.n_cameras, CAMERA_PARAM_COUNT))
 
     ## similarly unpack the 3d point location estimates
     points_3d = current_param_estimates[
-        capture_volume.point_estimate_data.n_cameras * CAMERA_PARAM_COUNT :
-    ].reshape((capture_volume.point_estimate_data.n_obj_points, 3))
+        capture_volume.point_history.n_cameras * CAMERA_PARAM_COUNT :
+    ].reshape((capture_volume.point_history.n_obj_points, 3))
 
     ## create zero columns as placeholders for the reprojected 2d points
-    rows = capture_volume.point_estimate_data.camera_indices.shape[0]
+    rows = capture_volume.point_history.camera_indices.shape[0]
     blanks = np.zeros((rows, 2), dtype=np.float64)
 
     ## hstack all these arrays for ease of reference
     points_3d_and_2d = np.hstack(
         [
-            np.array([capture_volume.point_estimate_data.camera_indices]).T,
-            points_3d[capture_volume.point_estimate_data.obj_indices],
-            capture_volume.point_estimate_data.img,
+            np.array([capture_volume.point_history.camera_indices]).T,
+            points_3d[capture_volume.point_history.obj_indices],
+            capture_volume.point_history.img,
             blanks,
         ]
     )
@@ -158,7 +158,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     # it should scale linearly with the number of cameras...a tradeoff for stable
     # and explicit calculations...
     for port, cam in capture_volume.camera_array.cameras.items():
-        cam_points = np.where(capture_volume.point_estimate_data.camera_indices == port)
+        cam_points = np.where(capture_volume.point_history.camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
 
         cam_matrix = cam.camera_matrix
@@ -176,7 +176,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     # reshape the x,y reprojection error to a single vector
-    return (points_proj - capture_volume.point_estimate_data.img).ravel()
+    return (points_proj - capture_volume.point_history.img).ravel()
 
 
 def rms_reproj_error(xy_reproj_error):
@@ -193,8 +193,8 @@ if __name__ == "__main__":
 # if True:
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.point_estimate_data import (
-        get_point_estimate_data,
+    from calicam.calibration.capture_volume.point_history import (
+        get_point_history,
     )
 
     session_directory = Path(__root__, "tests", "5_cameras")
@@ -202,7 +202,7 @@ if __name__ == "__main__":
         session_directory, "recording", "stereotriangulated_points.csv"
     )
 
-    point_estimate_data = get_point_estimate_data(stereo_points_csv_path)
+    point_history = get_point_history(stereo_points_csv_path)
 
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
     print(f"Optimizing initial camera array configuration ")
 
-    capture_volume = CaptureVolume(camera_array, point_estimate_data)
+    capture_volume = CaptureVolume(camera_array, point_history)
     capture_volume.optimize(output_path=Path(session_directory, "recording"))
 
 # %%

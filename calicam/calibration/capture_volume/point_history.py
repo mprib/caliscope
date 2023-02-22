@@ -18,32 +18,21 @@ CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrins
 
 
 @dataclass
-class PointEstimateData:
+class PointHistory:
     """
     Initialized from triangulated_points.csv to provide the formatting of data required for bundle adjustment
     "full" is used here because there is currently a method to filter the data based on reprojection error
     Not sure if it will be used going forward, but it remains here if so.
     """ 
 
-    camera_indices_full: np.ndarray  # camera id of image associated with a given point
-    img_full: np.ndarray  # x,y coords on point
-    corner_id_full: np.ndarray
-    obj_indices_full: np.ndarray
-    obj: np.ndarray  # x,y,z estimates of object points; note,this will never get reduced...it is used as reference via indices which are reduced
-    obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point
-    sync_indices_full: np.ndarray  # the sync_index from when the image was taken
+    sync_indices: np.ndarray  # the sync_index from when the image was taken
+    camera_indices: np.ndarray  # camera id associated with the img point
+    point_id: np.ndarray # point id (i.e. charuco corner currently)
+    img: np.ndarray  # x,y coords of point
+    obj_indices: np.ndarray # mapping of x,y img points to their respective list of estimated x,y,z obj points
+    obj: np.ndarray  # x,y,z estimates of object points
+    obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point; is this necessary?
     
-    def __post_init__(self):
-        self.reset()
-
-    def reset(self):
-        # used when the filter method below has previously been applied and needing to return to the original
-        # data set. I do not believe this is currently being used anywhere...
-        self.camera_indices = self.camera_indices_full
-        self.img = self.img_full
-        self.corner_id = self.corner_id_full
-        self.obj_indices = self.obj_indices_full
-        self.sync_indices = self.sync_indices_full
 
     def filter(self, least_squares_result_fun, percent_cutoff):
         # I believe this was indentended for use with some iterative approach to bundle adjustment
@@ -66,11 +55,11 @@ class PointEstimateData:
             f"Reducing point data to {subset_count} image points (full count: {full_count})"
         )
 
-        self.camera_indices = self.camera_indices_full[include]
-        self.obj_indices = self.obj_indices_full[include]
-        self.corner_id = self.corner_id_full[include]
-        self.img = self.img_full[include]
-        self.sync_indices = self.sync_indices_full[include]
+        self.camera_indices = self.camera_indices[include]
+        self.obj_indices = self.obj_indices[include]
+        self.point_id = self.point_id[include]
+        self.img = self.img[include]
+        self.sync_indices = self.sync_indices[include]
 
     @property
     def n_cameras(self):
@@ -127,26 +116,26 @@ def get_points_2d_df(points_csv_path):
     points_df = pd.read_csv(points_csv_path)
 
     points_2d_port_A = points_df[
-        ["port_A", "sync_index", "id", "x_A_raw", "y_A_raw"]
+        ["port_A", "sync_index", "point_id", "x_A", "y_A"]
     ].rename(
         columns={
             "port_A": "camera",
             "sync_index": "sync_index",
-            "id": "corner_id",
-            "x_A_raw": "x_2d",
-            "y_A_raw": "y_2d",
+            "point_id": "corner_id",
+            "x_A": "x_2d",
+            "y_A": "y_2d",
         }
     )
 
     points_2d_port_B = points_df[
-        ["port_B", "sync_index", "id", "x_B_raw", "y_B_raw"]
+        ["port_B", "sync_index", "point_id", "x_B", "y_B"]
     ].rename(
         columns={
             "port_B": "camera",
             "sync_index": "sync_index",
-            "id": "corner_id",
-            "x_B_raw": "x_2d",
-            "y_B_raw": "y_2d",
+            "point_id": "corner_id",
+            "x_B": "x_2d",
+            "y_B": "y_2d",
         }
     )
 
@@ -163,16 +152,16 @@ def get_points_2d_df(points_csv_path):
 def get_points_3d_df(points_csv_path):
     points_df = pd.read_csv(points_csv_path)
     points_3d_df = (
-        points_df[["sync_index", "id", "pair", "x_pos", "y_pos", "z_pos"]]
-        .sort_values(["sync_index", "id"])
-        .groupby(["sync_index", "id"])
+        points_df[["sync_index", "point_id", "pair", "x_pos", "y_pos", "z_pos"]]
+        .sort_values(["sync_index", "point_id"])
+        .groupby(["sync_index", "point_id"])
         .agg({"x_pos": "mean", "y_pos": "mean", "z_pos": "mean", "pair": "size"})
         .rename(
             columns={"pair": "count", "x_pos": "x_3d", "y_pos": "y_3d", "z_pos": "z_3d"}
         )
         .reset_index()
         .reset_index()
-        .rename(columns={"index": "index_3d", "id": "corner_id"})
+        .rename(columns={"index": "index_3d", "point_id": "corner_id"})
     )
     return points_3d_df
 
@@ -193,7 +182,7 @@ def get_merged_2d_3d(points_csv_path):
     return merged_point_data
 
 
-def get_point_estimate_data(stereo_points_csv_path: Path) -> PointEstimateData:
+def get_point_history(stereo_points_csv_path: Path) -> PointHistory:
     """
     formats the triangulated_points.csv file into a PointEstimateData that has the 
     data structured in a way that is amenable to bundle adjustment
@@ -210,15 +199,18 @@ def get_point_estimate_data(stereo_points_csv_path: Path) -> PointEstimateData:
     obj = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
     obj_corner_id = np.array(points_3d_df[["corner_id"]])
 
-    return PointEstimateData(
-        camera_indices_full=camera_indices,
-        img_full=img,
-        corner_id_full=corner_id,
-        obj_indices_full=obj_indices,
+    return PointHistory(
+        camera_indices=camera_indices,
+        img=img,
+        point_id=corner_id,
+        obj_indices=obj_indices,
         obj=obj,
         obj_corner_id=obj_corner_id,
-        sync_indices_full=sync_index,
+        sync_indices=sync_index,
     )
+
+
+
 
 #%%
 if __name__ == "__main__":
@@ -230,7 +222,7 @@ if __name__ == "__main__":
         session_directory, "recording", "stereotriangulated_points.csv"
     )
 
-    point_data = get_point_estimate_data(stereo_points_csv_path)
+    point_data = get_point_history(stereo_points_csv_path)
 
 
 # %%

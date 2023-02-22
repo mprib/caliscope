@@ -51,4 +51,4 @@ class SyncPacket:
     """
 
     sync_index: int
-    frame_packets: dict
+    frame_packets: dict[int, FramePacket]

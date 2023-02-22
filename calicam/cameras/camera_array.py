@@ -6,7 +6,7 @@ import numpy as np
 from dataclasses import dataclass
 import cv2
 from scipy.optimize import least_squares
-from calicam.calibration.capture_volume.point_estimate_data import PointEstimateData
+from calicam.calibration.capture_volume.point_history import PointHistory
 import pandas as pd
 
 
@@ -96,9 +96,9 @@ class CameraArray:
 
 if __name__ == "__main__":
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.point_estimate_data import (
-        PointEstimateData,
-        get_point_estimate_data,
+    from calicam.calibration.capture_volume.point_history import (
+        PointHistory,
+        get_point_history,
     )
 
     from calicam import __root__
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     # session_directory = Path(repo, "sessions", "iterative_adjustment")
     points_csv_path = Path(session_directory, "recording", "stereotriangulated_points.csv")
 
-    point_estimate_data = get_point_estimate_data(points_csv_path)
+    point_history = get_point_history(points_csv_path)
     print(f"Optimizing initial camera array configuration ")
     # camera_array.optimize(point_data, output_path = points_csv_path.parent)
-    camera_array.bundle_adjust(point_estimate_data, output_path=points_csv_path.parent)
+    camera_array.bundle_adjust(point_history, output_path=points_csv_path.parent)

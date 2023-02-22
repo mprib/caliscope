@@ -60,7 +60,7 @@ class CameraArray:
     At the moment all it is doing is holding a dictionary of CameraData objects"""
 
     cameras: dict
-    least_sq_result = None
+    # least_sq_result = None # this may be a vestige of an old way of doing things. remove if commenting out doesn't break anything.
     
     def get_extrinsic_params(self):
         """for each camera build the CAMERA_PARAM_COUNT element parameter index
@@ -69,6 +69,7 @@ class CameraArray:
         First 3 components in each row form a rotation vector (https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula),
         next 3 components form a translation vector
         """
+
         camera_params = None
         for port, cam in self.cameras.items():
             port_param = cam.extrinsics_to_vector()

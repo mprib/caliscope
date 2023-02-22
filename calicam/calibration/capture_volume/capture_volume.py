@@ -33,9 +33,7 @@ class CaptureVolume:
         This is the required data format of the least squares optimization
         """
         camera_params = self.camera_array.get_extrinsic_params()
-        combined = np.hstack(
-            (camera_params.ravel(), self.point_history.obj.ravel())
-        )
+        combined = np.hstack((camera_params.ravel(), self.point_history.obj.ravel()))
 
         return combined
 
@@ -190,7 +188,7 @@ def rms_reproj_error(xy_reproj_error):
 
 
 if __name__ == "__main__":
-# if True:
+    # if True:
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
     from calicam.calibration.capture_volume.point_history import (
@@ -198,15 +196,12 @@ if __name__ == "__main__":
     )
 
     session_directory = Path(__root__, "tests", "5_cameras")
-    stereo_points_csv_path = Path(
-        session_directory, "recording", "stereotriangulated_points.csv"
-    )
-
-    point_history = get_point_history(stereo_points_csv_path)
+    point_data_csv_path = Path(session_directory, "recording", "point_data.csv")
 
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
+    point_history = get_point_history(camera_array, point_data_csv_path)
 
     print(f"Optimizing initial camera array configuration ")
 

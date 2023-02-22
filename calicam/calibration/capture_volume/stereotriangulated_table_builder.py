@@ -25,7 +25,7 @@ from calicam.triangulate.paired_point_builder import (
 
 
 
-def create_stereotriangulated_points(camera_array:CameraArray, point_data_path:Path):
+def get_stereotriangulated_points(camera_array:CameraArray, point_data_path:Path):
 
     logger.info(f"Beginning to create stereotriangulated points from data stored at {point_data_path}")
     point_data = pd.read_csv(point_data_path)
@@ -99,7 +99,7 @@ def create_stereotriangulated_points(camera_array:CameraArray, point_data_path:P
                     for key, value in new_table.items():
                         stereotriangulated_table[key].extend(value)
 
-    logger.info(f"Saving stereotriangulated_points.csv to {point_data_path.path}")
+    logger.info(f"Saving stereotriangulated_points.csv to {point_data_path} for inspection")
     stereotriangulated_table = pd.DataFrame(stereotriangulated_table)
     stereotriangulated_table.to_csv(
         Path(point_data_path.parent, "stereotriangulated_points.csv")

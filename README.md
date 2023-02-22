@@ -65,17 +65,21 @@ subgraph calibration_data
     config.toml
 end
 
+point_data.csv --> SyncPacketBuilder
+SyncPacketBuilder -.SyncPacket.-> StereoPointBuilder 
+
+
 
 CornerTracker --PointPacket--> RecordedStream
 
 ArrayConstructor --> CameraArray
 config.toml --> ArrayConstructor
 
-CameraArray --> StereoTriangulator
-Synchronizer -.SyncPacket.-> PairedPointStream
+CameraArray --> ArrayTriangulator
 
-subgraph triangulate:Factor Out PairedPacket Queue
-    PairedPointStream -.PairedPointPacket.-> ArrayTriangulator
+subgraph triangulate
+    StereoPointBuilder -.SynchedStereoPointsPacket-->ArrayTriangulator
+    ArrayTriangulator
     StereoTriangulator
 end
 

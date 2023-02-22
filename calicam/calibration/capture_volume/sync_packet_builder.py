@@ -86,15 +86,15 @@ for sync_index in sync_indices:
     sync_packet = SyncPacket(sync_index, frame_packets)
 
     # get the paired point packets for all port pairs at this sync index
-    synched_paired_points: SynchedStereoPointsPacket = (
+    synched_stereo_points: SynchedStereoPointsPacket = (
         paired_point_builder.get_synched_paired_points(sync_packet)
     )
     # print(synched_paired_points)
-    array_triangulator.triangulate_synched_points(synched_paired_points)
+    array_triangulator.triangulate_synched_points(synched_stereo_points)
 
-    for pair in synched_paired_points.pairs:
+    for pair in synched_stereo_points.pairs:
         triangulated_pair: StereoPointsPacket = (
-            synched_paired_points.stereo_points_packets[pair]
+            synched_stereo_points.stereo_points_packets[pair]
         )
         if triangulated_pair is not None:
             if stereotriangulated_table is None:

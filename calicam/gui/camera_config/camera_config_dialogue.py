@@ -59,7 +59,7 @@ class CameraConfigDialog(QDialog):
         self.build_exposure_hbox()
         self.build_ignore_checkbox()
         self.build_fps_grp()
-        self.build_grid_group()
+        # self.build_grid_group()
         self.build_calibrate_grp()
         ###################################################################
         self.v_box = QVBoxLayout(self)
@@ -84,13 +84,14 @@ class CameraConfigDialog(QDialog):
         #######################     FPS   + Grid Count #########################
         controls = QHBoxLayout()
         controls.addWidget(self.fps_grp)
-        controls.addWidget(self.grid_grp)
+        # controls.addWidget(self.grid_grp)
         # self.v_box.addWidget(self.fps_grp)
         # self.v_box.addWidget(self.grid_grp)
         self.v_box.addLayout(controls)
 
         ###################### CALIBRATION  ################################
         self.v_box.addWidget(self.calibrate_grp)
+        self.v_box.addWidget(self.ignore_box)
 
     ####################### SUB_WIDGET CONSTRUCTION ###############################
 
@@ -104,7 +105,7 @@ class CameraConfigDialog(QDialog):
         # Collect Calibration Corners
         vbox = QVBoxLayout()
         vbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        collect_crnr_btn = QPushButton("Capture")
+        collect_crnr_btn = QPushButton("Capture Grids")
         collect_crnr_btn.setMaximumWidth(100)
         vbox.addWidget(collect_crnr_btn)
 
@@ -116,7 +117,7 @@ class CameraConfigDialog(QDialog):
                 self.calibrate_btn.setEnabled(False)
             else:
                 self.monocal.capture_corners = False
-                collect_crnr_btn.setText("Capture")
+                collect_crnr_btn.setText("Capture Grids")
                 if self.monocal.grid_count > 1:
                     self.calibrate_btn.setEnabled(True)
                     self.clear_grid_history_btn.setEnabled(True)
@@ -238,32 +239,32 @@ class CameraConfigDialog(QDialog):
 
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
 
-    def build_grid_group(self):
-        # Built capture wait time
-        self.grid_grp = QGroupBox("Grid Collection")
-        hbox = QHBoxLayout()
-        self.grid_grp.setLayout(hbox)
+    # def build_grid_group(self):
+    #     # Built capture wait time
+    #     self.grid_grp = QGroupBox("Grid Collection")
+    #     hbox = QHBoxLayout()
+    #     self.grid_grp.setLayout(hbox)
 
-        hbox.addWidget(QLabel("Wait Time:"))
-        self.wait_time_spin = QDoubleSpinBox()
-        self.wait_time_spin.setValue(self.monocal.wait_time)
-        self.wait_time_spin.setSingleStep(0.1)
+    #     hbox.addWidget(QLabel("Wait Time:"))
+    #     self.wait_time_spin = QDoubleSpinBox()
+    #     self.wait_time_spin.setValue(self.monocal.wait_time)
+    #     self.wait_time_spin.setSingleStep(0.1)
 
-        def on_wait_time_spin(wait_time):
-            self.monocal.wait_time = wait_time
+    #     def on_wait_time_spin(wait_time):
+    #         self.monocal.wait_time = wait_time
 
-        self.wait_time_spin.valueChanged.connect(on_wait_time_spin)
-        hbox.addWidget(self.wait_time_spin)
+    #     self.wait_time_spin.valueChanged.connect(on_wait_time_spin)
+    #     hbox.addWidget(self.wait_time_spin)
 
-        logger.debug("Building Grid Count Display")
-        self.grid_count_display = QLabel()
-        hbox.addWidget(self.grid_count_display)
-        self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+    #     logger.debug("Building Grid Count Display")
+    #     self.grid_count_display = QLabel()
+    #     hbox.addWidget(self.grid_count_display)
+    #     self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        def grid_count_update_slot(grid_count):
-            self.grid_count_display.setText(f"Count: {grid_count}")
+    #     def grid_count_update_slot(grid_count):
+    #         self.grid_count_display.setText(f"Count: {grid_count}")
 
-        self.frame_emitter.GridCountBroadcast.connect(grid_count_update_slot)
+    #     self.frame_emitter.GridCountBroadcast.connect(grid_count_update_slot)
 
     def build_cw_rotation_btn(self):
         self.cw_rotation_btn = QPushButton(
@@ -313,7 +314,6 @@ class CameraConfigDialog(QDialog):
     def build_ignore_checkbox(self):
 
         self.ignore_box = QCheckBox("Ignore", self)
-        self.exposure_hbox.addWidget(self.ignore_box)
 
         def ignore_cam(signal):
             print(signal)

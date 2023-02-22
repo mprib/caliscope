@@ -4,10 +4,10 @@ CreationDate = 2022-12-22T10:43:16.354534
 port = 0
 resolution = [ 1280, 720,]
 rotation_count = 0
-exposure = -5.0
+exposure = -7
+grid_count = 0
 ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,],]
-
 
 [charuco]
 columns = 4

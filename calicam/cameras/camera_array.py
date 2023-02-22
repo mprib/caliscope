@@ -17,7 +17,7 @@ class CameraData:
     """
 
     port: int
-    resolution: tuple[int, int]
+    resolution: tuple
     camera_matrix: np.ndarray
     error: float  # the RMSE of reprojection associated with the intrinsic calibration
     distortion: np.ndarray  #

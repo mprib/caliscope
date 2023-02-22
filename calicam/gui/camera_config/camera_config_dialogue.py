@@ -331,8 +331,8 @@ class CameraConfigDialog(QDialog):
 
         self.frame_display = QLabel()
         self.frame_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.frame_display.setFixedWidth(self.width())
-        self.frame_display.setFixedHeight(self.width())
+        # self.frame_display.setFixedWidth(self.width())
+        # self.frame_display.setFixedHeight(self.width())
 
         def ImageUpdateSlot(QPixmap):
             self.frame_display.setPixmap(QPixmap)
@@ -386,9 +386,8 @@ class CameraConfigDialog(QDialog):
 
 if __name__ == "__main__":
     App = QApplication(sys.argv)
-
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
-    config_path = Path(repo, "sessions", "high_res_session")
+    from calicam import __root__
+    config_path = Path(__root__, "sessions", "laptop")
 
     print(config_path)
     session = Session(config_path)

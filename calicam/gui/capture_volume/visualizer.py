@@ -208,6 +208,7 @@ if __name__ == "__main__":
 
     # capture_volume = CaptureVolume(camera_array, point_estimate_data)
 
+    # saved_CV_path = Path(session_directory, "recording", "pre_optimized_capture_volume.pkl") 
     saved_CV_path = Path(session_directory, "recording", "post_optimized_capture_volume.pkl") 
     with open(saved_CV_path, "rb") as f:
         capture_volume = pickle.load(f)

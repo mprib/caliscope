@@ -19,13 +19,13 @@ from calicam.calibration.corner_tracker import CornerTracker
 from calicam.cameras.data_packets import SyncPacket
 
 
-class PairedPointBuilder:
+class StereoPointBuilder:
     def __init__(self, ports: list):
 
         self.ports = ports
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
-    def get_paired_points_packet(self, sync_index, port_A, points_A, port_B, points_B):
+    def get_stereo_points_packet(self, sync_index, port_A, points_A, port_B, points_B):
 
         # get ids in common
         if len(points_A.point_id) > 0 and len(points_B.point_id) > 0:
@@ -50,7 +50,7 @@ class PairedPointBuilder:
             ]
             shared_indices_B
 
-            packet = PairedPointsPacket(
+            packet = StereoPointsPacket(
                 sync_index=sync_index,
                 port_A=port_A,
                 port_B=port_B,
@@ -84,17 +84,17 @@ class PairedPointBuilder:
                 points_A = sync_packet.frame_packets[port_A].points
                 points_B = sync_packet.frame_packets[port_B].points
 
-                paired_points: PairedPointsPacket = self.get_paired_points_packet(
+                paired_points: StereoPointsPacket = self.get_stereo_points_packet(
                     sync_index, port_A, points_A, port_B, points_B
                 )
 
                 paired_points_packets[pair] = paired_points
 
-        return SynchedPairedPoints(sync_index, paired_points_packets)
+        return SynchedStereoPointsPacket(sync_index, paired_points_packets)
 
 
 @dataclass
-class PairedPointsPacket:
+class StereoPointsPacket:
     """The points shared by two FramePointsPackets"""
 
     sync_index: int
@@ -136,14 +136,14 @@ class PairedPointsPacket:
 
 
 @dataclass
-class SynchedPairedPoints:
+class SynchedStereoPointsPacket:
     sync_index: int
-    paired_points_packets: dict[tuple, PairedPointsPacket]
+    stereo_points_packets: dict[tuple, StereoPointsPacket]
 
 
     @property
     def pairs(self):
-        return list(self.paired_points_packets.keys())
+        return list(self.stereo_points_packets.keys())
 
     def to_table(self):
         pass
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=200)
     recorded_stream_pool.play_videos()
 
-    point_stream = PairedPointBuilder(synchronizer=syncr, csv_output_path=csv_output)
+    point_stream = StereoPointBuilder(synchronizer=syncr, csv_output_path=csv_output)
 
     # I think that EOF needs to propogate up
     while not point_stream.frames_complete:

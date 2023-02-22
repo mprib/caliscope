@@ -116,26 +116,26 @@ def get_points_2d_df(points_csv_path):
     points_df = pd.read_csv(points_csv_path)
 
     points_2d_port_A = points_df[
-        ["port_A", "sync_index", "id", "x_A_raw", "y_A_raw"]
+        ["port_A", "sync_index", "point_id", "x_A", "y_A"]
     ].rename(
         columns={
             "port_A": "camera",
             "sync_index": "sync_index",
-            "id": "corner_id",
-            "x_A_raw": "x_2d",
-            "y_A_raw": "y_2d",
+            "point_id": "corner_id",
+            "x_A": "x_2d",
+            "y_A": "y_2d",
         }
     )
 
     points_2d_port_B = points_df[
-        ["port_B", "sync_index", "id", "x_B_raw", "y_B_raw"]
+        ["port_B", "sync_index", "point_id", "x_B", "y_B"]
     ].rename(
         columns={
             "port_B": "camera",
             "sync_index": "sync_index",
-            "id": "corner_id",
-            "x_B_raw": "x_2d",
-            "y_B_raw": "y_2d",
+            "point_id": "corner_id",
+            "x_B": "x_2d",
+            "y_B": "y_2d",
         }
     )
 
@@ -152,16 +152,16 @@ def get_points_2d_df(points_csv_path):
 def get_points_3d_df(points_csv_path):
     points_df = pd.read_csv(points_csv_path)
     points_3d_df = (
-        points_df[["sync_index", "id", "pair", "x_pos", "y_pos", "z_pos"]]
-        .sort_values(["sync_index", "id"])
-        .groupby(["sync_index", "id"])
+        points_df[["sync_index", "point_id", "pair", "x_pos", "y_pos", "z_pos"]]
+        .sort_values(["sync_index", "point_id"])
+        .groupby(["sync_index", "point_id"])
         .agg({"x_pos": "mean", "y_pos": "mean", "z_pos": "mean", "pair": "size"})
         .rename(
             columns={"pair": "count", "x_pos": "x_3d", "y_pos": "y_3d", "z_pos": "z_3d"}
         )
         .reset_index()
         .reset_index()
-        .rename(columns={"index": "index_3d", "id": "corner_id"})
+        .rename(columns={"index": "index_3d", "point_id": "corner_id"})
     )
     return points_3d_df
 
@@ -182,7 +182,7 @@ def get_merged_2d_3d(points_csv_path):
     return merged_point_data
 
 
-def get_point_history_old(stereo_points_csv_path: Path) -> PointHistory:
+def get_point_history(stereo_points_csv_path: Path) -> PointHistory:
     """
     formats the triangulated_points.csv file into a PointEstimateData that has the 
     data structured in a way that is amenable to bundle adjustment
@@ -222,7 +222,7 @@ if __name__ == "__main__":
         session_directory, "recording", "stereotriangulated_points.csv"
     )
 
-    point_data = get_point_history_old(stereo_points_csv_path)
+    point_data = get_point_history(stereo_points_csv_path)
 
 
 # %%

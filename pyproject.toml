@@ -33,7 +33,7 @@ dependencies = ["numpy",
                 "toml", 
                 "seaborn"] #add additional dependencies here - try to pin versions as minimally as possible
 
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 
 dynamic = ["version"]
 

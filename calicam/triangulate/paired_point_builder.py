@@ -138,7 +138,7 @@ class StereoPointsPacket:
 @dataclass
 class SynchedStereoPointsPacket:
     sync_index: int
-    stereo_points_packets: dict[tuple, StereoPointsPacket]
+    stereo_points_packets: dict
 
 
     @property

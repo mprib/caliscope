@@ -119,11 +119,6 @@ class Session:
         self.update_config()
 
     def connected_camera_count(self):
-        cam_count = 0
-
-        # for key in self.config.keys():
-        #     if key.startswith("cam"):
-        #         cam_count+=1
         return len(self.cameras)
 
     def calibrated_camera_count(self):

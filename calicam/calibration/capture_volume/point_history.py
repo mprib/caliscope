@@ -13,6 +13,8 @@ from scipy.sparse import lil_matrix
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
+from calicam.cameras.camera_array import CameraArray
+from calicam.calibration.capture_volume.stereotriangulated_table_builder import get_stereotriangulated_points
 
 CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrinsic
 
@@ -112,10 +114,9 @@ class PointHistory:
         
         
         
-def get_points_2d_df(points_csv_path):
-    points_df = pd.read_csv(points_csv_path)
+def get_points_2d_df(stereotriangulated_table:pd.DataFrame):
 
-    points_2d_port_A = points_df[
+    points_2d_port_A = stereotriangulated_table[
         ["port_A", "sync_index", "point_id", "x_A", "y_A"]
     ].rename(
         columns={
@@ -127,7 +128,7 @@ def get_points_2d_df(points_csv_path):
         }
     )
 
-    points_2d_port_B = points_df[
+    points_2d_port_B = stereotriangulated_table[
         ["port_B", "sync_index", "point_id", "x_B", "y_B"]
     ].rename(
         columns={
@@ -149,10 +150,10 @@ def get_points_2d_df(points_csv_path):
 
 
 # get 3d points with indices to merge back into points_2d
-def get_points_3d_df(points_csv_path):
-    points_df = pd.read_csv(points_csv_path)
+def get_points_3d_df(stereotriangulated_table):
+
     points_3d_df = (
-        points_df[["sync_index", "point_id", "pair", "x_pos", "y_pos", "z_pos"]]
+        stereotriangulated_table[["sync_index", "point_id", "pair", "x_pos", "y_pos", "z_pos"]]
         .sort_values(["sync_index", "point_id"])
         .groupby(["sync_index", "point_id"])
         .agg({"x_pos": "mean", "y_pos": "mean", "z_pos": "mean", "pair": "size"})
@@ -166,12 +167,12 @@ def get_points_3d_df(points_csv_path):
     return points_3d_df
 
 
-def get_merged_2d_3d(points_csv_path):
+def get_merged_2d_3d(stereotriangulated_table):
     """
     For each 2d point line, add in the estimated 3d point position
     """
-    points_2d_df = get_points_2d_df(points_csv_path)
-    points_3d_df = get_points_3d_df(points_csv_path)
+    points_2d_df = get_points_2d_df(stereotriangulated_table)
+    points_3d_df = get_points_3d_df(stereotriangulated_table)
 
     merged_point_data = (
         points_2d_df.merge(points_3d_df, how="left", on=["sync_index", "corner_id"])
@@ -182,14 +183,19 @@ def get_merged_2d_3d(points_csv_path):
     return merged_point_data
 
 
-def get_point_history(stereo_points_csv_path: Path) -> PointHistory:
+def get_point_history(camera_array:CameraArray, point_data_path: Path) -> PointHistory:
     """
     formats the triangulated_points.csv file into a PointEstimateData that has the 
     data structured in a way that is amenable to bundle adjustment
     """
-    #NOTE: Not a method of the dataclass, the is a convenience constructor
-    points_3d_df = get_points_3d_df(stereo_points_csv_path)
-    merged_point_data = get_merged_2d_3d(stereo_points_csv_path)
+
+    
+    logger.info("Creating point history object based on camera_array and stereotriangulated_table")
+    stereotriangulated_points = get_stereotriangulated_points(camera_array, point_data_path)
+    
+    
+    points_3d_df = get_points_3d_df(stereotriangulated_points)
+    merged_point_data = get_merged_2d_3d(stereotriangulated_points)
 
     camera_indices = np.array(merged_point_data["camera"], dtype=np.int64)
     img = np.array(merged_point_data[["x_2d", "y_2d"]])
@@ -216,13 +222,14 @@ def get_point_history(stereo_points_csv_path: Path) -> PointHistory:
 if __name__ == "__main__":
     #%%
     from calicam import __root__
-    
+    from calicam.cameras.camera_array_builder import CameraArrayBuilder
+        
     session_directory = Path(__root__, "tests", "5_cameras")
-    stereo_points_csv_path = Path(
-        session_directory, "recording", "stereotriangulated_points.csv"
-    )
+    point_data_path = Path(session_directory,"recording", "point_data.csv" )
 
-    point_data = get_point_history(stereo_points_csv_path)
+    camera_array = CameraArrayBuilder(Path(session_directory, "config.toml")).get_camera_array()
+
+    point_data = get_point_history(camera_array, point_data_path)
 
 
 # %%

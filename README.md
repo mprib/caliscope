@@ -99,7 +99,8 @@ end
 
 
 subgraph visualization
-    CameraMesh --> Visualizer
+    CaptureVolumeVisualizer
+    CameraMesh --> CaptureVolumeVisualizer
 end
 
 ```

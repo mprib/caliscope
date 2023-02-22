@@ -91,8 +91,11 @@ for sync_index in sync_indices:
             else:
                 new_table = triangulated_pair.to_table()
                 for key,value in new_table.items():
-                    stereotriangulated_table[key] = stereotriangulated_table[key].append(value)
-    
+                    stereotriangulated_table[key].extend(value)
 print(time.time())
-# %%
+
+#%%    
+
+stereotriangulated_table = pd.DataFrame(stereotriangulated_table)
+stereotriangulated_table.to_csv(Path(session_path,"recording", "stereotriangulated_points.csv"))
 # %%

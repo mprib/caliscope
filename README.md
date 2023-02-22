@@ -2,9 +2,6 @@
 
 The general flow of processing is illustrated in the graph below. 
 
-This graph needs to be updated to reflect the centrality of the ArrayPointsErrorData dataclass in the post-processing analysis. This is turning into a useful construct that can summarize the complete state of the model and tracking data, while also containing the data necessary to relate each 3d projected point to the precice frames it came from.
-
-It is quite tightly coupled to the camera array object. I would like to refactor to decouple these things into seperate modules, but the best way to do that isn't immediately clear to me. It may ultimately be the case that the bundle adjustment function is going to need to come out of the camera array, and go into something like an Optimizer that could manage both the camera array optimization during calibration, and the 3d point optimization during general triangulation.
 
 ```mermaid
 graph TD
@@ -65,10 +62,8 @@ subgraph calibration_data
     config.toml
 end
 
-point_data.csv --> SyncPacketBuilder
-SyncPacketBuilder -.SyncPacket.-> StereoPointBuilder 
-
-
+point_data.csv --> build_stereotriangulated_points
+ArrayTriangulator --> build_stereotriangulated_points
 
 CornerTracker --PointPacket--> RecordedStream
 
@@ -78,20 +73,19 @@ config.toml --> ArrayConstructor
 CameraArray --> ArrayTriangulator
 
 subgraph triangulate
-    StereoPointBuilder -.SynchedStereoPointsPacket-->ArrayTriangulator
     ArrayTriangulator
-    StereoTriangulator
+    StereoPointsBuilder --- ArrayTriangulator
+    StereoTriangulator --- ArrayTriangulator
 end
 
-StereoTriangulator --> ArrayTriangulator
-ArrayTriangulator --> triangulated_points.csv
+build_stereotriangulated_points --> stereotriangulated_points.csv
 CaptureVolume --> CaptureVolumeVisualizer
 
-triangulated_points.csv --> PointEstimateData
+stereotriangulated_points.csv --> PointHistory
 
 subgraph capture_volume
 CameraArray --> CaptureVolume
-PointEstimateData --> CaptureVolume
+PointHistory --> CaptureVolume
 
 CaptureVolume
 end

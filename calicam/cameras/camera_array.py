@@ -5,9 +5,6 @@ from pathlib import Path
 import numpy as np
 from dataclasses import dataclass
 import cv2
-from scipy.optimize import least_squares
-from calicam.calibration.capture_volume.point_history import PointHistory
-import pandas as pd
 
 
 CAMERA_PARAM_COUNT = 6

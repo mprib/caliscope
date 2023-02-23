@@ -106,10 +106,3 @@ if __name__ == "__main__":
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
 
-    # session_directory = Path(repo, "sessions", "iterative_adjustment")
-    points_csv_path = Path(session_directory, "recording", "stereotriangulated_points.csv")
-
-    point_history = get_point_history(points_csv_path)
-    print(f"Optimizing initial camera array configuration ")
-    # camera_array.optimize(point_data, output_path = points_csv_path.parent)
-    camera_array.bundle_adjust(point_history, output_path=points_csv_path.parent)

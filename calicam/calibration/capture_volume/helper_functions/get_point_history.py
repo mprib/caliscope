@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from calicam.cameras.camera_array import CameraArray
 
-from calicam.calibration.capture_volume.point_history import PointEstimates
+from calicam.calibration.capture_volume.point_estimates import PointEstimates
 from calicam.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
 from pathlib import Path
 

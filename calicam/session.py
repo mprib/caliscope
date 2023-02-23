@@ -19,8 +19,6 @@ from calicam.cameras.camera import Camera
 from calicam.cameras.synchronizer import Synchronizer
 from calicam.cameras.live_stream import LiveStream
 from calicam.recording.video_recorder import VideoRecorder
-from calicam.gui.stereo_calibration.stereo_frame_builder import StereoFrameBuilder
-from calicam.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10

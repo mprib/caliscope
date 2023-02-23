@@ -81,16 +81,16 @@ end
 
 CaptureVolume --> CaptureVolumeVisualizer
 
-get_point_history --> PointHistory
+get_point_estimates  --> PointEstimates
 
 
 subgraph capture_volume
     subgraph helper_functions
-        get_stereotriangulated_table -.stereotriangulated_table DF.-> get_point_history
+        get_stereotriangulated_table -.stereotriangulated_table DF.-> get_point_estimates   
     end
 
     CameraArray --> CaptureVolume
-    PointHistory --> CaptureVolume
+    PointEstimates --> CaptureVolume
 end
 
 

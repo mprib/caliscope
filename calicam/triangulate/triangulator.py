@@ -16,9 +16,9 @@ import pandas as pd
 from pathlib import Path
 from itertools import combinations
 
-from calicam.triangulate.paired_point_builder import StereoPointBuilder, StereoPointsPacket
+from calicam.triangulate.stereo_points_builder import StereoPointsBuilder, StereoPointsPacket
 from calicam.cameras.data_packets import PointPacket, FramePacket, SyncPacket
-from calicam.triangulate.paired_point_builder import StereoPointsPacket, SynchedStereoPointsPacket
+from calicam.triangulate.stereo_points_builder import StereoPointsPacket, SynchedStereoPointsPacket
 
 
 from calicam.cameras.camera_array import CameraData, CameraArray
@@ -168,7 +168,7 @@ if __name__ == "__main__":
 
     # create a commmon point finder to grab charuco corners shared between the pair of ports
     pairs = [(0, 1)]
-    point_stream = StereoPointBuilder(
+    point_stream = StereoPointsBuilder(
         synchronizer=syncr,
         pairs=pairs,
         tracker=trackr,

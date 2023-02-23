@@ -15,7 +15,7 @@ from calicam.calibration.capture_volume.point_estimates import (
 )
 
 from calicam.cameras.synchronizer import Synchronizer
-from calicam.triangulate.paired_point_builder import StereoPointBuilder   
+from calicam.triangulate.stereo_points_builder import StereoPointsBuilder   
 from calicam.calibration.charuco import Charuco
 from calicam.recording.recorded_stream import RecordedStream, RecordedStreamPool
 from calicam.triangulate.array_triangulator import ArrayTriangulator

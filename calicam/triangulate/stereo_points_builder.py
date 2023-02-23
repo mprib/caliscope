@@ -19,7 +19,7 @@ from calicam.calibration.corner_tracker import CornerTracker
 from calicam.cameras.data_packets import SyncPacket
 
 
-class StereoPointBuilder:
+class StereoPointsBuilder:
     def __init__(self, ports: list):
 
         self.ports = ports
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=200)
     recorded_stream_pool.play_videos()
 
-    point_stream = StereoPointBuilder(synchronizer=syncr, csv_output_path=csv_output)
+    point_stream = StereoPointsBuilder(synchronizer=syncr, csv_output_path=csv_output)
 
     # I think that EOF needs to propogate up
     while not point_stream.frames_complete:

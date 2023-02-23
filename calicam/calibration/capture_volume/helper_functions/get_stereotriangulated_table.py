@@ -16,8 +16,8 @@ from calicam.cameras.data_packets import PointPacket, FramePacket, SyncPacket
 from calicam.cameras.camera_array import CameraArray
 from calicam.triangulate.triangulator import ArrayTriangulator
 
-from calicam.triangulate.paired_point_builder import (
-    StereoPointBuilder,
+from calicam.triangulate.stereo_points_builder import (
+    StereoPointsBuilder,
     StereoPointsPacket,
     SynchedStereoPointsPacket,
 )
@@ -36,7 +36,7 @@ def get_stereotriangulated_table(camera_array:CameraArray, point_data_path:Path)
     xy_camera_indices = point_data["port"].to_numpy()
     ports = np.unique(xy_camera_indices)
 
-    paired_point_builder = StereoPointBuilder(ports)
+    paired_point_builder = StereoPointsBuilder(ports)
 
     # Create the infrastructure for the pairwise triangulation
     array_triangulator = ArrayTriangulator(camera_array)

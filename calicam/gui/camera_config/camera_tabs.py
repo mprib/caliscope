@@ -41,10 +41,12 @@ class CameraTabs(QTabWidget):
 
 
 if __name__ == "__main__":
+    from calicam import __root__
+    
     App = QApplication(sys.argv)
 
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
-    config_path = Path(repo, "sessions", "5_cameras")
+    
+    config_path = Path(__root__, "sessions", "5_cameras")
     # config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
     session = Session(config_path)

@@ -215,7 +215,7 @@ if __name__ == "__main__":
     streams = []
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
-        stream = LiveStream(cam, fps_target=30, charuco = charuco)
+        stream = LiveStream(cam, fps_target=12, charuco = charuco)
         stream.push_to_out_q = True
         stream._show_fps = True
         stream._show_charuco = True

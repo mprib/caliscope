@@ -122,7 +122,7 @@ if __name__ == "__main__":
     #%%
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.helper_functions.get_point_history import get_point_history 
+    from calicam.calibration.capture_volume.helper_functions.get_point_estimates import get_point_history 
     session_directory = Path(__root__, "tests", "5_cameras")
     point_data_path = Path(session_directory,"recording", "point_data.csv" )
 

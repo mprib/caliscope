@@ -7,14 +7,26 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QApplication,
+    QVBoxLayout,
+    QWidget,
     QTabWidget,
 )
 
 from calicam.gui.camera_config.camera_config_dialogue import CameraConfigDialog
 from calicam.session import Session
+from calicam.gui.widgets import NavigationBarBackNext
+
+class CameraWizard(QWidget):
+    def __init__(self, session):
+        super(CameraWizard, self).__init__()
+        self.setLayout(QVBoxLayout())    
+        self.camera_tabs = CameraTabs(session)
+        self.navigation_bar = NavigationBarBackNext()
+        self.layout().addWidget(self.camera_tabs)
+        self.layout().addWidget(self.navigation_bar)
+    
 
 class CameraTabs(QTabWidget):
-    
     def __init__(self, session):
         super(CameraTabs, self).__init__()
         self.session = session
@@ -58,9 +70,10 @@ if __name__ == "__main__":
     test_port = 0
 
     # cam_dialog = CameraConfigDialog(session, test_port)
-    cam_tabs = CameraTabs(session)
-    
-    cam_tabs.show()
+    # cam_tabs = CameraTabs(session)
+    # cam_tabs.show()
+    cam_wizard = CameraWizard(session)
+    cam_wizard.show()
 
     sys.exit(App.exec())
 

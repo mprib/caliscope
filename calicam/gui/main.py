@@ -3,6 +3,7 @@ import calicam.logger
 logger = calicam.logger.get(__name__)
 
 import sys
+import shutil
 import time
 from pathlib import Path
 from threading import Thread
@@ -45,14 +46,29 @@ class CalibrationWizard(QWidget):
         self.vbox.addWidget(self.wizard_directory)
         self.wizard_directory.launch_wizard_btn.clicked.connect(self.move_to_charuco_wizard)
         
+    
         
     def move_to_charuco_wizard(self):
+        self.launch_session()
+        self.wizard_charuco = WizardCharuco(self.session)
         
-        self.wizard_charuco = WizardCharuco()
-        
-        self.vbox.removeWidget(self.wizard_directory)
+
+        # self.vbox.removeWidget(self.wizard_directory)
+        self.wizard_directory.deleteLater()
         self.vbox.addWidget(self.wizard_charuco)   
          
+    def launch_session(self):
+        if self.wizard_directory.create_new_radio.isChecked():
+            # only need to create a new session in the given directory:
+            self.session_directory = self.wizard_directory.new_path.textbox.text()
+            self.session = Session(self.session_directory)
+        else:
+            # need to copy over config from old directory to new directory before launching
+            self.session_directory = self.wizard_directory.modified_path.textbox.text()
+            old_config_path = self.wizard_directory.original_path.textbox.text() 
+            shutil.copyfile(str(Path(old_config_path, "config.toml")), str(Path(self.session_directory, "config.toml")))
+            self.session = Session(self.session_directory)
+            
     def connect_to_cameras(self):
 
         if len(self.session.cameras) > 0:

@@ -20,7 +20,7 @@ CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrins
 
 
 @dataclass
-class PointHistory:
+class PointEstimates:
     """
     Initialized from triangulated_points.csv to provide the formatting of data required for bundle adjustment
     "full" is used here because there is currently a method to filter the data based on reprojection error

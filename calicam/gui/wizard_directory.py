@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
     QRadioButton,
     QButtonGroup,
 )
-from calicam import __app_dir__
+from calicam import __app_dir__, __root__
 
 from calicam.session import Session
 
@@ -129,7 +129,6 @@ class WizardDirectory(QWidget):
         if self.from_previous_radio.isChecked():
             print("from previous checked")
             if os.path.exists(Path(self.original_path.textbox.text(), "config.toml")) and os.path.exists(self.modified_path.textbox.text()):
-                self.check_old_directory_validity()
                 self.session_path = self.original_path.textbox.text()
                 print("Is complete")
                 self.launch_wizard_btn.setEnabled(True)
@@ -170,7 +169,8 @@ class DirectorySelector(QWidget):
     def select_directory(self):
 
         fname = QFileDialog.getExistingDirectory(
-            self, "Select Folder", str(__app_dir__)
+            # self, "Select Folder", str(__app_dir__)
+            self, "Select Folder", str(Path(__root__, "tests"))   # done for testing to track impact on config Easier
         )
         
         if self.validity_check is None:

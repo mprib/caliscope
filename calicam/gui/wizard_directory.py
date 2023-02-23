@@ -36,7 +36,7 @@ from calicam.session import Session
 #         self.setButton(self.WizardButton.CustomButton1, self.launch_wizard_btn)
 #         self.setButtonLayout([self.WizardButton.CustomButton1])
 
-class WizardIntro(QWidget):
+class WizardDirectory(QWidget):
     
     isComplete = pyqtSignal(bool)
     
@@ -88,6 +88,7 @@ class WizardIntro(QWidget):
         
     def launch_wizard(self):
         # where you'll need to link up the next dialog in the chain
+        
         print(self.original_path.textbox.text())
         print(self.modified_path.textbox.text())
         print(self.new_path.textbox.text())
@@ -135,6 +136,9 @@ class WizardIntro(QWidget):
         self.launch_wizard_btn.setEnabled(False)
         return False
 
+    def old_directory_valid(self):
+        
+        old_directory = Path(, session=None)
 class DirectorySelector(QWidget):
     def __init__(self, qwizard_page, button_text):
         super().__init__()
@@ -165,7 +169,7 @@ if __name__ == "__main__":
     # wizard = FolderSelectWizard()
 
     # wizard.show()
-    wizard_intro = WizardIntro()
+    wizard_intro = WizardDirectory()
     wizard_intro.show()
     sys.exit(app.exec())
 

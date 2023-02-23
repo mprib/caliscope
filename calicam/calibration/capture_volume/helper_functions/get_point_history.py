@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from calicam.cameras.camera_array import CameraArray
 
-from calicam.calibration.capture_volume.point_history import PointHistory
+from calicam.calibration.capture_volume.point_history import PointEstimates
 from calicam.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
 from pathlib import Path
 
@@ -78,7 +78,7 @@ def get_merged_2d_3d(stereotriangulated_table):
     return merged_point_data
 
 
-def get_point_history(camera_array:CameraArray, point_data_path: Path) -> PointHistory:
+def get_point_history(camera_array:CameraArray, point_data_path: Path) -> PointEstimates:
     """
     formats the triangulated_points.csv file into a PointEstimateData that has the 
     data structured in a way that is amenable to bundle adjustment
@@ -100,7 +100,7 @@ def get_point_history(camera_array:CameraArray, point_data_path: Path) -> PointH
     obj = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
     obj_corner_id = np.array(points_3d_df[["corner_id"]])
 
-    return PointHistory(
+    return PointEstimates(
         camera_indices=camera_indices,
         img=img,
         point_id=corner_id,

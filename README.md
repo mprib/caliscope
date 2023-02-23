@@ -62,9 +62,9 @@ subgraph calibration_data
     config.toml
 end
 
-point_data.csv --> stereotriangulated_table_builder
+point_data.csv --> get_stereotriangulated_table
 
-ArrayTriangulator --> stereotriangulated_table_builder
+ArrayTriangulator --> get_stereotriangulated_table
 
 CornerTracker --PointPacket--> RecordedStream
 
@@ -81,16 +81,16 @@ end
 
 CaptureVolume --> CaptureVolumeVisualizer
 
-
-stereotriangulated_table_builder -.stereotriangulated_table DF.-> get_point_history
-
 get_point_history --> PointHistory
 
-subgraph capture_volume
-CameraArray --> CaptureVolume
-PointHistory --> CaptureVolume
 
-CaptureVolume
+subgraph capture_volume
+    subgraph helper_functions
+        get_stereotriangulated_table -.stereotriangulated_table DF.-> get_point_history
+    end
+
+    CameraArray --> CaptureVolume
+    PointHistory --> CaptureVolume
 end
 
 

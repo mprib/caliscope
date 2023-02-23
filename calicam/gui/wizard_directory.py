@@ -3,6 +3,8 @@ import calicam.logger
 logger = calicam.logger.get(__name__)
 
 import os
+from pathlib import Path
+
 
 import sys
 from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
@@ -14,6 +16,7 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QWidget,
     QDialog,
+    QMessageBox,
     QLabel,
     QVBoxLayout,
     QRadioButton,
@@ -66,7 +69,7 @@ class WizardDirectory(QWidget):
 
         self.vbox.addWidget(self.from_previous_radio)
 
-        self.original_path = DirectorySelector(self, "Original Config")
+        self.original_path = DirectorySelector(self, "Original Config", self.check_old_directory_validity)
         self.vbox.addWidget(self.original_path)
         self.original_path.setHidden(True)
         self.modified_path = DirectorySelector(self, "New Config")
@@ -125,7 +128,8 @@ class WizardDirectory(QWidget):
             
         if self.from_previous_radio.isChecked():
             print("from previous checked")
-            if os.path.exists(self.original_path.textbox.text()) and os.path.exists(self.modified_path.textbox.text()):
+            if os.path.exists(Path(self.original_path.textbox.text(), "config.toml")) and os.path.exists(self.modified_path.textbox.text()):
+                self.check_old_directory_validity()
                 self.session_path = self.original_path.textbox.text()
                 print("Is complete")
                 self.launch_wizard_btn.setEnabled(True)
@@ -136,17 +140,26 @@ class WizardDirectory(QWidget):
         self.launch_wizard_btn.setEnabled(False)
         return False
 
-    def old_directory_valid(self):
+    def check_old_directory_validity(self, fname):
+         
+        old_directory_good = os.path.isfile(Path(fname,"config.toml"))
         
-        old_directory = Path(, session=None)
+        if old_directory_good:
+            message = "NA"
+        else:
+            message = "Folder does not contain `config.toml`" 
+        
+        return old_directory_good, message
+                             
 class DirectorySelector(QWidget):
-    def __init__(self, qwizard_page, button_text):
+    def __init__(self, qwizard_page, button_text, validity_check = None):
         super().__init__()
         self.textbox = QLineEdit()
         self.textbox.setEnabled(False)
         self.button = QPushButton(button_text)
         self.button.clicked.connect(self.select_directory)
         self.qwizard_page = qwizard_page
+        self.validity_check = validity_check # validity check must contain a tuple of (bool, str) which is (validity, message)
         
         layout = QHBoxLayout()
         layout.addWidget(self.textbox)
@@ -159,10 +172,24 @@ class DirectorySelector(QWidget):
         fname = QFileDialog.getExistingDirectory(
             self, "Select Folder", str(__app_dir__)
         )
-        self.textbox.setText(fname)
-        print(fname)
-        self.parent().isComplete.emit(self.parent().check_complete())
+        
+        if self.validity_check is None:
+            self.textbox.setText(fname)
+            self.parent().isComplete.emit(self.parent().check_complete())
+        else:
+            if self.validity_check(fname)[0]:
+                self.textbox.setText(fname)
+                self.parent().isComplete.emit(self.parent().check_complete())
+            else:
+                logger.info(f"Invalid: {self.validity_check(fname)[1]}") 
+                message_box = QMessageBox()
+                message_box.setWindowTitle("Invalid Directory")
+                message_box.setText(self.validity_check(fname)[1])
+                # message_box.setStandardButtons(QMessageBox.Ok)
+                message_box.exec()
 
+            
+            
 if __name__ == "__main__":
 
     app = QApplication(sys.argv)

@@ -83,7 +83,7 @@ class WizardCharuco(QWidget):
 
         def save_png():
             save_file_tuple = QFileDialog.getSaveFileName(
-                self, "Save As", str(Path(__app_dir__,"charuco.png")), "PNG (*.png)"
+                self, "Save As", str(Path(self.session.path,"charuco.png")), "PNG (*.png)"
             )
             print(save_file_tuple)
             save_file_name = str(Path(save_file_tuple[0]))
@@ -99,7 +99,7 @@ class WizardCharuco(QWidget):
 
         def save_mirror_png():
             save_file_tuple = QFileDialog.getSaveFileName(
-                self, "Save As", str(Path(__app_dir__,"charuco_mirror.png")), "PNG (*.png)"
+                self, "Save As", str(Path(self.session.path,"charuco_mirror.png")), "PNG (*.png)"
             )
             print(save_file_tuple)
             save_file_name = str(Path(save_file_tuple[0]))
@@ -280,8 +280,9 @@ class CharucoConfigurator(QWidget):
 
 if __name__ == "__main__":
     
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    config_path = Path(repo, "sessions", "high_res_session")
+    from calicam import __root__
+    config_path = Path(__root__, "sessions", "high_res_session")
+
     session = Session(config_path)
 
     app = QApplication(sys.argv)

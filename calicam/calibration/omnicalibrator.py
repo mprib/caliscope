@@ -294,7 +294,7 @@ class OmniCalibrator:
             .drop("port", axis=1)
         )
     
-        # configure random sampling. If you have to few boards, then only take what you have
+        # configure random sampling. If you have too few boards, then only take what you have
         board_count = pair_boards.shape[0]
         sample_size = min(board_count, boards_sampled)
 

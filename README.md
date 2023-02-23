@@ -22,17 +22,17 @@ end
 
 subgraph GUI
     MonoCalibrator
-    OmniFrame
+    OmniFrameBuilder
 end
 
-Synchronizer --SyncPacket-->  OmniFrame
+Synchronizer --SyncPacket-->  OmniFrameBuilder
 
 LiveStream -.FramePacket.-> MonoCalibrator
 MonoCalibrator -.Intrinsics.-> config.toml
 
 VideoRecorder --> frame_time_history.csv
 VideoRecorder --> port_X.mp4 
-VideoRecorder -.During OmniFrame.-> point_data.csv
+VideoRecorder -.During OmniFrameBuilder.-> point_data.csv
 port_X.mp4 --> RecordedStream
 frame_time_history.csv --> RecordedStream
 
@@ -62,8 +62,9 @@ subgraph calibration_data
     config.toml
 end
 
-point_data.csv --> build_stereotriangulated_points
-ArrayTriangulator --> build_stereotriangulated_points
+point_data.csv --> stereotriangulated_table_builder
+
+ArrayTriangulator --> stereotriangulated_table_builder
 
 CornerTracker --PointPacket--> RecordedStream
 
@@ -78,10 +79,12 @@ subgraph triangulate
     StereoTriangulator --- ArrayTriangulator
 end
 
-build_stereotriangulated_points --> stereotriangulated_points.csv
 CaptureVolume --> CaptureVolumeVisualizer
 
-stereotriangulated_points.csv --> PointHistory
+
+stereotriangulated_table_builder -.stereotriangulated_table DF.-> get_point_history
+
+get_point_history --> PointHistory
 
 subgraph capture_volume
 CameraArray --> CaptureVolume

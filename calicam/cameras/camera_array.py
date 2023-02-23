@@ -94,7 +94,7 @@ class CameraArray:
 
 if __name__ == "__main__":
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.point_history import (
+    from calicam.calibration.capture_volume.point_estimates import (
         PointEstimates,
         get_point_history,
     )

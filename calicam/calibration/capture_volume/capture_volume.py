@@ -12,7 +12,7 @@ import cv2
 from scipy.optimize import least_squares
 import pandas as pd
 
-from calicam.calibration.capture_volume.point_history import PointEstimates
+from calicam.calibration.capture_volume.point_estimates import PointEstimates
 from calicam.cameras.camera_array import CameraArray
 
 CAMERA_PARAM_COUNT = 6
@@ -191,7 +191,7 @@ if __name__ == "__main__":
     # if True:
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.point_history import (
+    from calicam.calibration.capture_volume.point_estimates import (
         get_point_history,
     )
 

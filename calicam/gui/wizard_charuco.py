@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import (
 from calicam import __app_dir__
 from calicam.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from calicam.session import Session
-
+from calicam.gui.widgets import NavigationBarNext
 
 class WizardCharuco(QWidget):
     def __init__(self, session):
@@ -52,7 +52,6 @@ class WizardCharuco(QWidget):
         self.build_save_png_group()
         self.build_true_up_group()
         # self.build_save_config()
-
         # Build display of board
         self.charuco_added = False  # track to handle redrawing of board
         self.build_charuco()
@@ -71,11 +70,16 @@ class WizardCharuco(QWidget):
 
         VBL.addWidget(self.true_up_group)
         VBL.addSpacing(20)
-
         for w in self.children():
             VBL.setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
+        
+        # add navigation bar at the end so as to not mess up alignment
+        self.navigation_bar = NavigationBarNext()
+        VBL.addWidget(self.navigation_bar)
 
 
+        
+        
     def build_save_png_group(self):
         # basic png save button
         self.png_btn = QPushButton("Save &png")

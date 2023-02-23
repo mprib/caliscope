@@ -136,6 +136,7 @@ class CalibrationWizard(QWidget):
             self.find.start()
 
 
+
 if __name__ == "__main__":
 
     # config_path = Path(__root__, "sessions", "high_res_session")

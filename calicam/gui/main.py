@@ -7,7 +7,7 @@ import shutil
 import time
 from pathlib import Path
 from threading import Thread
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtWidgets import (
     QWidget,
@@ -27,6 +27,8 @@ from calicam import __root__, __app_dir__
 from calicam.session import Stage
 
 class CalibrationWizard(QStackedWidget):
+    cameras_connected = pyqtSignal()
+
     def __init__(self):
         super().__init__()
         self.CAMS_IN_PROCESS = False
@@ -37,8 +39,16 @@ class CalibrationWizard(QStackedWidget):
         self.addWidget(self.wizard_directory) # index:1
         self.setCurrentIndex(0)
         self.wizard_directory.launch_wizard_btn.clicked.connect(self.next_to_charuco_wizard)
-        
-        
+   
+        self.cameras_connected.connect(self.on_cameras_connect) 
+
+    def on_cameras_connect(self):
+        # load cameras wizard once the cameras are actually connected
+        self.camera_wizard = CameraWizard(self.session)
+        self.addWidget(self.camera_wizard)
+        self.setCurrentIndex(2)
+        self.camera_wizard.navigation_bar.back_btn.clicked.connect(self.back_to_charuco_wizard)
+     
     def back_to_charuco_wizard(self):
         self.setCurrentIndex(1)
 
@@ -57,17 +67,12 @@ class CalibrationWizard(QStackedWidget):
             self.setCurrentIndex(1)
 
     def move_next_to_camera_config_wizard(self):
-        if hasattr(self, "wizard_cameras"):
+        if hasattr(self, "camera_wizard"):
+            logger.info("Camera wizard already exists; changing stack current index")
             self.setCurrentIndex(2)
         else:
             logger.info("Initiating Camera Connection")
             self.initiate_camera_connection()
-            while self.session.connected_camera_count() !=1:
-                logger.info("Hack to try something out...")
-                time.sleep(1)    
-            self.wizard_cameras = CameraWizard(self.session)
-            self.addWidget(self.wizard_cameras)
-            self.setCurrentIndex(2)
             
                      
     def launch_session(self):
@@ -100,16 +105,23 @@ class CalibrationWizard(QStackedWidget):
             def connect_to_cams_worker():
                 self.CAMS_IN_PROCESS = True
                 logger.info("Initiating camera connect worker")
-                self.session.load_cameras()
-                logger.info("Camera connect worker about to load stream tools")
-                self.session.load_streams()
+                
+                # find out if you are loading cameras or finding cameras
+                if self.session.get_configured_camera_count()>0:
+                    self.session.load_cameras()
+                    logger.info("Camera connect worker about to load stream tools")
+                    self.session.load_streams()
+                else:
+                    # I believe find_cameras will establish the streams as well...
+                    self.session.find_cameras()
                 logger.info("Camera connect worker about to adjust resolutions")
                 self.session.adjust_resolutions()
                 logger.info("Camera connect worker about to load monocalibrators")
                 self.session.load_monocalibrators()
                 self.CAMS_IN_PROCESS = False
 
-                logger.info("Adding Camera Wizard")
+                logger.info("emitting cameras_connected signal")
+                self.cameras_connected.emit()
 
         if self.CAMS_IN_PROCESS:
             logger.info("Already attempting to connect to cameras...")

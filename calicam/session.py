@@ -106,6 +106,13 @@ class Session:
                 if port == port_to_delete:
                     del self.config[key]
 
+    def get_configured_camera_count(self):
+        count = 0
+        for key, params in self.config.copy().items():
+            if key.startswith("cam"):
+                count +=1
+        return count
+    
     def delete_all_cam_data(self):
         # note: needs to be a copy to avoid errors while dict changes with deletion
         for key, params in self.config.copy().items():
@@ -209,7 +216,7 @@ class Session:
                 logger.info(f"Success at port {port}")
                 self.cameras[port] = cam
                 self.save_camera(port)
-                self.streams[port] = LiveStream(cam)
+                self.streams[port] = LiveStream(cam, charuco = self.charuco)
             except:
                 logger.info(f"No camera at port {port}")
 

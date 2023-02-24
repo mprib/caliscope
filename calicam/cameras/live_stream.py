@@ -65,6 +65,11 @@ class LiveStream:
         logger.info(f"Setting fps to {self.fps}")
         self.milestones = np.array(milestones)
 
+    def update_charuco(self, charuco:Charuco):
+        self.charuco = charuco
+        self.tracker = CornerTracker(charuco)
+
+
     def wait_to_next_frame(self):
         """
         based on the next milestone time, return the time needed to sleep so that

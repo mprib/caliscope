@@ -21,41 +21,52 @@ from PyQt6.QtWidgets import (
 
 from calicam.session import Session, stage
 from calicam.gui.wizard_charuco import WizardCharuco
-from calicam.gui.camera_config.camera_tabs import CameraTabs
+from calicam.gui.camera_config.camera_tabs import CameraWizard
 from calicam.gui.wizard_directory import WizardDirectory
 from calicam import __root__, __app_dir__
 
 class CalibrationWizard(QWidget):
     def __init__(self):
         super().__init__()
+        self.CAMS_IN_PROCESS = False
 
-        # app = QApplication.instance()
-        # screen = app.primaryScreen()
-        # DISPLAY_WIDTH = screen.size().width()
-        # DISPLAY_HEIGHT = screen.size().height()
-
-        # self.setMinimumSize(int(DISPLAY_WIDTH * 0.45), int(DISPLAY_HEIGHT * 0.7))
         self.setWindowTitle("Camera Calibration Wizard")
         self.setWindowIcon(QIcon("calicam/gui/icons/fmc_logo.ico"))
-
         self.vbox = QVBoxLayout()
         self.setLayout(self.vbox)
         
+        # land on the directory selector widget        
         self.wizard_directory = WizardDirectory()
-
         self.vbox.addWidget(self.wizard_directory)
-        self.wizard_directory.launch_wizard_btn.clicked.connect(self.move_to_charuco_wizard)
+        # link to charuco widget for next step
+        self.wizard_directory.launch_wizard_btn.clicked.connect(self.next_to_charuco_wizard)
         
-    
-        
-    def move_to_charuco_wizard(self):
-        self.launch_session()
+    def link_widgets_to_session(self):
+        # once the session directory is set, all of the widgets can be linked upjfkdljkl:
         self.wizard_charuco = WizardCharuco(self.session)
+        self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(self.move_to_camera_config_wizard)
+        self.wizard_cameras = CameraWizard(self.session)
+        self.wizard_cameras.navigation_bar.back_btn.clicked.connect(self.back_to_charuco_wizard)
         
+    def back_to_charuco_wizard(self):
+        
+        # self.vbox.removeWidget(self.wizard_directory)
+        self.wizard_cameras.hide()
+        self.wizard_charuco.show()
+        # self.vbox.addWidget(self.wizard_charuco)   
 
+    def next_to_charuco_wizard(self):
+        # directory will be set now
+        self.launch_session()
         # self.vbox.removeWidget(self.wizard_directory)
         self.wizard_directory.deleteLater()
         self.vbox.addWidget(self.wizard_charuco)   
+    
+    def move_to_camera_config_wizard(self):
+        self.wizard_charuco.hide()
+        self.vbox.addWidget(self.wizard_cameras)
+        self.connect_to_cameras()
+        
          
     def launch_session(self):
         if self.wizard_directory.create_new_radio.isChecked():
@@ -66,8 +77,17 @@ class CalibrationWizard(QWidget):
             # need to copy over config from old directory to new directory before launching
             self.session_directory = self.wizard_directory.modified_path.textbox.text()
             old_config_path = self.wizard_directory.original_path.textbox.text() 
-            shutil.copyfile(str(Path(old_config_path, "config.toml")), str(Path(self.session_directory, "config.toml")))
+
+            ## but check if it's the same directory 
+            if self.session_directory == old_config_path:
+                # in which case don't do anything
+                pass
+            else:
+                shutil.copyfile(str(Path(old_config_path, "config.toml")), str(Path(self.session_directory, "config.toml")))
+
             self.session = Session(self.session_directory)
+
+        self.link_widgets_to_session()
             
     def connect_to_cameras(self):
 
@@ -87,11 +107,6 @@ class CalibrationWizard(QWidget):
                 logger.info("Camera connect worker about to load monocalibrators")
                 self.session.load_monocalibrators()
                 self.CAMS_IN_PROCESS = False
-                
-                self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
-                
-                self.enable_disable_menu()
-                self.configure_cameras.trigger()
 
         if self.CAMS_IN_PROCESS:
             logger.info("Already attempting to connect to cameras...")
@@ -144,8 +159,13 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = CalibrationWizard()
     
+    test_session = Path(__root__, "sessions", "5_cameras")
     # open in a session already so you don't have to go through the menu each time
     # window.open_session(config_path)
+    window.wizard_directory.from_previous_radio.click()
+    window.wizard_directory.from_previous_radio.setChecked(True)
+    window.wizard_directory.original_path.textbox.setText(str(test_session))
+    window.wizard_directory.modified_path.textbox.setText(str(test_session))
     window.show()
 
     app.exec()

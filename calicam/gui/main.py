@@ -33,40 +33,43 @@ class CalibrationWizard(QStackedWidget):
 
         self.setWindowTitle("Camera Calibration Wizard")
         self.setWindowIcon(QIcon("calicam/gui/icons/fmc_logo.ico"))
-        # self.vbox = QVBoxLayout()
-        # self.setLayout(self.vbox)
-        # land on the directory selector widget        
         self.wizard_directory = WizardDirectory()
-        self.addWidget(self.wizard_directory)
-        self.setCurrentIndex(1)
-        # self.vbox.addWidget(self.wizard_directory)
-        # link to charuco widget for next step
+        self.addWidget(self.wizard_directory) # index:1
+        self.setCurrentIndex(0)
         self.wizard_directory.launch_wizard_btn.clicked.connect(self.next_to_charuco_wizard)
         
         
     def back_to_charuco_wizard(self):
-        self.setCurrentIndex(2)
-        # self.vbox.removeWidget(self.wizard_directory)
-        self.wizard_cameras.hide()
-        self.wizard_charuco.show()
-        # self.vbox.addWidget(self.wizard_charuco)   
+        self.setCurrentIndex(1)
 
     def next_to_charuco_wizard(self):
-        # directory will be set now
-        logger.info("Launching session")
-        self.launch_session()
-        logger.info("Adding charuco wizard")
-        self.addWidget(self.wizard_charuco)   
-        self.setCurrentIndex(2)
+        if hasattr(self, "wizard_charuco"):
+            self.setCurrentIndex(1)
+        else:
+            logger.info("Launching session")
+            self.launch_session()
+            logger.info("Creating charuco wizard session")
+            self.wizard_charuco = WizardCharuco(self.session)
+            self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(self.move_next_to_camera_config_wizard)
+            logger.info("Adding charuco wizard")
+            self.addWidget(self.wizard_charuco)
+            logger.info("Setting index to 2 to activate widget")
+            self.setCurrentIndex(1)
 
     def move_next_to_camera_config_wizard(self):
-        if self.session.get_stage() == Stage.NO_CAMERAS:
-            self.connect_to_cameras()
-            self.addWidget(self.wizard_cameras)
-            self.setCurrentIndex(3)
+        if hasattr(self, "wizard_cameras"):
+            self.setCurrentIndex(2)
         else:
-            self.setCurrentIndex(3)
-         
+            logger.info("Initiating Camera Connection")
+            self.initiate_camera_connection()
+            while self.session.connected_camera_count() !=1:
+                logger.info("Hack to try something out...")
+                time.sleep(1)    
+            self.wizard_cameras = CameraWizard(self.session)
+            self.addWidget(self.wizard_cameras)
+            self.setCurrentIndex(2)
+            
+                     
     def launch_session(self):
         if self.wizard_directory.create_new_radio.isChecked():
             # only need to create a new session in the given directory:
@@ -86,25 +89,8 @@ class CalibrationWizard(QStackedWidget):
 
             self.session = Session(self.session_directory)
 
-        self.link_widgets_to_session()
-            
-    def link_widgets_to_session(self):
-        # once the session directory is set, all of the widgets can be linked upjfkdljkl:
-        logger.info("creating charuco wizard")
-        self.wizard_charuco = WizardCharuco(self.session)
-        logger.info("Adding charuco wizard to qstackedwidget")
-        self.addWidget(self.wizard_charuco)
-        self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(self.move_next_to_camera_config_wizard)
-        logger.info("creating camera wizard")
-        self.wizard_cameras = CameraWizard(self.session)
-        logger.info("adding camera wizard to qstackedwidget")
-        self.addWidget(self.wizard_cameras)
 
-        self.wizard_cameras.navigation_bar.back_btn.clicked.connect(self.back_to_charuco_wizard)
-        self.wizard_cameras.navigation_bar.next_btn.setEnabled(False)
-    
-
-    def connect_to_cameras(self):
+    def initiate_camera_connection(self):
 
         if len(self.session.cameras) > 0:
             logger.info("Cameras already connected")
@@ -122,6 +108,8 @@ class CalibrationWizard(QStackedWidget):
                 logger.info("Camera connect worker about to load monocalibrators")
                 self.session.load_monocalibrators()
                 self.CAMS_IN_PROCESS = False
+
+                logger.info("Adding Camera Wizard")
 
         if self.CAMS_IN_PROCESS:
             logger.info("Already attempting to connect to cameras...")
@@ -173,6 +161,7 @@ def launch_calicam():
     window = CalibrationWizard()
     window.wizard_directory.from_previous_radio.click()
     window.wizard_directory.from_previous_radio.setChecked(True)
+    window.wizard_directory.launch_wizard_btn.setEnabled(True)
     window.wizard_directory.original_path.textbox.setText(str(test_session))
     window.wizard_directory.modified_path.textbox.setText(str(test_session))
     window.show()

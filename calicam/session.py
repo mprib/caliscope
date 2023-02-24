@@ -318,27 +318,7 @@ class Session:
             del self.monocalibrators[port]
             logger.info(f"Successfuly stopped monocalibrator at port {port}")
 
-    def load_stereo_tools(self):
-        if hasattr(self, "synchronizer"):
-            logger.info("No stereotools created...synchronizer already exists")
-        else:
-            logger.info("Creating stereo tools...")
-            self.synchronizer = Synchronizer(self.streams)
-            self.corner_tracker = CornerTracker(self.charuco)
-            self.stereocalibrator = StereoTracker(
-                self.synchronizer, self.corner_tracker
-            )
-            self.stereo_frame_builder = StereoFrameBuilder(self.stereocalibrator)
-            self.stereo_frame_emitter = StereoFrameEmitter(self.stereo_frame_builder)
-            self.stereo_frame_emitter.start()
 
-    def remove_stereo_tools(self):
-        self.stereocalibrator.stop()
-        del self.stereocalibrator
-        self.synchronizer.stop()
-        del self.synchronizer
-        # self.stereo_frame_builder
-        # self.stereo_frame_emitter
 
     def load_video_recorder(self):
         if hasattr(self, "synchronizer"):
@@ -388,16 +368,6 @@ class Session:
         self.config["cam_" + str(port)] = params
         self.update_config()
 
-    def save_stereocalibration(self):
-        logger.info(f"Saving stereocalibration....")
-        logger.info(self.stereocalibrator.stereo_outputs)
-
-        stereo_out = self.stereocalibrator.stereo_outputs
-        for pair, stereo_params in stereo_out.items():
-            config_key = f"stereo_{pair[0]}_{pair[1]}"
-            self.config[config_key] = stereo_params
-
-        self.update_config()
 
     def get_stage(self):
         if self.connected_camera_count() == 0:

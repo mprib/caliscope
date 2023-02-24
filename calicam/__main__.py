@@ -1,3 +1,5 @@
 
-from calicam.gui.main import launch_main_window
+from calicam.gui.main import launch_calicam
+
+launch_calicam()
 

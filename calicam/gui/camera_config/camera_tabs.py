@@ -58,7 +58,8 @@ if __name__ == "__main__":
     App = QApplication(sys.argv)
 
     
-    config_path = Path(__root__, "sessions", "5_cameras")
+    config_path = Path(__root__, "sessions", "laptop")
+    # config_path = Path(__root__, "sessions", "5_cameras")
     # config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
     session = Session(config_path)

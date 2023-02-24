@@ -19,37 +19,33 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
 )
 
-from calicam.session import Session, stage
+from calicam.session import Session, Stage
 from calicam.gui.wizard_charuco import WizardCharuco
 from calicam.gui.camera_config.camera_tabs import CameraWizard
 from calicam.gui.wizard_directory import WizardDirectory
 from calicam import __root__, __app_dir__
+from calicam.session import Stage
 
-class CalibrationWizard(QWidget):
+class CalibrationWizard(QStackedWidget):
     def __init__(self):
         super().__init__()
         self.CAMS_IN_PROCESS = False
 
         self.setWindowTitle("Camera Calibration Wizard")
         self.setWindowIcon(QIcon("calicam/gui/icons/fmc_logo.ico"))
-        self.vbox = QVBoxLayout()
-        self.setLayout(self.vbox)
-        
+        # self.vbox = QVBoxLayout()
+        # self.setLayout(self.vbox)
         # land on the directory selector widget        
         self.wizard_directory = WizardDirectory()
-        self.vbox.addWidget(self.wizard_directory)
+        self.addWidget(self.wizard_directory)
+        self.setCurrentIndex(1)
+        # self.vbox.addWidget(self.wizard_directory)
         # link to charuco widget for next step
         self.wizard_directory.launch_wizard_btn.clicked.connect(self.next_to_charuco_wizard)
         
-    def link_widgets_to_session(self):
-        # once the session directory is set, all of the widgets can be linked upjfkdljkl:
-        self.wizard_charuco = WizardCharuco(self.session)
-        self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(self.move_to_camera_config_wizard)
-        self.wizard_cameras = CameraWizard(self.session)
-        self.wizard_cameras.navigation_bar.back_btn.clicked.connect(self.back_to_charuco_wizard)
         
     def back_to_charuco_wizard(self):
-        
+        self.setCurrentIndex(2)
         # self.vbox.removeWidget(self.wizard_directory)
         self.wizard_cameras.hide()
         self.wizard_charuco.show()
@@ -57,16 +53,19 @@ class CalibrationWizard(QWidget):
 
     def next_to_charuco_wizard(self):
         # directory will be set now
+        logger.info("Launching session")
         self.launch_session()
-        # self.vbox.removeWidget(self.wizard_directory)
-        self.wizard_directory.deleteLater()
-        self.vbox.addWidget(self.wizard_charuco)   
-    
-    def move_to_camera_config_wizard(self):
-        self.wizard_charuco.hide()
-        self.vbox.addWidget(self.wizard_cameras)
-        self.connect_to_cameras()
-        
+        logger.info("Adding charuco wizard")
+        self.addWidget(self.wizard_charuco)   
+        self.setCurrentIndex(2)
+
+    def move_next_to_camera_config_wizard(self):
+        if self.session.get_stage() == Stage.NO_CAMERAS:
+            self.connect_to_cameras()
+            self.addWidget(self.wizard_cameras)
+            self.setCurrentIndex(3)
+        else:
+            self.setCurrentIndex(3)
          
     def launch_session(self):
         if self.wizard_directory.create_new_radio.isChecked():
@@ -89,6 +88,22 @@ class CalibrationWizard(QWidget):
 
         self.link_widgets_to_session()
             
+    def link_widgets_to_session(self):
+        # once the session directory is set, all of the widgets can be linked upjfkdljkl:
+        logger.info("creating charuco wizard")
+        self.wizard_charuco = WizardCharuco(self.session)
+        logger.info("Adding charuco wizard to qstackedwidget")
+        self.addWidget(self.wizard_charuco)
+        self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(self.move_next_to_camera_config_wizard)
+        logger.info("creating camera wizard")
+        self.wizard_cameras = CameraWizard(self.session)
+        logger.info("adding camera wizard to qstackedwidget")
+        self.addWidget(self.wizard_cameras)
+
+        self.wizard_cameras.navigation_bar.back_btn.clicked.connect(self.back_to_charuco_wizard)
+        self.wizard_cameras.navigation_bar.next_btn.setEnabled(False)
+    
+
     def connect_to_cameras(self):
 
         if len(self.session.cameras) > 0:
@@ -124,7 +139,7 @@ class CalibrationWizard(QWidget):
             self.central_stack.removeWidget(self.stereo_cal_dialog)
             del self.stereo_cal_dialog
         self.session.disconnect_cameras()
-        self.summary.camera_summary.connected_cam_count.setText("0")
+        # self.summary.camera_summary.connected_cam_count.setText("0")
         self.enable_disable_menu()
 
     def find_cameras(self):
@@ -150,18 +165,12 @@ class CalibrationWizard(QWidget):
             self.find = Thread(target=find_cam_worker, args=(), daemon=True)
             self.find.start()
 
+def launch_calicam():
 
+    test_session = Path(__root__, "sessions", "laptop")
 
-if __name__ == "__main__":
-
-    # config_path = Path(__root__, "sessions", "high_res_session")
-    
     app = QApplication(sys.argv)
     window = CalibrationWizard()
-    
-    test_session = Path(__root__, "sessions", "5_cameras")
-    # open in a session already so you don't have to go through the menu each time
-    # window.open_session(config_path)
     window.wizard_directory.from_previous_radio.click()
     window.wizard_directory.from_previous_radio.setChecked(True)
     window.wizard_directory.original_path.textbox.setText(str(test_session))
@@ -169,3 +178,12 @@ if __name__ == "__main__":
     window.show()
 
     app.exec()
+
+if __name__ == "__main__":
+
+    # config_path = Path(__root__, "sessions", "high_res_session")
+    
+    
+    # open in a session already so you don't have to go through the menu each time
+    # window.open_session(config_path)
+    launch_calicam()

@@ -401,22 +401,22 @@ class Session:
 
     def get_stage(self):
         if self.connected_camera_count() == 0:
-            return stage.NO_CAMERAS
+            return Stage.NO_CAMERAS
 
         if self.calibrated_camera_count() < self.connected_camera_count():
-            return stage.UNCALIBRATED_CAMERAS
+            return Stage.UNCALIBRATED_CAMERAS
 
         if len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
-            return stage.STEREOCALIBRATION_DONE
+            return Stage.STEREOCALIBRATION_DONE
 
         if (
             self.connected_camera_count() > 0
             and self.calibrated_camera_count() == self.connected_camera_count()
         ):
-            return stage.MONOCALIBRATED_CAMERAS
+            return Stage.MONOCALIBRATED_CAMERAS
 
 
-class stage(Enum):
+class Stage(Enum):
     NO_CAMERAS = auto()
     UNCALIBRATED_CAMERAS = auto()
     MONOCALIBRATED_CAMERAS = auto()

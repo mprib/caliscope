@@ -59,15 +59,23 @@ class CameraConfigDialog(QDialog):
         self.build_exposure_hbox()
         self.build_ignore_checkbox()
         self.build_fps_grp()
-        # self.build_grid_group()
+        self.build_grid_group()
         self.build_calibrate_grp()
         ###################################################################
-        self.v_box = QVBoxLayout(self)
-        self.v_box.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.v_box.setContentsMargins(0, 0, 0, 0)
+        
+        self.setLayout(QHBoxLayout())
+        ##########################################################
+        ###################### CALIBRATION  ################################
+        self.layout().addWidget(self.calibrate_grp)
+
+        self.basic_frame_controls = QVBoxLayout(self)
+        self.layout().addLayout(self.basic_frame_controls)
+
+        self.basic_frame_controls.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.basic_frame_controls.setContentsMargins(0, 0, 0, 0)
 
         #################      VIDEO AT TOP     ##########################
-        self.v_box.addWidget(self.frame_display)
+        self.basic_frame_controls.addWidget(self.frame_display)
 
         ############################  ADD HBOX OF CONFIG ######################
         h_box = QHBoxLayout()
@@ -76,22 +84,20 @@ class CameraConfigDialog(QDialog):
         h_box.addWidget(self.resolution_combo)
 
         h_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.v_box.addLayout(h_box)
+        self.basic_frame_controls.addLayout(h_box)
 
         #################### EXPOSURE SLIDER #################################
-        self.v_box.addLayout(self.exposure_hbox)
+        self.basic_frame_controls.addLayout(self.exposure_hbox)
 
         #######################     FPS   + Grid Count #########################
         controls = QHBoxLayout()
         controls.addWidget(self.fps_grp)
-        # controls.addWidget(self.grid_grp)
+        controls.addWidget(self.grid_grp)
+        self.basic_frame_controls.addWidget(self.ignore_box)
         # self.v_box.addWidget(self.fps_grp)
         # self.v_box.addWidget(self.grid_grp)
-        self.v_box.addLayout(controls)
+        self.basic_frame_controls.addLayout(controls)
 
-        ###################### CALIBRATION  ################################
-        self.v_box.addWidget(self.calibrate_grp)
-        self.v_box.addWidget(self.ignore_box)
 
     ####################### SUB_WIDGET CONSTRUCTION ###############################
 
@@ -99,15 +105,15 @@ class CameraConfigDialog(QDialog):
         logger.debug("Building Calibrate Group")
         self.calibrate_grp = QGroupBox("Calibrate")
         # Generally Horizontal Configuration
-        hbox = QHBoxLayout()
-        self.calibrate_grp.setLayout(hbox)
+        vbox = QVBoxLayout()
+        self.calibrate_grp.setLayout(vbox)
 
         # Collect Calibration Corners
-        vbox = QVBoxLayout()
-        vbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        button_vbox = QVBoxLayout()
+        button_vbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         collect_crnr_btn = QPushButton("Capture Grids")
         collect_crnr_btn.setMaximumWidth(100)
-        vbox.addWidget(collect_crnr_btn)
+        button_vbox.addWidget(collect_crnr_btn)
 
         def capture():
             """change to turn on/off"""
@@ -128,7 +134,7 @@ class CameraConfigDialog(QDialog):
         self.calibrate_btn = QPushButton("Calibrate")
         self.calibrate_btn.setEnabled(False)
         self.calibrate_btn.setMaximumWidth(100)
-        vbox.addWidget(self.calibrate_btn)
+        button_vbox.addWidget(self.calibrate_btn)
 
         def calibrate():
             if len(self.monocal.all_ids) > 0:
@@ -153,7 +159,7 @@ class CameraConfigDialog(QDialog):
         self.clear_grid_history_btn = QPushButton("Clear History")
         self.clear_grid_history_btn.setMaximumWidth(100)
         self.clear_grid_history_btn.setEnabled(False)
-        vbox.addWidget(self.clear_grid_history_btn)
+        button_vbox.addWidget(self.clear_grid_history_btn)
 
         def clear_capture_history():
             self.monocal.initialize_grid_history()
@@ -175,7 +181,7 @@ class CameraConfigDialog(QDialog):
             self.undistort_btn.setEnabled(True)
 
         self.undistort_btn.setMaximumWidth(100)
-        vbox.addWidget(self.undistort_btn)
+        button_vbox.addWidget(self.undistort_btn)
 
         def undistort():
             if self.frame_emitter.undistort:
@@ -195,16 +201,16 @@ class CameraConfigDialog(QDialog):
         # self.save_cal_btn.setEnabled(False)
         self.save_cal_btn.setMaximumWidth(100)
         self.save_cal_btn.clicked.connect(on_save_click)
-        vbox.addWidget(self.save_cal_btn)
+        button_vbox.addWidget(self.save_cal_btn)
 
         # include calibration grid in horizontal box
-        hbox.addLayout(vbox)
+        vbox.addLayout(button_vbox)
 
         self.cal_output = QLabel()
         self.cal_output.setWordWrap(True)
         self.cal_output.setMaximumWidth(int(self.pixmap_edge / 3))
         self.cal_output.setText(self.monocal.camera.calibration_summary())
-        hbox.addWidget(self.cal_output)
+        vbox.addWidget(self.cal_output)
         # calib_output.setMaximumWidth()
 
     def build_fps_grp(self):
@@ -239,32 +245,32 @@ class CameraConfigDialog(QDialog):
 
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
 
-    # def build_grid_group(self):
-    #     # Built capture wait time
-    #     self.grid_grp = QGroupBox("Grid Collection")
-    #     hbox = QHBoxLayout()
-    #     self.grid_grp.setLayout(hbox)
+    def build_grid_group(self):
+        # Built capture wait time
+        self.grid_grp = QGroupBox("Grid Collection")
+        hbox = QHBoxLayout()
+        self.grid_grp.setLayout(hbox)
 
-    #     hbox.addWidget(QLabel("Wait Time:"))
-    #     self.wait_time_spin = QDoubleSpinBox()
-    #     self.wait_time_spin.setValue(self.monocal.wait_time)
-    #     self.wait_time_spin.setSingleStep(0.1)
+        hbox.addWidget(QLabel("Wait Time:"))
+        self.wait_time_spin = QDoubleSpinBox()
+        self.wait_time_spin.setValue(self.monocal.wait_time)
+        self.wait_time_spin.setSingleStep(0.1)
 
-    #     def on_wait_time_spin(wait_time):
-    #         self.monocal.wait_time = wait_time
+        def on_wait_time_spin(wait_time):
+            self.monocal.wait_time = wait_time
 
-    #     self.wait_time_spin.valueChanged.connect(on_wait_time_spin)
-    #     hbox.addWidget(self.wait_time_spin)
+        self.wait_time_spin.valueChanged.connect(on_wait_time_spin)
+        hbox.addWidget(self.wait_time_spin)
 
-    #     logger.debug("Building Grid Count Display")
-    #     self.grid_count_display = QLabel()
-    #     hbox.addWidget(self.grid_count_display)
-    #     self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        logger.debug("Building Grid Count Display")
+        self.grid_count_display = QLabel()
+        hbox.addWidget(self.grid_count_display)
+        self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-    #     def grid_count_update_slot(grid_count):
-    #         self.grid_count_display.setText(f"Count: {grid_count}")
+        def grid_count_update_slot(grid_count):
+            self.grid_count_display.setText(f"Count: {grid_count}")
 
-    #     self.frame_emitter.GridCountBroadcast.connect(grid_count_update_slot)
+        self.frame_emitter.GridCountBroadcast.connect(grid_count_update_slot)
 
     def build_cw_rotation_btn(self):
         self.cw_rotation_btn = QPushButton(

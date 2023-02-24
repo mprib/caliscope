@@ -6,7 +6,7 @@ from pathlib import Path
 from threading import Thread
 
 import cv2
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
@@ -30,6 +30,7 @@ from calicam.session import Session
 
 
 class CameraConfigDialog(QDialog):
+
     def __init__(self, session, port):
         super(CameraConfigDialog, self).__init__()
 
@@ -100,6 +101,9 @@ class CameraConfigDialog(QDialog):
 
 
     ####################### SUB_WIDGET CONSTRUCTION ###############################
+
+    def save_camera(self):
+        self.session.save_camera(self.port)
 
     def build_calibrate_grp(self):
         logger.debug("Building Calibrate Group")
@@ -280,15 +284,16 @@ class CameraConfigDialog(QDialog):
 
         # Counter Clockwise rotation called because the display image is flipped
         self.cw_rotation_btn.clicked.connect(self.monocal.camera.rotate_CCW)
+        self.cw_rotation_btn.clicked.connect(self.save_camera)
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton(
             QIcon("calicam/gui/icons/rotate-camera-left.svg"), ""
         )
-        self.ccw_rotation_btn.setMaximumSize(100, 50)
 
         # Clockwise rotation called because the display image is flipped
         self.ccw_rotation_btn.clicked.connect(self.monocal.camera.rotate_CW)
+        self.ccw_rotation_btn.clicked.connect(self.save_camera)
 
     def build_exposure_hbox(self):
         # construct a horizontal widget with label: slider: value display
@@ -308,7 +313,8 @@ class CameraConfigDialog(QDialog):
         def update_exposure(s):
             self.monocal.camera.exposure = s
             exp_number.setText(str(s))
-
+            self.save_camera()
+            
         self.exp_slider.valueChanged.connect(update_exposure)
 
         self.exposure_hbox.addWidget(label)
@@ -329,6 +335,7 @@ class CameraConfigDialog(QDialog):
             else:  # value of checkState() might be 2?
                 logger.info(f"Ignore camera at port {self.port}")
                 self.camera.ignore = True
+            self.save_camera()
 
         self.ignore_box.stateChanged.connect(ignore_cam)
 
@@ -352,6 +359,10 @@ class CameraConfigDialog(QDialog):
                 res_text.append(f"{int(w)} x {int(h)}")
             return res_text
 
+        def change_res_worker(new_res):
+            self.monocal.stream.change_resolution(new_res)
+            self.save_camera()
+            
         def change_resolution(res_text):
             # call the cam_cap widget to change the resolution, but do it in a
             # thread so that it doesn't halt your progress
@@ -364,7 +375,7 @@ class CameraConfigDialog(QDialog):
                 f"Attempting to change resolution of camera at port {self.port}"
             )
             self.change_res_thread = Thread(
-                target=self.monocal.stream.change_resolution,
+                target=change_res_worker,
                 args=(new_res,),
                 daemon=True,
             )

@@ -141,12 +141,12 @@ class CameraConfigDialog(QDialog):
                 self.cal_output.setText("Calibration can take a moment...")
                 self.calibrate_btn.setEnabled(False)
                 self.clear_grid_history_btn.setEnabled(True)
-                self.save_cal_btn.setEnabled(True)
-                self.undistort_btn.setEnabled(True)
 
                 def wrker():
                     self.monocal.calibrate()
                     self.cal_output.setText(self.monocal.camera.calibration_summary())
+                    self.save_cal_btn.setEnabled(True)
+                    self.undistort_btn.setEnabled(True)
 
                 self.calib_thread = Thread(target=wrker, args=(), daemon=True)
                 self.calib_thread.start()

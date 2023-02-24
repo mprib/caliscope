@@ -70,6 +70,11 @@ class CalibrationWizard(QStackedWidget):
         if hasattr(self, "camera_wizard"):
             logger.info("Camera wizard already exists; changing stack current index")
             self.setCurrentIndex(2)
+            logger.info("updating charuco in case necessary")
+            for port, stream in self.session.streams.items():
+                stream.update_charuco(self.session.charuco)
+        
+
         else:
             logger.info("Initiating Camera Connection")
             self.initiate_camera_connection()
@@ -99,7 +104,6 @@ class CalibrationWizard(QStackedWidget):
 
         if len(self.session.cameras) > 0:
             logger.info("Cameras already connected")
-            pass
         else:
 
             def connect_to_cams_worker():

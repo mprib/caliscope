@@ -1,0 +1,51 @@
+
+from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
+from PyQt6.QtWidgets import (
+    QWidget,
+    QApplication,
+    QVBoxLayout,
+    QPushButton,
+    QHBoxLayout,
+    QDockWidget,
+    QFileDialog,
+    QStackedWidget,
+)
+
+class NavigationBarNext(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setLayout(QHBoxLayout())
+        self.next_wizard_step_btn = QPushButton("Next")
+        self.next_wizard_step_btn.setMaximumWidth(50)
+        self.layout().setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.layout().addWidget(self.next_wizard_step_btn)
+
+class NavigationBarBackNext(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setLayout(QHBoxLayout())
+        self.left_box = QHBoxLayout()
+        self.right_box = QHBoxLayout()
+
+        self.layout().addLayout(self.left_box)
+        self.layout().addLayout(self.right_box)
+
+        self.back_btn = QPushButton("Back")
+        self.back_btn.setMaximumWidth(50)
+        self.left_box.addWidget(self.back_btn)
+        
+        self.next_btn = QPushButton("Next")
+        self.next_btn.setMaximumWidth(50)
+        self.right_box.addWidget(self.next_btn)
+        
+        self.right_box.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.left_box.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        
+        
+if __name__ == "__main__":
+    import sys
+    app = QApplication(sys.argv)
+    nav_bar = NavigationBarBackNext()
+    nav_bar.show()
+    sys.exit(app.exec())

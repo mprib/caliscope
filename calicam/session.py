@@ -19,8 +19,6 @@ from calicam.cameras.camera import Camera
 from calicam.cameras.synchronizer import Synchronizer
 from calicam.cameras.live_stream import LiveStream
 from calicam.recording.video_recorder import VideoRecorder
-from calicam.gui.stereo_calibration.stereo_frame_builder import StereoFrameBuilder
-from calicam.gui.stereo_calibration.stereo_frame_emitter import StereoFrameEmitter
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10
@@ -108,6 +106,13 @@ class Session:
                 if port == port_to_delete:
                     del self.config[key]
 
+    def get_configured_camera_count(self):
+        count = 0
+        for key, params in self.config.copy().items():
+            if key.startswith("cam"):
+                count +=1
+        return count
+    
     def delete_all_cam_data(self):
         # note: needs to be a copy to avoid errors while dict changes with deletion
         for key, params in self.config.copy().items():
@@ -119,11 +124,6 @@ class Session:
         self.update_config()
 
     def connected_camera_count(self):
-        cam_count = 0
-
-        # for key in self.config.keys():
-        #     if key.startswith("cam"):
-        #         cam_count+=1
         return len(self.cameras)
 
     def calibrated_camera_count(self):
@@ -216,7 +216,7 @@ class Session:
                 logger.info(f"Success at port {port}")
                 self.cameras[port] = cam
                 self.save_camera(port)
-                self.streams[port] = LiveStream(cam)
+                self.streams[port] = LiveStream(cam, charuco = self.charuco)
             except:
                 logger.info(f"No camera at port {port}")
 
@@ -325,27 +325,7 @@ class Session:
             del self.monocalibrators[port]
             logger.info(f"Successfuly stopped monocalibrator at port {port}")
 
-    def load_stereo_tools(self):
-        if hasattr(self, "synchronizer"):
-            logger.info("No stereotools created...synchronizer already exists")
-        else:
-            logger.info("Creating stereo tools...")
-            self.synchronizer = Synchronizer(self.streams)
-            self.corner_tracker = CornerTracker(self.charuco)
-            self.stereocalibrator = StereoTracker(
-                self.synchronizer, self.corner_tracker
-            )
-            self.stereo_frame_builder = StereoFrameBuilder(self.stereocalibrator)
-            self.stereo_frame_emitter = StereoFrameEmitter(self.stereo_frame_builder)
-            self.stereo_frame_emitter.start()
 
-    def remove_stereo_tools(self):
-        self.stereocalibrator.stop()
-        del self.stereocalibrator
-        self.synchronizer.stop()
-        del self.synchronizer
-        # self.stereo_frame_builder
-        # self.stereo_frame_emitter
 
     def load_video_recorder(self):
         if hasattr(self, "synchronizer"):
@@ -395,35 +375,25 @@ class Session:
         self.config["cam_" + str(port)] = params
         self.update_config()
 
-    def save_stereocalibration(self):
-        logger.info(f"Saving stereocalibration....")
-        logger.info(self.stereocalibrator.stereo_outputs)
-
-        stereo_out = self.stereocalibrator.stereo_outputs
-        for pair, stereo_params in stereo_out.items():
-            config_key = f"stereo_{pair[0]}_{pair[1]}"
-            self.config[config_key] = stereo_params
-
-        self.update_config()
 
     def get_stage(self):
         if self.connected_camera_count() == 0:
-            return stage.NO_CAMERAS
+            return Stage.NO_CAMERAS
 
         if self.calibrated_camera_count() < self.connected_camera_count():
-            return stage.UNCALIBRATED_CAMERAS
+            return Stage.UNCALIBRATED_CAMERAS
 
         if len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
-            return stage.STEREOCALIBRATION_DONE
+            return Stage.STEREOCALIBRATION_DONE
 
         if (
             self.connected_camera_count() > 0
             and self.calibrated_camera_count() == self.connected_camera_count()
         ):
-            return stage.MONOCALIBRATED_CAMERAS
+            return Stage.MONOCALIBRATED_CAMERAS
 
 
-class stage(Enum):
+class Stage(Enum):
     NO_CAMERAS = auto()
     UNCALIBRATED_CAMERAS = auto()
     MONOCALIBRATED_CAMERAS = auto()

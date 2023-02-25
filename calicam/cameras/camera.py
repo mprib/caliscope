@@ -165,6 +165,7 @@ class Camera(object):
         self.verified_resolutions = []
         for resolution in RESOLUTIONS_TO_CHECK:
             # attempt to set the camera to the given resolution
+            logger.info(f"Checking resolution of {resolution} at port {self.port}")
             self.resolution = resolution
             
             # if it sticks, then that resolution is verified
@@ -274,8 +275,8 @@ RESOLUTIONS_TO_CHECK = [
     # (720, 576),
     (1280, 720),
     (1280, 1080),
-    # (1440, 1080),
-    # (1920, 1080),
+    (1440, 1080),
+    (1920, 1080),
     # (3840, 2160),
     # (7680, 4320),
 ]

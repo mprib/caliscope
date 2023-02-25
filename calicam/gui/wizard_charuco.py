@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import (
 from calicam import __app_dir__
 from calicam.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from calicam.session import Session
-
+from calicam.gui.widgets import NavigationBarNext
 
 class WizardCharuco(QWidget):
     def __init__(self, session):
@@ -52,7 +52,6 @@ class WizardCharuco(QWidget):
         self.build_save_png_group()
         self.build_true_up_group()
         # self.build_save_config()
-
         # Build display of board
         self.charuco_added = False  # track to handle redrawing of board
         self.build_charuco()
@@ -71,11 +70,16 @@ class WizardCharuco(QWidget):
 
         VBL.addWidget(self.true_up_group)
         VBL.addSpacing(20)
-
         for w in self.children():
             VBL.setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
+        
+        # add navigation bar at the end so as to not mess up alignment
+        self.navigation_bar = NavigationBarNext()
+        VBL.addWidget(self.navigation_bar)
 
 
+        
+        
     def build_save_png_group(self):
         # basic png save button
         self.png_btn = QPushButton("Save &png")
@@ -83,7 +87,7 @@ class WizardCharuco(QWidget):
 
         def save_png():
             save_file_tuple = QFileDialog.getSaveFileName(
-                self, "Save As", str(Path(__app_dir__,"charuco.png")), "PNG (*.png)"
+                self, "Save As", str(Path(self.session.path,"charuco.png")), "PNG (*.png)"
             )
             print(save_file_tuple)
             save_file_name = str(Path(save_file_tuple[0]))
@@ -99,7 +103,7 @@ class WizardCharuco(QWidget):
 
         def save_mirror_png():
             save_file_tuple = QFileDialog.getSaveFileName(
-                self, "Save As", str(Path(__app_dir__,"charuco_mirror.png")), "PNG (*.png)"
+                self, "Save As", str(Path(self.session.path,"charuco_mirror.png")), "PNG (*.png)"
             )
             print(save_file_tuple)
             save_file_name = str(Path(save_file_tuple[0]))
@@ -280,8 +284,9 @@ class CharucoConfigurator(QWidget):
 
 if __name__ == "__main__":
     
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    config_path = Path(repo, "sessions", "high_res_session")
+    from calicam import __root__
+    config_path = Path(__root__, "sessions", "high_res_session")
+
     session = Session(config_path)
 
     app = QApplication(sys.argv)

@@ -1,0 +1,12 @@
+CreationDate = 2023-02-23T13:15:58.913166
+
+[charuco]
+columns = 4
+rows = 5
+board_height = 11.0
+board_width = 8.5
+dictionary = "DICT_4X4_1000"
+units = "inch"
+aruco_scale = 0.75
+square_size_overide_cm = 5.25
+inverted = true

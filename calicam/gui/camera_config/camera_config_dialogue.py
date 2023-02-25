@@ -6,7 +6,7 @@ from pathlib import Path
 from threading import Thread
 
 import cv2
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
@@ -30,6 +30,7 @@ from calicam.session import Session
 
 
 class CameraConfigDialog(QDialog):
+
     def __init__(self, session, port):
         super(CameraConfigDialog, self).__init__()
 
@@ -62,12 +63,20 @@ class CameraConfigDialog(QDialog):
         self.build_grid_group()
         self.build_calibrate_grp()
         ###################################################################
-        self.v_box = QVBoxLayout(self)
-        self.v_box.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.v_box.setContentsMargins(0, 0, 0, 0)
+        
+        self.setLayout(QHBoxLayout())
+        ##########################################################
+        ###################### CALIBRATION  ################################
+        self.layout().addWidget(self.calibrate_grp)
+
+        self.basic_frame_controls = QVBoxLayout(self)
+        self.layout().addLayout(self.basic_frame_controls)
+
+        self.basic_frame_controls.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.basic_frame_controls.setContentsMargins(0, 0, 0, 0)
 
         #################      VIDEO AT TOP     ##########################
-        self.v_box.addWidget(self.frame_display)
+        self.basic_frame_controls.addWidget(self.frame_display)
 
         ############################  ADD HBOX OF CONFIG ######################
         h_box = QHBoxLayout()
@@ -76,37 +85,39 @@ class CameraConfigDialog(QDialog):
         h_box.addWidget(self.resolution_combo)
 
         h_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.v_box.addLayout(h_box)
+        self.basic_frame_controls.addLayout(h_box)
 
         #################### EXPOSURE SLIDER #################################
-        self.v_box.addLayout(self.exposure_hbox)
+        self.basic_frame_controls.addLayout(self.exposure_hbox)
 
         #######################     FPS   + Grid Count #########################
         controls = QHBoxLayout()
         controls.addWidget(self.fps_grp)
         controls.addWidget(self.grid_grp)
+        self.basic_frame_controls.addWidget(self.ignore_box)
         # self.v_box.addWidget(self.fps_grp)
         # self.v_box.addWidget(self.grid_grp)
-        self.v_box.addLayout(controls)
+        self.basic_frame_controls.addLayout(controls)
 
-        ###################### CALIBRATION  ################################
-        self.v_box.addWidget(self.calibrate_grp)
 
     ####################### SUB_WIDGET CONSTRUCTION ###############################
+
+    def save_camera(self):
+        self.session.save_camera(self.port)
 
     def build_calibrate_grp(self):
         logger.debug("Building Calibrate Group")
         self.calibrate_grp = QGroupBox("Calibrate")
         # Generally Horizontal Configuration
-        hbox = QHBoxLayout()
-        self.calibrate_grp.setLayout(hbox)
+        vbox = QVBoxLayout()
+        self.calibrate_grp.setLayout(vbox)
 
         # Collect Calibration Corners
-        vbox = QVBoxLayout()
-        vbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        collect_crnr_btn = QPushButton("Capture")
+        button_vbox = QVBoxLayout()
+        button_vbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        collect_crnr_btn = QPushButton("Capture Grids")
         collect_crnr_btn.setMaximumWidth(100)
-        vbox.addWidget(collect_crnr_btn)
+        button_vbox.addWidget(collect_crnr_btn)
 
         def capture():
             """change to turn on/off"""
@@ -116,7 +127,7 @@ class CameraConfigDialog(QDialog):
                 self.calibrate_btn.setEnabled(False)
             else:
                 self.monocal.capture_corners = False
-                collect_crnr_btn.setText("Capture")
+                collect_crnr_btn.setText("Capture Grids")
                 if self.monocal.grid_count > 1:
                     self.calibrate_btn.setEnabled(True)
                     self.clear_grid_history_btn.setEnabled(True)
@@ -127,19 +138,19 @@ class CameraConfigDialog(QDialog):
         self.calibrate_btn = QPushButton("Calibrate")
         self.calibrate_btn.setEnabled(False)
         self.calibrate_btn.setMaximumWidth(100)
-        vbox.addWidget(self.calibrate_btn)
+        button_vbox.addWidget(self.calibrate_btn)
 
         def calibrate():
             if len(self.monocal.all_ids) > 0:
                 self.cal_output.setText("Calibration can take a moment...")
                 self.calibrate_btn.setEnabled(False)
                 self.clear_grid_history_btn.setEnabled(True)
-                self.save_cal_btn.setEnabled(True)
-                self.undistort_btn.setEnabled(True)
 
                 def wrker():
                     self.monocal.calibrate()
                     self.cal_output.setText(self.monocal.camera.calibration_summary())
+                    self.save_cal_btn.setEnabled(True)
+                    self.undistort_btn.setEnabled(True)
 
                 self.calib_thread = Thread(target=wrker, args=(), daemon=True)
                 self.calib_thread.start()
@@ -152,7 +163,7 @@ class CameraConfigDialog(QDialog):
         self.clear_grid_history_btn = QPushButton("Clear History")
         self.clear_grid_history_btn.setMaximumWidth(100)
         self.clear_grid_history_btn.setEnabled(False)
-        vbox.addWidget(self.clear_grid_history_btn)
+        button_vbox.addWidget(self.clear_grid_history_btn)
 
         def clear_capture_history():
             self.monocal.initialize_grid_history()
@@ -174,7 +185,7 @@ class CameraConfigDialog(QDialog):
             self.undistort_btn.setEnabled(True)
 
         self.undistort_btn.setMaximumWidth(100)
-        vbox.addWidget(self.undistort_btn)
+        button_vbox.addWidget(self.undistort_btn)
 
         def undistort():
             if self.frame_emitter.undistort:
@@ -194,16 +205,16 @@ class CameraConfigDialog(QDialog):
         # self.save_cal_btn.setEnabled(False)
         self.save_cal_btn.setMaximumWidth(100)
         self.save_cal_btn.clicked.connect(on_save_click)
-        vbox.addWidget(self.save_cal_btn)
+        button_vbox.addWidget(self.save_cal_btn)
 
         # include calibration grid in horizontal box
-        hbox.addLayout(vbox)
+        vbox.addLayout(button_vbox)
 
         self.cal_output = QLabel()
         self.cal_output.setWordWrap(True)
         self.cal_output.setMaximumWidth(int(self.pixmap_edge / 3))
         self.cal_output.setText(self.monocal.camera.calibration_summary())
-        hbox.addWidget(self.cal_output)
+        vbox.addWidget(self.cal_output)
         # calib_output.setMaximumWidth()
 
     def build_fps_grp(self):
@@ -273,15 +284,16 @@ class CameraConfigDialog(QDialog):
 
         # Counter Clockwise rotation called because the display image is flipped
         self.cw_rotation_btn.clicked.connect(self.monocal.camera.rotate_CCW)
+        self.cw_rotation_btn.clicked.connect(self.save_camera)
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton(
             QIcon("calicam/gui/icons/rotate-camera-left.svg"), ""
         )
-        self.ccw_rotation_btn.setMaximumSize(100, 50)
 
         # Clockwise rotation called because the display image is flipped
         self.ccw_rotation_btn.clicked.connect(self.monocal.camera.rotate_CW)
+        self.ccw_rotation_btn.clicked.connect(self.save_camera)
 
     def build_exposure_hbox(self):
         # construct a horizontal widget with label: slider: value display
@@ -301,7 +313,8 @@ class CameraConfigDialog(QDialog):
         def update_exposure(s):
             self.monocal.camera.exposure = s
             exp_number.setText(str(s))
-
+            self.save_camera()
+            
         self.exp_slider.valueChanged.connect(update_exposure)
 
         self.exposure_hbox.addWidget(label)
@@ -313,7 +326,6 @@ class CameraConfigDialog(QDialog):
     def build_ignore_checkbox(self):
 
         self.ignore_box = QCheckBox("Ignore", self)
-        self.exposure_hbox.addWidget(self.ignore_box)
 
         def ignore_cam(signal):
             print(signal)
@@ -323,6 +335,7 @@ class CameraConfigDialog(QDialog):
             else:  # value of checkState() might be 2?
                 logger.info(f"Ignore camera at port {self.port}")
                 self.camera.ignore = True
+            self.save_camera()
 
         self.ignore_box.stateChanged.connect(ignore_cam)
 
@@ -331,8 +344,8 @@ class CameraConfigDialog(QDialog):
 
         self.frame_display = QLabel()
         self.frame_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.frame_display.setFixedWidth(self.width())
-        self.frame_display.setFixedHeight(self.width())
+        # self.frame_display.setFixedWidth(self.width())
+        # self.frame_display.setFixedHeight(self.width())
 
         def ImageUpdateSlot(QPixmap):
             self.frame_display.setPixmap(QPixmap)
@@ -346,6 +359,10 @@ class CameraConfigDialog(QDialog):
                 res_text.append(f"{int(w)} x {int(h)}")
             return res_text
 
+        def change_res_worker(new_res):
+            self.monocal.stream.change_resolution(new_res)
+            self.save_camera()
+            
         def change_resolution(res_text):
             # call the cam_cap widget to change the resolution, but do it in a
             # thread so that it doesn't halt your progress
@@ -358,7 +375,7 @@ class CameraConfigDialog(QDialog):
                 f"Attempting to change resolution of camera at port {self.port}"
             )
             self.change_res_thread = Thread(
-                target=self.monocal.stream.change_resolution,
+                target=change_res_worker,
                 args=(new_res,),
                 daemon=True,
             )
@@ -386,9 +403,8 @@ class CameraConfigDialog(QDialog):
 
 if __name__ == "__main__":
     App = QApplication(sys.argv)
-
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
-    config_path = Path(repo, "sessions", "high_res_session")
+    from calicam import __root__
+    config_path = Path(__root__, "sessions", "laptop")
 
     print(config_path)
     session = Session(config_path)

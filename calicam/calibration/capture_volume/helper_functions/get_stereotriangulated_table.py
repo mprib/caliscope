@@ -13,19 +13,18 @@ import time
 
 from calicam import __root__
 from calicam.cameras.data_packets import PointPacket, FramePacket, SyncPacket
-from calicam.cameras.camera_array_builder import CameraArrayBuilder
 from calicam.cameras.camera_array import CameraArray
 from calicam.triangulate.triangulator import ArrayTriangulator
 
-from calicam.triangulate.paired_point_builder import (
-    StereoPointBuilder,
+from calicam.triangulate.stereo_points_builder import (
+    StereoPointsBuilder,
     StereoPointsPacket,
     SynchedStereoPointsPacket,
 )
 
 
 
-def get_stereotriangulated_points(camera_array:CameraArray, point_data_path:Path):
+def get_stereotriangulated_table(camera_array:CameraArray, point_data_path:Path) -> pd.DataFrame:
 
     logger.info(f"Beginning to create stereotriangulated points from data stored at {point_data_path}")
     point_data = pd.read_csv(point_data_path)
@@ -37,7 +36,7 @@ def get_stereotriangulated_points(camera_array:CameraArray, point_data_path:Path
     xy_camera_indices = point_data["port"].to_numpy()
     ports = np.unique(xy_camera_indices)
 
-    paired_point_builder = StereoPointBuilder(ports)
+    paired_point_builder = StereoPointsBuilder(ports)
 
     # Create the infrastructure for the pairwise triangulation
     array_triangulator = ArrayTriangulator(camera_array)
@@ -99,7 +98,7 @@ def get_stereotriangulated_points(camera_array:CameraArray, point_data_path:Path
                     for key, value in new_table.items():
                         stereotriangulated_table[key].extend(value)
 
-    logger.info(f"Saving stereotriangulated_points.csv to {point_data_path} for inspection")
+    logger.info(f"Saving stereotriangulated_points.csv to {point_data_path.parent} for inspection")
     stereotriangulated_table = pd.DataFrame(stereotriangulated_table)
     stereotriangulated_table.to_csv(
         Path(point_data_path.parent, "stereotriangulated_points.csv")

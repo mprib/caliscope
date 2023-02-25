@@ -63,12 +63,12 @@ verified_resolutions = [ [ 640, 480,], [ 1280, 720,],]
 [charuco]
 columns = 4
 rows = 5
-board_height = 11.0
+board_height = 10.0
 board_width = 8.5
 dictionary = "DICT_4X4_1000"
 units = "inch"
 aruco_scale = 0.75
-square_size_overide_cm = 5.4
+square_size_overide_cm = 5.2500000000000036
 inverted = true
 
 [stereo_0_1]

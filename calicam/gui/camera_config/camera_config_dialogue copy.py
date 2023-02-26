@@ -64,7 +64,9 @@ class CameraConfigDialog(QDialog):
         self.setLayout(QHBoxLayout())
         ##########################################################
         ###################### CALIBRATION  ################################
-        self.build_calibrate_grp()
+        self.calibrate_grp = CalibrationControls(self.session, self.port, self.frame_emitter)
+
+        # self.build_calibrate_grp()
         self.layout().addWidget(self.calibrate_grp)
 
 
@@ -215,11 +217,79 @@ class CameraConfigDialog(QDialog):
         vbox.addWidget(self.cal_output)
         # calib_output.setMaximumWidth()
 
+class CalibrationControls(QGroupBox):
+    def __init__(self, session:Session, port, frame_emitter:FrameEmitter):
+        super(CalibrationControls,self).__init__("Calibration Summary")
+
+        self.session: Session = session
+        self.port = port
+        self.monocal: MonoCalibrator = self.session.monocalibrators[port]
+        self.stream: LiveStream = self.monocal.stream
+        self.camera: Camera = self.stream.camera
+        self.frame_emitter = frame_emitter
+        self.setLayout(QVBoxLayout())        
+
+        self.place_widgets()
+        self.connect_widgets()
 
 
-        # self.frame_emitter.GridCountBroadcast.connect(grid_count_update_slot)
+    def place_widgets(self):
+        self.start_stop_calibration = QPushButton("Collect Data")
+        self.layout().addWidget(self.start_stop_calibration)
+        self.undistort_btn = QPushButton("Undistort")    
+        self.layout().addWidget(self.undistort_btn)
+         
+        if self.camera.camera_matrix is None and self.camera.distortion is None:
+            self.undistort_btn.setEnabled(False)
+        
+        self.cal_output = QLabel()
+        self.cal_output.setWordWrap(True)
+        self.cal_output.setText(self.monocal.camera.calibration_summary())
+        self.layout().addWidget(self.cal_output)
 
+    def connect_widgets(self):
+        self.start_stop_calibration.clicked.connect(self.capture_control)
+        # self.calibrate_btn.clicked.connect(calibrate)
 
+    def capture_control(self):
+        """change to turn on/off"""
+
+        if self.start_stop_calibration.text() == "Collect Data":
+            self.monocal.capture_corners = True
+            self.start_stop_calibration.setText("Calibrate")
+        
+        if self.start_stop_calibration.text() == "Calibrate":
+            if len(self.monocal.all_ids) > 0:
+                self.cal_output.setText("Calibration can take a moment...")
+                self.monocal.capture_corners = False 
+                self.calibrate()    
+            else:
+                self.cal_output.setText("Need to Collect Grids")
+
+        if self.start_stop_calibration.text() == "Re-Collect":
+            self.monocal.initialize_grid_history()
+            self.monocal.capture_corners = True
+            self.start_stop_calibration.setText("Calibrate")
+            
+            
+
+        
+    def calibrate(self):
+
+            def wrker():
+                self.start_stop_calibration.setText("---processing---")
+                self.start_stop_calibration.setEnabled(False)
+
+                self.monocal.calibrate()
+                self.cal_output.setText(self.monocal.camera.calibration_summary())
+                self.undistort_btn.setEnabled(True)
+                self.start_stop_calibration.setText("Re-Collect")
+                self.start_stop_calibration.setEnabled(True)
+
+            self.calib_thread = Thread(target=wrker, args=(), daemon=True)
+            self.calib_thread.start()
+
+        
 class AdvancedControls(QWidget):
     def __init__(self,session:Session, port, frame_emitter:FrameEmitter):
         super(AdvancedControls, self).__init__()
@@ -473,6 +543,15 @@ if __name__ == "__main__":
     # adv_control = AdvancedControls(session, test_port)
     # adv_control.show()
 
+    # DISPLAY_WIDTH = App.primaryScreen().size().width()
+    # DISPLAY_HEIGHT = App.primaryScreen().size().height()
+
+    # pixmap_edge = min(DISPLAY_WIDTH / 3, DISPLAY_HEIGHT / 3)
+    # frame_emitter = FrameEmitter(session.monocalibrators[test_port], pixmap_edge)
+    
+    # frame_emitter.start()
+    # cal_controls = CalibrationControls(session, test_port,frame_emitter)
+    # cal_controls.show()
     logger.info("About to show camera config dialog")
 
     sys.exit(App.exec())

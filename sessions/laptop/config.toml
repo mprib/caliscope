@@ -3,8 +3,8 @@ CreationDate = 2022-12-22T10:43:16.354534
 [cam_0]
 port = 0
 resolution = [ 1280, 720,]
-rotation_count = 1
-exposure = -6
+rotation_count = 0
+exposure = -7
 ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 

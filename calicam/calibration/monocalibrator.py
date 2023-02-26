@@ -79,7 +79,7 @@ class MonoCalibrator:
         """
         logger.debug("Entering collect_corners thread loop")
         
-        self.stream.push_to_out_q = True        
+        self.stream.push_to_out_q.set()
         
         while not self.stop_event.is_set():
             

@@ -329,9 +329,9 @@ class Session:
         logger.info(f"Activate tracking on port {active_port} and deactivate others")
         for port,monocal in self.monocalibrators.items():
             if port == active_port:
-                monocal.stream.track_points.set()
+                monocal.stream.push_to_out_q.set()
             else:
-                monocal.stream.track_points.clear()
+                monocal.stream.push_to_out_q.clear()
 
     def load_video_recorder(self):
         if hasattr(self, "synchronizer"):

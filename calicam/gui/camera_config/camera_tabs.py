@@ -34,7 +34,8 @@ class CameraTabs(QTabWidget):
         self.setTabPosition(QTabWidget.TabPosition.North)
         self.add_cam_tabs()
         self.currentChanged.connect(self.toggle_tracking)
-
+        
+        
     def toggle_tracking(self, index):
 
         logger.info(f"Toggle tracking to activate {self.tabText(index)}")
@@ -46,6 +47,9 @@ class CameraTabs(QTabWidget):
         logger.info(f"Current tabs are: {tab_names}")
 
         if len(self.session.monocalibrators) > 0:
+            
+            # construct a dict of tabs so that they can then be placed in order
+            tab_widgets = {}
             for port, monocal in self.session.monocalibrators.items():
                 tab_name = f"Camera {port}"
                 logger.info(f"Potentially adding {tab_name}")
@@ -53,14 +57,21 @@ class CameraTabs(QTabWidget):
                     pass  # already here, don't bother
                 else:
                     cam_tab = CameraConfigDialog(self.session, port)
+                    tab_widgets[port] = cam_tab
 
-                    self.insertTab(port, cam_tab, tab_name)
+            # add the widgets to the tab bar in order
+            ordered_ports = list(tab_widgets.keys())
+            ordered_ports.sort()
+            for port in ordered_ports:
+                self.insertTab(port, tab_widgets[port], f"Camera {port}")
         else:
             logger.info("No cameras available")
             
+        
         self.toggle_tracking(self.currentIndex())
     
-
+        
+        
 if __name__ == "__main__":
     from calicam import __root__
     

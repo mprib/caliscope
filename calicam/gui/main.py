@@ -175,11 +175,11 @@ def launch_calicam():
 
     app = QApplication(sys.argv)
     window = CalibrationWizard()
-    window.wizard_directory.from_previous_radio.click()
-    window.wizard_directory.from_previous_radio.setChecked(True)
-    window.wizard_directory.launch_wizard_btn.setEnabled(True)
-    window.wizard_directory.original_path.textbox.setText(str(test_session))
-    window.wizard_directory.modified_path.textbox.setText(str(test_session))
+    # window.wizard_directory.from_previous_radio.click()
+    # window.wizard_directory.from_previous_radio.setChecked(True)
+    # window.wizard_directory.launch_wizard_btn.setEnabled(True)
+    # window.wizard_directory.original_path.textbox.setText(str(test_session))
+    # window.wizard_directory.modified_path.textbox.setText(str(test_session))
     window.show()
 
     app.exec()

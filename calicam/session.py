@@ -325,7 +325,13 @@ class Session:
             del self.monocalibrators[port]
             logger.info(f"Successfuly stopped monocalibrator at port {port}")
 
-
+    def set_active_monocalibrator(self,active_port):
+        logger.info(f"Activate tracking on port {active_port} and deactivate others")
+        for port,monocal in self.monocalibrators.items():
+            if port == active_port:
+                monocal.stream.track_points.set()
+            else:
+                monocal.stream.track_points.clear()
 
     def load_video_recorder(self):
         if hasattr(self, "synchronizer"):

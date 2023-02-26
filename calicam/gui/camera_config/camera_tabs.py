@@ -27,12 +27,19 @@ class CameraWizard(QWidget):
     
 
 class CameraTabs(QTabWidget):
-    def __init__(self, session):
+    def __init__(self, session: Session):
         super(CameraTabs, self).__init__()
         self.session = session
 
         self.setTabPosition(QTabWidget.TabPosition.North)
         self.add_cam_tabs()
+        self.currentChanged.connect(self.toggle_tracking)
+
+    def toggle_tracking(self, index):
+
+        logger.info(f"Toggle tracking to activate {self.tabText(index)}")
+        self.session.set_active_monocalibrator(self.widget(index).stream.port)
+
 
     def add_cam_tabs(self):
         tab_names = [self.tabText(i) for i in range(self.count())]
@@ -50,7 +57,9 @@ class CameraTabs(QTabWidget):
                     self.insertTab(port, cam_tab, tab_name)
         else:
             logger.info("No cameras available")
-
+            
+        self.toggle_tracking(self.currentIndex())
+    
 
 if __name__ == "__main__":
     from calicam import __root__
@@ -58,8 +67,8 @@ if __name__ == "__main__":
     App = QApplication(sys.argv)
 
     
-    config_path = Path(__root__, "sessions", "laptop")
-    # config_path = Path(__root__, "sessions", "5_cameras")
+    # config_path = Path(__root__, "sessions", "laptop")
+    config_path = Path(__root__, "sessions", "5_cameras")
     # config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
     session = Session(config_path)

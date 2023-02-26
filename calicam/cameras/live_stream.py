@@ -23,13 +23,15 @@ class LiveStream:
     def __init__(self, camera, fps_target=6,  charuco = None):
         self.camera = camera
         self.port = camera.port
+        self.track_points = Event()
 
         if charuco is not None:
             self.charuco = charuco
             self.tracker = CornerTracker(charuco)
-            self.track_points = True
+            self.track_points.set() # default to tracking points if the charuco is provided
         else:
-            self.track_points = False
+            self.track_points.clear() # just to be clear
+            
 
         self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
         self.push_to_out_q = True
@@ -134,7 +136,7 @@ class LiveStream:
                 if self.push_to_out_q and self.success:
                     logger.debug(f"Pushing frame to reel at port {self.port}")
 
-                    if self.track_points:
+                    if self.track_points.is_set():
                         point_data = self.tracker.get_points(self.frame)
                     else:
                         point_data = None

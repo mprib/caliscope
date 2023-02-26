@@ -45,7 +45,15 @@ class CameraConfigDialog(QDialog):
         self.stream = self.monocal.stream
         self.camera = self.stream.camera
 
+        # need frame emitter to create actual frames and track FPS/grid count 
         App = QApplication.instance()
+        DISPLAY_WIDTH = App.primaryScreen().size().width()
+        DISPLAY_HEIGHT = App.primaryScreen().size().height()
+
+        self.pixmap_edge = min(DISPLAY_WIDTH / 3, DISPLAY_HEIGHT / 3)
+        self.frame_emitter = FrameEmitter(self.monocal, self.pixmap_edge)
+        self.frame_emitter.start()
+
         self.setWindowTitle("Camera Configuration and Calibration")
         self.setContentsMargins(0, 0, 0, 0)
 
@@ -62,7 +70,7 @@ class CameraConfigDialog(QDialog):
 
         self.frame_controls_layout = QVBoxLayout(self)
         self.layout().addLayout(self.frame_controls_layout)
-        self.basic_frame_control = FrameControlWidget(self.session, self.port)
+        self.basic_frame_control = FrameControlWidget(self.session, self.port, self.frame_emitter)
        
         
         self.frame_controls_layout.addWidget(self.basic_frame_control)
@@ -76,7 +84,7 @@ class CameraConfigDialog(QDialog):
 
         self.frame_controls_layout.addWidget(self.advanced_controls_toggle)
     
-        self.advanced_controls = AdvancedControls(self.session, self.port)
+        self.advanced_controls = AdvancedControls(self.session, self.port, self.frame_emitter)
         self.advanced_controls.hide()
         self.frame_controls_layout.addWidget(self.advanced_controls)
 
@@ -213,13 +221,14 @@ class CameraConfigDialog(QDialog):
 
 
 class AdvancedControls(QWidget):
-    def __init__(self,session:Session, port):
+    def __init__(self,session:Session, port, frame_emitter:FrameEmitter):
         super(AdvancedControls, self).__init__()
         self.session: Session = session
         self.port = port
         self.monocal: MonoCalibrator = self.session.monocalibrators[port]
         self.stream: LiveStream = self.monocal.stream
         self.camera: Camera = self.stream.camera
+        self.frame_emitter = frame_emitter
         self.setLayout(QHBoxLayout())        
 
         self.place_widgets()
@@ -241,7 +250,6 @@ class AdvancedControls(QWidget):
         self.fps_display = QLabel()
         # self.fps_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.fps_grp.layout().addWidget(self.fps_display)
-
         self.grid_grp = QGroupBox("Grid Collection")
         self.layout().addWidget(self.grid_grp)
         self.grid_grp.setLayout(QHBoxLayout())
@@ -264,11 +272,22 @@ class AdvancedControls(QWidget):
             self.grid_count_display.setText(f"Count: {grid_count}")
         # self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
 
+    def connect_widgets(self):
+        self.frame_rate_spin.valueChanged.connect(self.on_frame_rate_spin)
+        
+        
+        def FPSUpdateSlot(fps):
+            if self.monocal.camera.capture.isOpened():
+                # rounding to nearest integer should be close enough for our purposes
+                self.fps_display.setText("Actual: " + str(round(fps, 1)))
+            else:
+                self.fps_display.setText("reconnecting to camera...")
+
+        self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
+        
     def on_wait_time_spin(self, wait_time):
         self.monocal.wait_time = wait_time
 
-    def connect_widgets(self):
-        self.frame_rate_spin.valueChanged.connect(self.on_frame_rate_spin)
         
     def on_frame_rate_spin(self,fps_rate):
         self.stream.set_fps_target(fps_rate)
@@ -282,20 +301,13 @@ class AdvancedControls(QWidget):
             self.fps_display.setText("reconnecting to camera...")
 
 class FrameControlWidget(QWidget):
-    def __init__(self, session: Session, port):
+    def __init__(self, session: Session, port, frame_emitter:FrameEmitter):
         super(FrameControlWidget, self).__init__()
         self.session:Session = session
         self.monocal:MonoCalibrator  = session.monocalibrators[port]
         self.port = port
         self.camera: Camera = self.monocal.stream.camera
-
-        # need frame emitter to create actual frames    
-        DISPLAY_WIDTH = App.primaryScreen().size().width()
-        DISPLAY_HEIGHT = App.primaryScreen().size().height()
-        self.pixmap_edge = min(DISPLAY_WIDTH / 3, DISPLAY_HEIGHT / 3)
-        self.frame_emitter = FrameEmitter(self.monocal, self.pixmap_edge)
-        self.frame_emitter.start()
-       
+        self.frame_emitter = frame_emitter
        
         self.place_widgets()
         self.connect_widgets()

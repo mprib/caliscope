@@ -10,13 +10,15 @@ from threading import Thread, Event
 import cv2
 import numpy as np
 
+
 import calicam.calibration.draw_charuco as draw_charuco
 from calicam.calibration.charuco import Charuco
 from calicam.calibration.corner_tracker import CornerTracker
 from calicam.cameras.data_packets import FramePacket
 from calicam.cameras.live_stream import LiveStream
 
-class MonoCalibrator:
+class MonoCalibrator():
+
     def __init__(
         self, stream:LiveStream,  board_threshold=0.7, wait_time=0.5
     ):

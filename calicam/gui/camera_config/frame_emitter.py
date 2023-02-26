@@ -14,6 +14,7 @@ class FrameEmitter(QThread):
     # establish signals from the frame that will be displayed in real time
     # within the GUI
     ImageBroadcast = pyqtSignal(QPixmap)
+
     FPSBroadcast = pyqtSignal(float)
     GridCountBroadcast = pyqtSignal(int)
 
@@ -47,6 +48,8 @@ class FrameEmitter(QThread):
                     Qt.AspectRatioMode.KeepAspectRatio,
                 )
             self.ImageBroadcast.emit(pixmap)
+            
+            # moved to monocalibrator...delete if works well
             self.FPSBroadcast.emit(self.monocalibrator.stream.FPS_actual)
             self.GridCountBroadcast.emit(self.monocalibrator.grid_count)
 

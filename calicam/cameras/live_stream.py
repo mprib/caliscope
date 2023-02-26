@@ -19,8 +19,9 @@ from calicam.calibration.charuco import Charuco
 from calicam.calibration.corner_tracker import CornerTracker
 import calicam.calibration.draw_charuco as draw_charuco
 
+
 class LiveStream:
-    def __init__(self, camera, fps_target=6,  charuco = None):
+    def __init__(self, camera, fps_target=6, charuco=None):
         self.camera = camera
         self.port = camera.port
         self.track_points = Event()
@@ -28,22 +29,21 @@ class LiveStream:
         if charuco is not None:
             self.charuco = charuco
             self.tracker = CornerTracker(charuco)
-            self.track_points.set() # default to tracking points if the charuco is provided
+            self.track_points.set()  # default to tracking points if the charuco is provided
         else:
-            self.track_points.clear() # just to be clear
-            
+            self.track_points.clear()  # just to be clear
 
         self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
-        self.push_to_out_q = True
+        self.push_to_out_q = Event()
+        self.push_to_out_q.set()  # default behavior is to push to queue
         self.stop_event = Event()
 
-        self.stop_confirm = (
-            Queue()
-        )  # make sure camera no longer reading before trying to change resolution
+        # make sure camera no longer reading before trying to change resolution
+        self.stop_confirm = Queue()
 
         self._show_fps = False  # used for testing
-        self._show_charuco = False # used for testing
-        
+        self._show_charuco = False  # used for testing
+
         self.set_fps_target(fps_target)
         self.FPS_actual = 0
         # Start the thread to read frames from the video stream
@@ -67,10 +67,9 @@ class LiveStream:
         logger.info(f"Setting fps to {self.fps}")
         self.milestones = np.array(milestones)
 
-    def update_charuco(self, charuco:Charuco):
+    def update_charuco(self, charuco: Charuco):
         self.charuco = charuco
         self.tracker = CornerTracker(charuco)
-
 
     def wait_to_next_frame(self):
         """
@@ -105,7 +104,7 @@ class LiveStream:
         return 1 / self.avg_delta_time
 
     def stop(self):
-        self.push_to_out_q = False
+        self.push_to_out_q.clear()
         self.stop_event.set()
         logger.info(f"Stop signal sent at stream {self.port}")
 
@@ -124,23 +123,29 @@ class LiveStream:
 
             if self.camera.capture.isOpened():
 
+                # slow wait if not pushing frames                
+                # this is a sub-optimal busy wait spin lock, but it works and I'm tired.
+                while not self.push_to_out_q.is_set():
+                    sleep(.2)
+
                 # Wait an appropriate amount of time to hit the frame rate target
                 sleep(self.wait_to_next_frame())
+
                 read_start = perf_counter()
                 self.success, self.frame = self.camera.capture.read()
 
                 read_stop = perf_counter()
+                point_data = None # Provide initial value here...may get overwritten
                 self.frame_time = (read_start + read_stop) / 2
 
-
-                if self.push_to_out_q and self.success:
+                if self.push_to_out_q.is_set() and self.success:
                     logger.debug(f"Pushing frame to reel at port {self.port}")
 
                     if self.track_points.is_set():
                         point_data = self.tracker.get_points(self.frame)
-                    else:
-                        point_data = None
-                
+                    # else:
+                        # point_data = None
+
                 if self._show_fps:
                     self._add_fps()
 
@@ -150,12 +155,12 @@ class LiveStream:
                     frame=self.frame,
                     points=point_data,
                 )
-                
+
                 if self._show_charuco:
                     draw_charuco.corners(frame_packet)
                     # self.out_q.put([self.frame_time, self.frame])
-                
-                if self.push_to_out_q:
+
+                if self.push_to_out_q.is_set():
                     self.out_q.put(frame_packet)
 
                 # Rate of calling recalc must be frequency of this loop
@@ -216,14 +221,14 @@ if __name__ == "__main__":
 
     # standard inverted charuco
     charuco = Charuco(
-            4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-        )
+        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+    )
 
     streams = []
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
-        stream = LiveStream(cam, fps_target=12, charuco = charuco)
-        stream.push_to_out_q = True
+        stream = LiveStream(cam, fps_target=12, charuco=charuco)
+        stream.push_to_out_q.set()
         stream._show_fps = True
         stream._show_charuco = True
         streams.append(stream)

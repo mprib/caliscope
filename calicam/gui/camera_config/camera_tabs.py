@@ -66,7 +66,6 @@ class CameraTabs(QTabWidget):
                 self.insertTab(port, tab_widgets[port], f"Camera {port}")
         else:
             logger.info("No cameras available")
-            
         
         self.toggle_tracking(self.currentIndex())
     

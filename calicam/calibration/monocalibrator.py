@@ -14,10 +14,11 @@ import calicam.calibration.draw_charuco as draw_charuco
 from calicam.calibration.charuco import Charuco
 from calicam.calibration.corner_tracker import CornerTracker
 from calicam.cameras.data_packets import FramePacket
+from calicam.cameras.live_stream import LiveStream
 
 class MonoCalibrator:
     def __init__(
-        self, stream,  board_threshold=0.7, wait_time=0.5
+        self, stream:LiveStream,  board_threshold=0.7, wait_time=0.5
     ):
         self.stream = stream
         self.camera = stream.camera  # reference needed to update params
@@ -205,7 +206,7 @@ if __name__ == "__main__":
     monocal = MonoCalibrator(stream)
 
     monocal.capture_corners = True
-
+    
     print("About to enter main loop")
     while True:
         # read_success, frame = cam.capture.read()
@@ -221,7 +222,9 @@ if __name__ == "__main__":
             cam.capture.release()
             cv2.destroyAllWindows()
             break
-        
+
+        if key == ord("t"):
+            monocal.stream.track_points = not monocal.stream.track_points
     
         if key == ord("v"):
             stream.change_resolution((1280,720))

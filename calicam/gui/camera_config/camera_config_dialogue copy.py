@@ -63,30 +63,29 @@ class CameraConfigDialog(QDialog):
         self.frame_controls_layout = QVBoxLayout(self)
         self.layout().addLayout(self.frame_controls_layout)
         self.basic_frame_control = FrameControlWidget(self.session, self.port)
-        self.advanced_controls = AdvancedControls(self.session, self.port)
        
         
         self.frame_controls_layout.addWidget(self.basic_frame_control)
-        self.frame_controls_layout.addWidget(self.advanced_controls)
 
         self.frame_controls_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.frame_controls_layout.setContentsMargins(0, 0, 0, 0)
 
-        #################      VIDEO AT TOP     ##########################
-        # self.basic_frame_controls.addWidget(self.frame_display)
+        self.advanced_controls_toggle = QPushButton("Advanced Settings")
+        self.advanced_controls_toggle.setCheckable(True)
+        self.advanced_controls_toggle.clicked.connect(self.toggle_advanced_controls)
 
-        ############################  ADD HBOX OF CONFIG ######################
+        self.frame_controls_layout.addWidget(self.advanced_controls_toggle)
+    
+        self.advanced_controls = AdvancedControls(self.session, self.port)
+        self.advanced_controls.hide()
+        self.frame_controls_layout.addWidget(self.advanced_controls)
 
-        #######################     FPS   + Grid Count #########################
-        # controls = QHBoxLayout()
-        # self.build_fps_grp()
-        # self.build_grid_group()
-        # controls.addWidget(self.fps_grp)
-        # controls.addWidget(self.grid_grp)
-        # self.frame_controls_layout.addLayout(controls)
-
-
-    ####################### SUB_WIDGET CONSTRUCTION ###############################
+    def toggle_advanced_controls(self):
+        if self.advanced_controls_toggle.isChecked():
+            self.advanced_controls.show()
+        else:
+            self.advanced_controls.hide()
+    
 
     def save_camera(self):
         self.session.save_camera(self.port)

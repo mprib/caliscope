@@ -2,7 +2,7 @@ CreationDate = 2023-02-07T08:31:15.128437
 
 [cam_0]
 port = 0
-resolution = [ 640, 480,]
+resolution = [ 1280, 720,]
 rotation_count = 0
 exposure = -6
 grid_count = 0

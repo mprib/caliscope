@@ -123,8 +123,14 @@ class LiveStream:
 
             if self.camera.capture.isOpened():
 
+                # slow wait if not pushing frames                
+                # this is a sub-optimal busy wait spin lock, but it works and I'm tired.
+                while not self.push_to_out_q.is_set():
+                    sleep(.2)
+
                 # Wait an appropriate amount of time to hit the frame rate target
                 sleep(self.wait_to_next_frame())
+
                 read_start = perf_counter()
                 self.success, self.frame = self.camera.capture.read()
 

@@ -4,6 +4,7 @@ logger = calicam.logger.get(__name__)
 import sys
 from pathlib import Path
 from threading import Thread
+import time
 
 import cv2
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -188,12 +189,17 @@ class CameraConfigDialog(QDialog):
         button_vbox.addWidget(self.undistort_btn)
 
         def undistort():
-            if self.frame_emitter.undistort:
+            def undistort_worker():
+                # create thread for timer to play out
+                self.frame_emitter.undistort = True
+                for i in range(5,0,-1):
+                    self.undistort_btn.setText(f"Reverting in {i}")
+                    time.sleep(1)
+                    
                 self.frame_emitter.undistort = False
                 self.undistort_btn.setText("Undistort")
-            else:
-                self.frame_emitter.undistort = True
-                self.undistort_btn.setText("Revert")
+            undistort_thread = Thread(target=undistort_worker,args=(),daemon=True)
+            undistort_thread.start()
 
         self.undistort_btn.clicked.connect(undistort)
 
@@ -344,8 +350,6 @@ class CameraConfigDialog(QDialog):
 
         self.frame_display = QLabel()
         self.frame_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # self.frame_display.setFixedWidth(self.width())
-        # self.frame_display.setFixedHeight(self.width())
 
         def ImageUpdateSlot(QPixmap):
             self.frame_display.setPixmap(QPixmap)

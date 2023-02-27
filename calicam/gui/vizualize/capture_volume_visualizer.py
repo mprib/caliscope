@@ -14,8 +14,8 @@ import pyqtgraph.opengl as gl
 
 from random import random
 
-from calicam.triangulate.stereo_triangulator import CameraData
-from calicam.gui.capture_volume.camera_mesh import CameraMesh
+from calicam.cameras.camera_array import CameraData
+from calicam.gui.vizualize.camera_mesh import CameraMesh
 from calicam.cameras.camera_array_builder import CameraArray, CameraArrayBuilder
 from calicam.calibration.capture_volume.capture_volume import CaptureVolume
 
@@ -183,30 +183,18 @@ if __name__ == "__main__":
 
     from PyQt6.QtWidgets import QApplication
 
-
-
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.point_estimates import (
-        get_point_history,
-    )
+    from calicam.calibration.capture_volume.helper_functions.get_point_estimates import get_point_history
+
     from calicam.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
     session_directory = Path(__root__, "tests", "5_cameras")
-    # stereo_points_csv_path = Path(
-        # session_directory, "recording", "stereotriangulated_points.csv"
-    # )
 
-    # point_estimate_data = get_point_estimate_data(stereo_points_csv_path)
-
-    # config_path = Path(session_directory, "config.toml")
-    # array_builder = CameraArrayBuilder(config_path)
-    # camera_array = array_builder.get_camera_array()
 
     print(f"Optimizing initial camera array configuration ")
 
-    # capture_volume = CaptureVolume(camera_array, point_estimate_data)
 
     # saved_CV_path = Path(session_directory, "recording", "pre_optimized_capture_volume.pkl") 
     saved_CV_path = Path(session_directory, "recording", "post_optimized_capture_volume.pkl") 

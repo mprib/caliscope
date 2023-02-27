@@ -23,12 +23,12 @@ keywords = ["opencv",
             "python",
             "webcam"] #change these to your project keywords
 
-dependencies = ["numpy", 
+dependencies = ["numpy==1.23.3", 
                 "opencv-contrib-python==4.6.0.66", 
-                "pyqt6", 
-                "scipy", 
-                "pandas", 
-                "pyqtgraph",
+                "pyqt6==6.4.0", 
+                "scipy==1.9.2", 
+                "pandas==1.5.2", 
+                "pyqtgraph==0.13.1",
                 "pyopengl",
                 "toml", 
                 "seaborn"] #add additional dependencies here - try to pin versions as minimally as possible

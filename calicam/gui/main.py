@@ -25,6 +25,7 @@ from calicam.gui.camera_config.camera_tabs import CameraWizard
 from calicam.gui.wizard_directory import WizardDirectory
 from calicam import __root__, __app_dir__
 from calicam.session import Stage
+from calicam.gui.qt_logger import QtLogger
 
 class CalibrationWizard(QStackedWidget):
     cameras_connected = pyqtSignal()
@@ -38,10 +39,16 @@ class CalibrationWizard(QStackedWidget):
         self.wizard_directory = WizardDirectory()
         self.addWidget(self.wizard_directory) # index:1
         self.setCurrentIndex(0)
+        self.connect_widgets()
+        
+        
+    def connect_widgets(self):
         self.wizard_directory.launch_wizard_btn.clicked.connect(self.next_to_charuco_wizard)
    
         self.cameras_connected.connect(self.on_cameras_connect) 
-
+        
+        
+        
     def on_cameras_connect(self):
         # load cameras wizard once the cameras are actually connected
         self.camera_wizard = CameraWizard(self.session)
@@ -78,7 +85,9 @@ class CalibrationWizard(QStackedWidget):
         else:
             logger.info("Initiating Camera Connection")
             self.initiate_camera_connection()
-            
+            self.qt_logger = QtLogger()
+            self.qt_logger.show()
+             
                      
     def launch_session(self):
         if self.wizard_directory.create_new_radio.isChecked():

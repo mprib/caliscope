@@ -2,6 +2,8 @@
 # Detail will be logged to a single file with INFO logged to the console
 
 import logging
+from PyQt6 import QtCore
+import sys
 import os
 from pathlib import Path
 from calicam import __log_dir__
@@ -25,6 +27,49 @@ console_handler.setFormatter(console_formatter)
 
 log_level_overides = {"calicam.cameras.live_stream": logging.INFO}
 
+
+class QtHandler(logging.Handler):
+    """
+    Adapted from discussion here: https://stackoverflow.com/questions/24469662/how-to-redirect-logger-output-into-pyqt-text-widget
+    This handler will allow a QDialog box to pick up the logger output which may be useful for a  
+    splash screen to show users that something is happening during big processing moments like:
+    - loading/finding cameras
+    - building / unbuilding synchronizer
+    - performing omnicalibration
+    """
+    def __init__(self):
+        logging.Handler.__init__(self)
+    def emit(self, record):
+        record = self.format(record)
+        if record: XStream.stdout().write('%s\n'%record)
+
+
+class XStream(QtCore.QObject):
+    _stdout = None
+    _stderr = None
+    messageWritten = QtCore.pyqtSignal(str)
+    def flush( self ):
+        pass
+    def fileno( self ):
+        return -1
+    def write( self, msg ):
+        if ( not self.signalsBlocked() ):
+            self.messageWritten.emit(msg)
+
+    @staticmethod
+    def stdout():
+        if ( not XStream._stdout ):
+            XStream._stdout = XStream()
+            sys.stdout = XStream._stdout
+        return XStream._stdout
+
+    @staticmethod
+    def stderr():
+        if ( not XStream._stderr ):
+            XStream._stderr = XStream()
+            sys.stderr = XStream._stderr
+        return XStream._stderr
+
 def get(name): # as in __name__
     print(f"Creating logger for {name}")
     logger = logging.getLogger(name)
@@ -34,8 +79,11 @@ def get(name): # as in __name__
     else:
         logger.setLevel(logging.DEBUG) 
 
+    qt_handler = QtHandler()
+    
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
+    logger.addHandler(qt_handler)
 
     return logger
 

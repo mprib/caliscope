@@ -3,58 +3,23 @@ from PyQt6 import QtCore, QtGui
 from PyQt6.QtWidgets import QDialog, QApplication, QTextBrowser, QPushButton, QVBoxLayout
 import logging
 
-class QtHandler(logging.Handler):
-    def __init__(self):
-        logging.Handler.__init__(self)
-    def emit(self, record):
-        record = self.format(record)
-        if record: XStream.stdout().write('%s\n'%record)
+from calicam.session import Session
+from pathlib import Path
+from threading  import Thread
 
-
-logger = logging.getLogger(__name__)
-handler = QtHandler()
-handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
-
-
-class XStream(QtCore.QObject):
-    _stdout = None
-    _stderr = None
-    messageWritten = QtCore.pyqtSignal(str)
-    def flush( self ):
-        pass
-    def fileno( self ):
-        return -1
-    def write( self, msg ):
-        if ( not self.signalsBlocked() ):
-            self.messageWritten.emit(msg)
-    @staticmethod
-
-    def stdout():
-        if ( not XStream._stdout ):
-            XStream._stdout = XStream()
-            sys.stdout = XStream._stdout
-        return XStream._stdout
-
-    @staticmethod
-    def stderr():
-        if ( not XStream._stderr ):
-            XStream._stderr = XStream()
-            sys.stderr = XStream._stderr
-        return XStream._stderr
 def test():
-    logger.debug('debug message')
-    logger.info('info message')
-    logger.warning('warning message')
-    logger.error('error message')
-    print('Old school hand made print message')
+    def worker():
+        session = Session(Path(r"C:\Users\Mac Prible\repos\calicam\sessions\laptop"))
+        session.find_cameras()
+    thread = Thread(target=worker, args=(), daemon=True)
+    thread.start()
 
+from calicam.logger import get, XStream
+logger = get(__name__)
 
-
-class MyDialog(QDialog):
+class LoggerPopUp(QDialog):
     def __init__( self, parent = None ):
-        super(MyDialog, self).__init__(parent)
+        super(LoggerPopUp, self).__init__(parent)
 
         self._console = QTextBrowser(self)
         self._button  = QPushButton(self)
@@ -70,10 +35,9 @@ class MyDialog(QDialog):
 
         self._button.clicked.connect(test)
 
-
-if ( __name__ == '__main__' ):
+if __name__ == '__main__':
     app = QApplication([])
-    dlg = MyDialog()
+    dlg = LoggerPopUp()
     dlg.show()
         
     app.exec()

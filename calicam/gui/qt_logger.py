@@ -20,22 +20,23 @@ logger = get(__name__)
 class QtLogger(QDialog):
     def __init__( self, parent = None ):
         super(QtLogger, self).__init__(parent)
-
+        self.setWindowTitle("Activity Logger...")
         self._console = LogMessageViewer(self)
 
-        self._button  = QPushButton(self)
-        self._button.setText('Test Me')
-        self.vertical_scroll_bar = self._console.verticalScrollBar()
-
         layout = QVBoxLayout()
+
         layout.addWidget(self._console)
-        layout.addWidget(self._button)
+        
+        if __name__ == "__main__":
+            self._button  = QPushButton(self)
+            self._button.setText('Test Me')
+            layout.addWidget(self._button)
+            self._button.clicked.connect(test)
 
         self.setLayout(layout)
         XStream.stdout().messageWritten.connect( self._console.appendLogMessage)
         XStream.stderr().messageWritten.connect( self._console.appendLogMessage)
 
-        self._button.clicked.connect(test)
 
 class LogMessageViewer(QTextBrowser):
 
@@ -43,7 +44,8 @@ class LogMessageViewer(QTextBrowser):
         super(LogMessageViewer,self).__init__(parent)
         self.setReadOnly(True)
         #self.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-
+        self.setEnabled(False)
+        self.verticalScrollBar().setVisible(False)
 
     @QtCore.pyqtSlot(str)
     def appendLogMessage(self, msg):

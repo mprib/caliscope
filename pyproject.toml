@@ -53,4 +53,4 @@ push            = true
 "calicam/__init__.py" = ["{version}"]
 
 [project.scripts]
-calicam = "calicam.__main__:launch_calicam"
+calicam = "calicam.__main__:launch"

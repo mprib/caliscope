@@ -54,7 +54,7 @@ class CaptureVolume:
         # get a snapshot of where things are at the start
         initial_xy_error = xy_reprojection_error(initial_param_estimate, self)
 
-        print(
+        logger.info(
             f"Prior to bundle adjustment, RMSE is: {rms_reproj_error(initial_xy_error)}"
         )
 
@@ -71,9 +71,9 @@ class CaptureVolume:
             loss="linear",
             ftol=1e-8,
             method="trf",
-            args=(
-                self,
-            ),  # xy_reprojection error takes the vectorized param estimates as first arg and capture volume as second
+
+            # xy_reprojection error takes the vectorized param estimates as first arg and capture volume as second
+            args=(self,),
         )
 
         self.camera_array.update_extrinsic_params(self.least_sq_result.x)
@@ -82,7 +82,7 @@ class CaptureVolume:
         if output_path is not None:
             self.save(Path(output_path, "post_optimized_capture_volume.pkl"))
 
-        print(
+        logger.info(
             f"Following bundle adjustment, RMSE is: {rms_reproj_error(self.least_sq_result.fun)}"
         )
 
@@ -182,8 +182,8 @@ def rms_reproj_error(xy_reproj_error):
     xy_reproj_error = xy_reproj_error.reshape(-1, 2)
     euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))
     rmse = np.sqrt(np.mean(euclidean_distance_error**2))
-    logger.info(f"Optimization run with {xy_reproj_error.shape[0]} image points")
-    logger.info(f"RMSE of reprojection is {rmse}")
+    # logger.info(f"Optimization run with {xy_reproj_error.shape[0]} image points")
+    # logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
 
 
@@ -191,7 +191,7 @@ if __name__ == "__main__":
     # if True:
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.point_estimates import (
+    from calicam.calibration.capture_volume.helper_functions.get_point_estimates import (
         get_point_history,
     )
 

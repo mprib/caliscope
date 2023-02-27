@@ -24,7 +24,7 @@ keywords = ["opencv",
             "webcam"] #change these to your project keywords
 
 dependencies = ["numpy", 
-                "opencv-contrib-python", 
+                "opencv-contrib-python==4.6.0.66", 
                 "pyqt6", 
                 "scipy", 
                 "pandas", 

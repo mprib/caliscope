@@ -31,6 +31,7 @@ from calicam.calibration.monocalibrator import MonoCalibrator
 from calicam.cameras.camera import Camera
 from calicam.cameras.live_stream import LiveStream 
 from calicam.session import Session
+from calicam import __root__
 
 
 class CameraConfigDialog(QDialog):
@@ -329,11 +330,11 @@ class FrameControlWidget(QWidget):
         self.layout().addLayout(self.rotation_resolution_hbox)
         ###################### Rotation Buttons  ###################################      
         self.cw_rotation_btn = QPushButton(
-            QIcon("calicam/gui/icons/rotate-camera-right.svg"), ""
+            QIcon(str(Path(__root__, "calicam/gui/icons/rotate-camera-right.svg"))), ""
         )
         self.cw_rotation_btn.setMaximumSize(35,35)
         self.ccw_rotation_btn = QPushButton(
-            QIcon("calicam/gui/icons/rotate-camera-left.svg"), ""
+            QIcon(str(Path(__root__, "calicam/gui/icons/rotate-camera-left.svg"))), ""
         )
 
         self.ccw_rotation_btn.setMaximumSize(35,35)

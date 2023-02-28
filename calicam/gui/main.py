@@ -35,7 +35,7 @@ class CalibrationWizard(QStackedWidget):
         self.CAMS_IN_PROCESS = False
 
         self.setWindowTitle("Camera Calibration Wizard")
-        self.setWindowIcon(QIcon("calicam/gui/icons/fmc_logo.ico"))
+        self.setWindowIcon(QIcon(str(Path(__root__, "calicam/gui/icons/fmc_logo.ico"))))
         self.wizard_directory = WizardDirectory()
         self.addWidget(self.wizard_directory) # index:1
         self.setCurrentIndex(0)

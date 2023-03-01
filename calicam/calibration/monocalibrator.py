@@ -117,7 +117,7 @@ class MonoCalibrator():
                 self.set_grid_frame()
 
         logger.info(f"Monocalibrator at port {self.port} successfully shutdown...")
-        self.stream.push_to_out_q = False
+        self.stream.push_to_out_q.clear()
         
     def update_grid_history(self):
         if len(self.ids) > 2:

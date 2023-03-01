@@ -90,7 +90,7 @@ class Synchronizer:
 
     def harvest_frame_packets(self, stream):
         port = stream.port
-        stream.push_to_out_q = True
+        stream.push_to_out_q.set()
 
         logger.info(f"Beginning to collect data generated at port {port}")
 
@@ -223,7 +223,7 @@ class Synchronizer:
                     # frame_packets[port]["sync_index"] = sync_index
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
-                    logger.info(
+                    logger.debug(
                         f"Adding to layer from port {port} at index {current_frame_index} and frame time: {frame_time}"
                     )
 

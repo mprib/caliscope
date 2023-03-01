@@ -40,6 +40,8 @@ class RecordedStream:
         video_path = str(Path(self.directory, f"port_{port}.mp4"))
         self.capture = cv2.VideoCapture(video_path)
 
+        self.push_to_out_q = Event()
+        self.push_to_out_q.set()
         self.out_q = Queue(-1)
         self.stop_event = Event()
 

@@ -23,7 +23,7 @@ class FrameEmitter(QThread):
         super(FrameEmitter, self).__init__()
         # self.monocalibrator = monocalibrator
         self.stream = stream
-        self.stream.push_to_out_q = True
+        self.stream.push_to_out_q.set()
         self.pixmap_edge_length = pixmap_edge_length
         self.rotation_count = stream.camera.rotation_count
         self.undistort = False
@@ -56,7 +56,7 @@ class FrameEmitter(QThread):
 
     def stop(self):
         self.ThreadActive = False
-        self.stream.push_to_out_q = False
+        self.stream.push_to_out_q.clear()
         self.quit()
 
     def cv2_to_qlabel(self, frame):

@@ -26,11 +26,13 @@ class MonoCalibrator():
         self.camera = stream.camera  # reference needed to update params
         self.port = self.camera.port
         self.wait_time = wait_time
-        self.capture_corners = False  # start out not doing anything
+        self.capture_corners = Event()
+        self.capture_corners.clear() # start out not doing anything
         self.stop_event = Event()
         
         self.grid_frame_ready_q = Queue()
         self.connected_corners = self.stream.charuco.get_connected_corners()
+
         board_corner_count = len(self.stream.charuco.board.chessboardCorners)
         self.min_points_to_process = int(board_corner_count * board_threshold)
 
@@ -39,6 +41,7 @@ class MonoCalibrator():
         self.last_calibration_time = (
             time.perf_counter()
         )  # need to initialize to *something*
+
         self.collecting_corners = True
         self.thread = Thread(target=self.collect_corners, args=(), daemon=True)
         self.thread.start()
@@ -85,10 +88,15 @@ class MonoCalibrator():
         
         while not self.stop_event.is_set():
             
+            # suboptimal but low cost spin lock to control handoff of control 
+            # between monocalibrators and the syncronizer
+            if not self.capture_corners.isSet():
+                time.sleep(1)
+            
             self.frame_packet: FramePacket = self.stream.out_q.get()
             self.frame = self.frame_packet.frame
 
-            if self.capture_corners and self.frame_packet.points is not None:
+            if self.capture_corners.isSet() and self.frame_packet.points is not None:
                 logger.info("Points found and being processed...")
                 self.ids = self.frame_packet.points.point_id
                 self.img_loc = self.frame_packet.points.img_loc
@@ -207,7 +215,7 @@ if __name__ == "__main__":
 
     monocal = MonoCalibrator(stream)
 
-    monocal.capture_corners = True
+    monocal.capture_corners.set()
     
     print("About to enter main loop")
     while True:
@@ -226,7 +234,10 @@ if __name__ == "__main__":
             break
 
         if key == ord("t"):
-            monocal.stream.track_points = not monocal.stream.track_points
+            if monocal.stream.track_points.isSet():
+                monocal.stream.track_points.clear()
+            else:
+                monocal.stream.track_points.set()
     
         if key == ord("v"):
             stream.change_resolution((1280,720))

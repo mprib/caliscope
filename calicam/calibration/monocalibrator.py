@@ -42,7 +42,6 @@ class MonoCalibrator():
             time.perf_counter()
         )  # need to initialize to *something*
 
-        self.collecting_corners = True
         self.thread = Thread(target=self.collect_corners, args=(), daemon=True)
         self.thread.start()
 
@@ -87,11 +86,6 @@ class MonoCalibrator():
         self.stream.push_to_out_q.set()
         
         while not self.stop_event.is_set():
-            
-            # suboptimal but low cost spin lock to control handoff of control 
-            # between monocalibrators and the syncronizer
-            if not self.capture_corners.isSet():
-                time.sleep(1)
             
             self.frame_packet: FramePacket = self.stream.out_q.get()
             self.frame = self.frame_packet.frame
@@ -169,8 +163,6 @@ class MonoCalibrator():
         the camera matrix and distortion parameters
         """
         logger.info(f"Calibrating camera {self.camera.port}....")
-
-        self.collecting_corners = False
 
         objpoints = self.all_board_loc
         imgpoints = self.all_img_loc

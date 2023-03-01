@@ -410,8 +410,10 @@ class Stage(Enum):
 
 #%%
 if __name__ == "__main__":
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    config_path = Path(repo, "sessions", "high_res_session")
+    from calicam import __root__
+    
+    config_path = Path(__root__, "tests", "5_cameras")
+
     print(config_path)
     print("Loading session config")
     session = Session(config_path)

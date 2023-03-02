@@ -192,7 +192,7 @@ if __name__ == "__main__":
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
     from calicam.calibration.capture_volume.helper_functions.get_point_estimates import (
-        get_point_history,
+        get_point_estimates,
     )
 
     session_directory = Path(__root__, "tests", "mimic_anipose")
@@ -201,11 +201,11 @@ if __name__ == "__main__":
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
-    point_history = get_point_history(camera_array, point_data_csv_path)
+    point_estimates = get_point_estimates(camera_array, point_data_csv_path)
 
     print(f"Optimizing initial camera array configuration ")
 
-    capture_volume = CaptureVolume(camera_array, point_history)
+    capture_volume = CaptureVolume(camera_array, point_estimates)
     capture_volume.optimize(output_path=Path(session_directory))
 
 # %%

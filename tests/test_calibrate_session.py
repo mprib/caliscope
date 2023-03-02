@@ -55,9 +55,10 @@ from calicam.calibration.capture_volume.capture_volume import CaptureVolume
 capture_volume = CaptureVolume(session.camera_array, point_estimates)
 
 # optimization will update the underlying camera_array and point_estimates
-capture_volume.optimize()
+capture_volume.optimize(output_path = session_directory)
 
 # %%
 session.save_camera_array()
 
 # %%
+# visualize 

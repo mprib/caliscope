@@ -186,7 +186,6 @@ def rms_reproj_error(xy_reproj_error):
     # logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
 
-
 if __name__ == "__main__":
     # if True:
     from calicam import __root__

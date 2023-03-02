@@ -230,8 +230,8 @@ class OmniCalibrator:
                     port, error, mtx, dist, grid_count = p.result()
 
                     self.config["cam_" + str(port)]["error"] = error
-                    self.config["cam_" + str(port)]["camera_matrix"] = mtx
-                    self.config["cam_" + str(port)]["distortion"] = dist
+                    self.config["cam_" + str(port)]["matrix"] = mtx
+                    self.config["cam_" + str(port)]["distortions"] = dist
                     self.config["cam_" + str(port)]["grid_count"] = grid_count
 
             elapsed = time.time() - start
@@ -245,8 +245,8 @@ class OmniCalibrator:
                 _, error, mtx, dist, grid_count = self.monocalibrate(port,sample_size, random_state)
 
                 self.config["cam_" + str(port)]["error"] = error
-                self.config["cam_" + str(port)]["camera_matrix"] = mtx
-                self.config["cam_" + str(port)]["distortion"] = dist
+                self.config["cam_" + str(port)]["matrix"] = mtx
+                self.config["cam_" + str(port)]["distortions"] = dist
                 self.config["cam_" + str(port)]["grid_count"] = grid_count
                 self.monocalibrate(port)
 
@@ -418,3 +418,4 @@ if __name__ == "__main__":
     omnical.stereo_calibrate_all(boards_sampled=20)
     
 # %%
+

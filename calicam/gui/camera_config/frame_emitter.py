@@ -86,7 +86,7 @@ class FrameEmitter(QThread):
             self.frame = cv2.undistort(
                 self.frame,
                 self.monocalibrator.camera.matrix,
-                self.monocalibrator.camera.distortion,
+                self.monocalibrator.camera.distortions,
             )
 
 

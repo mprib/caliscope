@@ -135,7 +135,7 @@ class CaptureVolumeVisualizer:
 # helper functions to assist with scene creation
 def mesh_from_camera(cd: CameraData):
     # cd = camera_data
-    mesh = CameraMesh(cd.resolution, cd.camera_matrix).mesh
+    mesh = CameraMesh(cd.size, cd.matrix).mesh
 
     # rotate mesh
     logger.info(f"Rotating: {cd.rotation}")
@@ -190,14 +190,14 @@ if __name__ == "__main__":
     from calicam.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
-    session_directory = Path(__root__, "tests", "5_cameras")
+    session_directory = Path(__root__, "tests", "mimic_anipose")
 
 
     print(f"Optimizing initial camera array configuration ")
 
 
-    # saved_CV_path = Path(session_directory, "recording", "pre_optimized_capture_volume.pkl") 
-    saved_CV_path = Path(session_directory, "recording", "post_optimized_capture_volume.pkl") 
+    # saved_CV_path = Path(session_directory, "pre_optimized_capture_volume.pkl") 
+    saved_CV_path = Path(session_directory, "post_optimized_capture_volume.pkl") 
     with open(saved_CV_path, "rb") as f:
         capture_volume = pickle.load(f)
     

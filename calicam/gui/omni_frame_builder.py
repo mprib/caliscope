@@ -293,8 +293,8 @@ if __name__ == "__main__":
     from calicam.session import Session
     from calicam.calibration.charuco import Charuco
     
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-
+    from calicam import __root__
+    
     ports = [0, 1, 2, 3, 4]
     # ports = [1,2, 3]
 
@@ -304,14 +304,14 @@ if __name__ == "__main__":
     
     if test_live:
 
-        session_directory = Path(repo, "sessions", "5_cameras")
+        session_directory = Path(__root__, "tests", "mimic_anipose")
         session = Session(session_directory)
         session.load_cameras()
         session.load_streams()
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(session.streams, fps_target=3)
     else:
-        recording_directory = Path(repo, "sessions", "5_cameras", "recording")
+        recording_directory = Path(__root__, "tests", "mimic_anipose")
         charuco = Charuco(
             4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
         )
@@ -323,7 +323,7 @@ if __name__ == "__main__":
     frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=20)
 
     if record:
-        video_path = Path(repo, "sessions", "5_cameras", "recording")
+        video_path = Path(__root__, "tests", "mimic_anipose")
         video_recorder = VideoRecorder(syncr)
         video_recorder.start_recording(video_path)
 

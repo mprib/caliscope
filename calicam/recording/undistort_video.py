@@ -23,7 +23,7 @@ def undistort_file(camera: CameraData, video_directory, fps=30):
     capture = cv2.VideoCapture(read_path)
 
     fourcc = cv2.VideoWriter_fourcc(*"MP4V")
-    frame_size = camera.resolution
+    frame_size = camera.size
     write_path = str(Path(video_directory, "undistorted", f"port_{camera.port}.mp4"))
     writer = cv2.VideoWriter(write_path, fourcc,fps, frame_size )
             
@@ -32,7 +32,7 @@ def undistort_file(camera: CameraData, video_directory, fps=30):
 
         if success:
             undistorted_frame = cv2.undistort(
-                raw_frame, camera.matrix, camera.distortion
+                raw_frame, camera.matrix, camera.distortions
             )
             print(f"Writing frame at port {camera.port}")
             writer.write(undistorted_frame) 

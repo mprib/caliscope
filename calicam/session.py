@@ -63,7 +63,7 @@ class Session:
 
     def update_config(self):
 
-        # alphabetize by key
+        # alphabetize by key to maintain standardized layout
         sorted_config = {key: value for key, value in sorted(self.config.items())}
         self.config = sorted_config
 
@@ -110,9 +110,9 @@ class Session:
         count = 0
         for key, params in self.config.copy().items():
             if key.startswith("cam"):
-                count +=1
+                count += 1
         return count
-    
+
     def delete_all_cam_data(self):
         # note: needs to be a copy to avoid errors while dict changes with deletion
         for key, params in self.config.copy().items():
@@ -178,21 +178,19 @@ class Session:
                     else:
                         self.cameras[port] = Camera(port)
 
-                    cam = self.cameras[port]  # just for ease of reference
-                    cam.rotation_count = params["rotation_count"]
-                    cam.exposure = params["exposure"]
+                    camera = self.cameras[port]  # just for ease of reference
+                    camera.rotation_count = params["rotation_count"]
+                    camera.exposure = params["exposure"]
 
                     # if calibration done, then populate those as well
                     if "error" in params.keys():
                         logger.info(
                             f"Camera RMSE error for port {port}: {params['error']}"
                         )
-                        cam.error = params["error"]
-                        cam.camera_matrix = np.array(params["camera_matrix"]).astype(
-                            float
-                        )
-                        cam.distortion = np.array(params["distortion"]).astype(float)
-                        cam.grid_count = params["grid_count"]
+                        camera.error = params["error"]
+                        camera.matrix = np.array(params["camera_matrix"]).astype(float)
+                        camera.distortion = np.array(params["distortion"]).astype(float)
+                        camera.grid_count = params["grid_count"]
             except:
                 logger.info("Unable to connect... camera may be in use.")
 
@@ -216,7 +214,7 @@ class Session:
                 logger.info(f"Success at port {port}")
                 self.cameras[port] = cam
                 self.save_camera(port)
-                self.streams[port] = LiveStream(cam, charuco = self.charuco)
+                self.streams[port] = LiveStream(cam, charuco=self.charuco)
             except:
                 logger.info(f"No camera at port {port}")
 
@@ -325,9 +323,9 @@ class Session:
             del self.monocalibrators[port]
             logger.info(f"Successfuly stopped monocalibrator at port {port}")
 
-    def set_active_monocalibrator(self,active_port):
+    def set_active_monocalibrator(self, active_port):
         logger.info(f"Activate tracking on port {active_port} and deactivate others")
-        for port,monocal in self.monocalibrators.items():
+        for port, monocal in self.monocalibrators.items():
             if port == active_port:
                 monocal.stream.push_to_out_q.set()
             else:
@@ -381,7 +379,6 @@ class Session:
         self.config["cam_" + str(port)] = params
         self.update_config()
 
-
     def get_stage(self):
         if self.connected_camera_count() == 0:
             return Stage.NO_CAMERAS
@@ -411,7 +408,7 @@ class Stage(Enum):
 #%%
 if __name__ == "__main__":
     from calicam import __root__
-    
+
     config_path = Path(__root__, "tests", "5_cameras")
 
     print(config_path)

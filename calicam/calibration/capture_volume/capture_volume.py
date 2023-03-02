@@ -21,7 +21,7 @@ CAMERA_PARAM_COUNT = 6
 @dataclass
 class CaptureVolume:
     camera_array: CameraArray
-    point_history: PointEstimates
+    point_estimates: PointEstimates
 
     def save(self, output_path):
         with open(Path(output_path), "wb") as file:
@@ -33,7 +33,7 @@ class CaptureVolume:
         This is the required data format of the least squares optimization
         """
         camera_params = self.camera_array.get_extrinsic_params()
-        combined = np.hstack((camera_params.ravel(), self.point_history.obj.ravel()))
+        combined = np.hstack((camera_params.ravel(), self.point_estimates.obj.ravel()))
 
         return combined
 
@@ -65,7 +65,7 @@ class CaptureVolume:
         self.least_sq_result = least_squares(
             xy_reprojection_error,
             initial_param_estimate,
-            jac_sparsity=self.point_history.get_sparsity_pattern(),
+            jac_sparsity=self.point_estimates.get_sparsity_pattern(),
             verbose=2,
             x_scale="jac",
             loss="linear",
@@ -77,7 +77,7 @@ class CaptureVolume:
         )
 
         self.camera_array.update_extrinsic_params(self.least_sq_result.x)
-        self.point_history.update_obj_xyz(self.least_sq_result.x)
+        self.point_estimates.update_obj_xyz(self.least_sq_result.x)
 
         if output_path is not None:
             self.save(Path(output_path, "post_optimized_capture_volume.pkl"))
@@ -130,24 +130,24 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     # Create one combined array primarily to make sure all calculations line up
     ## unpack the working estimates of the camera parameters (could be extr. or intr.)
     camera_params = current_param_estimates[
-        : capture_volume.point_history.n_cameras * CAMERA_PARAM_COUNT
-    ].reshape((capture_volume.point_history.n_cameras, CAMERA_PARAM_COUNT))
+        : capture_volume.point_estimates.n_cameras * CAMERA_PARAM_COUNT
+    ].reshape((capture_volume.point_estimates.n_cameras, CAMERA_PARAM_COUNT))
 
     ## similarly unpack the 3d point location estimates
     points_3d = current_param_estimates[
-        capture_volume.point_history.n_cameras * CAMERA_PARAM_COUNT :
-    ].reshape((capture_volume.point_history.n_obj_points, 3))
+        capture_volume.point_estimates.n_cameras * CAMERA_PARAM_COUNT :
+    ].reshape((capture_volume.point_estimates.n_obj_points, 3))
 
     ## create zero columns as placeholders for the reprojected 2d points
-    rows = capture_volume.point_history.camera_indices.shape[0]
+    rows = capture_volume.point_estimates.camera_indices.shape[0]
     blanks = np.zeros((rows, 2), dtype=np.float64)
 
     ## hstack all these arrays for ease of reference
     points_3d_and_2d = np.hstack(
         [
-            np.array([capture_volume.point_history.camera_indices]).T,
-            points_3d[capture_volume.point_history.obj_indices],
-            capture_volume.point_history.img,
+            np.array([capture_volume.point_estimates.camera_indices]).T,
+            points_3d[capture_volume.point_estimates.obj_indices],
+            capture_volume.point_estimates.img,
             blanks,
         ]
     )
@@ -156,7 +156,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     # it should scale linearly with the number of cameras...a tradeoff for stable
     # and explicit calculations...
     for port, cam in capture_volume.camera_array.cameras.items():
-        cam_points = np.where(capture_volume.point_history.camera_indices == port)
+        cam_points = np.where(capture_volume.point_estimates.camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
 
         cam_matrix = cam.matrix
@@ -174,7 +174,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     # reshape the x,y reprojection error to a single vector
-    return (points_proj - capture_volume.point_history.img).ravel()
+    return (points_proj - capture_volume.point_estimates.img).ravel()
 
 
 def rms_reproj_error(xy_reproj_error):

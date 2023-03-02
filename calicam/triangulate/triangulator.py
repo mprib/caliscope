@@ -73,13 +73,13 @@ class StereoTriangulator:
         rot_A = np.linalg.inv(self.camera_A.rotation)
         trans_A = np.array(self.camera_A.translation) * -1
         rot_trans_A = np.concatenate([rot_A, trans_A], axis=-1)
-        mtx_A = self.camera_A.camera_matrix
+        mtx_A = self.camera_A.matrix
         self.proj_A = mtx_A @ rot_trans_A  # projection matrix for CamA
 
         rot_B = np.linalg.inv(self.camera_B.rotation)
         trans_B = np.array(self.camera_B.translation) * -1
         rot_trans_B = np.concatenate([rot_B, trans_B], axis=-1)
-        mtx_B = self.camera_B.camera_matrix
+        mtx_B = self.camera_B.matrix
         self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
 
     def add_3D_points(self, paired_points:StereoPointsPacket):
@@ -112,7 +112,7 @@ class StereoTriangulator:
     def undistort(self, points, camera: CameraData, iter_num=3):
         # implementing a function described here: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html
         # supposedly a better implementation than OpenCV
-        k1, k2, p1, p2, k3 = camera.distortion[0]
+        k1, k2, p1, p2, k3 = camera.distortions[0]
         fx, fy = camera.matrix[0, 0], camera.matrix[1, 1]
         cx, cy = camera.matrix[:2, 2]
         

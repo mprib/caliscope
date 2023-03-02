@@ -17,10 +17,10 @@ class CameraData:
     """
 
     port: int
-    resolution: tuple
-    camera_matrix: np.ndarray
+    size: tuple
+    matrix: np.ndarray
     error: float  # the RMSE of reprojection associated with the intrinsic calibration
-    distortion: np.ndarray  #
+    distortions: np.ndarray  #
     translation: np.ndarray
     rotation: np.ndarray
 
@@ -94,14 +94,10 @@ class CameraArray:
 
 if __name__ == "__main__":
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.point_estimates import (
-        PointEstimates,
-        get_point_history,
-    )
 
     from calicam import __root__
 
-    session_directory = Path(__root__, "tests", "5_cameras")
+    session_directory = Path(__root__, "tests", "mimic_anipose")
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()

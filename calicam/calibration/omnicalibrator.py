@@ -337,13 +337,13 @@ class OmniCalibrator:
         img_locs_A, board_locs_A = self.get_stereocal_inputs(pair[0],paired_point_data)
         img_locs_B, board_locs_B = self.get_stereocal_inputs(pair[1],paired_point_data)
 
-        camera_matrix_A = self.config["cam_"+str(pair[0])]["camera_matrix"]
-        camera_matrix_B = self.config["cam_"+str(pair[1])]["camera_matrix"]
+        camera_matrix_A = self.config["cam_"+str(pair[0])]["matrix"]
+        camera_matrix_B = self.config["cam_"+str(pair[1])]["matrix"]
         camera_matrix_A = np.array(camera_matrix_A,dtype=float)
         camera_matrix_B = np.array(camera_matrix_B,dtype=float)
 
-        distortion_A = self.config["cam_"+str(pair[0])]["distortion"]
-        distortion_B = self.config["cam_"+str(pair[1])]["distortion"]
+        distortion_A = self.config["cam_"+str(pair[0])]["distortions"]
+        distortion_B = self.config["cam_"+str(pair[1])]["distortions"]
         distortion_A = np.array(distortion_A,dtype=float)
         distortion_B = np.array(distortion_B,dtype=float)
 
@@ -403,18 +403,18 @@ class OmniCalibrator:
 
         return img_locs,board_locs
  
-# if __name__ == "__main__":
-if True:
+if __name__ == "__main__":
+# if True:
     from pathlib import Path
 
     # set inputs
-    session_path = Path(__root__, "tests", "5_cameras")
+    session_path = Path(__root__, "tests", "mimic_anipose")
 
     config_path = Path(session_path, "config.toml")
-    point_data_path = Path(session_path, "recording", "point_data.csv")
+    point_data_path = Path(session_path, "point_data.csv")
 
     omnical = OmniCalibrator(config_path, point_data_path,)
 
-    omnical.stereo_calibrate_all(boards_sampled=5)
+    omnical.stereo_calibrate_all(boards_sampled=20)
     
 # %%

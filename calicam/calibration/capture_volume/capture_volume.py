@@ -159,10 +159,10 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
         cam_points = np.where(capture_volume.point_history.camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
 
-        cam_matrix = cam.camera_matrix
+        cam_matrix = cam.matrix
         rvec = camera_params[port][0:3]
         tvec = camera_params[port][3:6]
-        distortion = cam.distortion[0]  # this may need some cleanup...
+        distortion = cam.distortions[0]  # this may need some cleanup...
 
         # get the projection of the 2d points on the image plane; ignore the jacobian
         cam_proj_points, _jac = cv2.projectPoints(
@@ -195,8 +195,8 @@ if __name__ == "__main__":
         get_point_history,
     )
 
-    session_directory = Path(__root__, "tests", "5_cameras")
-    point_data_csv_path = Path(session_directory, "recording", "point_data.csv")
+    session_directory = Path(__root__, "tests", "mimic_anipose")
+    point_data_csv_path = Path(session_directory, "point_data.csv")
 
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
@@ -206,6 +206,6 @@ if __name__ == "__main__":
     print(f"Optimizing initial camera array configuration ")
 
     capture_volume = CaptureVolume(camera_array, point_history)
-    capture_volume.optimize(output_path=Path(session_directory, "recording"))
+    capture_volume.optimize(output_path=Path(session_directory))
 
 # %%

@@ -15,7 +15,6 @@ from calicam.calibration.capture_volume.helper_functions.get_point_estimates imp
 # the omniframe data collection
 session_directory = Path(__root__,"tests", "mimic_anipose" )
 
-#%%
 
 # point_data.csv is created during the omniframe datacollection
 point_data_path = Path(session_directory, "point_data.csv")
@@ -46,6 +45,10 @@ session.load_camera_array()
 point_estimates: PointEstimates = get_point_estimates(
     session.camera_array, point_data_path
 )
+
+#%%
+
+session.save_camera_array()
 
 #%%
 

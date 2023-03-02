@@ -419,8 +419,8 @@ class Session:
         
     def save_camera_array(self):
 
-        for port, camera_data in self.camera_array.cameras:
-            camera_data = self.cameras[port]
+        for port, camera_data in self.camera_array.cameras.items():
+            camera_data = self.camera_array.cameras[port]
             params = {
                 "port": camera_data.port,
                 "size": camera_data.size,

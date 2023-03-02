@@ -32,7 +32,7 @@ def undistort_file(camera: CameraData, video_directory, fps=30):
 
         if success:
             undistorted_frame = cv2.undistort(
-                raw_frame, camera.camera_matrix, camera.distortion
+                raw_frame, camera.matrix, camera.distortion
             )
             print(f"Writing frame at port {camera.port}")
             writer.write(undistorted_frame) 

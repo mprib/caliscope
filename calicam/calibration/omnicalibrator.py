@@ -1,10 +1,12 @@
 #%%
 import sys
 from pathlib import Path
+
 # sys.path.insert(0,Path(__file__).parent.parent.parent)
 
 
 import calicam.logger
+
 logger = calicam.logger.get(__name__)
 
 import cv2
@@ -124,9 +126,10 @@ class OmniCalibrator:
 
         return all_boards
 
-
     ########################################## BEGIN MONOCALIBRATION SPECIFIC CODE #######################################################
-    def get_monocalibration_points(self, port: int, sample_size: int, random_state:int):
+    def get_monocalibration_points(
+        self, port: int, sample_size: int, random_state: int
+    ):
         """
         Provides a curated dataframe of point data. The overall point data is initially
         restricted to only those boards that have at least 6 points. This remaining data
@@ -163,7 +166,6 @@ class OmniCalibrator:
         )
 
         return calibration_points
-
 
     def monocalibrate(self, port, sample_size, random_state):
         # NOTE: This data cleanup can be refactored to take advantage of the cal input method
@@ -223,7 +225,8 @@ class OmniCalibrator:
 
             with ProcessPoolExecutor() as executor:
                 processes = [
-                    executor.submit(self.monocalibrate, port, sample_size,random_state) for port in self.ports
+                    executor.submit(self.monocalibrate, port, sample_size, random_state)
+                    for port in self.ports
                 ]
 
                 for p in as_completed(processes):
@@ -242,7 +245,9 @@ class OmniCalibrator:
         if not parallel:
             start = time.time()
             for port in self.ports:
-                _, error, mtx, dist, grid_count = self.monocalibrate(port,sample_size, random_state)
+                _, error, mtx, dist, grid_count = self.monocalibrate(
+                    port, sample_size, random_state
+                )
 
                 self.config["cam_" + str(port)]["error"] = error
                 self.config["cam_" + str(port)]["matrix"] = mtx
@@ -259,13 +264,13 @@ class OmniCalibrator:
             toml.dump(self.config, f)
 
     ##################################### BEGIN STEREOCALIBRATION SPECIFIC CODE ################################################
-    
+
     def get_stereopair_data(self, pair, boards_sampled, random_state=1):
-        
+
         # convenience function to get the points that are in the overlap regions of the pairs
         def in_pair(row, pair):
             """
-            Uses the coverage_region string generated previously to flag points that are in 
+            Uses the coverage_region string generated previously to flag points that are in
             a shared region of the pair
             """
             a, b = pair
@@ -279,7 +284,9 @@ class OmniCalibrator:
             return region_check and port_check
 
         # flag the points that belong to the pair overlap regions
-        self.all_point_data["in_pair"] = self.all_point_data.apply(in_pair, axis=1, args=(pair,))
+        self.all_point_data["in_pair"] = self.all_point_data.apply(
+            in_pair, axis=1, args=(pair,)
+        )
 
         # group points into boards and get the total count for sample weighting below
         pair_points = self.all_point_data[self.all_point_data["in_pair"] == True]
@@ -288,36 +295,36 @@ class OmniCalibrator:
             .groupby(["sync_index", "port"])
             .agg("count")
             .rename({"point_id": "point_count"}, axis=1)
-            .query("point_count > 4") # a requirement of the stereocalibration function
+            .query("point_count > 4")  # a requirement of the stereocalibration function
             .reset_index()
-            .query(f"port == {pair[0]}") # will be the same..only need one copy
+            .query(f"port == {pair[0]}")  # will be the same..only need one copy
             .drop("port", axis=1)
         )
-    
+
         # configure random sampling. If you have too few boards, then only take what you have
         board_count = pair_boards.shape[0]
         sample_size = min(board_count, boards_sampled)
 
         # bias toward selecting boards with more overlapping points
-        sample_weight = pair_boards["point_count"] ** 2 
+        sample_weight = pair_boards["point_count"] ** 2
 
         # get the randomly selected subset
         selected_boards = pair_boards.sample(
             n=sample_size, weights=sample_weight, random_state=random_state
         )
-        
-        selected_pair_points = pair_points.merge(selected_boards,"right","sync_index")
-        
+
+        selected_pair_points = pair_points.merge(selected_boards, "right", "sync_index")
+
         return selected_pair_points
 
     def stereo_calibrate_all(self, boards_sampled=10):
         """Iterates across all camera pairs. Intrinsic parameters are pulled
         from camera and combined with obj and img points for each pair.
         """
-        
+
         for pair in self.pairs:
             error, rotation, translation = self.stereo_calibrate(pair, boards_sampled)
-            
+
             config_key = "stereo_" + str(pair[0]) + "_" + str(pair[1])
             self.config[config_key] = {}
             self.config[config_key]["rotation"] = rotation
@@ -325,7 +332,7 @@ class OmniCalibrator:
             self.config[config_key]["RMSE"] = error
 
         with open(self.config_path, "w") as f:
-            toml.dump(self.config, f) 
+            toml.dump(self.config, f)
 
     def stereo_calibrate(self, pair, boards_sampled=10):
         logger.info(f"About to stereocalibrate pair {pair}")
@@ -333,19 +340,21 @@ class OmniCalibrator:
         stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.0001)
 
-        paired_point_data = self.get_stereopair_data(pair, boards_sampled=boards_sampled)
-        img_locs_A, board_locs_A = self.get_stereocal_inputs(pair[0],paired_point_data)
-        img_locs_B, board_locs_B = self.get_stereocal_inputs(pair[1],paired_point_data)
+        paired_point_data = self.get_stereopair_data(
+            pair, boards_sampled=boards_sampled
+        )
+        img_locs_A, board_locs_A = self.get_stereocal_inputs(pair[0], paired_point_data)
+        img_locs_B, board_locs_B = self.get_stereocal_inputs(pair[1], paired_point_data)
 
-        camera_matrix_A = self.config["cam_"+str(pair[0])]["matrix"]
-        camera_matrix_B = self.config["cam_"+str(pair[1])]["matrix"]
-        camera_matrix_A = np.array(camera_matrix_A,dtype=float)
-        camera_matrix_B = np.array(camera_matrix_B,dtype=float)
+        camera_matrix_A = self.config["cam_" + str(pair[0])]["matrix"]
+        camera_matrix_B = self.config["cam_" + str(pair[1])]["matrix"]
+        camera_matrix_A = np.array(camera_matrix_A, dtype=float)
+        camera_matrix_B = np.array(camera_matrix_B, dtype=float)
 
-        distortion_A = self.config["cam_"+str(pair[0])]["distortions"]
-        distortion_B = self.config["cam_"+str(pair[1])]["distortions"]
-        distortion_A = np.array(distortion_A,dtype=float)
-        distortion_B = np.array(distortion_B,dtype=float)
+        distortion_A = self.config["cam_" + str(pair[0])]["distortions"]
+        distortion_B = self.config["cam_" + str(pair[1])]["distortions"]
+        distortion_A = np.array(distortion_A, dtype=float)
+        distortion_B = np.array(distortion_B, dtype=float)
 
         (
             ret,
@@ -370,7 +379,6 @@ class OmniCalibrator:
             flags=stereocalibration_flags,
         )
 
-            
         logger.info(
             f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}"
         )
@@ -378,10 +386,10 @@ class OmniCalibrator:
 
         return ret, rotation, translation
 
-    def get_stereocal_inputs(self,port, point_data):
-        
+    def get_stereocal_inputs(self, port, point_data):
+
         port_point_data = point_data.query(f"port == {port}")
-    
+
         sync_indices = port_point_data["sync_index"].to_numpy().round().astype(int)
         img_loc_x = port_point_data["img_loc_x"].to_numpy().astype(np.float32)
         img_loc_y = port_point_data["img_loc_y"].to_numpy().astype(np.float32)
@@ -401,10 +409,11 @@ class OmniCalibrator:
             img_locs.append(img_x_y[same_frame])
             board_locs.append(board_x_y_z[same_frame])
 
-        return img_locs,board_locs
- 
+        return img_locs, board_locs
+
+
 if __name__ == "__main__":
-# if True:
+    # if True:
     from pathlib import Path
 
     # set inputs
@@ -413,9 +422,11 @@ if __name__ == "__main__":
     config_path = Path(session_path, "config.toml")
     point_data_path = Path(session_path, "point_data.csv")
 
-    omnical = OmniCalibrator(config_path, point_data_path,)
+    omnical = OmniCalibrator(
+        config_path,
+        point_data_path,
+    )
 
-    omnical.stereo_calibrate_all(boards_sampled=20)
-    
+    omnical.stereo_calibrate_all(boards_sampled=5)
+
 # %%
-

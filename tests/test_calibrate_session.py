@@ -51,6 +51,13 @@ point_estimates: PointEstimates = get_point_estimates(
 session.save_camera_array()
 
 #%%
+from calicam.calibration.capture_volume.capture_volume import CaptureVolume
+capture_volume = CaptureVolume(session.camera_array, point_estimates)
 
+# optimization will update the underlying camera_array and point_estimates
+capture_volume.optimize()
 
+# %%
+session.save_camera_array()
 
+# %%

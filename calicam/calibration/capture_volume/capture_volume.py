@@ -196,6 +196,7 @@ if __name__ == "__main__":
     )
 
     session_directory = Path(__root__, "tests", "mimic_anipose")
+
     point_data_csv_path = Path(session_directory, "point_data.csv")
 
     config_path = Path(session_directory, "config.toml")

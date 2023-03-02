@@ -29,10 +29,15 @@ class CameraArrayBuilder:
         for key, data in self.config.items():
             if key.startswith("cam_"):
                 port = data["port"]
-                resolution = data["size"]
-                camera_matrix = np.array(data["matrix"], dtype=np.float64)
+                size = data["size"]
+                rotation_count = data["rotation_count"]
                 error = data["error"]
-                distortion = np.array(data["distortions"], dtype=np.float64)
+                matrix = np.array(data["matrix"], dtype=np.float64)
+                distortions = np.array(data["distortions"], dtype=np.float64)
+                exposure = data["exposure"]
+                grid_count = data["grid_count"]
+                ignore = data["ignore"]
+                verified_resolutions = data["verified_resolutions"]
 
                 # update with extrinsics, though place anchor camera at origin
                 if port == self.anchor:
@@ -47,13 +52,19 @@ class CameraArrayBuilder:
 
                 cam_data = CameraData(
                     port,
-                    resolution,
-                    camera_matrix,
+                    size,
+                    rotation_count,
                     error,
-                    distortion,
+                    matrix,
+                    distortions,
+                    exposure,
+                    grid_count,
+                    ignore,
+                    verified_resolutions,
                     translation,
                     rotation,
                 )
+
                 self.cameras[port] = cam_data
 
     def get_extrinsic_data(self):

@@ -28,7 +28,7 @@ MIN_RESOLUTION_CHECK = 200
 MAX_RESOLUTION_CHECK = 10000
 
 
-class Camera(object):
+class Camera:
 
     # https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
     # see above for constants used to access properties

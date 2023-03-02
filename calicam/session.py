@@ -405,33 +405,42 @@ class Session:
         ):
             return Stage.MONOCALIBRATED_CAMERAS
 
-    def create_optimized_camera_array(self, point_data_csv: Path):
+    def load_camera_array(self):
         """
         after doing omniframe capture and generating a point_data.csv file,
         create a camera array from it
         """
-
-        # Created during omni-frame
-        self.point_data_csv = point_data_csv
-
-        # use omnicalibrator to create the initialized stereo_pair estimates
-        # these estimates will be updated to the config file
-        omnicalibrator = OmniCalibrator(self.config_path, self.point_data_csv)
-        omnicalibrator.stereo_calibrate_all()
 
         # with those in place the camera array can be initialized
         self.camera_array: CameraArray = CameraArrayBuilder(
             self.config_path
         ).get_camera_array()
 
-        self.point_estimates: PointEstimates = get_point_estimates(
-            self.camera_array, self.point_data_csv
-        )
-
-        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
-        self.capture_volume.optimize(output_path=Path(self.folder))
         
-    def save_camera_array(self)
+    def save_camera_array(self):
+
+        for port, camera_data in self.camera_array.cameras:
+            camera_data = self.cameras[port]
+            params = {
+                "port": camera_data.port,
+                "size": camera_data.size,
+                "rotation_count": camera_data.rotation_count,
+                "error": camera_data.error,
+                "matrix": camera_data.matrix,
+                "distortions": camera_data.distortions,
+                "exposure": camera_data.exposure,
+                "grid_count": camera_data.grid_count,
+                "ignore": camera_data.ignore,
+                "verified_resolutions": camera_data.verified_resolutions,
+                "translation": camera_data.translation,
+                "rotation":camera_data.rotation
+            }
+
+            logger.info(f"Saving camera parameters...{params}")
+            self.config["cam_" + str(port)] = params
+
+        self.update_config()
+                
         
 class Stage(Enum):
     NO_CAMERAS = auto()

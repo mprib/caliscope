@@ -87,7 +87,7 @@ class FrameEmitter(QThread):
         if self.undistort == True:  # and self.mono_cal.is_calibrated:
             self.frame = cv2.undistort(
                 self.frame,
-                self.stream.camera.camera_matrix,
+                self.stream.camera.matrix,
                 self.stream.camera.distortion,
             )
 

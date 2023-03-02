@@ -365,11 +365,11 @@ class Session:
         cam = self.cameras[port]
         params = {
             "port": cam.port,
-            "resolution": cam.resolution,
+            "size": cam.size,
             "rotation_count": cam.rotation_count,
             "error": cam.error,
-            "camera_matrix": cam.camera_matrix,
-            "distortion": cam.distortion,
+            "matrix": cam.matrix,
+            "distortions": cam.distortions,
             "exposure": cam.exposure,
             "grid_count": cam.grid_count,
             "ignore": cam.ignore,

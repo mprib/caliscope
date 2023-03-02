@@ -23,7 +23,7 @@ class MonoCalibrator():
         self, stream:LiveStream,  board_threshold=0.7, wait_time=0.5
     ):
         self.stream = stream
-        self.camera = stream.camera  # reference needed to update params
+        self.camera: Camera = stream.camera  # reference needed to update params
         self.port = self.camera.port
         self.wait_time = wait_time
         self.capture_corners = Event()
@@ -55,7 +55,7 @@ class MonoCalibrator():
 
     @property
     def image_size(self):
-        image_size = list(self.camera.resolution)
+        image_size = list(self.camera.size)
         image_size.reverse()  # for some reason...
         image_size.append(3)
 
@@ -136,7 +136,7 @@ class MonoCalibrator():
 
         logger.debug(f"Frame Size is {self.frame.shape} at port {self.port}")
         logger.debug(
-            f"camera resolution is {self.camera.resolution} at port {self.port}"
+            f"camera resolution is {self.camera.size} at port {self.port}"
         )
 
         # check to see if the camera resolution changed from the last round
@@ -185,8 +185,8 @@ class MonoCalibrator():
         logger.info(f"Setting calibration params on camera {self.camera.port}")
         # ret is RMSE of reprojection
         self.camera.error = round(self.error, 3)
-        self.camera.camera_matrix = self.mtx
-        self.camera.distortion = self.dist
+        self.camera.matrix = self.mtx
+        self.camera.distortions = self.dist
         self.camera.grid_count = len(self.all_ids)
 
 if __name__ == "__main__":
@@ -238,6 +238,6 @@ if __name__ == "__main__":
     monocal.update_camera()
 
     print(f"Error: {cam.error}")
-    print(f"Camera Matrix: {cam.camera_matrix}")
-    print(f"Distortion: {cam.distortion}")
+    print(f"Camera Matrix: {cam.matrix}")
+    print(f"Distortions: {cam.distortions}")
     print(f"Grid Count: {cam.grid_count}")

@@ -185,7 +185,7 @@ if __name__ == "__main__":
 
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.helper_functions.get_point_estimates import get_point_history
+    from calicam.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates
 
     from calicam.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle

@@ -78,7 +78,7 @@ def get_merged_2d_3d(stereotriangulated_table):
     return merged_point_data
 
 
-def get_point_history(camera_array:CameraArray, point_data_path: Path) -> PointEstimates:
+def get_point_estimates(camera_array:CameraArray, point_data_path: Path) -> PointEstimates:
     """
     formats the triangulated_points.csv file into a PointEstimateData that has the 
     data structured in a way that is amenable to bundle adjustment

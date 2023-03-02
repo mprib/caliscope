@@ -14,13 +14,19 @@ class CameraData:
     """
     A place to hold the calibration data associated with a camera that has been populated from a config file.
     For use with final setting of the array and triangulation, but no actual camera management.
+    Not loving the way this is implemented as an adjunct to the Camera object, but here we are
     """
 
     port: int
     size: tuple
-    matrix: np.ndarray
+    rotation_count: int
     error: float  # the RMSE of reprojection associated with the intrinsic calibration
+    matrix: np.ndarray
     distortions: np.ndarray  #
+    exposure: int
+    grid_count: int
+    ignore: bool
+    verified_resolutions: np.ndarray
     translation: np.ndarray
     rotation: np.ndarray
 

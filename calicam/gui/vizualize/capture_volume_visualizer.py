@@ -200,8 +200,6 @@ if __name__ == "__main__":
     saved_CV_path = Path(session_directory, "post_optimized_capture_volume.pkl") 
     with open(saved_CV_path, "rb") as f:
         capture_volume = pickle.load(f)
-    
-
 
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume)

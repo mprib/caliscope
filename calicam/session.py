@@ -17,6 +17,16 @@ from calicam.calibration.corner_tracker import CornerTracker
 from calicam.calibration.monocalibrator import MonoCalibrator
 from calicam.cameras.camera import Camera
 from calicam.cameras.synchronizer import Synchronizer
+from calicam.cameras.camera_array_builder import CameraArrayBuilder
+from calicam.calibration.omnicalibrator import OmniCalibrator
+from calicam.calibration.capture_volume.point_estimates import PointEstimates
+from calicam.calibration.capture_volume.capture_volume import CaptureVolume
+
+from calicam.cameras.camera_array import CameraArray
+from calicam.calibration.capture_volume.helper_functions.get_point_estimates import (
+    get_point_estimates,
+)
+
 from calicam.cameras.live_stream import LiveStream
 from calicam.recording.video_recorder import VideoRecorder
 
@@ -360,18 +370,18 @@ class Session:
                 executor.submit(adjust_res_worker, port)
 
     def save_camera(self, port):
-        cam = self.cameras[port]
+        camera = self.cameras[port]
         params = {
-            "port": cam.port,
-            "size": cam.size,
-            "rotation_count": cam.rotation_count,
-            "error": cam.error,
-            "matrix": cam.matrix,
-            "distortions": cam.distortions,
-            "exposure": cam.exposure,
-            "grid_count": cam.grid_count,
-            "ignore": cam.ignore,
-            "verified_resolutions": cam.verified_resolutions,
+            "port": camera.port,
+            "size": camera.size,
+            "rotation_count": camera.rotation_count,
+            "error": camera.error,
+            "matrix": camera.matrix,
+            "distortions": camera.distortions,
+            "exposure": camera.exposure,
+            "grid_count": camera.grid_count,
+            "ignore": camera.ignore,
+            "verified_resolutions": camera.verified_resolutions,
         }
 
         logger.info(f"Saving camera parameters...{params}")
@@ -395,7 +405,34 @@ class Session:
         ):
             return Stage.MONOCALIBRATED_CAMERAS
 
+    def create_optimized_camera_array(self, point_data_csv: Path):
+        """
+        after doing omniframe capture and generating a point_data.csv file,
+        create a camera array from it
+        """
 
+        # Created during omni-frame
+        self.point_data_csv = point_data_csv
+
+        # use omnicalibrator to create the initialized stereo_pair estimates
+        # these estimates will be updated to the config file
+        omnicalibrator = OmniCalibrator(self.config_path, self.point_data_csv)
+        omnicalibrator.stereo_calibrate_all()
+
+        # with those in place the camera array can be initialized
+        self.camera_array: CameraArray = CameraArrayBuilder(
+            self.config_path
+        ).get_camera_array()
+
+        self.point_estimates: PointEstimates = get_point_estimates(
+            self.camera_array, self.point_data_csv
+        )
+
+        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
+        self.capture_volume.optimize(output_path=Path(self.folder))
+        
+    def save_camera_array(self)
+        
 class Stage(Enum):
     NO_CAMERAS = auto()
     UNCALIBRATED_CAMERAS = auto()

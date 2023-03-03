@@ -12,6 +12,7 @@ import numpy as np
 import toml
 from itertools import combinations
 
+
 from calicam.calibration.charuco import Charuco
 from calicam.calibration.corner_tracker import CornerTracker
 from calicam.calibration.monocalibrator import MonoCalibrator
@@ -77,6 +78,10 @@ class Session:
         sorted_config = {key: value for key, value in sorted(self.config.items())}
         self.config = sorted_config
 
+        # Mac: start back here after lunch...you can figure out
+        # how to get this working using the 
+        # reformated_config = format_toml_dict(self.config)
+        # print("stop")
         with open(self.config_path, "w") as f:
             toml.dump(self.config, f)
 
@@ -442,13 +447,19 @@ class Session:
 
         self.update_config()
 
-def none_or_float_matrix(var):
-    converted_var = None
+def format_toml_dict(toml_dict:dict):
+    temp_config = {}
+    for key, value in toml_dict.items():
+        # logger.info(f"key: {key}; type: {type(value)}")
+        if isinstance(value, dict):
+            temp_config[key] = format_toml_dict(value)
+        if isinstance(value, np.ndarray):
+            temp_config[key] = [float(i) for i in value]
+        else:
+            temp_config[key] = value 
+            
+    return temp_config
 
-    if var is not None:
-        converted_var = np.ndarray(var,dtype=np.float64)               
-        
-    return converted_var
 class Stage(Enum):
     NO_CAMERAS = auto()
     UNCALIBRATED_CAMERAS = auto()
@@ -472,12 +483,12 @@ if __name__ == "__main__":
     # print("Loading Cameras...")
     # session.load_cameras()
 
-    print("Finding Cameras...")
-    session.find_cameras()
-    print(session.get_stage())
-    print(f"Camera pairs: {session.camera_pairs()}")
-    print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
-    session.disconnect_cameras()
-    print(session.get_stage())
-    print(f"Camera pairs: {session.camera_pairs()}")
-    print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
+    # print("Finding Cameras...")
+    # session.find_cameras()
+    # print(session.get_stage())
+    # print(f"Camera pairs: {session.camera_pairs()}")
+    # print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
+    # session.disconnect_cameras()
+    # print(session.get_stage())
+    # print(f"Camera pairs: {session.camera_pairs()}")
+    # print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")

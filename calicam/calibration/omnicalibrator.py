@@ -325,6 +325,10 @@ class OmniCalibrator:
         for pair in self.pairs:
             error, rotation, translation = self.stereo_calibrate(pair, boards_sampled)
 
+            # toml dumps arrays as strings, so needs to be converted to list
+            rotation = rotation.tolist()
+            translation = translation.tolist()
+            
             config_key = "stereo_" + str(pair[0]) + "_" + str(pair[1])
             self.config[config_key] = {}
             self.config[config_key]["rotation"] = rotation

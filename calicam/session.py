@@ -78,10 +78,6 @@ class Session:
         sorted_config = {key: value for key, value in sorted(self.config.items())}
         self.config = sorted_config
 
-        # Mac: start back here after lunch...you can figure out
-        # how to get this working using the 
-        # reformated_config = format_toml_dict(self.config)
-        # print("stop")
         with open(self.config_path, "w") as f:
             toml.dump(self.config, f)
 
@@ -425,6 +421,9 @@ class Session:
         
     def save_camera_array(self):
 
+
+
+        
         for port, camera_data in self.camera_array.cameras.items():
             camera_data = self.camera_array.cameras[port]
             params = {
@@ -432,14 +431,14 @@ class Session:
                 "size": camera_data.size,
                 "rotation_count": camera_data.rotation_count,
                 "error": camera_data.error,
-                "matrix": camera_data.matrix,
-                "distortions": camera_data.distortions,
+                "matrix": camera_data.matrix.tolist(),
+                "distortions": camera_data.distortions.tolist(),
                 "exposure": camera_data.exposure,
                 "grid_count": camera_data.grid_count,
                 "ignore": camera_data.ignore,
                 "verified_resolutions": camera_data.verified_resolutions,
-                "translation": camera_data.translation,
-                "rotation":camera_data.rotation
+                "translation": camera_data.translation.tolist(),
+                "rotation":camera_data.rotation.tolist()
             }
 
             logger.info(f"Saving camera parameters...{params}")
@@ -471,6 +470,7 @@ class Stage(Enum):
 
 #%%
 if __name__ == "__main__":
+    #%%
     from calicam import __root__
 
     config_path = Path(__root__, "tests", "blank")
@@ -478,10 +478,12 @@ if __name__ == "__main__":
     print(config_path)
     print("Loading session config")
     session = Session(config_path)
+    #%%
     print(session.get_stage())
     session.update_config()
-    # print("Loading Cameras...")
-    # session.load_cameras()
+    #%%%
+    print("Loading Cameras...")
+    session.load_cameras()
 
     # print("Finding Cameras...")
     # session.find_cameras()
@@ -492,3 +494,5 @@ if __name__ == "__main__":
     # print(session.get_stage())
     # print(f"Camera pairs: {session.camera_pairs()}")
     # print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
+
+# %%

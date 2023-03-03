@@ -1,0 +1,54 @@
+[cam_0]
+port = 0
+size = [ 640, 480,]
+rotation_count = 0
+error = 0.295
+matrix = [ [ "510.96953284100096", "0.0", "323.83453710120824",], [ "0.0", "523.3845057373601", "274.23917677267974",], [ "0.0", "0.0", "1.0",],]
+distortions = [ [ "-0.0546394751225266", "1.5462464098971507", "0.006813023816256669", "0.013018703368657207", "-5.6422271409616",],]
+exposure = -5.0
+grid_count = 7
+ignore = false
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
+
+[cam_1]
+port = 1
+size = [ 640, 480,]
+rotation_count = 0
+exposure = -5.0
+ignore = true
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,],]
+
+[cam_2]
+port = 2
+size = [ 640, 480,]
+rotation_count = 0
+exposure = -4.0
+ignore = true
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
+
+[cam_3]
+port = 3
+size = [ 640, 480,]
+rotation_count = 0
+exposure = -6.0
+ignore = true
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
+
+[cam_4]
+port = 4
+size = [ 640, 480,]
+rotation_count = 0
+exposure = -8.0
+ignore = true
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
+
+[charuco]
+columns = 4
+rows = 5
+board_height = 11.0
+board_width = 8.5
+dictionary = "DICT_4X4_1000"
+units = "inch"
+aruco_scale = 0.75
+square_size_overide_cm = 5.4
+inverted = true

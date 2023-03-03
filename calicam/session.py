@@ -198,8 +198,8 @@ class Session:
                             f"Camera RMSE error for port {port}: {params['error']}"
                         )
                         camera.error = params["error"]
-                        camera.matrix = np.array(params["camera_matrix"]).astype(float)
-                        camera.distortion = np.array(params["distortion"]).astype(float)
+                        camera.matrix = np.array(params["matrix"]).astype(float)
+                        camera.distortion = np.array(params["distortions"]).astype(float)
                         camera.grid_count = params["grid_count"]
             except:
                 logger.info("Unable to connect... camera may be in use.")
@@ -377,6 +377,7 @@ class Session:
             "rotation_count": camera.rotation_count,
             "error": camera.error,
             "matrix": camera.matrix,
+            # "matrix": none_or_float_matrix(camera.matrix),
             "distortions": camera.distortions,
             "exposure": camera.exposure,
             "grid_count": camera.grid_count,
@@ -440,8 +441,14 @@ class Session:
             self.config["cam_" + str(port)] = params
 
         self.update_config()
-                
+
+def none_or_float_matrix(var):
+    converted_var = None
+
+    if var is not None:
+        converted_var = np.ndarray(var,dtype=np.float64)               
         
+    return converted_var
 class Stage(Enum):
     NO_CAMERAS = auto()
     UNCALIBRATED_CAMERAS = auto()
@@ -455,7 +462,7 @@ class Stage(Enum):
 if __name__ == "__main__":
     from calicam import __root__
 
-    config_path = Path(__root__, "tests", "5_cameras")
+    config_path = Path(__root__, "tests", "blank")
 
     print(config_path)
     print("Loading session config")

@@ -1,0 +1,56 @@
+CreationDate = 2023-03-04T08:20:49.242196
+
+[cam_0]
+port = 0
+size = [ 1920, 1080,]
+rotation_count = 0
+error = 0.232
+matrix = [ [ 1121.3485978696483, 0.0, 938.031741004807,], [ 0.0, 1115.7733489009067, 547.1676430460759,], [ 0.0, 0.0, 1.0,],]
+distortions = [ 0.08015672255087788, -0.18124985374755936, 0.0011550228422746009, -0.0011572081647042928, 0.05172939961953191,]
+exposure = -5.0
+grid_count = 26
+ignore = false
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
+
+[cam_1]
+port = 1
+size = [ 1280, 720,]
+rotation_count = 0
+exposure = -3.0
+ignore = false
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,],]
+
+[cam_2]
+port = 2
+size = [ 1920, 1080,]
+rotation_count = 0
+exposure = -5
+ignore = false
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
+
+[cam_3]
+port = 3
+size = [ 1920, 1080,]
+rotation_count = 0
+exposure = -6
+ignore = false
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
+
+[cam_4]
+port = 4
+size = [ 1920, 1080,]
+rotation_count = 0
+exposure = -7
+ignore = false
+verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
+
+[charuco]
+columns = 4
+rows = 5
+board_height = 11.0
+board_width = 8.5
+dictionary = "DICT_4X4_1000"
+units = "inch"
+aruco_scale = 0.75
+square_size_overide_cm = 5.4
+inverted = true

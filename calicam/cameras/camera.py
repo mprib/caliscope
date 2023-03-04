@@ -233,7 +233,7 @@ class Camera:
                 )
             )
             distortion_text = "Distortion:\t" + ",".join(
-                [str(round(float(cell), 2)) for cell in self.distortions[0]]
+                [str(round(float(cell), 2)) for cell in self.distortions]
             )
 
             # print(self.camera_matrix)

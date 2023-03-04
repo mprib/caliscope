@@ -200,7 +200,7 @@ class Session:
                         )
                         camera.error = params["error"]
                         camera.matrix = np.array(params["matrix"]).astype(float)
-                        camera.distortion = np.array(params["distortions"]).astype(float)
+                        camera.distortions = np.array(params["distortions"]).astype(float)
                         camera.grid_count = params["grid_count"]
             except:
                 logger.info("Unable to connect... camera may be in use.")

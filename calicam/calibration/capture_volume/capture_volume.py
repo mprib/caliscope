@@ -162,11 +162,11 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
         cam_matrix = cam.matrix
         rvec = camera_params[port][0:3]
         tvec = camera_params[port][3:6]
-        distortion = cam.distortions[0]  # this may need some cleanup...
+        distortions = cam.distortions
 
         # get the projection of the 2d points on the image plane; ignore the jacobian
         cam_proj_points, _jac = cv2.projectPoints(
-            object_points.astype(np.float64), rvec, tvec, cam_matrix, distortion
+            object_points.astype(np.float64), rvec, tvec, cam_matrix, distortions
         )
 
         points_3d_and_2d[cam_points, 6:8] = cam_proj_points[:, 0, :]

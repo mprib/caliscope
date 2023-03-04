@@ -456,13 +456,13 @@ class FrameControlWidget(QWidget):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
     from calicam import __root__
-    config_path = Path(__root__, "sessions", "laptop")
+    config_path = Path(__root__, "tests", "why breaking")
 
     print(config_path)
     session = Session(config_path)
     session.load_cameras()
     session.load_streams()
-    # session.adjust_resolutions()
+    session.adjust_resolutions()
     session.load_monocalibrators()
 
     test_port = 0

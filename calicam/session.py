@@ -175,35 +175,35 @@ class Session:
 
         # worker function that will be spun up to connect to a previously configured camera
         def add_preconfigured_cam(params):
-            try:
-                port = params["port"]
-                logger.info(f"Attempting to add pre-configured camera at port {port}")
+            # try:
+            port = params["port"]
+            logger.info(f"Attempting to add pre-configured camera at port {port}")
 
-                if params["ignore"]:
-                    logger.info(f"Ignoring camera at port {port}")
-                    pass  # don't load it in
+            if params["ignore"]:
+                logger.info(f"Ignoring camera at port {port}")
+                pass  # don't load it in
+            else:
+                if "verified_resolutions" in params.keys():
+                    verified_resolutions = params["verified_resolutions"]
+                    self.cameras[port] = Camera(port, verified_resolutions)
                 else:
-                    if "verified_resolutions" in params.keys():
-                        verified_resolutions = params["verified_resolutions"]
-                        self.cameras[port] = Camera(port, verified_resolutions)
-                    else:
-                        self.cameras[port] = Camera(port)
+                    self.cameras[port] = Camera(port)
 
-                    camera = self.cameras[port]  # just for ease of reference
-                    camera.rotation_count = params["rotation_count"]
-                    camera.exposure = params["exposure"]
+                camera = self.cameras[port]  # just for ease of reference
+                camera.rotation_count = params["rotation_count"]
+                camera.exposure = params["exposure"]
 
-                    # if calibration done, then populate those as well
-                    if "error" in params.keys():
-                        logger.info(
-                            f"Camera RMSE error for port {port}: {params['error']}"
-                        )
-                        camera.error = params["error"]
-                        camera.matrix = np.array(params["matrix"]).astype(float)
-                        camera.distortions = np.array(params["distortions"]).astype(float)
-                        camera.grid_count = params["grid_count"]
-            except:
-                logger.info("Unable to connect... camera may be in use.")
+                # if calibration done, then populate those as well
+                if "error" in params.keys():
+                    logger.info(
+                        f"Camera RMSE error for port {port}: {params['error']}"
+                    )
+                    camera.error = params["error"]
+                    camera.matrix = np.array(params["matrix"]).astype(float)
+                    camera.distortions = np.array(params["distortions"]).astype(float)
+                    camera.grid_count = params["grid_count"]
+            # except:
+            #     logger.info("Unable to connect... camera may be in use.")
 
         with ThreadPoolExecutor() as executor:
             for key, params in self.config.items():
@@ -315,7 +315,7 @@ class Session:
             pass
 
     def load_monocalibrators(self):
-        self.corner_tracker = CornerTracker(self.charuco)
+        # self.corner_tracker = CornerTracker(self.charuco)
 
         for port, cam in self.cameras.items():
             if port in self.monocalibrators.keys():
@@ -354,16 +354,16 @@ class Session:
 
         def adjust_res_worker(port):
             stream = self.streams[port]
-            resolution = self.config[f"cam_{port}"]["resolution"]
-            default_res = self.cameras[port].default_resolution
+            size = self.config[f"cam_{port}"]["size"]
+            default_size = self.cameras[port].default_resolution
 
-            if resolution[0] != default_res[0] or resolution[1] != default_res[1]:
+            if size[0] != default_size[0] or size[1] != default_size[1]:
                 logger.info(
-                    f"Beginning to change resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}"
+                    f"Beginning to change resolution at port {port} from {default_size[0:2]} to {size[0:2]}"
                 )
-                stream.change_resolution(resolution)
+                stream.change_resolution(size)
                 logger.info(
-                    f"Completed change of resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}"
+                    f"Completed change of resolution at port {port} from {default_size[0:2]} to {size[0:2]}"
                 )
 
         with ThreadPoolExecutor() as executor:
@@ -471,7 +471,7 @@ if __name__ == "__main__":
     #%%
     from calicam import __root__
 
-    config_path = Path(__root__, "tests", "blank")
+    config_path = Path(__root__, "tests", "why breaking")
 
     print(config_path)
     print("Loading session config")

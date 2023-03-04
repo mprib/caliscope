@@ -185,8 +185,8 @@ class MonoCalibrator():
         logger.info(f"Setting calibration params on camera {self.camera.port}")
         # ret is RMSE of reprojection
         self.camera.error = round(self.error, 3)
-        self.camera.matrix = self.mtx
-        self.camera.distortions = self.dist
+        self.camera.matrix = self.mtx.squeeze().tolist()
+        self.camera.distortions = self.dist.squeeze().tolist()
         self.camera.grid_count = len(self.all_ids)
 
 if __name__ == "__main__":

@@ -53,7 +53,14 @@ class Session:
 
         self.load_config()
         self.load_charuco()
-
+        
+    def get_synchronizer(self):
+        if hasattr(self, "_synchronizer"):
+            return self._synchronizer
+        else:
+            self._synchronizer = Synchronizer(self.streams)
+            return self._synchronizer
+        
     def load_config(self):
 
         if exists(self.config_path):

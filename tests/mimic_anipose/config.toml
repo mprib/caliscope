@@ -1,10 +1,14 @@
-CreationDate = 2023-02-07T08:31:15.128437
+CreationDate = 2023-03-03T21:01:46.391088
 
 [cam_0]
 port = 0
 size = [ 1920, 1080,]
 rotation_count = 0
-exposure = -5.0
+error = 0.261
+matrix = [ [ 1123.4988370153324, 0.0, 957.8221271719101,], [ 0.0, 1121.253844677828, 565.9499014398044,], [ 0.0, 0.0, 1.0,],]
+distortions = [ 0.03522042380496305, -0.04972886722318654, 0.0010531978441648809, 0.006065041982307664, -0.1540491534695053,]
+exposure = -6
+grid_count = 8
 ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 
@@ -12,7 +16,7 @@ verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 port = 1
 size = [ 1280, 960,]
 rotation_count = 0
-exposure = -7.0
+exposure = -3.0
 ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,],]
 
@@ -28,7 +32,7 @@ verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 port = 3
 size = [ 1920, 1080,]
 rotation_count = 0
-exposure = -6.0
+exposure = -4.0
 ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 
@@ -36,17 +40,17 @@ verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 port = 4
 size = [ 1920, 1080,]
 rotation_count = 0
-exposure = -9.0
+exposure = -6.0
 ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 
 [charuco]
 columns = 4
 rows = 5
-board_height = 10.0
+board_height = 11.0
 board_width = 8.5
 dictionary = "DICT_4X4_1000"
 units = "inch"
 aruco_scale = 0.75
-square_size_overide_cm = 5.2500000000000036
+square_size_overide_cm = 5.4
 inverted = true

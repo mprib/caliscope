@@ -21,7 +21,7 @@ CAMERA_PARAM_COUNT = 6
 @dataclass
 class CaptureVolume:
     camera_array: CameraArray
-    point_history: PointEstimates
+    point_estimates: PointEstimates
 
     def save(self, output_path):
         with open(Path(output_path), "wb") as file:
@@ -33,7 +33,7 @@ class CaptureVolume:
         This is the required data format of the least squares optimization
         """
         camera_params = self.camera_array.get_extrinsic_params()
-        combined = np.hstack((camera_params.ravel(), self.point_history.obj.ravel()))
+        combined = np.hstack((camera_params.ravel(), self.point_estimates.obj.ravel()))
 
         return combined
 
@@ -65,7 +65,7 @@ class CaptureVolume:
         self.least_sq_result = least_squares(
             xy_reprojection_error,
             initial_param_estimate,
-            jac_sparsity=self.point_history.get_sparsity_pattern(),
+            jac_sparsity=self.point_estimates.get_sparsity_pattern(),
             verbose=2,
             x_scale="jac",
             loss="linear",
@@ -77,7 +77,7 @@ class CaptureVolume:
         )
 
         self.camera_array.update_extrinsic_params(self.least_sq_result.x)
-        self.point_history.update_obj_xyz(self.least_sq_result.x)
+        self.point_estimates.update_obj_xyz(self.least_sq_result.x)
 
         if output_path is not None:
             self.save(Path(output_path, "post_optimized_capture_volume.pkl"))
@@ -130,24 +130,24 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     # Create one combined array primarily to make sure all calculations line up
     ## unpack the working estimates of the camera parameters (could be extr. or intr.)
     camera_params = current_param_estimates[
-        : capture_volume.point_history.n_cameras * CAMERA_PARAM_COUNT
-    ].reshape((capture_volume.point_history.n_cameras, CAMERA_PARAM_COUNT))
+        : capture_volume.point_estimates.n_cameras * CAMERA_PARAM_COUNT
+    ].reshape((capture_volume.point_estimates.n_cameras, CAMERA_PARAM_COUNT))
 
     ## similarly unpack the 3d point location estimates
     points_3d = current_param_estimates[
-        capture_volume.point_history.n_cameras * CAMERA_PARAM_COUNT :
-    ].reshape((capture_volume.point_history.n_obj_points, 3))
+        capture_volume.point_estimates.n_cameras * CAMERA_PARAM_COUNT :
+    ].reshape((capture_volume.point_estimates.n_obj_points, 3))
 
     ## create zero columns as placeholders for the reprojected 2d points
-    rows = capture_volume.point_history.camera_indices.shape[0]
+    rows = capture_volume.point_estimates.camera_indices.shape[0]
     blanks = np.zeros((rows, 2), dtype=np.float64)
 
     ## hstack all these arrays for ease of reference
     points_3d_and_2d = np.hstack(
         [
-            np.array([capture_volume.point_history.camera_indices]).T,
-            points_3d[capture_volume.point_history.obj_indices],
-            capture_volume.point_history.img,
+            np.array([capture_volume.point_estimates.camera_indices]).T,
+            points_3d[capture_volume.point_estimates.obj_indices],
+            capture_volume.point_estimates.img,
             blanks,
         ]
     )
@@ -156,17 +156,17 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     # it should scale linearly with the number of cameras...a tradeoff for stable
     # and explicit calculations...
     for port, cam in capture_volume.camera_array.cameras.items():
-        cam_points = np.where(capture_volume.point_history.camera_indices == port)
+        cam_points = np.where(capture_volume.point_estimates.camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
 
-        cam_matrix = cam.camera_matrix
+        cam_matrix = cam.matrix
         rvec = camera_params[port][0:3]
         tvec = camera_params[port][3:6]
-        distortion = cam.distortion[0]  # this may need some cleanup...
+        distortions = cam.distortions
 
         # get the projection of the 2d points on the image plane; ignore the jacobian
         cam_proj_points, _jac = cv2.projectPoints(
-            object_points.astype(np.float64), rvec, tvec, cam_matrix, distortion
+            object_points.astype(np.float64), rvec, tvec, cam_matrix, distortions
         )
 
         points_3d_and_2d[cam_points, 6:8] = cam_proj_points[:, 0, :]
@@ -174,7 +174,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     # reshape the x,y reprojection error to a single vector
-    return (points_proj - capture_volume.point_history.img).ravel()
+    return (points_proj - capture_volume.point_estimates.img).ravel()
 
 
 def rms_reproj_error(xy_reproj_error):
@@ -186,26 +186,26 @@ def rms_reproj_error(xy_reproj_error):
     # logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
 
-
 if __name__ == "__main__":
     # if True:
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
     from calicam.calibration.capture_volume.helper_functions.get_point_estimates import (
-        get_point_history,
+        get_point_estimates,
     )
 
-    session_directory = Path(__root__, "tests", "5_cameras")
-    point_data_csv_path = Path(session_directory, "recording", "point_data.csv")
+    session_directory = Path(__root__, "tests", "mimic_anipose")
+
+    point_data_csv_path = Path(session_directory, "point_data.csv")
 
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
-    point_history = get_point_history(camera_array, point_data_csv_path)
+    point_estimates = get_point_estimates(camera_array, point_data_csv_path)
 
     print(f"Optimizing initial camera array configuration ")
 
-    capture_volume = CaptureVolume(camera_array, point_history)
-    capture_volume.optimize(output_path=Path(session_directory, "recording"))
+    capture_volume = CaptureVolume(camera_array, point_estimates)
+    capture_volume.optimize(output_path=Path(session_directory))
 
 # %%

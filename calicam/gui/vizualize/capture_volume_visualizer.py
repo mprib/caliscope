@@ -45,7 +45,7 @@ class CaptureVolumeVisualizer:
         self.scene.show()
 
         # read in contents of file and get important parameters
-        self.point_history = self.capture_volume.point_history
+        self.point_estimates = self.capture_volume.point_estimates
         # self.pairs = self.point_estimate_data["pair"].unique().tolist()
 
         # build the initial scatters that will be updated
@@ -80,7 +80,7 @@ class CaptureVolumeVisualizer:
 
     def play_data(self):
         # sync_indices = self.point_estimate_data["sync_index"].unique().tolist()
-        sync_indices = np.unique(self.point_history.sync_indices)
+        sync_indices = np.unique(self.point_estimates.sync_indices)
         sync_indices = np.sort(sync_indices)
 
         for sync_index in sync_indices:
@@ -89,10 +89,10 @@ class CaptureVolumeVisualizer:
             time.sleep(1 / 5)
 
     def display_points(self, sync_index):
-        current_sync_index_flag = self.point_history.sync_indices == sync_index
-        single_board_indices = np.unique(self.point_history.obj_indices[current_sync_index_flag])
+        current_sync_index_flag = self.point_estimates.sync_indices == sync_index
+        single_board_indices = np.unique(self.point_estimates.obj_indices[current_sync_index_flag])
         
-        single_board_points = self.point_history.obj[single_board_indices]
+        single_board_points = self.point_estimates.obj[single_board_indices]
 
         self.scatter.setData(pos=single_board_points)
         # point_data = self.point_estimate_data.query(f"sync_index == {sync_index}")
@@ -135,7 +135,7 @@ class CaptureVolumeVisualizer:
 # helper functions to assist with scene creation
 def mesh_from_camera(cd: CameraData):
     # cd = camera_data
-    mesh = CameraMesh(cd.resolution, cd.camera_matrix).mesh
+    mesh = CameraMesh(cd.size, cd.matrix).mesh
 
     # rotate mesh
     logger.info(f"Rotating: {cd.rotation}")
@@ -185,23 +185,21 @@ if __name__ == "__main__":
 
     from calicam import __root__
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.helper_functions.get_point_estimates import get_point_history
+    from calicam.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates
 
     from calicam.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
-    session_directory = Path(__root__, "tests", "5_cameras")
+    session_directory = Path(__root__, "tests", "please work")
 
 
     print(f"Optimizing initial camera array configuration ")
 
 
-    # saved_CV_path = Path(session_directory, "recording", "pre_optimized_capture_volume.pkl") 
-    saved_CV_path = Path(session_directory, "recording", "post_optimized_capture_volume.pkl") 
+    # saved_CV_path = Path(session_directory, "pre_optimized_capture_volume.pkl") 
+    saved_CV_path = Path(session_directory, "post_optimized_capture_volume.pkl") 
     with open(saved_CV_path, "rb") as f:
         capture_volume = pickle.load(f)
-    
-
 
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume)

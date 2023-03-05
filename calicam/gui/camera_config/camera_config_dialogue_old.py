@@ -387,7 +387,7 @@ class CameraConfigDialog(QDialog):
 
             # whenever resolution changes, calibration parameters no longer apply
             self.camera.error = None
-            self.camera.camera_matrix = None
+            self.camera.matrix = None
             self.camera.distortion = None
             self.camera.grid_count = 0
             self.frame_emitter.undistort = False

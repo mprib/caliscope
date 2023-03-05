@@ -30,7 +30,7 @@ class VideoRecorder:
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
             fps = self.syncronizer.fps_target
-            frame_size = stream.camera.resolution
+            frame_size = stream.camera.size
 
             writer = cv2.VideoWriter(path, fourcc, fps, frame_size)
             self.video_writers[port] = writer

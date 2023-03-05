@@ -36,7 +36,7 @@ class OmniFrameBuilder:
         
         
     def get_pairs(self):
-        pairs = [pair for pair in combinations(ports, 2)]
+        pairs = [pair for pair in combinations(self.synchronizer.ports, 2)]
         sorted_ports = [
             (min(pair), max(pair)) for pair in pairs
         ]  # sort as in (b,a) --> (a,b)
@@ -44,17 +44,6 @@ class OmniFrameBuilder:
             sorted_ports
         )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
         return sorted_ports
-
-    def get_new_raw_frames(self):
-        self.new_sync_packet_notice.get()
-        self.current_sync_packet = self.synchronizer.current_sync_packet
-
-        # update the board_counts here
-        # TODO: will need to sort this out later...board history is throwing
-        # things off to integrate old methods. Ignore for now and refactor
-        # for pair in self.board_counts.keys():
-        #     capture_history = self.stereo_tracker.stereo_inputs[pair]
-        #     self.board_counts[pair] = len(capture_history["common_board_loc"])
 
     def update_omni_list(self):
         self.omni_list = [
@@ -82,11 +71,11 @@ class OmniFrameBuilder:
         """Return unaltered frame if no corner information detected, otherwise
         return two frames with same corners drawn"""
         if self.current_sync_packet.frame_packets[portA] is None:
-            logger.warn(f"Dropped frame at port {portA}")
+            logger.warning(f"Dropped frame at port {portA}")
             return frameA, frameB
 
         elif self.current_sync_packet.frame_packets[portB] is None:
-            logger.warn(f"Dropped frame at port {portB}")
+            logger.warning(f"Dropped frame at port {portB}")
             return frameA, frameB
 
         frame_packet_A = self.current_sync_packet.frame_packets[portA]
@@ -204,30 +193,38 @@ class OmniFrameBuilder:
         frameA = self.apply_rotation(frameA, portA)
         frameB = self.apply_rotation(frameB, portB)
 
-        label_display = np.zeros(
-            (self.single_frame_height, int(self.single_frame_height / 2), 3), np.uint8
-        )
-        label_display = cv2.putText(
-            label_display,
-            f"{pair[0]} & {pair[1]}",
-            (10, int(self.single_frame_height / 3)),
-            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-            fontScale=1,
-            color=(255, 165, 0),
-            thickness=1,
-        )
 
-        label_display = cv2.putText(
-            label_display,
+        frameA = cv2.putText(frameA,
+                             str(portA),
+                            (int(frameA.shape[1]/2), int(self.single_frame_height / 4)),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            fontScale=1,
+                            color=(0, 0, 255),
+                            thickness=2,
+                        )
+
+        frameB = cv2.putText(frameB,
+                             str(portB),
+                            (int(frameB.shape[1]/2), int(self.single_frame_height / 4)),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            fontScale=1,
+                            color=(0, 0, 255),
+                            thickness=2,
+                        )
+
+        
+        hstacked_pair = np.hstack(( frameA, frameB))
+        
+        hstacked_pair = cv2.putText(
+            hstacked_pair,
             str(board_count),
-            (10, int(self.single_frame_height * (2 / 3))),
+            (self.single_frame_height-10,int(self.single_frame_height*4/5)),
             fontFace=cv2.FONT_HERSHEY_SIMPLEX,
             fontScale=1,
-            color=(255, 165, 0),
-            thickness=1,
+            color=(0,0,255),
+            thickness=2,
+             
         )
-
-        hstacked_pair = np.hstack((label_display, frameA, frameB))
 
         return hstacked_pair
 
@@ -241,7 +238,7 @@ class OmniFrameBuilder:
 
         blank = cv2.putText(
             blank,
-            "DATA COLLECTION COMPLETE",
+            "",
             (20, int(self.single_frame_height / 2)),
             fontFace=cv2.FONT_HERSHEY_SIMPLEX,
             fontScale=1,
@@ -255,6 +252,10 @@ class OmniFrameBuilder:
         """
         This glues together the stereopairs with summary blocks of the common board count
         """
+
+        self.new_sync_packet_notice.get()
+        self.current_sync_packet = self.synchronizer.current_sync_packet
+
         omni_frame = None
         board_target_reached = False
         for pair in self.omni_list:
@@ -293,8 +294,8 @@ if __name__ == "__main__":
     from calicam.session import Session
     from calicam.calibration.charuco import Charuco
     
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-
+    from calicam import __root__
+    
     ports = [0, 1, 2, 3, 4]
     # ports = [1,2, 3]
 
@@ -304,14 +305,14 @@ if __name__ == "__main__":
     
     if test_live:
 
-        session_directory = Path(repo, "sessions", "5_cameras")
+        session_directory = Path(__root__, "tests", "please work")
         session = Session(session_directory)
         session.load_cameras()
         session.load_streams()
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(session.streams, fps_target=3)
     else:
-        recording_directory = Path(repo, "sessions", "5_cameras", "recording")
+        recording_directory = Path(__root__, "tests", "mimic_anipose")
         charuco = Charuco(
             4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
         )
@@ -320,18 +321,15 @@ if __name__ == "__main__":
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
         recorded_stream_pool.play_videos()
 
-    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=20)
+    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=10)
 
     if record:
-        video_path = Path(repo, "sessions", "5_cameras", "recording")
+        video_path = Path(__root__, "tests", "please work")
         video_recorder = VideoRecorder(syncr)
         video_recorder.start_recording(video_path)
 
     
     while not syncr.stop_event.is_set():
-        # wait for newly processed frame to be available
-        # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
-        frame_builder.get_new_raw_frames()
 
         omni_frame = frame_builder.get_omni_frame()
         if omni_frame is None:

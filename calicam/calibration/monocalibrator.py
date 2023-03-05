@@ -23,14 +23,16 @@ class MonoCalibrator():
         self, stream:LiveStream,  board_threshold=0.7, wait_time=0.5
     ):
         self.stream = stream
-        self.camera = stream.camera  # reference needed to update params
+        self.camera: Camera = stream.camera  # reference needed to update params
         self.port = self.camera.port
         self.wait_time = wait_time
-        self.capture_corners = False  # start out not doing anything
+        self.capture_corners = Event()
+        self.capture_corners.clear() # start out not doing anything
         self.stop_event = Event()
         
         self.grid_frame_ready_q = Queue()
         self.connected_corners = self.stream.charuco.get_connected_corners()
+
         board_corner_count = len(self.stream.charuco.board.chessboardCorners)
         self.min_points_to_process = int(board_corner_count * board_threshold)
 
@@ -39,7 +41,7 @@ class MonoCalibrator():
         self.last_calibration_time = (
             time.perf_counter()
         )  # need to initialize to *something*
-        self.collecting_corners = True
+
         self.thread = Thread(target=self.collect_corners, args=(), daemon=True)
         self.thread.start()
 
@@ -53,7 +55,7 @@ class MonoCalibrator():
 
     @property
     def image_size(self):
-        image_size = list(self.camera.resolution)
+        image_size = list(self.camera.size)
         image_size.reverse()  # for some reason...
         image_size.append(3)
 
@@ -88,7 +90,7 @@ class MonoCalibrator():
             self.frame_packet: FramePacket = self.stream.out_q.get()
             self.frame = self.frame_packet.frame
 
-            if self.capture_corners and self.frame_packet.points is not None:
+            if self.capture_corners.isSet() and self.frame_packet.points is not None:
                 logger.info("Points found and being processed...")
                 self.ids = self.frame_packet.points.point_id
                 self.img_loc = self.frame_packet.points.img_loc
@@ -117,7 +119,7 @@ class MonoCalibrator():
                 self.set_grid_frame()
 
         logger.info(f"Monocalibrator at port {self.port} successfully shutdown...")
-        self.stream.push_to_out_q = False
+        self.stream.push_to_out_q.clear()
         
     def update_grid_history(self):
         if len(self.ids) > 2:
@@ -134,7 +136,7 @@ class MonoCalibrator():
 
         logger.debug(f"Frame Size is {self.frame.shape} at port {self.port}")
         logger.debug(
-            f"camera resolution is {self.camera.resolution} at port {self.port}"
+            f"camera resolution is {self.camera.size} at port {self.port}"
         )
 
         # check to see if the camera resolution changed from the last round
@@ -162,8 +164,6 @@ class MonoCalibrator():
         """
         logger.info(f"Calibrating camera {self.camera.port}....")
 
-        self.collecting_corners = False
-
         objpoints = self.all_board_loc
         imgpoints = self.all_img_loc
         height = self.grid_capture_history.shape[0]
@@ -172,6 +172,9 @@ class MonoCalibrator():
         self.error, self.mtx, self.dist, self.rvecs, self.tvecs = cv2.calibrateCamera(
             objpoints, imgpoints, (width, height), None, None
         )
+
+        # fix extra dimension in return value of cv2.calibrateCamera
+        self.dist = self.dist[0]
 
         self.update_camera()
         self.is_calibrated = True
@@ -185,8 +188,8 @@ class MonoCalibrator():
         logger.info(f"Setting calibration params on camera {self.camera.port}")
         # ret is RMSE of reprojection
         self.camera.error = round(self.error, 3)
-        self.camera.camera_matrix = self.mtx
-        self.camera.distortion = self.dist
+        self.camera.matrix = self.mtx
+        self.camera.distortions = self.dist
         self.camera.grid_count = len(self.all_ids)
 
 if __name__ == "__main__":
@@ -207,7 +210,7 @@ if __name__ == "__main__":
 
     monocal = MonoCalibrator(stream)
 
-    monocal.capture_corners = True
+    monocal.capture_corners.set()
     
     print("About to enter main loop")
     while True:
@@ -226,7 +229,10 @@ if __name__ == "__main__":
             break
 
         if key == ord("t"):
-            monocal.stream.track_points = not monocal.stream.track_points
+            if monocal.stream.track_points.isSet():
+                monocal.stream.track_points.clear()
+            else:
+                monocal.stream.track_points.set()
     
         if key == ord("v"):
             stream.change_resolution((1280,720))
@@ -235,6 +241,6 @@ if __name__ == "__main__":
     monocal.update_camera()
 
     print(f"Error: {cam.error}")
-    print(f"Camera Matrix: {cam.camera_matrix}")
-    print(f"Distortion: {cam.distortion}")
+    print(f"Camera Matrix: {cam.matrix}")
+    print(f"Distortions: {cam.distortions}")
     print(f"Grid Count: {cam.grid_count}")

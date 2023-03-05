@@ -12,11 +12,22 @@ import numpy as np
 import toml
 from itertools import combinations
 
+
 from calicam.calibration.charuco import Charuco
 from calicam.calibration.corner_tracker import CornerTracker
 from calicam.calibration.monocalibrator import MonoCalibrator
 from calicam.cameras.camera import Camera
 from calicam.cameras.synchronizer import Synchronizer
+from calicam.cameras.camera_array_builder import CameraArrayBuilder
+from calicam.calibration.omnicalibrator import OmniCalibrator
+from calicam.calibration.capture_volume.point_estimates import PointEstimates
+from calicam.calibration.capture_volume.capture_volume import CaptureVolume
+
+from calicam.cameras.camera_array import CameraArray
+from calicam.calibration.capture_volume.helper_functions.get_point_estimates import (
+    get_point_estimates,
+)
+
 from calicam.cameras.live_stream import LiveStream
 from calicam.recording.video_recorder import VideoRecorder
 
@@ -42,7 +53,16 @@ class Session:
 
         self.load_config()
         self.load_charuco()
-
+        
+    def get_synchronizer(self):
+        if hasattr(self, "_synchronizer"):
+            logger.info("returning previously created synchronizer")
+            return self._synchronizer
+        else:
+            logger.info("creating synchronizer...")
+            self._synchronizer = Synchronizer(self.streams)
+            return self._synchronizer
+        
     def load_config(self):
 
         if exists(self.config_path):
@@ -63,7 +83,7 @@ class Session:
 
     def update_config(self):
 
-        # alphabetize by key
+        # alphabetize by key to maintain standardized layout
         sorted_config = {key: value for key, value in sorted(self.config.items())}
         self.config = sorted_config
 
@@ -110,9 +130,9 @@ class Session:
         count = 0
         for key, params in self.config.copy().items():
             if key.startswith("cam"):
-                count +=1
+                count += 1
         return count
-    
+
     def delete_all_cam_data(self):
         # note: needs to be a copy to avoid errors while dict changes with deletion
         for key, params in self.config.copy().items():
@@ -164,37 +184,35 @@ class Session:
 
         # worker function that will be spun up to connect to a previously configured camera
         def add_preconfigured_cam(params):
-            try:
-                port = params["port"]
-                logger.info(f"Attempting to add pre-configured camera at port {port}")
+            # try:
+            port = params["port"]
+            logger.info(f"Attempting to add pre-configured camera at port {port}")
 
-                if params["ignore"]:
-                    logger.info(f"Ignoring camera at port {port}")
-                    pass  # don't load it in
+            if params["ignore"]:
+                logger.info(f"Ignoring camera at port {port}")
+                pass  # don't load it in
+            else:
+                if "verified_resolutions" in params.keys():
+                    verified_resolutions = params["verified_resolutions"]
+                    self.cameras[port] = Camera(port, verified_resolutions)
                 else:
-                    if "verified_resolutions" in params.keys():
-                        verified_resolutions = params["verified_resolutions"]
-                        self.cameras[port] = Camera(port, verified_resolutions)
-                    else:
-                        self.cameras[port] = Camera(port)
+                    self.cameras[port] = Camera(port)
 
-                    cam = self.cameras[port]  # just for ease of reference
-                    cam.rotation_count = params["rotation_count"]
-                    cam.exposure = params["exposure"]
+                camera = self.cameras[port]  # just for ease of reference
+                camera.rotation_count = params["rotation_count"]
+                camera.exposure = params["exposure"]
 
-                    # if calibration done, then populate those as well
-                    if "error" in params.keys():
-                        logger.info(
-                            f"Camera RMSE error for port {port}: {params['error']}"
-                        )
-                        cam.error = params["error"]
-                        cam.camera_matrix = np.array(params["camera_matrix"]).astype(
-                            float
-                        )
-                        cam.distortion = np.array(params["distortion"]).astype(float)
-                        cam.grid_count = params["grid_count"]
-            except:
-                logger.info("Unable to connect... camera may be in use.")
+                # if calibration done, then populate those as well
+                if "error" in params.keys():
+                    logger.info(
+                        f"Camera RMSE error for port {port}: {params['error']}"
+                    )
+                    camera.error = params["error"]
+                    camera.matrix = np.array(params["matrix"]).astype(float)
+                    camera.distortions = np.array(params["distortions"]).astype(float)
+                    camera.grid_count = params["grid_count"]
+            # except:
+            #     logger.info("Unable to connect... camera may be in use.")
 
         with ThreadPoolExecutor() as executor:
             for key, params in self.config.items():
@@ -216,7 +234,7 @@ class Session:
                 logger.info(f"Success at port {port}")
                 self.cameras[port] = cam
                 self.save_camera(port)
-                self.streams[port] = LiveStream(cam, charuco = self.charuco)
+                self.streams[port] = LiveStream(cam, charuco=self.charuco)
             except:
                 logger.info(f"No camera at port {port}")
 
@@ -306,7 +324,7 @@ class Session:
             pass
 
     def load_monocalibrators(self):
-        self.corner_tracker = CornerTracker(self.charuco)
+        # self.corner_tracker = CornerTracker(self.charuco)
 
         for port, cam in self.cameras.items():
             if port in self.monocalibrators.keys():
@@ -325,9 +343,9 @@ class Session:
             del self.monocalibrators[port]
             logger.info(f"Successfuly stopped monocalibrator at port {port}")
 
-    def set_active_monocalibrator(self,active_port):
+    def set_active_monocalibrator(self, active_port):
         logger.info(f"Activate tracking on port {active_port} and deactivate others")
-        for port,monocal in self.monocalibrators.items():
+        for port, monocal in self.monocalibrators.items():
             if port == active_port:
                 monocal.stream.push_to_out_q.set()
             else:
@@ -345,42 +363,51 @@ class Session:
 
         def adjust_res_worker(port):
             stream = self.streams[port]
-            resolution = self.config[f"cam_{port}"]["resolution"]
-            default_res = self.cameras[port].default_resolution
+            size = self.config[f"cam_{port}"]["size"]
+            default_size = self.cameras[port].default_resolution
 
-            if resolution[0] != default_res[0] or resolution[1] != default_res[1]:
+            if size[0] != default_size[0] or size[1] != default_size[1]:
                 logger.info(
-                    f"Beginning to change resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}"
+                    f"Beginning to change resolution at port {port} from {default_size[0:2]} to {size[0:2]}"
                 )
-                stream.change_resolution(resolution)
+                stream.change_resolution(size)
                 logger.info(
-                    f"Completed change of resolution at port {port} from {default_res[0:2]} to {resolution[0:2]}"
+                    f"Completed change of resolution at port {port} from {default_size[0:2]} to {size[0:2]}"
                 )
 
         with ThreadPoolExecutor() as executor:
             for port in self.cameras.keys():
                 executor.submit(adjust_res_worker, port)
-
+                
     def save_camera(self, port):
-        cam = self.cameras[port]
+        
+        def none_or_list(value):
+            
+            if value is None:
+                return None
+            else:
+                return value.tolist()
+        
+        camera = self.cameras[port]
         params = {
-            "port": cam.port,
-            "resolution": cam.resolution,
-            "rotation_count": cam.rotation_count,
-            "error": cam.error,
-            "camera_matrix": cam.camera_matrix,
-            "distortion": cam.distortion,
-            "exposure": cam.exposure,
-            "grid_count": cam.grid_count,
-            "ignore": cam.ignore,
-            "verified_resolutions": cam.verified_resolutions,
+            "port": camera.port,
+            "size": camera.size,
+            "rotation_count": camera.rotation_count,
+            "error": camera.error,
+            "matrix": none_or_list(camera.matrix),
+            "distortions": none_or_list(camera.distortions),
+            "translation": none_or_list(camera.translation),
+            "rotation": none_or_list(camera.rotation),
+            "exposure": camera.exposure,
+            "grid_count": camera.grid_count,
+            "ignore": camera.ignore,
+            "verified_resolutions": camera.verified_resolutions,
         }
 
         logger.info(f"Saving camera parameters...{params}")
 
         self.config["cam_" + str(port)] = params
         self.update_config()
-
 
     def get_stage(self):
         if self.connected_camera_count() == 0:
@@ -398,6 +425,55 @@ class Session:
         ):
             return Stage.MONOCALIBRATED_CAMERAS
 
+    def load_camera_array(self):
+        """
+        after doing omniframe capture and generating a point_data.csv file,
+        create a camera array from it
+        """
+
+        # with those in place the camera array can be initialized
+        self.camera_array: CameraArray = CameraArrayBuilder(
+            self.config_path
+        ).get_camera_array()
+
+        
+    def save_camera_array(self):
+
+        
+        for port, camera_data in self.camera_array.cameras.items():
+            camera_data = self.camera_array.cameras[port]
+            params = {
+                "port": camera_data.port,
+                "size": camera_data.size,
+                "rotation_count": camera_data.rotation_count,
+                "error": camera_data.error,
+                "matrix": camera_data.matrix.tolist(),
+                "distortions": camera_data.distortions.tolist(),
+                "exposure": camera_data.exposure,
+                "grid_count": camera_data.grid_count,
+                "ignore": camera_data.ignore,
+                "verified_resolutions": camera_data.verified_resolutions,
+                "translation": camera_data.translation.tolist(),
+                "rotation":camera_data.rotation.tolist()
+            }
+
+            logger.info(f"Saving camera parameters...{params}")
+            self.config["cam_" + str(port)] = params
+
+        self.update_config()
+
+def format_toml_dict(toml_dict:dict):
+    temp_config = {}
+    for key, value in toml_dict.items():
+        # logger.info(f"key: {key}; type: {type(value)}")
+        if isinstance(value, dict):
+            temp_config[key] = format_toml_dict(value)
+        if isinstance(value, np.ndarray):
+            temp_config[key] = [float(i) for i in value]
+        else:
+            temp_config[key] = value 
+            
+    return temp_config
 
 class Stage(Enum):
     NO_CAMERAS = auto()
@@ -410,22 +486,29 @@ class Stage(Enum):
 
 #%%
 if __name__ == "__main__":
-    repo = Path(str(Path(__file__)).split("calicam")[0], "calicam")
-    config_path = Path(repo, "sessions", "high_res_session")
+    #%%
+    from calicam import __root__
+
+    config_path = Path(__root__, "tests", "why breaking")
+
     print(config_path)
     print("Loading session config")
     session = Session(config_path)
+    #%%
     print(session.get_stage())
     session.update_config()
+    #%%%
     # print("Loading Cameras...")
     # session.load_cameras()
 
     print("Finding Cameras...")
     session.find_cameras()
-    print(session.get_stage())
-    print(f"Camera pairs: {session.camera_pairs()}")
-    print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
-    session.disconnect_cameras()
-    print(session.get_stage())
-    print(f"Camera pairs: {session.camera_pairs()}")
-    print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
+    # print(session.get_stage())
+    # print(f"Camera pairs: {session.camera_pairs()}")
+    # print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
+    # session.disconnect_cameras()
+    # print(session.get_stage())
+    # print(f"Camera pairs: {session.camera_pairs()}")
+    # print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
+
+# %%

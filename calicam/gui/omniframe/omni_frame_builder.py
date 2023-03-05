@@ -71,11 +71,11 @@ class OmniFrameBuilder:
         """Return unaltered frame if no corner information detected, otherwise
         return two frames with same corners drawn"""
         if self.current_sync_packet.frame_packets[portA] is None:
-            logger.warn(f"Dropped frame at port {portA}")
+            logger.warning(f"Dropped frame at port {portA}")
             return frameA, frameB
 
         elif self.current_sync_packet.frame_packets[portB] is None:
-            logger.warn(f"Dropped frame at port {portB}")
+            logger.warning(f"Dropped frame at port {portB}")
             return frameA, frameB
 
         frame_packet_A = self.current_sync_packet.frame_packets[portA]
@@ -193,30 +193,38 @@ class OmniFrameBuilder:
         frameA = self.apply_rotation(frameA, portA)
         frameB = self.apply_rotation(frameB, portB)
 
-        label_display = np.zeros(
-            (self.single_frame_height, int(self.single_frame_height / 2), 3), np.uint8
-        )
-        label_display = cv2.putText(
-            label_display,
-            f"{pair[0]} & {pair[1]}",
-            (10, int(self.single_frame_height / 3)),
-            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-            fontScale=1,
-            color=(255, 165, 0),
-            thickness=1,
-        )
 
-        label_display = cv2.putText(
-            label_display,
+        frameA = cv2.putText(frameA,
+                             str(portA),
+                            (int(frameA.shape[1]/2), int(self.single_frame_height / 4)),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            fontScale=1,
+                            color=(0, 0, 255),
+                            thickness=2,
+                        )
+
+        frameB = cv2.putText(frameB,
+                             str(portB),
+                            (int(frameB.shape[1]/2), int(self.single_frame_height / 4)),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            fontScale=1,
+                            color=(0, 0, 255),
+                            thickness=2,
+                        )
+
+        
+        hstacked_pair = np.hstack(( frameA, frameB))
+        
+        hstacked_pair = cv2.putText(
+            hstacked_pair,
             str(board_count),
-            (10, int(self.single_frame_height * (2 / 3))),
+            (self.single_frame_height-10,int(self.single_frame_height*4/5)),
             fontFace=cv2.FONT_HERSHEY_SIMPLEX,
             fontScale=1,
-            color=(255, 165, 0),
-            thickness=1,
+            color=(0,0,255),
+            thickness=2,
+             
         )
-
-        hstacked_pair = np.hstack((label_display, frameA, frameB))
 
         return hstacked_pair
 
@@ -230,7 +238,7 @@ class OmniFrameBuilder:
 
         blank = cv2.putText(
             blank,
-            "DATA COLLECTION COMPLETE",
+            "",
             (20, int(self.single_frame_height / 2)),
             fontFace=cv2.FONT_HERSHEY_SIMPLEX,
             fontScale=1,
@@ -313,7 +321,7 @@ if __name__ == "__main__":
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
         recorded_stream_pool.play_videos()
 
-    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=40)
+    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=10)
 
     if record:
         video_path = Path(__root__, "tests", "please work")

@@ -14,13 +14,19 @@ class CameraData:
     """
     A place to hold the calibration data associated with a camera that has been populated from a config file.
     For use with final setting of the array and triangulation, but no actual camera management.
+    Not loving the way this is implemented as an adjunct to the Camera object, but here we are
     """
 
     port: int
-    resolution: tuple
-    camera_matrix: np.ndarray
+    size: tuple
+    rotation_count: int
     error: float  # the RMSE of reprojection associated with the intrinsic calibration
-    distortion: np.ndarray  #
+    matrix: np.ndarray
+    distortions: np.ndarray  #
+    exposure: int
+    grid_count: int
+    ignore: bool
+    verified_resolutions: np.ndarray
     translation: np.ndarray
     rotation: np.ndarray
 
@@ -48,7 +54,7 @@ class CameraData:
 
         # convert back to world frame of reference
         self.rotation = np.linalg.inv(cv2.Rodrigues(row[0:3])[0])
-        self.translation = np.array([row[3:6] * -1], dtype=np.float64).T
+        self.translation = np.array([row[3:6] * -1], dtype=np.float64)[0]
 
 
 @dataclass
@@ -94,14 +100,10 @@ class CameraArray:
 
 if __name__ == "__main__":
     from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.point_estimates import (
-        PointEstimates,
-        get_point_history,
-    )
 
     from calicam import __root__
 
-    session_directory = Path(__root__, "tests", "5_cameras")
+    session_directory = Path(__root__, "tests", "mimic_anipose")
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()

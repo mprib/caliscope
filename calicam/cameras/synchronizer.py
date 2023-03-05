@@ -90,7 +90,7 @@ class Synchronizer:
 
     def harvest_frame_packets(self, stream):
         port = stream.port
-        stream.push_to_out_q = True
+        stream.push_to_out_q.set()
 
         logger.info(f"Beginning to collect data generated at port {port}")
 
@@ -205,14 +205,14 @@ class Synchronizer:
                 if frame_time > earliest_next[port]:
                     # definitly should be put in the next layer and not this one
                     current_frame_packets[port] = None
-                    logger.warn(f"Skipped frame at port {port}: > earliest_next")
+                    logger.warning(f"Skipped frame at port {port}: > earliest_next")
                 elif (
                     earliest_next[port] - frame_time < frame_time - latest_current[port]
                 ):  # frame time is closer to earliest next than latest current
                     # if it's closer to the earliest next frame than the latest current frame, bump it up
                     # only applying for 2 camera setup where I noticed this was an issue (frames stay out of synch)
                     current_frame_packets[port] = None
-                    logger.warn(
+                    logger.warning(
                         f"Skipped frame at port {port}: delta < time-latest_current"
                     )
                 else:
@@ -223,7 +223,7 @@ class Synchronizer:
                     # frame_packets[port]["sync_index"] = sync_index
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
-                    logger.info(
+                    logger.debug(
                         f"Adding to layer from port {port} at index {current_frame_index} and frame time: {frame_time}"
                     )
 
@@ -266,12 +266,12 @@ if __name__ == "__main__":
     ports = [0, 1, 2, 3, 4]
     # ports = [0,1]
 
-    # test_live = True
-    test_live = False
+    test_live = True
+    # test_live = False
 
     if test_live:
 
-        session_directory = Path(__root__, "sessions", "5_cameras")
+        session_directory = Path(__root__, "tests", "please work")
         # config = Path(session_directory, "config.toml")
         session = Session(session_directory)
         session.load_cameras()

@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 __package_name__ = "calicam"
-__version__ = "v0.0.8"
+__version__ = "v0.0.9"
 
 __author__ = """Mac Prible"""
 __email__ = "prible@gmail.com"

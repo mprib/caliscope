@@ -1,4 +1,4 @@
-
+#%%
 import calicam.logger
 logger = calicam.logger.get(__name__)
 
@@ -29,10 +29,15 @@ class CameraArrayBuilder:
         for key, data in self.config.items():
             if key.startswith("cam_"):
                 port = data["port"]
-                resolution = data["resolution"]
-                camera_matrix = np.array(data["camera_matrix"], dtype=np.float64)
+                size = data["size"]
+                rotation_count = data["rotation_count"]
                 error = data["error"]
-                distortion = np.array(data["distortion"], dtype=np.float64)
+                matrix = np.array(data["matrix"], dtype=np.float64)
+                distortions = np.array(data["distortions"], dtype=np.float64)
+                exposure = data["exposure"]
+                grid_count = data["grid_count"]
+                ignore = data["ignore"]
+                verified_resolutions = data["verified_resolutions"]
 
                 # update with extrinsics, though place anchor camera at origin
                 if port == self.anchor:
@@ -47,13 +52,19 @@ class CameraArrayBuilder:
 
                 cam_data = CameraData(
                     port,
-                    resolution,
-                    camera_matrix,
+                    size,
+                    rotation_count,
                     error,
-                    distortion,
+                    matrix,
+                    distortions,
+                    exposure,
+                    grid_count,
+                    ignore,
+                    verified_resolutions,
                     translation,
                     rotation,
                 )
+
                 self.cameras[port] = cam_data
 
     def get_extrinsic_data(self):
@@ -80,9 +91,8 @@ class CameraArrayBuilder:
                 daisy_chain["Pair"].append(pair)
 
                 # it will likely appear strange to make B the primary and A the secondary
-                # because cv2.stereocalibrate returns R and t such that it is the
-                # position of the first camera relative to the second camera, I have
-                # switched things up for purposes of constructing the array
+                # this is done because cv2.stereocalibrate returns R and t such that it is the
+                # position of the first camera relative to the second camera (which I find counter intuitive),
                 daisy_chain["Primary"].append(port_B)
                 daisy_chain["Secondary"].append(port_A)
 
@@ -148,11 +158,13 @@ class CameraArrayBuilder:
 
 
 if __name__ == "__main__":
+# if True:
     
     from calicam import __root__
     
-    config_path = Path(__root__, "sessions", "5_cameras", "config.toml")
+    config_path = Path(__root__, "tests", "mimic_anipose", "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
 
     print("pause")
+#%%

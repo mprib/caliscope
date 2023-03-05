@@ -20,7 +20,7 @@ logger = get(__name__)
 class QtLogger(QDialog):
     def __init__( self, parent = None ):
         super(QtLogger, self).__init__(parent)
-        self.setWindowTitle("Activity Logger...")
+        self.setWindowTitle("Connecting to cameras...")
         self._console = LogMessageViewer(self)
 
         layout = QVBoxLayout()

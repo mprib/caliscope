@@ -138,7 +138,7 @@ class CalibrationControls(QGroupBox):
         self.undistort_btn = QPushButton("Undistort")    
         self.layout().addWidget(self.undistort_btn)
          
-        if self.camera.camera_matrix is None and self.camera.distortion is None:
+        if self.camera.matrix is None and self.camera.distortions is None:
             self.undistort_btn.setEnabled(False)
         
         self.cal_output = QLabel()
@@ -156,7 +156,7 @@ class CalibrationControls(QGroupBox):
         if self.start_stop_calibration.text() == "Collect Data":
             self.signal_calibration_lock.emit(True)
             self.clear_camera_calibration()
-            self.monocal.capture_corners = True
+            self.monocal.capture_corners.set()
             self.undistort_btn.setEnabled(False)
             self.start_stop_calibration.setText("Calibrate")
         
@@ -164,7 +164,7 @@ class CalibrationControls(QGroupBox):
             self.signal_calibration_lock.emit(True)
             if len(self.monocal.all_ids) > 0:
                 self.cal_output.setText("Calibration can take a moment...")
-                self.monocal.capture_corners = False 
+                self.monocal.capture_corners.clear()
                 self.calibrate()    
             else:
                 self.cal_output.setText("Need to Collect Grids")
@@ -174,12 +174,12 @@ class CalibrationControls(QGroupBox):
             self.clear_camera_calibration()
             self.monocal.initialize_grid_history()
             self.undistort_btn.setEnabled(False)
-            self.monocal.capture_corners = True
+            self.monocal.capture_corners.set()
             self.start_stop_calibration.setText("Calibrate")
     
     def clear_camera_calibration(self):
-        self.camera.camera_matrix = None
-        self.camera.distortion = None
+        self.camera.matrix = None
+        self.camera.distortions = None
         self.camera.error = None
         self.camera.grid_count = None
         self.session.save_camera(self.port)
@@ -351,7 +351,7 @@ class FrameControlWidget(QWidget):
         self.resolution_combo.addItems(resolutions_text)
         self.resolution_combo.setMaximumSize(100, 35)
 
-        w, h = self.monocal.camera.resolution
+        w, h = self.monocal.camera.size
         self.resolution_combo.setCurrentText(f"{int(w)} x {int(h)}")
     
         self.rotation_resolution_hbox.addWidget(self.resolution_combo)    
@@ -435,8 +435,8 @@ class FrameControlWidget(QWidget):
             self.monocal.stream.change_resolution(new_res)
             
             # clear out now irrelevant params
-            self.camera.camera_matrix=None
-            self.camera.distortion=None
+            self.camera.matrix=None
+            self.camera.distortions=None
             self.camera.error=None
             self.camera.grid_count=None
             self.save_camera()
@@ -456,7 +456,7 @@ class FrameControlWidget(QWidget):
 if __name__ == "__main__":
     App = QApplication(sys.argv)
     from calicam import __root__
-    config_path = Path(__root__, "sessions", "laptop")
+    config_path = Path(__root__, "tests", "why breaking")
 
     print(config_path)
     session = Session(config_path)

@@ -21,8 +21,8 @@ import calicam.calibration.draw_charuco as draw_charuco
 
 
 class LiveStream:
-    def __init__(self, camera, fps_target=6, charuco=None):
-        self.camera = camera
+    def __init__(self, camera:Camera, fps_target=6, charuco=None):
+        self.camera:Camera = camera
         self.port = camera.port
         self.track_points = Event()
 
@@ -186,7 +186,7 @@ class LiveStream:
         logger.info(f"Reconnecting to port {self.port}")
         self.camera.connect()
 
-        self.camera.resolution = res
+        self.camera.size = res
         # Spin up the thread again now that resolution is changed
         logger.info(
             f"Beginning roll_camera thread at port {self.port} with resolution {res}"

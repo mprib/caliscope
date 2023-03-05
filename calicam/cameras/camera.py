@@ -28,7 +28,7 @@ MIN_RESOLUTION_CHECK = 200
 MAX_RESOLUTION_CHECK = 10000
 
 
-class Camera(object):
+class Camera:
 
     # https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
     # see above for constants used to access properties
@@ -78,8 +78,8 @@ class Camera(object):
 
         # Test to see if camera is virtual
         spoof_resolution = (599,599)
-        self.resolution = spoof_resolution
-        if self.resolution == spoof_resolution:
+        self.size = spoof_resolution
+        if self.size == spoof_resolution:
             self.virtual_camera = True
         else:
             self.virtual_camera = False
@@ -91,9 +91,11 @@ class Camera(object):
                 self.verified_resolutions = verified_resolutions
             # camera initializes as uncalibrated
             self.error = None
-            self.camera_matrix = None
-            self.distortion = None
+            self.matrix = None
+            self.distortions = None
             self.grid_count = None
+            self.translation = None
+            self.rotation = None
         if isinstance(self.verified_resolutions[0], int):
             # probably not real
             self.port = port
@@ -131,18 +133,18 @@ class Camera(object):
         self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, value)
 
     @property
-    def resolution(self):
+    def size(self):
         return (self._width, self._height)
 
-    @resolution.setter
-    def resolution(self, value):
+    @size.setter
+    def size(self, value):
         """Currently, this is how the resolution is actually changed"""
         self._width = value[0]
         self._height = value[1]
 
     def set_default_resolution(self):
         """called at initilization before anything has changed"""
-        self.default_resolution = self.resolution
+        self.default_resolution = self.size
 
     def set_exposure(self):
         """Need an initial value, though it does not appear that updates to
@@ -157,7 +159,7 @@ class Camera(object):
         then returns the capture to its original state"""
         old_width = self._width
         self._width = test_width
-        resolution = self.resolution
+        resolution = self.size
         self._width = old_width
         return resolution
 
@@ -166,10 +168,10 @@ class Camera(object):
         for resolution in RESOLUTIONS_TO_CHECK:
             # attempt to set the camera to the given resolution
             logger.info(f"Checking resolution of {resolution} at port {self.port}")
-            self.resolution = resolution
+            self.size = resolution
             
             # if it sticks, then that resolution is verified
-            if resolution == self.resolution:
+            if resolution == self.size:
                 self.verified_resolutions.append(resolution)
                 
         # min_res = self.get_nearest_resolution(MIN_RESOLUTION_CHECK)
@@ -219,7 +221,7 @@ class Camera(object):
     def calibration_summary(self):
         # Calibration output presented in label on far right
         grid_count = "Grid Count:\t" + str(self.grid_count)
-        size_text = "Resolution:\t" + str(self.resolution[0]) + "x" + str(self.resolution[1])
+        size_text = "Resolution:\t" + str(self.size[0]) + "x" + str(self.size[1])
 
         # only grab if they exist
         if self.error and self.error != "NA":
@@ -228,12 +230,12 @@ class Camera(object):
                 "\n".join(
                     [
                         "\t".join([str(round(float(cell), 1)) for cell in row])
-                        for row in self.camera_matrix
+                        for row in self.matrix
                     ]
                 )
             )
             distortion_text = "Distortion:\t" + ",".join(
-                [str(round(float(cell), 2)) for cell in self.distortion[0]]
+                [str(round(float(cell), 2)) for cell in self.distortions]
             )
 
             # print(self.camera_matrix)
@@ -290,7 +292,7 @@ if __name__ == "__main__":
 
         cam.disconnect()
         cam.connect()
-        cam.resolution = res
+        cam.size = res
             
         while True:
             success, frame = cam.capture.read()

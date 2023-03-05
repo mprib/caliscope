@@ -173,6 +173,9 @@ class MonoCalibrator():
             objpoints, imgpoints, (width, height), None, None
         )
 
+        # fix extra dimension in return value of cv2.calibrateCamera
+        self.dist = self.dist[0]
+
         self.update_camera()
         self.is_calibrated = True
 
@@ -185,8 +188,8 @@ class MonoCalibrator():
         logger.info(f"Setting calibration params on camera {self.camera.port}")
         # ret is RMSE of reprojection
         self.camera.error = round(self.error, 3)
-        self.camera.matrix = self.mtx.squeeze().tolist()
-        self.camera.distortions = self.dist.squeeze().tolist()
+        self.camera.matrix = self.mtx
+        self.camera.distortions = self.dist
         self.camera.grid_count = len(self.all_ids)
 
 if __name__ == "__main__":

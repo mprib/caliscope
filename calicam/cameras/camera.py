@@ -94,6 +94,8 @@ class Camera:
             self.matrix = None
             self.distortions = None
             self.grid_count = None
+            self.translation = None
+            self.rotation = None
         if isinstance(self.verified_resolutions[0], int):
             # probably not real
             self.port = port

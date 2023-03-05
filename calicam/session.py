@@ -439,12 +439,12 @@ class Session:
                 "rotation_count": camera_data.rotation_count,
                 "error": camera_data.error,
                 "matrix": camera_data.matrix.tolist(),
-                "distortions": camera_data.distortions.squeeze().tolist(),
+                "distortions": camera_data.distortions.tolist(),
                 "exposure": camera_data.exposure,
                 "grid_count": camera_data.grid_count,
                 "ignore": camera_data.ignore,
                 "verified_resolutions": camera_data.verified_resolutions,
-                "translation": camera_data.translation.squeeze().tolist(),
+                "translation": camera_data.translation.tolist(),
                 "rotation":camera_data.rotation.tolist()
             }
 

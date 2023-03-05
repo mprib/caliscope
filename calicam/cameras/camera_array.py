@@ -54,7 +54,7 @@ class CameraData:
 
         # convert back to world frame of reference
         self.rotation = np.linalg.inv(cv2.Rodrigues(row[0:3])[0])
-        self.translation = np.array([row[3:6] * -1], dtype=np.float64).T
+        self.translation = np.array([row[3:6] * -1], dtype=np.float64)[0]
 
 
 @dataclass

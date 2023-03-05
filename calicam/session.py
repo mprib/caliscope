@@ -369,17 +369,26 @@ class Session:
         with ThreadPoolExecutor() as executor:
             for port in self.cameras.keys():
                 executor.submit(adjust_res_worker, port)
-
+                
     def save_camera(self, port):
+        
+        def none_or_list(value):
+            
+            if value is None:
+                return None
+            else:
+                return value.tolist()
+        
         camera = self.cameras[port]
         params = {
             "port": camera.port,
             "size": camera.size,
             "rotation_count": camera.rotation_count,
             "error": camera.error,
-            "matrix": camera.matrix,
-            # "matrix": none_or_float_matrix(camera.matrix),
-            "distortions": camera.distortions,
+            "matrix": none_or_list(camera.matrix),
+            "distortions": none_or_list(camera.distortions),
+            "translation": none_or_list(camera.translation),
+            "rotation": none_or_list(camera.rotation),
             "exposure": camera.exposure,
             "grid_count": camera.grid_count,
             "ignore": camera.ignore,
@@ -480,11 +489,11 @@ if __name__ == "__main__":
     print(session.get_stage())
     session.update_config()
     #%%%
-    print("Loading Cameras...")
-    session.load_cameras()
+    # print("Loading Cameras...")
+    # session.load_cameras()
 
-    # print("Finding Cameras...")
-    # session.find_cameras()
+    print("Finding Cameras...")
+    session.find_cameras()
     # print(session.get_stage())
     # print(f"Camera pairs: {session.camera_pairs()}")
     # print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")

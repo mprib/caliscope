@@ -12,7 +12,7 @@ from calicam.calibration.capture_volume.helper_functions.get_point_estimates imp
 
 # the session used for the single camera calibration and 
 # the omniframe data collection
-session_directory = Path(__root__,"tests", "mimic_anipose" )
+session_directory = Path(__root__,"tests", "please work" )
 
 # point_data.csv is created during the omniframe datacollection
 point_data_path = Path(session_directory, "point_data.csv")

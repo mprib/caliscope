@@ -36,7 +36,7 @@ class OmniFrameBuilder:
         
         
     def get_pairs(self):
-        pairs = [pair for pair in combinations(ports, 2)]
+        pairs = [pair for pair in combinations(self.synchronizer.ports, 2)]
         sorted_ports = [
             (min(pair), max(pair)) for pair in pairs
         ]  # sort as in (b,a) --> (a,b)
@@ -44,17 +44,6 @@ class OmniFrameBuilder:
             sorted_ports
         )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
         return sorted_ports
-
-    def get_new_raw_frames(self):
-        self.new_sync_packet_notice.get()
-        self.current_sync_packet = self.synchronizer.current_sync_packet
-
-        # update the board_counts here
-        # TODO: will need to sort this out later...board history is throwing
-        # things off to integrate old methods. Ignore for now and refactor
-        # for pair in self.board_counts.keys():
-        #     capture_history = self.stereo_tracker.stereo_inputs[pair]
-        #     self.board_counts[pair] = len(capture_history["common_board_loc"])
 
     def update_omni_list(self):
         self.omni_list = [
@@ -255,6 +244,10 @@ class OmniFrameBuilder:
         """
         This glues together the stereopairs with summary blocks of the common board count
         """
+
+        self.new_sync_packet_notice.get()
+        self.current_sync_packet = self.synchronizer.current_sync_packet
+
         omni_frame = None
         board_target_reached = False
         for pair in self.omni_list:
@@ -329,9 +322,6 @@ if __name__ == "__main__":
 
     
     while not syncr.stop_event.is_set():
-        # wait for newly processed frame to be available
-        # frame_ready = frame_builder.stereo_calibrator.cal_frames_ready_q.get()
-        frame_builder.get_new_raw_frames()
 
         omni_frame = frame_builder.get_omni_frame()
         if omni_frame is None:

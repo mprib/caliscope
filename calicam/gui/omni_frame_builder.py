@@ -304,7 +304,7 @@ if __name__ == "__main__":
     
     if test_live:
 
-        session_directory = Path(__root__, "tests", "mimic_anipose")
+        session_directory = Path(__root__, "tests", "please work")
         session = Session(session_directory)
         session.load_cameras()
         session.load_streams()
@@ -320,10 +320,10 @@ if __name__ == "__main__":
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
         recorded_stream_pool.play_videos()
 
-    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=20)
+    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=40)
 
     if record:
-        video_path = Path(__root__, "tests", "mimic_anipose")
+        video_path = Path(__root__, "tests", "please work")
         video_recorder = VideoRecorder(syncr)
         video_recorder.start_recording(video_path)
 

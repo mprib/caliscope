@@ -66,14 +66,14 @@ class OmniFrameWidget(QWidget):
         self.scroll_area.setSizePolicy(size_policy)
 
         self.scroll_area.setLayout(QVBoxLayout()) 
-        self.scroll_widget = QWidget()
-        self.scroll_widget.setLayout(QVBoxLayout())
-        self.scroll_area.setWidget(self.scroll_widget)
+        # self.scroll_widget = QWidget()
+        # self.scroll_widget.setLayout(QVBoxLayout())
+        self.scroll_area.setLayout(QVBoxLayout())
 
         self.layout().addWidget(self.scroll_area)
 
         self.omni_frame_display = QLabel()
-        self.scroll_widget.layout().addWidget(self.omni_frame_display)
+        self.scroll_area.layout().addWidget(self.omni_frame_display)
         # self.omni_frame_display.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         # self.omni_frame_display.setMinimumHeight(200)
         # self.scroll_area.setWidget(self.omni_frame_display)
@@ -99,6 +99,7 @@ class OmniFrameWidget(QWidget):
         
 
     def ImageUpdateSlot(self, q_image):
+        logger.info(self.omni_frame_display.height())
         qpixmap = QPixmap.fromImage(q_image)
         self.omni_frame_display.setPixmap(qpixmap)
 

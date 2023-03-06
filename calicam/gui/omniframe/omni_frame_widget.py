@@ -90,10 +90,6 @@ class OmniFrameWidget(QWidget):
 
     def ImageUpdateSlot(self, q_image):
         self.omni_frame_display.resize(self.omni_frame_display.sizeHint())
-        logger.info(f"frame: {self.omni_frame_display.height()}")
-        logger.info(f"scroll area: {self.scroll_area.height()}")
-        # self.scroll_area.resize(self.omni_frame_display.sizeHint())
-        self.scroll_area.verticalScrollBar().setEnabled(True)
 
         qpixmap = QPixmap.fromImage(q_image)
         self.omni_frame_display.setPixmap(qpixmap)

@@ -68,8 +68,12 @@ class OmniFrameBuilder:
         return frame
 
     def draw_common_corner_current(self, frameA, portA, frameB, portB):
-        """Return unaltered frame if no corner information detected, otherwise
-        return two frames with same corners drawn"""
+        """
+        Return unaltered frame if no corner information detected, otherwise
+        record the corners that are shared between the two frames
+        and return two frames with shared corners drawn
+        """
+
         if self.current_sync_packet.frame_packets[portA] is None:
             logger.warning(f"Dropped frame at port {portA}")
             return frameA, frameB

@@ -9,7 +9,7 @@ import numpy as np
 from calicam.cameras.synchronizer import Synchronizer
 from itertools import combinations
 from queue import Queue
-
+from threading import Event
 class OmniFrameBuilder:
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250,board_count_target=50):
         self.synchronizer = synchronizer 
@@ -33,6 +33,9 @@ class OmniFrameBuilder:
         
         self.new_sync_packet_notice = Queue()
         self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
+        
+        self.store_points = Event()
+        self.store_points.clear()   # don't default to storing tracked points
         
         
     def get_pairs(self):
@@ -99,7 +102,7 @@ class OmniFrameBuilder:
             # but the convenience is hard to pass up...
             # if there are enough corners in common, then store the corner locations
             # in the stereo history and update the board counts
-            if len(common_ids) > self.common_corner_target:
+            if len(common_ids) > self.common_corner_target and self.store_points.isSet():
                 self.stereo_history[(portA,portB)]['img_loc_A'].extend(img_loc_A.tolist())
                 self.stereo_history[(portA,portB)]['img_loc_B'].extend(img_loc_B.tolist())
                 self.board_counts[(portA,portB)]+=1
@@ -120,7 +123,6 @@ class OmniFrameBuilder:
             return frameA, frameB
 
     def draw_common_corner_history(self, frameA, portA, frameB, portB):
-        ### TODO: Part of next round of refactor...
         pair = (portA, portB)
         img_loc_A = self.stereo_history[pair]["img_loc_A"]
         img_loc_B = self.stereo_history[pair]["img_loc_B"]
@@ -222,7 +224,7 @@ class OmniFrameBuilder:
         hstacked_pair = cv2.putText(
             hstacked_pair,
             str(board_count),
-            (self.single_frame_height-10,int(self.single_frame_height*4/5)),
+            (self.single_frame_height-22,int(self.single_frame_height*4/5)),
             fontFace=cv2.FONT_HERSHEY_SIMPLEX,
             fontScale=1,
             color=(0,0,255),
@@ -325,7 +327,7 @@ if __name__ == "__main__":
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
         recorded_stream_pool.play_videos()
 
-    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=10)
+    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=40)
 
     if record:
         video_path = Path(__root__, "tests", "please work")
@@ -348,6 +350,12 @@ if __name__ == "__main__":
             cv2.destroyAllWindows()
             break
         
+        if key == ord("s"): # as in `s`tore
+            if frame_builder.store_points.isSet():
+                frame_builder.store_points.clear()
+            else: 
+                frame_builder.store_points.set()
+            
     # recorder.stop_recording()
     cv2.destroyAllWindows()
     

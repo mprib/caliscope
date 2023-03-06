@@ -12,8 +12,10 @@ from PyQt6.QtCore import Qt, pyqtSignal, QThread
 from PyQt6.QtGui import QImage, QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
+    QSizePolicy,
     QWidget,
     QSpinBox,
+    QScrollArea,
     QComboBox,
     QCheckBox,
     QDialog,
@@ -49,21 +51,55 @@ class OmniFrameWidget(QWidget):
         self.connect_widgets()        
 
     def layout_widgets(self):
-        
         self.setLayout(QVBoxLayout())
+       
+        self.collect_data_btn = QPushButton("Collect Calibration Data")
+        self.layout().addWidget(self.collect_data_btn)
+
+        self.calibrate_btn = QPushButton("Calibrate")
+        self.calibrate_btn.setEnabled(False)
+        self.layout().addWidget(self.calibrate_btn)
+
+        self.scroll_area = QScrollArea()
+        size_policy = QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.scroll_area.setSizePolicy(size_policy)
+
+        self.scroll_area.setLayout(QVBoxLayout()) 
+        self.scroll_widget = QWidget()
+        self.scroll_widget.setLayout(QVBoxLayout())
+        self.scroll_area.setWidget(self.scroll_widget)
+
+        self.layout().addWidget(self.scroll_area)
+
         self.omni_frame_display = QLabel()
-        self.layout().addWidget(self.omni_frame_display)
+        self.scroll_widget.layout().addWidget(self.omni_frame_display)
+        # self.omni_frame_display.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        # self.omni_frame_display.setMinimumHeight(200)
+        # self.scroll_area.setWidget(self.omni_frame_display)
+        
 
     def connect_widgets(self):
-
-
+        self.collect_data_btn.clicked.connect(self.on_collect_data_btn_click)
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
+        
+    def on_collect_data_btn_click(self):
+        if self.collect_data_btn.text() == "Collect Calibration Data":
+            logger.info("Begin collecting calibration data")
+            # by default, data saved to session folder
+            self.frame_builder.store_points.set()
+            self.session.start_recording()
+            self.collect_data_btn.setText("Early Terminate Collection")
+        elif self.collect_data_btn.text() == "Early Terminate Collection":
+            logger.info("Prematurely end data collection")
+            self.frame_builder.store_points.clear()
+            self.session.stop_recording()
+            self.collect_data_btn.setText("Collect Calibration Data")
+
         
 
     def ImageUpdateSlot(self, q_image):
-        logger.info("using slot")
         qpixmap = QPixmap.fromImage(q_image)
-        logger.info("about to set pixmap")
         self.omni_frame_display.setPixmap(qpixmap)
 
 
@@ -78,24 +114,15 @@ class OmniFrameEmitter(QThread):
         logger.info("Initiated frame emitter")        
         
     def run(self):
-        logger.info("ENTERING LOOP")
         while True:
-            logger.info("Looping at emitter")
             omni_frame = self.omniframe_builder.get_omni_frame()
-            cv2.imshow("omni Frame", omni_frame)
-
-            # logger.info("Successfully pulled omni frame")
 
             key = cv2.waitKey(1)
             if key == ord("q"):
                 cv2.destroyAllWindows()
                 break
             if omni_frame is not None:
-                logger.info("convert to qlabel")
                 image = cv2_to_qlabel(omni_frame)
-                logger.info("convert to pixmap")
-
-                logger.info("broadcast pixmap")
                 self.ImageBroadcast.emit(image)
     
     

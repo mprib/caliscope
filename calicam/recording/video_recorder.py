@@ -114,7 +114,7 @@ class VideoRecorder:
         logger.info(f"Storing frame history to {frame_hist_path}")
         df.to_csv(frame_hist_path, index=False, header=True)
 
-    def start_recording(self, destination_folder):
+    def start_recording(self, destination_folder:Path):
 
         logger.info(f"All video data to be saved to {destination_folder}")
 

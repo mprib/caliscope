@@ -61,22 +61,12 @@ class OmniFrameWidget(QWidget):
         self.layout().addWidget(self.calibrate_btn)
 
         self.scroll_area = QScrollArea()
-        size_policy = QSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        self.scroll_area.setSizePolicy(size_policy)
-
-        self.scroll_area.setLayout(QVBoxLayout()) 
-        # self.scroll_widget = QWidget()
-        # self.scroll_widget.setLayout(QVBoxLayout())
-        self.scroll_area.setLayout(QVBoxLayout())
-
+        # self.scroll_area.setLayout(QVBoxLayout())
         self.layout().addWidget(self.scroll_area)
 
         self.omni_frame_display = QLabel()
-        self.scroll_area.layout().addWidget(self.omni_frame_display)
-        # self.omni_frame_display.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        # self.omni_frame_display.setMinimumHeight(200)
-        # self.scroll_area.setWidget(self.omni_frame_display)
+        self.scroll_area.setWidget(self.omni_frame_display)
         
 
     def connect_widgets(self):
@@ -99,7 +89,12 @@ class OmniFrameWidget(QWidget):
         
 
     def ImageUpdateSlot(self, q_image):
-        logger.info(self.omni_frame_display.height())
+        self.omni_frame_display.resize(self.omni_frame_display.sizeHint())
+        logger.info(f"frame: {self.omni_frame_display.height()}")
+        logger.info(f"scroll area: {self.scroll_area.height()}")
+        # self.scroll_area.resize(self.omni_frame_display.sizeHint())
+        self.scroll_area.verticalScrollBar().setEnabled(True)
+
         qpixmap = QPixmap.fromImage(q_image)
         self.omni_frame_display.setPixmap(qpixmap)
 

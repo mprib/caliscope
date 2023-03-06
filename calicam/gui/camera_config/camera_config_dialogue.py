@@ -133,8 +133,9 @@ class CalibrationControls(QGroupBox):
 
 
     def place_widgets(self):
-        self.start_stop_calibration = QPushButton("Collect Data")
-        self.layout().addWidget(self.start_stop_calibration)
+
+        self.start_stop_calibration_btn = QPushButton("Collect Data")
+        self.layout().addWidget(self.start_stop_calibration_btn)
         self.undistort_btn = QPushButton("Undistort")    
         self.layout().addWidget(self.undistort_btn)
          
@@ -147,20 +148,20 @@ class CalibrationControls(QGroupBox):
         self.layout().addWidget(self.cal_output)
 
     def connect_widgets(self):
-        self.start_stop_calibration.clicked.connect(self.capture_control)
+        self.start_stop_calibration_btn.clicked.connect(self.capture_control)
         self.undistort_btn.clicked.connect(self.undistort)
 
     def capture_control(self):
         """change to turn on/off"""
 
-        if self.start_stop_calibration.text() == "Collect Data":
+        if self.start_stop_calibration_btn.text() == "Collect Data":
             self.signal_calibration_lock.emit(True)
             self.clear_camera_calibration()
             self.monocal.capture_corners.set()
             self.undistort_btn.setEnabled(False)
-            self.start_stop_calibration.setText("Calibrate")
+            self.start_stop_calibration_btn.setText("Calibrate")
         
-        if self.start_stop_calibration.text() == "Calibrate":
+        if self.start_stop_calibration_btn.text() == "Calibrate":
             self.signal_calibration_lock.emit(True)
             if len(self.monocal.all_ids) > 0:
                 self.cal_output.setText("Calibration can take a moment...")
@@ -169,13 +170,13 @@ class CalibrationControls(QGroupBox):
             else:
                 self.cal_output.setText("Need to Collect Grids")
 
-        if self.start_stop_calibration.text() == "Re-Collect":
+        if self.start_stop_calibration_btn.text() == "Re-Collect":
             self.signal_calibration_lock.emit(True)
             self.clear_camera_calibration()
             self.monocal.initialize_grid_history()
             self.undistort_btn.setEnabled(False)
             self.monocal.capture_corners.set()
-            self.start_stop_calibration.setText("Calibrate")
+            self.start_stop_calibration_btn.setText("Calibrate")
     
     def clear_camera_calibration(self):
         self.camera.matrix = None
@@ -189,15 +190,15 @@ class CalibrationControls(QGroupBox):
     def calibrate(self):
 
             def wrker():
-                self.start_stop_calibration.setText("---processing---")
-                self.start_stop_calibration.setEnabled(False)
+                self.start_stop_calibration_btn.setText("---processing---")
+                self.start_stop_calibration_btn.setEnabled(False)
 
                 self.monocal.calibrate()
                 self.cal_output.setText(self.monocal.camera.calibration_summary())
                 self.session.save_camera(self.port)
                 self.undistort_btn.setEnabled(True)
-                self.start_stop_calibration.setText("Re-Collect")
-                self.start_stop_calibration.setEnabled(True)
+                self.start_stop_calibration_btn.setText("Re-Collect")
+                self.start_stop_calibration_btn.setEnabled(True)
                 self.signal_calibration_lock.emit(False)
 
             self.calib_thread = Thread(target=wrker, args=(), daemon=True)
@@ -207,14 +208,14 @@ class CalibrationControls(QGroupBox):
         def undistort_worker():
             # create thread for timer to play out
             self.signal_calibration_lock.emit(True)
-            self.start_stop_calibration.setEnabled(False)
+            self.start_stop_calibration_btn.setEnabled(False)
             self.undistort_btn.setEnabled(False)
             self.frame_emitter.undistort = True
             for i in range(5,0,-1):
                 self.undistort_btn.setText(f"Reverting in {i}")
                 time.sleep(1)
             self.undistort_btn.setEnabled(True)
-            self.start_stop_calibration.setEnabled(True)
+            self.start_stop_calibration_btn.setEnabled(True)
                     
             self.frame_emitter.undistort = False
             self.undistort_btn.setText("Undistort")

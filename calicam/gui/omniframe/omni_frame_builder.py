@@ -237,6 +237,7 @@ class OmniFrameBuilder:
 
     def get_completion_frame(self):
         height = int(self.single_frame_height)
+        height = 1
         # because the label box to the left is half of the single frame width
         width = int(self.single_frame_height * 2.5)
 
@@ -327,7 +328,7 @@ if __name__ == "__main__":
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
         recorded_stream_pool.play_videos()
 
-    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=40)
+    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=10)
 
     if record:
         video_path = Path(__root__, "tests", "please work")

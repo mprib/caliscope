@@ -351,11 +351,18 @@ class Session:
             else:
                 monocal.stream.push_to_out_q.clear()
 
-    def load_video_recorder(self):
-        if hasattr(self, "synchronizer"):
-            self.video_recorder = VideoRecorder(self.synchronizer)
-        else:
-            logger.warning("No synchronizer available to record video")
+    def start_recording(self,destination_folder:Path = None):
+        logger.info("Initiating recording...")
+        if destination_folder is None:
+            logger.info(f"Default to saving files in {self.folder}")
+            destination_folder = Path(self.folder)
+
+            self.video_recorder = VideoRecorder(self.get_synchronizer())
+            self.video_recorder.start_recording(destination_folder)
+
+    def stop_recording(self):
+        logger.info("Stopping recoding...")
+        self.video_recorder.stop_recording()
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as
@@ -438,7 +445,6 @@ class Session:
 
         
     def save_camera_array(self):
-
         
         for port, camera_data in self.camera_array.cameras.items():
             camera_data = self.camera_array.cameras[port]

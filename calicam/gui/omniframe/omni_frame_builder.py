@@ -102,7 +102,7 @@ class OmniFrameBuilder:
             # but the convenience is hard to pass up...
             # if there are enough corners in common, then store the corner locations
             # in the stereo history and update the board counts
-            if len(common_ids) > self.common_corner_target and self.store_points.isSet():
+            if len(common_ids) > self.common_corner_target and self.store_points.is_set():
                 self.stereo_history[(portA,portB)]['img_loc_A'].extend(img_loc_A.tolist())
                 self.stereo_history[(portA,portB)]['img_loc_B'].extend(img_loc_B.tolist())
                 self.board_counts[(portA,portB)]+=1
@@ -352,7 +352,7 @@ if __name__ == "__main__":
             break
         
         if key == ord("s"): # as in `s`tore
-            if frame_builder.store_points.isSet():
+            if frame_builder.store_points.is_set():
                 frame_builder.store_points.clear()
             else: 
                 frame_builder.store_points.set()

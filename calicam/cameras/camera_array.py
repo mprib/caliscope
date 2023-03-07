@@ -27,8 +27,8 @@ class CameraData:
     grid_count: int
     ignore: bool
     verified_resolutions: np.ndarray
-    translation: np.ndarray
-    rotation: np.ndarray
+    translation: np.ndarray # camera relative to world
+    rotation: np.ndarray # camera relative to world
 
     def extrinsics_to_vector(self):
         """

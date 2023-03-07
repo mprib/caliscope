@@ -53,12 +53,8 @@ class OmniFrameWidget(QWidget):
     def layout_widgets(self):
         self.setLayout(QVBoxLayout())
        
-        self.collect_data_btn = QPushButton("Collect Calibration Data")
-        self.layout().addWidget(self.collect_data_btn)
-
-        self.calibrate_btn = QPushButton("Calibrate")
-        self.calibrate_btn.setEnabled(False)
-        self.layout().addWidget(self.calibrate_btn)
+        self.calibrate_collect_btn = QPushButton("Collect Calibration Data")
+        self.layout().addWidget(self.calibrate_collect_btn)
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
@@ -70,23 +66,23 @@ class OmniFrameWidget(QWidget):
         
 
     def connect_widgets(self):
-        self.collect_data_btn.clicked.connect(self.on_collect_data_btn_click)
+        self.calibrate_collect_btn.clicked.connect(self.on_calibrate_connect_click)
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
         
-    def on_collect_data_btn_click(self):
-        if self.collect_data_btn.text() == "Collect Calibration Data":
+    def on_calibrate_connect_click(self):
+        if self.calibrate_collect_btn.text() == "Collect Calibration Data":
             logger.info("Begin collecting calibration data")
             # by default, data saved to session folder
             self.frame_builder.store_points.set()
             self.session.start_recording()
-            self.collect_data_btn.setText("Early Terminate Collection")
-        elif self.collect_data_btn.text() == "Early Terminate Collection":
+            self.calibrate_collect_btn.setText("Early Terminate Collection")
+        elif self.calibrate_collect_btn.text() == "Early Terminate Collection":
             logger.info("Prematurely end data collection")
             self.frame_builder.store_points.clear()
             self.session.stop_recording()
-            self.collect_data_btn.setText("Collect Calibration Data")
-
-        
+            self.calibrate_collect_btn.setText("Collect Calibration Data")
+        elif self.calibrate_collect_btn.text() == "Calibrate": 
+            self.session.calibrate()
 
     def ImageUpdateSlot(self, q_image):
         self.omni_frame_display.resize(self.omni_frame_display.sizeHint())

@@ -456,7 +456,6 @@ class Session:
                 "rotation": camera_data.rotation.tolist(),
             }
 
-            logger.info(f"Saving camera parameters...{params}")
             self.config["cam_" + str(port)] = params
 
         self.update_config()

@@ -63,7 +63,7 @@ def create_summary_df(diagnostic_data_path: Path, label):
         "label": [label] * row_count,
         "camera": capture_volume.point_estimates.camera_indices.tolist(),
         "sync_index": capture_volume.point_estimates.sync_indices.astype(int).tolist(),
-        "charuco_id": capture_volume.point_estimates.corner_id.tolist(),
+        "charuco_id": capture_volume.point_estimates.point_id.tolist(),
         "img_x": capture_volume.point_estimates.img[:, 0].tolist(),
         "img_y": capture_volume.point_estimates.img[:, 1].tolist(),
         "reproj_error_x": capture_volume_xy_error[:, 0].tolist(),

@@ -43,7 +43,7 @@ class CameraData:
         translation_world = self.translation  # elements 3,4,5
         translation_proj = translation_world * -1
 
-        port_param = np.hstack([rotation_rodrigues[:, 0], translation_proj[:, 0]])
+        port_param = np.hstack([rotation_rodrigues[:, 0], translation_proj])
 
         return port_param
 

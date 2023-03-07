@@ -10,11 +10,11 @@ import sys
 import pandas as pd
 
 from calicam.cameras.synchronizer import Synchronizer
-
+from calicam.cameras.live_stream import LiveStream
 
 class VideoRecorder:
-    def __init__(self, synchronizer):
-        self.syncronizer = synchronizer
+    def __init__(self, synchronizer:Synchronizer):
+        self.synchronizer = synchronizer
 
         # build dict that will be stored to csv
         self.recording = False
@@ -24,12 +24,12 @@ class VideoRecorder:
 
         # create a dictionary of videowriters
         self.video_writers = {}
-        for port, stream in self.syncronizer.streams.items():
+        for port, stream in self.synchronizer.streams.items():
 
             path = str(Path(self.destination_folder, f"port_{port}.mp4"))
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
-            fps = self.syncronizer.fps_target
+            fps = self.synchronizer.fps_target
             frame_size = stream.camera.size
 
             writer = cv2.VideoWriter(path, fourcc, fps, frame_size)
@@ -59,7 +59,7 @@ class VideoRecorder:
         }
         
         self.sync_packet_in_q = Queue(-1)
-        self.syncronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
+        self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
 
         while not self.trigger_stop.is_set():
             sync_packet = self.sync_packet_in_q.get()
@@ -89,15 +89,19 @@ class VideoRecorder:
                             self.point_data_history[key].extend(new_tidy_table[key])
                         print(new_tidy_table)
 
-        self.trigger_stop.clear()  # reset stop recording trigger
-        self.syncronizer.release_sync_packet_q(self.sync_packet_in_q)
+        logger.info("Save frame worker winding down...")
+        self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
 
         # a proper release is strictly necessary to ensure file is readable
+        logger.info("releasing video writers...")
         for port, frame_packet in sync_packet.frame_packets.items():
             self.video_writers[port].release()
 
+        logger.info("Initiate storing of frame history")
         self.store_frame_history()
+        logger.info("Initiate storing of point history")
         self.store_point_history()
+        self.trigger_stop.clear()  # reset stop recording trigger
         
         
     def store_point_history(self):
@@ -124,11 +128,12 @@ class VideoRecorder:
 
         self.recording = True
         self.recording_thread = Thread(
-            target=self.save_frame_worker, args=[], daemon=True
+            target=self.save_frame_worker, args=[], daemon=False
         )
         self.recording_thread.start()
 
     def stop_recording(self):
+        logger.info("Stop recording initiated within VideoRecorder")
         self.trigger_stop.set()
 
 
@@ -142,19 +147,18 @@ if __name__ == "__main__":
     from calicam.calibration.charuco import Charuco
 
     from calicam.recording.recorded_stream import RecordedStream, RecordedStreamPool
-    
     from calicam import __root__
 
 
-    # ports = [0, 1, 2, 3, 4]
-    ports = [0,1]
+    ports = [0, 1, 2, 3, 4]
+    # ports = [0,1]
 
     test_live = True
     # test_live = False
 
     if test_live:
 
-        session_directory = Path(__root__, "sessions", "5_cameras")
+        session_directory = Path(__root__, "tests", "please work")
         session = Session(session_directory)
         session.load_cameras()
         session.load_streams()

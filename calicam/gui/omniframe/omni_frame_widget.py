@@ -4,7 +4,7 @@ logger = calicam.logger.get(__name__)
 
 import sys
 from pathlib import Path
-from threading import Thread
+from threading import Thread, Event
 import time
 
 import cv2
@@ -43,7 +43,7 @@ class OmniFrameWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
 
-        self.frame_builder = OmniFrameBuilder(self.synchronizer)
+        self.frame_builder = OmniFrameBuilder(self.synchronizer, board_count_target=40)
         self.frame_emitter = OmniFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 
@@ -53,12 +53,8 @@ class OmniFrameWidget(QWidget):
     def layout_widgets(self):
         self.setLayout(QVBoxLayout())
        
-        self.collect_data_btn = QPushButton("Collect Calibration Data")
-        self.layout().addWidget(self.collect_data_btn)
-
-        self.calibrate_btn = QPushButton("Calibrate")
-        self.calibrate_btn.setEnabled(False)
-        self.layout().addWidget(self.calibrate_btn)
+        self.calibrate_collect_btn = QPushButton("Collect Calibration Data")
+        self.layout().addWidget(self.calibrate_collect_btn)
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
@@ -70,31 +66,43 @@ class OmniFrameWidget(QWidget):
         
 
     def connect_widgets(self):
-        self.collect_data_btn.clicked.connect(self.on_collect_data_btn_click)
+        self.calibrate_collect_btn.clicked.connect(self.on_calibrate_connect_click)
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
         
-    def on_collect_data_btn_click(self):
-        if self.collect_data_btn.text() == "Collect Calibration Data":
+    def on_calibrate_connect_click(self):
+        if self.calibrate_collect_btn.text() == "Collect Calibration Data":
             logger.info("Begin collecting calibration data")
             # by default, data saved to session folder
             self.frame_builder.store_points.set()
             self.session.start_recording()
-            self.collect_data_btn.setText("Early Terminate Collection")
-        elif self.collect_data_btn.text() == "Early Terminate Collection":
+            self.calibrate_collect_btn.setText("Early Terminate Collection")
+        elif self.calibrate_collect_btn.text() == "Early Terminate Collection":
             logger.info("Prematurely end data collection")
             self.frame_builder.store_points.clear()
-            self.session.stop_recording()
-            self.collect_data_btn.setText("Collect Calibration Data")
-
-        
+            self.calibrate_collect_btn.setText("Calibrate")
+            self.frame_emitter.stop()
+            self.stop_thread = Thread(target=self.session.stop_recording, args=(), daemon=True)
+        elif self.calibrate_collect_btn.text() == "Calibrate": 
+            self.initiate_calibration()
 
     def ImageUpdateSlot(self, q_image):
         self.omni_frame_display.resize(self.omni_frame_display.sizeHint())
 
         qpixmap = QPixmap.fromImage(q_image)
         self.omni_frame_display.setPixmap(qpixmap)
+        
+        ## This is a bit of a hack and likely handled better with proper signals
+        if self.omni_frame_display.height()==1:
+            logger.info("Target board counts acquired, ending data collection.")
+            self.calibrate_collect_btn.setText("Calibrate")
+            self.frame_emitter.stop()
+            self.stop_thread = Thread(target=self.session.stop_recording, args=(), daemon=True)
+            self.stop_thread.start()
 
 
+    def initiate_calibration(self):
+        self.calibrate_thead = Thread(target=self.session.calibrate,args=(), daemon=True)
+        self.calibrate_thead.start()
 
 class OmniFrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
@@ -104,19 +112,19 @@ class OmniFrameEmitter(QThread):
         super(OmniFrameEmitter,self).__init__()
         self.omniframe_builder = omniframe_builder
         logger.info("Initiated frame emitter")        
+        self.keep_collecting = Event() 
+        self.keep_collecting.set()
         
     def run(self):
-        while True:
+        while self.keep_collecting.is_set():
             omni_frame = self.omniframe_builder.get_omni_frame()
 
-            key = cv2.waitKey(1)
-            if key == ord("q"):
-                cv2.destroyAllWindows()
-                break
             if omni_frame is not None:
                 image = cv2_to_qlabel(omni_frame)
                 self.ImageBroadcast.emit(image)
-    
+   
+    def stop(self):
+        self.keep_collecting.clear() 
     
 def cv2_to_qlabel(frame):
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

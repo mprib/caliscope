@@ -351,14 +351,14 @@ class Session:
     def start_recording(self, destination_folder: Path = None):
         logger.info("Initiating recording...")
         if destination_folder is None:
-            logger.info(f"Default to saving files in {self.folder}")
-            destination_folder = Path(self.folder)
+            logger.info(f"Default to saving files in {self.path}")
+            destination_folder = Path(self.path)
 
             self.video_recorder = VideoRecorder(self.get_synchronizer())
             self.video_recorder.start_recording(destination_folder)
 
     def stop_recording(self):
-        logger.info("Stopping recoding...")
+        logger.info("Stopping recording...")
         self.video_recorder.stop_recording()
 
     def adjust_resolutions(self):
@@ -464,8 +464,8 @@ class Session:
         self.update_config()
 
     def calibrate(self):    
-        
-        self.point_data_path = Path(self.folder, "point_data.csv")
+        self.stop_recording()
+        self.point_data_path = Path(self.path, "point_data.csv")
 
         omnicalibrator = OmniCalibrator(self.config_path, self.point_data_path)
         omnicalibrator.stereo_calibrate_all()
@@ -476,7 +476,7 @@ class Session:
 
         # self.save_camera_array()
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
-        self.capture_volume.optimize(output_path = self.folder)
+        self.capture_volume.optimize(output_path = self.path)
         self.save_camera_array()
        
 

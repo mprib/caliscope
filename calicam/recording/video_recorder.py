@@ -89,15 +89,19 @@ class VideoRecorder:
                             self.point_data_history[key].extend(new_tidy_table[key])
                         print(new_tidy_table)
 
-        self.trigger_stop.clear()  # reset stop recording trigger
+        logger.info("Save frame worker winding down...")
         self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
 
         # a proper release is strictly necessary to ensure file is readable
+        logger.info("releasing video writers...")
         for port, frame_packet in sync_packet.frame_packets.items():
             self.video_writers[port].release()
 
+        logger.info("Initiate storing of frame history")
         self.store_frame_history()
+        logger.info("Initiate storing of point history")
         self.store_point_history()
+        self.trigger_stop.clear()  # reset stop recording trigger
         
         
     def store_point_history(self):
@@ -124,11 +128,12 @@ class VideoRecorder:
 
         self.recording = True
         self.recording_thread = Thread(
-            target=self.save_frame_worker, args=[], daemon=True
+            target=self.save_frame_worker, args=[], daemon=False
         )
         self.recording_thread.start()
 
     def stop_recording(self):
+        logger.info("Stop recording initiated within VideoRecorder")
         self.trigger_stop.set()
 
 

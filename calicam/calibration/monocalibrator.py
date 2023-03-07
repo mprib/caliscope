@@ -90,7 +90,7 @@ class MonoCalibrator():
             self.frame_packet: FramePacket = self.stream.out_q.get()
             self.frame = self.frame_packet.frame
 
-            if self.capture_corners.isSet() and self.frame_packet.points is not None:
+            if self.capture_corners.is_set() and self.frame_packet.points is not None:
                 logger.info("Points found and being processed...")
                 self.ids = self.frame_packet.points.point_id
                 self.img_loc = self.frame_packet.points.img_loc
@@ -229,7 +229,7 @@ if __name__ == "__main__":
             break
 
         if key == ord("t"):
-            if monocal.stream.track_points.isSet():
+            if monocal.stream.track_points.is_set():
                 monocal.stream.track_points.clear()
             else:
                 monocal.stream.track_points.set()

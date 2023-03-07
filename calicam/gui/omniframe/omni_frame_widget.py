@@ -43,7 +43,7 @@ class OmniFrameWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
 
-        self.frame_builder = OmniFrameBuilder(self.synchronizer)
+        self.frame_builder = OmniFrameBuilder(self.synchronizer, board_count_target=10)
         self.frame_emitter = OmniFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 
@@ -79,8 +79,9 @@ class OmniFrameWidget(QWidget):
         elif self.calibrate_collect_btn.text() == "Early Terminate Collection":
             logger.info("Prematurely end data collection")
             self.frame_builder.store_points.clear()
-            self.session.stop_recording()
-            self.calibrate_collect_btn.setText("Collect Calibration Data")
+            self.calibrate_collect_btn.setText("Calibrate")
+            self.frame_emitter.stop()
+            self.stop_thread = Thread(target=self.session.stop_recording, args=(), daemon=True)
         elif self.calibrate_collect_btn.text() == "Calibrate": 
             self.initiate_calibration()
 
@@ -89,17 +90,18 @@ class OmniFrameWidget(QWidget):
 
         qpixmap = QPixmap.fromImage(q_image)
         self.omni_frame_display.setPixmap(qpixmap)
+        
+        ## This is a bit of a hack and likely handled better with proper signals
         if self.omni_frame_display.height()==1:
+            logger.info("Target board counts acquired, ending data collection.")
             self.calibrate_collect_btn.setText("Calibrate")
             self.frame_emitter.stop()
+            self.stop_thread = Thread(target=self.session.stop_recording, args=(), daemon=True)
+            self.stop_thread.start()
 
 
     def initiate_calibration(self):
-        self.session.stop_recording()
-        def calibrate_worker():
-            self.session.calibrate()
-
-        self.calibrate_thead = Thread(target=calibrate_worker,args=(), daemon=True )
+        self.calibrate_thead = Thread(target=self.session.calibrate,args=(), daemon=True)
         self.calibrate_thead.start()
 
 class OmniFrameEmitter(QThread):

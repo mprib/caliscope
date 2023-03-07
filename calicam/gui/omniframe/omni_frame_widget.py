@@ -149,7 +149,7 @@ if __name__ == "__main__":
         session = Session(config_path)
         session.load_cameras()
         session.load_streams()
-        # session.adjust_resolutions()
+        session.adjust_resolutions()
 
 
         omni_dialog = OmniFrameWidget(session)

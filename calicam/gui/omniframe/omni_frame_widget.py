@@ -4,7 +4,7 @@ logger = calicam.logger.get(__name__)
 
 import sys
 from pathlib import Path
-from threading import Thread
+from threading import Thread, Event
 import time
 
 import cv2
@@ -82,16 +82,24 @@ class OmniFrameWidget(QWidget):
             self.session.stop_recording()
             self.calibrate_collect_btn.setText("Collect Calibration Data")
         elif self.calibrate_collect_btn.text() == "Calibrate": 
-            self.session.calibrate()
+            self.initiate_calibration()
 
     def ImageUpdateSlot(self, q_image):
         self.omni_frame_display.resize(self.omni_frame_display.sizeHint())
 
         qpixmap = QPixmap.fromImage(q_image)
         self.omni_frame_display.setPixmap(qpixmap)
+        if self.omni_frame_display.height()==1:
+            self.calibrate_collect_btn.setText("Calibrate")
+            self.frame_emitter.stop()
 
 
+    def initiate_calibration(self):
+        def calibrate_worker():
+            self.session.calibrate()
 
+        self.calibrate_thead = Thread(target=calibrate_worker,args=(), daemon=True )
+        self.calibrate_thead.start()
 class OmniFrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
     
@@ -100,19 +108,19 @@ class OmniFrameEmitter(QThread):
         super(OmniFrameEmitter,self).__init__()
         self.omniframe_builder = omniframe_builder
         logger.info("Initiated frame emitter")        
+        self.keep_collecting = Event() 
+        self.keep_collecting.set()
         
     def run(self):
-        while True:
+        while self.keep_collecting.is_set():
             omni_frame = self.omniframe_builder.get_omni_frame()
 
-            key = cv2.waitKey(1)
-            if key == ord("q"):
-                cv2.destroyAllWindows()
-                break
             if omni_frame is not None:
                 image = cv2_to_qlabel(omni_frame)
                 self.ImageBroadcast.emit(image)
-    
+   
+    def stop(self):
+        self.keep_collecting.clear() 
     
 def cv2_to_qlabel(frame):
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

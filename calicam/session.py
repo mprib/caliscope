@@ -53,7 +53,7 @@ class Session:
 
         self.load_config()
         self.load_charuco()
-        
+
     def get_synchronizer(self):
         if hasattr(self, "_synchronizer"):
             logger.info("returning previously created synchronizer")
@@ -62,7 +62,7 @@ class Session:
             logger.info("creating synchronizer...")
             self._synchronizer = Synchronizer(self.streams)
             return self._synchronizer
-        
+
     def load_config(self):
 
         if exists(self.config_path):
@@ -204,9 +204,7 @@ class Session:
 
                 # if calibration done, then populate those as well
                 if "error" in params.keys():
-                    logger.info(
-                        f"Camera RMSE error for port {port}: {params['error']}"
-                    )
+                    logger.info(f"Camera RMSE error for port {port}: {params['error']}")
                     camera.error = params["error"]
                     camera.matrix = np.array(params["matrix"]).astype(float)
                     camera.distortions = np.array(params["distortions"]).astype(float)
@@ -351,7 +349,7 @@ class Session:
             else:
                 monocal.stream.push_to_out_q.clear()
 
-    def start_recording(self,destination_folder:Path = None):
+    def start_recording(self, destination_folder: Path = None):
         logger.info("Initiating recording...")
         if destination_folder is None:
             logger.info(f"Default to saving files in {self.folder}")
@@ -385,16 +383,15 @@ class Session:
         with ThreadPoolExecutor() as executor:
             for port in self.cameras.keys():
                 executor.submit(adjust_res_worker, port)
-                
+
     def save_camera(self, port):
-        
         def none_or_list(value):
-            
+
             if value is None:
                 return None
             else:
                 return value.tolist()
-        
+
         camera = self.cameras[port]
         params = {
             "port": camera.port,
@@ -443,9 +440,8 @@ class Session:
             self.config_path
         ).get_camera_array()
 
-        
     def save_camera_array(self):
-        
+
         for port, camera_data in self.camera_array.cameras.items():
             camera_data = self.camera_array.cameras[port]
             params = {
@@ -460,7 +456,7 @@ class Session:
                 "ignore": camera_data.ignore,
                 "verified_resolutions": camera_data.verified_resolutions,
                 "translation": camera_data.translation.tolist(),
-                "rotation":camera_data.rotation.tolist()
+                "rotation": camera_data.rotation.tolist(),
             }
 
             logger.info(f"Saving camera parameters...{params}")
@@ -468,7 +464,8 @@ class Session:
 
         self.update_config()
 
-def format_toml_dict(toml_dict:dict):
+
+def format_toml_dict(toml_dict: dict):
     temp_config = {}
     for key, value in toml_dict.items():
         # logger.info(f"key: {key}; type: {type(value)}")
@@ -477,9 +474,10 @@ def format_toml_dict(toml_dict:dict):
         if isinstance(value, np.ndarray):
             temp_config[key] = [float(i) for i in value]
         else:
-            temp_config[key] = value 
-            
+            temp_config[key] = value
+
     return temp_config
+
 
 class Stage(Enum):
     NO_CAMERAS = auto()

@@ -12,7 +12,6 @@ import numpy as np
 import toml
 from itertools import combinations
 
-
 from calicam.calibration.charuco import Charuco
 from calicam.calibration.corner_tracker import CornerTracker
 from calicam.calibration.monocalibrator import MonoCalibrator
@@ -464,6 +463,22 @@ class Session:
 
         self.update_config()
 
+    def calibrate(self):    
+        
+        self.point_data_path = Path(self.folder, "point_data.csv")
+
+        omnicalibrator = OmniCalibrator(self.config_path, self.point_data_path)
+        omnicalibrator.stereo_calibrate_all()
+        self.load_camera_array()
+        self.point_estimates: PointEstimates = get_point_estimates(
+            self.camera_array, self.point_data_path
+        )
+
+        # self.save_camera_array()
+        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
+        self.capture_volume.optimize(output_path = self.folder)
+        self.save_camera_array()
+       
 
 def format_toml_dict(toml_dict: dict):
     temp_config = {}

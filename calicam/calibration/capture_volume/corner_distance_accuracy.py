@@ -10,25 +10,23 @@ import pickle
 import sys
 import numpy as np
 import pandas as pd
+from calicam import __root__
 
-# some convenient reference paths
-repo = str(Path.cwd()).split("src")[0]
-# update path
-sys.path.insert(0, repo)
 # which enables import of relevant class
 # from calicam.cameras.camera_array import ArrayDiagnosticData
 from calicam.calibration.capture_volume.calibration_diagnostics import (
     get_charuco,
     create_summary_df,
-    load_array_points_error,
+    load_capture_volume,
     get_corners_xyz,
 )
 
 
 # calibration_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
-calibration_directory = Path(repo, "tests", "5_cameras", "recording")
-before_path = Path(calibration_directory, "before_bund_adj.pkl")
-after_path = Path(calibration_directory, "after_bund_adj.pkl")
+calibration_directory = Path(__root__, "tests", "please work")
+
+before_path = Path(calibration_directory, "pre_optimized_capture_volume.pkl")
+after_path = Path(calibration_directory, "post_optimized_capture_volume.pkl")
 
 # before = get_diagnostic_data(before_path)
 # after = get_diagnostic_data(after_path)

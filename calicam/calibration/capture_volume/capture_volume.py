@@ -86,37 +86,19 @@ class CaptureVolume:
             f"Following bundle adjustment, RMSE is: {rms_reproj_error(self.least_sq_result.fun)}"
         )
 
-    # def get_summary_df(self, label: str):
 
-    #     array_data_xy_error = self.xy_reprojection_error.reshape(-1, 2)
-    #     # build out error as singular distance
+    def get_xyz_points(self):
+        """Get 3d positions arrived at by bundle adjustment"""
+        n_cameras = len(self.camera_array.cameras)
+        xyz = self.get_vectorized_params()[n_cameras * CAMERA_PARAM_COUNT :]
+        xyz = xyz.reshape(-1, 3)
 
-    #     xyz = self.get_xyz_points()
+        return xyz
 
-    #     euclidean_distance_error = np.sqrt(np.sum(array_data_xy_error**2, axis=1))
-    #     row_count = euclidean_distance_error.shape[0]
 
-    #     array_data_dict = {
-    #         "label": [label] * row_count,
-    #         "camera": self.point_history.camera_indices.tolist(),
-    #         "sync_index": self.point_history.sync_indices.astype(int).tolist(),
-    #         "charuco_id": self.point_history.point_id.tolist(),
-    #         "img_x": self.point_history.img[:, 0].tolist(),
-    #         "img_y": self.point_history.img[:, 1].tolist(),
-    #         "reproj_error_x": array_data_xy_error[:, 0].tolist(),
-    #         "reproj_error_y": array_data_xy_error[:, 1].tolist(),
-    #         "reproj_error": euclidean_distance_error.tolist(),
-    #         "obj_id": self.point_history.obj_indices.tolist(),
-    #         "obj_x": xyz[self.point_history.obj_indices][:, 0].tolist(),
-    #         "obj_y": xyz[self.point_history.obj_indices][:, 1].tolist(),
-    #         "obj_z": xyz[self.point_history.obj_indices][:, 2].tolist(),
-    #     }
-
-    #     summarized_data = pd.DataFrame(array_data_dict).astype(
-    #         {"sync_index": "int32", "charuco_id": "int32", "obj_id": "int32"}
-    #     )
-    #     return summarized_data
-
+    def get_xyz_ids(self):
+        """get the charuco ids of the 3d points estimated by the bundle adjustment"""
+        return self.point_estimate_data.obj_corner_id
 
 def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume):
     """

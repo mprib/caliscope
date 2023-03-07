@@ -95,11 +95,13 @@ class OmniFrameWidget(QWidget):
 
 
     def initiate_calibration(self):
+        self.session.stop_recording()
         def calibrate_worker():
             self.session.calibrate()
 
         self.calibrate_thead = Thread(target=calibrate_worker,args=(), daemon=True )
         self.calibrate_thead.start()
+
 class OmniFrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
     

@@ -65,7 +65,7 @@ class StereoTriangulator:
     def build_projection_matrices(self):
 
         # Camera parameters are position in a world frame of reference
-        # which is synonymous to the anchor camera frame prior to setting origin
+        # which is synonymous to the anchor camera frame prior to bundle adjustment
         # Projection matrix is to re-orient a point from the world position
         # to a camera frame of reference, therefore is inverted (rotation)/negated (translation)
         # I believe this is the correct interpretation and appears to yield

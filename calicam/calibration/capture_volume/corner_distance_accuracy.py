@@ -1,7 +1,7 @@
 #%%
 
-import calicam.logger
-logger = calicam.logger.get(__name__)
+# import calicam.logger
+# logger = calicam.logger.get(__name__)
 
 import seaborn as sns
 from time import perf_counter
@@ -36,7 +36,7 @@ after_df = create_summary_df(after_path, "after")
 
 
 # Get array of chessboard_ids and locations in a board frame of referencefrom before_and_after
-config_path = Path(calibration_directory.parent, "config.toml") 
+config_path = Path(calibration_directory, "config.toml") 
 corners_3d = get_corners_xyz(config_path,after_path,"after")
 
 #%%

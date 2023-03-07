@@ -407,8 +407,6 @@ class Session:
             "verified_resolutions": camera.verified_resolutions,
         }
 
-        logger.info(f"Saving camera parameters...{params}")
-
         self.config["cam_" + str(port)] = params
         self.update_config()
 

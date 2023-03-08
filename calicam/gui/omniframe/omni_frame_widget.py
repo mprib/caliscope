@@ -144,7 +144,7 @@ if __name__ == "__main__":
    
         App = QApplication(sys.argv)
 
-        config_path = Path(__root__, "tests", "please work")
+        config_path = Path(__root__, "tests", "demo")
 
         session = Session(config_path)
         session.load_cameras()

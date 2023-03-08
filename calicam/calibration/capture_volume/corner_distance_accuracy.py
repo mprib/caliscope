@@ -22,8 +22,7 @@ from calicam.calibration.capture_volume.calibration_diagnostics import (
 )
 
 
-# calibration_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
-calibration_directory = Path(__root__, "tests", "please work")
+calibration_directory = Path(__root__, "tests", "demo")
 
 before_path = Path(calibration_directory, "pre_optimized_capture_volume.pkl")
 after_path = Path(calibration_directory, "post_optimized_capture_volume.pkl")

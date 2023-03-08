@@ -59,7 +59,7 @@ class Session:
             return self._synchronizer
         else:
             logger.info("creating synchronizer...")
-            self._synchronizer = Synchronizer(self.streams)
+            self._synchronizer = Synchronizer(self.streams, fps_target=3)
             return self._synchronizer
 
     def load_config(self):

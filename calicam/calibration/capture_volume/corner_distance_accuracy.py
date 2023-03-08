@@ -159,6 +159,4 @@ distance_error_df["Distance_Error_mm_abs"] = abs(distance_error_df["Distance_Err
 logger.info(distance_error_df.describe())
 
 # %%
-
-import nbformat
 # %%

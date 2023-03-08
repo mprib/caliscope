@@ -1,7 +1,7 @@
 #%%
 
-# import calicam.logger
-# logger = calicam.logger.get(__name__)
+import calicam.logger
+logger = calicam.logger.get(__name__)
 
 import seaborn as sns
 from time import perf_counter
@@ -149,14 +149,16 @@ print(f"Time to convert array to dataframe is {stop-start}")
 start = perf_counter()
 distance_error_df["Distance_Error_mm"] = distance_error_df["Distance_Error"]*1000
 stop = perf_counter()
-print(f"Time to multiply by 1,000:  {stop-start}")
+logger.info(f"Time to multiply by 1,000:  {stop-start}")
 
 # %%
 
 sns.displot(data=distance_error_df,x="Distance_Error_mm")
 # %%
 distance_error_df["Distance_Error_mm_abs"] = abs(distance_error_df["Distance_Error_mm"])
-print(distance_error_df.describe())
+logger.info(distance_error_df.describe())
 
 # %%
 
+import nbformat
+# %%

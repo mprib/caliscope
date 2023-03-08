@@ -10,25 +10,22 @@ import pickle
 import sys
 import numpy as np
 import pandas as pd
+from calicam import __root__
 
-# some convenient reference paths
-repo = str(Path.cwd()).split("src")[0]
-# update path
-sys.path.insert(0, repo)
 # which enables import of relevant class
 # from calicam.cameras.camera_array import ArrayDiagnosticData
 from calicam.calibration.capture_volume.calibration_diagnostics import (
     get_charuco,
     create_summary_df,
-    load_array_points_error,
+    load_capture_volume,
     get_corners_xyz,
 )
 
 
-# calibration_directory = Path(repo, "sessions", "iterative_adjustment", "recording")
-calibration_directory = Path(repo, "tests", "5_cameras", "recording")
-before_path = Path(calibration_directory, "before_bund_adj.pkl")
-after_path = Path(calibration_directory, "after_bund_adj.pkl")
+calibration_directory = Path(__root__, "tests", "demo")
+
+before_path = Path(calibration_directory, "pre_optimized_capture_volume.pkl")
+after_path = Path(calibration_directory, "post_optimized_capture_volume.pkl")
 
 # before = get_diagnostic_data(before_path)
 # after = get_diagnostic_data(after_path)
@@ -38,7 +35,7 @@ after_df = create_summary_df(after_path, "after")
 
 
 # Get array of chessboard_ids and locations in a board frame of referencefrom before_and_after
-config_path = Path(calibration_directory.parent, "config.toml") 
+config_path = Path(calibration_directory, "config.toml") 
 corners_3d = get_corners_xyz(config_path,after_path,"after")
 
 #%%
@@ -151,14 +148,14 @@ print(f"Time to convert array to dataframe is {stop-start}")
 start = perf_counter()
 distance_error_df["Distance_Error_mm"] = distance_error_df["Distance_Error"]*1000
 stop = perf_counter()
-print(f"Time to multiply by 1,000:  {stop-start}")
+logger.info(f"Time to multiply by 1,000:  {stop-start}")
 
 # %%
 
 sns.displot(data=distance_error_df,x="Distance_Error_mm")
 # %%
 distance_error_df["Distance_Error_mm_abs"] = abs(distance_error_df["Distance_Error_mm"])
-print(distance_error_df.describe())
+logger.info(distance_error_df.describe())
 
 # %%
-
+# %%

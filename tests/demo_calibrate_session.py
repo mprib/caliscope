@@ -59,4 +59,8 @@ capture_volume.optimize(output_path = session_directory)
 session.save_camera_array()
 
 # %%
-# visualize 
+capture_volume.point_estimates.filter(capture_volume.least_sq_result.fun, .8)
+# %%
+capture_volume.optimize(output_path = session_directory)
+
+# %%

@@ -65,20 +65,20 @@ class StereoTriangulator:
     def build_projection_matrices(self):
 
         # Camera parameters are position in a world frame of reference
-        # which is synonymous to the anchor camera frame prior to setting origin
+        # which is synonymous to the anchor camera frame prior to bundle adjustment
         # Projection matrix is to re-orient a point from the world position
         # to a camera frame of reference, therefore is inverted (rotation)/negated (translation)
         # I believe this is the correct interpretation and appears to yield
         # reasonable results
         rot_A = np.linalg.inv(self.camera_A.rotation)
         trans_A = np.array(self.camera_A.translation) * -1
-        rot_trans_A = np.concatenate([rot_A, trans_A], axis=-1)
+        rot_trans_A = np.column_stack([rot_A, trans_A])
         mtx_A = self.camera_A.matrix
         self.proj_A = mtx_A @ rot_trans_A  # projection matrix for CamA
 
         rot_B = np.linalg.inv(self.camera_B.rotation)
         trans_B = np.array(self.camera_B.translation) * -1
-        rot_trans_B = np.concatenate([rot_B, trans_B], axis=-1)
+        rot_trans_B = np.column_stack([rot_B, trans_B])
         mtx_B = self.camera_B.matrix
         self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
 

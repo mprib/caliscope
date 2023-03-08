@@ -133,29 +133,31 @@ class CaptureVolumeVisualizer:
 
 
 # helper functions to assist with scene creation
-def mesh_from_camera(cd: CameraData):
+def mesh_from_camera(camera_data: CameraData):
     # cd = camera_data
-    mesh = CameraMesh(cd.size, cd.matrix).mesh
+    mesh = CameraMesh(camera_data.size, camera_data.matrix).mesh
+
+    # translation_scale_factor = 1
+    # x, y, z = [t / translation_scale_factor for t in camera_data.translation]
+    # mesh.translate(x, y, z)
+    # logger.info(f"Translation: x: {x}, y: {y}, z: {z}")
 
     # rotate mesh
-    logger.info(f"Rotating: {cd.rotation}")
-    euler_angles = rotationMatrixToEulerAngles(cd.rotation)
+    euler_angles = rotationMatrixToEulerAngles(camera_data.rotation)
     euler_angles_deg = [x * (180 / math.pi) for x in euler_angles]
     x = euler_angles_deg[0]
     y = euler_angles_deg[1]
     z = euler_angles_deg[2]
 
-    logger.info(f"x: {x}, y: {y}, z: {z}")
 
     mesh.rotate(x, 1, 0, 0, local=True)
     mesh.rotate(y, 0, 1, 0, local=True)
     mesh.rotate(z, 0, 0, 1, local=True)
 
     # translate mesh which defaults to origin
-    translation_scale_factor = 1
-    x, y, z = [t / translation_scale_factor for t in cd.translation]
+    # translation_scale_factor = 1
+    x, y, z = [t for t in camera_data.translation]
     mesh.translate(x, y, z)
-    logger.info(f"Translation: x: {x}, y: {y}, z: {z}")
 
     return mesh
 
@@ -190,7 +192,7 @@ if __name__ == "__main__":
     from calicam.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
-    session_directory = Path(__root__,  "tests", "please work")
+    session_directory = Path(__root__,  "tests", "demo")
 
 
     print(f"Optimizing initial camera array configuration ")

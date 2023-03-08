@@ -37,7 +37,7 @@ class PointEstimates:
     
 
     def filter(self, least_squares_result_fun, percent_cutoff):
-        # I believe this was indentended for use with some iterative approach to bundle adjustment
+        # I believe this was intended for use with some iterative approach to bundle adjustment
         # that skimmed off the poor fits and reran, akin to anipose. 
         # it may still be a useful tool...
 

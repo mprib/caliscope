@@ -17,13 +17,17 @@ from calicam.calibration.capture_volume.capture_volume import (
 
 
 class QualityScanner:
-    def __init__(self, session_directory: Path, capture_volume_path: Path):
+    def __init__(self, session_directory: Path, capture_volume_name: str):
         self.session_directory = session_directory
         self.config_path = Path(self.session_directory, "config.toml")
 
         self.charuco = self.get_charuco()
+        capture_volume_path = Path(self.session_directory,capture_volume_name)
         self.capture_volume = self.get_capture_volume(capture_volume_path)
-
+        self.summary_df = self.get_summary_df()
+        self.corners_xyz = self.get_corners_xyz()
+        
+        
     def get_charuco(self) -> Charuco:
         config = toml.load(self.config_path)
 
@@ -96,8 +100,28 @@ class QualityScanner:
         return summarized_data
 
 
+    def get_corners_xyz(self):
+
+        corners_3d = (self.summary_df[
+            ["sync_index", "charuco_id", "obj_id", "obj_x", "obj_y", "obj_z"]
+        ]
+                        # note: obj_id is unique to for each frame/ 3d-point
+                        .groupby(["obj_id"])
+                        .mean() # should be all the same, so just take mean
+                        .reset_index()
+                        .astype({"sync_index":'int32', "charuco_id":"int32", "obj_id":"int32"})
+        )
+    
+        return corners_3d
 #%%
 if __name__ == "__main__":
     #%%
+    from calicam import __root__
     
-    
+    session_directory = Path(__root__, "tests", "demo")
+    capture_volume_name = "post_optimized_capture_volume.pkl"
+
+    quality_scanner = QualityScanner(session_directory,capture_volume_name)
+    summary_data = quality_scanner.get_summary_df()
+    corners_xyz = quality_scanner.get_corners_xyz()
+# %%

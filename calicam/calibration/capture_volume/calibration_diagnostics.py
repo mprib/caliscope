@@ -39,7 +39,7 @@ def load_capture_volume(capture_volume_pkl_path):
     return data
 
 
-def create_summary_df(diagnostic_data_path: Path, label):
+def create_summary_df(capture_volume_pkl_path: Path, label):
     """
     Unpack the Array Diagnostic data into a pandas dataframe format that can be
     plotted and summarized. This is an omnibus dataframe that can be inspected for 
@@ -49,7 +49,7 @@ def create_summary_df(diagnostic_data_path: Path, label):
     used for the Charuco corner distance calculation.
     """
 
-    capture_volume: CaptureVolume = load_capture_volume(diagnostic_data_path)
+    capture_volume: CaptureVolume = load_capture_volume(capture_volume_pkl_path)
 
     capture_volume_xy_error = xy_reprojection_error(capture_volume.get_vectorized_params(), capture_volume).reshape(-1, 2)
     # build out error as singular distanc
@@ -80,8 +80,8 @@ def create_summary_df(diagnostic_data_path: Path, label):
     )
     return summarized_data
 
-def get_corners_xyz(config_path, diagnostic_data_path, label):
-    all_session_data = create_summary_df(diagnostic_data_path, label)
+def get_corners_xyz(config_path, capture_volume_pkl_path, label):
+    all_session_data = create_summary_df(capture_volume_pkl_path, label)
 
     corners_3d = (all_session_data[
         ["label", "sync_index", "charuco_id", "obj_id", "obj_x", "obj_y", "obj_z"]
@@ -94,8 +94,6 @@ def get_corners_xyz(config_path, diagnostic_data_path, label):
     
     return corners_3d
 
-
-### Moved to ArrayPointsErrorData dataclass
 
 
 if __name__ == "__main__":

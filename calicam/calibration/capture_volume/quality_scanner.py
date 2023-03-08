@@ -101,21 +101,24 @@ class QualityScanner:
 
 
     def get_corners_xyz(self):
+        """
+        convert the table of 2d data observations to a smaller table of only the individual 3d point
+        estimates. These will be a number of duplicates
+        """
 
         corners_3d = (self.summary_df[
-            ["sync_index", "charuco_id", "obj_id", "obj_x", "obj_y", "obj_z"]
+            ["charuco_id", "obj_id", "obj_x", "obj_y", "obj_z"]
         ]
                         # note: obj_id is unique to for each frame/ 3d-point
-                        .groupby(["obj_id"])
-                        .mean() # should be all the same, so just take mean
-                        .reset_index()
+                        # .groupby(["obj_id"])
+                        # .mean() # should be all the same, so just take mean
+                        # .reset_index()
                         .astype({"sync_index":'int32', "charuco_id":"int32", "obj_id":"int32"})
         )
     
         return corners_3d
-#%%
-if __name__ == "__main__":
-    #%%
+# if __name__ == "__main__":
+if True:
     from calicam import __root__
     
     session_directory = Path(__root__, "tests", "demo")

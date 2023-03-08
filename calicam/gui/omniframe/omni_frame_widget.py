@@ -43,7 +43,7 @@ class OmniFrameWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
 
-        self.frame_builder = OmniFrameBuilder(self.synchronizer, board_count_target=40)
+        self.frame_builder = OmniFrameBuilder(self.synchronizer, board_count_target=80)
         self.frame_emitter = OmniFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 
@@ -144,12 +144,12 @@ if __name__ == "__main__":
    
         App = QApplication(sys.argv)
 
-        config_path = Path(__root__, "tests", "please work")
+        config_path = Path(__root__, "tests", "demo")
 
         session = Session(config_path)
         session.load_cameras()
         session.load_streams()
-        # session.adjust_resolutions()
+        session.adjust_resolutions()
 
 
         omni_dialog = OmniFrameWidget(session)

@@ -41,13 +41,13 @@ class CameraArrayBuilder:
 
                 # update with extrinsics, though place anchor camera at origin
                 if port == self.anchor:
-                    translation = np.array([[0], [0], [0]], dtype=np.float64)
+                    translation = np.array([0, 0, 0], dtype=np.float64)
                     rotation = np.array(
                         [[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64
                     )
                 else:
                     anchored_pair = self.extrinsics.query(f"Secondary == {port}")
-                    translation = anchored_pair.Translation.to_list()[0]
+                    translation = anchored_pair.Translation.to_list()[0][:,0] # indexing in to avoid redundent dimensions
                     rotation = anchored_pair.Rotation.to_list()[0]
 
                 cam_data = CameraData(
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     
     from calicam import __root__
     
-    config_path = Path(__root__, "tests", "mimic_anipose", "config.toml")
+    config_path = Path(__root__, "tests", "please work", "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
 

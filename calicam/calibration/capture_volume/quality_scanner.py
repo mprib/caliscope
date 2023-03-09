@@ -21,11 +21,30 @@ class QualityScanner:
         self.session_directory = session_directory
         self.config_path = Path(self.session_directory, "config.toml")
 
+        # pull charuco from config
         self.charuco = self.get_charuco()
-        capture_volume_path = Path(self.session_directory,capture_volume_name)
+
+        # load capture volume being analyzed
+        capture_volume_path = Path(self.session_directory, capture_volume_name)
+
         self.capture_volume = self.get_capture_volume(capture_volume_path)
+
+        # all 2d data including reprojection error and estimated corresponding 3d point
         self.summary_df = self.get_summary_df()
-        self.corners_xyz = self.get_corners_xyz()
+
+        # all individual 3d points estimated in a world frame of reference
+        self.corners_world_xyz = self.get_corners_world_xyz()
+
+        # all possible pairs of 3d points that share the same sync_index
+        # these align with the index used in self.corners_xyz
+        self.paired_obj_indices = self.get_paired_obj_indices()
+
+        # Corner positions in a board frame of refernce aligning with index of corners_world_xyz
+        # note this is already just a numpy ndarray
+        self.corners_board_xyz = self.get_corners_board_xyz()
+
+
+        self.distance_error = self.get_distance_error()
         
         
     def get_charuco(self) -> Charuco:
@@ -54,11 +73,8 @@ class QualityScanner:
     def get_summary_df(self) -> pd.DataFrame:
         """
         Unpack the Array Diagnostic data into a pandas dataframe format that can be
-        plotted and summarized. This is an omnibus dataframe that can be inspected for
-        accuracy and form the basis of additional slices used for a given purpose.
-
-        In particular, this data will get reformatted and paired down to create the inputs
-        used for the Charuco corner distance calculation.
+        plotted and summarized. This is all 2d data observations with their
+        corresponding 3d point estimates (meaning the 3d point data is duplicated)
         """
 
         capture_volume_xy_error = xy_reprojection_error(
@@ -99,32 +115,125 @@ class QualityScanner:
         )
         return summarized_data
 
-
-    def get_corners_xyz(self):
+    def get_corners_world_xyz(self) -> pd.DataFrame:
         """
         convert the table of 2d data observations to a smaller table of only the individual 3d point
-        estimates. These will be a number of duplicates
+        estimates. These will have a number of duplicates so drop them. 
         """
 
-        corners_3d = (self.summary_df[
-            ["charuco_id", "obj_id", "obj_x", "obj_y", "obj_z"]
-        ]
-                        # note: obj_id is unique to for each frame/ 3d-point
-                        # .groupby(["obj_id"])
-                        # .mean() # should be all the same, so just take mean
-                        # .reset_index()
-                        .astype({"sync_index":'int32', "charuco_id":"int32", "obj_id":"int32"})
+        corners_3d = (
+            self.summary_df[
+                ["sync_index", "charuco_id", "obj_id", "obj_x", "obj_y", "obj_z"]
+            ]
+            .astype({"sync_index": "int32", "charuco_id": "int32", "obj_id": "int32"})
+            .drop_duplicates()
+            .sort_values(by=["obj_id"])
+            .reset_index()
         )
-    
+
         return corners_3d
+
+    def get_paired_obj_indices(self) -> np.ndarray:
+        """given a dataframe that contains all observed charuco corners across sync_indices,
+        return a Nx2 matrix of paired object indices that will represent all possible
+        joined lines between charuco corners for each sync_index"""
+
+        # get columns out from data frame for numpy calculations
+        sync_indices = self.corners_world_xyz["sync_index"].to_numpy(dtype=np.int32)
+        unique_sync_indices = np.unique(sync_indices)
+        obj_id = self.corners_world_xyz["obj_id"].to_numpy(dtype=np.int32)
+
+        # for a given sync index (i.e. one board snapshot) get all pairs of object ids
+        paired_obj_indices = None
+        for x in unique_sync_indices:
+            sync_obj = obj_id[
+                sync_indices == x
+            ]  # 3d objects (corners) at a specific sync_index
+            all_pairs = cartesian_product(sync_obj, sync_obj)
+            if paired_obj_indices is None:
+                paired_obj_indices = all_pairs
+            else:
+                paired_obj_indices = np.vstack([paired_obj_indices, all_pairs])
+
+        # paired_corner_indices will contain duplicates (i.e. [0,1] and [1,0]) as well as self-pairs ([0,0], [1,1])
+        # this need to get filtered out
+        reformatted_paired_obj_indices = np.zeros(
+            paired_obj_indices.shape, dtype=np.int32
+        )
+        reformatted_paired_obj_indices[:, 0] = np.min(
+            paired_obj_indices, axis=1
+        )  # smaller on left
+        reformatted_paired_obj_indices[:, 1] = np.max(
+            paired_obj_indices, axis=1
+        )  # larger on right
+        reformatted_paired_obj_indices = np.unique(
+            reformatted_paired_obj_indices, axis=0
+        )
+        reformatted_paired_obj_indices = reformatted_paired_obj_indices[
+            reformatted_paired_obj_indices[:, 0] != reformatted_paired_obj_indices[:, 1]
+        ]
+
+        return reformatted_paired_obj_indices
+
+    def get_corners_board_xyz(self)->np.ndarray:
+        corner_ids = self.corners_world_xyz["charuco_id"]
+        corners_board_xyz = self.charuco.board.chessboardCorners[corner_ids]
+
+        return corners_board_xyz
+
+
+    def get_distance_error(self)-> pd.DataFrame:
+       
+        # temp numpy frame for working calculations  
+        corners_world_xyz = self.corners_world_xyz[["obj_x", "obj_y", "obj_z"]].to_numpy()
+        corners_board_xyz = self.corners_board_xyz
+
+
+        # get the xyz positions for all pairs of corners    
+        corners_world_A = corners_world_xyz[self.paired_obj_indices[:,0]]
+        corners_world_B = corners_world_xyz[self.paired_obj_indices[:,1]]
+        corners_board_A = corners_board_xyz[self.paired_obj_indices[:,0]]
+        corners_board_B = corners_board_xyz[self.paired_obj_indices[:,1]]
+
+        # get the distance between them
+        distance_world_A_B = np.sqrt(np.sum((corners_world_A-corners_world_B) ** 2,axis=1))
+        distance_board_A_B = np.sqrt(np.sum((corners_board_A-corners_board_B) ** 2,axis=1))
+
+        distance_world_A_B = np.round(distance_world_A_B,5)
+        distance_board_A_B = np.round(distance_board_A_B,5)
+
+        # calculate error (in mm)
+        distance_error = distance_world_A_B-distance_board_A_B
+        distance_error = pd.DataFrame(distance_error,columns=["Distance_Error"])
+        distance_error["Distance_Error_mm"] = distance_error["Distance_Error"]*1000
+        return distance_error
+
+
+def cartesian_product(*arrays):
+    """
+    helper function for creating all possible pairs of points within a given sync_index
+    https://stackoverflow.com/questions/11144513/cartesian-product-of-x-and-y-array-points-into-single-array-of-2d-points
+    """
+    la = len(arrays)
+    dtype = np.result_type(*arrays)
+    arr = np.empty([len(a) for a in arrays] + [la], dtype=dtype)
+    for i, a in enumerate(np.ix_(*arrays)):
+        arr[..., i] = a
+    return arr.reshape(-1, la)
+
+
 # if __name__ == "__main__":
 if True:
     from calicam import __root__
-    
+
     session_directory = Path(__root__, "tests", "demo")
     capture_volume_name = "post_optimized_capture_volume.pkl"
 
-    quality_scanner = QualityScanner(session_directory,capture_volume_name)
-    summary_data = quality_scanner.get_summary_df()
-    corners_xyz = quality_scanner.get_corners_xyz()
+    quality_scanner = QualityScanner(session_directory, capture_volume_name)
+    summary_data = quality_scanner.summary_df
+
+    corners_world_xyz = quality_scanner.corners_world_xyz
+    paired_indices = quality_scanner.paired_obj_indices
+    distance_error = quality_scanner.distance_error   
+    distance_error.describe() 
 # %%

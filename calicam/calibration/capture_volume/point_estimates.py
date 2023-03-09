@@ -33,7 +33,7 @@ class PointEstimates:
     img: np.ndarray  # x,y coords of point
     obj_indices: np.ndarray # mapping of x,y img points to their respective list of estimated x,y,z obj points
     obj: np.ndarray  # x,y,z estimates of object points
-    obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point; is this necessary?
+    # obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point; is this necessary?
     
 
     @property

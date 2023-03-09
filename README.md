@@ -91,8 +91,9 @@ subgraph capture_volume
 
     CameraArray --> CaptureVolume
     PointEstimates --> CaptureVolume
+    CaptureVolume --> QualityScanner
+    QualityScanner -.filtered.-> PointEstimates
 end
-
 
 
 subgraph visualization

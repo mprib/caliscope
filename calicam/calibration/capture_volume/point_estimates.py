@@ -36,33 +36,6 @@ class PointEstimates:
     obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point; is this necessary?
     
 
-    def filter(self, least_squares_result_fun, percent_cutoff):
-        # I believe this was intended for use with some iterative approach to bundle adjustment
-        # that skimmed off the poor fits and reran, akin to anipose. 
-        # it may still be a useful tool...
-
-        xy_reproj_error = least_squares_result_fun.reshape(-1, 2)
-        euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))
-
-        error_rank = np.argsort(euclidean_distance_error)
-        n_2d_points = error_rank.shape[0]
-        error_percent_rank = error_rank / n_2d_points
-
-        include = error_percent_rank < percent_cutoff
-
-        full_count = include.size
-        subset_count = include[include == True].size
-
-        print(
-            f"Reducing point data to {subset_count} image points (full count: {full_count})"
-        )
-
-        self.camera_indices = self.camera_indices[include]
-        self.obj_indices = self.obj_indices[include]
-        self.point_id = self.point_id[include]
-        self.img = self.img[include]
-        self.sync_indices = self.sync_indices[include]
-
     @property
     def n_cameras(self):
         return np.unique(self.camera_indices).size

@@ -38,7 +38,6 @@ after_df = create_summary_df(after_path, "after")
 config_path = Path(calibration_directory, "config.toml") 
 corners_3d = get_corners_xyz(config_path,after_path,"after")
 
-#%%
 sns.relplot(data = after_df, 
             x = "reproj_error_x",
             y = "reproj_error_y",
@@ -46,14 +45,11 @@ sns.relplot(data = after_df,
             # row= "label"
             kind="scatter")
 
-#%%
 sns.displot(
     data=after_df,
     x="reproj_error",
     col="camera"
 )
-
-#%%
 
 def cartesian_product(*arrays):
     """
@@ -67,7 +63,6 @@ def cartesian_product(*arrays):
     return arr.reshape(-1, la)
     
 
-# %%
 
 def get_paired_obj_indices(corners_3d: pd.DataFrame):
     """given a dataframe that contains all observed charuco corners across sync_indices, 
@@ -104,10 +99,8 @@ def get_paired_obj_indices(corners_3d: pd.DataFrame):
     elapsed = stop - start
     print(f"Time to create paired object indices: {round(elapsed,5)} sec")
     return reformatted_paired_obj_indices
-#%%
 
 paired_obj_indices = get_paired_obj_indices(corners_3d)
-#%%
 
 charuco = get_charuco(config_path)
 corner_count = charuco.board.chessboardCorners.shape[0]
@@ -115,7 +108,6 @@ board_ids = np.arange(corner_count)
 corner_ids = corners_3d["charuco_id"]
 corners_board_xyz = charuco.board.chessboardCorners[corner_ids]
 
-#%%
 
 corners_world_xyz = corners_3d[["obj_x", "obj_y", "obj_z"]].to_numpy()
 
@@ -125,8 +117,6 @@ corners_board_A = corners_board_xyz[paired_obj_indices[:,0]]
 corners_board_B = corners_board_xyz[paired_obj_indices[:,1]]
 
 
-#%%
-start = perf_counter()
 distance_world_A_B = np.sqrt(np.sum((corners_world_A-corners_world_B) ** 2,axis=1))
 distance_board_A_B = np.sqrt(np.sum((corners_board_A-corners_board_B) ** 2,axis=1))
 
@@ -135,27 +125,21 @@ distance_board_A_B = np.round(distance_board_A_B,5)
 
 distance_error = distance_world_A_B-distance_board_A_B
 
-stop = perf_counter()
-print(f"Time to calculate distances across all possible paired corners is {stop-start}")
 
-# %%
 start = perf_counter()
 distance_error_df = pd.DataFrame(distance_error,columns=["Distance_Error"])
 stop = perf_counter()
 print(f"Time to convert array to dataframe is {stop-start}")
 #
-# %%
+
 start = perf_counter()
 distance_error_df["Distance_Error_mm"] = distance_error_df["Distance_Error"]*1000
 stop = perf_counter()
 logger.info(f"Time to multiply by 1,000:  {stop-start}")
 
-# %%
 
 sns.displot(data=distance_error_df,x="Distance_Error_mm")
-# %%
 distance_error_df["Distance_Error_mm_abs"] = abs(distance_error_df["Distance_Error_mm"])
 logger.info(distance_error_df.describe())
 
-# %%
 # %%

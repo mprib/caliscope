@@ -206,6 +206,7 @@ class QualityScanner:
         distance_error = distance_world_A_B-distance_board_A_B
         distance_error = pd.DataFrame(distance_error,columns=["Distance_Error"])
         distance_error["Distance_Error_mm"] = distance_error["Distance_Error"]*1000
+        distance_error["Distance_Error_mm_abs"] = abs(distance_error["Distance_Error_mm"])
         return distance_error
 
 
@@ -222,8 +223,7 @@ def cartesian_product(*arrays):
     return arr.reshape(-1, la)
 
 
-# if __name__ == "__main__":
-if True:
+if __name__ == "__main__":
     from calicam import __root__
 
     session_directory = Path(__root__, "tests", "demo")
@@ -235,5 +235,5 @@ if True:
     corners_world_xyz = quality_scanner.corners_world_xyz
     paired_indices = quality_scanner.paired_obj_indices
     distance_error = quality_scanner.distance_error   
-    distance_error.describe() 
+    logger.info(distance_error.describe()) 
 # %%

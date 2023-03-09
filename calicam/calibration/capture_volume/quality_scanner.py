@@ -222,11 +222,11 @@ class QualityScanner:
     def get_filtered_data_2d(self, percentile_cutoff: float):
         """
         Provided a cutoff percentile value, returns a filtered_data_2d dataframe
-        that only represents observations that have a reprojection error below 
-        that threshold. Additionally, it removes any singular 2d observations 
+        that only represents observations that have a reprojection error below
+        that threshold. Additionally, it removes any singular 2d observations
         (i.e. those that have only one snapshot image and therefore cannot
         be localized in 3d)
-        
+
         percentile_cutoff: a fraction between 0 and 1
         """
 
@@ -243,15 +243,13 @@ class QualityScanner:
             .count()
             .rename(columns={"camera": "obj_id_count"})
         )
-        
+
         # merge back into the filtered data
-        filtered_data_2d = filtered_data_2d.merge(obj_id_counts,"right", on=["obj_id"])
-        
+        filtered_data_2d = filtered_data_2d.merge(obj_id_counts, "right", on=["obj_id"])
+
         # remove any points that now only have 1 2d image associated with them
         filtered_data_2d = filtered_data_2d.query("obj_id_count > 1")
 
-
-        
         return filtered_data_2d
 
 
@@ -286,6 +284,13 @@ if True:
     percentile_cutoff = 0.9
 
     filtered_data_2d = quality_scanner.get_filtered_data_2d(percentile_cutoff)
+#%%
 
+    #%%
 
-# %%
+    test = filtered_data_2d.rename(columns={"obj_id": "original_obj_id"})
+    objects_3d = (filtered_data_2d
+                  .filter( ["obj_id", "obj_x", "obj_y", "obj_z"])
+                  .drop_duplicates()
+                  .rename(columns={"obj_id": "original_obj_id"})
+                  .reset_index())

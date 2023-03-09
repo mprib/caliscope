@@ -92,7 +92,7 @@ subgraph capture_volume
     CameraArray --> CaptureVolume
     PointEstimates --> CaptureVolume
     CaptureVolume --> QualityScanner
-    QualityScanner -.filtered.-> PointEstimates
+    QualityScanner -.filtered not yet implemented.-> PointEstimates
 end
 
 

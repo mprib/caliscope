@@ -192,7 +192,7 @@ if __name__ == "__main__":
     from calicam.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
-    session_directory = Path(__root__,  "tests", "demo")
+    session_directory = Path(__root__,  "tests", "demo", "test_filter")
 
 
     print(f"Optimizing initial camera array configuration ")

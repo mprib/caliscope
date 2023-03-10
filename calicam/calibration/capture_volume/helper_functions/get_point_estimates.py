@@ -98,14 +98,14 @@ def get_point_estimates(camera_array:CameraArray, point_data_path: Path) -> Poin
     obj_indices = np.array(merged_point_data["index_3d"], dtype=np.int64)
     sync_index = np.array(merged_point_data["sync_index"], dtype=np.int64)
     obj = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
-    obj_corner_id = np.array(points_3d_df[["corner_id"]])
+    # obj_corner_id = np.array(points_3d_df[["corner_id"]])
 
     return PointEstimates(
+        sync_indices=sync_index,
         camera_indices=camera_indices,
-        img=img,
         point_id=corner_id,
+        img=img,
         obj_indices=obj_indices,
         obj=obj,
-        obj_corner_id=obj_corner_id,
-        sync_indices=sync_index,
+        # obj_corner_id=obj_corner_id,
     )

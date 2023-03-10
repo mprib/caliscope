@@ -96,9 +96,9 @@ class CaptureVolume:
         return xyz
 
 
-    def get_xyz_ids(self):
-        """get the charuco ids of the 3d points estimated by the bundle adjustment"""
-        return self.point_estimate_data.obj_corner_id
+    # def get_xyz_ids(self):
+        # """get the charuco ids of the 3d points estimated by the bundle adjustment"""
+        # return self.point_estimate_data.obj_corner_id
 
 def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume):
     """

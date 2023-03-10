@@ -97,6 +97,7 @@ class QualityScanner:
             "reproj_error_x": capture_volume_xy_error[:, 0].tolist(),
             "reproj_error_y": capture_volume_xy_error[:, 1].tolist(),
             "reproj_error": euclidean_distance_error.tolist(),
+            "reproj_error_sq": (euclidean_distance_error**2).tolist(),
             "obj_id": self.capture_volume.point_estimates.obj_indices.tolist(),
             "obj_x": xyz[self.capture_volume.point_estimates.obj_indices][
                 :, 0
@@ -282,7 +283,7 @@ if True:
     distance_error = quality_scanner.distance_error
     logger.info(distance_error.describe())
 
-    percentile_cutoff = 0.8
+    percentile_cutoff = 0.75
 
     filtered_data_2d = quality_scanner.get_filtered_data_2d(percentile_cutoff)
 
@@ -325,16 +326,15 @@ if True:
     capture_volume_name = "post_optimized_capture_volume.pkl"
     post_filter_q_s = QualityScanner(test_filter_directory,capture_volume_name)
     
-    distance_error = post_filter_q_s.distance_error
-    logger.info(distance_error.describe())
     
     logger.info("Examinging reprojection error...should reduce")
     logger.info("Pre Filter:")
     logger.info(quality_scanner.data_2d["reproj_error"].describe())
+    logger.info(quality_scanner.get_distance_error().describe())
 
     logger.info("Post Filter:")
+    logger.info(post_filter_q_s.get_distance_error().describe())
     
     logger.info(post_filter_q_s.data_2d["reproj_error"].describe())
-    
     
 # %%

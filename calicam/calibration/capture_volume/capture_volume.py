@@ -46,7 +46,7 @@ class CaptureVolume:
     # Mac: Start here tomorrow. This code was copied over but not revised to account for its new position.
     # This is a substantial refactor of high level objects that will substantially simplify their interaction
     # but it's going to be an adventure getting this to run again
-    def optimize(self, output_path=None):
+    def optimize(self):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
         initial_param_estimate = self.get_vectorized_params()
@@ -58,10 +58,6 @@ class CaptureVolume:
             f"Prior to bundle adjustment, RMSE is: {rms_reproj_error(initial_xy_error)}"
         )
 
-        # save out this snapshot if path provided
-        if output_path is not None:
-            self.save(Path(output_path, "pre_optimized_capture_volume.pkl"))
-
         self.least_sq_result = least_squares(
             xy_reprojection_error,
             initial_param_estimate,
@@ -71,16 +67,12 @@ class CaptureVolume:
             loss="linear",
             ftol=1e-8,
             method="trf",
-
             # xy_reprojection error takes the vectorized param estimates as first arg and capture volume as second
             args=(self,),
         )
 
         self.camera_array.update_extrinsic_params(self.least_sq_result.x)
         self.point_estimates.update_obj_xyz(self.least_sq_result.x)
-
-        if output_path is not None:
-            self.save(Path(output_path, "post_optimized_capture_volume.pkl"))
 
         logger.info(
             f"Following bundle adjustment, RMSE is: {rms_reproj_error(self.least_sq_result.fun)}"
@@ -176,7 +168,7 @@ if __name__ == "__main__":
         get_point_estimates,
     )
 
-    session_directory = Path(__root__, "tests", "mimic_anipose")
+    session_directory = Path(__root__, "tests", "demo")
 
     point_data_csv_path = Path(session_directory, "point_data.csv")
 
@@ -188,6 +180,7 @@ if __name__ == "__main__":
     print(f"Optimizing initial camera array configuration ")
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
-    capture_volume.optimize(output_path=Path(session_directory))
-
+    capture_volume.save(Path(session_directory, "capture_volume_stage_0.pkl"))
+    capture_volume.optimize()
+    capture_volume.save(Path(session_directory, "capture_volume_stage_1.pkl"))
 # %%

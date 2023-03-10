@@ -49,7 +49,7 @@ subgraph recording
 
 end
 
-
+RecordingDirectory -.to be done.-> CaptureVolumeVisualizer
 
 point_data.csv --> OmniCalibrator
 config.toml --CameraSettings--> OmniCalibrator
@@ -92,7 +92,7 @@ subgraph capture_volume
     CameraArray --> CaptureVolume
     PointEstimates --> CaptureVolume
     CaptureVolume --> QualityScanner
-    QualityScanner -.filtered not yet implemented.-> PointEstimates
+    QualityScanner -.filtered.-> PointEstimates
 end
 
 

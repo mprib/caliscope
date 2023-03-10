@@ -421,7 +421,7 @@ if __name__ == "__main__":
     from pathlib import Path
 
     # set inputs
-    session_path = Path(__root__, "tests", "please work")
+    session_path = Path(__root__, "tests", "demo")
 
     config_path = Path(session_path, "config.toml")
     point_data_path = Path(session_path, "point_data.csv")

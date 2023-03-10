@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 from calicam import __root__
 import seaborn as sns
+import numpy as np
 
 session_directory = Path(__root__, "tests", "demo")
 
@@ -31,4 +32,23 @@ by_board_distance = (distance_error
                      .mean()
             )
 
+# %%
+
+rmse = (data_2d.filter(["reproj_error_sq"])
+                  .mean())
+
+rmse_by_camera = (data_2d.filter(["camera", "reproj_error_sq"])
+                  .groupby("camera")
+                  .mean(["reproj_error_sq"])
+                  .rename(columns={"reproj_error_sq":"mean_sq_error"}))
+rmse_by_camera["rmse"]=np.sqrt(rmse_by_camera["mean_sq_error"])
+
+#%%
+
+sns.boxplot(data = distance_error, 
+            x="board_distance", 
+            y= "Distance_Error_mm_abs",
+            showfliers = False
+
+            )
 # %%

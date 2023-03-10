@@ -17,18 +17,18 @@ from calicam.calibration.capture_volume.capture_volume import (
 )
 from calicam.calibration.capture_volume.point_estimates import PointEstimates
 
-class QualityScanner:
-    def __init__(self, session_directory: Path, capture_volume_name: str):
-        self.session_directory = session_directory
-        self.config_path = Path(self.session_directory, "config.toml")
+class QualityFilter:
+    def __init__(self, capture_volume:CaptureVolume, charuco:Charuco):
+        # self.session_directory = session_directory
+        # self.config_path = Path(self.session_directory, "config.toml")
 
         # pull charuco from config
-        self.charuco = self.get_charuco()
+        self.charuco = charuco
 
         # load capture volume being analyzed
-        capture_volume_path = Path(self.session_directory, capture_volume_name)
+        # capture_volume_path = Path(self.session_directory, capture_volume_name)
 
-        self.capture_volume = self.get_capture_volume(capture_volume_path)
+        self.capture_volume = capture_volume
 
         # all 2d data including reprojection error and estimated corresponding 3d point
         self.data_2d = self.get_summary_2d_df()
@@ -46,28 +46,7 @@ class QualityScanner:
 
         self.distance_error = self.get_distance_error()
 
-    def get_charuco(self) -> Charuco:
-        config = toml.load(self.config_path)
 
-        ## create charuco
-        charuco = Charuco(
-            columns=config["charuco"]["columns"],
-            rows=config["charuco"]["rows"],
-            board_height=config["charuco"]["board_height"],
-            board_width=config["charuco"]["rows"],
-            dictionary=config["charuco"]["dictionary"],
-            units=config["charuco"]["units"],
-            aruco_scale=config["charuco"]["aruco_scale"],
-            square_size_overide_cm=config["charuco"]["square_size_overide_cm"],
-            inverted=config["charuco"]["inverted"],
-        )
-
-        return charuco
-
-    def get_capture_volume(self, capture_volume_pkl_path: Path) -> CaptureVolume:
-        with open(capture_volume_pkl_path, "rb") as file:
-            capture_volume = pickle.load(file)
-        return capture_volume
 
     def get_summary_2d_df(self) -> pd.DataFrame:
         """
@@ -263,6 +242,28 @@ class QualityScanner:
         )
         return filtered_data_2d
 
+def get_capture_volume(capture_volume_pkl_path: Path) -> CaptureVolume:
+    with open(capture_volume_pkl_path, "rb") as file:
+        capture_volume = pickle.load(file)
+    return capture_volume
+
+def get_charuco(config_path) -> Charuco:
+    config = toml.load(self.config_path)
+
+    ## create charuco
+    charuco = Charuco(
+        columns=config["charuco"]["columns"],
+        rows=config["charuco"]["rows"],
+        board_height=config["charuco"]["board_height"],
+        board_width=config["charuco"]["rows"],
+        dictionary=config["charuco"]["dictionary"],
+        units=config["charuco"]["units"],
+        aruco_scale=config["charuco"]["aruco_scale"],
+        square_size_overide_cm=config["charuco"]["square_size_overide_cm"],
+        inverted=config["charuco"]["inverted"],
+    )
+
+    return charuco
 
 def cartesian_product(*arrays):
     """
@@ -277,14 +278,19 @@ def cartesian_product(*arrays):
     return arr.reshape(-1, la)
 
 
-# if __name__ == "__main__":
-if True:
+if __name__ == "__main__":
+# if True:
     from calicam import __root__
 
     session_directory = Path(__root__, "tests", "demo")
-    capture_volume_name = "post_optimized_capture_volume.pkl"
+    config_path = Path(session_directory, "config.toml")  
 
-    quality_scanner = QualityScanner(session_directory, capture_volume_name)
+    capture_volume_name = "capture_volume_stage_1.pkl"
+    
+    charuco = get_charuco(config_path)
+    capture_volume = get_capture_volume(Path(session_directory,capture_volume_name))
+
+    quality_scanner = QualityFilter(capture_volume,charuco)
     data_2d = quality_scanner.data_2d
 
     data_2d.to_csv(Path(session_directory, "data_2d.csv"))
@@ -339,7 +345,7 @@ if True:
     test_filter_directory = Path(__root__, "tests", "demo", "test_filter")
     quality_scanner.capture_volume.optimize(test_filter_directory)
     capture_volume_name = "post_optimized_capture_volume.pkl"
-    post_filter_q_s = QualityScanner(test_filter_directory,capture_volume_name)
+    post_filter_q_s = QualityFilter(test_filter_directory,capture_volume_name)
     
     
     logger.info("Examinging reprojection error...should reduce")

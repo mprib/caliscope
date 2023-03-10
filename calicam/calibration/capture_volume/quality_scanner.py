@@ -15,7 +15,7 @@ from calicam.calibration.capture_volume.capture_volume import (
     CaptureVolume,
     xy_reprojection_error,
 )
-
+from calicam.calibration.capture_volume.point_estimates import PointEstimates
 
 class QualityScanner:
     def __init__(self, session_directory: Path, capture_volume_name: str):
@@ -248,8 +248,9 @@ class QualityScanner:
         filtered_data_2d = filtered_data_2d.merge(obj_id_counts, "right", on=["obj_id"])
 
         # remove any points that now only have 1 2d image associated with them
-        filtered_data_2d = filtered_data_2d.query("obj_id_count > 1")
-
+        filtered_data_2d = filtered_data_2d.query("obj_id_count > 1").rename(
+            columns={"obj_id": "original_obj_id"}
+        )
         return filtered_data_2d
 
 
@@ -281,16 +282,59 @@ if True:
     distance_error = quality_scanner.distance_error
     logger.info(distance_error.describe())
 
-    percentile_cutoff = 0.9
+    percentile_cutoff = 0.8
 
     filtered_data_2d = quality_scanner.get_filtered_data_2d(percentile_cutoff)
-#%%
 
-    #%%
+    objects_3d = (
+        filtered_data_2d.filter(["original_obj_id", "obj_x", "obj_y", "obj_z"])
+        .drop_duplicates()
+        .reset_index()
+        .drop("index", axis=1)
+        .reset_index()
+        .rename(columns={"index":"filtered_obj_id"})
+    )
+    
+    original_filter_mapping = objects_3d.filter(["filtered_obj_id", "original_obj_id"])
+    
+    filtered_data_2d = filtered_data_2d.merge(original_filter_mapping, how="right", on=["original_obj_id"])
 
-    test = filtered_data_2d.rename(columns={"obj_id": "original_obj_id"})
-    objects_3d = (filtered_data_2d
-                  .filter( ["obj_id", "obj_x", "obj_y", "obj_z"])
-                  .drop_duplicates()
-                  .rename(columns={"obj_id": "original_obj_id"})
-                  .reset_index())
+
+    # get revised point_estimates
+    sync_indices = filtered_data_2d["sync_index"].to_numpy()
+    camera_indices = filtered_data_2d["camera"].to_numpy()
+    point_id = filtered_data_2d["charuco_id"].to_numpy()
+    img = filtered_data_2d.filter(["img_x", "img_y"]).to_numpy()
+    obj_indices = filtered_data_2d["filtered_obj_id"].to_numpy()
+    obj = objects_3d.filter(["obj_x", "obj_y", "obj_z"]).to_numpy()
+
+    filtered_point_estimates = PointEstimates(
+        sync_indices=sync_indices,
+        camera_indices=camera_indices,
+        point_id=point_id,
+        img=img,
+        obj_indices=obj_indices,
+        obj=obj
+    )
+    
+    
+    quality_scanner.capture_volume.point_estimates = filtered_point_estimates
+    
+    test_filter_directory = Path(__root__, "tests", "demo", "test_filter")
+    quality_scanner.capture_volume.optimize(test_filter_directory)
+    capture_volume_name = "post_optimized_capture_volume.pkl"
+    post_filter_q_s = QualityScanner(test_filter_directory,capture_volume_name)
+    
+    distance_error = post_filter_q_s.distance_error
+    logger.info(distance_error.describe())
+    
+    logger.info("Examinging reprojection error...should reduce")
+    logger.info("Pre Filter:")
+    logger.info(quality_scanner.data_2d["reproj_error"].describe())
+
+    logger.info("Post Filter:")
+    
+    logger.info(post_filter_q_s.data_2d["reproj_error"].describe())
+    
+    
+# %%

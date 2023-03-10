@@ -285,7 +285,9 @@ if True:
     capture_volume_name = "post_optimized_capture_volume.pkl"
 
     quality_scanner = QualityScanner(session_directory, capture_volume_name)
-    summary_2d_data = quality_scanner.data_2d
+    data_2d = quality_scanner.data_2d
+
+    data_2d.to_csv(Path(session_directory, "data_2d.csv"))
 
     corners_world_xyz = quality_scanner.corners_world_xyz
     paired_indices = quality_scanner.paired_obj_indices
@@ -296,7 +298,7 @@ if True:
     logger.info(distance_error.describe())
 
 
-    percentile_cutoff = 0.75
+    percentile_cutoff = 0.5
 
     filtered_data_2d = quality_scanner.get_filtered_data_2d(percentile_cutoff)
 

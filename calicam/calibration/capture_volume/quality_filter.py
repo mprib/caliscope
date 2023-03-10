@@ -15,6 +15,7 @@ from calicam.calibration.capture_volume.capture_volume import (
     CaptureVolume,
     xy_reprojection_error,
 )
+
 from calicam.calibration.capture_volume.point_estimates import PointEstimates
 
 class QualityFilter:
@@ -288,16 +289,16 @@ if __name__ == "__main__":
     capture_volume_name = "capture_volume_stage_1.pkl"
     
     charuco = get_charuco(config_path)
-    capture_volume = get_capture_volume(Path(session_directory,capture_volume_name))
+    cap_vol_1 = get_capture_volume(Path(session_directory,capture_volume_name))
 
-    quality_scanner = QualityFilter(capture_volume,charuco)
-    data_2d = quality_scanner.data_2d
+    quality_filter = QualityFilter(cap_vol_1,charuco)
+    data_2d = quality_filter.data_2d
 
     data_2d.to_csv(Path(session_directory, "data_2d.csv"))
 
-    corners_world_xyz = quality_scanner.corners_world_xyz
-    paired_indices = quality_scanner.paired_obj_indices
-    distance_error = quality_scanner.distance_error
+    # corners_world_xyz = q_f_1.corners_world_xyz
+    # paired_indices = q_f_1.paired_obj_indices
+    distance_error = quality_filter.distance_error
 
     distance_error.to_csv(Path(session_directory,"distance_error.csv"))
 
@@ -306,7 +307,7 @@ if __name__ == "__main__":
 
     percentile_cutoff = 0.5
 
-    filtered_data_2d = quality_scanner.get_filtered_data_2d(percentile_cutoff)
+    filtered_data_2d = quality_filter.get_filtered_data_2d(percentile_cutoff)
 
     objects_3d = (
         filtered_data_2d.filter(["original_obj_id", "obj_x", "obj_y", "obj_z"])
@@ -317,9 +318,9 @@ if __name__ == "__main__":
         .rename(columns={"index":"filtered_obj_id"})
     )
     
-    original_filter_mapping = objects_3d.filter(["filtered_obj_id", "original_obj_id"])
+    old_new_mapping = objects_3d.filter(["filtered_obj_id", "original_obj_id"])
     
-    filtered_data_2d = filtered_data_2d.merge(original_filter_mapping, how="right", on=["original_obj_id"])
+    filtered_data_2d = filtered_data_2d.merge(old_new_mapping, how="right", on=["original_obj_id"])
 
 
     # get revised point_estimates
@@ -340,18 +341,18 @@ if __name__ == "__main__":
     )
     
     
-    quality_scanner.capture_volume.point_estimates = filtered_point_estimates
+    quality_filter.capture_volume.point_estimates = filtered_point_estimates
     
     test_filter_directory = Path(__root__, "tests", "demo", "test_filter")
-    quality_scanner.capture_volume.optimize(test_filter_directory)
+    quality_filter.capture_volume.optimize()
     capture_volume_name = "post_optimized_capture_volume.pkl"
     post_filter_q_s = QualityFilter(test_filter_directory,capture_volume_name)
     
     
     logger.info("Examinging reprojection error...should reduce")
     logger.info("Pre Filter:")
-    logger.info(quality_scanner.data_2d["reproj_error"].describe())
-    logger.info(quality_scanner.get_distance_error().describe())
+    logger.info(quality_filter.data_2d["reproj_error"].describe())
+    logger.info(quality_filter.get_distance_error().describe())
 
     logger.info("Post Filter:")
     logger.info(post_filter_q_s.get_distance_error().describe())

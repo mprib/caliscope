@@ -213,11 +213,20 @@ class QualityScanner:
 
         # calculate error (in mm)
         distance_error = distance_world_A_B - distance_board_A_B
+        
+        # wrap everything up in a dataframe for ease of processing
         distance_error = pd.DataFrame(distance_error, columns=["Distance_Error"])
         distance_error["Distance_Error_mm"] = distance_error["Distance_Error"] * 1000
         distance_error["Distance_Error_mm_abs"] = abs(
             distance_error["Distance_Error_mm"]
         )
+
+        distance_error["corner_A"] = self.paired_obj_indices[:,0]
+        distance_error["corner_B"] = self.paired_obj_indices[:,1]
+
+        distance_error["world_distance"] = distance_world_A_B       
+        distance_error["board_distance"] = distance_board_A_B       
+
         return distance_error
 
     def get_filtered_data_2d(self, percentile_cutoff: float):
@@ -281,7 +290,11 @@ if True:
     corners_world_xyz = quality_scanner.corners_world_xyz
     paired_indices = quality_scanner.paired_obj_indices
     distance_error = quality_scanner.distance_error
+
+    distance_error.to_csv(Path(session_directory,"distance_error.csv"))
+
     logger.info(distance_error.describe())
+
 
     percentile_cutoff = 0.75
 

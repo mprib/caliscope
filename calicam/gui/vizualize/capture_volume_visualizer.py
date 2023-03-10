@@ -137,11 +137,6 @@ def mesh_from_camera(camera_data: CameraData):
     # cd = camera_data
     mesh = CameraMesh(camera_data.size, camera_data.matrix).mesh
 
-    # translation_scale_factor = 1
-    # x, y, z = [t / translation_scale_factor for t in camera_data.translation]
-    # mesh.translate(x, y, z)
-    # logger.info(f"Translation: x: {x}, y: {y}, z: {z}")
-
     # rotate mesh
     euler_angles = rotationMatrixToEulerAngles(camera_data.rotation)
     euler_angles_deg = [x * (180 / math.pi) for x in euler_angles]
@@ -193,7 +188,6 @@ if __name__ == "__main__":
     import pickle
     
     session_directory = Path(__root__,  "tests", "demo", "test_filter")
-
 
     print(f"Optimizing initial camera array configuration ")
 

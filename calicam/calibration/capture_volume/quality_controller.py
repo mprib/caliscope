@@ -31,25 +31,22 @@ class QualityController:
 
         self.capture_volume = capture_volume
 
-        # all 2d data including reprojection error and estimated corresponding 3d point
-        self.data_2d = self.get_summary_2d_df()
-
         # all individual 3d points estimated in a world frame of reference
-        self.corners_world_xyz = self.get_corners_world_xyz()
+        # self.corners_world_xyz = self.get_corners_world_xyz()
 
         # all possible pairs of 3d points that share the same sync_index
         # these align with the index used in self.corners_xyz
-        self.paired_obj_indices = self.get_paired_obj_indices()
+        # self.paired_obj_indices = self.get_paired_obj_indices()
 
         # Corner positions in a board frame of refernce aligning with index of corners_world_xyz
         # note this is already just a numpy ndarray
-        self.corners_board_xyz = self.get_corners_board_xyz()
+        # self.corners_board_xyz = self.get_corners_board_xyz()
 
-        self.distance_error = self.get_distance_error()
+        # self.distance_error = self.get_distance_error()
 
 
-
-    def get_summary_2d_df(self) -> pd.DataFrame:
+    @property
+    def data_2d(self) -> pd.DataFrame:
         """
         Unpack the Array Diagnostic data into a pandas dataframe format that can be
         plotted and summarized. This is all 2d data observations with their
@@ -100,7 +97,8 @@ class QualityController:
 
         return summarized_data
 
-    def get_corners_world_xyz(self) -> pd.DataFrame:
+    @property
+    def corners_world_xyz(self) -> pd.DataFrame:
         """
         convert the table of 2d data observations to a smaller table of only the individual 3d point
         estimates. These will have a number of duplicates so drop them.
@@ -118,7 +116,8 @@ class QualityController:
 
         return corners_3d
 
-    def get_paired_obj_indices(self) -> np.ndarray:
+    @property
+    def paired_obj_indices(self) -> np.ndarray:
         """given a dataframe that contains all observed charuco corners across sync_indices,
         return a Nx2 matrix of paired object indices that will represent all possible
         joined lines between charuco corners for each sync_index"""
@@ -160,13 +159,15 @@ class QualityController:
 
         return reformatted_paired_obj_indices
 
-    def get_corners_board_xyz(self) -> np.ndarray:
+    @property
+    def corners_board_xyz(self) -> np.ndarray:
         corner_ids = self.corners_world_xyz["charuco_id"]
         corners_board_xyz = self.charuco.board.chessboardCorners[corner_ids]
 
         return corners_board_xyz
 
-    def get_distance_error(self) -> pd.DataFrame:
+    @property
+    def distance_error(self) -> pd.DataFrame:
 
         # temp numpy frame for working calculations
         corners_world_xyz = self.corners_world_xyz[
@@ -279,35 +280,36 @@ def cartesian_product(*arrays):
     return arr.reshape(-1, la)
 
 
-if __name__ == "__main__":
-# if True:
+# if __name__ == "__main__":
+if True:
     from calicam import __root__
 
     session_directory = Path(__root__, "tests", "demo")
     config_path = Path(session_directory, "config.toml")  
-
     capture_volume_name = "capture_volume_stage_1.pkl"
     
-    charuco = get_charuco(config_path)
+    
+    # get the inputs for quality control (CaptureVolume and Charuco)
     cap_vol_1 = get_capture_volume(Path(session_directory,capture_volume_name))
+    charuco = get_charuco(config_path)
 
-    quality_filter = QualityController(cap_vol_1,charuco)
-    data_2d = quality_filter.data_2d
+    # create QualityControl
+    quality_controller = QualityController(cap_vol_1,charuco)
 
-    data_2d.to_csv(Path(session_directory, "data_2d.csv"))
+    quality_controller.data_2d.to_csv(Path(session_directory, "data_2d.csv"))
 
     # corners_world_xyz = q_f_1.corners_world_xyz
     # paired_indices = q_f_1.paired_obj_indices
-    distance_error = quality_filter.distance_error
 
-    distance_error.to_csv(Path(session_directory,"distance_error.csv"))
+    quality_controller.distance_error.to_csv(Path(session_directory,"distance_error.csv"))
 
-    logger.info(distance_error.describe())
+    logger.info(quality_controller.distance_error.describe())
 
-
+#%%
+    #%%
     percentile_cutoff = 0.5
 
-    filtered_data_2d = quality_filter.get_filtered_data_2d(percentile_cutoff)
+    filtered_data_2d = quality_controller.get_filtered_data_2d(percentile_cutoff)
 
     objects_3d = (
         filtered_data_2d.filter(["original_obj_id", "obj_x", "obj_y", "obj_z"])
@@ -341,21 +343,23 @@ if __name__ == "__main__":
     )
     
     
-    quality_filter.capture_volume.point_estimates = filtered_point_estimates
+    quality_controller.capture_volume.point_estimates = filtered_point_estimates
     
     test_filter_directory = Path(__root__, "tests", "demo", "test_filter")
-    quality_filter.capture_volume.optimize()
-    capture_volume_name = "post_optimized_capture_volume.pkl"
-    post_filter_q_s = QualityController(test_filter_directory,capture_volume_name)
+    quality_controller.capture_volume.optimize()
+    quality_controller.capture_volume.save(Path(session_directory, "capture_volume_stage_2.pkl"))
+    cap_vol_2 = get_capture_volume(Path(session_directory, "capture_volume_stage_2.pkl"))
+
+    post_filter_q_s = QualityController(cap_vol_2, charuco)
     
     
     logger.info("Examinging reprojection error...should reduce")
     logger.info("Pre Filter:")
-    logger.info(quality_filter.data_2d["reproj_error"].describe())
-    logger.info(quality_filter.get_distance_error().describe())
+    logger.info(quality_controller.data_2d["reproj_error"].describe())
+    logger.info(quality_controller.distance_error.describe())
 
     logger.info("Post Filter:")
-    logger.info(post_filter_q_s.get_distance_error().describe())
+    logger.info(post_filter_q_s.distance_error.describe())
     
     logger.info(post_filter_q_s.data_2d["reproj_error"].describe())
     

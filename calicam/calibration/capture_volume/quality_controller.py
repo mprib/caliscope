@@ -298,9 +298,6 @@ if True:
 
     quality_controller.data_2d.to_csv(Path(session_directory, "data_2d.csv"))
 
-    # corners_world_xyz = q_f_1.corners_world_xyz
-    # paired_indices = q_f_1.paired_obj_indices
-
     quality_controller.distance_error.to_csv(Path(session_directory,"distance_error.csv"))
 
     logger.info(quality_controller.distance_error.describe())
@@ -347,7 +344,7 @@ if True:
     
     test_filter_directory = Path(__root__, "tests", "demo", "test_filter")
     quality_controller.capture_volume.optimize()
-    quality_controller.capture_volume.save(Path(session_directory, "capture_volume_stage_2.pkl"))
+    quality_controller.capture_volume.save(session_directory, stage=2)
     cap_vol_2 = get_capture_volume(Path(session_directory, "capture_volume_stage_2.pkl"))
 
     post_filter_q_s = QualityController(cap_vol_2, charuco)

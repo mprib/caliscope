@@ -23,7 +23,9 @@ class CaptureVolume:
     camera_array: CameraArray
     point_estimates: PointEstimates
 
-    def save(self, output_path):
+    def save(self, directory:Path, stage:int):
+        output_path = "capture_volume_stage_" + str(stage) + ".pkl"
+        logger.info(f"Saving stage {str(stage)} capture volume to {directory}")
         with open(Path(output_path), "wb") as file:
             pickle.dump(self, file)
 
@@ -43,9 +45,6 @@ class CaptureVolume:
 
         return error
 
-    # Mac: Start here tomorrow. This code was copied over but not revised to account for its new position.
-    # This is a substantial refactor of high level objects that will substantially simplify their interaction
-    # but it's going to be an adventure getting this to run again
     def optimize(self):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
@@ -180,7 +179,7 @@ if __name__ == "__main__":
     print(f"Optimizing initial camera array configuration ")
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
-    capture_volume.save(Path(session_directory, "capture_volume_stage_0.pkl"))
+    capture_volume.save(session_directory, 0)
     capture_volume.optimize()
-    capture_volume.save(Path(session_directory, "capture_volume_stage_1.pkl"))
+    capture_volume.save(session_directory,1)
 # %%

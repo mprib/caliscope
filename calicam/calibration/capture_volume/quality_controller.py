@@ -339,30 +339,14 @@ if True:
     
     test_filter_directory = Path(__root__, "tests", "demo", "test_filter")
     logger.info(quality_controller.capture_volume.stage)
-    logger.info("Pre Filter:")
-    logger.info(f"RMSE: {quality_controller.capture_volume.rmse}")
-    # logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
-    # logger.info(quality_controller.distance_error.describe())
     
-    quality_controller.filter_point_estimates(.75)
+    for _ in range(0,5):
+        quality_controller.filter_point_estimates(.9)
 
-    quality_controller.capture_volume.optimize()
-    quality_controller.capture_volume.save(session_directory)
-    # store stage 2 data (filtered and optimized)
-    quality_controller.store_data()    
+        quality_controller.capture_volume.optimize()
+        quality_controller.store_data()    
+        quality_controller.capture_volume.save(session_directory)
 
-    # logger.info("Post Filter:")
-    # logger.info(f"RMSE: {quality_controller.capture_volume.rmse}")
-    # logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
-    # logger.info(quality_controller.distance_error.describe())
-    # quality_controller.capture_volume.optimize()
-    # logger.info("Post Optimization:")
-    # logger.info(f"RMSE: {quality_controller.capture_volume.rmse}")
-    # logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
-    # logger.info(quality_controller.capture_volume.stage)
-    # quality_controller.capture_volume.save(session_directory)
-    
-    # logger.info("Exporting 2d data to csv")
     quality_controller.all_data_2d.to_csv(Path(session_directory, "data_2d.csv"))
     quality_controller.all_distance_error.to_csv(Path(session_directory,"distance_error.csv"))
 # %%

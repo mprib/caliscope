@@ -18,7 +18,7 @@ from calicam.calibration.capture_volume.capture_volume import (
 
 from calicam.calibration.capture_volume.point_estimates import PointEstimates
 
-class QualityFilter:
+class QualityController:
     def __init__(self, capture_volume:CaptureVolume, charuco:Charuco):
         # self.session_directory = session_directory
         # self.config_path = Path(self.session_directory, "config.toml")
@@ -249,7 +249,7 @@ def get_capture_volume(capture_volume_pkl_path: Path) -> CaptureVolume:
     return capture_volume
 
 def get_charuco(config_path) -> Charuco:
-    config = toml.load(self.config_path)
+    config = toml.load(config_path)
 
     ## create charuco
     charuco = Charuco(
@@ -291,7 +291,7 @@ if __name__ == "__main__":
     charuco = get_charuco(config_path)
     cap_vol_1 = get_capture_volume(Path(session_directory,capture_volume_name))
 
-    quality_filter = QualityFilter(cap_vol_1,charuco)
+    quality_filter = QualityController(cap_vol_1,charuco)
     data_2d = quality_filter.data_2d
 
     data_2d.to_csv(Path(session_directory, "data_2d.csv"))
@@ -346,7 +346,7 @@ if __name__ == "__main__":
     test_filter_directory = Path(__root__, "tests", "demo", "test_filter")
     quality_filter.capture_volume.optimize()
     capture_volume_name = "post_optimized_capture_volume.pkl"
-    post_filter_q_s = QualityFilter(test_filter_directory,capture_volume_name)
+    post_filter_q_s = QualityController(test_filter_directory,capture_volume_name)
     
     
     logger.info("Examinging reprojection error...should reduce")

@@ -64,6 +64,7 @@ class QualityController:
         row_count = euclidean_distance_error.shape[0]
 
         array_data_dict = {
+            "stage": [self.capture_volume.stage]*row_count, 
             "camera": self.capture_volume.point_estimates.camera_indices.tolist(),
             "sync_index": self.capture_volume.point_estimates.sync_indices.astype(
                 int
@@ -297,14 +298,12 @@ if True:
     quality_controller = QualityController(cap_vol_1,charuco)
 
     quality_controller.data_2d.to_csv(Path(session_directory, "data_2d.csv"))
-
     quality_controller.distance_error.to_csv(Path(session_directory,"distance_error.csv"))
 
-    logger.info(quality_controller.distance_error.describe())
 
 #%%
     #%%
-    percentile_cutoff = 0.5
+    percentile_cutoff = 0.75
 
     filtered_data_2d = quality_controller.get_filtered_data_2d(percentile_cutoff)
 
@@ -340,24 +339,24 @@ if True:
     )
     
     
-    quality_controller.capture_volume.point_estimates = filtered_point_estimates
     
     test_filter_directory = Path(__root__, "tests", "demo", "test_filter")
-    quality_controller.capture_volume.optimize()
-    quality_controller.capture_volume.save(session_directory, stage=2)
-    cap_vol_2 = get_capture_volume(Path(session_directory, "capture_volume_stage_2.pkl"))
-
-    post_filter_q_s = QualityController(cap_vol_2, charuco)
-    
-    
-    logger.info("Examinging reprojection error...should reduce")
+    logger.info(quality_controller.capture_volume.stage)
     logger.info("Pre Filter:")
-    logger.info(quality_controller.data_2d["reproj_error"].describe())
+    logger.info(f"RMSE: {quality_controller.capture_volume.rmse}")
+    logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
     logger.info(quality_controller.distance_error.describe())
+    quality_controller.capture_volume.point_estimates = filtered_point_estimates
 
     logger.info("Post Filter:")
-    logger.info(post_filter_q_s.distance_error.describe())
-    
-    logger.info(post_filter_q_s.data_2d["reproj_error"].describe())
+    logger.info(f"RMSE: {quality_controller.capture_volume.rmse}")
+    logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
+    logger.info(quality_controller.distance_error.describe())
+    quality_controller.capture_volume.optimize()
+    logger.info("Post Optimization:")
+    logger.info(f"RMSE: {quality_controller.capture_volume.rmse}")
+    logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
+    logger.info(quality_controller.capture_volume.stage)
+    quality_controller.capture_volume.save(session_directory)
     
 # %%

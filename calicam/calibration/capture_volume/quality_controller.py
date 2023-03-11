@@ -22,8 +22,21 @@ class QualityController:
     def __init__(self, capture_volume:CaptureVolume, charuco:Charuco):
         self.charuco = charuco
         self.capture_volume = capture_volume
+        self.all_data_2d = None
+        self.all_distance_error = None
 
 
+    def store_data(self):
+        if self.all_data_2d is None:
+            self.all_data_2d = self.data_2d
+        else:
+            self.all_data_2d = pd.concat([self.all_data_2d, self.data_2d])
+    
+        if self.all_distance_error is None:
+            self.all_distance_error = self.distance_error
+        else:
+            self.all_distance_error = pd.concat([self.all_distance_error, self.distance_error])
+    
     @property
     def data_2d(self) -> pd.DataFrame:
         """
@@ -148,6 +161,7 @@ class QualityController:
 
     @property
     def distance_error(self) -> pd.DataFrame:
+        logger.info("Beginning to calculate distance error")
 
         # temp numpy frame for working calculations
         corners_world_xyz = self.corners_world_xyz[
@@ -187,7 +201,10 @@ class QualityController:
 
         distance_error["world_distance"] = distance_world_A_B       
         distance_error["board_distance"] = distance_board_A_B       
+        distance_error["stage"] = self.capture_volume.stage
 
+        logger.info("returning distance error")
+        
         return distance_error
 
     def get_filtered_data_2d(self, percentile_cutoff: float):
@@ -225,7 +242,6 @@ class QualityController:
         return filtered_data_2d
     
     def filter_point_estimates(self, percentile_cutoff: float):
-        
 
         filtered_data_2d = self.get_filtered_data_2d(percentile_cutoff)
 
@@ -263,8 +279,11 @@ class QualityController:
         
 
 def get_capture_volume(capture_volume_pkl_path: Path) -> CaptureVolume:
+    logger.info(f"loading capture volume from {capture_volume_pkl_path}")
     with open(capture_volume_pkl_path, "rb") as file:
+        logger.info(f"beginning to load file....")
         capture_volume = pickle.load(file)
+        logger.info(f"file loaded...")
     return capture_volume
 
 def get_charuco(config_path) -> Charuco:
@@ -298,83 +317,52 @@ def cartesian_product(*arrays):
     return arr.reshape(-1, la)
 
 
-if __name__ == "__main__":
-# if True:
+# if __name__ == "__main__":
+if True:
     from calicam import __root__
 
     session_directory = Path(__root__, "tests", "demo")
     config_path = Path(session_directory, "config.toml")  
-    capture_volume_name = "capture_volume_stage_1.pkl"
-    
+    capture_volume_name = "capture_volume_stage_0.pkl"
     
     # get the inputs for quality control (CaptureVolume and Charuco)
-    cap_vol_1 = get_capture_volume(Path(session_directory,capture_volume_name))
+    capture_volume = get_capture_volume(Path(session_directory,capture_volume_name))
     charuco = get_charuco(config_path)
 
     # create QualityControl
-    quality_controller = QualityController(cap_vol_1,charuco)
+    quality_controller = QualityController(capture_volume,charuco)
 
-    quality_controller.data_2d.to_csv(Path(session_directory, "data_2d.csv"))
-    quality_controller.distance_error.to_csv(Path(session_directory,"distance_error.csv"))
-
-
-#%%
-    #%%
-    # percentile_cutoff = 0.75
-
-    # filtered_data_2d = quality_controller.get_filtered_data_2d(percentile_cutoff)
-
-    # objects_3d = (
-    #     filtered_data_2d.filter(["original_obj_id", "obj_x", "obj_y", "obj_z"])
-    #     .drop_duplicates()
-    #     .reset_index()
-    #     .drop("index", axis=1)
-    #     .reset_index()
-    #     .rename(columns={"index":"filtered_obj_id"})
-    # )
-    
-    # old_new_mapping = objects_3d.filter(["filtered_obj_id", "original_obj_id"])
-    
-    # filtered_data_2d = filtered_data_2d.merge(old_new_mapping, how="right", on=["original_obj_id"])
-
-
-    # # get revised point_estimates
-    # sync_indices = filtered_data_2d["sync_index"].to_numpy()
-    # camera_indices = filtered_data_2d["camera"].to_numpy()
-    # point_id = filtered_data_2d["charuco_id"].to_numpy()
-    # img = filtered_data_2d.filter(["img_x", "img_y"]).to_numpy()
-    # obj_indices = filtered_data_2d["filtered_obj_id"].to_numpy()
-    # obj = objects_3d.filter(["obj_x", "obj_y", "obj_z"]).to_numpy()
-
-    # filtered_point_estimates = PointEstimates(
-    #     sync_indices=sync_indices,
-    #     camera_indices=camera_indices,
-    #     point_id=point_id,
-    #     img=img,
-    #     obj_indices=obj_indices,
-    #     obj=obj
-    # )
-    
-    
+    quality_controller.capture_volume.optimize()
+    # store stage 1 data (initial optimization)
+    quality_controller.capture_volume.save(session_directory)
+    quality_controller.store_data()    
     
     test_filter_directory = Path(__root__, "tests", "demo", "test_filter")
     logger.info(quality_controller.capture_volume.stage)
     logger.info("Pre Filter:")
     logger.info(f"RMSE: {quality_controller.capture_volume.rmse}")
-    logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
-    logger.info(quality_controller.distance_error.describe())
+    # logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
+    # logger.info(quality_controller.distance_error.describe())
     
     quality_controller.filter_point_estimates(.75)
 
-    logger.info("Post Filter:")
-    logger.info(f"RMSE: {quality_controller.capture_volume.rmse}")
-    logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
-    logger.info(quality_controller.distance_error.describe())
     quality_controller.capture_volume.optimize()
-    logger.info("Post Optimization:")
-    logger.info(f"RMSE: {quality_controller.capture_volume.rmse}")
-    logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
-    logger.info(quality_controller.capture_volume.stage)
     quality_controller.capture_volume.save(session_directory)
+    # store stage 2 data (filtered and optimized)
+    quality_controller.store_data()    
+
+    # logger.info("Post Filter:")
+    # logger.info(f"RMSE: {quality_controller.capture_volume.rmse}")
+    # logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
+    # logger.info(quality_controller.distance_error.describe())
+    # quality_controller.capture_volume.optimize()
+    # logger.info("Post Optimization:")
+    # logger.info(f"RMSE: {quality_controller.capture_volume.rmse}")
+    # logger.info(f"Distance error at stage {quality_controller.capture_volume.stage}")
+    # logger.info(quality_controller.capture_volume.stage)
+    # quality_controller.capture_volume.save(session_directory)
     
+    # logger.info("Exporting 2d data to csv")
+    quality_controller.all_data_2d.to_csv(Path(session_directory, "data_2d.csv"))
+    quality_controller.all_distance_error.to_csv(Path(session_directory,"distance_error.csv"))
 # %%

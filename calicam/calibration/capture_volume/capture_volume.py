@@ -22,11 +22,13 @@ CAMERA_PARAM_COUNT = 6
 class CaptureVolume:
     camera_array: CameraArray
     point_estimates: PointEstimates
+    stage: int = 0
+    _rmse: float = None
 
-    def save(self, directory:Path, stage:int):
-        output_path = "capture_volume_stage_" + str(stage) + ".pkl"
-        logger.info(f"Saving stage {str(stage)} capture volume to {directory}")
-        with open(Path(output_path), "wb") as file:
+    def save(self, directory:Path):
+        pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"
+        logger.info(f"Saving stage {str(self.stage)} capture volume to {directory}")
+        with open(Path(directory, pkl_name), "wb") as file:
             pickle.dump(self, file)
 
     def get_vectorized_params(self):
@@ -38,6 +40,20 @@ class CaptureVolume:
         combined = np.hstack((camera_params.ravel(), self.point_estimates.obj.ravel()))
 
         return combined
+
+    @property
+    def rmse(self):
+        
+        if hasattr(self, "least_sq_result"):
+            rmse = rms_reproj_error(self.least_sq_result.fun)
+        else:
+            param_estimates = self.get_vectorized_params()
+            xy_repro_error = xy_reprojection_error(param_estimates, self)
+            rmse = rms_reproj_error(xy_repro_error)
+         
+        return rmse   
+        
+        
 
     def get_xy_reprojection_error(self):
         vectorized_params = self.get_vectorized_params()
@@ -54,7 +70,7 @@ class CaptureVolume:
         initial_xy_error = xy_reprojection_error(initial_param_estimate, self)
 
         logger.info(
-            f"Prior to bundle adjustment, RMSE is: {rms_reproj_error(initial_xy_error)}"
+            f"Prior to bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
         )
 
         self.least_sq_result = least_squares(
@@ -72,9 +88,10 @@ class CaptureVolume:
 
         self.camera_array.update_extrinsic_params(self.least_sq_result.x)
         self.point_estimates.update_obj_xyz(self.least_sq_result.x)
-
+        self.stage += 1
+        
         logger.info(
-            f"Following bundle adjustment, RMSE is: {rms_reproj_error(self.least_sq_result.fun)}"
+            f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
         )
 
 
@@ -179,7 +196,7 @@ if __name__ == "__main__":
     print(f"Optimizing initial camera array configuration ")
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
-    capture_volume.save(session_directory, 0)
+    capture_volume.save(session_directory)
     capture_volume.optimize()
-    capture_volume.save(session_directory,1)
+    capture_volume.save(session_directory)
 # %%

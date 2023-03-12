@@ -320,8 +320,8 @@ def cartesian_product(*arrays):
     return arr.reshape(-1, la)
 
 
-# if __name__ == "__main__":
-if True:
+if __name__ == "__main__":
+# if True:
     from calicam import __root__
 
     session_directory = Path(__root__, "tests", "demo")

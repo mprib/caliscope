@@ -19,7 +19,7 @@ from calicam.calibration.capture_volume.capture_volume import (
 from calicam.calibration.capture_volume.point_estimates import PointEstimates
 
 class QualityController:
-    def __init__(self, capture_volume:CaptureVolume, charuco:Charuco):
+    def __init__(self, capture_volume:CaptureVolume, charuco:Charuco = None):
         self.charuco = charuco
         self.capture_volume = capture_volume
         self.all_data_2d = None
@@ -31,11 +31,13 @@ class QualityController:
             self.all_data_2d = self.data_2d
         else:
             self.all_data_2d = pd.concat([self.all_data_2d, self.data_2d])
-    
-        if self.all_distance_error is None:
-            self.all_distance_error = self.distance_error
-        else:
-            self.all_distance_error = pd.concat([self.all_distance_error, self.distance_error])
+  
+        # only create this data if the charuco was provided
+        if self.charuco is not None: 
+            if self.all_distance_error is None:
+                self.all_distance_error = self.distance_error
+            else:
+                self.all_distance_error = pd.concat([self.all_distance_error, self.distance_error])
     
     @property
     def data_2d(self) -> pd.DataFrame:
@@ -200,7 +202,8 @@ class QualityController:
         distance_error["corner_B"] = self.paired_obj_indices[:,1]
 
         distance_error["world_distance"] = distance_world_A_B       
-        distance_error["board_distance"] = distance_board_A_B       
+        distance_error["board_distance"] = distance_board_A_B
+        distance_error["percent_match"] = distance_world_A_B/distance_board_A_B      
         distance_error["stage"] = self.capture_volume.stage
 
         logger.info("returning distance error")
@@ -322,31 +325,30 @@ if True:
     from calicam import __root__
 
     session_directory = Path(__root__, "tests", "demo")
-    config_path = Path(session_directory, "config.toml")  
+    # config_path = Path(session_directory, "config.toml")  
     capture_volume_name = "capture_volume_stage_0.pkl"
     
     # get the inputs for quality control (CaptureVolume and Charuco)
     capture_volume = get_capture_volume(Path(session_directory,capture_volume_name))
-    charuco = get_charuco(config_path)
+    # charuco = get_charuco(config_path)
 
     # create QualityControl
-    quality_controller = QualityController(capture_volume,charuco)
+    quality_controller = QualityController(capture_volume)
 
     quality_controller.capture_volume.optimize()
+
     # store stage 1 data (initial optimization)
     quality_controller.capture_volume.save(session_directory)
     quality_controller.store_data()    
     
-    test_filter_directory = Path(__root__, "tests", "demo", "test_filter")
     logger.info(quality_controller.capture_volume.stage)
     
     for _ in range(0,5):
-        quality_controller.filter_point_estimates(.9)
-
+        logger.info("Filtering out worst fitting point estimates")
+        quality_controller.filter_point_estimates(.95)
         quality_controller.capture_volume.optimize()
         quality_controller.store_data()    
         quality_controller.capture_volume.save(session_directory)
 
     quality_controller.all_data_2d.to_csv(Path(session_directory, "data_2d.csv"))
-    quality_controller.all_distance_error.to_csv(Path(session_directory,"distance_error.csv"))
 # %%

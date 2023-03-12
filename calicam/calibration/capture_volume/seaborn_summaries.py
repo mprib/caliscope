@@ -13,16 +13,16 @@ data_2d = pd.read_csv(Path(session_directory,"data_2d.csv"))
 distance_error = pd.read_csv(Path(session_directory,"distance_error.csv"))
 
 
-#%%
-sns.histplot(data = data_2d, x = 'reproj_error')
 # %%
 facet_reproj_error = sns.FacetGrid(data_2d, col="camera", col_wrap=2)
-facet_reproj_error.map_dataframe(sns.histplot, x = "reproj_error")
+facet_reproj_error.map_dataframe(sns.boxplot, x = "stage", y = "reproj_error", showfliers=False)
 # %%
 facet_distance_error = sns.FacetGrid(distance_error,row="board_distance")
-facet_distance_error.map_dataframe(sns.histplot, x = "Distance_Error_mm")
-
-
+facet_distance_error.map_dataframe(sns.boxplot, x="stage", y = "Distance_Error_mm", showfliers=False)
+# sns.boxplot(data = distance_error, x = "stage", y = "Distance_Error_mm_abs", showfliers=False)
+#%%
+facet_distance_error = sns.FacetGrid(distance_error,row="board_distance")
+facet_distance_error.map_dataframe(sns.boxplot, x="stage", y = "percent_match", showfliers=False)
 
 # %%
 

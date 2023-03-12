@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import pandas as pd
-from calicam import __root__
+from pyxyfy import __root__
 import seaborn as sns
 import numpy as np
 

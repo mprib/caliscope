@@ -1,8 +1,8 @@
 # a set of helper functions meant to provide visual feedback
 # regarding the capture history and corner identification of
 # the charuco board
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 from itertools import combinations
 

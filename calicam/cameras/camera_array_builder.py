@@ -1,12 +1,12 @@
 #%%
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 import pandas as pd
 import toml
 from pathlib import Path
 import numpy as np
-from calicam.cameras.camera_array import CameraData, CameraArray
+from pyxyfy.cameras.camera_array import CameraData, CameraArray
 
 
 class CameraArrayBuilder:
@@ -160,7 +160,7 @@ class CameraArrayBuilder:
 if __name__ == "__main__":
 # if True:
     
-    from calicam import __root__
+    from pyxyfy import __root__
     
     config_path = Path(__root__, "tests", "please work", "config.toml")
     array_builder = CameraArrayBuilder(config_path)

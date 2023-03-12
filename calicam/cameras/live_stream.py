@@ -2,9 +2,9 @@
 # establishes the connection with the video source and manages the thread
 # that reads in frames.
 
-import calicam.logger
+import pyxyfy.logger
 
-logger = calicam.logger.get(__name__)
+logger = pyxyfy.logger.get(__name__)
 
 from time import perf_counter, sleep
 from queue import Queue
@@ -13,11 +13,11 @@ from threading import Thread, Event
 import cv2
 import numpy as np
 
-from calicam.cameras.camera import Camera
-from calicam.cameras.data_packets import FramePacket
-from calicam.calibration.charuco import Charuco
-from calicam.calibration.corner_tracker import CornerTracker
-import calicam.calibration.draw_charuco as draw_charuco
+from pyxyfy.cameras.camera import Camera
+from pyxyfy.cameras.data_packets import FramePacket
+from pyxyfy.calibration.charuco import Charuco
+from pyxyfy.calibration.corner_tracker import CornerTracker
+import pyxyfy.calibration.draw_charuco as draw_charuco
 
 
 class LiveStream:

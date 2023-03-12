@@ -1,6 +1,6 @@
 
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -12,9 +12,9 @@ from PyQt6.QtWidgets import (
     QTabWidget,
 )
 
-from calicam.gui.camera_config.camera_config_dialogue import CameraConfigDialog
-from calicam.session import Session
-from calicam.gui.widgets import NavigationBarBackNext
+from pyxyfy.gui.camera_config.camera_config_dialogue import CameraConfigDialog
+from pyxyfy.session import Session
+from pyxyfy.gui.widgets import NavigationBarBackNext
 
 class CameraWizard(QWidget):
     def __init__(self, session):
@@ -72,7 +72,7 @@ class CameraTabs(QTabWidget):
         
         
 if __name__ == "__main__":
-    from calicam import __root__
+    from pyxyfy import __root__
     
     App = QApplication(sys.argv)
 

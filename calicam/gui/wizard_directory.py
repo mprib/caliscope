@@ -1,6 +1,6 @@
-import calicam.logger
+import pyxyfy.logger
 
-logger = calicam.logger.get(__name__)
+logger = pyxyfy.logger.get(__name__)
 
 import os
 from pathlib import Path
@@ -22,9 +22,9 @@ from PyQt6.QtWidgets import (
     QRadioButton,
     QButtonGroup,
 )
-from calicam import __app_dir__, __root__
+from pyxyfy import __app_dir__, __root__
 
-from calicam.session import Session
+from pyxyfy.session import Session
 
 # class FolderSelectWizard(QWizard):
 #     def __init__(self):

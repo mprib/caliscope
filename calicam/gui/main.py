@@ -1,6 +1,6 @@
 
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 import sys
 import shutil
@@ -19,13 +19,13 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
 )
 
-from calicam.session import Session, Stage
-from calicam.gui.wizard_charuco import WizardCharuco
-from calicam.gui.camera_config.camera_tabs import CameraWizard
-from calicam.gui.wizard_directory import WizardDirectory
-from calicam import __root__, __app_dir__
-from calicam.session import Stage
-from calicam.gui.qt_logger import QtLogger
+from pyxyfy.session import Session, Stage
+from pyxyfy.gui.wizard_charuco import WizardCharuco
+from pyxyfy.gui.camera_config.camera_tabs import CameraWizard
+from pyxyfy.gui.wizard_directory import WizardDirectory
+from pyxyfy import __root__, __app_dir__
+from pyxyfy.session import Stage
+from pyxyfy.gui.qt_logger import QtLogger
 
 class CalibrationWizard(QStackedWidget):
     cameras_connected = pyqtSignal()
@@ -35,7 +35,7 @@ class CalibrationWizard(QStackedWidget):
         self.CAMS_IN_PROCESS = False
 
         self.setWindowTitle("Camera Calibration Wizard")
-        self.setWindowIcon(QIcon(str(Path(__root__, "calicam/gui/icons/orb.svg"))))
+        self.setWindowIcon(QIcon(str(Path(__root__, "pyxyfy/gui/icons/orb.svg"))))
         self.wizard_directory = WizardDirectory()
         self.addWidget(self.wizard_directory) # index:1
         self.setCurrentIndex(0)
@@ -178,7 +178,7 @@ class CalibrationWizard(QStackedWidget):
             self.find = Thread(target=find_cam_worker, args=(), daemon=True)
             self.find.start()
 
-def launch_calicam():
+def launch_pyxyfy():
 
     test_session = Path(__root__, "sessions", "laptop")
 
@@ -200,4 +200,4 @@ if __name__ == "__main__":
     
     # open in a session already so you don't have to go through the menu each time
     # window.open_session(config_path)
-    launch_calicam()
+    launch_pyxyfy()

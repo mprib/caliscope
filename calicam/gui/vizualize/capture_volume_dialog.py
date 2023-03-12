@@ -1,5 +1,5 @@
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -26,8 +26,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from calicam.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
-from calicam.gui.capture_volume.visualizer import CaptureVolumeVisualizer
+from pyxyfy.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
+from pyxyfy.gui.capture_volume.visualizer import CaptureVolumeVisualizer
 
 class CaptureVolumeDialog(QWidget):
     def __init__(self, CaptureVolumeVisualizer):
@@ -41,16 +41,16 @@ class CaptureVolumeDialog(QWidget):
         
 if __name__ == "__main__":
 
-    from calicam.recording.recorded_stream import RecordedStreamPool
-    from calicam.cameras.synchronizer import Synchronizer
-    from calicam.calibration.charuco import Charuco
-    from calicam.calibration.corner_tracker import CornerTracker
-    from calicam.triangulate.stereo_points_builder import StereoPointsBuilder
-    from calicam.triangulate.stereo_triangulator import StereoTriangulator
-    from calicam.triangulate.stereo_triangulator import StereoTriangulator
+    from pyxyfy.recording.recorded_stream import RecordedStreamPool
+    from pyxyfy.cameras.synchronizer import Synchronizer
+    from pyxyfy.calibration.charuco import Charuco
+    from pyxyfy.calibration.corner_tracker import CornerTracker
+    from pyxyfy.triangulate.stereo_points_builder import StereoPointsBuilder
+    from pyxyfy.triangulate.stereo_triangulator import StereoTriangulator
+    from pyxyfy.triangulate.stereo_triangulator import StereoTriangulator
 
     # set the location for the sample data used for testing
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam").parent
+    repo = Path(str(Path(__file__)).split("pyxyfy")[0],"pyxyfy").parent
     session_directory =Path(repo, "sessions", "high_res_session")
     # create playback streams to provide to synchronizer
     ports = [0, 2]

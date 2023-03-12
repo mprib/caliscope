@@ -1,6 +1,6 @@
 
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 from datetime import datetime
 from pathlib import Path

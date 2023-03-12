@@ -1,6 +1,6 @@
-import calicam.logger
+import pyxyfy.logger
 
-logger = calicam.logger.get(__name__)
+logger = pyxyfy.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -26,10 +26,10 @@ from PyQt6.QtWidgets import (
     QWizardPage,
 )
 
-from calicam import __app_dir__
-from calicam.calibration.charuco import ARUCO_DICTIONARIES, Charuco
-from calicam.session import Session
-from calicam.gui.widgets import NavigationBarNext
+from pyxyfy import __app_dir__
+from pyxyfy.calibration.charuco import ARUCO_DICTIONARIES, Charuco
+from pyxyfy.session import Session
+from pyxyfy.gui.widgets import NavigationBarNext
 
 class WizardCharuco(QWidget):
     def __init__(self, session):
@@ -284,7 +284,7 @@ class CharucoConfigurator(QWidget):
 
 if __name__ == "__main__":
     
-    from calicam import __root__
+    from pyxyfy import __root__
     config_path = Path(__root__, "sessions", "high_res_session")
 
     session = Session(config_path)

@@ -1,9 +1,9 @@
 # this is likely just going to be a set of functions to save out a version of videos that has been undistorted.
 
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
-from calicam.cameras.camera_array import CameraArray, CameraArrayBuilder, CameraData
+from pyxyfy.cameras.camera_array import CameraArray, CameraArrayBuilder, CameraData
 from pathlib import Path
 import cv2
 from threading import Thread
@@ -44,7 +44,7 @@ def undistort_file(camera: CameraData, video_directory, fps=30):
 
 if __name__ == "__main__":
 
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
+    repo = Path(str(Path(__file__)).split("pyxyfy")[0],"pyxyfy")
     config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()

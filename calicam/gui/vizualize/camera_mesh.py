@@ -2,8 +2,8 @@
 # to create a more comprehensive visualization of all the cameras at once.
 # there will likey be some refactoring to come back to this, but here we are
 
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     scene.addItem(axis)
 
 
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
+    repo = Path(str(Path(__file__)).split("pyxyfy")[0],"pyxyfy")
     # config_path = r"config 2.toml"
     config = toml.load(Path(repo, "sessions", "iterative_adjustment", "config.toml"))
     cams = {}    

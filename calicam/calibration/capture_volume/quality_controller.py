@@ -1,7 +1,7 @@
 #%%
-import calicam.logger
+import pyxyfy.logger
 
-logger = calicam.logger.get(__name__)
+logger = pyxyfy.logger.get(__name__)
 
 from pathlib import Path
 import pickle
@@ -10,13 +10,13 @@ from scipy import stats
 import numpy as np
 import pandas as pd
 import toml
-from calicam.calibration.charuco import Charuco
-from calicam.calibration.capture_volume.capture_volume import (
+from pyxyfy.calibration.charuco import Charuco
+from pyxyfy.calibration.capture_volume.capture_volume import (
     CaptureVolume,
     xy_reprojection_error,
 )
 
-from calicam.calibration.capture_volume.point_estimates import PointEstimates
+from pyxyfy.calibration.capture_volume.point_estimates import PointEstimates
 
 class QualityController:
     def __init__(self, capture_volume:CaptureVolume, charuco:Charuco = None):
@@ -322,7 +322,7 @@ def cartesian_product(*arrays):
 
 if __name__ == "__main__":
 # if True:
-    from calicam import __root__
+    from pyxyfy import __root__
 
     session_directory = Path(__root__, "tests", "demo")
     # config_path = Path(session_directory, "config.toml")  

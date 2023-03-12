@@ -187,13 +187,12 @@ if __name__ == "__main__":
     from calicam.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
-    session_directory = Path(__root__,  "tests", "demo", "test_filter")
+    session_directory = Path(__root__,  "tests", "demo")
 
     print(f"Optimizing initial camera array configuration ")
 
 
-    # saved_CV_path = Path(session_directory, "pre_optimized_capture_volume.pkl") 
-    saved_CV_path = Path(session_directory, "post_optimized_capture_volume.pkl") 
+    saved_CV_path = Path(session_directory, "capture_volume_stage_4.pkl") 
     with open(saved_CV_path, "rb") as f:
         capture_volume = pickle.load(f)
 

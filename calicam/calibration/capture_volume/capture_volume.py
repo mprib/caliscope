@@ -22,9 +22,13 @@ CAMERA_PARAM_COUNT = 6
 class CaptureVolume:
     camera_array: CameraArray
     point_estimates: PointEstimates
+    stage: int = 0
+    _rmse: float = None
 
-    def save(self, output_path):
-        with open(Path(output_path), "wb") as file:
+    def save(self, directory:Path):
+        pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"
+        logger.info(f"Saving stage {str(self.stage)} capture volume to {directory}")
+        with open(Path(directory, pkl_name), "wb") as file:
             pickle.dump(self, file)
 
     def get_vectorized_params(self):
@@ -37,16 +41,27 @@ class CaptureVolume:
 
         return combined
 
+    @property
+    def rmse(self):
+        
+        if hasattr(self, "least_sq_result"):
+            rmse = rms_reproj_error(self.least_sq_result.fun)
+        else:
+            param_estimates = self.get_vectorized_params()
+            xy_repro_error = xy_reprojection_error(param_estimates, self)
+            rmse = rms_reproj_error(xy_repro_error)
+         
+        return rmse   
+        
+        
+
     def get_xy_reprojection_error(self):
         vectorized_params = self.get_vectorized_params()
         error = xy_reprojection_error(vectorized_params, self)
 
         return error
 
-    # Mac: Start here tomorrow. This code was copied over but not revised to account for its new position.
-    # This is a substantial refactor of high level objects that will substantially simplify their interaction
-    # but it's going to be an adventure getting this to run again
-    def optimize(self, output_path=None):
+    def optimize(self):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
         initial_param_estimate = self.get_vectorized_params()
@@ -54,13 +69,9 @@ class CaptureVolume:
         # get a snapshot of where things are at the start
         initial_xy_error = xy_reprojection_error(initial_param_estimate, self)
 
-        logger.info(
-            f"Prior to bundle adjustment, RMSE is: {rms_reproj_error(initial_xy_error)}"
-        )
-
-        # save out this snapshot if path provided
-        if output_path is not None:
-            self.save(Path(output_path, "pre_optimized_capture_volume.pkl"))
+        # logger.info(
+        #     f"Prior to bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
+        # )
 
         self.least_sq_result = least_squares(
             xy_reprojection_error,
@@ -71,19 +82,16 @@ class CaptureVolume:
             loss="linear",
             ftol=1e-8,
             method="trf",
-
             # xy_reprojection error takes the vectorized param estimates as first arg and capture volume as second
             args=(self,),
         )
 
         self.camera_array.update_extrinsic_params(self.least_sq_result.x)
         self.point_estimates.update_obj_xyz(self.least_sq_result.x)
-
-        if output_path is not None:
-            self.save(Path(output_path, "post_optimized_capture_volume.pkl"))
-
+        self.stage += 1
+        
         logger.info(
-            f"Following bundle adjustment, RMSE is: {rms_reproj_error(self.least_sq_result.fun)}"
+            f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
         )
 
 
@@ -176,7 +184,7 @@ if __name__ == "__main__":
         get_point_estimates,
     )
 
-    session_directory = Path(__root__, "tests", "mimic_anipose")
+    session_directory = Path(__root__, "tests", "demo")
 
     point_data_csv_path = Path(session_directory, "point_data.csv")
 
@@ -188,6 +196,7 @@ if __name__ == "__main__":
     print(f"Optimizing initial camera array configuration ")
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
-    capture_volume.optimize(output_path=Path(session_directory))
-
+    capture_volume.save(session_directory)
+    capture_volume.optimize()
+    capture_volume.save(session_directory)
 # %%

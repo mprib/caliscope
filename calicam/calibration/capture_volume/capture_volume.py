@@ -69,9 +69,9 @@ class CaptureVolume:
         # get a snapshot of where things are at the start
         initial_xy_error = xy_reprojection_error(initial_param_estimate, self)
 
-        logger.info(
-            f"Prior to bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
-        )
+        # logger.info(
+        #     f"Prior to bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
+        # )
 
         self.least_sq_result = least_squares(
             xy_reprojection_error,

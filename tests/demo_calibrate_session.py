@@ -12,7 +12,7 @@ from pyxyfy.calibration.capture_volume.helper_functions.get_point_estimates impo
 
 # the session used for the single camera calibration and 
 # the omniframe data collection
-session_directory = Path(__root__,"tests", "demo" )
+session_directory = Path(__root__,"tests", "pyxyfy" )
 
 # point_data.csv is created during the omniframe datacollection
 point_data_path = Path(session_directory, "point_data.csv")
@@ -52,13 +52,10 @@ session.save_camera_array()
 from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
 capture_volume = CaptureVolume(session.camera_array, point_estimates)
 
+capture_volume.save(session_directory)
 # optimization will update the underlying camera_array and point_estimates
-capture_volume.optimize(output_path = session_directory)
+capture_volume.optimize()
 
 # %%
 session.save_camera_array()
-
-# %%
-capture_volume.optimize(output_path = session_directory)
-
-# %%
+capture_volume.save(session_directory)

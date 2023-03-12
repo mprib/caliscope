@@ -1,6 +1,6 @@
-import calicam.logger
+import pyxyfy.logger
 
-logger = calicam.logger.get(__name__)
+logger = pyxyfy.logger.get(__name__)
 
 from pathlib import Path
 from queue import Queue
@@ -9,8 +9,8 @@ import cv2
 import sys
 import pandas as pd
 
-from calicam.cameras.synchronizer import Synchronizer
-from calicam.cameras.live_stream import LiveStream
+from pyxyfy.cameras.synchronizer import Synchronizer
+from pyxyfy.cameras.live_stream import LiveStream
 
 class VideoRecorder:
     def __init__(self, synchronizer:Synchronizer):
@@ -141,13 +141,13 @@ if __name__ == "__main__":
 
     import time
 
-    from calicam.cameras.camera import Camera
-    from calicam.cameras.live_stream import LiveStream
-    from calicam.session import Session
-    from calicam.calibration.charuco import Charuco
+    from pyxyfy.cameras.camera import Camera
+    from pyxyfy.cameras.live_stream import LiveStream
+    from pyxyfy.session import Session
+    from pyxyfy.calibration.charuco import Charuco
 
-    from calicam.recording.recorded_stream import RecordedStream, RecordedStreamPool
-    from calicam import __root__
+    from pyxyfy.recording.recorded_stream import RecordedStream, RecordedStreamPool
+    from pyxyfy import __root__
 
 
     ports = [0, 1, 2, 3, 4]

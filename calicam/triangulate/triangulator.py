@@ -4,8 +4,8 @@
 # but I want something that is designed to be simple and not actually manage the cameras, just
 # organize the saved data
 
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 from queue import Queue
 from threading import Thread, Event
@@ -16,12 +16,12 @@ import pandas as pd
 from pathlib import Path
 from itertools import combinations
 
-from calicam.triangulate.stereo_points_builder import StereoPointsBuilder, StereoPointsPacket
-from calicam.cameras.data_packets import PointPacket, FramePacket, SyncPacket
-from calicam.triangulate.stereo_points_builder import StereoPointsPacket, SynchedStereoPointsPacket
+from pyxyfy.triangulate.stereo_points_builder import StereoPointsBuilder, StereoPointsPacket
+from pyxyfy.cameras.data_packets import PointPacket, FramePacket, SyncPacket
+from pyxyfy.triangulate.stereo_points_builder import StereoPointsPacket, SynchedStereoPointsPacket
 
 
-from calicam.cameras.camera_array import CameraData, CameraArray
+from pyxyfy.cameras.camera_array import CameraData, CameraArray
 
 
 class ArrayTriangulator:
@@ -140,13 +140,13 @@ class StereoTriangulator:
 
 if __name__ == "__main__":
 
-    from calicam.recording.recorded_stream import RecordedStreamPool
-    from calicam.cameras.synchronizer import Synchronizer
-    from calicam.calibration.charuco import Charuco
-    from calicam.calibration.corner_tracker import CornerTracker
-    from calicam.cameras.camera_array import CameraArrayBuilder, CameraArray, CameraData
+    from pyxyfy.recording.recorded_stream import RecordedStreamPool
+    from pyxyfy.cameras.synchronizer import Synchronizer
+    from pyxyfy.calibration.charuco import Charuco
+    from pyxyfy.calibration.corner_tracker import CornerTracker
+    from pyxyfy.cameras.camera_array import CameraArrayBuilder, CameraArray, CameraData
 
-    repo = Path(str(Path(__file__)).split("calicam")[0],"calicam")
+    repo = Path(str(Path(__file__)).split("pyxyfy")[0],"pyxyfy")
 
     config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
     camera_array = CameraArrayBuilder(config_path).get_camera_array()

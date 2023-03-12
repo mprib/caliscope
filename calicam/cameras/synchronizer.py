@@ -1,6 +1,6 @@
-import calicam.logger
+import pyxyfy.logger
 
-logger = calicam.logger.get(__name__)
+logger = pyxyfy.logger.get(__name__)
 import logging
 
 logger.setLevel(logging.DEBUG)
@@ -12,7 +12,7 @@ from threading import Thread, Event
 
 import cv2
 import numpy as np
-from calicam.cameras.data_packets import SyncPacket
+from pyxyfy.cameras.data_packets import SyncPacket
 
 
 class Synchronizer:
@@ -254,14 +254,14 @@ class Synchronizer:
 
 
 if __name__ == "__main__":
-    from calicam.calibration.charuco import Charuco
-    from calicam.calibration.corner_tracker import CornerTracker
-    from calicam.recording.recorded_stream import RecordedStream, RecordedStreamPool
+    from pyxyfy.calibration.charuco import Charuco
+    from pyxyfy.calibration.corner_tracker import CornerTracker
+    from pyxyfy.recording.recorded_stream import RecordedStream, RecordedStreamPool
 
-    from calicam.session import Session
+    from pyxyfy.session import Session
     import time
 
-    from calicam import __root__
+    from pyxyfy import __root__
     
     ports = [0, 1, 2, 3, 4]
     # ports = [0,1]

@@ -1,6 +1,6 @@
 
-from calicam.gui.main import launch_calicam
+from pyxyfy.gui.main import launch_pyxyfy
 
 def launch():
-    launch_calicam()
+    launch_pyxyfy()
 

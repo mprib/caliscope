@@ -1,7 +1,7 @@
 # Environment for managing all created objects and the primary interface for the GUI.
-import calicam.logger
+import pyxyfy.logger
 
-logger = calicam.logger.get(__name__)
+logger = pyxyfy.logger.get(__name__)
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -12,23 +12,23 @@ import numpy as np
 import toml
 from itertools import combinations
 
-from calicam.calibration.charuco import Charuco
-from calicam.calibration.corner_tracker import CornerTracker
-from calicam.calibration.monocalibrator import MonoCalibrator
-from calicam.cameras.camera import Camera
-from calicam.cameras.synchronizer import Synchronizer
-from calicam.cameras.camera_array_builder import CameraArrayBuilder
-from calicam.calibration.omnicalibrator import OmniCalibrator
-from calicam.calibration.capture_volume.point_estimates import PointEstimates
-from calicam.calibration.capture_volume.capture_volume import CaptureVolume
+from pyxyfy.calibration.charuco import Charuco
+from pyxyfy.calibration.corner_tracker import CornerTracker
+from pyxyfy.calibration.monocalibrator import MonoCalibrator
+from pyxyfy.cameras.camera import Camera
+from pyxyfy.cameras.synchronizer import Synchronizer
+from pyxyfy.cameras.camera_array_builder import CameraArrayBuilder
+from pyxyfy.calibration.omnicalibrator import OmniCalibrator
+from pyxyfy.calibration.capture_volume.point_estimates import PointEstimates
+from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
 
-from calicam.cameras.camera_array import CameraArray
-from calicam.calibration.capture_volume.helper_functions.get_point_estimates import (
+from pyxyfy.cameras.camera_array import CameraArray
+from pyxyfy.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
 
-from calicam.cameras.live_stream import LiveStream
-from calicam.recording.video_recorder import VideoRecorder
+from pyxyfy.cameras.live_stream import LiveStream
+from pyxyfy.recording.video_recorder import VideoRecorder
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10
@@ -503,7 +503,7 @@ class Stage(Enum):
 #%%
 if __name__ == "__main__":
     #%%
-    from calicam import __root__
+    from pyxyfy import __root__
 
     config_path = Path(__root__, "tests", "why breaking")
 

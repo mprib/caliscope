@@ -1,5 +1,5 @@
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -25,9 +25,9 @@ from PyQt6.QtWidgets import (
 )
 
 # Append main repo to top of path to allow import of backend
-from calicam.gui.camera_config.frame_emitter import FrameEmitter
+from pyxyfy.gui.camera_config.frame_emitter import FrameEmitter
 
-from calicam.session import Session
+from pyxyfy.session import Session
 
 
 class CameraConfigDialog(QDialog):
@@ -284,7 +284,7 @@ class CameraConfigDialog(QDialog):
 
     def build_cw_rotation_btn(self):
         self.cw_rotation_btn = QPushButton(
-            QIcon("calicam/gui/icons/rotate-camera-right.svg"), ""
+            QIcon("pyxyfy/gui/icons/rotate-camera-right.svg"), ""
         )
         self.cw_rotation_btn.setMaximumSize(100, 50)
 
@@ -294,7 +294,7 @@ class CameraConfigDialog(QDialog):
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton(
-            QIcon("calicam/gui/icons/rotate-camera-left.svg"), ""
+            QIcon("pyxyfy/gui/icons/rotate-camera-left.svg"), ""
         )
 
         # Clockwise rotation called because the display image is flipped
@@ -407,7 +407,7 @@ class CameraConfigDialog(QDialog):
 
 if __name__ == "__main__":
     App = QApplication(sys.argv)
-    from calicam import __root__
+    from pyxyfy import __root__
     config_path = Path(__root__, "sessions", "laptop")
 
     print(config_path)

@@ -2,15 +2,15 @@
 # detector and the corner drawer...like, there will need to be something that
 # accumulates a frame of corners to be drawn onto the displayed frame.
 
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 import cv2
 import numpy as np
 
-import calicam.calibration.draw_charuco
-from calicam.calibration.charuco import Charuco
-from calicam.cameras.data_packets import PointPacket
+import pyxyfy.calibration.draw_charuco
+from pyxyfy.calibration.charuco import Charuco
+from pyxyfy.cameras.data_packets import PointPacket
 
 
 class CornerTracker:
@@ -107,8 +107,8 @@ class CornerTracker:
 
 if __name__ == "__main__":
 
-    from calicam.cameras.camera import Camera
-    from calicam.cameras.live_stream import LiveStream
+    from pyxyfy.cameras.camera import Camera
+    from pyxyfy.cameras.live_stream import LiveStream
     
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
         # read_success, frame = cam.capture.read()
         frame_packet = stream.out_q.get()
-        calicam.calibration.draw_charuco.corners(frame_packet)
+        pyxyfy.calibration.draw_charuco.corners(frame_packet)
 
         cv2.imshow("Press 'q' to quit", frame_packet.frame)
         key = cv2.waitKey(1)

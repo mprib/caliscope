@@ -1,5 +1,5 @@
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 from pathlib import Path
 import numpy as np
@@ -99,9 +99,9 @@ class CameraArray:
 
 
 if __name__ == "__main__":
-    from calicam.cameras.camera_array_builder import CameraArrayBuilder
+    from pyxyfy.cameras.camera_array_builder import CameraArrayBuilder
 
-    from calicam import __root__
+    from pyxyfy import __root__
 
     session_directory = Path(__root__, "tests", "mimic_anipose")
     config_path = Path(session_directory, "config.toml")

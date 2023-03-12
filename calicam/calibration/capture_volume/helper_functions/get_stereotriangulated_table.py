@@ -2,8 +2,8 @@
 # all of the data is ultimately embedded in the initial camera array configuration
 # and the calibration point data. These functions transform those two 
 # things into a PointHistory object that can be used to optimize the CaptureVolume
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 from itertools import combinations
 import pandas as pd
@@ -11,12 +11,12 @@ import numpy as np
 from pathlib import Path
 import time
 
-from calicam import __root__
-from calicam.cameras.data_packets import PointPacket, FramePacket, SyncPacket
-from calicam.cameras.camera_array import CameraArray
-from calicam.triangulate.triangulator import ArrayTriangulator
+from pyxyfy import __root__
+from pyxyfy.cameras.data_packets import PointPacket, FramePacket, SyncPacket
+from pyxyfy.cameras.camera_array import CameraArray
+from pyxyfy.triangulate.triangulator import ArrayTriangulator
 
-from calicam.triangulate.stereo_points_builder import (
+from pyxyfy.triangulate.stereo_points_builder import (
     StereoPointsBuilder,
     StereoPointsPacket,
     SynchedStereoPointsPacket,

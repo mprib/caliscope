@@ -5,10 +5,10 @@
 #   1: future testing (don't have to keep recording live video)
 #   2: future off-line processing of pre-recorded video.
 
-import calicam.logger
+import pyxyfy.logger
 import logging
 
-logger = calicam.logger.get(__name__)
+logger = pyxyfy.logger.get(__name__)
 logger.setLevel(logging.INFO)
 
 from pathlib import Path
@@ -19,8 +19,8 @@ from time import perf_counter, sleep
 import pandas as pd
 import numpy as np
 
-from calicam.calibration.corner_tracker import CornerTracker
-from calicam.cameras.data_packets import FramePacket
+from pyxyfy.calibration.corner_tracker import CornerTracker
+from pyxyfy.cameras.data_packets import FramePacket
 
 
 class RecordedStream:
@@ -152,11 +152,11 @@ class RecordedStreamPool:
 
 
 if __name__ == "__main__":
-    from calicam.cameras.synchronizer import Synchronizer
-    from calicam.calibration.charuco import Charuco
+    from pyxyfy.cameras.synchronizer import Synchronizer
+    from pyxyfy.calibration.charuco import Charuco
     
     
-    from calicam import __root__
+    from pyxyfy import __root__
 
     recording_directory = Path(__root__, "tests", "5_cameras", "recording")
 

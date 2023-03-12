@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 
-__package_name__ = "calicam"
+__package_name__ = "pyxyfy"
 __version__ = "v0.0.10"
 
 __author__ = """Mac Prible"""

@@ -1,6 +1,6 @@
 
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -29,10 +29,10 @@ from PyQt6.QtWidgets import (
 )
 
 # Append main repo to top of path to allow import of backend
-from calicam.session import Session
-from calicam.gui.omniframe.omni_frame_builder import OmniFrameBuilder
-from calicam.cameras.synchronizer import Synchronizer
-from calicam import __root__
+from pyxyfy.session import Session
+from pyxyfy.gui.omniframe.omni_frame_builder import OmniFrameBuilder
+from pyxyfy.cameras.synchronizer import Synchronizer
+from pyxyfy import __root__
 
 
 class OmniFrameWidget(QWidget):

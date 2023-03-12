@@ -1,6 +1,6 @@
 
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 # import logging
 # logger.setLevel(logging.DEBUG)
 import time
@@ -11,11 +11,11 @@ import cv2
 import numpy as np
 
 
-import calicam.calibration.draw_charuco as draw_charuco
-from calicam.calibration.charuco import Charuco
-from calicam.calibration.corner_tracker import CornerTracker
-from calicam.cameras.data_packets import FramePacket
-from calicam.cameras.live_stream import LiveStream
+import pyxyfy.calibration.draw_charuco as draw_charuco
+from pyxyfy.calibration.charuco import Charuco
+from pyxyfy.calibration.corner_tracker import CornerTracker
+from pyxyfy.cameras.data_packets import FramePacket
+from pyxyfy.cameras.live_stream import LiveStream
 
 class MonoCalibrator():
 
@@ -194,9 +194,9 @@ class MonoCalibrator():
 
 if __name__ == "__main__":
 
-    from calicam.cameras.camera import Camera
-    from calicam.cameras.synchronizer import Synchronizer
-    from calicam.cameras.live_stream import LiveStream
+    from pyxyfy.cameras.camera import Camera
+    from pyxyfy.cameras.synchronizer import Synchronizer
+    from pyxyfy.cameras.live_stream import LiveStream
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True

@@ -1,7 +1,7 @@
 import logging
-import calicam.logger
+import pyxyfy.logger
 
-logger = calicam.logger.get(__name__)
+logger = pyxyfy.logger.get(__name__)
 if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
 
@@ -14,9 +14,9 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 from itertools import combinations
-from calicam.cameras.synchronizer import Synchronizer
-from calicam.calibration.corner_tracker import CornerTracker
-from calicam.cameras.data_packets import SyncPacket
+from pyxyfy.cameras.synchronizer import Synchronizer
+from pyxyfy.calibration.corner_tracker import CornerTracker
+from pyxyfy.cameras.data_packets import SyncPacket
 
 
 class StereoPointsBuilder:
@@ -150,11 +150,11 @@ class SynchedStereoPointsPacket:
 
 
 if __name__ == "__main__":
-    from calicam.recording.recorded_stream import RecordedStreamPool
-    from calicam.calibration.charuco import Charuco
+    from pyxyfy.recording.recorded_stream import RecordedStreamPool
+    from pyxyfy.calibration.charuco import Charuco
 
     logger.setLevel(logging.DEBUG)
-    from calicam import __root__
+    from pyxyfy import __root__
 
     session_directory = Path(__root__, "tests", "5_cameras", "recording")
     csv_output = Path(session_directory, "paired_point_data.csv")

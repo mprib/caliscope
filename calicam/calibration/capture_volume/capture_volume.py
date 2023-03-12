@@ -1,8 +1,8 @@
 #%%
 
-import calicam.logger
+import pyxyfy.logger
 
-logger = calicam.logger.get(__name__)
+logger = pyxyfy.logger.get(__name__)
 
 from pathlib import Path
 import pickle
@@ -12,8 +12,8 @@ import cv2
 from scipy.optimize import least_squares
 import pandas as pd
 
-from calicam.calibration.capture_volume.point_estimates import PointEstimates
-from calicam.cameras.camera_array import CameraArray
+from pyxyfy.calibration.capture_volume.point_estimates import PointEstimates
+from pyxyfy.cameras.camera_array import CameraArray
 
 CAMERA_PARAM_COUNT = 6
 
@@ -178,9 +178,9 @@ def rms_reproj_error(xy_reproj_error):
 
 if __name__ == "__main__":
     # if True:
-    from calicam import __root__
-    from calicam.cameras.camera_array_builder import CameraArrayBuilder
-    from calicam.calibration.capture_volume.helper_functions.get_point_estimates import (
+    from pyxyfy import __root__
+    from pyxyfy.cameras.camera_array_builder import CameraArrayBuilder
+    from pyxyfy.calibration.capture_volume.helper_functions.get_point_estimates import (
         get_point_estimates,
     )
 

@@ -1,12 +1,12 @@
-import calicam.logger
-logger = calicam.logger.get(__name__)
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 from pathlib import Path
 
 import cv2
 import numpy as np
 
-from calicam.cameras.synchronizer import Synchronizer
+from pyxyfy.cameras.synchronizer import Synchronizer
 from itertools import combinations
 from queue import Queue
 from threading import Event
@@ -295,13 +295,13 @@ def resize(image, new_height):
     return resized
 
 if __name__ == "__main__":
-    from calicam.calibration.corner_tracker import CornerTracker
-    from calicam.recording.recorded_stream import RecordedStreamPool,RecordedStream
-    from calicam.recording.video_recorder import VideoRecorder
-    from calicam.session import Session
-    from calicam.calibration.charuco import Charuco
+    from pyxyfy.calibration.corner_tracker import CornerTracker
+    from pyxyfy.recording.recorded_stream import RecordedStreamPool,RecordedStream
+    from pyxyfy.recording.video_recorder import VideoRecorder
+    from pyxyfy.session import Session
+    from pyxyfy.calibration.charuco import Charuco
     
-    from calicam import __root__
+    from pyxyfy import __root__
     
     ports = [0, 1, 2, 3, 4]
     # ports = [1,2, 3]

@@ -5,13 +5,13 @@ from pathlib import Path
 # sys.path.insert(0,Path(__file__).parent.parent.parent)
 
 
-import calicam.logger
+import pyxyfy.logger
 
-logger = calicam.logger.get(__name__)
+logger = pyxyfy.logger.get(__name__)
 
 import cv2
 import pandas as pd
-from calicam import __root__
+from pyxyfy import __root__
 
 import time
 

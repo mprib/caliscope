@@ -84,7 +84,7 @@ class Charuco:
             square_length = min(
                 [board_height_m / self.rows, board_width_m / self.columns]
             )
-        logger.info(f"Creating charuco with square length of {square_length}")
+        logger.info(f"Creating charuco with square length of {round(square_length,4)}")
 
         aruco_length = square_length * self.aruco_scale
         # create the board

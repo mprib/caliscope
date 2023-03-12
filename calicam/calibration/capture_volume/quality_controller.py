@@ -15,61 +15,32 @@ from calicam.calibration.capture_volume.capture_volume import (
     CaptureVolume,
     xy_reprojection_error,
 )
+
 from calicam.calibration.capture_volume.point_estimates import PointEstimates
 
-class QualityScanner:
-    def __init__(self, session_directory: Path, capture_volume_name: str):
-        self.session_directory = session_directory
-        self.config_path = Path(self.session_directory, "config.toml")
+class QualityController:
+    def __init__(self, capture_volume:CaptureVolume, charuco:Charuco = None):
+        self.charuco = charuco
+        self.capture_volume = capture_volume
+        self.all_data_2d = None
+        self.all_distance_error = None
 
-        # pull charuco from config
-        self.charuco = self.get_charuco()
 
-        # load capture volume being analyzed
-        capture_volume_path = Path(self.session_directory, capture_volume_name)
-
-        self.capture_volume = self.get_capture_volume(capture_volume_path)
-
-        # all 2d data including reprojection error and estimated corresponding 3d point
-        self.data_2d = self.get_summary_2d_df()
-
-        # all individual 3d points estimated in a world frame of reference
-        self.corners_world_xyz = self.get_corners_world_xyz()
-
-        # all possible pairs of 3d points that share the same sync_index
-        # these align with the index used in self.corners_xyz
-        self.paired_obj_indices = self.get_paired_obj_indices()
-
-        # Corner positions in a board frame of refernce aligning with index of corners_world_xyz
-        # note this is already just a numpy ndarray
-        self.corners_board_xyz = self.get_corners_board_xyz()
-
-        self.distance_error = self.get_distance_error()
-
-    def get_charuco(self) -> Charuco:
-        config = toml.load(self.config_path)
-
-        ## create charuco
-        charuco = Charuco(
-            columns=config["charuco"]["columns"],
-            rows=config["charuco"]["rows"],
-            board_height=config["charuco"]["board_height"],
-            board_width=config["charuco"]["rows"],
-            dictionary=config["charuco"]["dictionary"],
-            units=config["charuco"]["units"],
-            aruco_scale=config["charuco"]["aruco_scale"],
-            square_size_overide_cm=config["charuco"]["square_size_overide_cm"],
-            inverted=config["charuco"]["inverted"],
-        )
-
-        return charuco
-
-    def get_capture_volume(self, capture_volume_pkl_path: Path) -> CaptureVolume:
-        with open(capture_volume_pkl_path, "rb") as file:
-            capture_volume = pickle.load(file)
-        return capture_volume
-
-    def get_summary_2d_df(self) -> pd.DataFrame:
+    def store_data(self):
+        if self.all_data_2d is None:
+            self.all_data_2d = self.data_2d
+        else:
+            self.all_data_2d = pd.concat([self.all_data_2d, self.data_2d])
+  
+        # only create this data if the charuco was provided
+        if self.charuco is not None: 
+            if self.all_distance_error is None:
+                self.all_distance_error = self.distance_error
+            else:
+                self.all_distance_error = pd.concat([self.all_distance_error, self.distance_error])
+    
+    @property
+    def data_2d(self) -> pd.DataFrame:
         """
         Unpack the Array Diagnostic data into a pandas dataframe format that can be
         plotted and summarized. This is all 2d data observations with their
@@ -87,6 +58,7 @@ class QualityScanner:
         row_count = euclidean_distance_error.shape[0]
 
         array_data_dict = {
+            "stage": [self.capture_volume.stage]*row_count, 
             "camera": self.capture_volume.point_estimates.camera_indices.tolist(),
             "sync_index": self.capture_volume.point_estimates.sync_indices.astype(
                 int
@@ -120,7 +92,8 @@ class QualityScanner:
 
         return summarized_data
 
-    def get_corners_world_xyz(self) -> pd.DataFrame:
+    @property
+    def corners_world_xyz(self) -> pd.DataFrame:
         """
         convert the table of 2d data observations to a smaller table of only the individual 3d point
         estimates. These will have a number of duplicates so drop them.
@@ -138,7 +111,8 @@ class QualityScanner:
 
         return corners_3d
 
-    def get_paired_obj_indices(self) -> np.ndarray:
+    @property
+    def paired_obj_indices(self) -> np.ndarray:
         """given a dataframe that contains all observed charuco corners across sync_indices,
         return a Nx2 matrix of paired object indices that will represent all possible
         joined lines between charuco corners for each sync_index"""
@@ -180,13 +154,16 @@ class QualityScanner:
 
         return reformatted_paired_obj_indices
 
-    def get_corners_board_xyz(self) -> np.ndarray:
+    @property
+    def corners_board_xyz(self) -> np.ndarray:
         corner_ids = self.corners_world_xyz["charuco_id"]
         corners_board_xyz = self.charuco.board.chessboardCorners[corner_ids]
 
         return corners_board_xyz
 
-    def get_distance_error(self) -> pd.DataFrame:
+    @property
+    def distance_error(self) -> pd.DataFrame:
+        logger.info("Beginning to calculate distance error")
 
         # temp numpy frame for working calculations
         corners_world_xyz = self.corners_world_xyz[
@@ -225,8 +202,12 @@ class QualityScanner:
         distance_error["corner_B"] = self.paired_obj_indices[:,1]
 
         distance_error["world_distance"] = distance_world_A_B       
-        distance_error["board_distance"] = distance_board_A_B       
+        distance_error["board_distance"] = distance_board_A_B
+        distance_error["percent_match"] = distance_world_A_B/distance_board_A_B      
+        distance_error["stage"] = self.capture_volume.stage
 
+        logger.info("returning distance error")
+        
         return distance_error
 
     def get_filtered_data_2d(self, percentile_cutoff: float):
@@ -262,7 +243,69 @@ class QualityScanner:
             columns={"obj_id": "original_obj_id"}
         )
         return filtered_data_2d
+    
+    def filter_point_estimates(self, percentile_cutoff: float):
 
+        filtered_data_2d = self.get_filtered_data_2d(percentile_cutoff)
+
+        objects_3d = (
+            filtered_data_2d.filter(["original_obj_id", "obj_x", "obj_y", "obj_z"])
+            .drop_duplicates()
+            .reset_index()
+            .drop("index", axis=1)
+            .reset_index()
+            .rename(columns={"index":"filtered_obj_id"})
+        )
+    
+        old_new_mapping = objects_3d.filter(["filtered_obj_id", "original_obj_id"])
+    
+        filtered_data_2d = filtered_data_2d.merge(old_new_mapping, how="right", on=["original_obj_id"])
+
+        # get revised point_estimates
+        sync_indices = filtered_data_2d["sync_index"].to_numpy()
+        camera_indices = filtered_data_2d["camera"].to_numpy()
+        point_id = filtered_data_2d["charuco_id"].to_numpy()
+        img = filtered_data_2d.filter(["img_x", "img_y"]).to_numpy()
+        obj_indices = filtered_data_2d["filtered_obj_id"].to_numpy()
+        obj = objects_3d.filter(["obj_x", "obj_y", "obj_z"]).to_numpy()
+
+        filtered_point_estimates = PointEstimates(
+            sync_indices=sync_indices,
+            camera_indices=camera_indices,
+            point_id=point_id,
+            img=img,
+            obj_indices=obj_indices,
+            obj=obj
+        )
+        
+        self.capture_volume.point_estimates = filtered_point_estimates
+        
+
+def get_capture_volume(capture_volume_pkl_path: Path) -> CaptureVolume:
+    logger.info(f"loading capture volume from {capture_volume_pkl_path}")
+    with open(capture_volume_pkl_path, "rb") as file:
+        logger.info(f"beginning to load file....")
+        capture_volume = pickle.load(file)
+        logger.info(f"file loaded...")
+    return capture_volume
+
+def get_charuco(config_path) -> Charuco:
+    config = toml.load(config_path)
+
+    ## create charuco
+    charuco = Charuco(
+        columns=config["charuco"]["columns"],
+        rows=config["charuco"]["rows"],
+        board_height=config["charuco"]["board_height"],
+        board_width=config["charuco"]["rows"],
+        dictionary=config["charuco"]["dictionary"],
+        units=config["charuco"]["units"],
+        aruco_scale=config["charuco"]["aruco_scale"],
+        square_size_overide_cm=config["charuco"]["square_size_overide_cm"],
+        inverted=config["charuco"]["inverted"],
+    )
+
+    return charuco
 
 def cartesian_product(*arrays):
     """
@@ -282,72 +325,30 @@ if True:
     from calicam import __root__
 
     session_directory = Path(__root__, "tests", "demo")
-    capture_volume_name = "post_optimized_capture_volume.pkl"
-
-    quality_scanner = QualityScanner(session_directory, capture_volume_name)
-    summary_2d_data = quality_scanner.data_2d
-
-    corners_world_xyz = quality_scanner.corners_world_xyz
-    paired_indices = quality_scanner.paired_obj_indices
-    distance_error = quality_scanner.distance_error
-
-    distance_error.to_csv(Path(session_directory,"distance_error.csv"))
-
-    logger.info(distance_error.describe())
-
-
-    percentile_cutoff = 0.75
-
-    filtered_data_2d = quality_scanner.get_filtered_data_2d(percentile_cutoff)
-
-    objects_3d = (
-        filtered_data_2d.filter(["original_obj_id", "obj_x", "obj_y", "obj_z"])
-        .drop_duplicates()
-        .reset_index()
-        .drop("index", axis=1)
-        .reset_index()
-        .rename(columns={"index":"filtered_obj_id"})
-    )
+    # config_path = Path(session_directory, "config.toml")  
+    capture_volume_name = "capture_volume_stage_0.pkl"
     
-    original_filter_mapping = objects_3d.filter(["filtered_obj_id", "original_obj_id"])
-    
-    filtered_data_2d = filtered_data_2d.merge(original_filter_mapping, how="right", on=["original_obj_id"])
+    # get the inputs for quality control (CaptureVolume and Charuco)
+    capture_volume = get_capture_volume(Path(session_directory,capture_volume_name))
+    # charuco = get_charuco(config_path)
 
+    # create QualityControl
+    quality_controller = QualityController(capture_volume)
 
-    # get revised point_estimates
-    sync_indices = filtered_data_2d["sync_index"].to_numpy()
-    camera_indices = filtered_data_2d["camera"].to_numpy()
-    point_id = filtered_data_2d["charuco_id"].to_numpy()
-    img = filtered_data_2d.filter(["img_x", "img_y"]).to_numpy()
-    obj_indices = filtered_data_2d["filtered_obj_id"].to_numpy()
-    obj = objects_3d.filter(["obj_x", "obj_y", "obj_z"]).to_numpy()
+    quality_controller.capture_volume.optimize()
 
-    filtered_point_estimates = PointEstimates(
-        sync_indices=sync_indices,
-        camera_indices=camera_indices,
-        point_id=point_id,
-        img=img,
-        obj_indices=obj_indices,
-        obj=obj
-    )
+    # store stage 1 data (initial optimization)
+    quality_controller.capture_volume.save(session_directory)
+    quality_controller.store_data()    
     
+    logger.info(quality_controller.capture_volume.stage)
     
-    quality_scanner.capture_volume.point_estimates = filtered_point_estimates
-    
-    test_filter_directory = Path(__root__, "tests", "demo", "test_filter")
-    quality_scanner.capture_volume.optimize(test_filter_directory)
-    capture_volume_name = "post_optimized_capture_volume.pkl"
-    post_filter_q_s = QualityScanner(test_filter_directory,capture_volume_name)
-    
-    
-    logger.info("Examinging reprojection error...should reduce")
-    logger.info("Pre Filter:")
-    logger.info(quality_scanner.data_2d["reproj_error"].describe())
-    logger.info(quality_scanner.get_distance_error().describe())
+    for _ in range(0,5):
+        logger.info("Filtering out worst fitting point estimates")
+        quality_controller.filter_point_estimates(.95)
+        quality_controller.capture_volume.optimize()
+        quality_controller.store_data()    
+        quality_controller.capture_volume.save(session_directory)
 
-    logger.info("Post Filter:")
-    logger.info(post_filter_q_s.get_distance_error().describe())
-    
-    logger.info(post_filter_q_s.data_2d["reproj_error"].describe())
-    
+    quality_controller.all_data_2d.to_csv(Path(session_directory, "data_2d.csv"))
 # %%

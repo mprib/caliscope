@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 __package_name__ = "pyxyfy"
-__version__ = "v0.0.10"
+__version__ = "v0.0.0"
 
 __author__ = """Mac Prible"""
 __email__ = "prible@gmail.com"

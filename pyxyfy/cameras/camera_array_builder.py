@@ -27,7 +27,7 @@ class CameraArrayBuilder:
         self.cameras = {}
         # create the basic cameras based off of intrinsic params stored in config
         for key, data in self.config.items():
-            if key.startswith("cam_"):
+            if key.startswith("cam_") and not self.config[key]['ignore']:
                 port = data["port"]
                 size = data["size"]
                 rotation_count = data["rotation_count"]

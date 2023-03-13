@@ -34,6 +34,7 @@ from pyxyfy.gui.omniframe.omni_frame_builder import OmniFrameBuilder
 from pyxyfy.cameras.synchronizer import Synchronizer
 from pyxyfy import __root__
 
+from pyxyfy.gui.widgets import NavigationBarBackNext
 
 class OmniFrameWidget(QWidget):
     
@@ -43,7 +44,7 @@ class OmniFrameWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
 
-        self.frame_builder = OmniFrameBuilder(self.synchronizer, board_count_target=40)
+        self.frame_builder = OmniFrameBuilder(self.synchronizer, board_count_target=60)
         self.frame_emitter = OmniFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 
@@ -63,7 +64,9 @@ class OmniFrameWidget(QWidget):
 
         self.omni_frame_display = QLabel()
         self.scroll_area.setWidget(self.omni_frame_display)
-        
+       
+        self.navigation_bar = NavigationBarBackNext() 
+        self.layout().addWidget(self.navigation_bar)
 
     def connect_widgets(self):
         self.calibrate_collect_btn.clicked.connect(self.on_calibrate_connect_click)

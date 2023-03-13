@@ -26,19 +26,6 @@ from pyxyfy import __app_dir__, __root__
 
 from pyxyfy.session import Session
 
-# class FolderSelectWizard(QWizard):
-#     def __init__(self):
-#         super().__init__()
-#         self.setWindowTitle("Calibration Wizard")
-
-#         self.intro_page = WizardIntro()
-#         self.addPage(self.intro_page)
-    
-#         self.launch_wizard_btn = QPushButton("Launch Calibration Session")
-#         self.launch_wizard_btn.setEnabled(False)
-#         self.setButton(self.WizardButton.CustomButton1, self.launch_wizard_btn)
-#         self.setButtonLayout([self.WizardButton.CustomButton1])
-
 class WizardDirectory(QWidget):
     
     isComplete = pyqtSignal(bool)

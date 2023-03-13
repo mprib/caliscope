@@ -284,7 +284,7 @@ class CameraConfigDialog(QDialog):
 
     def build_cw_rotation_btn(self):
         self.cw_rotation_btn = QPushButton(
-            QIcon("pyxyfy/gui/icons/rotate-camera-right.svg"), ""
+            QIcon("pyxy/gui/icons/rotate-camera-right.svg"), ""
         )
         self.cw_rotation_btn.setMaximumSize(100, 50)
 
@@ -294,7 +294,7 @@ class CameraConfigDialog(QDialog):
 
     def build_ccw_rotation_btn(self):
         self.ccw_rotation_btn = QPushButton(
-            QIcon("pyxyfy/gui/icons/rotate-camera-left.svg"), ""
+            QIcon("pyxy/gui/icons/rotate-camera-left.svg"), ""
         )
 
         # Clockwise rotation called because the display image is flipped

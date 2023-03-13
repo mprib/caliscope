@@ -9,7 +9,7 @@ from threading  import Thread
 
 def test():
     def worker():
-        session = Session(Path(r"C:\Users\Mac Prible\repos\pyxyfy\sessions\laptop"))
+        session = Session(Path(r"C:\Users\Mac Prible\repos\pyxy\sessions\laptop"))
         session.find_cameras()
     thread = Thread(target=worker, args=(), daemon=True)
     thread.start()

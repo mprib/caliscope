@@ -413,20 +413,20 @@ class Session:
     def get_stage(self):
         stage = None
         if self.connected_camera_count() == 0:
-            stage =  Stage.NO_CAMERAS
+            stage = Stage.NO_CAMERAS
 
-        if self.calibrated_camera_count() < self.connected_camera_count():
+        elif self.calibrated_camera_count() < self.connected_camera_count():
             stage = Stage.UNCALIBRATED_CAMERAS
 
-        if len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
-            stage = Stage.OMNICALIBRATION_DONE
-
-        if (
+        elif (
             self.connected_camera_count() > 0
             and self.calibrated_camera_count() == self.connected_camera_count()
         ):
             stage = Stage.MONOCALIBRATED_CAMERAS
-        
+
+        elif len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
+            stage = Stage.OMNICALIBRATION_DONE
+
         logger.info(f"Current stage of session is {stage}")
         return stage
 
@@ -464,7 +464,7 @@ class Session:
 
         self.update_config()
 
-    def calibrate(self):    
+    def calibrate(self):
         self.stop_recording()
         self.point_data_path = Path(self.path, "point_data.csv")
 
@@ -479,7 +479,7 @@ class Session:
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
         self.capture_volume.optimize()
         self.save_camera_array()
-       
+
 
 def format_toml_dict(toml_dict: dict):
     temp_config = {}

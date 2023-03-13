@@ -27,7 +27,8 @@ class CameraWizard(QWidget):
         self.layout().addWidget(self.navigation_bar)
     
         self.camera_tabs.omniframe_ready.connect(self.set_next_enabled)
-    
+        self.camera_tabs.check_session_calibration()
+         
     def set_next_enabled(self, omniframe_ready:bool):
         logger.info(f"Setting camera tab next button enabled status to {omniframe_ready}")
         self.navigation_bar.next_btn.setEnabled(omniframe_ready)
@@ -89,8 +90,10 @@ class CameraTabs(QTabWidget):
     def check_session_calibration(self):
         logger.info(f"Checking session stage....")
         if self.session.get_stage() == Stage.MONOCALIBRATED_CAMERAS:
+            logger.info("Ready for omniframe")
             self.omniframe_ready.emit(True)       
         elif self.session.get_stage() == Stage.UNCALIBRATED_CAMERAS:
+            logger.info("Not ready for omniframe")
             self.omniframe_ready.emit(False)
             
 if __name__ == "__main__":

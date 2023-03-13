@@ -35,7 +35,7 @@ class CalibrationWizard(QStackedWidget):
         self.CAMS_IN_PROCESS = False
 
         self.setWindowTitle("Camera Calibration Wizard")
-        self.setWindowIcon(QIcon(str(Path(__root__, "pyxyfy/gui/icons/orb.svg"))))
+        self.setWindowIcon(QIcon(str(Path(__root__, "pyxy/gui/icons/orb.svg"))))
         self.wizard_directory = WizardDirectory()
         self.addWidget(self.wizard_directory) # index:1
         self.setCurrentIndex(0)
@@ -178,7 +178,7 @@ class CalibrationWizard(QStackedWidget):
             self.find = Thread(target=find_cam_worker, args=(), daemon=True)
             self.find.start()
 
-def launch_pyxyfy():
+def launch_pyxy():
 
     test_session = Path(__root__, "sessions", "laptop")
 
@@ -200,4 +200,4 @@ if __name__ == "__main__":
     
     # open in a session already so you don't have to go through the menu each time
     # window.open_session(config_path)
-    launch_pyxyfy()
+    launch_pyxy()

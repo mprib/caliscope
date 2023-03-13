@@ -187,7 +187,7 @@ if __name__ == "__main__":
     from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
-    session_directory = Path(__root__,  "tests", "pyxyfy")
+    session_directory = Path(__root__,  "tests", "pyxy")
 
     print(f"Optimizing initial camera array configuration ")
 

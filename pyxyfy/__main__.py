@@ -1,6 +1,6 @@
 
-from pyxyfy.gui.main import launch_pyxyfy
+from pyxyfy.gui.main import launch_pyxy
 
 def launch():
-    launch_pyxyfy()
+    launch_pyxy()
 

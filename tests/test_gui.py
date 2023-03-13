@@ -18,7 +18,7 @@ window.wizard_directory.launch_wizard_btn.setEnabled(True)
 window.wizard_directory.original_path.textbox.setText(str(config_path))
 window.wizard_directory.modified_path.textbox.setText(str(config_path))
 window.wizard_directory.launch_wizard_btn.click()
-# window.wizard_charuco.navigation_bar.next_wizard_step_btn.click()
+window.wizard_charuco.navigation_bar.next_wizard_step_btn.click()
 window.show()
 
 app.exec()

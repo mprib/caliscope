@@ -411,20 +411,24 @@ class Session:
         self.update_config()
 
     def get_stage(self):
+        stage = None
         if self.connected_camera_count() == 0:
-            return Stage.NO_CAMERAS
+            stage =  Stage.NO_CAMERAS
 
         if self.calibrated_camera_count() < self.connected_camera_count():
-            return Stage.UNCALIBRATED_CAMERAS
+            stage = Stage.UNCALIBRATED_CAMERAS
 
         if len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
-            return Stage.STEREOCALIBRATION_DONE
+            stage = Stage.OMNICALIBRATION_DONE
 
         if (
             self.connected_camera_count() > 0
             and self.calibrated_camera_count() == self.connected_camera_count()
         ):
-            return Stage.MONOCALIBRATED_CAMERAS
+            stage = Stage.MONOCALIBRATED_CAMERAS
+        
+        logger.info(f"Current stage of session is {stage}")
+        return stage
 
     def load_camera_array(self):
         """
@@ -495,8 +499,8 @@ class Stage(Enum):
     NO_CAMERAS = auto()
     UNCALIBRATED_CAMERAS = auto()
     MONOCALIBRATED_CAMERAS = auto()
-    STEREOCALIBRATION_IN_PROCESS = auto()
-    STEREOCALIBRATION_DONE = auto()
+    OMNICALIBRATION_IN_PROCESS = auto()
+    OMNICALIBRATION_DONE = auto()
     ORIGIN_SET = auto()
 
 

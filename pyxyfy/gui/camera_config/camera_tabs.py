@@ -5,6 +5,7 @@ logger = pyxyfy.logger.get(__name__)
 import sys
 from pathlib import Path
 
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QApplication,
     QVBoxLayout,
@@ -13,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from pyxyfy.gui.camera_config.camera_config_dialogue import CameraConfigDialog
-from pyxyfy.session import Session
+from pyxyfy.session import Session, Stage
 from pyxyfy.gui.widgets import NavigationBarBackNext
 
 class CameraWizard(QWidget):
@@ -25,8 +26,16 @@ class CameraWizard(QWidget):
         self.layout().addWidget(self.camera_tabs)
         self.layout().addWidget(self.navigation_bar)
     
-
+        self.camera_tabs.omniframe_ready.connect(self.set_next_enabled)
+    
+    def set_next_enabled(self, omniframe_ready:bool):
+        logger.info(f"Setting camera tab next button enabled status to {omniframe_ready}")
+        self.navigation_bar.next_btn.setEnabled(omniframe_ready)
+            
 class CameraTabs(QTabWidget):
+    
+    omniframe_ready = pyqtSignal(bool)
+
     def __init__(self, session: Session):
         super(CameraTabs, self).__init__()
         self.session = session
@@ -57,6 +66,10 @@ class CameraTabs(QTabWidget):
                     pass  # already here, don't bother
                 else:
                     cam_tab = CameraConfigDialog(self.session, port)
+                    
+                    # when new camera calibrated, check to see if all cameras calibrated
+                    cam_tab.calibrate_grp.calibration_change.connect(self.check_session_calibration)
+
                     tab_widgets[port] = cam_tab
 
             # add the widgets to the tab bar in order
@@ -64,13 +77,22 @@ class CameraTabs(QTabWidget):
             ordered_ports.sort()
             for port in ordered_ports:
                 self.insertTab(port, tab_widgets[port], f"Camera {port}")
+            
+            # session may be pre-calibrated and ready to proceed...or not
+            self.check_session_calibration()
+            
         else:
             logger.info("No cameras available")
         
         self.toggle_tracking(self.currentIndex())
     
-        
-        
+    def check_session_calibration(self):
+        logger.info(f"Checking session stage....")
+        if self.session.get_stage() == Stage.MONOCALIBRATED_CAMERAS:
+            self.omniframe_ready.emit(True)       
+        elif self.session.get_stage() == Stage.UNCALIBRATED_CAMERAS:
+            self.omniframe_ready.emit(False)
+            
 if __name__ == "__main__":
     from pyxyfy import __root__
     
@@ -78,7 +100,7 @@ if __name__ == "__main__":
 
     
     # config_path = Path(__root__, "sessions", "laptop")
-    config_path = Path(__root__, "sessions", "5_cameras")
+    config_path = Path(__root__, "tests", "pyxyfy")
     # config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
     session = Session(config_path)

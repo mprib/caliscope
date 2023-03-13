@@ -112,10 +112,10 @@ class CameraConfigDialog(QDialog):
         self.session.save_camera(self.port)
 
     
-    
 
 class CalibrationControls(QGroupBox):
     signal_calibration_lock = pyqtSignal(bool)
+    calibration_change = pyqtSignal()
 
     def __init__(self, session:Session, port, frame_emitter:FrameEmitter):
         super(CalibrationControls,self).__init__("Calibration Summary")
@@ -173,6 +173,7 @@ class CalibrationControls(QGroupBox):
         if self.start_stop_calibration_btn.text() == "Re-Collect":
             self.signal_calibration_lock.emit(True)
             self.clear_camera_calibration()
+            self.calibration_change.emit()
             self.monocal.initialize_grid_history()
             self.undistort_btn.setEnabled(False)
             self.monocal.capture_corners.set()
@@ -196,6 +197,10 @@ class CalibrationControls(QGroupBox):
                 self.monocal.calibrate()
                 self.cal_output.setText(self.monocal.camera.calibration_summary())
                 self.session.save_camera(self.port)
+
+                # signal to camera tabs to check on total session calibration status
+                self.calibration_change.emit() 
+
                 self.undistort_btn.setEnabled(True)
                 self.start_stop_calibration_btn.setText("Re-Collect")
                 self.start_stop_calibration_btn.setEnabled(True)

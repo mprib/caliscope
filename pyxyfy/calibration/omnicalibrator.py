@@ -31,7 +31,16 @@ class OmniCalibrator:
     ):
         self.config_path = config_path
         self.config = toml.load(config_path)
-        self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
+       
+        self.ports = [] 
+        # set ports keeping in mind that something may be flagged for ignore
+        for key, value in self.config.items():
+            if key[0:3] == "cam":
+                #it's a camera so check if it should not be ignored
+                if not self.config[key]["ignore"]:
+                    self.ports.append(int(key[4:]))
+
+        # self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
         # import point data, adding coverage regions to each port
@@ -321,6 +330,12 @@ class OmniCalibrator:
         """Iterates across all camera pairs. Intrinsic parameters are pulled
         from camera and combined with obj and img points for each pair.
         """
+
+        # clear out the previous stereocalibrations
+        
+        for key in self.config.copy().keys():
+            if key[0:6] == "stereo":
+                del self.config[key]
 
         for pair in self.pairs:
             error, rotation, translation = self.stereo_calibrate(pair, boards_sampled)

@@ -51,8 +51,7 @@ class CalibrationWizard(QStackedWidget):
         self.omniframe = OmniFrameWidget(self.session)
         self.addWidget(self.omniframe)
         self.setCurrentIndex(3)
-        self.omniframe
-
+        self.omniframe.navigation_bar.back_btn.clicked.connect(self.move_back_to_camera_config_wizard)
 
     def on_cameras_connect(self):
         # load cameras wizard once the cameras are actually connected
@@ -89,9 +88,13 @@ class CalibrationWizard(QStackedWidget):
         else:
             logger.info("Initiating Camera Connection")
             self.initiate_camera_connection()
-            self.qt_logger = QtLogger()
+            self.qt_logger = QtLogger("Connecting to Cameras")
             self.qt_logger.show()
-             
+   
+    def move_back_to_camera_config_wizard(self):
+        # from omniframe to camera config
+        self.setCurrentIndex(2)
+        del self.session.synchronizer
                      
     def launch_session(self):
         if self.wizard_directory.create_new_radio.isChecked():

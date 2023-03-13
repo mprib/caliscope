@@ -47,9 +47,6 @@ class CalibrationWizard(QStackedWidget):
         self.wizard_directory.launch_wizard_btn.clicked.connect(self.next_to_charuco_wizard)
         self.cameras_connected.connect(self.on_cameras_connect) 
         
-    def on_cameras_calibrated(self):
-        self.camera_wizard.navigation_bar.next_btn.setEnabled(True)
-        
     def next_to_omniframe(self):
         self.omniframe = OmniFrameWidget(self.session)
         
@@ -59,7 +56,6 @@ class CalibrationWizard(QStackedWidget):
         self.addWidget(self.camera_wizard)
         self.setCurrentIndex(2)
         self.camera_wizard.navigation_bar.back_btn.clicked.connect(self.back_to_charuco_wizard)
-        self.camera_wizard.navigation_bar.next_btn.setEnabled(False)
      
     def back_to_charuco_wizard(self):
         self.setCurrentIndex(1)

@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
 from pyxyfy import __app_dir__
 from pyxyfy.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from pyxyfy.session import Session
+from pyxyfy.gui.qt_logger import QtLogger
 from pyxyfy.gui.widgets import NavigationBarNext
 
 class WizardCharuco(QWidget):
@@ -58,24 +59,23 @@ class WizardCharuco(QWidget):
         self.charuco_added = True
 
         #################### ESTABLISH LARGELY VERTICAL LAYOUT ##############
-        VBL = QVBoxLayout()
-        self.setLayout(VBL)
+        self.setLayout(QVBoxLayout())
         self.setWindowTitle("Charuco Board Builder")
 
-        VBL.addWidget(self.configurator)
-        VBL.addWidget(self.charuco_display)
-        VBL.addSpacing(20)
-        VBL.addLayout(self.save_png_hbox)
-        VBL.addSpacing(20)
+        self.layout().addWidget(self.configurator)
+        self.layout().addWidget(self.charuco_display)
+        self.layout().addSpacing(20)
+        self.layout().addLayout(self.save_png_hbox)
+        self.layout().addSpacing(20)
 
-        VBL.addWidget(self.true_up_group)
-        VBL.addSpacing(20)
+        self.layout().addWidget(self.true_up_group)
+        self.layout().addSpacing(20)
         for w in self.children():
-            VBL.setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
+            self.layout().setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
         
         # add navigation bar at the end so as to not mess up alignment
         self.navigation_bar = NavigationBarNext()
-        VBL.addWidget(self.navigation_bar)
+        self.layout().addWidget(self.navigation_bar)
 
 
         
@@ -177,9 +177,9 @@ class WizardCharuco(QWidget):
         if not self.charuco_added:
             self.charuco_display = QLabel()
             self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-            self.charuco_display.setMaximumSize(
-                int(self.height() / 2), int(self.width() / 2)
-            )
+            # self.charuco_display.setMaximumSize(
+            #     int(self.height() / 2), int(self.width() / 2)
+            # )
         
         
         # interesting problem comes up when scaling this... I want to switch between scaling the width and height
@@ -285,7 +285,7 @@ class CharucoConfigurator(QWidget):
 if __name__ == "__main__":
     
     from pyxyfy import __root__
-    config_path = Path(__root__, "sessions", "high_res_session")
+    config_path = Path(__root__, "tests", "pyxyfy")
 
     session = Session(config_path)
 

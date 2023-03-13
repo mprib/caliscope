@@ -9,7 +9,7 @@ from threading  import Thread
 
 def test():
     def worker():
-        session = Session(Path(r"C:\Users\Mac Prible\repos\pyxy\sessions\laptop"))
+        session = Session(Path(r"C:\Users\Mac Prible\repos\pyxyfy\tests\pyxyfy"))
         session.find_cameras()
     thread = Thread(target=worker, args=(), daemon=True)
     thread.start()
@@ -44,8 +44,8 @@ class LogMessageViewer(QTextBrowser):
         super(LogMessageViewer,self).__init__(parent)
         self.setReadOnly(True)
         #self.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-        self.setEnabled(False)
-        self.verticalScrollBar().setVisible(False)
+        self.setEnabled(True)
+        self.verticalScrollBar().setVisible(True)
 
     @QtCore.pyqtSlot(str)
     def appendLogMessage(self, msg):

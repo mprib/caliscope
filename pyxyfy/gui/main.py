@@ -35,7 +35,7 @@ class CalibrationWizard(QStackedWidget):
         self.CAMS_IN_PROCESS = False
 
         self.setWindowTitle("Camera Calibration Wizard")
-        self.setWindowIcon(QIcon(str(Path(__root__, "pyxy/gui/icons/orb.svg"))))
+        self.setWindowIcon(QIcon(str(Path(__root__, "pyxyfy/gui/icons/orb.svg"))))
         self.wizard_directory = WizardDirectory()
         self.addWidget(self.wizard_directory) # index:1
         self.setCurrentIndex(0)
@@ -80,8 +80,6 @@ class CalibrationWizard(QStackedWidget):
             logger.info("updating charuco in case necessary")
             for port, stream in self.session.streams.items():
                 stream.update_charuco(self.session.charuco)
-        
-
         else:
             logger.info("Initiating Camera Connection")
             self.initiate_camera_connection()
@@ -135,7 +133,10 @@ class CalibrationWizard(QStackedWidget):
 
                 logger.info("emitting cameras_connected signal")
                 self.cameras_connected.emit()
-
+                if hasattr(self, "qt_logger"):
+                    del self.qt_logger
+                # self.qt_logger.hide()
+                
         if self.CAMS_IN_PROCESS:
             logger.info("Already attempting to connect to cameras...")
         else:
@@ -178,26 +179,14 @@ class CalibrationWizard(QStackedWidget):
             self.find = Thread(target=find_cam_worker, args=(), daemon=True)
             self.find.start()
 
-def launch_pyxy():
-
-    test_session = Path(__root__, "sessions", "laptop")
+def launch_pyxyfy():
 
     app = QApplication(sys.argv)
     window = CalibrationWizard()
-    # window.wizard_directory.from_previous_radio.click()
-    # window.wizard_directory.from_previous_radio.setChecked(True)
-    # window.wizard_directory.launch_wizard_btn.setEnabled(True)
-    # window.wizard_directory.original_path.textbox.setText(str(test_session))
-    # window.wizard_directory.modified_path.textbox.setText(str(test_session))
     window.show()
 
     app.exec()
 
 if __name__ == "__main__":
 
-    # config_path = Path(__root__, "sessions", "high_res_session")
-    
-    
-    # open in a session already so you don't have to go through the menu each time
-    # window.open_session(config_path)
-    launch_pyxy()
+    launch_pyxyfy()

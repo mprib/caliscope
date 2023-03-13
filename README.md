@@ -1,104 +1,10 @@
-## Current Flow
 
-The general flow of processing is illustrated in the graph below. 
+# Introduction
 
+Pyxyfy (*pixie-fi*) is a python package for converting 2D (x,y) point data from multiple cameras into 3D position estimates. The core calibration is built on top of [OpenCV](https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html) with additional refinement via bundle adjustment using [SciPy](https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html). 3D point positions can then be estimated with time synchronized 2D data.
 
-```mermaid
-graph TD
-
-
-LiveStream --FramePacket--> Synchronizer
-RecordedStream --FramePacket--> Synchronizer
-Synchronizer --SyncPacket--> VideoRecorder
-
-subgraph cameras
-    Camera --> LiveStream
-end
-
-subgraph tracking
-    Charuco --> CornerTracker
-    CornerTracker --PointPacket--> LiveStream
-end
-
-subgraph GUI
-    MonoCalibrator
-    OmniFrameBuilder
-end
-
-Synchronizer --SyncPacket-->  OmniFrameBuilder
-
-LiveStream -.FramePacket.-> MonoCalibrator
-MonoCalibrator -.Intrinsics.-> config.toml
-
-VideoRecorder --> frame_time_history.csv
-VideoRecorder --> port_X.mp4 
-VideoRecorder -.During OmniFrameBuilder.-> point_data.csv
-port_X.mp4 --> RecordedStream
-frame_time_history.csv --> RecordedStream
+These software calibration tools have long been available, but the process of assembling the calibration images and shepherding data through the various stages of processing is laborious and error prone. Pyxyfy automates that workflow to provide fast, accurate, and consistent camera system calibrations.
 
 
-subgraph recording
+This project was inspired by [Anipose](https://www.sciencedirect.com/science/article/pii/S2211124721011797https://www.sciencedirect.com/science/article/pii/S2211124721011797) and seeks to provide similar functionality with improved visual feedback to the user. The calibration process is presented in more granular steps, with a particular emphasis on accurate estimation of camera intrinsics. Because stereocalibration is used to initialize an estimate of relative camera positions, the bundle adjustment process converges quickly to a reasonable optimum.
 
-    RecordedStream
-    VideoRecorder 
-
-    subgraph RecordingDirectory
-        port_X.mp4
-        frame_time_history.csv
-    end
-
-end
-
-RecordingDirectory -.to be done.-> CaptureVolumeVisualizer
-
-point_data.csv --> OmniCalibrator
-config.toml --CameraSettings--> OmniCalibrator
-OmniCalibrator -.StereoPairs.-> config.toml
-
-
-
-subgraph calibration_data
-    point_data.csv
-    config.toml
-end
-
-point_data.csv --> get_stereotriangulated_table
-
-ArrayTriangulator --> get_stereotriangulated_table
-
-CornerTracker --PointPacket--> RecordedStream
-
-ArrayConstructor --> CameraArray
-config.toml --> ArrayConstructor
-
-CameraArray --> ArrayTriangulator
-
-subgraph triangulate
-    ArrayTriangulator
-    StereoPointsBuilder --- ArrayTriangulator
-    StereoTriangulator --- ArrayTriangulator
-end
-
-CaptureVolume --> CaptureVolumeVisualizer
-
-get_point_estimates  --> PointEstimates
-
-
-subgraph capture_volume
-    subgraph helper_functions
-        get_stereotriangulated_table -.stereotriangulated_table DF.-> get_point_estimates   
-    end
-
-    CameraArray --> CaptureVolume
-    PointEstimates --> CaptureVolume
-    CaptureVolume --> QualityScanner
-    QualityScanner -.filtered.-> PointEstimates
-end
-
-
-subgraph visualization
-    CaptureVolumeVisualizer
-    CameraMesh --> CaptureVolumeVisualizer
-end
-
-```

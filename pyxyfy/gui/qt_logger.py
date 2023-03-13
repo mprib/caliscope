@@ -9,7 +9,7 @@ from threading  import Thread
 
 def test():
     def worker():
-        session = Session(Path(r"C:\Users\Mac Prible\repos\pyxyfy\sessions\laptop"))
+        session = Session(Path(r"C:\Users\Mac Prible\repos\pyxyfy\tests\pyxyfy"))
         session.find_cameras()
     thread = Thread(target=worker, args=(), daemon=True)
     thread.start()
@@ -18,9 +18,9 @@ from pyxyfy.logger import get, XStream
 logger = get(__name__)
 
 class QtLogger(QDialog):
-    def __init__( self, parent = None ):
-        super(QtLogger, self).__init__(parent)
-        self.setWindowTitle("Connecting to cameras...")
+    def __init__( self, message:str = None):
+        super(QtLogger, self).__init__()
+        self.setWindowTitle(message)
         self._console = LogMessageViewer(self)
 
         layout = QVBoxLayout()
@@ -44,8 +44,8 @@ class LogMessageViewer(QTextBrowser):
         super(LogMessageViewer,self).__init__(parent)
         self.setReadOnly(True)
         #self.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-        self.setEnabled(False)
-        self.verticalScrollBar().setVisible(False)
+        self.setEnabled(True)
+        self.verticalScrollBar().setVisible(True)
 
     @QtCore.pyqtSlot(str)
     def appendLogMessage(self, msg):
@@ -61,7 +61,7 @@ class LogMessageViewer(QTextBrowser):
     
 if __name__ == '__main__':
     app = QApplication([])
-    dlg = QtLogger()
+    dlg = QtLogger("This is only a test")
     dlg.show()
         
     app.exec()

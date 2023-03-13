@@ -146,7 +146,7 @@ if __name__ == "__main__":
     from pyxyfy.calibration.corner_tracker import CornerTracker
     from pyxyfy.cameras.camera_array import CameraArrayBuilder, CameraArray, CameraData
 
-    repo = Path(str(Path(__file__)).split("pyxyfy")[0],"pyxyfy")
+    repo = Path(str(Path(__file__)).split("pyxy")[0],"pyxy")
 
     config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
     camera_array = CameraArrayBuilder(config_path).get_camera_array()

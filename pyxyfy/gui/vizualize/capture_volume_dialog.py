@@ -50,7 +50,7 @@ if __name__ == "__main__":
     from pyxyfy.triangulate.stereo_triangulator import StereoTriangulator
 
     # set the location for the sample data used for testing
-    repo = Path(str(Path(__file__)).split("pyxyfy")[0],"pyxyfy").parent
+    repo = Path(str(Path(__file__)).split("pyxy")[0],"pyxy").parent
     session_directory =Path(repo, "sessions", "high_res_session")
     # create playback streams to provide to synchronizer
     ports = [0, 2]

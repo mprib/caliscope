@@ -56,11 +56,11 @@ class Session:
     def get_synchronizer(self):
         if hasattr(self, "_synchronizer"):
             logger.info("returning previously created synchronizer")
-            return self._synchronizer
+            return self.synchronizer
         else:
             logger.info("creating synchronizer...")
-            self._synchronizer = Synchronizer(self.streams, fps_target=3)
-            return self._synchronizer
+            self.synchronizer = Synchronizer(self.streams, fps_target=6)
+            return self.synchronizer
 
     def load_config(self):
 
@@ -411,20 +411,24 @@ class Session:
         self.update_config()
 
     def get_stage(self):
+        stage = None
         if self.connected_camera_count() == 0:
-            return Stage.NO_CAMERAS
+            stage = Stage.NO_CAMERAS
 
-        if self.calibrated_camera_count() < self.connected_camera_count():
-            return Stage.UNCALIBRATED_CAMERAS
+        elif self.calibrated_camera_count() < self.connected_camera_count():
+            stage = Stage.UNCALIBRATED_CAMERAS
 
-        if len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
-            return Stage.STEREOCALIBRATION_DONE
-
-        if (
+        elif (
             self.connected_camera_count() > 0
             and self.calibrated_camera_count() == self.connected_camera_count()
         ):
-            return Stage.MONOCALIBRATED_CAMERAS
+            stage = Stage.MONOCALIBRATED_CAMERAS
+
+        elif len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
+            stage = Stage.OMNICALIBRATION_DONE
+
+        logger.info(f"Current stage of session is {stage}")
+        return stage
 
     def load_camera_array(self):
         """
@@ -460,7 +464,7 @@ class Session:
 
         self.update_config()
 
-    def calibrate(self):    
+    def calibrate(self):
         self.stop_recording()
         self.point_data_path = Path(self.path, "point_data.csv")
 
@@ -475,7 +479,7 @@ class Session:
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
         self.capture_volume.optimize()
         self.save_camera_array()
-       
+
 
 def format_toml_dict(toml_dict: dict):
     temp_config = {}
@@ -495,8 +499,8 @@ class Stage(Enum):
     NO_CAMERAS = auto()
     UNCALIBRATED_CAMERAS = auto()
     MONOCALIBRATED_CAMERAS = auto()
-    STEREOCALIBRATION_IN_PROCESS = auto()
-    STEREOCALIBRATION_DONE = auto()
+    OMNICALIBRATION_IN_PROCESS = auto()
+    OMNICALIBRATION_DONE = auto()
     ORIGIN_SET = auto()
 
 

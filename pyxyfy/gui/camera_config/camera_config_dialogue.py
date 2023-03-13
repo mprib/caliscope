@@ -157,6 +157,7 @@ class CalibrationControls(QGroupBox):
         if self.start_stop_calibration_btn.text() == "Collect Data":
             self.signal_calibration_lock.emit(True)
             self.clear_camera_calibration()
+            self.calibration_change.emit()
             self.monocal.capture_corners.set()
             self.undistort_btn.setEnabled(False)
             self.start_stop_calibration_btn.setText("Calibrate")

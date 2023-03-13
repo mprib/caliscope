@@ -18,9 +18,9 @@ from pyxyfy.logger import get, XStream
 logger = get(__name__)
 
 class QtLogger(QDialog):
-    def __init__( self, parent = None ):
-        super(QtLogger, self).__init__(parent)
-        self.setWindowTitle("Connecting to cameras...")
+    def __init__( self, message:str = None):
+        super(QtLogger, self).__init__()
+        self.setWindowTitle(message)
         self._console = LogMessageViewer(self)
 
         layout = QVBoxLayout()
@@ -61,7 +61,7 @@ class LogMessageViewer(QTextBrowser):
     
 if __name__ == '__main__':
     app = QApplication([])
-    dlg = QtLogger()
+    dlg = QtLogger("This is only a test")
     dlg.show()
         
     app.exec()

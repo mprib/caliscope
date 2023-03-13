@@ -56,11 +56,11 @@ class Session:
     def get_synchronizer(self):
         if hasattr(self, "_synchronizer"):
             logger.info("returning previously created synchronizer")
-            return self._synchronizer
+            return self.synchronizer
         else:
             logger.info("creating synchronizer...")
-            self._synchronizer = Synchronizer(self.streams, fps_target=6)
-            return self._synchronizer
+            self.synchronizer = Synchronizer(self.streams, fps_target=6)
+            return self.synchronizer
 
     def load_config(self):
 

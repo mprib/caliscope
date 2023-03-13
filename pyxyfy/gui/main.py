@@ -49,13 +49,18 @@ class CalibrationWizard(QStackedWidget):
         
     def next_to_omniframe(self):
         self.omniframe = OmniFrameWidget(self.session)
-        
+        self.addWidget(self.omniframe)
+        self.setCurrentIndex(3)
+        self.omniframe
+
+
     def on_cameras_connect(self):
         # load cameras wizard once the cameras are actually connected
         self.camera_wizard = CameraWizard(self.session)
         self.addWidget(self.camera_wizard)
         self.setCurrentIndex(2)
         self.camera_wizard.navigation_bar.back_btn.clicked.connect(self.back_to_charuco_wizard)
+        self.camera_wizard.navigation_bar.next_btn.clicked.connect(self.next_to_omniframe)
      
     def back_to_charuco_wizard(self):
         self.setCurrentIndex(1)

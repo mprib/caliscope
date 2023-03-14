@@ -266,13 +266,19 @@ if __name__ == "__main__":
             cv2.destroyAllWindows()
             exit(0)
 
+        if key == ord("s"):
+            for stream in streams:
+                q = Queue()
+                stream.subscribe("test", q)
+
+        if key == ord("u"):
+            # will basically break the test 
+            for stream in streams:
+                q = Queue()
+                stream.unsubscribe("test")
+
         if key == ord("v"):
             for stream in streams:
                 print(f"Attempting to change resolution at port {stream.port}")
                 stream.change_resolution((1024, 576))
 
-        if key == ord("s"):
-            for stream in streams:
-                stream.stop()
-            cv2.destroyAllWindows()
-            exit(0)

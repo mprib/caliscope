@@ -169,7 +169,7 @@ class LiveStream:
                 if self._show_charuco:
                     draw_charuco.corners(frame_packet)
 
-                for name, q in self.subscriber_queues.values():
+                for name, q in self.subscriber_queues.items():
                     q.put(frame_packet)
 
                 # Rate of calling recalc must be frequency of this loop
@@ -219,7 +219,7 @@ class LiveStream:
 
 if __name__ == "__main__":
     # ports = [2, 3, 4]
-    ports = [3]
+    ports = [2]
 
     cams = []
     for port in ports:
@@ -237,24 +237,26 @@ if __name__ == "__main__":
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
         stream = LiveStream(cam, fps_target=12, charuco=charuco)
-        stream.push_to_out_q.set()
+        frame_q = Queue()
+        stream.subscribe("test", frame_q)
+
         stream._show_fps = True
         stream._show_charuco = True
         streams.append(stream)
 
     while True:
-        try:
-            for stream in streams:
-                frame_packet = stream.out_q.get()
+        # try:
+        for stream in streams:
+            frame_packet = stream.subscriber_queues["test"].get()
 
-                cv2.imshow(
-                    (str(frame_packet.port) + ": 'q' to quit and attempt calibration"),
-                    frame_packet.frame,
-                )
+            cv2.imshow(
+                (str(frame_packet.port) + ": 'q' to quit and attempt calibration"),
+                frame_packet.frame,
+            )
 
         # bad reads until connection to src established
-        except AttributeError:
-            pass
+        # except AttributeError:
+        #     pass
 
         key = cv2.waitKey(1)
 

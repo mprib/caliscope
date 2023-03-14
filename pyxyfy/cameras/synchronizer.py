@@ -102,7 +102,8 @@ class Synchronizer:
             self.port_frame_count[port] += 1
 
             logger.debug(
-                f"Frame data harvested from reel {frame_packet.port} with index {frame_packet.frame_index} and frame time of {frame_packet.frame_time}"
+                f"Frame data harvested from reel {frame_packet.port} with index \
+                {frame_packet.frame_index} and frame time of {frame_packet.frame_time}"
             )
 
         logger.info(f"Frame harvester for port {port} completed")
@@ -119,7 +120,8 @@ class Synchronizer:
             # problem with outpacing the threads reading data in, so wait if need be
             while frame_data_key not in self.all_frame_packets.keys():
                 logger.debug(
-                    f"Waiting in a loop for frame data to populate with key: {frame_data_key}"
+                    f"Waiting in a loop for frame data to populate with key: \
+                        {frame_data_key}"
                 )
                 time.sleep(0.01)
 
@@ -139,7 +141,11 @@ class Synchronizer:
         return min(times_of_next_frames)
 
     def latest_current_frame(self, port):
-        """Provides the latest frame_time of the current frames not inclusive of the provided port"""
+        """
+        Provides the latest frame_time of the current frames 
+        not inclusive of the provided port
+        """
+
         times_of_current_frames = []
         for p in self.ports:
             current_index = self.port_current_frame[p]
@@ -183,8 +189,9 @@ class Synchronizer:
 
             layer_frame_times = []
 
-            # build earliest next/latest current dictionaries for each port to determine where to put frames
-            # must be done before going in and making any updates to the frame index
+            # build earliest next/latest current dictionaries for each port to determine
+            # where to put frames must be done before going in 
+            # and making any updates to the frame index
             earliest_next = {}
             latest_current = {}
 
@@ -200,7 +207,8 @@ class Synchronizer:
                 current_frame_packet = self.all_frame_packets[port_index_key]
                 frame_time = current_frame_packet.frame_time
 
-                # don't put a frame in a synched frame packet if the next packet has a frame before it
+                # don't put a frame in a synched frame packet if the next packet
+                # has a frame before it
                 if frame_time > earliest_next[port]:
                     # definitly should be put in the next layer and not this one
                     current_frame_packets[port] = None
@@ -208,8 +216,9 @@ class Synchronizer:
                 elif (
                     earliest_next[port] - frame_time < frame_time - latest_current[port]
                 ):  # frame time is closer to earliest next than latest current
-                    # if it's closer to the earliest next frame than the latest current frame, bump it up
-                    # only applying for 2 camera setup where I noticed this was an issue (frames stay out of synch)
+                    # if it's closer to the earliest next frame than the latest 
+                    # current frame, bump it up only applying for 2 camera setup 
+                    # where I noticed this was an issue (frames stay out of synch)
                     current_frame_packets[port] = None
                     logger.warning(
                         f"Skipped frame at port {port}: delta < time-latest_current"
@@ -223,7 +232,8 @@ class Synchronizer:
                     self.port_current_frame[port] += 1
                     layer_frame_times.append(frame_time)
                     logger.debug(
-                        f"Adding to layer from port {port} at index {current_frame_index} and frame time: {frame_time}"
+                        f"Adding to layer from port {port} at index \
+                            {current_frame_index} and frame time: {frame_time}"
                     )
 
             logger.debug(f"Unassigned Frames: {len(self.all_frame_packets)}")

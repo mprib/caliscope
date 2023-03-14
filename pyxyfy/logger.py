@@ -4,7 +4,6 @@
 import logging
 from PyQt6 import QtCore
 import sys
-import os
 from pathlib import Path
 from pyxyfy import __log_dir__
 

@@ -1,32 +1,27 @@
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
 
-import sys
 import shutil
-import time
+import sys
 from pathlib import Path
 from threading import Thread
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QIcon, QAction
+
+from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
-    QWidget,
     QApplication,
-    QVBoxLayout,
-    QHBoxLayout,
-    QDockWidget,
-    QFileDialog,
     QStackedWidget,
 )
 
-from pyxyfy.session import Session, Stage
-from pyxyfy.gui.wizard_charuco import WizardCharuco
+import pyxyfy.logger
+from pyxyfy import __root__
 from pyxyfy.gui.camera_config.camera_tabs import CameraWizard
-from pyxyfy.gui.wizard_directory import WizardDirectory
-from pyxyfy import __root__, __app_dir__
-from pyxyfy.session import Stage
-from pyxyfy.gui.qt_logger import QtLogger
 from pyxyfy.gui.omniframe.omni_frame_widget import OmniFrameWidget
+from pyxyfy.gui.qt_logger import QtLogger
+from pyxyfy.gui.wizard_charuco import WizardCharuco
+from pyxyfy.gui.wizard_directory import WizardDirectory
+from pyxyfy.session import Session
+
+logger = pyxyfy.logger.get(__name__)
 
 class CalibrationWizard(QStackedWidget):
     cameras_connected = pyqtSignal()

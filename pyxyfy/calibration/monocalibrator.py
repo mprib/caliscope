@@ -1,22 +1,18 @@
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
-# import logging
-# logger.setLevel(logging.DEBUG)
 import time
 from queue import Queue
-from threading import Thread, Event
+from threading import Event, Thread
 
 import cv2
 import numpy as np
 
-
 import pyxyfy.calibration.draw_charuco as draw_charuco
+import pyxyfy.logger
 from pyxyfy.calibration.charuco import Charuco
-from pyxyfy.calibration.corner_tracker import CornerTracker
 from pyxyfy.cameras.data_packets import FramePacket
 from pyxyfy.cameras.live_stream import LiveStream
 
+logger = pyxyfy.logger.get(__name__)
 class MonoCalibrator():
 
     def __init__(
@@ -195,7 +191,6 @@ class MonoCalibrator():
 if __name__ == "__main__":
 
     from pyxyfy.cameras.camera import Camera
-    from pyxyfy.cameras.synchronizer import Synchronizer
     from pyxyfy.cameras.live_stream import LiveStream
 
     charuco = Charuco(

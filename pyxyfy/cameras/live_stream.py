@@ -2,23 +2,22 @@
 # establishes the connection with the video source and manages the thread
 # that reads in frames.
 
-import pyxyfy.logger
 
-logger = pyxyfy.logger.get(__name__)
-
-from time import perf_counter, sleep
 from queue import Queue
-from threading import Thread, Event
+from threading import Event, Thread
+from time import perf_counter, sleep
 
 import cv2
 import numpy as np
 
-from pyxyfy.cameras.camera import Camera
-from pyxyfy.cameras.data_packets import FramePacket
+import pyxyfy.calibration.draw_charuco as draw_charuco
+import pyxyfy.logger
 from pyxyfy.calibration.charuco import Charuco
 from pyxyfy.calibration.corner_tracker import CornerTracker
-import pyxyfy.calibration.draw_charuco as draw_charuco
+from pyxyfy.cameras.camera import Camera
+from pyxyfy.cameras.data_packets import FramePacket
 
+logger = pyxyfy.logger.get(__name__)
 
 class LiveStream:
     def __init__(self, camera:Camera, fps_target=6, charuco=None):

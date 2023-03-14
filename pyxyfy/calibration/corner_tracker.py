@@ -2,8 +2,6 @@
 # detector and the corner drawer...like, there will need to be something that
 # accumulates a frame of corners to be drawn onto the displayed frame.
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
 
 import cv2
 import numpy as np
@@ -12,6 +10,8 @@ import pyxyfy.calibration.draw_charuco
 from pyxyfy.calibration.charuco import Charuco
 from pyxyfy.cameras.data_packets import PointPacket
 
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 class CornerTracker:
     def __init__(self, charuco):

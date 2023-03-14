@@ -1,19 +1,18 @@
-import pyxyfy.logger
 
-logger = pyxyfy.logger.get(__name__)
 import logging
-
-logger.setLevel(logging.DEBUG)
-
 import time
 from pathlib import Path
 from queue import Queue
-from threading import Thread, Event
+from threading import Event, Thread
 
 import cv2
 import numpy as np
+
+import pyxyfy.logger
 from pyxyfy.cameras.data_packets import SyncPacket
 
+logger = pyxyfy.logger.get(__name__)
+logger.setLevel(logging.DEBUG)
 
 class Synchronizer:
     def __init__(self, streams: dict, fps_target=6):
@@ -171,9 +170,9 @@ class Synchronizer:
 
     def synch_frames_worker(self):
 
-        logger.info(f"Waiting for all ports to begin harvesting corners...")
+        logger.info("Waiting for all ports to begin harvesting corners...")
 
-        sync_time = time.perf_counter()
+        time.perf_counter()
 
         sync_index = 0
 
@@ -254,14 +253,12 @@ class Synchronizer:
 
 
 if __name__ == "__main__":
-    from pyxyfy.calibration.charuco import Charuco
-    from pyxyfy.calibration.corner_tracker import CornerTracker
-    from pyxyfy.recording.recorded_stream import RecordedStream, RecordedStreamPool
-
-    from pyxyfy.session import Session
     import time
 
     from pyxyfy import __root__
+    from pyxyfy.calibration.charuco import Charuco
+    from pyxyfy.recording.recorded_stream import RecordedStreamPool
+    from pyxyfy.session import Session
     
     ports = [0, 1, 2, 3, 4]
     # ports = [0,1]

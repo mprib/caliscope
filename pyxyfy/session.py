@@ -1,7 +1,4 @@
 # Environment for managing all created objects and the primary interface for the GUI.
-import pyxyfy.logger
-
-logger = pyxyfy.logger.get(__name__)
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -13,7 +10,6 @@ import toml
 from itertools import combinations
 
 from pyxyfy.calibration.charuco import Charuco
-from pyxyfy.calibration.corner_tracker import CornerTracker
 from pyxyfy.calibration.monocalibrator import MonoCalibrator
 from pyxyfy.cameras.camera import Camera
 from pyxyfy.cameras.synchronizer import Synchronizer
@@ -29,6 +25,8 @@ from pyxyfy.calibration.capture_volume.helper_functions.get_point_estimates impo
 
 from pyxyfy.cameras.live_stream import LiveStream
 from pyxyfy.recording.video_recorder import VideoRecorder
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10
@@ -54,7 +52,7 @@ class Session:
         self.load_charuco()
 
     def get_synchronizer(self):
-        if hasattr(self, "_synchronizer"):
+        if hasattr(self, "synchronizer"):
             logger.info("returning previously created synchronizer")
             return self.synchronizer
         else:
@@ -344,9 +342,9 @@ class Session:
         logger.info(f"Activate tracking on port {active_port} and deactivate others")
         for port, monocal in self.monocalibrators.items():
             if port == active_port:
-                monocal.stream.push_to_out_q.set()
-            else:
-                monocal.stream.push_to_out_q.clear()
+                monocal.activate()
+            elif monocal.active:
+                monocal.deactivate()
 
     def start_recording(self, destination_folder: Path = None):
         logger.info("Initiating recording...")

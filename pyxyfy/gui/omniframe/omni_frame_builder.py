@@ -1,17 +1,20 @@
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
 
+from itertools import combinations
 from pathlib import Path
+from queue import Queue
+from threading import Event
 
 import cv2
 import numpy as np
 
+import pyxyfy.logger
 from pyxyfy.cameras.synchronizer import Synchronizer
-from itertools import combinations
-from queue import Queue
-from threading import Event
+
+logger = pyxyfy.logger.get(__name__)
 class OmniFrameBuilder:
-    def __init__(self, synchronizer: Synchronizer, single_frame_height=250,board_count_target=50):
+    def __init__(self, synchronizer: Synchronizer, 
+                 single_frame_height=250,
+                 board_count_target=50):
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
 
@@ -295,16 +298,14 @@ def resize(image, new_height):
     return resized
 
 if __name__ == "__main__":
-    from pyxyfy.calibration.corner_tracker import CornerTracker
-    from pyxyfy.recording.recorded_stream import RecordedStreamPool,RecordedStream
+    from pyxyfy import __root__
+    from pyxyfy.calibration.charuco import Charuco
+    from pyxyfy.recording.recorded_stream import RecordedStreamPool
     from pyxyfy.recording.video_recorder import VideoRecorder
     from pyxyfy.session import Session
-    from pyxyfy.calibration.charuco import Charuco
     
-    from pyxyfy import __root__
-    
-    ports = [0, 1, 2, 3, 4]
-    # ports = [1,2, 3]
+    # ports = [0, 1, 2, 3, 4]
+    ports = [1,2, 3]
 
     test_live = True
     record = True
@@ -312,23 +313,26 @@ if __name__ == "__main__":
     
     if test_live:
 
-        session_directory = Path(__root__, "tests", "please work")
+        session_directory = Path(__root__, "tests", "pyxyfy")
         session = Session(session_directory)
         session.load_cameras()
         session.load_streams()
+        session.adjust_resolutions()
         logger.info("Creating Synchronizer")
-        syncr = Synchronizer(session.streams, fps_target=3)
+        syncr = Synchronizer(session.streams, fps_target=7)
     else:
         recording_directory = Path(__root__, "tests", "mimic_anipose")
         charuco = Charuco(
             4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
         )
-        recorded_stream_pool = RecordedStreamPool(ports, recording_directory, charuco=charuco)
+        recorded_stream_pool = RecordedStreamPool(ports, 
+                                                  recording_directory, 
+                                                  charuco=charuco)
         logger.info("Creating Synchronizer")
-        syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
+        syncr = Synchronizer(recorded_stream_pool.streams, fps_target=10)
         recorded_stream_pool.play_videos()
 
-    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=10)
+    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=100)
 
     if record:
         video_path = Path(__root__, "tests", "please work")

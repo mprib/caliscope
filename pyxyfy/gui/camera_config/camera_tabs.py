@@ -1,6 +1,4 @@
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -16,6 +14,9 @@ from PyQt6.QtWidgets import (
 from pyxyfy.gui.camera_config.camera_config_dialogue import CameraConfigDialog
 from pyxyfy.session import Session, Stage
 from pyxyfy.gui.widgets import NavigationBarBackNext
+
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 class CameraWizard(QWidget):
     def __init__(self, session):
@@ -109,7 +110,7 @@ if __name__ == "__main__":
     session = Session(config_path)
     session.load_cameras()
     session.load_streams()
-    # session.adjust_resolutions()
+    session.adjust_resolutions()
     session.load_monocalibrators()
 
     test_port = 0

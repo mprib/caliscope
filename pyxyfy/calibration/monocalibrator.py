@@ -26,9 +26,10 @@ class MonoCalibrator():
         self.capture_corners.clear() # start out not doing anything
         self.stop_event = Event()
         self.frame_packet_queue = Queue(-1)
-
-        self.stream.subscribe("monocalibrator", self.frame_packet_queue)
-
+        self.active = False
+        
+        self.activate()
+        
         self.grid_frame_ready_q = Queue(-1)
         self.connected_corners = self.stream.charuco.get_connected_corners()
 
@@ -46,7 +47,14 @@ class MonoCalibrator():
 
         logger.info(f"Beginning monocalibrator for port {self.port}")
 
-        
+    def activate(self):
+        self.stream.subscribe(self.frame_packet_queue)
+        self.active = True
+    
+    def deactivate(self):
+        self.stream.unsubscribe(self.frame_packet_queue)
+        self.active = False
+          
     @property
     def grid_count(self):
         """How many sets of corners have been collected up to this point"""

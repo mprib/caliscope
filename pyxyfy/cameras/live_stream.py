@@ -37,7 +37,7 @@ class LiveStream:
         # self.push_to_out_q.set()  # default behavior is to push to queue
         
         # a list of queues that will be pushed to
-        self.subscriber_queues = {}
+        self.subscriber_queues = []
 
         self.stop_event = Event()
         # make sure camera no longer reading before trying to change resolution
@@ -71,11 +71,11 @@ class LiveStream:
     #     self.milestones = np.array(milestones)
     #     logger.info(f"Time triggers for frame read: {self.milestones}")
 
-    def subscribe(self, name:str, queue:Queue):
-        self.subscriber_queues[name] = queue
+    def subscribe(self, queue:Queue):
+        self.subscriber_queues.append(queue)
 
-    def unsubscribe(self, name:str):
-        del self.subscriber_queues[name]
+    def unsubscribe(self, queue:Queue):
+        self.subscriber_queues.remove(queue)
 
     def update_charuco(self, charuco: Charuco):
         self.charuco = charuco
@@ -183,7 +183,7 @@ class LiveStream:
                 if self._show_charuco:
                     draw_charuco.corners(frame_packet)
 
-                for name, q in self.subscriber_queues.items():
+                for q in self.subscriber_queues:
                     q.put(frame_packet)
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
@@ -246,12 +246,12 @@ if __name__ == "__main__":
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
+    frame_q = Queue(-1)
     streams = []
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
         stream = LiveStream(cam, fps_target=12, charuco=charuco)
-        frame_q = Queue()
-        stream.subscribe("test", frame_q)
+        stream.subscribe(frame_q)
 
         stream._show_fps = True
         stream._show_charuco = True
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     while True:
         # try:
         for stream in streams:
-            frame_packet = stream.subscriber_queues["test"].get()
+            frame_packet = frame_q.get()
 
             cv2.imshow(
                 (str(frame_packet.port) + ": 'q' to quit and attempt calibration"),

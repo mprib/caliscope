@@ -1,30 +1,18 @@
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
 
 import sys
 from pathlib import Path
 from threading import Thread, Event
-import time
 
 import cv2
 from PyQt6.QtCore import Qt, pyqtSignal, QThread
-from PyQt6.QtGui import QImage, QPixmap, QIcon
+from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (
     QApplication,
-    QSizePolicy,
     QWidget,
-    QSpinBox,
     QScrollArea,
-    QComboBox,
-    QCheckBox,
-    QDialog,
-    QGroupBox,
-    QDoubleSpinBox,
-    QHBoxLayout,
     QLabel,
     QPushButton,
-    QSlider,
     QVBoxLayout,
 )
 
@@ -36,6 +24,8 @@ from pyxyfy import __root__
 
 from pyxyfy.gui.widgets import NavigationBarBackNext
 
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 class OmniFrameWidget(QWidget):
     
     def __init__(self,session:Session):
@@ -44,7 +34,7 @@ class OmniFrameWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
 
-        self.frame_builder = OmniFrameBuilder(self.synchronizer, board_count_target=60)
+        self.frame_builder = OmniFrameBuilder(self.synchronizer, board_count_target=160)
         self.frame_emitter = OmniFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 

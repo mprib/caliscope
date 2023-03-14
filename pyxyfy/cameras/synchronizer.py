@@ -49,7 +49,7 @@ class Synchronizer:
         # self.in_queues = {}
         for port, stream in self.streams.items():
             # self.in_queues[port] = Queue(-1)
-            stream.subscribe("synchronizer", self.in_queues[port])
+            stream.subscribe(self.in_queues[port])
             
 
     def update_fps_targets(self, target):

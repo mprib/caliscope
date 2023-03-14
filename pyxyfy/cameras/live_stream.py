@@ -33,11 +33,14 @@ class LiveStream:
         else:
             self.track_points.clear()  # just to be clear
 
-        self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
-        self.push_to_out_q = Event()
-        self.push_to_out_q.set()  # default behavior is to push to queue
-        self.stop_event = Event()
+        # self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
+        # self.push_to_out_q = Event()
+        # self.push_to_out_q.set()  # default behavior is to push to queue
+        
+        # a list of queues that will be pushed to
+        self.subscriber_queues = {}
 
+        self.stop_event = Event()
         # make sure camera no longer reading before trying to change resolution
         self.stop_confirm = Queue()
 
@@ -54,6 +57,7 @@ class LiveStream:
         self.frame_time = perf_counter()
         self.avg_delta_time = 1  # initialize to something to avoid errors elsewhere
 
+
     def set_fps_target(self, fps):
         """
         This is done through a method as it will also do a one-time determination of the times as which
@@ -66,6 +70,12 @@ class LiveStream:
             milestones.append(i / fps)
         logger.info(f"Setting fps to {self.fps}")
         self.milestones = np.array(milestones)
+
+    def subscribe(self, name:str, queue:Queue):
+        self.subscriber_queues[name] = queue
+
+    def unsubscribe(self, name:str):
+        del self.subscriber_queues[name]
 
     def update_charuco(self, charuco: Charuco):
         self.charuco = charuco
@@ -124,8 +134,10 @@ class LiveStream:
             if self.camera.capture.isOpened():
 
                 # slow wait if not pushing frames                
-                # this is a sub-optimal busy wait spin lock, but it works and I'm tired.
-                while not self.push_to_out_q.is_set():
+                # this is a sub-optimal busy wait spin lock, 
+                # but it works and this whole thread is finicky
+                # Beware Perfection Here!
+                while len(self.subscriber_queues)==0:
                     sleep(.2)
 
                 # Wait an appropriate amount of time to hit the frame rate target
@@ -138,11 +150,9 @@ class LiveStream:
                 point_data = None # Provide initial value here...may get overwritten
                 self.frame_time = (read_start + read_stop) / 2
 
-                if self.push_to_out_q.is_set() and self.success:
-                    logger.debug(f"Pushing frame to reel at port {self.port}")
-
-                    if self.track_points.is_set():
-                        point_data = self.tracker.get_points(self.frame)
+                if self.success and self.track_points.is_set():
+                    logger.debug(f"Tracking points at port {self.port}")
+                    point_data = self.tracker.get_points(self.frame)
                     # else:
                         # point_data = None
 
@@ -158,10 +168,9 @@ class LiveStream:
 
                 if self._show_charuco:
                     draw_charuco.corners(frame_packet)
-                    # self.out_q.put([self.frame_time, self.frame])
 
-                if self.push_to_out_q.is_set():
-                    self.out_q.put(frame_packet)
+                for name, q in self.subscriber_queues.values():
+                    q.put(frame_packet)
 
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()

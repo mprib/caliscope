@@ -26,7 +26,7 @@ class OmniFrameBuilder:
 
         self.pairs = self.get_pairs()
 
-        self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
+        self.board_counts = {pair: 0 for pair in self.pairs} 
         self.omni_list = self.pairs.copy()
         
         self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}

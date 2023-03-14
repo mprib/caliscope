@@ -25,8 +25,11 @@ class MonoCalibrator():
         self.capture_corners = Event()
         self.capture_corners.clear() # start out not doing anything
         self.stop_event = Event()
-        
-        self.grid_frame_ready_q = Queue()
+        self.frame_packet_queue = Queue(-1)
+
+        self.stream.subscribe("monocalibrator", self.frame_packet_queue)
+
+        self.grid_frame_ready_q = Queue(-1)
         self.connected_corners = self.stream.charuco.get_connected_corners()
 
         board_corner_count = len(self.stream.charuco.board.chessboardCorners)
@@ -77,17 +80,17 @@ class MonoCalibrator():
         that enough time has past since the last set was recorded
 
         """
-        logger.debug("Entering collect_corners thread loop")
+        logger.info("Entering collect_corners thread loop")
         
-        self.stream.push_to_out_q.set()
+        # self.stream.push_to_out_q.set()
         
         while not self.stop_event.is_set():
             
-            self.frame_packet: FramePacket = self.stream.out_q.get()
+            self.frame_packet: FramePacket = self.frame_packet_queue.get()
             self.frame = self.frame_packet.frame
 
             if self.capture_corners.is_set() and self.frame_packet.points is not None:
-                logger.info("Points found and being processed...")
+                logger.debug("Points found and being processed...")
                 self.ids = self.frame_packet.points.point_id
                 self.img_loc = self.frame_packet.points.img_loc
                 self.board_loc = self.frame_packet.points.board_loc
@@ -115,7 +118,7 @@ class MonoCalibrator():
                 self.set_grid_frame()
 
         logger.info(f"Monocalibrator at port {self.port} successfully shutdown...")
-        self.stream.push_to_out_q.clear()
+        # self.stream.push_to_out_q.clear()
         
     def update_grid_history(self):
         if len(self.ids) > 2:
@@ -198,9 +201,9 @@ if __name__ == "__main__":
     )
 
     test_port = 0
-    cam = Camera(0)
-    stream = LiveStream(cam, charuco=charuco)
-
+    cam = Camera(test_port)
+    stream = LiveStream(cam, fps_target = 12, charuco=charuco)
+    stream._show_fps = True
     # syncr = Synchronizer(streams, fps_target=20)
 
     monocal = MonoCalibrator(stream)

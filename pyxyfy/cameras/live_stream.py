@@ -5,7 +5,7 @@
 
 from queue import Queue
 from threading import Event, Thread
-from time import perf_counter, sleep
+from time import perf_counter, sleep, time
 
 import cv2
 import numpy as np
@@ -45,8 +45,8 @@ class LiveStream:
 
         self._show_fps = False  # used for testing
         self._show_charuco = False  # used for testing
-
-        self.set_fps_target(fps_target)
+        self.fps_target = fps_target
+        # self.set_fps_target(fps_target)
         self.FPS_actual = 0
         # Start the thread to read frames from the video stream
         self.thread = Thread(target=self.worker, args=(), daemon=True)
@@ -57,18 +57,19 @@ class LiveStream:
         self.avg_delta_time = 1  # initialize to something to avoid errors elsewhere
 
 
-    def set_fps_target(self, fps):
-        """
-        This is done through a method as it will also do a one-time determination of the times as which
-        frames should be read (the milestones)
-        """
+    # def set_fps_target(self, fps):
+    #     """
+    #     This is done through a method as it will also do a one-time determination of the times as which
+    #     frames should be read (the milestones)
+    #     """
 
-        self.fps = fps
-        milestones = []
-        for i in range(0, fps):
-            milestones.append(i / fps)
-        logger.info(f"Setting fps to {self.fps}")
-        self.milestones = np.array(milestones)
+    #     self.fps = fps
+    #     milestones = []
+    #     for i in range(0, fps):
+    #         milestones.append(i / fps)
+    #     logger.info(f"Setting fps to {self.fps}")
+    #     self.milestones = np.array(milestones)
+    #     logger.info(f"Time triggers for frame read: {self.milestones}")
 
     def subscribe(self, name:str, queue:Queue):
         self.subscriber_queues[name] = queue
@@ -85,16 +86,27 @@ class LiveStream:
         based on the next milestone time, return the time needed to sleep so that
         a frame read immediately after would occur when needed
         """
-
-        time = perf_counter()
-        fractional_time = time % 1
-        all_wait_times = self.milestones - fractional_time
-        future_wait_times = all_wait_times[all_wait_times > 0]
-
-        if len(future_wait_times) == 0:
-            return 1 - fractional_time
+        self.second_this_frame = int(perf_counter())
+        if self.second_this_frame == self.second_last_frame:
+            self.frames_this_second += 1
         else:
-            return future_wait_times[0]
+            self.frames_this_second = 0        
+
+        fractional_time = perf_counter() % 1
+        if fractional_time < self.frames_this_second/(self.fps_target-1):
+            wait = self.frames_this_second/(self.fps_target-1) - fractional_time
+        else:
+            wait = 0
+        # # all_wait_times = self.milestones - fractional_time
+        # # future_wait_times = all_wait_times[all_wait_times > 0]
+
+        # if len(future_wait_times) == 0:
+        #     return 1 - fractional_time
+        # else:
+        #     return future_wait_times[0]
+
+        self.second_last_frame = self.second_this_frame
+        return wait
 
     def get_FPS_actual(self):
         """
@@ -108,7 +120,7 @@ class LiveStream:
             self.avg_delta_time = self.delta_time
 
         # folding in current frame rate to trailing average to smooth out
-        self.avg_delta_time = 0.5 * self.avg_delta_time + 0.5 * self.delta_time
+        self.avg_delta_time = 0.9 * self.avg_delta_time + 0.1 * self.delta_time
         self.previous_time = self.start_time
         return 1 / self.avg_delta_time
 
@@ -129,15 +141,18 @@ class LiveStream:
             if first_time:
                 logger.info(f"Camera now rolling at port {self.port}")
                 first_time = False
-
+                self.second_this_frame = int(perf_counter())
+                self.second_last_frame = -1
+                self.frames_this_second = 0
+                
             if self.camera.capture.isOpened():
 
                 # slow wait if not pushing frames                
                 # this is a sub-optimal busy wait spin lock, 
                 # but it works and this whole thread is finicky
                 # Beware Perfection Here!
-                while len(self.subscriber_queues)==0:
-                    sleep(.2)
+                # while len(self.subscriber_queues)==0:
+                    # sleep(.2)
 
                 # Wait an appropriate amount of time to hit the frame rate target
                 sleep(self.wait_to_next_frame())
@@ -170,7 +185,6 @@ class LiveStream:
 
                 for name, q in self.subscriber_queues.items():
                     q.put(frame_packet)
-
                 # Rate of calling recalc must be frequency of this loop
                 self.FPS_actual = self.get_FPS_actual()
 
@@ -218,7 +232,7 @@ class LiveStream:
 
 if __name__ == "__main__":
     # ports = [2, 3, 4]
-    ports = [2]
+    ports = [3]
 
     cams = []
     for port in ports:

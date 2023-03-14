@@ -1,38 +1,38 @@
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
 
 import sys
+import time
 from pathlib import Path
 from threading import Thread
-import time
 
-import cv2
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QImage, QPixmap, QIcon
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QApplication,
-    QWidget,
-    QSpinBox,
-    QComboBox,
     QCheckBox,
+    QComboBox,
     QDialog,
-    QGroupBox,
     QDoubleSpinBox,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QSlider,
+    QSpinBox,
     QVBoxLayout,
+    QWidget,
 )
+
+from pyxyfy import __root__
+from pyxyfy.calibration.monocalibrator import MonoCalibrator
+from pyxyfy.cameras.camera import Camera
+from pyxyfy.cameras.live_stream import LiveStream
 
 # Append main repo to top of path to allow import of backend
 from pyxyfy.gui.camera_config.frame_emitter import FrameEmitter
-from pyxyfy.calibration.monocalibrator import MonoCalibrator
-from pyxyfy.cameras.camera import Camera
-from pyxyfy.cameras.live_stream import LiveStream 
 from pyxyfy.session import Session
-from pyxyfy import __root__
 
+import pyxyfy.logger
+logger = pyxyfy.logger.get(__name__)
 
 class CameraConfigDialog(QDialog):
     
@@ -255,7 +255,7 @@ class AdvancedControls(QWidget):
         self.fps_grp.layout().addWidget(QLabel("Target:"))
 
         self.frame_rate_spin = QSpinBox()
-        self.frame_rate_spin.setValue(self.stream.fps)
+        self.frame_rate_spin.setValue(self.stream.fps_target)
         self.fps_grp.layout().addWidget(self.frame_rate_spin)
 
         self.fps_display = QLabel()
@@ -301,7 +301,7 @@ class AdvancedControls(QWidget):
 
         
     def on_frame_rate_spin(self,fps_rate):
-        self.stream.set_fps_target(fps_rate)
+        self.stream.fps_target = fps_rate
         logger.info(f"Changing monocalibrator frame rate for port{self.port}")
 
     def FPSUpdateSlot(self,fps):
@@ -462,14 +462,13 @@ class FrameControlWidget(QWidget):
 
 if __name__ == "__main__":
     App = QApplication(sys.argv)
-    from pyxyfy import __root__
-    config_path = Path(__root__, "tests", "why breaking")
+    config_path = Path(__root__, "tests", "pyxyfy")
 
     print(config_path)
     session = Session(config_path)
     session.load_cameras()
     session.load_streams()
-    # session.adjust_resolutions()
+    session.adjust_resolutions()
     session.load_monocalibrators()
 
     test_port = 0

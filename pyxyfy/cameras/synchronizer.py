@@ -19,16 +19,19 @@ class Synchronizer:
         self.streams = streams
         self.current_synched_frames = None
 
-        self.sync_notice_subscribers = (
-            []
-        )  # queues that will be notified of new synched frames
-        self.synched_frames_subscribers = (
-            []
-        )  # queues that will receive actual frame data
+
+        # queues that will be notified of new synched frames
+        self.sync_notice_subscribers = ( [])  
+        # queues that will receive actual frame data
+        self.synched_frames_subscribers = ( [])  
 
         self.all_frame_packets = {}
         self.stop_event = Event()
-        self.frames_complete = False  # only relevant for video playback, but provides a way to wrap up the thread
+
+        # only relevant for video playback, but provides a way to wrap up the thread
+        self.frames_complete = False  
+        # self.frame_packet_queue = Queue(-1)
+        self.in_queues = {port:Queue(-1) for port in self.streams.keys()}
 
         self.ports = []
         for port, stream in self.streams.items():
@@ -39,12 +42,20 @@ class Synchronizer:
         self.fps = fps_target
 
         self.initialize_ledgers()
+        self.subscribe_to_streams()
         self.start()
+
+    def subscribe_to_streams(self):
+        # self.in_queues = {}
+        for port, stream in self.streams.items():
+            # self.in_queues[port] = Queue(-1)
+            stream.subscribe("synchronizer", self.in_queues[port])
+            
 
     def update_fps_targets(self, target):
         logger.info(f"Attempting to change target fps in streams to {target}")
         for port, stream in self.streams.items():
-            stream.set_fps_target(target)
+            stream.fps_target = target
 
     def stop(self):
         self.stop_event.set()
@@ -89,12 +100,12 @@ class Synchronizer:
 
     def harvest_frame_packets(self, stream):
         port = stream.port
-        stream.push_to_out_q.set()
+        # stream.push_to_out_q.set()
 
         logger.info(f"Beginning to collect data generated at port {port}")
 
         while not self.stop_event.is_set():
-            frame_packet = stream.out_q.get()
+            frame_packet = self.in_queues[port].get()
             frame_index = self.port_frame_count[port]
             frame_packet.frame_index = frame_index
 
@@ -263,18 +274,14 @@ class Synchronizer:
 
 
 if __name__ == "__main__":
-    import time
 
     from pyxyfy import __root__
-    from pyxyfy.calibration.charuco import Charuco
-    from pyxyfy.recording.recorded_stream import RecordedStreamPool
     from pyxyfy.session import Session
     
     ports = [0, 1, 2, 3, 4]
     # ports = [0,1]
 
     test_live = True
-    # test_live = False
 
     if test_live:
 
@@ -290,17 +297,6 @@ if __name__ == "__main__":
 
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(session.streams, fps_target=15)
-    else:
-        recording_directory = Path(__root__, "tests", "5_cameras", "recording")
-        charuco = Charuco(
-                4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-            )
-        recorded_stream_pool = RecordedStreamPool(
-            ports, recording_directory, charuco=charuco
-        )
-        logger.info("Creating Synchronizer")
-        syncr = Synchronizer(recorded_stream_pool.streams, fps_target=20)
-        recorded_stream_pool.play_videos()
 
     notification_q = Queue()
 

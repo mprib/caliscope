@@ -1,3 +1,9 @@
+# WARNING
+
+This branch became corrupted somehow. I'm leaving it for the short-term to serve as a reference because I do believe that I the subscriber framework was working. But a variety of small changes were made and then the bundle adjustment convergence began to fail. I don't know what's going on and think it might be easier to start clean than to try to figure out where I went wrong here.
+
+New lesson: if switching linters, make one whole branch just bringing the formatting in line, otherwise stuff will just get cluttered. 
+
 
 # Introduction
 

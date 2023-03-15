@@ -48,10 +48,16 @@ class CalibrationWizard(QStackedWidget):
         self.cameras_connected.connect(self.on_cameras_connect) 
         
     def next_to_omniframe(self):
-        self.omniframe = OmniFrameWidget(self.session)
-        self.addWidget(self.omniframe)
-        self.setCurrentIndex(3)
-        self.omniframe.navigation_bar.back_btn.clicked.connect(self.move_back_to_camera_config_wizard)
+        if hasattr(self,"omniframe"):
+            self.session.unpause_synchronizer()
+            self.setCurrentIndex(3)
+        else:
+            self.omniframe = OmniFrameWidget(self.session)
+            self.addWidget(self.omniframe)
+            self.setCurrentIndex(3)
+            self.omniframe.navigation_bar.back_btn.clicked.connect(self.back_to_camera_config_wizard)
+
+        
 
     def on_cameras_connect(self):
         # load cameras wizard once the cameras are actually connected
@@ -72,13 +78,13 @@ class CalibrationWizard(QStackedWidget):
             self.launch_session()
             logger.info("Creating charuco wizard session")
             self.wizard_charuco = WizardCharuco(self.session)
-            self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(self.move_next_to_camera_config_wizard)
+            self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(self.next_to_camera_config_wizard)
             logger.info("Adding charuco wizard")
             self.addWidget(self.wizard_charuco)
             logger.info("Setting index to 2 to activate widget")
             self.setCurrentIndex(1)
 
-    def move_next_to_camera_config_wizard(self):
+    def next_to_camera_config_wizard(self):
         if hasattr(self, "camera_wizard"):
             logger.info("Camera wizard already exists; changing stack current index")
             self.setCurrentIndex(2)
@@ -91,10 +97,10 @@ class CalibrationWizard(QStackedWidget):
             self.qt_logger = QtLogger("Connecting to Cameras")
             self.qt_logger.show()
    
-    def move_back_to_camera_config_wizard(self):
+    def back_to_camera_config_wizard(self):
         # from omniframe to camera config
         self.setCurrentIndex(2)
-        del self.session.synchronizer
+        self.session.pause_synchronizer()
                      
     def launch_session(self):
         if self.wizard_directory.create_new_radio.isChecked():

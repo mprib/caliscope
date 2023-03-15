@@ -50,14 +50,14 @@ class CalibrationWizard(QStackedWidget):
     def next_to_omniframe(self):
         if hasattr(self,"omniframe"):
             self.session.unpause_synchronizer()
-            self.setCurrentIndex(3)
         else:
             self.omniframe = OmniFrameWidget(self.session)
             self.addWidget(self.omniframe)
-            self.setCurrentIndex(3)
             self.omniframe.navigation_bar.back_btn.clicked.connect(self.back_to_camera_config_wizard)
 
-        
+        self.setCurrentIndex(3)
+        self.session.pause_all_monocalibrators()
+
 
     def on_cameras_connect(self):
         # load cameras wizard once the cameras are actually connected
@@ -100,6 +100,8 @@ class CalibrationWizard(QStackedWidget):
     def back_to_camera_config_wizard(self):
         # from omniframe to camera config
         self.setCurrentIndex(2)
+        active_port = self.camera_wizard.camera_tabs.currentIndex()
+        self.camera_wizard.camera_tabs.toggle_tracking(active_port)
         self.session.pause_synchronizer()
                      
     def launch_session(self):

@@ -20,9 +20,14 @@ from pyxyfy.cameras.camera_array_builder import CameraArray, CameraArrayBuilder
 from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
 
 class CaptureVolumeVisualizer:
-    def __init__(self, capture_volume:CaptureVolume):
-        self.capture_volume = capture_volume
-        self.camera_array = capture_volume.camera_array
+    def __init__(self, capture_volume:CaptureVolume = None, camera_array:CameraArray = None):
+        if camera_array is not None and capture_volume is None:
+            self.camera_array = camera_array
+            self.point_estimates = None
+        else:
+            self.capture_volume = capture_volume
+            self.camera_array = capture_volume.camera_array
+            self.point_estimates = self.capture_volume.point_estimates
 
         self.current_frame = 0
 
@@ -44,39 +49,17 @@ class CaptureVolumeVisualizer:
 
         self.scene.show()
 
-        # read in contents of file and get important parameters
-        self.point_estimates = self.capture_volume.point_estimates
-        # self.pairs = self.point_estimate_data["pair"].unique().tolist()
-
-        # build the initial scatters that will be updated
-        # self.scatters = {}
-        # self.colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
-        # pair_count = len(self.pairs)
-        # for pair in self.pairs:
-        #     if pair_count == 1:
-        #         color = [1,1,1,1]
-        #     else:
-        #         color = [random(), random(), random(),1]
-
-        #     board_scatter = gl.GLScatterPlotItem(
-        #         pos=np.array([0, 0, 0]),
-        #         color = color,
-        #         size=0.01,
-        #         pxMode=False,
-        #     )
-        #     self.scene.addItem(board_scatter)
-        #     self.scatters[pair] = board_scatter
-
-        self.scatter = gl.GLScatterPlotItem(
-            pos=np.array([0, 0, 0]),
-            color = [1,1,1,1],
-            size=0.01,
-            pxMode=False,
-        )
-        self.scene.addItem(self.scatter)
+        if self.point_estimates is not None:
+            self.scatter = gl.GLScatterPlotItem(
+                pos=np.array([0, 0, 0]),
+                color = [1,1,1,1],
+                size=0.01,
+                pxMode=False,
+            )
+            self.scene.addItem(self.scatter)
         
-        self.thread = Thread(target=self.play_data, args=[], daemon=False)
-        self.thread.start()
+            self.thread = Thread(target=self.play_data, args=[], daemon=False)
+            self.thread.start()
 
     def play_data(self):
         # sync_indices = self.point_estimate_data["sync_index"].unique().tolist()
@@ -194,9 +177,10 @@ if __name__ == "__main__":
 
     saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl") 
     with open(saved_CV_path, "rb") as f:
-        capture_volume = pickle.load(f)
+        capture_volume:CaptureVolume = pickle.load(f)
 
     app = QApplication(sys.argv)
-    vizr = CaptureVolumeVisualizer(capture_volume)
+    # vizr = CaptureVolumeVisualizer(capture_volume = capture_volume)
+    vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
 
     sys.exit(app.exec())

@@ -32,8 +32,13 @@ class Synchronizer:
         self.frames_complete = False  # only relevant for video playback, but provides a way to wrap up the thread
 
         self.ports = []
+        self.frame_packet_queues = {}
         for port, stream in self.streams.items():
             self.ports.append(port)
+            q = Queue(-1)
+            self.frame_packet_queues[port] = q
+
+        self.subscribe_to_streams()
 
         self.fps_target = fps_target
         self.update_fps_targets(fps_target)
@@ -46,6 +51,10 @@ class Synchronizer:
         logger.info(f"Attempting to change target fps in streams to {target}")
         for port, stream in self.streams.items():
             stream.set_fps_target(target)
+
+    def subscribe_to_streams(self):
+        for port, stream in self.streams.items():
+            stream.subscribe(self.frame_packet_queues[port])
 
     def stop(self):
         self.stop_event.set()
@@ -90,12 +99,11 @@ class Synchronizer:
 
     def harvest_frame_packets(self, stream):
         port = stream.port
-        stream.push_to_out_q.set()
 
         logger.info(f"Beginning to collect data generated at port {port}")
 
         while not self.stop_event.is_set():
-            frame_packet = stream.out_q.get()
+            frame_packet = self.frame_packet_queues[port].get()
             frame_index = self.port_frame_count[port]
             frame_packet.frame_index = frame_index
 

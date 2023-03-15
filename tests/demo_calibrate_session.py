@@ -53,7 +53,6 @@ point_estimates: PointEstimates = get_point_estimates(
     session.camera_array, point_data_path
 )
 
-#%%
 
 session.save_camera_array()
 

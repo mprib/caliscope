@@ -86,6 +86,7 @@ class CameraTabs(QTabWidget):
             logger.info("No cameras available")
         
         self.toggle_tracking(self.currentIndex())
+
     def check_session_calibration(self):
         logger.info(f"Checking session stage....")
       

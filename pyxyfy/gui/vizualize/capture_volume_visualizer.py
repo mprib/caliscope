@@ -20,9 +20,14 @@ from pyxyfy.cameras.camera_array_builder import CameraArray, CameraArrayBuilder
 from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
 
 class CaptureVolumeVisualizer:
-    def __init__(self, capture_volume:CaptureVolume):
-        self.capture_volume = capture_volume
-        self.camera_array = capture_volume.camera_array
+    def __init__(self, capture_volume:CaptureVolume = None, camera_array:CameraArray = None):
+        if camera_array is not None and capture_volume is None:
+            self.camera_array = camera_array
+            self.point_estimates = None
+        else:
+            self.capture_volume = capture_volume
+            self.camera_array = capture_volume.camera_array
+            self.point_estimates = self.capture_volume.point_estimates
 
         self.current_frame = 0
 
@@ -44,39 +49,17 @@ class CaptureVolumeVisualizer:
 
         self.scene.show()
 
-        # read in contents of file and get important parameters
-        self.point_estimates = self.capture_volume.point_estimates
-        # self.pairs = self.point_estimate_data["pair"].unique().tolist()
-
-        # build the initial scatters that will be updated
-        # self.scatters = {}
-        # self.colors = [(1, 0, 0, 1), (0, 1, 0, 1), (0, 0, 1, 1)]
-        # pair_count = len(self.pairs)
-        # for pair in self.pairs:
-        #     if pair_count == 1:
-        #         color = [1,1,1,1]
-        #     else:
-        #         color = [random(), random(), random(),1]
-
-        #     board_scatter = gl.GLScatterPlotItem(
-        #         pos=np.array([0, 0, 0]),
-        #         color = color,
-        #         size=0.01,
-        #         pxMode=False,
-        #     )
-        #     self.scene.addItem(board_scatter)
-        #     self.scatters[pair] = board_scatter
-
-        self.scatter = gl.GLScatterPlotItem(
-            pos=np.array([0, 0, 0]),
-            color = [1,1,1,1],
-            size=0.01,
-            pxMode=False,
-        )
-        self.scene.addItem(self.scatter)
+        if self.point_estimates is not None:
+            self.scatter = gl.GLScatterPlotItem(
+                pos=np.array([0, 0, 0]),
+                color = [1,1,1,1],
+                size=0.01,
+                pxMode=False,
+            )
+            self.scene.addItem(self.scatter)
         
-        self.thread = Thread(target=self.play_data, args=[], daemon=False)
-        self.thread.start()
+            self.thread = Thread(target=self.play_data, args=[], daemon=False)
+            self.thread.start()
 
     def play_data(self):
         # sync_indices = self.point_estimate_data["sync_index"].unique().tolist()
@@ -134,7 +117,13 @@ class CaptureVolumeVisualizer:
 
 # helper functions to assist with scene creation
 def mesh_from_camera(camera_data: CameraData):
-    # cd = camera_data
+    """"
+    Mesh is placed at origin by default. Note that it appears rotations
+    are in the mesh frame of reference and translations are in 
+    the scene frame of reference. I could be wrong, but that appears
+    to be the case.
+    
+    """
     mesh = CameraMesh(camera_data.size, camera_data.matrix).mesh
 
     # rotate mesh
@@ -144,15 +133,21 @@ def mesh_from_camera(camera_data: CameraData):
     y = euler_angles_deg[1]
     z = euler_angles_deg[2]
 
-
-    mesh.rotate(x, 1, 0, 0, local=True)
-    mesh.rotate(y, 0, 1, 0, local=True)
+    # rotate mesh; z,y,x is apparently the order in which it's done
+    # https://gamedev.stackexchange.com/questions/16719/what-is-the-correct-order-to-multiply-scale-rotation-and-translation-matrices-f
     mesh.rotate(z, 0, 0, 1, local=True)
+    mesh.rotate(y, 0, 1, 0, local=True)
+    mesh.rotate(x, 1, 0, 0, local=True)
 
-    # translate mesh which defaults to origin
-    # translation_scale_factor = 1
-    x, y, z = [t for t in camera_data.translation]
+    R = camera_data.rotation
+    t = camera_data.translation
+    
+    # adjust mesh translation to account for preliminary rotation
+    final_position = t@R.T
+    x, y, z = [t for t in final_position]
     mesh.translate(x, y, z)
+
+
 
     return mesh
 
@@ -187,16 +182,20 @@ if __name__ == "__main__":
     from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
-    session_directory = Path(__root__,  "tests", "pyxyfy")
+    # session_directory = Path(__root__,  "tests", "2_cameras_linear")
+    session_directory = Path(__root__,  "tests", "2_cameras_90_deg")
+    # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
+    # session_directory = Path(__root__,  "tests", "3_cameras_middle")
+    # session_directory = Path(__root__,  "tests", "3_cameras_linear")
+    # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
 
-    print(f"Optimizing initial camera array configuration ")
 
-
-    saved_CV_path = Path(session_directory, "capture_volume_stage_4.pkl") 
+    saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl") 
     with open(saved_CV_path, "rb") as f:
-        capture_volume = pickle.load(f)
+        capture_volume:CaptureVolume = pickle.load(f)
 
     app = QApplication(sys.argv)
-    vizr = CaptureVolumeVisualizer(capture_volume)
+    vizr = CaptureVolumeVisualizer(capture_volume = capture_volume)
+    # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
 
     sys.exit(app.exec())

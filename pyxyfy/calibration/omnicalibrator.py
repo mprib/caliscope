@@ -357,7 +357,7 @@ class OmniCalibrator:
         logger.info(f"About to stereocalibrate pair {pair}")
 
         stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
-        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.0001)
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 40, 0.000001)
 
         paired_point_data = self.get_stereopair_data(
             pair, boards_sampled=boards_sampled
@@ -436,7 +436,7 @@ if __name__ == "__main__":
     from pathlib import Path
 
     # set inputs
-    session_path = Path(__root__, "tests", "demo")
+    session_path = Path(__root__, "tests", "3_cameras_triangular")
 
     config_path = Path(session_path, "config.toml")
     point_data_path = Path(session_path, "point_data.csv")

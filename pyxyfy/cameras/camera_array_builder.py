@@ -50,6 +50,9 @@ class CameraArrayBuilder:
                     translation = anchored_pair.Translation.to_list()[0][:,0] # indexing in to avoid redundent dimensions
                     rotation = anchored_pair.Rotation.to_list()[0]
 
+                    # testing out random ideas
+                    # rotation = np.linalg.inv(rotation)
+
                 cam_data = CameraData(
                     port,
                     size,

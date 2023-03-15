@@ -477,7 +477,9 @@ class Session:
 
         # self.save_camera_array()
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
+        self.capture_volume.save(self.path)
         self.capture_volume.optimize()
+        self.capture_volume.save(self.path)
         self.save_camera_array()
 
 

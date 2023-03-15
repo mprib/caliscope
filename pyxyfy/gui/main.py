@@ -69,6 +69,7 @@ class CalibrationWizard(QStackedWidget):
      
     def back_to_charuco_wizard(self):
         self.setCurrentIndex(1)
+        self.session.pause_all_monocalibrators()
 
     def next_to_charuco_wizard(self):
         if hasattr(self, "wizard_charuco"):
@@ -88,6 +89,8 @@ class CalibrationWizard(QStackedWidget):
         if hasattr(self, "camera_wizard"):
             logger.info("Camera wizard already exists; changing stack current index")
             self.setCurrentIndex(2)
+            active_port = self.camera_wizard.camera_tabs.currentIndex()
+            self.camera_wizard.camera_tabs.toggle_tracking(active_port)
             logger.info("updating charuco in case necessary")
             for port, stream in self.session.streams.items():
                 stream.update_charuco(self.session.charuco)

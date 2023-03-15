@@ -65,7 +65,7 @@ class LiveStream:
 
     def unsubscribe(self, queue:Queue):
         if queue in self.subscribers:
-            self.subscribe.remove(queue)
+            self.subscribers.remove(queue)
         else:
             logger.warn(f"Attempted to unsubscribe to live stream that was not subscribed to\
                 at port {self.port} twice")
@@ -142,7 +142,10 @@ class LiveStream:
 
                 # slow wait if not pushing frames                
                 # this is a sub-optimal busy wait spin lock, but it works and I'm tired.
-                while len(self.subscribers) == 0:
+                # stop_event condition added to allow loop to wrap up 
+                # if attempting to change resolution
+                while len(self.subscribers) == 0 and not self.stop_event.is_set():
+                    logger.info(f"sleeping at port {self.port}")
                     sleep(.2)
 
                 # Wait an appropriate amount of time to hit the frame rate target
@@ -226,7 +229,7 @@ class LiveStream:
 
 
 if __name__ == "__main__":
-    ports = [0,1]
+    ports = [0]
     # ports = [3]
 
     cams = []
@@ -282,7 +285,7 @@ if __name__ == "__main__":
         if key == ord("v"):
             for stream in streams:
                 print(f"Attempting to change resolution at port {stream.port}")
-                stream.change_resolution((1024, 576))
+                stream.change_resolution((640,480))
 
         if key == ord("s"):
             for stream in streams:

@@ -127,13 +127,13 @@ def mesh_from_camera(camera_data: CameraData):
     y = euler_angles_deg[1]
     z = euler_angles_deg[2]
 
-
-    mesh.rotate(x, 1, 0, 0, local=True)
-    mesh.rotate(y, 0, 1, 0, local=True)
+    # rotate mesh; z,y,x is apparently the order in which it's done
+    # https://gamedev.stackexchange.com/questions/16719/what-is-the-correct-order-to-multiply-scale-rotation-and-translation-matrices-f
     mesh.rotate(z, 0, 0, 1, local=True)
+    mesh.rotate(y, 0, 1, 0, local=True)
+    mesh.rotate(x, 1, 0, 0, local=True)
 
     # translate mesh which defaults to origin
-    # translation_scale_factor = 1
     x, y, z = [t for t in camera_data.translation]
     mesh.translate(x, y, z)
 
@@ -170,17 +170,20 @@ if __name__ == "__main__":
     from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
-    session_directory = Path(__root__,  "tests", "3_cameras_triangular")
+    session_directory = Path(__root__,  "tests", "3_cameras_middle")
+    # session_directory = Path(__root__,  "tests", "3_cameras")
+    # session_directory = Path(__root__,  "tests", "3_cameras_linear")
+    # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
 
     print(f"Optimizing initial camera array configuration ")
 
 
-    saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl") 
+    saved_CV_path = Path(session_directory, "capture_volume_stage_0.pkl") 
     with open(saved_CV_path, "rb") as f:
         capture_volume:CaptureVolume = pickle.load(f)
 
     app = QApplication(sys.argv)
-    # vizr = CaptureVolumeVisualizer(capture_volume = capture_volume)
-    vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
+    vizr = CaptureVolumeVisualizer(capture_volume = capture_volume)
+    # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
 
     sys.exit(app.exec())

@@ -187,12 +187,12 @@ if __name__ == "__main__":
     from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
-    session_directory = Path(__root__,  "tests", "pyxyfy")
+    session_directory = Path(__root__,  "tests", "3_cameras_triangular")
 
     print(f"Optimizing initial camera array configuration ")
 
 
-    saved_CV_path = Path(session_directory, "capture_volume_stage_4.pkl") 
+    saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl") 
     with open(saved_CV_path, "rb") as f:
         capture_volume = pickle.load(f)
 

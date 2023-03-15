@@ -146,7 +146,7 @@ class LiveStream:
                     sleep(.2)
 
                 # Wait an appropriate amount of time to hit the frame rate target
-                sleep(self.wait_to_next_frame())
+                # sleep(self.wait_to_next_frame())
 
                 read_start = perf_counter()
                 self.success, self.frame = self.camera.capture.read()
@@ -243,14 +243,15 @@ if __name__ == "__main__":
 
     frame_packet_queues = {}
 
-    for port in ports:
-        q = Queue(-1)
-        frame_packet_queues[port] = q
 
     streams = []
     for cam in cams:
+
+        q = Queue(-1)
+        frame_packet_queues[cam.port] = q
+
         print(f"Creating Video Stream for camera {cam.port}")
-        stream = LiveStream(cam, fps_target=12, charuco=charuco)
+        stream = LiveStream(cam, fps_target=15, charuco=charuco)
         stream.subscribe(frame_packet_queues[cam.port])
         stream._show_fps = True
         stream._show_charuco = True

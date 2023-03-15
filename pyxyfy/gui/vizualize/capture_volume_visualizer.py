@@ -133,9 +133,15 @@ def mesh_from_camera(camera_data: CameraData):
     mesh.rotate(y, 0, 1, 0, local=True)
     mesh.rotate(x, 1, 0, 0, local=True)
 
+    R = camera_data.rotation
+    t = camera_data.translation
+    
     # translate mesh which defaults to origin
-    x, y, z = [t for t in camera_data.translation]
+    final_position = t@R.T
+    x, y, z = [t for t in final_position]
     mesh.translate(x, y, z)
+
+
 
     return mesh
 
@@ -170,16 +176,15 @@ if __name__ == "__main__":
     from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
-    session_directory = Path(__root__,  "tests", "2_cameras_linear")
+    # session_directory = Path(__root__,  "tests", "2_cameras_linear")
     session_directory = Path(__root__,  "tests", "2_cameras_90_deg")
-    # session_directory = Path(__root__,  "tests", "3_cameras")
+    # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
+    # session_directory = Path(__root__,  "tests", "3_cameras_middle")
     # session_directory = Path(__root__,  "tests", "3_cameras_linear")
     # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
 
-    print(f"Optimizing initial camera array configuration ")
 
-
-    saved_CV_path = Path(session_directory, "capture_volume_stage_0.pkl") 
+    saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl") 
     with open(saved_CV_path, "rb") as f:
         capture_volume:CaptureVolume = pickle.load(f)
 

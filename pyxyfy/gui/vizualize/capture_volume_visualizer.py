@@ -117,7 +117,13 @@ class CaptureVolumeVisualizer:
 
 # helper functions to assist with scene creation
 def mesh_from_camera(camera_data: CameraData):
-    # cd = camera_data
+    """"
+    Mesh is placed at origin by default. Note that it appears rotations
+    are in the mesh frame of reference and translations are in 
+    the scene frame of reference. I could be wrong, but that appears
+    to be the case.
+    
+    """
     mesh = CameraMesh(camera_data.size, camera_data.matrix).mesh
 
     # rotate mesh
@@ -136,7 +142,7 @@ def mesh_from_camera(camera_data: CameraData):
     R = camera_data.rotation
     t = camera_data.translation
     
-    # translate mesh which defaults to origin
+    # adjust mesh translation to account for preliminary rotation
     final_position = t@R.T
     x, y, z = [t for t in final_position]
     mesh.translate(x, y, z)

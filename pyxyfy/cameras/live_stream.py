@@ -33,11 +33,14 @@ class LiveStream:
         else:
             self.track_points.clear()  # just to be clear
 
-        self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
-        self.push_to_out_q = Event()
-        self.push_to_out_q.set()  # default behavior is to push to queue
+        # self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
+        # self.push_to_out_q = Event()
+        # self.push_to_out_q.set()  # default behavior is to push to queue
         self.stop_event = Event()
-
+        
+        # list of queues that will have frame packets pushed to them
+        self.subscribers = []
+        
         # make sure camera no longer reading before trying to change resolution
         self.stop_confirm = Queue()
 
@@ -53,6 +56,20 @@ class LiveStream:
         # initialize time trackers for actual FPS determination
         self.frame_time = perf_counter()
         self.avg_delta_time = 1  # initialize to something to avoid errors elsewhere
+
+    def subscribe(self,queue:Queue):
+        if queue not in self.subscribers:
+            self.subscribers.append(queue)
+        else:
+            logger.warn(f"Attempted to subscribe to live stream at port {self.port} twice")
+
+    def unsubscribe(self, queue:Queue):
+        if queue in self.subscribers:
+            self.subscribe.remove(queue)
+        else:
+            logger.warn(f"Attempted to unsubscribe to live stream that was not subscribed to\
+                at port {self.port} twice")
+
 
     def set_fps_target(self, fps):
         """
@@ -99,7 +116,7 @@ class LiveStream:
             self.avg_delta_time = self.delta_time
 
         # folding in current frame rate to trailing average to smooth out
-        self.avg_delta_time = 0.5 * self.avg_delta_time + 0.5 * self.delta_time
+        self.avg_delta_time = 0.9 * self.avg_delta_time + 0.1* self.delta_time
         self.previous_time = self.start_time
         return 1 / self.avg_delta_time
 
@@ -125,7 +142,7 @@ class LiveStream:
 
                 # slow wait if not pushing frames                
                 # this is a sub-optimal busy wait spin lock, but it works and I'm tired.
-                while not self.push_to_out_q.is_set():
+                while len(self.subscribers) == 0:
                     sleep(.2)
 
                 # Wait an appropriate amount of time to hit the frame rate target
@@ -138,7 +155,7 @@ class LiveStream:
                 point_data = None # Provide initial value here...may get overwritten
                 self.frame_time = (read_start + read_stop) / 2
 
-                if self.push_to_out_q.is_set() and self.success:
+                if self.success and len(self.subscribers) > 0:
                     logger.debug(f"Pushing frame to reel at port {self.port}")
 
                     if self.track_points.is_set():
@@ -146,25 +163,25 @@ class LiveStream:
                     # else:
                         # point_data = None
 
-                if self._show_fps:
-                    self._add_fps()
+                    if self._show_fps:
+                        self._add_fps()
 
-                frame_packet = FramePacket(
-                    port=self.port,
-                    frame_time=self.frame_time,
-                    frame=self.frame,
-                    points=point_data,
-                )
+                    frame_packet = FramePacket(
+                        port=self.port,
+                        frame_time=self.frame_time,
+                        frame=self.frame,
+                        points=point_data,
+                    )
 
-                if self._show_charuco:
-                    draw_charuco.corners(frame_packet)
-                    # self.out_q.put([self.frame_time, self.frame])
+                    if self._show_charuco:
+                        draw_charuco.corners(frame_packet)
+                        # self.out_q.put([self.frame_time, self.frame])
 
-                if self.push_to_out_q.is_set():
-                    self.out_q.put(frame_packet)
+                    for q in self.subscribers:
+                        q.put(frame_packet)
 
-                # Rate of calling recalc must be frequency of this loop
-                self.FPS_actual = self.get_FPS_actual()
+                    # Rate of calling recalc must be frequency of this loop
+                    self.FPS_actual = self.get_FPS_actual()
 
         logger.info(f"Stream stopped at port {self.port}")
         self.stop_event.clear()
@@ -209,8 +226,8 @@ class LiveStream:
 
 
 if __name__ == "__main__":
-    # ports = [2, 3, 4]
-    ports = [3]
+    ports = [0,1]
+    # ports = [3]
 
     cams = []
     for port in ports:
@@ -224,22 +241,28 @@ if __name__ == "__main__":
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
+    frame_packet_queues = {}
+
+    for port in ports:
+        q = Queue(-1)
+        frame_packet_queues[port] = q
+
     streams = []
     for cam in cams:
         print(f"Creating Video Stream for camera {cam.port}")
         stream = LiveStream(cam, fps_target=12, charuco=charuco)
-        stream.push_to_out_q.set()
+        stream.subscribe(frame_packet_queues[cam.port])
         stream._show_fps = True
         stream._show_charuco = True
         streams.append(stream)
 
     while True:
         try:
-            for stream in streams:
-                frame_packet = stream.out_q.get()
+            for port in ports:
+                frame_packet = frame_packet_queues[port].get()
 
                 cv2.imshow(
-                    (str(frame_packet.port) + ": 'q' to quit and attempt calibration"),
+                    (str(port) + ": 'q' to quit and attempt calibration"),
                     frame_packet.frame,
                 )
 

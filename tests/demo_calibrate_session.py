@@ -21,7 +21,9 @@ from pyxyfy.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 
 
 # NOTE: This will successfully calibrate when I fix my issue
-session_directory = Path(__root__,"tests", "3_cameras_triangular" )
+# session_directory = Path(__root__,"tests", "3_cameras_triangular" )
+# session_directory = Path(__root__,"tests", "3_cameras_midlinear" )
+session_directory = Path(__root__,"tests", "3_cameras" )
 
 # point_data.csv is created during the omniframe datacollection
 point_data_path = Path(session_directory, "point_data.csv")

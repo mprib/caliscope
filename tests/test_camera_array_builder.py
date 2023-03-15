@@ -11,8 +11,12 @@ from pyxyfy.gui.vizualize.capture_volume_visualizer import \
     CaptureVolumeVisualizer
 from pyxyfy.calibration.omnicalibrator import OmniCalibrator
 
-session_path  = Path(__root__, "tests", "3_cameras_triangular")
+# session_path  = Path(__root__, "tests", "3_cameras_triangular")
+# session_path  = Path(__root__, "tests", "3_cameras_middle")
+# session_path  = Path(__root__, "tests", "3_cameras_midlinear")
 # session_path  = Path(__root__, "tests", "3_cameras_linear")
+session_path  = Path(__root__, "tests", "3_cameras")
+
 config_path  = Path(session_path,"config.toml")
 
 

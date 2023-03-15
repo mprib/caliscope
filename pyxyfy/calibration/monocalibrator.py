@@ -30,6 +30,9 @@ class MonoCalibrator():
         self.capture_corners.clear() # start out not doing anything
         self.stop_event = Event()
         
+        self.frame_packet_in_q = Queue(-1)    
+        self.subscribe_to_stream()
+
         self.grid_frame_ready_q = Queue()
         self.connected_corners = self.stream.charuco.get_connected_corners()
 
@@ -47,7 +50,7 @@ class MonoCalibrator():
 
         logger.info(f"Beginning monocalibrator for port {self.port}")
 
-        
+     
     @property
     def grid_count(self):
         """How many sets of corners have been collected up to this point"""
@@ -72,7 +75,14 @@ class MonoCalibrator():
     def stop(self):
         self.stop_event.set()
         self.thread.join()
-        
+
+    def subscribe_to_stream(self):
+        self.stream.subscribe(self.frame_packet_in_q)
+    
+    def unsubscribe_to_stream(self): 
+        self.stream.unsubscribe(self.frame_packet_in_q)
+    
+
     def collect_corners(self):
         """
         Input: opencv frame
@@ -83,11 +93,11 @@ class MonoCalibrator():
         """
         logger.debug("Entering collect_corners thread loop")
         
-        self.stream.push_to_out_q.set()
+        # self.stream.push_to_out_q.set()
         
         while not self.stop_event.is_set():
             
-            self.frame_packet: FramePacket = self.stream.out_q.get()
+            self.frame_packet: FramePacket = self.frame_packet_in_q.get()
             self.frame = self.frame_packet.frame
 
             if self.capture_corners.is_set() and self.frame_packet.points is not None:
@@ -205,7 +215,7 @@ if __name__ == "__main__":
     test_port = 0
     cam = Camera(0)
     stream = LiveStream(cam, charuco=charuco)
-
+    stream._show_fps = True
     # syncr = Synchronizer(streams, fps_target=20)
 
     monocal = MonoCalibrator(stream)

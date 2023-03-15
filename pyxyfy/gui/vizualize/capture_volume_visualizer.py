@@ -170,7 +170,8 @@ if __name__ == "__main__":
     from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
-    session_directory = Path(__root__,  "tests", "3_cameras_middle")
+    session_directory = Path(__root__,  "tests", "2_cameras_linear")
+    session_directory = Path(__root__,  "tests", "2_cameras_90_deg")
     # session_directory = Path(__root__,  "tests", "3_cameras")
     # session_directory = Path(__root__,  "tests", "3_cameras_linear")
     # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")

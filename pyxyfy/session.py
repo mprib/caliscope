@@ -62,6 +62,12 @@ class Session:
             self.synchronizer = Synchronizer(self.streams, fps_target=6)
             return self.synchronizer
 
+    def pause_synchronizer(self):
+        self.synchronizer.unsubscribe_to_streams()
+        
+    def unpause_synchronizer(self):
+        self.synchronizer.subscribe_to_streams()
+
     def load_config(self):
 
         if exists(self.config_path):

@@ -354,6 +354,11 @@ class Session:
             else:
                 monocal.unsubscribe_to_stream()
 
+    def pause_all_monocalibrators(self):
+        logger.info(f"Pausing all monocalibrator looping...")
+        for port, monocal in self.monocalibrators.items():
+            monocal.unsubscribe_to_stream()
+        
     def start_recording(self, destination_folder: Path = None):
         logger.info("Initiating recording...")
         if destination_folder is None:

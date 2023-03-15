@@ -62,6 +62,12 @@ class Session:
             self.synchronizer = Synchronizer(self.streams, fps_target=6)
             return self.synchronizer
 
+    def pause_synchronizer(self):
+        self.synchronizer.unsubscribe_to_streams()
+        
+    def unpause_synchronizer(self):
+        self.synchronizer.subscribe_to_streams()
+
     def load_config(self):
 
         if exists(self.config_path):
@@ -344,10 +350,15 @@ class Session:
         logger.info(f"Activate tracking on port {active_port} and deactivate others")
         for port, monocal in self.monocalibrators.items():
             if port == active_port:
-                monocal.stream.push_to_out_q.set()
+                monocal.subscribe_to_stream()
             else:
-                monocal.stream.push_to_out_q.clear()
+                monocal.unsubscribe_to_stream()
 
+    def pause_all_monocalibrators(self):
+        logger.info(f"Pausing all monocalibrator looping...")
+        for port, monocal in self.monocalibrators.items():
+            monocal.unsubscribe_to_stream()
+        
     def start_recording(self, destination_folder: Path = None):
         logger.info("Initiating recording...")
         if destination_folder is None:

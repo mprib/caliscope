@@ -48,10 +48,16 @@ class CalibrationWizard(QStackedWidget):
         self.cameras_connected.connect(self.on_cameras_connect) 
         
     def next_to_omniframe(self):
-        self.omniframe = OmniFrameWidget(self.session)
-        self.addWidget(self.omniframe)
+        if hasattr(self,"omniframe"):
+            self.session.unpause_synchronizer()
+        else:
+            self.omniframe = OmniFrameWidget(self.session)
+            self.addWidget(self.omniframe)
+            self.omniframe.navigation_bar.back_btn.clicked.connect(self.back_to_camera_config_wizard)
+
         self.setCurrentIndex(3)
-        self.omniframe.navigation_bar.back_btn.clicked.connect(self.move_back_to_camera_config_wizard)
+        self.session.pause_all_monocalibrators()
+
 
     def on_cameras_connect(self):
         # load cameras wizard once the cameras are actually connected
@@ -63,6 +69,7 @@ class CalibrationWizard(QStackedWidget):
      
     def back_to_charuco_wizard(self):
         self.setCurrentIndex(1)
+        self.session.pause_all_monocalibrators()
 
     def next_to_charuco_wizard(self):
         if hasattr(self, "wizard_charuco"):
@@ -72,16 +79,18 @@ class CalibrationWizard(QStackedWidget):
             self.launch_session()
             logger.info("Creating charuco wizard session")
             self.wizard_charuco = WizardCharuco(self.session)
-            self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(self.move_next_to_camera_config_wizard)
+            self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(self.next_to_camera_config_wizard)
             logger.info("Adding charuco wizard")
             self.addWidget(self.wizard_charuco)
             logger.info("Setting index to 2 to activate widget")
             self.setCurrentIndex(1)
 
-    def move_next_to_camera_config_wizard(self):
+    def next_to_camera_config_wizard(self):
         if hasattr(self, "camera_wizard"):
             logger.info("Camera wizard already exists; changing stack current index")
             self.setCurrentIndex(2)
+            active_port = self.camera_wizard.camera_tabs.currentIndex()
+            self.camera_wizard.camera_tabs.toggle_tracking(active_port)
             logger.info("updating charuco in case necessary")
             for port, stream in self.session.streams.items():
                 stream.update_charuco(self.session.charuco)
@@ -91,10 +100,12 @@ class CalibrationWizard(QStackedWidget):
             self.qt_logger = QtLogger("Connecting to Cameras")
             self.qt_logger.show()
    
-    def move_back_to_camera_config_wizard(self):
+    def back_to_camera_config_wizard(self):
         # from omniframe to camera config
         self.setCurrentIndex(2)
-        del self.session.synchronizer
+        active_port = self.camera_wizard.camera_tabs.currentIndex()
+        self.camera_wizard.camera_tabs.toggle_tracking(active_port)
+        self.session.pause_synchronizer()
                      
     def launch_session(self):
         if self.wizard_directory.create_new_radio.isChecked():

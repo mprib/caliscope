@@ -56,6 +56,10 @@ class Synchronizer:
         for port, stream in self.streams.items():
             stream.subscribe(self.frame_packet_queues[port])
 
+    def unsubscribe_to_streams(self):
+        for port, stream in self.streams.items():
+            stream.unsubscribe(self.frame_packet_queues[port])
+
     def stop(self):
         self.stop_event.set()
         self.thread.join()

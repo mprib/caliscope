@@ -3,17 +3,17 @@ from pathlib import Path
 from PyQt6.QtWidgets import QApplication
 import sys
 
-from pyxyfy.session import Session
-from pyxyfy import __root__
-from pyxyfy.calibration.omnicalibrator import OmniCalibrator
-from pyxyfy.calibration.capture_volume.point_estimates import PointEstimates
+from pyxy3d.session import Session
+from pyxy3d import __root__
+from pyxy3d.calibration.omnicalibrator import OmniCalibrator
+from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 
-from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
-from pyxyfy.calibration.capture_volume.helper_functions.get_point_estimates import (
+from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
+from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
 
-from pyxyfy.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
+from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
 
 # the session used for the single camera calibration and 
 # the omniframe data collection

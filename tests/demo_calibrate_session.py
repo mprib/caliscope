@@ -25,9 +25,9 @@ from pyxyfy.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 # session_directory = Path(__root__,"tests", "3_cameras_middle" )
 # session_directory = Path(__root__,"tests", "3_cameras_midlinear" )
 # session_directory = Path(__root__,"tests", "2_cameras_linear" )
-# session_directory = Path(__root__,"tests", "2_cameras_90_deg" )
+session_directory = Path(__root__,"tests", "2_cameras_90_deg" )
 # session_directory = Path(__root__,"tests", "2_cameras_gt_90" )
-session_directory = Path(__root__,"tests", "laptop" )
+# session_directory = Path(__root__,"tests", "laptop" )
 
 # point_data.csv is created during the omniframe datacollection
 point_data_path = Path(session_directory, "point_data.csv")

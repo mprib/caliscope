@@ -149,7 +149,7 @@ class LiveStream:
                     sleep(.2)
 
                 # Wait an appropriate amount of time to hit the frame rate target
-                # sleep(self.wait_to_next_frame())
+                sleep(self.wait_to_next_frame())
 
                 read_start = perf_counter()
                 self.success, self.frame = self.camera.capture.read()

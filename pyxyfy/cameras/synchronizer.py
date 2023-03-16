@@ -1,6 +1,6 @@
-import pyxyfy.logger
+import pyxy3d.logger
 
-logger = pyxyfy.logger.get(__name__)
+logger = pyxy3d.logger.get(__name__)
 import logging
 
 logger.setLevel(logging.DEBUG)
@@ -12,7 +12,7 @@ from threading import Thread, Event
 
 import cv2
 import numpy as np
-from pyxyfy.cameras.data_packets import SyncPacket
+from pyxy3d.cameras.data_packets import SyncPacket
 
 
 class Synchronizer:
@@ -270,14 +270,14 @@ class Synchronizer:
 
 
 if __name__ == "__main__":
-    from pyxyfy.calibration.charuco import Charuco
-    from pyxyfy.calibration.corner_tracker import CornerTracker
-    from pyxyfy.recording.recorded_stream import RecordedStream, RecordedStreamPool
+    from pyxy3d.calibration.charuco import Charuco
+    from pyxy3d.calibration.corner_tracker import CornerTracker
+    from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
 
-    from pyxyfy.session import Session
+    from pyxy3d.session import Session
     import time
 
-    from pyxyfy import __root__
+    from pyxy3d import __root__
     
 
     test_live = True

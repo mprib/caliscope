@@ -1,7 +1,7 @@
 # Environment for managing all created objects and the primary interface for the GUI.
-import pyxyfy.logger
+import pyxy3d.logger
 
-logger = pyxyfy.logger.get(__name__)
+logger = pyxy3d.logger.get(__name__)
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -12,23 +12,23 @@ import numpy as np
 import toml
 from itertools import combinations
 
-from pyxyfy.calibration.charuco import Charuco
-from pyxyfy.calibration.corner_tracker import CornerTracker
-from pyxyfy.calibration.monocalibrator import MonoCalibrator
-from pyxyfy.cameras.camera import Camera
-from pyxyfy.cameras.synchronizer import Synchronizer
-from pyxyfy.cameras.camera_array_builder import CameraArrayBuilder
-from pyxyfy.calibration.omnicalibrator import OmniCalibrator
-from pyxyfy.calibration.capture_volume.point_estimates import PointEstimates
-from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
+from pyxy3d.calibration.charuco import Charuco
+from pyxy3d.calibration.corner_tracker import CornerTracker
+from pyxy3d.calibration.monocalibrator import MonoCalibrator
+from pyxy3d.cameras.camera import Camera
+from pyxy3d.cameras.synchronizer import Synchronizer
+from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder
+from pyxy3d.calibration.omnicalibrator import OmniCalibrator
+from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 
-from pyxyfy.cameras.camera_array import CameraArray
-from pyxyfy.calibration.capture_volume.helper_functions.get_point_estimates import (
+from pyxy3d.cameras.camera_array import CameraArray
+from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
 
-from pyxyfy.cameras.live_stream import LiveStream
-from pyxyfy.recording.video_recorder import VideoRecorder
+from pyxy3d.cameras.live_stream import LiveStream
+from pyxy3d.recording.video_recorder import VideoRecorder
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10
@@ -528,7 +528,7 @@ class Stage(Enum):
 #%%
 if __name__ == "__main__":
     #%%
-    from pyxyfy import __root__
+    from pyxy3d import __root__
 
     config_path = Path(__root__, "tests", "why breaking")
 

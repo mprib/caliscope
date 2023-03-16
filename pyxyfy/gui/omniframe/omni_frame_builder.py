@@ -1,12 +1,12 @@
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 from pathlib import Path
 
 import cv2
 import numpy as np
 
-from pyxyfy.cameras.synchronizer import Synchronizer
+from pyxy3d.cameras.synchronizer import Synchronizer
 from itertools import combinations
 from queue import Queue
 from threading import Event
@@ -295,13 +295,13 @@ def resize(image, new_height):
     return resized
 
 if __name__ == "__main__":
-    from pyxyfy.calibration.corner_tracker import CornerTracker
-    from pyxyfy.recording.recorded_stream import RecordedStreamPool,RecordedStream
-    from pyxyfy.recording.video_recorder import VideoRecorder
-    from pyxyfy.session import Session
-    from pyxyfy.calibration.charuco import Charuco
+    from pyxy3d.calibration.corner_tracker import CornerTracker
+    from pyxy3d.recording.recorded_stream import RecordedStreamPool,RecordedStream
+    from pyxy3d.recording.video_recorder import VideoRecorder
+    from pyxy3d.session import Session
+    from pyxy3d.calibration.charuco import Charuco
     
-    from pyxyfy import __root__
+    from pyxy3d import __root__
     
     ports = [0, 1, 2, 3, 4]
     # ports = [1,2, 3]

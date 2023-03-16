@@ -4,8 +4,8 @@
 # in meters as a standard convention of science, and to improve
 # readability of 3D positional output downstream
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 from collections import defaultdict
 from itertools import combinations

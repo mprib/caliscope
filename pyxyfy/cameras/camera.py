@@ -16,8 +16,8 @@
 # New camera configurations
 #%%
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 import time
 import platform
 

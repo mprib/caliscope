@@ -1,8 +1,8 @@
 #%%
 
-import pyxyfy.logger
+import pyxy3d.logger
 
-logger = pyxyfy.logger.get(__name__)
+logger = pyxy3d.logger.get(__name__)
 
 from pathlib import Path
 import pickle
@@ -12,8 +12,8 @@ import cv2
 from scipy.optimize import least_squares
 import pandas as pd
 
-from pyxyfy.calibration.capture_volume.point_estimates import PointEstimates
-from pyxyfy.cameras.camera_array import CameraArray
+from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+from pyxy3d.cameras.camera_array import CameraArray
 
 CAMERA_PARAM_COUNT = 6
 
@@ -178,9 +178,9 @@ def rms_reproj_error(xy_reproj_error):
 
 if __name__ == "__main__":
     # if True:
-    from pyxyfy import __root__
-    from pyxyfy.cameras.camera_array_builder import CameraArrayBuilder
-    from pyxyfy.calibration.capture_volume.helper_functions.get_point_estimates import (
+    from pyxy3d import __root__
+    from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder
+    from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
         get_point_estimates,
     )
 

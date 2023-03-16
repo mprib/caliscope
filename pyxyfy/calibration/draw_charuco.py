@@ -1,8 +1,8 @@
 # a set of helper functions meant to provide visual feedback
 # regarding the capture history and corner identification of
 # the charuco board
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 from itertools import combinations
 

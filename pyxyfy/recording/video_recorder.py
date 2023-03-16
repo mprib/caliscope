@@ -1,6 +1,6 @@
-import pyxyfy.logger
+import pyxy3d.logger
 
-logger = pyxyfy.logger.get(__name__)
+logger = pyxy3d.logger.get(__name__)
 
 from pathlib import Path
 from queue import Queue
@@ -9,8 +9,8 @@ import cv2
 import sys
 import pandas as pd
 
-from pyxyfy.cameras.synchronizer import Synchronizer
-from pyxyfy.cameras.live_stream import LiveStream
+from pyxy3d.cameras.synchronizer import Synchronizer
+from pyxy3d.cameras.live_stream import LiveStream
 
 class VideoRecorder:
     def __init__(self, synchronizer:Synchronizer):
@@ -141,13 +141,13 @@ if __name__ == "__main__":
 
     import time
 
-    from pyxyfy.cameras.camera import Camera
-    from pyxyfy.cameras.live_stream import LiveStream
-    from pyxyfy.session import Session
-    from pyxyfy.calibration.charuco import Charuco
+    from pyxy3d.cameras.camera import Camera
+    from pyxy3d.cameras.live_stream import LiveStream
+    from pyxy3d.session import Session
+    from pyxy3d.calibration.charuco import Charuco
 
-    from pyxyfy.recording.recorded_stream import RecordedStream, RecordedStreamPool
-    from pyxyfy import __root__
+    from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
+    from pyxy3d import __root__
 
 
     ports = [0, 1, 2, 3, 4]

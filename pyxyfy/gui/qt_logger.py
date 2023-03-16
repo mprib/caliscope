@@ -3,18 +3,18 @@ from PyQt6 import QtCore, QtGui
 from PyQt6.QtWidgets import QDialog, QApplication, QTextBrowser, QPushButton, QVBoxLayout
 import logging
 
-from pyxyfy.session import Session
+from pyxy3d.session import Session
 from pathlib import Path
 from threading  import Thread
 
 def test():
     def worker():
-        session = Session(Path(r"C:\Users\Mac Prible\repos\pyxyfy\tests\pyxyfy"))
+        session = Session(Path(r"C:\Users\Mac Prible\repos\pyxy3d\tests\pyxy3d"))
         session.find_cameras()
     thread = Thread(target=worker, args=(), daemon=True)
     thread.start()
 
-from pyxyfy.logger import get, XStream
+from pyxy3d.logger import get, XStream
 logger = get(__name__)
 
 class QtLogger(QDialog):

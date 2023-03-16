@@ -1,9 +1,9 @@
 # this is likely just going to be a set of functions to save out a version of videos that has been undistorted.
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
-from pyxyfy.cameras.camera_array import CameraArray, CameraArrayBuilder, CameraData
+from pyxy3d.cameras.camera_array import CameraArray, CameraArrayBuilder, CameraData
 from pathlib import Path
 import cv2
 from threading import Thread

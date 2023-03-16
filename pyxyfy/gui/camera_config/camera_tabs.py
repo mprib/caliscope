@@ -1,6 +1,6 @@
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -13,9 +13,9 @@ from PyQt6.QtWidgets import (
     QTabWidget,
 )
 
-from pyxyfy.gui.camera_config.camera_config_dialogue import CameraConfigDialog
-from pyxyfy.session import Session, Stage
-from pyxyfy.gui.widgets import NavigationBarBackNext
+from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigDialog
+from pyxy3d.session import Session, Stage
+from pyxy3d.gui.widgets import NavigationBarBackNext
 
 class CameraWizard(QWidget):
     def __init__(self, session):
@@ -98,13 +98,13 @@ class CameraTabs(QTabWidget):
             self.omniframe_ready.emit(False)
             
 if __name__ == "__main__":
-    from pyxyfy import __root__
+    from pyxy3d import __root__
     
     App = QApplication(sys.argv)
 
     
     config_path = Path(__root__, "tests", "laptop")
-    # config_path = Path(__root__, "tests", "pyxyfy")
+    # config_path = Path(__root__, "tests", "pyxy3d")
     # config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
     session = Session(config_path)

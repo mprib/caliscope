@@ -1,6 +1,6 @@
-import pyxyfy.logger
+import pyxy3d.logger
 
-logger = pyxyfy.logger.get(__name__)
+logger = pyxy3d.logger.get(__name__)
 
 import math
 import sys
@@ -14,10 +14,10 @@ import pyqtgraph.opengl as gl
 
 from random import random
 
-from pyxyfy.cameras.camera_array import CameraData
-from pyxyfy.gui.vizualize.camera_mesh import CameraMesh
-from pyxyfy.cameras.camera_array_builder import CameraArray, CameraArrayBuilder
-from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
+from pyxy3d.cameras.camera_array import CameraData
+from pyxy3d.gui.vizualize.camera_mesh import CameraMesh
+from pyxy3d.cameras.camera_array_builder import CameraArray, CameraArrayBuilder
+from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 
 class CaptureVolumeVisualizer:
     def __init__(self, capture_volume:CaptureVolume = None, camera_array:CameraArray = None):
@@ -175,11 +175,11 @@ if __name__ == "__main__":
 
     from PyQt6.QtWidgets import QApplication
 
-    from pyxyfy import __root__
-    from pyxyfy.cameras.camera_array_builder import CameraArrayBuilder
-    from pyxyfy.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates
+    from pyxy3d import __root__
+    from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder
+    from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates
 
-    from pyxyfy.calibration.capture_volume.capture_volume import CaptureVolume
+    from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
     
     # session_directory = Path(__root__,  "tests", "2_cameras_linear")

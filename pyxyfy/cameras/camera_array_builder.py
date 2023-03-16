@@ -1,12 +1,12 @@
 #%%
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 import pandas as pd
 import toml
 from pathlib import Path
 import numpy as np
-from pyxyfy.cameras.camera_array import CameraData, CameraArray
+from pyxy3d.cameras.camera_array import CameraData, CameraArray
 
 
 class CameraArrayBuilder:
@@ -163,7 +163,7 @@ class CameraArrayBuilder:
 if __name__ == "__main__":
 # if True:
     
-    from pyxyfy import __root__
+    from pyxy3d import __root__
     
     config_path = Path(__root__, "tests", "please work", "config.toml")
     array_builder = CameraArrayBuilder(config_path)

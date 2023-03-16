@@ -1,6 +1,6 @@
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 import sys
 import shutil
@@ -19,14 +19,14 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
 )
 
-from pyxyfy.session import Session, Stage
-from pyxyfy.gui.wizard_charuco import WizardCharuco
-from pyxyfy.gui.camera_config.camera_tabs import CameraWizard
-from pyxyfy.gui.wizard_directory import WizardDirectory
-from pyxyfy import __root__, __app_dir__
-from pyxyfy.session import Stage
-from pyxyfy.gui.qt_logger import QtLogger
-from pyxyfy.gui.omniframe.omni_frame_widget import OmniFrameWidget
+from pyxy3d.session import Session, Stage
+from pyxy3d.gui.wizard_charuco import WizardCharuco
+from pyxy3d.gui.camera_config.camera_tabs import CameraWizard
+from pyxy3d.gui.wizard_directory import WizardDirectory
+from pyxy3d import __root__, __app_dir__
+from pyxy3d.session import Stage
+from pyxy3d.gui.qt_logger import QtLogger
+from pyxy3d.gui.omniframe.omni_frame_widget import OmniFrameWidget
 
 class CalibrationWizard(QStackedWidget):
     cameras_connected = pyqtSignal()
@@ -36,7 +36,7 @@ class CalibrationWizard(QStackedWidget):
         self.CAMS_IN_PROCESS = False
 
         self.setWindowTitle("Camera Calibration Wizard")
-        self.setWindowIcon(QIcon(str(Path(__root__, "pyxyfy/gui/icons/orb.svg"))))
+        self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/orb.svg"))))
         self.wizard_directory = WizardDirectory()
         self.addWidget(self.wizard_directory) # index:1
         self.setCurrentIndex(0)
@@ -199,7 +199,7 @@ class CalibrationWizard(QStackedWidget):
             self.find = Thread(target=find_cam_worker, args=(), daemon=True)
             self.find.start()
 
-def launch_pyxyfy():
+def launch_pyxy3d():
 
     app = QApplication(sys.argv)
     window = CalibrationWizard()
@@ -209,4 +209,4 @@ def launch_pyxyfy():
 
 if __name__ == "__main__":
 
-    launch_pyxyfy()
+    launch_pyxy3d()

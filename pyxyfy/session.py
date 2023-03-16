@@ -226,6 +226,14 @@ class Session:
                         logger.info(f"Beginning to load {key} with params {params}")
                         executor.submit(add_preconfigured_cam, params)
 
+    def set_fps_target(self, fps_target):
+        if hasattr(self, "synchronizer"):
+            self.synchronizer.set_fps_target(fps_target)
+        else:
+            logger.info(f"Attempting to change target fps in streams to {target}")
+            for port, stream in self.streams.items():
+                stream.set_fps_target(fps_target)
+
     def find_cameras(self):
         """Attempt to connect to the first N cameras. It will clear out any previous calibration
         data, including stereocalibration data"""

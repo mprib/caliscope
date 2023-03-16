@@ -1,6 +1,6 @@
 
-from pyxy3d.gui.main import launch_pyxy
+from pyxy3d.gui.main import launch_pyxy3d
 
 def launch():
-    launch_pyxy()
+    launch_pyxy3d()
 

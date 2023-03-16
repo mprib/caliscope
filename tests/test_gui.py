@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QApplication
-from pyxyfy.gui.main import CalibrationWizard
+from pyxy3d.gui.main import CalibrationWizard
 import sys
-from pyxyfy import __root__
+from pyxy3d import __root__
 from pathlib import Path
 
 config_path = Path(__root__, "tests", "tripod")

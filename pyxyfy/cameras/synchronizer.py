@@ -40,20 +40,19 @@ class Synchronizer:
 
         self.subscribe_to_streams()
 
-        self.fps_target = fps_target
+        self._fps_target = fps_target
+        self.set_fps_target(self._fps_target)
         self.fps_mean = fps_target
 
         self.initialize_ledgers()
         self.start()
 
-    @property 
-    def fps_target(self):
+    def get_fps_target(self):
         return self._fps_target
-         
-    @fps_target.setter
-    def fps_target(self, target):
-        logger.info(f"Attempting to change target fps in streams to {target}")
+    
+    def set_fps_target(self, target):
         self._fps_target = target
+        logger.info(f"Attempting to change target fps in streams to {target}")
         for port, stream in self.streams.items():
             stream.set_fps_target(target)
 
@@ -291,7 +290,7 @@ if __name__ == "__main__":
         session = Session(session_directory)
         session.load_cameras()
         session.load_streams()
-        session.adjust_resolutions()
+        # session.adjust_resolutions()
 
         for port, stream in session.streams.items():
             stream._show_fps = True

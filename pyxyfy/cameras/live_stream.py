@@ -116,7 +116,7 @@ class LiveStream:
             self.avg_delta_time = self.delta_time
 
         # folding in current frame rate to trailing average to smooth out
-        self.avg_delta_time = 0.9 * self.avg_delta_time + 0.1* self.delta_time
+        self.avg_delta_time = 0.5 * self.avg_delta_time + 0.5* self.delta_time
         self.previous_time = self.start_time
         return 1 / self.avg_delta_time
 

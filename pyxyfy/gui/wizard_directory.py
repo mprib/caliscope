@@ -1,6 +1,6 @@
-import pyxyfy.logger
+import pyxy3d.logger
 
-logger = pyxyfy.logger.get(__name__)
+logger = pyxy3d.logger.get(__name__)
 
 import os
 from pathlib import Path
@@ -22,9 +22,9 @@ from PyQt6.QtWidgets import (
     QRadioButton,
     QButtonGroup,
 )
-from pyxyfy import __app_dir__, __root__
+from pyxy3d import __app_dir__, __root__
 
-from pyxyfy.session import Session
+from pyxy3d.session import Session
 
 class WizardDirectory(QWidget):
     

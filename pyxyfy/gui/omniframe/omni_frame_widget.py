@@ -1,6 +1,6 @@
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -29,12 +29,12 @@ from PyQt6.QtWidgets import (
 )
 
 # Append main repo to top of path to allow import of backend
-from pyxyfy.session import Session
-from pyxyfy.gui.omniframe.omni_frame_builder import OmniFrameBuilder
-from pyxyfy.cameras.synchronizer import Synchronizer
-from pyxyfy import __root__
+from pyxy3d.session import Session
+from pyxy3d.gui.omniframe.omni_frame_builder import OmniFrameBuilder
+from pyxy3d.cameras.synchronizer import Synchronizer
+from pyxy3d import __root__
 
-from pyxyfy.gui.widgets import NavigationBarBackNext
+from pyxy3d.gui.widgets import NavigationBarBackNext
 
 class OmniFrameWidget(QWidget):
     

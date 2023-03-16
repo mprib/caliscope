@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import pandas as pd
-from pyxyfy import __root__
+from pyxy3d import __root__
 import seaborn as sns
 import numpy as np
 

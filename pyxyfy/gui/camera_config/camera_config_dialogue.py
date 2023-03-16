@@ -1,5 +1,5 @@
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -26,12 +26,12 @@ from PyQt6.QtWidgets import (
 )
 
 # Append main repo to top of path to allow import of backend
-from pyxyfy.gui.camera_config.frame_emitter import FrameEmitter
-from pyxyfy.calibration.monocalibrator import MonoCalibrator
-from pyxyfy.cameras.camera import Camera
-from pyxyfy.cameras.live_stream import LiveStream 
-from pyxyfy.session import Session
-from pyxyfy import __root__
+from pyxy3d.gui.camera_config.frame_emitter import FrameEmitter
+from pyxy3d.calibration.monocalibrator import MonoCalibrator
+from pyxy3d.cameras.camera import Camera
+from pyxy3d.cameras.live_stream import LiveStream 
+from pyxy3d.session import Session
+from pyxy3d import __root__
 
 
 class CameraConfigDialog(QDialog):
@@ -337,11 +337,11 @@ class FrameControlWidget(QWidget):
         self.layout().addLayout(self.rotation_resolution_hbox)
         ###################### Rotation Buttons  ###################################      
         self.cw_rotation_btn = QPushButton(
-            QIcon(str(Path(__root__, "pyxyfy/gui/icons/rotate-camera-right.svg"))), ""
+            QIcon(str(Path(__root__, "pyxy3d/gui/icons/rotate-camera-right.svg"))), ""
         )
         self.cw_rotation_btn.setMaximumSize(35,35)
         self.ccw_rotation_btn = QPushButton(
-            QIcon(str(Path(__root__, "pyxyfy/gui/icons/rotate-camera-left.svg"))), ""
+            QIcon(str(Path(__root__, "pyxy3d/gui/icons/rotate-camera-left.svg"))), ""
         )
 
         self.ccw_rotation_btn.setMaximumSize(35,35)
@@ -462,7 +462,7 @@ class FrameControlWidget(QWidget):
 
 if __name__ == "__main__":
     App = QApplication(sys.argv)
-    from pyxyfy import __root__
+    from pyxy3d import __root__
     config_path = Path(__root__, "tests", "why breaking")
 
     print(config_path)

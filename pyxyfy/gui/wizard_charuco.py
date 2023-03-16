@@ -1,6 +1,6 @@
-import pyxyfy.logger
+import pyxy3d.logger
 
-logger = pyxyfy.logger.get(__name__)
+logger = pyxy3d.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -26,11 +26,11 @@ from PyQt6.QtWidgets import (
     QWizardPage,
 )
 
-from pyxyfy import __app_dir__
-from pyxyfy.calibration.charuco import ARUCO_DICTIONARIES, Charuco
-from pyxyfy.session import Session
-from pyxyfy.gui.qt_logger import QtLogger
-from pyxyfy.gui.widgets import NavigationBarNext
+from pyxy3d import __app_dir__
+from pyxy3d.calibration.charuco import ARUCO_DICTIONARIES, Charuco
+from pyxy3d.session import Session
+from pyxy3d.gui.qt_logger import QtLogger
+from pyxy3d.gui.widgets import NavigationBarNext
 
 class WizardCharuco(QWidget):
     def __init__(self, session):
@@ -284,8 +284,8 @@ class CharucoConfigurator(QWidget):
 
 if __name__ == "__main__":
     
-    from pyxyfy import __root__
-    config_path = Path(__root__, "tests", "pyxyfy")
+    from pyxy3d import __root__
+    config_path = Path(__root__, "tests", "pyxy3d")
 
     session = Session(config_path)
 

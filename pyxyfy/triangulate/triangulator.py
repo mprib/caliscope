@@ -4,8 +4,8 @@
 # but I want something that is designed to be simple and not actually manage the cameras, just
 # organize the saved data
 
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 from queue import Queue
 from threading import Thread, Event
@@ -16,12 +16,12 @@ import pandas as pd
 from pathlib import Path
 from itertools import combinations
 
-from pyxyfy.triangulate.stereo_points_builder import StereoPointsBuilder, StereoPointsPacket
-from pyxyfy.cameras.data_packets import PointPacket, FramePacket, SyncPacket
-from pyxyfy.triangulate.stereo_points_builder import StereoPointsPacket, SynchedStereoPointsPacket
+from pyxy3d.triangulate.stereo_points_builder import StereoPointsBuilder, StereoPointsPacket
+from pyxy3d.cameras.data_packets import PointPacket, FramePacket, SyncPacket
+from pyxy3d.triangulate.stereo_points_builder import StereoPointsPacket, SynchedStereoPointsPacket
 
 
-from pyxyfy.cameras.camera_array import CameraData, CameraArray
+from pyxy3d.cameras.camera_array import CameraData, CameraArray
 
 
 class ArrayTriangulator:
@@ -140,11 +140,11 @@ class StereoTriangulator:
 
 if __name__ == "__main__":
 
-    from pyxyfy.recording.recorded_stream import RecordedStreamPool
-    from pyxyfy.cameras.synchronizer import Synchronizer
-    from pyxyfy.calibration.charuco import Charuco
-    from pyxyfy.calibration.corner_tracker import CornerTracker
-    from pyxyfy.cameras.camera_array import CameraArrayBuilder, CameraArray, CameraData
+    from pyxy3d.recording.recorded_stream import RecordedStreamPool
+    from pyxy3d.cameras.synchronizer import Synchronizer
+    from pyxy3d.calibration.charuco import Charuco
+    from pyxy3d.calibration.corner_tracker import CornerTracker
+    from pyxy3d.cameras.camera_array import CameraArrayBuilder, CameraArray, CameraData
 
     repo = Path(str(Path(__file__)).split("pyxy")[0],"pyxy")
 

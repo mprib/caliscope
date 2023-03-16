@@ -1,7 +1,7 @@
 import logging
-import pyxyfy.logger
+import pyxy3d.logger
 
-logger = pyxyfy.logger.get(__name__)
+logger = pyxy3d.logger.get(__name__)
 if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
 
@@ -14,9 +14,9 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 from itertools import combinations
-from pyxyfy.cameras.synchronizer import Synchronizer
-from pyxyfy.calibration.corner_tracker import CornerTracker
-from pyxyfy.cameras.data_packets import SyncPacket
+from pyxy3d.cameras.synchronizer import Synchronizer
+from pyxy3d.calibration.corner_tracker import CornerTracker
+from pyxy3d.cameras.data_packets import SyncPacket
 
 
 class StereoPointsBuilder:
@@ -150,11 +150,11 @@ class SynchedStereoPointsPacket:
 
 
 if __name__ == "__main__":
-    from pyxyfy.recording.recorded_stream import RecordedStreamPool
-    from pyxyfy.calibration.charuco import Charuco
+    from pyxy3d.recording.recorded_stream import RecordedStreamPool
+    from pyxy3d.calibration.charuco import Charuco
 
     logger.setLevel(logging.DEBUG)
-    from pyxyfy import __root__
+    from pyxy3d import __root__
 
     session_directory = Path(__root__, "tests", "5_cameras", "recording")
     csv_output = Path(session_directory, "paired_point_data.csv")

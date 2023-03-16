@@ -3,8 +3,8 @@
 # though this workflow may be useful into the future. Save out milestone calculations
 # along the way that allow for blocks of dataprocessing
 #%%
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 from pathlib import Path
 
@@ -13,8 +13,8 @@ from scipy.sparse import lil_matrix
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
-from pyxyfy.cameras.camera_array import CameraArray
-from pyxyfy.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
+from pyxy3d.cameras.camera_array import CameraArray
+from pyxy3d.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
 
 CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrinsic
 
@@ -93,9 +93,9 @@ class PointEstimates:
 #%%
 if __name__ == "__main__":
     #%%
-    from pyxyfy import __root__
-    from pyxyfy.cameras.camera_array_builder import CameraArrayBuilder
-    from pyxyfy.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates 
+    from pyxy3d import __root__
+    from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder
+    from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates 
     session_directory = Path(__root__, "tests", "5_cameras")
     point_data_path = Path(session_directory,"recording", "point_data.csv" )
 

@@ -1,5 +1,5 @@
-import pyxyfy.logger
-logger = pyxyfy.logger.get(__name__)
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -26,8 +26,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from pyxyfy.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
-from pyxyfy.gui.capture_volume.visualizer import CaptureVolumeVisualizer
+from pyxy3d.gui.stereo_calibration.stereo_pair_widget import StereoPairWidget
+from pyxy3d.gui.capture_volume.visualizer import CaptureVolumeVisualizer
 
 class CaptureVolumeDialog(QWidget):
     def __init__(self, CaptureVolumeVisualizer):
@@ -41,13 +41,13 @@ class CaptureVolumeDialog(QWidget):
         
 if __name__ == "__main__":
 
-    from pyxyfy.recording.recorded_stream import RecordedStreamPool
-    from pyxyfy.cameras.synchronizer import Synchronizer
-    from pyxyfy.calibration.charuco import Charuco
-    from pyxyfy.calibration.corner_tracker import CornerTracker
-    from pyxyfy.triangulate.stereo_points_builder import StereoPointsBuilder
-    from pyxyfy.triangulate.stereo_triangulator import StereoTriangulator
-    from pyxyfy.triangulate.stereo_triangulator import StereoTriangulator
+    from pyxy3d.recording.recorded_stream import RecordedStreamPool
+    from pyxy3d.cameras.synchronizer import Synchronizer
+    from pyxy3d.calibration.charuco import Charuco
+    from pyxy3d.calibration.corner_tracker import CornerTracker
+    from pyxy3d.triangulate.stereo_points_builder import StereoPointsBuilder
+    from pyxy3d.triangulate.stereo_triangulator import StereoTriangulator
+    from pyxy3d.triangulate.stereo_triangulator import StereoTriangulator
 
     # set the location for the sample data used for testing
     repo = Path(str(Path(__file__)).split("pyxy")[0],"pyxy").parent

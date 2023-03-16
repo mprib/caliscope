@@ -5,13 +5,13 @@ from pathlib import Path
 # sys.path.insert(0,Path(__file__).parent.parent.parent)
 
 
-import pyxyfy.logger
+import pyxy3d.logger
 
-logger = pyxyfy.logger.get(__name__)
+logger = pyxy3d.logger.get(__name__)
 
 import cv2
 import pandas as pd
-from pyxyfy import __root__
+from pyxy3d import __root__
 
 import time
 

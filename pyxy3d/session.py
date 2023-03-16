@@ -230,7 +230,7 @@ class Session:
         if hasattr(self, "synchronizer"):
             self.synchronizer.set_fps_target(fps_target)
         else:
-            logger.info(f"Attempting to change target fps in streams to {target}")
+            logger.info(f"Attempting to change target fps in streams to {fps_target}")
             for port, stream in self.streams.items():
                 stream.set_fps_target(fps_target)
 

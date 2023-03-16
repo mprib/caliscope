@@ -22,12 +22,12 @@ from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 
 # NOTE: This will successfully calibrate when I fix my issue
 # session_directory = Path(__root__,"tests", "3_cameras_triangular" )
-# session_directory = Path(__root__,"tests", "3_cameras_middle" )
+session_directory = Path(__root__,"tests", "3_cameras_middle" )
 # session_directory = Path(__root__,"tests", "3_cameras_midlinear" )
 # session_directory = Path(__root__,"tests", "2_cameras_linear" )
 # session_directory = Path(__root__,"tests", "2_cameras_90_deg" )
 # session_directory = Path(__root__,"tests", "2_cameras_gt_90" )
-session_directory = Path(__root__,"tests", "just_checking" )
+# session_directory = Path(__root__,"tests", "just_checking" )
 
 # point_data.csv is created during the omniframe datacollection
 point_data_path = Path(session_directory, "point_data.csv")

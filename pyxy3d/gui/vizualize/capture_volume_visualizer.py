@@ -183,16 +183,17 @@ if __name__ == "__main__":
     import pickle
     
     # session_directory = Path(__root__,  "tests", "2_cameras_linear")
-    session_directory = Path(__root__,  "tests", "tripod")
+    # session_directory = Path(__root__,  "tests", "tripod")
     # session_directory = Path(__root__,  "tests", "2_cameras_90_deg")
+    # session_directory = Path(__root__,  "tests", "2_cameras_180_deg")
     # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
-    # session_directory = Path(__root__,  "tests", "3_cameras_middle")
+    session_directory = Path(__root__,  "tests", "3_cameras_middle")
     # session_directory = Path(__root__,  "tests", "3_cameras_linear")
     # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
-    session_directory = Path(__root__,  "tests", "just_checking")
+    # session_directory = Path(__root__,  "tests", "just_checking")
 
 
-    saved_CV_path = Path(session_directory, "capture_volume_stage_0.pkl") 
+    saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl") 
     with open(saved_CV_path, "rb") as f:
         capture_volume:CaptureVolume = pickle.load(f)
 

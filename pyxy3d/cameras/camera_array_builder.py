@@ -111,6 +111,11 @@ class CameraArrayBuilder:
             inverted_chain.Secondary,
             inverted_chain.Primary,
         )
+        
+        # I think that to get the rotation and translation from the other
+        
+        
+        # Mac....this might be what is causing the issues. 
         inverted_chain.Translation = inverted_chain.Translation * -1
         inverted_chain.Rotation = inverted_chain.Rotation.apply(np.linalg.inv)
 

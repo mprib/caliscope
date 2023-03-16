@@ -116,7 +116,7 @@ class LiveStream:
             self.avg_delta_time = self.delta_time
 
         # folding in current frame rate to trailing average to smooth out
-        self.avg_delta_time = 0.9 * self.avg_delta_time + 0.1* self.delta_time
+        self.avg_delta_time = 0.5 * self.avg_delta_time + 0.5* self.delta_time
         self.previous_time = self.start_time
         return 1 / self.avg_delta_time
 
@@ -149,7 +149,7 @@ class LiveStream:
                     sleep(.2)
 
                 # Wait an appropriate amount of time to hit the frame rate target
-                # sleep(self.wait_to_next_frame())
+                sleep(self.wait_to_next_frame())
 
                 read_start = perf_counter()
                 self.success, self.frame = self.camera.capture.read()
@@ -254,7 +254,7 @@ if __name__ == "__main__":
         frame_packet_queues[cam.port] = q
 
         print(f"Creating Video Stream for camera {cam.port}")
-        stream = LiveStream(cam, fps_target=15, charuco=charuco)
+        stream = LiveStream(cam, fps_target=5, charuco=charuco)
         stream.subscribe(frame_packet_queues[cam.port])
         stream._show_fps = True
         stream._show_charuco = True

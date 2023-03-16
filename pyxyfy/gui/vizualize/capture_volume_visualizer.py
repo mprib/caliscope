@@ -183,6 +183,7 @@ if __name__ == "__main__":
     import pickle
     
     # session_directory = Path(__root__,  "tests", "2_cameras_linear")
+    session_directory = Path(__root__,  "tests", "tripod")
     # session_directory = Path(__root__,  "tests", "2_cameras_90_deg")
     # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
     # session_directory = Path(__root__,  "tests", "3_cameras_middle")

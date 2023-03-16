@@ -48,13 +48,27 @@ class OmniFrameWidget(QWidget):
         self.frame_emitter = OmniFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 
-        self.layout_widgets()
+        self.frame_rate_spin = QSpinBox()
+        self.frame_rate_spin.setValue(self.synchronizer.get_fps_target())
+        self.board_count_spin = QSpinBox()
+        self.board_count_spin.setValue(self.frame_builder.board_count_target)
+        
+        self.calibrate_collect_btn = QPushButton("Collect Calibration Data")
+        self.omni_frame_display = QLabel()
+        self.navigation_bar = NavigationBarBackNext() 
+
+        self.place_widgets()
         self.connect_widgets()        
 
-    def layout_widgets(self):
+    def place_widgets(self):
         self.setLayout(QVBoxLayout())
-       
-        self.calibrate_collect_btn = QPushButton("Collect Calibration Data")
+        
+        self.settings_group = QGroupBox("Settings")
+        self.settings_group.setLayout(QHBoxLayout())
+        self.settings_group.layout().addWidget(self.frame_rate_spin)       
+        self.settings_group.layout().addWidget(self.board_count_spin)       
+
+        self.layout().addWidget(self.settings_group)
         self.layout().addWidget(self.calibrate_collect_btn)
 
         self.scroll_area = QScrollArea()
@@ -62,15 +76,20 @@ class OmniFrameWidget(QWidget):
         # self.scroll_area.setLayout(QVBoxLayout())
         self.layout().addWidget(self.scroll_area)
 
-        self.omni_frame_display = QLabel()
         self.scroll_area.setWidget(self.omni_frame_display)
        
-        self.navigation_bar = NavigationBarBackNext() 
         self.layout().addWidget(self.navigation_bar)
+
+
 
     def connect_widgets(self):
         self.calibrate_collect_btn.clicked.connect(self.on_calibrate_connect_click)
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
+        self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_fps_target)
+        self.board_count_spin.valueChanged.connect(self.update_board_count_target)
+    
+    def update_board_count_target(self, target):
+        self.frame_builder.board_count_target = target
         
     def on_calibrate_connect_click(self):
         if self.calibrate_collect_btn.text() == "Collect Calibration Data":
@@ -128,7 +147,11 @@ class OmniFrameEmitter(QThread):
    
     def stop(self):
         self.keep_collecting.clear() 
-    
+
+
+        
+        
+        
 def cv2_to_qlabel(frame):
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
@@ -142,12 +165,9 @@ def cv2_to_qlabel(frame):
 
     
 if __name__ == "__main__":
-   
-   
-   
         App = QApplication(sys.argv)
 
-        config_path = Path(__root__, "tests", "3_cameras_triangular")
+        config_path = Path(__root__, "tests", "tripod")
 
         session = Session(config_path)
         session.load_cameras()

@@ -40,14 +40,18 @@ class Synchronizer:
 
         self.subscribe_to_streams()
 
-        self.fps_target = fps_target
-        self.update_fps_targets(fps_target)
-        self.fps = fps_target
+        self._fps_target = fps_target
+        self.set_fps_target(self._fps_target)
+        self.fps_mean = fps_target
 
         self.initialize_ledgers()
         self.start()
 
-    def update_fps_targets(self, target):
+    def get_fps_target(self):
+        return self._fps_target
+    
+    def set_fps_target(self, target):
+        self._fps_target = target
         logger.info(f"Attempting to change target fps in streams to {target}")
         for port, stream in self.streams.items():
             stream.set_fps_target(target)
@@ -260,7 +264,7 @@ class Synchronizer:
                 logger.debug(f"Placing new synched frames packet on queue: {q}")
                 q.put(self.current_sync_packet)
 
-            self.fps = self.average_fps()
+            self.fps_mean = self.average_fps()
 
         logger.info("Frame synch worker successfully ended")
 
@@ -275,27 +279,28 @@ if __name__ == "__main__":
 
     from pyxyfy import __root__
     
-    ports = [0, 1, 2, 3, 4]
-    # ports = [0,1]
 
     test_live = True
     # test_live = False
 
     if test_live:
 
-        session_directory = Path(__root__, "tests", "please work")
+        session_directory = Path(__root__, "tests", "tripod")
         # config = Path(session_directory, "config.toml")
         session = Session(session_directory)
         session.load_cameras()
         session.load_streams()
+        # session.adjust_resolutions()
 
         for port, stream in session.streams.items():
             stream._show_fps = True
             stream._show_charuco = True
 
         logger.info("Creating Synchronizer")
-        syncr = Synchronizer(session.streams, fps_target=15)
+        syncr = Synchronizer(session.streams, fps_target=5)
     else:
+        ports = [0, 1, 2, 3, 4]
+        # ports = [0,1]
         recording_directory = Path(__root__, "tests", "5_cameras", "recording")
         charuco = Charuco(
                 4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True

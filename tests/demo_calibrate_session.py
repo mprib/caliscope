@@ -44,7 +44,7 @@ config_path = Path(session_directory, "config.toml")
 
 # create the pairwise estimates of camera positions
 # this will save out "stereo_A_B" data to the config.toml
-# omnicalibrator.stereo_calibrate_all(boards_sampled=10)
+omnicalibrator.stereo_calibrate_all(boards_sampled=20
 
 # the pairwise estimates will be used to create the initial
 # estimate of the camera array positions (now in the config file)

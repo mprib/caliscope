@@ -324,7 +324,7 @@ if __name__ == "__main__":
 # if True:
     from pyxyfy import __root__
 
-    session_directory = Path(__root__, "tests", "pyxyfy")
+    session_directory = Path(__root__, "tests", "tripod")
     # config_path = Path(session_directory, "config.toml")  
     capture_volume_name = "capture_volume_stage_0.pkl"
     

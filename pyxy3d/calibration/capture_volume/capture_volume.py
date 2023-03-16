@@ -72,7 +72,7 @@ class CaptureVolume:
         # logger.info(
         #     f"Prior to bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
         # )
-
+        logger.info(f"Beginning bundle adjustment to calculated stage {self.stage+1}")
         self.least_sq_result = least_squares(
             xy_reprojection_error,
             initial_param_estimate,

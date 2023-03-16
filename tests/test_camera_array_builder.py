@@ -12,10 +12,10 @@ from pyxy3d.gui.vizualize.capture_volume_visualizer import \
 from pyxy3d.calibration.omnicalibrator import OmniCalibrator
 
 # session_path  = Path(__root__, "tests", "3_cameras_triangular")
-# session_path  = Path(__root__, "tests", "3_cameras_middle")
+session_path  = Path(__root__, "tests", "3_cameras_middle")
 # session_path  = Path(__root__, "tests", "3_cameras_midlinear")
 # session_path  = Path(__root__, "tests", "3_cameras_linear")
-session_path  = Path(__root__, "tests", "tripod2")
+# session_path  = Path(__root__, "tests", "tripod2")
 
 config_path  = Path(session_path,"config.toml")
 

@@ -184,10 +184,12 @@ if __name__ == "__main__":
     
     # session_directory = Path(__root__,  "tests", "2_cameras_linear")
     session_directory = Path(__root__,  "tests", "tripod")
+    # session_directory = Path(__root__,  "tests", "2_cameras_90_deg")
     # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
     # session_directory = Path(__root__,  "tests", "3_cameras_middle")
     # session_directory = Path(__root__,  "tests", "3_cameras_linear")
     # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
+    session_directory = Path(__root__,  "tests", "tripod2")
 
 
     saved_CV_path = Path(session_directory, "capture_volume_stage_0.pkl") 

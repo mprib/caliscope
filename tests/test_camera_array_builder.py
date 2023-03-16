@@ -15,7 +15,7 @@ from pyxyfy.calibration.omnicalibrator import OmniCalibrator
 # session_path  = Path(__root__, "tests", "3_cameras_middle")
 # session_path  = Path(__root__, "tests", "3_cameras_midlinear")
 # session_path  = Path(__root__, "tests", "3_cameras_linear")
-session_path  = Path(__root__, "tests", "3_cameras")
+session_path  = Path(__root__, "tests", "tripod2")
 
 config_path  = Path(session_path,"config.toml")
 
@@ -27,8 +27,7 @@ omnical = OmniCalibrator(
     point_data_path,
 )
 
-omnical.stereo_calibrate_all(boards_sampled=5)
-
+# omnical.stereo_calibrate_all(boards_sampled=5)
 
 array_builder = CameraArrayBuilder(config_path)
 camera_array:CameraArray = array_builder.get_camera_array()

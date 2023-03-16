@@ -27,7 +27,7 @@ from pyxyfy.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 # session_directory = Path(__root__,"tests", "2_cameras_linear" )
 # session_directory = Path(__root__,"tests", "2_cameras_90_deg" )
 # session_directory = Path(__root__,"tests", "2_cameras_gt_90" )
-session_directory = Path(__root__,"tests", "tripod" )
+session_directory = Path(__root__,"tests", "tripod2" )
 
 # point_data.csv is created during the omniframe datacollection
 point_data_path = Path(session_directory, "point_data.csv")
@@ -40,11 +40,11 @@ config_path = Path(session_directory, "config.toml")
 # Note that this is named OmniCalibrator because it has a poorly
 # working single camera calibration method as well, but I wouldn't recommend
 # might be better termed stereocalibrator going forward
-omnicalibrator = OmniCalibrator(config_path, point_data_path)
+# omnicalibrator = OmniCalibrator(config_path, point_data_path)
 
 # create the pairwise estimates of camera positions
 # this will save out "stereo_A_B" data to the config.toml
-omnicalibrator.stereo_calibrate_all(boards_sampled=20)
+omnicalibrator.stereo_calibrate_all(boards_sampled=20
 
 # the pairwise estimates will be used to create the initial
 # estimate of the camera array positions (now in the config file)

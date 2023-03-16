@@ -4,7 +4,7 @@ import sys
 from pyxyfy import __root__
 from pathlib import Path
 
-config_path = Path(__root__, "tests", "laptop")
+config_path = Path(__root__, "tests", "tripod")
     
     
 app = QApplication(sys.argv)

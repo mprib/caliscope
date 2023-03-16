@@ -165,9 +165,6 @@ def cv2_to_qlabel(frame):
 
     
 if __name__ == "__main__":
-   
-   
-   
         App = QApplication(sys.argv)
 
         config_path = Path(__root__, "tests", "tripod")

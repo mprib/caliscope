@@ -190,7 +190,7 @@ if __name__ == "__main__":
     # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
 
 
-    saved_CV_path = Path(session_directory, "capture_volume_stage_6.pkl") 
+    saved_CV_path = Path(session_directory, "capture_volume_stage_0.pkl") 
     with open(saved_CV_path, "rb") as f:
         capture_volume:CaptureVolume = pickle.load(f)
 

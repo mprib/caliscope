@@ -1,4 +1,4 @@
-#%%
+# %%
  
 from pathlib import Path
 from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder    
@@ -28,6 +28,21 @@ class StereoPair:
         return Tranformation
 
 
+def get_inverted_stereopair(stereo_pair:StereoPair)->StereoPair:
+    primary_port = stereo_pair.secondary_port
+    secondary_port = stereo_pair.primary_port
+    error = stereo_pair.error
+
+    inverted_transformation = np.linalg.inv(stereo_pair.transformation)
+    rotation = inverted_transformation[0:3,0:3]
+    translation = inverted_transformation[0:3,3:]
+    
+    inverted_stereopair = StereoPair(primary_port = primary_port,
+                                     secondary_port = secondary_port,
+                                     error = error,
+                                     translation = translation,
+                                     rotation = rotation)
+    return inverted_stereopair
 
 session_directory = Path(__root__,  "tests", "3_cameras_middle")
 config_path = Path(session_directory, "config.toml")
@@ -50,8 +65,15 @@ for key, params in config.items():
                                     translation = translation,
                                     rotation = rotation)
 
+        stereopairs[new_stereopair.pair] = new_stereopair
 
 
-        
-        
+inverted_stereopairs = {}
+
+for pair, stereopair in stereopairs.items():
+    a,b = pair
+    inverted_pair = (b,a)
+    inverted_stereopairs[inverted_pair] = get_inverted_stereopair(stereopair)
 # %%
+
+# so I tihn

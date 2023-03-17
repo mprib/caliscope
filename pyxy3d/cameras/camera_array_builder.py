@@ -20,8 +20,9 @@ class CameraArrayBuilder:
     def __init__(self, config_path: Path):
 
         self.config = toml.load(config_path)
-        self.extrinsics, self.pairs, self.anchor = self.get_extrinsic_data()
-        self.set_cameras()
+        self.default_extrinsics = self.get_default_stereoextrinsics()
+        #note, still need to set camera here...sorting it out in refactor script
+        # self.set_cameras()
 
     def set_cameras(self):
         self.cameras = {}
@@ -70,16 +71,9 @@ class CameraArrayBuilder:
 
                 self.cameras[port] = cam_data
 
-    def get_extrinsic_data(self):
+    def get_default_stereoextrinsics(self):
 
-        daisy_chain = {
-            "Pair": [],
-            "Primary": [],
-            "Secondary": [],
-            "error": [],
-            "Rotation": [],
-            "Translation": [],
-        }
+        stereoextrinsics = {}
 
         for key, params in self.config.items():
             if key.split("_")[0] == "stereo":
@@ -89,81 +83,96 @@ class CameraArrayBuilder:
                 pair = (port_A, port_B)
                 rotation = np.array(params["rotation"], dtype=np.float64)
                 translation = np.array(params["translation"], dtype=np.float64)
+                transformation = get_transformation(rotation,translation)
                 error = float(params["RMSE"])
 
-                daisy_chain["Pair"].append(pair)
+                stereoextrinsics[pair] = { "Primary": port_A,
+                                           "Secondary": port_B,
+                                           "error": error,
+                                           "Rotation": rotation,
+                                           "Translation": translation,
+                                           "Transformation": transformation
+                                        }
 
-                # it will likely appear strange to make B the primary and A the secondary
-                # this is done because cv2.stereocalibrate returns R and t such that it is the
-                # position of the first camera relative to the second camera (which I find counter intuitive),
-                daisy_chain["Primary"].append(port_B)
-                daisy_chain["Secondary"].append(port_A)
 
-                daisy_chain["Rotation"].append(rotation)
-                daisy_chain["Translation"].append(translation)
-                daisy_chain["error"].append(error)
+                # # it will likely appear strange to make B the primary and A the secondary
+                # # this is done because cv2.stereocalibrate returns R and t such that it is the
+                # # position of the first camera relative to the second camera (which I find counter intuitive),
+                # stereoextrinsics["Primary"].append(port_B)
+                # stereoextrinsics["Secondary"].append(port_A)
 
-        daisy_chain = pd.DataFrame(daisy_chain).sort_values("error")
+                # stereoextrinsics["Rotation"].append(rotation)
+                # stereoextrinsics["Translation"].append(translation)
+                # stereoextrinsics["error"].append(error)
 
-        # create an inverted version of these to determine best Anchor camera
-        inverted_chain = daisy_chain.copy()
-        inverted_chain.Primary, inverted_chain.Secondary = (
-            inverted_chain.Secondary,
-            inverted_chain.Primary,
-        )
+        # extrinsics = pd.DataFrame(extrinsics).sort_values("error")
+
+        # # create an inverted version of these to determine best Anchor camera
+        # inverted_chain = extrinsics.copy()
+        # inverted_chain.Primary, inverted_chain.Secondary = (
+        #     inverted_chain.Secondary,
+        #     inverted_chain.Primary,
+        # )
         
-        # I think that to get the rotation and translation from the other
+        # # I think that to get the rotation and translation from the other
         
         
-        # Mac....this might be what is causing the issues. 
-        inverted_chain.Translation = inverted_chain.Translation * -1
-        inverted_chain.Rotation = inverted_chain.Rotation.apply(np.linalg.inv)
+        # # Mac....this might be what is causing the issues. 
+        # inverted_chain.Translation = inverted_chain.Translation * -1
+        # inverted_chain.Rotation = inverted_chain.Rotation.apply(np.linalg.inv)
 
-        daisy_chain_w_inverted = pd.concat([daisy_chain, inverted_chain], axis=0)
+        # daisy_chain_w_inverted = pd.concat([extrinsics, inverted_chain], axis=0)
 
-        all_pairs = daisy_chain["Pair"].unique()
+        # all_pairs = extrinsics["Pair"].unique()
 
-        mean_error = (
-            daisy_chain_w_inverted.filter(["Primary", "error"])
-            .groupby("Primary")
-            .agg("mean")
-            .rename(columns={"error": "MeanError"})
-            .sort_values("MeanError")
-        )
+        # mean_error = (
+        #     daisy_chain_w_inverted.filter(["Primary", "error"])
+        #     .groupby("Primary")
+        #     .agg("mean")
+        #     .rename(columns={"error": "MeanError"})
+        #     .sort_values("MeanError")
+        # )
 
-        anchor_camera = int(
-            mean_error.index[0]
-        )  # array anchored by camera with the lowest mean RMSE
+        # anchor_camera = int(
+        #     mean_error.index[0]
+        # )  # array anchored by camera with the lowest mean RMSE
 
-        daisy_chain_w_inverted = daisy_chain_w_inverted.merge(
-            mean_error, how="left", on="Primary"
-        ).sort_values("MeanError")
+        # daisy_chain_w_inverted = daisy_chain_w_inverted.merge(
+        #     mean_error, how="left", on="Primary"
+        # ).sort_values("MeanError")
 
-        daisy_chain_w_inverted.insert(
-            4, "MeanError", daisy_chain_w_inverted.pop("MeanError")
-        )
-        daisy_chain_w_inverted.sort_values(["MeanError"])
+        # daisy_chain_w_inverted.insert(
+        #     4, "MeanError", daisy_chain_w_inverted.pop("MeanError")
+        # )
+        # daisy_chain_w_inverted.sort_values(["MeanError"])
 
-        # need to build an array of cameras in a common frame of reference a starting point for the calibration
-        # if one of the stereo pairs did not get calibrated, then some additional tricks will need to get
-        # deployed to make things work. But fortunately this is the simpler case now.
-        initial_array = daisy_chain_w_inverted[
-            daisy_chain_w_inverted.Primary == anchor_camera
-        ]
-        initial_array = initial_array[
-            ["Primary", "Secondary", "Rotation", "Translation"]
-        ]
+        # # need to build an array of cameras in a common frame of reference a starting point for the calibration
+        # # if one of the stereo pairs did not get calibrated, then some additional tricks will need to get
+        # # deployed to make things work. But fortunately this is the simpler case now.
+        # initial_array = daisy_chain_w_inverted[
+        #     daisy_chain_w_inverted.Primary == anchor_camera
+        # ]
+        # initial_array = initial_array[
+        #     ["Primary", "Secondary", "Rotation", "Translation"]
+        # ]
 
-        # fix format of Primary/Secondary labels to be integers
-        initial_array[["Primary", "Secondary"]] = initial_array[
-            ["Primary", "Secondary"]
-        ].apply(pd.to_numeric)
+        # # fix format of Primary/Secondary labels to be integers
+        # initial_array[["Primary", "Secondary"]] = initial_array[
+        #     ["Primary", "Secondary"]
+        # ].apply(pd.to_numeric)
 
-        return initial_array, all_pairs, anchor_camera
+        # return initial_array, all_pairs, anchor_camera
+        return stereoextrinsics
 
     def get_camera_array(self):
         return CameraArray(self.cameras)
 
+def get_transformation(R, t):
+    
+    R_stack = np.vstack([R, np.array([0,0,0])])
+    t_stack = np.vstack([t, np.array([1])])
+    Tranformation = np.hstack([R_stack,t_stack])
+    return Tranformation
 
 if __name__ == "__main__":
 # if True:

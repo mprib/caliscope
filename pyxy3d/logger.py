@@ -25,7 +25,7 @@ console_log_format =" %(levelname)8s| %(name)30s| %(lineno)3d|  %(message)s"
 console_formatter = logging.Formatter(console_log_format)
 console_handler.setFormatter(console_formatter)
 
-log_level_overides = {"pyxy3d.cameras.live_stream": logging.INFO}
+# log_level_overides = {"pyxy3d.cameras.live_stream": logging.INFO}
 
 
 class QtHandler(logging.Handler):
@@ -71,13 +71,12 @@ class XStream(QtCore.QObject):
         return XStream._stderr
 
 def get(name): # as in __name__
-    print(f"Creating logger for {name}")
     logger = logging.getLogger(name)
 
-    if name in log_level_overides.keys():
-        logger.setLevel(log_level_overides[name])
-    else:
-        logger.setLevel(logging.DEBUG) 
+    # if name in log_level_overides.keys():
+    #     logger.setLevel(log_level_overides[name])
+    # else:
+    #     logger.setLevel(logging.DEBUG) 
 
     qt_handler = QtHandler()
     

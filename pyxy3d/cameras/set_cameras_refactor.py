@@ -3,6 +3,11 @@
 from pathlib import Path
 from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder    
 from pyxy3d.cameras.camera_array import CameraData, CameraArray
+from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
+from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
+    get_point_estimates,
+)
 
 from pyxy3d import __root__
 import pandas as pd
@@ -120,7 +125,7 @@ def get_scored_anchored_array(anchor_port:int, all_stereopairs:dict)->tuple:
 
             # update with extrinsics, though place anchor camera at origin
             if port == anchor_port:
-                translation = np.array([0, 0, 0], dtype=np.float64)
+                translation = np.array([[0, 0, 0]], dtype=np.float64).T
                 rotation = np.array(
                     [[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64
                 )
@@ -152,14 +157,21 @@ def get_scored_anchored_array(anchor_port:int, all_stereopairs:dict)->tuple:
     return total_error_score, camera_array 
 
 if __name__ == "__main__":
+    from PyQt6.QtWidgets import QApplication
+    import sys
+    from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer    
+    from pyxy3d.session import Session
+    
     session_directory = Path(__root__,  "tests", "3_cameras_middle")
+    session = Session(session_directory)
     config_path = Path(session_directory, "config.toml")
+    point_data_path = Path(session_directory, "point_data.csv")
 
     all_stereopairs = get_all_stereopairs(config_path)
     # drafting code to get the array in terms of 
     config = toml.load(config_path)
 
-    ports = [0,1,2]
+    ports = [0]
     
     array_error_scores = {}
     camera_arrays = {}
@@ -172,8 +184,26 @@ if __name__ == "__main__":
     best_anchor = min(array_error_scores,key=array_error_scores.get)
 
     best_initial_array = camera_arrays[best_anchor]
+    session.camera_array = best_initial_array
 
-        
+
+    point_estimates: PointEstimates = get_point_estimates(
+        best_initial_array, point_data_path
+    )
+    
+#%%
+    #%%
+    capture_volume = CaptureVolume(session.camera_array, point_estimates)
+
+    capture_volume.save(session_directory)
+    capture_volume.optimize()
+    capture_volume.save(session_directory)
+
+    app = QApplication(sys.argv)
+    vizr = CaptureVolumeVisualizer(capture_volume = capture_volume)
+    sys.exit(app.exec())
+
+
 
 #%%
 # this is an awesome two-liner to convert a dictionary of dataclasses to a pandas dataframe

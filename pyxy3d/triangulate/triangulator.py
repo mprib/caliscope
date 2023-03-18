@@ -65,12 +65,12 @@ class StereoTriangulator:
     def build_projection_matrices(self):
 
         # inversion/negation of R t here is legacy code that  
-        # was based on a misunderstanding about changing frames of reference.
-        # looking at it now, it is not clear to me *why* it works *at all*
-        # same transformation is made prior to bundle adjustment which also
-        # yields highly reasonable results. 
-        # This may be correct. It certainly yields reasonable results. 
-        
+        # was based on my understanding at the time of frames of reference.
+        # and it yields highly reasonable results. 
+        # see https://stackoverflow.com/questions/17210424/3d-camera-coordinates-to-world-coordinates-change-of-basis
+        # for a potential explanation. 
+        # I would expect this to be a more common topic for computer vision forums
+        # but I can't really find a reference to this and it bothers me
         rot_A = np.linalg.inv(self.camera_A.rotation)
         trans_A = np.array(self.camera_A.translation) * -1
         rot_trans_A = np.column_stack([rot_A, trans_A])

@@ -23,8 +23,7 @@ class StereoPair:
     """
     primary_port: int
     secondary_port: int
-    error: float
-    error_score: float = error # will be used to select best array; cumulative error of chained
+    error_score: float # when chaining operations, this will be a cumulative number
     translation: np.ndarray
     rotation: np.ndarray
     
@@ -44,7 +43,7 @@ class StereoPair:
 def get_inverted_stereopair(stereo_pair:StereoPair)->StereoPair:
     primary_port = stereo_pair.secondary_port
     secondary_port = stereo_pair.primary_port
-    error = stereo_pair.error
+    error_score = stereo_pair.error_score
 
     inverted_transformation = np.linalg.inv(stereo_pair.transformation)
     rotation = inverted_transformation[0:3,0:3]
@@ -52,7 +51,7 @@ def get_inverted_stereopair(stereo_pair:StereoPair)->StereoPair:
     
     inverted_stereopair = StereoPair(primary_port = primary_port,
                                      secondary_port = secondary_port,
-                                     error = error,
+                                     error_score = error_score,
                                      translation = translation,
                                      rotation = rotation)
     return inverted_stereopair
@@ -62,6 +61,8 @@ def get_all_stereopairs(config_path:Path)->dict:
     config = toml.load(config_path)
     stereopairs = {}
 
+    # Create StereoPair objects for each saved stereocalibration output in config
+    # this are maintained in a dictionary keyed off of the pair tuple
     for key, params in config.items():
         if key.split("_")[0] == "stereo":
             port_A = int(key.split("_")[1])
@@ -73,19 +74,20 @@ def get_all_stereopairs(config_path:Path)->dict:
 
             new_stereopair = StereoPair(primary_port = port_A,
                                         secondary_port = port_B,
-                                        error = error,
+                                        error_score = error,
                                         translation = translation,
                                         rotation = rotation)
 
             stereopairs[new_stereopair.pair] = new_stereopair
 
+    # create another dictionary that will contain the inverted versions of the StereoPairs
     inverted_stereopairs = {}
-
     for pair, stereopair in stereopairs.items():
         a,b = pair
         inverted_pair = (b,a)
         inverted_stereopairs[inverted_pair] = get_inverted_stereopair(stereopair)
-
+    
+    # combine the dictionaries
     merged_stereopairs = {**stereopairs, **inverted_stereopairs}
     return merged_stereopairs
 
@@ -101,7 +103,7 @@ if __name__ == "__main__":
     # drafting code to get the array in terms of 
     config = toml.load(config_path)
 
-    anchor = 0 
+    anchor = 1 
     cameras = {}
 
     for key, data in config.items():
@@ -145,9 +147,21 @@ if __name__ == "__main__":
             )
 
             cameras[port] = cam_data
+    
+    
+    camera_A = cameras[0]
             
+    rot_A = np.linalg.inv(camera_A.rotation)
+    trans_A = np.array(camera_A.translation) * -1
+    rot_trans_A = np.column_stack([rot_A, trans_A])
+    mtx_A = camera_A.matrix
+    proj_A = mtx_A @ rot_trans_A   
     
-    
+    rot_A_alt = camera_A.rotation
+    trans_A_alt = camera_A.translation 
+    rot_trans_A = np.column_stack([rot_A_alt, trans_A_alt])
+    mtx_A = camera_A.matrix
+    proj_A_alt = mtx_A @ rot_trans_A   
     
 #%%
 # this is an awesome two-liner to convert a dictionary of dataclasses to a pandas dataframe

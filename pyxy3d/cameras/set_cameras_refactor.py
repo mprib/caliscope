@@ -12,9 +12,19 @@ import toml
  
 @dataclass
 class StereoPair:
+    """
+    A dataclass to hold the extrinsic parameters associated with the cv2.stereoCalibrate
+    function output. Additionally provides some convenience methods to get common transformations
+    of the data.
+    
+    From the first output of cv2.stereocalibrate, variations can be created by inverting camera
+    relationships, and chaining together relative camera positions so that all possible pairs
+    of cameras are represented. This dataclass is the building block of that larger process.
+    """
     primary_port: int
     secondary_port: int
     error: float
+    error_score: float = error # will be used to select best array; cumulative error of chained
     translation: np.ndarray
     rotation: np.ndarray
     

@@ -64,12 +64,13 @@ class StereoTriangulator:
 
     def build_projection_matrices(self):
 
-        # Camera parameters are position in a world frame of reference
-        # which is synonymous to the anchor camera frame prior to bundle adjustment
-        # Projection matrix is to re-orient a point from the world position
-        # to a camera frame of reference, therefore is inverted (rotation)/negated (translation)
-        # I believe this is the correct interpretation and appears to yield
-        # reasonable results
+        # inversion/negation of R t here is legacy code that  
+        # was based on a misunderstanding about changing frames of reference.
+        # looking at it now, it is not clear to me *why* it works *at all*
+        # same transformation is made prior to bundle adjustment which also
+        # yields highly reasonable results. 
+        # This may be correct. It certainly yields reasonable results. 
+        
         rot_A = np.linalg.inv(self.camera_A.rotation)
         trans_A = np.array(self.camera_A.translation) * -1
         rot_trans_A = np.column_stack([rot_A, trans_A])

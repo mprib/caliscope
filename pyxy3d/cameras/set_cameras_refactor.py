@@ -2,7 +2,7 @@
  
 from pathlib import Path
 from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder    
-from pyxy3d.cameras.camera_array import CameraData
+from pyxy3d.cameras.camera_array import CameraData, CameraArray
 
 from pyxy3d import __root__
 import pandas as pd
@@ -93,19 +93,18 @@ def get_all_stereopairs(config_path:Path)->dict:
 
 # def get_anchored_pairs(anchor: int, all_stereopairs:dict)->dict:
 
-
-
-if __name__ == "__main__":
-    session_directory = Path(__root__,  "tests", "3_cameras_middle")
-    config_path = Path(session_directory, "config.toml")
-
-    all_stereopairs = get_all_stereopairs(config_path)
-    # drafting code to get the array in terms of 
-    config = toml.load(config_path)
-
-    anchor = 1 
+def get_scored_anchored_array(anchor_port:int, all_stereopairs:dict)->tuple:
+    """
+    two return values:
+    
+        total_error_score: the sum of the error_scores of all stereopairs used in the 
+                           construction of the array
+    
+        camera_array: a CameraArray object anchored at the provided port 
+    """
     cameras = {}
-
+    total_error_score = 0
+    
     for key, data in config.items():
         if key.startswith("cam_") and not config[key]['ignore']:
             port = data["port"]
@@ -120,16 +119,16 @@ if __name__ == "__main__":
             verified_resolutions = data["verified_resolutions"]
 
             # update with extrinsics, though place anchor camera at origin
-            if port == anchor:
+            if port == anchor_port:
                 translation = np.array([0, 0, 0], dtype=np.float64)
                 rotation = np.array(
                     [[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64
                 )
             else:
-                anchored_stereopair = all_stereopairs[(anchor,port)]
+                anchored_stereopair = all_stereopairs[(anchor_port,port)]
                 translation = anchored_stereopair.translation
                 rotation = anchored_stereopair.rotation
-
+                total_error_score += anchored_stereopair.error_score
 
             cam_data = CameraData(
                 port,
@@ -147,22 +146,35 @@ if __name__ == "__main__":
             )
 
             cameras[port] = cam_data
-    
-    
-    camera_A = cameras[0]
             
-    rot_A = np.linalg.inv(camera_A.rotation)
-    trans_A = np.array(camera_A.translation) * -1
-    rot_trans_A = np.column_stack([rot_A, trans_A])
-    mtx_A = camera_A.matrix
-    proj_A = mtx_A @ rot_trans_A   
+    camera_array = CameraArray(cameras)
+
+    return total_error_score, camera_array 
+
+if __name__ == "__main__":
+    session_directory = Path(__root__,  "tests", "3_cameras_middle")
+    config_path = Path(session_directory, "config.toml")
+
+    all_stereopairs = get_all_stereopairs(config_path)
+    # drafting code to get the array in terms of 
+    config = toml.load(config_path)
+
+    ports = [0,1,2]
     
-    rot_A_alt = camera_A.rotation
-    trans_A_alt = camera_A.translation 
-    rot_trans_A = np.column_stack([rot_A_alt, trans_A_alt])
-    mtx_A = camera_A.matrix
-    proj_A_alt = mtx_A @ rot_trans_A   
+    array_error_scores = {}
+    camera_arrays = {}
+    # get the score for the anchored_stereopairs
+    for port in ports:
+        array_error_score, camera_array = get_scored_anchored_array(port,all_stereopairs)
+        array_error_scores[port] = array_error_score
+        camera_arrays[port] = camera_array
     
+    best_anchor = min(array_error_scores,key=array_error_scores.get)
+
+    best_initial_array = camera_arrays[best_anchor]
+
+        
+
 #%%
 # this is an awesome two-liner to convert a dictionary of dataclasses to a pandas dataframe
 # stereopair_dict = {k:asdict(merged_stereopairs) for k,merged_stereopairs in merged_stereopairs.items()}

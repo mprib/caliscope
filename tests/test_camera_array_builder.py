@@ -9,7 +9,7 @@ from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
 from pyxy3d.gui.vizualize.capture_volume_visualizer import \
     CaptureVolumeVisualizer
-from pyxy3d.calibration.omnicalibrator import OmniCalibrator
+from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 
 # session_path  = Path(__root__, "tests", "3_cameras_triangular")
 session_path  = Path(__root__, "tests", "3_cameras_middle")
@@ -22,7 +22,7 @@ config_path  = Path(session_path,"config.toml")
 
 point_data_path = Path(session_path, "point_data.csv")
 
-omnical = OmniCalibrator(
+omnical = StereoCalibrator(
     config_path,
     point_data_path,
 )

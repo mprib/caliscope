@@ -23,7 +23,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from itertools import combinations
 
 
-class OmniCalibrator:
+class StereoCalibrator:
     def __init__(
         self,
         config_path: Path,
@@ -136,143 +136,143 @@ class OmniCalibrator:
         return all_boards
 
     ########################################## BEGIN MONOCALIBRATION SPECIFIC CODE #######################################################
-    def get_monocalibration_points(
-        self, port: int, sample_size: int, random_state: int
-    ):
-        """
-        Provides a curated dataframe of point data. The overall point data is initially
-        restricted to only those boards that have at least 6 points. This remaining data
-        is grouped according to the Primary Coverage Region, which should hopefully provide
-        more breadth of coverage. The random selection is weighted to strongly favor boards that
-        have more points in view.
-        """
+    # def get_monocalibration_points(
+    #     self, port: int, sample_size: int, random_state: int
+    # ):
+    #     """
+    #     Provides a curated dataframe of point data. The overall point data is initially
+    #     restricted to only those boards that have at least 6 points. This remaining data
+    #     is grouped according to the Primary Coverage Region, which should hopefully provide
+    #     more breadth of coverage. The random selection is weighted to strongly favor boards that
+    #     have more points in view.
+    #     """
 
-        # DLT algorithm needs at least 6 points for pose estimation from 3D-2D point correspondences
-        point_count_cutoff = 6
+    #     # DLT algorithm needs at least 6 points for pose estimation from 3D-2D point correspondences
+    #     point_count_cutoff = 6
 
-        port_boards = self.all_boards[self.all_boards["port"] == port]
+    #     port_boards = self.all_boards[self.all_boards["port"] == port]
 
-        good_board_captures = port_boards[
-            port_boards["point_count"] >= point_count_cutoff
-        ]
+    #     good_board_captures = port_boards[
+    #         port_boards["point_count"] >= point_count_cutoff
+    #     ]
 
-        board_count = good_board_captures.shape[0]
-        sampled_proportion = min(sample_size / board_count, 1)
+    #     board_count = good_board_captures.shape[0]
+    #     sampled_proportion = min(sample_size / board_count, 1)
 
-        sampling_weights = good_board_captures["point_count"] ** 3
+    #     sampling_weights = good_board_captures["point_count"] ** 3
 
-        randomly_selected_boards = good_board_captures.groupby(
-            "primary_coverage_region"
-        ).sample(
-            frac=sampled_proportion,
-            weights=sampling_weights,
-            random_state=random_state,
-            replace=False,
-        )
+    #     randomly_selected_boards = good_board_captures.groupby(
+    #         "primary_coverage_region"
+    #     ).sample(
+    #         frac=sampled_proportion,
+    #         weights=sampling_weights,
+    #         random_state=random_state,
+    #         replace=False,
+    #     )
 
-        calibration_points = self.all_point_data.merge(
-            randomly_selected_boards, "right", ["port", "sync_index"]
-        )
+    #     calibration_points = self.all_point_data.merge(
+    #         randomly_selected_boards, "right", ["port", "sync_index"]
+    #     )
 
-        return calibration_points
+    #     return calibration_points
 
-    def monocalibrate(self, port, sample_size, random_state):
-        # NOTE: This data cleanup can be refactored to take advantage of the cal input method
-        # currently used with the stereocal method. Just not really a priority right now given
-        # that I'm not terribly happy with this monocalibration outcome anyways...
-        port_monocal_data = self.get_monocalibration_points(port)
+    # def monocalibrate(self, port, sample_size, random_state):
+    #     # NOTE: This data cleanup can be refactored to take advantage of the cal input method
+    #     # currently used with the stereocal method. Just not really a priority right now given
+    #     # that I'm not terribly happy with this monocalibration outcome anyways...
+    #     port_monocal_data = self.get_monocalibration_points(port)
 
-        resolution = self.config["cam_" + str(port)]["resolution"]
+    #     resolution = self.config["cam_" + str(port)]["resolution"]
 
-        sync_indices = port_monocal_data["sync_index"].to_numpy().round().astype(int)
-        img_loc_x = port_monocal_data["img_loc_x"].to_numpy().astype(np.float32)
-        img_loc_y = port_monocal_data["img_loc_y"].to_numpy().astype(np.float32)
-        board_loc_x = port_monocal_data["board_loc_x"].to_numpy().astype(np.float32)
-        board_loc_y = port_monocal_data["board_loc_y"].to_numpy().astype(np.float32)
-        board_loc_z = board_loc_x * 0  # all on the same plane
+    #     sync_indices = port_monocal_data["sync_index"].to_numpy().round().astype(int)
+    #     img_loc_x = port_monocal_data["img_loc_x"].to_numpy().astype(np.float32)
+    #     img_loc_y = port_monocal_data["img_loc_y"].to_numpy().astype(np.float32)
+    #     board_loc_x = port_monocal_data["board_loc_x"].to_numpy().astype(np.float32)
+    #     board_loc_y = port_monocal_data["board_loc_y"].to_numpy().astype(np.float32)
+    #     board_loc_z = board_loc_x * 0  # all on the same plane
 
-        # build the actual inputs for the calibration...
-        img_x_y = np.vstack([img_loc_x, img_loc_y]).T
-        board_x_y_z = np.vstack([board_loc_x, board_loc_y, board_loc_z]).T
+    #     # build the actual inputs for the calibration...
+    #     img_x_y = np.vstack([img_loc_x, img_loc_y]).T
+    #     board_x_y_z = np.vstack([board_loc_x, board_loc_y, board_loc_z]).T
 
-        # print(time.time())
-        img_locs = []
-        board_locs = []
-        for sync_index in np.unique(sync_indices):
-            same_frame = sync_indices == sync_index
-            img_locs.append(img_x_y[same_frame])
-            board_locs.append(board_x_y_z[same_frame])
+    #     # print(time.time())
+    #     img_locs = []
+    #     board_locs = []
+    #     for sync_index in np.unique(sync_indices):
+    #         same_frame = sync_indices == sync_index
+    #         img_locs.append(img_x_y[same_frame])
+    #         board_locs.append(board_x_y_z[same_frame])
 
-        grid_count = len(img_locs)
-        # print(time.time())
-        logger.info(f"Using {grid_count} board captures to calibrate camera {port}...")
+    #     grid_count = len(img_locs)
+    #     # print(time.time())
+    #     logger.info(f"Using {grid_count} board captures to calibrate camera {port}...")
 
-        start = time.time()
-        logger.info(f"Calibrating camera {port}....")
-        error, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
-            board_locs, img_locs, resolution, None, None
-        )
-        elapsed = time.time() - start
+    #     start = time.time()
+    #     logger.info(f"Calibrating camera {port}....")
+    #     error, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
+    #         board_locs, img_locs, resolution, None, None
+    #     )
+    #     elapsed = time.time() - start
 
-        logger.info(
-            f"{round(elapsed,2)} seconds elapsed to perform calibration of camera at port {port}"
-        )
-        logger.info(f"Camera {port} Error: {error}")
+    #     logger.info(
+    #         f"{round(elapsed,2)} seconds elapsed to perform calibration of camera at port {port}"
+    #     )
+    #     logger.info(f"Camera {port} Error: {error}")
 
-        return port, error, mtx, dist, grid_count
+    #     return port, error, mtx, dist, grid_count
 
-    def monocalibrate_all(self, sample_size=20, random_state=1, parallel=True):
-        """
-        NOTE: This will run and provide calibration outputs, however it appears that these come with higher errors
-        and more bizarre fits than you get when calibrating each camera individualy. I suspect that the central
-        challenge is providing the most appropriate boards to the calibrator. Future iterations of this may seek to
-        select boards that likely have foreshortening (more variation in connected corner length?) and that come
-        from a broader swath of the frame. The random selections here may just not be enough to get the job done.
-        """
-        if parallel:
-            start = time.time()
+    # def monocalibrate_all(self, sample_size=20, random_state=1, parallel=True):
+    #     """
+    #     NOTE: This will run and provide calibration outputs, however it appears that these come with higher errors
+    #     and more bizarre fits than you get when calibrating each camera individualy. I suspect that the central
+    #     challenge is providing the most appropriate boards to the calibrator. Future iterations of this may seek to
+    #     select boards that likely have foreshortening (more variation in connected corner length?) and that come
+    #     from a broader swath of the frame. The random selections here may just not be enough to get the job done.
+    #     """
+    #     if parallel:
+    #         start = time.time()
 
-            with ProcessPoolExecutor() as executor:
-                processes = [
-                    executor.submit(self.monocalibrate, port, sample_size, random_state)
-                    for port in self.ports
-                ]
+    #         with ProcessPoolExecutor() as executor:
+    #             processes = [
+    #                 executor.submit(self.monocalibrate, port, sample_size, random_state)
+    #                 for port in self.ports
+    #             ]
 
-                for p in as_completed(processes):
-                    port, error, mtx, dist, grid_count = p.result()
+    #             for p in as_completed(processes):
+    #                 port, error, mtx, dist, grid_count = p.result()
 
-                    self.config["cam_" + str(port)]["error"] = error
-                    self.config["cam_" + str(port)]["matrix"] = mtx
-                    self.config["cam_" + str(port)]["distortions"] = dist
-                    self.config["cam_" + str(port)]["grid_count"] = grid_count
+    #                 self.config["cam_" + str(port)]["error"] = error
+    #                 self.config["cam_" + str(port)]["matrix"] = mtx
+    #                 self.config["cam_" + str(port)]["distortions"] = dist
+    #                 self.config["cam_" + str(port)]["grid_count"] = grid_count
 
-            elapsed = time.time() - start
-            logger.info(
-                f"Total time to calibrate all ports in parallel is {round(elapsed, 2)} seconds"
-            )
+    #         elapsed = time.time() - start
+    #         logger.info(
+    #             f"Total time to calibrate all ports in parallel is {round(elapsed, 2)} seconds"
+    #         )
 
-        if not parallel:
-            start = time.time()
-            for port in self.ports:
-                _, error, mtx, dist, grid_count = self.monocalibrate(
-                    port, sample_size, random_state
-                )
+    #     if not parallel:
+    #         start = time.time()
+    #         for port in self.ports:
+    #             _, error, mtx, dist, grid_count = self.monocalibrate(
+    #                 port, sample_size, random_state
+    #             )
 
-                self.config["cam_" + str(port)]["error"] = error
-                self.config["cam_" + str(port)]["matrix"] = mtx
-                self.config["cam_" + str(port)]["distortions"] = dist
-                self.config["cam_" + str(port)]["grid_count"] = grid_count
-                self.monocalibrate(port)
+    #             self.config["cam_" + str(port)]["error"] = error
+    #             self.config["cam_" + str(port)]["matrix"] = mtx
+    #             self.config["cam_" + str(port)]["distortions"] = dist
+    #             self.config["cam_" + str(port)]["grid_count"] = grid_count
+    #             self.monocalibrate(port)
 
-            elapsed = time.time() - start
-            logger.info(
-                f"Total time to calibrate all ports synchronously is {round(elapsed, 2)} seconds"
-            )
+    #         elapsed = time.time() - start
+    #         logger.info(
+    #             f"Total time to calibrate all ports synchronously is {round(elapsed, 2)} seconds"
+    #         )
 
-        with open(self.config_path, "w") as f:
-            toml.dump(self.config, f)
+    #     with open(self.config_path, "w") as f:
+    #         toml.dump(self.config, f)
 
-    ##################################### BEGIN STEREOCALIBRATION SPECIFIC CODE ################################################
+    # ##################################### BEGIN STEREOCALIBRATION SPECIFIC CODE ################################################
 
     def get_stereopair_data(self, pair, boards_sampled, random_state=1):
 
@@ -441,7 +441,7 @@ if __name__ == "__main__":
     config_path = Path(session_path, "config.toml")
     point_data_path = Path(session_path, "point_data.csv")
 
-    omnical = OmniCalibrator(
+    omnical = StereoCalibrator(
         config_path,
         point_data_path,
     )

@@ -70,8 +70,8 @@ def get_all_stereopairs(config_path:Path)->dict:
     # this are maintained in a dictionary keyed off of the pair tuple
     for key, params in config.items():
         if key.split("_")[0] == "stereo":
-            port_A = int(key.split("_")[2])
-            port_B = int(key.split("_")[1])
+            port_A = int(key.split("_")[1])
+            port_B = int(key.split("_")[2])
 
             rotation = np.array(params["rotation"], dtype=np.float64)
             translation = np.array(params["translation"], dtype=np.float64)
@@ -171,7 +171,7 @@ if __name__ == "__main__":
     # drafting code to get the array in terms of 
     config = toml.load(config_path)
 
-    ports = [0]
+    ports = [2]
     
     array_error_scores = {}
     camera_arrays = {}
@@ -191,14 +191,14 @@ if __name__ == "__main__":
         best_initial_array, point_data_path
     )
     
-#%%
-    #%%
     capture_volume = CaptureVolume(session.camera_array, point_estimates)
 
     capture_volume.save(session_directory)
-    capture_volume.optimize()
-    capture_volume.save(session_directory)
+#%%
 
+    # capture_volume.optimize()
+    # capture_volume.save(session_directory)
+    #%%
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume = capture_volume)
     sys.exit(app.exec())

@@ -64,6 +64,21 @@ class StereoTriangulator:
 
     def build_projection_matrices(self):
 
+        # attempting to create something that integrates with the new set_cameras_refactor
+        # rot_A = np.linalg.inv(self.camera_A.rotation)
+        # trans_A = np.array(self.camera_A.translation) * -1
+        rot_trans_A = np.column_stack([self.camera_A.rotation, self.camera_A.translation])
+        mtx_A = self.camera_A.matrix
+        self.proj_A = mtx_A @ rot_trans_A  # projection matrix for CamA
+
+        # rot_B = np.linalg.inv(self.camera_B.rotation)
+        # trans_B = np.array(self.camera_B.translation) * -1
+        rot_trans_B = np.column_stack([self.camera_B.rotation, self.camera_B.translation])
+        mtx_B = self.camera_B.matrix
+        self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
+
+    def build_projection_matrices_old(self):
+
         # inversion/negation of R t here is legacy code that  
         # was based on my understanding at the time of frames of reference.
         # and it yields highly reasonable results. 

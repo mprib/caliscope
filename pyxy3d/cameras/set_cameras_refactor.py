@@ -171,7 +171,7 @@ if __name__ == "__main__":
     # drafting code to get the array in terms of 
     config = toml.load(config_path)
 
-    ports = [0]
+    ports = [2]
     
     array_error_scores = {}
     camera_arrays = {}
@@ -196,8 +196,8 @@ if __name__ == "__main__":
     capture_volume.save(session_directory)
 #%%
 
-    # capture_volume.optimize()
-    # capture_volume.save(session_directory)
+    capture_volume.optimize()
+    capture_volume.save(session_directory)
     #%%
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume = capture_volume)

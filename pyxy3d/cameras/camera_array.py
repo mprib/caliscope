@@ -38,10 +38,10 @@ class CameraData:
         rotation_matrix_world = self.rotation
 
         # rotation of the world relative to camera
-        rotation_matrix_proj = np.linalg.inv(rotation_matrix_world)
+        rotation_matrix_proj = rotation_matrix_world
         rotation_rodrigues = cv2.Rodrigues(rotation_matrix_proj)[0]  # elements 0,1,2
         translation_world = self.translation  # elements 3,4,5
-        translation_proj = translation_world * -1
+        translation_proj = translation_world 
 
         port_param = np.hstack([rotation_rodrigues[:, 0], translation_proj])
 
@@ -53,8 +53,8 @@ class CameraData:
         """
 
         # convert back to world frame of reference
-        self.rotation = np.linalg.inv(cv2.Rodrigues(row[0:3])[0])
-        self.translation = np.array([row[3:6] * -1], dtype=np.float64)[0]
+        self.rotation = cv2.Rodrigues(row[0:3])[0]
+        self.translation = np.array([row[3:6]], dtype=np.float64)[0]
 
 
 @dataclass

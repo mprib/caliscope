@@ -69,11 +69,11 @@ capture_volume = CaptureVolume(session.camera_array, point_estimates)
 
 capture_volume.save(session_directory)
 # optimization will update the underlying camera_array and point_estimates
-capture_volume.optimize()
+# capture_volume.optimize()
 
 # %%
-session.save_camera_array()
-capture_volume.save(session_directory)
+# session.save_camera_array()
+# capture_volume.save(session_directory)
 
 app = QApplication(sys.argv)
 vizr = CaptureVolumeVisualizer(capture_volume = capture_volume)

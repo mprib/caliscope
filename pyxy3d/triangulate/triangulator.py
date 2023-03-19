@@ -64,12 +64,28 @@ class StereoTriangulator:
 
     def build_projection_matrices(self):
 
-        # Camera parameters are position in a world frame of reference
-        # which is synonymous to the anchor camera frame prior to bundle adjustment
-        # Projection matrix is to re-orient a point from the world position
-        # to a camera frame of reference, therefore is inverted (rotation)/negated (translation)
-        # I believe this is the correct interpretation and appears to yield
-        # reasonable results
+        # attempting to create something that integrates with the new set_cameras_refactor
+        # rot_A = np.linalg.inv(self.camera_A.rotation)
+        # trans_A = np.array(self.camera_A.translation) * -1
+        rot_trans_A = np.column_stack([self.camera_A.rotation, self.camera_A.translation])
+        mtx_A = self.camera_A.matrix
+        self.proj_A = mtx_A @ rot_trans_A  # projection matrix for CamA
+
+        # rot_B = np.linalg.inv(self.camera_B.rotation)
+        # trans_B = np.array(self.camera_B.translation) * -1
+        rot_trans_B = np.column_stack([self.camera_B.rotation, self.camera_B.translation])
+        mtx_B = self.camera_B.matrix
+        self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
+
+    def build_projection_matrices_old(self):
+
+        # inversion/negation of R t here is legacy code that  
+        # was based on my understanding at the time of frames of reference.
+        # and it yields highly reasonable results. 
+        # see https://stackoverflow.com/questions/17210424/3d-camera-coordinates-to-world-coordinates-change-of-basis
+        # for a potential explanation. 
+        # I would expect this to be a more common topic for computer vision forums
+        # but I can't really find a reference to this and it bothers me
         rot_A = np.linalg.inv(self.camera_A.rotation)
         trans_A = np.array(self.camera_A.translation) * -1
         rot_trans_A = np.column_stack([rot_A, trans_A])

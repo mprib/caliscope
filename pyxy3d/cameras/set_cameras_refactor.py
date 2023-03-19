@@ -70,8 +70,8 @@ def get_all_stereopairs(config_path:Path)->dict:
     # this are maintained in a dictionary keyed off of the pair tuple
     for key, params in config.items():
         if key.split("_")[0] == "stereo":
-            port_A = int(key.split("_")[1])
-            port_B = int(key.split("_")[2])
+            port_A = int(key.split("_")[2])
+            port_B = int(key.split("_")[1])
 
             rotation = np.array(params["rotation"], dtype=np.float64)
             translation = np.array(params["translation"], dtype=np.float64)
@@ -125,13 +125,13 @@ def get_scored_anchored_array(anchor_port:int, all_stereopairs:dict)->tuple:
 
             # update with extrinsics, though place anchor camera at origin
             if port == anchor_port:
-                translation = np.array([[0, 0, 0]], dtype=np.float64).T
+                translation = np.array([0, 0, 0], dtype=np.float64).T
                 rotation = np.array(
                     [[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64
                 )
             else:
                 anchored_stereopair = all_stereopairs[(anchor_port,port)]
-                translation = anchored_stereopair.translation
+                translation = anchored_stereopair.translation[:,0]
                 rotation = anchored_stereopair.rotation
                 total_error_score += anchored_stereopair.error_score
 

@@ -126,12 +126,19 @@ def mesh_from_camera(camera_data: CameraData):
     """
     mesh = CameraMesh(camera_data.size, camera_data.matrix).mesh
 
+
+    R = camera_data.rotation
+    t = camera_data.translation
+    camera_orientation_world = R.T
+
     # rotate mesh
-    euler_angles = rotationMatrixToEulerAngles(camera_data.rotation)
+    euler_angles = rotationMatrixToEulerAngles(camera_orientation_world)
     euler_angles_deg = [x * (180 / math.pi) for x in euler_angles]
     x = euler_angles_deg[0]
     y = euler_angles_deg[1]
     z = euler_angles_deg[2]
+
+
 
     # rotate mesh; z,y,x is apparently the order in which it's done
     # https://gamedev.stackexchange.com/questions/16719/what-is-the-correct-order-to-multiply-scale-rotation-and-translation-matrices-f
@@ -139,12 +146,10 @@ def mesh_from_camera(camera_data: CameraData):
     mesh.rotate(y, 0, 1, 0, local=True)
     mesh.rotate(x, 1, 0, 0, local=True)
 
-    R = camera_data.rotation
-    t = camera_data.translation
     
+    camera_origin_world = -np.dot(R.T,t)
     # adjust mesh translation to account for preliminary rotation
-    final_position = t@R.T
-    x, y, z = [t for t in final_position]
+    x, y, z = [p for p in camera_origin_world]
     mesh.translate(x, y, z)
 
 
@@ -183,13 +188,14 @@ if __name__ == "__main__":
     import pickle
     
     # session_directory = Path(__root__,  "tests", "2_cameras_linear")
-    session_directory = Path(__root__,  "tests", "tripod")
+    # session_directory = Path(__root__,  "tests", "tripod")
     # session_directory = Path(__root__,  "tests", "2_cameras_90_deg")
+    # session_directory = Path(__root__,  "tests", "2_cameras_180_deg")
     # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
-    # session_directory = Path(__root__,  "tests", "3_cameras_middle")
+    session_directory = Path(__root__,  "tests", "3_cameras_middle")
     # session_directory = Path(__root__,  "tests", "3_cameras_linear")
     # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
-    session_directory = Path(__root__,  "tests", "just_checking")
+    # session_directory = Path(__root__,  "tests", "just_checking")
 
 
     saved_CV_path = Path(session_directory, "capture_volume_stage_0.pkl") 

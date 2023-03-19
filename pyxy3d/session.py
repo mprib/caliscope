@@ -17,7 +17,7 @@ from pyxy3d.calibration.corner_tracker import CornerTracker
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder
+from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
 from pyxy3d.calibration.omnicalibrator import OmniCalibrator
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume

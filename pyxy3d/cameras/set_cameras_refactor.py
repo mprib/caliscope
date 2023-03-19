@@ -171,7 +171,7 @@ if __name__ == "__main__":
     # drafting code to get the array in terms of 
     config = toml.load(config_path)
 
-    ports = [2]
+    ports = [0]
     
     array_error_scores = {}
     camera_arrays = {}

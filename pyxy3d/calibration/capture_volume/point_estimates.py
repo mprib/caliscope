@@ -94,7 +94,7 @@ class PointEstimates:
 if __name__ == "__main__":
     #%%
     from pyxy3d import __root__
-    from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder
+    from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
     from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates 
     session_directory = Path(__root__, "tests", "5_cameras")
     point_data_path = Path(session_directory,"recording", "point_data.csv" )

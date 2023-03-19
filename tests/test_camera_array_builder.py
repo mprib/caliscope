@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import QApplication
 
 from pyxy3d import __root__
 from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder
+from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
 from pyxy3d.gui.vizualize.capture_volume_visualizer import \
     CaptureVolumeVisualizer
 from pyxy3d.calibration.omnicalibrator import OmniCalibrator

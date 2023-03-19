@@ -180,7 +180,7 @@ def rms_reproj_error(xy_reproj_error):
 if __name__ == "__main__":
     # if True:
     from pyxy3d import __root__
-    from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder
+    from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
     from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
         get_point_estimates,
     )

@@ -99,7 +99,7 @@ class CameraArray:
 
 
 if __name__ == "__main__":
-    from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder
+    from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
 
     from pyxy3d import __root__
 

@@ -5,7 +5,7 @@ import sys
 
 from pyxy3d.session import Session
 from pyxy3d import __root__
-from pyxy3d.calibration.omnicalibrator import OmniCalibrator
+from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume

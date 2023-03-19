@@ -116,7 +116,6 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     that is being adjusted by the least_squares optimization.
 
     """
-
     # Create one combined array primarily to make sure all calculations line up
     ## unpack the working estimates of the camera parameters (could be extr. or intr.)
     camera_params = current_param_estimates[
@@ -163,9 +162,11 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
 
     points_proj = points_3d_and_2d[:, 6:8]
 
+    xy_reprojection_error = (points_proj - capture_volume.point_estimates.img).ravel()
+    logger.info(f"Single iteration of bundle adjustment completed with RMSE of reprojection: {round(rms_reproj_error(xy_reprojection_error),6)}")
+    
     # reshape the x,y reprojection error to a single vector
-    return (points_proj - capture_volume.point_estimates.img).ravel()
-
+    return xy_reprojection_error
 
 def rms_reproj_error(xy_reproj_error):
 

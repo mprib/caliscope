@@ -1,5 +1,6 @@
 # %%
 import pyxy3d.logger
+
 logger = pyxy3d.logger.get(__name__)
 
 
@@ -16,7 +17,6 @@ from pyxy3d import __root__
 import numpy as np
 from dataclasses import dataclass, asdict
 import toml
-
 
 
 @dataclass
@@ -37,6 +37,9 @@ class StereoPair:
     translation: np.ndarray
     rotation: np.ndarray
 
+    # def __post_init__(self):
+    # self.translation = self.translation.squeeze()
+
     @property
     def pair(self):
         return (self.primary_port, self.secondary_port)
@@ -48,6 +51,51 @@ class StereoPair:
         t_stack = np.vstack([self.translation, np.array([1])])
         Tranformation = np.hstack([R_stack, t_stack])
         return Tranformation
+
+
+def get_inverted_stereopair(stereo_pair: StereoPair) -> StereoPair:
+    primary_port = stereo_pair.secondary_port
+    secondary_port = stereo_pair.primary_port
+    error_score = stereo_pair.error_score
+
+    inverted_transformation = np.linalg.inv(stereo_pair.transformation)
+    rotation = inverted_transformation[0:3, 0:3]
+    translation = inverted_transformation[0:3, 3:]
+
+    inverted_stereopair = StereoPair(
+        primary_port=primary_port,
+        secondary_port=secondary_port,
+        error_score=error_score,
+        translation=translation,
+        rotation=rotation,
+    )
+    return inverted_stereopair
+
+def get_bridged_stereopair(
+    pair_A_B: StereoPair, pair_B_C: StereoPair
+) -> StereoPair:
+    port_A = pair_A_B.primary_port
+    port_C = pair_B_C.secondary_port
+
+    A_B_error = pair_A_B.error_score
+    B_C_error = pair_B_C.error_score
+    A_C_error = A_B_error + B_C_error
+
+    bridged_transformation = np.matmul(
+        pair_B_C.transformation, pair_A_B.transformation
+    )
+    bridged_rotation = bridged_transformation[0:3, 0:3]
+    bridged_translation = bridged_transformation[None, 0:3, 3]
+
+    stereo_A_C = StereoPair(
+        primary_port=port_A,
+        secondary_port=port_C,
+        error_score=A_C_error,
+        translation=bridged_translation,
+        rotation=bridged_rotation,
+    )
+        
+    return stereo_A_C
 
 
 class CameraArrayInitializer:
@@ -201,25 +249,6 @@ class CameraArrayInitializer:
         return best_initial_array
 
 
-def get_inverted_stereopair(stereo_pair: StereoPair) -> StereoPair:
-    primary_port = stereo_pair.secondary_port
-    secondary_port = stereo_pair.primary_port
-    error_score = stereo_pair.error_score
-
-    inverted_transformation = np.linalg.inv(stereo_pair.transformation)
-    rotation = inverted_transformation[0:3, 0:3]
-    translation = inverted_transformation[0:3, 3:]
-
-    inverted_stereopair = StereoPair(
-        primary_port=primary_port,
-        secondary_port=secondary_port,
-        error_score=error_score,
-        translation=translation,
-        rotation=rotation,
-    )
-    return inverted_stereopair
-
-
 # def get_anchored_pairs(anchor: int, all_stereopairs:dict)->dict:
 
 
@@ -229,14 +258,15 @@ if __name__ == "__main__":
     from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
     from pyxy3d.session import Session
 
-    # session_directory = Path(__root__, "tests", "3_cameras_middle")
-    session_directory = Path(__root__,"tests", "3_cameras_triangular" )
+    session_directory = Path(__root__, "tests", "3_cameras_middle")
+    # session_directory = Path(__root__,"tests", "3_cameras_triangular" )
     # session_directory = Path(__root__,"tests", "3_cameras_midlinear" )
 
     session = Session(session_directory)
     config_path = Path(session_directory, "config.toml")
 
-    camera_array = CameraArrayInitializer(config_path).get_best_camera_array()
+    initializer = CameraArrayInitializer(config_path)
+    camera_array = initializer.get_best_camera_array()
 
     point_data_path = Path(session_directory, "point_data.csv")
 
@@ -247,14 +277,20 @@ if __name__ == "__main__":
     capture_volume.save(session_directory)
     #%%
 
-    capture_volume.optimize()
-    capture_volume.save(session_directory)
-    #%%
-    app = QApplication(sys.argv)
-    vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
-    sys.exit(app.exec())
+    pair_A_B = initializer.all_stereopairs[(0, 1)]
+    pair_B_C = initializer.all_stereopairs[(1, 2)]
 
+    bridged_pair = get_bridged_stereopair(pair_A_B, pair_B_C)
+    logger.info(bridged_pair)
+    # capture_volume.optimize()
+    # capture_volume.save(session_directory)
+    # #%%
+    # app = QApplication(sys.argv)
+    # vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
+    # sys.exit(app.exec())
 
+    # working on
+    #
 #%%
 # this is an awesome two-liner to convert a dictionary of dataclasses to a pandas dataframe
 # stereopair_dict = {k:asdict(merged_stereopairs) for k,merged_stereopairs in merged_stereopairs.items()}

@@ -81,6 +81,8 @@ def get_bridged_stereopair(
     B_C_error = pair_B_C.error_score
     A_C_error = A_B_error + B_C_error
 
+    # new transformations are added on the left
+    # https://youtube.com/watch?v=q0mRtuiKSKg&feature=shares&t=66
     bridged_transformation = np.matmul(
         pair_B_C.transformation, pair_A_B.transformation
     )

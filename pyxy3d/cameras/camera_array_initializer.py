@@ -5,7 +5,7 @@ logger = pyxy3d.logger.get(__name__)
 
 
 from pathlib import Path
-from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder
+from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
 from pyxy3d.cameras.camera_array import CameraData, CameraArray
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
@@ -281,12 +281,13 @@ if __name__ == "__main__":
 
     bridged_pair = get_bridged_stereopair(pair_A_B, pair_B_C)
     logger.info(bridged_pair)
-    # capture_volume.optimize()
-    # capture_volume.save(session_directory)
-    # #%%
-    # app = QApplication(sys.argv)
-    # vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
-    # sys.exit(app.exec())
+
+    capture_volume.optimize()
+    capture_volume.save(session_directory)
+    #%%
+    app = QApplication(sys.argv)
+    vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
+    sys.exit(app.exec())
 
     # working on
     #

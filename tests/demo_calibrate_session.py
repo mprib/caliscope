@@ -21,8 +21,8 @@ from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 
 
 # NOTE: This will successfully calibrate when I fix my issue
-# session_directory = Path(__root__,"tests", "3_cameras_triangular" )
 session_directory = Path(__root__,"tests", "3_cameras_middle" )
+# session_directory = Path(__root__,"tests", "3_cameras_triangular" )
 # session_directory = Path(__root__,"tests", "3_cameras_midlinear" )
 # session_directory = Path(__root__,"tests", "2_cameras_linear" )
 # session_directory = Path(__root__,"tests", "2_cameras_90_deg" )

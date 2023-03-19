@@ -162,7 +162,10 @@ if __name__ == "__main__":
     from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer    
     from pyxy3d.session import Session
     
-    session_directory = Path(__root__,  "tests", "3_cameras_middle")
+    # session_directory = Path(__root__,  "tests", "3_cameras_middle")
+    # session_directory = Path(__root__,"tests", "3_cameras_triangular" )
+    session_directory = Path(__root__,"tests", "3_cameras_midlinear" )
+
     session = Session(session_directory)
     config_path = Path(session_directory, "config.toml")
     point_data_path = Path(session_directory, "point_data.csv")
@@ -171,7 +174,7 @@ if __name__ == "__main__":
     # drafting code to get the array in terms of 
     config = toml.load(config_path)
 
-    ports = [2]
+    ports = [0]
     
     array_error_scores = {}
     camera_arrays = {}

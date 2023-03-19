@@ -37,9 +37,6 @@ class StereoPair:
     translation: np.ndarray
     rotation: np.ndarray
 
-    # def __post_init__(self):
-    # self.translation = self.translation.squeeze()
-
     @property
     def pair(self):
         return (self.primary_port, self.secondary_port)

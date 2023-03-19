@@ -1,4 +1,7 @@
 # %%
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
+
 
 from pathlib import Path
 from pyxy3d.cameras.camera_array_builder import CameraArrayBuilder
@@ -10,10 +13,10 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
 )
 
 from pyxy3d import __root__
-import pandas as pd
 import numpy as np
 from dataclasses import dataclass, asdict
 import toml
+
 
 
 @dataclass
@@ -49,6 +52,8 @@ class StereoPair:
 
 class CameraArrayInitializer:
     def __init__(self, config_path: Path):
+
+        logger.info("Creating initial estimate of camera array based on stereopairs...")
 
         self.config = toml.load(config_path)
         self.ports = self._get_ports()
@@ -224,8 +229,8 @@ if __name__ == "__main__":
     from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
     from pyxy3d.session import Session
 
-    session_directory = Path(__root__, "tests", "3_cameras_middle")
-    # session_directory = Path(__root__,"tests", "3_cameras_triangular" )
+    # session_directory = Path(__root__, "tests", "3_cameras_middle")
+    session_directory = Path(__root__,"tests", "3_cameras_triangular" )
     # session_directory = Path(__root__,"tests", "3_cameras_midlinear" )
 
     session = Session(session_directory)

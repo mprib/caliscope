@@ -10,7 +10,7 @@ from pyxy3d.cameras.synchronizer import Synchronizer
 from itertools import combinations
 from queue import Queue
 from threading import Event
-class OmniFrameBuilder:
+class StereoFrameBuilder:
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250,board_count_target=50):
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
@@ -328,7 +328,7 @@ if __name__ == "__main__":
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
         recorded_stream_pool.play_videos()
 
-    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=10)
+    frame_builder = StereoFrameBuilder(synchronizer=syncr, board_count_target=10)
 
     if record:
         video_path = Path(__root__, "tests", "please work")

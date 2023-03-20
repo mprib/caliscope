@@ -13,6 +13,7 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
     get_point_estimates,
 )
 
+from itertools import permutations
 from pyxy3d import __root__
 import numpy as np
 from dataclasses import dataclass, asdict
@@ -104,14 +105,13 @@ class CameraArrayInitializer:
 
         self.config = toml.load(config_path)
         self.ports = self._get_ports()
-        self.all_stereopairs = self._get_all_stereopairs()
-        # TODO: Need to create the abililty to manufacture "bridged" pairs with
-        # cumulative error scores that can be used to initialize an array
-        # from any anchor, even with incomplete stereopair coverage..
-        self.best_camera_array = self.get_best_camera_array()
+        self.captured_stereopairs = self._get_captured_stereopairs()
+        # self._fill_stereopair_gaps()
+        # self.best_camera_array = self.get_best_camera_array()
 
-    def get_initial_camera_array(self) -> CameraArray:
-        return self.best_camera_array
+    # def _fill_stereopair_gaps(self):
+
+    
 
     def _get_ports(self) -> list:
         ports = []
@@ -126,7 +126,7 @@ class CameraArrayInitializer:
         ports = list(set(ports))
         return ports
 
-    def _get_all_stereopairs(self) -> dict:
+    def _get_captured_stereopairs(self) -> dict:
 
         stereopairs = {}
 
@@ -197,7 +197,7 @@ class CameraArrayInitializer:
                         [[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64
                     )
                 else:
-                    anchored_stereopair = self.all_stereopairs[(anchor_port, port)]
+                    anchored_stereopair = self.captured_stereopairs[(anchor_port, port)]
                     translation = anchored_stereopair.translation[:, 0]
                     rotation = anchored_stereopair.rotation
                     total_error_score += anchored_stereopair.error_score
@@ -257,7 +257,8 @@ if __name__ == "__main__":
     from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
     from pyxy3d.session import Session
 
-    session_directory = Path(__root__, "tests", "3_cameras_middle")
+    # session_directory = Path(__root__, "tests", "3_cameras_middle")
+    session_directory = Path(__root__, "tests", "4_cameras_nonoverlap")
     # session_directory = Path(__root__,"tests", "3_cameras_triangular" )
     # session_directory = Path(__root__,"tests", "3_cameras_midlinear" )
 
@@ -265,36 +266,40 @@ if __name__ == "__main__":
     config_path = Path(session_directory, "config.toml")
 
     initializer = CameraArrayInitializer(config_path)
-    camera_array = initializer.get_best_camera_array()
+    
+    initializer.captured_stereopairs
 
-    point_data_path = Path(session_directory, "point_data.csv")
+    # Beginning here I'm going to start the gap filling draft method    
+    possible_stereopairs = [pair for pair in permutations(initializer.ports,2)]
+    missing_stereopairs = [pair for pair in possible_stereopairs if pair not in initializer.captured_stereopairs.keys()]
 
-    point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
 
-    capture_volume = CaptureVolume(camera_array, point_estimates)
-
-    capture_volume.save(session_directory)
-    #%%
-
-    pair_A_B = initializer.all_stereopairs[(0, 1)]
-    pair_B_C = initializer.all_stereopairs[(1, 2)]
-
-    bridged_pair = get_bridged_stereopair(pair_A_B, pair_B_C)
-    logger.info(bridged_pair)
-
-    capture_volume.optimize()
-    capture_volume.save(session_directory)
-    #%%
-    app = QApplication(sys.argv)
-    vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
-    sys.exit(app.exec())
-
-    # working on
-    #
+    
 #%%
-# this is an awesome two-liner to convert a dictionary of dataclasses to a pandas dataframe
-# stereopair_dict = {k:asdict(merged_stereopairs) for k,merged_stereopairs in merged_stereopairs.items()}
-# df = pd.DataFrame(list(stereopair_dict.values()), index=stereopair_dict.keys())
+    # camera_array = initializer.get_best_camera_array()
+
+    # point_data_path = Path(session_directory, "point_data.csv")
+
+    # point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
+
+    # capture_volume = CaptureVolume(camera_array, point_estimates)
+
+    # capture_volume.save(session_directory)
+    # #%%
+
+    # pair_A_B = initializer.captured_stereopairs[(0, 1)]
+    # pair_B_C = initializer.captured_stereopairs[(1, 2)]
+
+    # bridged_pair = get_bridged_stereopair(pair_A_B, pair_B_C)
+    # logger.info(bridged_pair)
+
+    # capture_volume.optimize()
+    # capture_volume.save(session_directory)
+    # #%%
+    # app = QApplication(sys.argv)
+    # vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
+    # sys.exit(app.exec())
+
 
 
 # %%

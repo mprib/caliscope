@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import (
 
 # Append main repo to top of path to allow import of backend
 from pyxy3d.session import Session
-from pyxy3d.gui.omniframe.stereo_frame_builder import StereoFrameBuilder
+from pyxy3d.gui.stereoframe.stereo_frame_builder import StereoFrameBuilder
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 
@@ -54,7 +54,7 @@ class StereoFrameWidget(QWidget):
         self.board_count_spin.setValue(self.frame_builder.board_count_target)
         
         self.calibrate_collect_btn = QPushButton("Collect Calibration Data")
-        self.omni_frame_display = QLabel()
+        self.stereo_frame_display = QLabel()
         self.navigation_bar = NavigationBarBackNext() 
 
         self.place_widgets()
@@ -76,7 +76,7 @@ class StereoFrameWidget(QWidget):
         # self.scroll_area.setLayout(QVBoxLayout())
         self.layout().addWidget(self.scroll_area)
 
-        self.scroll_area.setWidget(self.omni_frame_display)
+        self.scroll_area.setWidget(self.stereo_frame_display)
        
         self.layout().addWidget(self.navigation_bar)
 
@@ -108,13 +108,13 @@ class StereoFrameWidget(QWidget):
             self.initiate_calibration()
 
     def ImageUpdateSlot(self, q_image):
-        self.omni_frame_display.resize(self.omni_frame_display.sizeHint())
+        self.stereo_frame_display.resize(self.stereo_frame_display.sizeHint())
 
         qpixmap = QPixmap.fromImage(q_image)
-        self.omni_frame_display.setPixmap(qpixmap)
+        self.stereo_frame_display.setPixmap(qpixmap)
         
         ## This is a bit of a hack and likely handled better with proper signals
-        if self.omni_frame_display.height()==1:
+        if self.stereo_frame_display.height()==1:
             logger.info("Target board counts acquired, ending data collection.")
             self.calibrate_collect_btn.setText("Calibrate")
             self.frame_emitter.stop()
@@ -129,20 +129,20 @@ class StereoFrameWidget(QWidget):
 class StereoFrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
     
-    def __init__(self, omniframe_builder:StereoFrameBuilder):
+    def __init__(self, stereoframe_builder:StereoFrameBuilder):
         
         super(StereoFrameEmitter,self).__init__()
-        self.omniframe_builder = omniframe_builder
+        self.stereoframe_builder = stereoframe_builder
         logger.info("Initiated frame emitter")        
         self.keep_collecting = Event() 
         self.keep_collecting.set()
         
     def run(self):
         while self.keep_collecting.is_set():
-            omni_frame = self.omniframe_builder.get_omni_frame()
+            stereo_frame = self.stereoframe_builder.get_stereo_frame()
 
-            if omni_frame is not None:
-                image = cv2_to_qlabel(omni_frame)
+            if stereo_frame is not None:
+                image = cv2_to_qlabel(stereo_frame)
                 self.ImageBroadcast.emit(image)
    
     def stop(self):
@@ -175,7 +175,7 @@ if __name__ == "__main__":
         session.adjust_resolutions()
 
 
-        omni_dialog = StereoFrameWidget(session)
-        omni_dialog.show()
+        stereo_dialog = StereoFrameWidget(session)
+        stereo_dialog.show()
 
         sys.exit(App.exec())

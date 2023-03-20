@@ -105,6 +105,7 @@ class StereoFrameWidget(QWidget):
             self.frame_emitter.stop()
             self.stop_thread = Thread(target=self.session.stop_recording, args=(), daemon=True)
         elif self.calibrate_collect_btn.text() == "Calibrate": 
+            self.session.pause_synchronizer()
             self.initiate_calibration()
 
     def ImageUpdateSlot(self, q_image):
@@ -167,7 +168,7 @@ def cv2_to_qlabel(frame):
 if __name__ == "__main__":
         App = QApplication(sys.argv)
 
-        config_path = Path(__root__, "tests", "tripod")
+        config_path = Path(__root__, "tests", "4_cameras_nonoverlap")
 
         session = Session(config_path)
         session.load_cameras()

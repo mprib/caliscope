@@ -105,14 +105,19 @@ class CameraArrayInitializer:
 
         self.config = toml.load(config_path)
         self.ports = self._get_ports()
-        self.captured_stereopairs = self._get_captured_stereopairs()
+        self.estimated_stereopairs = self._get_captured_stereopairs()
         # self._fill_stereopair_gaps()
         # self.best_camera_array = self.get_best_camera_array()
 
     # def _fill_stereopair_gaps(self):
 
-    
+    def _get_missing_stereopairs(self):
 
+        possible_stereopairs = [pair for pair in permutations(self.ports,2)]
+        missing_stereopairs = [pair for pair in possible_stereopairs if pair not in self.estimated_stereopairs.keys()]
+
+        return missing_stereopairs
+        
     def _get_ports(self) -> list:
         ports = []
         for key, params in self.config.items():
@@ -197,7 +202,7 @@ class CameraArrayInitializer:
                         [[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64
                     )
                 else:
-                    anchored_stereopair = self.captured_stereopairs[(anchor_port, port)]
+                    anchored_stereopair = self.estimated_stereopairs[(anchor_port, port)]
                     translation = anchored_stereopair.translation[:, 0]
                     rotation = anchored_stereopair.rotation
                     total_error_score += anchored_stereopair.error_score
@@ -267,13 +272,32 @@ if __name__ == "__main__":
 
     initializer = CameraArrayInitializer(config_path)
     
-    initializer.captured_stereopairs
+    initializer.estimated_stereopairs
 
     # Beginning here I'm going to start the gap filling draft method    
-    possible_stereopairs = [pair for pair in permutations(initializer.ports,2)]
-    missing_stereopairs = [pair for pair in possible_stereopairs if pair not in initializer.captured_stereopairs.keys()]
 
+    missing_pairs = initializer._get_missing_stereopairs()
+    test_missing = missing_pairs[0]
+    port_A = test_missing[0]
+    port_C = test_missing[1]
+    
+    port_A_X_pairs = [pair for pair in initializer.estimated_stereopairs.keys() if pair[0]==port_A]
+    port_X_C_pairs = [pair for pair in initializer.estimated_stereopairs.keys() if pair[1]==port_C]
+    
+    # 
+    
+    for pair in port_A_X_pairs:
+        
+    
+    # for pair in initializer.estimated_stereopairs.keys():
+    #     # trying to build pair_A_C
+    #     pair_A_B = None
+    #     pair_B_C = None
+    
 
+    # bridged_pair = get_bridged_stereopair(pair_A_B, pair_B_C)
+        
+        
     
 #%%
     # camera_array = initializer.get_best_camera_array()
@@ -287,8 +311,8 @@ if __name__ == "__main__":
     # capture_volume.save(session_directory)
     # #%%
 
-    # pair_A_B = initializer.captured_stereopairs[(0, 1)]
-    # pair_B_C = initializer.captured_stereopairs[(1, 2)]
+    # pair_A_B = initializer.estimated_stereopairs[(0, 1)]
+    # pair_B_C = initializer.estimated_stereopairs[(1, 2)]
 
     # bridged_pair = get_bridged_stereopair(pair_A_B, pair_B_C)
     # logger.info(bridged_pair)

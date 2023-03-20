@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import (
 
 # Append main repo to top of path to allow import of backend
 from pyxy3d.session import Session
-from pyxy3d.gui.omniframe.omni_frame_builder import OmniFrameBuilder
+from pyxy3d.gui.omniframe.stereo_frame_builder import OmniFrameBuilder
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 

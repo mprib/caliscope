@@ -119,8 +119,14 @@ class CameraArrayInitializer:
         two stereo pairs (A,X) and (X,C) that can be used to build a bridge stereopair (A,C)
         """
 
-        while len(self._get_missing_stereopairs()) > 0:
+        # fill with dummy value to get the loop running
+        missing_count_last_cycle = -1
         
+        while len(self._get_missing_stereopairs()) != missing_count_last_cycle:
+            
+            # prep the variable. if it doesn't go down, terminate
+            missing_count_last_cycle = len(self._get_missing_stereopairs())
+
             for pair in self._get_missing_stereopairs():
              
                 port_A = pair[0]
@@ -150,6 +156,9 @@ class CameraArrayInitializer:
 
                 if stereopair_A_C is not None:
                     self.add_stereopair(stereopair_A_C)
+
+        if len(self._get_missing_stereopairs()) > 0:
+            raise ValueError("Insufficient stereopairs to allow array to be estimated")
 
     def _get_missing_stereopairs(self):
 

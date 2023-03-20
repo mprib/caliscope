@@ -441,11 +441,11 @@ if __name__ == "__main__":
     config_path = Path(session_path, "config.toml")
     point_data_path = Path(session_path, "point_data.csv")
 
-    omnical = StereoCalibrator(
+    stereocal = StereoCalibrator(
         config_path,
         point_data_path,
     )
 
-    omnical.stereo_calibrate_all(boards_sampled=5)
+    stereocal.stereo_calibrate_all(boards_sampled=5)
 
 # %%

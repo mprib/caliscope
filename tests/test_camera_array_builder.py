@@ -22,12 +22,12 @@ config_path  = Path(session_path,"config.toml")
 
 point_data_path = Path(session_path, "point_data.csv")
 
-omnical = StereoCalibrator(
+stereocal = StereoCalibrator(
     config_path,
     point_data_path,
 )
 
-# omnical.stereo_calibrate_all(boards_sampled=5)
+# stereocal.stereo_calibrate_all(boards_sampled=5)
 
 array_builder = CameraArrayBuilder(config_path)
 camera_array:CameraArray = array_builder.get_camera_array()

@@ -35,7 +35,7 @@ class QtHandler(logging.Handler):
     splash screen to show users that something is happening during big processing moments like:
     - loading/finding cameras
     - building / unbuilding synchronizer
-    - performing omnicalibration
+    - performing stereocalibration
     """
     def __init__(self):
         logging.Handler.__init__(self)

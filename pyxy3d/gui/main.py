@@ -26,7 +26,7 @@ from pyxy3d.gui.wizard_directory import WizardDirectory
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.session import Stage
 from pyxy3d.gui.qt_logger import QtLogger
-from pyxy3d.gui.omniframe.omni_frame_widget import OmniFrameWidget
+from pyxy3d.gui.stereoframe.stereo_frame_widget import OmniFrameWidget
 
 class CalibrationWizard(QStackedWidget):
     cameras_connected = pyqtSignal()
@@ -47,13 +47,13 @@ class CalibrationWizard(QStackedWidget):
         self.wizard_directory.launch_wizard_btn.clicked.connect(self.next_to_charuco_wizard)
         self.cameras_connected.connect(self.on_cameras_connect) 
         
-    def next_to_omniframe(self):
-        if hasattr(self,"omniframe"):
+    def next_to_stereoframe(self):
+        if hasattr(self,"stereoframe"):
             self.session.unpause_synchronizer()
         else:
-            self.omniframe = OmniFrameWidget(self.session)
-            self.addWidget(self.omniframe)
-            self.omniframe.navigation_bar.back_btn.clicked.connect(self.back_to_camera_config_wizard)
+            self.stereoframe = OmniFrameWidget(self.session)
+            self.addWidget(self.stereoframe)
+            self.stereoframe.navigation_bar.back_btn.clicked.connect(self.back_to_camera_config_wizard)
 
         self.setCurrentIndex(3)
         self.session.pause_all_monocalibrators()
@@ -65,7 +65,7 @@ class CalibrationWizard(QStackedWidget):
         self.addWidget(self.camera_wizard)
         self.setCurrentIndex(2)
         self.camera_wizard.navigation_bar.back_btn.clicked.connect(self.back_to_charuco_wizard)
-        self.camera_wizard.navigation_bar.next_btn.clicked.connect(self.next_to_omniframe)
+        self.camera_wizard.navigation_bar.next_btn.clicked.connect(self.next_to_stereoframe)
      
     def back_to_charuco_wizard(self):
         self.setCurrentIndex(1)
@@ -101,7 +101,7 @@ class CalibrationWizard(QStackedWidget):
             self.qt_logger.show()
    
     def back_to_camera_config_wizard(self):
-        # from omniframe to camera config
+        # from stereoframe to camera config
         self.setCurrentIndex(2)
         active_port = self.camera_wizard.camera_tabs.currentIndex()
         self.camera_wizard.camera_tabs.toggle_tracking(active_port)

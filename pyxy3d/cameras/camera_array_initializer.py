@@ -13,6 +13,7 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
     get_point_estimates,
 )
 
+from itertools import permutations
 from pyxy3d import __root__
 import numpy as np
 from dataclasses import dataclass, asdict
@@ -84,7 +85,7 @@ def get_bridged_stereopair(
         pair_B_C.transformation, pair_A_B.transformation
     )
     bridged_rotation = bridged_transformation[0:3, 0:3]
-    bridged_translation = bridged_transformation[None, 0:3, 3]
+    bridged_translation = bridged_transformation[None, 0:3, 3].T
 
     stereo_A_C = StereoPair(
         primary_port=port_A,
@@ -104,15 +105,68 @@ class CameraArrayInitializer:
 
         self.config = toml.load(config_path)
         self.ports = self._get_ports()
-        self.all_stereopairs = self._get_all_stereopairs()
-        # TODO: Need to create the abililty to manufacture "bridged" pairs with
-        # cumulative error scores that can be used to initialize an array
-        # from any anchor, even with incomplete stereopair coverage..
-        self.best_camera_array = self.get_best_camera_array()
+        self.estimated_stereopairs = self._get_captured_stereopairs()
+        self._fill_stereopair_gaps()
+        # self.best_camera_array = self.get_best_camera_array()
 
-    def get_initial_camera_array(self) -> CameraArray:
-        return self.best_camera_array
+    def _fill_stereopair_gaps(self):
+        """
+        Loop across missing pairs and create bridged stereopairs when possible.
+        It may be that one iteration is not sufficient to fill all missing pairs,
+        so iterate until no more missing pairs...
+        
+        The code below uses a naming convention to describe the relationship between
+        two stereo pairs (A,X) and (X,C) that can be used to build a bridge stereopair (A,C)
+        """
 
+        # fill with dummy value to get the loop running
+        missing_count_last_cycle = -1
+        
+        while len(self._get_missing_stereopairs()) != missing_count_last_cycle:
+            
+            # prep the variable. if it doesn't go down, terminate
+            missing_count_last_cycle = len(self._get_missing_stereopairs())
+
+            for pair in self._get_missing_stereopairs():
+             
+                port_A = pair[0]
+                port_C = pair[1]
+    
+                # get lists of all the estimiated stereopairs that might bridge across test_missing
+                all_pairs_A_X = [pair for pair in self.estimated_stereopairs.keys() if pair[0]==port_A]
+                all_pairs_X_C = [pair for pair in self.estimated_stereopairs.keys() if pair[1]==port_C]
+   
+                stereopair_A_C = None
+
+                for pair_A_X in all_pairs_A_X:
+                    for pair_X_C in all_pairs_X_C:
+                        if pair_A_X[1] == pair_X_C[0]:
+                            # A bridge can be formed!
+                            stereopair_A_X = self.estimated_stereopairs[pair_A_X]
+                            stereopair_X_C = self.estimated_stereopairs[pair_X_C]
+                            possible_stereopair_A_C = get_bridged_stereopair(stereopair_A_X, stereopair_X_C)
+                            if stereopair_A_C is None:
+                                # current possibility is better than nothing
+                                stereopair_A_C = possible_stereopair_A_C
+                            else:
+                                # check if it's better than what you have already
+                                # if it is, then overwrite the old one
+                                if stereopair_A_C.error_score > possible_stereopair_A_C.error_score:
+                                    stereopair_A_C = possible_stereopair_A_C
+
+                if stereopair_A_C is not None:
+                    self.add_stereopair(stereopair_A_C)
+
+        if len(self._get_missing_stereopairs()) > 0:
+            raise ValueError("Insufficient stereopairs to allow array to be estimated")
+
+    def _get_missing_stereopairs(self):
+
+        possible_stereopairs = [pair for pair in permutations(self.ports,2)]
+        missing_stereopairs = [pair for pair in possible_stereopairs if pair not in self.estimated_stereopairs.keys()]
+
+        return missing_stereopairs
+        
     def _get_ports(self) -> list:
         ports = []
         for key, params in self.config.items():
@@ -126,7 +180,7 @@ class CameraArrayInitializer:
         ports = list(set(ports))
         return ports
 
-    def _get_all_stereopairs(self) -> dict:
+    def _get_captured_stereopairs(self) -> dict:
 
         stereopairs = {}
 
@@ -197,7 +251,7 @@ class CameraArrayInitializer:
                         [[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64
                     )
                 else:
-                    anchored_stereopair = self.all_stereopairs[(anchor_port, port)]
+                    anchored_stereopair = self.estimated_stereopairs[(anchor_port, port)]
                     translation = anchored_stereopair.translation[:, 0]
                     rotation = anchored_stereopair.rotation
                     total_error_score += anchored_stereopair.error_score
@@ -234,8 +288,6 @@ class CameraArrayInitializer:
         array_error_scores = {}
         camera_arrays = {}
         # get the score for the anchored_stereopairs
-
-        # TODO: ned to set ports elsewhere in code
         for port in self.ports:
             array_error_score, camera_array = self._get_scored_anchored_array(port)
             array_error_scores[port] = array_error_score
@@ -247,6 +299,11 @@ class CameraArrayInitializer:
 
         return best_initial_array
 
+    def add_stereopair(self, stereopair:StereoPair):
+        self.estimated_stereopairs[stereopair.pair] = stereopair
+        inverted_stereopair = get_inverted_stereopair(stereopair)
+        self.estimated_stereopairs[inverted_stereopair.pair] = inverted_stereopair
+        
 
 # def get_anchored_pairs(anchor: int, all_stereopairs:dict)->dict:
 
@@ -257,7 +314,8 @@ if __name__ == "__main__":
     from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
     from pyxy3d.session import Session
 
-    session_directory = Path(__root__, "tests", "3_cameras_middle")
+    # session_directory = Path(__root__, "tests", "3_cameras_middle")
+    session_directory = Path(__root__, "tests", "4_cameras_nonoverlap")
     # session_directory = Path(__root__,"tests", "3_cameras_triangular" )
     # session_directory = Path(__root__,"tests", "3_cameras_midlinear" )
 
@@ -265,6 +323,9 @@ if __name__ == "__main__":
     config_path = Path(session_directory, "config.toml")
 
     initializer = CameraArrayInitializer(config_path)
+        
+    
+#%%
     camera_array = initializer.get_best_camera_array()
 
     point_data_path = Path(session_directory, "point_data.csv")
@@ -276,8 +337,8 @@ if __name__ == "__main__":
     capture_volume.save(session_directory)
     #%%
 
-    pair_A_B = initializer.all_stereopairs[(0, 1)]
-    pair_B_C = initializer.all_stereopairs[(1, 2)]
+    pair_A_B = initializer.estimated_stereopairs[(0, 1)]
+    pair_B_C = initializer.estimated_stereopairs[(1, 2)]
 
     bridged_pair = get_bridged_stereopair(pair_A_B, pair_B_C)
     logger.info(bridged_pair)
@@ -289,12 +350,6 @@ if __name__ == "__main__":
     vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
     sys.exit(app.exec())
 
-    # working on
-    #
-#%%
-# this is an awesome two-liner to convert a dictionary of dataclasses to a pandas dataframe
-# stereopair_dict = {k:asdict(merged_stereopairs) for k,merged_stereopairs in merged_stereopairs.items()}
-# df = pd.DataFrame(list(stereopair_dict.values()), index=stereopair_dict.keys())
 
 
 # %%

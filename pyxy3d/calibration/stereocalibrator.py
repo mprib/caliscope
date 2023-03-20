@@ -330,13 +330,13 @@ class StereoCalibrator:
         """Iterates across all camera pairs. Intrinsic parameters are pulled
         from camera and combined with obj and img points for each pair.
         """
-
+        logger.info("Deleting previous stereocalibrations from config")
         # clear out the previous stereocalibrations
-        
         for key in self.config.copy().keys():
             if key[0:6] == "stereo":
                 del self.config[key]
 
+        logger.info(f"Beginning stereocalibration of pairs {self.pairs}")
         for pair in self.pairs:
             error, rotation, translation = self.stereo_calibrate(pair, boards_sampled)
 
@@ -350,11 +350,12 @@ class StereoCalibrator:
             self.config[config_key]["translation"] = translation
             self.config[config_key]["RMSE"] = error
 
+        logger.info(f"Direct stereocalibration complete for all pairs for which data is available")
+        logger.info(f"Saving stereo-pair extrinsic data to {self.config_path}")
         with open(self.config_path, "w") as f:
             toml.dump(self.config, f)
 
     def stereo_calibrate(self, pair, boards_sampled=10):
-        logger.info(f"About to stereocalibrate pair {pair}")
 
         stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 40, 0.000001)
@@ -398,10 +399,7 @@ class StereoCalibrator:
             flags=stereocalibration_flags,
         )
 
-        logger.info(
-            f"For camera pair {pair}, rotation is \n{rotation}\n and translation is \n{translation}"
-        )
-        logger.info(f"RMSE of reprojection is {ret}")
+        logger.info(f"RMSE of reprojection for pair {pair} is {ret}")
 
         return ret, rotation, translation
 

@@ -85,7 +85,7 @@ def get_bridged_stereopair(
         pair_B_C.transformation, pair_A_B.transformation
     )
     bridged_rotation = bridged_transformation[0:3, 0:3]
-    bridged_translation = bridged_transformation[None, 0:3, 3]
+    bridged_translation = bridged_transformation[None, 0:3, 3].T
 
     stereo_A_C = StereoPair(
         primary_port=port_A,
@@ -239,8 +239,6 @@ class CameraArrayInitializer:
         array_error_scores = {}
         camera_arrays = {}
         # get the score for the anchored_stereopairs
-
-        # TODO: ned to set ports elsewhere in code
         for port in self.ports:
             array_error_score, camera_array = self._get_scored_anchored_array(port)
             array_error_scores[port] = array_error_score
@@ -252,6 +250,11 @@ class CameraArrayInitializer:
 
         return best_initial_array
 
+    def add_stereopair(self, stereopair:StereoPair):
+        self.estimated_stereopairs[stereopair.pair] = stereopair
+        inverted_stereopair = get_inverted_stereopair(stereopair)
+        self.estimated_stereopairs[inverted_stereopair.pair] = inverted_stereopair
+        
 
 # def get_anchored_pairs(anchor: int, all_stereopairs:dict)->dict:
 
@@ -277,17 +280,38 @@ if __name__ == "__main__":
     # Beginning here I'm going to start the gap filling draft method    
 
     missing_pairs = initializer._get_missing_stereopairs()
+    
+    # for development purposes, just look at the first missing pair
     test_missing = missing_pairs[0]
     port_A = test_missing[0]
     port_C = test_missing[1]
     
-    port_A_X_pairs = [pair for pair in initializer.estimated_stereopairs.keys() if pair[0]==port_A]
-    port_X_C_pairs = [pair for pair in initializer.estimated_stereopairs.keys() if pair[1]==port_C]
-    
-    # 
-    
-    for pair in port_A_X_pairs:
-        
+    # get lists of all the estimiated stereopairs that might bridge across test_missing
+    all_pairs_A_X = [pair for pair in initializer.estimated_stereopairs.keys() if pair[0]==port_A]
+    all_pairs_X_C = [pair for pair in initializer.estimated_stereopairs.keys() if pair[1]==port_C]
+   
+    stereopair_A_C = None
+
+    for pair_A_X in all_pairs_A_X:
+        for pair_X_C in all_pairs_X_C:
+            if pair_A_X[1] == pair_X_C[0]:
+                # A bridge can be formed!
+                stereopair_A_X = initializer.estimated_stereopairs[pair_A_X]
+                stereopair_X_C = initializer.estimated_stereopairs[pair_X_C]
+                possible_stereopair_A_C = get_bridged_stereopair(stereopair_A_X, stereopair_X_C)
+                if stereopair_A_C is None:
+                    # current possibility is better than nothing
+                    stereopair_A_C = possible_stereopair_A_C
+                else:
+                    # check if it's better than what you have already
+                    # if it is, then overwrite the old one
+                    if stereopair_A_C.error_score > possible_stereopair_A_C.error_score:
+                        stereopair_A_C = possible_stereopair_A_C
+# %%
+    #%%   
+    if stereopair_A_C is not None:
+        initializer.add_stereopair(stereopair_A_C)
+        # start back here, Mac  
     
     # for pair in initializer.estimated_stereopairs.keys():
     #     # trying to build pair_A_C

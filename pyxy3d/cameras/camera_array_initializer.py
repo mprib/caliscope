@@ -106,10 +106,50 @@ class CameraArrayInitializer:
         self.config = toml.load(config_path)
         self.ports = self._get_ports()
         self.estimated_stereopairs = self._get_captured_stereopairs()
-        # self._fill_stereopair_gaps()
+        self._fill_stereopair_gaps()
         # self.best_camera_array = self.get_best_camera_array()
 
-    # def _fill_stereopair_gaps(self):
+    def _fill_stereopair_gaps(self):
+        """
+        Loop across missing pairs and create bridged stereopairs when possible.
+        It may be that one iteration is not sufficient to fill all missing pairs,
+        so iterate until no more missing pairs...
+        
+        The code below uses a naming convention to describe the relationship between
+        two stereo pairs (A,X) and (X,C) that can be used to build a bridge stereopair (A,C)
+        """
+
+        while len(self._get_missing_stereopairs()) > 0:
+        
+            for pair in self._get_missing_stereopairs():
+             
+                port_A = pair[0]
+                port_C = pair[1]
+    
+                # get lists of all the estimiated stereopairs that might bridge across test_missing
+                all_pairs_A_X = [pair for pair in self.estimated_stereopairs.keys() if pair[0]==port_A]
+                all_pairs_X_C = [pair for pair in self.estimated_stereopairs.keys() if pair[1]==port_C]
+   
+                stereopair_A_C = None
+
+                for pair_A_X in all_pairs_A_X:
+                    for pair_X_C in all_pairs_X_C:
+                        if pair_A_X[1] == pair_X_C[0]:
+                            # A bridge can be formed!
+                            stereopair_A_X = self.estimated_stereopairs[pair_A_X]
+                            stereopair_X_C = self.estimated_stereopairs[pair_X_C]
+                            possible_stereopair_A_C = get_bridged_stereopair(stereopair_A_X, stereopair_X_C)
+                            if stereopair_A_C is None:
+                                # current possibility is better than nothing
+                                stereopair_A_C = possible_stereopair_A_C
+                            else:
+                                # check if it's better than what you have already
+                                # if it is, then overwrite the old one
+                                if stereopair_A_C.error_score > possible_stereopair_A_C.error_score:
+                                    stereopair_A_C = possible_stereopair_A_C
+
+                if stereopair_A_C is not None:
+                    self.add_stereopair(stereopair_A_C)
 
     def _get_missing_stereopairs(self):
 
@@ -279,38 +319,6 @@ if __name__ == "__main__":
 
     # Beginning here I'm going to start the gap filling draft method    
 
-    missing_pairs = initializer._get_missing_stereopairs()
-    
-    # for development purposes, just look at the first missing pair
-    test_missing = missing_pairs[0]
-    port_A = test_missing[0]
-    port_C = test_missing[1]
-    
-    # get lists of all the estimiated stereopairs that might bridge across test_missing
-    all_pairs_A_X = [pair for pair in initializer.estimated_stereopairs.keys() if pair[0]==port_A]
-    all_pairs_X_C = [pair for pair in initializer.estimated_stereopairs.keys() if pair[1]==port_C]
-   
-    stereopair_A_C = None
-
-    for pair_A_X in all_pairs_A_X:
-        for pair_X_C in all_pairs_X_C:
-            if pair_A_X[1] == pair_X_C[0]:
-                # A bridge can be formed!
-                stereopair_A_X = initializer.estimated_stereopairs[pair_A_X]
-                stereopair_X_C = initializer.estimated_stereopairs[pair_X_C]
-                possible_stereopair_A_C = get_bridged_stereopair(stereopair_A_X, stereopair_X_C)
-                if stereopair_A_C is None:
-                    # current possibility is better than nothing
-                    stereopair_A_C = possible_stereopair_A_C
-                else:
-                    # check if it's better than what you have already
-                    # if it is, then overwrite the old one
-                    if stereopair_A_C.error_score > possible_stereopair_A_C.error_score:
-                        stereopair_A_C = possible_stereopair_A_C
-# %%
-    #%%   
-    if stereopair_A_C is not None:
-        initializer.add_stereopair(stereopair_A_C)
         # start back here, Mac  
     
     # for pair in initializer.estimated_stereopairs.keys():

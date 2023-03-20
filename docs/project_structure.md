@@ -22,17 +22,17 @@ end
 
 subgraph GUI
     MonoCalibrator
-    OmniFrameBuilder
+    StereoFrameBuilder
 end
 
-Synchronizer --SyncPacket-->  OmniFrameBuilder
+Synchronizer --SyncPacket-->  StereoFrameBuilder
 
 LiveStream -.FramePacket.-> MonoCalibrator
 MonoCalibrator -.Intrinsics.-> config.toml
 
 VideoRecorder --> frame_time_history.csv
 VideoRecorder --> port_X.mp4 
-VideoRecorder -.During OmniFrameBuilder.-> point_data.csv
+VideoRecorder -.During StereoFrameBuilder.-> point_data.csv
 port_X.mp4 --> RecordedStream
 frame_time_history.csv --> RecordedStream
 
@@ -51,9 +51,9 @@ end
 
 RecordingDirectory -.to be done.-> CaptureVolumeVisualizer
 
-point_data.csv --> OmniCalibrator
-config.toml --CameraSettings--> OmniCalibrator
-OmniCalibrator -.StereoPairs.-> config.toml
+point_data.csv --> StereoCalibrator
+config.toml --CameraSettings--> StereoCalibrator
+StereoCalibrator -.StereoPairs.-> config.toml
 
 
 

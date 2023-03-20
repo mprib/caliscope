@@ -314,6 +314,8 @@ class StereoCalibrator:
         board_count = pair_boards.shape[0]
         sample_size = min(board_count, boards_sampled)
 
+
+        logger.info(f"Calibrating pair {pair} with {sample_size} boards")
         # bias toward selecting boards with more overlapping points
         sample_weight = pair_boards["point_count"] ** 2
 
@@ -444,6 +446,6 @@ if __name__ == "__main__":
         point_data_path,
     )
 
-    stereocal.stereo_calibrate_all(boards_sampled=5)
+    stereocal.stereo_calibrate_all(boards_sampled=25)
 
 # %%

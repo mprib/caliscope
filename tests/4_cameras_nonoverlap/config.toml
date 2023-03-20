@@ -23,7 +23,7 @@ exposure = -5.0
 grid_count = 39
 ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,],]
-fasf
+
 [cam_2]
 port = 2
 size = [ 1280, 720,]

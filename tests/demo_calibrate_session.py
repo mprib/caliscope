@@ -37,11 +37,11 @@ point_data_path = Path(session_directory, "point_data.csv")
 config_path = Path(session_directory, "config.toml")
 
 # with the point data, the stereocalibrations can be performed.
-# Note that this is named OmniCalibrator because it has a poorly
+# Note that this is named StereoCalibrator because it has a poorly
 # working single camera calibration method as well, but I wouldn't recommend
 # might be better termed stereocalibrator going forward
 
-# stereocalibrator = OmniCalibrator(config_path, point_data_path)
+# stereocalibrator = StereoCalibrator(config_path, point_data_path)
 
 # create the pairwise estimates of camera positions
 # this will save out "stereo_A_B" data to the config.toml

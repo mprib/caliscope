@@ -30,22 +30,22 @@ from PyQt6.QtWidgets import (
 
 # Append main repo to top of path to allow import of backend
 from pyxy3d.session import Session
-from pyxy3d.gui.omniframe.stereo_frame_builder import OmniFrameBuilder
+from pyxy3d.gui.omniframe.stereo_frame_builder import StereoFrameBuilder
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 
 from pyxy3d.gui.widgets import NavigationBarBackNext
 
-class OmniFrameWidget(QWidget):
+class StereoFrameWidget(QWidget):
     
     def __init__(self,session:Session):
 
-        super(OmniFrameWidget, self).__init__()
+        super(StereoFrameWidget, self).__init__()
         self.session = session
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
 
-        self.frame_builder = OmniFrameBuilder(self.synchronizer, board_count_target=30)
-        self.frame_emitter = OmniFrameEmitter(self.frame_builder)
+        self.frame_builder = StereoFrameBuilder(self.synchronizer, board_count_target=30)
+        self.frame_emitter = StereoFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 
         self.frame_rate_spin = QSpinBox()
@@ -126,12 +126,12 @@ class OmniFrameWidget(QWidget):
         self.calibrate_thead = Thread(target=self.session.calibrate,args=(), daemon=True)
         self.calibrate_thead.start()
 
-class OmniFrameEmitter(QThread):
+class StereoFrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
     
-    def __init__(self, omniframe_builder:OmniFrameBuilder):
+    def __init__(self, omniframe_builder:StereoFrameBuilder):
         
-        super(OmniFrameEmitter,self).__init__()
+        super(StereoFrameEmitter,self).__init__()
         self.omniframe_builder = omniframe_builder
         logger.info("Initiated frame emitter")        
         self.keep_collecting = Event() 
@@ -175,7 +175,7 @@ if __name__ == "__main__":
         session.adjust_resolutions()
 
 
-        omni_dialog = OmniFrameWidget(session)
+        omni_dialog = StereoFrameWidget(session)
         omni_dialog.show()
 
         sys.exit(App.exec())

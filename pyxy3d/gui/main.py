@@ -26,7 +26,7 @@ from pyxy3d.gui.wizard_directory import WizardDirectory
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.session import Stage
 from pyxy3d.gui.qt_logger import QtLogger
-from pyxy3d.gui.stereoframe.stereo_frame_widget import OmniFrameWidget
+from pyxy3d.gui.stereoframe.stereo_frame_widget import StereoFrameWidget
 
 class CalibrationWizard(QStackedWidget):
     cameras_connected = pyqtSignal()
@@ -51,7 +51,7 @@ class CalibrationWizard(QStackedWidget):
         if hasattr(self,"stereoframe"):
             self.session.unpause_synchronizer()
         else:
-            self.stereoframe = OmniFrameWidget(self.session)
+            self.stereoframe = StereoFrameWidget(self.session)
             self.addWidget(self.stereoframe)
             self.stereoframe.navigation_bar.back_btn.clicked.connect(self.back_to_camera_config_wizard)
 

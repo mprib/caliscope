@@ -32,13 +32,14 @@ class StereoCalibrator:
                 if not self.config[key]["ignore"]:
                     self.ports.append(int(key[4:]))
 
-        # self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
-        self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
-
         # import point data, adding coverage regions to each port
         raw_point_data = pd.read_csv(point_data_path)
         self.all_point_data = self.points_with_coverage_region(raw_point_data)
         self.all_boards = self.get_boards_with_coverage()
+
+
+        # self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
+        self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
     def points_with_coverage_region(self, point_data: pd.DataFrame):
         """
@@ -128,10 +129,10 @@ class StereoCalibrator:
         return all_boards
 
 
-    def get_stereopair_data(self, pair, boards_sampled, random_state=1):
+    def get_stereopair_data(self, pair: tuple, boards_sampled: int, random_state=1)-> pd.DataFrame or None:
 
         # convenience function to get the points that are in the overlap regions of the pairs
-        def in_pair(row, pair):
+        def in_pair(row:int, pair: tuple):
             """
             Uses the coverage_region string generated previously to flag points that are in
             a shared region of the pair
@@ -169,7 +170,7 @@ class StereoCalibrator:
         sample_size = min(board_count, boards_sampled)
 
         if sample_size > 0:
-            logger.info(f"Calibrating pair {pair} with {sample_size} boards")
+            logger.info(f"Assembling {sample_size} shared boards for pair {pair}")
             # bias toward selecting boards with more overlapping points
             sample_weight = pair_boards["point_count"] ** 2
 
@@ -180,7 +181,7 @@ class StereoCalibrator:
 
             selected_pair_points = pair_points.merge(selected_boards, "right", "sync_index")
         else:
-            logger.info(f"For pair {pair} there are no shared boards... No stereocalibration produced")
+            logger.info(f"For pair {pair} there are no shared boards")
             selected_pair_points = None
             
         return selected_pair_points
@@ -199,15 +200,19 @@ class StereoCalibrator:
         for pair in self.pairs:
             error, rotation, translation = self.stereo_calibrate(pair, boards_sampled)
 
-            # toml dumps arrays as strings, so needs to be converted to list
-            rotation = rotation.tolist()
-            translation = translation.tolist()
+            if error is not None:
+                # only store data if there was sufficient stereopair coverage to get
+                # a good calibration
+                     
+                # toml dumps arrays as strings, so needs to be converted to list
+                rotation = rotation.tolist()
+                translation = translation.tolist()
             
-            config_key = "stereo_" + str(pair[0]) + "_" + str(pair[1])
-            self.config[config_key] = {}
-            self.config[config_key]["rotation"] = rotation
-            self.config[config_key]["translation"] = translation
-            self.config[config_key]["RMSE"] = error
+                config_key = "stereo_" + str(pair[0]) + "_" + str(pair[1])
+                self.config[config_key] = {}
+                self.config[config_key]["rotation"] = rotation
+                self.config[config_key]["translation"] = translation
+                self.config[config_key]["RMSE"] = error
 
         logger.info(f"Direct stereocalibration complete for all pairs for which data is available")
         logger.info(f"Saving stereo-pair extrinsic data to {self.config_path}")
@@ -220,48 +225,54 @@ class StereoCalibrator:
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 40, 0.000001)
 
         paired_point_data = self.get_stereopair_data(
-            pair, boards_sampled=boards_sampled
+            pair, boards_sampled
         )
         
-        
-        img_locs_A, board_locs_A = self.get_stereocal_inputs(pair[0], paired_point_data)
-        img_locs_B, board_locs_B = self.get_stereocal_inputs(pair[1], paired_point_data)
+        if paired_point_data is not None:
+            img_locs_A, board_locs_A = self.get_stereocal_inputs(pair[0], paired_point_data)
+            img_locs_B, board_locs_B = self.get_stereocal_inputs(pair[1], paired_point_data)
 
-        camera_matrix_A = self.config["cam_" + str(pair[0])]["matrix"]
-        camera_matrix_B = self.config["cam_" + str(pair[1])]["matrix"]
-        camera_matrix_A = np.array(camera_matrix_A, dtype=float)
-        camera_matrix_B = np.array(camera_matrix_B, dtype=float)
+            camera_matrix_A = self.config["cam_" + str(pair[0])]["matrix"]
+            camera_matrix_B = self.config["cam_" + str(pair[1])]["matrix"]
+            camera_matrix_A = np.array(camera_matrix_A, dtype=float)
+            camera_matrix_B = np.array(camera_matrix_B, dtype=float)
 
-        distortion_A = self.config["cam_" + str(pair[0])]["distortions"]
-        distortion_B = self.config["cam_" + str(pair[1])]["distortions"]
-        distortion_A = np.array(distortion_A, dtype=float)
-        distortion_B = np.array(distortion_B, dtype=float)
+            distortion_A = self.config["cam_" + str(pair[0])]["distortions"]
+            distortion_B = self.config["cam_" + str(pair[1])]["distortions"]
+            distortion_A = np.array(distortion_A, dtype=float)
+            distortion_B = np.array(distortion_B, dtype=float)
 
-        (
-            ret,
-            camera_matrix_1,
-            distortion_1,
-            camera_matrix_2,
-            distortion_2,
-            rotation,
-            translation,
-            essential,
-            fundamental,
-        ) = cv2.stereoCalibrate(
-            board_locs_A,
-            img_locs_A,
-            img_locs_B,
-            camera_matrix_A,
-            distortion_A,
-            camera_matrix_B,
-            distortion_B,
-            imageSize=None,  # this does not matter. from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
-            criteria=criteria,
-            flags=stereocalibration_flags,
-        )
+            (
+                ret,
+                camera_matrix_1,
+                distortion_1,
+                camera_matrix_2,
+                distortion_2,
+                rotation,
+                translation,
+                essential,
+                fundamental,
+            ) = cv2.stereoCalibrate(
+                board_locs_A,
+                img_locs_A,
+                img_locs_B,
+                camera_matrix_A,
+                distortion_A,
+                camera_matrix_B,
+                distortion_B,
+                imageSize=None,  # this does not matter. from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
+                criteria=criteria,
+                flags=stereocalibration_flags,
+            )
 
-        logger.info(f"RMSE of reprojection for pair {pair} is {ret}")
+            logger.info(f"RMSE of reprojection for pair {pair} is {ret}")
 
+        else: 
+            logger.info(f"No stereocalibration produced for pair {pair}")
+            ret = None
+            rotation = None
+            translation = None
+            
         return ret, rotation, translation
 
     def get_stereocal_inputs(self, port, point_data):
@@ -304,7 +315,8 @@ if __name__ == "__main__":
         config_path,
         point_data_path,
     )
-
-    stereocal.stereo_calibrate_all(boards_sampled=25)
-
+    
 # %%
+
+    stereocal.stereo_calibrate_all(boards_sampled=15)
+

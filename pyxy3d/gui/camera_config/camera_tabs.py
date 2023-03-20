@@ -26,16 +26,16 @@ class CameraWizard(QWidget):
         self.layout().addWidget(self.camera_tabs)
         self.layout().addWidget(self.navigation_bar)
     
-        self.camera_tabs.omniframe_ready.connect(self.set_next_enabled)
+        self.camera_tabs.stereoframe_ready.connect(self.set_next_enabled)
         self.camera_tabs.check_session_calibration()
          
-    def set_next_enabled(self, omniframe_ready:bool):
-        logger.info(f"Setting camera tab next button enabled status to {omniframe_ready}")
-        self.navigation_bar.next_btn.setEnabled(omniframe_ready)
+    def set_next_enabled(self, stereoframe_ready:bool):
+        logger.info(f"Setting camera tab next button enabled status to {stereoframe_ready}")
+        self.navigation_bar.next_btn.setEnabled(stereoframe_ready)
             
 class CameraTabs(QTabWidget):
     
-    omniframe_ready = pyqtSignal(bool)
+    stereoframe_ready = pyqtSignal(bool)
 
     def __init__(self, session: Session):
         super(CameraTabs, self).__init__()
@@ -91,11 +91,11 @@ class CameraTabs(QTabWidget):
         logger.info(f"Checking session stage....")
       
         if self.session.get_stage() == Stage.MONOCALIBRATED_CAMERAS:
-            logger.info("Ready for omniframe")
-            self.omniframe_ready.emit(True)       
+            logger.info("Ready for stereoframe")
+            self.stereoframe_ready.emit(True)       
         elif self.session.get_stage() == Stage.UNCALIBRATED_CAMERAS:
-            logger.info("Not ready for omniframe")
-            self.omniframe_ready.emit(False)
+            logger.info("Not ready for stereoframe")
+            self.stereoframe_ready.emit(False)
             
 if __name__ == "__main__":
     from pyxy3d import __root__

@@ -10,7 +10,7 @@ from pyxy3d.cameras.synchronizer import Synchronizer
 from itertools import combinations
 from queue import Queue
 from threading import Event
-class OmniFrameBuilder:
+class StereoFrameBuilder:
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250,board_count_target=50):
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
@@ -27,7 +27,7 @@ class OmniFrameBuilder:
         self.pairs = self.get_pairs()
 
         self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
-        self.omni_list = self.pairs.copy()
+        self.stereo_list = self.pairs.copy()
         
         self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
         
@@ -48,13 +48,13 @@ class OmniFrameBuilder:
         )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
         return sorted_ports
 
-    def update_omni_list(self):
-        self.omni_list = [
+    def update_stereo_list(self):
+        self.stereo_list = [
             key
             for key, value in self.board_counts.items()
             if value < self.board_count_target
         ]
-        self.omni_list = sorted(self.omni_list, key=self.board_counts.get, reverse=True)
+        self.stereo_list = sorted(self.stereo_list, key=self.board_counts.get, reverse=True)
 
     def get_frame_or_blank(self, port):
         """Synchronization issues can lead to some frames being None among
@@ -255,7 +255,7 @@ class OmniFrameBuilder:
         
         return blank
     
-    def get_omni_frame(self):
+    def get_stereo_frame(self):
         """
         This glues together the stereopairs with summary blocks of the common board count
         """
@@ -263,28 +263,28 @@ class OmniFrameBuilder:
         self.new_sync_packet_notice.get()
         self.current_sync_packet = self.synchronizer.current_sync_packet
 
-        omni_frame = None
+        stereo_frame = None
         board_target_reached = False
-        for pair in self.omni_list:
+        for pair in self.stereo_list:
 
-            # figure out if you need to update the omni frame list
+            # figure out if you need to update the stereo frame list
             board_count = self.board_counts[pair]
             if board_count > self.board_count_target - 1:
                 board_target_reached = True
 
-            if omni_frame is None:
-                omni_frame = self.hstack_frames(pair, board_count)
+            if stereo_frame is None:
+                stereo_frame = self.hstack_frames(pair, board_count)
             else:
-                omni_frame = np.vstack(
-                    [omni_frame, self.hstack_frames(pair, board_count)]
+                stereo_frame = np.vstack(
+                    [stereo_frame, self.hstack_frames(pair, board_count)]
                 )
 
         if board_target_reached:
-            self.update_omni_list()
+            self.update_stereo_list()
 
-        if omni_frame is None:
-            omni_frame = self.get_completion_frame()
-        return omni_frame
+        if stereo_frame is None:
+            stereo_frame = self.get_completion_frame()
+        return stereo_frame
 
 
 def resize(image, new_height):
@@ -328,7 +328,7 @@ if __name__ == "__main__":
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
         recorded_stream_pool.play_videos()
 
-    frame_builder = OmniFrameBuilder(synchronizer=syncr, board_count_target=10)
+    frame_builder = StereoFrameBuilder(synchronizer=syncr, board_count_target=10)
 
     if record:
         video_path = Path(__root__, "tests", "please work")
@@ -338,12 +338,12 @@ if __name__ == "__main__":
     
     while not syncr.stop_event.is_set():
 
-        omni_frame = frame_builder.get_omni_frame()
-        if omni_frame is None:
+        stereo_frame = frame_builder.get_stereo_frame()
+        if stereo_frame is None:
             cv2.destroyAllWindows()
             break
 
-        cv2.imshow("omni frame", omni_frame)
+        cv2.imshow("stereo frame", stereo_frame)
 
         key = cv2.waitKey(1)
 

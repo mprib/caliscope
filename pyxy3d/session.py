@@ -18,7 +18,7 @@ from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
-from pyxy3d.calibration.omnicalibrator import OmniCalibrator
+from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 
@@ -451,7 +451,7 @@ class Session:
 
     def load_camera_array(self):
         """
-        after doing omniframe capture and generating a point_data.csv file,
+        after doing stereoframe capture and generating a point_data.csv file,
         create a camera array from it
         """
 
@@ -487,8 +487,8 @@ class Session:
         self.stop_recording()
         self.point_data_path = Path(self.path, "point_data.csv")
 
-        omnicalibrator = OmniCalibrator(self.config_path, self.point_data_path)
-        omnicalibrator.stereo_calibrate_all()
+        stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
+        stereocalibrator.stereo_calibrate_all()
         self.load_camera_array()
         self.point_estimates: PointEstimates = get_point_estimates(
             self.camera_array, self.point_data_path

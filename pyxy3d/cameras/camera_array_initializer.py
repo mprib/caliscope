@@ -314,47 +314,32 @@ if __name__ == "__main__":
     config_path = Path(session_directory, "config.toml")
 
     initializer = CameraArrayInitializer(config_path)
-    
-    initializer.estimated_stereopairs
-
-    # Beginning here I'm going to start the gap filling draft method    
-
-        # start back here, Mac  
-    
-    # for pair in initializer.estimated_stereopairs.keys():
-    #     # trying to build pair_A_C
-    #     pair_A_B = None
-    #     pair_B_C = None
-    
-
-    # bridged_pair = get_bridged_stereopair(pair_A_B, pair_B_C)
-        
         
     
 #%%
-    # camera_array = initializer.get_best_camera_array()
+    camera_array = initializer.get_best_camera_array()
 
-    # point_data_path = Path(session_directory, "point_data.csv")
+    point_data_path = Path(session_directory, "point_data.csv")
 
-    # point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
+    point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
 
-    # capture_volume = CaptureVolume(camera_array, point_estimates)
+    capture_volume = CaptureVolume(camera_array, point_estimates)
 
-    # capture_volume.save(session_directory)
-    # #%%
+    capture_volume.save(session_directory)
+    #%%
 
-    # pair_A_B = initializer.estimated_stereopairs[(0, 1)]
-    # pair_B_C = initializer.estimated_stereopairs[(1, 2)]
+    pair_A_B = initializer.estimated_stereopairs[(0, 1)]
+    pair_B_C = initializer.estimated_stereopairs[(1, 2)]
 
-    # bridged_pair = get_bridged_stereopair(pair_A_B, pair_B_C)
-    # logger.info(bridged_pair)
+    bridged_pair = get_bridged_stereopair(pair_A_B, pair_B_C)
+    logger.info(bridged_pair)
 
-    # capture_volume.optimize()
-    # capture_volume.save(session_directory)
-    # #%%
-    # app = QApplication(sys.argv)
-    # vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
-    # sys.exit(app.exec())
+    capture_volume.optimize()
+    capture_volume.save(session_directory)
+    #%%
+    app = QApplication(sys.argv)
+    vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
+    sys.exit(app.exec())
 
 
 

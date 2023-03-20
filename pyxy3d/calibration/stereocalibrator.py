@@ -2,11 +2,7 @@
 import sys
 from pathlib import Path
 
-# sys.path.insert(0,Path(__file__).parent.parent.parent)
-
-
 import pyxy3d.logger
-
 logger = pyxy3d.logger.get(__name__)
 
 import cv2
@@ -15,13 +11,9 @@ from pyxy3d import __root__
 
 import time
 
-sys.path.insert(0, __root__)
 import numpy as np
 import toml
-from multiprocessing import Process
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from itertools import combinations
-
 
 class StereoCalibrator:
     def __init__(
@@ -176,18 +168,21 @@ class StereoCalibrator:
         board_count = pair_boards.shape[0]
         sample_size = min(board_count, boards_sampled)
 
+        if sample_size > 0:
+            logger.info(f"Calibrating pair {pair} with {sample_size} boards")
+            # bias toward selecting boards with more overlapping points
+            sample_weight = pair_boards["point_count"] ** 2
 
-        logger.info(f"Calibrating pair {pair} with {sample_size} boards")
-        # bias toward selecting boards with more overlapping points
-        sample_weight = pair_boards["point_count"] ** 2
+            # get the randomly selected subset
+            selected_boards = pair_boards.sample(
+                n=sample_size, weights=sample_weight, random_state=random_state
+            )
 
-        # get the randomly selected subset
-        selected_boards = pair_boards.sample(
-            n=sample_size, weights=sample_weight, random_state=random_state
-        )
-
-        selected_pair_points = pair_points.merge(selected_boards, "right", "sync_index")
-
+            selected_pair_points = pair_points.merge(selected_boards, "right", "sync_index")
+        else:
+            logger.info(f"For pair {pair} there are no shared boards... No stereocalibration produced")
+            selected_pair_points = None
+            
         return selected_pair_points
 
     def stereo_calibrate_all(self, boards_sampled=10):
@@ -227,6 +222,8 @@ class StereoCalibrator:
         paired_point_data = self.get_stereopair_data(
             pair, boards_sampled=boards_sampled
         )
+        
+        
         img_locs_A, board_locs_A = self.get_stereocal_inputs(pair[0], paired_point_data)
         img_locs_B, board_locs_B = self.get_stereocal_inputs(pair[1], paired_point_data)
 
@@ -298,7 +295,7 @@ if __name__ == "__main__":
     from pathlib import Path
 
     # set inputs
-    session_path = Path(__root__, "tests", "just_checking")
+    session_path = Path(__root__, "tests", "4_cameras_nonoverlap")
 
     config_path = Path(session_path, "config.toml")
     point_data_path = Path(session_path, "point_data.csv")

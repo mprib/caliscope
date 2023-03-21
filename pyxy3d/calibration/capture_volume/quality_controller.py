@@ -324,7 +324,7 @@ if __name__ == "__main__":
 # if True:
     from pyxy3d import __root__
 
-    session_directory = Path(__root__, "tests", "tripod")
+    session_directory = Path(__root__, "tests", "4_cameras_beginning")
     # config_path = Path(session_directory, "config.toml")  
     capture_volume_name = "capture_volume_stage_0.pkl"
     

@@ -57,6 +57,7 @@ class StereoFrameWidget(QWidget):
         self.stereo_frame_display = QLabel()
         self.navigation_bar = NavigationBarBackNext() 
 
+        
         self.place_widgets()
         self.connect_widgets()        
 
@@ -83,10 +84,12 @@ class StereoFrameWidget(QWidget):
 
 
     def connect_widgets(self):
+        
         self.calibrate_collect_btn.clicked.connect(self.on_calibrate_connect_click)
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
         self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_fps_target)
         self.board_count_spin.valueChanged.connect(self.update_board_count_target)
+   
     
     def update_board_count_target(self, target):
         self.frame_builder.board_count_target = target
@@ -105,6 +108,7 @@ class StereoFrameWidget(QWidget):
             self.frame_emitter.stop()
             self.stop_thread = Thread(target=self.session.stop_recording, args=(), daemon=True)
         elif self.calibrate_collect_btn.text() == "Calibrate": 
+            self.session.pause_synchronizer()
             self.initiate_calibration()
 
     def ImageUpdateSlot(self, q_image):
@@ -167,7 +171,7 @@ def cv2_to_qlabel(frame):
 if __name__ == "__main__":
         App = QApplication(sys.argv)
 
-        config_path = Path(__root__, "tests", "tripod")
+        config_path = Path(__root__, "tests", "4_cameras_beginning")
 
         session = Session(config_path)
         session.load_cameras()

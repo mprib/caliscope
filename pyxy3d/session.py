@@ -57,7 +57,7 @@ class Session:
         self.load_charuco()
 
     def get_synchronizer(self):
-        if hasattr(self, "_synchronizer"):
+        if hasattr(self, "synchronizer"):
             logger.info("returning previously created synchronizer")
             return self.synchronizer
         else:

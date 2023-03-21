@@ -13,6 +13,7 @@ from scipy.optimize import least_squares
 import pandas as pd
 
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera_array import CameraArray
 
 CAMERA_PARAM_COUNT = 6
@@ -104,9 +105,15 @@ class CaptureVolume:
         return xyz
 
 
-    # def get_xyz_ids(self):
-        # """get the charuco ids of the 3d points estimated by the bundle adjustment"""
-        # return self.point_estimate_data.obj_corner_id
+    def set_origin(self, sync_index, charuco:Charuco):
+        """
+        Find the pose of the charuco (rvec and tvec) from a given frame
+        Transform stereopairs and 3d point estimates for this new origin
+        """
+        
+        
+
+        pass
 
 def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume):
     """

@@ -109,7 +109,6 @@ class StereoFrameWidget(QWidget):
             self.stop_thread = Thread(target=self.session.stop_recording, args=(), daemon=True)
         elif self.calibrate_collect_btn.text() == "Calibrate": 
             self.session.pause_synchronizer()
-            self.session.pause_all_monocalibrators()
             self.initiate_calibration()
 
     def ImageUpdateSlot(self, q_image):

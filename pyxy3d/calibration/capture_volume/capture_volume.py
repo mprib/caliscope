@@ -163,7 +163,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     xy_reprojection_error = (points_proj - capture_volume.point_estimates.img).ravel()
-    logger.info(f"Single iteration of bundle adjustment completed with RMSE of reprojection: {round(rms_reproj_error(xy_reprojection_error),6)}")
+    logger.info(f"Optimizing... RMSE of reprojection = {rms_reproj_error(xy_reprojection_error)}")
     
     # reshape the x,y reprojection error to a single vector
     return xy_reprojection_error
@@ -180,18 +180,18 @@ def rms_reproj_error(xy_reproj_error):
 if __name__ == "__main__":
     # if True:
     from pyxy3d import __root__
-    from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
+    from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
     from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
         get_point_estimates,
     )
 
-    session_directory = Path(__root__, "tests", "demo")
+    session_directory = Path(__root__, "tests", "4_cameras_endofday")
 
     point_data_csv_path = Path(session_directory, "point_data.csv")
 
     config_path = Path(session_directory, "config.toml")
-    array_builder = CameraArrayBuilder(config_path)
-    camera_array = array_builder.get_camera_array()
+    array_initializer = CameraArrayInitializer(config_path)
+    camera_array = array_initializer.get_best_camera_array()
     point_estimates = get_point_estimates(camera_array, point_data_csv_path)
 
     print(f"Optimizing initial camera array configuration ")

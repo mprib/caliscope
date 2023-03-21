@@ -18,6 +18,9 @@ from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
+from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer 
+
+
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
@@ -54,7 +57,7 @@ class Session:
         self.load_charuco()
 
     def get_synchronizer(self):
-        if hasattr(self, "_synchronizer"):
+        if hasattr(self, "synchronizer"):
             logger.info("returning previously created synchronizer")
             return self.synchronizer
         else:
@@ -63,6 +66,7 @@ class Session:
             return self.synchronizer
 
     def pause_synchronizer(self):
+        logger.info("pausing synchronizer")
         self.synchronizer.unsubscribe_to_streams()
         
     def unpause_synchronizer(self):
@@ -456,9 +460,9 @@ class Session:
         """
 
         # with those in place the camera array can be initialized
-        self.camera_array: CameraArray = CameraArrayBuilder(
+        self.camera_array: CameraArray = CameraArrayInitializer(
             self.config_path
-        ).get_camera_array()
+        ).get_best_camera_array()
 
     def save_camera_array(self):
 
@@ -488,7 +492,7 @@ class Session:
         self.point_data_path = Path(self.path, "point_data.csv")
 
         stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
-        stereocalibrator.stereo_calibrate_all()
+        stereocalibrator.stereo_calibrate_all(boards_sampled=20)
         self.load_camera_array()
         self.point_estimates: PointEstimates = get_point_estimates(
             self.camera_array, self.point_data_path

@@ -312,7 +312,7 @@ if __name__ == "__main__":
     
     if test_live:
 
-        session_directory = Path(__root__, "tests", "please work")
+        session_directory = Path(__root__, "tests", "4_cameras_beginning")
         session = Session(session_directory)
         session.load_cameras()
         session.load_streams()
@@ -356,7 +356,9 @@ if __name__ == "__main__":
                 frame_builder.store_points.clear()
             else: 
                 frame_builder.store_points.set()
-            
+        
+        if key == ord("u"):
+            frame_builder.synchronizer.unsubscribe_to_streams() 
     # recorder.stop_recording()
     cv2.destroyAllWindows()
     

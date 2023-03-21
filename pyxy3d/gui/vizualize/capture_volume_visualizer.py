@@ -193,7 +193,7 @@ if __name__ == "__main__":
     # session_directory = Path(__root__,  "tests", "2_cameras_180_deg")
     # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
     # session_directory = Path(__root__,  "tests", "3_cameras_middle")
-    session_directory = Path(__root__,  "tests", "4_cameras_endofday")
+    session_directory = Path(__root__,  "tests", "4_cameras_beginning")
     # session_directory = Path(__root__,  "tests", "4_cameras_nonoverlap")
     # session_directory = Path(__root__,  "tests", "3_cameras_linear")
     # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")

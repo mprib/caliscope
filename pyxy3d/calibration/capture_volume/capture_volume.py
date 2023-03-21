@@ -111,7 +111,6 @@ class CaptureVolume:
         Transform stereopairs and 3d point estimates for this new origin
         """
         
-        
 
         pass
 

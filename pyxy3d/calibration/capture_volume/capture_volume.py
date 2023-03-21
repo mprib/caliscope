@@ -163,7 +163,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     xy_reprojection_error = (points_proj - capture_volume.point_estimates.img).ravel()
-    logger.info(f"Single iteration of bundle adjustment completed with RMSE of reprojection: {round(rms_reproj_error(xy_reprojection_error),6)}")
+    logger.info(f"Optimizing... RMSE of reprojection = {rms_reproj_error(xy_reprojection_error)}")
     
     # reshape the x,y reprojection error to a single vector
     return xy_reprojection_error

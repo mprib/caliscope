@@ -20,7 +20,13 @@ from pyxy3d.cameras.camera_array_builder_deprecate import CameraArray, CameraArr
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 
 class CaptureVolumeVisualizer:
+    """
+    Can except either a single camera array or a capture volume that includes
+    point_estimates. If a capture volume is supplied, point positions can 
+    be played back.
+    """
     def __init__(self, capture_volume:CaptureVolume = None, camera_array:CameraArray = None):
+        
         if camera_array is not None and capture_volume is None:
             self.camera_array = camera_array
             self.point_estimates = None
@@ -47,7 +53,7 @@ class CaptureVolumeVisualizer:
             self.meshes[port] = mesh
             self.scene.addItem(mesh)
 
-        self.scene.show()
+        # self.scene.show()
 
         if self.point_estimates is not None:
             self.scatter = gl.GLScatterPlotItem(
@@ -58,8 +64,14 @@ class CaptureVolumeVisualizer:
             )
             self.scene.addItem(self.scatter)
         
-            self.thread = Thread(target=self.play_data, args=[], daemon=False)
-            self.thread.start()
+            self.sync_indices = np.unique(self.point_estimates.sync_indices)
+            self.sync_indices = np.sort(self.sync_indices)
+
+            self.min_sync_index = np.min(self.sync_indices)
+            self.max_sync_index = np.max(self.sync_indices)
+
+            # self.thread = Thread(target=self.play_data, args=[], daemon=False)
+            # self.thread.start()
 
     def play_data(self):
         # sync_indices = self.point_estimate_data["sync_index"].unique().tolist()
@@ -89,30 +101,30 @@ class CaptureVolumeVisualizer:
             # board_xyz_pos = np.stack([x, y, z], axis=1)
             # self.scatters[pair].setData(pos=board_xyz_pos)
 
-    def add_point_q(self, q):
-        self.point_in_q = q
+    # def add_point_q(self, q):
+    #     self.point_in_q = q
 
-        board_data = self.point_in_q.get()
+    #     board_data = self.point_in_q.get()
 
-        self.color = (1, 0, 0, 1)
-        self.board_viz = gl.GLScatterPlotItem(
-            pos=board_data.xyz, color=self.color, size=0.01, pxMode=False
-        )
+    #     self.color = (1, 0, 0, 1)
+    #     self.board_viz = gl.GLScatterPlotItem(
+    #         pos=board_data.xyz, color=self.color, size=0.01, pxMode=False
+    #     )
 
-        self.scene.addItem(self.board_viz)
+    #     self.scene.addItem(self.board_viz)
 
-    def next_frame(self):
-        board_data = self.point_in_q.get()
-        self.board_viz.setData(pos=board_data.xyz, color=self.color)
+    # def next_frame(self):
+    #     board_data = self.point_in_q.get()
+    #     self.board_viz.setData(pos=board_data.xyz, color=self.color)
 
-    def begin(self):
-        def timer_wrkr():
-            while True:
-                time.sleep(1 / 15)
-                self.next_frame()
+    # def begin(self):
+    #     def timer_wrkr():
+    #         while True:
+    #             time.sleep(1 / 15)
+    #             self.next_frame()
 
-        self.timer_thread = Thread(target=timer_wrkr, args=[], daemon=False)
-        self.timer_thread.start()
+    #     self.timer_thread = Thread(target=timer_wrkr, args=[], daemon=False)
+    #     self.timer_thread.start()
 
 
 # helper functions to assist with scene creation

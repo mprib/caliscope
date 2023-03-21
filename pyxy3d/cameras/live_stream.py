@@ -59,7 +59,9 @@ class LiveStream:
 
     def subscribe(self,queue:Queue):
         if queue not in self.subscribers:
+            logger.info(f"Adding queue to subscribers at stream {self.port}")
             self.subscribers.append(queue)
+            logger.info(f"...now {len(self.subscribers)} subscribers at {self.port}")
         else:
             logger.warn(f"Attempted to subscribe to live stream at port {self.port} twice")
 
@@ -146,9 +148,16 @@ class LiveStream:
                 # this is a sub-optimal busy wait spin lock, but it works and I'm tired.
                 # stop_event condition added to allow loop to wrap up 
                 # if attempting to change resolution
+                spinlock_looped = False 
                 while len(self.subscribers) == 0 and not self.stop_event.is_set():
-                    logger.info(f"sleeping at port {self.port}")
+                    if not spinlock_looped:
+                        logger.info(f"Spinlock initiated at port {self.port}")
+                        spinlock_looped = True
                     sleep(.2)
+                if spinlock_looped == True:
+                    logger.info(f"Spinlock released at port {self.port}")
+                    
+                
 
                 # Wait an appropriate amount of time to hit the frame rate target
                 sleep(self.wait_to_next_frame())

@@ -57,8 +57,6 @@ class StereoFrameWidget(QWidget):
         self.stereo_frame_display = QLabel()
         self.navigation_bar = NavigationBarBackNext() 
 
-
-        self.test_pause_sync = QPushButton("Pause Synchronizer")
         
         self.place_widgets()
         self.connect_widgets()        
@@ -66,8 +64,6 @@ class StereoFrameWidget(QWidget):
     def place_widgets(self):
         self.setLayout(QVBoxLayout())
         
-        self.layout().addWidget(self.test_pause_sync)
-         
         self.settings_group = QGroupBox("Settings")
         self.settings_group.setLayout(QHBoxLayout())
         self.settings_group.layout().addWidget(self.frame_rate_spin)       
@@ -88,22 +84,12 @@ class StereoFrameWidget(QWidget):
 
 
     def connect_widgets(self):
-        self.test_pause_sync.clicked.connect(self.on_pause_sync_click)
         
         self.calibrate_collect_btn.clicked.connect(self.on_calibrate_connect_click)
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
         self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_fps_target)
         self.board_count_spin.valueChanged.connect(self.update_board_count_target)
    
-    def on_pause_sync_click(self):
-        if self.test_pause_sync.text()== "Pause Synchronizer":
-            self.session.pause_synchronizer()
-            self.test_pause_sync.setText("Resume Synchronizer")
-
-        elif self.test_pause_sync.text()== "Resume Synchronizer":
-            self.session.unpause_synchronizer()
-            self.test_pause_sync.setText("Pause Synchronizer")
-
     
     def update_board_count_target(self, target):
         self.frame_builder.board_count_target = target

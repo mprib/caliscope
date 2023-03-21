@@ -66,6 +66,7 @@ class Session:
             return self.synchronizer
 
     def pause_synchronizer(self):
+        logger.info("pausing synchronizer")
         self.synchronizer.unsubscribe_to_streams()
         
     def unpause_synchronizer(self):

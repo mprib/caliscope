@@ -65,7 +65,9 @@ class LiveStream:
 
     def unsubscribe(self, queue:Queue):
         if queue in self.subscribers:
+            logger.info(f"Removing subscriber from queue at port {self.port}")
             self.subscribers.remove(queue)
+            logger.info(f"{len(self.subscribers)} subscriber(s) remain at port {self.port}")
         else:
             logger.warn(f"Attempted to unsubscribe to live stream that was not subscribed to\
                 at port {self.port} twice")

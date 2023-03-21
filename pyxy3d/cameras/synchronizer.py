@@ -62,6 +62,7 @@ class Synchronizer:
 
     def unsubscribe_to_streams(self):
         for port, stream in self.streams.items():
+            logger.info(f"unsubscribe synchronizer from port {port}")
             stream.unsubscribe(self.frame_packet_queues[port])
 
     def stop(self):

@@ -90,41 +90,6 @@ class CaptureVolumeVisualizer:
         single_board_points = self.point_estimates.obj[single_board_indices]
 
         self.scatter.setData(pos=single_board_points)
-        # point_data = self.point_estimate_data.query(f"sync_index == {sync_index}")
-
-        # for pair in self.pairs:
-            # single_board = point_data.query(f"pair == '{str(pair)}'")
-            # x = single_board.x_pos.to_numpy()
-            # y = single_board.y_pos.to_numpy()
-            # z = single_board.z_pos.to_numpy()
-
-            # board_xyz_pos = np.stack([x, y, z], axis=1)
-            # self.scatters[pair].setData(pos=board_xyz_pos)
-
-    # def add_point_q(self, q):
-    #     self.point_in_q = q
-
-    #     board_data = self.point_in_q.get()
-
-    #     self.color = (1, 0, 0, 1)
-    #     self.board_viz = gl.GLScatterPlotItem(
-    #         pos=board_data.xyz, color=self.color, size=0.01, pxMode=False
-    #     )
-
-    #     self.scene.addItem(self.board_viz)
-
-    # def next_frame(self):
-    #     board_data = self.point_in_q.get()
-    #     self.board_viz.setData(pos=board_data.xyz, color=self.color)
-
-    # def begin(self):
-    #     def timer_wrkr():
-    #         while True:
-    #             time.sleep(1 / 15)
-    #             self.next_frame()
-
-    #     self.timer_thread = Thread(target=timer_wrkr, args=[], daemon=False)
-    #     self.timer_thread.start()
 
 
 # helper functions to assist with scene creation

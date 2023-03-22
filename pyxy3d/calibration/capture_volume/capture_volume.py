@@ -11,8 +11,10 @@ import numpy as np
 import cv2
 from scipy.optimize import least_squares
 import pandas as pd
+from time import perf_counter
 
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera_array import CameraArray
 
 CAMERA_PARAM_COUNT = 6
@@ -25,8 +27,12 @@ class CaptureVolume:
     stage: int = 0
     _rmse: float = None
 
-    def save(self, directory:Path):
-        pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"
+    def save(self, directory:Path, descriptor:str=None):
+        if descriptor is None:
+            pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"
+        else:
+
+            pkl_name = "capture_volume_stage_" + str(self.stage) + "_" + descriptor + ".pkl"
         logger.info(f"Saving stage {str(self.stage)} capture volume to {directory}")
         with open(Path(directory, pkl_name), "wb") as file:
             pickle.dump(self, file)
@@ -104,9 +110,14 @@ class CaptureVolume:
         return xyz
 
 
-    # def get_xyz_ids(self):
-        # """get the charuco ids of the 3d points estimated by the bundle adjustment"""
-        # return self.point_estimate_data.obj_corner_id
+    def set_origin(self, sync_index, charuco:Charuco):
+        """
+        Find the pose of the charuco (rvec and tvec) from a given frame
+        Transform stereopairs and 3d point estimates for this new origin
+        """
+        
+
+        pass
 
 def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume):
     """
@@ -163,7 +174,8 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     xy_reprojection_error = (points_proj - capture_volume.point_estimates.img).ravel()
-    logger.info(f"Optimizing... RMSE of reprojection = {rms_reproj_error(xy_reprojection_error)}")
+    if round(perf_counter(),2)*10 %1 ==0:
+        logger.info(f"Optimizing... RMSE of reprojection = {rms_reproj_error(xy_reprojection_error)}")
     
     # reshape the x,y reprojection error to a single vector
     return xy_reprojection_error

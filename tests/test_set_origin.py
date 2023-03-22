@@ -30,9 +30,9 @@ point_estimates = get_point_estimates(camera_array, point_data_csv_path)
 print(f"Optimizing initial camera array configuration ")
 
 capture_volume = CaptureVolume(camera_array, point_estimates)
-capture_volume.save(session_directory)
+capture_volume.save(session_directory, "tests")
 capture_volume.optimize()
-capture_volume.save(session_directory)
+capture_volume.save(session_directory, "yet more")
 
 
 # config_path = Path(session_directory, "config.toml")
@@ -71,28 +71,37 @@ charuco_image_points, jacobian = cv2.projectPoints(
 )
 
 # %%
-retval, rvec, tvec = cv2.aruco.estimatePoseBoard(
+# This is producing nonsensical values...
+# retval, rvec, tvec = cv2.aruco.estimatePoseBoard(
+#     charuco_image_points,
+#     unique_charuco_id,
+#     charuco_board,
+#     cameraMatrix = anchor_camera.matrix,
+#     distCoeffs=np.array(
+#         [0, 0, 0, 0, 0], dtype=np.float32
+#     ),  # For origin setting, assume perfection
+#     rvec = anchor_camera.rotation,
+#     tvec = anchor_camera.translation,
+# )  
+# %%
+
+# need to get x,y,z estimates in board world...
+board_points_xyz = charuco_board.chessboardCorners[unique_charuco_id]
+
+
+# use solvepnp and not estimate poseboard.....
+retval, rvec, tvec = cv2.solvePnP(
+    board_points_xyz,
     charuco_image_points,
-    unique_charuco_id,
-    charuco_board,
     cameraMatrix = anchor_camera.matrix,
     distCoeffs=np.array(
         [0, 0, 0, 0, 0], dtype=np.float32
-    ),  # For origin setting, assume perfection
-    rvec = anchor_camera.rotation,
-    tvec = anchor_camera.translation,
+    ),  
 )  
-
-# use solvepnp and not estimate poseboard.....
 
 
 
 # Here is the plan: from a given sync_index, find which camera has the most points represented on it.
 # or wait...does this matter...can I just project back to the camera from the 3d points
 
-# copied from https://longervision.github.io/2017/03/12/ComputerVision/OpenCV/opencv-external-posture-estimation-ArUco-board/
-# Note for tomorrow: this is going to be more challenging than I'd thought..
-# board pose is estimated from each camera...
-# may need to get pose from each camera, then convert to a common
-# frame of reference, and then average together....
 # %%

@@ -27,8 +27,12 @@ class CaptureVolume:
     stage: int = 0
     _rmse: float = None
 
-    def save(self, directory:Path):
-        pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"
+    def save(self, directory:Path, descriptor:str=None):
+        if descriptor is None:
+            pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"
+        else:
+
+            pkl_name = "capture_volume_stage_" + str(self.stage) + "_" + descriptor + ".pkl"
         logger.info(f"Saving stage {str(self.stage)} capture volume to {directory}")
         with open(Path(directory, pkl_name), "wb") as file:
             pickle.dump(self, file)

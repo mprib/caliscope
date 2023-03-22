@@ -70,20 +70,6 @@ charuco_image_points, jacobian = cv2.projectPoints(
     ),  # For origin setting, assume perfection
 )
 
-# %%
-# This is producing nonsensical values...
-# retval, rvec, tvec = cv2.aruco.estimatePoseBoard(
-#     charuco_image_points,
-#     unique_charuco_id,
-#     charuco_board,
-#     cameraMatrix = anchor_camera.matrix,
-#     distCoeffs=np.array(
-#         [0, 0, 0, 0, 0], dtype=np.float32
-#     ),  # For origin setting, assume perfection
-#     rvec = anchor_camera.rotation,
-#     tvec = anchor_camera.translation,
-# )  
-# %%
 
 # need to get x,y,z estimates in board world...
 board_points_xyz = charuco_board.chessboardCorners[unique_charuco_id]
@@ -100,7 +86,17 @@ retval, rvec, tvec = cv2.solvePnP(
 )  
 
 
+rvec = cv2.Rodrigues(rvec)[0]
+#%%
+# I believe this is the transformation to be applied
+# or perhaps the inverse, let's find out...
+transformation = np.hstack([rvec,tvec])
+transformation = np.vstack([transformation, np.array([0,0,0,1], np.float32)])
 
+# MAC: you are prepping the camera_data class to self.set_origin so that you can apply this to the whole array....
+
+
+#%%
 # Here is the plan: from a given sync_index, find which camera has the most points represented on it.
 # or wait...does this matter...can I just project back to the camera from the 3d points
 

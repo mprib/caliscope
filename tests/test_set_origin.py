@@ -66,7 +66,7 @@ charuco_image_points, jacobian = cv2.projectPoints(
     tvec = anchor_camera.translation,
     cameraMatrix = anchor_camera.matrix,
     distCoeffs=np.array(
-        [0, 0, 0, 0, 0], dtype=np.float64
+        [0, 0, 0, 0, 0], dtype=np.float32
     ),  # For origin setting, assume perfection
 )
 
@@ -77,7 +77,7 @@ retval, rvec, tvec = cv2.aruco.estimatePoseBoard(
     charuco_board,
     cameraMatrix = anchor_camera.matrix,
     distCoeffs=np.array(
-        [0, 0, 0, 0, 0], dtype=np.float64
+        [0, 0, 0, 0, 0], dtype=np.float32
     ),  # For origin setting, assume perfection
     rvec = anchor_camera.rotation,
     tvec = anchor_camera.translation,

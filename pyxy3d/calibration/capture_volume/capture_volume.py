@@ -11,6 +11,7 @@ import numpy as np
 import cv2
 from scipy.optimize import least_squares
 import pandas as pd
+from time import perf_counter
 
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.charuco import Charuco
@@ -169,7 +170,8 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     xy_reprojection_error = (points_proj - capture_volume.point_estimates.img).ravel()
-    logger.info(f"Optimizing... RMSE of reprojection = {rms_reproj_error(xy_reprojection_error)}")
+    if round(perf_counter(),2)*10 %1 ==0:
+        logger.info(f"Optimizing... RMSE of reprojection = {rms_reproj_error(xy_reprojection_error)}")
     
     # reshape the x,y reprojection error to a single vector
     return xy_reprojection_error

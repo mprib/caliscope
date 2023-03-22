@@ -40,7 +40,7 @@ session = Session(session_directory)
 charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
-test_sync_index = sync_indices[3]
+test_sync_index = sync_indices[28]
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
 unique_charuco_id = np.unique(charuco_ids)
@@ -57,23 +57,40 @@ unique_charuco_xyz_index = sorter[
 ]
 # need to get charuco ids associated with the 3 point positions
 unique_charuco_xyz = obj_xyz[unique_charuco_xyz_index]
-#%%
 # Convert 3d coordinates into 2d camera coordinates. Just pick a camera:
 anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
 
 charuco_image_points, jacobian = cv2.projectPoints(
     unique_charuco_xyz,
-    anchor_camera.rotation,
-    anchor_camera.translation,
-    anchor_camera.matrix,
-    distCoeffs = np.array([0,0,0,0,0], dtype = np.float64) # For origin setting, assume perfection
+    rvec = anchor_camera.rotation,
+    tvec = anchor_camera.translation,
+    cameraMatrix = anchor_camera.matrix,
+    distCoeffs=np.array(
+        [0, 0, 0, 0, 0], dtype=np.float64
+    ),  # For origin setting, assume perfection
 )
+
+# %%
+retval, rvec, tvec = cv2.aruco.estimatePoseBoard(
+    charuco_image_points,
+    unique_charuco_id,
+    charuco_board,
+    cameraMatrix = anchor_camera.matrix,
+    distCoeffs=np.array(
+        [0, 0, 0, 0, 0], dtype=np.float64
+    ),  # For origin setting, assume perfection
+    rvec = anchor_camera.rotation,
+    tvec = anchor_camera.translation,
+)  
+
+# use solvepnp and not estimate poseboard.....
+
+
 
 # Here is the plan: from a given sync_index, find which camera has the most points represented on it.
 # or wait...does this matter...can I just project back to the camera from the 3d points
 
 # copied from https://longervision.github.io/2017/03/12/ComputerVision/OpenCV/opencv-external-posture-estimation-ArUco-board/
-# retval, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(corners, ids, board, camera_matrix, dist_coeffs)  # posture estimation from a diamond
 # Note for tomorrow: this is going to be more challenging than I'd thought..
 # board pose is estimated from each camera...
 # may need to get pose from each camera, then convert to a common

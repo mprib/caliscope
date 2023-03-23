@@ -66,8 +66,7 @@ class CameraData:
         self.rotation = cv2.Rodrigues(row[0:3])[0]
         self.translation = np.array([row[3:6]], dtype=np.float64)[0]
 
-    def transform(self, transformation_mtx:np.ndarray):
-        trans
+
 @dataclass
 class CameraArray:
     """The plan is that this will expand to become an interface for setting the origin.

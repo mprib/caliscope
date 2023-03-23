@@ -175,17 +175,24 @@ if __name__ == "__main__":
     # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
     # session_directory = Path(__root__,  "tests", "3_cameras_middle")
     session_directory = Path(__root__, "tests", "4_cameras_beginning")
+    # session_directory = Path(__root__, "tests", "4_cameras_endofday")
     # session_directory = Path(__root__,  "tests", "4_cameras_nonoverlap")
     # session_directory = Path(__root__,  "tests", "3_cameras_linear")
     # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
     # session_directory = Path(__root__,  "tests", "just_checking")
 
-    saved_CV_path = Path(session_directory, "capture_volume_stage_3.pkl")
+    # saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl")
+    saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl")
+    with open(saved_CV_path, "rb") as f:
+        capture_volume: CaptureVolume = pickle.load(f)
+
+    app = QApplication(sys.argv)
     with open(saved_CV_path, "rb") as f:
         capture_volume: CaptureVolume = pickle.load(f)
 
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
+    # vizr.scene.show()
     # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
 
     sys.exit(app.exec())

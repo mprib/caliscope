@@ -99,13 +99,22 @@ retval, rvec, tvec = cv2.solvePnP(
     ),  
 ) 
 
-# messing around, Mac. Don't leave this..
-# tvec = -tvec 
 
 # convert rvec to 3x3 rotation matrix
+logger.info(f"Rotation vector is {rvec}")
 rvec = cv2.Rodrigues(rvec)[0]
-rvec = rvec.T
-# tvec = -tvec
+logger.info(f"Rotation vector is {rvec}")
+###overwriting rvec and tvec to test out my understanding
+rvec = cv2.Rodrigues(np.expand_dims(np.array([1,0,0], dtype=np.float32), 1))[0]
+# rvec = np.array([[1,0,0],
+#                  [0,1,0],
+#                  [0,0,1]])
+
+
+# note that these translations result in the system moving in the negative direction
+tvec = np.array([[0,0,0]]).T
+
+
 #%%
 # I believe this is the transformation to be applied
 # or perhaps the inverse, let's find out...
@@ -120,7 +129,9 @@ for port, camera_data in camera_array.cameras.items():
     # camera_data.translation = camera_data.translation + tvec[:,0]
     # logger.info(f"Attempting to update camera at port {port}")
     old_transformation = camera_data.transformation
-    new_transformation = np.matmul(old_transformation, np.linalg.inv(board_pose_transformation))
+    new_transformation = np.matmul(old_transformation, board_pose_transformation)
+    # new_transformation = np.matmul(old_transformation, np.linalg.inv(board_pose_transformation))
+    # new_transformation = np.matmul(board_pose_transformation, old_transformation)
     camera_data.transformation = new_transformation
     # camera_data.rotation = np.dot(camera_data.rotation.T, rvec)
     # camera_data.translation = camera_data.translation - tvec[:,0]
@@ -132,8 +143,8 @@ xyz = capture_volume.point_estimates.obj
 scale = np.expand_dims(np.ones(xyz.shape[0]),1)
 xyzh = np.hstack([xyz, scale])
 
-# new_origin_xyzh = np.matmul(np.linalg.inv(board_pose_transformation),xyzh.T).T
-new_origin_xyzh = np.matmul(board_pose_transformation,xyzh.T).T
+new_origin_xyzh = np.matmul(np.linalg.inv(board_pose_transformation),xyzh.T).T
+# new_origin_xyzh = np.matmul(board_pose_transformation,xyzh.T).T
 capture_volume.point_estimates.obj = new_origin_xyzh[:,0:3]
 #%%
 

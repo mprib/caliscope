@@ -91,7 +91,7 @@ board_points_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 
 
 # use solvepnp and not estimate poseboard.....
-retval, rvec_board_to_anchor, tvec_board_to_anchor = cv2.solvePnP(
+retval, rvec, tvec = cv2.solvePnP(
     board_points_xyz,
     charuco_image_points,
     cameraMatrix=anchor_camera.matrix,
@@ -100,27 +100,22 @@ retval, rvec_board_to_anchor, tvec_board_to_anchor = cv2.solvePnP(
 
 
 # convert rvec to 3x3 rotation matrix
-logger.info(f"Rotation vector is {rvec_board_to_anchor}")
-rvec_board_to_anchor = cv2.Rodrigues(rvec_board_to_anchor)[0]
-logger.info(f"Rotation vector is {rvec_board_to_anchor}")
+logger.info(f"Rotation vector is {rvec}")
+rvec = cv2.Rodrigues(rvec)[0]
+logger.info(f"Rotation vector is {rvec}")
 ###overwriting rvec and tvec to test out my understanding
-# rvec = cv2.Rodrigues(np.expand_dims(np.array([0,0,0], dtype=np.float32), 1))[0]
+rvec = cv2.Rodrigues(np.expand_dims(np.array([3.14159,0,0], dtype=np.float32), 1))[0]
 # note that these translations result in the system moving in the negative direction
-# tvec = np.array([[0,0,0]]).T
+tvec = np.array([[0,0,0]]).T
 
 
 #%%
 # I believe this is the transformation to be applied
 # or perhaps the inverse, let's find out...
-board_anchor_transform = np.hstack([rvec_board_to_anchor, tvec_board_to_anchor])
+board_anchor_transform = np.hstack([rvec, tvec])
 board_anchor_transform = np.vstack(
     [board_anchor_transform, np.array([0, 0, 0, 1], np.float32)]
 )
-M = np.linalg.inv(anchor_camera.transformation)
-
-M_cb = board_anchor_transform
-
-M_wb = np.dot(M, M_cb)  
 
 # board_anchor_pose_transformation = np.matmul(
 #     # np.linalg.inv(anchor_transform), np.linalg.inv(board_anchor_pose_transformation) 
@@ -135,7 +130,7 @@ for port, camera_data in camera_array.cameras.items():
     # camera_data.translation = camera_data.translation + tvec[:,0]
     # logger.info(f"Attempting to update camera at port {port}")
     old_transformation = camera_data.transformation
-    new_transformation = np.dot(old_transformation, M_wb)
+    new_transformation = np.dot(old_transformation, board_anchor_transform)
     camera_data.transformation = new_transformation
 
 
@@ -144,7 +139,7 @@ xyz = capture_volume.point_estimates.obj
 scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
 xyzh = np.hstack([xyz, scale])
 
-new_origin_xyzh = np.matmul(np.linalg.inv(M_wb), xyzh.T).T
+new_origin_xyzh = np.matmul(np.linalg.inv(board_anchor_transform), xyzh.T).T
 # new_origin_xyzh = np.matmul(board_pose_transformation,xyzh.T).T
 capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
 #%%

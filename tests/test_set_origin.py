@@ -4,6 +4,7 @@
 
 # %%
 import pyxy3d.logger
+
 logger = pyxy3d.logger.get(__name__)
 
 from pathlib import Path
@@ -27,7 +28,7 @@ import pickle
 
 session_directory = Path(__root__, "tests", "4_cameras_endofday")
 
-REOPTIMIZE_ARRAY =  True
+REOPTIMIZE_ARRAY = True
 
 if REOPTIMIZE_ARRAY:
     point_data_csv_path = Path(session_directory, "point_data.csv")
@@ -44,10 +45,10 @@ if REOPTIMIZE_ARRAY:
     capture_volume.optimize()
     capture_volume.save(session_directory, "optimized")
 else:
-    
-    saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl") 
+
+    saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl")
     with open(saved_CV_path, "rb") as f:
-        capture_volume:CaptureVolume = pickle.load(f)
+        capture_volume: CaptureVolume = pickle.load(f)
 
 # config_path = Path(session_directory, "config.toml")
 session = Session(session_directory)
@@ -76,9 +77,9 @@ anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys(
 
 charuco_image_points, jacobian = cv2.projectPoints(
     unique_charuco_xyz,
-    rvec = anchor_camera.rotation,
-    tvec = anchor_camera.translation,
-    cameraMatrix = anchor_camera.matrix,
+    rvec=anchor_camera.rotation,
+    tvec=anchor_camera.translation,
+    cameraMatrix=anchor_camera.matrix,
     distCoeffs=np.array(
         [0, 0, 0, 0, 0], dtype=np.float32
     ),  # For origin setting, assume perfection
@@ -90,62 +91,62 @@ board_points_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 
 
 # use solvepnp and not estimate poseboard.....
-retval, rvec, tvec = cv2.solvePnP(
+retval, rvec_board_to_anchor, tvec_board_to_anchor = cv2.solvePnP(
     board_points_xyz,
     charuco_image_points,
-    cameraMatrix = anchor_camera.matrix,
-    distCoeffs=np.array(
-        [0, 0, 0, 0, 0], dtype=np.float32
-    ),  
-) 
+    cameraMatrix=anchor_camera.matrix,
+    distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
+)
 
 
 # convert rvec to 3x3 rotation matrix
-logger.info(f"Rotation vector is {rvec}")
-rvec = cv2.Rodrigues(rvec)[0]
-logger.info(f"Rotation vector is {rvec}")
+logger.info(f"Rotation vector is {rvec_board_to_anchor}")
+rvec_board_to_anchor = cv2.Rodrigues(rvec_board_to_anchor)[0]
+logger.info(f"Rotation vector is {rvec_board_to_anchor}")
 ###overwriting rvec and tvec to test out my understanding
-rvec = cv2.Rodrigues(np.expand_dims(np.array([1,0,0], dtype=np.float32), 1))[0]
-# rvec = np.array([[1,0,0],
-#                  [0,1,0],
-#                  [0,0,1]])
-
-
+# rvec = cv2.Rodrigues(np.expand_dims(np.array([0,0,0], dtype=np.float32), 1))[0]
 # note that these translations result in the system moving in the negative direction
-tvec = np.array([[0,0,0]]).T
+# tvec = np.array([[0,0,0]]).T
 
 
 #%%
 # I believe this is the transformation to be applied
 # or perhaps the inverse, let's find out...
-board_pose_transformation = np.hstack([rvec,tvec])
-board_pose_transformation = np.vstack([board_pose_transformation, np.array([0,0,0,1], np.float32)])
+board_anchor_transform = np.hstack([rvec_board_to_anchor, tvec_board_to_anchor])
+board_anchor_transform = np.vstack(
+    [board_anchor_transform, np.array([0, 0, 0, 1], np.float32)]
+)
+M = np.linalg.inv(anchor_camera.transformation)
+
+M_cb = board_anchor_transform
+
+M_wb = np.dot(M, M_cb)  
+
+# board_anchor_pose_transformation = np.matmul(
+#     # np.linalg.inv(anchor_transform), np.linalg.inv(board_anchor_pose_transformation) 
+#     anchor_transform, board_anchor_pose_transformation 
+#     )
 
 logger.info("About to attempt to change camera array")
 # %%
-# array_rotation = 
+# array_rotation =
 
 for port, camera_data in camera_array.cameras.items():
     # camera_data.translation = camera_data.translation + tvec[:,0]
     # logger.info(f"Attempting to update camera at port {port}")
     old_transformation = camera_data.transformation
-    new_transformation = np.matmul(old_transformation, board_pose_transformation)
-    # new_transformation = np.matmul(old_transformation, np.linalg.inv(board_pose_transformation))
-    # new_transformation = np.matmul(board_pose_transformation, old_transformation)
+    new_transformation = np.dot(old_transformation, M_wb)
     camera_data.transformation = new_transformation
-    # camera_data.rotation = np.dot(camera_data.rotation.T, rvec)
-    # camera_data.translation = camera_data.translation - tvec[:,0]
 
 
-#%%
 # change the point estimates to reflect the new origin
 xyz = capture_volume.point_estimates.obj
-scale = np.expand_dims(np.ones(xyz.shape[0]),1)
+scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
 xyzh = np.hstack([xyz, scale])
 
-new_origin_xyzh = np.matmul(np.linalg.inv(board_pose_transformation),xyzh.T).T
+new_origin_xyzh = np.matmul(np.linalg.inv(M_wb), xyzh.T).T
 # new_origin_xyzh = np.matmul(board_pose_transformation,xyzh.T).T
-capture_volume.point_estimates.obj = new_origin_xyzh[:,0:3]
+capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
 #%%
 
 capture_volume.save(session_directory, "new_origin")
@@ -155,8 +156,10 @@ logger.info("About to visualize the camera array")
 # Here is the plan: from a given sync_index, find which camera has the most points represented on it.
 # or wait...does this matter...can I just project back to the camera from the 3d points
 
+#%%
+
 app = QApplication(sys.argv)
-vizr = CaptureVolumeVisualizer(capture_volume = capture_volume)
+vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
 # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
 
 vizr_dialog = CaptureVolumeDialog(vizr)

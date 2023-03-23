@@ -22,11 +22,12 @@ from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera_array import CameraData
 import cv2
 from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
+from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
 session_directory = Path(__root__, "tests", "4_cameras_endofday")
 
-REOPTIMIZE_ARRAY = False 
+REOPTIMIZE_ARRAY =  True
 
 if REOPTIMIZE_ARRAY:
     point_data_csv_path = Path(session_directory, "point_data.csv")
@@ -110,21 +111,27 @@ board_pose_transformation = np.vstack([board_pose_transformation, np.array([0,0,
 logger.info("About to attempt to change camera array")
 # %%
 for port, camera_data in camera_array.cameras.items():
+    # camera_data.translation = camera_data.translation + tvec[:,0]
+    # logger.info(f"Attempting to update camera at port {port}")
     old_transformation = camera_data.transformation
-    new_transformation = np.matmul(board_pose_transformation,old_transformation)
+    new_transformation = np.matmul(old_transformation, board_pose_transformation)
     camera_data.transformation = new_transformation
 
 #%%
 
+capture_volume.save(session_directory, "new_origin")
+
 logger.info("About to visualize the camera array")
 
-
-app = QApplication(sys.argv)
-vizr = CaptureVolumeVisualizer(camera_array=camera_array)
-# vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
-
-sys.exit(app.exec())
 # Here is the plan: from a given sync_index, find which camera has the most points represented on it.
 # or wait...does this matter...can I just project back to the camera from the 3d points
 
+app = QApplication(sys.argv)
+vizr = CaptureVolumeVisualizer(capture_volume = capture_volume)
+# vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
+
+vizr_dialog = CaptureVolumeDialog(vizr)
+vizr_dialog.show()
+
+sys.exit(app.exec())
 # %%

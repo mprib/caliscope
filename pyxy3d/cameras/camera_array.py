@@ -45,7 +45,8 @@ class CameraData:
     def transformation(self, t: np.ndarray):
         self.rotation = t[0:3,0:3]
         self.translation = t[0:3,3]
-    
+        logger.info(f"Rotation and Translation being updated to {self.rotation} and {self.translation}")
+         
      
     def extrinsics_to_vector(self):
         """

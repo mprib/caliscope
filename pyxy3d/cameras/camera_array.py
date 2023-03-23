@@ -32,8 +32,12 @@ class CameraData:
 
     @property
     def transformation(self):
-
-        t = np.hstack([self.rotation, self.translation])
+        """"
+        Rotation and transformation combined to allow 
+        
+        """
+        
+        t = np.hstack([self.rotation, np.expand_dims(self.translation, 1)])
         t = np.vstack([t, np.array([0,0,0,1], np.float32)])
         return t 
    

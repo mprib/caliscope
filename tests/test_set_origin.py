@@ -3,9 +3,13 @@
 # from the code I'm developing...
 
 # %%
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
+
 from pathlib import Path
 import numpy as np
-
+import sys
+from PyQt6.QtWidgets import QApplication
 from pyxy3d import __root__
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
@@ -17,23 +21,32 @@ from pyxy3d.session import Session
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera_array import CameraData
 import cv2
+from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
+import pickle
 
 session_directory = Path(__root__, "tests", "4_cameras_endofday")
 
-point_data_csv_path = Path(session_directory, "point_data.csv")
+REOPTIMIZE_ARRAY = False 
 
-config_path = Path(session_directory, "config.toml")
-array_initializer = CameraArrayInitializer(config_path)
-camera_array = array_initializer.get_best_camera_array()
-point_estimates = get_point_estimates(camera_array, point_data_csv_path)
+if REOPTIMIZE_ARRAY:
+    point_data_csv_path = Path(session_directory, "point_data.csv")
 
-print(f"Optimizing initial camera array configuration ")
+    config_path = Path(session_directory, "config.toml")
+    array_initializer = CameraArrayInitializer(config_path)
+    camera_array = array_initializer.get_best_camera_array()
+    point_estimates = get_point_estimates(camera_array, point_data_csv_path)
 
-capture_volume = CaptureVolume(camera_array, point_estimates)
-capture_volume.save(session_directory, "tests")
-capture_volume.optimize()
-capture_volume.save(session_directory, "yet more")
+    print(f"Optimizing initial camera array configuration ")
 
+    capture_volume = CaptureVolume(camera_array, point_estimates)
+    capture_volume.save(session_directory, "initial")
+    capture_volume.optimize()
+    capture_volume.save(session_directory, "optimized")
+else:
+    
+    saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl") 
+    with open(saved_CV_path, "rb") as f:
+        capture_volume:CaptureVolume = pickle.load(f)
 
 # config_path = Path(session_directory, "config.toml")
 session = Session(session_directory)
@@ -85,18 +98,32 @@ retval, rvec, tvec = cv2.solvePnP(
     ),  
 )  
 
-
+# convert rvec to 3x3 rotation matrix
 rvec = cv2.Rodrigues(rvec)[0]
 #%%
 # I believe this is the transformation to be applied
 # or perhaps the inverse, let's find out...
-transformation = np.hstack([rvec,tvec])
-transformation = np.vstack([transformation, np.array([0,0,0,1], np.float32)])
+board_pose_transformation = np.hstack([rvec,tvec])
+board_pose_transformation = np.vstack([board_pose_transformation, np.array([0,0,0,1], np.float32)])
 
 # MAC: you are prepping the camera_data class to self.set_origin so that you can apply this to the whole array....
-
+logger.info("About to attempt to change camera array")
+# %%
+for port, camera_data in camera_array.cameras.items():
+    old_transformation = camera_data.transformation
+    new_transformation = np.matmul(board_pose_transformation,old_transformation)
+    camera_data.transformation = new_transformation
 
 #%%
+
+logger.info("About to visualize the camera array")
+
+
+app = QApplication(sys.argv)
+vizr = CaptureVolumeVisualizer(camera_array=camera_array)
+# vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
+
+sys.exit(app.exec())
 # Here is the plan: from a given sync_index, find which camera has the most points represented on it.
 # or wait...does this matter...can I just project back to the camera from the 3d points
 

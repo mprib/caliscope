@@ -28,7 +28,7 @@ import pickle
 
 session_directory = Path(__root__, "tests", "4_cameras_endofday")
 
-REOPTIMIZE_ARRAY = False
+REOPTIMIZE_ARRAY =  False
 
 if REOPTIMIZE_ARRAY:
     point_data_csv_path = Path(session_directory, "point_data.csv")
@@ -69,17 +69,38 @@ obj_indices = point_estimates.obj_indices[sync_indices == test_sync_index]
 # now get the actual x,y,z estimate associated with these unique charucos
 obj_xyz = point_estimates.obj[obj_indices]
 sorter = np.argsort(charuco_ids)
+# need to get charuco ids associated with the 3 point positions
 unique_charuco_xyz_index = sorter[
     np.searchsorted(charuco_ids, unique_charuco_id, sorter=sorter)
 ]
-# need to get charuco ids associated with the 3 point positions
-world_corners_xyz = obj_xyz[unique_charuco_xyz_index]
-# Convert 3d coordinates into 2d camera coordinates. Just pick a camera:
 
+world_corners_xyz = obj_xyz[unique_charuco_xyz_index]
 # need to get x,y,z estimates in board world...
 board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 
+#%%
+# quick check of corner distances in world and board frame to make sure I'm not
+# completely off track....
+test_index_A = 10
+test_index_B = 17
 
+# get the distance between them
+distance_world_A_B = np.sqrt(
+    np.sum((world_corners_xyz[test_index_A,:] - world_corners_xyz[test_index_B,:]) ** 2)
+)
+
+distance_board_A_B = np.sqrt(
+    np.sum((board_corners_xyz[test_index_A,:] - board_corners_xyz[test_index_B,:]) ** 2)
+)
+
+distance_error_mm = (distance_world_A_B - distance_board_A_B)*1000
+print(distance_error_mm)
+#%%
+
+
+def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz):
+    pass
+#%%
 ############################## POSSIBLE SOLUTION ON PAUSE ######################
 # Commenting out code associated with attempts to use board pose....
 # attempting alternate approach of calculating R|T that minimizes the difference

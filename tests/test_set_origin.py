@@ -28,7 +28,7 @@ import pickle
 
 session_directory = Path(__root__, "tests", "4_cameras_endofday")
 
-REOPTIMIZE_ARRAY = True
+REOPTIMIZE_ARRAY = False
 
 if REOPTIMIZE_ARRAY:
     point_data_csv_path = Path(session_directory, "point_data.csv")
@@ -49,6 +49,8 @@ else:
     saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl")
     with open(saved_CV_path, "rb") as f:
         capture_volume: CaptureVolume = pickle.load(f)
+    point_estimates = capture_volume.point_estimates
+    camera_array = capture_volume.camera_array
 
 # config_path = Path(session_directory, "config.toml")
 session = Session(session_directory)
@@ -71,50 +73,55 @@ unique_charuco_xyz_index = sorter[
     np.searchsorted(charuco_ids, unique_charuco_id, sorter=sorter)
 ]
 # need to get charuco ids associated with the 3 point positions
-unique_charuco_xyz = obj_xyz[unique_charuco_xyz_index]
+world_corners_xyz = obj_xyz[unique_charuco_xyz_index]
 # Convert 3d coordinates into 2d camera coordinates. Just pick a camera:
-anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
-
-charuco_image_points, jacobian = cv2.projectPoints(
-    unique_charuco_xyz,
-    rvec=anchor_camera.rotation,
-    tvec=anchor_camera.translation,
-    cameraMatrix=anchor_camera.matrix,
-    distCoeffs=np.array(
-        [0, 0, 0, 0, 0], dtype=np.float32
-    ),  # For origin setting, assume perfection
-)
-
 
 # need to get x,y,z estimates in board world...
-board_points_xyz = charuco_board.chessboardCorners[unique_charuco_id]
+board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 
 
-# use solvepnp and not estimate poseboard.....
-retval, rvec, tvec = cv2.solvePnP(
-    board_points_xyz,
-    charuco_image_points,
-    cameraMatrix=anchor_camera.matrix,
-    distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
-)
+############################## POSSIBLE SOLUTION ON PAUSE ######################
+# Commenting out code associated with attempts to use board pose....
+# attempting alternate approach of calculating R|T that minimizes the difference
+# between 
 
+# anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
 
-# convert rvec to 3x3 rotation matrix
-logger.info(f"Rotation vector is {rvec}")
-rvec = cv2.Rodrigues(rvec)[0]
-logger.info(f"Rotation vector is {rvec}")
+# charuco_image_points, jacobian = cv2.projectPoints(
+#     world_corners_xyz,
+#     rvec=anchor_camera.rotation,
+#     tvec=anchor_camera.translation,
+#     cameraMatrix=anchor_camera.matrix,
+#     distCoeffs=np.array(
+#         [0, 0, 0, 0, 0], dtype=np.float32
+#     ),  # For origin setting, assume perfection
+# )
+
+# # use solvepnp and not estimate poseboard.....
+# retval, rvec, tvec = cv2.solvePnP(
+#     board_corners_xyz,
+#     charuco_image_points,
+#     cameraMatrix=anchor_camera.matrix,
+#     distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
+# )
+# # convert rvec to 3x3 rotation matrix
+# logger.info(f"Rotation vector is {rvec}")
+# rvec = cv2.Rodrigues(rvec)[0]
+# logger.info(f"Rotation vector is {rvec}")
+##########################################################################
+
 ###overwriting rvec and tvec to test out my understanding
 rvec = cv2.Rodrigues(np.expand_dims(np.array([3.14159,0,0], dtype=np.float32), 1))[0]
 # note that these translations result in the system moving in the negative direction
-tvec = np.array([[0,0,0]]).T
+tvec = np.array([[0,1,0]]).T
 
 
 #%%
 # I believe this is the transformation to be applied
 # or perhaps the inverse, let's find out...
-board_anchor_transform = np.hstack([rvec, tvec])
-board_anchor_transform = np.vstack(
-    [board_anchor_transform, np.array([0, 0, 0, 1], np.float32)]
+new_origin_transform = np.hstack([rvec, tvec])
+new_origin_transform = np.vstack(
+    [new_origin_transform, np.array([0, 0, 0, 1], np.float32)]
 )
 
 # board_anchor_pose_transformation = np.matmul(
@@ -126,11 +133,14 @@ logger.info("About to attempt to change camera array")
 # %%
 # array_rotation =
 
+
+
+
 for port, camera_data in camera_array.cameras.items():
     # camera_data.translation = camera_data.translation + tvec[:,0]
     # logger.info(f"Attempting to update camera at port {port}")
     old_transformation = camera_data.transformation
-    new_transformation = np.dot(old_transformation, board_anchor_transform)
+    new_transformation = np.dot(old_transformation, new_origin_transform)
     camera_data.transformation = new_transformation
 
 
@@ -139,7 +149,7 @@ xyz = capture_volume.point_estimates.obj
 scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
 xyzh = np.hstack([xyz, scale])
 
-new_origin_xyzh = np.matmul(np.linalg.inv(board_anchor_transform), xyzh.T).T
+new_origin_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
 # new_origin_xyzh = np.matmul(board_pose_transformation,xyzh.T).T
 capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
 #%%

@@ -10,6 +10,7 @@ logger = pyxy3d.logger.get(__name__)
 from pathlib import Path
 import numpy as np
 import sys
+import scipy
 from PyQt6.QtWidgets import QApplication
 from pyxy3d import __root__
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
@@ -57,7 +58,7 @@ session = Session(session_directory)
 charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
-test_sync_index = sync_indices[28]
+test_sync_index = 110 # sync_indices[5]
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
 unique_charuco_id = np.unique(charuco_ids)
@@ -81,25 +82,58 @@ board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 #%%
 # quick check of corner distances in world and board frame to make sure I'm not
 # completely off track....
-test_index_A = 10
-test_index_B = 17
+# test_index_A = 10
+# test_index_B = 17
 
-# get the distance between them
-distance_world_A_B = np.sqrt(
-    np.sum((world_corners_xyz[test_index_A,:] - world_corners_xyz[test_index_B,:]) ** 2)
-)
+# # get the distance between them
+# distance_world_A_B = np.sqrt(
+#     np.sum((world_corners_xyz[test_index_A,:] - world_corners_xyz[test_index_B,:]) ** 2)
+# )
 
-distance_board_A_B = np.sqrt(
-    np.sum((board_corners_xyz[test_index_A,:] - board_corners_xyz[test_index_B,:]) ** 2)
-)
+# distance_board_A_B = np.sqrt(
+#     np.sum((board_corners_xyz[test_index_A,:] - board_corners_xyz[test_index_B,:]) ** 2)
+# )
 
-distance_error_mm = (distance_world_A_B - distance_board_A_B)*1000
-print(distance_error_mm)
-#%%
+# distance_error_mm = (distance_world_A_B - distance_board_A_B)*1000
+# print(distance_error_mm)
 
+# if True:
 
 def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz):
-    pass
+    """
+    error function for estimating the transformation that will set the world origin
+    to a board frame of reference. 
+    
+    returns a vector of distances between each corner
+    
+    """
+    rvec = cv2.Rodrigues(np.expand_dims(np.array([six_dof_params[0:3]], dtype=np.float32), 1))[0]
+    tvec = np.array([six_dof_params[3:]]).T
+
+    new_origin_transform = np.hstack([rvec, tvec])
+    new_origin_transform = np.vstack(
+        [new_origin_transform, np.array([0, 0, 0, 1], np.float32)]
+    )
+
+    xyz = world_corners_xyz
+    scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
+    xyzh = np.hstack([xyz, scale])
+    
+    new_origin_world_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
+    new_world_corners_xyz = new_origin_world_xyzh[:,0:3]
+    
+    distance_error = np.sum(np.sqrt((board_corners_xyz - new_world_corners_xyz)**2),axis=1)
+    
+    return distance_error
+
+six_dof_params_initial = [0,0,0,0,0,0]
+
+least_sq_result = scipy.optimize.least_squares(fun = board_distance_error,
+                                               x0 = six_dof_params_initial,
+                                               args = [board_corners_xyz,world_corners_xyz])
+
+
+
 #%%
 ############################## POSSIBLE SOLUTION ON PAUSE ######################
 # Commenting out code associated with attempts to use board pose....
@@ -132,12 +166,12 @@ def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz):
 ##########################################################################
 
 ###overwriting rvec and tvec to test out my understanding
-rvec = cv2.Rodrigues(np.expand_dims(np.array([3.14159,0,0], dtype=np.float32), 1))[0]
+
+six_dof_params = least_sq_result.x
+rvec = cv2.Rodrigues(np.expand_dims(np.array(six_dof_params[0:3], dtype=np.float32), 1))[0]
 # note that these translations result in the system moving in the negative direction
-tvec = np.array([[0,1,0]]).T
+tvec = np.array([six_dof_params[3:]]).T
 
-
-#%%
 # I believe this is the transformation to be applied
 # or perhaps the inverse, let's find out...
 new_origin_transform = np.hstack([rvec, tvec])
@@ -145,17 +179,7 @@ new_origin_transform = np.vstack(
     [new_origin_transform, np.array([0, 0, 0, 1], np.float32)]
 )
 
-# board_anchor_pose_transformation = np.matmul(
-#     # np.linalg.inv(anchor_transform), np.linalg.inv(board_anchor_pose_transformation) 
-#     anchor_transform, board_anchor_pose_transformation 
-#     )
-
 logger.info("About to attempt to change camera array")
-# %%
-# array_rotation =
-
-
-
 
 for port, camera_data in camera_array.cameras.items():
     # camera_data.translation = camera_data.translation + tvec[:,0]
@@ -164,6 +188,13 @@ for port, camera_data in camera_array.cameras.items():
     new_transformation = np.dot(old_transformation, new_origin_transform)
     camera_data.transformation = new_transformation
 
+old_world_corners_xyzh = np.hstack([world_corners_xyz,np.expand_dims(np.ones(world_corners_xyz.shape[0]),1)])
+test_new_origin_world_corners_xyzh = np.matmul(np.linalg.inv(new_origin_transform), old_world_corners_xyzh.T).T
+
+#%%
+
+
+# test_new_origin_world_corners_xyz  = 
 
 # change the point estimates to reflect the new origin
 xyz = capture_volume.point_estimates.obj

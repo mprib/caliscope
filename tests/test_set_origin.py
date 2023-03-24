@@ -124,14 +124,17 @@ def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz):
     new_origin_world_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
     new_world_corners_xyz = new_origin_world_xyzh[:,0:3]
     
-    distance_error = np.sum(np.sqrt((board_corners_xyz - new_world_corners_xyz)**2),axis=1)
-    
+    distance_error = np.sqrt(np.sum((board_corners_xyz - new_world_corners_xyz)**2, axis=1))
+    logger.info(f"Distance Error during optimization: {distance_error}")
     return distance_error
 
 six_dof_params_initial = [0,0,0,0,0,0]
 
 least_sq_result = scipy.optimize.least_squares(fun = board_distance_error,
                                                x0 = six_dof_params_initial,
+                                            #    loss = "huber",
+                                            #    method = "lm",
+                                               ftol = 1e-20,
                                                args = [board_corners_xyz,world_corners_xyz])
 
 six_dof_params = least_sq_result.x
@@ -145,29 +148,29 @@ tvec = np.array([six_dof_params[3:]]).T
 # attempting alternate approach of calculating R|T that minimizes the difference
 # between 
 
-# anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
+anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
 
-# charuco_image_points, jacobian = cv2.projectPoints(
-#     world_corners_xyz,
-#     rvec=anchor_camera.rotation,
-#     tvec=anchor_camera.translation,
-#     cameraMatrix=anchor_camera.matrix,
-#     distCoeffs=np.array(
-#         [0, 0, 0, 0, 0], dtype=np.float32
-#     ),  # For origin setting, assume perfection
-# )
+charuco_image_points, jacobian = cv2.projectPoints(
+    world_corners_xyz,
+    rvec=anchor_camera.rotation,
+    tvec=anchor_camera.translation,
+    cameraMatrix=anchor_camera.matrix,
+    distCoeffs=np.array(
+        [0, 0, 0, 0, 0], dtype=np.float32
+    ),  # For origin setting, assume perfection
+)
 
-# # use solvepnp and not estimate poseboard.....
-# retval, rvec, tvec = cv2.solvePnP(
-#     board_corners_xyz,
-#     charuco_image_points,
-#     cameraMatrix=anchor_camera.matrix,
-#     distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
-# )
-# # convert rvec to 3x3 rotation matrix
-# # logger.info(f"Rotation vector is {rvec}")
-# rvec = cv2.Rodrigues(rvec)[0]
-# # logger.info(f"Rotation vector is {rvec}")
+# use solvepnp and not estimate poseboard.....
+retval, rvec, tvec = cv2.solvePnP(
+    board_corners_xyz,
+    charuco_image_points,
+    cameraMatrix=anchor_camera.matrix,
+    distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
+)
+# convert rvec to 3x3 rotation matrix
+# logger.info(f"Rotation vector is {rvec}")
+rvec = cv2.Rodrigues(rvec)[0]
+# logger.info(f"Rotation vector is {rvec}")
 # ##########################################################################
 
 

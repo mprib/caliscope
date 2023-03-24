@@ -42,8 +42,6 @@ class CaptureVolumeVisualizer:
             self.camera_array = capture_volume.camera_array
             self.point_estimates = self.capture_volume.point_estimates
 
-        self.current_frame = 0
-
         # constuct a scene
         self.scene = gl.GLViewWidget()
         self.scene.setCameraPosition(distance=4)  # the scene camera, not a real Camera
@@ -87,9 +85,12 @@ class CaptureVolumeVisualizer:
             self.point_estimates.obj_indices[current_sync_index_flag]
         )
 
-        single_board_points = self.point_estimates.obj[single_board_indices]
 
-        self.scatter.setData(pos=single_board_points)
+        self.single_board_points = self.point_estimates.obj[single_board_indices]
+        self.mean_board_position = np.mean(self.single_board_points,axis=0)
+        logger.info(f"Mean Board Position at sync index {sync_index}: {self.mean_board_position}")
+
+        self.scatter.setData(pos=self.single_board_points)
 
 
 # helper functions to assist with scene creation

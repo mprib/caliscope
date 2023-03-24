@@ -27,14 +27,15 @@ from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
-session_directory = Path(__root__, "tests", "4_cameras_endofday")
+session_directory = Path(__root__, "tests", "4_cameras_beginning")
+point_data_csv_path = Path(session_directory, "point_data.csv")
+config_path = Path(session_directory, "config.toml")
 
-REOPTIMIZE_ARRAY =  False
+# REOPTIMIZE_ARRAY = True
+REOPTIMIZE_ARRAY = False
 
 if REOPTIMIZE_ARRAY:
-    point_data_csv_path = Path(session_directory, "point_data.csv")
 
-    config_path = Path(session_directory, "config.toml")
     array_initializer = CameraArrayInitializer(config_path)
     camera_array = array_initializer.get_best_camera_array()
     point_estimates = get_point_estimates(camera_array, point_data_csv_path)
@@ -58,7 +59,8 @@ session = Session(session_directory)
 charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
-test_sync_index = sync_indices[15]
+# test_sync_index = sync_indices[46]
+test_sync_index = 313
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
 unique_charuco_id = np.unique(charuco_ids)
@@ -163,10 +165,10 @@ tvec = np.array([six_dof_params[3:]]).T
 #     distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
 # )
 # # convert rvec to 3x3 rotation matrix
-# logger.info(f"Rotation vector is {rvec}")
+# # logger.info(f"Rotation vector is {rvec}")
 # rvec = cv2.Rodrigues(rvec)[0]
-# logger.info(f"Rotation vector is {rvec}")
-##########################################################################
+# # logger.info(f"Rotation vector is {rvec}")
+# ##########################################################################
 
 
 # I believe this is the transformation to be applied
@@ -226,8 +228,12 @@ logger.info("About to visualize the camera array")
 
 #%%
 
+camera_array = capture_volume.camera_array
+point_estimates = get_point_estimates(camera_array, point_data_csv_path)
+new_capture_volume = CaptureVolume(camera_array, point_estimates)
+
 app = QApplication(sys.argv)
-vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
+vizr = CaptureVolumeVisualizer(capture_volume=new_capture_volume)
 # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
 
 vizr_dialog = CaptureVolumeDialog(vizr)

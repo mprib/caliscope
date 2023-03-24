@@ -55,8 +55,10 @@ class CaptureVolumeDialog(QWidget):
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
+        self.set_origin_btn.clicked.connect(self.log_board_points)
 
-
+    def log_board_points(self):
+        logger.info(f"{self.visualizer.single_board_points}")
     def update_board(self, sync_index):
         
         logger.info(f"Updating board to sync index {sync_index}")

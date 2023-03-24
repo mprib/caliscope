@@ -80,15 +80,6 @@ class CaptureVolumeVisualizer:
             # self.thread = Thread(target=self.play_data, args=[], daemon=False)
             # self.thread.start()
 
-    def play_data(self):
-        # sync_indices = self.point_estimate_data["sync_index"].unique().tolist()
-        sync_indices = np.unique(self.point_estimates.sync_indices)
-        sync_indices = np.sort(sync_indices)
-
-        for sync_index in sync_indices:
-            self.display_points(sync_index)
-            print(f"Displaying frames from index: {sync_index}")
-            time.sleep(1 / 5)
 
     def display_points(self, sync_index):
         current_sync_index_flag = self.point_estimates.sync_indices == sync_index
@@ -174,15 +165,15 @@ if __name__ == "__main__":
     # session_directory = Path(__root__,  "tests", "2_cameras_180_deg")
     # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
     # session_directory = Path(__root__,  "tests", "3_cameras_middle")
-    session_directory = Path(__root__, "tests", "4_cameras_beginning")
-    # session_directory = Path(__root__, "tests", "4_cameras_endofday")
+    # session_directory = Path(__root__, "tests", "4_cameras_beginning")
+    session_directory = Path(__root__, "tests", "4_cameras_endofday")
     # session_directory = Path(__root__,  "tests", "4_cameras_nonoverlap")
     # session_directory = Path(__root__,  "tests", "3_cameras_linear")
     # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
     # session_directory = Path(__root__,  "tests", "just_checking")
 
     # saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl")
-    saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl")
+    saved_CV_path = Path(session_directory, "capture_volume_stage_1_new_origin.pkl")
     with open(saved_CV_path, "rb") as f:
         capture_volume: CaptureVolume = pickle.load(f)
 
@@ -192,6 +183,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
+    # vizr.display_points(28)
     # vizr.scene.show()
     # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
 

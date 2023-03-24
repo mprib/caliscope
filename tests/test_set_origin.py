@@ -101,7 +101,7 @@ board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 
 # if True:
 
-def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz, basin_hopping:bool):
+def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz ):
     """
     error function for estimating the transformation that will set the world origin
     to a board frame of reference. 
@@ -144,31 +144,16 @@ def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz, b
 six_dof_params_initial = [0,0,0,0,0,0]
 pi = 3.14159
 
-use_basin_hopping = False
-
-if use_basin_hopping:
-
-    bounds = [(0,pi), (0,pi),(0,pi), (-10,10), (-10,10), (-10,10)]
-
-    args = (board_corners_xyz,world_corners_xyz, use_basin_hopping)
-    minimizer_kwargs = {"method": "L-BFGS-B", "bounds": bounds, "args":args}
-    # Call basinhopping
-    basin_hopping_result = scipy.optimize.basinhopping(func=board_distance_error, 
-                                                       x0=six_dof_params_initial,
-                                                       minimizer_kwargs=minimizer_kwargs)
-    six_dof_params = basin_hopping_result.x
-
-else:
-    bounds = ([0,0,0, -10,-10,-10], 
-            [pi,pi,pi, 10,10,10])
+bounds = ([0,0,0, -10,-10,-10], 
+        [pi,pi,pi, 10,10,10])
    
-    least_sq_result = scipy.optimize.least_squares(fun = board_distance_error,
-                                                x0 = six_dof_params_initial,
-                                                # bounds=bounds,
-                                                ftol = 1e-50,
-                                                args = [board_corners_xyz,world_corners_xyz, use_basin_hopping])
+least_sq_result = scipy.optimize.least_squares(fun = board_distance_error,
+                                            x0 = six_dof_params_initial,
+                                            # bounds=bounds,
+                                            ftol = 1e-10,
+                                            args = [board_corners_xyz,world_corners_xyz])
 
-    six_dof_params = least_sq_result.x
+six_dof_params = least_sq_result.x
 
 rvec = cv2.Rodrigues(np.expand_dims(np.array(six_dof_params[0:3], dtype=np.float32), 1))[0]
 # note that these translations result in the system moving in the negative direction

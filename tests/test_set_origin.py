@@ -58,7 +58,7 @@ session = Session(session_directory)
 charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
-test_sync_index = 110 # sync_indices[5]
+test_sync_index = sync_indices[15]
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
 unique_charuco_id = np.unique(charuco_ids)
@@ -132,9 +132,12 @@ least_sq_result = scipy.optimize.least_squares(fun = board_distance_error,
                                                x0 = six_dof_params_initial,
                                                args = [board_corners_xyz,world_corners_xyz])
 
+six_dof_params = least_sq_result.x
+rvec = cv2.Rodrigues(np.expand_dims(np.array(six_dof_params[0:3], dtype=np.float32), 1))[0]
+# note that these translations result in the system moving in the negative direction
+tvec = np.array([six_dof_params[3:]]).T
 
 
-#%%
 ############################## POSSIBLE SOLUTION ON PAUSE ######################
 # Commenting out code associated with attempts to use board pose....
 # attempting alternate approach of calculating R|T that minimizes the difference
@@ -165,12 +168,6 @@ least_sq_result = scipy.optimize.least_squares(fun = board_distance_error,
 # logger.info(f"Rotation vector is {rvec}")
 ##########################################################################
 
-###overwriting rvec and tvec to test out my understanding
-
-six_dof_params = least_sq_result.x
-rvec = cv2.Rodrigues(np.expand_dims(np.array(six_dof_params[0:3], dtype=np.float32), 1))[0]
-# note that these translations result in the system moving in the negative direction
-tvec = np.array([six_dof_params[3:]]).T
 
 # I believe this is the transformation to be applied
 # or perhaps the inverse, let's find out...
@@ -191,7 +188,6 @@ for port, camera_data in camera_array.cameras.items():
 old_world_corners_xyzh = np.hstack([world_corners_xyz,np.expand_dims(np.ones(world_corners_xyz.shape[0]),1)])
 test_new_origin_world_corners_xyzh = np.matmul(np.linalg.inv(new_origin_transform), old_world_corners_xyzh.T).T
 
-#%%
 
 
 # test_new_origin_world_corners_xyz  = 
@@ -204,7 +200,22 @@ xyzh = np.hstack([xyz, scale])
 new_origin_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
 # new_origin_xyzh = np.matmul(board_pose_transformation,xyzh.T).T
 capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
-#%%
+
+
+############## REASSESS POINT ESTIMATE ORIGIN FRAME ##################################
+
+obj_indices = capture_volume.point_estimates.obj_indices[sync_indices == test_sync_index]
+# now get the actual x,y,z estimate associated with these unique charucos
+obj_xyz = capture_volume.point_estimates.obj[obj_indices]
+sorter = np.argsort(charuco_ids)
+# need to get charuco ids associated with the 3 point positions
+unique_charuco_xyz_index = sorter[
+    np.searchsorted(charuco_ids, unique_charuco_id, sorter=sorter)
+]
+
+new_cap_vol_world_corners_xyz = obj_xyz[unique_charuco_xyz_index]
+# need to get x,y,z estimates in board world...
+board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 
 capture_volume.save(session_directory, "new_origin")
 

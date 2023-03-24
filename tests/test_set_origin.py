@@ -27,7 +27,7 @@ from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
-session_directory = Path(__root__, "tests", "4_cameras_beginning")
+session_directory = Path(__root__, "tests", "4_cameras_endofday")
 point_data_csv_path = Path(session_directory, "point_data.csv")
 config_path = Path(session_directory, "config.toml")
 
@@ -60,7 +60,7 @@ charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
 # test_sync_index = sync_indices[46]
-test_sync_index = 313
+test_sync_index = 70
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
 unique_charuco_id = np.unique(charuco_ids)
@@ -101,7 +101,7 @@ board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 
 # if True:
 
-def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz):
+def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz, basin_hopping:bool):
     """
     error function for estimating the transformation that will set the world origin
     to a board frame of reference. 
@@ -123,21 +123,53 @@ def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz):
     
     new_origin_world_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
     new_world_corners_xyz = new_origin_world_xyzh[:,0:3]
+
+    delta_xyz = board_corners_xyz - new_world_corners_xyz
+    delta_xyz[:,0:2] = abs(delta_xyz[:,0:2])
+    delta_xyz[3:,0:2] = 0
+    delta_xyz[:,2] = abs(delta_xyz[:,2]) # make the algo care more about flatness
     
-    distance_error = np.sqrt(np.sum((board_corners_xyz - new_world_corners_xyz)**2, axis=1))
-    logger.info(f"Distance Error during optimization: {distance_error}")
-    return distance_error
+    minimize_target = delta_xyz.ravel()
+    
+    # distance_error = np.sqrt(np.sum((board_corners_xyz - new_world_corners_xyz)**2, axis=1))
+    # if basin_hopping:
+        # distance_error = np.sum(distance_error)
+    # alternate approach here...just trying to drive the z coordinates to zero...
+    # distance_error = new_world_corners_xyz[:,2]**2
+
+    # logger.info(f"Distance Error during optimization: {distance_error}")
+    # logger.info(f"Estimated Solution: {six_dof_params}")
+    return minimize_target
 
 six_dof_params_initial = [0,0,0,0,0,0]
+pi = 3.14159
 
-least_sq_result = scipy.optimize.least_squares(fun = board_distance_error,
-                                               x0 = six_dof_params_initial,
-                                            #    loss = "huber",
-                                            #    method = "lm",
-                                               ftol = 1e-20,
-                                               args = [board_corners_xyz,world_corners_xyz])
+use_basin_hopping = False
 
-six_dof_params = least_sq_result.x
+if use_basin_hopping:
+
+    bounds = [(0,pi), (0,pi),(0,pi), (-10,10), (-10,10), (-10,10)]
+
+    args = (board_corners_xyz,world_corners_xyz, use_basin_hopping)
+    minimizer_kwargs = {"method": "L-BFGS-B", "bounds": bounds, "args":args}
+    # Call basinhopping
+    basin_hopping_result = scipy.optimize.basinhopping(func=board_distance_error, 
+                                                       x0=six_dof_params_initial,
+                                                       minimizer_kwargs=minimizer_kwargs)
+    six_dof_params = basin_hopping_result.x
+
+else:
+    bounds = ([0,0,0, -10,-10,-10], 
+            [pi,pi,pi, 10,10,10])
+   
+    least_sq_result = scipy.optimize.least_squares(fun = board_distance_error,
+                                                x0 = six_dof_params_initial,
+                                                # bounds=bounds,
+                                                ftol = 1e-50,
+                                                args = [board_corners_xyz,world_corners_xyz, use_basin_hopping])
+
+    six_dof_params = least_sq_result.x
+
 rvec = cv2.Rodrigues(np.expand_dims(np.array(six_dof_params[0:3], dtype=np.float32), 1))[0]
 # note that these translations result in the system moving in the negative direction
 tvec = np.array([six_dof_params[3:]]).T
@@ -148,29 +180,29 @@ tvec = np.array([six_dof_params[3:]]).T
 # attempting alternate approach of calculating R|T that minimizes the difference
 # between 
 
-anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
+# anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
 
-charuco_image_points, jacobian = cv2.projectPoints(
-    world_corners_xyz,
-    rvec=anchor_camera.rotation,
-    tvec=anchor_camera.translation,
-    cameraMatrix=anchor_camera.matrix,
-    distCoeffs=np.array(
-        [0, 0, 0, 0, 0], dtype=np.float32
-    ),  # For origin setting, assume perfection
-)
+# charuco_image_points, jacobian = cv2.projectPoints(
+#     world_corners_xyz,
+#     rvec=anchor_camera.rotation,
+#     tvec=anchor_camera.translation,
+#     cameraMatrix=anchor_camera.matrix,
+#     distCoeffs=np.array(
+#         [0, 0, 0, 0, 0], dtype=np.float32
+#     ),  # For origin setting, assume perfection
+# )
 
-# use solvepnp and not estimate poseboard.....
-retval, rvec, tvec = cv2.solvePnP(
-    board_corners_xyz,
-    charuco_image_points,
-    cameraMatrix=anchor_camera.matrix,
-    distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
-)
-# convert rvec to 3x3 rotation matrix
-# logger.info(f"Rotation vector is {rvec}")
-rvec = cv2.Rodrigues(rvec)[0]
-# logger.info(f"Rotation vector is {rvec}")
+# # use solvepnp and not estimate poseboard.....
+# retval, rvec, tvec = cv2.solvePnP(
+#     board_corners_xyz,
+#     charuco_image_points,
+#     cameraMatrix=anchor_camera.matrix,
+#     distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
+# )
+# # convert rvec to 3x3 rotation matrix
+# # logger.info(f"Rotation vector is {rvec}")
+# rvec = cv2.Rodrigues(rvec)[0]
+# # logger.info(f"Rotation vector is {rvec}")
 # ##########################################################################
 
 
@@ -233,10 +265,10 @@ logger.info("About to visualize the camera array")
 
 camera_array = capture_volume.camera_array
 point_estimates = get_point_estimates(camera_array, point_data_csv_path)
-new_capture_volume = CaptureVolume(camera_array, point_estimates)
+capture_volume = CaptureVolume(camera_array, point_estimates)
 
 app = QApplication(sys.argv)
-vizr = CaptureVolumeVisualizer(capture_volume=new_capture_volume)
+vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
 # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
 
 vizr_dialog = CaptureVolumeDialog(vizr)

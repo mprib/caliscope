@@ -27,12 +27,12 @@ from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
-session_directory = Path(__root__, "tests", "4_cameras_endofday")
+session_directory = Path(__root__, "tests", "3_cameras_middle")
 point_data_csv_path = Path(session_directory, "point_data.csv")
 config_path = Path(session_directory, "config.toml")
 
-# REOPTIMIZE_ARRAY = True
-REOPTIMIZE_ARRAY = False
+REOPTIMIZE_ARRAY = True
+# REOPTIMIZE_ARRAY = False
 
 if REOPTIMIZE_ARRAY:
 
@@ -60,7 +60,7 @@ charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
 # test_sync_index = sync_indices[46]
-test_sync_index = 70
+test_sync_index = 35
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
 unique_charuco_id = np.unique(charuco_ids)
@@ -80,6 +80,7 @@ unique_charuco_xyz_index = sorter[
 world_corners_xyz = obj_xyz[unique_charuco_xyz_index]
 # need to get x,y,z estimates in board world...
 board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
+
 
 #%%
 # quick check of corner distances in world and board frame to make sure I'm not
@@ -125,8 +126,7 @@ def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz ):
     new_world_corners_xyz = new_origin_world_xyzh[:,0:3]
 
     delta_xyz = board_corners_xyz - new_world_corners_xyz
-    delta_xyz[:,0:2] = abs(delta_xyz[:,0:2])
-    delta_xyz[3:,0:2] = 0
+    delta_xyz[:2,0:2] = 0
     delta_xyz[:,2] = abs(delta_xyz[:,2]) # make the algo care more about flatness
     
     minimize_target = delta_xyz.ravel()

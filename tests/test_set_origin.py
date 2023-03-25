@@ -31,8 +31,8 @@ session_directory = Path(__root__, "tests", "4_cameras_beginning")
 point_data_csv_path = Path(session_directory, "point_data.csv")
 config_path = Path(session_directory, "config.toml")
 
-REOPTIMIZE_ARRAY = True
-# REOPTIMIZE_ARRAY = False
+# REOPTIMIZE_ARRAY = True
+REOPTIMIZE_ARRAY = False
 
 if REOPTIMIZE_ARRAY:
 
@@ -61,7 +61,6 @@ charuco_board = session.charuco.board
 sync_indices = point_estimates.sync_indices
 # test_sync_index = sync_indices[46]
 test_sync_index = 320
-
 
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
@@ -115,28 +114,27 @@ def get_centroid_distances(board_corners_xyz, world_corners_xyz):
     logger.info(f"Correction Ratio: {correction_ratio}")
     board_centroid_A = board_centroid_A * correction_ratio
     board_centroid_B = board_centroid_B * correction_ratio
-   
-   
+
     # check scaling works
     distance_world = np.sqrt(np.sum((world_centroid_B - world_centroid_A) ** 2))
     distance_board = np.sqrt(np.sum((board_centroid_B - board_centroid_A) ** 2))
     correction_ratio = distance_world / distance_board
     logger.info(f"Correction Ratio after attempting to correct: {correction_ratio}")
-    
-     
-    centroid_A_distance = np.sqrt(np.sum(board_centroid_A - world_centroid_A)**2)
-    centroid_B_distance = np.sqrt(np.sum(board_centroid_B - world_centroid_B)**2)
-    
+
+    logger.info(f"Distance world: {distance_world}")
+    logger.info(f"Distance board: {distance_board}")
+
+    centroid_A_distance = np.sqrt(np.sum((board_centroid_A - world_centroid_A) ** 2))
+    centroid_B_distance = np.sqrt(np.sum((board_centroid_B - world_centroid_B) ** 2))
+
     logger.info(f"Board Centroid A: {board_centroid_A}")
     logger.info(f"World Centroid A: {world_centroid_A}")
-
+    logger.info(f"Distance between A centroids: {centroid_A_distance}")
     logger.info(f"Board Centroid B: {board_centroid_B}")
     logger.info(f"World Centroid B: {world_centroid_B}")
-    
-    delta_A = world_centroid_A - board_centroid_A
-    delta_B = world_centroid_B - board_centroid_B
-    return centroid_A_distance, centroid_B_distance
+    logger.info(f"Distance between B centroids: {centroid_B_distance}")
 
+    return centroid_A_distance, centroid_B_distance
 
 
 def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz):
@@ -182,19 +180,24 @@ def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz):
     centroid_A_distance, centroid_B_distance = get_centroid_distances(
         board_corners_xyz, new_world_corners_xyz
     )
-    
+
+    centroid_amplifier = 100
     # logger.info(f"z-sum: {np.sum(new_world_corners_z)}")
     # logger.info(f"centroid A Distances: {centroid_A_distance}")
     # logger.info(f"centroid B Distances: {centroid_B_distance}")
-    minimize_target = np.hstack([abs(new_world_corners_z), centroid_A_distance,centroid_B_distance])
+    minimize_target = np.hstack(
+        [abs(new_world_corners_z), centroid_A_distance*centroid_amplifier, centroid_B_distance*centroid_amplifier]
+    )
     logger.info(f"minimize target: {minimize_target}")
     return minimize_target
 
 
 six_dof_params_initial = [0, 0, 0, 0, 0, 0]
-pi_plus = 4 # a longer leash than needed, but still not going crazy
-bounds = ([-pi_plus,-pi_plus,-pi_plus, -100,-100,-100],
-[pi_plus,pi_plus,pi_plus, 10,10,10])
+pi_plus = 4  # a longer leash than needed, but still not going crazy
+bounds = (
+    [-pi_plus, -pi_plus, -pi_plus, -100, -100, -100],
+    [pi_plus, pi_plus, pi_plus, 10, 10, 10],
+)
 
 least_sq_result = scipy.optimize.least_squares(
     fun=board_fit_error,

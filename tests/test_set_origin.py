@@ -115,12 +115,6 @@ def get_centroid_distances(board_corners_xyz, world_corners_xyz):
     board_centroid_A = board_centroid_A * correction_ratio
     board_centroid_B = board_centroid_B * correction_ratio
 
-    # check scaling works
-    distance_world = np.sqrt(np.sum((world_centroid_B - world_centroid_A) ** 2))
-    distance_board = np.sqrt(np.sum((board_centroid_B - board_centroid_A) ** 2))
-    correction_ratio = distance_world / distance_board
-    logger.info(f"Correction Ratio after attempting to correct: {correction_ratio}")
-
     logger.info(f"Distance world: {distance_world}")
     logger.info(f"Distance board: {distance_board}")
 
@@ -134,7 +128,7 @@ def get_centroid_distances(board_corners_xyz, world_corners_xyz):
     logger.info(f"World Centroid B: {world_centroid_B}")
     logger.info(f"Distance between B centroids: {centroid_B_distance}")
 
-    return centroid_A_distance, centroid_B_distance
+    return centroid_A_distance, centroid_B_distance, correction_ratio
 
 
 def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz):
@@ -163,7 +157,7 @@ def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz):
     rvec = cv2.Rodrigues(
         np.expand_dims(np.array([six_dof_params[0:3]], dtype=np.float32), 1)
     )[0]
-    tvec = np.array([six_dof_params[3:]]).T
+    tvec = np.array([six_dof_params[3:6]]).T
     new_origin_transform = np.hstack([rvec, tvec])
     new_origin_transform = np.vstack(
         [new_origin_transform, np.array([0, 0, 0, 1], np.float32)]
@@ -177,37 +171,46 @@ def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz):
     new_world_corners_xyz = new_origin_world_xyzh[:, 0:3]
 
     new_world_corners_z = new_origin_world_xyzh[:, 2]
-    centroid_A_distance, centroid_B_distance = get_centroid_distances(
+    centroid_A_distance, centroid_B_distance, correction_ratio = get_centroid_distances(
         board_corners_xyz, new_world_corners_xyz
     )
+    centroid_amplifier = 1
+    
+    correction_ratio = six_dof_params[6]
+    scaled_board_corners_xyz = board_corners_xyz * correction_ratio
+    distance_errors_xyz = new_world_corners_xyz - scaled_board_corners_xyz
+    # distance_errors_xyz[3:,0:2] = 0
+    logger.info(f"Centroid A Distance: {centroid_A_distance}")
+    logger.info(f"Centroid B Distance: {centroid_B_distance}")
 
-    centroid_amplifier = 10
-    # logger.info(f"z-sum: {np.sum(new_world_corners_z)}")
-    # logger.info(f"centroid A Distances: {centroid_A_distance}")
-    # logger.info(f"centroid B Distances: {centroid_B_distance}")
+    distances = np.sqrt(np.sum(distance_errors_xyz**2, axis=1))
+
     minimize_target = np.hstack(
         [
-            # new_world_corners_z,
-            centroid_A_distance * centroid_amplifier,
-            centroid_B_distance * centroid_amplifier,
+            # distance_errors_xyz.ravel(),
+            distances,
+            # abs(new_world_corners_xyz[:,2])
+            # centroid_A_distance 
+            # centroid_B_distance 
         ]
     )
     logger.info(f"minimize target: {minimize_target}")
     return minimize_target
 
 
-six_dof_params_initial = [0, 0, 0, 0, 0, 0]
-# pi_plus = 4  # a longer leash than needed, but still not going crazy
-# bounds = (
-#     [-pi_plus, -pi_plus, -pi_plus, -100, -100, -100],
-#     [pi_plus, pi_plus, pi_plus, 10, 10, 10],
-# )
+six_dof_params_initial = [0, 0, 0, 0, 0, 0, 1] # experimenting with correction ratio as an additional input
+pi_plus = 4  # a longer leash than needed, but still not going crazy
+bounds = (
+    [-pi_plus, -pi_plus, -pi_plus, -100, -100, -100, .5],
+    [pi_plus, pi_plus, pi_plus, 10, 10, 10, 1.5],
+)
 
 least_sq_result = scipy.optimize.least_squares(
     fun=board_fit_error,
     x0=six_dof_params_initial,
-    # bounds=bounds,
+    bounds=bounds,
     ftol=1e-10,
+    method = "trf",
     args=[board_corners_xyz, world_corners_xyz],
 )
 
@@ -217,7 +220,7 @@ rvec = cv2.Rodrigues(
     np.expand_dims(np.array(six_dof_params[0:3], dtype=np.float32), 1)
 )[0]
 # note that these translations result in the system moving in the negative direction
-tvec = np.array([six_dof_params[3:]]).T
+tvec = np.array([six_dof_params[3:6]]).T
 
 
 # I believe this is the transformation to be applied
@@ -282,9 +285,9 @@ logger.info("About to visualize the camera array")
 
 #%%
 
-camera_array = capture_volume.camera_array
-point_estimates = get_point_estimates(camera_array, point_data_csv_path)
-capture_volume = CaptureVolume(camera_array, point_estimates)
+# camera_array = capture_volume.camera_array
+# point_estimates = get_point_estimates(camera_array, point_data_csv_path)
+# capture_volume = CaptureVolume(camera_array, point_estimates)
 
 app = QApplication(sys.argv)
 vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)

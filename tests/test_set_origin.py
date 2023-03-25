@@ -181,28 +181,32 @@ def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz):
         board_corners_xyz, new_world_corners_xyz
     )
 
-    centroid_amplifier = 100
+    centroid_amplifier = 10
     # logger.info(f"z-sum: {np.sum(new_world_corners_z)}")
     # logger.info(f"centroid A Distances: {centroid_A_distance}")
     # logger.info(f"centroid B Distances: {centroid_B_distance}")
     minimize_target = np.hstack(
-        [abs(new_world_corners_z), centroid_A_distance*centroid_amplifier, centroid_B_distance*centroid_amplifier]
+        [
+            # new_world_corners_z,
+            centroid_A_distance * centroid_amplifier,
+            centroid_B_distance * centroid_amplifier,
+        ]
     )
     logger.info(f"minimize target: {minimize_target}")
     return minimize_target
 
 
 six_dof_params_initial = [0, 0, 0, 0, 0, 0]
-pi_plus = 4  # a longer leash than needed, but still not going crazy
-bounds = (
-    [-pi_plus, -pi_plus, -pi_plus, -100, -100, -100],
-    [pi_plus, pi_plus, pi_plus, 10, 10, 10],
-)
+# pi_plus = 4  # a longer leash than needed, but still not going crazy
+# bounds = (
+#     [-pi_plus, -pi_plus, -pi_plus, -100, -100, -100],
+#     [pi_plus, pi_plus, pi_plus, 10, 10, 10],
+# )
 
 least_sq_result = scipy.optimize.least_squares(
     fun=board_fit_error,
     x0=six_dof_params_initial,
-    bounds=bounds,
+    # bounds=bounds,
     ftol=1e-10,
     args=[board_corners_xyz, world_corners_xyz],
 )
@@ -214,37 +218,6 @@ rvec = cv2.Rodrigues(
 )[0]
 # note that these translations result in the system moving in the negative direction
 tvec = np.array([six_dof_params[3:]]).T
-
-
-############################## POSSIBLE SOLUTION ON PAUSE ######################
-# Commenting out code associated with attempts to use board pose....
-# attempting alternate approach of calculating R|T that minimizes the difference
-# between
-
-# anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
-
-# charuco_image_points, jacobian = cv2.projectPoints(
-#     world_corners_xyz,
-#     rvec=anchor_camera.rotation,
-#     tvec=anchor_camera.translation,
-#     cameraMatrix=anchor_camera.matrix,
-#     distCoeffs=np.array(
-#         [0, 0, 0, 0, 0], dtype=np.float32
-#     ),  # For origin setting, assume perfection
-# )
-
-# # use solvepnp and not estimate poseboard.....
-# retval, rvec, tvec = cv2.solvePnP(
-#     board_corners_xyz,
-#     charuco_image_points,
-#     cameraMatrix=anchor_camera.matrix,
-#     distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
-# )
-# # convert rvec to 3x3 rotation matrix
-# # logger.info(f"Rotation vector is {rvec}")
-# rvec = cv2.Rodrigues(rvec)[0]
-# # logger.info(f"Rotation vector is {rvec}")
-# ##########################################################################
 
 
 # I believe this is the transformation to be applied

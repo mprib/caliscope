@@ -89,6 +89,17 @@ max_xyz = np.max(board_corners_xyz,axis=0)
 max_dim_value = np.max(max_xyz)
 # want to find the longest dim, x or y. if equal this will just choose dim 1 (x)
 longest_dim = np.where(max_xyz==max_dim_value)[0][0]
+# that longest dimension is where things will get cut in half
+# find the indexes from the board world that should fall into each half (A and B)
+centroid_indexes_A = np.where(board_corners_xyz[:,longest_dim] <= max_dim_value/2)
+centroid_indexes_B = np.where(board_corners_xyz[:,longest_dim] > max_dim_value/2)
+
+#%%
+# slice up the world and board corners into the centroids
+board_centroid_A = np.mean(board_corners_xyz[centroid_indexes_A], axis=0)
+board_centroid_B = np.mean(board_corners_xyz[centroid_indexes_B], axis=0)
+world_centroid_A = np.mean(world_corners_xyz[centroid_indexes_A], axis=0)
+world_centroid_B = np.mean(world_corners_xyz[centroid_indexes_B], axis=0)
 
 
 

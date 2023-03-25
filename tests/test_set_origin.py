@@ -31,8 +31,8 @@ session_directory = Path(__root__, "tests", "4_cameras_beginning")
 point_data_csv_path = Path(session_directory, "point_data.csv")
 config_path = Path(session_directory, "config.toml")
 
-# REOPTIMIZE_ARRAY = True
-REOPTIMIZE_ARRAY = False
+REOPTIMIZE_ARRAY = True
+# REOPTIMIZE_ARRAY = False
 
 if REOPTIMIZE_ARRAY:
 

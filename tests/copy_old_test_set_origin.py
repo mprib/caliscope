@@ -60,8 +60,8 @@ session = Session(session_directory)
 charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
-test_sync_index = sync_indices[46]
-# test_sync_index = 35
+# test_sync_index = sync_indices[46]
+test_sync_index = 320
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
 unique_charuco_id = np.unique(charuco_ids)
@@ -83,143 +83,47 @@ world_corners_xyz = obj_xyz[unique_charuco_xyz_index]
 board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 
 
-#%%
-# quick check of corner distances in world and board frame to make sure I'm not
-# completely off track....
-test_index_A = 0
-test_index_B = 1
+############################## POSSIBLE SOLUTION ON PAUSE ######################
 
-# get the distance between them
-distance_world_A_B = np.sqrt(
-    np.sum(
-        (world_corners_xyz[test_index_A, :] - world_corners_xyz[test_index_B, :]) ** 2
+# anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
+
+for port, camera_data in camera_array.cameras.items():
+
+    charuco_image_points, jacobian = cv2.projectPoints(
+        world_corners_xyz,
+        rvec=camera_data.rotation,
+        tvec=camera_data.translation,
+        cameraMatrix=camera_data.matrix,
+        distCoeffs=np.array(
+            [0, 0, 0, 0, 0], dtype=np.float32
+        ),  # For origin setting, assume perfection
     )
-)
 
-distance_board_A_B = np.sqrt(
-    np.sum(
-        (board_corners_xyz[test_index_A, :] - board_corners_xyz[test_index_B, :]) ** 2
+    # use solvepnp and not estimate poseboard.....
+    retval, rvec, tvec = cv2.solvePnP(
+        board_corners_xyz,
+        charuco_image_points,
+        cameraMatrix=camera_data.matrix,
+        distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
     )
-)
-
-world_board_ratio = distance_world_A_B / distance_board_A_B
-# adjust board_corners_xyz to reflect the scale of the world
-board_corners_xyz = world_board_ratio * board_corners_xyz
-
-#%%
-# if True:
-
-
-def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz):
-    """
-    error function for estimating the transformation that will set the world origin
-    to a board frame of reference.
-
-    returns a vector of distances between each corner
-
-    """
-    rvec = cv2.Rodrigues(
-        np.expand_dims(np.array([six_dof_params[0:3]], dtype=np.float32), 1)
-    )[0]
-    tvec = np.array([six_dof_params[3:]]).T
+    # convert rvec to 3x3 rotation matrix
+    logger.info(f"Rotation vector is {rvec}")
+    rvec = cv2.Rodrigues(rvec)[0]
+    logger.info(f"Rotation vector is {rvec}")
 
     new_origin_transform = np.hstack([rvec, tvec])
     new_origin_transform = np.vstack(
         [new_origin_transform, np.array([0, 0, 0, 1], np.float32)]
     )
 
-    xyz = world_corners_xyz
-    scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
-    xyzh = np.hstack([xyz, scale])
+    logger.info(f"About to attempt to change camera at port {port}")
 
-    new_origin_world_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
-    new_world_corners_xyz = new_origin_world_xyzh[:, 0:3]
-
-    delta_xyz = board_corners_xyz - new_world_corners_xyz
-    delta_xyz[2:, 0:2] = 0  # pin down 2 points for x,y control, otherwise ignore
-    # delta_xyz[:,2] = abs(delta_xyz[:,2]) # make the algo care more about flatness
-
-    minimize_target = delta_xyz.ravel()
-
-    # distance_error = np.sqrt(np.sum((board_corners_xyz - new_world_corners_xyz)**2, axis=1))
-    # if basin_hopping:
-    # distance_error = np.sum(distance_error)
-    # alternate approach here...just trying to drive the z coordinates to zero...
-    # distance_error = new_world_corners_xyz[:,2]**2
-
-    # logger.info(f"Distance Error during optimization: {distance_error}")
-    # logger.info(f"Estimated Solution: {six_dof_params}")
-    return minimize_target
-
-
-six_dof_params_initial = [0, 0, 0, 0, 0, 0]
-pi = 3.14159
-
-bounds = ([0, 0, 0, -10, -10, -10], [pi, pi, pi, 10, 10, 10])
-
-least_sq_result = scipy.optimize.least_squares(
-    fun=board_distance_error,
-    x0=six_dof_params_initial,
-    # bounds=bounds,
-    ftol=1e-10,
-    args=[board_corners_xyz, world_corners_xyz],
-)
-
-six_dof_params = least_sq_result.x
-
-rvec = cv2.Rodrigues(
-    np.expand_dims(np.array(six_dof_params[0:3], dtype=np.float32), 1)
-)[0]
-# note that these translations result in the system moving in the negative direction
-tvec = np.array([six_dof_params[3:]]).T
-
-
-############################## POSSIBLE SOLUTION ON PAUSE ######################
-# Commenting out code associated with attempts to use board pose....
-# attempting alternate approach of calculating R|T that minimizes the difference
-# between
-
-# anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
-
-# charuco_image_points, jacobian = cv2.projectPoints(
-#     world_corners_xyz,
-#     rvec=anchor_camera.rotation,
-#     tvec=anchor_camera.translation,
-#     cameraMatrix=anchor_camera.matrix,
-#     distCoeffs=np.array(
-#         [0, 0, 0, 0, 0], dtype=np.float32
-#     ),  # For origin setting, assume perfection
-# )
-
-# # use solvepnp and not estimate poseboard.....
-# retval, rvec, tvec = cv2.solvePnP(
-#     board_corners_xyz,
-#     charuco_image_points,
-#     cameraMatrix=anchor_camera.matrix,
-#     distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
-# )
-# # convert rvec to 3x3 rotation matrix
-# # logger.info(f"Rotation vector is {rvec}")
-# rvec = cv2.Rodrigues(rvec)[0]
-# # logger.info(f"Rotation vector is {rvec}")
-# ##########################################################################
-
-
-# I believe this is the transformation to be applied
-# or perhaps the inverse, let's find out...
-new_origin_transform = np.hstack([rvec, tvec])
-new_origin_transform = np.vstack(
-    [new_origin_transform, np.array([0, 0, 0, 1], np.float32)]
-)
-
-logger.info("About to attempt to change camera array")
-
-for port, camera_data in camera_array.cameras.items():
-    # camera_data.translation = camera_data.translation + tvec[:,0]
-    # logger.info(f"Attempting to update camera at port {port}")
     old_transformation = camera_data.transformation
     new_transformation = np.dot(old_transformation, new_origin_transform)
     camera_data.transformation = new_transformation
+##########################################################################
+#%%
+
 
 old_world_corners_xyzh = np.hstack(
     [world_corners_xyz, np.expand_dims(np.ones(world_corners_xyz.shape[0]), 1)]

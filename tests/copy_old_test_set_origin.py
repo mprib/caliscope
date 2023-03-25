@@ -91,29 +91,36 @@ test_index_B = 1
 
 # get the distance between them
 distance_world_A_B = np.sqrt(
-    np.sum((world_corners_xyz[test_index_A,:] - world_corners_xyz[test_index_B,:]) ** 2)
+    np.sum(
+        (world_corners_xyz[test_index_A, :] - world_corners_xyz[test_index_B, :]) ** 2
+    )
 )
 
 distance_board_A_B = np.sqrt(
-    np.sum((board_corners_xyz[test_index_A,:] - board_corners_xyz[test_index_B,:]) ** 2)
+    np.sum(
+        (board_corners_xyz[test_index_A, :] - board_corners_xyz[test_index_B, :]) ** 2
+    )
 )
 
-world_board_ratio = distance_world_A_B/distance_board_A_B
+world_board_ratio = distance_world_A_B / distance_board_A_B
 # adjust board_corners_xyz to reflect the scale of the world
-board_corners_xyz = world_board_ratio*board_corners_xyz
+board_corners_xyz = world_board_ratio * board_corners_xyz
 
 #%%
 # if True:
 
-def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz ):
+
+def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz):
     """
     error function for estimating the transformation that will set the world origin
-    to a board frame of reference. 
-    
+    to a board frame of reference.
+
     returns a vector of distances between each corner
-    
+
     """
-    rvec = cv2.Rodrigues(np.expand_dims(np.array([six_dof_params[0:3]], dtype=np.float32), 1))[0]
+    rvec = cv2.Rodrigues(
+        np.expand_dims(np.array([six_dof_params[0:3]], dtype=np.float32), 1)
+    )[0]
     tvec = np.array([six_dof_params[3:]]).T
 
     new_origin_transform = np.hstack([rvec, tvec])
@@ -124,19 +131,19 @@ def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz ):
     xyz = world_corners_xyz
     scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
     xyzh = np.hstack([xyz, scale])
-    
+
     new_origin_world_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
-    new_world_corners_xyz = new_origin_world_xyzh[:,0:3]
+    new_world_corners_xyz = new_origin_world_xyzh[:, 0:3]
 
     delta_xyz = board_corners_xyz - new_world_corners_xyz
-    delta_xyz[2:,0:2] = 0 # pin down 2 points for x,y control, otherwise ignore
+    delta_xyz[2:, 0:2] = 0  # pin down 2 points for x,y control, otherwise ignore
     # delta_xyz[:,2] = abs(delta_xyz[:,2]) # make the algo care more about flatness
-    
+
     minimize_target = delta_xyz.ravel()
-    
+
     # distance_error = np.sqrt(np.sum((board_corners_xyz - new_world_corners_xyz)**2, axis=1))
     # if basin_hopping:
-        # distance_error = np.sum(distance_error)
+    # distance_error = np.sum(distance_error)
     # alternate approach here...just trying to drive the z coordinates to zero...
     # distance_error = new_world_corners_xyz[:,2]**2
 
@@ -144,21 +151,25 @@ def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz ):
     # logger.info(f"Estimated Solution: {six_dof_params}")
     return minimize_target
 
-six_dof_params_initial = [0,0,0,0,0,0]
+
+six_dof_params_initial = [0, 0, 0, 0, 0, 0]
 pi = 3.14159
 
-bounds = ([0,0,0, -10,-10,-10], 
-        [pi,pi,pi, 10,10,10])
-   
-least_sq_result = scipy.optimize.least_squares(fun = board_distance_error,
-                                            x0 = six_dof_params_initial,
-                                            # bounds=bounds,
-                                            ftol = 1e-10,
-                                            args = [board_corners_xyz,world_corners_xyz])
+bounds = ([0, 0, 0, -10, -10, -10], [pi, pi, pi, 10, 10, 10])
+
+least_sq_result = scipy.optimize.least_squares(
+    fun=board_distance_error,
+    x0=six_dof_params_initial,
+    # bounds=bounds,
+    ftol=1e-10,
+    args=[board_corners_xyz, world_corners_xyz],
+)
 
 six_dof_params = least_sq_result.x
 
-rvec = cv2.Rodrigues(np.expand_dims(np.array(six_dof_params[0:3], dtype=np.float32), 1))[0]
+rvec = cv2.Rodrigues(
+    np.expand_dims(np.array(six_dof_params[0:3], dtype=np.float32), 1)
+)[0]
 # note that these translations result in the system moving in the negative direction
 tvec = np.array([six_dof_params[3:]]).T
 
@@ -166,7 +177,7 @@ tvec = np.array([six_dof_params[3:]]).T
 ############################## POSSIBLE SOLUTION ON PAUSE ######################
 # Commenting out code associated with attempts to use board pose....
 # attempting alternate approach of calculating R|T that minimizes the difference
-# between 
+# between
 
 # anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
 
@@ -210,12 +221,15 @@ for port, camera_data in camera_array.cameras.items():
     new_transformation = np.dot(old_transformation, new_origin_transform)
     camera_data.transformation = new_transformation
 
-old_world_corners_xyzh = np.hstack([world_corners_xyz,np.expand_dims(np.ones(world_corners_xyz.shape[0]),1)])
-test_new_origin_world_corners_xyzh = np.matmul(np.linalg.inv(new_origin_transform), old_world_corners_xyzh.T).T
+old_world_corners_xyzh = np.hstack(
+    [world_corners_xyz, np.expand_dims(np.ones(world_corners_xyz.shape[0]), 1)]
+)
+test_new_origin_world_corners_xyzh = np.matmul(
+    np.linalg.inv(new_origin_transform), old_world_corners_xyzh.T
+).T
 
 
-
-# test_new_origin_world_corners_xyz  = 
+# test_new_origin_world_corners_xyz  =
 
 # change the point estimates to reflect the new origin
 xyz = capture_volume.point_estimates.obj
@@ -229,7 +243,9 @@ capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
 
 ############## REASSESS POINT ESTIMATE ORIGIN FRAME ##################################
 
-obj_indices = capture_volume.point_estimates.obj_indices[sync_indices == test_sync_index]
+obj_indices = capture_volume.point_estimates.obj_indices[
+    sync_indices == test_sync_index
+]
 # now get the actual x,y,z estimate associated with these unique charucos
 obj_xyz = capture_volume.point_estimates.obj[obj_indices]
 sorter = np.argsort(charuco_ids)

@@ -80,61 +80,44 @@ unique_charuco_xyz_index = sorter[
     np.searchsorted(charuco_ids, unique_charuco_id, sorter=sorter)
 ]
 
+
+# corner positions in the estimated world position
 world_corners_xyz = obj_xyz[unique_charuco_xyz_index]
-# need to get x,y,z estimates in board world...
+# x,y,z positions in board world...
 board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 #%%
-# get which axis is longest
-max_xyz = np.max(board_corners_xyz, axis=0)
-max_dim_value = np.max(max_xyz)
-# want to find the longest dim, x or y. if equal this will just choose dim 1 (x)
-longest_dim = np.where(max_xyz == max_dim_value)[0][0]
-# that longest dimension is where things will get cut in half
-# find the indexes from the board world that should fall into each half (A and B)
-centroid_indexes_A = np.where(board_corners_xyz[:, longest_dim] <= max_dim_value / 2)
-centroid_indexes_B = np.where(board_corners_xyz[:, longest_dim] > max_dim_value / 2)
+def get_centroid_distances(board_corners_xyz, world_corners_xyz):
+    # get which axis is longest
+    max_xyz = np.max(board_corners_xyz, axis=0)
+    max_dim_value = np.max(max_xyz)
+    # want to find the longest dim, x or y. if equal this will just choose dim 1 (x)
+    longest_dim = np.where(max_xyz == max_dim_value)[0][0]
+    # that longest dimension is where things will get cut in half
+    # find the indexes from the board world that should fall into each half (A and B)
+    centroid_indexes_A = np.where(board_corners_xyz[:, longest_dim] <= max_dim_value / 2)
+    centroid_indexes_B = np.where(board_corners_xyz[:, longest_dim] > max_dim_value / 2)
 
-#%%
-# slice up the world and board corners into the centroids
-board_centroid_A = np.mean(board_corners_xyz[centroid_indexes_A], axis=0)
-board_centroid_B = np.mean(board_corners_xyz[centroid_indexes_B], axis=0)
-world_centroid_A = np.mean(world_corners_xyz[centroid_indexes_A], axis=0)
-world_centroid_B = np.mean(world_corners_xyz[centroid_indexes_B], axis=0)
+    #%%
+    # slice up the world and board corners into the centroids
+    board_centroid_A = np.mean(board_corners_xyz[centroid_indexes_A], axis=0)
+    board_centroid_B = np.mean(board_corners_xyz[centroid_indexes_B], axis=0)
+    world_centroid_A = np.mean(world_corners_xyz[centroid_indexes_A], axis=0)
+    world_centroid_B = np.mean(world_corners_xyz[centroid_indexes_B], axis=0)
 
-# check centroid distances and scale as needed
+    # check centroid distances and scale as needed
 
-distance_world = np.sqrt(np.sum((world_centroid_B - world_centroid_A) ** 2))
-distance_board = np.sqrt(np.sum((board_centroid_B - board_centroid_A) ** 2))
+    distance_world = np.sqrt(np.sum((world_centroid_B - world_centroid_A) ** 2))
+    distance_board = np.sqrt(np.sum((board_centroid_B - board_centroid_A) ** 2))
 
-# correct target board centroid distances to avoid tilting for forced fit
-correction_ratio = distance_world/distance_board
-board_centroid_A = board_centroid_A *correction_ratio
-board_centroid_B = board_centroid_B *correction_ratio
+    # correct target board centroid distances to avoid tilting for forced fit
+    correction_ratio = distance_world/distance_board
+    board_centroid_A = board_centroid_A *correction_ratio
+    board_centroid_B = board_centroid_B *correction_ratio
+    
+    centroid_A_distance = board_centroid_A-world_centroid_A   
+    centroid_B_distance = board_centroid_B-world_centroid_B   
 
-#
-
-test_index_A = 0
-test_index_B = 1
-
-# get the distance between them
-distance_world_A_B = np.sqrt(
-    np.sum(
-        (world_corners_xyz[test_index_A, :] - world_corners_xyz[test_index_B, :]) ** 2
-    )
-)
-
-distance_board_A_B = np.sqrt(
-    np.sum(
-        (board_corners_xyz[test_index_A, :] - board_corners_xyz[test_index_B, :]) ** 2
-    )
-)
-
-world_board_ratio = distance_world_A_B / distance_board_A_B
-# adjust board_corners_xyz to reflect the scale of the world
-board_corners_xyz = world_board_ratio * board_corners_xyz
-
-#%%
-# if True:
+    return centroid_A_distance, centroid_B_distance
 
 
 def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz):
@@ -147,21 +130,23 @@ def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz):
     board flat)
 
     This will only pin down the z values, therefore the x,y position must also be pinned down.
-    While one or the other is easy to pin down with a single corner, mild errors in the scale of
+    While one or the other is easy to pin with a single corner, it can rotate around this corner.
+    Pinning a an aditional corner leads to complications as mild errors in the scale of
     the world can force the optimizer to push the board on a tilt in order to minimize the overall
     error (therefore pushing the z values away from zero).
 
     A solution to this is to fit the board to only two additional points that can be easily scaled
-    to fit precisely. This is acheived by converting all board points into two centroid values
+    to fit precisely. This is acheived by converting all board points into two centroid values for both
+    the target board position and the estimated board position. This is represented the second part (II):
 
-    II - the "centroid-pair" distance of the idealized board adn the world estimated board. Whiel
+    II - the "centroid-pair" distance of the idealized board and the world estimated board. Whiel
 
     """
+    # build functioning 4x4 transformation matrix from 6 DoF parameters
     rvec = cv2.Rodrigues(
         np.expand_dims(np.array([six_dof_params[0:3]], dtype=np.float32), 1)
     )[0]
     tvec = np.array([six_dof_params[3:]]).T
-
     new_origin_transform = np.hstack([rvec, tvec])
     new_origin_transform = np.vstack(
         [new_origin_transform, np.array([0, 0, 0, 1], np.float32)]
@@ -173,6 +158,8 @@ def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz):
 
     new_origin_world_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
     new_world_corners_xyz = new_origin_world_xyzh[:, 0:3]
+    
+    new_world_corners_z = new_origin_world_xyzh[:, 2]
 
     delta_xyz = board_corners_xyz - new_world_corners_xyz
     delta_xyz[:2, 0:2] = 0  # pin down 2 points for x,y control, otherwise ignore

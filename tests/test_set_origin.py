@@ -27,12 +27,12 @@ from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
-session_directory = Path(__root__, "tests", "3_cameras_middle")
+session_directory = Path(__root__, "tests", "4_cameras_endofday")
 point_data_csv_path = Path(session_directory, "point_data.csv")
 config_path = Path(session_directory, "config.toml")
 
-REOPTIMIZE_ARRAY = True
-# REOPTIMIZE_ARRAY = False
+# REOPTIMIZE_ARRAY = True
+REOPTIMIZE_ARRAY = False
 
 if REOPTIMIZE_ARRAY:
 
@@ -60,7 +60,10 @@ charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
 # test_sync_index = sync_indices[46]
-test_sync_index = 35
+
+
+### Get target and actual board corners
+test_sync_index = 50
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
 unique_charuco_id = np.unique(charuco_ids)
@@ -80,6 +83,13 @@ unique_charuco_xyz_index = sorter[
 world_corners_xyz = obj_xyz[unique_charuco_xyz_index]
 # need to get x,y,z estimates in board world...
 board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
+#%%
+# get which axis is longest
+max_xyz = np.max(board_corners_xyz,axis=0)
+max_dim_value = np.max(max_xyz)
+# want to find the longest dim, x or y. if equal this will just choose dim 1 (x)
+longest_dim = np.where(max_xyz==max_dim_value)[0][0]
+
 
 
 #%%
@@ -104,13 +114,25 @@ board_corners_xyz = world_board_ratio*board_corners_xyz
 #%%
 # if True:
 
-def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz ):
+def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz ):
     """
-    error function for estimating the transformation that will set the world origin
-    to a board frame of reference. 
+    returns a vector of values to minimize. These represent two different categories
+    of positional information:
     
-    returns a vector of distances between each corner
+    I - estimated z coordinates: in a perfect world, the z positions of the board will be zero,
+    therefore these are provided as is with the target of pushing them to zero (i.e. making
+    board flat)
     
+    This will only pin down the z values, therefore the x,y position must also be pinned down.
+    While one or the other is easy to pin down with a single corner, mild errors in the scale of 
+    the world can force the optimizer to push the board on a tilt in order to minimize the overall
+    error (therefore pushing the z values away from zero).
+    
+    A solution to this is to fit the board to only two additional points that can be easily scaled 
+    to fit precisely. This is acheived by converting all board points into two centroid values
+    
+    II - the "centroid-pair" distance of the idealized board adn the world estimated board. Whiel
+     
     """
     rvec = cv2.Rodrigues(np.expand_dims(np.array([six_dof_params[0:3]], dtype=np.float32), 1))[0]
     tvec = np.array([six_dof_params[3:]]).T
@@ -144,12 +166,11 @@ def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz ):
     return minimize_target
 
 six_dof_params_initial = [0,0,0,0,0,0]
-pi = 3.14159
-
-bounds = ([0,0,0, -10,-10,-10], 
-        [pi,pi,pi, 10,10,10])
+# pi_plus = 4 # a longer leash than needed, but still not going crazy
+# bounds = ([-pi_plus,-pi_plus,-pi_plus, -100,-100,-10],   
+        # [pi_plus,pi_plus,pi_plus, 10,10,10])
    
-least_sq_result = scipy.optimize.least_squares(fun = board_distance_error,
+least_sq_result = scipy.optimize.least_squares(fun = board_fit_error,
                                             x0 = six_dof_params_initial,
                                             # bounds=bounds,
                                             ftol = 1e-10,

@@ -27,12 +27,12 @@ from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
-session_directory = Path(__root__, "tests", "4_cameras_endofday")
+session_directory = Path(__root__, "tests", "4_cameras_beginning")
 point_data_csv_path = Path(session_directory, "point_data.csv")
 config_path = Path(session_directory, "config.toml")
 
-# REOPTIMIZE_ARRAY = True
-REOPTIMIZE_ARRAY = False
+REOPTIMIZE_ARRAY = True
+# REOPTIMIZE_ARRAY = False
 
 if REOPTIMIZE_ARRAY:
 
@@ -60,10 +60,9 @@ charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
 # test_sync_index = sync_indices[46]
+test_sync_index = 320
 
 
-### Get target and actual board corners
-test_sync_index = 50
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
 unique_charuco_id = np.unique(charuco_ids)
@@ -94,7 +93,9 @@ def get_centroid_distances(board_corners_xyz, world_corners_xyz):
     longest_dim = np.where(max_xyz == max_dim_value)[0][0]
     # that longest dimension is where things will get cut in half
     # find the indexes from the board world that should fall into each half (A and B)
-    centroid_indexes_A = np.where(board_corners_xyz[:, longest_dim] <= max_dim_value / 2)
+    centroid_indexes_A = np.where(
+        board_corners_xyz[:, longest_dim] <= max_dim_value / 2
+    )
     centroid_indexes_B = np.where(board_corners_xyz[:, longest_dim] > max_dim_value / 2)
 
     #%%
@@ -110,14 +111,32 @@ def get_centroid_distances(board_corners_xyz, world_corners_xyz):
     distance_board = np.sqrt(np.sum((board_centroid_B - board_centroid_A) ** 2))
 
     # correct target board centroid distances to avoid tilting for forced fit
-    correction_ratio = distance_world/distance_board
-    board_centroid_A = board_centroid_A *correction_ratio
-    board_centroid_B = board_centroid_B *correction_ratio
+    correction_ratio = distance_world / distance_board
+    logger.info(f"Correction Ratio: {correction_ratio}")
+    board_centroid_A = board_centroid_A * correction_ratio
+    board_centroid_B = board_centroid_B * correction_ratio
+   
+   
+    # check scaling works
+    distance_world = np.sqrt(np.sum((world_centroid_B - world_centroid_A) ** 2))
+    distance_board = np.sqrt(np.sum((board_centroid_B - board_centroid_A) ** 2))
+    correction_ratio = distance_world / distance_board
+    logger.info(f"Correction Ratio after attempting to correct: {correction_ratio}")
     
-    centroid_A_distance = board_centroid_A-world_centroid_A   
-    centroid_B_distance = board_centroid_B-world_centroid_B   
+     
+    centroid_A_distance = np.sqrt(np.sum(board_centroid_A - world_centroid_A)**2)
+    centroid_B_distance = np.sqrt(np.sum(board_centroid_B - world_centroid_B)**2)
+    
+    logger.info(f"Board Centroid A: {board_centroid_A}")
+    logger.info(f"World Centroid A: {world_centroid_A}")
 
+    logger.info(f"Board Centroid B: {board_centroid_B}")
+    logger.info(f"World Centroid B: {world_centroid_B}")
+    
+    delta_A = world_centroid_A - board_centroid_A
+    delta_B = world_centroid_B - board_centroid_B
     return centroid_A_distance, centroid_B_distance
+
 
 
 def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz):
@@ -158,35 +177,29 @@ def board_fit_error(six_dof_params, board_corners_xyz, world_corners_xyz):
 
     new_origin_world_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
     new_world_corners_xyz = new_origin_world_xyzh[:, 0:3]
-    
+
     new_world_corners_z = new_origin_world_xyzh[:, 2]
-
-    delta_xyz = board_corners_xyz - new_world_corners_xyz
-    delta_xyz[:2, 0:2] = 0  # pin down 2 points for x,y control, otherwise ignore
-    # delta_xyz[:,2] = abs(delta_xyz[:,2]) # make the algo care more about flatness
-
-    minimize_target = delta_xyz.ravel()
-
-    # distance_error = np.sqrt(np.sum((board_corners_xyz - new_world_corners_xyz)**2, axis=1))
-    # if basin_hopping:
-    # distance_error = np.sum(distance_error)
-    # alternate approach here...just trying to drive the z coordinates to zero...
-    # distance_error = new_world_corners_xyz[:,2]**2
-
-    # logger.info(f"Distance Error during optimization: {distance_error}")
-    # logger.info(f"Estimated Solution: {six_dof_params}")
+    centroid_A_distance, centroid_B_distance = get_centroid_distances(
+        board_corners_xyz, new_world_corners_xyz
+    )
+    
+    # logger.info(f"z-sum: {np.sum(new_world_corners_z)}")
+    # logger.info(f"centroid A Distances: {centroid_A_distance}")
+    # logger.info(f"centroid B Distances: {centroid_B_distance}")
+    minimize_target = np.hstack([abs(new_world_corners_z), centroid_A_distance,centroid_B_distance])
+    logger.info(f"minimize target: {minimize_target}")
     return minimize_target
 
 
 six_dof_params_initial = [0, 0, 0, 0, 0, 0]
-# pi_plus = 4 # a longer leash than needed, but still not going crazy
-# bounds = ([-pi_plus,-pi_plus,-pi_plus, -100,-100,-10],
-# [pi_plus,pi_plus,pi_plus, 10,10,10])
+pi_plus = 4 # a longer leash than needed, but still not going crazy
+bounds = ([-pi_plus,-pi_plus,-pi_plus, -100,-100,-100],
+[pi_plus,pi_plus,pi_plus, 10,10,10])
 
 least_sq_result = scipy.optimize.least_squares(
     fun=board_fit_error,
     x0=six_dof_params_initial,
-    # bounds=bounds,
+    bounds=bounds,
     ftol=1e-10,
     args=[board_corners_xyz, world_corners_xyz],
 )

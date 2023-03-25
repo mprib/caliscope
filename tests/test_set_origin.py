@@ -85,21 +85,23 @@ board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 #%%
 # quick check of corner distances in world and board frame to make sure I'm not
 # completely off track....
-# test_index_A = 10
-# test_index_B = 17
+test_index_A = 0
+test_index_B = 1
 
-# # get the distance between them
-# distance_world_A_B = np.sqrt(
-#     np.sum((world_corners_xyz[test_index_A,:] - world_corners_xyz[test_index_B,:]) ** 2)
-# )
+# get the distance between them
+distance_world_A_B = np.sqrt(
+    np.sum((world_corners_xyz[test_index_A,:] - world_corners_xyz[test_index_B,:]) ** 2)
+)
 
-# distance_board_A_B = np.sqrt(
-#     np.sum((board_corners_xyz[test_index_A,:] - board_corners_xyz[test_index_B,:]) ** 2)
-# )
+distance_board_A_B = np.sqrt(
+    np.sum((board_corners_xyz[test_index_A,:] - board_corners_xyz[test_index_B,:]) ** 2)
+)
 
-# distance_error_mm = (distance_world_A_B - distance_board_A_B)*1000
-# print(distance_error_mm)
+world_board_ratio = distance_world_A_B/distance_board_A_B
+# adjust board_corners_xyz to reflect the scale of the world
+board_corners_xyz = world_board_ratio*board_corners_xyz
 
+#%%
 # if True:
 
 def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz ):
@@ -126,8 +128,8 @@ def board_distance_error(six_dof_params, board_corners_xyz, world_corners_xyz ):
     new_world_corners_xyz = new_origin_world_xyzh[:,0:3]
 
     delta_xyz = board_corners_xyz - new_world_corners_xyz
-    delta_xyz[:2,0:2] = 0
-    delta_xyz[:,2] = abs(delta_xyz[:,2]) # make the algo care more about flatness
+    delta_xyz[:2,0:2] = 0 # pin down 2 points for x,y control, otherwise ignore
+    # delta_xyz[:,2] = abs(delta_xyz[:,2]) # make the algo care more about flatness
     
     minimize_target = delta_xyz.ravel()
     

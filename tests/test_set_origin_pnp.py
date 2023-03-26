@@ -27,9 +27,16 @@ from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
-# session_directory = Path(__root__, "tests", "3_cameras_middle")
-# session_directory = Path(__root__, "tests", "4_cameras_nonoverlap")
-session_directory = Path(__root__, "tests", "4_cameras_beginning")
+
+test_scenario = "4_cameras_nonoverlap"
+test_scenario = "3_cameras_middle"
+test_scenario = "4_cameras_beginning"
+
+origin_sync_indices   = {"4_cameras_nonoverlap":147,
+"3_cameras_middle":56,
+"4_cameras_beginning":234}
+
+session_directory = Path(__root__, "tests", test_scenario)
 point_data_csv_path = Path(session_directory, "point_data.csv")
 config_path = Path(session_directory, "config.toml")
 
@@ -61,8 +68,7 @@ session = Session(session_directory)
 charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
-# origin_sync_index = sync_indices[70]
-origin_sync_index = 234
+origin_sync_index = origin_sync_indices[test_scenario]
 
 logger.warning(f"New test sync index is {origin_sync_index}")
 
@@ -121,13 +127,18 @@ anchor_board_transform = np.vstack(
     [anchor_board_transform, np.array([0, 0, 0, 1], np.float32)]
 )
 
+#%%
 # calculate the transformation matrix that will convert the anchor camera
 # to the new frame of reference
 origin_shift_transform = np.matmul(np.linalg.inv(anchor_camera.transformation),anchor_board_transform)
+# origin_shift_transform = np.matmul(anchor_board_transform, np.linalg.inv(anchor_camera.transformation))
 
 # check application of origin_shift_transformation
 # 
+check_transform = np.matmul(anchor_camera.transformation, origin_shift_transform)
 
+logger.info(f"ChecK: Old method yielded transform of  \n {anchor_board_transform}")
+logger.info(f"ChecK: New method yields transform of  \n {check_transform}")
 #%%
 
 
@@ -163,11 +174,12 @@ for port, camera_data in camera_array.cameras.items():
     )
 
     logger.info(f"About to attempt to change camera at port {port}")
-
-    camera_data.transformation = new_origin_transform
+    # camera_data.transformation = new_origin_transform
+    logger.info(f"Previous method (that works) has transform of \n {new_origin_transform}")
 
     camera_data.transformation = np.matmul(camera_data.transformation,origin_shift_transform)
 
+    logger.info(f"New method (that doesn't quite work) has transform of \n {camera_data.transformation}")
 ##########################################################################
 #%%
 
@@ -221,7 +233,7 @@ logger.info("About to visualize the camera array")
 camera_array = capture_volume.camera_array
 point_estimates = get_point_estimates(camera_array, point_data_csv_path)
 capture_volume = CaptureVolume(camera_array, point_estimates)
-
+capture_volume.optimize()
 
 app = QApplication(sys.argv)
 vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)

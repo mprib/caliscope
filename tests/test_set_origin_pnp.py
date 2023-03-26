@@ -62,7 +62,7 @@ charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
 # origin_sync_index = sync_indices[70]
-origin_sync_index = 257
+origin_sync_index = 234
 
 logger.warning(f"New test sync index is {origin_sync_index}")
 
@@ -121,6 +121,16 @@ anchor_board_transform = np.vstack(
     [anchor_board_transform, np.array([0, 0, 0, 1], np.float32)]
 )
 
+# calculate the transformation matrix that will convert the anchor camera
+# to the new frame of reference
+origin_shift_transform = np.matmul(np.linalg.inv(anchor_camera.transformation),anchor_board_transform)
+
+# check application of origin_shift_transformation
+# 
+
+#%%
+
+
 #%%
 ######  SET CAMERA TRANSFORMATIONS
 for port, camera_data in camera_array.cameras.items():
@@ -154,32 +164,32 @@ for port, camera_data in camera_array.cameras.items():
 
     logger.info(f"About to attempt to change camera at port {port}")
 
-    # old_transformation = camera_data.transformation
-    # new_transformation = np.dot(old_transformation, new_origin_transform)
-    # camera_data.transformation = new_transformation
     camera_data.transformation = new_origin_transform
+
+    camera_data.transformation = np.matmul(camera_data.transformation,origin_shift_transform)
+
 ##########################################################################
 #%%
 
 
-old_world_corners_xyzh = np.hstack(
-    [world_corners_xyz, np.expand_dims(np.ones(world_corners_xyz.shape[0]), 1)]
-)
-test_new_origin_world_corners_xyzh = np.matmul(
-    np.linalg.inv(new_origin_transform), old_world_corners_xyzh.T
-).T
+# old_world_corners_xyzh = np.hstack(
+#     [world_corners_xyz, np.expand_dims(np.ones(world_corners_xyz.shape[0]), 1)]
+# )
+# test_new_origin_world_corners_xyzh = np.matmul(
+#     np.linalg.inv(new_origin_transform), old_world_corners_xyzh.T
+# ).T
 
 
-# test_new_origin_world_corners_xyz  =
+# # test_new_origin_world_corners_xyz  =
 
-# change the point estimates to reflect the new origin
-xyz = capture_volume.point_estimates.obj
-scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
-xyzh = np.hstack([xyz, scale])
+# # change the point estimates to reflect the new origin
+# xyz = capture_volume.point_estimates.obj
+# scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
+# xyzh = np.hstack([xyz, scale])
 
-new_origin_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
-# new_origin_xyzh = np.matmul(board_pose_transformation,xyzh.T).T
-capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
+# new_origin_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
+# # new_origin_xyzh = np.matmul(board_pose_transformation,xyzh.T).T
+# capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
 
 
 ############## REASSESS POINT ESTIMATE ORIGIN FRAME ##################################

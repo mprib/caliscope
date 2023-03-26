@@ -28,14 +28,22 @@ from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
 
-test_scenario = "4_cameras_nonoverlap"
+# test_scenario = "4_cameras_nonoverlap"
 # test_scenario = "3_cameras_middle"
+# test_scenario = "3_cameras_triangular"
 # test_scenario = "4_cameras_beginning"
+test_scenario = "3_cameras_midlinear"
+
+
+anchor_camera_override = None
+# anchor_camera_override = 2
 
 origin_sync_indices = {
-    "4_cameras_nonoverlap": 147,
+    "4_cameras_nonoverlap": 23,
     "3_cameras_middle": 20,
     "4_cameras_beginning": 234,
+    "3_cameras_triangular": 25,
+    "3_cameras_midlinear": 14,
 }
 
 session_directory = Path(__root__, "tests", test_scenario)
@@ -96,14 +104,18 @@ board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 #%%
 ###################### FIND ANCHOR CAMERA
 # anchor camera will be the one that has the most actual views of the charuco board.
-camera_views = point_estimates.camera_indices[sync_indices == origin_sync_index]
-camera_port, camera_count = np.unique(camera_views, return_counts=True)
-anchor_camera_port = camera_port[camera_count.argmax()]
+if anchor_camera_override is None:
+    camera_views = point_estimates.camera_indices[sync_indices == origin_sync_index]
+    camera_port, camera_count = np.unique(camera_views, return_counts=True)
+    anchor_camera_port = camera_port[camera_count.argmax()]
+else:
+    anchor_camera_port = anchor_camera_override
+    
 anchor_camera: CameraData = camera_array.cameras[anchor_camera_port]
 
 #%%
 # find pose of anchor camera relative to board
-
+# 
 charuco_image_points, jacobian = cv2.projectPoints(
     world_corners_xyz,
     rvec=anchor_camera.rotation,
@@ -114,7 +126,8 @@ charuco_image_points, jacobian = cv2.projectPoints(
     ),  # because points are via bundle adj., no distortion
 )
 
-# use solvepnp and not estimate poseboard.....
+# use solvepnp to estimate the pose of the camera relative to the board
+# this provides a good estimate of rotation, but not of translation
 retval, rvec, tvec = cv2.solvePnP(
     board_corners_xyz,
     charuco_image_points,
@@ -192,13 +205,6 @@ for port, camera_data in camera_array.cameras.items():
     )
 ##########################################################################
 #%%
-
-# old_world_corners_xyzh = np.hstack(
-#     [world_corners_xyz, np.expand_dims(np.ones(world_corners_xyz.shape[0]), 1)]
-# )
-# test_new_origin_world_corners_xyzh = np.matmul(
-#     np.linalg.inv(new_origin_transform), old_world_corners_xyzh.T
-# ).T
 
 
 # test_new_origin_world_corners_xyz  =

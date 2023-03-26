@@ -87,10 +87,10 @@ def get_anchor_camera(capture_volume: CaptureVolume, sync_index: int) -> CameraD
     return anchor_camera
 
 
-def get_initial_origin_transform(capture_volume: CaptureVolume, sync_index: int):
+def get_initial_origin_transform(capture_volume: CaptureVolume, sync_index: int, charuco:Charuco):
 
     world_corners_xyz = get_world_corners_xyz(capture_volume, sync_index)
-    board_corners_xyz = get_board_corners_xyz(capture_volume, sync_index)
+    board_corners_xyz = get_board_corners_xyz(capture_volume, sync_index, charuco)
     anchor_camera = get_anchor_camera(capture_volume, sync_index)
 
     charuco_image_points, jacobian = cv2.projectPoints(
@@ -153,10 +153,10 @@ def shift_capture_volume_origin(
 
 if __name__ == "__main__":
 
-    test_scenario = "4_cameras_nonoverlap"
+    # test_scenario = "4_cameras_nonoverlap"
     # test_scenario = "3_cameras_middle"
-    # test_scenario = "3_cameras_triangular"
-    # test_scenario = "4_cameras_beginning"
+    test_scenario = "3_cameras_triangular"
+    # test_scenario = "4_cameras_beginning" # initial translation off
     # test_scenario = "3_cameras_midlinear"
 
 
@@ -204,3 +204,16 @@ if __name__ == "__main__":
 
     origin_sync_index = origin_sync_indices[test_scenario]
     logger.warning(f"New test sync index is {origin_sync_index}")
+    
+    origin_transform = get_initial_origin_transform(capture_volume,origin_sync_index, charuco) 
+
+    capture_volume = shift_capture_volume_origin(capture_volume,origin_transform)
+    
+    app = QApplication(sys.argv)
+    vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
+    # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
+
+    vizr_dialog = CaptureVolumeDialog(vizr)
+    vizr_dialog.show()
+
+    sys.exit(app.exec())

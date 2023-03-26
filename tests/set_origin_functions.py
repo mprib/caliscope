@@ -112,22 +112,29 @@ def get_initial_origin_transform(capture_volume: CaptureVolume, sync_index: int,
         distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
     )
 
-    rvec = cv2.Rodrigues(rvec)[0]
-
-    anchor_board_transform = np.hstack([rvec, tvec])
-    anchor_board_transform = np.vstack(
-        [anchor_board_transform, np.array([0, 0, 0, 1], np.float32)]
-    )
-
-    #%%
-    # calculate the transformation matrix that will convert the anchor camera
-    # to the new frame of reference
+    anchor_board_transform = rvec_tvec_to_transform(rvec,tvec)
+    
     origin_shift_transform = np.matmul(
         np.linalg.inv(anchor_camera.transformation), anchor_board_transform
     )
 
     return origin_shift_transform
 
+def transform_to_rvec_tvec(transformation:np.ndarray):
+
+    rot_matrix = transformation[0:3,0:3]
+    rvec = cv2.Rodrigues(rot_matrix)[0]
+    tvec = transformation[0:3,3]
+    return rvec,tvec
+
+def rvec_tvec_to_transform(rvec:np.ndarray,tvec:np.ndarray)->np.ndarray:
+    rvec = cv2.Rodrigues(rvec)[0]
+
+    transform = np.hstack([rvec, tvec])
+    transform = np.vstack(
+        [transform, np.array([0, 0, 0, 1], np.float32)]
+    )
+    return transform
 
 def shift_capture_volume_origin(
     capture_volume: CaptureVolume, origin_shift_transform: np.ndarray
@@ -157,12 +164,12 @@ def world_board_distance(tvec_xyz:np.ndarray, world_corners_xyz, board_corners_x
 
 
 if __name__ == "__main__":
-
+# 
     # test_scenario = "4_cameras_nonoverlap"
     # test_scenario = "3_cameras_middle"
-    test_scenario = "2_cameras_linear"
+    # test_scenario = "2_cameras_linear"
     # test_scenario = "3_cameras_triangular"
-    # test_scenario = "4_cameras_beginning" # initial translation off
+    test_scenario = "4_cameras_beginning" # initial translation off
     # test_scenario = "3_cameras_midlinear"
 
 
@@ -173,7 +180,7 @@ if __name__ == "__main__":
         "4_cameras_nonoverlap": 23,
         "2_cameras_linear": 77,
         "3_cameras_middle": 20,
-        "4_cameras_beginning": 234,
+        "4_cameras_beginning": 230,
         "3_cameras_triangular": 25,
         "3_cameras_midlinear": 14,
     }

@@ -27,8 +27,9 @@ from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
-session_directory = Path(__root__, "tests", "3_cameras_middle")
-# session_directory = Path(__root__, "tests", "4_cameras_beginning")
+# session_directory = Path(__root__, "tests", "3_cameras_middle")
+# session_directory = Path(__root__, "tests", "4_cameras_nonoverlap")
+session_directory = Path(__root__, "tests", "4_cameras_beginning")
 point_data_csv_path = Path(session_directory, "point_data.csv")
 config_path = Path(session_directory, "config.toml")
 
@@ -61,7 +62,8 @@ charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
 # test_sync_index = sync_indices[70]
-test_sync_index = 41
+test_sync_index = 257
+
 logger.warning(f"New test sync index is {test_sync_index}")
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
@@ -119,8 +121,8 @@ for port, camera_data in camera_array.cameras.items():
 
     logger.info(f"About to attempt to change camera at port {port}")
 
-    old_transformation = camera_data.transformation
-    new_transformation = np.dot(old_transformation, new_origin_transform)
+    # old_transformation = camera_data.transformation
+    # new_transformation = np.dot(old_transformation, new_origin_transform)
     # camera_data.transformation = new_transformation
     camera_data.transformation = new_origin_transform
 ##########################################################################
@@ -176,6 +178,7 @@ logger.info("About to visualize the camera array")
 camera_array = capture_volume.camera_array
 point_estimates = get_point_estimates(camera_array, point_data_csv_path)
 capture_volume = CaptureVolume(camera_array, point_estimates)
+
 
 app = QApplication(sys.argv)
 vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)

@@ -61,18 +61,18 @@ session = Session(session_directory)
 charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
-# test_sync_index = sync_indices[70]
-test_sync_index = 257
+# origin_sync_index = sync_indices[70]
+origin_sync_index = 257
 
-logger.warning(f"New test sync index is {test_sync_index}")
+logger.warning(f"New test sync index is {origin_sync_index}")
 
-charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
+charuco_ids = point_estimates.point_id[sync_indices == origin_sync_index]
 unique_charuco_id = np.unique(charuco_ids)
 unique_charuco_id.sort()
 
 # pull out the 3d point estimate indexes associated with the chosen sync_index
 # note that this will include duplicates
-obj_indices = point_estimates.obj_indices[sync_indices == test_sync_index]
+obj_indices = point_estimates.obj_indices[sync_indices == origin_sync_index]
 # now get the actual x,y,z estimate associated with these unique charucos
 obj_xyz = point_estimates.obj[obj_indices]
 sorter = np.argsort(charuco_ids)
@@ -85,11 +85,19 @@ world_corners_xyz = obj_xyz[unique_charuco_xyz_index]
 # need to get x,y,z estimates in board world...
 board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 
+#%%
+###################### FIND ANCHOR CAMERA
+# anchor camera will be the one that has the most actual views of the charuco board. 
+camera_views = point_estimates.camera_indices[sync_indices==origin_sync_index]
+camera_port, camera_count = np.unique(camera_views, return_counts=True)
+anchor_camera_port = camera_port[camera_count.argmax()]
+anchor_camera: CameraData = camera_array.cameras[anchor_camera_port]
 
-############################## POSSIBLE SOLUTION ON PAUSE ######################
+#%%
 
-# anchor_camera: CameraData = camera_array.cameras[list(camera_array.cameras.keys())[0]]
 
+#%%
+######  SET CAMERA TRANSFORMATIONS
 for port, camera_data in camera_array.cameras.items():
 
     charuco_image_points, jacobian = cv2.projectPoints(
@@ -152,7 +160,7 @@ capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
 ############## REASSESS POINT ESTIMATE ORIGIN FRAME ##################################
 
 obj_indices = capture_volume.point_estimates.obj_indices[
-    sync_indices == test_sync_index
+    sync_indices == origin_sync_index
 ]
 # now get the actual x,y,z estimate associated with these unique charucos
 obj_xyz = capture_volume.point_estimates.obj[obj_indices]

@@ -55,8 +55,10 @@ class CaptureVolumeDialog(QWidget):
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
+        self.set_origin_btn.clicked.connect(self.log_board_points)
 
-
+    def log_board_points(self):
+        logger.info(f"{self.visualizer.single_board_points}")
     def update_board(self, sync_index):
         
         logger.info(f"Updating board to sync index {sync_index}")
@@ -80,14 +82,16 @@ if __name__ == "__main__":
     # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
     # session_directory = Path(__root__,  "tests", "3_cameras_middle")
     # session_directory = Path(__root__,  "tests", "4_cameras_beginning")
-    session_directory = Path(__root__,  "tests", "4_cameras_endofday")
+    # session_directory = Path(__root__,  "tests", "4_cameras_endofday")
+    session_directory = Path(__root__,  "tests", "4_cameras_nonoverlap")
     # session_directory = Path(__root__,  "tests", "4_cameras_nonoverlap")
     # session_directory = Path(__root__,  "tests", "3_cameras_linear")
     # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
     # session_directory = Path(__root__,  "tests", "just_checking")
 
 
-    saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl") 
+    saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl") 
+    # saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl") 
     with open(saved_CV_path, "rb") as f:
         capture_volume:CaptureVolume = pickle.load(f)
 

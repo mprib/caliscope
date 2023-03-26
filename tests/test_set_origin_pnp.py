@@ -28,11 +28,11 @@ from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
 
-# test_scenario = "4_cameras_nonoverlap"
+test_scenario = "4_cameras_nonoverlap"
 # test_scenario = "3_cameras_middle"
 # test_scenario = "3_cameras_triangular"
 # test_scenario = "4_cameras_beginning"
-test_scenario = "3_cameras_midlinear"
+# test_scenario = "3_cameras_midlinear"
 
 
 anchor_camera_override = None

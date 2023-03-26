@@ -83,7 +83,7 @@ def get_anchor_camera(capture_volume: CaptureVolume, sync_index: int) -> CameraD
     camera_port, camera_count = np.unique(camera_views, return_counts=True)
     anchor_camera_port = camera_port[camera_count.argmax()]
 
-    anchor_camera: CameraData = camera_array.cameras[anchor_camera_port]
+    anchor_camera: CameraData = capture_volume.camera_array.cameras[anchor_camera_port]
     return anchor_camera
 
 
@@ -149,13 +149,19 @@ def shift_capture_volume_origin(
         
     return capture_volume
 
+def world_board_distance(tvec_xyz:np.ndarray, world_corners_xyz, board_corners_xyz):
+    delta_xyz = world_corners_xyz - tvec_xyz - board_corners_xyz 
+    logger.info(f"Delta_xyz is {delta_xyz}")
+    return delta_xyz.ravel()
+
 
 
 if __name__ == "__main__":
 
     # test_scenario = "4_cameras_nonoverlap"
     # test_scenario = "3_cameras_middle"
-    test_scenario = "3_cameras_triangular"
+    test_scenario = "2_cameras_linear"
+    # test_scenario = "3_cameras_triangular"
     # test_scenario = "4_cameras_beginning" # initial translation off
     # test_scenario = "3_cameras_midlinear"
 
@@ -165,6 +171,7 @@ if __name__ == "__main__":
 
     origin_sync_indices = {
         "4_cameras_nonoverlap": 23,
+        "2_cameras_linear": 77,
         "3_cameras_middle": 20,
         "4_cameras_beginning": 234,
         "3_cameras_triangular": 25,
@@ -204,11 +211,29 @@ if __name__ == "__main__":
 
     origin_sync_index = origin_sync_indices[test_scenario]
     logger.warning(f"New test sync index is {origin_sync_index}")
-    
+   
+    # get initial approximation of the transformation to apply  
     origin_transform = get_initial_origin_transform(capture_volume,origin_sync_index, charuco) 
 
+
+    # apply it for purposes of visualizing
     capture_volume = shift_capture_volume_origin(capture_volume,origin_transform)
-    
+    world_board = get_world_corners_xyz(capture_volume,origin_sync_index)
+    target_board = get_board_corners_xyz(capture_volume,origin_sync_index,charuco)
+    initial_tvec = np.array([0,0,.5])
+
+    least_sq_result = scipy.optimize.least_squares(
+        world_board_distance,
+        initial_tvec,
+        args=(world_board,target_board)
+    )
+
+    optimal_tvec = least_sq_result.x 
+
+    final_transform = np.hstack([np.array([[1,0,0],[0,1,0],[0,0,1]]),np.expand_dims(optimal_tvec, axis=1)])
+    final_transform = np.vstack([final_transform,np.array([0,0,0,1])])
+    capture_volume = shift_capture_volume_origin(capture_volume,final_transform)
+     
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
     # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)

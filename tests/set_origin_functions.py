@@ -24,57 +24,6 @@ from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
 
-test_scenario = "4_cameras_nonoverlap"
-# test_scenario = "3_cameras_middle"
-# test_scenario = "3_cameras_triangular"
-# test_scenario = "4_cameras_beginning"
-# test_scenario = "3_cameras_midlinear"
-
-
-anchor_camera_override = None
-# anchor_camera_override = 2
-
-origin_sync_indices = {
-    "4_cameras_nonoverlap": 23,
-    "3_cameras_middle": 20,
-    "4_cameras_beginning": 234,
-    "3_cameras_triangular": 25,
-    "3_cameras_midlinear": 14,
-}
-
-session_directory = Path(__root__, "tests", test_scenario)
-point_data_csv_path = Path(session_directory, "point_data.csv")
-config_path = Path(session_directory, "config.toml")
-
-# need to get the charuco board that was used during the session for later
-session = Session(session_directory)
-charuco = session.charuco
-
-
-REOPTIMIZE_CAPTURE_VOLUME = True
-# REOPTIMIZE_CAPTURE_VOLUME = False
-
-if REOPTIMIZE_CAPTURE_VOLUME:
-
-    array_initializer = CameraArrayInitializer(config_path)
-    camera_array = array_initializer.get_best_camera_array()
-    point_estimates = get_point_estimates(camera_array, point_data_csv_path)
-
-    print(f"Optimizing initial camera array configuration ")
-
-    capture_volume = CaptureVolume(camera_array, point_estimates)
-    capture_volume.save(session_directory, "initial")
-    capture_volume.optimize()
-    capture_volume.save(session_directory, "optimized")
-else:
-
-    saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl")
-    with open(saved_CV_path, "rb") as f:
-        capture_volume: CaptureVolume = pickle.load(f)
-
-
-origin_sync_index = origin_sync_indices[test_scenario]
-logger.warning(f"New test sync index is {origin_sync_index}")
 
 # Proceeding with basic idea that these functions will go into CaptureVolume.
 # so use capture_volume here which may just become self later on.
@@ -142,7 +91,7 @@ def get_initial_origin_transform(capture_volume: CaptureVolume, sync_index: int)
 
     world_corners_xyz = get_world_corners_xyz(capture_volume, sync_index)
     board_corners_xyz = get_board_corners_xyz(capture_volume, sync_index)
-    anchor_camera = get_anchor_camera(capture_volume,sync_index)
+    anchor_camera = get_anchor_camera(capture_volume, sync_index)
 
     charuco_image_points, jacobian = cv2.projectPoints(
         world_corners_xyz,
@@ -180,3 +129,78 @@ def get_initial_origin_transform(capture_volume: CaptureVolume, sync_index: int)
     return origin_shift_transform
 
 
+def shift_capture_volume_origin(
+    capture_volume: CaptureVolume, origin_shift_transform: np.ndarray
+) -> CaptureVolume:
+
+    # update 3d point estimates
+    xyz = capture_volume.point_estimates.obj
+    scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
+    xyzh = np.hstack([xyz, scale])
+
+    new_origin_xyzh = np.matmul(np.linalg.inv(origin_shift_transform), xyzh.T).T
+    capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
+
+    # update camera array
+    for port, camera_data in capture_volume.camera_array.cameras.items():
+        camera_data.transformation = np.matmul(
+            camera_data.transformation, origin_shift_transform
+        )
+        
+    return capture_volume
+
+
+
+if __name__ == "__main__":
+
+    test_scenario = "4_cameras_nonoverlap"
+    # test_scenario = "3_cameras_middle"
+    # test_scenario = "3_cameras_triangular"
+    # test_scenario = "4_cameras_beginning"
+    # test_scenario = "3_cameras_midlinear"
+
+
+    anchor_camera_override = None
+    # anchor_camera_override = 2
+
+    origin_sync_indices = {
+        "4_cameras_nonoverlap": 23,
+        "3_cameras_middle": 20,
+        "4_cameras_beginning": 234,
+        "3_cameras_triangular": 25,
+        "3_cameras_midlinear": 14,
+    }
+
+    session_directory = Path(__root__, "tests", test_scenario)
+    point_data_csv_path = Path(session_directory, "point_data.csv")
+    config_path = Path(session_directory, "config.toml")
+
+    # need to get the charuco board that was used during the session for later
+    session = Session(session_directory)
+    charuco = session.charuco
+
+
+    REOPTIMIZE_CAPTURE_VOLUME = True
+    # REOPTIMIZE_CAPTURE_VOLUME = False
+
+    if REOPTIMIZE_CAPTURE_VOLUME:
+
+        array_initializer = CameraArrayInitializer(config_path)
+        camera_array = array_initializer.get_best_camera_array()
+        point_estimates = get_point_estimates(camera_array, point_data_csv_path)
+
+        print(f"Optimizing initial camera array configuration ")
+
+        capture_volume = CaptureVolume(camera_array, point_estimates)
+        capture_volume.save(session_directory, "initial")
+        capture_volume.optimize()
+        capture_volume.save(session_directory, "optimized")
+    else:
+
+        saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl")
+        with open(saved_CV_path, "rb") as f:
+            capture_volume: CaptureVolume = pickle.load(f)
+
+
+    origin_sync_index = origin_sync_indices[test_scenario]
+    logger.warning(f"New test sync index is {origin_sync_index}")

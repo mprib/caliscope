@@ -27,8 +27,8 @@ from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualiz
 from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
 import pickle
 
-# session_directory = Path(__root__, "tests", "3_cameras_middle")
-session_directory = Path(__root__, "tests", "4_cameras_beginning")
+session_directory = Path(__root__, "tests", "3_cameras_middle")
+# session_directory = Path(__root__, "tests", "4_cameras_beginning")
 point_data_csv_path = Path(session_directory, "point_data.csv")
 config_path = Path(session_directory, "config.toml")
 
@@ -60,8 +60,9 @@ session = Session(session_directory)
 charuco_board = session.charuco.board
 
 sync_indices = point_estimates.sync_indices
-# test_sync_index = sync_indices[46]
-test_sync_index = 320
+# test_sync_index = sync_indices[70]
+test_sync_index = 41
+logger.warning(f"New test sync index is {test_sync_index}")
 
 charuco_ids = point_estimates.point_id[sync_indices == test_sync_index]
 unique_charuco_id = np.unique(charuco_ids)
@@ -120,7 +121,8 @@ for port, camera_data in camera_array.cameras.items():
 
     old_transformation = camera_data.transformation
     new_transformation = np.dot(old_transformation, new_origin_transform)
-    camera_data.transformation = new_transformation
+    # camera_data.transformation = new_transformation
+    camera_data.transformation = new_origin_transform
 ##########################################################################
 #%%
 

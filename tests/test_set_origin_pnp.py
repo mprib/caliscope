@@ -87,14 +87,39 @@ board_corners_xyz = charuco_board.chessboardCorners[unique_charuco_id]
 
 #%%
 ###################### FIND ANCHOR CAMERA
-# anchor camera will be the one that has the most actual views of the charuco board. 
-camera_views = point_estimates.camera_indices[sync_indices==origin_sync_index]
+# anchor camera will be the one that has the most actual views of the charuco board.
+camera_views = point_estimates.camera_indices[sync_indices == origin_sync_index]
 camera_port, camera_count = np.unique(camera_views, return_counts=True)
 anchor_camera_port = camera_port[camera_count.argmax()]
 anchor_camera: CameraData = camera_array.cameras[anchor_camera_port]
 
 #%%
+# find pose of anchor camera relative to board
 
+charuco_image_points, jacobian = cv2.projectPoints(
+    world_corners_xyz,
+    rvec=anchor_camera.rotation,
+    tvec=anchor_camera.translation,
+    cameraMatrix=anchor_camera.matrix,
+    distCoeffs=np.array(
+        [0, 0, 0, 0, 0], dtype=np.float32
+    ), # because points are via bundle adj., no distortion
+)
+
+# use solvepnp and not estimate poseboard.....
+retval, rvec, tvec = cv2.solvePnP(
+    board_corners_xyz,
+    charuco_image_points,
+    cameraMatrix=anchor_camera.matrix,
+    distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
+)
+
+rvec = cv2.Rodrigues(rvec)[0]
+
+anchor_board_transform = np.hstack([rvec, tvec])
+anchor_board_transform = np.vstack(
+    [anchor_board_transform, np.array([0, 0, 0, 1], np.float32)]
+)
 
 #%%
 ######  SET CAMERA TRANSFORMATIONS
@@ -107,7 +132,7 @@ for port, camera_data in camera_array.cameras.items():
         cameraMatrix=camera_data.matrix,
         distCoeffs=np.array(
             [0, 0, 0, 0, 0], dtype=np.float32
-        ),  # For origin setting, assume perfection
+        ),  # because points are via bundle adj., no distortion
     )
 
     # use solvepnp and not estimate poseboard.....

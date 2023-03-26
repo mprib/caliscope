@@ -29,12 +29,14 @@ import pickle
 
 
 test_scenario = "4_cameras_nonoverlap"
-test_scenario = "3_cameras_middle"
-test_scenario = "4_cameras_beginning"
+# test_scenario = "3_cameras_middle"
+# test_scenario = "4_cameras_beginning"
 
-origin_sync_indices   = {"4_cameras_nonoverlap":147,
-"3_cameras_middle":56,
-"4_cameras_beginning":234}
+origin_sync_indices = {
+    "4_cameras_nonoverlap": 147,
+    "3_cameras_middle": 20,
+    "4_cameras_beginning": 234,
+}
 
 session_directory = Path(__root__, "tests", test_scenario)
 point_data_csv_path = Path(session_directory, "point_data.csv")
@@ -109,7 +111,7 @@ charuco_image_points, jacobian = cv2.projectPoints(
     cameraMatrix=anchor_camera.matrix,
     distCoeffs=np.array(
         [0, 0, 0, 0, 0], dtype=np.float32
-    ), # because points are via bundle adj., no distortion
+    ),  # because points are via bundle adj., no distortion
 )
 
 # use solvepnp and not estimate poseboard.....
@@ -130,11 +132,13 @@ anchor_board_transform = np.vstack(
 #%%
 # calculate the transformation matrix that will convert the anchor camera
 # to the new frame of reference
-origin_shift_transform = np.matmul(np.linalg.inv(anchor_camera.transformation),anchor_board_transform)
+origin_shift_transform = np.matmul(
+    np.linalg.inv(anchor_camera.transformation), anchor_board_transform
+)
 # origin_shift_transform = np.matmul(anchor_board_transform, np.linalg.inv(anchor_camera.transformation))
 
 # check application of origin_shift_transformation
-# 
+#
 check_transform = np.matmul(anchor_camera.transformation, origin_shift_transform)
 
 logger.info(f"ChecK: Old method yielded transform of  \n {anchor_board_transform}")
@@ -175,14 +179,19 @@ for port, camera_data in camera_array.cameras.items():
 
     logger.info(f"About to attempt to change camera at port {port}")
     # camera_data.transformation = new_origin_transform
-    logger.info(f"Previous method (that works) has transform of \n {new_origin_transform}")
+    logger.info(
+        f"Previous method (that works) has transform of \n {new_origin_transform}"
+    )
 
-    camera_data.transformation = np.matmul(camera_data.transformation,origin_shift_transform)
+    camera_data.transformation = np.matmul(
+        camera_data.transformation, origin_shift_transform
+    )
 
-    logger.info(f"New method (that doesn't quite work) has transform of \n {camera_data.transformation}")
+    logger.info(
+        f"New method (that doesn't quite work) has transform of \n {camera_data.transformation}"
+    )
 ##########################################################################
 #%%
-
 
 # old_world_corners_xyzh = np.hstack(
 #     [world_corners_xyz, np.expand_dims(np.ones(world_corners_xyz.shape[0]), 1)]
@@ -192,16 +201,16 @@ for port, camera_data in camera_array.cameras.items():
 # ).T
 
 
-# # test_new_origin_world_corners_xyz  =
+# test_new_origin_world_corners_xyz  =
 
-# # change the point estimates to reflect the new origin
-# xyz = capture_volume.point_estimates.obj
-# scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
-# xyzh = np.hstack([xyz, scale])
+# change the point estimates to reflect the new origin
+xyz = capture_volume.point_estimates.obj
+scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
+xyzh = np.hstack([xyz, scale])
 
-# new_origin_xyzh = np.matmul(np.linalg.inv(new_origin_transform), xyzh.T).T
-# # new_origin_xyzh = np.matmul(board_pose_transformation,xyzh.T).T
-# capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
+new_origin_xyzh = np.matmul(np.linalg.inv(origin_shift_transform), xyzh.T).T
+# new_origin_xyzh = np.matmul(board_pose_transformation,xyzh.T).T
+capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
 
 
 ############## REASSESS POINT ESTIMATE ORIGIN FRAME ##################################
@@ -229,11 +238,15 @@ logger.info("About to visualize the camera array")
 # or wait...does this matter...can I just project back to the camera from the 3d points
 
 #%%
+## the problem here may have been rerunning the bundle adjustment from the initial points...
+## it's just going to cause drift in the camera array...I need a better way to actually triangulate the data.
+## as a check of the correctness of the transformation
 
-camera_array = capture_volume.camera_array
-point_estimates = get_point_estimates(camera_array, point_data_csv_path)
-capture_volume = CaptureVolume(camera_array, point_estimates)
-capture_volume.optimize()
+
+# camera_array = capture_volume.camera_array
+# point_estimates = get_point_estimates(camera_array, point_data_csv_path)
+# capture_volume = CaptureVolume(camera_array, point_estimates)
+# capture_volume.optimize()
 
 app = QApplication(sys.argv)
 vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)

@@ -30,20 +30,31 @@ class CameraData:
     translation: np.ndarray # camera relative to world
     rotation: np.ndarray # camera relative to world
 
+    @property
+    def transformation(self):
+        """"
+        Rotation and transformation combined to allow 
+        
+        """
+        
+        t = np.hstack([self.rotation, np.expand_dims(self.translation, 1)])
+        t = np.vstack([t, np.array([0,0,0,1], np.float32)])
+        return t 
+   
+    @transformation.setter 
+    def transformation(self, t: np.ndarray):
+        self.rotation = t[0:3,0:3]
+        self.translation = t[0:3,3]
+        logger.info(f"Rotation and Translation being updated to {self.rotation} and {self.translation}")
+         
+     
     def extrinsics_to_vector(self):
         """
         Converts camera parameters to a numpy vector for use with bundle adjustment.
         """
         # rotation of the camera relative to the world
-        rotation_matrix_world = self.rotation
-
-        # rotation of the world relative to camera
-        rotation_matrix_proj = rotation_matrix_world
-        rotation_rodrigues = cv2.Rodrigues(rotation_matrix_proj)[0]  # elements 0,1,2
-        translation_world = self.translation  # elements 3,4,5
-        translation_proj = translation_world 
-
-        port_param = np.hstack([rotation_rodrigues[:, 0], translation_proj])
+        rotation_rodrigues = cv2.Rodrigues(self.rotation)[0]  # elements 0,1,2
+        port_param = np.hstack([rotation_rodrigues[:, 0], self.translation])
 
         return port_param
 

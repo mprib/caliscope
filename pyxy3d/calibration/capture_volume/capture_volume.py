@@ -16,6 +16,7 @@ from time import perf_counter
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera_array import CameraArray
+from pyxy3d.calibration.capture_volume.set_origin_functions import get_board_origin_transform
 
 CAMERA_PARAM_COUNT = 6
 
@@ -27,12 +28,14 @@ class CaptureVolume:
     stage: int = 0
     _rmse: float = None
 
-    def save(self, directory:Path, descriptor:str=None):
+    def save(self, directory: Path, descriptor: str = None):
         if descriptor is None:
             pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"
         else:
 
-            pkl_name = "capture_volume_stage_" + str(self.stage) + "_" + descriptor + ".pkl"
+            pkl_name = (
+                "capture_volume_stage_" + str(self.stage) + "_" + descriptor + ".pkl"
+            )
         logger.info(f"Saving stage {str(self.stage)} capture volume to {directory}")
         with open(Path(directory, pkl_name), "wb") as file:
             pickle.dump(self, file)
@@ -49,17 +52,15 @@ class CaptureVolume:
 
     @property
     def rmse(self):
-        
+
         if hasattr(self, "least_sq_result"):
             rmse = rms_reproj_error(self.least_sq_result.fun)
         else:
             param_estimates = self.get_vectorized_params()
             xy_repro_error = xy_reprojection_error(param_estimates, self)
             rmse = rms_reproj_error(xy_repro_error)
-         
-        return rmse   
-        
-        
+
+        return rmse
 
     def get_xy_reprojection_error(self):
         vectorized_params = self.get_vectorized_params()
@@ -95,11 +96,10 @@ class CaptureVolume:
         self.camera_array.update_extrinsic_params(self.least_sq_result.x)
         self.point_estimates.update_obj_xyz(self.least_sq_result.x)
         self.stage += 1
-        
+
         logger.info(
             f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
         )
-
 
     def get_xyz_points(self):
         """Get 3d positions arrived at by bundle adjustment"""
@@ -109,15 +109,35 @@ class CaptureVolume:
 
         return xyz
 
+    def shift_origin(self, origin_shift_transform: np.ndarray):
 
-    def set_origin(self, sync_index, charuco:Charuco):
+        # update 3d point estimates
+        xyz = self.point_estimates.obj
+        scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
+        xyzh = np.hstack([xyz, scale])
+
+        new_origin_xyzh = np.matmul(np.linalg.inv(origin_shift_transform), xyzh.T).T
+        self.point_estimates.obj = new_origin_xyzh[:, 0:3]
+
+        # update camera array
+        for port, camera_data in self.camera_array.cameras.items():
+            camera_data.transformation = np.matmul(
+                camera_data.transformation, origin_shift_transform
+            )
+
+
+    def set_origin_to_board(self, sync_index, charuco: Charuco):
         """
         Find the pose of the charuco (rvec and tvec) from a given frame
         Transform stereopairs and 3d point estimates for this new origin
         """
-        
 
-        pass
+        origin_transform = get_board_origin_transform(self.camera_array,
+                                                      self.point_estimates,
+                                                      sync_index, 
+                                                      charuco)
+        self.shift_origin(origin_transform)
+
 
 def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume):
     """
@@ -174,11 +194,14 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     xy_reprojection_error = (points_proj - capture_volume.point_estimates.img).ravel()
-    if round(perf_counter(),2)*10 %1 ==0:
-        logger.info(f"Optimizing... RMSE of reprojection = {rms_reproj_error(xy_reprojection_error)}")
-    
+    if round(perf_counter(), 2) * 10 % 1 == 0:
+        logger.info(
+            f"Optimizing... RMSE of reprojection = {rms_reproj_error(xy_reprojection_error)}"
+        )
+
     # reshape the x,y reprojection error to a single vector
     return xy_reprojection_error
+
 
 def rms_reproj_error(xy_reproj_error):
 
@@ -188,6 +211,7 @@ def rms_reproj_error(xy_reproj_error):
     # logger.info(f"Optimization run with {xy_reproj_error.shape[0]} image points")
     # logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
+
 
 if __name__ == "__main__":
     # if True:
@@ -208,8 +232,8 @@ if __name__ == "__main__":
 
     print(f"Optimizing initial camera array configuration ")
 
-    capture_volume = CaptureVolume(camera_array, point_estimates)
-    capture_volume.save(session_directory)
-    capture_volume.optimize()
-    capture_volume.save(session_directory)
+    self = CaptureVolume(camera_array, point_estimates)
+    self.save(session_directory)
+    self.optimize()
+    self.save(session_directory)
 # %%

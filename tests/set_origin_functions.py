@@ -72,54 +72,93 @@ def get_board_corners_xyz(
     return board_corners_xyz
 
 
-def get_anchor_camera(capture_volume: CaptureVolume, sync_index: int) -> CameraData:
+def get_anchor_cameras(capture_volume: CaptureVolume, sync_index: int) -> CameraData:
     """
-    Returns the camera data object that viewed the most board corners
+    Returns the camera data objects that have an actual view of the board
+    at the sync index and therefore can be used to estimate the pose from pnp
+    
+    Weird results will happen if the camera has its back turned to the board and
+    the corners are projected into it.   
+
     """
     sync_indices = capture_volume.point_estimates.sync_indices  # convienent shortening
     camera_views = capture_volume.point_estimates.camera_indices[
         sync_indices == sync_index
     ]
-    camera_port, camera_count = np.unique(camera_views, return_counts=True)
-    anchor_camera_port = camera_port[camera_count.argmax()]
+    camera_ports, camera_counts = np.unique(camera_views, return_counts=True)
+    # anchor_camera_port = camera_ports[camera_counts.argmax()]
 
-    anchor_camera: CameraData = capture_volume.camera_array.cameras[anchor_camera_port]
-    return anchor_camera
+    anchor_cameras = []
+    for port in camera_ports:
+        cam: CameraData = capture_volume.camera_array.cameras[port]
+        anchor_cameras.append(cam)
+
+    return anchor_cameras
 
 
 def get_rvec_tvec_from_board_pose(capture_volume: CaptureVolume, sync_index: int, charuco:Charuco):
 
     world_corners_xyz = get_world_corners_xyz(capture_volume, sync_index)
     board_corners_xyz = get_board_corners_xyz(capture_volume, sync_index, charuco)
-    anchor_camera = get_anchor_camera(capture_volume, sync_index)
+    anchor_cameras = get_anchor_cameras(capture_volume, sync_index)
 
-    charuco_image_points, jacobian = cv2.projectPoints(
-        world_corners_xyz,
-        rvec=anchor_camera.rotation,
-        tvec=anchor_camera.translation,
-        cameraMatrix=anchor_camera.matrix,
-        distCoeffs=np.array(
-            [0, 0, 0, 0, 0], dtype=np.float32
-        ),  # because points are via bundle adj., no distortion
-    )
-
-    # use solvepnp to estimate the pose of the camera relative to the board
-    # this provides a good estimate of rotation, but not of translation
-    retval, rvec, tvec = cv2.solvePnP(
-        board_corners_xyz,
-        charuco_image_points,
-        cameraMatrix=anchor_camera.matrix,
-        distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
-    )
-
-    anchor_board_transform = rvec_tvec_to_transform(rvec,tvec)
+    rvecs = []
+    tvecs = []
     
-    origin_shift_transform = np.matmul(
-        np.linalg.inv(anchor_camera.transformation), anchor_board_transform
-    )
+    for camera in anchor_cameras:
+        charuco_image_points, jacobian = cv2.projectPoints(
+            world_corners_xyz,
+            rvec=camera.rotation,
+            tvec=camera.translation,
+            cameraMatrix=camera.matrix,
+            distCoeffs=np.array(
+                [0, 0, 0, 0, 0], dtype=np.float32
+            ),  # because points are via bundle adj., no distortion
+        )
 
-    rvec,tvec = transform_to_rvec_tvec(origin_shift_transform)
-    return rvec, tvec
+        # use solvepnp to estimate the pose of the camera relative to the board
+        # this provides a good estimate of rotation, but not of translation
+        retval, rvec, tvec = cv2.solvePnP(
+            board_corners_xyz,
+            charuco_image_points,
+            cameraMatrix=camera.matrix,
+            distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),
+        )
+        
+        anchor_board_transform = rvec_tvec_to_transform(rvec,tvec)
+   
+        # back into the shift in the world change of origin implied by the 
+        # pose of the camera relative to the board given its previous
+        # pose in the old frame of reference 
+        origin_shift_transform = np.matmul(
+            np.linalg.inv(camera.transformation), anchor_board_transform
+        )
+
+        rvec,tvec = transform_to_rvec_tvec(origin_shift_transform)
+
+        rvecs.append(rvec)
+        tvecs.append(tvec)
+
+    mean_rvec = mean_vec(rvecs)
+    mean_tvec = mean_vec(tvecs)
+
+    # get mean values
+    return mean_rvec, mean_tvec
+
+def mean_vec(vecs):
+    hstacked_vec = None
+
+    for vec in vecs:
+        if hstacked_vec is None:
+            hstacked_vec = vec
+        else:
+            hstacked_vec = np.hstack([hstacked_vec,vec])
+    
+    mean_vec = np.mean(hstacked_vec,axis=1)
+    mean_vec = np.expand_dims(mean_vec, axis=1)
+    
+    return mean_vec
+        
 
 def transform_to_rvec_tvec(transformation:np.ndarray):
     rot_matrix = transformation[0:3,0:3]
@@ -184,11 +223,11 @@ def world_board_distance(tvec_xyz:np.ndarray, good_rvec: np.ndarray, raw_world_x
 if __name__ == "__main__":
 # 
     # test_scenario = "4_cameras_nonoverlap"
-    test_scenario = "3_cameras_middle"
+    # test_scenario = "3_cameras_middle"
     # test_scenario = "2_cameras_linear"
     # test_scenario = "3_cameras_triangular"
     # test_scenario = "4_cameras_beginning" # initial translation off
-    # test_scenario = "3_cameras_midlinear"
+    test_scenario = "3_cameras_midlinear"
 
 
     anchor_camera_override = None
@@ -242,7 +281,7 @@ if __name__ == "__main__":
 
     world_board = get_world_corners_xyz(capture_volume,origin_sync_index)
     target_board = get_board_corners_xyz(capture_volume,origin_sync_index,charuco)
-    initial_tvec = poor_tvec
+    initial_tvec = poor_tvec[:,0] # prep for least_squares array
 
     least_sq_result = scipy.optimize.least_squares(
         world_board_distance,

@@ -183,25 +183,6 @@ def rvec_tvec_to_transform(rvec:np.ndarray,tvec:np.ndarray)->np.ndarray:
     )
     return transform
 
-def shift_origin(
-    capture_volume: CaptureVolume, origin_shift_transform: np.ndarray
-) -> CaptureVolume:
-
-    # update 3d point estimates
-    xyz = capture_volume.point_estimates.obj
-    scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
-    xyzh = np.hstack([xyz, scale])
-
-    new_origin_xyzh = np.matmul(np.linalg.inv(origin_shift_transform), xyzh.T).T
-    capture_volume.point_estimates.obj = new_origin_xyzh[:, 0:3]
-
-    # update camera array
-    for port, camera_data in capture_volume.camera_array.cameras.items():
-        camera_data.transformation = np.matmul(
-            camera_data.transformation, origin_shift_transform
-        )
-        
-    return capture_volume
 
 def world_board_distance(tvec_xyz:np.ndarray, good_rvec: np.ndarray, raw_world_xyz, board_corners_xyz):
     
@@ -292,7 +273,7 @@ if __name__ == "__main__":
     optimal_tvec = least_sq_result.x 
 
     final_transform = rvec_tvec_to_transform(good_rvec,optimal_tvec)
-    capture_volume = shift_origin(capture_volume,final_transform)
+    capture_volume.shift_origin(final_transform)
      
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)

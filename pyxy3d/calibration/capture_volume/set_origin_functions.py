@@ -183,7 +183,7 @@ def rvec_tvec_to_transform(rvec:np.ndarray,tvec:np.ndarray)->np.ndarray:
     )
     return transform
 
-def transform_origin(
+def shift_origin(
     capture_volume: CaptureVolume, origin_shift_transform: np.ndarray
 ) -> CaptureVolume:
 
@@ -292,7 +292,7 @@ if __name__ == "__main__":
     optimal_tvec = least_sq_result.x 
 
     final_transform = rvec_tvec_to_transform(good_rvec,optimal_tvec)
-    capture_volume = transform_origin(capture_volume,final_transform)
+    capture_volume = shift_origin(capture_volume,final_transform)
      
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)

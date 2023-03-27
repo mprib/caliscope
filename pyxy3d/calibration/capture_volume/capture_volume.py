@@ -16,6 +16,7 @@ from time import perf_counter
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera_array import CameraArray
+from pyxy3d.calibration.capture_volume.set_origin_functions import get_board_origin_transform
 
 CAMERA_PARAM_COUNT = 6
 
@@ -131,7 +132,11 @@ class CaptureVolume:
         Transform stereopairs and 3d point estimates for this new origin
         """
 
-        pass
+        origin_transform = get_board_origin_transform(self.camera_array,
+                                                      self.point_estimates,
+                                                      sync_index, 
+                                                      charuco)
+        self.shift_origin(origin_transform)
 
 
 def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume):

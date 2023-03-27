@@ -87,7 +87,7 @@ def get_anchor_camera(capture_volume: CaptureVolume, sync_index: int) -> CameraD
     return anchor_camera
 
 
-def get_initial_origin_transform(capture_volume: CaptureVolume, sync_index: int, charuco:Charuco):
+def get_rvec_tvec_from_board_pose(capture_volume: CaptureVolume, sync_index: int, charuco:Charuco):
 
     world_corners_xyz = get_world_corners_xyz(capture_volume, sync_index)
     board_corners_xyz = get_board_corners_xyz(capture_volume, sync_index, charuco)
@@ -118,17 +118,25 @@ def get_initial_origin_transform(capture_volume: CaptureVolume, sync_index: int,
         np.linalg.inv(anchor_camera.transformation), anchor_board_transform
     )
 
-    return origin_shift_transform
+    rvec,tvec = transform_to_rvec_tvec(origin_shift_transform)
+    return rvec, tvec
 
 def transform_to_rvec_tvec(transformation:np.ndarray):
-
     rot_matrix = transformation[0:3,0:3]
     rvec = cv2.Rodrigues(rot_matrix)[0]
-    tvec = transformation[0:3,3]
+    tvec = np.expand_dims(transformation[0:3,3], axis=1)
     return rvec,tvec
 
 def rvec_tvec_to_transform(rvec:np.ndarray,tvec:np.ndarray)->np.ndarray:
-    rvec = cv2.Rodrigues(rvec)[0]
+
+    # might send a rotation matrix into here so check
+    # that rvec is a rodrigues vector before converting
+    if len(rvec.shape) == 1 or rvec.shape[1]==1: 
+        rvec = cv2.Rodrigues(rvec)[0]
+
+    # if tvec doesn't have the extra dimension, add it
+    if len(tvec.shape)==1:
+        tvec = np.expand_dims(tvec, axis=1)
 
     transform = np.hstack([rvec, tvec])
     transform = np.vstack(
@@ -156,8 +164,18 @@ def transform_origin(
         
     return capture_volume
 
-def world_board_distance(tvec_xyz:np.ndarray, world_corners_xyz, board_corners_xyz):
-    delta_xyz = world_corners_xyz - tvec_xyz - board_corners_xyz 
+def world_board_distance(tvec_xyz:np.ndarray, good_rvec: np.ndarray, raw_world_xyz, board_corners_xyz):
+    
+    scale = np.expand_dims(np.ones(raw_world_xyz.shape[0]), 1)
+    raw_world_xyzh = np.hstack([raw_world_xyz, scale])
+
+    origin_shift_transform = rvec_tvec_to_transform(good_rvec,tvec_xyz)
+
+    new_origin_xyzh = np.matmul(np.linalg.inv(origin_shift_transform), raw_world_xyzh.T).T
+    new_origin_xyz = new_origin_xyzh[:, 0:3]
+     
+
+    delta_xyz = new_origin_xyz - board_corners_xyz 
     logger.info(f"Delta_xyz is {delta_xyz}")
     return delta_xyz.ravel()
 
@@ -166,10 +184,10 @@ def world_board_distance(tvec_xyz:np.ndarray, world_corners_xyz, board_corners_x
 if __name__ == "__main__":
 # 
     # test_scenario = "4_cameras_nonoverlap"
-    # test_scenario = "3_cameras_middle"
+    test_scenario = "3_cameras_middle"
     # test_scenario = "2_cameras_linear"
     # test_scenario = "3_cameras_triangular"
-    test_scenario = "4_cameras_beginning" # initial translation off
+    # test_scenario = "4_cameras_beginning" # initial translation off
     # test_scenario = "3_cameras_midlinear"
 
 
@@ -220,30 +238,25 @@ if __name__ == "__main__":
     logger.warning(f"New test sync index is {origin_sync_index}")
    
     # get initial approximation of the transformation to apply  
-    origin_transform = get_initial_origin_transform(capture_volume,origin_sync_index, charuco) 
+    good_rvec, poor_tvec = get_rvec_tvec_from_board_pose(capture_volume,origin_sync_index, charuco) 
 
-
-    # apply it for purposes of visualizing
-    capture_volume = transform_origin(capture_volume,origin_transform)
     world_board = get_world_corners_xyz(capture_volume,origin_sync_index)
     target_board = get_board_corners_xyz(capture_volume,origin_sync_index,charuco)
-    initial_tvec = np.array([0,0,.5])
+    initial_tvec = poor_tvec
 
     least_sq_result = scipy.optimize.least_squares(
         world_board_distance,
         initial_tvec,
-        args=(world_board,target_board)
+        args=(good_rvec, world_board,target_board)
     )
 
     optimal_tvec = least_sq_result.x 
 
-    final_transform = np.hstack([np.array([[1,0,0],[0,1,0],[0,0,1]]),np.expand_dims(optimal_tvec, axis=1)])
-    final_transform = np.vstack([final_transform,np.array([0,0,0,1])])
+    final_transform = rvec_tvec_to_transform(good_rvec,optimal_tvec)
     capture_volume = transform_origin(capture_volume,final_transform)
      
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
-    # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
 
     vizr_dialog = CaptureVolumeDialog(vizr)
     vizr_dialog.show()

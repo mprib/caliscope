@@ -136,7 +136,7 @@ def rvec_tvec_to_transform(rvec:np.ndarray,tvec:np.ndarray)->np.ndarray:
     )
     return transform
 
-def shift_capture_volume_origin(
+def transform_origin(
     capture_volume: CaptureVolume, origin_shift_transform: np.ndarray
 ) -> CaptureVolume:
 
@@ -224,7 +224,7 @@ if __name__ == "__main__":
 
 
     # apply it for purposes of visualizing
-    capture_volume = shift_capture_volume_origin(capture_volume,origin_transform)
+    capture_volume = transform_origin(capture_volume,origin_transform)
     world_board = get_world_corners_xyz(capture_volume,origin_sync_index)
     target_board = get_board_corners_xyz(capture_volume,origin_sync_index,charuco)
     initial_tvec = np.array([0,0,.5])
@@ -239,7 +239,7 @@ if __name__ == "__main__":
 
     final_transform = np.hstack([np.array([[1,0,0],[0,1,0],[0,0,1]]),np.expand_dims(optimal_tvec, axis=1)])
     final_transform = np.vstack([final_transform,np.array([0,0,0,1])])
-    capture_volume = shift_capture_volume_origin(capture_volume,final_transform)
+    capture_volume = transform_origin(capture_volume,final_transform)
      
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)

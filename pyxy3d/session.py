@@ -8,6 +8,7 @@ from datetime import datetime
 from os.path import exists
 from pathlib import Path, PurePath
 from enum import Enum, auto
+from dataclasses import asdict
 import numpy as np
 import toml
 from itertools import combinations
@@ -421,9 +422,6 @@ class Session:
 
         self.update_config()
         
-    def load_camera_array(self):
-        pass
-
     def initialize_camera_array(self):
         """
         after doing stereoframe capture and generating a point_data.csv file,
@@ -462,9 +460,19 @@ class Session:
 
         self.camera_array = CameraArray(all_camera_data)
 
+    def save_point_estimates(self):
+        
+        self.config["point_estimates"] = asdict(self.point_estimates)
+        self.update_config()
 
+    def load_point_estimates(self):
+        point_estimates_dict = self.config["point_estimates"]
+        self.point_estimates = PointEstimates(**point_estimates_dict)
+    
+    
     def calibrate(self):
-        self.stop_recording()
+        # self.stop_recording()
+
         self.point_data_path = Path(self.path, "point_data.csv")
 
         stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
@@ -539,18 +547,19 @@ class Session:
             calibrated_pairs
         )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
         return calibrated_pairs
-def format_toml_dict(toml_dict: dict):
-    temp_config = {}
-    for key, value in toml_dict.items():
-        # logger.info(f"key: {key}; type: {type(value)}")
-        if isinstance(value, dict):
-            temp_config[key] = format_toml_dict(value)
-        if isinstance(value, np.ndarray):
-            temp_config[key] = [float(i) for i in value]
-        else:
-            temp_config[key] = value
 
-    return temp_config
+# def format_toml_dict(toml_dict: dict):
+#     temp_config = {}
+#     for key, value in toml_dict.items():
+#         # logger.info(f"key: {key}; type: {type(value)}")
+#         if isinstance(value, dict):
+#             temp_config[key] = format_toml_dict(value)
+#         if isinstance(value, np.ndarray):
+#             temp_config[key] = [float(i) for i in value]
+#         else:
+#             temp_config[key] = value
+
+#     return temp_config
 
 
 class Stage(Enum):
@@ -574,8 +583,9 @@ if __name__ == "__main__":
     session = Session(config_path)
     #%%
     logger.info(session.get_stage())
-    
-    
+    session.load_camera_array()
+    session.calibrate()
+    session.save_point_estimates()
     
     # session.update_config()
     #%%%

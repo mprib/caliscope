@@ -420,6 +420,9 @@ class Session:
             self.config["cam_" + str(port)] = params
 
         self.update_config()
+        
+    def load_camera_array(self):
+        pass
 
     def initialize_camera_array(self):
         """
@@ -434,7 +437,31 @@ class Session:
 
 
     def load_camera_array(self):
-        pass
+        all_camera_data = {}
+        for key, params in self.config.items():
+            if key.startswith("cam"):
+                if params["translation"] is not None:
+                    port = params["port"]
+                    size = params["size"]
+
+                    logger.info(f"Adding camera {port} to calibrated camera array...")
+                    cam_data = CameraData(port=port,
+                                        size = params["size"],
+                                        rotation_count= params["rotation_count"],
+                                        error = params["error"],
+                                        matrix = np.array(params["matrix"]),
+                                        distortions= np.array(params["distortions"]),
+                                        exposure=params["exposure"],
+                                        grid_count=params["grid_count"],
+                                        ignore=params["ignore"],
+                                        verified_resolutions=params["verified_resolutions"],
+                                        translation=np.array(params["translation"]),
+                                        rotation=np.array(params["rotation"]))
+                
+                    all_camera_data[port]=cam_data
+
+        self.camera_array = CameraArray(all_camera_data)
+
 
     def calibrate(self):
         self.stop_recording()
@@ -548,31 +575,6 @@ if __name__ == "__main__":
     #%%
     logger.info(session.get_stage())
     
-    
-    all_camera_data = {}
-    for key, params in session.config.items():
-        if key.startswith("cam"):
-            if params["translation"] is not None:
-                port = params["port"]
-                size = params["size"]
-
-                logger.info(f"Adding camera {port} to calibrated camera array...")
-                cam_data = CameraData(port=port,
-                                      size = params["size"],
-                                      rotation_count= params["rotation_count"],
-                                      error = params["error"],
-                                      matrix = params["matrix"],
-                                      distortions= params["distortions"],
-                                      exposure=params["exposure"],
-                                      grid_count=params["grid_count"],
-                                      ignore=params["ignore"],
-                                      verified_resolutions=params["verified_resolutions"],
-                                      translation=params["translation"],
-                                      rotation=params["rotation"])
-                
-                all_camera_data[port]=cam_data
-
-        logger.info("")
     
     
     # session.update_config()

@@ -400,7 +400,7 @@ class Session:
         self.update_config()
 
     def save_camera_array(self):
-
+        logger.info("Saving camera array....")
         for port, camera_data in self.camera_array.cameras.items():
             camera_data = self.camera_array.cameras[port]
             params = {
@@ -422,17 +422,6 @@ class Session:
 
         self.update_config()
         
-    def initialize_camera_array(self):
-        """
-        after doing stereoframe capture and generating a point_data.csv file,
-        create a camera array from it
-        """
-
-        # with those in place the camera array can be initialized
-        self.camera_array: CameraArray = CameraArrayInitializer(
-            self.config_path
-        ).get_best_camera_array()
-
 
     def load_camera_array(self):
         all_camera_data = {}
@@ -461,12 +450,49 @@ class Session:
         self.camera_array = CameraArray(all_camera_data)
 
     def save_point_estimates(self):
-        
-        self.config["point_estimates"] = asdict(self.point_estimates)
+        logger.info("Saving point estimates to config...")
+
+        temp_data = asdict(self.point_estimates)
+        for key,params in temp_data.items():
+            temp_data[key] = params.tolist()
+
+        self.config["point_estimates"] = temp_data
+
         self.update_config()
 
+
+    def load_calibrated_capture_volume(self):
+        self.point_estimates = self.load_point_estimates()
+        self.camera_array = self.load_camera_array()
+        self.capture_volume = CaptureVolume(self.camera_array,self.point_estimates)
+    
+
+    def initialize_capture_volume(self):
+        """
+        after performing stereocalibration, the data should be in place to initialize 
+        a capture volume. This will not yet be calibrated, therefore at stage 0.
+        The point estimates will be based on an average of stereotriangulaed pairs from 
+        the initial best guess of the camera array.
+        """
+        self.camera_array: CameraArray = CameraArrayInitializer(
+            self.config_path
+        ).get_best_camera_array()
+
+        self.point_estimates: PointEstimates = get_point_estimates(
+            self.camera_array, self.point_data_path
+        )
+
+        # self.save_camera_array()
+        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
+        
+        
+        
     def load_point_estimates(self):
         point_estimates_dict = self.config["point_estimates"]
+        
+        for key, value in point_estimates_dict.items():
+            point_estimates_dict[key] = np.array(value)
+        
         self.point_estimates = PointEstimates(**point_estimates_dict)
     
     
@@ -477,13 +503,6 @@ class Session:
 
         stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
         stereocalibrator.stereo_calibrate_all(boards_sampled=20)
-        self.initialize_camera_array()
-        self.point_estimates: PointEstimates = get_point_estimates(
-            self.camera_array, self.point_data_path
-        )
-
-        # self.save_camera_array()
-        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
         self.capture_volume.save(self.path)
         self.capture_volume.optimize()
         self.capture_volume.save(self.path)
@@ -548,20 +567,6 @@ class Session:
         )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
         return calibrated_pairs
 
-# def format_toml_dict(toml_dict: dict):
-#     temp_config = {}
-#     for key, value in toml_dict.items():
-#         # logger.info(f"key: {key}; type: {type(value)}")
-#         if isinstance(value, dict):
-#             temp_config[key] = format_toml_dict(value)
-#         if isinstance(value, np.ndarray):
-#             temp_config[key] = [float(i) for i in value]
-#         else:
-#             temp_config[key] = value
-
-#     return temp_config
-
-
 class Stage(Enum):
     NO_CAMERAS = auto()
     UNCALIBRATED_CAMERAS = auto()
@@ -582,11 +587,14 @@ if __name__ == "__main__":
     logger.info("Loading session config")
     session = Session(config_path)
     #%%
-    logger.info(session.get_stage())
+    # logger.info(session.get_stage())
+    # session.load_camera_array()
+    # session.calibrate()
+    # session.save_point_estimates()
     session.load_camera_array()
-    session.calibrate()
-    session.save_point_estimates()
+    session.load_point_estimates()
     
+    session.load_
     # session.update_config()
     #%%%
     # logger.info("Loading Cameras...")

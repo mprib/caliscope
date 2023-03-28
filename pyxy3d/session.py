@@ -421,7 +421,7 @@ class Session:
 
         self.update_config()
 
-    def load_camera_array(self):
+    def initialize_camera_array(self):
         """
         after doing stereoframe capture and generating a point_data.csv file,
         create a camera array from it
@@ -441,7 +441,7 @@ class Session:
 
         stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
         stereocalibrator.stereo_calibrate_all(boards_sampled=20)
-        self.load_camera_array()
+        self.initialize_camera_array()
         self.point_estimates: PointEstimates = get_point_estimates(
             self.camera_array, self.point_data_path
         )

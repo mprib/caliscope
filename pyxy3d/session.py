@@ -424,6 +424,11 @@ class Session:
         
 
     def load_camera_array(self):
+        """
+        Load camera array directly from config file. The results of capture volume
+        optimization and origin transformation will be reflected in this array
+        which can then be the basis for future 3d point estimation
+        """
         all_camera_data = {}
         for key, params in self.config.items():
             if key.startswith("cam"):
@@ -462,6 +467,12 @@ class Session:
 
 
     def load_calibrated_capture_volume(self):
+        """
+        Following capture volume optimization via bundle adjustment, or alteration
+        via a transform of the origin, the entire capture volume can be reloaded
+        from the config data without needing to go through the steps
+        
+        """
         self.point_estimates = self.load_point_estimates()
         self.camera_array = self.load_camera_array()
         self.capture_volume = CaptureVolume(self.camera_array,self.point_estimates)

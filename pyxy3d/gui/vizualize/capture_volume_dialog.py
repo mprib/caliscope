@@ -2,6 +2,7 @@ import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
 import sys
+import numpy as np
 from pathlib import Path
 from threading import Thread
 
@@ -15,6 +16,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDoubleSpinBox,
     QGroupBox,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -41,7 +43,14 @@ class CaptureVolumeDialog(QWidget):
         self.set_origin_btn = QPushButton("Set Origin")
 
         self.setMinimumSize(500,500)
-        
+       
+        self.rotate_x_plus_btn = QPushButton("X+") 
+        self.rotate_x_minus_btn = QPushButton("X-") 
+        self.rotate_y_plus_btn = QPushButton("Y+") 
+        self.rotate_y_minus_btn = QPushButton("Y-") 
+        self.rotate_z_plus_btn = QPushButton("Z+") 
+        self.rotate_z_minus_btn = QPushButton("Z-") 
+
         self.place_widgets()
         self.connect_widgets()
 
@@ -54,15 +63,62 @@ class CaptureVolumeDialog(QWidget):
         self.layout().addWidget(self.slider)
         self.layout().addWidget(self.set_origin_btn)
         # self.visualizer.begin()
+        
+        self.grid = QGridLayout()
+        self.layout().addLayout(self.grid)
+        self.grid.addWidget(self.rotate_x_plus_btn, 0,0)
+        self.grid.addWidget(self.rotate_x_minus_btn,1,0)
+        self.grid.addWidget(self.rotate_y_plus_btn, 0,1)
+        self.grid.addWidget(self.rotate_y_minus_btn,1,1)
+        self.grid.addWidget(self.rotate_z_plus_btn, 0,2)
+        self.grid.addWidget(self.rotate_z_minus_btn,1,2)
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
         self.set_origin_btn.clicked.connect(self.set_origin_to_board)
+        self.rotate_x_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("x+"))
+        self.rotate_x_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("x-"))
+        self.rotate_y_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("y+"))
+        self.rotate_y_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("y-"))
+        self.rotate_z_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("z+"))
+        self.rotate_z_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("z-"))
 
     def set_origin_to_board(self):
         self.session.capture_volume.set_origin_to_board(self.slider.value(), self.session.charuco)       
         self.visualizer.refresh_scene()
+        self.session.save_capture_volume()
 
+    def rotate_capture_volume(self, direction):
+        transformations ={"x+": np.array([[1,0,0,0],
+                                          [0,0,1,0],
+                                          [0,-1,0,0],
+                                          [0,0,0,1]],dtype=float),
+                          "x-": np.array([[1,0,0,0],
+                                          [0,0,-1,0],
+                                          [0,1,0,0],
+                                          [0,0,0,1]],dtype=float),
+                          "y+": np.array([[0,0,-1,0],
+                                          [0,1,0,0],
+                                          [1,0,0,0],
+                                          [0,0,0,1]],dtype=float),
+                          "y-": np.array([[0,0,1,0],
+                                          [0,1,0,0],
+                                          [-1,0,0,0],
+                                          [0,0,0,1]],dtype=float),
+                          "z+": np.array([[0,1,0,0],
+                                          [-1,0,0,0],
+                                          [0,0,1,0],
+                                          [0,0,0,1]],dtype=float),
+                          "z-": np.array([[0,-1,0,0],
+                                          [1,0,0,0],
+                                          [0,0,1,0],
+                                          [0,0,0,1]],dtype=float),
+        }
+
+        self.session.capture_volume.shift_origin(transformations[direction])
+        self.visualizer.refresh_scene()
+        self.session.save_capture_volume()
+        
     def update_board(self, sync_index):
         
         logger.info(f"Updating board to sync index {sync_index}")

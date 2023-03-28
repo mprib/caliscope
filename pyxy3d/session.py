@@ -152,42 +152,6 @@ class Session:
 
         self.update_config()
 
-    def connected_camera_count(self):
-        return len(self.cameras)
-
-    def calibrated_camera_count(self):
-        """Used to keep track of where the user is in the calibration process"""
-        count = 0
-        for key in self.config.keys():
-            if key.startswith("cam"):
-                if "error" in self.config[key].keys():
-                    if self.config[key]["error"] is not None:
-                        count += 1
-        return count
-
-    def camera_pairs(self):
-        """Used to keep track of where the user is in the calibration process"""
-        ports = [key for key in self.cameras.keys()]
-        pairs = [pair for pair in combinations(ports, 2)]
-        sorted_ports = [
-            (min(pair), max(pair)) for pair in pairs
-        ]  # sort as in (b,a) --> (a,b)
-        sorted_ports = sorted(
-            sorted_ports
-        )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
-        return sorted_ports
-
-    def calibrated_camera_pairs(self):
-        """Used to keep track of where the user is in the calibration process"""
-        calibrated_pairs = []
-        for key in self.config.keys():
-            if key.startswith("stereo"):
-                portA, portB = key.split("_")[1:3]
-                calibrated_pairs.append((int(portA), int(portB)))
-        calibrated_pairs = sorted(
-            calibrated_pairs
-        )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
-        return calibrated_pairs
 
     def load_cameras(self):
 
@@ -351,12 +315,13 @@ class Session:
                 logger.info(f"Loading Monocalibrator for port {port}")
                 self.monocalibrators[port] = MonoCalibrator(self.streams[port])
 
-    def remove_monocalibrators(self):
-        for port, monocal in self.monocalibrators.copy().items():
-            logger.info(f"Attempting to stop Monocalibrator for port {port}")
-            monocal.stop()
-            del self.monocalibrators[port]
-            logger.info(f"Successfuly stopped monocalibrator at port {port}")
+    # This may no longer be relevant now that things are working through a subscriber model
+    # def remove_monocalibrators(self):
+    #     for port, monocal in self.monocalibrators.copy().items():
+    #         logger.info(f"Attempting to stop Monocalibrator for port {port}")
+    #         monocal.stop()
+    #         del self.monocalibrators[port]
+    #         logger.info(f"Successfuly stopped monocalibrator at port {port}")
 
     def set_active_monocalibrator(self, active_port):
         logger.info(f"Activate tracking on port {active_port} and deactivate others")
@@ -433,37 +398,6 @@ class Session:
         self.config["cam_" + str(port)] = params
         self.update_config()
 
-    def get_stage(self):
-        stage = None
-        if self.connected_camera_count() == 0:
-            stage = Stage.NO_CAMERAS
-
-        elif self.calibrated_camera_count() < self.connected_camera_count():
-            stage = Stage.UNCALIBRATED_CAMERAS
-
-        elif (
-            self.connected_camera_count() > 0
-            and self.calibrated_camera_count() == self.connected_camera_count()
-        ):
-            stage = Stage.MONOCALIBRATED_CAMERAS
-
-        elif len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
-            stage = Stage.OMNICALIBRATION_DONE
-
-        logger.info(f"Current stage of session is {stage}")
-        return stage
-
-    def load_camera_array(self):
-        """
-        after doing stereoframe capture and generating a point_data.csv file,
-        create a camera array from it
-        """
-
-        # with those in place the camera array can be initialized
-        self.camera_array: CameraArray = CameraArrayInitializer(
-            self.config_path
-        ).get_best_camera_array()
-
     def save_camera_array(self):
 
         for port, camera_data in self.camera_array.cameras.items():
@@ -487,6 +421,20 @@ class Session:
 
         self.update_config()
 
+    def load_camera_array(self):
+        """
+        after doing stereoframe capture and generating a point_data.csv file,
+        create a camera array from it
+        """
+
+        # with those in place the camera array can be initialized
+        self.camera_array: CameraArray = CameraArrayInitializer(
+            self.config_path
+        ).get_best_camera_array()
+
+
+
+
     def calibrate(self):
         self.stop_recording()
         self.point_data_path = Path(self.path, "point_data.csv")
@@ -505,7 +453,64 @@ class Session:
         self.capture_volume.save(self.path)
         self.save_camera_array()
 
+    ########################## STAGE ASSOCIATED METHODS #################################
+    def get_stage(self):
+        stage = None
+        if self.connected_camera_count() == 0:
+            stage = Stage.NO_CAMERAS
 
+        elif self.calibrated_camera_count() < self.connected_camera_count():
+            stage = Stage.UNCALIBRATED_CAMERAS
+
+        elif (
+            self.connected_camera_count() > 0
+            and self.calibrated_camera_count() == self.connected_camera_count()
+        ):
+            stage = Stage.MONOCALIBRATED_CAMERAS
+
+        elif len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
+            stage = Stage.OMNICALIBRATION_DONE
+
+        logger.info(f"Current stage of session is {stage}")
+        return stage
+
+    def connected_camera_count(self):
+        """Used to keep track of where the user is in the calibration process"""
+        return len(self.cameras)
+
+    def calibrated_camera_count(self):
+        """Used to keep track of where the user is in the calibration process"""
+        count = 0
+        for key in self.config.keys():
+            if key.startswith("cam"):
+                if "error" in self.config[key].keys():
+                    if self.config[key]["error"] is not None:
+                        count += 1
+        return count
+
+    def camera_pairs(self):
+        """Used to keep track of where the user is in the calibration process"""
+        ports = [key for key in self.cameras.keys()]
+        pairs = [pair for pair in combinations(ports, 2)]
+        sorted_ports = [
+            (min(pair), max(pair)) for pair in pairs
+        ]  # sort as in (b,a) --> (a,b)
+        sorted_ports = sorted(
+            sorted_ports
+        )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
+        return sorted_ports
+
+    def calibrated_camera_pairs(self):
+        """Used to keep track of where the user is in the calibration process"""
+        calibrated_pairs = []
+        for key in self.config.keys():
+            if key.startswith("stereo"):
+                portA, portB = key.split("_")[1:3]
+                calibrated_pairs.append((int(portA), int(portB)))
+        calibrated_pairs = sorted(
+            calibrated_pairs
+        )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
+        return calibrated_pairs
 def format_toml_dict(toml_dict: dict):
     temp_config = {}
     for key, value in toml_dict.items():

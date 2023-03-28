@@ -466,18 +466,23 @@ class Session:
         self.update_config()
 
 
-    def load_calibrated_capture_volume(self):
+    def load_configured_capture_volume(self):
         """
         Following capture volume optimization via bundle adjustment, or alteration
         via a transform of the origin, the entire capture volume can be reloaded
         from the config data without needing to go through the steps
         
         """
-        self.point_estimates = self.load_point_estimates()
-        self.camera_array = self.load_camera_array()
+        self.load_point_estimates()
+        self.load_camera_array()
         self.capture_volume = CaptureVolume(self.camera_array,self.point_estimates)
     
-
+    def save_capture_volume(self):
+        # self.point_estimates = self.capture_volume.point_estimates
+        # self.camera_array = self.capture_volume.camera_array
+        self.save_camera_array()
+        self.save_point_estimates()
+        
     def initialize_capture_volume(self):
         """
         after performing stereocalibration, the data should be in place to initialize 
@@ -602,10 +607,12 @@ if __name__ == "__main__":
     # session.load_camera_array()
     # session.calibrate()
     # session.save_point_estimates()
-    session.load_camera_array()
-    session.load_point_estimates()
+    # session.load_camera_array()
+    # session.load_point_estimates()
     
-    session.load_
+    session.load_configured_capture_volume()
+    session.capture_volume.set_origin_to_board(240, session.charuco)
+    session.save_capture_volume()
     # session.update_config()
     #%%%
     # logger.info("Loading Cameras...")

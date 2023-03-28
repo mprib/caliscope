@@ -2,6 +2,7 @@ import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
 import sys
+import numpy as np
 from pathlib import Path
 from threading import Thread
 
@@ -41,7 +42,9 @@ class CaptureVolumeDialog(QWidget):
         self.set_origin_btn = QPushButton("Set Origin")
 
         self.setMinimumSize(500,500)
-        
+       
+        self.rotate_x_btn = QPushButton("Rotate X") 
+
         self.place_widgets()
         self.connect_widgets()
 
@@ -54,15 +57,27 @@ class CaptureVolumeDialog(QWidget):
         self.layout().addWidget(self.slider)
         self.layout().addWidget(self.set_origin_btn)
         # self.visualizer.begin()
+        self.layout().addWidget(self.rotate_x_btn)
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
         self.set_origin_btn.clicked.connect(self.set_origin_to_board)
+        self.rotate_x_btn.clicked.connect(self.rotate_x)
 
     def set_origin_to_board(self):
         self.session.capture_volume.set_origin_to_board(self.slider.value(), self.session.charuco)       
         self.visualizer.refresh_scene()
 
+    def rotate_x(self):
+        transformation = np.array([[1,0,0,0],
+                                  [0,0,1,0],
+                                  [0,-1,0,0],
+                                  [0,0,0,1]],dtype=float)
+
+        self.session.capture_volume.shift_origin(transformation)
+        self.visualizer.refresh_scene()
+        self.session.save_capture_volume()
+        
     def update_board(self, sync_index):
         
         logger.info(f"Updating board to sync index {sync_index}")

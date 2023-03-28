@@ -8,6 +8,7 @@ from datetime import datetime
 from os.path import exists
 from pathlib import Path, PurePath
 from enum import Enum, auto
+from dataclasses import asdict
 import numpy as np
 import toml
 from itertools import combinations
@@ -25,7 +26,7 @@ from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 
-from pyxy3d.cameras.camera_array import CameraArray
+from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
@@ -152,42 +153,6 @@ class Session:
 
         self.update_config()
 
-    def connected_camera_count(self):
-        return len(self.cameras)
-
-    def calibrated_camera_count(self):
-        """Used to keep track of where the user is in the calibration process"""
-        count = 0
-        for key in self.config.keys():
-            if key.startswith("cam"):
-                if "error" in self.config[key].keys():
-                    if self.config[key]["error"] is not None:
-                        count += 1
-        return count
-
-    def camera_pairs(self):
-        """Used to keep track of where the user is in the calibration process"""
-        ports = [key for key in self.cameras.keys()]
-        pairs = [pair for pair in combinations(ports, 2)]
-        sorted_ports = [
-            (min(pair), max(pair)) for pair in pairs
-        ]  # sort as in (b,a) --> (a,b)
-        sorted_ports = sorted(
-            sorted_ports
-        )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
-        return sorted_ports
-
-    def calibrated_camera_pairs(self):
-        """Used to keep track of where the user is in the calibration process"""
-        calibrated_pairs = []
-        for key in self.config.keys():
-            if key.startswith("stereo"):
-                portA, portB = key.split("_")[1:3]
-                calibrated_pairs.append((int(portA), int(portB)))
-        calibrated_pairs = sorted(
-            calibrated_pairs
-        )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
-        return calibrated_pairs
 
     def load_cameras(self):
 
@@ -351,12 +316,13 @@ class Session:
                 logger.info(f"Loading Monocalibrator for port {port}")
                 self.monocalibrators[port] = MonoCalibrator(self.streams[port])
 
-    def remove_monocalibrators(self):
-        for port, monocal in self.monocalibrators.copy().items():
-            logger.info(f"Attempting to stop Monocalibrator for port {port}")
-            monocal.stop()
-            del self.monocalibrators[port]
-            logger.info(f"Successfuly stopped monocalibrator at port {port}")
+    # This may no longer be relevant now that things are working through a subscriber model
+    # def remove_monocalibrators(self):
+    #     for port, monocal in self.monocalibrators.copy().items():
+    #         logger.info(f"Attempting to stop Monocalibrator for port {port}")
+    #         monocal.stop()
+    #         del self.monocalibrators[port]
+    #         logger.info(f"Successfuly stopped monocalibrator at port {port}")
 
     def set_active_monocalibrator(self, active_port):
         logger.info(f"Activate tracking on port {active_port} and deactivate others")
@@ -433,39 +399,8 @@ class Session:
         self.config["cam_" + str(port)] = params
         self.update_config()
 
-    def get_stage(self):
-        stage = None
-        if self.connected_camera_count() == 0:
-            stage = Stage.NO_CAMERAS
-
-        elif self.calibrated_camera_count() < self.connected_camera_count():
-            stage = Stage.UNCALIBRATED_CAMERAS
-
-        elif (
-            self.connected_camera_count() > 0
-            and self.calibrated_camera_count() == self.connected_camera_count()
-        ):
-            stage = Stage.MONOCALIBRATED_CAMERAS
-
-        elif len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
-            stage = Stage.OMNICALIBRATION_DONE
-
-        logger.info(f"Current stage of session is {stage}")
-        return stage
-
-    def load_camera_array(self):
-        """
-        after doing stereoframe capture and generating a point_data.csv file,
-        create a camera array from it
-        """
-
-        # with those in place the camera array can be initialized
-        self.camera_array: CameraArray = CameraArrayInitializer(
-            self.config_path
-        ).get_best_camera_array()
-
     def save_camera_array(self):
-
+        logger.info("Saving camera array....")
         for port, camera_data in self.camera_array.cameras.items():
             camera_data = self.camera_array.cameras[port]
             params = {
@@ -486,39 +421,167 @@ class Session:
             self.config["cam_" + str(port)] = params
 
         self.update_config()
+        
 
-    def calibrate(self):
-        self.stop_recording()
-        self.point_data_path = Path(self.path, "point_data.csv")
+    def load_camera_array(self):
+        """
+        Load camera array directly from config file. The results of capture volume
+        optimization and origin transformation will be reflected in this array
+        which can then be the basis for future 3d point estimation
+        """
+        all_camera_data = {}
+        for key, params in self.config.items():
+            if key.startswith("cam"):
+                if params["translation"] is not None:
+                    port = params["port"]
+                    size = params["size"]
 
-        stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
-        stereocalibrator.stereo_calibrate_all(boards_sampled=20)
+                    logger.info(f"Adding camera {port} to calibrated camera array...")
+                    cam_data = CameraData(port=port,
+                                        size = params["size"],
+                                        rotation_count= params["rotation_count"],
+                                        error = params["error"],
+                                        matrix = np.array(params["matrix"]),
+                                        distortions= np.array(params["distortions"]),
+                                        exposure=params["exposure"],
+                                        grid_count=params["grid_count"],
+                                        ignore=params["ignore"],
+                                        verified_resolutions=params["verified_resolutions"],
+                                        translation=np.array(params["translation"]),
+                                        rotation=np.array(params["rotation"]))
+                
+                    all_camera_data[port]=cam_data
+
+        self.camera_array = CameraArray(all_camera_data)
+
+    def save_point_estimates(self):
+        logger.info("Saving point estimates to config...")
+
+        temp_data = asdict(self.point_estimates)
+        for key,params in temp_data.items():
+            temp_data[key] = params.tolist()
+
+        self.config["point_estimates"] = temp_data
+
+        self.update_config()
+
+
+    def load_configured_capture_volume(self):
+        """
+        Following capture volume optimization via bundle adjustment, or alteration
+        via a transform of the origin, the entire capture volume can be reloaded
+        from the config data without needing to go through the steps
+        
+        """
+        self.load_point_estimates()
         self.load_camera_array()
+        self.capture_volume = CaptureVolume(self.camera_array,self.point_estimates)
+    
+    def save_capture_volume(self):
+        # self.point_estimates = self.capture_volume.point_estimates
+        # self.camera_array = self.capture_volume.camera_array
+        self.save_camera_array()
+        self.save_point_estimates()
+        
+    def initialize_capture_volume(self):
+        """
+        after performing stereocalibration, the data should be in place to initialize 
+        a capture volume. This will not yet be calibrated, therefore at stage 0.
+        The point estimates will be based on an average of stereotriangulaed pairs from 
+        the initial best guess of the camera array.
+        """
+        self.camera_array: CameraArray = CameraArrayInitializer(
+            self.config_path
+        ).get_best_camera_array()
+
         self.point_estimates: PointEstimates = get_point_estimates(
             self.camera_array, self.point_data_path
         )
 
         # self.save_camera_array()
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
+        
+        
+        
+    def load_point_estimates(self):
+        point_estimates_dict = self.config["point_estimates"]
+        
+        for key, value in point_estimates_dict.items():
+            point_estimates_dict[key] = np.array(value)
+        
+        self.point_estimates = PointEstimates(**point_estimates_dict)
+    
+    
+    def calibrate(self):
+        # self.stop_recording()
+
+        self.point_data_path = Path(self.path, "point_data.csv")
+
+        stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
+        stereocalibrator.stereo_calibrate_all(boards_sampled=20)
         self.capture_volume.save(self.path)
         self.capture_volume.optimize()
         self.capture_volume.save(self.path)
         self.save_camera_array()
 
+    ########################## STAGE ASSOCIATED METHODS #################################
+    def get_stage(self):
+        stage = None
+        if self.connected_camera_count() == 0:
+            stage = Stage.NO_CAMERAS
 
-def format_toml_dict(toml_dict: dict):
-    temp_config = {}
-    for key, value in toml_dict.items():
-        # logger.info(f"key: {key}; type: {type(value)}")
-        if isinstance(value, dict):
-            temp_config[key] = format_toml_dict(value)
-        if isinstance(value, np.ndarray):
-            temp_config[key] = [float(i) for i in value]
-        else:
-            temp_config[key] = value
+        elif self.calibrated_camera_count() < self.connected_camera_count():
+            stage = Stage.UNCALIBRATED_CAMERAS
 
-    return temp_config
+        elif (
+            self.connected_camera_count() > 0
+            and self.calibrated_camera_count() == self.connected_camera_count()
+        ):
+            stage = Stage.MONOCALIBRATED_CAMERAS
 
+        elif len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
+            stage = Stage.OMNICALIBRATION_DONE
+
+        logger.info(f"Current stage of session is {stage}")
+        return stage
+
+    def connected_camera_count(self):
+        """Used to keep track of where the user is in the calibration process"""
+        return len(self.cameras)
+
+    def calibrated_camera_count(self):
+        """Used to keep track of where the user is in the calibration process"""
+        count = 0
+        for key in self.config.keys():
+            if key.startswith("cam"):
+                if "error" in self.config[key].keys():
+                    if self.config[key]["error"] is not None:
+                        count += 1
+        return count
+
+    def camera_pairs(self):
+        """Used to keep track of where the user is in the calibration process"""
+        ports = [key for key in self.cameras.keys()]
+        pairs = [pair for pair in combinations(ports, 2)]
+        sorted_ports = [
+            (min(pair), max(pair)) for pair in pairs
+        ]  # sort as in (b,a) --> (a,b)
+        sorted_ports = sorted(
+            sorted_ports
+        )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
+        return sorted_ports
+
+    def calibrated_camera_pairs(self):
+        """Used to keep track of where the user is in the calibration process"""
+        calibrated_pairs = []
+        for key in self.config.keys():
+            if key.startswith("stereo"):
+                portA, portB = key.split("_")[1:3]
+                calibrated_pairs.append((int(portA), int(portB)))
+        calibrated_pairs = sorted(
+            calibrated_pairs
+        )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
+        return calibrated_pairs
 
 class Stage(Enum):
     NO_CAMERAS = auto()
@@ -534,26 +597,35 @@ if __name__ == "__main__":
     #%%
     from pyxy3d import __root__
 
-    config_path = Path(__root__, "tests", "why breaking")
+    config_path = Path(__root__, "tests", "4_cameras_beginning")
 
-    print(config_path)
-    print("Loading session config")
+    logger.info(config_path)
+    logger.info("Loading session config")
     session = Session(config_path)
     #%%
-    print(session.get_stage())
-    session.update_config()
+    # logger.info(session.get_stage())
+    # session.load_camera_array()
+    # session.calibrate()
+    # session.save_point_estimates()
+    # session.load_camera_array()
+    # session.load_point_estimates()
+    
+    session.load_configured_capture_volume()
+    session.capture_volume.set_origin_to_board(240, session.charuco)
+    session.save_capture_volume()
+    # session.update_config()
     #%%%
-    # print("Loading Cameras...")
+    # logger.info("Loading Cameras...")
     # session.load_cameras()
 
-    print("Finding Cameras...")
-    session.find_cameras()
-    # print(session.get_stage())
-    # print(f"Camera pairs: {session.camera_pairs()}")
-    # print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
+    # logger.info("Finding Cameras...")
+    # session.find_cameras()
+    # logger.info(session.get_stage())
+    # logger.info(f"Camera pairs: {session.camera_pairs()}")
+    # logger.info(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
     # session.disconnect_cameras()
-    # print(session.get_stage())
-    # print(f"Camera pairs: {session.camera_pairs()}")
-    # print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
+    # logger.info(session.get_stage())
+    # logger.info(f"Camera pairs: {session.camera_pairs()}")
+    # logger.info(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
 
 # %%

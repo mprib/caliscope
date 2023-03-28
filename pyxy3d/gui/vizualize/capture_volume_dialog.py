@@ -26,12 +26,14 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
 
 class CaptureVolumeDialog(QWidget):
-    def __init__(self, CaptureVolumeVisualizer):
+    def __init__(self, session:Session):
         super(CaptureVolumeDialog, self).__init__()
-        self.visualizer = CaptureVolumeVisualizer
+        self.session = session
+        self.visualizer = CaptureVolumeVisualizer(self.session.capture_volume)
         # self.visualizer.scene.show()
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setMinimum(self.visualizer.min_sync_index)
@@ -55,10 +57,12 @@ class CaptureVolumeDialog(QWidget):
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
-        self.set_origin_btn.clicked.connect(self.log_board_points)
+        self.set_origin_btn.clicked.connect(self.set_origin_to_board)
 
-    def log_board_points(self):
-        logger.info(f"{self.visualizer.single_board_points}")
+    def set_origin_to_board(self):
+        self.session.capture_volume.set_origin_to_board(self.slider.value(), self.session.charuco)       
+        self.visualizer.refresh_scene()
+
     def update_board(self, sync_index):
         
         logger.info(f"Updating board to sync index {sync_index}")
@@ -74,33 +78,38 @@ if __name__ == "__main__":
 
     from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
-    
+
     # session_directory = Path(__root__,  "tests", "2_cameras_linear")
     # session_directory = Path(__root__,  "tests", "tripod")
     # session_directory = Path(__root__,  "tests", "2_cameras_90_deg")
     # session_directory = Path(__root__,  "tests", "2_cameras_180_deg")
     # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
     # session_directory = Path(__root__,  "tests", "3_cameras_middle")
-    # session_directory = Path(__root__,  "tests", "4_cameras_beginning")
+    session_directory = Path(__root__,  "tests", "4_cameras_beginning")
     # session_directory = Path(__root__,  "tests", "4_cameras_endofday")
-    session_directory = Path(__root__,  "tests", "4_cameras_nonoverlap")
+    # session_directory = Path(__root__,  "tests", "4_cameras_nonoverlap")
     # session_directory = Path(__root__,  "tests", "4_cameras_nonoverlap")
     # session_directory = Path(__root__,  "tests", "3_cameras_linear")
     # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
     # session_directory = Path(__root__,  "tests", "just_checking")
 
 
-    saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl") 
+    # saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl") 
     # saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl") 
-    with open(saved_CV_path, "rb") as f:
-        capture_volume:CaptureVolume = pickle.load(f)
+    # with open(saved_CV_path, "rb") as f:
+        # capture_volume:CaptureVolume = pickle.load(f)
+
+        
+    session = Session(session_directory)
+    session.load_configured_capture_volume()
+    
 
     app = QApplication(sys.argv)
-    vizr = CaptureVolumeVisualizer(capture_volume = capture_volume)
+    # vizr = CaptureVolumeVisualizer(session)
     # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
 
 
-    vizr_dialog = CaptureVolumeDialog(vizr)
+    vizr_dialog = CaptureVolumeDialog(session)
     vizr_dialog.show()
 
     sys.exit(app.exec())

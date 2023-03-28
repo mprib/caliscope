@@ -127,6 +127,7 @@ class StereoFrameWidget(QWidget):
 
 
     def initiate_calibration(self):
+        self.session.stop_recording()
         self.calibrate_thead = Thread(target=self.session.calibrate,args=(), daemon=True)
         self.calibrate_thead.start()
 

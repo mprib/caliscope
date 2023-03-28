@@ -45,7 +45,7 @@ class CaptureVolumeVisualizer:
         # constuct a scene
         self.scene = gl.GLViewWidget()
         self.scene.setCameraPosition(distance=4)  # the scene camera, not a real Camera
-
+        self.sync_index = None
 
         self.refresh_scene()
 
@@ -80,7 +80,10 @@ class CaptureVolumeVisualizer:
 
             self.min_sync_index = np.min(self.sync_indices)
             self.max_sync_index = np.max(self.sync_indices)
-    
+   
+            if self.sync_index is not None:
+                self.display_points(self.sync_index)
+                 
     def display_points(self, sync_index):
         """
         sync_index is provided from the dialog and linked to the slider

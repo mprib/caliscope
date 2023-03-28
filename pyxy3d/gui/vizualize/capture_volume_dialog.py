@@ -60,7 +60,7 @@ class CaptureVolumeDialog(QWidget):
         self.set_origin_btn.clicked.connect(self.set_origin_to_board)
 
     def set_origin_to_board(self):
-        self.session.capture_volume.set_origin_to_board(self.slider.value, self.session.charuco)       
+        self.session.capture_volume.set_origin_to_board(self.slider.value(), self.session.charuco)       
         self.visualizer.refresh_scene()
 
     def update_board(self, sync_index):

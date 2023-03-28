@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDoubleSpinBox,
     QGroupBox,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -62,12 +63,15 @@ class CaptureVolumeDialog(QWidget):
         self.layout().addWidget(self.slider)
         self.layout().addWidget(self.set_origin_btn)
         # self.visualizer.begin()
-        self.layout().addWidget(self.rotate_x_plus_btn)
-        self.layout().addWidget(self.rotate_x_minus_btn)
-        self.layout().addWidget(self.rotate_y_plus_btn)
-        self.layout().addWidget(self.rotate_y_minus_btn)
-        self.layout().addWidget(self.rotate_z_plus_btn)
-        self.layout().addWidget(self.rotate_z_minus_btn)
+        
+        self.grid = QGridLayout()
+        self.layout().addLayout(self.grid)
+        self.grid.addWidget(self.rotate_x_plus_btn, 0,0)
+        self.grid.addWidget(self.rotate_x_minus_btn,1,0)
+        self.grid.addWidget(self.rotate_y_plus_btn, 0,1)
+        self.grid.addWidget(self.rotate_y_minus_btn,1,1)
+        self.grid.addWidget(self.rotate_z_plus_btn, 0,2)
+        self.grid.addWidget(self.rotate_z_minus_btn,1,2)
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)

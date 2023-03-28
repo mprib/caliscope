@@ -336,6 +336,7 @@ class FrameControlWidget(QWidget):
         self.rotation_resolution_hbox = QHBoxLayout()
         self.layout().addLayout(self.rotation_resolution_hbox)
         ###################### Rotation Buttons  ###################################      
+        # icons from https://iconoir.com
         self.cw_rotation_btn = QPushButton(
             QIcon(str(Path(__root__, "pyxy3d/gui/icons/rotate-camera-right.svg"))), ""
         )

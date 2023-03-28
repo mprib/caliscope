@@ -43,7 +43,8 @@ class CaptureVolumeDialog(QWidget):
 
         self.setMinimumSize(500,500)
        
-        self.rotate_x_btn = QPushButton("Rotate X") 
+        self.rotate_x_plus_btn = QPushButton("Rotate X+") 
+        self.rotate_x_minus_btn = QPushButton("Rotate X-") 
 
         self.place_widgets()
         self.connect_widgets()
@@ -57,24 +58,33 @@ class CaptureVolumeDialog(QWidget):
         self.layout().addWidget(self.slider)
         self.layout().addWidget(self.set_origin_btn)
         # self.visualizer.begin()
-        self.layout().addWidget(self.rotate_x_btn)
+        self.layout().addWidget(self.rotate_x_plus_btn)
+        self.layout().addWidget(self.rotate_x_minus_btn)
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
         self.set_origin_btn.clicked.connect(self.set_origin_to_board)
-        self.rotate_x_btn.clicked.connect(self.rotate_x)
+        self.rotate_x_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("x+"))
+        self.rotate_x_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("x-"))
 
     def set_origin_to_board(self):
         self.session.capture_volume.set_origin_to_board(self.slider.value(), self.session.charuco)       
         self.visualizer.refresh_scene()
+        self.session.save_capture_volume()
 
-    def rotate_x(self):
-        transformation = np.array([[1,0,0,0],
-                                  [0,0,1,0],
-                                  [0,-1,0,0],
-                                  [0,0,0,1]],dtype=float)
+    def rotate_capture_volume(self, direction):
+        transformations ={"x+": np.array([[1,0,0,0],
+                                          [0,0,1,0],
+                                          [0,-1,0,0],
+                                          [0,0,0,1]],dtype=float),
+                          "x-": np.array([[1,0,0,0],
+                                          [0,0,-1,0],
+                                          [0,1,0,0],
+                                          [0,0,0,1]],dtype=float),
 
-        self.session.capture_volume.shift_origin(transformation)
+                            
+        }
+        self.session.capture_volume.shift_origin(transformations[direction])
         self.visualizer.refresh_scene()
         self.session.save_capture_volume()
         

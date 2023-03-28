@@ -25,7 +25,7 @@ from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 
-from pyxy3d.cameras.camera_array import CameraArray
+from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
@@ -433,7 +433,8 @@ class Session:
         ).get_best_camera_array()
 
 
-
+    def load_camera_array(self):
+        pass
 
     def calibrate(self):
         self.stop_recording()
@@ -539,26 +540,54 @@ if __name__ == "__main__":
     #%%
     from pyxy3d import __root__
 
-    config_path = Path(__root__, "tests", "why breaking")
+    config_path = Path(__root__, "tests", "4_cameras_beginning")
 
-    print(config_path)
-    print("Loading session config")
+    logger.info(config_path)
+    logger.info("Loading session config")
     session = Session(config_path)
     #%%
-    print(session.get_stage())
-    session.update_config()
+    logger.info(session.get_stage())
+    
+    
+    all_camera_data = {}
+    for key, params in session.config.items():
+        if key.startswith("cam"):
+            if params["translation"] is not None:
+                port = params["port"]
+                size = params["size"]
+
+                logger.info(f"Adding camera {port} to calibrated camera array...")
+                cam_data = CameraData(port=port,
+                                      size = params["size"],
+                                      rotation_count= params["rotation_count"],
+                                      error = params["error"],
+                                      matrix = params["matrix"],
+                                      distortions= params["distortions"],
+                                      exposure=params["exposure"],
+                                      grid_count=params["grid_count"],
+                                      ignore=params["ignore"],
+                                      verified_resolutions=params["verified_resolutions"],
+                                      translation=params["translation"],
+                                      rotation=params["rotation"])
+                
+                all_camera_data[port]=cam_data
+
+        logger.info("")
+    
+    
+    # session.update_config()
     #%%%
-    # print("Loading Cameras...")
+    # logger.info("Loading Cameras...")
     # session.load_cameras()
 
-    print("Finding Cameras...")
-    session.find_cameras()
-    # print(session.get_stage())
-    # print(f"Camera pairs: {session.camera_pairs()}")
-    # print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
+    # logger.info("Finding Cameras...")
+    # session.find_cameras()
+    # logger.info(session.get_stage())
+    # logger.info(f"Camera pairs: {session.camera_pairs()}")
+    # logger.info(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
     # session.disconnect_cameras()
-    # print(session.get_stage())
-    # print(f"Camera pairs: {session.camera_pairs()}")
-    # print(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
+    # logger.info(session.get_stage())
+    # logger.info(f"Camera pairs: {session.camera_pairs()}")
+    # logger.info(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
 
 # %%

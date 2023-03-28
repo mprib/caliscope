@@ -96,12 +96,13 @@ if __name__ == "__main__":
     from pyxy3d import __root__
     from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
     from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates 
-    session_directory = Path(__root__, "tests", "5_cameras")
-    point_data_path = Path(session_directory,"recording", "point_data.csv" )
+    session_directory = Path(__root__, "tests", "4_cameras_beginning")
+    point_data_path = Path(session_directory, "point_data.csv" )
 
     camera_array = CameraArrayBuilder(Path(session_directory, "config.toml")).get_camera_array()
 
-    point_history = get_point_estimates(camera_array, point_data_path)
+    point_estimates = get_point_estimates(camera_array, point_data_path)
+
 
 
 # %%

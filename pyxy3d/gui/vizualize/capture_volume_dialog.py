@@ -43,8 +43,12 @@ class CaptureVolumeDialog(QWidget):
 
         self.setMinimumSize(500,500)
        
-        self.rotate_x_plus_btn = QPushButton("Rotate X+") 
-        self.rotate_x_minus_btn = QPushButton("Rotate X-") 
+        self.rotate_x_plus_btn = QPushButton("X+") 
+        self.rotate_x_minus_btn = QPushButton("X-") 
+        self.rotate_y_plus_btn = QPushButton("Y+") 
+        self.rotate_y_minus_btn = QPushButton("Y-") 
+        self.rotate_z_plus_btn = QPushButton("Z+") 
+        self.rotate_z_minus_btn = QPushButton("Z-") 
 
         self.place_widgets()
         self.connect_widgets()
@@ -60,12 +64,20 @@ class CaptureVolumeDialog(QWidget):
         # self.visualizer.begin()
         self.layout().addWidget(self.rotate_x_plus_btn)
         self.layout().addWidget(self.rotate_x_minus_btn)
+        self.layout().addWidget(self.rotate_y_plus_btn)
+        self.layout().addWidget(self.rotate_y_minus_btn)
+        self.layout().addWidget(self.rotate_z_plus_btn)
+        self.layout().addWidget(self.rotate_z_minus_btn)
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
         self.set_origin_btn.clicked.connect(self.set_origin_to_board)
         self.rotate_x_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("x+"))
         self.rotate_x_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("x-"))
+        self.rotate_y_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("y+"))
+        self.rotate_y_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("y-"))
+        self.rotate_z_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("z+"))
+        self.rotate_z_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("z-"))
 
     def set_origin_to_board(self):
         self.session.capture_volume.set_origin_to_board(self.slider.value(), self.session.charuco)       
@@ -81,9 +93,24 @@ class CaptureVolumeDialog(QWidget):
                                           [0,0,-1,0],
                                           [0,1,0,0],
                                           [0,0,0,1]],dtype=float),
-
-                            
+                          "y+": np.array([[0,0,-1,0],
+                                          [0,1,0,0],
+                                          [1,0,0,0],
+                                          [0,0,0,1]],dtype=float),
+                          "y-": np.array([[0,0,1,0],
+                                          [0,1,0,0],
+                                          [-1,0,0,0],
+                                          [0,0,0,1]],dtype=float),
+                          "z+": np.array([[0,1,0,0],
+                                          [-1,0,0,0],
+                                          [0,0,1,0],
+                                          [0,0,0,1]],dtype=float),
+                          "z-": np.array([[0,-1,0,0],
+                                          [1,0,0,0],
+                                          [0,0,1,0],
+                                          [0,0,0,1]],dtype=float),
         }
+
         self.session.capture_volume.shift_origin(transformations[direction])
         self.visualizer.refresh_scene()
         self.session.save_capture_volume()

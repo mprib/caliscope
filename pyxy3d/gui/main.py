@@ -97,7 +97,7 @@ class CalibrationWizard(QStackedWidget):
         else:
             logger.info("Initiating Camera Connection")
             self.initiate_camera_connection()
-            self.qt_logger = QtLogger("Connecting to Cameras")
+            self.qt_logger = QtLogger("Connecting to Cameras...")
             self.qt_logger.show()
    
     def back_to_camera_config_wizard(self):
@@ -163,41 +163,6 @@ class CalibrationWizard(QStackedWidget):
             self.connect_cams = Thread(target = connect_to_cams_worker, args=[], daemon=True)
             self.connect_cams.start()
             
-    def disconnect_cameras(self):
-        logger.info("Attempting to disconnect cameras")
-
-        if hasattr(self, "camera_tabs"):
-            self.central_stack.removeWidget(self.camera_tabs) 
-            del self.camera_tabs 
-        if hasattr(self, "stereo_cal_dialog"):
-            self.central_stack.removeWidget(self.stereo_cal_dialog)
-            del self.stereo_cal_dialog
-        self.session.disconnect_cameras()
-        # self.summary.camera_summary.connected_cam_count.setText("0")
-        self.enable_disable_menu()
-
-    def find_cameras(self):
-        def find_cam_worker():
-            self.CAMS_IN_PROCESS = True
-            self.session.find_cameras()
-            logger.info("Loading streams")
-            self.session.load_streams()
-            logger.info("Loading monocalibrators")
-            self.session.load_monocalibrators()
-            logger.info("Updating Camera Table")
-            self.summary.camera_summary.camera_table.update_data()
-
-            self.CAMS_IN_PROCESS = False
-            self.summary.camera_summary.connected_cam_count.setText(str(len(self.session.cameras)))
-            self.enable_disable_menu()
-            self.configure_cameras.trigger()
-            
-        if self.CAMS_IN_PROCESS:
-            logger.info("Cameras already connected or in process.")        
-        else:
-            logger.info("Searching for additional cameras...This may take a moment.")
-            self.find = Thread(target=find_cam_worker, args=(), daemon=True)
-            self.find.start()
 
 def launch_pyxy3d():
 

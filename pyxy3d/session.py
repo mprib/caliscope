@@ -45,6 +45,10 @@ class Session:
         self.path = directory
         self.config_path = str(Path(directory, "config.toml"))
 
+        # this will not have anything to start, but the path 
+        # will be set 
+        self.point_data_path = Path(self.path, "point_data.csv")
+
         # dictionaries of streaming related objects. key = port
         self.cameras = {}
         self.streams = {}
@@ -515,14 +519,15 @@ class Session:
     def calibrate(self):
         # self.stop_recording()
 
-        self.point_data_path = Path(self.path, "point_data.csv")
 
         stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
         stereocalibrator.stereo_calibrate_all(boards_sampled=20)
-        self.capture_volume.save(self.path)
+        self.initialize_capture_volume()
+        # self.capture_volume.save(self.path)
         self.capture_volume.optimize()
-        self.capture_volume.save(self.path)
-        self.save_camera_array()
+        # self.capture_volume.save(self.path)
+        self.save_capture_volume()
+        # self.save_camera_array()
 
     ########################## STAGE ASSOCIATED METHODS #################################
     def get_stage(self):

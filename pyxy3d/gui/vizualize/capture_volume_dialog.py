@@ -135,35 +135,27 @@ if __name__ == "__main__":
     from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
 
-    # session_directory = Path(__root__,  "tests", "2_cameras_linear")
-    # session_directory = Path(__root__,  "tests", "tripod")
-    # session_directory = Path(__root__,  "tests", "2_cameras_90_deg")
-    # session_directory = Path(__root__,  "tests", "2_cameras_180_deg")
-    # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
-    # session_directory = Path(__root__,  "tests", "3_cameras_middle")
-    session_directory = Path(__root__,  "tests", "4_cameras_beginning")
-    # session_directory = Path(__root__,  "tests", "4_cameras_endofday")
-    # session_directory = Path(__root__,  "tests", "4_cameras_nonoverlap")
-    # session_directory = Path(__root__,  "tests", "4_cameras_nonoverlap")
-    # session_directory = Path(__root__,  "tests", "3_cameras_linear")
-    # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
-    # session_directory = Path(__root__,  "tests", "just_checking")
+    test_sessions = [
+    Path(__root__,  "tests", "2_cameras_linear"),
+    Path(__root__,  "tests", "2_cameras_90_deg"),
+    Path(__root__,  "tests", "2_cameras_180_deg"),
+    Path(__root__,  "tests", "3_cameras_triangular"),
+    Path(__root__,  "tests", "3_cameras_middle"),
+    Path(__root__,  "tests", "4_cameras_beginning"),
+    Path(__root__,  "tests", "4_cameras_endofday"),
+    Path(__root__,  "tests", "4_cameras_nonoverlap"),
+    Path(__root__,  "tests", "4_cameras_nonoverlap"),
+    Path(__root__,  "tests", "3_cameras_midlinear"),
+    ]
 
-
-    # saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl") 
-    # saved_CV_path = Path(session_directory, "capture_volume_stage_1.pkl") 
-    # with open(saved_CV_path, "rb") as f:
-        # capture_volume:CaptureVolume = pickle.load(f)
-
-        
-    session = Session(session_directory)
+    test_session_index = 3 
+    session_path = test_sessions[test_session_index]
+    logger.info(f"Loading session {session_path}")
+    session = Session(session_path)
     session.load_configured_capture_volume()
     
 
     app = QApplication(sys.argv)
-    # vizr = CaptureVolumeVisualizer(session)
-    # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
-
 
     vizr_dialog = CaptureVolumeDialog(session)
     vizr_dialog.show()

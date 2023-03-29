@@ -136,6 +136,7 @@ if __name__ == "__main__":
     import pickle
 
     test_sessions = [
+    Path(__root__,  "tests", "217"),
     Path(__root__,  "tests", "2_cameras_linear"),
     Path(__root__,  "tests", "2_cameras_90_deg"),
     Path(__root__,  "tests", "2_cameras_180_deg"),
@@ -148,11 +149,14 @@ if __name__ == "__main__":
     Path(__root__,  "tests", "3_cameras_midlinear"),
     ]
 
-    test_session_index = 3 
+    test_session_index = 0 
     session_path = test_sessions[test_session_index]
     logger.info(f"Loading session {session_path}")
     session = Session(session_path)
-    session.load_configured_capture_volume()
+
+    # session.load_configured_capture_volume()
+    session.calibrate()
+    # session.initialize_capture_volume()
     
 
     app = QApplication(sys.argv)

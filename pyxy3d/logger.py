@@ -76,7 +76,7 @@ def get(name): # as in __name__
     if name in log_level_overides.keys():
         logger.setLevel(log_level_overides[name])
     else:
-        logger.setLevel(logging.DEBUG) 
+        logger.setLevel(logging.INFO) 
 
     qt_handler = QtHandler()
     

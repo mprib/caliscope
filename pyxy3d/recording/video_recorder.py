@@ -102,6 +102,7 @@ class VideoRecorder:
         logger.info("Initiate storing of point history")
         self.store_point_history()
         self.trigger_stop.clear()  # reset stop recording trigger
+        self.recording = False
         
         
     def store_point_history(self):
@@ -128,7 +129,7 @@ class VideoRecorder:
 
         self.recording = True
         self.recording_thread = Thread(
-            target=self.save_frame_worker, args=[], daemon=False
+            target=self.save_frame_worker, args=[], daemon=True
         )
         self.recording_thread.start()
 

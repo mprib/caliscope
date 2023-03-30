@@ -44,34 +44,11 @@ class CalibrationWizard(QStackedWidget):
         
         
     def connect_widgets(self):
-        self.wizard_directory.launch_wizard_btn.clicked.connect(self.next_to_charuco_wizard)
+        self.wizard_directory.launch_wizard_btn.clicked.connect(self.begin_wizard)
         self.cameras_connected.connect(self.on_cameras_connect) 
-        
-    def next_to_stereoframe(self):
-        if hasattr(self,"stereoframe"):
-            self.session.unpause_synchronizer()
-        else:
-            self.stereoframe = StereoFrameWidget(self.session)
-            self.addWidget(self.stereoframe)
-            self.stereoframe.navigation_bar.back_btn.clicked.connect(self.back_to_camera_config_wizard)
 
-        self.setCurrentIndex(3)
-        self.session.pause_all_monocalibrators()
-
-
-    def on_cameras_connect(self):
-        # load cameras wizard once the cameras are actually connected
-        self.camera_wizard = CameraWizard(self.session)
-        self.addWidget(self.camera_wizard)
-        self.setCurrentIndex(2)
-        self.camera_wizard.navigation_bar.back_btn.clicked.connect(self.back_to_charuco_wizard)
-        self.camera_wizard.navigation_bar.next_btn.clicked.connect(self.next_to_stereoframe)
-     
-    def back_to_charuco_wizard(self):
-        self.setCurrentIndex(1)
-        self.session.pause_all_monocalibrators()
-
-    def next_to_charuco_wizard(self):
+    # create first page of wizard (charuco builder)
+    def begin_wizard(self):
         if hasattr(self, "wizard_charuco"):
             self.setCurrentIndex(1)
         else:
@@ -84,29 +61,8 @@ class CalibrationWizard(QStackedWidget):
             self.addWidget(self.wizard_charuco)
             logger.info("Setting index to 2 to activate widget")
             self.setCurrentIndex(1)
-
-    def next_to_camera_config_wizard(self):
-        if hasattr(self, "camera_wizard"):
-            logger.info("Camera wizard already exists; changing stack current index")
-            self.setCurrentIndex(2)
-            active_port = self.camera_wizard.camera_tabs.currentIndex()
-            self.camera_wizard.camera_tabs.toggle_tracking(active_port)
-            logger.info("updating charuco in case necessary")
-            for port, stream in self.session.streams.items():
-                stream.update_charuco(self.session.charuco)
-        else:
-            logger.info("Initiating Camera Connection")
-            self.initiate_camera_connection()
-            self.qt_logger = QtLogger("Connecting to Cameras...")
-            self.qt_logger.show()
-   
-    def back_to_camera_config_wizard(self):
-        # from stereoframe to camera config
-        self.setCurrentIndex(2)
-        active_port = self.camera_wizard.camera_tabs.currentIndex()
-        self.camera_wizard.camera_tabs.toggle_tracking(active_port)
-        self.session.pause_synchronizer()
-                     
+        
+    # Start Session 
     def launch_session(self):
         if self.wizard_directory.create_new_radio.isChecked():
             # only need to create a new session in the given directory:
@@ -125,6 +81,25 @@ class CalibrationWizard(QStackedWidget):
                 shutil.copyfile(str(Path(old_config_path, "config.toml")), str(Path(self.session_directory, "config.toml")))
 
             self.session = Session(self.session_directory)
+    
+
+######################## STEP 1: Charuco Builder ###########################
+    
+
+    def next_to_camera_config_wizard(self):
+        if hasattr(self, "camera_wizard"):
+            logger.info("Camera wizard already exists; changing stack current index")
+            self.setCurrentIndex(2)
+            active_port = self.camera_wizard.camera_tabs.currentIndex()
+            self.camera_wizard.camera_tabs.toggle_tracking(active_port)
+            logger.info("updating charuco in case necessary")
+            for port, stream in self.session.streams.items():
+                stream.update_charuco(self.session.charuco)
+        else:
+            logger.info("Initiating Camera Connection")
+            self.initiate_camera_connection()
+            self.qt_logger = QtLogger("Connecting to Cameras...")
+            self.qt_logger.show()
 
 
     def initiate_camera_connection(self):
@@ -162,6 +137,40 @@ class CalibrationWizard(QStackedWidget):
         else:
             self.connect_cams = Thread(target = connect_to_cams_worker, args=[], daemon=True)
             self.connect_cams.start()
+
+    def on_cameras_connect(self):
+        # load cameras wizard once the cameras are actually connected
+        self.camera_wizard = CameraWizard(self.session)
+        self.addWidget(self.camera_wizard)
+        self.setCurrentIndex(2)
+        self.camera_wizard.navigation_bar.back_btn.clicked.connect(self.back_to_charuco_wizard)
+        self.camera_wizard.navigation_bar.next_btn.clicked.connect(self.next_to_stereoframe)
+
+####################### STEP 2: Single Camera Calibration #################
+    def back_to_charuco_wizard(self):
+        self.setCurrentIndex(1)
+        self.session.pause_all_monocalibrators()
+   
+    def back_to_camera_config_wizard(self):
+        # from stereoframe to camera config
+        self.setCurrentIndex(2)
+        active_port = self.camera_wizard.camera_tabs.currentIndex()
+        self.camera_wizard.camera_tabs.toggle_tracking(active_port)
+        self.session.pause_synchronizer()
+                     
+    def next_to_stereoframe(self):
+        if hasattr(self,"stereoframe"):
+            self.session.unpause_synchronizer()
+        else:
+            self.stereoframe = StereoFrameWidget(self.session)
+            self.addWidget(self.stereoframe)
+            self.stereoframe.navigation_bar.back_btn.clicked.connect(self.back_to_camera_config_wizard)
+
+        self.setCurrentIndex(3)
+        self.session.pause_all_monocalibrators()
+
+
+
             
 
 def launch_pyxy3d():

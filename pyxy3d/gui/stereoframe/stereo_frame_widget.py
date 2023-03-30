@@ -37,7 +37,8 @@ from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.widgets import NavigationBarBackNext
 
 class StereoFrameWidget(QWidget):
-    
+    calibration_complete = pyqtSignal(bool)
+
     def __init__(self,session:Session):
 
         super(StereoFrameWidget, self).__init__()
@@ -125,14 +126,19 @@ class StereoFrameWidget(QWidget):
 
 
     def initiate_calibration(self):
-        self.frame_emitter.stop()
-        self.stereo_frame_display.hide()
-        self.qt_logger = QtLogger("Initiating Calibration...")
-        self.qt_logger.show()
-        self.session.pause_synchronizer()
-        self.session.stop_recording()
-        self.calibrate_thread = Thread(target=self.session.calibrate,args=(), daemon=True)
-        self.calibrate_thread.start()
+        def worker():
+            self.frame_emitter.stop()
+            self.stereo_frame_display.hide()
+            # self.qt_logger = QtLogger("Initiating Calibration...")
+            # self.qt_logger.show()
+            self.session.stop_recording()
+            self.session.pause_synchronizer()
+            self.session.calibrate()
+            self.calibration_complete.emit(True)
+            
+            
+        self.init_calibration_thread = Thread(target=worker,args=(), daemon=True)
+        self.init_calibration_thread.start()
 
 class StereoFrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
@@ -149,6 +155,7 @@ class StereoFrameEmitter(QThread):
     def run(self):
         while self.keep_collecting.is_set():
             if len(self.stereoframe_builder.stereo_list) == 0:
+                logger.info("Signalling that calibration data is fully collected.")
                 self.calibration_data_collected.emit(True)
                 
             stereo_frame = self.stereoframe_builder.get_stereo_frame()

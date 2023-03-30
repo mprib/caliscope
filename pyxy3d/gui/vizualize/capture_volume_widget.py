@@ -30,10 +30,11 @@ from PyQt6.QtWidgets import (
 
 from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
+from pyxy3d.gui.widgets import NavigationBarBackFinish
 
-class CaptureVolumeDialog(QWidget):
+class CaptureVolumeWidget(QWidget):
     def __init__(self, session:Session):
-        super(CaptureVolumeDialog, self).__init__()
+        super(CaptureVolumeWidget, self).__init__()
         self.session = session
         self.visualizer = CaptureVolumeVisualizer(self.session.capture_volume)
         # self.visualizer.scene.show()
@@ -50,6 +51,8 @@ class CaptureVolumeDialog(QWidget):
         self.rotate_y_minus_btn = QPushButton("Y-") 
         self.rotate_z_plus_btn = QPushButton("Z+") 
         self.rotate_z_minus_btn = QPushButton("Z-") 
+
+        self.navigation_bar = NavigationBarBackFinish() 
 
         self.place_widgets()
         self.connect_widgets()
@@ -72,6 +75,8 @@ class CaptureVolumeDialog(QWidget):
         self.grid.addWidget(self.rotate_y_minus_btn,1,1)
         self.grid.addWidget(self.rotate_z_plus_btn, 0,2)
         self.grid.addWidget(self.rotate_z_minus_btn,1,2)
+
+        self.layout().addWidget(self.navigation_bar)
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
@@ -161,7 +166,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
 
-    vizr_dialog = CaptureVolumeDialog(session)
+    vizr_dialog = CaptureVolumeWidget(session)
     vizr_dialog.show()
 
     sys.exit(app.exec())

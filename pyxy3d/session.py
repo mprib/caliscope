@@ -517,8 +517,6 @@ class Session:
     
     
     def calibrate(self):
-        # self.stop_recording()
-
 
         stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
         stereocalibrator.stereo_calibrate_all(boards_sampled=20)

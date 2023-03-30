@@ -153,7 +153,7 @@ class LiveStream:
                     if not spinlock_looped:
                         logger.info(f"Spinlock initiated at port {self.port}")
                         spinlock_looped = True
-                    sleep(.2)
+                    sleep(.5)
                 if spinlock_looped == True:
                     logger.info(f"Spinlock released at port {self.port}")
                     

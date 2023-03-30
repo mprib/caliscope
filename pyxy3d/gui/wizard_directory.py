@@ -56,15 +56,15 @@ class WizardDirectory(QWidget):
 
         self.vbox.addWidget(self.from_previous_radio)
 
-        self.original_path = DirectorySelector(self, "Original Config", self.check_old_directory_validity)
+        self.original_path = DirectorySelector(self, "Original Folder", self.check_old_directory_validity)
         self.vbox.addWidget(self.original_path)
         self.original_path.setHidden(True)
-        self.modified_path = DirectorySelector(self, "New Config")
+        self.modified_path = DirectorySelector(self, "New Folder")
         self.vbox.addWidget(self.modified_path)
         self.modified_path.setHidden(True)
         self.vbox.addWidget(self.create_new_radio)
         
-        self.new_path = DirectorySelector(self, "New Config")
+        self.new_path = DirectorySelector(self, "Folder")
         self.vbox.addWidget(self.new_path)
         self.new_path.setHidden(True)
         

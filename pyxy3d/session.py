@@ -12,6 +12,7 @@ from dataclasses import asdict
 import numpy as np
 import toml
 from itertools import combinations
+from time import sleep
 
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.calibration.corner_tracker import CornerTracker
@@ -44,6 +45,10 @@ class Session:
         self.folder = PurePath(directory).name
         self.path = directory
         self.config_path = str(Path(directory, "config.toml"))
+
+        # this will not have anything to start, but the path 
+        # will be set 
+        self.point_data_path = Path(self.path, "point_data.csv")
 
         # dictionaries of streaming related objects. key = port
         self.cameras = {}
@@ -349,6 +354,10 @@ class Session:
     def stop_recording(self):
         logger.info("Stopping recording...")
         self.video_recorder.stop_recording()
+        while self.video_recorder.recording:
+            logger.info("Waiting for video recorder to save out data...")
+            sleep(.5)
+            
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as
@@ -513,16 +522,15 @@ class Session:
     
     
     def calibrate(self):
-        # self.stop_recording()
-
-        self.point_data_path = Path(self.path, "point_data.csv")
 
         stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
         stereocalibrator.stereo_calibrate_all(boards_sampled=20)
-        self.capture_volume.save(self.path)
+        self.initialize_capture_volume()
+        # self.capture_volume.save(self.path)
         self.capture_volume.optimize()
-        self.capture_volume.save(self.path)
-        self.save_camera_array()
+        # self.capture_volume.save(self.path)
+        self.save_capture_volume()
+        # self.save_camera_array()
 
     ########################## STAGE ASSOCIATED METHODS #################################
     def get_stage(self):

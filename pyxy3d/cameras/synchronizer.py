@@ -37,7 +37,7 @@ class Synchronizer:
             self.ports.append(port)
             q = Queue(-1)
             self.frame_packet_queues[port] = q
-
+        self.subscribed_to_streams = False # not subscribed yet
         self.subscribe_to_streams()
 
         self._fps_target = fps_target
@@ -59,11 +59,13 @@ class Synchronizer:
     def subscribe_to_streams(self):
         for port, stream in self.streams.items():
             stream.subscribe(self.frame_packet_queues[port])
+        self.subscribed_to_streams = True
 
     def unsubscribe_to_streams(self):
         for port, stream in self.streams.items():
             logger.info(f"unsubscribe synchronizer from port {port}")
             stream.unsubscribe(self.frame_packet_queues[port])
+        self.subscribed_to_streams = False
 
     def stop(self):
         self.stop_event.set()
@@ -139,9 +141,11 @@ class Synchronizer:
                 logger.debug(
                     f"Waiting in a loop for frame data to populate with key: {frame_data_key}"
                 )
-                time.sleep(0.01)
-
-            # this is off by one...don't understand why
+                if self.subscribed_to_streams:
+                    time.sleep(0.1)
+                else:
+                    time.sleep(1)
+                    
             next_frame_time = self.all_frame_packets[frame_data_key].frame_time
 
             if next_frame_time == -1:

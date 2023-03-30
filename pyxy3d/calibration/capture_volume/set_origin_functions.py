@@ -243,7 +243,7 @@ if __name__ == "__main__":
     from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
     from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
     from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
-    from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
+    from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
 
     # test_scenario = "4_cameras_nonoverlap"
     # test_scenario = "3_cameras_middle"
@@ -301,7 +301,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
 
-    vizr_dialog = CaptureVolumeDialog(vizr)
+    vizr_dialog = CaptureVolumeWidget(vizr)
     vizr_dialog.show()
 
     sys.exit(app.exec())

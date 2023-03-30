@@ -12,6 +12,7 @@ from dataclasses import asdict
 import numpy as np
 import toml
 from itertools import combinations
+from time import sleep
 
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.calibration.corner_tracker import CornerTracker
@@ -353,6 +354,10 @@ class Session:
     def stop_recording(self):
         logger.info("Stopping recording...")
         self.video_recorder.stop_recording()
+        while self.video_recorder.recording:
+            logger.info("Waiting for video recorder to save out data...")
+            sleep(.5)
+            
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as

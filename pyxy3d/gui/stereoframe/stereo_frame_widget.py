@@ -132,8 +132,6 @@ class StereoFrameWidget(QWidget):
             self.calibrate_collect_btn.setEnabled(False)
             self.frame_emitter.stop()
             self.stereo_frame_display.hide()
-            # self.qt_logger = QtLogger("Initiating Calibration...")
-            # self.qt_logger.show()
             logger.info("Pause synchronizer")
             self.session.pause_synchronizer()
             logger.info("Stop recording video")

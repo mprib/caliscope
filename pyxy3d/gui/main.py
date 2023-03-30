@@ -174,8 +174,12 @@ class CalibrationWizard(QStackedWidget):
     
 
     def launch_capture_volume(self):
+        logger.info("Creating Capture Volume widget")
         self.capture_volume = CaptureVolumeWidget(self.session)
+        logger.info("Adding capture volume widget to main Wizard")
         self.addWidget(self.capture_volume)
+        time.sleep(2)
+        logger.info("Set current index to capture volume widget")
         self.setCurrentIndex(4)
         
          

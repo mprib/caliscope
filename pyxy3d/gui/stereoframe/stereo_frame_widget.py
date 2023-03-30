@@ -45,7 +45,7 @@ class StereoFrameWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
 
-        self.frame_builder = StereoFrameBuilder(self.synchronizer, board_count_target=10)
+        self.frame_builder = StereoFrameBuilder(self.synchronizer, board_count_target=30)
         self.frame_emitter = StereoFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 
@@ -127,12 +127,18 @@ class StereoFrameWidget(QWidget):
 
     def initiate_calibration(self):
         def worker():
+            logger.info("Beginning wind-down process prior to calibration")
+            self.calibrate_collect_btn.setText("---calibrating---")
+            self.calibrate_collect_btn.setEnabled(False)
             self.frame_emitter.stop()
             self.stereo_frame_display.hide()
             # self.qt_logger = QtLogger("Initiating Calibration...")
             # self.qt_logger.show()
-            self.session.stop_recording()
+            logger.info("Pause synchronizer")
             self.session.pause_synchronizer()
+            logger.info("Stop recording video")
+            self.session.stop_recording()
+            logger.info("Begin calibration")
             self.session.calibrate()
             self.calibration_complete.emit(True)
             
@@ -151,11 +157,16 @@ class StereoFrameEmitter(QThread):
         logger.info("Initiated frame emitter")        
         self.keep_collecting = Event() 
         self.keep_collecting.set()
+        self.collection_complete = False
         
     def run(self):
         while self.keep_collecting.is_set():
-            if len(self.stereoframe_builder.stereo_list) == 0:
+            
+            # that that it is important to make sure that this signal is sent only once
+            # to avoid multiple calibration attempts 
+            if len(self.stereoframe_builder.stereo_list) == 0 and not self.collection_complete:
                 logger.info("Signalling that calibration data is fully collected.")
+                self.collection_complete = True
                 self.calibration_data_collected.emit(True)
                 
             stereo_frame = self.stereoframe_builder.get_stereo_frame()

@@ -24,7 +24,7 @@ from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera_array import CameraData
 import cv2
 from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
-from pyxy3d.gui.vizualize.capture_volume_dialog import CaptureVolumeDialog
+from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
 import pickle
 
 
@@ -258,7 +258,7 @@ app = QApplication(sys.argv)
 vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
 # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
 
-vizr_dialog = CaptureVolumeDialog(vizr)
+vizr_dialog = CaptureVolumeWidget(vizr)
 vizr_dialog.show()
 
 sys.exit(app.exec())

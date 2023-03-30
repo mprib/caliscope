@@ -27,7 +27,7 @@ from pyxy3d import __root__, __app_dir__
 from pyxy3d.session import Stage
 from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.stereoframe.stereo_frame_widget import StereoFrameWidget
-
+from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
 class CalibrationWizard(QStackedWidget):
     cameras_connected = pyqtSignal()
     
@@ -151,12 +151,6 @@ class CalibrationWizard(QStackedWidget):
         self.setCurrentIndex(1)
         self.session.pause_all_monocalibrators()
    
-    def back_to_camera_config_wizard(self):
-        # from stereoframe to camera config
-        self.setCurrentIndex(2)
-        active_port = self.camera_wizard.camera_tabs.currentIndex()
-        self.camera_wizard.camera_tabs.toggle_tracking(active_port)
-        self.session.pause_synchronizer()
                      
     def next_to_stereoframe(self):
         if hasattr(self,"stereoframe"):
@@ -165,13 +159,26 @@ class CalibrationWizard(QStackedWidget):
             self.stereoframe = StereoFrameWidget(self.session)
             self.addWidget(self.stereoframe)
             self.stereoframe.navigation_bar.back_btn.clicked.connect(self.back_to_camera_config_wizard)
-
+            self.stereoframe.calibration_complete.connect(self.launch_capture_volume)
         self.setCurrentIndex(3)
         self.session.pause_all_monocalibrators()
 
+###################### Stereocalibration  ######################################
 
+    def back_to_camera_config_wizard(self):
+        # from stereoframe to camera config
+        self.setCurrentIndex(2)
+        active_port = self.camera_wizard.camera_tabs.currentIndex()
+        self.camera_wizard.camera_tabs.toggle_tracking(active_port)
+        self.session.pause_synchronizer()
+    
 
-            
+    def launch_capture_volume(self):
+        self.capture_volume = CaptureVolumeWidget(self.session)
+        self.addWidget(self.capture_volume)
+        self.setCurrentIndex(4)
+        
+         
 
 def launch_pyxy3d():
 

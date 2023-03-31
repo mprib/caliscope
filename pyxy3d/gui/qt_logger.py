@@ -1,5 +1,5 @@
 import sys
-from PyQt6 import QtCore, QtGui
+from PyQt6.QtCore import pyqtSlot, Qt
 from PyQt6.QtWidgets import QDialog, QApplication, QTextBrowser, QPushButton, QVBoxLayout
 import logging
 
@@ -9,7 +9,7 @@ from threading  import Thread
 
 def test():
     def worker():
-        session = Session(Path(r"C:\Users\Mac Prible\repos\pyxy3d\tests\pyxy3d"))
+        session = Session(Path(r"C:\Users\Mac Prible\repos\pyxy3d\tests\217"))
         session.find_cameras()
     thread = Thread(target=worker, args=(), daemon=True)
     thread.start()
@@ -22,6 +22,8 @@ class QtLogger(QDialog):
         super(QtLogger, self).__init__()
         self.setWindowTitle(message)
         self._console = LogMessageViewer(self)
+
+        self.setWindowFlags(Qt.WindowType.WindowTitleHint)
 
         layout = QVBoxLayout()
 
@@ -44,10 +46,10 @@ class LogMessageViewer(QTextBrowser):
         super(LogMessageViewer,self).__init__(parent)
         self.setReadOnly(True)
         #self.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-        self.setEnabled(True)
+        self.setEnabled(False)
         self.verticalScrollBar().setVisible(True)
 
-    @QtCore.pyqtSlot(str)
+    @pyqtSlot(str)
     def appendLogMessage(self, msg):
         horScrollBar = self.horizontalScrollBar()
         verScrollBar = self.verticalScrollBar()

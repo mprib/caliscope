@@ -170,11 +170,16 @@ class CalibrationWizard(QStackedWidget):
                 self.back_to_camera_config_wizard
             )
             self.stereoframe.calibration_complete.connect(self.launch_capture_volume)
+            self.stereoframe.frame_emitter.calibration_data_collected.connect(self.show_calibration_qt_logger)
+
         self.setCurrentIndex(3)
         self.session.pause_all_monocalibrators()
 
     ###################### Stereocalibration  ######################################
-
+    def show_calibration_qt_logger(self):
+        self.qt_logger = QtLogger("Calibrating camera array...")
+        self.qt_logger.show()
+        
     def back_to_camera_config_wizard(self):
         # from stereoframe to camera config
         self.setCurrentIndex(2)
@@ -189,6 +194,7 @@ class CalibrationWizard(QStackedWidget):
         self.addWidget(self.capture_volume)
         logger.info("Set current index to capture volume widget")
         self.setCurrentIndex(4)
+        del self.qt_logger
 
         # self.launch_cv_thread = Thread(target=worker, args=(), daemon=True)
         # self.launch_cv_thread.start()

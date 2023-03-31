@@ -98,7 +98,7 @@ class CaptureVolumeVisualizer:
 
         self.single_board_points = self.point_estimates.obj[single_board_indices]
         self.mean_board_position = np.mean(self.single_board_points,axis=0)
-        logger.info(f"Mean Board Position at sync index {sync_index}: {self.mean_board_position}")
+        logger.debug(f"Mean Board Position at sync index {sync_index}: {self.mean_board_position}")
 
         self.scatter.setData(pos=self.single_board_points)
 

@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
 )
 
+NAV_BAR_HEIGHT = 75
 class NavigationBarNext(QWidget):
     def __init__(self):
         super().__init__()
@@ -19,7 +20,7 @@ class NavigationBarNext(QWidget):
         self.next_wizard_step_btn.setMaximumWidth(50)
         self.layout().setAlignment(Qt.AlignmentFlag.AlignRight)
         self.layout().addWidget(self.next_wizard_step_btn)
-
+        self.setMaximumHeight(NAV_BAR_HEIGHT)
 class NavigationBarBackNext(QWidget):
     def __init__(self):
         super().__init__()
@@ -40,6 +41,7 @@ class NavigationBarBackNext(QWidget):
         
         self.right_box.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.left_box.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.setMaximumHeight(NAV_BAR_HEIGHT)
 
         
 class NavigationBarBackFinish(QWidget):
@@ -62,6 +64,7 @@ class NavigationBarBackFinish(QWidget):
         
         self.right_box.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.left_box.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.setMaximumHeight(NAV_BAR_HEIGHT)
 
         
 class NavigationBarBackFinish(QWidget):
@@ -84,6 +87,7 @@ class NavigationBarBackFinish(QWidget):
         
         self.right_box.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.left_box.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.setMaximumHeight(NAV_BAR_HEIGHT)
 
 if __name__ == "__main__":
     import sys

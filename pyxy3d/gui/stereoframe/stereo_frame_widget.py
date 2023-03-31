@@ -67,12 +67,15 @@ class StereoFrameWidget(QWidget):
         
         self.settings_group = QGroupBox("Settings")
         self.settings_group.setLayout(QHBoxLayout())
+        self.settings_group.layout().addWidget(QLabel("Frame Rate:"))
         self.settings_group.layout().addWidget(self.frame_rate_spin)       
+        self.settings_group.layout().addWidget(QLabel("Target Board Count:"))
         self.settings_group.layout().addWidget(self.board_count_spin)       
 
         self.layout().addWidget(self.settings_group)
         # self.layout().addWidget(self.calibrate_collect_btn)
 
+        # scroll bar appears to not be working....
         self.scroll_area = QScrollArea()
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         # self.scroll_area.setLayout(QVBoxLayout())

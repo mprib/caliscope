@@ -26,7 +26,7 @@ class CaptureVolume:
     camera_array: CameraArray
     point_estimates: PointEstimates
     stage: int = 0
-    _rmse: float = None
+    rmse: float = None
 
     def save(self, directory: Path, descriptor: str = None):
         if descriptor is None:
@@ -51,7 +51,7 @@ class CaptureVolume:
         return combined
 
     @property
-    def rmse(self):
+    def _rmse(self):
 
         if hasattr(self, "least_sq_result"):
             rmse = rms_reproj_error(self.least_sq_result.fun)
@@ -98,7 +98,7 @@ class CaptureVolume:
         self.stage += 1
 
         logger.info(
-            f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
+            f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self._rmse}"
         )
 
     def get_xyz_points(self):
@@ -194,11 +194,12 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     xy_reprojection_error = (points_proj - capture_volume.point_estimates.img).ravel()
+    capture_volume.rmse = rms_reproj_error(xy_reprojection_error)
     if round(perf_counter(), 2) * 10 % 1 == 0:
         logger.info(
-            f"Optimizing... RMSE of reprojection = {rms_reproj_error(xy_reprojection_error)}"
+            f"Optimizing... RMSE of reprojection = {capture_volume.rmse}"
         )
-
+    
     # reshape the x,y reprojection error to a single vector
     return xy_reprojection_error
 

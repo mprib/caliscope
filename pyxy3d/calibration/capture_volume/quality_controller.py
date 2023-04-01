@@ -322,24 +322,27 @@ def cartesian_product(*arrays):
 
 if __name__ == "__main__":
 # if True:
+    from pyxy3d.session import Session
     from pyxy3d import __root__
 
     session_directory = Path(__root__, "tests", "217")
     # config_path = Path(session_directory, "config.toml")  
-    capture_volume_name = "capture_volume_stage_0.pkl"
+    # capture_volume_name = "capture_volume_stage_0.pkl"
     
     # get the inputs for quality control (CaptureVolume and Charuco)
-    capture_volume = get_capture_volume(Path(session_directory,capture_volume_name))
+    # capture_volume = get_capture_volume(Path(session_directory,capture_volume_name))
     # charuco = get_charuco(config_path)
 
     # create QualityControl
-    quality_controller = QualityController(capture_volume)
+    session = Session(session_directory)
+    session.load_configured_capture_volume()
+    quality_controller = QualityController(session.capture_volume)
 
-    quality_controller.capture_volume.optimize()
+    # quality_controller.capture_volume.optimize()
 
     # store stage 1 data (initial optimization)
-    quality_controller.capture_volume.save(session_directory)
-    quality_controller.store_data()    
+    # quality_controller.capture_volume.save(session_directory)
+    # quality_controller.store_data()    
     
     logger.info(quality_controller.capture_volume.stage)
     
@@ -347,8 +350,9 @@ if __name__ == "__main__":
         logger.info("Filtering out worst fitting point estimates")
         quality_controller.filter_point_estimates(.95)
         quality_controller.capture_volume.optimize()
-        quality_controller.store_data()    
-        quality_controller.capture_volume.save(session_directory)
+        # print(quality_controller.capture_volume._rmse)
+    # quality_controller.store_data()    
+    # quality_controller.capture_volume.save(session_directory)
 
-    quality_controller.all_data_2d.to_csv(Path(session_directory, "data_2d.csv"))
+    # quality_controller.all_data_2d.to_csv(Path(session_directory, "data_2d.csv"))
 # %%

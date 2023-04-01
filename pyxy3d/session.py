@@ -20,7 +20,7 @@ from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
-from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer 
+from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
 
 
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
@@ -38,6 +38,7 @@ from pyxy3d.recording.video_recorder import VideoRecorder
 
 #%%
 MAX_CAMERA_PORT_CHECK = 10
+FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration
 
 
 class Session:
@@ -47,8 +48,8 @@ class Session:
         self.path = directory
         self.config_path = str(Path(directory, "config.toml"))
 
-        # this will not have anything to start, but the path 
-        # will be set 
+        # this will not have anything to start, but the path
+        # will be set
         self.point_data_path = Path(self.path, "point_data.csv")
 
         # dictionaries of streaming related objects. key = port
@@ -75,7 +76,7 @@ class Session:
     def pause_synchronizer(self):
         logger.info("pausing synchronizer")
         self.synchronizer.unsubscribe_to_streams()
-        
+
     def unpause_synchronizer(self):
         self.synchronizer.subscribe_to_streams()
 
@@ -158,7 +159,6 @@ class Session:
                 del self.config[key]
 
         self.update_config()
-
 
     def load_cameras(self):
 
@@ -342,7 +342,7 @@ class Session:
         logger.info(f"Pausing all monocalibrator looping...")
         for port, monocal in self.monocalibrators.items():
             monocal.unsubscribe_to_stream()
-        
+
     def start_recording(self, destination_folder: Path = None):
         logger.info("Initiating recording...")
         if destination_folder is None:
@@ -357,8 +357,7 @@ class Session:
         self.video_recorder.stop_recording()
         while self.video_recorder.recording:
             logger.info("Waiting for video recorder to save out data...")
-            sleep(.5)
-            
+            sleep(0.5)
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as
@@ -431,7 +430,6 @@ class Session:
             self.config["cam_" + str(port)] = params
 
         self.update_config()
-        
 
     def load_camera_array(self):
         """
@@ -447,20 +445,22 @@ class Session:
                     size = params["size"]
 
                     logger.info(f"Adding camera {port} to calibrated camera array...")
-                    cam_data = CameraData(port=port,
-                                        size = params["size"],
-                                        rotation_count= params["rotation_count"],
-                                        error = params["error"],
-                                        matrix = np.array(params["matrix"]),
-                                        distortions= np.array(params["distortions"]),
-                                        exposure=params["exposure"],
-                                        grid_count=params["grid_count"],
-                                        ignore=params["ignore"],
-                                        verified_resolutions=params["verified_resolutions"],
-                                        translation=np.array(params["translation"]),
-                                        rotation=np.array(params["rotation"]))
-                
-                    all_camera_data[port]=cam_data
+                    cam_data = CameraData(
+                        port=port,
+                        size=params["size"],
+                        rotation_count=params["rotation_count"],
+                        error=params["error"],
+                        matrix=np.array(params["matrix"]),
+                        distortions=np.array(params["distortions"]),
+                        exposure=params["exposure"],
+                        grid_count=params["grid_count"],
+                        ignore=params["ignore"],
+                        verified_resolutions=params["verified_resolutions"],
+                        translation=np.array(params["translation"]),
+                        rotation=np.array(params["rotation"]),
+                    )
+
+                    all_camera_data[port] = cam_data
 
         self.camera_array = CameraArray(all_camera_data)
 
@@ -468,25 +468,26 @@ class Session:
         logger.info("Saving point estimates to config...")
 
         temp_data = asdict(self.point_estimates)
-        for key,params in temp_data.items():
+        for key, params in temp_data.items():
             temp_data[key] = params.tolist()
 
         self.config["point_estimates"] = temp_data
 
         self.update_config()
 
-
     def load_configured_capture_volume(self):
         """
         Following capture volume optimization via bundle adjustment, or alteration
         via a transform of the origin, the entire capture volume can be reloaded
         from the config data without needing to go through the steps
-        
+
         """
         self.load_point_estimates()
         self.load_camera_array()
-        self.capture_volume = CaptureVolume(self.camera_array,self.point_estimates)
-    
+        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
+        self.capture_volume.rmse = self.config["capture_volume"]["RMSE"]
+        self.capture_volume.stage = self.config["capture_volume"]["stage"]
+
     def save_capture_volume(self):
         # self.point_estimates = self.capture_volume.point_estimates
         # self.camera_array = self.capture_volume.camera_array
@@ -496,12 +497,12 @@ class Session:
         self.config["capture_volume"]["RMSE"] = self.capture_volume.rmse
         self.config["capture_volume"]["stage"] = self.capture_volume.stage
         self.update_config()
-        
-    def initialize_capture_volume(self):
+
+    def build_capture_volume_from_stereopairs(self):
         """
-        after performing stereocalibration, the data should be in place to initialize 
+        after performing stereocalibration, the data should be in place to initialize
         a capture volume. This will not yet be calibrated, therefore at stage 0.
-        The point estimates will be based on an average of stereotriangulaed pairs from 
+        The point estimates will be based on an average of stereotriangulaed pairs from
         the initial best guess of the camera array.
         """
         self.camera_array: CameraArray = CameraArrayInitializer(
@@ -516,33 +517,35 @@ class Session:
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
         self.capture_volume.optimize()
         self.save_capture_volume()
-        
+
     def load_point_estimates(self):
         point_estimates_dict = self.config["point_estimates"]
-        
+
         for key, value in point_estimates_dict.items():
             point_estimates_dict[key] = np.array(value)
-        
+
         self.point_estimates = PointEstimates(**point_estimates_dict)
-    
-    
+
     def calibrate(self):
 
         stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
         stereocalibrator.stereo_calibrate_all(boards_sampled=10)
-        self.initialize_capture_volume()
+        self.build_capture_volume_from_stereopairs()
         # self.capture_volume.save(self.path)
         self.capture_volume.optimize()
+        self.filter_high_error(FILTERED_FRACTION)
         # self.capture_volume.save(self.path)
         self.save_capture_volume()
         # self.save_camera_array()
 
-    def filter_high_error(self,fraction_to_remove:float):
+    def filter_high_error(self, fraction_to_remove: float):
         self.quality_controller = QualityController(self.capture_volume, self.charuco)
-        
+
         self.quality_controller.filter_point_estimates(fraction_to_remove)
         self.quality_controller.capture_volume.optimize()
-        self.capture_volume = self.quality_controller.capture_volume # defensive assignment
+        self.capture_volume = (
+            self.quality_controller.capture_volume
+        )  # defensive assignment
         self.save_capture_volume()
 
     ########################## STAGE ASSOCIATED METHODS #################################
@@ -604,6 +607,7 @@ class Session:
         )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
         return calibrated_pairs
 
+
 class Stage(Enum):
     NO_CAMERAS = auto()
     UNCALIBRATED_CAMERAS = auto()
@@ -630,13 +634,13 @@ if True:
     # session.load_camera_array()
     # session.load_point_estimates()
     # session.calibrate()
-    session.initialize_capture_volume()
+    session.build_capture_volume_from_stereopairs()
     # session.load_configured_capture_volume()
     # session.capture_volume.optimize()
     # session.capture_volume.set_origin_to_board(240, session.charuco)
     # session.save_capture_volume()
     # while session.capture_volume.rmse > 2:
-    session.filter_high_error(.05)
+    session.filter_high_error(0.05)
     # logger.info(f"Following filter of high error points, distance error is \n {session.quality_controller.distance_error}")
     # session.update_config()
     #%%%
@@ -644,8 +648,10 @@ if True:
     # create a sample dataframe
 
     # group the data by "board_distance" and compute the mean and percentiles
-    logger.info("\n" + session.quality_controller.distance_error_summary.to_string(index=False))
-    
+    logger.info(
+        "\n" + session.quality_controller.distance_error_summary.to_string(index=False)
+    )
+
     # logger.info("Loading Cameras...")
     # session.load_cameras()
 

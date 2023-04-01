@@ -538,12 +538,11 @@ class Session:
         # self.save_camera_array()
 
     def filter_high_error(self,fraction_to_remove:float):
-        quality_controller = QualityController(self.capture_volume)
+        self.quality_controller = QualityController(self.capture_volume, self.charuco)
         
-        # not happy with the "1-fraction" thing here...just an ugly thing 
-        quality_controller.filter_point_estimates(1 - fraction_to_remove)
-        quality_controller.capture_volume.optimize()
-        self.capture_volume = quality_controller.capture_volume # defensive assignment
+        self.quality_controller.filter_point_estimates(fraction_to_remove)
+        self.quality_controller.capture_volume.optimize()
+        self.capture_volume = self.quality_controller.capture_volume # defensive assignment
         self.save_capture_volume()
 
     ########################## STAGE ASSOCIATED METHODS #################################
@@ -615,8 +614,8 @@ class Stage(Enum):
 
 
 #%%
-if __name__ == "__main__":
-    #%%
+# if __name__ == "__main__":
+if True:
     from pyxy3d import __root__
 
     config_path = Path(__root__, "tests", "demo")
@@ -624,7 +623,6 @@ if __name__ == "__main__":
     logger.info(config_path)
     logger.info("Loading session config")
     session = Session(config_path)
-    #%%
     # logger.info(session.get_stage())
     # session.load_camera_array()
     # session.calibrate()
@@ -637,9 +635,39 @@ if __name__ == "__main__":
     # session.capture_volume.optimize()
     # session.capture_volume.set_origin_to_board(240, session.charuco)
     # session.save_capture_volume()
+    # while session.capture_volume.rmse > 2:
     session.filter_high_error(.05)
+    # logger.info(f"Following filter of high error points, distance error is \n {session.quality_controller.distance_error}")
     # session.update_config()
+    distance_error_full = session.quality_controller.distance_error
     #%%%
+    import pandas as pd
+
+    # create a sample dataframe
+
+    # group the data by "board_distance" and compute the mean and percentiles
+    summary = distance_error_full.groupby('board_distance').agg({
+        'Distance_Error_mm_abs': ['mean', 'std'],
+        'Distance_Error_mm': ['mean', 'std'],
+    }).reset_index()
+
+    # flatten the multi-level column index
+    summary.columns = ['_'.join(col).strip() for col in summary.columns.values]
+    # rename the "Distance_error_mm_abs" column to "Distance_Error_mm"
+    summary["board_distance_"]   = summary["board_distance_"]*1000
+
+    summary = summary.round(2)
+    summary = summary.astype(str)
+    
+    summary["|Distance Error|"] = summary["Distance_Error_mm_abs_mean"] +" (" + summary["Distance_Error_mm_abs_std"] + ")"
+    summary["Distance Error"] = summary["Distance_Error_mm_mean"] +" (" + summary["Distance_Error_mm_std"] + ")"
+    
+    summary = summary.rename(columns={"board_distance_":"Board Distance"})
+    summary = summary[["Board Distance", "Distance Error", "|Distance Error|"]]
+    summary
+
+    logger.info("\n" + summary.to_string(index=False))
+    
     # logger.info("Loading Cameras...")
     # session.load_cameras()
 

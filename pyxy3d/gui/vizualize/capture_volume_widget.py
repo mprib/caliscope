@@ -168,8 +168,9 @@ if __name__ == "__main__":
     logger.info(f"Loading session {session_path}")
     session = Session(session_path)
 
-    session.load_configured_capture_volume()
-    # session.initialize_capture_volume()
+    # session.load_configured_capture_volume()
+    session.build_capture_volume_from_stereopairs()
+    
     # session.calibrate()
 
     app = QApplication(sys.argv)

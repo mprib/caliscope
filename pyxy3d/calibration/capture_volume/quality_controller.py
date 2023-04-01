@@ -213,6 +213,30 @@ class QualityController:
         
         return distance_error
 
+    @property
+    def distance_error_summary(self):
+        
+        summary = self.distance_error.groupby('board_distance').agg({
+            'Distance_Error_mm_abs': ['mean', 'std'],
+            'Distance_Error_mm': ['mean', 'std'],
+        }).reset_index()
+
+        # flatten the multi-level column index
+        summary.columns = ['_'.join(col).strip() for col in summary.columns.values]
+        # rename the "Distance_error_mm_abs" column to "Distance_Error_mm"
+        summary["board_distance_"]   = summary["board_distance_"]*1000
+
+        summary = summary.round(2)
+        summary = summary.astype(str)
+    
+        summary["|Distance Error|"] = summary["Distance_Error_mm_abs_mean"] +" (" + summary["Distance_Error_mm_abs_std"] + ")"
+        summary["Distance Error"] = summary["Distance_Error_mm_mean"] +" (" + summary["Distance_Error_mm_std"] + ")"
+    
+        summary = summary.rename(columns={"board_distance_":"Board Distance"})
+        summary = summary[["Board Distance", "Distance Error", "|Distance Error|"]]
+        return summary
+
+        
     def get_filtered_data_2d(self, percentile_cutoff: float):
         """
         Provided a cutoff percentile value, returns a filtered_data_2d dataframe

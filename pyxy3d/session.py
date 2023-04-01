@@ -639,34 +639,12 @@ if True:
     session.filter_high_error(.05)
     # logger.info(f"Following filter of high error points, distance error is \n {session.quality_controller.distance_error}")
     # session.update_config()
-    distance_error_full = session.quality_controller.distance_error
     #%%%
-    import pandas as pd
 
     # create a sample dataframe
 
     # group the data by "board_distance" and compute the mean and percentiles
-    summary = distance_error_full.groupby('board_distance').agg({
-        'Distance_Error_mm_abs': ['mean', 'std'],
-        'Distance_Error_mm': ['mean', 'std'],
-    }).reset_index()
-
-    # flatten the multi-level column index
-    summary.columns = ['_'.join(col).strip() for col in summary.columns.values]
-    # rename the "Distance_error_mm_abs" column to "Distance_Error_mm"
-    summary["board_distance_"]   = summary["board_distance_"]*1000
-
-    summary = summary.round(2)
-    summary = summary.astype(str)
-    
-    summary["|Distance Error|"] = summary["Distance_Error_mm_abs_mean"] +" (" + summary["Distance_Error_mm_abs_std"] + ")"
-    summary["Distance Error"] = summary["Distance_Error_mm_mean"] +" (" + summary["Distance_Error_mm_std"] + ")"
-    
-    summary = summary.rename(columns={"board_distance_":"Board Distance"})
-    summary = summary[["Board Distance", "Distance Error", "|Distance Error|"]]
-    summary
-
-    logger.info("\n" + summary.to_string(index=False))
+    logger.info("\n" + session.quality_controller.distance_error_summary.to_string(index=False))
     
     # logger.info("Loading Cameras...")
     # session.load_cameras()

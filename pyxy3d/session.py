@@ -26,6 +26,7 @@ from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
+from pyxy3d.calibration.capture_volume.quality_controller import QualityController
 
 from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
@@ -491,6 +492,10 @@ class Session:
         # self.camera_array = self.capture_volume.camera_array
         self.save_camera_array()
         self.save_point_estimates()
+        self.config["capture_volume"] = {}
+        self.config["capture_volume"]["RMSE"] = self.capture_volume.rmse
+        self.config["capture_volume"]["stage"] = self.capture_volume.stage
+        self.update_config()
         
     def initialize_capture_volume(self):
         """
@@ -509,8 +514,8 @@ class Session:
 
         # self.save_camera_array()
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
-        
-        
+        self.capture_volume.optimize()
+        self.save_capture_volume()
         
     def load_point_estimates(self):
         point_estimates_dict = self.config["point_estimates"]
@@ -524,13 +529,22 @@ class Session:
     def calibrate(self):
 
         stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
-        stereocalibrator.stereo_calibrate_all(boards_sampled=20)
+        stereocalibrator.stereo_calibrate_all(boards_sampled=10)
         self.initialize_capture_volume()
         # self.capture_volume.save(self.path)
         self.capture_volume.optimize()
         # self.capture_volume.save(self.path)
         self.save_capture_volume()
         # self.save_camera_array()
+
+    def filter_high_error(self,fraction_to_remove:float):
+        quality_controller = QualityController(self.capture_volume)
+        
+        # not happy with the "1-fraction" thing here...just an ugly thing 
+        quality_controller.filter_point_estimates(1 - fraction_to_remove)
+        quality_controller.capture_volume.optimize()
+        self.capture_volume = quality_controller.capture_volume # defensive assignment
+        self.save_capture_volume()
 
     ########################## STAGE ASSOCIATED METHODS #################################
     def get_stage(self):
@@ -605,7 +619,7 @@ if __name__ == "__main__":
     #%%
     from pyxy3d import __root__
 
-    config_path = Path(__root__, "tests", "4_cameras_beginning")
+    config_path = Path(__root__, "tests", "demo")
 
     logger.info(config_path)
     logger.info("Loading session config")
@@ -617,10 +631,13 @@ if __name__ == "__main__":
     # session.save_point_estimates()
     # session.load_camera_array()
     # session.load_point_estimates()
-    
-    session.load_configured_capture_volume()
-    session.capture_volume.set_origin_to_board(240, session.charuco)
-    session.save_capture_volume()
+    # session.calibrate()
+    session.initialize_capture_volume()
+    # session.load_configured_capture_volume()
+    # session.capture_volume.optimize()
+    # session.capture_volume.set_origin_to_board(240, session.charuco)
+    # session.save_capture_volume()
+    session.filter_high_error(.05)
     # session.update_config()
     #%%%
     # logger.info("Loading Cameras...")

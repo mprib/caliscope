@@ -22,22 +22,25 @@ class QualityController:
     def __init__(self, capture_volume:CaptureVolume, charuco:Charuco = None):
         self.charuco = charuco
         self.capture_volume = capture_volume
-        self.all_data_2d = None
-        self.all_distance_error = None
+        # self.all_data_2d = None
+        # self.all_distance_error = None
 
+    # not sure if the below is getting used anymore as distance_error appears to hold everything
+    # maybe I was envisioning the distance error across all stages? I think so. I also don't know
+    # if I care about that right now...
 
-    def store_data(self):
-        if self.all_data_2d is None:
-            self.all_data_2d = self.data_2d
-        else:
-            self.all_data_2d = pd.concat([self.all_data_2d, self.data_2d])
+    # def store_data(self):
+    #     if self.all_data_2d is None:
+    #         self.all_data_2d = self.data_2d
+    #     else:
+    #         self.all_data_2d = pd.concat([self.all_data_2d, self.data_2d])
   
-        # only create this data if the charuco was provided
-        if self.charuco is not None: 
-            if self.all_distance_error is None:
-                self.all_distance_error = self.distance_error
-            else:
-                self.all_distance_error = pd.concat([self.all_distance_error, self.distance_error])
+    #     # only create this data if the charuco was provided
+    #     if self.charuco is not None: 
+    #         if self.all_distance_error is None:
+    #             self.all_distance_error = self.distance_error
+    #         else:
+    #             self.all_distance_error = pd.concat([self.all_distance_error, self.distance_error])
     
     @property
     def data_2d(self) -> pd.DataFrame:
@@ -244,8 +247,8 @@ class QualityController:
         )
         return filtered_data_2d
     
-    def filter_point_estimates(self, percentile_cutoff: float):
-
+    def filter_point_estimates(self, fraction_to_remove: float):
+        percentile_cutoff = 1 - fraction_to_remove
         filtered_data_2d = self.get_filtered_data_2d(percentile_cutoff)
 
         objects_3d = (

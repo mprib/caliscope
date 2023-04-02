@@ -57,6 +57,7 @@ class CaptureVolumeWidget(QWidget):
 
         self.distance_error_summary = QLabel(self.session.quality_controller.distance_error_summary.to_string(index=False))
         self.rmse_summary = QLabel(self.session.capture_volume.get_rmse_summary())
+        
 
         self.navigation_bar = NavigationBarBackFinish()
 
@@ -81,8 +82,15 @@ class CaptureVolumeWidget(QWidget):
         self.grid.addWidget(self.rotate_z_plus_btn, 0, 2)
         self.grid.addWidget(self.rotate_z_minus_btn, 1, 2)
 
-        self.layout().addWidget(self.rmse_summary)  
+        # thie distance error summary here is ugly and needs to be in a table,
+        # But thats out of scope for my current objectives.
+        self.hbox_summary = QHBoxLayout()
+        self.hbox_summary.addWidget(self.rmse_summary)  
+        self.hbox_summary.addWidget(self.distance_error_summary)  
+        self.layout().addLayout(self.hbox_summary)
+
         self.layout().addWidget(self.navigation_bar)
+
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)

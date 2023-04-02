@@ -31,6 +31,7 @@ class StereoFrameBuilder:
 
         self.new_sync_packet_notice = Queue()
         self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
+        self.store_points = Event()
         self.reset_data() # might be a better name for this, but here we are
 
         # self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
@@ -47,7 +48,6 @@ class StereoFrameBuilder:
         self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
         self.stereo_list = self.pairs.copy()
         self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
-        self.store_points = Event()
         self.store_points.clear()   # don't default to storing tracked points
         
         
@@ -117,6 +117,9 @@ class StereoFrameBuilder:
             # if there are enough corners in common, then store the corner locations
             # in the stereo history and update the board counts
             if len(common_ids) > self.common_corner_target and self.store_points.is_set():
+                # logger.info("Storing common ids..")
+                # logger.info("Stereo History:")
+                # logger.info(self.stereo_history)
                 self.stereo_history[(portA,portB)]['img_loc_A'].extend(img_loc_A.tolist())
                 self.stereo_history[(portA,portB)]['img_loc_B'].extend(img_loc_B.tolist())
                 self.board_counts[(portA,portB)]+=1
@@ -137,6 +140,8 @@ class StereoFrameBuilder:
             return frameA, frameB
 
     def draw_common_corner_history(self, frameA, portA, frameB, portB):
+        logger.info(f"Drawing common corner history")
+        logger.info(f"Length of stereo history[(0,1)]: {len(self.stereo_history[(0,1)]['img_loc_B'])}")
         pair = (portA, portB)
         img_loc_A = self.stereo_history[pair]["img_loc_A"]
         img_loc_B = self.stereo_history[pair]["img_loc_B"]

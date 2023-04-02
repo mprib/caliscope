@@ -127,7 +127,7 @@ class StereoFrameWidget(QWidget):
             self.calibrate_collect_btn.setText("---calibrating---")
             self.calibrate_collect_btn.setEnabled(False)
             self.frame_emitter.stop()
-            self.stereo_frame_display.hide()
+            # self.stereo_frame_display.hide()
             logger.info("Stop recording video")
             self.session.stop_recording()
             logger.info("Begin calibration")
@@ -150,10 +150,12 @@ class StereoFrameEmitter(QThread):
         self.stereoframe_builder = stereoframe_builder
         logger.info("Initiated frame emitter")        
         self.keep_collecting = Event() 
-        self.keep_collecting.set()
         self.collection_complete = False
         
     def run(self):
+
+        self.keep_collecting.set()
+
         while self.keep_collecting.is_set():
             
             # that that it is important to make sure that this signal is sent only once

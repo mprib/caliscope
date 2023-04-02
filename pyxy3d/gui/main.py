@@ -161,6 +161,9 @@ class CalibrationWizard(QStackedWidget):
         self.session.pause_all_monocalibrators()
 
     def next_to_stereoframe(self):
+        
+        self.session.pause_all_monocalibrators()
+
         if hasattr(self, "stereoframe"):
             self.session.unpause_synchronizer()
         else:
@@ -194,11 +197,22 @@ class CalibrationWizard(QStackedWidget):
         self.addWidget(self.capture_volume)
         logger.info("Set current index to capture volume widget")
         self.setCurrentIndex(4)
+        self.capture_volume.navigation_bar.back_btn.clicked.connect(self.back_to_stereo_frame)
         del self.qt_logger
 
-        # self.launch_cv_thread = Thread(target=worker, args=(), daemon=True)
-        # self.launch_cv_thread.start()
-
+    ################## Capture Volume ########################
+    def back_to_stereo_frame(self):
+        logger.info("Set current stacked tab index to 3")
+        self.setCurrentIndex(3)
+        logger.info("Updating button text and enabling")
+        self.stereoframe.calibrate_collect_btn.setText("Collect Data")
+        self.stereoframe.calibrate_collect_btn.setEnabled(True)
+        logger.info("About to reset data")
+        self.stereoframe.frame_builder.reset_data()
+        logger.info("Unpause synchronizer")
+        self.session.unpause_synchronizer()
+        logger.info("Begin running frame emitter")
+        self.stereoframe.frame_emitter.run()
 
 def launch_pyxy3d():
 

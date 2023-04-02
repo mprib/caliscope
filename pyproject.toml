@@ -52,5 +52,8 @@ push            = true
 "pyproject.toml" = ["{version}"]
 "pyxy3d/__init__.py" = ["{version}"]
 
+[project.urls]
+repository = "https://github.com/mprib/pyxy3d"
+
 [project.scripts]
 pyxy3d = "pyxy3d.__main__:launch"

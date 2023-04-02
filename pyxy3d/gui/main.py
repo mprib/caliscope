@@ -211,9 +211,10 @@ class CalibrationWizard(QStackedWidget):
         self.stereoframe.frame_builder.reset_data()
         logger.info("Unpause synchronizer")
         self.session.unpause_synchronizer()
+        self.stereoframe.create_stereoframe_tools()        
 
         logger.info("Begin running frame emitter")
-        self.stereoframe.frame_emitter.run()
+        # self.stereoframe.frame_emitter.run()
 
 def launch_pyxy3d():
 

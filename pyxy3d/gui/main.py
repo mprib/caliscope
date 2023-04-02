@@ -172,7 +172,7 @@ class CalibrationWizard(QStackedWidget):
             self.stereoframe.navigation_bar.back_btn.clicked.connect(
                 self.back_to_camera_config_wizard
             )
-            self.stereoframe.calibration_complete.connect(self.launch_capture_volume)
+            self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
             self.stereoframe.frame_emitter.calibration_data_collected.connect(self.show_calibration_qt_logger)
 
         self.setCurrentIndex(3)
@@ -190,14 +190,19 @@ class CalibrationWizard(QStackedWidget):
         self.camera_wizard.camera_tabs.toggle_tracking(active_port)
         self.session.pause_synchronizer()
 
-    def launch_capture_volume(self):
-        logger.info("Creating Capture Volume widget")
-        self.capture_volume = CaptureVolumeWidget(self.session)
-        logger.info("Adding capture volume widget to main Wizard")
-        self.addWidget(self.capture_volume)
-        logger.info("Set current index to capture volume widget")
-        self.setCurrentIndex(4)
-        self.capture_volume.navigation_bar.back_btn.clicked.connect(self.back_to_stereo_frame)
+    def next_to_capture_volume(self):
+        if hasattr(self, "capture_volume"):
+            self.setCurrentIndex(4)
+
+        else:
+            logger.info("Creating Capture Volume widget")
+            self.capture_volume = CaptureVolumeWidget(self.session)
+            logger.info("Adding capture volume widget to main Wizard")
+            self.addWidget(self.capture_volume)
+            logger.info("Set current index to capture volume widget")
+            self.setCurrentIndex(4)
+            self.capture_volume.navigation_bar.back_btn.clicked.connect(self.back_to_stereo_frame)
+
         del self.qt_logger
 
     ################## Capture Volume ########################

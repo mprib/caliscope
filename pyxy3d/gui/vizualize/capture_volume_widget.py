@@ -55,6 +55,10 @@ class CaptureVolumeWidget(QWidget):
         self.rotate_z_plus_btn = QPushButton("Z+")
         self.rotate_z_minus_btn = QPushButton("Z-")
 
+        self.distance_error_summary = QLabel(self.session.quality_controller.distance_error_summary.to_string(index=False))
+        self.rmse_summary = QLabel(self.session.capture_volume.get_rmse_summary())
+        
+
         self.navigation_bar = NavigationBarBackFinish()
 
         self.place_widgets()
@@ -78,7 +82,15 @@ class CaptureVolumeWidget(QWidget):
         self.grid.addWidget(self.rotate_z_plus_btn, 0, 2)
         self.grid.addWidget(self.rotate_z_minus_btn, 1, 2)
 
+        # thie distance error summary here is ugly and needs to be in a table,
+        # But thats out of scope for my current objectives.
+        self.hbox_summary = QHBoxLayout()
+        self.hbox_summary.addWidget(self.rmse_summary)  
+        self.hbox_summary.addWidget(self.distance_error_summary)  
+        self.layout().addLayout(self.hbox_summary)
+
         self.layout().addWidget(self.navigation_bar)
+
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
@@ -163,14 +175,15 @@ if __name__ == "__main__":
         Path(__root__, "tests", "3_cameras_midlinear"),
     ]
 
-    test_session_index = 0
+    test_session_index = 1
     session_path = test_sessions[test_session_index]
     logger.info(f"Loading session {session_path}")
     session = Session(session_path)
 
-    session.load_configured_capture_volume()
-    # session.initialize_capture_volume()
-    # session.calibrate()
+    # session.build_capture_volume_from_stereopairs()
+    
+    session.estimate_extrinsics()
+    # session.load_estimated_capture_volume()
 
     app = QApplication(sys.argv)
 

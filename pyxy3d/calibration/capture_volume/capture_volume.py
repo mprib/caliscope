@@ -16,7 +16,9 @@ from time import perf_counter
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.calibration.capture_volume.set_origin_functions import get_board_origin_transform
+from pyxy3d.calibration.capture_volume.set_origin_functions import (
+    get_board_origin_transform,
+)
 
 CAMERA_PARAM_COUNT = 6
 
@@ -26,7 +28,7 @@ class CaptureVolume:
     camera_array: CameraArray
     point_estimates: PointEstimates
     stage: int = 0
-    _rmse: float = None
+    # rmse: float = None # replacing _rmse property --> rmse
 
     def save(self, directory: Path, descriptor: str = None):
         if descriptor is None:
@@ -54,14 +56,31 @@ class CaptureVolume:
     def rmse(self):
 
         if hasattr(self, "least_sq_result"):
-            rmse = rms_reproj_error(self.least_sq_result.fun)
+            rmse = rms_reproj_error(
+                self.least_sq_result.fun, self.point_estimates.camera_indices
+            )
         else:
             param_estimates = self.get_vectorized_params()
-            xy_repro_error = xy_reprojection_error(param_estimates, self)
-            rmse = rms_reproj_error(xy_repro_error)
+            xy_reproj_error = xy_reprojection_error(param_estimates, self)
+            rmse = rms_reproj_error(
+                xy_reproj_error, self.point_estimates.camera_indices
+            )
 
         return rmse
 
+    def get_rmse_summary(self):
+        
+        rmse_string = f"\nRMSE of Reprojection\n"
+        rmse_string+= f"    Overall: {round(self.rmse['overall'],2)}\n"
+        rmse_string+= "    by camera:\n"
+        for key, value in self.rmse.items():
+            if key == "overall":
+                pass
+            else:
+                rmse_string+=f"{key: >9}: {round(float(value),2)} \n"
+
+        return rmse_string
+        
     def get_xy_reprojection_error(self):
         vectorized_params = self.get_vectorized_params()
         error = xy_reprojection_error(vectorized_params, self)
@@ -98,7 +117,7 @@ class CaptureVolume:
         self.stage += 1
 
         logger.info(
-            f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
+            f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse['overall']}"
         )
 
     def get_xyz_points(self):
@@ -125,17 +144,15 @@ class CaptureVolume:
                 camera_data.transformation, origin_shift_transform
             )
 
-
     def set_origin_to_board(self, sync_index, charuco: Charuco):
         """
         Find the pose of the charuco (rvec and tvec) from a given frame
         Transform stereopairs and 3d point estimates for this new origin
         """
 
-        origin_transform = get_board_origin_transform(self.camera_array,
-                                                      self.point_estimates,
-                                                      sync_index, 
-                                                      charuco)
+        origin_transform = get_board_origin_transform(
+            self.camera_array, self.point_estimates, sync_index, charuco
+        )
         self.shift_origin(origin_transform)
 
 
@@ -194,20 +211,29 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     xy_reprojection_error = (points_proj - capture_volume.point_estimates.img).ravel()
-    if round(perf_counter(), 2) * 10 % 1 == 0:
-        logger.info(
-            f"Optimizing... RMSE of reprojection = {rms_reproj_error(xy_reprojection_error)}"
-        )
+    # capture_volume.rmse = rms_reproj_error(xy_reprojection_error)
+    # if round(perf_counter(), 2) * 10 % 1 == 0: # log less frequently
+    #     logger.info(
+    #         f"Optimizing... RMSE of reprojection = {capture_volume.rmse}"
+    #     )
 
     # reshape the x,y reprojection error to a single vector
     return xy_reprojection_error
 
 
-def rms_reproj_error(xy_reproj_error):
-
+def rms_reproj_error(xy_reproj_error, camera_indices):
+    """
+    Returns a dictionary that shows the
+    """
+    rmse = {}
     xy_reproj_error = xy_reproj_error.reshape(-1, 2)
     euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))
-    rmse = np.sqrt(np.mean(euclidean_distance_error**2))
+    rmse["overall"] = np.sqrt(np.mean(euclidean_distance_error**2))
+
+    for port in np.unique(camera_indices):
+        camera_errors = euclidean_distance_error[camera_indices == port]
+        rmse[str(port)] = np.sqrt(np.mean(camera_errors**2))
+    # for port in camera_indices
     # logger.info(f"Optimization run with {xy_reproj_error.shape[0]} image points")
     # logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
@@ -220,20 +246,32 @@ if __name__ == "__main__":
     from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
         get_point_estimates,
     )
+    from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 
-    session_directory = Path(__root__, "tests", "4_cameras_endofday")
+    session_directory = Path(__root__, "tests", "217")
 
-    point_data_csv_path = Path(session_directory, "point_data.csv")
+    point_data_path = Path(session_directory, "point_data.csv")
 
     config_path = Path(session_directory, "config.toml")
-    array_initializer = CameraArrayInitializer(config_path)
-    camera_array = array_initializer.get_best_camera_array()
-    point_estimates = get_point_estimates(camera_array, point_data_csv_path)
 
-    print(f"Optimizing initial camera array configuration ")
+    stereocalibrator = StereoCalibrator(config_path, point_data_path)
+    stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
-    self = CaptureVolume(camera_array, point_estimates)
-    self.save(session_directory)
-    self.optimize()
-    self.save(session_directory)
+    camera_array: CameraArray = CameraArrayInitializer(
+        config_path
+    ).get_best_camera_array()
+
+    point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
+
+    capture_volume = CaptureVolume(camera_array, point_estimates)
+    capture_volume.optimize()
+    # %%
+
+    rmse_string = "\nRMSE of Reprojection (overall and by camera)\n"
+    
+    for key, value in capture_volume.rmse.items():
+        rmse_string+=f"{key: >7}: {round(float(value),2)} \n"
+        
+    logger.info(rmse_string)    
+    
 # %%

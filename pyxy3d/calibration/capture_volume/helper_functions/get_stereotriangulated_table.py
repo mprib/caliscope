@@ -44,6 +44,8 @@ def get_stereotriangulated_table(camera_array:CameraArray, point_data_path:Path)
 
     logger.info(f"Begin reconstructing SyncPackets and SynchedStereoPairs... ")
     for sync_index in sync_indices:
+        if sync_index%25==0:
+            logger.info(f"Processing stereotriangulation estimates...currently at sync index {sync_index}")
         # pull in the data that shares the same sync index
         port_points = point_data.query(f"sync_index == {sync_index}")
 

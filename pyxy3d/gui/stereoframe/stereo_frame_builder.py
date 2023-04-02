@@ -31,15 +31,15 @@ class StereoFrameBuilder:
 
         self.new_sync_packet_notice = Queue()
         self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
-        
+        self.reset_data() # might be a better name for this, but here we are
 
-        self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
-        self.stereo_list = self.pairs.copy()
-        self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
-        self.store_points = Event()
-        self.store_points.clear()   # don't default to storing tracked points
+        # self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
+        # self.stereo_list = self.pairs.copy()
+        # self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
+        # self.store_points = Event()
+        # self.store_points.clear()   # don't default to storing tracked points
     
-    def reset(self):
+    def reset_data(self):
         """
         Restores the StereoFrameBuilder to its initial state by clearing out the stereo_history
         clearing out all board count data and reverting the stereo_list to all pairs
@@ -372,7 +372,7 @@ if __name__ == "__main__":
                 frame_builder.store_points.set()
         
         if key == ord("r"): # as in `s`tore
-            frame_builder.reset()
+            frame_builder.reset_data()
 
         if key == ord("u"):
             frame_builder.synchronizer.unsubscribe_to_streams() 

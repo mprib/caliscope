@@ -211,6 +211,7 @@ class CalibrationWizard(QStackedWidget):
         self.stereoframe.frame_builder.reset_data()
         logger.info("Unpause synchronizer")
         self.session.unpause_synchronizer()
+
         logger.info("Begin running frame emitter")
         self.stereoframe.frame_emitter.run()
 

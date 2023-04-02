@@ -475,7 +475,7 @@ class Session:
 
         self.update_config()
 
-    def load_configured_capture_volume(self):
+    def load_estimated_capture_volume(self):
         """
         Following capture volume optimization via bundle adjustment, or alteration
         via a transform of the origin, the entire capture volume can be reloaded
@@ -485,7 +485,7 @@ class Session:
         self.load_point_estimates()
         self.load_camera_array()
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
-        self.capture_volume.rmse = self.config["capture_volume"]["RMSE"]
+        # self.capture_volume.rmse = self.config["capture_volume"]["RMSE"]
         self.capture_volume.stage = self.config["capture_volume"]["stage"]
 
     def save_capture_volume(self):
@@ -493,30 +493,12 @@ class Session:
         # self.camera_array = self.capture_volume.camera_array
         self.save_camera_array()
         self.save_point_estimates()
-        self.config["capture_volume"] = {}
-        self.config["capture_volume"]["RMSE"] = self.capture_volume.rmse
+        # self.config["capture_volume"] = {}
+        # self.config["capture_volume"]["RMSE"] = self.capture_volume.rmse
         self.config["capture_volume"]["stage"] = self.capture_volume.stage
         self.update_config()
 
-    def build_capture_volume_from_stereopairs(self):
-        """
-        after performing stereocalibration, the data should be in place to initialize
-        a capture volume. This will not yet be calibrated, therefore at stage 0.
-        The point estimates will be based on an average of stereotriangulaed pairs from
-        the initial best guess of the camera array.
-        """
-        self.camera_array: CameraArray = CameraArrayInitializer(
-            self.config_path
-        ).get_best_camera_array()
 
-        self.point_estimates: PointEstimates = get_point_estimates(
-            self.camera_array, self.point_data_path
-        )
-
-        # self.save_camera_array()
-        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
-        self.capture_volume.optimize()
-        self.save_capture_volume()
 
     def load_point_estimates(self):
         point_estimates_dict = self.config["point_estimates"]
@@ -526,27 +508,31 @@ class Session:
 
         self.point_estimates = PointEstimates(**point_estimates_dict)
 
-    def calibrate(self):
-
+    def estimate_extrinsics(self):
+        """
+        This is where the camera array 6 DoF is set. Many, many things are happening
+        here, but they are all necessary steps of the process so I didn't want to 
+        try to encapsulate any further
+        """
         stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
         stereocalibrator.stereo_calibrate_all(boards_sampled=10)
-        self.build_capture_volume_from_stereopairs()
-        # self.capture_volume.save(self.path)
-        self.capture_volume.optimize()
-        self.filter_high_error(FILTERED_FRACTION)
-        # self.capture_volume.save(self.path)
-        self.save_capture_volume()
-        # self.save_camera_array()
 
-    def filter_high_error(self, fraction_to_remove: float):
+        self.camera_array: CameraArray = CameraArrayInitializer(
+            self.config_path
+        ).get_best_camera_array()
+
+        self.point_estimates: PointEstimates = get_point_estimates(
+            self.camera_array, self.point_data_path
+        )
+
+        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
+        self.capture_volume.optimize()
+
         self.quality_controller = QualityController(self.capture_volume, self.charuco)
 
-        logger.info(f"Removing the worst fitting {fraction_to_remove*100} percent of points from the model")
-        self.quality_controller.filter_point_estimates(fraction_to_remove)
-        self.quality_controller.capture_volume.optimize()
-        self.capture_volume = (
-            self.quality_controller.capture_volume
-        )  # defensive assignment
+        logger.info(f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model")
+        self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
+        self.capture_volume.optimize()
         
         self.save_capture_volume()
 
@@ -635,17 +621,17 @@ if __name__ == "__main__":
     # session.save_point_estimates()
     # session.load_camera_array()
     # session.load_point_estimates()
-    # session.calibrate()
-    session.build_capture_volume_from_stereopairs()
+    session.estimate_extrinsics()
+    # session.build_capture_volume_from_stereopairs()
     # session.load_configured_capture_volume()
     # session.capture_volume.optimize()
     # session.capture_volume.set_origin_to_board(240, session.charuco)
     # session.save_capture_volume()
-    while session.capture_volume.rmse > 2:
-        session.filter_high_error(0.05)
-        logger.info(
-            "\n" + session.quality_controller.distance_error_summary.to_string(index=False)
-        )
+    # while session.capture_volume.rmse["overall"] > 2:
+    #     session.filter_high_error(0.05)
+    logger.info(
+        "\n" + session.quality_controller.distance_error_summary.to_string(index=False)
+    )
     # logger.info(f"Following filter of high error points, distance error is \n {session.quality_controller.distance_error}")
     # session.update_config()
     #%%%

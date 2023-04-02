@@ -363,7 +363,7 @@ if __name__ == "__main__":
 
     # create QualityControl
     session = Session(session_directory)
-    session.load_configured_capture_volume()
+    session.load_estimated_capture_volume()
     quality_controller = QualityController(session.capture_volume)
 
     # quality_controller.capture_volume.optimize()

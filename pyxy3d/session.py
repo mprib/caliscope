@@ -493,8 +493,8 @@ class Session:
         # self.camera_array = self.capture_volume.camera_array
         self.save_camera_array()
         self.save_point_estimates()
-        # self.config["capture_volume"] = {}
-        # self.config["capture_volume"]["RMSE"] = self.capture_volume.rmse
+        self.config["capture_volume"] = {}
+        # self.config["capture_volume"]["RMSE_summary"] = self.capture_volume.rmse
         self.config["capture_volume"]["stage"] = self.capture_volume.stage
         self.update_config()
 

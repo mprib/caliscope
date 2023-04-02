@@ -62,7 +62,7 @@ class VideoRecorder:
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
         
         # reset in case recording a second time
-        self.trigger_stop.clear() 
+        # self.trigger_stop.clear() 
         
         while not self.trigger_stop.is_set():
             sync_packet = self.sync_packet_in_q.get()
@@ -106,8 +106,8 @@ class VideoRecorder:
         self.store_point_history()
         self.trigger_stop.clear()  # reset stop recording trigger
         self.recording = False
-        
-        
+        del self.video_writers
+                
     def store_point_history(self):
         df = pd.DataFrame(self.point_data_history)
         # TODO: #25 if file exists then change the name

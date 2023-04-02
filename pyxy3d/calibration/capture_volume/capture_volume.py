@@ -26,7 +26,7 @@ class CaptureVolume:
     camera_array: CameraArray
     point_estimates: PointEstimates
     stage: int = 0
-    rmse: float = None
+    # rmse: float = None # replacing _rmse property --> rmse
 
     def save(self, directory: Path, descriptor: str = None):
         if descriptor is None:
@@ -51,14 +51,14 @@ class CaptureVolume:
         return combined
 
     @property
-    def _rmse(self):
+    def rmse(self):
 
         if hasattr(self, "least_sq_result"):
-            rmse = rms_reproj_error(self.least_sq_result.fun)
+            rmse = rms_reproj_error(self.least_sq_result.fun, self.point_estimates.camera_indices)
         else:
             param_estimates = self.get_vectorized_params()
-            xy_repro_error = xy_reprojection_error(param_estimates, self)
-            rmse = rms_reproj_error(xy_repro_error)
+            xy_reproj_error = xy_reprojection_error(param_estimates, self)
+            rmse = rms_reproj_error(xy_reproj_error,  self.point_estimates.camera_indices)
 
         return rmse
 
@@ -98,7 +98,7 @@ class CaptureVolume:
         self.stage += 1
 
         logger.info(
-            f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self._rmse}"
+            f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse['overall']}"
         )
 
     def get_xyz_points(self):
@@ -194,27 +194,35 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     xy_reprojection_error = (points_proj - capture_volume.point_estimates.img).ravel()
-    capture_volume.rmse = rms_reproj_error(xy_reprojection_error)
-    if round(perf_counter(), 2) * 10 % 1 == 0:
-        logger.info(
-            f"Optimizing... RMSE of reprojection = {capture_volume.rmse}"
-        )
+    # capture_volume.rmse = rms_reproj_error(xy_reprojection_error)
+    # if round(perf_counter(), 2) * 10 % 1 == 0: # log less frequently
+    #     logger.info(
+    #         f"Optimizing... RMSE of reprojection = {capture_volume.rmse}"
+    #     )
     
     # reshape the x,y reprojection error to a single vector
     return xy_reprojection_error
 
 
-def rms_reproj_error(xy_reproj_error):
-
+def rms_reproj_error(xy_reproj_error, camera_indices):
+    """
+    Returns a dictionary that shows the 
+    """
+    rmse = {}
     xy_reproj_error = xy_reproj_error.reshape(-1, 2)
     euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))
-    rmse = np.sqrt(np.mean(euclidean_distance_error**2))
+    rmse["overall"] = np.sqrt(np.mean(euclidean_distance_error**2))
+    
+    for port in np.unique(camera_indices):
+        camera_errors = euclidean_distance_error[camera_indices==port]
+        rmse[str(port)] = np.sqrt(np.mean(camera_errors**2))
+    # for port in camera_indices
     # logger.info(f"Optimization run with {xy_reproj_error.shape[0]} image points")
     # logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":      
     # if True:
     from pyxy3d import __root__
     from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
@@ -222,19 +230,20 @@ if __name__ == "__main__":
         get_point_estimates,
     )
 
-    session_directory = Path(__root__, "tests", "4_cameras_endofday")
+    session_directory = Path(__root__, "tests", "217")
 
     point_data_csv_path = Path(session_directory, "point_data.csv")
 
     config_path = Path(session_directory, "config.toml")
     array_initializer = CameraArrayInitializer(config_path)
     camera_array = array_initializer.get_best_camera_array()
+
     point_estimates = get_point_estimates(camera_array, point_data_csv_path)
 
     print(f"Optimizing initial camera array configuration ")
 
-    self = CaptureVolume(camera_array, point_estimates)
-    self.save(session_directory)
-    self.optimize()
-    self.save(session_directory)
+    capture_volume = CaptureVolume(camera_array, point_estimates)
+    # capture_volume.save(session_directory)
+    capture_volume.optimize()
+    # capture_volume.save(session_directory)
 # %%

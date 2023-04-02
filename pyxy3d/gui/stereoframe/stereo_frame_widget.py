@@ -133,7 +133,7 @@ class StereoFrameWidget(QWidget):
             logger.info("Begin calibration")
             logger.info("Pause synchronizer")
             self.session.pause_synchronizer()
-            self.session.calibrate()
+            self.session.estimate_extrinsics()
             self.calibration_complete.emit(True)
             
             

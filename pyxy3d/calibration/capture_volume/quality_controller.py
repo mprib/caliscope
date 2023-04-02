@@ -22,22 +22,25 @@ class QualityController:
     def __init__(self, capture_volume:CaptureVolume, charuco:Charuco = None):
         self.charuco = charuco
         self.capture_volume = capture_volume
-        self.all_data_2d = None
-        self.all_distance_error = None
+        # self.all_data_2d = None
+        # self.all_distance_error = None
 
+    # not sure if the below is getting used anymore as distance_error appears to hold everything
+    # maybe I was envisioning the distance error across all stages? I think so. I also don't know
+    # if I care about that right now...
 
-    def store_data(self):
-        if self.all_data_2d is None:
-            self.all_data_2d = self.data_2d
-        else:
-            self.all_data_2d = pd.concat([self.all_data_2d, self.data_2d])
+    # def store_data(self):
+    #     if self.all_data_2d is None:
+    #         self.all_data_2d = self.data_2d
+    #     else:
+    #         self.all_data_2d = pd.concat([self.all_data_2d, self.data_2d])
   
-        # only create this data if the charuco was provided
-        if self.charuco is not None: 
-            if self.all_distance_error is None:
-                self.all_distance_error = self.distance_error
-            else:
-                self.all_distance_error = pd.concat([self.all_distance_error, self.distance_error])
+    #     # only create this data if the charuco was provided
+    #     if self.charuco is not None: 
+    #         if self.all_distance_error is None:
+    #             self.all_distance_error = self.distance_error
+    #         else:
+    #             self.all_distance_error = pd.concat([self.all_distance_error, self.distance_error])
     
     @property
     def data_2d(self) -> pd.DataFrame:
@@ -210,6 +213,31 @@ class QualityController:
         
         return distance_error
 
+    @property
+    def distance_error_summary(self):
+        logger.info("returning summary of distance error statistics")
+
+        summary = self.distance_error.groupby('board_distance').agg({
+            'Distance_Error_mm_abs': ['mean', 'std'],
+            'Distance_Error_mm': ['mean', 'std'],
+        }).reset_index()
+
+        # flatten the multi-level column index
+        summary.columns = ['_'.join(col).strip() for col in summary.columns.values]
+        # rename the "Distance_error_mm_abs" column to "Distance_Error_mm"
+        summary["board_distance_"]   = summary["board_distance_"]*1000
+
+        summary = summary.round(2)
+        summary = summary.astype(str)
+    
+        summary["|Distance Error|"] = summary["Distance_Error_mm_abs_mean"] +" (" + summary["Distance_Error_mm_abs_std"] + ")"
+        summary["Distance Error"] = summary["Distance_Error_mm_mean"] +" (" + summary["Distance_Error_mm_std"] + ")"
+    
+        summary = summary.rename(columns={"board_distance_":"Board Distance"})
+        summary = summary[["Board Distance", "Distance Error", "|Distance Error|"]]
+        return summary
+
+        
     def get_filtered_data_2d(self, percentile_cutoff: float):
         """
         Provided a cutoff percentile value, returns a filtered_data_2d dataframe
@@ -244,8 +272,8 @@ class QualityController:
         )
         return filtered_data_2d
     
-    def filter_point_estimates(self, percentile_cutoff: float):
-
+    def filter_point_estimates(self, fraction_to_remove: float):
+        percentile_cutoff = 1 - fraction_to_remove
         filtered_data_2d = self.get_filtered_data_2d(percentile_cutoff)
 
         objects_3d = (
@@ -322,24 +350,27 @@ def cartesian_product(*arrays):
 
 if __name__ == "__main__":
 # if True:
+    from pyxy3d.session import Session
     from pyxy3d import __root__
 
     session_directory = Path(__root__, "tests", "217")
     # config_path = Path(session_directory, "config.toml")  
-    capture_volume_name = "capture_volume_stage_0.pkl"
+    # capture_volume_name = "capture_volume_stage_0.pkl"
     
     # get the inputs for quality control (CaptureVolume and Charuco)
-    capture_volume = get_capture_volume(Path(session_directory,capture_volume_name))
+    # capture_volume = get_capture_volume(Path(session_directory,capture_volume_name))
     # charuco = get_charuco(config_path)
 
     # create QualityControl
-    quality_controller = QualityController(capture_volume)
+    session = Session(session_directory)
+    session.load_estimated_capture_volume()
+    quality_controller = QualityController(session.capture_volume)
 
-    quality_controller.capture_volume.optimize()
+    # quality_controller.capture_volume.optimize()
 
     # store stage 1 data (initial optimization)
-    quality_controller.capture_volume.save(session_directory)
-    quality_controller.store_data()    
+    # quality_controller.capture_volume.save(session_directory)
+    # quality_controller.store_data()    
     
     logger.info(quality_controller.capture_volume.stage)
     
@@ -347,8 +378,9 @@ if __name__ == "__main__":
         logger.info("Filtering out worst fitting point estimates")
         quality_controller.filter_point_estimates(.95)
         quality_controller.capture_volume.optimize()
-        quality_controller.store_data()    
-        quality_controller.capture_volume.save(session_directory)
+        # print(quality_controller.capture_volume._rmse)
+    # quality_controller.store_data()    
+    # quality_controller.capture_volume.save(session_directory)
 
-    quality_controller.all_data_2d.to_csv(Path(session_directory, "data_2d.csv"))
+    # quality_controller.all_data_2d.to_csv(Path(session_directory, "data_2d.csv"))
 # %%

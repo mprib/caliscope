@@ -541,11 +541,13 @@ class Session:
     def filter_high_error(self, fraction_to_remove: float):
         self.quality_controller = QualityController(self.capture_volume, self.charuco)
 
+        logger.info(f"Removing the worst fitting {fraction_to_remove*100} percent of points from the model")
         self.quality_controller.filter_point_estimates(fraction_to_remove)
         self.quality_controller.capture_volume.optimize()
         self.capture_volume = (
             self.quality_controller.capture_volume
         )  # defensive assignment
+        
         self.save_capture_volume()
 
     ########################## STAGE ASSOCIATED METHODS #################################
@@ -618,8 +620,8 @@ class Stage(Enum):
 
 
 #%%
-# if __name__ == "__main__":
-if True:
+if __name__ == "__main__":
+# if True:
     from pyxy3d import __root__
 
     config_path = Path(__root__, "tests", "demo")
@@ -639,8 +641,11 @@ if True:
     # session.capture_volume.optimize()
     # session.capture_volume.set_origin_to_board(240, session.charuco)
     # session.save_capture_volume()
-    # while session.capture_volume.rmse > 2:
-    session.filter_high_error(0.05)
+    while session.capture_volume.rmse > 2:
+        session.filter_high_error(0.05)
+        logger.info(
+            "\n" + session.quality_controller.distance_error_summary.to_string(index=False)
+        )
     # logger.info(f"Following filter of high error points, distance error is \n {session.quality_controller.distance_error}")
     # session.update_config()
     #%%%
@@ -648,9 +653,6 @@ if True:
     # create a sample dataframe
 
     # group the data by "board_distance" and compute the mean and percentiles
-    logger.info(
-        "\n" + session.quality_controller.distance_error_summary.to_string(index=False)
-    )
 
     # logger.info("Loading Cameras...")
     # session.load_cameras()

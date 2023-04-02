@@ -169,9 +169,9 @@ if __name__ == "__main__":
     session = Session(session_path)
 
     # session.load_configured_capture_volume()
-    session.build_capture_volume_from_stereopairs()
+    # session.build_capture_volume_from_stereopairs()
     
-    # session.calibrate()
+    session.calibrate()
 
     app = QApplication(sys.argv)
 

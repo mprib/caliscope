@@ -215,7 +215,8 @@ class QualityController:
 
     @property
     def distance_error_summary(self):
-        
+        logger.info("returning summary of distance error statistics")
+
         summary = self.distance_error.groupby('board_distance').agg({
             'Distance_Error_mm_abs': ['mean', 'std'],
             'Distance_Error_mm': ['mean', 'std'],

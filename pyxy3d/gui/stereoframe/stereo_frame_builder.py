@@ -10,6 +10,9 @@ from pyxy3d.cameras.synchronizer import Synchronizer
 from itertools import combinations
 from queue import Queue
 from threading import Event
+
+COMMON_CORNER_TARGET = 5 # how many shared corners must be present to be recorded...
+
 class StereoFrameBuilder:
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250,board_count_target=50):
         self.synchronizer = synchronizer 
@@ -17,7 +20,7 @@ class StereoFrameBuilder:
 
         # used to determine sort order. Should this be in the stereo_tracker?
         self.board_count_target = board_count_target 
-        self.common_corner_target = 5
+        self.common_corner_target = COMMON_CORNER_TARGET
         
         self.rotation_counts = {}
         for port, stream in self.synchronizer.streams.items():
@@ -26,16 +29,27 @@ class StereoFrameBuilder:
 
         self.pairs = self.get_pairs()
 
-        self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
-        self.stereo_list = self.pairs.copy()
-        
-        self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
-        
         self.new_sync_packet_notice = Queue()
         self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
         
+
+        self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
+        self.stereo_list = self.pairs.copy()
+        self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
         self.store_points = Event()
         self.store_points.clear()   # don't default to storing tracked points
+    
+    def reset(self):
+        """
+        Restores the StereoFrameBuilder to its initial state by clearing out the stereo_history
+        clearing out all board count data and reverting the stereo_list to all pairs
+        """ 
+        self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
+        self.stereo_list = self.pairs.copy()
+        self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
+        self.store_points = Event()
+        self.store_points.clear()   # don't default to storing tracked points
+        
         
         
     def get_pairs(self):
@@ -357,6 +371,9 @@ if __name__ == "__main__":
             else: 
                 frame_builder.store_points.set()
         
+        if key == ord("r"): # as in `s`tore
+            frame_builder.reset()
+
         if key == ord("u"):
             frame_builder.synchronizer.unsubscribe_to_streams() 
     # recorder.stop_recording()

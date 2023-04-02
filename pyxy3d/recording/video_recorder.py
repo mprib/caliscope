@@ -16,8 +16,8 @@ class VideoRecorder:
     def __init__(self, synchronizer:Synchronizer):
         self.synchronizer = synchronizer
 
-        # build dict that will be stored to csv
         self.recording = False
+        # build dict that will be stored to csv
         self.trigger_stop = Event()
 
     def build_video_writers(self):
@@ -60,7 +60,10 @@ class VideoRecorder:
         
         self.sync_packet_in_q = Queue(-1)
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
-
+        
+        # reset in case recording a second time
+        self.trigger_stop.clear() 
+        
         while not self.trigger_stop.is_set():
             sync_packet = self.sync_packet_in_q.get()
             logger.debug("Pulling sync packet from queue")

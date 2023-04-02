@@ -155,6 +155,7 @@ class StereoFrameEmitter(QThread):
     def run(self):
 
         self.keep_collecting.set()
+        self.collection_complete = False
 
         while self.keep_collecting.is_set():
             
@@ -164,14 +165,15 @@ class StereoFrameEmitter(QThread):
                 logger.info("Signalling that calibration data is fully collected.")
                 self.collection_complete = True
                 self.calibration_data_collected.emit(True)
-                
+                break
+            
             stereo_frame = self.stereoframe_builder.get_stereo_frame()
 
             if stereo_frame is not None:
                 image = cv2_to_qlabel(stereo_frame)
                 self.ImageBroadcast.emit(image)
 
-            
+        logger.info("Stereoframe emitter run thread ended...") 
             
     def stop(self):
         self.keep_collecting.clear() 

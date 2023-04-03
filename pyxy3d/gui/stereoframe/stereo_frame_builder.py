@@ -267,8 +267,6 @@ class StereoFrameBuilder:
 
         self.new_sync_packet_notice.get()
         self.current_sync_packet = self.synchronizer.current_sync_packet
-        logger.info("board counts:")
-        logger.info(self.board_counts)
         
         stereo_frame = None
         board_target_reached = False
@@ -294,6 +292,56 @@ class StereoFrameBuilder:
         return stereo_frame
 
 
+
+
+    def possible_to_initialize_array(self, min_threshold)-> bool:
+        # if progress was made on gap filling last time, try again 
+        # note use of walrus operator (:=). Not typically used  but it works here
+        working_board_counts = self.board_counts.copy()
+        flipped_board_counts = {tuple(reversed(key)): value for key, value in working_board_counts.items()}
+        working_board_counts.update(flipped_board_counts)
+
+        empty_count_last_cycle = -1
+
+        while len(empty_pairs :=get_empty_pairs(working_board_counts, min_threshold)) != empty_count_last_cycle:
+         
+            # prep the variable. if it doesn't go down, terminate
+            empty_count_last_cycle = len(empty_pairs)
+
+            for pair in empty_pairs:
+             
+                port_A = pair[0]
+                port_C = pair[1]
+                
+                all_pairs_A_X = [pair for pair in working_board_counts.keys() if pair[0]==port_A]
+                all_pairs_X_C = [pair for pair in working_board_counts.keys() if pair[1]==port_C]
+   
+                board_count_A_C = None
+
+                for pair_A_X in all_pairs_A_X:
+                    for pair_X_C in all_pairs_X_C:
+                        if pair_A_X[1] == pair_X_C[0]:
+                            # A bridge can be formed!
+                            board_count_A_X = working_board_counts[pair_A_X]
+                            board_count_X_C = working_board_counts[pair_X_C]
+                    
+                            if board_count_A_X > min_threshold and board_count_X_C > min_threshold:
+                                board_count_A_C = min(board_count_A_X,board_count_X_C) 
+                                working_board_counts[pair] = board_count_A_C
+                                working_board_counts[(pair[1],pair[0])] = board_count_A_C
+    
+        if len(empty_pairs) > 0:
+            is_possible = False
+        else:
+            is_possible = True
+
+        return is_possible
+
+
+def get_empty_pairs(board_counts, min_threshold):
+    empty_pairs = [key for key, value in board_counts.items() if value < min_threshold]
+    return empty_pairs
+
 def resize(image, new_height):
     (current_height, current_width) = image.shape[:2]
     ratio = new_height / float(current_height)
@@ -310,7 +358,7 @@ if __name__ == "__main__":
     
     from pyxy3d import __root__
     
-    ports = [0, 1, 2, 3, 4]
+    ports = [0, 1, 2, 3]
     # ports = [1,2, 3]
 
     test_live = True
@@ -335,7 +383,7 @@ if __name__ == "__main__":
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=3)
         recorded_stream_pool.play_videos()
 
-    frame_builder = StereoFrameBuilder(synchronizer=syncr, board_count_target=10)
+    frame_builder = StereoFrameBuilder(synchronizer=syncr, board_count_target=20)
 
     if record:
         video_path = Path(__root__, "tests", "please work")
@@ -366,6 +414,10 @@ if __name__ == "__main__":
         
         if key == ord("u"):
             frame_builder.synchronizer.unsubscribe_to_streams() 
+            
+        if frame_builder.possible_to_initialize_array(5):
+            logger.info("possible to initialize array now")
+
     # recorder.stop_recording()
     cv2.destroyAllWindows()
     

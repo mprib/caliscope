@@ -234,18 +234,9 @@ class CalibrationWizard(QStackedWidget):
             self.back_to_camera_config_wizard
         )
         self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
-        # self.stereoframe.frame_emitter.calibration_data_collected.connect(self.show_calibration_qt_logger)
+        self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
         
-        
-        # logger.info("Updating button text and enabling")
-        # self.stereoframe.calibrate_collect_btn.setText("Collect Data")
-        # self.stereoframe.calibrate_collect_btn.setEnabled(True)
-        # logger.info("About to reset data")
-        # self.stereoframe.frame_builder.reset_data()
-        # logger.info("Unpause synchronizer")
-        # self.stereoframe.create_stereoframe_tools()        
         self.session.unpause_synchronizer()
-        # self.stereoframe.navigation_bar.calibrate_collect_btn.clicked.connect(self.stereoframe.on_calibrate_connect_click)
 
 
 def launch_pyxy3d():

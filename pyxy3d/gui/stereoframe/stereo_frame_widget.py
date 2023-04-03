@@ -45,9 +45,7 @@ class StereoFrameWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
 
-        self.frame_builder = StereoFrameBuilder(self.synchronizer, board_count_target=10)
-        self.frame_emitter = StereoFrameEmitter(self.frame_builder)
-        self.frame_emitter.start()
+        self.create_stereoframe_tools()
 
         self.frame_rate_spin = QSpinBox()
         self.frame_rate_spin.setValue(self.synchronizer.get_fps_target())
@@ -61,6 +59,12 @@ class StereoFrameWidget(QWidget):
         
         self.place_widgets()
         self.connect_widgets()        
+
+    def create_stereoframe_tools(self):
+
+        self.frame_builder = StereoFrameBuilder(self.synchronizer, board_count_target=10)
+        self.frame_emitter = StereoFrameEmitter(self.frame_builder)
+        self.frame_emitter.start()
 
     def place_widgets(self):
         self.setLayout(QVBoxLayout())
@@ -126,8 +130,8 @@ class StereoFrameWidget(QWidget):
             logger.info("Beginning wind-down process prior to calibration")
             self.calibrate_collect_btn.setText("---calibrating---")
             self.calibrate_collect_btn.setEnabled(False)
-            self.frame_emitter.stop()
-            self.stereo_frame_display.hide()
+            # self.frame_emitter.stop()
+            # self.stereo_frame_display.hide()
             logger.info("Stop recording video")
             self.session.stop_recording()
             logger.info("Begin calibration")
@@ -150,10 +154,13 @@ class StereoFrameEmitter(QThread):
         self.stereoframe_builder = stereoframe_builder
         logger.info("Initiated frame emitter")        
         self.keep_collecting = Event() 
-        self.keep_collecting.set()
         self.collection_complete = False
         
     def run(self):
+
+        self.keep_collecting.set()
+        self.collection_complete = False
+
         while self.keep_collecting.is_set():
             
             # that that it is important to make sure that this signal is sent only once
@@ -162,17 +169,18 @@ class StereoFrameEmitter(QThread):
                 logger.info("Signalling that calibration data is fully collected.")
                 self.collection_complete = True
                 self.calibration_data_collected.emit(True)
-                
+                # break
+            
             stereo_frame = self.stereoframe_builder.get_stereo_frame()
 
             if stereo_frame is not None:
                 image = cv2_to_qlabel(stereo_frame)
                 self.ImageBroadcast.emit(image)
 
+        logger.info("Stereoframe emitter run thread ended...") 
             
-            
-    def stop(self):
-        self.keep_collecting.clear() 
+    # def stop(self):
+        # self.keep_collecting.clear() 
 
 
         

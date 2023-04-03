@@ -10,6 +10,9 @@ from pyxy3d.cameras.synchronizer import Synchronizer
 from itertools import combinations
 from queue import Queue
 from threading import Event
+
+COMMON_CORNER_TARGET = 5 # how many shared corners must be present to be recorded...
+
 class StereoFrameBuilder:
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250,board_count_target=50):
         self.synchronizer = synchronizer 
@@ -17,7 +20,7 @@ class StereoFrameBuilder:
 
         # used to determine sort order. Should this be in the stereo_tracker?
         self.board_count_target = board_count_target 
-        self.common_corner_target = 5
+        self.common_corner_target = COMMON_CORNER_TARGET
         
         self.rotation_counts = {}
         for port, stream in self.synchronizer.streams.items():
@@ -26,16 +29,15 @@ class StereoFrameBuilder:
 
         self.pairs = self.get_pairs()
 
-        self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
-        self.stereo_list = self.pairs.copy()
-        
-        self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
-        
         self.new_sync_packet_notice = Queue()
         self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
-        
         self.store_points = Event()
+    
+        self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
+        self.stereo_list = self.pairs.copy()
+        self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
         self.store_points.clear()   # don't default to storing tracked points
+        
         
         
     def get_pairs(self):
@@ -103,6 +105,9 @@ class StereoFrameBuilder:
             # if there are enough corners in common, then store the corner locations
             # in the stereo history and update the board counts
             if len(common_ids) > self.common_corner_target and self.store_points.is_set():
+                # logger.info("Storing common ids..")
+                # logger.info("Stereo History:")
+                # logger.info(self.stereo_history)
                 self.stereo_history[(portA,portB)]['img_loc_A'].extend(img_loc_A.tolist())
                 self.stereo_history[(portA,portB)]['img_loc_B'].extend(img_loc_B.tolist())
                 self.board_counts[(portA,portB)]+=1

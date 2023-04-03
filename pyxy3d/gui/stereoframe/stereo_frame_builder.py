@@ -33,7 +33,7 @@ class StereoFrameBuilder:
         self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
         self.store_points = Event()
     
-        self.board_counts = {pair: 0 for pair in self.pairs} # TODO: part of future refactor to get way from stereotracker
+        self.board_counts = {pair: 0 for pair in self.pairs} 
         self.stereo_list = self.pairs.copy()
         self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
         self.store_points.clear()   # don't default to storing tracked points
@@ -267,7 +267,9 @@ class StereoFrameBuilder:
 
         self.new_sync_packet_notice.get()
         self.current_sync_packet = self.synchronizer.current_sync_packet
-
+        logger.info("board counts:")
+        logger.info(self.board_counts)
+        
         stereo_frame = None
         board_target_reached = False
         for pair in self.stereo_list:

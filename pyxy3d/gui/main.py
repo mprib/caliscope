@@ -26,7 +26,7 @@ from pyxy3d.gui.wizard_directory import WizardDirectory
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.session import Stage
 from pyxy3d.gui.qt_logger import QtLogger
-from pyxy3d.gui.stereoframe.stereo_frame_widget import StereoFrameWidget
+from pyxy3d.gui.stereoframe.stereo_frame_widget import StereoFrameWidget, MIN_THRESHOLD_FOR_EARLY_CALIBRATE
 from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
 
 
@@ -173,13 +173,25 @@ class CalibrationWizard(QStackedWidget):
                 self.back_to_camera_config_wizard
             )
             self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
-            self.stereoframe.frame_emitter.calibration_data_collected.connect(self.show_calibration_qt_logger)
+            self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
+            
+            # if data collection terminated early, then calibration will be triggered on the stereowidget
+            # by the calibrate_collect_btn. Here it will also launch the qt logger
+            # self.stereoframe.calibrate_collect_btn.clicked.connect(self.show_calibration_qt_logger)
 
-        self.setCurrentIndex(3)
+        self.setCurrentWidget(self.stereoframe)
         self.session.pause_all_monocalibrators()
 
     ###################### Stereocalibration  ######################################
     def show_calibration_qt_logger(self):
+        """
+        Calibration is initiated back on the stereoframe widget,here only 
+        the logger launch is managed because it is main that must delete the logger
+        """
+        # if self.stereoframe.frame_builder.possible_to_initialize_array(MIN_THRESHOLD_FOR_EARLY_CALIBRATE):
+            # weird if statement here...trying to avoid launching the logger when beginning
+            # to collect data...
+        logger.info("Launching calibration qt logger")
         self.qt_logger = QtLogger("Calibrating camera array...")
         self.qt_logger.show()
         
@@ -192,17 +204,17 @@ class CalibrationWizard(QStackedWidget):
         self.session.pause_synchronizer()
 
     def next_to_capture_volume(self):
-        if hasattr(self, "capture_volume"):
-            self.setCurrentWidget(self.capture_volume)
+        # if hasattr(self, "capture_volume"):
+        #     self.setCurrentWidget(self.capture_volume)
 
-        else:
-            logger.info("Creating Capture Volume widget")
-            self.capture_volume = CaptureVolumeWidget(self.session)
-            logger.info("Adding capture volume widget to main Wizard")
-            self.addWidget(self.capture_volume)
-            logger.info("Set current index to capture volume widget")
-            self.setCurrentWidget(self.capture_volume)
-            self.capture_volume.navigation_bar.back_btn.clicked.connect(self.back_to_stereo_frame)
+        # else:
+        logger.info("Creating Capture Volume widget")
+        self.capture_volume = CaptureVolumeWidget(self.session)
+        logger.info("Adding capture volume widget to main Wizard")
+        self.addWidget(self.capture_volume)
+        logger.info("Set current index to capture volume widget")
+        self.setCurrentWidget(self.capture_volume)
+        self.capture_volume.navigation_bar.back_btn.clicked.connect(self.back_to_stereo_frame)
 
         del self.qt_logger
 
@@ -222,18 +234,9 @@ class CalibrationWizard(QStackedWidget):
             self.back_to_camera_config_wizard
         )
         self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
-        self.stereoframe.frame_emitter.calibration_data_collected.connect(self.show_calibration_qt_logger)
+        self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
         
-        
-        # logger.info("Updating button text and enabling")
-        # self.stereoframe.calibrate_collect_btn.setText("Collect Data")
-        # self.stereoframe.calibrate_collect_btn.setEnabled(True)
-        # logger.info("About to reset data")
-        # self.stereoframe.frame_builder.reset_data()
-        # logger.info("Unpause synchronizer")
-        # self.stereoframe.create_stereoframe_tools()        
         self.session.unpause_synchronizer()
-        # self.stereoframe.navigation_bar.calibrate_collect_btn.clicked.connect(self.stereoframe.on_calibrate_connect_click)
 
 
 def launch_pyxy3d():

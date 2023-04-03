@@ -41,8 +41,9 @@ MIN_THRESHOLD_FOR_EARLY_CALIBRATE = 5
 
 
 class StereoFrameWidget(QWidget):
-    calibration_complete = pyqtSignal(bool)
-
+    calibration_complete = pyqtSignal()
+    calibration_initiated = pyqtSignal()
+    
     def __init__(self,session:Session):
 
         super(StereoFrameWidget, self).__init__()
@@ -137,6 +138,7 @@ class StereoFrameWidget(QWidget):
 
     def initiate_calibration(self):
         def worker():
+            self.calibration_initiated.emit()
             logger.info("Beginning wind-down process prior to calibration")
             self.calibrate_collect_btn.setText("---calibrating---")
             self.calibrate_collect_btn.setEnabled(False)
@@ -148,7 +150,7 @@ class StereoFrameWidget(QWidget):
             logger.info("Pause synchronizer")
             self.session.pause_synchronizer()
             self.session.estimate_extrinsics()
-            self.calibration_complete.emit(True)
+            self.calibration_complete.emit()
             
             
         self.init_calibration_thread = Thread(target=worker,args=(), daemon=True)
@@ -188,6 +190,7 @@ class StereoFrameEmitter(QThread):
             if not possible_to_initialize:
                 # check to see if it is now
                 if self.stereoframe_builder.possible_to_initialize_array(MIN_THRESHOLD_FOR_EARLY_CALIBRATE):
+                    logger.info("Signaling that it is possible to initialize array based on collected data.")
                     possible_to_initialize = True
                     self.possible_to_initialize_array.emit()
                       

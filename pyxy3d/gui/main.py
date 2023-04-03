@@ -58,7 +58,7 @@ class CalibrationWizard(QStackedWidget):
             logger.info("Creating charuco wizard session")
             self.wizard_charuco = WizardCharuco(self.session)
             self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(
-                self.next_to_camera_config_wizard
+                self.next_to_camera_config
             )
             logger.info("Adding charuco wizard")
             self.addWidget(self.wizard_charuco)
@@ -90,12 +90,12 @@ class CalibrationWizard(QStackedWidget):
 
     ######################## STEP 1: Charuco Builder ###########################
 
-    def next_to_camera_config_wizard(self):
-        if hasattr(self, "camera_wizard"):
-            logger.info("Camera wizard already exists; changing stack current index")
+    def next_to_camera_config(self):
+        if hasattr(self, "camera_config"):
+            logger.info("Camera config already exists; changing stack current index")
             self.setCurrentIndex(2)
-            active_port = self.camera_wizard.camera_tabs.currentIndex()
-            self.camera_wizard.camera_tabs.toggle_tracking(active_port)
+            active_port = self.camera_config.camera_tabs.currentIndex()
+            self.camera_config.camera_tabs.toggle_tracking(active_port)
             logger.info("updating charuco in case necessary")
             for port, stream in self.session.streams.items():
                 stream.update_charuco(self.session.charuco)
@@ -144,14 +144,14 @@ class CalibrationWizard(QStackedWidget):
             self.connect_cams.start()
 
     def on_cameras_connect(self):
-        # load cameras wizard once the cameras are actually connected
-        self.camera_wizard = CameraWizard(self.session)
-        self.addWidget(self.camera_wizard)
+        # load cameras config once the cameras are actually connected
+        self.camera_config = CameraWizard(self.session)
+        self.addWidget(self.camera_config)
         self.setCurrentIndex(2)
-        self.camera_wizard.navigation_bar.back_btn.clicked.connect(
+        self.camera_config.navigation_bar.back_btn.clicked.connect(
             self.back_to_charuco_wizard
         )
-        self.camera_wizard.navigation_bar.next_btn.clicked.connect(
+        self.camera_config.navigation_bar.next_btn.clicked.connect(
             self.next_to_stereoframe
         )
 
@@ -161,6 +161,9 @@ class CalibrationWizard(QStackedWidget):
         self.session.pause_all_monocalibrators()
 
     def next_to_stereoframe(self):
+        
+        self.session.pause_all_monocalibrators()
+
         if hasattr(self, "stereoframe"):
             self.session.unpause_synchronizer()
         else:
@@ -169,7 +172,7 @@ class CalibrationWizard(QStackedWidget):
             self.stereoframe.navigation_bar.back_btn.clicked.connect(
                 self.back_to_camera_config_wizard
             )
-            self.stereoframe.calibration_complete.connect(self.launch_capture_volume)
+            self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
             self.stereoframe.frame_emitter.calibration_data_collected.connect(self.show_calibration_qt_logger)
 
         self.setCurrentIndex(3)
@@ -182,22 +185,55 @@ class CalibrationWizard(QStackedWidget):
         
     def back_to_camera_config_wizard(self):
         # from stereoframe to camera config
-        self.setCurrentIndex(2)
-        active_port = self.camera_wizard.camera_tabs.currentIndex()
-        self.camera_wizard.camera_tabs.toggle_tracking(active_port)
+        self.setCurrentWidget(self.camera_config)
+        
+        active_port = self.camera_config.camera_tabs.currentIndex()
+        self.camera_config.camera_tabs.toggle_tracking(active_port)
         self.session.pause_synchronizer()
 
-    def launch_capture_volume(self):
-        logger.info("Creating Capture Volume widget")
-        self.capture_volume = CaptureVolumeWidget(self.session)
-        logger.info("Adding capture volume widget to main Wizard")
-        self.addWidget(self.capture_volume)
-        logger.info("Set current index to capture volume widget")
-        self.setCurrentIndex(4)
+    def next_to_capture_volume(self):
+        if hasattr(self, "capture_volume"):
+            self.setCurrentWidget(self.capture_volume)
+
+        else:
+            logger.info("Creating Capture Volume widget")
+            self.capture_volume = CaptureVolumeWidget(self.session)
+            logger.info("Adding capture volume widget to main Wizard")
+            self.addWidget(self.capture_volume)
+            logger.info("Set current index to capture volume widget")
+            self.setCurrentWidget(self.capture_volume)
+            self.capture_volume.navigation_bar.back_btn.clicked.connect(self.back_to_stereo_frame)
+
         del self.qt_logger
 
-        # self.launch_cv_thread = Thread(target=worker, args=(), daemon=True)
-        # self.launch_cv_thread.start()
+    ################## Capture Volume ########################
+    def back_to_stereo_frame(self):
+        
+        logger.info("Set current stacked tab index to 3")
+        self.setCurrentWidget(self.camera_config)
+        self.removeWidget(self.stereoframe)
+        self.removeWidget(self.capture_volume)
+        del self.capture_volume
+        del self.stereoframe
+        self.stereoframe = StereoFrameWidget(self.session)
+        self.addWidget(self.stereoframe)
+        self.setCurrentWidget(self.stereoframe)
+        self.stereoframe.navigation_bar.back_btn.clicked.connect(
+            self.back_to_camera_config_wizard
+        )
+        self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
+        self.stereoframe.frame_emitter.calibration_data_collected.connect(self.show_calibration_qt_logger)
+        
+        
+        # logger.info("Updating button text and enabling")
+        # self.stereoframe.calibrate_collect_btn.setText("Collect Data")
+        # self.stereoframe.calibrate_collect_btn.setEnabled(True)
+        # logger.info("About to reset data")
+        # self.stereoframe.frame_builder.reset_data()
+        # logger.info("Unpause synchronizer")
+        # self.stereoframe.create_stereoframe_tools()        
+        self.session.unpause_synchronizer()
+        # self.stereoframe.navigation_bar.calibrate_collect_btn.clicked.connect(self.stereoframe.on_calibrate_connect_click)
 
 
 def launch_pyxy3d():

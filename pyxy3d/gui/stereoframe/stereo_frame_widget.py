@@ -36,9 +36,14 @@ from pyxy3d import __root__
 from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.widgets import NavigationBarBackFinish
 
-class StereoFrameWidget(QWidget):
-    calibration_complete = pyqtSignal(bool)
+# the boards needed to before a pair could be used to bridge pairs without common corners
+MIN_THRESHOLD_FOR_EARLY_CALIBRATE = 5
 
+
+class StereoFrameWidget(QWidget):
+    calibration_complete = pyqtSignal()
+    calibration_initiated = pyqtSignal()
+    
     def __init__(self,session:Session):
 
         super(StereoFrameWidget, self).__init__()
@@ -95,6 +100,7 @@ class StereoFrameWidget(QWidget):
         
         self.calibrate_collect_btn.clicked.connect(self.on_calibrate_connect_click)
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
+        self.frame_emitter.possible_to_initialize_array.connect(self.enable_calibration)
         self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_fps_target)
         self.board_count_spin.valueChanged.connect(self.update_board_count_target)
         self.frame_emitter.calibration_data_collected.connect(self.initiate_calibration)
@@ -108,15 +114,20 @@ class StereoFrameWidget(QWidget):
             # by default, data saved to session folder
             self.frame_builder.store_points.set()
             self.session.start_recording()
-            self.calibrate_collect_btn.setText("Early Terminate")
-        elif self.calibrate_collect_btn.text() == "Early Terminate":
+            self.calibrate_collect_btn.setText("Calibrate")
+            self.calibrate_collect_btn.setEnabled(False)
+
+        elif self.calibrate_collect_btn.text() == "Calibrate":
             logger.info("Prematurely end data collection")
             self.frame_builder.store_points.clear()
             self.initiate_calibration()
-        # elif self.calibrate_collect_btn.text() == "Calibrate": 
-            # self.session.pause_synchronizer()
-            # self.initiate_calibration()
+            
 
+
+    def enable_calibration(self):
+        self.calibrate_collect_btn.setEnabled(True)
+        
+        
     def ImageUpdateSlot(self, q_image):
         self.stereo_frame_display.resize(self.stereo_frame_display.sizeHint())
 
@@ -127,6 +138,7 @@ class StereoFrameWidget(QWidget):
 
     def initiate_calibration(self):
         def worker():
+            self.calibration_initiated.emit()
             logger.info("Beginning wind-down process prior to calibration")
             self.calibrate_collect_btn.setText("---calibrating---")
             self.calibrate_collect_btn.setEnabled(False)
@@ -138,7 +150,7 @@ class StereoFrameWidget(QWidget):
             logger.info("Pause synchronizer")
             self.session.pause_synchronizer()
             self.session.estimate_extrinsics()
-            self.calibration_complete.emit(True)
+            self.calibration_complete.emit()
             
             
         self.init_calibration_thread = Thread(target=worker,args=(), daemon=True)
@@ -146,8 +158,9 @@ class StereoFrameWidget(QWidget):
 
 class StereoFrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
-    calibration_data_collected = pyqtSignal(bool) 
-
+    calibration_data_collected = pyqtSignal() 
+    possible_to_initialize_array = pyqtSignal()
+    
     def __init__(self, stereoframe_builder:StereoFrameBuilder):
         
         super(StereoFrameEmitter,self).__init__()
@@ -161,6 +174,8 @@ class StereoFrameEmitter(QThread):
         self.keep_collecting.set()
         self.collection_complete = False
 
+        possible_to_initialize = False
+        
         while self.keep_collecting.is_set():
             
             # that that it is important to make sure that this signal is sent only once
@@ -168,9 +183,17 @@ class StereoFrameEmitter(QThread):
             if len(self.stereoframe_builder.stereo_list) == 0 and not self.collection_complete:
                 logger.info("Signalling that calibration data is fully collected.")
                 self.collection_complete = True
-                self.calibration_data_collected.emit(True)
+                self.calibration_data_collected.emit()
+        
                 # break
             
+            if not possible_to_initialize:
+                # check to see if it is now
+                if self.stereoframe_builder.possible_to_initialize_array(MIN_THRESHOLD_FOR_EARLY_CALIBRATE):
+                    logger.info("Signaling that it is possible to initialize array based on collected data.")
+                    possible_to_initialize = True
+                    self.possible_to_initialize_array.emit()
+                      
             stereo_frame = self.stereoframe_builder.get_stereo_frame()
 
             if stereo_frame is not None:

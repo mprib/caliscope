@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 __package_name__ = "pyxy3d"
-__version__ = "v0.0.14"
+__version__ = "v0.0.15"
 
 __author__ = """Mac Prible"""
 __email__ = "prible@gmail.com"

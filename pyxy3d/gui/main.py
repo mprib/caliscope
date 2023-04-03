@@ -174,14 +174,16 @@ class CalibrationWizard(QStackedWidget):
             )
             self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
             self.stereoframe.frame_emitter.calibration_data_collected.connect(self.show_calibration_qt_logger)
+            self.stereoframe.calibrate_collect_btn.clicked.connect(self.show_calibration_qt_logger)
 
-        self.setCurrentIndex(3)
+        self.setCurrentWidget(self.stereoframe)
         self.session.pause_all_monocalibrators()
 
     ###################### Stereocalibration  ######################################
     def show_calibration_qt_logger(self):
-        self.qt_logger = QtLogger("Calibrating camera array...")
-        self.qt_logger.show()
+        if self.stereoframe.calibrate_collect_btn.text == "Calibrate":
+            self.qt_logger = QtLogger("Calibrating camera array...")
+            self.qt_logger.show()
         
     def back_to_camera_config_wizard(self):
         # from stereoframe to camera config
@@ -192,17 +194,17 @@ class CalibrationWizard(QStackedWidget):
         self.session.pause_synchronizer()
 
     def next_to_capture_volume(self):
-        if hasattr(self, "capture_volume"):
-            self.setCurrentWidget(self.capture_volume)
+        # if hasattr(self, "capture_volume"):
+        #     self.setCurrentWidget(self.capture_volume)
 
-        else:
-            logger.info("Creating Capture Volume widget")
-            self.capture_volume = CaptureVolumeWidget(self.session)
-            logger.info("Adding capture volume widget to main Wizard")
-            self.addWidget(self.capture_volume)
-            logger.info("Set current index to capture volume widget")
-            self.setCurrentWidget(self.capture_volume)
-            self.capture_volume.navigation_bar.back_btn.clicked.connect(self.back_to_stereo_frame)
+        # else:
+        logger.info("Creating Capture Volume widget")
+        self.capture_volume = CaptureVolumeWidget(self.session)
+        logger.info("Adding capture volume widget to main Wizard")
+        self.addWidget(self.capture_volume)
+        logger.info("Set current index to capture volume widget")
+        self.setCurrentWidget(self.capture_volume)
+        self.capture_volume.navigation_bar.back_btn.clicked.connect(self.back_to_stereo_frame)
 
         del self.qt_logger
 

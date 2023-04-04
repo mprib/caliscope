@@ -34,7 +34,8 @@ def get_stereotriangulated_table(camera_array:CameraArray, point_data_path:Path)
 
 
     xy_camera_indices = point_data["port"].to_numpy()
-    ports = np.unique(xy_camera_indices)
+    # ports = np.unique(xy_camera_indices)
+    ports = [key for key in camera_array.port_index.keys()]
 
     paired_point_builder = StereoPointsBuilder(ports)
 

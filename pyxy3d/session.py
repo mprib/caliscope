@@ -58,8 +58,8 @@ class Session:
 
         # dictionaries of calibration related objects.
         self.monocalibrators = {}  # key = port
-
         self.synchronizer_created = False
+        self.is_recording = False
 
         self.load_config()
         self.load_charuco()
@@ -351,13 +351,15 @@ class Session:
 
             self.video_recorder = VideoRecorder(self.get_synchronizer())
             self.video_recorder.start_recording(destination_folder)
-
+        self.is_recording = True
     def stop_recording(self):
         logger.info("Stopping recording...")
         self.video_recorder.stop_recording()
         while self.video_recorder.recording:
             logger.info("Waiting for video recorder to save out data...")
             sleep(0.5)
+
+        self.is_recording = False
 
     def adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as

@@ -100,6 +100,14 @@ class Synchronizer:
         logger.info("Adding queue to receive notice of synched frames update")
         self.sync_notice_subscribers.append(q)
 
+    def unsubscribe_to_notice(self, q):
+        # subscribers are notified via the queue that new frames are available
+        # this is intended to avoid issues with latency due to multiple iterations
+        # of frames being passed from one queue to another
+        logger.info("Removing queue that had been receiving notice of synched frames update")
+        self.sync_notice_subscribers.remove(q)
+
+
     def subscribe_to_sync_packets(self, q):
         logger.info("Adding queue to receive synched frames")
         self.synched_frames_subscribers.append(q)

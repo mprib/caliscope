@@ -1,3 +1,5 @@
+# %%
+
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
@@ -74,7 +76,27 @@ class CameraArray:
     At the moment all it is doing is holding a dictionary of CameraData objects"""
 
     cameras: dict
+
     # least_sq_result = None # this may be a vestige of an old way of doing things. remove if commenting out doesn't break anything.
+
+    @property
+    def port_index(self):
+        """
+        Provides a dictionary mapping the camera port to an index. Generally,this
+        will match the camera ports 1:1, but will be different when a camera 
+        is being ignored. Used to manage reference to camera parameters in xy_reprojection_error
+        used within the least_squares optimization of the capture volume. 
+        """
+        not_ignored_ports = [port for port, cam in self.cameras.items() if not cam.ignore]
+        not_ignored_ports.sort()
+        not_ignored_indices = [i for i in range(len(not_ignored_ports))]
+        port_indices = {port:i for port, i in zip(not_ignored_ports,not_ignored_indices)}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+        
+        return port_indices
+   
+    @property 
+    def index_port(self):
+        return {value: key for key, value in self.port_index.items()}
     
     def get_extrinsic_params(self):
         """for each camera build the CAMERA_PARAM_COUNT element parameter index
@@ -85,8 +107,12 @@ class CameraArray:
         """
 
         camera_params = None
-        for port, cam in self.cameras.items():
+        # ensure that parameters are built up in order of the corresponding index
+        for index in sorted(self.index_port.keys()):
+            port = self.index_port[index]
+            cam = self.cameras[port]
             port_param = cam.extrinsics_to_vector()
+
             if camera_params is None:
                 camera_params = port_param
             else:
@@ -96,15 +122,14 @@ class CameraArray:
 
     def update_extrinsic_params(self, least_sq_result_x:np.array):
 
-        n_cameras = len(self.cameras)
+        n_cameras = len(self.port_index)
         n_cam_param = 6  # 6 DoF
         flat_camera_params = least_sq_result_x[0 : n_cameras * n_cam_param]
         new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
 
         # update camera array with new positional data
         for index in range(len(new_camera_params)):
-            print(index)
-            port = index  # just to be explicit
+            port = self.index_port[index]  # correct in case ignoring a camera
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
@@ -114,8 +139,10 @@ if __name__ == "__main__":
 
     from pyxy3d import __root__
 
-    session_directory = Path(__root__, "tests", "mimic_anipose")
+    session_directory = Path(__root__, "tests", "217")
     config_path = Path(session_directory, "config.toml")
     array_builder = CameraArrayBuilder(config_path)
     camera_array = array_builder.get_camera_array()
 
+
+# %%

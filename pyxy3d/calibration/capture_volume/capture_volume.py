@@ -192,13 +192,17 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     # iterate across cameras...while this injects a loop in the residual function
     # it should scale linearly with the number of cameras...a tradeoff for stable
     # and explicit calculations...
+    
     for port, cam in capture_volume.camera_array.cameras.items():
         cam_points = np.where(capture_volume.point_estimates.camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
 
+        # if a camera is being ignored, it will not show up on the parameter list
+        # so you must use the port index to make sure you read the correct params
+        port_index = capture_volume.camera_array.port_index[port]
         cam_matrix = cam.matrix
-        rvec = camera_params[port][0:3]
-        tvec = camera_params[port][3:6]
+        rvec = camera_params[port_index][0:3]
+        tvec = camera_params[port_index][3:6]
         distortions = cam.distortions
 
         # get the projection of the 2d points on the image plane; ignore the jacobian

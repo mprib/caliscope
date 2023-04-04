@@ -61,6 +61,7 @@ class StereoFrameWidget(QWidget):
         self.navigation_bar = NavigationBarBackFinish() 
         self.calibrate_collect_btn = self.navigation_bar.calibrate_collect_btn
 
+        self.collection_in_process = False
         
         self.place_widgets()
         self.connect_widgets()        
@@ -114,6 +115,7 @@ class StereoFrameWidget(QWidget):
             # by default, data saved to session folder
             self.frame_builder.store_points.set()
             self.session.start_recording()
+            self.collection_in_process = True
             self.calibrate_collect_btn.setText("Terminate")
             self.calibrate_collect_btn.setEnabled(True)
             self.navigation_bar.back_btn.setEnabled(False)
@@ -140,6 +142,7 @@ class StereoFrameWidget(QWidget):
 
     def initiate_calibration(self):
         def worker():
+            self.collection_in_process = False
             self.calibration_initiated.emit()
             logger.info("Beginning wind-down process prior to calibration")
             self.calibrate_collect_btn.setText("---calibrating---")

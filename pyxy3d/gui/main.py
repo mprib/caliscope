@@ -26,7 +26,10 @@ from pyxy3d.gui.wizard_directory import WizardDirectory
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.session import Stage
 from pyxy3d.gui.qt_logger import QtLogger
-from pyxy3d.gui.stereoframe.stereo_frame_widget import StereoFrameWidget, MIN_THRESHOLD_FOR_EARLY_CALIBRATE
+from pyxy3d.gui.stereoframe.stereo_frame_widget import (
+    StereoFrameWidget,
+    MIN_THRESHOLD_FOR_EARLY_CALIBRATE,
+)
 from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
 
 
@@ -161,16 +164,19 @@ class CalibrationWizard(QStackedWidget):
         self.session.pause_all_monocalibrators()
 
     def next_to_stereoframe(self):
-        
+
         self.session.pause_all_monocalibrators()
 
         if hasattr(self.session, "synchronizer"):
             self.session.unpause_synchronizer()
         # else:
         # if hasattr(self, "stereoframe"):
-            # self.removeWidget(self.stereoframe)
-            # del self.stereoframe
-            
+        # self.removeWidget(self.stereoframe)
+        # del self.stereoframe
+
+        self.launch_new_stereoframe()
+
+    def launch_new_stereoframe(self):
         self.stereoframe = StereoFrameWidget(self.session)
         self.addWidget(self.stereoframe)
         self.setCurrentWidget(self.stereoframe)
@@ -178,23 +184,25 @@ class CalibrationWizard(QStackedWidget):
         self.stereoframe.navigation_bar.back_btn.clicked.connect(
             self.back_to_camera_config_wizard
         )
+        self.stereoframe.navigation_bar.calibrate_collect_btn.clicked.connect(
+            self.on_stereo_calibrate_collect_btn
+        )
         self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
         self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
-            
 
     ###################### Stereocalibration  ######################################
     def show_calibration_qt_logger(self):
         """
-        Calibration is initiated back on the stereoframe widget,here only 
+        Calibration is initiated back on the stereoframe widget,here only
         the logger launch is managed because it is main that must delete the logger
         """
         # if self.stereoframe.frame_builder.possible_to_initialize_array(MIN_THRESHOLD_FOR_EARLY_CALIBRATE):
-            # weird if statement here...trying to avoid launching the logger when beginning
-            # to collect data...
+        # weird if statement here...trying to avoid launching the logger when beginning
+        # to collect data...
         logger.info("Launching calibration qt logger")
         self.qt_logger = QtLogger("Calibrating camera array...")
         self.qt_logger.show()
-        
+
     def back_to_camera_config_wizard(self):
         logger.info("Moving back to camera config from stereoframe")
         # from stereoframe to camera config
@@ -219,13 +227,15 @@ class CalibrationWizard(QStackedWidget):
         self.addWidget(self.capture_volume)
         logger.info("Set current index to capture volume widget")
         self.setCurrentWidget(self.capture_volume)
-        self.capture_volume.navigation_bar.back_btn.clicked.connect(self.back_to_stereo_frame)
+        self.capture_volume.navigation_bar.back_btn.clicked.connect(
+            self.back_to_stereo_frame
+        )
 
         del self.qt_logger
 
     ################## Capture Volume ########################
     def back_to_stereo_frame(self):
-        
+
         logger.info("Set current widget to config temporarily")
         self.setCurrentWidget(self.camera_config)
 
@@ -236,19 +246,24 @@ class CalibrationWizard(QStackedWidget):
         del self.capture_volume
         self.stereoframe.frame_builder.unsubscribe_from_synchronizer()
         del self.stereoframe
+
         logger.info("Create new stereoframe")
-        self.stereoframe = StereoFrameWidget(self.session)
-        logger.info("Add stereoframe to stacked widget")
-        self.addWidget(self.stereoframe)
-        logger.info("Activate stereoframe")
-        self.setCurrentWidget(self.stereoframe)
-        self.stereoframe.navigation_bar.back_btn.clicked.connect(
-            self.back_to_camera_config_wizard
-        )
-        self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
-        self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
-        
+        self.launch_new_stereoframe()
         self.session.unpause_synchronizer()
+
+    def on_stereo_calibrate_collect_btn(self):
+        """
+        Check if data is being collected, but not enough to initialize array
+        If so, just wipe everything out and start out.
+        """
+        if (
+            self.stereoframe.collection_in_process
+            and not self.stereoframe.frame_builder.possible_to_initialize_array(
+                MIN_THRESHOLD_FOR_EARLY_CALIBRATE
+            )
+        ):
+            self.session.stop_recording()
+            self.back_to_stereo_frame()
 
 
 def launch_pyxy3d():

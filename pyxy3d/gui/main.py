@@ -201,7 +201,7 @@ class CalibrationWizard(QStackedWidget):
         self.setCurrentWidget(self.camera_config)
         self.session.pause_synchronizer()
 
-        self.stereoframe.frame_builder.unsubscribe()
+        self.stereoframe.frame_builder.unsubscribe_from_synchronizer()
         self.removeWidget(self.stereoframe)
         del self.stereoframe
 

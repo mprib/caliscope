@@ -40,6 +40,7 @@ class StereoFrameBuilder:
         
         
     def unsubscribe_from_synchronizer(self):
+        logger.info("Unsubscribe frame builder from synchronizer.")
         self.synchronizer.unsubscribe_to_notice(self.new_sync_packet_notice) 
 
     def get_pairs(self):

@@ -184,13 +184,27 @@ class CalibrationWizard(QStackedWidget):
         self.stereoframe.navigation_bar.back_btn.clicked.connect(
             self.back_to_camera_config_wizard
         )
-        self.stereoframe.navigation_bar.calibrate_collect_btn.clicked.connect(
-            self.on_stereo_calibrate_collect_btn
-        )
+        # self.stereoframe.navigation_bar.calibrate_collect_btn.clicked.connect(
+        #     self.on_stereo_calibrate_collect_btn
+        # )
+
         self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
         self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
+        self.stereoframe.terminate.connect(self.refresh_stereoframe)
 
     ###################### Stereocalibration  ######################################
+    def refresh_stereoframe(self):
+        logger.info("Set current widget to config temporarily")
+        self.setCurrentWidget(self.camera_config)
+
+        logger.info("Remove stereoframe")
+        self.removeWidget(self.stereoframe)
+        self.stereoframe.frame_builder.unsubscribe_from_synchronizer()
+        del self.stereoframe
+
+        logger.info("Create new stereoframe")
+        self.launch_new_stereoframe()
+         
     def show_calibration_qt_logger(self):
         """
         Calibration is initiated back on the stereoframe widget,here only
@@ -251,19 +265,19 @@ class CalibrationWizard(QStackedWidget):
         self.launch_new_stereoframe()
         self.session.unpause_synchronizer()
 
-    def on_stereo_calibrate_collect_btn(self):
-        """
-        Check if data is being collected, but not enough to initialize array
-        If so, just wipe everything out and start out.
-        """
-        if (
-            self.stereoframe.collection_in_process
-            and not self.stereoframe.frame_builder.possible_to_initialize_array(
-                MIN_THRESHOLD_FOR_EARLY_CALIBRATE
-            )
-        ):
-            self.session.stop_recording()
-            self.back_to_stereo_frame()
+    # def on_stereo_calibrate_collect_btn(self):
+    #     """
+    #     Check if data is being collected, but not enough to initialize array
+    #     If so, just wipe everything out and start out.
+    #     """
+    #     if (
+    #         self.stereoframe.collection_in_process
+    #         and not self.stereoframe.frame_builder.possible_to_initialize_array(
+    #             MIN_THRESHOLD_FOR_EARLY_CALIBRATE
+    #         )
+    #     ):
+    #         self.session.stop_recording()
+    #         self.back_to_stereo_frame()
 
 
 def launch_pyxy3d():

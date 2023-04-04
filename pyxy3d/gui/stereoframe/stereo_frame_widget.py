@@ -43,7 +43,8 @@ MIN_THRESHOLD_FOR_EARLY_CALIBRATE = 5
 class StereoFrameWidget(QWidget):
     calibration_complete = pyqtSignal()
     calibration_initiated = pyqtSignal()
-    
+    terminate = pyqtSignal()
+     
     def __init__(self,session:Session):
 
         super(StereoFrameWidget, self).__init__()
@@ -61,7 +62,6 @@ class StereoFrameWidget(QWidget):
         self.navigation_bar = NavigationBarBackFinish() 
         self.calibrate_collect_btn = self.navigation_bar.calibrate_collect_btn
 
-        self.collection_in_process = False
         
         self.place_widgets()
         self.connect_widgets()        
@@ -115,10 +115,16 @@ class StereoFrameWidget(QWidget):
             # by default, data saved to session folder
             self.frame_builder.store_points.set()
             self.session.start_recording()
-            self.collection_in_process = True
             self.calibrate_collect_btn.setText("Terminate")
             self.calibrate_collect_btn.setEnabled(True)
             self.navigation_bar.back_btn.setEnabled(False)
+
+        elif self.calibrate_collect_btn.text() == "Terminate":
+            logger.info("Terminating current data collection")
+            self.terminate.emit()
+            # self.session.stop_recording()
+            # self.frame_builder.reset()
+            self.calibrate_collect_btn.setText("Collect Data")
 
         elif self.calibrate_collect_btn.text() == "Calibrate":
             logger.info("Prematurely end data collection")
@@ -142,7 +148,6 @@ class StereoFrameWidget(QWidget):
 
     def initiate_calibration(self):
         def worker():
-            self.collection_in_process = False
             self.calibration_initiated.emit()
             logger.info("Beginning wind-down process prior to calibration")
             self.calibrate_collect_btn.setText("---calibrating---")

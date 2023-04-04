@@ -93,7 +93,7 @@ class CalibrationWizard(QStackedWidget):
     def next_to_camera_config(self):
         if hasattr(self, "camera_config"):
             logger.info("Camera config already exists; changing stack current index")
-            self.setCurrentIndex(2)
+            self.setCurrentWidget(self.camera_config)
             active_port = self.camera_config.camera_tabs.currentIndex()
             self.camera_config.camera_tabs.toggle_tracking(active_port)
             logger.info("updating charuco in case necessary")
@@ -147,7 +147,7 @@ class CalibrationWizard(QStackedWidget):
         # load cameras config once the cameras are actually connected
         self.camera_config = CameraWizard(self.session)
         self.addWidget(self.camera_config)
-        self.setCurrentIndex(2)
+        self.setCurrentWidget(self.camera_config)
         self.camera_config.navigation_bar.back_btn.clicked.connect(
             self.back_to_charuco_wizard
         )
@@ -164,23 +164,23 @@ class CalibrationWizard(QStackedWidget):
         
         self.session.pause_all_monocalibrators()
 
-        if hasattr(self, "stereoframe"):
+        if hasattr(self.session, "synchronizer"):
             self.session.unpause_synchronizer()
-        else:
-            self.stereoframe = StereoFrameWidget(self.session)
-            self.addWidget(self.stereoframe)
-            self.stereoframe.navigation_bar.back_btn.clicked.connect(
-                self.back_to_camera_config_wizard
-            )
-            self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
-            self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
+        # else:
+        # if hasattr(self, "stereoframe"):
+            # self.removeWidget(self.stereoframe)
+            # del self.stereoframe
             
-            # if data collection terminated early, then calibration will be triggered on the stereowidget
-            # by the calibrate_collect_btn. Here it will also launch the qt logger
-            # self.stereoframe.calibrate_collect_btn.clicked.connect(self.show_calibration_qt_logger)
-
+        self.stereoframe = StereoFrameWidget(self.session)
+        self.addWidget(self.stereoframe)
         self.setCurrentWidget(self.stereoframe)
-        self.session.pause_all_monocalibrators()
+
+        self.stereoframe.navigation_bar.back_btn.clicked.connect(
+            self.back_to_camera_config_wizard
+        )
+        self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
+        self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
+            
 
     ###################### Stereocalibration  ######################################
     def show_calibration_qt_logger(self):
@@ -196,12 +196,17 @@ class CalibrationWizard(QStackedWidget):
         self.qt_logger.show()
         
     def back_to_camera_config_wizard(self):
+        logger.info("Moving back to camera config from stereoframe")
         # from stereoframe to camera config
         self.setCurrentWidget(self.camera_config)
-        
+        self.session.pause_synchronizer()
+
+        self.stereoframe.frame_builder.unsubscribe()
+        self.removeWidget(self.stereoframe)
+        del self.stereoframe
+
         active_port = self.camera_config.camera_tabs.currentIndex()
         self.camera_config.camera_tabs.toggle_tracking(active_port)
-        self.session.pause_synchronizer()
 
     def next_to_capture_volume(self):
         # if hasattr(self, "capture_volume"):
@@ -223,6 +228,8 @@ class CalibrationWizard(QStackedWidget):
         
         logger.info("Set current stacked tab index to 3")
         self.setCurrentWidget(self.camera_config)
+
+        self.stereoframe.frame_builder.unsubscribe()
         self.removeWidget(self.stereoframe)
         self.removeWidget(self.capture_volume)
         del self.capture_volume

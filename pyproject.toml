@@ -41,7 +41,7 @@ dynamic = ["version"]
 dev = ["black", "bumpver", "isort", "pip-tools", "pytest"]
 
 [tool.bumpver] #bump the version by entering `bumpver update` in the terminal
-current_version = "v0.0.16"
+current_version = "v0.0.17"
 version_pattern = "vMAJOR.MINOR.PATCH"
 commit_message  = "Bump version {old_version} -> {new_version}; refresh PyPI"
 commit          = true

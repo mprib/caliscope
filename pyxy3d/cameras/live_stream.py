@@ -61,7 +61,7 @@ class LiveStream:
         if queue not in self.subscribers:
             logger.info(f"Adding queue to subscribers at stream {self.port}")
             self.subscribers.append(queue)
-            logger.info(f"...now {len(self.subscribers)} subscribers at {self.port}")
+            logger.info(f"...now {len(self.subscribers)} subscriber(s) at {self.port}")
         else:
             logger.warn(f"Attempted to subscribe to live stream at port {self.port} twice")
 

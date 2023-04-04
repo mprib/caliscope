@@ -114,8 +114,9 @@ class StereoFrameWidget(QWidget):
             # by default, data saved to session folder
             self.frame_builder.store_points.set()
             self.session.start_recording()
-            self.calibrate_collect_btn.setText("Calibrate")
-            self.calibrate_collect_btn.setEnabled(False)
+            self.calibrate_collect_btn.setText("Terminate")
+            self.calibrate_collect_btn.setEnabled(True)
+            self.navigation_bar.back_btn.setEnabled(False)
 
         elif self.calibrate_collect_btn.text() == "Calibrate":
             logger.info("Prematurely end data collection")
@@ -125,6 +126,7 @@ class StereoFrameWidget(QWidget):
 
 
     def enable_calibration(self):
+        self.calibrate_collect_btn.setText("Calibrate")
         self.calibrate_collect_btn.setEnabled(True)
         
         
@@ -150,6 +152,9 @@ class StereoFrameWidget(QWidget):
             logger.info("Pause synchronizer")
             self.session.pause_synchronizer()
             self.session.estimate_extrinsics()
+            self.navigation_bar.back_btn.setEnabled(True)
+            self.calibrate_collect_btn.setText("Collect Data")
+            self.calibrate_collect_btn.setEnabled(True)
             self.calibration_complete.emit()
             
             

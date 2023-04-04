@@ -29,7 +29,9 @@ class ArrayTriangulator:
     def __init__(self, camera_array: CameraArray):
         self.camera_array = camera_array
         
-        self.ports = list(camera_array.cameras.keys())
+        # pull ports list from camera_array.port_index
+        # to ensure only non-ignored cameras are processed
+        self.ports = list(camera_array.port_index.keys())
         self.pairs = [(i,j) for i,j in combinations(self.ports,2) if i<j]
 
 

@@ -226,16 +226,21 @@ class CalibrationWizard(QStackedWidget):
     ################## Capture Volume ########################
     def back_to_stereo_frame(self):
         
-        logger.info("Set current stacked tab index to 3")
+        logger.info("Set current widget to config temporarily")
         self.setCurrentWidget(self.camera_config)
 
-        self.stereoframe.frame_builder.unsubscribe()
+        logger.info("Remove stereoframe")
         self.removeWidget(self.stereoframe)
+        logger.info("Remove capture volume")
         self.removeWidget(self.capture_volume)
         del self.capture_volume
+        self.stereoframe.frame_builder.unsubscribe_from_synchronizer()
         del self.stereoframe
+        logger.info("Create new stereoframe")
         self.stereoframe = StereoFrameWidget(self.session)
+        logger.info("Add stereoframe to stacked widget")
         self.addWidget(self.stereoframe)
+        logger.info("Activate stereoframe")
         self.setCurrentWidget(self.stereoframe)
         self.stereoframe.navigation_bar.back_btn.clicked.connect(
             self.back_to_camera_config_wizard

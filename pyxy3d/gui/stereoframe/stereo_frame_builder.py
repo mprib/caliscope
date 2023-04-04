@@ -39,7 +39,9 @@ class StereoFrameBuilder:
         self.store_points.clear()   # don't default to storing tracked points
         
         
-        
+    def unsubscribe_from_synchronizer(self):
+        self.synchronizer.unsubscribe_to_notice(self.new_sync_packet_notice) 
+
     def get_pairs(self):
         pairs = [pair for pair in combinations(self.synchronizer.ports, 2)]
         sorted_ports = [

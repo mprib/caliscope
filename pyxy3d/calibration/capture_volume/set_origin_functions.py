@@ -284,9 +284,9 @@ if __name__ == "__main__":
         print(f"Optimizing initial camera array configuration ")
 
         capture_volume = CaptureVolume(camera_array, point_estimates)
-        capture_volume.save(session_directory, "initial")
+        capture_volume._save(session_directory, "initial")
         capture_volume.optimize()
-        capture_volume.save(session_directory, "optimized")
+        capture_volume._save(session_directory, "optimized")
     else:
 
         saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl")

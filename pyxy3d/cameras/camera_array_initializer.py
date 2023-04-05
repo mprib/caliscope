@@ -5,7 +5,6 @@ logger = pyxy3d.logger.get(__name__)
 
 
 from pathlib import Path
-from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
 from pyxy3d.cameras.camera_array import CameraData, CameraArray
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
@@ -315,7 +314,7 @@ if __name__ == "__main__":
     from pyxy3d.session import Session
 
     # session_directory = Path(__root__, "tests", "3_cameras_middle")
-    session_directory = Path(__root__, "tests", "4_cameras_nonoverlap")
+    session_directory = Path(__root__, "tests", "sessions", "217")
     # session_directory = Path(__root__,"tests", "3_cameras_triangular" )
     # session_directory = Path(__root__,"tests", "3_cameras_midlinear" )
 
@@ -325,7 +324,6 @@ if __name__ == "__main__":
     initializer = CameraArrayInitializer(config_path)
         
     
-#%%
     camera_array = initializer.get_best_camera_array()
 
     point_data_path = Path(session_directory, "point_data.csv")
@@ -334,7 +332,6 @@ if __name__ == "__main__":
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
 
-    capture_volume.save(session_directory)
     #%%
 
     pair_A_B = initializer.estimated_stereopairs[(0, 1)]
@@ -343,12 +340,7 @@ if __name__ == "__main__":
     bridged_pair = get_bridged_stereopair(pair_A_B, pair_B_C)
     logger.info(bridged_pair)
 
-    capture_volume.optimize()
-    capture_volume.save(session_directory)
-    #%%
-    app = QApplication(sys.argv)
-    vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)
-    sys.exit(app.exec())
+    # capture_volume.optimize()
 
 
 

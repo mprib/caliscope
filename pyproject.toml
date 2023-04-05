@@ -31,7 +31,7 @@ dependencies = ["numpy==1.23.3",
                 "pyqtgraph==0.13.1",
                 "pyopengl",
                 "toml", 
-                "seaborn"] #add additional dependencies here - try to pin versions as minimally as possible
+                "seaborn"] #add additional dependencies here - try to pin versions as minimally as possible...current pins for FMC compatibility
 
 requires-python = ">=3.8"
 

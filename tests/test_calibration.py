@@ -3,8 +3,8 @@ import shutil
 from pathlib import Path
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d import __root__
-from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
+from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates 
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates
 import pytest
@@ -35,7 +35,6 @@ def copy_contents(src_folder, dst_folder):
             shutil.copytree(src_item, dst_item)
 
 
-
 @pytest.fixture(params=TEST_SESSIONS)
 def session_path(request, tmp_path):
     """
@@ -47,7 +46,9 @@ def session_path(request, tmp_path):
     tmp_test_data_path = Path(tmp_path,request.param)
     copy_contents(original_test_data_path,tmp_test_data_path)    
     
-    return tmp_test_data_path
+    # return tmp_test_data_path
+    return original_test_data_path
+
 
     
 def test_capture_volume_optimization(session_path):
@@ -69,3 +70,4 @@ def test_capture_volume_optimization(session_path):
         assert(rmse>=optimized_rmse[key])
 
 
+print("This is a thing")

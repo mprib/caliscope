@@ -21,9 +21,9 @@ import numpy as np
 
 from pyxy3d.calibration.corner_tracker import CornerTracker
 from pyxy3d.cameras.data_packets import FramePacket
+from pyxy3d.cameras.live_stream import Stream
 
-
-class RecordedStream:
+class RecordedStream(Stream):
     """Analogous to the live stream, this will place frames on a queue ("reel", probably need to
     change that cutesy little thing). These can then be harvested and synchronized by a Synchronizer"""
 
@@ -42,8 +42,10 @@ class RecordedStream:
 
         self.push_to_out_q = Event()
         self.push_to_out_q.set()
-        self.out_q = Queue(-1)
+        # self.out_q = Queue(-1)
         self.stop_event = Event()
+
+        self.subscribers = []
 
         synched_frames_history_path = str(
             Path(self.directory, f"frame_time_history.csv")
@@ -60,6 +62,23 @@ class RecordedStream:
         self.frame_index = 0
         self.frame_time = 0
         self.set_fps_target(fps_target)
+
+    def subscribe(self,queue:Queue):
+        if queue not in self.subscribers:
+            logger.info(f"Adding queue to subscribers at recorded stream {self.port}")
+            self.subscribers.append(queue)
+            logger.info(f"...now {len(self.subscribers)} subscriber(s) at {self.port}")
+        else:
+            logger.warn(f"Attempted to subscribe to recorded stream at port {self.port} twice")
+
+    def unsubscribe(self, queue:Queue):
+        if queue in self.subscribers:
+            logger.info(f"Removing subscriber from queue at recorded stream {self.port}")
+            self.subscribers.remove(queue)
+            logger.info(f"{len(self.subscribers)} subscriber(s) remain at recorded stream {self.port}")
+        else:
+            logger.warn(f"Attempted to unsubscribe to recorded stream that was not subscribed to\
+                at port {self.port} twice")
 
     def set_fps_target(self, fps):
         self.fps = fps
@@ -102,8 +121,16 @@ class RecordedStream:
             self.frame_time = self.port_history[current_frame]["frame_time"]
             self.frame_time = float(self.frame_time)
                 
+            spinlock_looped = False 
+            while len(self.subscribers) == 0 and not self.stop_event.is_set():
+                if not spinlock_looped:
+                    logger.info(f"Spinlock initiated at port {self.port}")
+                    spinlock_looped = True
+                sleep(.5)
+            if spinlock_looped == True:
+                logger.info(f"Spinlock released at port {self.port}")
+
             sleep(self.wait_to_next_frame())
-            
 
             success, self.frame = self.capture.read()
 
@@ -126,14 +153,21 @@ class RecordedStream:
             logger.debug(
                 f"Placing frame on reel {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"
             )
-            self.out_q.put(frame_packet)
+
+            for q in self.subscribers:
+                q.put(frame_packet)
+
+            # self.out_q.put(frame_packet)
             self.frame_index += 1
 
             if self.frame_index >= self.last_frame_index:
                 logger.info(f"Ending recorded playback at port {self.port}")
                 # time of -1 indicates end of stream
                 blank_packet = FramePacket(self.port, -1, None, None)
-                self.out_q.put(blank_packet)
+
+                for q in self.subscribers:
+                    q.put(frame_packet)
+                # self.out_q.put(blank_packet)
                 break
 
 
@@ -158,7 +192,7 @@ if __name__ == "__main__":
     
     from pyxy3d import __root__
 
-    recording_directory = Path(__root__, "tests", "5_cameras", "recording")
+    recording_directory = Path(__root__, "tests", "sessions","217")
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True

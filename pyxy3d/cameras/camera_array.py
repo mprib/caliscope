@@ -135,14 +135,12 @@ class CameraArray:
 
 
 if __name__ == "__main__":
-    from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
-
+    from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer  
     from pyxy3d import __root__
 
-    session_directory = Path(__root__, "tests", "217")
+    session_directory = Path(__root__, "tests", "sessions", "217")
     config_path = Path(session_directory, "config.toml")
-    array_builder = CameraArrayBuilder(config_path)
-    camera_array = array_builder.get_camera_array()
-
+    array_builder = CameraArrayInitializer(config_path)
+    camera_array = array_builder.get_best_camera_array()
 
 # %%

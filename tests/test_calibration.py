@@ -1,9 +1,9 @@
-from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
 import os
 import shutil
 from pathlib import Path
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d import __root__
+from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates 
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates
@@ -35,13 +35,6 @@ def copy_contents(src_folder, dst_folder):
             shutil.copytree(src_item, dst_item)
 
 
-@pytest.fixture(params=TEST_SESSIONS)
-def initialized_camera_array(request):
-    session_directory = Path(__root__, "tests", "sessions", request.param)
-    config_path = Path(session_directory, "config.toml")
-    initializer = CameraArrayInitializer(config_path)
-    camera_array = initializer.get_best_camera_array()
-    return camera_array
 
 @pytest.fixture(params=TEST_SESSIONS)
 def session_path(request, tmp_path):
@@ -55,10 +48,6 @@ def session_path(request, tmp_path):
     copy_contents(original_test_data_path,tmp_test_data_path)    
     
     return tmp_test_data_path
-
-
-# def test_stereocalibration_estimates(session_path):
-    
 
     
 def test_capture_volume_optimization(session_path):
@@ -80,5 +69,3 @@ def test_capture_volume_optimization(session_path):
         assert(rmse>=optimized_rmse[key])
 
 
-def test_stereopair_functions():
-    pass

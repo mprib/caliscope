@@ -314,7 +314,7 @@ if __name__ == "__main__":
     else:
         ports = [0, 1, 2, 3, 4]
         # ports = [0,1]
-        recording_directory = Path(__root__, "tests", "217")
+        recording_directory = Path(__root__, "tests","sessions", "217")
         charuco = Charuco(
                 4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
             )

@@ -69,5 +69,3 @@ def test_capture_volume_optimization(session_path):
     for key, rmse in initial_rmse.items():
         assert(rmse>=optimized_rmse[key])
 
-
-print("This is a thing")

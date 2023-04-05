@@ -308,17 +308,9 @@ class CameraArrayInitializer:
 
 
 if __name__ == "__main__":
-    from PyQt6.QtWidgets import QApplication
-    import sys
-    from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
-    from pyxy3d.session import Session
 
-    # session_directory = Path(__root__, "tests", "3_cameras_middle")
     session_directory = Path(__root__, "tests", "sessions", "217")
-    # session_directory = Path(__root__,"tests", "3_cameras_triangular" )
-    # session_directory = Path(__root__,"tests", "3_cameras_midlinear" )
 
-    session = Session(session_directory)
     config_path = Path(session_directory, "config.toml")
 
     initializer = CameraArrayInitializer(config_path)
@@ -331,8 +323,6 @@ if __name__ == "__main__":
     point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
-
-    #%%
 
     pair_A_B = initializer.estimated_stereopairs[(0, 1)]
     pair_B_C = initializer.estimated_stereopairs[(1, 2)]

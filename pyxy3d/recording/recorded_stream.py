@@ -24,8 +24,11 @@ from pyxy3d.cameras.data_packets import FramePacket
 from pyxy3d.cameras.live_stream import Stream
 
 class RecordedStream(Stream):
-    """Analogous to the live stream, this will place frames on a queue ("reel", probably need to
-    change that cutesy little thing). These can then be harvested and synchronized by a Synchronizer"""
+    """
+    Analogous to the live stream, this will place frames on a queue 
+    These can then be harvested and synchronized by a Synchronizer
+    Within the stream, point detection occurs.
+    """
 
     def __init__(self, port, directory, fps_target=6, charuco=None):
         self.port = port
@@ -40,9 +43,6 @@ class RecordedStream(Stream):
         video_path = str(Path(self.directory, f"port_{port}.mp4"))
         self.capture = cv2.VideoCapture(video_path)
 
-        self.push_to_out_q = Event()
-        self.push_to_out_q.set()
-        # self.out_q = Queue(-1)
         self.stop_event = Event()
 
         self.subscribers = []
@@ -198,11 +198,16 @@ if __name__ == "__main__":
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
-    # ports = [0, 1, 2, 3, 4]
-    ports = [0,1,2, 3, 4]
-    # ports = [0]
+    ports = []
+    for item in recording_directory.iterdir():
+        if item.name.split(".")[1] == "mp4":
+            port = item.stem.split("_")[1]
+            port = int(port)
+            ports.append(port)
+            
+    
     recorded_stream_pool = RecordedStreamPool(ports, recording_directory, charuco=charuco)
-    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=6)
+    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=20)
     recorded_stream_pool.play_videos()
 
     notification_q = Queue()

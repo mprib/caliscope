@@ -30,7 +30,7 @@ class CaptureVolume:
     stage: int = 0
     # rmse: float = None # replacing _rmse property --> rmse
 
-    def save(self, directory: Path, descriptor: str = None):
+    def _save(self, directory: Path, descriptor: str = None):
         if descriptor is None:
             pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"
         else:
@@ -269,7 +269,6 @@ if __name__ == "__main__":
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
     capture_volume.optimize()
-    # %%
 
     rmse_string = "\nRMSE of Reprojection (overall and by camera)\n"
     
@@ -278,4 +277,3 @@ if __name__ == "__main__":
         
     logger.info(rmse_string)    
     
-# %%

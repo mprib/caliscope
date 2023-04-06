@@ -1,7 +1,9 @@
 
-# Introduction
 
-![pyxy_logo_5x5_cube_fill_final](https://user-images.githubusercontent.com/31831778/230441156-ca0318b5-6faf-4b24-9d82-4cff8b59cc34.svg)
+<center><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "100"></center>
+<!-- ![pyxy_logo_5x5_cube_fill_final|100](pyxy3d/gui/icons/pyxy_logo.svg) -->
+
+# Introduction
 
 Pyxy3d (*pixie-3D*) is a python package for converting 2D (x,y) point data from multiple cameras into 3D position estimates. The core calibration is built on top of [OpenCV](https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html) with additional optimization via [SciPy](https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html). 
 

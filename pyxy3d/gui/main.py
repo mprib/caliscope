@@ -41,7 +41,7 @@ class CalibrationWizard(QStackedWidget):
         self.CAMS_IN_PROCESS = False
 
         self.setWindowTitle("Camera Calibration Wizard")
-        self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/orb.svg"))))
+        self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/pyxy_logo.svg"))))
         self.wizard_directory = WizardDirectory()
         self.addWidget(self.wizard_directory)  # index:1
         self.setCurrentIndex(0)

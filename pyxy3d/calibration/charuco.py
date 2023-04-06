@@ -10,6 +10,7 @@ logger = pyxy3d.logger.get(__name__)
 from collections import defaultdict
 from itertools import combinations
 import cv2
+import toml
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QImage, QPixmap
 
@@ -220,6 +221,29 @@ ARUCO_DICTIONARIES = {
     "DICT_APRILTAG_36h11": cv2.aruco.DICT_APRILTAG_36h11,
 }
 
+def get_charuco(config_path)-> Charuco:
+    """
+    Helper function to load a pre-configured charuco from a config.toml
+    """
+
+    with open(config_path, "r") as f:
+        config = toml.load(config_path)
+
+    params = config["charuco"]
+
+    charuco = Charuco(
+        columns=params["columns"],
+        rows=params["rows"],
+        board_height=params["board_height"],
+        board_width=params["board_width"],
+        dictionary=params["dictionary"],
+        units=params["units"],
+        aruco_scale=params["aruco_scale"],
+        square_size_overide_cm=params["square_size_overide_cm"],
+        inverted=params["inverted"],
+    )
+    
+    return charuco
 
 ########################## DEMO  ###########################################
 

@@ -1,3 +1,8 @@
+
+import pyxy3d.logger
+
+logger = pyxy3d.logger.get(__name__)
+
 import os
 import shutil
 from pathlib import Path
@@ -28,6 +33,8 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
 
 from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.recording.video_recorder import VideoRecorder
+from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
+
 from pyxy3d.session import FILTERED_FRACTION
 
 TEST_SESSIONS = ["217"]
@@ -94,8 +101,27 @@ def test_post_monocalibration(session_path):
    
     # This test begins with a set of cameras with calibrated intrinsics
     config_path = str(Path(session_path, "config.toml"))
-    point_data_path = Path(session_path, "point_data.csv")
     charuco = get_charuco(config_path)
+    
+    # need to create point_data    
+    # this is where it will be stored by VideoRecorder
+    point_data_path = Path(session_path, "point_data.csv")
+
+    # play back pre-recorded videos
+
+    # get the por
+    ports = []
+    for item in session_path.iterdir():
+        if item.name.split(".")[1] == "mp4":
+            port = item.stem.split("_")[1]
+            port = int(port)
+            ports.append(port)
+  
+    stream_pool = RecordedStreamPool(ports, recording_directory, charuco=charuco)
+    logger.info("Creating Synchronizer")
+    syncr = Synchronizer(stream_pool.streams, fps_target=3)
+    stream_pool.play_videos()
+
 
     stereocalibrator = StereoCalibrator(config_path, point_data_path)
     stereocalibrator.stereo_calibrate_all(boards_sampled=10)

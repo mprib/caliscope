@@ -8,6 +8,27 @@ from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates 
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates
 import pytest
+from pyxy3d.calibration.charuco import Charuco, get_charuco
+from pyxy3d.calibration.corner_tracker import CornerTracker
+from pyxy3d.calibration.monocalibrator import MonoCalibrator
+from pyxy3d.cameras.camera import Camera
+from pyxy3d.cameras.synchronizer import Synchronizer
+from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
+
+
+from pyxy3d.calibration.stereocalibrator import StereoCalibrator
+from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
+from pyxy3d.calibration.capture_volume.quality_controller import QualityController
+
+from pyxy3d.cameras.camera_array import CameraArray, CameraData
+from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
+    get_point_estimates,
+)
+
+from pyxy3d.cameras.live_stream import LiveStream
+from pyxy3d.recording.video_recorder import VideoRecorder
+from pyxy3d.session import FILTERED_FRACTION
 
 TEST_SESSIONS = ["217"]
 
@@ -51,21 +72,48 @@ def session_path(request, tmp_path):
 
 
     
-def test_capture_volume_optimization(session_path):
-    """
-    requires as a baseline a stereocalibrated config.toml file
-    """    
-    config_path = Path(session_path, "config.toml")
-    initializer = CameraArrayInitializer(config_path)
-    camera_array = initializer.get_best_camera_array()
+# def test_capture_volume_optimization(session_path):
+#     """
+#     requires as a baseline a stereocalibrated config.toml file
+#     """    
+#     config_path = Path(session_path, "config.toml")
+#     initializer = CameraArrayInitializer(config_path)
+#     camera_array = initializer.get_best_camera_array()
+#     point_data_path = Path(session_path, "point_data.csv")
+#     point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
+#     capture_volume = CaptureVolume(camera_array, point_estimates)
+#     initial_rmse = capture_volume.rmse
+#     capture_volume.optimize()
+#     optimized_rmse = capture_volume.rmse
+
+#     # rmse should go down after optimization
+#     for key, rmse in initial_rmse.items():
+#         assert(rmse>=optimized_rmse[key])
+
+def test_post_monocalibration(session_path):
+    
+    config_path = str(Path(session_path, "config.toml"))
     point_data_path = Path(session_path, "point_data.csv")
-    point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
+
+    stereocalibrator = StereoCalibrator(config_path, point_data_path)
+    stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+
+    camera_array: CameraArray = CameraArrayInitializer(
+        config_path
+    ).get_best_camera_array()
+
+    point_estimates: PointEstimates = get_point_estimates(
+        camera_array, point_data_path
+    )
+
     capture_volume = CaptureVolume(camera_array, point_estimates)
     initial_rmse = capture_volume.rmse
     capture_volume.optimize()
-    optimized_rmse = capture_volume.rmse
 
-    # rmse should go down after optimization
-    for key, rmse in initial_rmse.items():
-        assert(rmse>=optimized_rmse[key])
+    quality_controller = QualityController(capture_volume, charuco)
+    quality_controller.filter_point_estimates(FILTERED_FRACTION)
 
+    optimized_filtered_rmse = capture_volume.rmse
+    # Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model
+
+    

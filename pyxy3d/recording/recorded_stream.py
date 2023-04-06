@@ -163,11 +163,10 @@ class RecordedStream(Stream):
             if self.frame_index >= self.last_frame_index:
                 logger.info(f"Ending recorded playback at port {self.port}")
                 # time of -1 indicates end of stream
-                blank_packet = FramePacket(self.port, -1, None, None)
+                frame_packet = FramePacket(self.port, -1, None, None)
 
                 for q in self.subscribers:
                     q.put(frame_packet)
-                # self.out_q.put(blank_packet)
                 break
 
 
@@ -210,18 +209,24 @@ if __name__ == "__main__":
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=20)
     recorded_stream_pool.play_videos()
 
-    notification_q = Queue()
-    syncr.sync_notice_subscribers.append(notification_q)
-
+    syncr.subscribe_to_streams()
+    
+    in_q = Queue(-1)
+    syncr.subscribe_to_sync_packets(in_q)
+    
     while not syncr.frames_complete:
-        synched_frames_notice = notification_q.get()
-        for port, frame_packet in syncr.current_sync_packet.frame_packets.items():
+        sync_packet =in_q.get()
+        for port, frame_packet in sync_packet.frame_packets.items():
             if frame_packet:
                 cv2.imshow(f"Port {port}", frame_packet.frame)
 
         key = cv2.waitKey(1)
 
         if key == ord("q"):
+            cv2.destroyAllWindows()
+            break
+
+        if syncr.frames_complete:
             cv2.destroyAllWindows()
             break
 

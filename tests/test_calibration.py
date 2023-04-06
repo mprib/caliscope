@@ -91,9 +91,11 @@ def session_path(request, tmp_path):
 #         assert(rmse>=optimized_rmse[key])
 
 def test_post_monocalibration(session_path):
-    
+   
+    # This test begins with a set of cameras with calibrated intrinsics
     config_path = str(Path(session_path, "config.toml"))
     point_data_path = Path(session_path, "point_data.csv")
+    charuco = get_charuco(config_path)
 
     stereocalibrator = StereoCalibrator(config_path, point_data_path)
     stereocalibrator.stereo_calibrate_all(boards_sampled=10)
@@ -116,4 +118,9 @@ def test_post_monocalibration(session_path):
     optimized_filtered_rmse = capture_volume.rmse
     # Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model
 
+if __name__ == "__main__":
+    
+    session_path = Path(__root__, "tests", "sessions", "217")    
+    test_post_monocalibration(session_path)
+    
     

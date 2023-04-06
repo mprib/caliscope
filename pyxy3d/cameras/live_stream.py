@@ -12,6 +12,7 @@ from threading import Thread, Event
 
 import cv2
 import numpy as np
+from abc import ABC, abstractmethod
 
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.data_packets import FramePacket
@@ -19,8 +20,24 @@ from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.calibration.corner_tracker import CornerTracker
 import pyxy3d.calibration.draw_charuco as draw_charuco
 
+class Stream(ABC):
+    """
+    As much an exercise in better understanding ABC as it is anything...
+    """
+    @abstractmethod
+    def subscribe(self,queue:Queue):
+        pass
+    
+    @abstractmethod
+    def unsubscribe(self,queue:Queue):
+        pass
 
-class LiveStream:
+    
+    @abstractmethod
+    def worker(self):
+        pass
+
+class LiveStream(Stream):
     def __init__(self, camera:Camera, fps_target=6, charuco=None):
         self.camera:Camera = camera
         self.port = camera.port

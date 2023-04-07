@@ -13,4 +13,4 @@
 dist/*
 *.epgz
 *.pdf
-pyxy3d_wizard_mockup*
+tests/sessions*

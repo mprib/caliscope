@@ -14,6 +14,8 @@ logger.setLevel(logging.INFO)
 from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
+import toml
+
 import cv2
 from time import perf_counter, sleep
 import pandas as pd
@@ -22,6 +24,7 @@ import numpy as np
 from pyxy3d.calibration.corner_tracker import CornerTracker
 from pyxy3d.cameras.data_packets import FramePacket
 from pyxy3d.cameras.live_stream import Stream
+from pyxy3d.cameras.camera_array import CameraData
 
 class RecordedStream(Stream):
     """
@@ -30,9 +33,11 @@ class RecordedStream(Stream):
     Within the stream, point detection occurs.
     """
 
-    def __init__(self, port, directory, fps_target=6, charuco=None):
-        self.port = port
+    def __init__(self, camera:CameraData, directory, fps_target=6, charuco=None):
+        # self.port = port
         self.directory = directory
+        self.camera = camera
+        self.port = camera.port
 
         if charuco is not None:
             self.tracker = CornerTracker(charuco)
@@ -40,7 +45,7 @@ class RecordedStream(Stream):
         else:
             self.track_points = False
 
-        video_path = str(Path(self.directory, f"port_{port}.mp4"))
+        video_path = str(Path(self.directory, f"port_{self.port}.mp4"))
         self.capture = cv2.VideoCapture(video_path)
 
         self.stop_event = Event()
@@ -53,7 +58,7 @@ class RecordedStream(Stream):
         synched_frames_history = pd.read_csv(synched_frames_history_path)
 
         self.port_history = synched_frames_history[
-            synched_frames_history["port"] == port
+            synched_frames_history["port"] == self.port
         ]
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
@@ -171,19 +176,77 @@ class RecordedStream(Stream):
 
 
 class RecordedStreamPool:
-    def __init__(self, ports, directory, fps_target=6, charuco=None):
+    def __init__(self, directory, fps_target=6, charuco=None):
 
         self.streams = {}
-        self.ports = ports
+        self.cameras = get_configured_camera_data(directory)
+        # self.ports = ports
 
-        for port in ports:
-            self.streams[port] = RecordedStream(port, directory, fps_target=fps_target, charuco=charuco)
+        for port, camera in self.cameras.items():
+            self.streams[port] = RecordedStream(camera, directory, fps_target=fps_target, charuco=charuco)
 
     def play_videos(self):
-        for port in self.ports:
-            self.streams[port].play_video()
+        for port, stream in self.streams.items():
+            stream.play_video()
 
 
+def get_configured_camera_data(directory, intrinsics_only =True):
+    """
+    return a list of CameraData objects that is built from the config
+    file that is found in the directory. This will be the same
+    file where the mp4 files are located.
+    """  
+
+    # load config 
+    config_path = Path(directory,"config.toml")    
+
+    with open(config_path, "r") as f:
+        config = toml.load(config_path)
+
+    all_camera_data = {}
+    for key, params in config.items():
+        if key.startswith("cam"):
+            if not params["ignore"]:
+                port = params["port"]
+                
+                if intrinsics_only:
+                    logger.info(f"Adding intrinisic camera {port} to calibrated camera array...")
+
+                    cam_data = CameraData(
+                        port=port,
+                        size=params["size"],
+                        rotation_count=params["rotation_count"],
+                        error=params["error"],
+                        matrix=np.array(params["matrix"]),
+                        distortions=np.array(params["distortions"]),
+                        exposure=params["exposure"],
+                        grid_count=params["grid_count"],
+                        ignore=params["ignore"],
+                        verified_resolutions=params["verified_resolutions"],
+                    )
+                else:
+                    
+                    logger.info(f"Adding intrinsic and extrinsic camera {port} to calibrated camera array...")
+                    cam_data = CameraData(
+                        port=port,
+                        size=params["size"],
+                        rotation_count=params["rotation_count"],
+                        error=params["error"],
+                        matrix=np.array(params["matrix"]),
+                        distortions=np.array(params["distortions"]),
+                        exposure=params["exposure"],
+                        grid_count=params["grid_count"],
+                        ignore=params["ignore"],
+                        verified_resolutions=params["verified_resolutions"],
+                        translation=np.array(params["translation"]),
+                        rotation=np.array(params["rotation"]),
+                    )
+                    
+                all_camera_data[port] = cam_data
+                
+    return all_camera_data
+
+    
 if __name__ == "__main__":
     from pyxy3d.cameras.synchronizer import Synchronizer
     from pyxy3d.calibration.charuco import Charuco
@@ -197,15 +260,16 @@ if __name__ == "__main__":
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
-    ports = []
-    for item in recording_directory.iterdir():
-        if item.name.split(".")[1] == "mp4":
-            port = item.stem.split("_")[1]
-            port = int(port)
-            ports.append(port)
+    # ports = []
+    # for item in recording_directory.iterdir():
+    #     if item.name.split(".")[1] == "mp4":
+    #         port = item.stem.split("_")[1]
+    #         port = int(port)
+    #         ports.append(port)
             
-    
-    recorded_stream_pool = RecordedStreamPool(ports, recording_directory, charuco=charuco)
+    cameras = get_configured_camera_data(recording_directory)
+        
+    recorded_stream_pool = RecordedStreamPool(recording_directory, charuco=charuco)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=20)
     recorded_stream_pool.play_videos()
 

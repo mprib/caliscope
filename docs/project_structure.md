@@ -49,7 +49,6 @@ subgraph recording
 
 end
 
-RecordingDirectory -.to be done.-> CaptureVolumeVisualizer
 
 point_data.csv --> StereoCalibrator
 config.toml --CameraSettings--> StereoCalibrator
@@ -68,8 +67,8 @@ ArrayTriangulator --> get_stereotriangulated_table
 
 CornerTracker --PointPacket--> RecordedStream
 
-ArrayConstructor --> CameraArray
-config.toml --> ArrayConstructor
+CameraArrayInitializer --> CameraArray
+config.toml --> CameraArrayInitializer
 
 CameraArray --> ArrayTriangulator
 

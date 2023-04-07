@@ -29,14 +29,13 @@ class CameraData:
     grid_count: int
     ignore: bool
     verified_resolutions: np.ndarray
-    translation: np.ndarray # camera relative to world
-    rotation: np.ndarray # camera relative to world
+    translation: np.ndarray =None # camera relative to world
+    rotation: np.ndarray = None# camera relative to world
 
     @property
     def transformation(self):
         """"
         Rotation and transformation combined to allow 
-        
         """
         
         t = np.hstack([self.rotation, np.expand_dims(self.translation, 1)])

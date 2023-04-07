@@ -56,6 +56,8 @@ def copy_contents(src_folder, dst_folder):
         src_item = src_path / item
         dst_item = dst_path / item.name
 
+        logger.info(f"Copying {src_item} to {dst_item}")
+
         # Copy file or directory
         if src_item.is_file():
             shutil.copy2(src_item, dst_item)  # Copy file preserving metadata
@@ -98,9 +100,12 @@ def session_path(request, tmp_path):
 #         assert(rmse>=optimized_rmse[key])
 
 def test_post_monocalibration(session_path):
+  
+    
    
     # This test begins with a set of cameras with calibrated intrinsics
     config_path = str(Path(session_path, "config.toml"))
+    logger.info(f"Getting charuco from config at {config_path}")
     charuco = get_charuco(config_path)
     
     # need to create point_data    
@@ -108,21 +113,31 @@ def test_post_monocalibration(session_path):
     point_data_path = Path(session_path, "point_data.csv")
 
     # play back pre-recorded videos
-
-    # get the por
+    # get the ports of the videos to create the streampool
     ports = []
     for item in session_path.iterdir():
         if item.name.split(".")[1] == "mp4":
             port = item.stem.split("_")[1]
             port = int(port)
             ports.append(port)
-  
-    stream_pool = RecordedStreamPool(ports, recording_directory, charuco=charuco)
+    logger.info(f"Identifying ports to process: {ports}")
+ 
+    # create a synchronizer based off of these stream pools 
+    logger.info(f"Creating RecordedStreamPool")
+    stream_pool = RecordedStreamPool(ports, session_path, charuco=charuco)
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(stream_pool.streams, fps_target=3)
+
+    # video recorder needed to save out points.csv.
+    logger.info(f"Creating test video recorder to save out point data")
+    video_recorder = VideoRecorder(syncr)
+    video_recorder.start_recording(session_path)
+
+    logger.info("Initiate playing stream pool videos...")
     stream_pool.play_videos()
+    # need to wait for points.csv file to populate
 
-
+    logger.info(f"Waiting for video recorder to finish processing stream...")
     stereocalibrator = StereoCalibrator(config_path, point_data_path)
     stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
@@ -146,7 +161,10 @@ def test_post_monocalibration(session_path):
 
 if __name__ == "__main__":
     
-    session_path = Path(__root__, "tests", "sessions", "217")    
+    original_session_path = Path(__root__, "tests", "sessions", "217")    
+    session_path = Path(original_session_path.parent.parent,"sessions_copy_delete","217")
+    copy_contents(original_session_path,session_path)
+
     test_post_monocalibration(session_path)
     
     

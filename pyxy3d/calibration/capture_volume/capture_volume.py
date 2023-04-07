@@ -30,6 +30,9 @@ class CaptureVolume:
     stage: int = 0
     # rmse: float = None # replacing _rmse property --> rmse
 
+    def __post__init__():
+        logger.info("Creating capture volume from estimated camera array and stereotriangulated points...")
+        
     def _save(self, directory: Path, descriptor: str = None):
         if descriptor is None:
             pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"

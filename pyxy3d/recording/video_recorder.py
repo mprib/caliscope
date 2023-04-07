@@ -35,17 +35,19 @@ class VideoRecorder:
             writer = cv2.VideoWriter(path, fourcc, fps, frame_size)
             self.video_writers[port] = writer
 
-    def save_frame_worker(self):
+    def save_data_worker(self, include_video):
         # connect video recorder to synchronizer via an "in" queue
-        self.build_video_writers()
+        if include_video:
+            self.build_video_writers()
 
-        # I think I put this here so that it will get reset if you reuse the same recorder..
-        self.frame_history = {
-            "sync_index": [],
-            "port": [],
-            "frame_index": [],
-            "frame_time": [],
-        }
+            # I think I put this here so that it will get reset if you reuse the same recorder..
+            self.frame_history = {
+                "sync_index": [],
+                "port": [],
+                "frame_index": [],
+                "frame_time": [],
+            }
+
         self.point_data_history = {
                     "sync_index":[],
                     "port":[],
@@ -67,6 +69,10 @@ class VideoRecorder:
         while not self.trigger_stop.is_set():
             sync_packet = self.sync_packet_in_q.get()
             logger.debug("Pulling sync packet from queue")
+            if sync_packet is None:
+                logger.info("End of sync packets signaled...breaking record loop")
+                break
+
             sync_index = sync_packet.sync_index
             
             for port, frame_packet in sync_packet.frame_packets.items():
@@ -77,14 +83,15 @@ class VideoRecorder:
                     frame_index = frame_packet.frame_index
                     frame_time = frame_packet.frame_time
 
-                    # store the frame
-                    self.video_writers[port].write(frame)
+                    if include_video:
+                        # store the frame
+                        self.video_writers[port].write(frame)
 
-                    # store to assocated data in the dictionary
-                    self.frame_history["sync_index"].append(sync_index)
-                    self.frame_history["port"].append(port)
-                    self.frame_history["frame_index"].append(frame_index)
-                    self.frame_history["frame_time"].append(frame_time)
+                        # store to assocated data in the dictionary
+                        self.frame_history["sync_index"].append(sync_index)
+                        self.frame_history["port"].append(port)
+                        self.frame_history["frame_index"].append(frame_index)
+                        self.frame_history["frame_time"].append(frame_time)
                     
                     new_tidy_table = frame_packet.to_tidy_table(sync_index)
                     if new_tidy_table is not None: # i.e. it has data
@@ -96,17 +103,21 @@ class VideoRecorder:
         self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
 
         # a proper release is strictly necessary to ensure file is readable
-        logger.info("releasing video writers...")
-        for port, frame_packet in sync_packet.frame_packets.items():
-            self.video_writers[port].release()
+        if include_video:
+            logger.info("releasing video writers...")
+            for port, frame_packet in sync_packet.frame_packets.items():
+                self.video_writers[port].release()
 
-        logger.info("Initiate storing of frame history")
-        self.store_frame_history()
+            del self.video_writers
+
+            logger.info("Initiate storing of frame history")
+            self.store_frame_history()
+
+
         logger.info("Initiate storing of point history")
         self.store_point_history()
         self.trigger_stop.clear()  # reset stop recording trigger
         self.recording = False
-        del self.video_writers
                 
     def store_point_history(self):
         df = pd.DataFrame(self.point_data_history)
@@ -122,7 +133,7 @@ class VideoRecorder:
         logger.info(f"Storing frame history to {frame_hist_path}")
         df.to_csv(frame_hist_path, index=False, header=True)
 
-    def start_recording(self, destination_folder:Path):
+    def start_recording(self, destination_folder:Path, include_video=True):
 
         logger.info(f"All video data to be saved to {destination_folder}")
 
@@ -132,7 +143,7 @@ class VideoRecorder:
 
         self.recording = True
         self.recording_thread = Thread(
-            target=self.save_frame_worker, args=[], daemon=True
+            target=self.save_data_worker, args=[include_video], daemon=True
         )
         self.recording_thread.start()
 

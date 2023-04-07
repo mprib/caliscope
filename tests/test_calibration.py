@@ -3,7 +3,7 @@ import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 
-import os
+from time import sleep
 import shutil
 from pathlib import Path
 from pyxy3d.cameras.camera_array import CameraArray
@@ -60,9 +60,14 @@ def copy_contents(src_folder, dst_folder):
 
         # Copy file or directory
         if src_item.is_file():
+            logger.info("Copying over file")
             shutil.copy2(src_item, dst_item)  # Copy file preserving metadata
-        elif src_item.is_dir():
-            shutil.copytree(src_item, dst_item)
+            # while src_item.stat().st_size != dst_item.stat().st_size:
+                # logger.info(f"Waiting for {dst_item} to finish copying") 
+
+        # elif src_item.is_dir():
+            # logger.info("Copying over directory")
+            # shutil.copytree(src_item, dst_item)
 
 
 @pytest.fixture(params=TEST_SESSIONS)
@@ -124,19 +129,23 @@ def test_post_monocalibration(session_path):
  
     # create a synchronizer based off of these stream pools 
     logger.info(f"Creating RecordedStreamPool")
-    stream_pool = RecordedStreamPool(ports, session_path, charuco=charuco)
+    stream_pool = RecordedStreamPool(session_path, charuco=charuco)
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(stream_pool.streams, fps_target=3)
 
     # video recorder needed to save out points.csv.
     logger.info(f"Creating test video recorder to save out point data")
     video_recorder = VideoRecorder(syncr)
-    video_recorder.start_recording(session_path)
+    video_recorder.start_recording(session_path, include_video=False)
 
     logger.info("Initiate playing stream pool videos...")
     stream_pool.play_videos()
-    # need to wait for points.csv file to populate
 
+    # need to wait for points.csv file to populate
+    while not point_data_path.exists():
+        logger.info("Waiting for point_data.csv to populate...")
+        sleep(1)
+    
     logger.info(f"Waiting for video recorder to finish processing stream...")
     stereocalibrator = StereoCalibrator(config_path, point_data_path)
     stereocalibrator.stereo_calibrate_all(boards_sampled=10)

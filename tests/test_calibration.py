@@ -127,7 +127,7 @@ def test_post_monocalibration(session_path):
     logger.info(f"Creating RecordedStreamPool")
     stream_pool = RecordedStreamPool(session_path, charuco=charuco)
     logger.info("Creating Synchronizer")
-    syncr = Synchronizer(stream_pool.streams, fps_target=3)
+    syncr = Synchronizer(stream_pool.streams, fps_target=None)
 
     # video recorder needed to save out points.csv.
     logger.info(f"Creating test video recorder to save out point data")
@@ -171,6 +171,11 @@ if __name__ == "__main__":
     
     original_session_path = Path(__root__, "tests", "sessions", "217")    
     session_path = Path(original_session_path.parent.parent,"sessions_copy_delete","217")
+
+    # delete the previously copied contents
+    if session_path.exists() and session_path.is_dir():
+        shutil.rmtree(session_path)   
+    
     copy_contents(original_session_path,session_path)
 
     test_post_monocalibration(session_path)

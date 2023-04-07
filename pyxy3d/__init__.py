@@ -1,6 +1,7 @@
 """Top-level package for basic_template_repo."""
 import os
 from pathlib import Path
+import toml
 
 __package_name__ = "pyxy3d"
 __version__ = "v0.0.17"
@@ -28,3 +29,14 @@ print(f"Thank you for using {__package_name__}!")
 print(f"This is printing from: {__file__}")
 print(f"Source code for this package is available at: {__repo_url__}")
 print(f"Data and Log files associated with {__package_name__} are stored in {__app_dir__}")
+
+
+def load_config(session_directory:Path)->dict:
+    """
+    A broadly useful little function to get the config file
+    """
+    config_path = Path(session_directory, "config.toml")
+
+    with open(config_path, "r") as f:
+        config = toml.load(config_path)
+    return config

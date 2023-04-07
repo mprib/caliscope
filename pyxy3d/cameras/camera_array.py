@@ -133,6 +133,40 @@ class CameraArray:
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
 
+def load_camera_array(config:dict):
+    """
+    Load camera array directly from config file. The results of capture volume
+    optimization and origin transformation will be reflected in this array
+    which can then be the basis for future 3d point estimation
+    """
+    all_camera_data = {}
+    for key, params in config.items():
+        if key.startswith("cam"):
+            if params["translation"] is not None:
+                port = params["port"]
+                size = params["size"]
+
+                logger.info(f"Adding camera {port} to calibrated camera array...")
+                cam_data = CameraData(
+                    port=port,
+                    size=params["size"],
+                    rotation_count=params["rotation_count"],
+                    error=params["error"],
+                    matrix=np.array(params["matrix"]),
+                    distortions=np.array(params["distortions"]),
+                    exposure=params["exposure"],
+                    grid_count=params["grid_count"],
+                    ignore=params["ignore"],
+                    verified_resolutions=params["verified_resolutions"],
+                    translation=np.array(params["translation"]),
+                    rotation=np.array(params["rotation"]),
+                )
+
+                all_camera_data[port] = cam_data
+
+    camera_array = CameraArray(all_camera_data)
+    return camera_array
+
 if __name__ == "__main__":
     from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer  
     from pyxy3d import __root__

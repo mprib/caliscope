@@ -62,12 +62,10 @@ def copy_contents(src_folder, dst_folder):
         if src_item.is_file():
             logger.info("Copying over file")
             shutil.copy2(src_item, dst_item)  # Copy file preserving metadata
-            # while src_item.stat().st_size != dst_item.stat().st_size:
-                # logger.info(f"Waiting for {dst_item} to finish copying") 
 
-        # elif src_item.is_dir():
-            # logger.info("Copying over directory")
-            # shutil.copytree(src_item, dst_item)
+        elif src_item.is_dir():
+            logger.info("Copying over directory")
+            shutil.copytree(src_item, dst_item)
 
 
 @pytest.fixture(params=TEST_SESSIONS)
@@ -81,8 +79,8 @@ def session_path(request, tmp_path):
     tmp_test_data_path = Path(tmp_path,request.param)
     copy_contents(original_test_data_path,tmp_test_data_path)    
     
-    # return tmp_test_data_path
-    return original_test_data_path
+    return tmp_test_data_path
+    # return original_test_data_path
 
 
     
@@ -105,8 +103,6 @@ def session_path(request, tmp_path):
 #         assert(rmse>=optimized_rmse[key])
 
 def test_post_monocalibration(session_path):
-  
-    
    
     # This test begins with a set of cameras with calibrated intrinsics
     config_path = str(Path(session_path, "config.toml"))

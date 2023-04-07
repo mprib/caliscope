@@ -23,11 +23,11 @@ from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
 
 
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates, load_point_estimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from pyxy3d.calibration.capture_volume.quality_controller import QualityController
 
-from pyxy3d.cameras.camera_array import CameraArray, CameraData
+from pyxy3d.cameras.camera_array import CameraArray, CameraData, load_camera_array
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
@@ -321,13 +321,6 @@ class Session:
                 logger.info(f"Loading Monocalibrator for port {port}")
                 self.monocalibrators[port] = MonoCalibrator(self.streams[port])
 
-    # This may no longer be relevant now that things are working through a subscriber model
-    # def remove_monocalibrators(self):
-    #     for port, monocal in self.monocalibrators.copy().items():
-    #         logger.info(f"Attempting to stop Monocalibrator for port {port}")
-    #         monocal.stop()
-    #         del self.monocalibrators[port]
-    #         logger.info(f"Successfuly stopped monocalibrator at port {port}")
 
     def set_active_monocalibrator(self, active_port):
         logger.info(f"Activate tracking on port {active_port} and deactivate others")
@@ -432,39 +425,6 @@ class Session:
 
         self.update_config()
 
-    def load_camera_array(self):
-        """
-        Load camera array directly from config file. The results of capture volume
-        optimization and origin transformation will be reflected in this array
-        which can then be the basis for future 3d point estimation
-        """
-        all_camera_data = {}
-        for key, params in self.config.items():
-            if key.startswith("cam"):
-                if params["translation"] is not None:
-                    port = params["port"]
-                    size = params["size"]
-
-                    logger.info(f"Adding camera {port} to calibrated camera array...")
-                    cam_data = CameraData(
-                        port=port,
-                        size=params["size"],
-                        rotation_count=params["rotation_count"],
-                        error=params["error"],
-                        matrix=np.array(params["matrix"]),
-                        distortions=np.array(params["distortions"]),
-                        exposure=params["exposure"],
-                        grid_count=params["grid_count"],
-                        ignore=params["ignore"],
-                        verified_resolutions=params["verified_resolutions"],
-                        translation=np.array(params["translation"]),
-                        rotation=np.array(params["rotation"]),
-                    )
-
-                    all_camera_data[port] = cam_data
-
-        self.camera_array = CameraArray(all_camera_data)
-
     def save_point_estimates(self):
         logger.info("Saving point estimates to config...")
 
@@ -483,8 +443,8 @@ class Session:
         from the config data without needing to go through the steps
 
         """
-        self.load_point_estimates()
-        self.load_camera_array()
+        self.point_estimates = load_point_estimates(self.config)
+        self.camera_array = load_camera_array(self.config)
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
         # self.capture_volume.rmse = self.config["capture_volume"]["RMSE"]
         self.capture_volume.stage = self.config["capture_volume"]["stage"]
@@ -501,13 +461,6 @@ class Session:
 
 
 
-    def load_point_estimates(self):
-        point_estimates_dict = self.config["point_estimates"]
-
-        for key, value in point_estimates_dict.items():
-            point_estimates_dict[key] = np.array(value)
-
-        self.point_estimates = PointEstimates(**point_estimates_dict)
 
     def estimate_extrinsics(self):
         """

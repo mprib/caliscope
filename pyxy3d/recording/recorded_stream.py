@@ -87,11 +87,14 @@ class RecordedStream(Stream):
 
     def set_fps_target(self, fps):
         self.fps = fps
-        milestones = []
-        for i in range(0, fps):
-            milestones.append(i / fps)
-        logger.info(f"Setting fps to {self.fps}")
-        self.milestones = np.array(milestones)
+        if self.fps is None:
+            self.milestones = None
+        else:
+            milestones = []
+            for i in range(0, fps):
+                milestones.append(i / fps)
+            logger.info(f"Setting fps to {self.fps}")
+            self.milestones = np.array(milestones)
 
     def wait_to_next_frame(self):
         """
@@ -135,7 +138,8 @@ class RecordedStream(Stream):
             if spinlock_looped == True:
                 logger.info(f"Spinlock released at port {self.port}")
 
-            sleep(self.wait_to_next_frame())
+            if self.milestones is not None:
+                sleep(self.wait_to_next_frame())
 
             success, self.frame = self.capture.read()
 
@@ -260,17 +264,11 @@ if __name__ == "__main__":
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
-    # ports = []
-    # for item in recording_directory.iterdir():
-    #     if item.name.split(".")[1] == "mp4":
-    #         port = item.stem.split("_")[1]
-    #         port = int(port)
-    #         ports.append(port)
             
     cameras = get_configured_camera_data(recording_directory)
         
     recorded_stream_pool = RecordedStreamPool(recording_directory, charuco=charuco)
-    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=20)
+    syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()
 
     syncr.subscribe_to_streams()
@@ -286,12 +284,12 @@ if __name__ == "__main__":
 
         key = cv2.waitKey(1)
 
-        if key == ord("q"):
-            cv2.destroyAllWindows()
-            break
+        # if key == ord("q"):
+        #     cv2.destroyAllWindows()
+        #     break
 
-        if syncr.frames_complete:
-            cv2.destroyAllWindows()
-            break
+        # if syncr.frames_complete:
+        #     cv2.destroyAllWindows()
+        #     break
 
     cv2.destroyAllWindows()

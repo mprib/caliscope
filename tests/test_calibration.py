@@ -37,7 +37,7 @@ from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
 
 from pyxy3d.session import FILTERED_FRACTION
 
-TEST_SESSIONS = ["217"]
+TEST_SESSIONS = ["217", "221"]
 
 
 def copy_contents(src_folder, dst_folder):
@@ -56,15 +56,14 @@ def copy_contents(src_folder, dst_folder):
         src_item = src_path / item
         dst_item = dst_path / item.name
 
-        logger.info(f"Copying {src_item} to {dst_item}")
 
         # Copy file or directory
         if src_item.is_file():
-            logger.info("Copying over file")
+            logger.info(f"Copying file at {src_item} to {dst_item}")
             shutil.copy2(src_item, dst_item)  # Copy file preserving metadata
 
         elif src_item.is_dir():
-            logger.info("Copying over directory")
+            logger.info(f"Copying directory at {src_item} to {dst_item}")
             shutil.copytree(src_item, dst_item)
 
 
@@ -167,7 +166,9 @@ def test_post_monocalibration(session_path):
     capture_volume.optimize()
     optimized_filtered_rmse = capture_volume.rmse   
 
-    assert(initial_rmse>optimized_filtered_rmse)
+    for key, optimzed_rmse in optimized_filtered_rmse.items():
+        assert(initial_rmse[key] > optimzed_rmse)
+    
 
 if __name__ == "__main__":
     # from pyxy3d.session import Session

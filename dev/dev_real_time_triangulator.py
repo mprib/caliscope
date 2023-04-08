@@ -1,18 +1,27 @@
+import pyxy3d.logger
+
+logger = pyxy3d.logger.get(__name__)
+
+from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
 from pyxy3d.cameras.camera_array import CameraArray, get_camera_array
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
-from pyxy3d import get_config
 from pyxy3d.calibration.charuco import Charuco, get_charuco
+from pyxy3d.configurator import Configurator
 
 from pathlib import Path
 
-session_path = Path("dev", "sample_sessions","217")
+session_path = Path("tests", "sessions","post_optimization")
 
-config = get_config(session_path)
+config = Configurator(session_path)
 
-config_path = Path(session_path,"config.toml")
 
-charuco:Charuco = get_charuco(config_path)
-camera_array:CameraArray=get_camera_array(config)
+charuco:Charuco = config.get_charuco()
+camera_array:CameraArray=config.get_camera_array()
 
-real_time_triangulator = RealTimeTriangulator(camera_array)
+logger.info(f"Creating RecordedStreamPool")
+stream_pool = RecordedStreamPool(session_path, charuco=charuco)
+logger.info("Creating Synchronizer")
+syncr = Synchronizer(stream_pool.streams, fps_target=None)
+
+real_time_triangulator = RealTimeTriangulator(camera_array, syncr)

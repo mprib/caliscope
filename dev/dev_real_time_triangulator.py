@@ -1,6 +1,7 @@
 import pyxy3d.logger
-
 logger = pyxy3d.logger.get(__name__)
+from time import sleep
+
 
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
@@ -23,5 +24,9 @@ logger.info(f"Creating RecordedStreamPool")
 stream_pool = RecordedStreamPool(session_path, charuco=charuco)
 logger.info("Creating Synchronizer")
 syncr = Synchronizer(stream_pool.streams, fps_target=None)
+stream_pool.play_videos()
 
 real_time_triangulator = RealTimeTriangulator(camera_array, syncr)
+
+while real_time_triangulator.running:
+    sleep(1)

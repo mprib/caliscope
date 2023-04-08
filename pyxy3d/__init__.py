@@ -3,13 +3,16 @@ import os
 from pathlib import Path
 import toml
 
+
 __package_name__ = "pyxy3d"
 __version__ = "v0.0.17"
 
 __author__ = """Mac Prible"""
 __email__ = "prible@gmail.com"
 __repo_owner_github_user_name__ = "mprib"
-__repo_url__ = f"https://github.com/{__repo_owner_github_user_name__}/{__package_name__}/"
+__repo_url__ = (
+    f"https://github.com/{__repo_owner_github_user_name__}/{__package_name__}/"
+)
 __repo_issues_url__ = f"{__repo_url__}issues"
 
 
@@ -23,15 +26,15 @@ __log_dir__.mkdir(exist_ok=True, parents=True)
 # a helpful reference
 __root__ = Path(__file__).parent.parent
 
-
-
 print(f"Thank you for using {__package_name__}!")
 print(f"This is printing from: {__file__}")
 print(f"Source code for this package is available at: {__repo_url__}")
-print(f"Data and Log files associated with {__package_name__} are stored in {__app_dir__}")
+print(
+    f"Data and Log files associated with {__package_name__} are stored in {__app_dir__}"
+)
 
 
-def get_config(session_directory:Path)->dict:
+def get_config(session_directory: Path) -> dict:
     """
     A broadly useful little function to get the config file
     """

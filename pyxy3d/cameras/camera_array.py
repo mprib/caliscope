@@ -133,7 +133,7 @@ class CameraArray:
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
 
-def load_camera_array(config:dict):
+def get_camera_array(config:dict)->CameraArray:
     """
     Load camera array directly from config file. The results of capture volume
     optimization and origin transformation will be reflected in this array

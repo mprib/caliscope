@@ -27,7 +27,7 @@ from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates, lo
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from pyxy3d.calibration.capture_volume.quality_controller import QualityController
 
-from pyxy3d.cameras.camera_array import CameraArray, CameraData, load_camera_array
+from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_array
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
@@ -444,7 +444,7 @@ class Session:
 
         """
         self.point_estimates = load_point_estimates(self.config)
-        self.camera_array = load_camera_array(self.config)
+        self.camera_array = get_camera_array(self.config)
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
         # self.capture_volume.rmse = self.config["capture_volume"]["RMSE"]
         self.capture_volume.stage = self.config["capture_volume"]["stage"]

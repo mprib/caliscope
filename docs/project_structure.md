@@ -63,19 +63,19 @@ end
 
 point_data.csv --> get_stereotriangulated_table
 
-ArrayTriangulator --> get_stereotriangulated_table
+ArrayStereoTriangulator --> get_stereotriangulated_table
 
 CornerTracker --PointPacket--> RecordedStream
 
 CameraArrayInitializer --> CameraArray
 config.toml --> CameraArrayInitializer
 
-CameraArray --> ArrayTriangulator
+CameraArray --> ArrayStereoTriangulator
 
 subgraph triangulate
-    ArrayTriangulator
-    StereoPointsBuilder --- ArrayTriangulator
-    StereoTriangulator --- ArrayTriangulator
+    ArrayStereoTriangulator
+    StereoPointsBuilder --- ArrayStereoTriangulator
+    StereoPairTriangulator --- ArrayStereoTriangulator
 end
 
 CaptureVolume --> CaptureVolumeVisualizer

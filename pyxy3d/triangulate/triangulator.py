@@ -24,7 +24,7 @@ from pyxy3d.triangulate.stereo_points_builder import StereoPointsPacket, Synched
 from pyxy3d.cameras.camera_array import CameraData, CameraArray
 
 
-class ArrayTriangulator:
+class ArrayStereoTriangulator:
     
     def __init__(self, camera_array: CameraArray):
         self.camera_array = camera_array
@@ -44,7 +44,7 @@ class ArrayTriangulator:
             camera_A:CameraData = self.camera_array.cameras[port_A]
             camera_B:CameraData = self.camera_array.cameras[port_B]
 
-            self.triangulators[pair] = StereoTriangulator(camera_A, camera_B)
+            self.triangulators[pair] = StereoPairTriangulator(camera_A, camera_B)
             
     def triangulate_synched_points(self, synced_paired_points:SynchedStereoPointsPacket):
         for pair,paired_point_packet  in synced_paired_points.stereo_points_packets.items():
@@ -53,7 +53,7 @@ class ArrayTriangulator:
 
 
 
-class StereoTriangulator:
+class StereoPairTriangulator:
     def __init__(self, camera_A: CameraData, camera_B: CameraData):
 
         self.camera_A = camera_A
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     pair = (camA.port, camB.port)
 
     # test_pair_out_q = Queue(-1)
-    triangulatr = StereoTriangulator(camA, camB)
+    triangulatr = StereoPairTriangulator(camA, camB)
     frames_processed = 0
 
     while True:

@@ -14,7 +14,8 @@ from pyxy3d.calibration.charuco import Charuco, get_charuco
 from pyxy3d.configurator import Configurator
 
 from pathlib import Path
-
+from numba import jit
+import numpy as np
 import numpy as np
 import cv2
 from typing import Dict, Tuple
@@ -47,53 +48,58 @@ point_packets = {}
 for port, packet in sync_packet.frame_packets.items():
     point_packets[port] = packet.points
 # %%
-
+# carryover from anipose/FMC
+@jit(nopython=True, parallel=True)
+def triangulate_simple(points, camera_mats):
+    num_cams = len(camera_mats)
+    A = np.zeros((num_cams * 2, 4))
+    for i in range(num_cams):
+        x, y = points[i]
+        mat = camera_mats[i]
+        A[(i * 2) : (i * 2 + 1)] = x * mat[2] - mat[0]
+        A[(i * 2 + 1) : (i * 2 + 2)] = y * mat[2] - mat[1]
+    u, s, vh = np.linalg.svd(A, full_matrices=True)
+    p3d = vh[-1]
+    p3d = p3d[:3] / p3d[3]
+    return p3d
 
 ####################### Function from ChatGPT Discussion #################################
-# def triangulate_points(point_packets: Dict[int, PointPacket], camera_data: Dict[int, CameraData]) -> Dict[int, np.ndarray]:
+# def triangulate_points_modified(point_packets: Dict[int, PointPacket], camera_data: Dict[int, CameraData]) -> Dict[int, np.ndarray]:
 points_3d = {}
 processed_point_ids = set()
 
-for cam_id, point_packet in point_packets.items():
-    if cam_id not in camera_array.cameras:
-        continue
+for point_id in np.unique(np.concatenate([point_packet.point_id for point_packet in point_packets.values()])):
+    points = []
+    camera_mats = []
 
-    cam = camera_array.cameras[cam_id]
+    # MP addition to CGPT code...
+    camera_data = camera_array.cameras
 
+    for cam_id, point_packet in point_packets.items():
+        if cam_id not in camera_data:
+            continue
+        logger.info(f"Doing something to camera {cam_id} and point id {point_id}")
+        cam = camera_data[cam_id]
 
-    for idx, point_id in enumerate(point_packet.point_id):
-        if point_id in processed_point_ids:
+        if cam.translation is None or cam.rotation is None:
             continue
 
-        img_point = point_packet.img_loc[idx]
-        undistorted_point = cv2.undistortPoints(img_point, cam.matrix, cam.distortions, P=cam.matrix)
+        if point_id in point_packet.point_id:
+            idx = np.where(point_packet.point_id == point_id)[0][0]
+            img_point = point_packet.img_loc[idx]
+            # note I'm using squeeze here which I'm generally loathe to do
+            # but it is literally just an x,y coordinate
+            undistorted_point = cv2.undistortPoints(img_point, cam.matrix, cam.distortions, P=cam.matrix).squeeze()
 
-        R = cv2.Rodrigues(cam.rotation)[0]  # Convert rotation vector to rotation matrix
-        RT = np.hstack((R, cam.translation))
+            # R = cam.rotation
+            RT = cam.transformation[0:3,:]
+            P = cam.matrix @ RT
 
-        # Check for another camera observing the same point
-        for other_cam_id, other_point_packet in point_packets.items():
-            if other_cam_id == cam_id or point_id not in other_point_packet.point_id:
-                continue
+            points.append(undistorted_point)
+            camera_mats.append(P)
 
-            other_cam = camera_array.cameras[other_cam_id]
+    if len(points) >= 2:
+        p3d = triangulate_simple(np.array(points), np.array(camera_mats))
+        points_3d[point_id] = p3d
 
-            if other_cam.translation is None or other_cam.rotation is None:
-                continue
-
-            other_idx = np.where(other_point_packet.point_id == point_id)[0][0]
-            other_img_point = other_point_packet.img_loc[other_idx]
-            other_undistorted_point = cv2.undistortPoints(other_img_point, other_cam.matrix, other_cam.distortions, P=other_cam.matrix)
-
-            other_R = cv2.Rodrigues(other_cam.rotation)[0]
-            other_RT = np.hstack((other_R, other_cam.translation))
-
-            # Triangulate the point using both camera poses
-            points_homogeneous = cv2.triangulatePoints(RT, other_RT, undistorted_point, other_undistorted_point)
-            points_3d[point_id] = (points_homogeneous / points_homogeneous[3])[:3].reshape(-1)
-
-            processed_point_ids.add(point_id)
-            break
-
-points_3d
 # %%

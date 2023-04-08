@@ -31,7 +31,7 @@ print(f"Source code for this package is available at: {__repo_url__}")
 print(f"Data and Log files associated with {__package_name__} are stored in {__app_dir__}")
 
 
-def load_config(session_directory:Path)->dict:
+def get_config(session_directory:Path)->dict:
     """
     A broadly useful little function to get the config file
     """

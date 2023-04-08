@@ -153,7 +153,6 @@ if __name__ == "__main__":
     from PyQt6.QtWidgets import QApplication
 
     from pyxy3d import __root__
-    from pyxy3d.cameras.camera_array_builder_deprecate import CameraArrayBuilder
     from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
         get_point_estimates,
     )

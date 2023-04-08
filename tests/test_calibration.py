@@ -127,7 +127,7 @@ def test_post_monocalibration(session_path):
     logger.info(f"Creating RecordedStreamPool")
     stream_pool = RecordedStreamPool(session_path, charuco=charuco)
     logger.info("Creating Synchronizer")
-    syncr = Synchronizer(stream_pool.streams, fps_target=3)
+    syncr = Synchronizer(stream_pool.streams, fps_target=None)
 
     # video recorder needed to save out points.csv.
     logger.info(f"Creating test video recorder to save out point data")
@@ -165,14 +165,35 @@ def test_post_monocalibration(session_path):
     quality_controller.filter_point_estimates(FILTERED_FRACTION)
     logger.info("Re-optimizing with filtered data set")
     capture_volume.optimize()
-    optimized_filtered_rmse = capture_volume.rmse
+    optimized_filtered_rmse = capture_volume.rmse   
+
+    assert(initial_rmse>optimized_filtered_rmse)
 
 if __name__ == "__main__":
+    # from pyxy3d.session import Session
+    # from PyQt6.QtWidgets import QApplication
+    # import sys
+    # from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
+    
     
     original_session_path = Path(__root__, "tests", "sessions", "217")    
     session_path = Path(original_session_path.parent.parent,"sessions_copy_delete","217")
+
+    if session_path.exists() and session_path.is_dir():
+        shutil.rmtree(session_path)   
+    
     copy_contents(original_session_path,session_path)
 
     test_post_monocalibration(session_path)
-    
-    
+
+    # because I did not use a session object for the test, the vizualization didn't
+    # quite work out...    
+    # session = Session(session_path)
+    # session.load_estimated_capture_volume()
+
+    # app = QApplication(sys.argv)
+
+    # vizr_dialog = CaptureVolumeWidget(session)
+    # vizr_dialog.show()
+
+    # sys.exit(app.exec())

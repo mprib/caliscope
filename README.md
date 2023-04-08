@@ -1,6 +1,6 @@
 
 
-<div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "100"></div>
+<div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 <!-- ![pyxy_logo_5x5_cube_fill_final|100](pyxy3d/gui/icons/pyxy_logo.svg) -->
 
 # Introduction

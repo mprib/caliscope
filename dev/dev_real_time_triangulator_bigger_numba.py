@@ -66,20 +66,6 @@ img_y = points_xy["img_loc_y"].to_numpy()
 img = np.vstack([img_x, img_y]).T
 
 
-# @jit(nopython=True, parallel=True)
-# def triangulate_simple(points, camera_ids, projection_matrices):
-#     num_cams = len(camera_ids)
-#     A = np.zeros((num_cams * 2, 4))
-#     for i in range(num_cams):
-#         x, y = points[i]
-#         P = projection_matrices[camera_ids[i]]
-#         A[(i * 2) : (i * 2 + 1)] = x * P[2] - P[0]
-#         A[(i * 2 + 1) : (i * 2 + 2)] = y * P[2] - P[1]
-#     u, s, vh = np.linalg.svd(A, full_matrices=True)
-#     p3d = vh[-1]
-#     p3d = p3d[:3] / p3d[3]
-#     return p3d
-
 @jit(nopython=True)
 def unique_with_counts(arr):
     sorted_arr = np.sort(arr)

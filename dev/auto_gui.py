@@ -5,7 +5,7 @@ from time import sleep
 from pyxy3d import __root__
 from pathlib import Path
 
-config_path = Path(__root__, "tests", "217")
+config_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
     
     
 app = QApplication(sys.argv)

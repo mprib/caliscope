@@ -36,8 +36,9 @@ from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
 
 from pyxy3d.session import FILTERED_FRACTION
+from pyxy3d.configurator import Configurator
 
-TEST_SESSIONS = ["217", "221"]
+TEST_SESSIONS = ["post_monocal"]
 
 
 def copy_contents(src_folder, dst_folder):
@@ -104,23 +105,12 @@ def session_path(request, tmp_path):
 def test_post_monocalibration(session_path):
    
     # This test begins with a set of cameras with calibrated intrinsics
-    config_path = str(Path(session_path, "config.toml"))
-    logger.info(f"Getting charuco from config at {config_path}")
-    charuco = get_charuco(config_path)
+    config = Configurator(session_path)
+    # config_path = str(Path(session_path, "config.toml"))
+    logger.info(f"Getting charuco from config at {config.toml_path}")
+    charuco = config.get_charuco()
     
-    # need to create point_data    
-    # this is where it will be stored by VideoRecorder
     point_data_path = Path(session_path, "point_data.csv")
-
-    # play back pre-recorded videos
-    # get the ports of the videos to create the streampool
-    ports = []
-    for item in session_path.iterdir():
-        if item.name.split(".")[1] == "mp4":
-            port = item.stem.split("_")[1]
-            port = int(port)
-            ports.append(port)
-    logger.info(f"Identifying ports to process: {ports}")
  
     # create a synchronizer based off of these stream pools 
     logger.info(f"Creating RecordedStreamPool")
@@ -142,11 +132,11 @@ def test_post_monocalibration(session_path):
         sleep(1)
     
     logger.info(f"Waiting for video recorder to finish processing stream...")
-    stereocalibrator = StereoCalibrator(config_path, point_data_path)
+    stereocalibrator = StereoCalibrator(config.toml_path, point_data_path)
     stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
     camera_array: CameraArray = CameraArrayInitializer(
-        config_path
+        config.toml_path
     ).get_best_camera_array()
 
     point_estimates: PointEstimates = get_point_estimates(
@@ -166,6 +156,10 @@ def test_post_monocalibration(session_path):
     capture_volume.optimize()
     optimized_filtered_rmse = capture_volume.rmse   
 
+    # save out results of optimization for later assessment with F5 test walkthroughs
+    config.save_camera_array(capture_volume.camera_array)
+    config.save_point_estimates(capture_volume.point_estimates)
+
     for key, optimzed_rmse in optimized_filtered_rmse.items():
         assert(initial_rmse[key] > optimzed_rmse)
     
@@ -177,9 +171,10 @@ if __name__ == "__main__":
     # from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
     
     
-    original_session_path = Path(__root__, "tests", "sessions", "217")    
-    session_path = Path(original_session_path.parent.parent,"sessions_copy_delete","217")
+    original_session_path = Path(__root__, "tests", "sessions", "post_monocal")    
+    session_path = Path(original_session_path.parent.parent,"sessions_copy_delete","post_monocal_post_optimization")
 
+    # clear previous test so as not to pollute current test results
     if session_path.exists() and session_path.is_dir():
         shutil.rmtree(session_path)   
     

@@ -56,14 +56,14 @@ camera_array: CameraArray = config.get_camera_array()
 # save out point packets to csv for storage and refresh later
 
 # Load point data
-points = pd.read_csv(Path(session_path, "point_data.csv"))
+points_xy = pd.read_csv(Path(session_path, "point_data.csv"))
 # %%
 
-camera_indices = points["port"].to_numpy()
-sync_indices = points["sync_index"]
-point_indices = points["point_id"]
-img_x = points["img_loc_x"]
-img_y = points["img_loc_y"]
+camera_indices = points_xy["port"].to_numpy()
+sync_indices = points_xy["sync_index"].to_numpy()
+point_indices = points_xy["point_id"].to_numpy()
+img_x = points_xy["img_loc_x"].to_numpy()
+img_y = points_xy["img_loc_y"].to_numpy()
 img = np.vstack([img_x, img_y]).T
 
 
@@ -81,12 +81,25 @@ def triangulate_simple(points, camera_ids, projection_matrices):
     p3d = p3d[:3] / p3d[3]
     return p3d
 
+@jit(nopython=True)
+def unique_with_counts(arr):
+    sorted_arr = np.sort(arr)
+    unique_values = [sorted_arr[0]]
+    counts = [1]
 
+    for i in range(1, len(sorted_arr)):
+        if sorted_arr[i] != sorted_arr[i - 1]:
+            unique_values.append(sorted_arr[i])
+            counts.append(1)
+        else:
+            counts[-1] += 1
+
+    return np.array(unique_values), np.array(counts)
 ####################### Function from ChatGPT Discussion #################################
 # def triangulate_points_modified(point_packets: Dict[int, PointPacket], camera_data: Dict[int, CameraData]) -> Dict[int, np.ndarray]:
 
 
-@jit(nopython=True, parallel=True)
+@jit(nopython=True, parallel=True, cache=True)
 def triangulate_sync_index(
     projection_matrices, current_camera_indices, current_point_id, current_img
 ):
@@ -94,7 +107,7 @@ def triangulate_sync_index(
     point_indices_xyz = List()
     obj_xyz = List()
 
-    unique_points, point_counts = np.unique(current_point_id, return_counts=True)
+    unique_points, point_counts = unique_with_counts(current_point_id)
     for index in range(len(point_counts)):
         if point_counts[index] > 1:
             # triangulate that points...
@@ -107,7 +120,7 @@ def triangulate_sync_index(
             num_cams = len(camera_ids)
             A = np.zeros((num_cams * 2, 4))
             for i in range(num_cams):
-                x, y = points[i]
+                x, y = points_xy[i]
                 P = projection_matrices[camera_ids[i]]
                 A[(i * 2) : (i * 2 + 1)] = x * P[2] - P[0]
                 A[(i * 2 + 1) : (i * 2 + 2)] = y * P[2] - P[1]

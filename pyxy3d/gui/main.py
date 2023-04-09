@@ -30,7 +30,7 @@ from pyxy3d.gui.stereoframe.stereo_frame_widget import (
     StereoFrameWidget,
     MIN_THRESHOLD_FOR_EARLY_CALIBRATE,
 )
-from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
+from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 
 
 class CalibrationWizard(QStackedWidget):

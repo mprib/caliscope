@@ -14,8 +14,7 @@ import pyqtgraph.opengl as gl
 
 from random import random
 
-from pyxy3d.cameras.camera_array import CameraData
-from pyxy3d.gui.vizualize.camera_mesh import CameraMesh
+from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 
@@ -57,7 +56,7 @@ class CaptureVolumeVisualizer:
         for port, cam in self.camera_array.cameras.items():
             print(port)
             print(cam)
-            mesh = mesh_from_camera(cam)
+            mesh:CameraMesh = mesh_from_camera(cam)
             self.meshes[port] = mesh
             self.scene.addItem(mesh)
 
@@ -100,57 +99,6 @@ class CaptureVolumeVisualizer:
         self.scatter.setData(pos=self.single_board_points)
 
 
-# helper functions to assist with scene creation
-def mesh_from_camera(camera_data: CameraData):
-    """ "
-    Mesh is placed at origin by default. Note that it appears rotations
-    are in the mesh frame of reference and translations are in
-    the scene frame of reference. I could be wrong, but that appears
-    to be the case.
-
-    """
-    mesh = CameraMesh(camera_data.size, camera_data.matrix).mesh
-
-    R = camera_data.rotation
-    t = camera_data.translation
-    camera_orientation_world = R.T
-
-    # rotate mesh
-    euler_angles = rotationMatrixToEulerAngles(camera_orientation_world)
-    euler_angles_deg = [x * (180 / math.pi) for x in euler_angles]
-    x = euler_angles_deg[0]
-    y = euler_angles_deg[1]
-    z = euler_angles_deg[2]
-
-    # rotate mesh; z,y,x is apparently the order in which it's done
-    # https://gamedev.stackexchange.com/questions/16719/what-is-the-correct-order-to-multiply-scale-rotation-and-translation-matrices-f
-    mesh.rotate(z, 0, 0, 1, local=True)
-    mesh.rotate(y, 0, 1, 0, local=True)
-    mesh.rotate(x, 1, 0, 0, local=True)
-
-    camera_origin_world = -np.dot(R.T, t)
-    x, y, z = [p for p in camera_origin_world]
-    mesh.translate(x, y, z)
-
-    return mesh
-
-
-def rotationMatrixToEulerAngles(R):
-
-    sy = math.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
-
-    singular = sy < 1e-6
-
-    if not singular:
-        x = math.atan2(R[2, 1], R[2, 2])
-        y = math.atan2(-R[2, 0], sy)
-        z = math.atan2(R[1, 0], R[0, 0])
-    else:
-        x = math.atan2(-R[1, 2], R[1, 1])
-        y = math.atan2(-R[2, 0], sy)
-        z = 0
-
-    return np.array([x, y, z])
 
 
 # %%

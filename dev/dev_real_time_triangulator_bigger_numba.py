@@ -57,7 +57,6 @@ camera_array: CameraArray = config.get_camera_array()
 
 # Load point data
 points_xy = pd.read_csv(Path(session_path, "point_data.csv"))
-# %%
 
 camera_indices = points_xy["port"].to_numpy()
 sync_indices = points_xy["sync_index"].to_numpy()
@@ -67,7 +66,7 @@ img_y = points_xy["img_loc_y"].to_numpy()
 img = np.vstack([img_x, img_y]).T
 
 
-@jit(nopython=True, parallel=True)
+# @jit(nopython=True, parallel=True)
 def triangulate_simple(points, camera_ids, projection_matrices):
     num_cams = len(camera_ids)
     A = np.zeros((num_cams * 2, 4))
@@ -81,7 +80,7 @@ def triangulate_simple(points, camera_ids, projection_matrices):
     p3d = p3d[:3] / p3d[3]
     return p3d
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def unique_with_counts(arr):
     sorted_arr = np.sort(arr)
     unique_values = [sorted_arr[0]]
@@ -99,11 +98,11 @@ def unique_with_counts(arr):
 # def triangulate_points_modified(point_packets: Dict[int, PointPacket], camera_data: Dict[int, CameraData]) -> Dict[int, np.ndarray]:
 
 
-@jit(nopython=True, parallel=True, cache=True)
+# @jit(nopython=True, parallel=True, cache=True)
 def triangulate_sync_index(
     projection_matrices, current_camera_indices, current_point_id, current_img
 ):
-    sync_indices_xyz = List()
+    # sync_indices_xyz = List()
     point_indices_xyz = List()
     obj_xyz = List()
 
@@ -115,7 +114,7 @@ def triangulate_sync_index(
             points_xy = current_img[current_point_id == point]
             camera_ids = current_camera_indices[current_point_id == point]
             # logger.info(f"Calculating xyz for point {point} at sync index {sync_id}")
-            point_xyz = triangulate_simple(points_xy, camera_ids, projection_matrices)
+            # point_xyz = triangulate_simple(points_xy, camera_ids, projection_matrices)
 
             num_cams = len(camera_ids)
             A = np.zeros((num_cams * 2, 4))
@@ -125,14 +124,14 @@ def triangulate_sync_index(
                 A[(i * 2) : (i * 2 + 1)] = x * P[2] - P[0]
                 A[(i * 2 + 1) : (i * 2 + 2)] = y * P[2] - P[1]
             u, s, vh = np.linalg.svd(A, full_matrices=True)
-            point_xyz = vh[-1]
-            point_xyz = point_xyz[:3] / point_xyz[3]
+            point_xyzw = vh[-1]
+            point_xyz = point_xyzw[:3] / point_xyzw[3]
 
-            sync_indices_xyz.append(sync_id)
+            # sync_indices_xyz.append(sync_id)
             point_indices_xyz.append(point)
             obj_xyz.append(point_xyz)
 
-    return sync_indices_xyz, point_indices_xyz, obj_xyz
+    return point_indices_xyz, obj_xyz
 
 
 # initialize numba specific datastructures that will be used to access data within function
@@ -156,10 +155,14 @@ for sync_id in np.unique(sync_indices):
     # only attempt to process points with multiple views
     # iterated across the current points to find those with multiple views
 
-    sync_indices_xyz, point_indices_xyz, obj_xyz = triangulate_sync_index(
+    point_indices_xyz, obj_xyz = triangulate_sync_index(
         projection_matrices, current_camera_indices, current_point_id, current_img
     )
     stop_sync_index = time()
+    current_sync_indices = List([sync_id]*len(point_indices_xyz))
+    all_sync_indices_xyz.extend(current_sync_indices)
+    all_point_indices_xyz.extend(point_indices_xyz)
+    all_obj_xyz.extend(obj_xyz)
 
     # logger.info(f"Finished processing sync id {sync_id} at {stop_sync_index}")
     elapsed_time = start_sync_index - stop_sync_index

@@ -14,10 +14,10 @@ import pandas as pd
 from time import perf_counter
 
 
-from pyxy3d import load_config
+from pyxy3d import get_config
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates,load_point_estimates
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.cameras.camera_array import CameraArray, load_camera_array
+from pyxy3d.cameras.camera_array import CameraArray, get_camera_array
 from pyxy3d.calibration.capture_volume.set_origin_functions import (
     get_board_origin_transform,
 )
@@ -248,9 +248,9 @@ def rms_reproj_error(xy_reproj_error, camera_indices):
     return rmse
 
 def load_capture_volume(session_path:Path):
-    config = load_config(session_directory)
+    config = get_config(session_directory)
 
-    camera_array = load_camera_array(config)
+    camera_array = get_camera_array(config)
     point_estimates = load_point_estimates(config)
     
     capture_volume = CaptureVolume(camera_array, point_estimates)    

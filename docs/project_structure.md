@@ -55,6 +55,11 @@ config.toml --CameraSettings--> StereoCalibrator
 StereoCalibrator -.StereoPairs.-> config.toml
 
 
+CameraArray --> RealTimeTriangulator
+Synchronizer -.SyncPacket.-> RealTimeTriangulator
+RealTimeTriangulator -.3dPacket.-> TrackedPointVizualizer
+CameraMesh --> TrackedPointVizualizer
+
 
 subgraph calibration_data
     point_data.csv
@@ -63,22 +68,23 @@ end
 
 point_data.csv --> get_stereotriangulated_table
 
-ArrayTriangulator --> get_stereotriangulated_table
+ArrayStereoTriangulator --> get_stereotriangulated_table
 
 CornerTracker --PointPacket--> RecordedStream
 
 CameraArrayInitializer --> CameraArray
 config.toml --> CameraArrayInitializer
 
-CameraArray --> ArrayTriangulator
+CameraArray --> ArrayStereoTriangulator
+
 
 subgraph triangulate
-    ArrayTriangulator
-    StereoPointsBuilder --- ArrayTriangulator
-    StereoTriangulator --- ArrayTriangulator
+    ArrayStereoTriangulator
+    StereoPointsBuilder --- ArrayStereoTriangulator
+    StereoPairTriangulator --- ArrayStereoTriangulator
 end
 
-CaptureVolume --> CaptureVolumeVisualizer
+CaptureVolume -.via Session.-> CaptureVolumeVisualizer
 
 get_point_estimates  --> PointEstimates
 

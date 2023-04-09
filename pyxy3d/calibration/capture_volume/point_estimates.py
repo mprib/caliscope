@@ -13,7 +13,7 @@ from scipy.sparse import lil_matrix
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
-from pyxy3d.cameras.camera_array import CameraArray, load_camera_array
+from pyxy3d.cameras.camera_array import CameraArray, get_camera_array
 from pyxy3d.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
 
 CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrinsic

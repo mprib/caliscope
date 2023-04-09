@@ -4,6 +4,10 @@ import numpy as np
 
 @dataclass
 class PointPacket:
+    """
+    This will be the primary return value of the Tracker Protocol
+    A calleable that receives an image frame and returns a point_packet
+    """
     point_id: np.ndarray = None
     img_loc: np.ndarray = None
     board_loc: np.ndarray = None
@@ -52,3 +56,24 @@ class SyncPacket:
 
     sync_index: int
     frame_packets: dict
+
+
+    @property
+    def triangulation_inputs(self):
+        """
+        returns three key items used by the triangulation functions 
+            cameras: a list of the camera ids associated with each reported 2d point
+            point_ids: the point id associated with each 2d ponit
+            img_xy: the 2d image points themselves
+        
+        """
+        cameras = []
+        point_ids = []
+        img_xy = []
+
+        for port, packet in self.frame_packets.items():
+            cameras.extend([port]*len(packet.points.point_id))
+            point_ids.extend(packet.points.point_id.tolist())            
+            img_xy.extend(packet.points.img_loc.tolist())
+        
+        return cameras, point_ids,img_xy

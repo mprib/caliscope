@@ -14,7 +14,7 @@ import time
 from pyxy3d import __root__
 from pyxy3d.cameras.data_packets import PointPacket, FramePacket, SyncPacket
 from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.triangulate.triangulator import ArrayTriangulator
+from pyxy3d.triangulate.array_stereo_triangulator import ArrayStereoTriangulator
 
 from pyxy3d.triangulate.stereo_points_builder import (
     StereoPointsBuilder,
@@ -40,7 +40,7 @@ def get_stereotriangulated_table(camera_array:CameraArray, point_data_path:Path)
     paired_point_builder = StereoPointsBuilder(ports)
 
     # Create the infrastructure for the pairwise triangulation
-    array_triangulator = ArrayTriangulator(camera_array)
+    array_triangulator = ArrayStereoTriangulator(camera_array)
     stereotriangulated_table = None
 
     logger.info(f"Begin reconstructing SyncPackets and SynchedStereoPairs... ")

@@ -47,8 +47,11 @@ class CameraData:
         self.rotation = t[0:3,0:3]
         self.translation = t[0:3,3]
         logger.info(f"Rotation and Translation being updated to {self.rotation} and {self.translation}")
+    
+    @property  
+    def projection_matrix(self):
+        return self.matrix @ self.transformation[0:3,:]
          
-     
     def extrinsics_to_vector(self):
         """
         Converts camera parameters to a numpy vector for use with bundle adjustment.
@@ -133,7 +136,7 @@ class CameraArray:
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
 
-def load_camera_array(config:dict):
+def get_camera_array(config:dict)->CameraArray:
     """
     Load camera array directly from config file. The results of capture volume
     optimization and origin transformation will be reflected in this array

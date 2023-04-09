@@ -9,6 +9,7 @@ import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 import math
 
+from pyxy3d.cameras.camera_array import CameraData
 import numpy as np
 
 class CameraMesh:
@@ -79,22 +80,22 @@ class CameraMesh:
 
 
 
-def rotationMatrixToEulerAngles(R) :
+# def rotationMatrixToEulerAngles(R) :
  
-    sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+#     sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
  
-    singular = sy < 1e-6
+#     singular = sy < 1e-6
  
-    if  not singular :
-        x = math.atan2(R[2,1] , R[2,2])
-        y = math.atan2(-R[2,0], sy)
-        z = math.atan2(R[1,0], R[0,0])
-    else :
-        x = math.atan2(-R[1,2], R[1,1])
-        y = math.atan2(-R[2,0], sy)
-        z = 0
+#     if  not singular :
+#         x = math.atan2(R[2,1] , R[2,2])
+#         y = math.atan2(-R[2,0], sy)
+#         z = math.atan2(R[1,0], R[0,0])
+#     else :
+#         x = math.atan2(-R[1,2], R[1,1])
+#         y = math.atan2(-R[2,0], sy)
+#         z = 0
  
-    return np.array([x, y, z])
+#     return np.array([x, y, z])
 
 def rotation_to_float(rotation_matrix):
     new_matrix = []
@@ -105,6 +106,57 @@ def rotation_to_float(rotation_matrix):
     return np.array(new_matrix, dtype=np.float32)
 
 
+# helper functions to assist with scene creation
+def mesh_from_camera(camera_data: CameraData):
+    """ "
+    Mesh is placed at origin by default. Note that it appears rotations
+    are in the mesh frame of reference and translations are in
+    the scene frame of reference. I could be wrong, but that appears
+    to be the case.
+
+    """
+    mesh = CameraMesh(camera_data.size, camera_data.matrix).mesh
+
+    R = camera_data.rotation
+    t = camera_data.translation
+    camera_orientation_world = R.T
+
+    # rotate mesh
+    euler_angles = rotationMatrixToEulerAngles(camera_orientation_world)
+    euler_angles_deg = [x * (180 / math.pi) for x in euler_angles]
+    x = euler_angles_deg[0]
+    y = euler_angles_deg[1]
+    z = euler_angles_deg[2]
+
+    # rotate mesh; z,y,x is apparently the order in which it's done
+    # https://gamedev.stackexchange.com/questions/16719/what-is-the-correct-order-to-multiply-scale-rotation-and-translation-matrices-f
+    mesh.rotate(z, 0, 0, 1, local=True)
+    mesh.rotate(y, 0, 1, 0, local=True)
+    mesh.rotate(x, 1, 0, 0, local=True)
+
+    camera_origin_world = -np.dot(R.T, t)
+    x, y, z = [p for p in camera_origin_world]
+    mesh.translate(x, y, z)
+
+    return mesh
+
+
+def rotationMatrixToEulerAngles(R):
+
+    sy = math.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
+
+    singular = sy < 1e-6
+
+    if not singular:
+        x = math.atan2(R[2, 1], R[2, 2])
+        y = math.atan2(-R[2, 0], sy)
+        z = math.atan2(R[1, 0], R[0, 0])
+    else:
+        x = math.atan2(-R[1, 2], R[1, 1])
+        y = math.atan2(-R[2, 0], sy)
+        z = 0
+
+    return np.array([x, y, z])
 
 if __name__ == '__main__':
     import toml

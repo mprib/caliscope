@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import (
 )
 
 from pyxy3d.session import Session
-from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
+from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
 from pyxy3d.gui.widgets import NavigationBarBackFinish
 
 
@@ -161,20 +161,10 @@ if __name__ == "__main__":
     import pickle
 
     test_sessions = [
-        Path(__root__, "tests", "217"),
-        Path(__root__, "tests", "2_cameras_linear"),
-        Path(__root__, "tests", "2_cameras_90_deg"),
-        Path(__root__, "tests", "2_cameras_180_deg"),
-        Path(__root__, "tests", "3_cameras_triangular"),
-        Path(__root__, "tests", "3_cameras_middle"),
-        Path(__root__, "tests", "4_cameras_beginning"),
-        Path(__root__, "tests", "4_cameras_endofday"),
-        Path(__root__, "tests", "4_cameras_nonoverlap"),
-        Path(__root__, "tests", "4_cameras_nonoverlap"),
-        Path(__root__, "tests", "3_cameras_midlinear"),
+        Path(__root__, "dev", "sample_sessions", "post_optimization"),
     ]
 
-    test_session_index = 1
+    test_session_index = 0
     session_path = test_sessions[test_session_index]
     logger.info(f"Loading session {session_path}")
     session = Session(session_path)

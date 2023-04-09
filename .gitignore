@@ -14,5 +14,6 @@ dist/*
 *.epgz
 *.pdf
 tests/sessions*
+dev/sample_sessions*
 *.nbi
 *.nbc

@@ -86,7 +86,8 @@ def unique_with_counts(arr):
 
     return np.array(unique_values), np.array(counts)
 
-
+# NOTE: jit does not appear to improve processing time even after first compilation.
+# Test difference in the future with more points...
 # @jit(nopython=True, parallel=True, cache=True)
 def triangulate_sync_index(
     projection_matrices, current_camera_indices, current_point_id, current_img
@@ -98,12 +99,10 @@ def triangulate_sync_index(
     unique_points, point_counts = unique_with_counts(current_point_id)
     for index in range(len(point_counts)):
         if point_counts[index] > 1:
-            # triangulate that points...
+            # triangulate that point...
             point = unique_points[index]
             points_xy = current_img[current_point_id == point]
             camera_ids = current_camera_indices[current_point_id == point]
-            # logger.info(f"Calculating xyz for point {point} at sync index {sync_id}")
-            # point_xyz = triangulate_simple(points_xy, camera_ids, projection_matrices)
 
             num_cams = len(camera_ids)
             A = np.zeros((num_cams * 2, 4))
@@ -116,7 +115,6 @@ def triangulate_sync_index(
             point_xyzw = vh[-1]
             point_xyz = point_xyzw[:3] / point_xyzw[3]
 
-            # sync_indices_xyz.append(sync_id)
             point_indices_xyz.append(point)
             obj_xyz.append(point_xyz)
 

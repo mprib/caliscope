@@ -33,8 +33,8 @@ class RealTimeTriangulator:
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
         
         # assemble numba compatible dictionary
-        # self.projection_matrices = Dict() 
-        self.projection_matrices = {}
+        self.projection_matrices = Dict() 
+        # self.projection_matrices = {}
         for port, cam in self.camera_array.cameras.items():
             self.projection_matrices[port] = cam.projection_matrix
 

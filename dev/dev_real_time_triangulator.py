@@ -40,12 +40,12 @@ logger.info(f"Creating RecordedStreamPool")
 stream_pool = RecordedStreamPool(session_path, charuco=charuco)
 logger.info("Creating Synchronizer")
 syncr = Synchronizer(stream_pool.streams, fps_target=None)
-stream_pool.play_videos()
 
 
 #### Basic code for interfacing with in-progress RealTimeTriangulator
 #### Just run off of saved point_data.csv for development/testing
 real_time_triangulator = RealTimeTriangulator(camera_array, syncr)
+stream_pool.play_videos()
 while real_time_triangulator.running:
     sleep(1)
 

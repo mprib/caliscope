@@ -32,7 +32,7 @@ from pyxy3d import __root__
 session_path = Path(__root__,"dev", "sample_sessions", "post_optimization")
 
 config = Configurator(session_path)
-origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
+# origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
 
 charuco: Charuco = config.get_charuco()
 camera_array: CameraArray = config.get_camera_array()
@@ -49,5 +49,25 @@ real_time_triangulator = RealTimeTriangulator(camera_array, syncr, output_direct
 stream_pool.play_videos()
 while real_time_triangulator.running:
     sleep(1)
-
+    
 #%%
+# need to compare the output of the triangulator to the point_estimats
+# this is nice because it's two totally different processing pipelines
+# but sync indices will be different, so just compare mean positions
+# which should be quite close
+
+xyz_history = pd.read_csv(Path(session_path,"xyz_history.csv"))
+xyz_config = np.array(config.dict["point_estimates"]["obj"])
+triangulator_x_mean = xyz_history["x_coord"].mean()
+triangulator_y_mean = xyz_history["y_coord"].mean()
+triangulator_z_mean = xyz_history["z_coord"].mean()
+
+config_x_mean = xyz_config[:,0].mean()
+config_y_mean = xyz_config[:,1].mean()
+config_z_mean = xyz_config[:,2].mean()
+
+logger.info(f"x: {round(triangulator_x_mean,4)} vs {round(config_x_mean,4)} ")
+logger.info(f"y: {round(triangulator_y_mean,4)} vs {round(config_y_mean,4)} ")
+logger.info(f"z: {round(triangulator_z_mean,4)} vs {round(config_z_mean,4)} ")
+# at this point, the data should be saved out...
+# %%

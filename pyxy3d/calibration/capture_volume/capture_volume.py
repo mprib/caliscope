@@ -30,7 +30,7 @@ class CaptureVolume:
     camera_array: CameraArray
     point_estimates: PointEstimates
     stage: int = 0
-    # rmse: float = None # replacing _rmse property --> rmse
+    origin_sync_index: int = None
 
     def __post__init__():
         logger.info("Creating capture volume from estimated camera array and stereotriangulated points...")
@@ -154,6 +154,9 @@ class CaptureVolume:
         Find the pose of the charuco (rvec and tvec) from a given frame
         Transform stereopairs and 3d point estimates for this new origin
         """
+        self.origin_sync_index = sync_index
+
+        logger.info(f"Capture volume origin set to board position at sync index {sync_index}")
 
         origin_transform = get_board_origin_transform(
             self.camera_array, self.point_estimates, sync_index, charuco
@@ -255,6 +258,8 @@ def load_capture_volume(session_path:Path):
     
     capture_volume = CaptureVolume(camera_array, point_estimates)    
     capture_volume.stage = config["capture_volume"]["stage"]
+    # capture_volume.origin_sync_index = config["capture_volume"]["origin_sync_index"]
+
     return capture_volume
     
 

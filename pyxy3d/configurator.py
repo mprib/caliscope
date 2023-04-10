@@ -26,26 +26,38 @@ class Configurator:
         if exists(self.toml_path):
             logger.info("Found previous config")
             with open(self.toml_path, "r") as f:
-                self.config = toml.load(self.toml_path)
+                self.dict = toml.load(self.toml_path)
         else:
             logger.info(
                 "No existing config.toml found; creating starter file with charuco"
             )
 
-            self.config = toml.loads("")
-            self.config["CreationDate"] = datetime.now()
+            self.dict = toml.loads("")
+            self.dict["CreationDate"] = datetime.now()
             with open(self.toml_path, "a") as f:
-                toml.dump(self.config, f)
+                toml.dump(self.dict, f)
 
 
-    def update_config(self):
+    def update_toml(self):
         # alphabetize by key to maintain standardized layout
-        sorted_config = {key: value for key, value in sorted(self.config.items())}
-        self.config = sorted_config
+        sorted_dict = {key: value for key, value in sorted(self.dict.items())}
+        self.dict = sorted_dict
 
         with open(self.toml_path, "w") as f:
-            toml.dump(self.config, f)
+            toml.dump(self.dict, f)
+
+    def get_capture_volume(self)->CaptureVolume:
+        camera_array = self.get_camera_array()
+        point_estimates = self.get_point_estimates()
         
+        capture_volume = CaptureVolume(camera_array,point_estimates)
+        return capture_volume
+    
+    def save_capture_volume(self, capture_volume:CaptureVolume)->None:
+        self.save_camera_array(capture_volume.camera_array)
+        self.save_point_estimates(capture_volume.point_estimates)
+        
+     
     def get_camera_array(self)->CameraArray:
         """
         Load camera array directly from config file. The results of capture volume
@@ -53,7 +65,7 @@ class Configurator:
         which can then be the basis for future 3d point estimation
         """
         all_camera_data = {}
-        for key, params in self.config.items():
+        for key, params in self.dict.items():
             if key.startswith("cam"):
                 if params["translation"] is not None:
                     port = params["port"]
@@ -82,7 +94,7 @@ class Configurator:
     
     
     def get_point_estimates(self)->PointEstimates:
-        point_estimates_dict = self.config["point_estimates"]
+        point_estimates_dict = self.dict["point_estimates"]
 
         for key, value in point_estimates_dict.items():
             point_estimates_dict[key] = np.array(value)
@@ -94,7 +106,7 @@ class Configurator:
         """
         Helper function to load a pre-configured charuco from a config.toml
         """
-        params = self.config["charuco"]
+        params = self.dict["charuco"]
 
         charuco = Charuco(
             columns=params["columns"],
@@ -112,9 +124,9 @@ class Configurator:
 
     
     def save_charuco(self, charuco:Charuco):
-        self.config["charuco"] = charuco.__dict__
+        self.dict["charuco"] = charuco.__dict__
         logger.info(f"Saving charuco with params {charuco.__dict__} to config")
-        self.update_config()
+        self.update_toml()
 
     def save_camera(self, camera):
         def none_or_list(value):
@@ -139,8 +151,8 @@ class Configurator:
             "verified_resolutions": camera.verified_resolutions,
         }
 
-        self.config["cam_" + str(camera.port)] = params
-        self.update_config()
+        self.dict["cam_" + str(camera.port)] = params
+        self.update_toml()
 
     def save_camera_array(self, camera_array:CameraArray):
         logger.info("Saving camera array....")
@@ -161,9 +173,9 @@ class Configurator:
                 "rotation": camera_data.rotation.tolist(),
             }
 
-            self.config["cam_" + str(camera_data.port)] = params
+            self.dict["cam_" + str(camera_data.port)] = params
 
-        self.update_config()
+        self.update_toml()
 
     def save_point_estimates(self, point_estimates:PointEstimates):
         logger.info("Saving point estimates to config...")
@@ -172,6 +184,6 @@ class Configurator:
         for key, params in temp_data.items():
             temp_data[key] = params.tolist()
 
-        self.config["point_estimates"] = temp_data
+        self.dict["point_estimates"] = temp_data
 
-        self.update_config()
+        self.update_toml()

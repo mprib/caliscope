@@ -82,26 +82,6 @@ def session_path(request, tmp_path):
     return tmp_test_data_path
     # return original_test_data_path
 
-
-    
-# def test_capture_volume_optimization(session_path):
-#     """
-#     requires as a baseline a stereocalibrated config.toml file
-#     """    
-#     config_path = Path(session_path, "config.toml")
-#     initializer = CameraArrayInitializer(config_path)
-#     camera_array = initializer.get_best_camera_array()
-#     point_data_path = Path(session_path, "point_data.csv")
-#     point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
-#     capture_volume = CaptureVolume(camera_array, point_estimates)
-#     initial_rmse = capture_volume.rmse
-#     capture_volume.optimize()
-#     optimized_rmse = capture_volume.rmse
-
-#     # rmse should go down after optimization
-#     for key, rmse in initial_rmse.items():
-#         assert(rmse>=optimized_rmse[key])
-
 def test_post_monocalibration(session_path):
    
     # This test begins with a set of cameras with calibrated intrinsics
@@ -181,15 +161,3 @@ if __name__ == "__main__":
     copy_contents(original_session_path,session_path)
 
     test_post_monocalibration(session_path)
-
-    # because I did not use a session object for the test, the vizualization didn't
-    # quite work out...    
-    # session = Session(session_path)
-    # session.load_estimated_capture_volume()
-
-    # app = QApplication(sys.argv)
-
-    # vizr_dialog = CaptureVolumeWidget(session)
-    # vizr_dialog.show()
-
-    # sys.exit(app.exec())

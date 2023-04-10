@@ -38,9 +38,9 @@ charuco: Charuco = config.get_charuco()
 camera_array: CameraArray = config.get_camera_array()
 
 logger.info(f"Creating RecordedStreamPool")
-stream_pool = RecordedStreamPool(session_path, charuco=charuco)
+stream_pool = RecordedStreamPool(session_path, charuco=charuco, fps_target=100)
 logger.info("Creating Synchronizer")
-syncr = Synchronizer(stream_pool.streams, fps_target=None)
+syncr = Synchronizer(stream_pool.streams, fps_target=100)
 
 
 #### Basic code for interfacing with in-progress RealTimeTriangulator

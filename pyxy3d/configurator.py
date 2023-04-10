@@ -45,7 +45,19 @@ class Configurator:
 
         with open(self.toml_path, "w") as f:
             toml.dump(self.dict, f)
+
+    def get_capture_volume(self)->CaptureVolume:
+        camera_array = self.get_camera_array()
+        point_estimates = self.get_point_estimates()
         
+        capture_volume = CaptureVolume(camera_array,point_estimates)
+        return capture_volume
+    
+    def save_capture_volume(self, capture_volume:CaptureVolume)->None:
+        self.save_camera_array(capture_volume.camera_array)
+        self.save_point_estimates(capture_volume.point_estimates)
+        
+     
     def get_camera_array(self)->CameraArray:
         """
         Load camera array directly from config file. The results of capture volume

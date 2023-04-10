@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import numpy as np
-
+from numba.typed import List
 
 @dataclass
 class PointPacket:
@@ -77,3 +77,12 @@ class SyncPacket:
             img_xy.extend(packet.points.img_loc.tolist())
         
         return cameras, point_ids,img_xy
+
+        
+@dataclass
+class XYZPacket:
+    sync_index:int
+    point_ids:List
+    point_xyz:List
+    
+        

@@ -27,11 +27,12 @@ import numpy as np
 import cv2
 import pandas as pd
 from time import time
+from pyxy3d import __root__
 
-session_path = Path("tests", "sessions", "post_optimization")
+session_path = Path(__root__,"dev", "sample_sessions", "post_optimization")
 
 config = Configurator(session_path)
-
+origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
 
 charuco: Charuco = config.get_charuco()
 camera_array: CameraArray = config.get_camera_array()
@@ -44,11 +45,9 @@ syncr = Synchronizer(stream_pool.streams, fps_target=None)
 
 #### Basic code for interfacing with in-progress RealTimeTriangulator
 #### Just run off of saved point_data.csv for development/testing
-real_time_triangulator = RealTimeTriangulator(camera_array, syncr)
+real_time_triangulator = RealTimeTriangulator(camera_array, syncr, output_directory=session_path)
 stream_pool.play_videos()
 while real_time_triangulator.running:
     sleep(1)
 
-
-# %%
-
+#%%

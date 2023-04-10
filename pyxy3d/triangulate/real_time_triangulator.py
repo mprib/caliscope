@@ -117,7 +117,7 @@ class RealTimeTriangulator:
         xyz_history.to_csv(Path(self.output_directory,"xyz_history.csv"))
         
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
-# @jit(nopython=True)
+@jit(nopython=True)
 def unique_with_counts(arr):
     sorted_arr = np.sort(arr)
     unique_values = [sorted_arr[0]]
@@ -134,7 +134,7 @@ def unique_with_counts(arr):
 
 # NOTE: jit does not appear to improve processing time even after first compilation.
 # Test difference in the future with more points...
-# @jit(nopython=True, parallel=True, cache=True)
+@jit(nopython=True, parallel=True, cache=True)
 def triangulate_sync_index(
     projection_matrices, current_camera_indices, current_point_id, current_img
 ):

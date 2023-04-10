@@ -428,7 +428,7 @@ class Session:
     def save_point_estimates(self):
         logger.info("Saving point estimates to config...")
 
-        temp_data = asdict(self.point_estimates)
+        temp_data = asdict(self.capture_volume.point_estimates)
         for key, params in temp_data.items():
             temp_data[key] = params.tolist()
 

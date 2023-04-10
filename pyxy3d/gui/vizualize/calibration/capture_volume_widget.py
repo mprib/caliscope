@@ -169,10 +169,7 @@ if __name__ == "__main__":
     logger.info(f"Loading session {session_path}")
     session = Session(session_path)
 
-    # session.build_capture_volume_from_stereopairs()
-    
-    session.estimate_extrinsics()
-    # session.load_estimated_capture_volume()
+    session.load_estimated_capture_volume()
 
     app = QApplication(sys.argv)
 

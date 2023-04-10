@@ -428,7 +428,7 @@ class Session:
     def save_point_estimates(self):
         logger.info("Saving point estimates to config...")
 
-        temp_data = asdict(self.point_estimates)
+        temp_data = asdict(self.capture_volume.point_estimates)
         for key, params in temp_data.items():
             temp_data[key] = params.tolist()
 
@@ -448,6 +448,13 @@ class Session:
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
         # self.capture_volume.rmse = self.config["capture_volume"]["RMSE"]
         self.capture_volume.stage = self.config["capture_volume"]["stage"]
+        if "origin_sync_index" in self.config["capture_volume"].keys():
+            self.capture_volume.origin_sync_index = self.config["capture_volume"]["origin_sync_index"]
+            
+        # QC needed to get the corner distance accuracy within the GUI
+        self.quality_controller = QualityController(self.capture_volume,charuco=self.charuco)
+
+
 
     def save_capture_volume(self):
         # self.point_estimates = self.capture_volume.point_estimates
@@ -457,6 +464,7 @@ class Session:
         self.config["capture_volume"] = {}
         # self.config["capture_volume"]["RMSE_summary"] = self.capture_volume.rmse
         self.config["capture_volume"]["stage"] = self.capture_volume.stage
+        self.config["capture_volume"]["origin_sync_index"] = self.capture_volume.origin_sync_index
         self.update_config()
 
 

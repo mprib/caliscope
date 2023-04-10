@@ -68,7 +68,7 @@ class StereoFrameWidget(QWidget):
 
     def create_stereoframe_tools(self):
 
-        self.frame_builder = StereoFrameBuilder(self.synchronizer, board_count_target=10)
+        self.frame_builder = StereoFrameBuilder(self.synchronizer, board_count_target=30)
         self.frame_emitter = StereoFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 

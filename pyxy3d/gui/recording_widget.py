@@ -53,7 +53,7 @@ class RecordingWidget(QWidget):
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
 
         # create tools to build and emit the displayed frame
-        self.frame_builder = StereoFrameBuilder(self.synchronizer)
+        self.frame_builder = RecordingFrameBuilder(self.synchronizer)
         self.frame_emitter = RecordingFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 
@@ -68,67 +68,25 @@ class RecordingWidget(QWidget):
 
     def place_widgets(self):
         self.setLayout(QVBoxLayout())
-        
-        pass
+        self.settings_group = QGroupBox("Settings")
+        self.settings_group.setLayout(QHBoxLayout())
+        self.settings_group.layout().addWidget(QLabel("Frame Rate:"))
+        self.settings_group.layout().addWidget(self.frame_rate_spin)       
+        self.layout().addWidget(self.settings_group)
+
+        self.layout().addWidget(self.recording_frame_display)
+
 
     def connect_widgets(self):
-        pass    
     
-        
+        self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
+        self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_fps_target)
+
     def ImageUpdateSlot(self, q_image):
         self.recording_frame_display.resize(self.recording_frame_display.sizeHint())
-
         qpixmap = QPixmap.fromImage(q_image)
         self.recording_frame_display.setPixmap(qpixmap)
         
-
-class RecordingFrameEmitter(QThread):
-    ImageBroadcast = pyqtSignal(QImage)
-    
-    def __init__(self, stereoframe_builder:StereoFrameBuilder):
-        
-        super(RecordingFrameEmitter,self).__init__()
-        self.stereoframe_builder = stereoframe_builder
-        logger.info("Initiated frame emitter")        
-        self.keep_collecting = Event() 
-        self.collection_complete = False
-        
-    def run(self):
-
-        self.keep_collecting.set()
-        self.collection_complete = False
-
-        possible_to_initialize = False
-        
-        while self.keep_collecting.is_set():
-            # that that it is important to make sure that this signal is sent only once
-            # to avoid multiple calibration attempts 
-            if len(self.stereoframe_builder.stereo_list) == 0 and not self.collection_complete:
-                logger.info("Signalling that calibration data is fully collected.")
-                self.collection_complete = True
-                self.calibration_data_collected.emit()
-        
-                # break
-            
-            if not possible_to_initialize:
-                # check to see if it is now
-                if self.stereoframe_builder.possible_to_initialize_array(MIN_THRESHOLD_FOR_EARLY_CALIBRATE):
-                    logger.info("Signaling that it is possible to initialize array based on collected data.")
-                    possible_to_initialize = True
-                    self.possible_to_initialize_array.emit()
-                      
-            stereo_frame = self.stereoframe_builder.get_stereo_frame()
-
-            if stereo_frame is not None:
-                image = cv2_to_qlabel(stereo_frame)
-                self.ImageBroadcast.emit(image)
-
-        logger.info("Stereoframe emitter run thread ended...") 
-            
-    # def stop(self):
-        # self.keep_collecting.clear() 
-
-
 class RecordingFrameBuilder:
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250):
         self.synchronizer = synchronizer 
@@ -281,6 +239,32 @@ class RecordingFrameBuilder:
          
         return mega_frame
 
+class RecordingFrameEmitter(QThread):
+    ImageBroadcast = pyqtSignal(QImage)
+    
+    def __init__(self, recording_frame_builder:RecordingFrameBuilder):
+        
+        super(RecordingFrameEmitter,self).__init__()
+        self.recording_frame_builder = recording_frame_builder
+        logger.info("Initiated recording frame emitter")        
+        self.keep_collecting = Event() 
+        
+    def run(self):
+
+        self.keep_collecting.set()
+        
+        while self.keep_collecting.is_set():
+            # that that it is important to make sure that this signal is sent only once
+            # to avoid multiple calibration attempts 
+                      
+            recording_frame = self.recording_frame_builder.get_recording_frame()
+
+            if recording_frame is not None:
+                image = cv2_to_qlabel(recording_frame)
+                self.ImageBroadcast.emit(image)
+
+        logger.info("Stereoframe emitter run thread ended...") 
+            
 
 
 def get_empty_pairs(board_counts, min_threshold):
@@ -318,22 +302,36 @@ if __name__ == "__main__":
         session.load_streams()
         
         # toggle off tracking for max frame rate
-        for port, stream in session.streams.items():
-            stream.track_points.clear()
+        # for port, stream in session.streams.items():
+        #     stream.track_points.clear()
             
-        session.adjust_resolutions()
-        syncr = Synchronizer(session.streams, fps_target=24)
+        # session.adjust_resolutions()
+        # syncr = Synchronizer(session.streams, fps_target=24)
 
-        frame_builder = RecordingFrameBuilder(syncr)
+        # frame_builder = RecordingFrameBuilder(syncr)
         
-        while True:
-            recording_frame = frame_builder.get_recording_frame()
-            cv2.imshow("Recording Frame", recording_frame)
+        # while True:
+        #     recording_frame = frame_builder.get_recording_frame()
+        #     cv2.imshow("Recording Frame", recording_frame)
             
-            key = cv2.waitKey(1)
+        #     key = cv2.waitKey(1)
 
-            if key == ord("q"):
-                cv2.destroyAllWindows()
-                break
+        #     if key == ord("q"):
+        #         cv2.destroyAllWindows()
+        #         break
 
         # sys.exit(App.exec())
+
+        App = QApplication(sys.argv)
+
+
+        session = Session(session_path)
+        session.load_cameras()
+        session.load_streams()
+        session.adjust_resolutions()
+
+
+        recording_dialog = RecordingWidget(session)
+        recording_dialog.show()
+
+        sys.exit(App.exec())

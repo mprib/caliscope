@@ -206,8 +206,6 @@ class Synchronizer:
 
         logger.info(f"Waiting for all ports to begin harvesting corners...")
 
-        sync_time = time.perf_counter()
-
         sync_index = 0
 
         logger.info("About to start synchronizing frames...")

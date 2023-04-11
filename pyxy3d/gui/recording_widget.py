@@ -4,6 +4,7 @@ import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
 import sys
+import math
 from pathlib import Path
 from threading import Thread, Event
 import numpy as np
@@ -140,6 +141,12 @@ class RecordingFrameBuilder:
             self.rotation_counts[port] = stream.camera.rotation_count
             self.ports.append(port)
         self.ports.sort()
+        
+        # reasonable default for the shape of the all-cameras frame
+        # make it as square as you can get it
+        camera_count = len(self.ports)
+        self.frame_columns = int(math.ceil(camera_count**.5))
+        self.frame_rows = int(math.ceil(camera_count/self.frame_columns))
 
         self.new_sync_packet_notice = Queue()
         self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
@@ -238,9 +245,17 @@ class RecordingFrameBuilder:
                             )
             
             thumbnail_frames[port] = text_frame
-            
+                    
         mega_frame = None
+        rows = 
+
+        for row in range(self.frame_rows):
+
+            
+            
         for port,frame in thumbnail_frames.items():
+            # for column in range(self.frame_columns):
+                
             if mega_frame is None:
                 mega_frame = frame
             else:
@@ -276,7 +291,7 @@ def cv2_to_qlabel(frame):
 
     
 if __name__ == "__main__":
-        App = QApplication(sys.argv)
+        # App = QApplication(sys.argv)
 
         session_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
 
@@ -289,7 +304,7 @@ if __name__ == "__main__":
             stream.track_points.clear()
             
         session.adjust_resolutions()
-        syncr = Synchronizer(session.streams, fps_target=20)
+        syncr = Synchronizer(session.streams, fps_target=24)
 
         frame_builder = RecordingFrameBuilder(syncr)
         
@@ -303,4 +318,4 @@ if __name__ == "__main__":
                 cv2.destroyAllWindows()
                 break
 
-        sys.exit(App.exec())
+        # sys.exit(App.exec())

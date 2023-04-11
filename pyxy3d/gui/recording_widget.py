@@ -51,6 +51,7 @@ class RecordingWidget(QWidget):
         super(RecordingWidget, self).__init__()
         self.session = session
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
+        self.synchronizer.set_tracking_on_streams(False)
 
         # create tools to build and emit the displayed frame
         self.frame_builder = RecordingFrameBuilder(self.synchronizer)

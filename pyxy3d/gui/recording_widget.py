@@ -283,8 +283,13 @@ if __name__ == "__main__":
         session = Session(session_path)
         session.load_cameras()
         session.load_streams()
+        
+        # toggle off tracking for max frame rate
+        for port, stream in session.streams.items():
+            stream.track_points.clear()
+            
         session.adjust_resolutions()
-        syncr = Synchronizer(session.streams, fps_target=12)
+        syncr = Synchronizer(session.streams, fps_target=20)
 
         frame_builder = RecordingFrameBuilder(syncr)
         

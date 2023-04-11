@@ -5,12 +5,51 @@ logger = pyxy3d.logger.get(__name__)
 import sys
 from pathlib import Path
 import numpy as np
-import pyqtgraph.opengl as gl
 import pandas as pd
 
+import pyqtgraph.opengl as gl
+
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import (
+    QApplication,
+    QSlider,
+    QVBoxLayout,
+    QWidget,
+)
+from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
+
+class TriangulationWidget(QWidget):
+    def __init__(self, camera_array:CameraArray, xyz_history_path:Path):
+        super(TriangulationWidget, self).__init__()
+
+        self.camera_array = camera_array
+        self.xyz_history = pd.read_csv(xyz_history_path)
+
+        self.visualizer = TriangulationVisualizer(self.camera_array, self.xyz_history)
+        # self.visualizer.scene.show()
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setMinimum(self.visualizer.min_sync_index)
+        self.slider.setMaximum(self.visualizer.max_sync_index)
+
+        self.setMinimumSize(500, 500)
+
+
+        self.place_widgets()
+        self.connect_widgets()
+
+        # self.visualizer.display_points(self.visualizer.min_sync_index)
+
+    def place_widgets(self):
+        self.setLayout(QVBoxLayout())
+        self.layout().addWidget(self.visualizer.scene)
+        self.layout().addWidget(self.slider)
+
+
+    def connect_widgets(self):
+        self.slider.valueChanged.connect(self.visualizer.display_points)
+
 
 class TriangulationVisualizer:
     """
@@ -76,9 +115,6 @@ class TriangulationVisualizer:
 
         self.scatter.setData(pos=self.single_board_points)
 
-
-
-# %%
 if __name__ == "__main__":
 
     from PyQt6.QtWidgets import QApplication
@@ -91,32 +127,21 @@ if __name__ == "__main__":
     from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
 
-    # session_directory = Path(__root__,  "tests", "2_cameras_linear")
-    # session_directory = Path(__root__,  "tests", "tripod")
-    # session_directory = Path(__root__,  "tests", "2_cameras_90_deg")
-    # session_directory = Path(__root__,  "tests", "2_cameras_180_deg")
-    # session_directory = Path(__root__,  "tests", "3_cameras_triangular")
-    # session_directory = Path(__root__,  "tests", "3_cameras_middle")
-    # session_directory = Path(__root__, "tests", "4_cameras_beginning")
-    # session_directory = Path(__root__, "tests", "4_cameras_endofday")
-    session_directory = Path(__root__,  "tests", "4_cameras_nonoverlap")
-    # session_directory = Path(__root__,  "tests", "3_cameras_linear")
-    # session_directory = Path(__root__,  "tests", "3_cameras_midlinear")
-    # session_directory = Path(__root__,  "tests", "just_checking")
+    test_sessions = [
+        Path(__root__, "dev", "sample_sessions", "post_triangulation"),
+    ]
 
-    saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl")
-    # saved_CV_path = Path(session_directory, "capture_volume_stage_1_new_origin.pkl")
-    with open(saved_CV_path, "rb") as f:
-        capture_volume: CaptureVolume = pickle.load(f)
+    test_session_index = 0
+    session_path = test_sessions[test_session_index]
+    logger.info(f"Loading session {session_path}")
+    session = Session(session_path)
+
+    session.load_estimated_capture_volume()
 
     app = QApplication(sys.argv)
-    with open(saved_CV_path, "rb") as f:
-        capture_volume: CaptureVolume = pickle.load(f)
-
-    app = QApplication(sys.argv)
-    vizr = TriangulationVisualizer(capture_volume=capture_volume)
-    # vizr.display_points(28)
-    # vizr.scene.show()
-    # vizr = CaptureVolumeVisualizer(camera_array = capture_volume.camera_array)
+    
+    xyz_history_path = Path(session_path,"xyz_history.csv")
+    vizr_dialog = TriangulationWidget(session.capture_volume.camera_array,xyz_history_path)
+    vizr_dialog.show()
 
     sys.exit(app.exec())

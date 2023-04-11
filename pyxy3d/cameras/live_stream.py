@@ -76,8 +76,10 @@ class LiveStream(Stream):
 
     def set_tracking_on(self, track: bool):
         if track:
+            logger.info(f"Turning tracking on on stream {port}")
             self.track_points.set()
         else:
+            logger.info(f"Turning tracking off on stream {port}")
             self.track_points.clear()
 
     def subscribe(self,queue:Queue):

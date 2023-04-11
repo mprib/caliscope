@@ -246,21 +246,39 @@ class RecordingFrameBuilder:
             
             thumbnail_frames[port] = text_frame
                     
-        mega_frame = None
-        rows = 
-
-        for row in range(self.frame_rows):
-
-            
-            
+        frame_rows = [] 
+        current_row = None
+        current_row_length = 0
+        frames_added = 0 
+        frames_remaining = len(self.ports)
         for port,frame in thumbnail_frames.items():
             # for column in range(self.frame_columns):
-                
-            if mega_frame is None:
-                mega_frame = frame
+            if current_row is None:
+                current_row = frame
             else:
-                mega_frame = np.vstack([mega_frame,frame])  
-            
+                current_row = np.hstack([current_row,frame])  
+            current_row_length +=1
+            frames_remaining -=1
+
+            if frames_remaining ==0:
+                # pad with blanks
+                while current_row_length < self.frame_columns:
+                    current_row = np.hstack([current_row,self.get_frame_or_blank(None)]) 
+                    current_row_length += 1
+
+            if current_row_length == self.frame_columns:
+                frame_rows.append(current_row)            
+                current_row = None
+                current_row_length = 0
+        
+        mega_frame = None
+        for row in frame_rows:
+            if mega_frame is None:
+                mega_frame = row
+            else:
+                mega_frame = np.vstack([mega_frame,row]) 
+                         
+         
         return mega_frame
 
 

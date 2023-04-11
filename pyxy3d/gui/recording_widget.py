@@ -133,11 +133,13 @@ class RecordingFrameBuilder:
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
 
-        
         self.rotation_counts = {}
+        self.ports = []        
         for port, stream in self.synchronizer.streams.items():
             # override here while testing this out with pre-recorded video
             self.rotation_counts[port] = stream.camera.rotation_count
+            self.ports.append(port)
+        self.ports.sort()
 
         self.new_sync_packet_notice = Queue()
         self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
@@ -147,17 +149,17 @@ class RecordingFrameBuilder:
         self.synchronizer.unsubscribe_to_notice(self.new_sync_packet_notice) 
 
 
-    def get_frame_or_blank(self, port):
+    def get_frame_or_blank(self, frame_packet):
         """Synchronization issues can lead to some frames being None among
         the synched frames, so plug that with a blank frame"""
 
         edge = self.single_frame_height
-        frame_packet = self.current_sync_packet.frame_packets[port]
+
         if frame_packet is None:
             logger.debug("plugging blank frame data")
             frame = np.zeros((edge, edge, 3), dtype=np.uint8)
         else:
-            frame = frame_packet.frame.copy()
+            frame = frame_packet.frame
 
         return frame
 
@@ -206,89 +208,45 @@ class RecordingFrameBuilder:
 
         return frame
 
-    def hstack_frames(self, pair, board_count):
-        """place paired frames side by side with an info box to the left"""
 
-        portA, portB = pair
-        logger.debug("Horizontally stacking paired frames")
-        frameA = self.get_frame_or_blank(portA)
-        frameB = self.get_frame_or_blank(portB)
-
-        # this will be part of next round of refactor
-        frameA, frameB = self.draw_common_corner_history(frameA, portA, frameB, portB)
-        frameA, frameB = self.draw_common_corner_current(frameA, portA, frameB, portB)
-
-        frameA = self.resize_to_square(frameA)
-        frameB = self.resize_to_square(frameB)
-
-        frameA = self.apply_rotation(frameA, portA)
-        frameB = self.apply_rotation(frameB, portB)
-
-
-        frameA = cv2.putText(frameA,
-                             str(portA),
-                            (int(frameA.shape[1]/2), int(self.single_frame_height / 4)),
-                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                            fontScale=1,
-                            color=(0, 0, 255),
-                            thickness=2,
-                        )
-
-        frameB = cv2.putText(frameB,
-                             str(portB),
-                            (int(frameB.shape[1]/2), int(self.single_frame_height / 4)),
-                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                            fontScale=1,
-                            color=(0, 0, 255),
-                            thickness=2,
-                        )
-
-        
-        hstacked_pair = np.hstack(( frameA, frameB))
-        
-        hstacked_pair = cv2.putText(
-            hstacked_pair,
-            str(board_count),
-            (self.single_frame_height-22,int(self.single_frame_height*4/5)),
-            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-            fontScale=1,
-            color=(0,0,255),
-            thickness=2,
-             
-        )
-
-        return hstacked_pair
-
-    def get_stereo_frame(self):
+    def get_recording_frame(self):
         """
-        This glues together the stereopairs with summary blocks of the common board count
+        This glues together the individual frames in the sync packet into one large block
+
+        Currently just stacking all frames vertically, but this should be expanded on the 
+        the future to allow wrapping to a more square shape
         """
 
         self.new_sync_packet_notice.get()
         self.current_sync_packet = self.synchronizer.current_sync_packet
         
-        stereo_frame = None
-        board_target_reached = False
-        for pair in self.stereo_list:
-
-            # figure out if you need to update the stereo frame list
-            board_count = self.board_counts[pair]
-            if board_count > self.board_count_target - 1:
-                board_target_reached = True
-
-            if stereo_frame is None:
-                stereo_frame = self.hstack_frames(pair, board_count)
+        thumbnail_frames = {} 
+        for port in self.ports:
+            frame_packet = self.current_sync_packet.frame_packets[port]
+            raw_frame = self.get_frame_or_blank(frame_packet)
+            square_frame = self.resize_to_square(raw_frame)
+            rotated_frame = self.apply_rotation(square_frame,port)
+            
+            # put the port number on the top of the frame
+            text_frame = cv2.putText(rotated_frame,
+                                str(port),
+                                (int(rotated_frame.shape[1]/2), int(self.single_frame_height / 4)),
+                                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                fontScale=1,
+                                color=(0, 0, 255),
+                                thickness=2,
+                            )
+            
+            thumbnail_frames[port] = text_frame
+            
+        mega_frame = None
+        for port,frame in thumbnail_frames.items():
+            if mega_frame is None:
+                mega_frame = frame
             else:
-                stereo_frame = np.vstack(
-                    [stereo_frame, self.hstack_frames(pair, board_count)]
-                )
-
-        if board_target_reached:
-            self.update_stereo_list()
-
-        if stereo_frame is None:
-            stereo_frame = self.get_completion_frame()
-        return stereo_frame
+                mega_frame = np.vstack([mega_frame,frame])  
+            
+        return mega_frame
 
 
 
@@ -320,15 +278,24 @@ def cv2_to_qlabel(frame):
 if __name__ == "__main__":
         App = QApplication(sys.argv)
 
-        config_path = Path(__root__, "tests", "217")
+        session_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
 
-        session = Session(config_path)
+        session = Session(session_path)
         session.load_cameras()
         session.load_streams()
         session.adjust_resolutions()
+        syncr = Synchronizer(session.streams, fps_target=12)
 
+        frame_builder = RecordingFrameBuilder(syncr)
+        
+        while True:
+            recording_frame = frame_builder.get_recording_frame()
+            cv2.imshow("Recording Frame", recording_frame)
+            
+            key = cv2.waitKey(1)
 
-        stereo_dialog = StereoFrameWidget(session)
-        stereo_dialog.show()
+            if key == ord("q"):
+                cv2.destroyAllWindows()
+                break
 
         sys.exit(App.exec())

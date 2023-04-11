@@ -47,6 +47,10 @@ class Synchronizer:
         self.initialize_ledgers()
         self.start()
 
+    def set_tracking_on_streams(self, track:bool):
+        for port, stream in self.streams.items():
+            stream.set_tracking_on(track)
+
     def get_fps_target(self):
         return self._fps_target
     

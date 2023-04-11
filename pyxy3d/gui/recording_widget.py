@@ -32,16 +32,12 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-# Append main repo to top of path to allow import of backend
 from pyxy3d.session import Session
 from pyxy3d.gui.stereoframe.stereo_frame_builder import StereoFrameBuilder
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.widgets import NavigationBarBackFinish
-
-# the boards needed to before a pair could be used to bridge pairs without common corners
-MIN_THRESHOLD_FOR_EARLY_CALIBRATE = 5
 
 
 class RecordingWidget(QWidget):
@@ -52,7 +48,6 @@ class RecordingWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
         self.synchronizer.set_tracking_on_streams(False)
-
         # create tools to build and emit the displayed frame
         self.frame_builder = RecordingFrameBuilder(self.synchronizer)
         self.frame_emitter = RecordingFrameEmitter(self.frame_builder)

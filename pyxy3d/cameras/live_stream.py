@@ -31,6 +31,9 @@ class Stream(ABC):
     @abstractmethod
     def unsubscribe(self,queue:Queue):
         pass
+    
+    def set_tracking_on(self,track:bool):
+        pass
 
     
     @abstractmethod
@@ -50,9 +53,6 @@ class LiveStream(Stream):
         else:
             self.track_points.clear()  # just to be clear
 
-        # self.out_q = Queue(-1)  # infinite size....hopefully doesn't blow up
-        # self.push_to_out_q = Event()
-        # self.push_to_out_q.set()  # default behavior is to push to queue
         self.stop_event = Event()
         
         # list of queues that will have frame packets pushed to them
@@ -73,6 +73,14 @@ class LiveStream(Stream):
         # initialize time trackers for actual FPS determination
         self.frame_time = perf_counter()
         self.avg_delta_time = 1  # initialize to something to avoid errors elsewhere
+
+    def set_tracking_on(self, track: bool):
+        if track:
+            logger.info(f"Turning tracking on on stream {self.port}")
+            self.track_points.set()
+        else:
+            logger.info(f"Turning tracking off on stream {self.port}")
+            self.track_points.clear()
 
     def subscribe(self,queue:Queue):
         if queue not in self.subscribers:

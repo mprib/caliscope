@@ -14,6 +14,7 @@ import cv2
 import numpy as np
 from pyxy3d.cameras.data_packets import SyncPacket
 
+DROPPED_FRAME_TRACK_WINDOW = 100 # trailing frames tracked for reporting purposes
 
 class Synchronizer:
     def __init__(self, streams: dict, fps_target=6):
@@ -37,19 +38,42 @@ class Synchronizer:
             self.ports.append(port)
             q = Queue(-1)
             self.frame_packet_queues[port] = q
+
         self.subscribed_to_streams = False # not subscribed yet
         self.subscribe_to_streams()
 
         self._fps_target = fps_target
         self.set_fps_target(self._fps_target)
         self.fps_mean = fps_target
-
+        
+        # place to store a recent history of dropped frames
+        self.dropped_frame_history = {port:[] for port in sorted(self.ports)} 
+        
         self.initialize_ledgers()
         self.start()
+
+    def set_tracking_on_streams(self, track:bool):
+        for port, stream in self.streams.items():
+            stream.set_tracking_on(track)
 
     def get_fps_target(self):
         return self._fps_target
     
+    def update_dropped_frame_history(self):
+        current_dropped:dict = self.current_sync_packet.dropped    
+        
+        for port, dropped in current_dropped.items():
+            self.dropped_frame_history[port].append(dropped)
+            self.dropped_frame_history[port] = self.dropped_frame_history[port][-DROPPED_FRAME_TRACK_WINDOW:]
+
+    @property 
+    def dropped_fps(self):
+        """
+        Averages dropped frame count across the observed history
+        """
+        return {port:np.mean(drop_history) for port,drop_history in self.dropped_frame_history.items()}        
+
+        
     def set_fps_target(self, target):
         self._fps_target = target
         logger.info(f"Attempting to change target fps in streams to {target}")
@@ -202,8 +226,6 @@ class Synchronizer:
 
         logger.info(f"Waiting for all ports to begin harvesting corners...")
 
-        sync_time = time.perf_counter()
-
         sync_index = 0
 
         logger.info("About to start synchronizing frames...")
@@ -261,6 +283,9 @@ class Synchronizer:
             self.mean_frame_times.append(np.mean(layer_frame_times))
 
             self.current_sync_packet = SyncPacket(sync_index, current_frame_packets)
+            
+            self.update_dropped_frame_history()
+            
             sync_index += 1
 
             if self.stop_event.is_set():

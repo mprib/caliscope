@@ -14,6 +14,3 @@ This project was inspired by [Anipose](https://www.sciencedirect.com/science/art
 
 ---
 [Reference](https://github.com/othneildrew/Best-README-Template) for future build out of the README.
-
-
-

@@ -63,7 +63,7 @@ class SyncPacket:
         """
         returns three key items used by the triangulation functions 
             cameras: a list of the camera ids associated with each reported 2d point
-            point_ids: the point id associated with each 2d ponit
+            point_ids: the point id associated with each 2d point
             img_xy: the 2d image points themselves
         
         """
@@ -78,7 +78,18 @@ class SyncPacket:
         
         return cameras, point_ids,img_xy
 
-        
+
+    @property
+    def dropped(self):
+        temp_dict = {}
+        for port,packet in self.frame_packets.items():
+            if packet is None:
+                temp_dict[port] = 1
+            else:
+                temp_dict[port] = 0
+        return temp_dict
+
+ 
 @dataclass
 class XYZPacket:
     sync_index:int

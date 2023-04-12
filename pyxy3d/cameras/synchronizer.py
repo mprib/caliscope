@@ -14,6 +14,7 @@ import cv2
 import numpy as np
 from pyxy3d.cameras.data_packets import SyncPacket
 
+DROPPED_FRAME_TRACK_WINDOW = 5 # trailing frames tracked for reporting purposes
 
 class Synchronizer:
     def __init__(self, streams: dict, fps_target=6):
@@ -37,13 +38,17 @@ class Synchronizer:
             self.ports.append(port)
             q = Queue(-1)
             self.frame_packet_queues[port] = q
+
         self.subscribed_to_streams = False # not subscribed yet
         self.subscribe_to_streams()
 
         self._fps_target = fps_target
         self.set_fps_target(self._fps_target)
         self.fps_mean = fps_target
-
+        
+        # place to store a recent history of dropped frames
+        self.dropped_frames = {port:[] for port in self.ports} 
+        
         self.initialize_ledgers()
         self.start()
 
@@ -54,6 +59,18 @@ class Synchronizer:
     def get_fps_target(self):
         return self._fps_target
     
+    def update_dropped_fps(self):
+        """
+        Averages dropped frame count across the previous 
+        
+        """
+        current_dropped:dict = self.current_sync_packet.dropped    
+        
+        for port, dropped in current_dropped.items():
+            drop_history = self.dropped_frames[port]
+            drop_history.append(dropped)
+            drop_history = drop_history[-DROPPED_FRAME_TRACK_WINDOW:]
+
     def set_fps_target(self, target):
         self._fps_target = target
         logger.info(f"Attempting to change target fps in streams to {target}")
@@ -263,6 +280,9 @@ class Synchronizer:
             self.mean_frame_times.append(np.mean(layer_frame_times))
 
             self.current_sync_packet = SyncPacket(sync_index, current_frame_packets)
+            
+            self.update_dropped_fps()
+            
             sync_index += 1
 
             if self.stop_event.is_set():

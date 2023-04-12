@@ -47,6 +47,8 @@ class RecordingWidget(QWidget):
         super(RecordingWidget, self).__init__()
         self.session = session
         self.synchronizer:Synchronizer = self.session.get_synchronizer()
+        
+        # don't let point tracking slow down the frame reading
         self.synchronizer.set_tracking_on_streams(False)
         # create tools to build and emit the displayed frame
         self.frame_builder = RecordingFrameBuilder(self.synchronizer)
@@ -55,7 +57,9 @@ class RecordingWidget(QWidget):
 
         self.frame_rate_spin = QSpinBox()
         self.frame_rate_spin.setValue(self.synchronizer.get_fps_target())
-        
+
+        self.dropped_fps_label = QLabel()
+                
         self.recording_frame_display = QLabel()
         
         self.place_widgets()
@@ -69,6 +73,7 @@ class RecordingWidget(QWidget):
         self.settings_group.layout().addWidget(QLabel("Frame Rate:"))
         self.settings_group.layout().addWidget(self.frame_rate_spin)       
         self.layout().addWidget(self.settings_group)
+        self.layout().addWidget(self.dropped_fps_label)
 
         self.layout().addWidget(self.recording_frame_display)
 
@@ -77,7 +82,17 @@ class RecordingWidget(QWidget):
     
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
         self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_fps_target)
+        self.frame_emitter.dropped_fps.connect(self.update_dropped_fps)
+        
+    def update_dropped_fps(self, dropped_fps:dict):
+        "Unravel dropped fps dictionary to a more readable string"
+        text = ""
+        for port, drop_rate in dropped_fps.items():
+            text += f"{port}: {drop_rate} \n"
 
+        self.dropped_fps_label.setText(text)
+         
+        
     def ImageUpdateSlot(self, q_image):
         self.recording_frame_display.resize(self.recording_frame_display.sizeHint())
         qpixmap = QPixmap.fromImage(q_image)
@@ -237,6 +252,7 @@ class RecordingFrameBuilder:
 
 class RecordingFrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
+    dropped_fps = pyqtSignal(dict)
     
     def __init__(self, recording_frame_builder:RecordingFrameBuilder):
         
@@ -258,6 +274,7 @@ class RecordingFrameEmitter(QThread):
             if recording_frame is not None:
                 image = cv2_to_qlabel(recording_frame)
                 self.ImageBroadcast.emit(image)
+                self.dropped_fps.emit(self.recording_frame_builder.synchronizer.dropped_frames)
 
         logger.info("Stereoframe emitter run thread ended...") 
             
@@ -287,15 +304,16 @@ def cv2_to_qlabel(frame):
     )
     return qt_frame
 
-    
-if __name__ == "__main__":
+# Trying to get away from these F5 tests and move toward working scripts in /dev that can 
+# more easily be reconfigured into /tests  
+# if __name__ == "__main__":
         # App = QApplication(sys.argv)
 
-        session_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
+        # session_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
 
-        session = Session(session_path)
-        session.load_cameras()
-        session.load_streams()
+        # session = Session(session_path)
+        # session.load_cameras()
+        # session.load_streams()
         
         # toggle off tracking for max frame rate
         # for port, stream in session.streams.items():
@@ -318,16 +336,16 @@ if __name__ == "__main__":
 
         # sys.exit(App.exec())
 
-        App = QApplication(sys.argv)
+        # App = QApplication(sys.argv)
 
 
-        session = Session(session_path)
-        session.load_cameras()
-        session.load_streams()
-        session.adjust_resolutions()
+        # session = Session(session_path)
+        # session.load_cameras()
+        # session.load_streams()
+        # session.adjust_resolutions()
 
 
-        recording_dialog = RecordingWidget(session)
-        recording_dialog.show()
+        # recording_dialog = RecordingWidget(session)
+        # recording_dialog.show()
 
-        sys.exit(App.exec())
+        # sys.exit(App.exec())

@@ -25,7 +25,7 @@ class StereoFrameBuilder:
         self.rotation_counts = {}
         for port, stream in self.synchronizer.streams.items():
             # override here while testing this out with pre-recorded video
-            self.rotation_counts[port] = 0 # stream.camera.rotation_count
+            self.rotation_counts[port] = stream.camera.rotation_count
 
         self.pairs = self.get_pairs()
 

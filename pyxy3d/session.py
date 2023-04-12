@@ -23,7 +23,10 @@ from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
 
 
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates, load_point_estimates
+from pyxy3d.calibration.capture_volume.point_estimates import (
+    PointEstimates,
+    load_point_estimates,
+)
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from pyxy3d.calibration.capture_volume.quality_controller import QualityController
 
@@ -35,14 +38,13 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
 from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.recording.video_recorder import VideoRecorder
 
-#%%
+# %%
 MAX_CAMERA_PORT_CHECK = 10
 FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration
 
 
 class Session:
     def __init__(self, directory):
-
         self.folder = PurePath(directory).name
         self.path = directory
         self.config_path = str(Path(directory, "config.toml"))
@@ -80,7 +82,6 @@ class Session:
         self.synchronizer.subscribe_to_streams()
 
     def load_config(self):
-
         if exists(self.config_path):
             logger.info("Found previous config")
             with open(self.config_path, "r") as f:
@@ -98,7 +99,6 @@ class Session:
         return self.config
 
     def update_config(self):
-
         # alphabetize by key to maintain standardized layout
         sorted_config = {key: value for key, value in sorted(self.config.items())}
         self.config = sorted_config
@@ -107,7 +107,6 @@ class Session:
             toml.dump(self.config, f)
 
     def load_charuco(self):
-
         if "charuco" in self.config:
             logger.info("Loading charuco from config")
             params = self.config["charuco"]
@@ -160,7 +159,6 @@ class Session:
         self.update_config()
 
     def load_cameras(self):
-
         # worker function that will be spun up to connect to a previously configured camera
         def add_preconfigured_cam(params):
             # try:
@@ -260,7 +258,7 @@ class Session:
                 # monocal.thread.join()
 
             self.monocalibrators = {}
-        except (AttributeError):
+        except AttributeError:
             logger.warning("No monocalibrators to delete")
             pass
 
@@ -269,14 +267,14 @@ class Session:
             self.stereo_frame_emitter.stop()
             # self.stereo_frame_emitter.thread.join()
 
-        except (AttributeError):
+        except AttributeError:
             logger.info("No stereo frame emitter to stop")
 
         try:
             logger.info("Attempting to stop stereocalibrator")
             self.stereocalibrator.stop()
 
-        except (AttributeError):
+        except AttributeError:
             logger.warning("No stereocalibrator to delete.")
             pass  # don't worry if it doesn't exist
 
@@ -287,7 +285,7 @@ class Session:
             del (
                 self.synchronizer
             )  # important for session to know to recreate stereotools
-        except (AttributeError):
+        except AttributeError:
             logger.warning("No synchronizer to delete")
             pass
 
@@ -303,8 +301,7 @@ class Session:
                 # del cam
             # del self.cameras
             self.cameras = {}
-        except (AttributeError):
-
+        except AttributeError:
             logger.warning("Unable to delete all streams...")
             pass
 
@@ -320,7 +317,6 @@ class Session:
             else:
                 logger.info(f"Loading Monocalibrator for port {port}")
                 self.monocalibrators[port] = MonoCalibrator(self.streams[port])
-
 
     def set_active_monocalibrator(self, active_port):
         logger.info(f"Activate tracking on port {active_port} and deactivate others")
@@ -344,6 +340,7 @@ class Session:
             self.video_recorder = VideoRecorder(self.get_synchronizer())
             self.video_recorder.start_recording(destination_folder)
         self.is_recording = True
+
     def stop_recording(self):
         logger.info("Stopping recording...")
         self.video_recorder.stop_recording()
@@ -377,7 +374,6 @@ class Session:
 
     def save_camera(self, port):
         def none_or_list(value):
-
             if value is None:
                 return None
             else:
@@ -449,12 +445,14 @@ class Session:
         # self.capture_volume.rmse = self.config["capture_volume"]["RMSE"]
         self.capture_volume.stage = self.config["capture_volume"]["stage"]
         if "origin_sync_index" in self.config["capture_volume"].keys():
-            self.capture_volume.origin_sync_index = self.config["capture_volume"]["origin_sync_index"]
-            
+            self.capture_volume.origin_sync_index = self.config["capture_volume"][
+                "origin_sync_index"
+            ]
+
         # QC needed to get the corner distance accuracy within the GUI
-        self.quality_controller = QualityController(self.capture_volume,charuco=self.charuco)
-
-
+        self.quality_controller = QualityController(
+            self.capture_volume, charuco=self.charuco
+        )
 
     def save_capture_volume(self):
         # self.point_estimates = self.capture_volume.point_estimates
@@ -464,16 +462,15 @@ class Session:
         self.config["capture_volume"] = {}
         # self.config["capture_volume"]["RMSE_summary"] = self.capture_volume.rmse
         self.config["capture_volume"]["stage"] = self.capture_volume.stage
-        self.config["capture_volume"]["origin_sync_index"] = self.capture_volume.origin_sync_index
+        self.config["capture_volume"][
+            "origin_sync_index"
+        ] = self.capture_volume.origin_sync_index
         self.update_config()
-
-
-
 
     def estimate_extrinsics(self):
         """
         This is where the camera array 6 DoF is set. Many, many things are happening
-        here, but they are all necessary steps of the process so I didn't want to 
+        here, but they are all necessary steps of the process so I didn't want to
         try to encapsulate any further
         """
         stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
@@ -492,10 +489,12 @@ class Session:
 
         self.quality_controller = QualityController(self.capture_volume, self.charuco)
 
-        logger.info(f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model")
+        logger.info(
+            f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model"
+        )
         self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
         self.capture_volume.optimize()
-        
+
         self.save_capture_volume()
 
     ########################## STAGE ASSOCIATED METHODS #################################
@@ -567,9 +566,9 @@ class Stage(Enum):
     ORIGIN_SET = auto()
 
 
-#%%
+# %%
 if __name__ == "__main__":
-# if True:
+    # if True:
     from pyxy3d import __root__
 
     config_path = Path(__root__, "tests", "demo")
@@ -596,7 +595,7 @@ if __name__ == "__main__":
     )
     # logger.info(f"Following filter of high error points, distance error is \n {session.quality_controller.distance_error}")
     # session.update_config()
-    #%%%
+    # %%%
 
     # create a sample dataframe
 

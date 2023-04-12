@@ -26,7 +26,7 @@ session_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
 session = Session(session_path)
 session.load_cameras()
 session.load_streams()
-# session.adjust_resolutions()
+session.adjust_resolutions()
 
 
 App = QApplication(sys.argv)

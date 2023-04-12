@@ -14,7 +14,7 @@ import cv2
 import numpy as np
 from pyxy3d.cameras.data_packets import SyncPacket
 
-DROPPED_FRAME_TRACK_WINDOW = 5 # trailing frames tracked for reporting purposes
+DROPPED_FRAME_TRACK_WINDOW = 100 # trailing frames tracked for reporting purposes
 
 class Synchronizer:
     def __init__(self, streams: dict, fps_target=6):
@@ -47,7 +47,7 @@ class Synchronizer:
         self.fps_mean = fps_target
         
         # place to store a recent history of dropped frames
-        self.dropped_frames = {port:[] for port in self.ports} 
+        self.dropped_frame_history = {port:[] for port in sorted(self.ports)} 
         
         self.initialize_ledgers()
         self.start()
@@ -59,18 +59,21 @@ class Synchronizer:
     def get_fps_target(self):
         return self._fps_target
     
-    def update_dropped_fps(self):
-        """
-        Averages dropped frame count across the previous 
-        
-        """
+    def update_dropped_frame_history(self):
         current_dropped:dict = self.current_sync_packet.dropped    
         
         for port, dropped in current_dropped.items():
-            drop_history = self.dropped_frames[port]
-            drop_history.append(dropped)
-            drop_history = drop_history[-DROPPED_FRAME_TRACK_WINDOW:]
+            self.dropped_frame_history[port].append(dropped)
+            self.dropped_frame_history[port] = self.dropped_frame_history[port][-DROPPED_FRAME_TRACK_WINDOW:]
 
+    @property 
+    def dropped_fps(self):
+        """
+        Averages dropped frame count across the observed history
+        """
+        return {port:np.mean(drop_history) for port,drop_history in self.dropped_frame_history.items()}        
+
+        
     def set_fps_target(self, target):
         self._fps_target = target
         logger.info(f"Attempting to change target fps in streams to {target}")
@@ -281,7 +284,7 @@ class Synchronizer:
 
             self.current_sync_packet = SyncPacket(sync_index, current_frame_packets)
             
-            self.update_dropped_fps()
+            self.update_dropped_frame_history()
             
             sync_index += 1
 

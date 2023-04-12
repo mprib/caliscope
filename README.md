@@ -14,12 +14,3 @@ This project was inspired by [Anipose](https://www.sciencedirect.com/science/art
 
 ---
 [Reference](https://github.com/othneildrew/Best-README-Template) for future build out of the README.
-
-
-
----
-
-
-Making some notes here for myself in the morning. Currently looking to get the rate of frame dropping calculated within the synchronizer (per camera). This would be a good measure to have when making decisions about frame rate, resolutions, number of cameras, etc. Also will give me some insight into potential impacts of actual recording on the frame dropping. As in, I've been wondering if by writing the images to the mp4 files, the additional load on the CPU will cause more stuttering. Seems like a reasonable possibility.
-
-I continue to believe that the long term solution to all of this is a scalable cluster of refurbished commerical thin-client desktops running linux and each serving one or two decent quality webcams.

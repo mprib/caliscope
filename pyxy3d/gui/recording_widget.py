@@ -86,9 +86,11 @@ class RecordingWidget(QWidget):
         
     def update_dropped_fps(self, dropped_fps:dict):
         "Unravel dropped fps dictionary to a more readable string"
-        text = ""
+        text = "Rate of Frame Dropping by Port:    "
+        
+        
         for port, drop_rate in dropped_fps.items():
-            text += f"{port}: {drop_rate} \n"
+            text += f"{port}: {drop_rate:.0%}        "
 
         self.dropped_fps_label.setText(text)
          
@@ -274,7 +276,7 @@ class RecordingFrameEmitter(QThread):
             if recording_frame is not None:
                 image = cv2_to_qlabel(recording_frame)
                 self.ImageBroadcast.emit(image)
-                self.dropped_fps.emit(self.recording_frame_builder.synchronizer.dropped_frames)
+                self.dropped_fps.emit(self.recording_frame_builder.synchronizer.dropped_fps)
 
         logger.info("Stereoframe emitter run thread ended...") 
             

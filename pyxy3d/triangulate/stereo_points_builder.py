@@ -15,7 +15,7 @@ import numpy as np
 from dataclasses import dataclass
 from itertools import combinations
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.calibration.corner_tracker import CornerTracker
+from pyxy3d.img2xy.charuco_tracker import CharucoTracker
 from pyxy3d.cameras.data_packets import SyncPacket
 
 

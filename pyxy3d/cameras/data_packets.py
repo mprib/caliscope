@@ -8,10 +8,11 @@ class PointPacket:
     This will be the primary return value of the Tracker Protocol
     A calleable that receives an image frame and returns a point_packet
     """
+
     point_id: np.ndarray = None
     img_loc: np.ndarray = None
-    obj_loc: np.ndarray = None
-
+    obj_loc: np.ndarray = None # x,y,z in object frame of reference; primarily for calibration
+    confidence: np.ndarray = None # may be available in some trackers..include for downstream 
 
 @dataclass
 class FramePacket:

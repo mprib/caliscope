@@ -72,7 +72,7 @@ class Charuco:
     def dictionary_object(self):
         # grab the dictionary from the reference info at the foot of the module
         dictionary_integer = ARUCO_DICTIONARIES[self.dictionary]
-        return cv2.aruco.Dictionary_get(dictionary_integer)
+        return cv2.aruco.getPredefinedDictionary(dictionary_integer)
 
     @property
     def board(self):
@@ -89,9 +89,8 @@ class Charuco:
 
         aruco_length = square_length * self.aruco_scale
         # create the board
-        return cv2.aruco.CharucoBoard_create(
-            self.columns,
-            self.rows,
+        return cv2.aruco.CharucoBoard(
+            (self.columns, self.rows),
             square_length,
             aruco_length,
             # property based on dictionary text
@@ -107,7 +106,7 @@ class Charuco:
         width_inch = self.board_width_cm * INCHES_PER_CM
         height_inch = self.board_height_cm * INCHES_PER_CM
 
-        img = self.board.draw((int(width_inch * 300), int(height_inch * 300)))
+        img = self.board.generateImage((int(width_inch * 300), int(height_inch * 300)))
         if self.inverted:
             img = ~img
 
@@ -146,7 +145,7 @@ class Charuco:
         The return value is a *set* not a list
         """
         # create sets of the vertical and horizontal line positions
-        corners = self.board.chessboardCorners
+        corners = self.board.getChessboardCorners()
         corners_x = corners[:, 0]
         corners_y = corners[:, 1]
         x_set = set(corners_x)
@@ -180,7 +179,7 @@ class Charuco:
         position in a board frame of reference, originating from a corner position.
         """
 
-        return self.board.chessboardCorners[corner_ids, :]
+        return self.board.chessboardCorners()[corner_ids, :]
 
     def summary(self):
 
@@ -252,9 +251,12 @@ if __name__ == "__main__":
         4, 5, 4, 8.5, aruco_scale=0.75, units="inch",inverted=True, square_size_overide_cm=5.25)
     charuco.save_image("test_charuco.png")
     width, height = charuco.board_img.shape
-    print(f"Board width is {width}\nBoard height is {height}")
+    logger.info(f"Board width is {width}\nBoard height is {height}")
+    
+    corners = charuco.board.getChessboardCorners()
+    logger.info(corners)
 
-    print(f"Charuco dictionary: {charuco.__dict__}")
+    logger.info(f"Charuco dictionary: {charuco.__dict__}")
     while True:
         cv2.imshow("Charuco Board...'q' to quit", charuco.board_img)
         #

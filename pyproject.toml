@@ -16,6 +16,7 @@ mediapipe = "^0.9.2"
 pyqtgraph = "^0.13.2"
 PyOpenGL = "^3.1.6"
 toml = "^0.10.2"
+numba = "^0.56.4"
 seaborn = "^0.12.2"
 
 [tool.poetry.group.dev.dependencies]
@@ -25,3 +26,9 @@ pytest = "^7.3.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.urls]
+repository = "https://github.com/mprib/pyxy3d"
+
+[tool.poetry.scripts]
+pyxy3d = "pyxy3d.__main__:launch"

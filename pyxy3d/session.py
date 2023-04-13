@@ -15,7 +15,7 @@ from itertools import combinations
 from time import sleep
 
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.img2xy.corner_tracker import CharucoTracker
+from pyxy3d.img2xy.charuco_tracker import CharucoTracker
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer

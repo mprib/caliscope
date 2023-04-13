@@ -13,7 +13,7 @@ import numpy as np
 
 import pyxy3d.calibration.draw_charuco as draw_charuco
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.img2xy.corner_tracker import CharucoTracker
+from pyxy3d.img2xy.charuco_tracker import CharucoTracker
 from pyxy3d.cameras.data_packets import FramePacket
 from pyxy3d.cameras.live_stream import LiveStream
 

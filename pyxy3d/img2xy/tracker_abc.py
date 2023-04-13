@@ -2,15 +2,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import numpy as np
-
-@dataclass(slots=True)
-class PointPacket:
-    point_id: np.ndarray = None
-    img_loc: np.ndarray = None
-    obj_loc: np.ndarray = None # x,y,z in object frame of reference; primarily for calibration
-    confidence: np.ndarray = None
-    # board_loc: np.ndarray = None
-    
+from pyxy3d.cameras.data_packets import PointPacket
     
 class Tracker(ABC):
     

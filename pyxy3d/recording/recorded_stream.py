@@ -21,7 +21,7 @@ from time import perf_counter, sleep
 import pandas as pd
 import numpy as np
 
-from pyxy3d.img2xy.corner_tracker import CharucoTracker
+from pyxy3d.img2xy.charuco_tracker import CharucoTracker
 from pyxy3d.cameras.data_packets import FramePacket
 from pyxy3d.cameras.live_stream import Stream
 from pyxy3d.cameras.camera_array import CameraData

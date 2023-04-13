@@ -14,7 +14,7 @@ from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates
 import pytest
 from pyxy3d.calibration.charuco import Charuco, get_charuco
-from pyxy3d.calibration.corner_tracker import CornerTracker
+from pyxy3d.img2xy.charuco_tracker import CharucoTracker
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
@@ -151,7 +151,8 @@ if __name__ == "__main__":
     # from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
     
     
-    original_session_path = Path(__root__, "tests", "sessions", "post_monocal")    
+    # original_session_path = Path(__root__, "tests", "sessions", "post_monocal")    
+    original_session_path = Path(__root__, "dev", "sample_sessions", "low_res")
     session_path = Path(original_session_path.parent.parent,"sessions_copy_delete","post_monocal_post_optimization")
 
     # clear previous test so as not to pollute current test results

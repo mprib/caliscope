@@ -30,7 +30,7 @@ class HandTracker(Tracker):
             min_tracking_confidence=0.5,
         )
 
-    def process_frame(self, frame:np.ndarray):
+    def get_points(self, frame:np.ndarray):
         height, width, color = frame.shape
         # Convert the image to RGB format
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

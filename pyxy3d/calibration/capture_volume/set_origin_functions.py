@@ -64,7 +64,7 @@ def get_board_corners_xyz(
     unique_charuco_id = np.unique(charuco_ids)
     unique_charuco_id.sort()
 
-    board_corners_xyz = charuco.board.chessboardCorners[unique_charuco_id]
+    board_corners_xyz = charuco.board.getChessboardCorners()[unique_charuco_id]
     return board_corners_xyz
 
 

@@ -360,7 +360,7 @@ def resize(image, new_height):
     return resized
 
 if __name__ == "__main__":
-    from pyxy3d.img2xy.corner_tracker import CornerTracker
+    from pyxy3d.img2xy.corner_tracker import CharucoTracker
     from pyxy3d.recording.recorded_stream import RecordedStreamPool,RecordedStream
     from pyxy3d.recording.video_recorder import VideoRecorder
     from pyxy3d.session import Session

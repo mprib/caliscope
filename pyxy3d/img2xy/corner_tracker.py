@@ -13,7 +13,7 @@ from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.data_packets import PointPacket
 
 
-class CornerTracker:
+class CharucoTracker:
     def __init__(self, charuco):
 
         # need camera to know resolution and to assign calibration parameters
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     cam = Camera(1)
 
     print(f"Using Optimized Code?: {cv2.useOptimized()}")
-    trackr = CornerTracker(charuco)
+    trackr = CharucoTracker(charuco)
     stream = LiveStream(cam,fps_target=10,charuco=charuco)
     stream._show_fps = True
         

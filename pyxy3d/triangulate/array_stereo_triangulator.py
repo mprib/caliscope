@@ -161,7 +161,7 @@ if __name__ == "__main__":
     from pyxy3d.recording.recorded_stream import RecordedStreamPool
     from pyxy3d.cameras.synchronizer import Synchronizer
     from pyxy3d.calibration.charuco import Charuco
-    from pyxy3d.img2xy.corner_tracker import CornerTracker
+    from pyxy3d.img2xy.corner_tracker import CharucoTracker
     from pyxy3d.cameras.camera_array import CameraArrayBuilder, CameraArray, CameraData
 
     repo = Path(str(Path(__file__)).split("pyxy")[0],"pyxy")
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
-    trackr = CornerTracker(charuco)
+    trackr = CharucoTracker(charuco)
 
     # create a commmon point finder to grab charuco corners shared between the pair of ports
     pairs = [(0, 1)]

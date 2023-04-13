@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import numpy as np
 from numba.typed import List
 
-@dataclass(slots=True)
+@dataclass
 class PointPacket:
     """
     This will be the primary return value of the Tracker Protocol

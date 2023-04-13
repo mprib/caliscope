@@ -10,7 +10,7 @@ class PointPacket:
     """
     point_id: np.ndarray = None
     img_loc: np.ndarray = None
-    board_loc: np.ndarray = None
+    obj_loc: np.ndarray = None
 
 
 @dataclass
@@ -42,8 +42,8 @@ class FramePacket:
                     "point_id":self.points.point_id.tolist(),
                     "img_loc_x":self.points.img_loc[:,0].tolist(),
                     "img_loc_y": self.points.img_loc[:,1].tolist(),
-                    "board_loc_x":self.points.board_loc[:,0].tolist(),
-                    "board_loc_y":self.points.board_loc[:,1].tolist()
+                    "obj_loc_x":self.points.obj_loc[:,0].tolist(),
+                    "obj_loc_y":self.points.obj_loc[:,1].tolist()
                     }       
         else:
             table = None 

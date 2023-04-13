@@ -7,7 +7,7 @@ from pyxy3d.cameras.data_packets import PointPacket
 class Tracker(ABC):
     
     @abstractmethod
-    def process_frame(self, frame:np.ndarray)->PointPacket:
+    def get_points(self, frame:np.ndarray)->PointPacket:
         pass
 
     @abstractmethod

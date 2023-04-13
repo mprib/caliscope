@@ -1,60 +1,27 @@
-# pyproject.toml
+[tool.poetry]
+name = "pyxy3d"
+version = "0.0.17"
+description = "A package for calibrating standard webcams to enable 3d motion tracking"
+authors = ["Mac Prible <prible@gmail.com>"]
+license = "AGPL-3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10, <3.12"
+opencv-contrib-python = "^4.7"
+PyQt6 = "^6.4.0"
+pandas = "^1.5.0"
+scipy = "^1.10.1"
+mediapipe = "^0.9.2"
+pyqtgraph = "^0.13.2"
+PyOpenGL = "^3.1.6"
+toml = "^0.10.2"
+seaborn = "^0.12.2"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+pytest = "^7.3.0"
 
 [build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
-
-[project]
-name = "pyxy3d" #change this to your project name (do a global search and replace for this string, including folder names)
-description = "GUI tool for calibrating motion capture systems composed of multiple standard webcams"
-readme = "README.md"
-authors = [{ name = "Mac Prible", email = "prible@gmail.com" }]
-license = { file = "LICENSE.md" }
-
-classifiers = [
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)", #https://www.gnu.org/philosophy/open-source-misses-the-point.en.html
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-] #additional classifiers can be found here: https://pypi.org/classifiers/
-
-keywords = ["opencv",
-            "tracking",
-            "calibration", 
-            "python",
-            "webcam"] #change these to your project keywords
-
-dependencies = ["numpy==1.23.3", 
-                "opencv-contrib-python==4.6.0.66", 
-                "pyqt6==6.4.0", 
-                "scipy==1.9.2", 
-                "pandas==1.5.2", 
-                "mediapipe",
-                "pyqtgraph==0.13.1",
-                "pyopengl",
-                "toml", 
-                "seaborn"] #add additional dependencies here - try to pin versions as minimally as possible...current pins for FMC compatibility
-
-requires-python = ">=3.8"
-
-dynamic = ["version"]
-
-[project.optional-dependencies]
-dev = ["black", "bumpver", "isort", "pip-tools", "pytest"]
-
-[tool.bumpver] #bump the version by entering `bumpver update` in the terminal
-current_version = "v0.0.17"
-version_pattern = "vMAJOR.MINOR.PATCH"
-commit_message  = "Bump version {old_version} -> {new_version}; refresh PyPI"
-commit          = true
-tag             = true
-push            = true
-
-[tool.bumpver.file_patterns]
-"pyproject.toml" = ["{version}"]
-"pyxy3d/__init__.py" = ["{version}"]
-
-[project.urls]
-repository = "https://github.com/mprib/pyxy3d"
-
-[project.scripts]
-pyxy3d = "pyxy3d.__main__:launch"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

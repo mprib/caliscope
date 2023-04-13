@@ -68,10 +68,11 @@ class CaptureVolumeWidget(QWidget):
 
     def place_widgets(self):
         self.setLayout(QVBoxLayout())
-        self.layout().addWidget(self.visualizer.scene)
+        self.layout().addWidget(self.visualizer.scene, stretch=2)
+        self.visualizer.scene.setMinimumHeight(400)
         self.layout().addWidget(self.slider)
         self.layout().addWidget(self.set_origin_btn)
-        # self.visualizer.begin()
+    
 
         self.grid = QGridLayout()
         self.layout().addLayout(self.grid)

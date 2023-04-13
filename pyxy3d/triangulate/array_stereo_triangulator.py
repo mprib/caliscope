@@ -161,7 +161,7 @@ if __name__ == "__main__":
     from pyxy3d.recording.recorded_stream import RecordedStreamPool
     from pyxy3d.cameras.synchronizer import Synchronizer
     from pyxy3d.calibration.charuco import Charuco
-    from pyxy3d.img2xy.corner_tracker import CharucoTracker
+    from pyxy3d.img2xy.charuco_tracker import CharucoTracker
     from pyxy3d.cameras.camera_array import CameraArrayBuilder, CameraArray, CameraData
 
     repo = Path(str(Path(__file__)).split("pyxy")[0],"pyxy")

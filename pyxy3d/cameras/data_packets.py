@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import numpy as np
 from numba.typed import List
 
-@dataclass
+@dataclass(slots=True)
 class PointPacket:
     """
     This will be the primary return value of the Tracker Protocol
@@ -11,8 +11,8 @@ class PointPacket:
 
     point_id: np.ndarray = None
     img_loc: np.ndarray = None
-    obj_loc: np.ndarray = None
-
+    obj_loc: np.ndarray = None # x,y,z in object frame of reference; primarily for calibration
+    confidence: np.ndarray = None # may be available in some trackers..include for downstream 
 
 @dataclass
 class FramePacket:

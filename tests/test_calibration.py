@@ -151,7 +151,8 @@ if __name__ == "__main__":
     # from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
     
     
-    original_session_path = Path(__root__, "tests", "sessions", "post_monocal")    
+    # original_session_path = Path(__root__, "tests", "sessions", "post_monocal")    
+    original_session_path = Path(__root__, "dev", "sample_sessions", "low_res")
     session_path = Path(original_session_path.parent.parent,"sessions_copy_delete","post_monocal_post_optimization")
 
     # clear previous test so as not to pollute current test results

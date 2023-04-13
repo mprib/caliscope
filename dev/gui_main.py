@@ -6,8 +6,8 @@ from pyxy3d import __root__
 from pathlib import Path
 
 # config_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
-config_path = Path(__root__, "dev", "sample_sessions", "mediapipe_calibration")
-    
+# config_path = Path(__root__, "dev", "sample_sessions", "mediapipe_calibration")
+config_path = Path(__root__, "dev", "sample_sessions", "low_res")
     
 app = QApplication(sys.argv)
 window = CalibrationWizard()
@@ -21,9 +21,6 @@ window.wizard_directory.original_path.textbox.setText(str(config_path))
 window.wizard_directory.modified_path.textbox.setText(str(config_path))
 window.wizard_directory.launch_wizard_btn.click()
 window.wizard_charuco.navigation_bar.next_wizard_step_btn.click()
-# while not hasattr(window, "stereoframe"):
-#     sleep(1)
-# window.stereoframe.navigation_bar.calibrate_collect_btn.click()
 
 window.show()
 

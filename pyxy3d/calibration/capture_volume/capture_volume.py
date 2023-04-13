@@ -272,7 +272,7 @@ if __name__ == "__main__":
     )
     from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 
-    session_directory = Path(__root__, "tests", "217")
+    session_directory = Path(__root__, "dev", "sample_sessions", "low_res")
 
     point_data_path = Path(session_directory, "point_data.csv")
 

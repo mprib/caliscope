@@ -164,7 +164,7 @@ class StereoFrameWidget(QWidget):
             self.calibrate_collect_btn.setText("Collect Data")
             self.calibrate_collect_btn.setEnabled(True)
             self.calibration_complete.emit()
-            
+            logger.info("Calibration Complete signal sent...")
             
         self.init_calibration_thread = Thread(target=worker,args=(), daemon=True)
         self.init_calibration_thread.start()

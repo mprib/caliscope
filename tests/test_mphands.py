@@ -3,7 +3,7 @@ import cv2
 from pathlib import Path
 import time
 
-recordings_path = str(Path("dev", "sample", "mediapipe_calibration", "port_0.mp4"))
+recordings_path = str(Path("dev", "sample_sessions", "mediapipe_calibration", "port_0.mp4"))
 cap = cv2.VideoCapture(recordings_path)
 
 while True:

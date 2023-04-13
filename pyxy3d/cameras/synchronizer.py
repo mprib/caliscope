@@ -309,7 +309,7 @@ class Synchronizer:
 
 if __name__ == "__main__":
     from pyxy3d.calibration.charuco import Charuco
-    from pyxy3d.calibration.corner_tracker import CornerTracker
+    from pyxy3d.img2xy.corner_tracker import CornerTracker
     from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
 
     from pyxy3d.session import Session

@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.data_packets import FramePacket
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.img2xy.corner_tracker import CornerTracker
+from pyxy3d.img2xy.corner_tracker import CharucoTracker
 import pyxy3d.calibration.draw_charuco as draw_charuco
 
 class Stream(ABC):
@@ -48,7 +48,7 @@ class LiveStream(Stream):
 
         if charuco is not None:
             self.charuco = charuco
-            self.tracker = CornerTracker(charuco)
+            self.tracker = CharucoTracker(charuco)
             self.track_points.set()  # default to tracking points if the charuco is provided
         else:
             self.track_points.clear()  # just to be clear
@@ -115,7 +115,7 @@ class LiveStream(Stream):
 
     def update_charuco(self, charuco: Charuco):
         self.charuco = charuco
-        self.tracker = CornerTracker(charuco)
+        self.tracker = CharucoTracker(charuco)
 
     def wait_to_next_frame(self):
         """

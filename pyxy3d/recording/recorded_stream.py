@@ -21,7 +21,7 @@ from time import perf_counter, sleep
 import pandas as pd
 import numpy as np
 
-from pyxy3d.img2xy.corner_tracker import CornerTracker
+from pyxy3d.img2xy.corner_tracker import CharucoTracker
 from pyxy3d.cameras.data_packets import FramePacket
 from pyxy3d.cameras.live_stream import Stream
 from pyxy3d.cameras.camera_array import CameraData
@@ -40,7 +40,7 @@ class RecordedStream(Stream):
         self.port = camera.port
 
         if charuco is not None:
-            self.tracker = CornerTracker(charuco)
+            self.tracker = CharucoTracker(charuco)
             self.track_points = True
         else:
             self.track_points = False

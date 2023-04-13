@@ -70,7 +70,7 @@ class MonoCalibrator():
         # roll back collected corners to the beginning
         self.all_ids = []
         self.all_img_loc = []
-        self.all_board_loc = []
+        self.all_obj_loc = []
     
     def stop(self):
         self.stop_event.set()
@@ -104,7 +104,7 @@ class MonoCalibrator():
                 logger.info("Points found and being processed...")
                 self.ids = self.frame_packet.points.point_id
                 self.img_loc = self.frame_packet.points.img_loc
-                self.board_loc = self.frame_packet.points.board_loc
+                self.obj_loc = self.frame_packet.points.obj_loc
 
                 if self.ids.any():
                     enough_corners = len(self.ids) > self.min_points_to_process
@@ -120,7 +120,7 @@ class MonoCalibrator():
                     # store the corners and IDs
                     self.all_ids.append(self.ids)
                     self.all_img_loc.append(self.img_loc)
-                    self.all_board_loc.append(self.board_loc)
+                    self.all_obj_loc.append(self.obj_loc)
 
                     self.last_calibration_time = time.perf_counter()
                     self.update_grid_history()
@@ -174,7 +174,7 @@ class MonoCalibrator():
         """
         logger.info(f"Calibrating camera {self.camera.port}....")
 
-        objpoints = self.all_board_loc
+        objpoints = self.all_obj_loc
         imgpoints = self.all_img_loc
         height = self.grid_capture_history.shape[0]
         width = self.grid_capture_history.shape[1]

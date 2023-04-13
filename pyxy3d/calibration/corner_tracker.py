@@ -46,7 +46,7 @@ class CornerTracker:
             self.gray = cv2.flip(self.gray, 1)
             self.find_corners_single_frame(mirror=True)
         
-        point_packet = PointPacket(self.ids, self.img_loc, self.board_loc)
+        point_packet = PointPacket(self.ids, self.img_loc, self.obj_loc)
         
         # if len(self.ids) > 0:
         #     print("wait")
@@ -95,7 +95,7 @@ class CornerTracker:
                     self.img_loc[:, 0] = frame_width - self.img_loc[:, 0]
 
     @property
-    def board_loc(self):
+    def obj_loc(self):
         """Objective position of charuco corners in a board frame of reference"""
         # if self.ids == np.array([0]):
             # print("wait")

@@ -67,11 +67,11 @@ def get_stereotriangulated_table(camera_array:CameraArray, point_data_path:Path)
                 img_loc_y = points["img_loc_y"].to_numpy()
                 img_loc = np.vstack([img_loc_x, img_loc_y]).T
 
-                board_loc_x = points["board_loc_x"].to_numpy()
-                board_loc_y = points["board_loc_y"].to_numpy()
-                board_loc = np.vstack([board_loc_x, board_loc_y]).T
+                obj_loc_x = points["obj_loc_x"].to_numpy()
+                obj_loc_y = points["obj_loc_y"].to_numpy()
+                obj_loc = np.vstack([obj_loc_x, obj_loc_y]).T
 
-                point_packet = PointPacket(point_id, img_loc, board_loc)
+                point_packet = PointPacket(point_id, img_loc, obj_loc)
                 frame_packet = FramePacket(
                     port, frame_time, None, frame_index, point_packet
                 )

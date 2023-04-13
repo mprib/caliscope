@@ -229,8 +229,8 @@ class StereoCalibrator:
         )
         
         if paired_point_data is not None:
-            img_locs_A, board_locs_A = self.get_stereocal_inputs(pair[0], paired_point_data)
-            img_locs_B, board_locs_B = self.get_stereocal_inputs(pair[1], paired_point_data)
+            img_locs_A, obj_locs_A = self.get_stereocal_inputs(pair[0], paired_point_data)
+            img_locs_B, obj_locs_B = self.get_stereocal_inputs(pair[1], paired_point_data)
 
             camera_matrix_A = self.config["cam_" + str(pair[0])]["matrix"]
             camera_matrix_B = self.config["cam_" + str(pair[1])]["matrix"]
@@ -253,7 +253,7 @@ class StereoCalibrator:
                 essential,
                 fundamental,
             ) = cv2.stereoCalibrate(
-                board_locs_A,
+                obj_locs_A,
                 img_locs_A,
                 img_locs_B,
                 camera_matrix_A,
@@ -282,23 +282,23 @@ class StereoCalibrator:
         sync_indices = port_point_data["sync_index"].to_numpy().round().astype(int)
         img_loc_x = port_point_data["img_loc_x"].to_numpy().astype(np.float32)
         img_loc_y = port_point_data["img_loc_y"].to_numpy().astype(np.float32)
-        board_loc_x = port_point_data["board_loc_x"].to_numpy().astype(np.float32)
-        board_loc_y = port_point_data["board_loc_y"].to_numpy().astype(np.float32)
-        board_loc_z = board_loc_x * 0
+        obj_loc_x = port_point_data["obj_loc_x"].to_numpy().astype(np.float32)
+        obj_loc_y = port_point_data["obj_loc_y"].to_numpy().astype(np.float32)
+        obj_loc_z = obj_loc_x * 0
 
         # build the actual inputs for the calibration...
         img_x_y = np.vstack([img_loc_x, img_loc_y]).T
-        board_x_y_z = np.vstack([board_loc_x, board_loc_y, board_loc_z]).T
+        board_x_y_z = np.vstack([obj_loc_x, obj_loc_y, obj_loc_z]).T
 
         # print(time.time())
         img_locs = []
-        board_locs = []
+        obj_locs = []
         for sync_index in np.unique(sync_indices):
             same_frame = sync_indices == sync_index
             img_locs.append(img_x_y[same_frame])
-            board_locs.append(board_x_y_z[same_frame])
+            obj_locs.append(board_x_y_z[same_frame])
 
-        return img_locs, board_locs
+        return img_locs, obj_locs
 
 
 if __name__ == "__main__":

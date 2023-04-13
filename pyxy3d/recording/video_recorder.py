@@ -56,8 +56,8 @@ class VideoRecorder:
                     "point_id":[],
                     "img_loc_x":[],
                     "img_loc_y":[],
-                    "board_loc_x":[],
-                    "board_loc_y":[],
+                    "obj_loc_x":[],
+                    "obj_loc_y":[],
         }
         
         self.sync_packet_in_q = Queue(-1)

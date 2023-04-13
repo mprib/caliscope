@@ -36,7 +36,7 @@ class MonoCalibrator():
         self.grid_frame_ready_q = Queue()
         self.connected_corners = self.stream.charuco.get_connected_corners()
 
-        board_corner_count = len(self.stream.charuco.board.chessboardCorners)
+        board_corner_count = len(self.stream.charuco.board.getChessboardCorners())
         self.min_points_to_process = int(board_corner_count * board_threshold)
 
         self.initialize_grid_history()

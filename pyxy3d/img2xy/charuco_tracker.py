@@ -11,16 +11,16 @@ import numpy as np
 import pyxy3d.calibration.draw_charuco
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.data_packets import PointPacket
+from pyxy3d.img2xy.tracker_abc import Tracker
 
-
-class CharucoTracker:
+class CharucoTracker(Tracker):
     def __init__(self, charuco):
 
         # need camera to know resolution and to assign calibration parameters
         # to camera
         self.charuco = charuco
         self.board = charuco.board
-        self.dictionary = self.charuco.board.dictionary
+        self.dictionary_object = self.charuco.dictionary_object
 
         # for subpixel corner correction
         self.criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.0001)
@@ -52,12 +52,15 @@ class CharucoTracker:
         #     print("wait")
         
         return point_packet
+    
+    def get_point_names(self) -> dict:
+        pass
 
     def find_corners_single_frame(self, mirror):
 
         # detect if aruco markers are present
         aruco_corners, aruco_ids, rejected = cv2.aruco.detectMarkers(
-            self.gray, self.dictionary
+            self.gray, self.dictionary_object
         )
 
         frame_width = self.frame.shape[1]  # used for flipping mirrored corners back
@@ -100,7 +103,7 @@ class CharucoTracker:
         # if self.ids == np.array([0]):
             # print("wait")
         if len(self.ids) > 0:
-            return self.board.chessboardCorners[self.ids, :]
+            return self.board.getChessboardCorners()[self.ids, :]
         else:
             return np.array([])
 

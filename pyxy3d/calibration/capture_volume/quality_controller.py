@@ -160,7 +160,7 @@ class QualityController:
     @property
     def corners_board_xyz(self) -> np.ndarray:
         corner_ids = self.corners_world_xyz["charuco_id"]
-        corners_board_xyz = self.charuco.board.chessboardCorners[corner_ids]
+        corners_board_xyz = self.charuco.board.getChessboardCorners()[corner_ids]
 
         return corners_board_xyz
 

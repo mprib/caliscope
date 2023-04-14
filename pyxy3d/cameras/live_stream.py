@@ -20,25 +20,6 @@ from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.img2xy.charuco_tracker import CharucoTracker
 import pyxy3d.calibration.draw_charuco as draw_charuco
 
-class Stream(ABC):
-    """
-    As much an exercise in better understanding ABC as it is anything...
-    """
-    @abstractmethod
-    def subscribe(self,queue:Queue):
-        pass
-    
-    @abstractmethod
-    def unsubscribe(self,queue:Queue):
-        pass
-    
-    def set_tracking_on(self,track:bool):
-        pass
-
-    
-    @abstractmethod
-    def worker(self):
-        pass
 
 class LiveStream(Stream):
     def __init__(self, camera:Camera, fps_target=6, charuco=None):

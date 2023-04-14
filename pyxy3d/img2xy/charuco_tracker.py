@@ -51,6 +51,9 @@ class CharucoTracker(Tracker):
     def get_point_names(self) -> dict:
         pass
 
+    def get_connected_points(self):
+        return self.charuco.get_connected_points()
+
     def find_corners_single_frame(self,gray_frame, mirror):
 
         ids = np.array([])
@@ -78,7 +81,7 @@ class CharucoTracker(Tracker):
                     self.criteria,
                 )
             except:
-                logger.warn("Sub pixel detection failed")
+                logger.debug("Sub pixel detection failed")
 
             if success:
                 # assign to tracker

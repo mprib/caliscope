@@ -26,9 +26,18 @@ class Tracker(ABC):
 
     @abstractmethod
     def get_point_names(self)->dict:
+        """
+        Used for saving out data with sensible headers
+        """
         pass
 
-
+    def get_connected_points(self):
+        """
+        used for drawing purposes elsewhere. Specify which
+        points (if any) should have a line connecting them
+        
+        """
+        pass
 class Stream(ABC):
     """
     As much an exercise in better understanding ABC as it is anything...

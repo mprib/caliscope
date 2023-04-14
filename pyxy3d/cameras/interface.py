@@ -2,6 +2,10 @@ from dataclasses import dataclass
 import numpy as np
 from numba.typed import List
 
+from abc import ABC, abstractmethod
+    
+
+
 @dataclass
 class PointPacket:
     """
@@ -13,6 +17,38 @@ class PointPacket:
     img_loc: np.ndarray = None
     obj_loc: np.ndarray = None # x,y,z in object frame of reference; primarily for calibration
     confidence: np.ndarray = None # may be available in some trackers..include for downstream 
+
+class Tracker(ABC):
+    
+    @abstractmethod
+    def get_points(self, frame:np.ndarray)->PointPacket:
+        pass
+
+    @abstractmethod
+    def get_point_names(self)->dict:
+        pass
+
+
+class Stream(ABC):
+    """
+    As much an exercise in better understanding ABC as it is anything...
+    """
+    @abstractmethod
+    def subscribe(self,queue:Queue):
+        pass
+    
+    @abstractmethod
+    def unsubscribe(self,queue:Queue):
+        pass
+    
+    def set_tracking_on(self,track:bool):
+        pass
+
+    
+    @abstractmethod
+    def worker(self):
+        pass
+
 
 @dataclass
 class FramePacket:

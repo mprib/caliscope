@@ -286,10 +286,16 @@ if __name__ == "__main__":
     syncr.subscribe_to_sync_packets(in_q)
     
     while not syncr.frames_complete:
+        sleep(.03)
         sync_packet =in_q.get()
         for port, frame_packet in sync_packet.frame_packets.items():
             if frame_packet:
+                
+                if frame_packet.frame_time == -1:
+                    break #end of frames
+
                 cv2.imshow(f"Port {port}", frame_packet.frame)
+
 
         key = cv2.waitKey(1)
 

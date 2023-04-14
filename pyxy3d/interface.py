@@ -3,7 +3,7 @@ import numpy as np
 from numba.typed import List
 from queue import Queue
 from abc import ABC, abstractmethod
-    
+import cv2    
 
 
 @dataclass
@@ -45,9 +45,6 @@ class Stream(ABC):
     def set_tracking_on(self,track:bool):
         pass
 
-    @abstractmethod
-    def show_points(self, show:bool):
-        pass
     
     @abstractmethod
     def process_frames(self):
@@ -90,6 +87,23 @@ class FramePacket:
             table = None 
         return table
 
+    @property
+    def frame_with_points(self):
+        
+        if self.points is not None:
+            drawn_frame = self.frame.copy()
+            locs = self.points.img_loc
+            for coord in locs:
+                x = round(coord[0])
+                y = round(coord[1])
+
+                cv2.circle(drawn_frame, (x, y), 5, (0, 0, 220), 3)
+        else:
+            drawn_frame = self.frame.copy()
+            
+        return drawn_frame
+            
+        
 @dataclass
 class SyncPacket:
     """

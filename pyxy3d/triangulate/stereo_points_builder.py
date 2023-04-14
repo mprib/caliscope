@@ -15,7 +15,7 @@ import numpy as np
 from dataclasses import dataclass
 from itertools import combinations
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.img2xy.charuco_tracker import CharucoTracker
+from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.interface import SyncPacket
 
 

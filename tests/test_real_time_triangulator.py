@@ -18,7 +18,7 @@ from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
 from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_array
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.calibration.charuco import Charuco, get_charuco
-from pyxy3d.img2xy.charuco_tracker import CharucoTracker
+from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.configurator import Configurator
 
 import pytest

@@ -11,9 +11,8 @@ import mediapipe as mp
 import numpy as np
 import cv2
 # cap = cv2.VideoCapture(0)
-from tracker_abc import Tracker, PointPacket
+from pyxy3d.interface import Tracker, PointPacket
 
-from dataclasses import dataclass
 
 
 class HandTracker(Tracker):
@@ -30,27 +29,19 @@ class HandTracker(Tracker):
             min_tracking_confidence=0.5,
         )
 
-    def get_points(self, frame:np.ndarray):
+    def get_points(self, frame:np.ndarray)->PointPacket:
         height, width, color = frame.shape
         # Convert the image to RGB format
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         results = self.hands.process(image_rgb)
-
+        
+        # initialize variables so none will be created if no points detected
+        
+        point_ids = []
+        landmark_xy = []
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
-                # Draw the hand landmarks on the image
-
-                mp.solutions.drawing_utils.draw_landmarks(
-                    frame, hand_landmarks, mp.solutions.hands.HAND_CONNECTIONS
-                )
-
-                # Print the hand landmarks
-                # for i, landmark in enumerate(hand_landmarks.landmark):
-                # print(f'Hand landmark {i}: x={landmark.x}, y={landmark.y}, z={landmark.z}')
-                point_ids = []
-                landmark_xy = []
-                # visibility = []
 
                 for landmark_id, landmark in enumerate(hand_landmarks.landmark):
                     point_ids.append(landmark_id)
@@ -59,5 +50,11 @@ class HandTracker(Tracker):
                     landmark_xy.append((x, y))
                     # visibility.append(landmark.visibility)
 
-                point_ids = np.array(point_ids)
-                landmark_xy = np.array(landmark_xy)
+        point_ids = np.array(point_ids)
+        landmark_xy = np.array(landmark_xy)
+
+        return PointPacket(point_ids,landmark_xy)
+            
+
+    def get_point_names(self) -> dict:
+        return super().get_point_names()

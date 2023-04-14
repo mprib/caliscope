@@ -10,7 +10,7 @@ import numpy as np
 
 import pyxy3d.calibration.draw_charuco
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.cameras.data_packets import PointPacket
+from pyxy3d.interface import PointPacket
 from pyxy3d.img2xy.tracker_abc import Tracker
 
 class CharucoTracker(Tracker):
@@ -113,14 +113,14 @@ if __name__ == "__main__":
     from pyxy3d.cameras.camera import Camera
     from pyxy3d.cameras.live_stream import LiveStream
     
-    charuco = Charuco(
+    tracker = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
     cam = Camera(1)
 
     print(f"Using Optimized Code?: {cv2.useOptimized()}")
-    trackr = CharucoTracker(charuco)
-    stream = LiveStream(cam,fps_target=10,charuco=charuco)
+    trackr = CharucoTracker(tracker)
+    stream = LiveStream(cam,fps_target=10,charuco=tracker)
     stream._show_fps = True
         
     print("About to enter main loop")

@@ -12,7 +12,7 @@ from pathlib import Path
 import time
 
 from pyxy3d import __root__
-from pyxy3d.cameras.data_packets import PointPacket, FramePacket, SyncPacket
+from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.triangulate.array_stereo_triangulator import ArrayStereoTriangulator
 

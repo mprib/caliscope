@@ -15,21 +15,20 @@ import numpy as np
 from abc import ABC, abstractmethod
 
 from pyxy3d.cameras.camera import Camera
-from pyxy3d.cameras.data_packets import FramePacket
+from pyxy3d.interface import FramePacket, Stream, Tracker
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.img2xy.charuco_tracker import CharucoTracker
 import pyxy3d.calibration.draw_charuco as draw_charuco
 
 
 class LiveStream(Stream):
-    def __init__(self, camera:Camera, fps_target=6, charuco=None):
+    def __init__(self, camera:Camera, fps_target=6, tracker:Tracker=None):
         self.camera:Camera = camera
         self.port = camera.port
         self.track_points = Event()
 
-        if charuco is not None:
-            self.charuco = charuco
-            self.tracker = CharucoTracker(charuco)
+        if tracker is not None:
+            self.tracker = tracker
             self.track_points.set()  # default to tracking points if the charuco is provided
         else:
             self.track_points.clear()  # just to be clear
@@ -43,12 +42,12 @@ class LiveStream(Stream):
         self.stop_confirm = Queue()
 
         self._show_fps = False  # used for testing
-        self._show_charuco = False  # used for testing
+        self._show_points = False  # used for testing
 
         self.set_fps_target(fps_target)
         self.FPS_actual = 0
         # Start the thread to read frames from the video stream
-        self.thread = Thread(target=self.worker, args=(), daemon=True)
+        self.thread = Thread(target=self.process_frames, args=(), daemon=True)
         self.thread.start()
 
         # initialize time trackers for actual FPS determination
@@ -95,7 +94,7 @@ class LiveStream(Stream):
         self.milestones = np.array(milestones)
 
     def update_charuco(self, charuco: Charuco):
-        self.charuco = charuco
+        self.tracker = charuco
         self.tracker = CharucoTracker(charuco)
 
     def wait_to_next_frame(self):
@@ -135,7 +134,7 @@ class LiveStream(Stream):
         self.stop_event.set()
         logger.info(f"Stop signal sent at stream {self.port}")
 
-    def worker(self):
+    def process_frames(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame,
         calls various frame processing methods on it, and updates the exposed
@@ -193,7 +192,7 @@ class LiveStream(Stream):
                         points=point_data,
                     )
 
-                    if self._show_charuco:
+                    if self._show_points:
                         draw_charuco.corners(frame_packet)
                         # self.out_q.put([self.frame_time, self.frame])
 
@@ -228,7 +227,7 @@ class LiveStream(Stream):
         logger.info(
             f"Beginning roll_camera thread at port {self.port} with resolution {res}"
         )
-        self.thread = Thread(target=self.worker, args=(), daemon=True)
+        self.thread = Thread(target=self.process_frames, args=(), daemon=True)
         self.thread.start()
 
     def _add_fps(self):
@@ -257,7 +256,7 @@ if __name__ == "__main__":
         cams.append(cam)
 
     # standard inverted charuco
-    charuco = Charuco(
+    tracker = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
@@ -271,10 +270,10 @@ if __name__ == "__main__":
         frame_packet_queues[cam.port] = q
 
         print(f"Creating Video Stream for camera {cam.port}")
-        stream = LiveStream(cam, fps_target=5, charuco=charuco)
+        stream = LiveStream(cam, fps_target=5, charuco=tracker)
         stream.subscribe(frame_packet_queues[cam.port])
         stream._show_fps = True
-        stream._show_charuco = True
+        stream._show_points = True
         streams.append(stream)
 
     while True:

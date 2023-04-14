@@ -21,7 +21,7 @@ while True:
 
         frame_packet = FramePacket(port,time.time(),frame,points=hand_points_packet)
         # cv2.imshow("Hand Landmarks", frame_packet.frame_with_points)
-        cv2.imshow("Hand Landmarks", frame_packet.frame_with_points)
+        cv2.imshow("Hand Landmarks", frame_packet.frame_with_points(hand_tracker.draw_instructions))
         
         key = cv2.waitKey(1)
 

@@ -56,7 +56,7 @@ class HandTracker(Tracker):
                 # create adjusting factor to distinguish 
                 # left/right 
                 hand_label = hand_types[hand_type_index]
-                if hand_label == "left":
+                if hand_label == "Left":
                     side_adjustment_factor = 0
                 else:
                     side_adjustment_factor = 100 
@@ -78,3 +78,14 @@ class HandTracker(Tracker):
 
     def get_point_names(self) -> dict:
         return super().get_point_names()
+    
+    def draw_instructions(self, point_id:int)->dict:
+        if point_id < 100:
+            rules = {"radius":5,
+                     "color":(0,0,220),
+                     "thickness":3}
+        else:
+            rules = {"radius":5,
+                     "color":(220,0,0),
+                     "thickness":3}
+        return rules

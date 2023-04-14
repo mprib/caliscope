@@ -19,7 +19,7 @@ class HandTracker(Tracker):
     # Initialize MediaPipe Hands and Drawing utility
     def __init__(self) -> None:
         # mp.solutions.hands = mp.solutions.hands
-        mp_drawing = mp.solutions.drawing_utils
+        # mp_drawing = mp.solutions.drawing_utils
 
         # Create a MediaPipe Hands instance
         self.hands = mp.solutions.hands.Hands(
@@ -35,21 +35,41 @@ class HandTracker(Tracker):
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         results = self.hands.process(image_rgb)
-        
         # initialize variables so none will be created if no points detected
-        
+
+
         point_ids = []
         landmark_xy = []
+        
         if results.multi_hand_landmarks:
+            # need to track left/right which is a but more 
+            # difficult than you might think
+            hand_types = [] 
+            for item in results.multi_handedness:
+                hand_info = item.ListFields()[0][1].pop()
+                hand_types.append(hand_info.label)
+
+            hand_type_index = 0
+
             for hand_landmarks in results.multi_hand_landmarks:
+                
+                # create adjusting factor to distinguish 
+                # left/right 
+                hand_label = hand_types[hand_type_index]
+                if hand_label == "left":
+                    side_adjustment_factor = 0
+                else:
+                    side_adjustment_factor = 100 
 
                 for landmark_id, landmark in enumerate(hand_landmarks.landmark):
-                    point_ids.append(landmark_id)
+                    point_ids.append(landmark_id+side_adjustment_factor)
+
                     # mediapipe expresses in terms of percent of frame, so must map to pixel position
                     x, y = int(landmark.x * width), int(landmark.y * height)
                     landmark_xy.append((x, y))
-                    # visibility.append(landmark.visibility)
 
+                hand_type_index+=1
+                
         point_ids = np.array(point_ids)
         landmark_xy = np.array(landmark_xy)
 

@@ -89,12 +89,13 @@ def test_post_monocalibration(session_path):
     # config_path = str(Path(session_path, "config.toml"))
     logger.info(f"Getting charuco from config at {config.toml_path}")
     charuco = config.get_charuco()
+    charuco_tracker = CharucoTracker(charuco)
     
     point_data_path = Path(session_path, "point_data.csv")
  
     # create a synchronizer based off of these stream pools 
     logger.info(f"Creating RecordedStreamPool")
-    stream_pool = RecordedStreamPool(session_path, charuco=charuco)
+    stream_pool = RecordedStreamPool(session_path, tracker=charuco_tracker)
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(stream_pool.streams, fps_target=None)
 
@@ -151,8 +152,8 @@ if __name__ == "__main__":
     # from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
     
     
-    # original_session_path = Path(__root__, "tests", "sessions", "post_monocal")    
-    original_session_path = Path(__root__, "dev", "sample_sessions", "low_res")
+    original_session_path = Path(__root__, "tests", "sessions", "post_monocal")    
+    # original_session_path = Path(__root__, "dev", "sample_sessions", "low_res")
     session_path = Path(original_session_path.parent.parent,"sessions_copy_delete","post_monocal_post_optimization")
 
     # clear previous test so as not to pollute current test results

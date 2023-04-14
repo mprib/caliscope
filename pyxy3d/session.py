@@ -64,6 +64,8 @@ class Session:
 
         self.load_config()
         self.load_charuco()
+        self.charuco_tracker = CharucoTracker(self.charuco)
+
 
     def get_synchronizer(self):
         if hasattr(self, "synchronizer"):
@@ -127,6 +129,7 @@ class Session:
             self.charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
             self.config["charuco"] = self.charuco.__dict__
             self.update_config()
+
 
     def save_charuco(self):
         self.config["charuco"] = self.charuco.__dict__
@@ -217,7 +220,7 @@ class Session:
                 logger.info(f"Success at port {port}")
                 self.cameras[port] = cam
                 self.save_camera(port)
-                self.streams[port] = LiveStream(cam, charuco=self.charuco)
+                self.streams[port] = LiveStream(cam, tracker=self.charuco_tracker)
             except:
                 logger.info(f"No camera at port {port}")
 

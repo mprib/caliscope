@@ -188,10 +188,10 @@ if __name__ == "__main__":
         video_path = Path(session_directory, "recording2")
     else:
         recording_directory = Path(__root__, "sessions", "5_cameras", "recording")
-        charuco = Charuco(
+        tracker = Charuco(
             4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
         )
-        stream_pool = RecordedStreamPool(ports, recording_directory, charuco=charuco)
+        stream_pool = RecordedStreamPool(ports, recording_directory, charuco=tracker)
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(stream_pool.streams, fps_target=3)
         stream_pool.play_videos()

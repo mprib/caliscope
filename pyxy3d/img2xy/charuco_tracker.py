@@ -10,8 +10,7 @@ import numpy as np
 
 import pyxy3d.calibration.draw_charuco
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.cameras.data_packets import PointPacket
-from pyxy3d.img2xy.tracker_abc import Tracker
+from pyxy3d.interface import PointPacket, Tracker   
 
 class CharucoTracker(Tracker):
     def __init__(self, charuco):
@@ -30,23 +29,19 @@ class CharucoTracker(Tracker):
         """Will check for charuco corners in the frame, if it doesn't find any, 
         then it will look for corners in the mirror image of the frame"""
 
-        self.ids = np.array([])
-        self.img_loc = np.array([])
-        self.frame = frame
-
         # invert the frame for detection if needed
-        self.gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)  # convert to gray
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # convert to gray
         if self.charuco.inverted:
-            self.gray = ~self.gray  # invert
+            gray = ~gray  # invert
 
-        self.find_corners_single_frame(mirror=False)
-        # print(self._frame_corner_ids)
-        if not self.ids.any():
-            # print("Checking mirror image")
-            self.gray = cv2.flip(self.gray, 1)
-            self.find_corners_single_frame(mirror=True)
+        ids, img_loc = self.find_corners_single_frame(gray, mirror=False)
+
+        if not ids.any():
+            gray = cv2.flip(gray, 1)
+            ids, img_loc = self.find_corners_single_frame(gray, mirror=True)
         
-        point_packet = PointPacket(self.ids, self.img_loc, self.obj_loc)
+        obj_loc = self.get_obj_loc(ids) 
+        point_packet = PointPacket(ids, img_loc, obj_loc)
         
         # if len(self.ids) > 0:
         #     print("wait")
@@ -56,54 +51,58 @@ class CharucoTracker(Tracker):
     def get_point_names(self) -> dict:
         pass
 
-    def find_corners_single_frame(self, mirror):
+    def get_connected_points(self):
+        return self.charuco.get_connected_points()
+
+    def find_corners_single_frame(self,gray_frame, mirror):
+
+        ids = np.array([])
+        img_loc = np.array([])
 
         # detect if aruco markers are present
         aruco_corners, aruco_ids, rejected = cv2.aruco.detectMarkers(
-            self.gray, self.dictionary_object
+            gray_frame, self.dictionary_object
         )
 
-        frame_width = self.frame.shape[1]  # used for flipping mirrored corners back
-
-        # correct the mirror frame before putting text on it if it's flipped
-        if mirror:
-            self.frame = cv2.flip(self.frame, 1)
-
         # if so, then interpolate to the Charuco Corners and return what you found
-        if len(aruco_corners) > 3:
+        if len(aruco_corners) >3:
             (success, _img_loc, _ids,) = cv2.aruco.interpolateCornersCharuco(
-                aruco_corners, aruco_ids, self.gray, self.board
+                aruco_corners, aruco_ids, gray_frame, self.board
             )
 
             # This occasionally errors out...
             # only offers possible refinement so if it fails, just move along
             try:
                 _img_loc = cv2.cornerSubPix(
-                    self.gray,
+                    gray_frame,
                     _img_loc,
                     self.conv_size,
                     (-1, -1),
                     self.criteria,
                 )
             except:
-                pass
+                logger.debug("Sub pixel detection failed")
 
             if success:
                 # assign to tracker
-                self.ids = _ids[:,0]
-                self.img_loc = _img_loc[:,0]
+                ids = _ids[:,0]
+                img_loc = _img_loc[:,0]
 
                 # flip coordinates if mirrored image fed in
+                frame_width = gray_frame.shape[1]  # used for flipping mirrored corners back
                 if mirror:
-                    self.img_loc[:, 0] = frame_width - self.img_loc[:, 0]
+                    img_loc[:, 0] = frame_width - img_loc[:, 0]
+                
 
-    @property
-    def obj_loc(self):
+                
+        return ids, img_loc
+
+    def get_obj_loc(self, ids:np.ndarray):
         """Objective position of charuco corners in a board frame of reference"""
         # if self.ids == np.array([0]):
             # print("wait")
-        if len(self.ids) > 0:
-            return self.board.getChessboardCorners()[self.ids, :]
+        if len(ids) > 0:
+            return self.board.getChessboardCorners()[ids, :]
         else:
             return np.array([])
 
@@ -113,14 +112,14 @@ if __name__ == "__main__":
     from pyxy3d.cameras.camera import Camera
     from pyxy3d.cameras.live_stream import LiveStream
     
-    charuco = Charuco(
+    tracker = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
     cam = Camera(1)
 
     print(f"Using Optimized Code?: {cv2.useOptimized()}")
-    trackr = CharucoTracker(charuco)
-    stream = LiveStream(cam,fps_target=10,charuco=charuco)
+    trackr = CharucoTracker(tracker)
+    stream = LiveStream(cam,fps_target=10,charuco=tracker)
     stream._show_fps = True
         
     print("About to enter main loop")

@@ -12,7 +12,7 @@ from pyxy3d.cameras.synchronizer import Synchronizer, SyncPacket
 from queue import Queue
 from threading import Thread, Event
 from pathlib import Path
-from pyxy3d.cameras.data_packets import XYZPacket
+from pyxy3d.interface import XYZPacket
 
 
 class RealTimeTriangulator:

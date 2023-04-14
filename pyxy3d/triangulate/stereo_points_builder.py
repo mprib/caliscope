@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from itertools import combinations
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.img2xy.charuco_tracker import CharucoTracker
-from pyxy3d.cameras.data_packets import SyncPacket
+from pyxy3d.interface import SyncPacket
 
 
 class StereoPointsBuilder:
@@ -161,11 +161,11 @@ if __name__ == "__main__":
 
     ports = [0, 1, 2, 3, 4]
 
-    charuco = Charuco(
+    tracker = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
-    recorded_stream_pool = RecordedStreamPool(ports, session_directory, charuco=charuco)
+    recorded_stream_pool = RecordedStreamPool(ports, session_directory, charuco=tracker)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=200)
     recorded_stream_pool.play_videos()
 

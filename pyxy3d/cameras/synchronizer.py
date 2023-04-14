@@ -12,7 +12,7 @@ from threading import Thread, Event
 
 import cv2
 import numpy as np
-from pyxy3d.cameras.data_packets import SyncPacket
+from pyxy3d.interface import SyncPacket
 
 DROPPED_FRAME_TRACK_WINDOW = 100 # trailing frames tracked for reporting purposes
 
@@ -340,11 +340,11 @@ if __name__ == "__main__":
         ports = [0, 1, 2, 3, 4]
         # ports = [0,1]
         recording_directory = Path(__root__, "tests","sessions", "217")
-        charuco = Charuco(
+        tracker = Charuco(
                 4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
             )
         recorded_stream_pool = RecordedStreamPool(
-            ports, recording_directory, charuco=charuco
+            ports, recording_directory, charuco=tracker
         )
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(recorded_stream_pool.streams, fps_target=20)

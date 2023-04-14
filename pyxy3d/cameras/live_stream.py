@@ -42,7 +42,8 @@ class LiveStream(Stream):
         self.stop_confirm = Queue()
 
         self._show_fps = False  # used for testing
-        self._show_points = False  # used for testing
+        
+        self.show_points(False)
 
         self.set_fps_target(fps_target)
         self.FPS_actual = 0
@@ -61,7 +62,13 @@ class LiveStream(Stream):
         else:
             logger.info(f"Turning tracking off on stream {self.port}")
             self.track_points.clear()
-
+        
+    def show_points(self, show: bool):
+        if show:
+            self._show_points = True
+        else:
+            self._show_points = False
+            
     def subscribe(self,queue:Queue):
         if queue not in self.subscribers:
             logger.info(f"Adding queue to subscribers at stream {self.port}")
@@ -273,7 +280,7 @@ if __name__ == "__main__":
         stream = LiveStream(cam, fps_target=5, tracker=tracker)
         stream.subscribe(frame_packet_queues[cam.port])
         stream._show_fps = True
-        stream._show_points = True
+        stream.show_points(True)
         streams.append(stream)
 
     while True:

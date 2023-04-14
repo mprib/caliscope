@@ -14,7 +14,7 @@ from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates
 import pytest
 from pyxy3d.calibration.charuco import Charuco, get_charuco
-from pyxy3d.img2xy.charuco_tracker import CharucoTracker
+from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer

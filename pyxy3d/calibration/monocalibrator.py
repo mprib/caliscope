@@ -14,7 +14,7 @@ import numpy as np
 import pyxy3d.calibration.draw_charuco as draw_charuco
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.img2xy.charuco_tracker import CharucoTracker
-from pyxy3d.cameras.data_packets import FramePacket
+from pyxy3d.interface import FramePacket
 from pyxy3d.cameras.live_stream import LiveStream
 
 class MonoCalibrator():
@@ -34,9 +34,9 @@ class MonoCalibrator():
         self.subscribe_to_stream()
 
         self.grid_frame_ready_q = Queue()
-        self.connected_corners = self.stream.charuco.get_connected_corners()
+        self.connected_corners = self.stream.tracker.get_connected_corners()
 
-        board_corner_count = len(self.stream.charuco.board.getChessboardCorners())
+        board_corner_count = len(self.stream.tracker.board.getChessboardCorners())
         self.min_points_to_process = int(board_corner_count * board_threshold)
 
         self.initialize_grid_history()
@@ -208,13 +208,13 @@ if __name__ == "__main__":
     from pyxy3d.cameras.synchronizer import Synchronizer
     from pyxy3d.cameras.live_stream import LiveStream
 
-    charuco = Charuco(
+    tracker = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
     test_port = 0
     cam = Camera(0)
-    stream = LiveStream(cam, charuco=charuco)
+    stream = LiveStream(cam, charuco=tracker)
     stream._show_fps = True
     # syncr = Synchronizer(streams, fps_target=20)
 

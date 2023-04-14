@@ -271,7 +271,7 @@ if __name__ == "__main__":
 
     # need to get the charuco board that was used during the session for later
     session = Session(session_directory)
-    charuco = session.charuco
+    tracker = session.charuco
 
     REOPTIMIZE_CAPTURE_VOLUME = True
     # REOPTIMIZE_CAPTURE_VOLUME = False
@@ -295,7 +295,7 @@ if __name__ == "__main__":
     origin_sync_index = origin_sync_indices[test_scenario]
     logger.warning(f"New test sync index is {origin_sync_index}")
 
-    capture_volume.set_origin_to_board(origin_sync_index, charuco)
+    capture_volume.set_origin_to_board(origin_sync_index, tracker)
 
     app = QApplication(sys.argv)
     vizr = CaptureVolumeVisualizer(capture_volume=capture_volume)

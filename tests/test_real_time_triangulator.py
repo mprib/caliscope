@@ -13,7 +13,7 @@ from time import sleep
 from dataclasses import asdict
 
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.cameras.data_packets import PointPacket, FramePacket, SyncPacket
+from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
 from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
 from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_array
 from pyxy3d.recording.recorded_stream import RecordedStreamPool

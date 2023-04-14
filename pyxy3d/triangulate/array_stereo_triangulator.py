@@ -17,7 +17,7 @@ from pathlib import Path
 from itertools import combinations
 
 from pyxy3d.triangulate.stereo_points_builder import StereoPointsBuilder, StereoPointsPacket
-from pyxy3d.cameras.data_packets import PointPacket, FramePacket, SyncPacket
+from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
 from pyxy3d.triangulate.stereo_points_builder import StereoPointsPacket, SynchedStereoPointsPacket
 
 
@@ -179,10 +179,10 @@ if __name__ == "__main__":
     recorded_stream_pool.play_videos()
 
     # create a corner tracker to locate board corners
-    charuco = Charuco(
+    tracker = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
-    trackr = CharucoTracker(charuco)
+    trackr = CharucoTracker(tracker)
 
     # create a commmon point finder to grab charuco corners shared between the pair of ports
     pairs = [(0, 1)]

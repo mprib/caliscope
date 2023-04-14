@@ -22,7 +22,7 @@ import pandas as pd
 import numpy as np
 
 from pyxy3d.img2xy.charuco_tracker import CharucoTracker
-from pyxy3d.cameras.data_packets import FramePacket
+from pyxy3d.interface import FramePacket
 from pyxy3d.cameras.live_stream import Stream
 from pyxy3d.cameras.camera_array import CameraData
 
@@ -114,10 +114,10 @@ class RecordedStream(Stream):
 
     def play_video(self):
 
-        self.thread = Thread(target=self.worker, args=[], daemon=True)
+        self.thread = Thread(target=self.process_frames, args=[], daemon=True)
         self.thread.start()
 
-    def worker(self):
+    def process_frames(self):
         """
         Places FramePacket on the out_q, mimicking the behaviour of the LiveStream.
         """
@@ -260,14 +260,14 @@ if __name__ == "__main__":
 
     recording_directory = Path(__root__, "tests", "sessions","217")
 
-    charuco = Charuco(
+    tracker = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
             
     cameras = get_configured_camera_data(recording_directory)
         
-    recorded_stream_pool = RecordedStreamPool(recording_directory, charuco=charuco)
+    recorded_stream_pool = RecordedStreamPool(recording_directory, charuco=tracker)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()
 

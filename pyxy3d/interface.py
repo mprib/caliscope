@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import numpy as np
 from numba.typed import List
-
+from queue import Queue
 from abc import ABC, abstractmethod
     
 
@@ -13,8 +13,8 @@ class PointPacket:
     A calleable that receives an image frame and returns a point_packet
     """
 
-    point_id: np.ndarray = None
-    img_loc: np.ndarray = None
+    point_id: np.ndarray = None # unique point id that aligns with Tracker.get_point_names()
+    img_loc: np.ndarray = None # x,y position of tracked point
     obj_loc: np.ndarray = None # x,y,z in object frame of reference; primarily for calibration
     confidence: np.ndarray = None # may be available in some trackers..include for downstream 
 
@@ -40,13 +40,14 @@ class Stream(ABC):
     @abstractmethod
     def unsubscribe(self,queue:Queue):
         pass
-    
+
+    @abstractmethod
     def set_tracking_on(self,track:bool):
         pass
 
     
     @abstractmethod
-    def worker(self):
+    def process_frames(self):
         pass
 
 
@@ -85,6 +86,7 @@ class FramePacket:
         else:
             table = None 
         return table
+
 @dataclass
 class SyncPacket:
     """
@@ -118,6 +120,9 @@ class SyncPacket:
 
     @property
     def dropped(self):
+        """
+        convencience method to ease tracking of dropped frame rate within the synchronizer
+        """
         temp_dict = {}
         for port,packet in self.frame_packets.items():
             if packet is None:

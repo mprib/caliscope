@@ -22,7 +22,7 @@ import pandas as pd
 import numpy as np
 
 from pyxy3d.img2xy.charuco_tracker import CharucoTracker
-from pyxy3d.cameras.data_packets import FramePacket
+from pyxy3d.interface import FramePacket, Tracker, Stream
 from pyxy3d.cameras.live_stream import Stream
 from pyxy3d.cameras.camera_array import CameraData
 
@@ -33,14 +33,14 @@ class RecordedStream(Stream):
     Within the stream, point detection occurs.
     """
 
-    def __init__(self, camera:CameraData, directory, fps_target=6, charuco=None):
+    def __init__(self, camera:CameraData, directory, fps_target=6, tracker:Tracker=None):
         # self.port = port
         self.directory = directory
         self.camera = camera
         self.port = camera.port
 
-        if charuco is not None:
-            self.tracker = CharucoTracker(charuco)
+        if tracker is not None:
+            self.tracker = tracker
             self.track_points = True
         else:
             self.track_points = False
@@ -67,6 +67,14 @@ class RecordedStream(Stream):
         self.frame_index = 0
         self.frame_time = 0
         self.set_fps_target(fps_target)
+        
+    def set_tracking_on(self, track: bool):
+        if track:
+            logger.info(f"Turning tracking on for recorded stream {self.port}")
+            self.track_points.set()
+        else:
+            logger.info(f"Turning tracking off for recorded stream {self.port}")
+            self.track_points.clear()
 
     def subscribe(self,queue:Queue):
         if queue not in self.subscribers:
@@ -114,10 +122,10 @@ class RecordedStream(Stream):
 
     def play_video(self):
 
-        self.thread = Thread(target=self.worker, args=[], daemon=True)
+        self.thread = Thread(target=self.process_frames, args=[], daemon=True)
         self.thread.start()
 
-    def worker(self):
+    def process_frames(self):
         """
         Places FramePacket on the out_q, mimicking the behaviour of the LiveStream.
         """
@@ -180,14 +188,14 @@ class RecordedStream(Stream):
 
 
 class RecordedStreamPool:
-    def __init__(self, directory, fps_target=6, charuco=None):
+    def __init__(self, directory:Path, fps_target=6, tracker:Tracker=None):
 
         self.streams = {}
         self.cameras = get_configured_camera_data(directory)
         # self.ports = ports
 
         for port, camera in self.cameras.items():
-            self.streams[port] = RecordedStream(camera, directory, fps_target=fps_target, charuco=charuco)
+            self.streams[port] = RecordedStream(camera, directory, fps_target=fps_target, tracker=tracker)
 
     def play_videos(self):
         for port, stream in self.streams.items():
@@ -258,16 +266,17 @@ if __name__ == "__main__":
     
     from pyxy3d import __root__
 
-    recording_directory = Path(__root__, "tests", "sessions","217")
+    recording_directory = Path(__root__, "tests", "sessions","post_monocal")
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
+    tracker = CharucoTracker(charuco)
             
     cameras = get_configured_camera_data(recording_directory)
         
-    recorded_stream_pool = RecordedStreamPool(recording_directory, charuco=charuco)
+    recorded_stream_pool = RecordedStreamPool(recording_directory, tracker=tracker)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()
 
@@ -277,16 +286,21 @@ if __name__ == "__main__":
     syncr.subscribe_to_sync_packets(in_q)
     
     while not syncr.frames_complete:
+        sleep(.03)
         sync_packet =in_q.get()
         for port, frame_packet in sync_packet.frame_packets.items():
             if frame_packet:
-                cv2.imshow(f"Port {port}", frame_packet.frame)
+                
+                if frame_packet.frame_time == -1:
+                    break #end of frames
+
+                cv2.imshow(f"Port {port}", frame_packet.frame_with_points)
 
         key = cv2.waitKey(1)
 
-        # if key == ord("q"):
-        #     cv2.destroyAllWindows()
-        #     break
+        if key == ord("q"):
+            # cv2.destroyAllWindows()
+            break
 
         # if syncr.frames_complete:
         #     cv2.destroyAllWindows()

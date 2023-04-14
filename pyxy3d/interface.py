@@ -45,6 +45,9 @@ class Stream(ABC):
     def set_tracking_on(self,track:bool):
         pass
 
+    @abstractmethod
+    def show_points(self, show:bool):
+        pass
     
     @abstractmethod
     def process_frames(self):

@@ -294,14 +294,13 @@ if __name__ == "__main__":
                 if frame_packet.frame_time == -1:
                     break #end of frames
 
-                cv2.imshow(f"Port {port}", frame_packet.frame)
-
+                cv2.imshow(f"Port {port}", frame_packet.frame_with_points)
 
         key = cv2.waitKey(1)
 
-        # if key == ord("q"):
-        #     cv2.destroyAllWindows()
-        #     break
+        if key == ord("q"):
+            # cv2.destroyAllWindows()
+            break
 
         # if syncr.frames_complete:
         #     cv2.destroyAllWindows()

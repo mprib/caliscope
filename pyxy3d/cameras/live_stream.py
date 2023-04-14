@@ -93,9 +93,8 @@ class LiveStream(Stream):
         logger.info(f"Setting fps to {self.fps}")
         self.milestones = np.array(milestones)
 
-    def update_charuco(self, charuco: Charuco):
-        self.tracker = charuco
-        self.tracker = CharucoTracker(charuco)
+    def update_tracker(self, tracker:Tracker):
+        self.tracker = tracker
 
     def wait_to_next_frame(self):
         """
@@ -256,9 +255,10 @@ if __name__ == "__main__":
         cams.append(cam)
 
     # standard inverted charuco
-    tracker = Charuco(
+    charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
+    tracker = CharucoTracker(charuco)
 
     frame_packet_queues = {}
 
@@ -270,7 +270,7 @@ if __name__ == "__main__":
         frame_packet_queues[cam.port] = q
 
         print(f"Creating Video Stream for camera {cam.port}")
-        stream = LiveStream(cam, fps_target=5, charuco=tracker)
+        stream = LiveStream(cam, fps_target=5, tracker=tracker)
         stream.subscribe(frame_packet_queues[cam.port])
         stream._show_fps = True
         stream._show_points = True

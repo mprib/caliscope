@@ -97,7 +97,6 @@ def get_rvec_tvec_from_board_pose(
     sync_index: int,
     charuco: Charuco,
 ):
-
     world_corners_xyz = get_world_corners_xyz(point_estimates, sync_index)
     board_corners_xyz = get_board_corners_xyz(point_estimates, sync_index, charuco)
     anchor_cameras = get_anchor_cameras(camera_array, point_estimates, sync_index)
@@ -169,7 +168,6 @@ def transform_to_rvec_tvec(transformation: np.ndarray):
 
 
 def rvec_tvec_to_transform(rvec: np.ndarray, tvec: np.ndarray) -> np.ndarray:
-
     # might send a rotation matrix into here so check
     # that rvec is a rodrigues vector before converting
     if len(rvec.shape) == 1 or rvec.shape[1] == 1:
@@ -187,7 +185,6 @@ def rvec_tvec_to_transform(rvec: np.ndarray, tvec: np.ndarray) -> np.ndarray:
 def world_board_distance(
     tvec_xyz: np.ndarray, good_rvec: np.ndarray, raw_world_xyz, board_corners_xyz
 ):
-
     scale = np.expand_dims(np.ones(raw_world_xyz.shape[0]), 1)
     raw_world_xyzh = np.hstack([raw_world_xyz, scale])
 
@@ -242,8 +239,12 @@ if __name__ == "__main__":
     from pyxy3d.session import Session
     from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
     from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
-    from pyxy3d.gui.vizualize.capture_volume_visualizer import CaptureVolumeVisualizer
-    from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
+    from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import (
+        CaptureVolumeVisualizer,
+    )
+    from pyxy3d.gui.vizualize.calibration.capture_volume_widget import (
+        CaptureVolumeWidget,
+    )
 
     # test_scenario = "4_cameras_nonoverlap"
     # test_scenario = "3_cameras_middle"
@@ -276,7 +277,6 @@ if __name__ == "__main__":
     # REOPTIMIZE_CAPTURE_VOLUME = False
 
     if REOPTIMIZE_CAPTURE_VOLUME:
-
         array_initializer = CameraArrayInitializer(config_path)
         camera_array = array_initializer.get_best_camera_array()
         point_estimates = get_point_estimates(camera_array, point_data_csv_path)
@@ -288,7 +288,6 @@ if __name__ == "__main__":
         capture_volume.optimize()
         capture_volume._save(session_directory, "optimized")
     else:
-
         saved_CV_path = Path(session_directory, "capture_volume_stage_1_optimized.pkl")
         with open(saved_CV_path, "rb") as f:
             capture_volume: CaptureVolume = pickle.load(f)

@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.interface import FramePacket, Stream, Tracker
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.img2xy.charuco_tracker import CharucoTracker
+from pyxy3d.trackers.charuco_tracker import CharucoTracker
 import pyxy3d.calibration.draw_charuco as draw_charuco
 
 

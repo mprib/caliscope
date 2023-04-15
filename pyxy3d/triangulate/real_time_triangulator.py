@@ -60,7 +60,8 @@ class RealTimeTriangulator:
                 # No more sync packets after this... wind down
                 self.stop_thread.set()
                 logger.info("End processing of incoming sync packets...end signaled with `None` packet")
-
+            # elif sync_packet.frame_packet_count <2:
+            #     pass # nothing to triangulate
             else:    
                 logger.info(f"Sync Packet {sync_packet.sync_index} acquired...")     
                 # self._sync_packet_history.append(sync_packet)

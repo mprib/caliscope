@@ -181,7 +181,7 @@ class LiveStream(Stream):
                 self.frame_time = (read_start + read_stop) / 2
 
                 if self.success and len(self.subscribers) > 0:
-                    logger.debug(f"Pushing frame to reel at port {self.port}")
+                    logger.info(f"Pushing frame to reel at port {self.port}")
 
                     if self.track_points.is_set():
                         point_data = self.tracker.get_points(self.frame)

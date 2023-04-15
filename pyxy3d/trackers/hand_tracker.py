@@ -6,6 +6,8 @@ streamlined point tracking manager that could be expanded out further.
 Wondering now about the name LabSeurat. Or heck, just stick with Seurat.
 
 """
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 import mediapipe as mp
 import numpy as np
@@ -72,6 +74,7 @@ class HandTracker(Tracker):
                 
         point_ids = np.array(point_ids)
         landmark_xy = np.array(landmark_xy)
+        # logger.info(f"returning point packet from mediapipe hand tracker")
 
         return PointPacket(point_ids,landmark_xy)
             

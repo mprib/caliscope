@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
+from queue import Queue
 
 import pyqtgraph.opengl as gl
 
@@ -20,18 +21,14 @@ from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray
 
-class TriangulationWidget(QWidget):
-    def __init__(self, camera_array:CameraArray, xyz_history_path:Path):
-        super(TriangulationWidget, self).__init__()
+class RealTimeTriangulationWidget(QWidget):
+    def __init__(self, camera_array:CameraArray, xyz_in_queue:Queue):
+        super(RealTimeTriangulationWidget, self).__init__()
 
         self.camera_array = camera_array
         self.xyz_history = pd.read_csv(xyz_history_path)
 
         self.visualizer = TriangulationVisualizer(self.camera_array, self.xyz_history)
-        # self.visualizer.scene.show()
-        self.slider = QSlider(Qt.Orientation.Horizontal)
-        self.slider.setMinimum(self.visualizer.min_sync_index)
-        self.slider.setMaximum(self.visualizer.max_sync_index)
 
         self.setMinimumSize(500, 500)
 
@@ -39,12 +36,10 @@ class TriangulationWidget(QWidget):
         self.place_widgets()
         self.connect_widgets()
 
-        # self.visualizer.display_points(self.visualizer.min_sync_index)
 
     def place_widgets(self):
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.visualizer.scene)
-        self.layout().addWidget(self.slider)
 
 
     def connect_widgets(self):
@@ -142,7 +137,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     xyz_history_path = Path(session_path,"xyz_history.csv")
-    vizr_dialog = TriangulationWidget(session.capture_volume.camera_array,xyz_history_path)
+    vizr_dialog = RealTimeTriangulationWidget(session.capture_volume.camera_array,xyz_history_path)
     vizr_dialog.show()
 
     sys.exit(app.exec())

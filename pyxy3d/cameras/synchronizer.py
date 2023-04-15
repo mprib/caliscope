@@ -295,11 +295,11 @@ class Synchronizer:
             # notify other processes that the new frames are ready for processing
             # only for tasks that can risk missing frames (i.e. only for gui purposes)
             for q in self.sync_notice_subscribers:
-                logger.info(f"Giving notice of new synched frames packet via {q}")
+                logger.info(f"Giving notice of new synched frames packet via queue")
                 q.put("new synched frames available")
 
             for q in self.synched_frames_subscribers:
-                logger.info(f"Placing new synched frames packet on queue: {q}")
+                logger.info(f"Placing new synched frames packet on queue with {self.current_sync_packet.frame_packet_count} frames")
                 q.put(self.current_sync_packet)
 
             self.fps_mean = self.average_fps()

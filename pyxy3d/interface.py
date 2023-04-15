@@ -179,7 +179,7 @@ class SyncPacket:
     def frame_packet_count(self):
         count = 0
         for port, packet in self.frame_packets.items():
-            if packet is None:
+            if packet is not None:
                  count+= 1
         return count
         

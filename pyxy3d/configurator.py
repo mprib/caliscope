@@ -1,4 +1,6 @@
 
+#%%
+
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
@@ -10,6 +12,9 @@ import toml
 from dataclasses import asdict
 
 from pyxy3d.calibration.charuco import Charuco
+from pyxy3d.cameras.camera import Camera
+from pyxy3d.cameras.live_stream import LiveStream
+from pyxy3d.interface import Tracker, TrackerFactory
 from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates, load_point_estimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
@@ -67,27 +72,28 @@ class Configurator:
         all_camera_data = {}
         for key, params in self.dict.items():
             if key.startswith("cam"):
-                if params["translation"] is not None:
-                    port = params["port"]
-                    size = params["size"]
+                if params["ignore"] == False:
+                    if params["translation"] is not None:
+                        port = params["port"]
+                        size = params["size"]
 
-                    logger.info(f"Adding camera {port} to calibrated camera array...")
-                    cam_data = CameraData(
-                        port=port,
-                        size=params["size"],
-                        rotation_count=params["rotation_count"],
-                        error=params["error"],
-                        matrix=np.array(params["matrix"]),
-                        distortions=np.array(params["distortions"]),
-                        exposure=params["exposure"],
-                        grid_count=params["grid_count"],
-                        ignore=params["ignore"],
-                        verified_resolutions=params["verified_resolutions"],
-                        translation=np.array(params["translation"]),
-                        rotation=np.array(params["rotation"]),
-                    )
+                        logger.info(f"Adding camera {port} to calibrated camera array...")
+                        cam_data = CameraData(
+                            port=port,
+                            size=params["size"],
+                            rotation_count=params["rotation_count"],
+                            error=params["error"],
+                            matrix=np.array(params["matrix"]),
+                            distortions=np.array(params["distortions"]),
+                            exposure=params["exposure"],
+                            grid_count=params["grid_count"],
+                            ignore=params["ignore"],
+                            verified_resolutions=params["verified_resolutions"],
+                            translation=np.array(params["translation"]),
+                            rotation=np.array(params["rotation"]),
+                        )
 
-                    all_camera_data[port] = cam_data
+                        all_camera_data[port] = cam_data
 
         camera_array = CameraArray(all_camera_data)
         return camera_array
@@ -187,3 +193,23 @@ class Configurator:
         self.dict["point_estimates"] = temp_data
 
         self.update_toml()
+
+    def get_live_stream_pool(self, tracker_factor:TrackerFactory):
+        for item, params in self.dict.items():
+            if item.startswith("cam_"):
+                if params["ignore"]==False:
+                    tracker = tracker_factor.get_tracker()
+                    logger.info(f"Adding stream associated with {item}")
+                    cam = Camera(params["port"], verified_resolutions=params["verified_resolutions"])
+                    stream = LiveStream(cam,fps_target=30, tracker=tracker)
+                    stream.change_resolution(params["size"])
+
+if __name__ == "__main__":
+    from pyxy3d import __root__
+    
+    session_path = Path(__root__,"dev", "sample_sessions", "real_time")
+    config = Configurator(session_path)
+
+    
+
+#%%

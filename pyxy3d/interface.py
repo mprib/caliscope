@@ -174,6 +174,15 @@ class SyncPacket:
             else:
                 temp_dict[port] = 0
         return temp_dict
+    
+    @property
+    def frame_packet_count(self):
+        count = 0
+        for port, packet in self.frame_packets.items():
+            if packet is None:
+                 count+= 1
+        return count
+        
 
 
 @dataclass

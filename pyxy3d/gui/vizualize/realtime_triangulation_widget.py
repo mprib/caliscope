@@ -124,7 +124,7 @@ if __name__ == "__main__":
     
     test_sessions = [
         # Path(__root__, "dev", "sample_sessions", "post_triangulation"),
-        Path(__root__, "dev", "sessions_copy_delete", "mediapipe_calibration", )
+        Path(__root__, "dev", "sample_sessions", "triangulated_hands", )
     ]
 
     test_session_index = 0
@@ -149,17 +149,18 @@ if __name__ == "__main__":
         sync_indices.sort()
         
         for sync_index in sync_indices:
-            logger.info(sync_index)
             current_xyz = xyz_data[xyz_data["sync_index"]==sync_index] 
-
-            logger.info(current_xyz)
             points = current_xyz["point_id"].to_numpy()
             xyz = current_xyz[["x_coord", "y_coord", "z_coord"]].to_numpy()
             
             xyz_packet = XYZPacket(sync_index,points,xyz )
             xyz_queue.put(xyz_packet)
-            time.sleep(.06)  
-    
+            time.sleep(.01)  
+        logger.info("attempting to quit application")
+        # vizr_dialog.close()
+        # app.quit()
+        # sys.exit()
+         
     thread = Thread(target=send_packets_from_history,args=[],daemon=True)
     thread.start()        
 

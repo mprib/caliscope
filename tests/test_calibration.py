@@ -95,7 +95,7 @@ def test_post_monocalibration(session_path):
  
     # create a synchronizer based off of these stream pools 
     logger.info(f"Creating RecordedStreamPool")
-    stream_pool = RecordedStreamPool(session_path,charuco_tracker_factory) 
+    stream_pool = RecordedStreamPool(session_path,fps_target = 100, tracker_factory = charuco_tracker_factory) 
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(stream_pool.streams, fps_target=None)
 

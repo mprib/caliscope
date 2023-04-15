@@ -36,6 +36,7 @@ session.load_cameras()
 hands_tracker_factory = HandTrackerFactory()
 
 session.load_streams(hands_tracker_factory)
+session.adjust_resolutions()
 
 config = Configurator(session_path)
 camera_array = config.get_camera_array()
@@ -43,7 +44,7 @@ camera_array = config.get_camera_array()
 logger.info(f"Creating RecordedStreamPool")
 # stream_pool = RecordedStreamPool(session_path, tracker_factory=charuco_tracker_factory, fps_target=100)
 logger.info("Creating Synchronizer")
-syncr = Synchronizer(session.streams, fps_target=1)
+syncr = Synchronizer(session.streams, fps_target=6)
 
 real_time_triangulator = RealTimeTriangulator(camera_array, syncr)
 xyz_queue = Queue()

@@ -198,8 +198,10 @@ class LiveStream(Stream):
                         points=point_data,
                     )
 
-                    if self._show_points:
-                        draw_charuco.corners(frame_packet)
+                    # cv2.imshow(str(self.port), frame_packet.frame_with_points)
+                    # key = cv2.waitKey(1)
+                    # if self._show_points:
+                        # draw_charuco.corners(frame_packet)
                         # self.out_q.put([self.frame_time, self.frame])
 
                     for q in self.subscribers:

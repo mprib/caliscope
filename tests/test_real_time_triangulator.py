@@ -18,11 +18,10 @@ from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
 from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_array
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.calibration.charuco import Charuco, get_charuco
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
+from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory   
 from pyxy3d.configurator import Configurator
 
 import pytest
-import shutil
 from pathlib import Path
 from numba import jit
 from numba.typed import Dict, List
@@ -31,35 +30,10 @@ import cv2
 import pandas as pd
 from time import time
 from pyxy3d import __root__
+from pyxy3d.helper import copy_contents
 
 TEST_SESSIONS = ["post_optimization"]
 
-
-def copy_contents(src_folder, dst_folder):
-    """
-    Helper function to port a test case data folder over to a temp directory 
-    used for testing purposes so that the test case data doesn't get overwritten
-    """
-    src_path = Path(src_folder)
-    dst_path = Path(dst_folder)
-
-    # Create the destination folder if it doesn't exist
-    dst_path.mkdir(parents=True, exist_ok=True)
-
-    for item in src_path.iterdir():
-        # Construct the source and destination paths
-        src_item = src_path / item
-        dst_item = dst_path / item.name
-
-
-        # Copy file or directory
-        if src_item.is_file():
-            logger.info(f"Copying file at {src_item} to {dst_item}")
-            shutil.copy2(src_item, dst_item)  # Copy file preserving metadata
-
-        elif src_item.is_dir():
-            logger.info(f"Copying directory at {src_item} to {dst_item}")
-            shutil.copytree(src_item, dst_item)
 
 
 @pytest.fixture(params=TEST_SESSIONS)
@@ -84,12 +58,12 @@ def test_real_time_triangulator(session_path):
     # origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
 
     charuco: Charuco = config.get_charuco()
-    charuco_tracker = CharucoTracker(charuco)
+    charuco_tracker_factory = CharucoTrackerFactory(charuco)
 
     camera_array: CameraArray = config.get_camera_array()
 
     logger.info(f"Creating RecordedStreamPool")
-    stream_pool = RecordedStreamPool(session_path, tracker=charuco_tracker, fps_target=100)
+    stream_pool = RecordedStreamPool(session_path, tracker_factory=charuco_tracker_factory, fps_target=100)
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(stream_pool.streams, fps_target=100)
 
@@ -127,7 +101,7 @@ def test_real_time_triangulator(session_path):
     assert(abs(config_z_mean - triangulator_z_mean)<.015)
 
 if __name__ == "__main__":
-
+    import shutil
     original_session_path = Path(__root__, "tests", "sessions", "post_optimization")    
     session_path = Path(original_session_path.parent.parent,"sessions_copy_delete","post_monocal_post_optimization")
 

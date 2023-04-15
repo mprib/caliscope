@@ -45,6 +45,8 @@ class Tracker(ABC):
         """
         pass
 
+    def draw_instructions(self, point_id:int) ->0:
+        pass
 
 class Stream(ABC):
     """
@@ -104,16 +106,17 @@ class FramePacket:
             table = None
         return table
 
-    @property
-    def frame_with_points(self):
+    def frame_with_points(self, draw_instructions:callable):
         if self.points is not None:
             drawn_frame = self.frame.copy()
+            ids = self.points.point_id
             locs = self.points.img_loc
-            for coord in locs:
+            for _id, coord in zip(ids, locs):
                 x = round(coord[0])
                 y = round(coord[1])
 
-                cv2.circle(drawn_frame, (x, y), 5, (0, 0, 220), 3)
+                params = draw_instructions(_id)
+                cv2.circle(drawn_frame, (x, y),params["radius"], params["color"], params["thickness"])
         else:
             drawn_frame = self.frame.copy()
 

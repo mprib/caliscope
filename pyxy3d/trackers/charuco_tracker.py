@@ -10,7 +10,7 @@ import numpy as np
 
 import pyxy3d.calibration.draw_charuco
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.interface import PointPacket, Tracker   
+from pyxy3d.interface import PointPacket, Tracker, TrackerFactory
 
 class CharucoTracker(Tracker):
     def __init__(self, charuco):
@@ -106,7 +106,23 @@ class CharucoTracker(Tracker):
         else:
             return np.array([])
 
+    # @staticmethod    
+    def draw_instructions(self, point_id: int) ->dict:
+        rules = {"radius":5,
+                 "color":(0,0,220),
+                 "thickness":3}
+        return rules
 
+class CharucoTrackerFactory(TrackerFactory):
+    
+    def __init__(self, charuco:Charuco):
+        self.charuco_tracker = CharucoTracker(charuco)
+   
+   
+    def get_tracker(self) -> Tracker:
+        return self.charuco_tracker
+    
+     
 if __name__ == "__main__":
 
     from pyxy3d.cameras.camera import Camera

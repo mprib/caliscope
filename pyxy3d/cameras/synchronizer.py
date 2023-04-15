@@ -299,8 +299,9 @@ class Synchronizer:
                 q.put("new synched frames available")
 
             for q in self.synched_frames_subscribers:
-                logger.info(f"Placing new synched frames packet on queue with {self.current_sync_packet.frame_packet_count} frames")
-                q.put(self.current_sync_packet)
+                if self.current_sync_packet is not None:
+                    logger.info(f"Placing new synched frames packet on queue with {self.current_sync_packet.frame_packet_count} frames")
+                    q.put(self.current_sync_packet)
 
             self.fps_mean = self.average_fps()
 

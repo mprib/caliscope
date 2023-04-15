@@ -50,6 +50,7 @@ class RealTimeTriangulator:
 
 
     def process_incoming(self):
+
         self.running = True
         while not self.stop_thread.is_set():
 

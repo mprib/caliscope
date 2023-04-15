@@ -60,8 +60,6 @@ class RealTimeTriangulator:
                 # No more sync packets after this... wind down
                 self.stop_thread.set()
                 logger.info("End processing of incoming sync packets...end signaled with `None` packet")
-            # elif sync_packet.frame_packet_count <2:
-            #     pass # nothing to triangulate
             else:    
                 logger.info(f"Sync Packet {sync_packet.sync_index} acquired...")     
                 # self._sync_packet_history.append(sync_packet)
@@ -69,15 +67,15 @@ class RealTimeTriangulator:
                 cameras, point_ids, imgs_xy = sync_packet.triangulation_inputs
 
                 # only attempt to process if data exists
-                if len(cameras) > 2:
-
+                if len(cameras) >= 2:
+                    logger.info("Attempting to triangulate synced frames")
                     # prepare for jit
                     cameras = np.array(cameras)
                     point_ids = np.array(point_ids)
                     imgs_xy = np.array(imgs_xy)
-                    # only attempt to process points with multiple views
-                    # iterated across the current points to find those with multiple views
 
+                    logger.info(f"Cameras are {cameras} and point_ids are {point_ids}")
+                    
                     point_id_xyz, points_xyz = triangulate_sync_index(
                         self.projection_matrices, cameras, point_ids, imgs_xy
                     )

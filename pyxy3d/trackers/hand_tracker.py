@@ -22,7 +22,13 @@ class HandTracker(Tracker):
     def __init__(self) -> None:
         # mp.solutions.hands = mp.solutions.hands
         # mp_drawing = mp.solutions.drawing_utils
+        
+        # some chat gpt garbage I'm going to try out
+        # Modify the config to use ImmediateInputStreamHandler
+        # config = mp.solutions.hands.get_default_hands_solution_config()
+        # config.immediate_input_stream_handler = True
 
+            #     pass # nothing to triangulate
         # Create a MediaPipe Hands instance
         self.hands = mp.solutions.hands.Hands(
             static_image_mode=False,

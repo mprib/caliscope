@@ -299,10 +299,12 @@ class Synchronizer:
                 q.put("new synched frames available")
 
             for q in self.synched_frames_subscribers:
+                q.put(self.current_sync_packet)
                 if self.current_sync_packet is not None:
                     logger.info(f"Placing new synched frames packet on queue with {self.current_sync_packet.frame_packet_count} frames")
-                    q.put(self.current_sync_packet)
-
+                else:
+                    logger.info(f"signaling end of frames with `None` packet on subscriber queue")
+                    
             self.fps_mean = self.average_fps()
 
         logger.info("Frame synch worker successfully ended")

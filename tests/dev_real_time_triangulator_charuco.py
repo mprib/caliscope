@@ -1,9 +1,8 @@
 
 """"
-The Place where I'm putting together the RealTimeTriangulator working stuff that should one day become a test
-
-Hopefully I can keep things clean enough for that...
-
+THINGS ARE WORKING ON APR 16 AT 6:57 AM.
+In the future I think I want to change it so that the charuco tracker factory is not
+a default, but something that has to be made explicit....
 """
 # %%
 import pyxy3d.logger
@@ -34,11 +33,11 @@ session_path = Path(__root__,"dev", "sample_sessions", "real_time")
 
 session = Session(session_path)
 session.load_cameras()
-session.charuco
-# tracker_factory = HandTrackerFactory()
+# session.charuco
 # tracker_factory = CharucoTrackerFactory()
+# tracker_factory = HandTrackerFactory()
 
-session.load_streams()
+session.load_streams() # defaults to using charuco
 session.adjust_resolutions()
 
 config = Configurator(session_path)
@@ -47,7 +46,7 @@ camera_array = config.get_camera_array()
 logger.info(f"Creating RecordedStreamPool")
 # stream_pool = RecordedStreamPool(session_path, tracker_factory=charuco_tracker_factory, fps_target=100)
 logger.info("Creating Synchronizer")
-syncr = Synchronizer(session.streams, fps_target=3)
+syncr = Synchronizer(session.streams, fps_target=12)
 
 real_time_triangulator = RealTimeTriangulator(camera_array, syncr)
 xyz_queue = Queue()

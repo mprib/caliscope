@@ -23,6 +23,9 @@ seaborn = "^0.12.2"
 black = "^23.3.0"
 pytest = "^7.3.0"
 ipykernel = "^6.22.0"
+pymdown-extensions = "^9.11"
+mkdocs-material = "^9.1.6"
+mkdocs-git-revision-date-localized-plugin = "^1.2.0"
 
 [build-system]
 requires = ["poetry-core"]

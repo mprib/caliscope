@@ -24,7 +24,7 @@ class PointPacket:
         None  # may be available in some trackers..include for downstream
     )
 
-
+    
 class Tracker(ABC):
     @abstractmethod
     def get_points(self, frame: np.ndarray) -> PointPacket:
@@ -45,7 +45,14 @@ class Tracker(ABC):
         """
         pass
 
-    def draw_instructions(self, point_id:int) ->0:
+    @abstractmethod
+    def draw_instructions(self, point_id:int) ->dict:
+        pass
+
+class TrackerFactory(ABC):
+    
+    @abstractmethod
+    def get_tracker(self) ->Tracker:
         pass
 
 class Stream(ABC):
@@ -82,6 +89,7 @@ class FramePacket:
     frame: np.ndarray
     frame_index: int = None
     points: PointPacket = None
+    draw_instructions: callable = None
 
     def to_tidy_table(self, sync_index):
         """
@@ -106,7 +114,8 @@ class FramePacket:
             table = None
         return table
 
-    def frame_with_points(self, draw_instructions:callable):
+    @property
+    def frame_with_points(self):
         if self.points is not None:
             drawn_frame = self.frame.copy()
             ids = self.points.point_id
@@ -115,10 +124,11 @@ class FramePacket:
                 x = round(coord[0])
                 y = round(coord[1])
 
-                params = draw_instructions(_id)
+                # draw instructions are a method of Tracker object
+                params = self.draw_instructions(_id)
                 cv2.circle(drawn_frame, (x, y),params["radius"], params["color"], params["thickness"])
         else:
-            drawn_frame = self.frame.copy()
+            drawn_frame = self.frame
 
         return drawn_frame
 
@@ -164,6 +174,15 @@ class SyncPacket:
             else:
                 temp_dict[port] = 0
         return temp_dict
+    
+    @property
+    def frame_packet_count(self):
+        count = 0
+        for port, packet in self.frame_packets.items():
+            if packet is not None:
+                 count+= 1
+        return count
+        
 
 
 @dataclass

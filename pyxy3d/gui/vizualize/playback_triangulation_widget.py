@@ -20,9 +20,9 @@ from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray
 
-class TriangulationWidget(QWidget):
+class PlaybackTriangulationWidget(QWidget):
     def __init__(self, camera_array:CameraArray, xyz_history_path:Path):
-        super(TriangulationWidget, self).__init__()
+        super(PlaybackTriangulationWidget, self).__init__()
 
         self.camera_array = camera_array
         self.xyz_history = pd.read_csv(xyz_history_path)
@@ -128,7 +128,8 @@ if __name__ == "__main__":
     import pickle
 
     test_sessions = [
-        Path(__root__, "dev", "sample_sessions", "post_triangulation"),
+        # Path(__root__, "dev", "sample_sessions", "post_triangulation"),
+        Path(__root__, "dev", "sessions_copy_delete", "mediapipe_calibration", )
     ]
 
     test_session_index = 0
@@ -141,7 +142,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     xyz_history_path = Path(session_path,"xyz_history.csv")
-    vizr_dialog = TriangulationWidget(session.capture_volume.camera_array,xyz_history_path)
+    vizr_dialog = PlaybackTriangulationWidget(session.capture_volume.camera_array,xyz_history_path)
     vizr_dialog.show()
 
     sys.exit(app.exec())

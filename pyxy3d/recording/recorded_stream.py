@@ -21,8 +21,7 @@ from time import perf_counter, sleep
 import pandas as pd
 import numpy as np
 
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.interface import FramePacket, Tracker, Stream
+from pyxy3d.interface import FramePacket, Tracker, Stream, TrackerFactory
 from pyxy3d.cameras.live_stream import Stream
 from pyxy3d.cameras.camera_array import CameraData
 
@@ -165,6 +164,7 @@ class RecordedStream(Stream):
                 frame=self.frame,
                 frame_index=self.frame_index,
                 points=self.point_data,
+                draw_instructions=self.tracker.draw_instructions
             )
 
             logger.debug(
@@ -188,13 +188,14 @@ class RecordedStream(Stream):
 
 
 class RecordedStreamPool:
-    def __init__(self, directory:Path, fps_target=6, tracker:Tracker=None):
+    def __init__(self, directory:Path, fps_target=6, tracker_factory:TrackerFactory=None):
 
         self.streams = {}
         self.cameras = get_configured_camera_data(directory)
         # self.ports = ports
 
         for port, camera in self.cameras.items():
+            tracker:Tracker = tracker_factory.get_tracker()
             self.streams[port] = RecordedStream(camera, directory, fps_target=fps_target, tracker=tracker)
 
     def play_videos(self):
@@ -260,6 +261,8 @@ def get_configured_camera_data(directory, intrinsics_only =True):
 
     
 if __name__ == "__main__":
+    from pyxy3d.trackers.charuco_tracker import CharucoTrackerFactory
+    from pyxy3d.trackers.charuco_tracker import CharucoTracker
     from pyxy3d.cameras.synchronizer import Synchronizer
     from pyxy3d.calibration.charuco import Charuco
     
@@ -272,11 +275,11 @@ if __name__ == "__main__":
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
 
-    tracker = CharucoTracker(charuco)
+    tracker_factory = CharucoTrackerFactory(charuco)
             
     cameras = get_configured_camera_data(recording_directory)
         
-    recorded_stream_pool = RecordedStreamPool(recording_directory, tracker=tracker)
+    recorded_stream_pool = RecordedStreamPool(recording_directory, tracker_factory=tracker_factory)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
     recorded_stream_pool.play_videos()
 
@@ -293,7 +296,6 @@ if __name__ == "__main__":
                 
                 if frame_packet.frame_time == -1:
                     break #end of frames
-
                 cv2.imshow(f"Port {port}", frame_packet.frame_with_points)
 
         key = cv2.waitKey(1)

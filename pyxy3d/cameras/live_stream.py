@@ -181,7 +181,7 @@ class LiveStream(Stream):
                 self.frame_time = (read_start + read_stop) / 2
 
                 if self.success and len(self.subscribers) > 0:
-                    logger.debug(f"Pushing frame to reel at port {self.port}")
+                    logger.info(f"Pushing frame to reel at port {self.port}")
 
                     if self.track_points.is_set():
                         point_data = self.tracker.get_points(self.frame)
@@ -196,10 +196,18 @@ class LiveStream(Stream):
                         frame_time=self.frame_time,
                         frame=self.frame,
                         points=point_data,
+                        draw_instructions=self.tracker.draw_instructions
                     )
 
-                    if self._show_points:
-                        draw_charuco.corners(frame_packet)
+                    cv2.imshow(str(self.port), frame_packet.frame_with_points)
+                    key = cv2.waitKey(1)
+                    if key == ord("q"):
+                        cv2.destroyAllWindows()                   
+                        break
+
+                    # if self._show_points:
+
+                        # draw_charuco.corners(frame_packet)
                         # self.out_q.put([self.frame_time, self.frame])
 
                     for q in self.subscribers:

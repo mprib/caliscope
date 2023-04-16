@@ -20,7 +20,7 @@ from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
-
+from pyxy3d.interface import Tracker, TrackerFactory
 
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 from pyxy3d.calibration.capture_volume.point_estimates import (
@@ -239,15 +239,19 @@ class Session:
                 del self.config[key]
         self.update_config()
 
-    def load_streams(self):
+    def load_streams(self, tracker_factory:TrackerFactory = None):
         # in addition to populating the active streams, this loads a frame synchronizer
+        if tracker_factory is None:
+            tracker = self.charuco_tracker
+        else:
+            tracker = tracker_factory.get_tracker()
 
         for port, cam in self.cameras.items():
             if port in self.streams.keys():
                 pass  # only add if not added yet
             else:
                 logger.info(f"Loading Stream for port {port}")
-                self.streams[port] = LiveStream(cam, charuco=self.charuco)
+                self.streams[port] = LiveStream(cam, tracker=tracker)
 
     def disconnect_cameras(self):
         """Destroy all camera reading associated threads working down to the cameras

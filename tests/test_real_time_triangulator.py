@@ -18,7 +18,7 @@ from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
 from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_array
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.calibration.charuco import Charuco, get_charuco
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
+from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory   
 from pyxy3d.configurator import Configurator
 
 import pytest
@@ -85,11 +85,12 @@ def test_real_time_triangulator(session_path):
 
     charuco: Charuco = config.get_charuco()
     charuco_tracker = CharucoTracker(charuco)
+    tracker_factory = CharucoTrackerFactory(charuco)
 
     camera_array: CameraArray = config.get_camera_array()
 
     logger.info(f"Creating RecordedStreamPool")
-    stream_pool = RecordedStreamPool(session_path, tracker=charuco_tracker, fps_target=100)
+    stream_pool = RecordedStreamPool(session_path, tracker_factory=tracker_factory, fps_target=100)
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(stream_pool.streams, fps_target=100)
 

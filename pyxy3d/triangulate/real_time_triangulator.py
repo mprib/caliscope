@@ -55,30 +55,30 @@ class RealTimeTriangulator:
         while not self.stop_thread.is_set():
 
             sync_packet:SyncPacket = self.sync_packet_in_q.get()
-            logger.info(f"Sync Packet {sync_packet.sync_index} acquired with {sync_packet.frame_packet_count} frames")     
 
             if sync_packet is None:
                 # No more sync packets after this... wind down
                 self.stop_thread.set()
                 logger.info("End processing of incoming sync packets...end signaled with `None` packet")
             else:    
+                logger.debug(f"Sync Packet {sync_packet.sync_index} acquired with {sync_packet.frame_packet_count} frames")     
                 # only attempt to process if data exists
                 if sync_packet.frame_packet_count >= 2:
                     cameras, point_ids, imgs_xy = sync_packet.triangulation_inputs
-                    logger.info("Attempting to triangulate synced frames")
+                    logger.debug("Attempting to triangulate synced frames")
                     # prepare for jit
                     cameras = np.array(cameras)
                     point_ids = np.array(point_ids)
                     imgs_xy = np.array(imgs_xy)
 
-                    logger.info(f"Cameras are {cameras} and point_ids are {point_ids}")
+                    logger.debug(f"Cameras are {cameras} and point_ids are {point_ids}")
                     if len(np.unique(cameras)) >= 2:
-                        logger.info(f"Points observed on cameras {np.unique(cameras)}")
+                        logger.debug(f"Points observed on cameras {np.unique(cameras)}")
                         point_id_xyz, points_xyz = triangulate_sync_index(
                             self.projection_matrices, cameras, point_ids, imgs_xy
                         )
             
-                        logger.info(f"Synch Packet {sync_packet.sync_index} | Point ID: {point_id_xyz} | xyz: {points_xyz}")
+                        logger.debug(f"Synch Packet {sync_packet.sync_index} | Point ID: {point_id_xyz} | xyz: {points_xyz}")
 
                         xyz_packet = XYZPacket(sync_packet.sync_index,point_id_xyz,points_xyz)
                         for q in self.subscribers:

@@ -35,7 +35,7 @@ while True:
 
         key = cv2.waitKey(1)
 
-        if key == ord("q"):
-            break
+        # if key == ord("q"):
+        #     break
 
 cv2.destroyAllWindows()

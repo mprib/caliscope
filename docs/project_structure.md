@@ -1,6 +1,6 @@
 ## Current Flow
 
-The general flow of processing is illustrated in the graph below. 
+The general flow of processing is illustrated in the graph below. This is not intended to be useful to anyone other than those involved in programming of core processes. If that is not you, then feel free to ignore.
 
 
 ```mermaid
@@ -57,7 +57,7 @@ StereoCalibrator -.StereoPairs.-> config.toml
 
 CameraArray --> RealTimeTriangulator
 Synchronizer -.SyncPacket.-> RealTimeTriangulator
-RealTimeTriangulator -.3dPacket.-> TrackedPointVizualizer
+RealTimeTriangulator -.XYZPacket.-> TrackedPointVizualizer
 CameraMesh --> TrackedPointVizualizer
 
 

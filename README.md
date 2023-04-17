@@ -11,6 +11,6 @@ While OpenCV and SciPy have long provided the software tools that enable this mu
 
 This project was inspired by [Anipose](https://www.sciencedirect.com/science/article/pii/S2211124721011797https://www.sciencedirect.com/science/article/pii/S2211124721011797) and seeks to provide similar functionality with improved visual feedback to the user. The calibration process is presented in more granular steps, with a particular emphasis on accurate estimation of camera intrinsics. Because stereocalibration is used to initialize an estimate of relative camera positions, the bundle adjustment process converges quickly to a reasonable optimum.
 
-
+Making a small change here to then test github actions.
 ---
 [Reference](https://github.com/othneildrew/Best-README-Template) for future build out of the README.

@@ -38,7 +38,7 @@ from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.widgets import NavigationBarBackFinish
-
+from pyxy3d.recording.video_recorder import VideoRecorder
 
 class RecordingWidget(QWidget):
      
@@ -50,14 +50,19 @@ class RecordingWidget(QWidget):
         
         # don't let point tracking slow down the frame reading
         self.synchronizer.set_tracking_on_streams(False)
+
         # create tools to build and emit the displayed frame
         self.frame_builder = RecordingFrameBuilder(self.synchronizer)
         self.frame_emitter = RecordingFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 
+        self.video_recorder = VideoRecorder(self.synchronizer)
+        
         self.frame_rate_spin = QSpinBox()
         self.frame_rate_spin.setValue(self.synchronizer.get_fps_target())
 
+        self.start_stop = QPushButton("Start Recording")
+        
         self.dropped_fps_label = QLabel()
                 
         self.recording_frame_display = QLabel()
@@ -73,6 +78,7 @@ class RecordingWidget(QWidget):
         self.settings_group.layout().addWidget(QLabel("Frame Rate:"))
         self.settings_group.layout().addWidget(self.frame_rate_spin)       
         self.layout().addWidget(self.settings_group)
+        self.layout().addWidget(self.start_stop)
         self.layout().addWidget(self.dropped_fps_label)
 
         self.layout().addWidget(self.recording_frame_display)
@@ -83,6 +89,15 @@ class RecordingWidget(QWidget):
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
         self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_fps_target)
         self.frame_emitter.dropped_fps.connect(self.update_dropped_fps)
+        self.start_stop.clicked.connect(self.toggle_start_stop)
+
+    def toggle_start_stop(self):
+        if self.start_stop.text() == "Start Recording":
+            self.start_stop.setText("Stop Recording")
+            logger.info("Initiate recording")
+        if self.start_stop.text() == "Stop Recording":
+            self.start_stop.setText("Start Recording")
+            logger.info("Stop recording and initiate final save of file") 
         
     def update_dropped_fps(self, dropped_fps:dict):
         "Unravel dropped fps dictionary to a more readable string"

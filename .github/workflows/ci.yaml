@@ -18,5 +18,5 @@ jobs:
           key: ${{ github.ref }}
           path: .cache
       - run: pip install mkdocs-material 
-      - run: pip install git-revision-date-localized
+      - run: pip install mkdocs-git-revision-date-localized-plugin
       - run: mkdocs gh-deploy --force

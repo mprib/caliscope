@@ -65,3 +65,5 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+copyright: |
+  &copy; 2023 <a href="https://github.com/mprib"  target="_blank" rel="noopener">Mac Prible</a>

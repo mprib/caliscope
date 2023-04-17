@@ -1,0 +1,69 @@
+site_name: PYXY3D
+site_description: A brief description of your project
+site_url: https://mprib.github.io/pyxy3d/
+repo_url: https://github.com/mprib/pyxy3d
+repo_name: pyxy3d
+
+theme:
+  logo: images/pyxy3d_logo.svg
+  favicon: images/pyxy3d_logo.svg
+  name: material
+  font:
+    text: 'Roboto'
+    code: 'Roboto Mono'
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/toggle-switch-off-outline 
+        name: Switch to dark mode
+      primary: blue grey
+      accent: purple 
+    - media: "(prefers-color-scheme: light)"
+      scheme: slate 
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode    
+      primary: blue grey
+      accent: lime
+
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting_started/installation.md
+      - Quickstart: getting_started/quickstart.md
+  - Documentation:
+      - User Guide: user_guide.md
+      - Code Map: project_structure.md
+  # - Examples:
+  #     - Example 1: examples/example1.md
+  #     - Example 2: examples/example2.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+  - License: license.md
+
+plugins:
+  - search
+  - git-revision-date-localized
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.caret
+  - pymdownx.smartsymbols
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+copyright: |
+  &copy; 2023 <a href="https://github.com/mprib"  target="_blank" rel="noopener">Mac Prible</a>

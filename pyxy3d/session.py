@@ -242,7 +242,7 @@ class Session:
     def load_streams(self, tracker_factory:TrackerFactory = None):
         # in addition to populating the active streams, this loads a frame synchronizer
         if tracker_factory is None:
-            tracker = self.charuco_tracker
+            tracker = None
         else:
             tracker = tracker_factory.get_tracker()
 

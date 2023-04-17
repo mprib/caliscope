@@ -115,7 +115,7 @@ class RealTimeTriangulator:
         xyz_history.to_csv(Path(self.output_directory,"xyz_history.csv"))
         
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def unique_with_counts(arr):
     sorted_arr = np.sort(arr)
     unique_values = [sorted_arr[0]]

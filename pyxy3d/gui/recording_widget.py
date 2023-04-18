@@ -95,7 +95,8 @@ class RecordingWidget(QWidget):
         if self.start_stop.text() == "Start Recording":
             self.start_stop.setText("Stop Recording")
             logger.info("Initiate recording")
-        if self.start_stop.text() == "Stop Recording":
+
+        elif self.start_stop.text() == "Stop Recording":
             self.start_stop.setText("Start Recording")
             logger.info("Stop recording and initiate final save of file") 
         

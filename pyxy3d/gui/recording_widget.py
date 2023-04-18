@@ -57,7 +57,8 @@ class RecordingWidget(QWidget):
         self.frame_emitter.start()
 
         self.video_recorder = VideoRecorder(self.synchronizer)
-        
+
+        self.recording_destination = QLabel()
         self.frame_rate_spin = QSpinBox()
         self.frame_rate_spin.setValue(self.synchronizer.get_fps_target())
 
@@ -78,7 +79,13 @@ class RecordingWidget(QWidget):
         self.settings_group.layout().addWidget(QLabel("Frame Rate:"))
         self.settings_group.layout().addWidget(self.frame_rate_spin)       
         self.layout().addWidget(self.settings_group)
-        self.layout().addWidget(self.start_stop)
+
+        self.record_controls = QGroupBox()
+        self.record_controls.setLayout(QHBoxLayout())
+        self.record_controls.layout().addWidget(self.start_stop)
+        self.record_controls.layout().addWidget(self.recording_destination)
+
+        self.layout().addWidget(self.record_controls)
         self.layout().addWidget(self.dropped_fps_label)
 
         self.layout().addWidget(self.recording_frame_display)

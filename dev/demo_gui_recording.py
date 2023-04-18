@@ -22,8 +22,8 @@ from pyxy3d import __root__
 from pyxy3d.helper import copy_contents
 
 
-session_origin_path = Path(__root__, "tests", "sessions", "post_optimization")
-session_path = Path(__root__,"tests", "sessions_copy_delete", "recording_post_optimization")
+session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res")
+session_path = Path(__root__,"dev", "sessions_copy_delete", "low_res")
 
 # clear previous test so as not to pollute current test results
 if session_path.exists() and session_path.is_dir():

@@ -30,8 +30,10 @@ class LiveStream(Stream):
         if tracker is not None:
             self.tracker = tracker
             self.track_points.set()  # default to tracking points if the charuco is provided
+            self.draw_instructions = self.tracker.draw_instructions
         else:
             self.track_points.clear()  # just to be clear
+            self.draw_instructions = None
 
         self.stop_event = Event()
         
@@ -181,7 +183,7 @@ class LiveStream(Stream):
                 self.frame_time = (read_start + read_stop) / 2
 
                 if self.success and len(self.subscribers) > 0:
-                    logger.info(f"Pushing frame to reel at port {self.port}")
+                    logger.debug(f"Pushing frame to reel at port {self.port}")
 
                     if self.track_points.is_set():
                         point_data = self.tracker.get_points(self.frame)
@@ -196,14 +198,14 @@ class LiveStream(Stream):
                         frame_time=self.frame_time,
                         frame=self.frame,
                         points=point_data,
-                        draw_instructions=self.tracker.draw_instructions
+                        draw_instructions=self.draw_instructions
                     )
 
-                    cv2.imshow(str(self.port), frame_packet.frame_with_points)
-                    key = cv2.waitKey(1)
-                    if key == ord("q"):
-                        cv2.destroyAllWindows()                   
-                        break
+                    # cv2.imshow(str(self.port), frame_packet.frame_with_points)
+                    # key = cv2.waitKey(1)
+                    # if key == ord("q"):
+                    #     cv2.destroyAllWindows()                   
+                    #     break
 
                     # if self._show_points:
 

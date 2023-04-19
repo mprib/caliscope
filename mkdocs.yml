@@ -1,4 +1,4 @@
-site_name: PYXY3D
+site_name: PyXY3D
 site_description: A brief description of your project
 site_url: https://mprib.github.io/pyxy3d/
 repo_url: https://github.com/mprib/pyxy3d
@@ -18,15 +18,15 @@ theme:
       toggle:
         icon: material/toggle-switch-off-outline 
         name: Switch to dark mode
-      primary: blue grey
-      accent: purple 
+      primary: blue
+      accent: red
     - media: "(prefers-color-scheme: light)"
       scheme: slate 
       toggle:
         icon: material/toggle-switch
         name: Switch to light mode    
-      primary: blue grey
-      accent: lime
+      primary: blue 
+      accent: green
 
 
 nav:

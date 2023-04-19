@@ -11,9 +11,10 @@ import pandas as pd
 
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.live_stream import LiveStream
+from pyxy3d.interface import FramePacket
 
 class VideoRecorder:
-    def __init__(self, synchronizer:Synchronizer):
+    def __init__(self, synchronizer: Synchronizer):
         self.synchronizer = synchronizer
 
         self.recording = False
@@ -21,11 +22,9 @@ class VideoRecorder:
         self.trigger_stop = Event()
 
     def build_video_writers(self):
-
         # create a dictionary of videowriters
         self.video_writers = {}
         for port, stream in self.synchronizer.streams.items():
-
             path = str(Path(self.destination_folder, f"port_{port}.mp4"))
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
@@ -49,23 +48,23 @@ class VideoRecorder:
             }
 
         self.point_data_history = {
-                    "sync_index":[],
-                    "port":[],
-                    "frame_index":[],
-                    "frame_time":[],
-                    "point_id":[],
-                    "img_loc_x":[],
-                    "img_loc_y":[],
-                    "obj_loc_x":[],
-                    "obj_loc_y":[],
+            "sync_index": [],
+            "port": [],
+            "frame_index": [],
+            "frame_time": [],
+            "point_id": [],
+            "img_loc_x": [],
+            "img_loc_y": [],
+            "obj_loc_x": [],
+            "obj_loc_y": [],
         }
-        
+
         self.sync_packet_in_q = Queue(-1)
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
-        
+
         # reset in case recording a second time
-        # self.trigger_stop.clear() 
-        
+        # self.trigger_stop.clear()
+
         while not self.trigger_stop.is_set():
             sync_packet = self.sync_packet_in_q.get()
             logger.debug("Pulling sync packet from queue")
@@ -74,7 +73,7 @@ class VideoRecorder:
                 break
 
             sync_index = sync_packet.sync_index
-            
+
             for port, frame_packet in sync_packet.frame_packets.items():
                 if frame_packet is not None:
                     # logger.info("Processiong frame packet...")
@@ -92,9 +91,9 @@ class VideoRecorder:
                         self.frame_history["port"].append(port)
                         self.frame_history["frame_index"].append(frame_index)
                         self.frame_history["frame_time"].append(frame_time)
-                    
+
                     new_tidy_table = frame_packet.to_tidy_table(sync_index)
-                    if new_tidy_table is not None: # i.e. it has data
+                    if new_tidy_table is not None:  # i.e. it has data
                         for key, value in self.point_data_history.copy().items():
                             self.point_data_history[key].extend(new_tidy_table[key])
                         print(new_tidy_table)
@@ -113,12 +112,11 @@ class VideoRecorder:
             logger.info("Initiate storing of frame history")
             self.store_frame_history()
 
-
         logger.info("Initiate storing of point history")
         self.store_point_history()
         self.trigger_stop.clear()  # reset stop recording trigger
         self.recording = False
-                
+
     def store_point_history(self):
         df = pd.DataFrame(self.point_data_history)
         # TODO: #25 if file exists then change the name
@@ -133,8 +131,11 @@ class VideoRecorder:
         logger.info(f"Storing frame history to {frame_hist_path}")
         df.to_csv(frame_hist_path, index=False, header=True)
 
-    def start_recording(self, destination_folder:Path, include_video=True):
-
+    def start_recording(self, destination_folder: Path, include_video=True):
+        """
+        Don't include video if only doing frameplayback to record tracked points. 
+        At least that's what I think I had in mind when doing this.
+        """
         logger.info(f"All video data to be saved to {destination_folder}")
 
         self.destination_folder = destination_folder
@@ -153,7 +154,6 @@ class VideoRecorder:
 
 
 if __name__ == "__main__":
-
     import time
 
     from pyxy3d.cameras.camera import Camera
@@ -164,7 +164,6 @@ if __name__ == "__main__":
     from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
     from pyxy3d import __root__
 
-
     ports = [0, 1, 2, 3, 4]
     # ports = [0,1]
 
@@ -172,7 +171,6 @@ if __name__ == "__main__":
     # test_live = False
 
     if test_live:
-
         session_directory = Path(__root__, "tests", "please work")
         session = Session(session_directory)
         session.load_cameras()

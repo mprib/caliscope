@@ -76,15 +76,18 @@ class RecordingWidget(QWidget):
 
     def get_next_recording_directory(self):
 
-        folders = [item for item in self.session.path.iterdir() if item.is_dir()]
+        folders = [item.name for item in self.session.path.iterdir() if item.is_dir()]
         recording_folders = [folder for folder in folders if folder.startswith("recording_")]
         recording_counts = [folder.split("_")[1] for folder in recording_folders]
+        recording_counts = [int(rec_count) for rec_count in recording_counts if rec_count.isnumeric()]
+
+        if len(recording_counts) == 0:
+            next_directory = "recording_1"
         
-        # for count in recording_counts:
-        #     try:
-                
-        # need to verify that these can be converted into integers, then take the max and increment
-        
+        else:
+            next_directory = "recording_" +str(max(recording_counts)+1)
+       
+        return next_directory 
         
         
 
@@ -117,11 +120,14 @@ class RecordingWidget(QWidget):
 
     def toggle_start_stop(self):
         if self.start_stop.text() == "Start Recording":
+            self.recording_directory.setEnabled(False)
+
             self.start_stop.setText("Stop Recording")
             logger.info("Initiate recording")
 
         elif self.start_stop.text() == "Stop Recording":
             self.start_stop.setText("Start Recording")
+            self.recording_directory.setEnabled(True)
             logger.info("Stop recording and initiate final save of file") 
             self.recording_directory.setText(self.get_next_recording_directory())
         

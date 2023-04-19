@@ -22,7 +22,7 @@ from pyxy3d import __root__
 from pyxy3d.helper import copy_contents
 
 
-session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res")
+# session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res")
 session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res_laptop")
 session_path = Path(__root__,"dev", "sessions_copy_delete", "low_res")
 

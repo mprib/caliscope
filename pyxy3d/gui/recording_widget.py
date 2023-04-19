@@ -85,7 +85,7 @@ class RecordingWidget(QWidget):
             next_directory = "recording_1"
         
         else:
-            next_directory = "recording_" +str(max(recording_counts)+1)
+            next_directory = "recording_" + str(max(recording_counts)+1)
        
         return next_directory 
         
@@ -121,21 +121,22 @@ class RecordingWidget(QWidget):
     def toggle_start_stop(self):
         if self.start_stop.text() == "Start Recording":
             self.recording_directory.setEnabled(False)
-
             self.start_stop.setText("Stop Recording")
             logger.info("Initiate recording")
+            recording_path:Path = Path(self.session.path, self.recording_directory.text()) 
+            self.session.start_recording(recording_path)
 
         elif self.start_stop.text() == "Stop Recording":
+            self.session.stop_recording()
+            
             self.start_stop.setText("Start Recording")
             self.recording_directory.setEnabled(True)
             logger.info("Stop recording and initiate final save of file") 
             self.recording_directory.setText(self.get_next_recording_directory())
-        
+                    
     def update_dropped_fps(self, dropped_fps:dict):
         "Unravel dropped fps dictionary to a more readable string"
         text = "Rate of Frame Dropping by Port:    "
-        
-        
         for port, drop_rate in dropped_fps.items():
             text += f"{port}: {drop_rate:.0%}        "
 

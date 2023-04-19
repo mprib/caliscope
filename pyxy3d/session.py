@@ -341,11 +341,13 @@ class Session:
     def start_recording(self, destination_folder: Path = None):
         logger.info("Initiating recording...")
         if destination_folder is None:
-            logger.info(f"Default to saving files in {self.path}")
             destination_folder = Path(self.path)
-
-            self.video_recorder = VideoRecorder(self.get_synchronizer())
-            self.video_recorder.start_recording(destination_folder)
+            logger.info(f"Default to saving files in {self.path}")
+        
+        destination_folder.mkdir(parents=True, exist_ok=True)
+        
+        self.video_recorder = VideoRecorder(self.get_synchronizer())
+        self.video_recorder.start_recording(destination_folder)
         self.is_recording = True
 
     def stop_recording(self):

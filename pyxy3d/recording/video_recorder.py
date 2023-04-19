@@ -11,7 +11,7 @@ import pandas as pd
 
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.live_stream import LiveStream
-
+from pyxy3d.interface import FramePacket
 
 class VideoRecorder:
     def __init__(self, synchronizer: Synchronizer):

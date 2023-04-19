@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QCheckBox,
     QTextEdit,
+    QLineEdit,
     QDialog,
     QGroupBox,
     QDoubleSpinBox,
@@ -58,12 +59,13 @@ class RecordingWidget(QWidget):
         self.frame_emitter.start()
 
         self.video_recorder = VideoRecorder(self.synchronizer)
-
-        self.recording_directory = QTextEdit(self.get_next_recording_directory())
+        
         self.frame_rate_spin = QSpinBox()
         self.frame_rate_spin.setValue(self.synchronizer.get_fps_target())
 
         self.start_stop = QPushButton("Start Recording")
+        self.destination_label = QLabel("Recording Destination:")
+        self.recording_directory = QLineEdit(self.get_next_recording_directory())
         
         self.dropped_fps_label = QLabel()
                 
@@ -97,6 +99,7 @@ class RecordingWidget(QWidget):
         self.record_controls = QGroupBox()
         self.record_controls.setLayout(QHBoxLayout())
         self.record_controls.layout().addWidget(self.start_stop)
+        self.record_controls.layout().addWidget(self.destination_label)
         self.record_controls.layout().addWidget(self.recording_directory)
 
         self.layout().addWidget(self.record_controls)

@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QComboBox,
     QCheckBox,
+    QTextEdit,
     QDialog,
     QGroupBox,
     QDoubleSpinBox,
@@ -58,7 +59,7 @@ class RecordingWidget(QWidget):
 
         self.video_recorder = VideoRecorder(self.synchronizer)
 
-        self.recording_destination = QLabel()
+        self.recording_directory = QTextEdit(self.get_next_recording_directory())
         self.frame_rate_spin = QSpinBox()
         self.frame_rate_spin.setValue(self.synchronizer.get_fps_target())
 
@@ -71,6 +72,19 @@ class RecordingWidget(QWidget):
         self.place_widgets()
         self.connect_widgets()        
 
+    def get_next_recording_directory(self):
+
+        folders = [item for item in self.session.path.iterdir() if item.is_dir()]
+        recording_folders = [folder for folder in folders if folder.startswith("recording_")]
+        recording_counts = [folder.split("_")[1] for folder in recording_folders]
+        
+        # for count in recording_counts:
+        #     try:
+                
+        # need to verify that these can be converted into integers, then take the max and increment
+        
+        
+        
 
     def place_widgets(self):
         self.setLayout(QVBoxLayout())
@@ -83,7 +97,7 @@ class RecordingWidget(QWidget):
         self.record_controls = QGroupBox()
         self.record_controls.setLayout(QHBoxLayout())
         self.record_controls.layout().addWidget(self.start_stop)
-        self.record_controls.layout().addWidget(self.recording_destination)
+        self.record_controls.layout().addWidget(self.recording_directory)
 
         self.layout().addWidget(self.record_controls)
         self.layout().addWidget(self.dropped_fps_label)
@@ -106,6 +120,7 @@ class RecordingWidget(QWidget):
         elif self.start_stop.text() == "Stop Recording":
             self.start_stop.setText("Start Recording")
             logger.info("Stop recording and initiate final save of file") 
+            self.recording_directory.setText(self.get_next_recording_directory())
         
     def update_dropped_fps(self, dropped_fps:dict):
         "Unravel dropped fps dictionary to a more readable string"

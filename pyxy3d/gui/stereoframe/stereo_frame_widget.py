@@ -237,7 +237,7 @@ def cv2_to_qlabel(frame):
 if __name__ == "__main__":
         App = QApplication(sys.argv)
 
-        config_path = Path(__root__, "tests", "217")
+        config_path = Path(__root__, "dev","sample_sessions", "real_time")
 
         session = Session(config_path)
         session.load_cameras()

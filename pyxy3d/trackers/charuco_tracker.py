@@ -48,7 +48,7 @@ class CharucoTracker(Tracker):
         
         return point_packet
     
-    def get_point_names(self) -> dict:
+    def get_point_name(self) -> dict:
         pass
 
     def get_connected_points(self):

@@ -31,7 +31,7 @@ class Tracker(ABC):
         pass
 
     @abstractmethod
-    def get_point_names(self) -> dict:
+    def get_point_name(self) -> dict:
         """
         Used for saving out data with sensible headers
         """

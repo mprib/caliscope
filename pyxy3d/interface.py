@@ -110,6 +110,8 @@ class FramePacket:
                     "obj_loc_x": self.points.obj_loc[:, 0].tolist(),
                     "obj_loc_y": self.points.obj_loc[:, 1].tolist(),
                 }
+            else:
+                table = None
         else:
             table = None
         return table

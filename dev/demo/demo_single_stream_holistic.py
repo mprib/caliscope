@@ -26,7 +26,7 @@ for cam in cams:
     frame_packet_queues[cam.port] = q
 
     print(f"Creating Video Stream for camera {cam.port}")
-    stream = LiveStream(cam, fps_target=12, tracker=tracker)
+    stream = LiveStream(cam, fps_target=24, tracker=tracker)
     stream.subscribe(frame_packet_queues[cam.port])
     stream._show_fps = True
     stream.show_points(True)

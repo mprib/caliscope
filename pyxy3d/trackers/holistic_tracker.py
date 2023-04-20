@@ -115,21 +115,55 @@ class HolisticTracker(Tracker):
                 # Convert the image to RGB format
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = holistic.process(frame)
-
-                
                 
                 # initialize variables so none will be created if no points detected
                 point_ids = []
                 landmark_xy = []
 
                 if results.pose_landmarks:
-
                     for landmark_id, landmark in enumerate(results.pose_landmarks.landmark):
-                        point_ids.append(landmark_id)
                         # mediapipe expresses in terms of percent of frame, so must map to pixel position
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        landmark_xy.append((x, y))
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
+                            # ignore
+                            logger.warn("bad point!")
+                            pass
+                        else:
+                            point_ids.append(landmark_id + POSE_OFFSET)
+                            landmark_xy.append((x, y))
 
+                if results.right_hand_landmarks:
+                    for landmark_id, landmark in enumerate(results.right_hand_landmarks.landmark):
+                        # mediapipe expresses in terms of percent of frame, so must map to pixel position
+                        x, y = int(landmark.x * width), int(landmark.y * height)
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
+                            # ignore
+                            pass
+                        else:
+                            point_ids.append(landmark_id +RIGHT_HAND_OFFSET)
+                            landmark_xy.append((x, y))
+
+                if results.left_hand_landmarks:
+                    for landmark_id, landmark in enumerate(results.left_hand_landmarks.landmark):
+                        # mediapipe expresses in terms of percent of frame, so must map to pixel positionND_OFFSET
+                        x, y = int(landmark.x * width), int(landmark.y * height)
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
+                            # ignore
+                            pass
+                        else:
+                            point_ids.append(landmark_id +LEFT_HAND_OFFSET)
+                            landmark_xy.append((x, y))
+
+                if results.face_landmarks:
+                    for landmark_id, landmark in enumerate(results.face_landmarks.landmark):
+                        # mediapipe expresses in terms of percent of frame, so must map to pixel positionFSET
+                        x, y = int(landmark.x * width), int(landmark.y * height)
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
+                            # ignore
+                            pass
+                        else:
+                            point_ids.append(landmark_id +FACE_OFFSET)
+                            landmark_xy.append((x, y))
 
                 point_ids = np.array(point_ids)
                 landmark_xy = np.array(landmark_xy)

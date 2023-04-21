@@ -98,8 +98,8 @@ class HandTracker(Tracker):
         
         return point_packet 
 
-    def get_point_names(self) -> dict:
-        return super().get_point_names()
+    def get_point_name(self) -> dict:
+        return super().get_point_name()
     
     def draw_instructions(self, point_id:int)->dict:
         if point_id < 100:

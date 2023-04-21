@@ -209,8 +209,8 @@ class LiveStream(Stream):
 
                     # if self._show_points:
 
-                        # draw_charuco.corners(frame_packet)
-                        # self.out_q.put([self.frame_time, self.frame])
+                    #     draw_charuco.corners(frame_packet)
+                    #     self.out_q.put([self.frame_time, self.frame])
 
                     for q in self.subscribers:
                         q.put(frame_packet)

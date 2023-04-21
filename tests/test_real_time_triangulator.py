@@ -10,7 +10,6 @@ import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 from time import sleep
-from dataclasses import asdict
 
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.interface import PointPacket, FramePacket, SyncPacket

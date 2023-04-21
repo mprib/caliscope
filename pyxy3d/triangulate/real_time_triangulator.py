@@ -28,7 +28,12 @@ class RealTimeTriangulator:
         self.stop_thread = Event()
         self.stop_thread.clear()
         # self._sync_packet_history = []     
-        self.xyz_history = []
+        self.xyz_history = {"sync_index":[], 
+                        "point_id":[], 
+                        "x_coord":[],
+                        "y_coord":[], 
+                        "z_coord":[]}
+
         self.sync_packet_in_q = Queue(-1) 
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
         
@@ -81,38 +86,52 @@ class RealTimeTriangulator:
                         logger.debug(f"Synch Packet {sync_packet.sync_index} | Point ID: {point_id_xyz} | xyz: {points_xyz}")
 
                         xyz_packet = XYZPacket(sync_packet.sync_index,point_id_xyz,points_xyz)
+                        logger.info(f"Placing xyz pacKet for index {sync_packet.sync_index} with {len(xyz_packet.point_ids)} points")
                         for q in self.subscribers:
                             q.put(xyz_packet)
                     
                         # if self.output_path is not None:
-                        self.xyz_history.append(xyz_packet)
+                        self.add_packet_to_history(xyz_packet)
                               
         self.running = False 
 
         if self.output_directory is not None:
             logger.info(f"Saving xyz point data to {self.output_directory}")
             self.save_history()
-            
+
+    def add_packet_to_history(self,xyz_packet:XYZPacket):
+        
+        point_count = len(xyz_packet.point_ids)
+
+        if point_count>0:
+            self.xyz_history["sync_index"].extend([xyz_packet.sync_index]*point_count)
+            xyz_array = np.array(xyz_packet.point_xyz)
+            self.xyz_history["point_id"].extend(xyz_packet.point_ids)
+            self.xyz_history["x_coord"].extend(xyz_array[:,0].tolist())
+            self.xyz_history["y_coord"].extend(xyz_array[:,1].tolist())
+            self.xyz_history["z_coord"].extend(xyz_array[:,2].tolist())
+        
+          
     def save_history(self):
         
-        xyz_history = {"sync_index":[], 
-                        "point_id":[], 
-                        "x_coord":[],
-                        "y_coord":[], 
-                        "z_coord":[]}
+        # xyz_history = {"sync_index":[], 
+        #                 "point_id":[], 
+        #                 "x_coord":[],
+        #                 "y_coord":[], 
+        #                 "z_coord":[]}
 
-        for packet in self.xyz_history:
-            point_count = len(packet.point_ids)
-            if point_count>0:
-                xyz_history["sync_index"].extend([packet.sync_index]*point_count)
-                xyz_array = np.array(packet.point_xyz)
-                xyz_history["point_id"].extend(packet.point_ids)
-                xyz_history["x_coord"].extend(xyz_array[:,0].tolist())
-                xyz_history["y_coord"].extend(xyz_array[:,1].tolist())
-                xyz_history["z_coord"].extend(xyz_array[:,2].tolist())
+        # for packet in self.xyz_history:
+        #     point_count = len(packet.point_ids)
+        #     if point_count>0:
+        #         xyz_history["sync_index"].extend([packet.sync_index]*point_count)
+        #         xyz_array = np.array(packet.point_xyz)
+        #         xyz_history["point_id"].extend(packet.point_ids)
+        #         xyz_history["x_coord"].extend(xyz_array[:,0].tolist())
+        #         xyz_history["y_coord"].extend(xyz_array[:,1].tolist())
+        #         xyz_history["z_coord"].extend(xyz_array[:,2].tolist())
        
-        xyz_history:pd.DataFrame = pd.DataFrame(xyz_history)
-        xyz_history.to_csv(Path(self.output_directory,"xyz_history.csv"))
+        self.xyz_history:pd.DataFrame = pd.DataFrame(self.xyz_history)
+        self.xyz_history.to_csv(Path(self.output_directory,"point_data.csv"))
         
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
 # @jit(nopython=True, cache=True)

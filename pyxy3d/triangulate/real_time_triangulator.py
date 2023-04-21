@@ -81,6 +81,7 @@ class RealTimeTriangulator:
                         logger.debug(f"Synch Packet {sync_packet.sync_index} | Point ID: {point_id_xyz} | xyz: {points_xyz}")
 
                         xyz_packet = XYZPacket(sync_packet.sync_index,point_id_xyz,points_xyz)
+                        logger.info(f"Placing xyz pacKet for index {sync_packet.sync_index} with points {xyz_packet.point_ids}, with xyz position of {xyz_packet.point_xyz}")
                         for q in self.subscribers:
                             q.put(xyz_packet)
                     

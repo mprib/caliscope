@@ -23,8 +23,8 @@ from pyxy3d.helper import copy_contents
 
 
 # session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res")
-# session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res_laptop")
-session_origin_path = Path(__root__, "dev","sample_sessions", "recordings_to_process")
+session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res_laptop")
+# session_origin_path = Path(__root__, "dev","sample_sessions", "recordings_to_process")
 session_path = Path(__root__, "dev","sessions_copy_delete", "recordings_to_process")
 
 # clear previous test so as not to pollute current test results

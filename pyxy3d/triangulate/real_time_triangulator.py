@@ -131,7 +131,7 @@ class RealTimeTriangulator:
         #         xyz_history["z_coord"].extend(xyz_array[:,2].tolist())
        
         self.xyz_history:pd.DataFrame = pd.DataFrame(self.xyz_history)
-        self.xyz_history.to_csv(Path(self.output_directory,"xyz_history.csv"))
+        self.xyz_history.to_csv(Path(self.output_directory,"point_data.csv"))
         
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
 # @jit(nopython=True, cache=True)

@@ -191,7 +191,7 @@ class RecordedStreamPool:
     def __init__(self, directory:Path, fps_target=6, tracker_factory:TrackerFactory=None):
 
         self.streams = {}
-        self.cameras = get_configured_camera_data(directory)
+        self.cameras = get_configured_camera_data(directory.parent)
         # self.ports = ports
 
         for port, camera in self.cameras.items():

@@ -128,8 +128,8 @@ if __name__ == "__main__":
     import pickle
 
     test_sessions = [
-        # Path(__root__, "dev", "sample_sessions", "post_triangulation"),
-        Path(__root__, "dev", "sessions_copy_delete", "mediapipe_calibration", )
+        # Path(__root__, "dev", "sessions_copy_delete", "mediapipe_calibration", )
+        Path(__root__, "dev", "sample_sessions", "recordings_to_process", "recording_1")
     ]
 
     test_session_index = 0

@@ -41,7 +41,7 @@ class Camera:
         else:
             logger.debug(f"Non-Windows machine detected - using backend `cv2.CAP_ANY`")
             self.device_connection = cv2.CAP_ANY
-
+        # self.device_connection = cv2.CAP_ANY
 
         # check if source has a data feed before proceeding...if not it is
         # either in use or fake

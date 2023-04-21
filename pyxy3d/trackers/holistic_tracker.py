@@ -11,6 +11,28 @@ import cv2
 # cap = cv2.VideoCapture(0)
 from pyxy3d.interface import Tracker, TrackerFactory, PointPacket
 
+DRAW_IGNORE_LIST = [
+    "nose",
+    "left_eye_inner",
+    "left_eye",
+    "left_eye_outer",
+    "right_eye_inner",
+    "right_eye",
+    "right_eye_outer",
+    "left_ear",
+    "right_ear",
+    "mouth_left",
+    "mouth_right",
+    "left_wrist_pose",
+    "right_wrist_pose",
+    "left_pinky",
+    "right_pinky",
+    "left_index",
+    "right_index",
+    "left_thumb",
+    "right_thumb",
+]
+
 POINT_NAMES = {
     0: "nose",
     1: "left_eye_inner",
@@ -27,8 +49,8 @@ POINT_NAMES = {
     12: "right_shoulder",
     13: "left_elbow",
     14: "right_elbow",
-    15: "left_wrist",
-    16: "right_wrist",
+    15: "left_wrist_pose",
+    16: "right_wrist_pose",
     17: "left_pinky",
     18: "right_pinky",
     19: "left_index",
@@ -126,7 +148,6 @@ class HolisticTracker(Tracker):
                         x, y = int(landmark.x * width), int(landmark.y * height)
                         if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
                             # ignore
-                            logger.warn("bad point!")
                             pass
                         else:
                             point_ids.append(landmark_id + POSE_OFFSET)
@@ -183,29 +204,38 @@ class HolisticTracker(Tracker):
         return point_packet
 
     def get_point_name(self, point_id) -> str:
-        return POINT_NAMES[point_id]
+        if point_id < FACE_OFFSET:
+            point_name = POINT_NAMES[point_id]
+        else:
+            point_name = "face"
+        return point_name
 
     def draw_instructions(self, point_id: int) -> dict:
-        # if self.get_point_name(point_id).startswith("left"):
-        #     rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
-        # elif self.get_point_name(point_id).startswith("right"):
-        #     rules = {"radius": 5, "color": (220, 0, 0), "thickness": 3}
-        # else: 
-        rules = {"radius": 5, "color": (220, 0, 220), "thickness": 3}
+        point_name = self.get_point_name(point_id)
+        if point_name in DRAW_IGNORE_LIST:
+            rules = {"radius": 0, "color": (0, 0, 0), "thickness": 0}
+        elif point_name.startswith("left"):
+            rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
+        elif point_name.startswith("right"):
+            rules = {"radius": 5, "color": (220, 0, 0), "thickness": 3}
+        else: 
+            rules = {"radius": 1, "color": (220, 0, 220), "thickness": 1}
 
         return rules
 
 
 class HolisticTrackerFactory(TrackerFactory):
+    """
+    Included to provide the flexibility to create distinct trackers in case
+    that is helpful for multiprocessing. I realize now that it may be 
+    better to just have a set of parameters that a single tracker could
+    take that could then be used for managing multiple processes internally
+    """
     def __init__(self):
         pass
 
     def get_tracker(self) -> Tracker:
-        """
-        I think this will be necessary as mediapipe uses the previous frame to
-        improve tracking efficiency. So you can't just shove a bunch of frames
-        from different streams into the same tracker and expect efficiency
-        """
+
         return HolisticTracker()
 
 

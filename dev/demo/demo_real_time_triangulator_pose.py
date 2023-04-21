@@ -25,7 +25,7 @@ from pyxy3d.gui.vizualize.realtime_triangulation_widget import \
 from pyxy3d.interface import FramePacket, PointPacket, SyncPacket
 from pyxy3d.session import Session
 from pyxy3d.trackers.charuco_tracker import Charuco, CharucoTracker,CharucoTrackerFactory
-from pyxy3d.trackers.hand_tracker import HandTracker, HandTrackerFactory
+from pyxy3d.trackers.pose_tracker import PoseTracker, PoseTrackerFactory
 from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
 
 app = QApplication(sys.argv)
@@ -35,7 +35,7 @@ session = Session(session_path)
 session.load_cameras()
 # session.charuco
 # tracker_factory = CharucoTrackerFactory()
-tracker_factory = HandTrackerFactory()
+tracker_factory = PoseTrackerFactory()
 
 session.load_streams(tracker_factory=tracker_factory) 
 session.adjust_resolutions()

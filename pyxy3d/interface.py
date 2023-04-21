@@ -31,7 +31,7 @@ class Tracker(ABC):
         pass
 
     @abstractmethod
-    def get_point_names(self) -> dict:
+    def get_point_name(self) -> dict:
         """
         Used for saving out data with sensible headers
         """
@@ -110,6 +110,8 @@ class FramePacket:
                     "obj_loc_x": self.points.obj_loc[:, 0].tolist(),
                     "obj_loc_y": self.points.obj_loc[:, 1].tolist(),
                 }
+            else:
+                table = None
         else:
             table = None
         return table

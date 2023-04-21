@@ -6,8 +6,8 @@ from pyxy3d import __root__
 from pathlib import Path
 
 # config_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
-# config_path = Path(__root__, "dev", "sample_sessions", "mediapipe_calibration")
-config_path = Path(__root__, "dev", "sample_sessions", "low_res")
+config_path = Path(__root__, "dev", "sample_sessions", "real_time")
+# config_path = Path(__root__, "dev", "sample_sessions", "low_res")
     
 app = QApplication(sys.argv)
 window = CalibrationWizard()

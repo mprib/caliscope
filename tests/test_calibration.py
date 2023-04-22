@@ -91,18 +91,21 @@ def test_post_monocalibration(session_path):
     charuco = config.get_charuco()
     charuco_tracker_factory = CharucoTrackerFactory(charuco)
     
-    point_data_path = Path(session_path, "point_data.csv")
  
     # create a synchronizer based off of these stream pools 
     logger.info(f"Creating RecordedStreamPool")
-    stream_pool = RecordedStreamPool(session_path,fps_target = 100, tracker_factory = charuco_tracker_factory) 
+
+    recording_path = Path(session_path, "calibration", "extrinsic")
+    point_data_path = Path(recording_path, "point_data.csv")
+
+    stream_pool = RecordedStreamPool(recording_path,config_path= config.toml_path, fps_target = 100, tracker_factory = charuco_tracker_factory) 
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(stream_pool.streams, fps_target=None)
 
     # video recorder needed to save out points.csv.
     logger.info(f"Creating test video recorder to save out point data")
     video_recorder = VideoRecorder(syncr)
-    video_recorder.start_recording(session_path, include_video=False)
+    video_recorder.start_recording(recording_path, include_video=False)
 
     logger.info("Initiate playing stream pool videos...")
     stream_pool.play_videos()
@@ -142,6 +145,7 @@ def test_post_monocalibration(session_path):
     config.save_point_estimates(capture_volume.point_estimates)
 
     for key, optimzed_rmse in optimized_filtered_rmse.items():
+        logger.info(f"Asserting that RMSE decreased with optimization at {key}...")
         assert(initial_rmse[key] > optimzed_rmse)
     
 

@@ -6,7 +6,7 @@ from pyxy3d.interface import PointPacket, FramePacket
 
 port = 0
 recordings_path = str(
-    Path("dev", "sample_sessions", "mediapipe_calibration", "port_0.mp4")
+    Path("tests", "sessions", "mediapipe_calibration", "calibration", "extrinsic", "port_0.mp4")
 )
 cap = cv2.VideoCapture(recordings_path)
 hand_tracker = HandTracker()

@@ -158,7 +158,7 @@ class SyncPacket:
         img_xy = []
 
         for port, packet in self.frame_packets.items():
-            if packet is not None:
+            if packet is not None and packet.points is not None:
                 cameras.extend([port] * len(packet.points.point_id))
                 point_ids.extend(packet.points.point_id.tolist())
                 img_xy.extend(packet.points.img_loc.tolist())

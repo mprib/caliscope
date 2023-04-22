@@ -88,15 +88,16 @@ def test_real_time_triangulator(session_path):
 
     camera_array: CameraArray = config.get_camera_array()
 
-    logger.info(f"Creating RecordedStreamPool")
-    stream_pool = RecordedStreamPool(session_path, tracker_factory=tracker_factory, fps_target=100)
+    logger.info(f"Creating RecordedStreamPool based on calibration recordings")
+    recording_directory = Path(session_path,"calibration", "extrinsic")
+    stream_pool = RecordedStreamPool(recording_directory,config_path=Path(session_path,"config.toml"), tracker_factory=tracker_factory, fps_target=100)
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(stream_pool.streams, fps_target=100)
 
 
     #### Basic code for interfacing with in-progress RealTimeTriangulator
     #### Just run off of saved point_data.csv for development/testing
-    real_time_triangulator = RealTimeTriangulator(camera_array, syncr, output_directory=session_path)
+    real_time_triangulator = RealTimeTriangulator(camera_array, syncr, output_directory=recording_directory)
     stream_pool.play_videos()
     while real_time_triangulator.running:
         sleep(1)
@@ -107,7 +108,7 @@ def test_real_time_triangulator(session_path):
     # but sync indices will be different, so just compare mean positions
     # which should be quite close
 
-    xyz_history = pd.read_csv(Path(session_path,"xyz_history.csv"))
+    xyz_history = pd.read_csv(Path(recording_directory,"xyz.csv"))
     xyz_config = np.array(config.dict["point_estimates"]["obj"])
     triangulator_x_mean = xyz_history["x_coord"].mean()
     triangulator_y_mean = xyz_history["y_coord"].mean()

@@ -188,11 +188,12 @@ class RecordedStream(Stream):
 
 
 class RecordedStreamPool:
-    def __init__(self, directory:Path, fps_target=6, tracker_factory:TrackerFactory=None):
+    def __init__(self, directory:Path, fps_target=6, tracker_factory:TrackerFactory=None, config_path:Path = None):
 
+        if config_path is None:
+            config_path = Path(directory, "config.toml")
         self.streams = {}
-        self.cameras = get_configured_camera_data(directory.parent)
-        # self.ports = ports
+        self.cameras = get_configured_camera_data(config_path)
 
         for port, camera in self.cameras.items():
             tracker:Tracker = tracker_factory.get_tracker()
@@ -203,15 +204,12 @@ class RecordedStreamPool:
             stream.play_video()
 
 
-def get_configured_camera_data(directory, intrinsics_only =True):
+def get_configured_camera_data(config_path, intrinsics_only =True):
     """
     return a list of CameraData objects that is built from the config
     file that is found in the directory. This will be the same
     file where the mp4 files are located.
     """  
-
-    # load config 
-    config_path = Path(directory,"config.toml")    
 
     with open(config_path, "r") as f:
         config = toml.load(config_path)

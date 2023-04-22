@@ -114,24 +114,8 @@ class RealTimeTriangulator:
           
     def save_history(self):
         
-        # xyz_history = {"sync_index":[], 
-        #                 "point_id":[], 
-        #                 "x_coord":[],
-        #                 "y_coord":[], 
-        #                 "z_coord":[]}
-
-        # for packet in self.xyz_history:
-        #     point_count = len(packet.point_ids)
-        #     if point_count>0:
-        #         xyz_history["sync_index"].extend([packet.sync_index]*point_count)
-        #         xyz_array = np.array(packet.point_xyz)
-        #         xyz_history["point_id"].extend(packet.point_ids)
-        #         xyz_history["x_coord"].extend(xyz_array[:,0].tolist())
-        #         xyz_history["y_coord"].extend(xyz_array[:,1].tolist())
-        #         xyz_history["z_coord"].extend(xyz_array[:,2].tolist())
-       
         self.xyz_history:pd.DataFrame = pd.DataFrame(self.xyz_history)
-        self.xyz_history.to_csv(Path(self.output_directory,"point_data.csv"))
+        self.xyz_history.to_csv(Path(self.output_directory,"xyz.csv"))
         
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
 # @jit(nopython=True, cache=True)

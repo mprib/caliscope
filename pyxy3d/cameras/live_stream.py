@@ -202,16 +202,11 @@ class LiveStream(Stream):
                         draw_instructions=self.draw_instructions
                     )
 
-                    # cv2.imshow(str(self.port), frame_packet.frame_with_points)
-                    # key = cv2.waitKey(1)
-                    # if key == ord("q"):
-                    #     cv2.destroyAllWindows()                   
-                    #     break
-
-                    # if self._show_points:
-
-                    #     draw_charuco.corners(frame_packet)
-                    #     self.out_q.put([self.frame_time, self.frame])
+                    cv2.imshow(str(self.port), frame_packet.frame_with_points)
+                    key = cv2.waitKey(1)
+                    if key == ord("q"):
+                        cv2.destroyAllWindows()                   
+                        break
 
                     for q in self.subscribers:
                         q.put(frame_packet)

@@ -19,7 +19,7 @@ from pyxy3d.helper import copy_contents
 
 # TEST_SESSIONS = ["mediapipe_calibration"]
 
-original_session_path = Path(__root__, "dev", "sample_sessions", "mediapipe_calibration")
+original_session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration")
 session_path = Path(original_session_path.parent.parent,"sessions_copy_delete","mediapipe_calibration")
 
 # clear previous test so as not to pollute current test results

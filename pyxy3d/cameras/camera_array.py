@@ -145,7 +145,7 @@ def get_camera_array(config:dict)->CameraArray:
     all_camera_data = {}
     for key, params in config.items():
         if key.startswith("cam"):
-            if params["translation"] is not None:
+            if not params["ignore"]:
                 port = params["port"]
                 size = params["size"]
 

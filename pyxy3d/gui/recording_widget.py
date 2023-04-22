@@ -195,7 +195,7 @@ class RecordingFrameBuilder:
         squares with black borders."""
         logger.debug("resizing square")
 
-        frame = cv2.flip(frame, 1)
+        # frame = cv2.flip(frame, 1)
 
         height = frame.shape[0]
         width = frame.shape[1]
@@ -252,11 +252,12 @@ class RecordingFrameBuilder:
             raw_frame = self.get_frame_or_blank(frame_packet)
             square_frame = self.resize_to_square(raw_frame)
             rotated_frame = self.apply_rotation(square_frame,port)
+            flipped_frame = cv2.flip(rotated_frame, 1)
             
             # put the port number on the top of the frame
-            text_frame = cv2.putText(rotated_frame,
+            text_frame = cv2.putText(flipped_frame,
                                 str(port),
-                                (int(rotated_frame.shape[1]/2), int(self.single_frame_height / 4)),
+                                (int(flipped_frame.shape[1]/2), int(self.single_frame_height / 4)),
                                 fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                                 fontScale=1,
                                 color=(0, 0, 255),
@@ -345,7 +346,7 @@ def resize(image, new_height):
         
 def cv2_to_qlabel(frame):
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
+    
     qt_frame = QImage(
         image.data,
         image.shape[1],

@@ -29,7 +29,8 @@ from pyxy3d.trackers.hand_tracker import HandTracker, HandTrackerFactory
 from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
 
 app = QApplication(sys.argv)
-session_path = Path(__root__,"dev", "sample_sessions", "real_time")
+# session_path = Path(__root__,"dev", "sample_sessions", "real_time")
+session_path = Path(__root__,"dev", "sample_sessions", "low_res")
 
 session = Session(session_path)
 session.load_cameras()

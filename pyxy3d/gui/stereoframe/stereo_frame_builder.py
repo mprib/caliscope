@@ -157,7 +157,10 @@ class StereoFrameBuilder:
         squares with black borders."""
         logger.debug("resizing square")
 
-        frame = cv2.flip(frame, 1)
+        # I believe this is causing the frame rotation to be 
+        # applied in the wrong order. If this is still
+        # commented in the future, please delete
+        # frame = cv2.flip(frame, 1)
 
         height = frame.shape[0]
         width = frame.shape[1]
@@ -214,6 +217,8 @@ class StereoFrameBuilder:
         frameA = self.apply_rotation(frameA, portA)
         frameB = self.apply_rotation(frameB, portB)
 
+        frameA = cv2.flip(frameA, 1)
+        frameB = cv2.flip(frameB, 1)
 
         frameA = cv2.putText(frameA,
                              str(portA),

@@ -27,7 +27,7 @@ class RealTimeTriangulator:
 
         self.stop_thread = Event()
         self.stop_thread.clear()
-        # self._sync_packet_history = []     
+
         self.xyz_history = {"sync_index":[], 
                         "point_id":[], 
                         "x_coord":[],

@@ -51,7 +51,7 @@ class Session:
 
         # this will not have anything to start, but the path
         # will be set
-        self.point_data_path = Path(self.path, "point_data.csv")
+        self.calibration_xy = Path(self.path,"calibration", "xy.csv")
 
         # dictionaries of streaming related objects. key = port
         self.cameras = {}
@@ -338,16 +338,16 @@ class Session:
         for port, monocal in self.monocalibrators.items():
             monocal.unsubscribe_to_stream()
 
-    def start_recording(self, destination_folder: Path = None):
+    def start_recording(self, destination_folder:str):
         logger.info("Initiating recording...")
-        if destination_folder is None:
-            destination_folder = Path(self.path)
-            logger.info(f"Default to saving files in {self.path}")
-        
-        destination_folder.mkdir(parents=True, exist_ok=True)
+        # if destination_folder is None:
+            # destination_folder = Path(self.path)
+            # logger.info(f"Default to saving files in {self.path}")
+        destination_path = Path(self.path, destination_folder) 
+        destination_path.mkdir(parents=True, exist_ok=True)
         
         self.video_recorder = VideoRecorder(self.get_synchronizer())
-        self.video_recorder.start_recording(destination_folder)
+        self.video_recorder.start_recording(destination_path)
         self.is_recording = True
 
     def stop_recording(self):
@@ -482,7 +482,7 @@ class Session:
         here, but they are all necessary steps of the process so I didn't want to
         try to encapsulate any further
         """
-        stereocalibrator = StereoCalibrator(self.config_path, self.point_data_path)
+        stereocalibrator = StereoCalibrator(self.config_path, self.calibration_xy)
         stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
         self.camera_array: CameraArray = CameraArrayInitializer(
@@ -490,7 +490,7 @@ class Session:
         ).get_best_camera_array()
 
         self.point_estimates: PointEstimates = get_point_estimates(
-            self.camera_array, self.point_data_path
+            self.camera_array, self.calibration_xy
         )
 
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)

@@ -123,8 +123,8 @@ class RecordingWidget(QWidget):
             self.recording_directory.setEnabled(False)
             self.start_stop.setText("Stop Recording")
             logger.info("Initiate recording")
-            recording_path:Path = Path(self.session.path, self.recording_directory.text()) 
-            self.session.start_recording(recording_path)
+            # recording_path:Path = Path(self.session.path, self.recording_directory.text()) 
+            self.session.start_recording(self.recording_directory.text())
 
         elif self.start_stop.text() == "Stop Recording":
             self.session.stop_recording()

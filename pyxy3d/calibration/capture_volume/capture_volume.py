@@ -274,18 +274,18 @@ if __name__ == "__main__":
 
     session_directory = Path(__root__, "dev", "sample_sessions", "low_res")
 
-    point_data_path = Path(session_directory, "point_data.csv")
+    calibration_xy = Path(session_directory, "point_data.csv")
 
     config_path = Path(session_directory, "config.toml")
 
-    stereocalibrator = StereoCalibrator(config_path, point_data_path)
+    stereocalibrator = StereoCalibrator(config_path, calibration_xy)
     stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
     camera_array: CameraArray = CameraArrayInitializer(
         config_path
     ).get_best_camera_array()
 
-    point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
+    point_estimates: PointEstimates = get_point_estimates(camera_array, calibration_xy)
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
     capture_volume.optimize()

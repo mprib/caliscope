@@ -202,11 +202,11 @@ class LiveStream(Stream):
                         draw_instructions=self.draw_instructions
                     )
 
-                    cv2.imshow(str(self.port), frame_packet.frame_with_points)
-                    key = cv2.waitKey(1)
-                    if key == ord("q"):
-                        cv2.destroyAllWindows()                   
-                        break
+                    # cv2.imshow(str(self.port), frame_packet.frame_with_points)
+                    # key = cv2.waitKey(1)
+                    # if key == ord("q"):
+                    #     cv2.destroyAllWindows()                   
+                    #     break
 
                     for q in self.subscribers:
                         q.put(frame_packet)

@@ -20,6 +20,26 @@ __repo_issues_url__ = f"{__repo_url__}issues"
 __app_dir__ = Path(os.getenv("LOCALAPPDATA"), __package_name__)
 __app_dir__.mkdir(exist_ok=True, parents=True)
 
+# create a toml file for user settings in LOCALAPPDATA and default the project folder to USER
+__settings_path__ = Path(__app_dir__, "settings.toml")
+
+
+if __settings_path__.exists():
+    USER_SETTINGS = toml.load(__settings_path__)
+    PROJECT_DIR = USER_SETTINGS["project_directory"]
+else:
+    __user_dir__ = Path(os.getenv("USERPROFILE"), __package_name__)
+    __user_dir__.mkdir(exist_ok=True,parents=True)
+
+    # default to storing pyxy projects in user/__package_name__
+    USER_SETTINGS = {"project_directory":str(__user_dir__)}
+    PROJECT_DIR = Path(USER_SETTINGS["project_directory"])
+    PROJECT_DIR.mkdir(exist_ok=True,parents=True)
+    
+    with open(__settings_path__, "a") as f:
+        toml.dump(USER_SETTINGS, f)
+
+
 __log_dir__ = Path(__app_dir__, "logs")
 __log_dir__.mkdir(exist_ok=True, parents=True)
 

@@ -176,6 +176,7 @@ class Synchronizer:
                 if self.subscribed_to_streams:
                     time.sleep(0.1)
                 else:
+                    logger.info("Synchronizer not subscribed to any streams and busy waiting...")
                     time.sleep(1)
                     
             next_frame_time = self.all_frame_packets[frame_data_key].frame_time

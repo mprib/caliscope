@@ -19,14 +19,14 @@ from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangula
 session_path = Path(__root__, "dev", "sample_sessions", "recordings_to_process")
 recording_path = Path(session_path, "recording_4")
 config = Configurator(session_path)
-origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
+# origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
 
 tracker_factory = HolisticTrackerFactory()
 
 camera_array: CameraArray = config.get_camera_array()
 
 logger.info(f"Creating RecordedStreamPool")
-stream_pool = RecordedStreamPool(recording_path, tracker_factory=tracker_factory, fps_target=12)
+stream_pool = RecordedStreamPool(recording_path,config_path=config.toml_path, tracker_factory=tracker_factory, fps_target=12)
 logger.info("Creating Synchronizer")
 syncr = Synchronizer(stream_pool.streams, fps_target=12)
 

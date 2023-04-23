@@ -16,8 +16,8 @@ from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
 from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
-session_path = Path(__root__, "dev", "sample_sessions", "recordings_to_process")
-recording_path = Path(session_path, "recording_4")
+session_path = Path(__root__, "dev", "sample_sessions", "test_calibration")
+recording_path = Path(session_path, "calibration")
 config = Configurator(session_path)
 # origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
 
@@ -28,7 +28,7 @@ camera_array: CameraArray = config.get_camera_array()
 logger.info(f"Creating RecordedStreamPool")
 stream_pool = RecordedStreamPool(recording_path,config_path=config.toml_path, tracker_factory=tracker_factory, fps_target=12)
 logger.info("Creating Synchronizer")
-syncr = Synchronizer(stream_pool.streams, fps_target=12)
+syncr = Synchronizer(stream_pool.streams, fps_target=100)
 
 
 #### Basic code for interfacing with in-progress RealTimeTriangulator
@@ -39,17 +39,17 @@ while real_time_triangulator.running:
     sleep(1)
 
 
-# session_path = recording_path.parent
+session_path = recording_path.parent
     
-# logger.info(f"Loading session {session_path}")
-# session = Session(session_path)
+logger.info(f"Loading session {session_path}")
+session = Session(session_path)
 
-# session.load_estimated_capture_volume()
+session.load_estimated_capture_volume()
 
-# app = QApplication(sys.argv)
+app = QApplication(sys.argv)
     
-# xyz_history_path = Path(recording_path,"point_data.csv")
-# vizr_dialog = PlaybackTriangulationWidget(session.capture_volume.camera_array,xyz_history_path)
-# vizr_dialog.show()
+xyz_history_path = Path(recording_path,"xyz.csv")
+vizr_dialog = PlaybackTriangulationWidget(camera_array,xyz_history_path)
+vizr_dialog.show()
 
-# sys.exit(app.exec())
+sys.exit(app.exec())

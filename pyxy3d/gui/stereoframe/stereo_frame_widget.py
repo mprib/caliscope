@@ -114,7 +114,7 @@ class StereoFrameWidget(QWidget):
             logger.info("Begin collecting calibration data")
             # by default, data saved to session folder
             self.frame_builder.store_points.set()
-            self.session.start_recording()
+            self.session.start_recording("calibration")
             self.calibrate_collect_btn.setText("Terminate")
             self.calibrate_collect_btn.setEnabled(True)
             self.navigation_bar.back_btn.setEnabled(False)

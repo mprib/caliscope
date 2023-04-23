@@ -110,6 +110,8 @@ POINT_NAMES = {
     219:"left_pinky_DIP",
     220:"left_pinky_tip"}
 
+
+# keep ids in distinct ranges to avoid clashes
 POSE_OFFSET = 0
 RIGHT_HAND_OFFSET = 100
 LEFT_HAND_OFFSET = 200
@@ -207,7 +209,7 @@ class HolisticTracker(Tracker):
         if point_id < FACE_OFFSET:
             point_name = POINT_NAMES[point_id]
         else:
-            point_name = "face"
+            point_name = "face_" + str(point_id-FACE_OFFSET) 
         return point_name
 
     def draw_instructions(self, point_id: int) -> dict:

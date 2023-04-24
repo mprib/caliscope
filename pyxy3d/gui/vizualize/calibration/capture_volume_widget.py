@@ -162,7 +162,7 @@ if __name__ == "__main__":
     import pickle
 
     test_sessions = [
-        Path(__root__, "dev", "sample_sessions", "real_time"),
+        Path(__root__, "dev", "sample_sessions", "test_calibration")
     ]
 
     test_session_index = 0

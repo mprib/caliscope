@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
     QRadioButton,
     QButtonGroup,
 )
-from pyxy3d import __app_dir__, __root__
+from pyxy3d import __app_dir__, __root__, PROJECT_DIR
 
 from pyxy3d.session import Session
 
@@ -157,7 +157,7 @@ class DirectorySelector(QWidget):
 
         fname = QFileDialog.getExistingDirectory(
             # self, "Select Folder", str(__app_dir__)
-            self, "Select Folder", str(Path(__root__, "tests"))   # done for testing to track impact on config Easier
+            self, "Select Folder", str(PROJECT_DIR)   # done for testing to track impact on config Easier
         )
         
         if self.validity_check is None:

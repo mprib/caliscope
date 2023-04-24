@@ -96,7 +96,7 @@ def test_post_monocalibration(session_path):
     logger.info(f"Creating RecordedStreamPool")
 
     recording_path = Path(session_path, "calibration", "extrinsic")
-    point_data_path = Path(recording_path, "point_data.csv")
+    point_data_path = Path(recording_path, "xy.csv")
 
     stream_pool = RecordedStreamPool(recording_path,config_path= config.toml_path, fps_target = 100, tracker_factory = charuco_tracker_factory) 
     logger.info("Creating Synchronizer")

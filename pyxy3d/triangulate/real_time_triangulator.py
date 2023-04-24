@@ -12,22 +12,22 @@ from pyxy3d.cameras.synchronizer import Synchronizer, SyncPacket
 from queue import Queue
 from threading import Thread, Event
 from pathlib import Path
-from pyxy3d.interface import XYZPacket
-
+from pyxy3d.interface import XYZPacket, Tracker
 
 class RealTimeTriangulator:
     """
     Will place 3d packets on subscribed queues and save consolidated data in csv
     format to output_path if provided
     """    
-    def __init__(self,camera_array:CameraArray, synchronizer:Synchronizer, output_directory:Path=None):
+    def __init__(self,camera_array:CameraArray, synchronizer:Synchronizer, output_directory:Path=None, tracker:Tracker=None):
         self.camera_array = camera_array
         self.synchronizer = synchronizer
         self.output_directory = output_directory
-
+        self.tracker = tracker # optional if you want point names in a table and not just ids
+        
         self.stop_thread = Event()
         self.stop_thread.clear()
-        # self._sync_packet_history = []     
+
         self.xyz_history = {"sync_index":[], 
                         "point_id":[], 
                         "x_coord":[],
@@ -112,10 +112,39 @@ class RealTimeTriangulator:
             self.xyz_history["z_coord"].extend(xyz_array[:,2].tolist())
         
           
-    def save_history(self):
+    def save_history(self, tracker:Tracker = None):
         
-        self.xyz_history:pd.DataFrame = pd.DataFrame(self.xyz_history)
-        self.xyz_history.to_csv(Path(self.output_directory,"xyz.csv"))
+        df_xyz:pd.DataFrame = pd.DataFrame(self.xyz_history)
+        df_xyz.to_csv(Path(self.output_directory,"xyz.csv"))
+
+        if self.tracker is not None:
+            # save out named data in a tabular format
+            df_xyz = df_xyz.rename({"x_coord":"x",
+                                    "y_coord":"y",
+                                    "z_coord":"z",               
+                                    }, axis=1)
+            df_xyz = df_xyz[["sync_index", "point_id", "x", "y", "z"]]
+        
+            df_xyz["point_name"] = df_xyz["point_id"].map(self.tracker.get_point_name)
+            # pivot the DataFrame wider
+            df_wide = df_xyz.pivot_table(
+                index=['sync_index'],
+                columns='point_name',
+                values=['x', 'y', 'z']
+            )
+            # flatten the column names
+            df_wide.columns = ['{}_{}'.format(y,x) for x, y in df_wide.columns]
+            # reset the index
+            df_wide = df_wide.reset_index()
+            # merge the rows with the same sync_index
+            df_merged = df_wide.groupby('sync_index').agg('first')
+            # sort the dataframe
+            df_merged = df_merged.sort_index(axis=1,ascending=True)
+            df_merged.to_csv(Path(self.output_directory, "tabular_xyz.csv"))
+        
+        # save out version that involves  
+        
+       
         
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
 # @jit(nopython=True, cache=True)

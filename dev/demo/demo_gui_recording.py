@@ -22,16 +22,16 @@ from pyxy3d import __root__
 from pyxy3d.helper import copy_contents
 
 
-session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res")
+# session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res")
 # session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res_laptop")
 # session_origin_path = Path(__root__, "dev","sample_sessions", "recordings_to_process")
-session_path = Path(__root__, "dev","sessions_copy_delete", "recordings_to_process")
+session_path = Path(__root__, "dev","sample_sessions", "test_calibration")
 
 # clear previous test so as not to pollute current test results
-if session_path.exists() and session_path.is_dir():
-    shutil.rmtree(session_path)   
+# if session_path.exists() and session_path.is_dir():
+    # shutil.rmtree(session_path)   
 
-copy_contents(session_origin_path,session_path)
+# copy_contents(session_origin_path,session_path)
 
 session = Session(session_path)
 session.load_cameras()

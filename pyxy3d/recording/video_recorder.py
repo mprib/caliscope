@@ -120,7 +120,7 @@ class VideoRecorder:
     def store_point_history(self):
         df = pd.DataFrame(self.point_data_history)
         # TODO: #25 if file exists then change the name
-        point_data_path = str(Path(self.destination_folder, "point_data.csv"))
+        point_data_path = str(Path(self.destination_folder, "xy.csv"))
         logger.info(f"Storing point data in {point_data_path}")
         df.to_csv(point_data_path, index=False, header=True)
 

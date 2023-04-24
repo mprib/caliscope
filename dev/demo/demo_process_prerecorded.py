@@ -17,7 +17,7 @@ from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
 session_path = Path(__root__, "dev", "sample_sessions", "test_calibration")
-recording_path = Path(session_path, "calibration")
+recording_path = Path(session_path, "recording_6")
 config = Configurator(session_path)
 # origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
 
@@ -33,7 +33,7 @@ syncr = Synchronizer(stream_pool.streams, fps_target=100)
 
 #### Basic code for interfacing with in-progress RealTimeTriangulator
 #### Just run off of saved point_data.csv for development/testing
-real_time_triangulator = RealTimeTriangulator(camera_array, syncr, output_directory=recording_path)
+real_time_triangulator = RealTimeTriangulator(camera_array, syncr, output_directory=recording_path, tracker = tracker_factory.get_tracker())
 stream_pool.play_videos()
 while real_time_triangulator.running:
     sleep(1)

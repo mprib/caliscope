@@ -144,9 +144,9 @@ def test_post_monocalibration(session_path):
     config.save_camera_array(capture_volume.camera_array)
     config.save_point_estimates(capture_volume.point_estimates)
 
-    for key, optimzed_rmse in optimized_filtered_rmse.items():
+    for key, optimized_rmse in optimized_filtered_rmse.items():
         logger.info(f"Asserting that RMSE decreased with optimization at {key}...")
-        assert(initial_rmse[key] > optimzed_rmse)
+        assert(initial_rmse[key] > optimized_rmse)
     
 
 if __name__ == "__main__":

@@ -34,7 +34,7 @@ from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_arra
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
-
+from pyxy3d.configurator import Configurator
 from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.recording.video_recorder import VideoRecorder
 
@@ -44,14 +44,16 @@ FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojec
 
 
 class Session:
-    def __init__(self, directory):
-        self.folder = PurePath(directory).name
-        self.path = directory
-        self.config_path = str(Path(directory, "config.toml"))
+    def __init__(self, config:Configurator):
+        self.config = config
+        # self.folder = PurePath(directory).name
+        self.path = self.config.session_path
+        
+        self.config_path = self.config.toml_path # I will know that I'm done with this branch when I can delete this...
 
         # this will not have anything to start, but the path
         # will be set
-        self.calibration_xy = Path(self.path,"calibration", "xy.csv")
+        self.ext_calibration_xy = Path(self.path,"calibration","extrinsic", "xy.csv")
 
         # dictionaries of streaming related objects. key = port
         self.cameras = {}
@@ -482,7 +484,7 @@ class Session:
         here, but they are all necessary steps of the process so I didn't want to
         try to encapsulate any further
         """
-        stereocalibrator = StereoCalibrator(self.config_path, self.calibration_xy)
+        stereocalibrator = StereoCalibrator(self.config_path, self.ext_calibration_xy)
         stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
         self.camera_array: CameraArray = CameraArrayInitializer(
@@ -490,7 +492,7 @@ class Session:
         ).get_best_camera_array()
 
         self.point_estimates: PointEstimates = get_point_estimates(
-            self.camera_array, self.calibration_xy
+            self.camera_array, self.ext_calibration_xy
         )
 
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)

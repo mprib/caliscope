@@ -318,9 +318,9 @@ if __name__ == "__main__":
     
     camera_array = initializer.get_best_camera_array()
 
-    calibration_xy = Path(session_directory, "point_data.csv")
+    ext_calibration_xy = Path(session_directory, "point_data.csv")
 
-    point_estimates: PointEstimates = get_point_estimates(camera_array, calibration_xy)
+    point_estimates: PointEstimates = get_point_estimates(camera_array, ext_calibration_xy)
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
 

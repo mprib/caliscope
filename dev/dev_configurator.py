@@ -11,6 +11,13 @@
 # initialize
 # provided with a path, load toml or create a default toml.
 
+# check if config has cameras....needed for session to determine if it should find them
+
+
+# SIDE NOTE HERE: session.find_cameras could just be a standalone helper function.
+# might as well hold it in config for the time being...
+
+
 # load cameras
 
 
@@ -34,7 +41,6 @@
 
 
 # load camera array (composed of  camera data objects for calibration/triangulation)
-
 
 
 

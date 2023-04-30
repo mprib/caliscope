@@ -138,13 +138,13 @@ class Session:
         logger.info(f"Saving charuco with params {self.charuco.__dict__} to config")
         self.update_config()
 
-    def delete_camera(self, port_to_delete):
-        # note: needs to be a copy to avoid errors while dict changes with deletion
-        for key, params in self.config.copy().items():
-            if key.startswith("cam"):
-                port = params["port"]
-                if port == port_to_delete:
-                    del self.config[key]
+    # def delete_camera(self, port_to_delete):
+    #     # note: needs to be a copy to avoid errors while dict changes with deletion
+    #     for key, params in self.config.copy().items():
+    #         if key.startswith("cam"):
+    #             port = params["port"]
+    #             if port == port_to_delete:
+    #                 del self.config[key]
 
     def get_configured_camera_count(self):
         count = 0
@@ -153,15 +153,15 @@ class Session:
                 count += 1
         return count
 
-    def delete_all_cam_data(self):
-        # note: needs to be a copy to avoid errors while dict changes with deletion
-        for key, params in self.config.copy().items():
-            if key.startswith("cam"):
-                del self.config[key]
-            if key.startswith("stereo"):
-                del self.config[key]
+    # def delete_all_cam_data(self):
+    #     # note: needs to be a copy to avoid errors while dict changes with deletion
+    #     for key, params in self.config.copy().items():
+    #         if key.startswith("cam"):
+    #             del self.config[key]
+    #         if key.startswith("stereo"):
+    #             del self.config[key]
 
-        self.update_config()
+    #     self.update_config()
 
     def load_cameras(self):
         # worker function that will be spun up to connect to a previously configured camera

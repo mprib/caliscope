@@ -48,7 +48,6 @@ class Session:
         self.config = config
         # self.folder = PurePath(directory).name
         self.path = self.config.session_path
-        
         self.config_path = self.config.toml_path # I will know that I'm done with this branch when I can delete this...
 
         # this will not have anything to start, but the path
@@ -164,6 +163,9 @@ class Session:
                 self.monocalibrators[port] = MonoCalibrator(self.streams[port])
 
     def set_active_monocalibrator(self, active_port):
+        """
+        Used to make sure that only the active camera tab is reading frames during the intrinsic calibration process
+        """
         logger.info(f"Activate tracking on port {active_port} and deactivate others")
         for port, monocal in self.monocalibrators.items():
             if port == active_port:
@@ -172,6 +174,9 @@ class Session:
                 monocal.unsubscribe_to_stream()
 
     def pause_all_monocalibrators(self):
+        """
+        used when not actively on the camera calibration tab
+        """
         logger.info(f"Pausing all monocalibrator looping...")
         for port, monocal in self.monocalibrators.items():
             monocal.unsubscribe_to_stream()
@@ -221,17 +226,6 @@ class Session:
 
 
 
-    def save_point_estimates(self):
-        logger.info("Saving point estimates to config...")
-
-        temp_data = asdict(self.capture_volume.point_estimates)
-        for key, params in temp_data.items():
-            temp_data[key] = params.tolist()
-
-        self.config.dict["point_estimates"] = temp_data
-
-        self.update_config()
-
     def load_estimated_capture_volume(self):
         """
         Following capture volume optimization via bundle adjustment, or alteration
@@ -239,8 +233,8 @@ class Session:
         from the config data without needing to go through the steps
 
         """
-        self.point_estimates = load_point_estimates(self.config.dict)
-        self.camera_array = get_camera_array(self.config.dict)
+        self.point_estimates = self.config.get_point_estimates()
+        self.camera_array = self.config.get_camera_array()
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
         # self.capture_volume.rmse = self.config["capture_volume"]["RMSE"]
         self.capture_volume.stage = self.config.dict["capture_volume"]["stage"]
@@ -353,53 +347,3 @@ class Stage(Enum):
     OMNICALIBRATION_DONE = auto()
     ORIGIN_SET = auto()
 
-
-# %%
-if __name__ == "__main__":
-    # if True:
-    from pyxy3d import __root__
-
-    config_path = Path(__root__, "tests", "demo")
-
-    logger.info(config_path)
-    logger.info("Loading session config")
-    session = Session(config_path)
-    # logger.info(session.get_stage())
-    # session.load_camera_array()
-    # session.calibrate()
-    # session.save_point_estimates()
-    # session.load_camera_array()
-    # session.load_point_estimates()
-    # session.estimate_extrinsics()
-    # session.build_capture_volume_from_stereopairs()
-    # session.load_configured_capture_volume()
-    # session.capture_volume.optimize()
-    # session.capture_volume.set_origin_to_board(240, session.charuco)
-    # session.save_capture_volume()
-    # while session.capture_volume.rmse["overall"] > 2:
-    #     session.filter_high_error(0.05)
-    logger.info(
-        "\n" + session.quality_controller.distance_error_summary.to_string(index=False)
-    )
-    # logger.info(f"Following filter of high error points, distance error is \n {session.quality_controller.distance_error}")
-    # session.update_config()
-    # %%%
-
-    # create a sample dataframe
-
-    # group the data by "board_distance" and compute the mean and percentiles
-
-    # logger.info("Loading Cameras...")
-    # session.load_cameras()
-
-    # logger.info("Finding Cameras...")
-    # session.find_cameras()
-    # logger.info(session.get_stage())
-    # logger.info(f"Camera pairs: {session.camera_pairs()}")
-    # logger.info(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
-    # session.disconnect_cameras()
-    # logger.info(session.get_stage())
-    # logger.info(f"Camera pairs: {session.camera_pairs()}")
-    # logger.info(f"Calibrated Camera pairs: {session.calibrated_camera_pairs()}")
-
-# %%

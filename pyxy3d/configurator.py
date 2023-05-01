@@ -125,24 +125,27 @@ class Configurator:
         point_estimates = PointEstimates(**point_estimates_dict)
         return point_estimates
     
-    def get_charuco(self)-> Charuco:
-        """
-        Helper function to load a pre-configured charuco from a config.toml
-        """
-        params = self.dict["charuco"]
+    def get_charuco(self):
+        if "charuco" in self.dict:
+            logger.info("Loading charuco from config")
+            params = self.dict["charuco"]
 
-        charuco = Charuco(
-            columns=params["columns"],
-            rows=params["rows"],
-            board_height=params["board_height"],
-            board_width=params["board_width"],
-            dictionary=params["dictionary"],
-            units=params["units"],
-            aruco_scale=params["aruco_scale"],
-            square_size_overide_cm=params["square_size_overide_cm"],
-            inverted=params["inverted"],
-        )
-    
+            charuco = Charuco(
+                columns=params["columns"],
+                rows=params["rows"],
+                board_height=params["board_height"],
+                board_width=params["board_width"],
+                dictionary=params["dictionary"],
+                units=params["units"],
+                aruco_scale=params["aruco_scale"],
+                square_size_overide_cm=params["square_size_overide_cm"],
+                inverted=params["inverted"],
+            )
+        else:
+            logger.info("Loading default charuco")
+            charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
+            self.save_charuco(self.charuco)
+
         return charuco
 
     
@@ -151,7 +154,7 @@ class Configurator:
         logger.info(f"Saving charuco with params {charuco.__dict__} to config")
         self.update_toml()
 
-    def save_camera(self, camera):
+    def save_camera(self, camera: Camera | CameraData):
         def none_or_list(value):
             # required to make sensible numeric format
             # otherwise toml formats as text
@@ -223,25 +226,6 @@ class Configurator:
                     executor.submit(add_preconfigured_cam, params)
         return cameras
 
-        # TESTING OUT ALTERNATE 
-        #     params = {
-        #         "port": camera_data.port,
-        #         "size": camera_data.size,
-        #         "rotation_count": camera_data.rotation_count,
-        #         "error": camera_data.error,
-        #         "matrix": camera_data.matrix.tolist(),
-        #         "distortions": camera_data.distortions.tolist(),
-        #         "exposure": camera_data.exposure,
-        #         "grid_count": camera_data.grid_count,
-        #         "ignore": camera_data.ignore,
-        #         "verified_resolutions": camera_data.verified_resolutions,
-        #         "translation": camera_data.translation.tolist(),
-        #         "rotation": camera_data.rotation.tolist(),
-        #     }
-
-        #     self.dict["cam_" + str(camera_data.port)] = params
-
-        # self.update_toml()
 
     def save_point_estimates(self, point_estimates:PointEstimates):
         logger.info("Saving point estimates to config...")
@@ -252,6 +236,20 @@ class Configurator:
 
         self.dict["point_estimates"] = temp_data
 
+        self.update_toml()
+
+    def save_capture_volume(self, capture_volume:CaptureVolume):
+        # self.point_estimates = self.capture_volume.point_estimates
+        # self.camera_array = self.capture_volume.camera_array
+        self.save_camera_array(capture_volume.camera_array)
+        self.save_point_estimates(capture_volume.point_estimates)
+
+        self.dict["capture_volume"] = {}
+        # self["capture_volume"]["RMSE_summary"] = self.capture_volume.rmse
+        self.dict["capture_volume"]["stage"] = capture_volume.stage
+        self.dict["capture_volume"][
+            "origin_sync_index"
+        ] = self.capture_volume.origin_sync_index
         self.update_toml()
 
     def get_live_stream_pool(self, tracker_factor:TrackerFactory = None):

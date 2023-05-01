@@ -45,11 +45,11 @@ FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojec
 
 class Session:
     def __init__(self, config:Configurator):
-        self.config.dict = config
+        self.config = config
         # self.folder = PurePath(directory).name
-        self.path = self.config.dict.session_path
+        self.path = self.config.session_path
         
-        self.config_path = self.config.dict.toml_path # I will know that I'm done with this branch when I can delete this...
+        self.config_path = self.config.toml_path # I will know that I'm done with this branch when I can delete this...
 
         # this will not have anything to start, but the path
         # will be set
@@ -66,6 +66,7 @@ class Session:
 
         # self.load_config()
         self.load_charuco()
+        self.charuco = self.config.get
         self.charuco_tracker = CharucoTracker(self.charuco)
 
 
@@ -85,67 +86,6 @@ class Session:
     def unpause_synchronizer(self):
         self.synchronizer.subscribe_to_streams()
 
-    # def load_config(self):
-    #     if exists(self.config_path):
-    #         logger.info("Found previous config")
-    #         with open(self.config_path, "r") as f:
-    #             self.config.dict = toml.load(self.config_path)
-    #     else:
-    #         logger.info(
-    #             "No existing config.toml found; creating starter file with charuco"
-    #         )
-
-    #         self.config.dict = toml.loads("")
-    #         self.config.dict["CreationDate"] = datetime.now()
-    #         with open(self.config_path, "a") as f:
-    #             toml.dump(self.config.dict, f)
-
-    #     return self.config.dict
-
-    # def update_config(self):
-    #     # alphabetize by key to maintain standardized layout
-    #     sorted_config = {key: value for key, value in sorted(self.config.dict.items())}
-    #     self.config.dict = sorted_config
-
-    #     with open(self.config_path, "w") as f:
-    #         toml.dump(self.config.dict, f)
-
-    def load_charuco(self):
-        if "charuco" in self.config.dict:
-            logger.info("Loading charuco from config")
-            params = self.config.dict["charuco"]
-
-            self.charuco = Charuco(
-                columns=params["columns"],
-                rows=params["rows"],
-                board_height=params["board_height"],
-                board_width=params["board_width"],
-                dictionary=params["dictionary"],
-                units=params["units"],
-                aruco_scale=params["aruco_scale"],
-                square_size_overide_cm=params["square_size_overide_cm"],
-                inverted=params["inverted"],
-            )
-        else:
-            logger.info("Loading default charuco")
-            self.charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
-            self.config.save_charuco(self.charuco)
-            # self.config.dict["charuco"] = self.charuco.__dict__
-            # self.config.update_toml()
-
-
-    def save_charuco(self):
-        self.config.dict["charuco"] = self.charuco.__dict__
-        logger.info(f"Saving charuco with params {self.charuco.__dict__} to config")
-        self.update_config()
-
-    # def delete_camera(self, port_to_delete):
-    #     # note: needs to be a copy to avoid errors while dict changes with deletion
-    #     for key, params in self.config.copy().items():
-    #         if key.startswith("cam"):
-    #             port = params["port"]
-    #             if port == port_to_delete:
-    #                 del self.config[key]
 
     def get_configured_camera_count(self):
         count = 0
@@ -154,15 +94,6 @@ class Session:
                 count += 1
         return count
 
-    # def delete_all_cam_data(self):
-    #     # note: needs to be a copy to avoid errors while dict changes with deletion
-    #     for key, params in self.config.copy().items():
-    #         if key.startswith("cam"):
-    #             del self.config[key]
-    #         if key.startswith("stereo"):
-    #             del self.config[key]
-
-    #     self.update_config()
 
     def set_fps_target(self, fps_target):
         if hasattr(self, "synchronizer"):
@@ -204,6 +135,8 @@ class Session:
 
     def load_streams(self, tracker_factory:TrackerFactory = None):
         # in addition to populating the active streams, this loads a frame synchronizer
+        self.cameras = self.config.get_cameras()
+
         if tracker_factory is None:
             tracker = None
         else:
@@ -216,64 +149,6 @@ class Session:
                 logger.info(f"Loading Stream for port {port}")
                 self.streams[port] = LiveStream(cam, tracker=tracker)
 
-    # def disconnect_cameras(self):
-    #     """Destroy all camera reading associated threads working down to the cameras
-    #     themselves so that the session cameras can be later reconstructed (potentially
-    #     with additional or fewer cameras)"""
-
-    #     try:
-    #         logger.info("Attempting to shutdown monocalibrators")
-    #         for port, monocal in self.monocalibrators.items():
-    #             monocal.stop()
-    #             # monocal.thread.join()
-
-    #         self.monocalibrators = {}
-    #     except AttributeError:
-    #         logger.warning("No monocalibrators to delete")
-    #         pass
-
-    #     try:
-    #         logger.info("Attempting to stop stereo frame emitter")
-    #         self.stereo_frame_emitter.stop()
-    #         # self.stereo_frame_emitter.thread.join()
-
-    #     except AttributeError:
-    #         logger.info("No stereo frame emitter to stop")
-
-    #     try:
-    #         logger.info("Attempting to stop stereocalibrator")
-    #         self.stereocalibrator.stop()
-
-    #     except AttributeError:
-    #         logger.warning("No stereocalibrator to delete.")
-    #         pass  # don't worry if it doesn't exist
-
-    #     try:
-    #         logger.info("Attempting to stop synchronizer...")
-
-    #         self.synchronizer.stop()
-    #         del (
-    #             self.synchronizer
-    #         )  # important for session to know to recreate stereotools
-    #     except AttributeError:
-    #         logger.warning("No synchronizer to delete")
-    #         pass
-
-    #     try:
-    #         logger.info("Attempting to stop streams...")
-    #         for port, stream in self.streams.items():
-    #             stream.stop()
-    #         self.streams = {}
-
-    #         for port, cam in self.cameras.items():
-    #             cam.capture.release()
-    #             logger.info(f"Capture released at port {port}")
-    #             # del cam
-    #         # del self.cameras
-    #         self.cameras = {}
-    #     except AttributeError:
-    #         logger.warning("Unable to delete all streams...")
-    #         pass
 
     def load_monocalibrators(self):
         # self.corner_tracker = CornerTracker(self.charuco)
@@ -344,54 +219,7 @@ class Session:
             for port in self.cameras.keys():
                 executor.submit(adjust_res_worker, port)
 
-    def save_camera(self, port):
-        def none_or_list(value):
-            if value is None:
-                return None
-            else:
-                return value.tolist()
 
-        camera = self.cameras[port]
-        params = {
-            "port": camera.port,
-            "size": camera.size,
-            "rotation_count": camera.rotation_count,
-            "error": camera.error,
-            "matrix": none_or_list(camera.matrix),
-            "distortions": none_or_list(camera.distortions),
-            "translation": none_or_list(camera.translation),
-            "rotation": none_or_list(camera.rotation),
-            "exposure": camera.exposure,
-            "grid_count": camera.grid_count,
-            "ignore": camera.ignore,
-            "verified_resolutions": camera.verified_resolutions,
-        }
-
-        self.config.dict["cam_" + str(port)] = params
-        self.update_config()
-
-    def save_camera_array(self):
-        logger.info("Saving camera array....")
-        for port, camera_data in self.camera_array.cameras.items():
-            camera_data = self.camera_array.cameras[port]
-            params = {
-                "port": camera_data.port,
-                "size": camera_data.size,
-                "rotation_count": camera_data.rotation_count,
-                "error": camera_data.error,
-                "matrix": camera_data.matrix.tolist(),
-                "distortions": camera_data.distortions.tolist(),
-                "exposure": camera_data.exposure,
-                "grid_count": camera_data.grid_count,
-                "ignore": camera_data.ignore,
-                "verified_resolutions": camera_data.verified_resolutions,
-                "translation": camera_data.translation.tolist(),
-                "rotation": camera_data.rotation.tolist(),
-            }
-
-            self.config.dict["cam_" + str(port)] = params
-
-        self.update_config()
 
     def save_point_estimates(self):
         logger.info("Saving point estimates to config...")
@@ -426,18 +254,6 @@ class Session:
             self.capture_volume, charuco=self.charuco
         )
 
-    def save_capture_volume(self):
-        # self.point_estimates = self.capture_volume.point_estimates
-        # self.camera_array = self.capture_volume.camera_array
-        self.save_camera_array()
-        self.save_point_estimates()
-        self.config.dict["capture_volume"] = {}
-        # self.config["capture_volume"]["RMSE_summary"] = self.capture_volume.rmse
-        self.config.dict["capture_volume"]["stage"] = self.capture_volume.stage
-        self.config.dict["capture_volume"][
-            "origin_sync_index"
-        ] = self.capture_volume.origin_sync_index
-        self.update_config()
 
     def estimate_extrinsics(self):
         """
@@ -554,7 +370,7 @@ if __name__ == "__main__":
     # session.save_point_estimates()
     # session.load_camera_array()
     # session.load_point_estimates()
-    session.estimate_extrinsics()
+    # session.estimate_extrinsics()
     # session.build_capture_volume_from_stereopairs()
     # session.load_configured_capture_volume()
     # session.capture_volume.optimize()

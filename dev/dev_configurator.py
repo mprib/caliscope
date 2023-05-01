@@ -52,7 +52,6 @@ live_streams = config.get_live_stream_pool()
 
 # load camera, make a change, save it, reload it, confirm
 # change is reflected
-
 cameras = config.get_cameras()
 
 

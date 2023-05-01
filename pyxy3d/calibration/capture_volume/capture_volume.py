@@ -250,14 +250,14 @@ def rms_reproj_error(xy_reproj_error, camera_indices):
     # logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
 
-def load_capture_volume(session_path:Path):
-    config = get_config(session_directory)
+# def load_capture_volume(session_path:Path):
+#     config = get_config(session_directory)
 
-    camera_array = get_camera_array(config)
-    point_estimates = load_point_estimates(config)
+#     camera_array = get_camera_array(config)
+#     point_estimates = load_point_estimates(config)
     
-    capture_volume = CaptureVolume(camera_array, point_estimates)    
-    capture_volume.stage = config["capture_volume"]["stage"]
-    # capture_volume.origin_sync_index = config["capture_volume"]["origin_sync_index"]
+#     capture_volume = CaptureVolume(camera_array, point_estimates)    
+#     capture_volume.stage = config["capture_volume"]["stage"]
+#     # capture_volume.origin_sync_index = config["capture_volume"]["origin_sync_index"]
 
-    return capture_volume
+#     return capture_volume

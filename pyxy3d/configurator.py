@@ -73,27 +73,43 @@ class Configurator:
         for key, params in self.dict.items():
             if key.startswith("cam"):
                 if params["ignore"] == False:
-                    if params["translation"] is not None:
-                        port = params["port"]
-                        size = params["size"]
+                    port = params["port"]
 
-                        logger.info(f"Adding camera {port} to calibrated camera array...")
-                        cam_data = CameraData(
-                            port=port,
-                            size=params["size"],
-                            rotation_count=params["rotation_count"],
-                            error=params["error"],
-                            matrix=np.array(params["matrix"]),
-                            distortions=np.array(params["distortions"]),
-                            exposure=params["exposure"],
-                            grid_count=params["grid_count"],
-                            ignore=params["ignore"],
-                            verified_resolutions=params["verified_resolutions"],
-                            translation=np.array(params["translation"]),
-                            rotation=np.array(params["rotation"]),
-                        )
+                    if "error" in params.keys(): #intrinsics have been calculated
+                        error = params["error"]
+                        matrix = np.array(params["matrix"])
+                        distortions = np.array(params["distortions"])
+                        grid_count = params["grid_count"]
+                    else: 
+                        error = None
+                        matrix = None
+                        distortions = None
+                        grid_count = None
 
-                        all_camera_data[port] = cam_data
+                    if "translation" in params.keys(): #Extrinsics have been calculated
+                        translation = params["translation"]
+                        rotation = params["rotation"]
+                    else:
+                        translation = None
+                        rotation = None
+
+                    logger.info(f"Adding camera {port} to calibrated camera array...")
+                    cam_data = CameraData(
+                        port=port,
+                        size=params["size"],
+                        rotation_count=params["rotation_count"],
+                        error= error,
+                        matrix=matrix,
+                        distortions=distortions,
+                        exposure=params["exposure"],
+                        grid_count=grid_count,
+                        ignore=params["ignore"],
+                        verified_resolutions=params["verified_resolutions"],
+                        translation=translation,
+                        rotation=rotation
+                    )
+
+                    all_camera_data[port] = cam_data
 
         camera_array = CameraArray(all_camera_data)
         return camera_array
@@ -136,7 +152,8 @@ class Configurator:
 
     def save_camera(self, camera):
         def none_or_list(value):
-
+            # required to make sensible numeric format
+            # otherwise toml formats as text
             if value is None:
                 return None
             else:
@@ -164,24 +181,26 @@ class Configurator:
         logger.info("Saving camera array....")
         for port, camera_data in camera_array.cameras.items():
             camera_data = camera_array.cameras[port]
-            params = {
-                "port": camera_data.port,
-                "size": camera_data.size,
-                "rotation_count": camera_data.rotation_count,
-                "error": camera_data.error,
-                "matrix": camera_data.matrix.tolist(),
-                "distortions": camera_data.distortions.tolist(),
-                "exposure": camera_data.exposure,
-                "grid_count": camera_data.grid_count,
-                "ignore": camera_data.ignore,
-                "verified_resolutions": camera_data.verified_resolutions,
-                "translation": camera_data.translation.tolist(),
-                "rotation": camera_data.rotation.tolist(),
-            }
+            self.save_camera(camera_data)
+        # TESTING OUT ALTERNATE 
+        #     params = {
+        #         "port": camera_data.port,
+        #         "size": camera_data.size,
+        #         "rotation_count": camera_data.rotation_count,
+        #         "error": camera_data.error,
+        #         "matrix": camera_data.matrix.tolist(),
+        #         "distortions": camera_data.distortions.tolist(),
+        #         "exposure": camera_data.exposure,
+        #         "grid_count": camera_data.grid_count,
+        #         "ignore": camera_data.ignore,
+        #         "verified_resolutions": camera_data.verified_resolutions,
+        #         "translation": camera_data.translation.tolist(),
+        #         "rotation": camera_data.rotation.tolist(),
+        #     }
 
-            self.dict["cam_" + str(camera_data.port)] = params
+        #     self.dict["cam_" + str(camera_data.port)] = params
 
-        self.update_toml()
+        # self.update_toml()
 
     def save_point_estimates(self, point_estimates:PointEstimates):
         logger.info("Saving point estimates to config...")
@@ -194,16 +213,26 @@ class Configurator:
 
         self.update_toml()
 
-    def get_live_stream_pool(self, tracker_factor:TrackerFactory):
+    def get_live_stream_pool(self, tracker_factor:TrackerFactory = None):
+        streams = {}
         for item, params in self.dict.items():
             if item.startswith("cam_"):
                 if params["ignore"]==False:
-                    tracker = tracker_factor.get_tracker()
+                    port = params["port"]
+   
+                    if tracker_factor is not None:  
+                        tracker = tracker_factor.get_tracker()
+                    else:
+                        tracker = None
+
                     logger.info(f"Adding stream associated with {item}")
-                    cam = Camera(params["port"], verified_resolutions=params["verified_resolutions"])
+                    cam = Camera(port, verified_resolutions=params["verified_resolutions"])
                     stream = LiveStream(cam,fps_target=30, tracker=tracker)
                     stream.change_resolution(params["size"])
-
+                    streams[port] = stream
+        return streams            
+                    
+                    
 if __name__ == "__main__":
     from pyxy3d import __root__
     

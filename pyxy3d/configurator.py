@@ -18,6 +18,7 @@ from pyxy3d.interface import Tracker, TrackerFactory
 from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates, load_point_estimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
+from concurrent.futures import ThreadPoolExecutor
 
 class Configurator:
     """
@@ -182,6 +183,46 @@ class Configurator:
         for port, camera_data in camera_array.cameras.items():
             camera_data = camera_array.cameras[port]
             self.save_camera(camera_data)
+
+    def get_cameras(self):
+        # worker function that will be spun up to connect to a previously configured camera
+        cameras = {}
+        def add_preconfigured_cam(params):
+            # try:
+            port = params["port"]
+            logger.info(f"Attempting to add pre-configured camera at port {port}")
+
+            if params["ignore"]:
+                logger.info(f"Ignoring camera at port {port}")
+                pass  # don't load it in
+            else:
+                if "verified_resolutions" in params.keys():
+                    verified_resolutions = params["verified_resolutions"]
+                    cameras[port] = Camera(port, verified_resolutions)
+                else:
+                    cameras[port] = Camera(port)
+
+                camera = cameras[port]  # just for ease of reference
+                camera.rotation_count = params["rotation_count"]
+                camera.exposure = params["exposure"]
+
+                # if calibration done, then populate those as well
+                if "error" in params.keys():
+                    logger.info(f"Camera RMSE error for port {port}: {params['error']}")
+                    camera.error = params["error"]
+                    camera.matrix = np.array(params["matrix"]).astype(float)
+                    camera.distortions = np.array(params["distortions"]).astype(float)
+                    camera.grid_count = params["grid_count"]
+            # except:
+            #     logger.info("Unable to connect... camera may be in use.")
+
+        with ThreadPoolExecutor() as executor:
+            for key, params in self.dict.items():
+                if key.startswith("cam"):
+                    logger.info(f"Beginning to load {key} with params {params}")
+                    executor.submit(add_preconfigured_cam, params)
+        return cameras
+
         # TESTING OUT ALTERNATE 
         #     params = {
         #         "port": camera_data.port,
@@ -215,21 +256,18 @@ class Configurator:
 
     def get_live_stream_pool(self, tracker_factor:TrackerFactory = None):
         streams = {}
-        for item, params in self.dict.items():
-            if item.startswith("cam_"):
-                if params["ignore"]==False:
-                    port = params["port"]
-   
-                    if tracker_factor is not None:  
-                        tracker = tracker_factor.get_tracker()
-                    else:
-                        tracker = None
+        cameras = self.get_cameras()
 
-                    logger.info(f"Adding stream associated with {item}")
-                    cam = Camera(port, verified_resolutions=params["verified_resolutions"])
-                    stream = LiveStream(cam,fps_target=30, tracker=tracker)
-                    stream.change_resolution(params["size"])
-                    streams[port] = stream
+        if tracker_factor is not None:  
+            tracker = tracker_factor.get_tracker()
+        else:
+            tracker = None
+
+        for port, cam in cameras.items():
+            logger.info(f"Adding stream associated with camera {port}")
+            stream = LiveStream(cam, tracker=tracker)
+            stream.change_resolution(cam.size)
+            streams[port] = stream
         return streams            
                     
                     

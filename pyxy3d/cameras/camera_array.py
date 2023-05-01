@@ -135,7 +135,8 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
-
+# commenting this out specifically to force something to break
+# so that I can figure out where to link new configurator 
 def get_camera_array(config:dict)->CameraArray:
     """
     Load camera array directly from config file. The results of capture volume

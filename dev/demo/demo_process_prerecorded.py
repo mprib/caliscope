@@ -12,7 +12,7 @@ from pyxy3d.trackers.holistic_tracker import HolisticTrackerFactory, HolisticTra
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
+from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
 from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
@@ -33,7 +33,7 @@ syncr = Synchronizer(stream_pool.streams, fps_target=100)
 
 #### Basic code for interfacing with in-progress RealTimeTriangulator
 #### Just run off of saved point_data.csv for development/testing
-real_time_triangulator = RealTimeTriangulator(camera_array, syncr, output_directory=recording_path, tracker = tracker_factory.get_tracker())
+real_time_triangulator = SyncPacketTriangulator(camera_array, syncr, output_directory=recording_path, tracker = tracker_factory.get_tracker())
 stream_pool.play_videos()
 while real_time_triangulator.running:
     sleep(1)

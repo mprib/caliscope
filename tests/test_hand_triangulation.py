@@ -11,7 +11,7 @@ import time
 from pyxy3d.trackers.hand_tracker import HandTracker, HandTrackerFactory
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
-from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
+from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
 from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_array
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.configurator import Configurator
@@ -51,7 +51,7 @@ def test_hand_tracker():
 
     #### Basic code for interfacing with in-progress RealTimeTriangulator
     #### Just run off of saved point_data.csv for development/testing
-    real_time_triangulator = RealTimeTriangulator(camera_array, syncr, output_directory=session_path)
+    real_time_triangulator = SyncPacketTriangulator(camera_array, syncr, output_directory=session_path)
     stream_pool.play_videos()
 
     while real_time_triangulator.running:

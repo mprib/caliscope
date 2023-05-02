@@ -26,7 +26,7 @@ from pyxy3d.interface import FramePacket, PointPacket, SyncPacket
 from pyxy3d.session import Session
 from pyxy3d.trackers.charuco_tracker import Charuco, CharucoTracker,CharucoTrackerFactory
 from pyxy3d.trackers.holistic_tracker import HolisticTracker, HolisticTrackerFactory
-from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
+from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
 
 app = QApplication(sys.argv)
 session_path = Path(__root__,"dev", "sample_sessions", "real_time")
@@ -48,7 +48,7 @@ logger.info(f"Creating RecordedStreamPool")
 logger.info("Creating Synchronizer")
 syncr = Synchronizer(session.streams, fps_target=12)
 
-real_time_triangulator = RealTimeTriangulator(camera_array, syncr)
+real_time_triangulator = SyncPacketTriangulator(camera_array, syncr)
 xyz_queue = Queue()
 
 real_time_triangulator.subscribe(xyz_queue)

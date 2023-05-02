@@ -13,7 +13,6 @@ from scipy.sparse import lil_matrix
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
-from pyxy3d.cameras.camera_array import CameraArray, get_camera_array
 from pyxy3d.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
 
 CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrinsic
@@ -95,20 +94,3 @@ def load_point_estimates(config:dict)->PointEstimates:
     point_estimates = PointEstimates(**point_estimates_dict)
     return point_estimates
 
-
-
-#%%
-if __name__ == "__main__":
-    #%%
-    from pyxy3d import __root__
-    from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates 
-    session_directory = Path(__root__, "tests", "4_cameras_beginning")
-    calibration_xy = Path(session_directory, "point_data.csv" )
-
-    camera_array = CameraArrayBuilder(Path(session_directory, "config.toml")).get_camera_array()
-
-    point_estimates = get_point_estimates(camera_array, calibration_xy)
-
-
-
-# %%

@@ -250,50 +250,14 @@ def rms_reproj_error(xy_reproj_error, camera_indices):
     # logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
 
-def load_capture_volume(session_path:Path):
-    config = get_config(session_directory)
+# def load_capture_volume(session_path:Path):
+#     config = get_config(session_directory)
 
-    camera_array = get_camera_array(config)
-    point_estimates = load_point_estimates(config)
+#     camera_array = get_camera_array(config)
+#     point_estimates = load_point_estimates(config)
     
-    capture_volume = CaptureVolume(camera_array, point_estimates)    
-    capture_volume.stage = config["capture_volume"]["stage"]
-    # capture_volume.origin_sync_index = config["capture_volume"]["origin_sync_index"]
+#     capture_volume = CaptureVolume(camera_array, point_estimates)    
+#     capture_volume.stage = config["capture_volume"]["stage"]
+#     # capture_volume.origin_sync_index = config["capture_volume"]["origin_sync_index"]
 
-    return capture_volume
-    
-
-if __name__ == "__main__":
-    # if True:
-    from pyxy3d import __root__
-    from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
-    from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
-        get_point_estimates,
-    )
-    from pyxy3d.calibration.stereocalibrator import StereoCalibrator
-
-    session_directory = Path(__root__, "dev", "sample_sessions", "low_res")
-
-    calibration_xy = Path(session_directory, "point_data.csv")
-
-    config_path = Path(session_directory, "config.toml")
-
-    stereocalibrator = StereoCalibrator(config_path, calibration_xy)
-    stereocalibrator.stereo_calibrate_all(boards_sampled=10)
-
-    camera_array: CameraArray = CameraArrayInitializer(
-        config_path
-    ).get_best_camera_array()
-
-    point_estimates: PointEstimates = get_point_estimates(camera_array, calibration_xy)
-
-    capture_volume = CaptureVolume(camera_array, point_estimates)
-    capture_volume.optimize()
-
-    rmse_string = "\nRMSE of Reprojection (overall and by camera)\n"
-    
-    for key, value in capture_volume.rmse.items():
-        rmse_string+=f"{key: >7}: {round(float(value),2)} \n"
-        
-    logger.info(rmse_string)    
-    
+#     return capture_volume

@@ -32,7 +32,7 @@ from pyxy3d.gui.stereoframe.stereo_frame_widget import (
     MIN_THRESHOLD_FOR_EARLY_CALIBRATE,
 )
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
-
+from pyxy3d.configurator import Configurator
 
 class CalibrationWizard(QStackedWidget):
     cameras_connected = pyqtSignal()
@@ -74,7 +74,8 @@ class CalibrationWizard(QStackedWidget):
         if self.wizard_directory.create_new_radio.isChecked():
             # only need to create a new session in the given directory:
             self.session_directory = self.wizard_directory.new_path.textbox.text()
-            self.session = Session(self.session_directory)
+            configurator = Configurator(self.session_directory)
+            self.session = Session(configurator)
         else:
             # need to copy over config from old directory to new directory before launching
             self.session_directory = self.wizard_directory.modified_path.textbox.text()
@@ -90,7 +91,8 @@ class CalibrationWizard(QStackedWidget):
                     str(Path(self.session_directory, "config.toml")),
                 )
 
-            self.session = Session(self.session_directory)
+            configurator = Configurator(self.session_directory)
+            self.session = Session(configurator)
 
     ######################## STEP 1: Charuco Builder ###########################
 
@@ -112,7 +114,7 @@ class CalibrationWizard(QStackedWidget):
 
     def initiate_camera_connection(self):
 
-        if len(self.session.cameras) > 0:
+        if len(self.session.streams) > 0:
             logger.info("Cameras already connected")
         else:
 
@@ -122,11 +124,12 @@ class CalibrationWizard(QStackedWidget):
 
                 # find out if you are loading cameras or finding cameras
                 if self.session.get_configured_camera_count() > 0:
-                    self.session.load_cameras()
+                    # self.# session.load_cameras()
                     logger.info("Camera connect worker about to load stream tools")
-                    self.session.load_streams(CharucoTrackerFactory(self.session.charuco))
+
+                    self.session.load_streams(tracker_factory=CharucoTrackerFactory(self.session.charuco))
                 else:
-                    # I believe find_cameras will establish the streams as well...
+                    logger.info(f"No previous configured cameras detected...searching for cameras....")
                     self.session.find_cameras()
                 logger.info("Camera connect worker about to adjust resolutions")
                 self.session.adjust_resolutions()

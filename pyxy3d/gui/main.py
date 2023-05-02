@@ -114,7 +114,7 @@ class CalibrationWizard(QStackedWidget):
 
     def initiate_camera_connection(self):
 
-        if len(self.session.cameras) > 0:
+        if len(self.session.streams) > 0:
             logger.info("Cameras already connected")
         else:
 
@@ -126,7 +126,8 @@ class CalibrationWizard(QStackedWidget):
                 if self.session.get_configured_camera_count() > 0:
                     # self.# session.load_cameras()
                     logger.info("Camera connect worker about to load stream tools")
-                    self.session.load_streams()
+
+                    self.session.load_streams(tracker_factory=CharucoTrackerFactory(self.session.charuco))
                 else:
                     logger.info(f"No previous configured cameras detected...searching for cameras....")
                     self.session.find_cameras()

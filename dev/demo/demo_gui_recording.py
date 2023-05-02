@@ -20,20 +20,20 @@ from pyxy3d.session import Session
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.helper import copy_contents
-
+from pyxy3d.configurator import Configurator
 
 # session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res")
 # session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res_laptop")
 # session_origin_path = Path(__root__, "dev","sample_sessions", "recordings_to_process")
-session_path = Path(__root__, "dev","sample_sessions", "test_calibration")
+session_path = Path(__root__, "dev","sample_sessions", "257")
 
 # clear previous test so as not to pollute current test results
 # if session_path.exists() and session_path.is_dir():
     # shutil.rmtree(session_path)   
 
 # copy_contents(session_origin_path,session_path)
-
-session = Session(session_path)
+config = Configurator(session_path)
+session = Session(config)
 # session.load_cameras()
 session.load_streams()
 session.adjust_resolutions()

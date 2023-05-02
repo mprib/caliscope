@@ -16,11 +16,10 @@ from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
 from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
-session_path = Path(__root__, "dev", "sample_sessions", "test_calibration")
-recording_path = Path(session_path, "recording_6")
-config = Configurator(session_path)
-# origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
+session_path = Path(__root__, "dev", "sample_sessions", "257")
+recording_path = Path(session_path, "recording_1")
 
+config = Configurator(session_path)
 tracker_factory = HolisticTrackerFactory()
 
 camera_array: CameraArray = config.get_camera_array()
@@ -39,10 +38,9 @@ while real_time_triangulator.running:
     sleep(1)
 
 
-session_path = recording_path.parent
     
 logger.info(f"Loading session {session_path}")
-session = Session(session_path)
+session = Session(config)
 
 session.load_estimated_capture_volume()
 

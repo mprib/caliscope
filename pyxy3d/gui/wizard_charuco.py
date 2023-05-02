@@ -38,10 +38,10 @@ class WizardCharuco(QWidget):
 
         logger.info("Charuco Wizard initializing")
         self.session = session
-        self.params = self.session.config["charuco"]
+        self.params = self.session.config.dict["charuco"]
         
         # add group to do initial configuration of the charuco board
-        self.configurator = CharucoConfigurator(self.session)
+        self.configurator = CharucoConfigGroup(self.session)
         self.configurator.row_spin.valueChanged.connect(self.build_charuco)
         self.configurator.column_spin.valueChanged.connect(self.build_charuco)
         self.configurator.width_spin.valueChanged.connect(self.build_charuco)
@@ -126,7 +126,7 @@ class WizardCharuco(QWidget):
         self.printed_edge_length.setSingleStep(.01)
         self.printed_edge_length.setMaximumWidth(100)
         # self.set_true_edge_length()
-        overide = self.session.config["charuco"]["square_size_overide_cm"]
+        overide = self.session.config.dict["charuco"]["square_size_overide_cm"]
         self.printed_edge_length.setValue(overide)
 
         def update_charuco():
@@ -196,14 +196,14 @@ class WizardCharuco(QWidget):
         self.charuco_display.setPixmap(charuco_img)
 
         self.session.charuco = self.charuco
-        self.session.save_charuco()
+        self.session.config.save_charuco(self.charuco)
 
-class CharucoConfigurator(QWidget):
+class CharucoConfigGroup(QWidget):
    
     def __init__(self, session): 
         super().__init__()
         self.session = session
-        self.params = self.session.config["charuco"]
+        self.params = self.session.config.dict["charuco"]
   
         self.column_spin = QSpinBox()
         self.column_spin.setMinimum(2)

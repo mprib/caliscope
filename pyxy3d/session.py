@@ -64,8 +64,7 @@ class Session:
         self.is_recording = False
 
         # self.load_config()
-        self.load_charuco()
-        self.charuco = self.config.get
+        self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
 
 
@@ -112,7 +111,7 @@ class Session:
                 cam = Camera(port)
                 logger.info(f"Success at port {port}")
                 self.cameras[port] = cam
-                self.save_camera(port)
+                self.config.save_camera(cam)
                 self.streams[port] = LiveStream(cam, tracker=self.charuco_tracker)
             except:
                 logger.info(f"No camera at port {port}")
@@ -126,11 +125,15 @@ class Session:
                     executor.submit(add_cam, i)
 
         # remove potential stereocalibration data
-
+        # going to comment this out. This addressed a real issue that came up
+        # but I'm not happy with how this does it. Going to wait to run into it 
+        # again to find the best solution
+        
         for key in self.config.dict.copy().keys():
             if key.startswith("stereo"):
                 del self.config.dict[key]
-        self.update_config()
+
+        # self.update_config()
 
     def load_streams(self, tracker_factory:TrackerFactory = None):
         # in addition to populating the active streams, this loads a frame synchronizer

@@ -7,7 +7,8 @@ from pathlib import Path
 
 # config_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
 # config_path = Path(__root__, "dev", "sample_sessions", "real_time")
-config_path = Path(__root__, "dev", "sample_sessions", "test_calibration")
+config_path = Path(__root__, "dev", "sample_sessions", "257")
+# config_path = Path(__root__, "dev", "sample_sessions", "test_calibration")
     
 app = QApplication(sys.argv)
 window = CalibrationWizard()

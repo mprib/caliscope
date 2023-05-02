@@ -32,7 +32,7 @@ from pyxy3d.gui.stereoframe.stereo_frame_widget import (
     MIN_THRESHOLD_FOR_EARLY_CALIBRATE,
 )
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
-
+from pyxy3d.configurator import Configurator
 
 class CalibrationWizard(QStackedWidget):
     cameras_connected = pyqtSignal()
@@ -74,7 +74,8 @@ class CalibrationWizard(QStackedWidget):
         if self.wizard_directory.create_new_radio.isChecked():
             # only need to create a new session in the given directory:
             self.session_directory = self.wizard_directory.new_path.textbox.text()
-            self.session = Session(self.session_directory)
+            configurator = Configurator(self.session_directory)
+            self.session = Session(configurator)
         else:
             # need to copy over config from old directory to new directory before launching
             self.session_directory = self.wizard_directory.modified_path.textbox.text()
@@ -90,7 +91,8 @@ class CalibrationWizard(QStackedWidget):
                     str(Path(self.session_directory, "config.toml")),
                 )
 
-            self.session = Session(self.session_directory)
+            configurator = Configurator(self.session_directory)
+            self.session = Session(configurator)
 
     ######################## STEP 1: Charuco Builder ###########################
 

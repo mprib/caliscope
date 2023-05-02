@@ -98,8 +98,8 @@ class Configurator:
                         grid_count = None
 
                     if "translation" in params.keys(): #Extrinsics have been calculated
-                        translation = params["translation"]
-                        rotation = params["rotation"]
+                        translation = np.array(params["translation"])
+                        rotation = np.array(params["rotation"])
                     else:
                         translation = None
                         rotation = None
@@ -197,8 +197,7 @@ class Configurator:
             camera_data = camera_array.cameras[port]
             self.save_camera(camera_data)
 
-    def get_cameras(self):
-        # worker function that will be spun up to connect to a previously configured camera
+    def get_cameras(self)-> dict[Camera]:
         cameras = {}
         def add_preconfigured_cam(params):
             # try:

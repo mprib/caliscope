@@ -14,7 +14,7 @@ from threading import Thread, Event
 from pathlib import Path
 from pyxy3d.interface import XYZPacket, Tracker
 
-class RealTimeTriangulator:
+class SyncPacketTriangulator:
     """
     Will place 3d packets on subscribed queues and save consolidated data in csv
     format to output_path if provided

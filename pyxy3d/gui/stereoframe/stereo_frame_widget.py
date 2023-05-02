@@ -240,7 +240,7 @@ if __name__ == "__main__":
         config_path = Path(__root__, "dev","sample_sessions", "real_time")
 
         session = Session(config_path)
-        session.load_cameras()
+        # session.load_cameras()
         session.load_streams()
         session.adjust_resolutions()
 

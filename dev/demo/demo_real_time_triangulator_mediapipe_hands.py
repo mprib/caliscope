@@ -33,7 +33,7 @@ app = QApplication(sys.argv)
 session_path = Path(__root__,"dev", "sample_sessions", "low_res")
 
 session = Session(session_path)
-session.load_cameras()
+# session.load_cameras()
 # session.charuco
 # tracker_factory = CharucoTrackerFactory()
 tracker_factory = HandTrackerFactory()

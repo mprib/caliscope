@@ -108,7 +108,7 @@ if __name__ == "__main__":
     # config_path = Path(repo, "sessions", "high_res_session")
     print(config_path)
     session = Session(config_path)
-    session.load_cameras()
+    # session.load_cameras()
     session.load_streams()
     # session.adjust_resolutions()
     session.load_monocalibrators()

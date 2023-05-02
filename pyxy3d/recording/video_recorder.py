@@ -173,7 +173,7 @@ if __name__ == "__main__":
     if test_live:
         session_directory = Path(__root__, "tests", "please work")
         session = Session(session_directory)
-        session.load_cameras()
+        # session.load_cameras()
         session.load_streams()
         session.adjust_resolutions()
 

@@ -34,7 +34,7 @@ session_path = Path(__root__, "dev","sample_sessions", "test_calibration")
 # copy_contents(session_origin_path,session_path)
 
 session = Session(session_path)
-session.load_cameras()
+# session.load_cameras()
 session.load_streams()
 session.adjust_resolutions()
 

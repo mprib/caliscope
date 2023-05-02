@@ -15,7 +15,7 @@ from itertools import combinations
 from time import sleep
 
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
+from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
@@ -64,6 +64,7 @@ class Session:
         self.is_recording = False
 
         # self.load_config()
+        self.cameras = self.config.get_cameras()
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
 
@@ -112,7 +113,8 @@ class Session:
                 logger.info(f"Success at port {port}")
                 self.cameras[port] = cam
                 self.config.save_camera(cam)
-                self.streams[port] = LiveStream(cam, tracker=self.charuco_tracker)
+                logger.info(f"Loading stream at port {port} with charuco tracker for calibration")
+                self.streams[port] = LiveStream(cam, tracker=CharucoTracker(self.charuco))
             except:
                 logger.info(f"No camera at port {port}")
 
@@ -136,8 +138,9 @@ class Session:
         # self.update_config()
 
     def load_streams(self, tracker_factory:TrackerFactory = None):
-        # in addition to populating the active streams, this loads a frame synchronizer
-        self.cameras = self.config.get_cameras()
+        """
+        Connects to stored cameras and creates streams with provided tracking
+        """
 
         if tracker_factory is None:
             tracker = None

@@ -124,11 +124,11 @@ class CalibrationWizard(QStackedWidget):
 
                 # find out if you are loading cameras or finding cameras
                 if self.session.get_configured_camera_count() > 0:
-                    self.session.load_cameras()
+                    # self.# session.load_cameras()
                     logger.info("Camera connect worker about to load stream tools")
-                    self.session.load_streams(CharucoTrackerFactory(self.session.charuco))
+                    self.session.load_streams()
                 else:
-                    # I believe find_cameras will establish the streams as well...
+                    logger.info(f"No previous configured cameras detected...searching for cameras....")
                     self.session.find_cameras()
                 logger.info("Camera connect worker about to adjust resolutions")
                 self.session.adjust_resolutions()

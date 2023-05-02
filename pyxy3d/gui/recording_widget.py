@@ -363,7 +363,7 @@ def cv2_to_qlabel(frame):
         # session_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
 
         # session = Session(session_path)
-        # session.load_cameras()
+        # # session.load_cameras()
         # session.load_streams()
         
         # toggle off tracking for max frame rate
@@ -391,7 +391,7 @@ def cv2_to_qlabel(frame):
 
 
         # session = Session(session_path)
-        # session.load_cameras()
+        # # session.load_cameras()
         # session.load_streams()
         # session.adjust_resolutions()
 

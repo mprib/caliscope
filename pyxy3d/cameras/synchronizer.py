@@ -330,7 +330,7 @@ if __name__ == "__main__":
         session_directory = Path(__root__, "tests", "217")
         # config = Path(session_directory, "config.toml")
         session = Session(session_directory)
-        session.load_cameras()
+        # session.load_cameras()
         session.load_streams()
         # session.adjust_resolutions()
 

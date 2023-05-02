@@ -185,7 +185,7 @@ class CalibrationControls(QGroupBox):
         self.camera.distortions = None
         self.camera.error = None
         self.camera.grid_count = None
-        self.session.save_camera(self.port)
+        self.session.config.save_camera(self.camera)
         self.cal_output.setText("Need to collect data....")
         self.undistort_btn.setEnabled(False)
        
@@ -197,7 +197,7 @@ class CalibrationControls(QGroupBox):
 
                 self.monocal.calibrate()
                 self.cal_output.setText(self.monocal.camera.calibration_summary())
-                self.session.save_camera(self.port)
+                self.session.config.save_camera(self.camera)
 
                 # signal to camera tabs to check on total session calibration status
                 self.calibration_change.emit() 
@@ -413,6 +413,12 @@ class FrameControlWidget(QWidget):
         self.exp_slider.valueChanged.connect(self.update_exposure)
         self.ignore_box.stateChanged.connect(self.ignore_cam)
 
+    def save_camera(self):
+        # normally wouldn't bother with a one-liner function, but it makes connecting
+        # to the signal more straightforward
+        self.session.config.save_camera(self.camera)
+    
+    
     def ignore_cam(self,signal):
         if signal == 0:  # not checked
             logger.info(f"Don't ignore camera at port {self.port}")
@@ -420,12 +426,14 @@ class FrameControlWidget(QWidget):
         else:  # value of checkState() might be 2?
             logger.info(f"Ignore camera at port {self.port}")
             self.camera.ignore = True
+        # self.session.config.save_camera(self.camera)
         self.save_camera()
 
     def update_exposure(self, exp):
         self.monocal.camera.exposure = exp
         self.exposure_number.setText(str(exp))
         self.save_camera()
+        # self.session.config.save_camera(self.camera)
 
     def change_resolution(self, res_text):
         # call the cam_cap widget to change the resolution, but do it in a
@@ -447,8 +455,8 @@ class FrameControlWidget(QWidget):
             self.camera.distortions=None
             self.camera.error=None
             self.camera.grid_count=None
+            # self.session.config.save_camera(self.camera)
             self.save_camera()
-
 
         self.change_res_thread = Thread(
             target=change_res_worker,
@@ -457,20 +465,22 @@ class FrameControlWidget(QWidget):
         )
         self.change_res_thread.start()
 
-    def save_camera(self):
-        self.session.save_camera(self.port)
-
 
 if __name__ == "__main__":
     App = QApplication(sys.argv)
     from pyxy3d import __root__
-    config_path = Path(__root__, "tests", "why breaking")
+    from pyxy3d.configurator import Configurator
+    from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory
+
+    config_path = Path(__root__, "dev", "sample_sessions", "257")
 
     print(config_path)
-    session = Session(config_path)
-    session.load_cameras()
-    session.load_streams()
-    # session.adjust_resolutions()
+    configurator = Configurator(config_path)
+    session = Session(configurator)
+    tracker_factory = CharucoTrackerFactory(session.charuco)
+    # # session.load_cameras()
+    session.load_streams(tracker_factory=tracker_factory)
+    session.adjust_resolutions()
     session.load_monocalibrators()
 
     test_port = 0

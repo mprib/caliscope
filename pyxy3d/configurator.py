@@ -18,6 +18,7 @@ from pyxy3d.interface import Tracker, TrackerFactory
 from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates, load_point_estimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
+from concurrent.futures import ThreadPoolExecutor
 
 class Configurator:
     """
@@ -124,24 +125,27 @@ class Configurator:
         point_estimates = PointEstimates(**point_estimates_dict)
         return point_estimates
     
-    def get_charuco(self)-> Charuco:
-        """
-        Helper function to load a pre-configured charuco from a config.toml
-        """
-        params = self.dict["charuco"]
+    def get_charuco(self):
+        if "charuco" in self.dict:
+            logger.info("Loading charuco from config")
+            params = self.dict["charuco"]
 
-        charuco = Charuco(
-            columns=params["columns"],
-            rows=params["rows"],
-            board_height=params["board_height"],
-            board_width=params["board_width"],
-            dictionary=params["dictionary"],
-            units=params["units"],
-            aruco_scale=params["aruco_scale"],
-            square_size_overide_cm=params["square_size_overide_cm"],
-            inverted=params["inverted"],
-        )
-    
+            charuco = Charuco(
+                columns=params["columns"],
+                rows=params["rows"],
+                board_height=params["board_height"],
+                board_width=params["board_width"],
+                dictionary=params["dictionary"],
+                units=params["units"],
+                aruco_scale=params["aruco_scale"],
+                square_size_overide_cm=params["square_size_overide_cm"],
+                inverted=params["inverted"],
+            )
+        else:
+            logger.info("Loading default charuco")
+            charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
+            self.save_charuco(self.charuco)
+
         return charuco
 
     
@@ -150,7 +154,7 @@ class Configurator:
         logger.info(f"Saving charuco with params {charuco.__dict__} to config")
         self.update_toml()
 
-    def save_camera(self, camera):
+    def save_camera(self, camera: Camera | CameraData):
         def none_or_list(value):
             # required to make sensible numeric format
             # otherwise toml formats as text
@@ -182,25 +186,46 @@ class Configurator:
         for port, camera_data in camera_array.cameras.items():
             camera_data = camera_array.cameras[port]
             self.save_camera(camera_data)
-        # TESTING OUT ALTERNATE 
-        #     params = {
-        #         "port": camera_data.port,
-        #         "size": camera_data.size,
-        #         "rotation_count": camera_data.rotation_count,
-        #         "error": camera_data.error,
-        #         "matrix": camera_data.matrix.tolist(),
-        #         "distortions": camera_data.distortions.tolist(),
-        #         "exposure": camera_data.exposure,
-        #         "grid_count": camera_data.grid_count,
-        #         "ignore": camera_data.ignore,
-        #         "verified_resolutions": camera_data.verified_resolutions,
-        #         "translation": camera_data.translation.tolist(),
-        #         "rotation": camera_data.rotation.tolist(),
-        #     }
 
-        #     self.dict["cam_" + str(camera_data.port)] = params
+    def get_cameras(self):
+        # worker function that will be spun up to connect to a previously configured camera
+        cameras = {}
+        def add_preconfigured_cam(params):
+            # try:
+            port = params["port"]
+            logger.info(f"Attempting to add pre-configured camera at port {port}")
 
-        # self.update_toml()
+            if params["ignore"]:
+                logger.info(f"Ignoring camera at port {port}")
+                pass  # don't load it in
+            else:
+                if "verified_resolutions" in params.keys():
+                    verified_resolutions = params["verified_resolutions"]
+                    cameras[port] = Camera(port, verified_resolutions)
+                else:
+                    cameras[port] = Camera(port)
+
+                camera = cameras[port]  # just for ease of reference
+                camera.rotation_count = params["rotation_count"]
+                camera.exposure = params["exposure"]
+
+                # if calibration done, then populate those as well
+                if "error" in params.keys():
+                    logger.info(f"Camera RMSE error for port {port}: {params['error']}")
+                    camera.error = params["error"]
+                    camera.matrix = np.array(params["matrix"]).astype(float)
+                    camera.distortions = np.array(params["distortions"]).astype(float)
+                    camera.grid_count = params["grid_count"]
+            # except:
+            #     logger.info("Unable to connect... camera may be in use.")
+
+        with ThreadPoolExecutor() as executor:
+            for key, params in self.dict.items():
+                if key.startswith("cam"):
+                    logger.info(f"Beginning to load {key} with params {params}")
+                    executor.submit(add_preconfigured_cam, params)
+        return cameras
+
 
     def save_point_estimates(self, point_estimates:PointEstimates):
         logger.info("Saving point estimates to config...")
@@ -213,23 +238,34 @@ class Configurator:
 
         self.update_toml()
 
+    def save_capture_volume(self, capture_volume:CaptureVolume):
+        # self.point_estimates = self.capture_volume.point_estimates
+        # self.camera_array = self.capture_volume.camera_array
+        self.save_camera_array(capture_volume.camera_array)
+        self.save_point_estimates(capture_volume.point_estimates)
+
+        self.dict["capture_volume"] = {}
+        # self["capture_volume"]["RMSE_summary"] = self.capture_volume.rmse
+        self.dict["capture_volume"]["stage"] = capture_volume.stage
+        self.dict["capture_volume"][
+            "origin_sync_index"
+        ] = self.capture_volume.origin_sync_index
+        self.update_toml()
+
     def get_live_stream_pool(self, tracker_factor:TrackerFactory = None):
         streams = {}
-        for item, params in self.dict.items():
-            if item.startswith("cam_"):
-                if params["ignore"]==False:
-                    port = params["port"]
-   
-                    if tracker_factor is not None:  
-                        tracker = tracker_factor.get_tracker()
-                    else:
-                        tracker = None
+        cameras = self.get_cameras()
 
-                    logger.info(f"Adding stream associated with {item}")
-                    cam = Camera(port, verified_resolutions=params["verified_resolutions"])
-                    stream = LiveStream(cam,fps_target=30, tracker=tracker)
-                    stream.change_resolution(params["size"])
-                    streams[port] = stream
+        if tracker_factor is not None:  
+            tracker = tracker_factor.get_tracker()
+        else:
+            tracker = None
+
+        for port, cam in cameras.items():
+            logger.info(f"Adding stream associated with camera {port}")
+            stream = LiveStream(cam, tracker=tracker)
+            stream.change_resolution(cam.size)
+            streams[port] = stream
         return streams            
                     
                     

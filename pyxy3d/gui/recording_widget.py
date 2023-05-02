@@ -123,8 +123,8 @@ class RecordingWidget(QWidget):
             self.recording_directory.setEnabled(False)
             self.start_stop.setText("Stop Recording")
             logger.info("Initiate recording")
-            # recording_path:Path = Path(self.session.path, self.recording_directory.text()) 
-            self.session.start_recording(self.recording_directory.text())
+            recording_path:Path = Path(self.session.path, self.recording_directory.text()) 
+            self.session.start_recording(recording_path)
 
         elif self.start_stop.text() == "Stop Recording":
             self.session.stop_recording()
@@ -363,7 +363,7 @@ def cv2_to_qlabel(frame):
         # session_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
 
         # session = Session(session_path)
-        # session.load_cameras()
+        # # session.load_cameras()
         # session.load_streams()
         
         # toggle off tracking for max frame rate
@@ -391,7 +391,7 @@ def cv2_to_qlabel(frame):
 
 
         # session = Session(session_path)
-        # session.load_cameras()
+        # # session.load_cameras()
         # session.load_streams()
         # session.adjust_resolutions()
 

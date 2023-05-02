@@ -12,15 +12,14 @@ from pyxy3d.trackers.holistic_tracker import HolisticTrackerFactory, HolisticTra
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
+from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
 from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
-session_path = Path(__root__, "dev", "sample_sessions", "test_calibration")
-recording_path = Path(session_path, "recording_6")
-config = Configurator(session_path)
-# origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
+session_path = Path(__root__, "dev", "sample_sessions", "257")
+recording_path = Path(session_path, "recording_1")
 
+config = Configurator(session_path)
 tracker_factory = HolisticTrackerFactory()
 
 camera_array: CameraArray = config.get_camera_array()
@@ -33,16 +32,15 @@ syncr = Synchronizer(stream_pool.streams, fps_target=100)
 
 #### Basic code for interfacing with in-progress RealTimeTriangulator
 #### Just run off of saved point_data.csv for development/testing
-real_time_triangulator = RealTimeTriangulator(camera_array, syncr, output_directory=recording_path, tracker = tracker_factory.get_tracker())
+real_time_triangulator = SyncPacketTriangulator(camera_array, syncr, output_directory=recording_path, tracker = tracker_factory.get_tracker())
 stream_pool.play_videos()
 while real_time_triangulator.running:
     sleep(1)
 
 
-session_path = recording_path.parent
     
 logger.info(f"Loading session {session_path}")
-session = Session(session_path)
+session = Session(config)
 
 session.load_estimated_capture_volume()
 

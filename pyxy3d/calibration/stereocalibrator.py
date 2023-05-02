@@ -159,7 +159,7 @@ class StereoCalibrator:
             .groupby(["sync_index", "port"])
             .agg("count")
             .rename({"point_id": "point_count"}, axis=1)
-            .query("point_count > 4")  # a requirement of the stereocalibration function
+            .query("point_count > 5")  # a requirement of the stereocalibration function
             .reset_index()
             .query(f"port == {pair[0]}")  # will be the same..only need one copy
             .drop("port", axis=1)
@@ -307,10 +307,10 @@ if __name__ == "__main__":
 
     # set inputs
     # session_path = Path(__root__, "tests", "4_cameras_nonoverlap")
-    session_path = Path(__root__, "tests", "4_cameras_endofday")
+    session_path = Path(__root__, "dev", "sample_sessions", "257")
 
     config_path = Path(session_path, "config.toml")
-    point_data_path = Path(session_path, "point_data.csv")
+    point_data_path = Path(session_path, "calibration", "extrinsic", "xy.csv")
 
     stereocal = StereoCalibrator(
         config_path,

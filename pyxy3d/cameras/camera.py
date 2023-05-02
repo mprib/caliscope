@@ -284,7 +284,7 @@ RESOLUTIONS_TO_CHECK = [
 ######################### TEST FUNCTIONALITY OF CAMERAS ########################
 if __name__ == "__main__":
 
-    cam = Camera(0)
+    cam = Camera(0, verified_resolutions=[(640,480), (1280,720)])
     logger.info(f"Camera {cam.port} has possible resolutions: {cam.verified_resolutions}")
 
     for res in cam.verified_resolutions:

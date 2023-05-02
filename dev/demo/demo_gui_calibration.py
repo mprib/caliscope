@@ -7,7 +7,8 @@ from pathlib import Path
 
 # config_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
 # config_path = Path(__root__, "dev", "sample_sessions", "real_time")
-config_path = Path(__root__, "dev", "sample_sessions", "test_calibration")
+session_path = Path(__root__, "dev", "sample_sessions", "257")
+# config_path = Path(__root__, "dev", "sample_sessions", "test_calibration")
     
 app = QApplication(sys.argv)
 window = CalibrationWizard()
@@ -17,8 +18,8 @@ window = CalibrationWizard()
 window.wizard_directory.from_previous_radio.click()
 window.wizard_directory.from_previous_radio.setChecked(True)
 window.wizard_directory.launch_wizard_btn.setEnabled(True)
-window.wizard_directory.original_path.textbox.setText(str(config_path))
-window.wizard_directory.modified_path.textbox.setText(str(config_path))
+window.wizard_directory.original_path.textbox.setText(str(session_path))
+window.wizard_directory.modified_path.textbox.setText(str(session_path))
 window.wizard_directory.launch_wizard_btn.click()
 window.wizard_charuco.navigation_bar.next_wizard_step_btn.click()
 

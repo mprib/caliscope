@@ -13,7 +13,7 @@ from time import sleep
 
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
-from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
+from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
 from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_array
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.calibration.charuco import Charuco, get_charuco
@@ -97,7 +97,7 @@ def test_real_time_triangulator(session_path):
 
     #### Basic code for interfacing with in-progress RealTimeTriangulator
     #### Just run off of saved point_data.csv for development/testing
-    real_time_triangulator = RealTimeTriangulator(camera_array, syncr, output_directory=recording_directory)
+    real_time_triangulator = SyncPacketTriangulator(camera_array, syncr, output_directory=recording_directory)
     stream_pool.play_videos()
     while real_time_triangulator.running:
         sleep(1)

@@ -26,14 +26,14 @@ from pyxy3d.interface import FramePacket, PointPacket, SyncPacket
 from pyxy3d.session import Session
 from pyxy3d.trackers.charuco_tracker import Charuco, CharucoTracker,CharucoTrackerFactory
 from pyxy3d.trackers.hand_tracker import HandTracker, HandTrackerFactory
-from pyxy3d.triangulate.real_time_triangulator import RealTimeTriangulator
+from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
 
 app = QApplication(sys.argv)
 # session_path = Path(__root__,"dev", "sample_sessions", "real_time")
 session_path = Path(__root__,"dev", "sample_sessions", "low_res")
 
 session = Session(session_path)
-session.load_cameras()
+# session.load_cameras()
 # session.charuco
 # tracker_factory = CharucoTrackerFactory()
 tracker_factory = HandTrackerFactory()
@@ -41,15 +41,15 @@ tracker_factory = HandTrackerFactory()
 session.load_streams(tracker_factory=tracker_factory) 
 session.adjust_resolutions()
 
-config = Configurator(session_path)
-camera_array = config.get_camera_array()
+config.dict = Configurator(session_path)
+camera_array = config.dict.get_camera_array()
 
 logger.info(f"Creating RecordedStreamPool")
 # stream_pool = RecordedStreamPool(session_path, tracker_factory=charuco_tracker_factory, fps_target=100)
 logger.info("Creating Synchronizer")
 syncr = Synchronizer(session.streams, fps_target=12)
 
-real_time_triangulator = RealTimeTriangulator(camera_array, syncr)
+real_time_triangulator = SyncPacketTriangulator(camera_array, syncr)
 xyz_queue = Queue()
 
 real_time_triangulator.subscribe(xyz_queue)

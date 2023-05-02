@@ -144,7 +144,7 @@ class Configurator:
         else:
             logger.info("Loading default charuco")
             charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
-            self.save_charuco(self.charuco)
+            self.save_charuco(charuco)
 
         return charuco
 

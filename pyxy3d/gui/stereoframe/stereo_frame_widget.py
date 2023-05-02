@@ -114,7 +114,8 @@ class StereoFrameWidget(QWidget):
             logger.info("Begin collecting calibration data")
             # by default, data saved to session folder
             self.frame_builder.store_points.set()
-            self.session.start_recording("calibration")
+            extrinsic_calibration_path = Path(self.session.path, "calibration", "extrinsic")
+            self.session.start_recording(extrinsic_calibration_path)
             self.calibrate_collect_btn.setText("Terminate")
             self.calibrate_collect_btn.setEnabled(True)
             self.navigation_bar.back_btn.setEnabled(False)
@@ -235,13 +236,18 @@ def cv2_to_qlabel(frame):
 
     
 if __name__ == "__main__":
+        from pyxy3d.configurator import Configurator
+        from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory
+
         App = QApplication(sys.argv)
 
-        config_path = Path(__root__, "dev","sample_sessions", "real_time")
+        session_path = Path(__root__, "dev","sample_sessions", "257")
+        configurator = Configurator(session_path)
 
-        session = Session(config_path)
+        session = Session(configurator)
         # session.load_cameras()
-        session.load_streams()
+        tracker_factory = CharucoTrackerFactory(session.charuco)
+        session.load_streams(tracker_factory)
         session.adjust_resolutions()
 
 

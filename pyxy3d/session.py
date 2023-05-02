@@ -52,7 +52,7 @@ class Session:
 
         # this will not have anything to start, but the path
         # will be set
-        self.ext_calibration_xy = Path(self.path,"calibration","extrinsic", "xy.csv")
+        self.extrinsic_calibration_xy = Path(self.path,"calibration","extrinsic", "xy.csv")
 
         # dictionaries of streaming related objects. key = port
         self.cameras = {}
@@ -187,16 +187,15 @@ class Session:
         for port, monocal in self.monocalibrators.items():
             monocal.unsubscribe_to_stream()
 
-    def start_recording(self, destination_folder:str):
+    def start_recording(self, destination_directory:Path):
         logger.info("Initiating recording...")
         # if destination_folder is None:
             # destination_folder = Path(self.path)
             # logger.info(f"Default to saving files in {self.path}")
-        destination_path = Path(self.path, destination_folder) 
-        destination_path.mkdir(parents=True, exist_ok=True)
+        destination_directory.mkdir(parents=True, exist_ok=True)
         
         self.video_recorder = VideoRecorder(self.get_synchronizer())
-        self.video_recorder.start_recording(destination_path)
+        self.video_recorder.start_recording(destination_directory)
         self.is_recording = True
 
     def stop_recording(self):
@@ -261,7 +260,7 @@ class Session:
         here, but they are all necessary steps of the process so I didn't want to
         try to encapsulate any further
         """
-        stereocalibrator = StereoCalibrator(self.config_path, self.ext_calibration_xy)
+        stereocalibrator = StereoCalibrator(self.config_path, self.extrinsic_calibration_xy)
         stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
         self.camera_array: CameraArray = CameraArrayInitializer(
@@ -269,7 +268,7 @@ class Session:
         ).get_best_camera_array()
 
         self.point_estimates: PointEstimates = get_point_estimates(
-            self.camera_array, self.ext_calibration_xy
+            self.camera_array, self.extrinsic_calibration_xy
         )
 
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
@@ -283,7 +282,7 @@ class Session:
         self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
         self.capture_volume.optimize()
 
-        self.save_capture_volume()
+        self.config.save_capture_volume(self.capture_volume)
 
     ########################## STAGE ASSOCIATED METHODS #################################
     def get_stage(self):

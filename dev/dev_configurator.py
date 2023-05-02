@@ -31,29 +31,28 @@ config = Configurator(test_delete_path)
 camera_array = config.get_camera_array()
 assert(isinstance(camera_array, CameraArray))
 
-# load streams *from cameras* (these do not require loading from config)
-# note: cannot be tested as part of pytest...requires actual camera connection
-# live_streams = config.get_live_stream_pool()
 
+# load charuco
 charuco = config.get_charuco()
 assert(isinstance(charuco, Charuco))
-# load charuco
+assert(charuco.columns==4)
+
+# make a change to charuco and save it
+charuco.columns = 12
+config.save_charuco(charuco)
+
+# confirm change gets reflected when reloaded
+new_charuco = config.get_charuco()
+assert(charuco.columns==12)
 
 
-# save cameras
+# load streams *from cameras* (these do not require loading from config)
+# note: cannot be tested as part of pytest...requires actual camera connection
+live_streams = config.get_live_stream_pool()
 
-
-
-# load charuco
-
-
-
-# save charuco
-
-
-# load camera array (composed of  camera data objects for calibration/triangulation)
-
-
+# load camera, make a change, save it, reload it, confirm
+# change is reflected
+cameras = config.get_cameras()
 
 
 

@@ -59,9 +59,19 @@ class Configurator:
         capture_volume = CaptureVolume(camera_array,point_estimates)
         return capture_volume
     
-    def save_capture_volume(self, capture_volume:CaptureVolume)->None:
+    def save_capture_volume(self, capture_volume:CaptureVolume):
+        # self.point_estimates = self.capture_volume.point_estimates
+        # self.camera_array = self.capture_volume.camera_array
         self.save_camera_array(capture_volume.camera_array)
         self.save_point_estimates(capture_volume.point_estimates)
+
+        self.dict["capture_volume"] = {}
+        # self["capture_volume"]["RMSE_summary"] = self.capture_volume.rmse
+        self.dict["capture_volume"]["stage"] = capture_volume.stage
+        self.dict["capture_volume"][
+            "origin_sync_index"
+        ] = capture_volume.origin_sync_index
+        self.update_toml()
         
      
     def get_camera_array(self)->CameraArray:
@@ -238,19 +248,6 @@ class Configurator:
 
         self.update_toml()
 
-    def save_capture_volume(self, capture_volume:CaptureVolume):
-        # self.point_estimates = self.capture_volume.point_estimates
-        # self.camera_array = self.capture_volume.camera_array
-        self.save_camera_array(capture_volume.camera_array)
-        self.save_point_estimates(capture_volume.point_estimates)
-
-        self.dict["capture_volume"] = {}
-        # self["capture_volume"]["RMSE_summary"] = self.capture_volume.rmse
-        self.dict["capture_volume"]["stage"] = capture_volume.stage
-        self.dict["capture_volume"][
-            "origin_sync_index"
-        ] = self.capture_volume.origin_sync_index
-        self.update_toml()
 
     def get_live_stream_pool(self, tracker_factor:TrackerFactory = None):
         streams = {}

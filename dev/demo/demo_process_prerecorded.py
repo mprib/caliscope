@@ -16,7 +16,7 @@ from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
 from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
-session_path = Path(__root__, "dev", "sample_sessions", "257")
+session_path = Path(__root__, "dev", "sample_sessions", "296")
 recording_path = Path(session_path, "recording_1")
 
 config = Configurator(session_path)

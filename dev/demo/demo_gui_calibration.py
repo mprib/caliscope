@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QApplication
-from pyxy3d.gui.main import CalibrationWizard
+from pyxy3d.gui.calibration_wizard import CalibrationWizard
 import sys
 from time import sleep
 from pyxy3d import __root__

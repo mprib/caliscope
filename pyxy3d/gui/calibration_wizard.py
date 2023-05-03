@@ -2,6 +2,7 @@ import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 
+import os
 import sys
 import shutil
 import time
@@ -38,61 +39,73 @@ from pyxy3d.configurator import Configurator
 class CalibrationWizard(QStackedWidget):
     cameras_connected = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, session_path:Path):
         super().__init__()
         self.CAMS_IN_PROCESS = False
 
         self.setWindowTitle("Camera Calibration Wizard")
         self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/pyxy_logo.svg"))))
-        self.wizard_directory = WizardDirectory()
-        self.addWidget(self.wizard_directory)  # index:1
-        self.setCurrentIndex(0)
+        self.session_path = session_path
+        self.config = Configurator(self.session_path)
+        self.session = Session(self.config)
+
+        # self.launch_session()
+        logger.info("Creating charuco wizard session")
+        self.wizard_charuco = WizardCharuco(self.session)
+        self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(
+            self.next_to_camera_config
+        )
+        logger.info("Adding charuco wizard")
+        self.addWidget(self.wizard_charuco)
+        logger.info("Setting index to 2 to activate widget")
+        self.setCurrentWidget(self.wizard_charuco)
+
         self.connect_widgets()
 
     def connect_widgets(self):
-        self.wizard_directory.launch_wizard_btn.clicked.connect(self.begin_wizard)
+        # self.wizard_directory.launch_wizard_btn.clicked.connect(self.begin_wizard)
         self.cameras_connected.connect(self.on_cameras_connect)
 
     # create first page of wizard (charuco builder)
-    def begin_wizard(self):
-        if hasattr(self, "wizard_charuco"):
-            self.setCurrentIndex(1)
-        else:
-            logger.info("Launching session")
-            self.launch_session()
-            logger.info("Creating charuco wizard session")
-            self.wizard_charuco = WizardCharuco(self.session)
-            self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(
-                self.next_to_camera_config
-            )
-            logger.info("Adding charuco wizard")
-            self.addWidget(self.wizard_charuco)
-            logger.info("Setting index to 2 to activate widget")
-            self.setCurrentIndex(1)
+    # def begin_wizard(self):
+    #     if hasattr(self, "wizard_charuco"):
+    #         self.setCurrentIndex(1)
+    #     else:
+    #         logger.info("Launching session")
+    #         self.launch_session()
+    #         logger.info("Creating charuco wizard session")
+    #         self.wizard_charuco = WizardCharuco(self.session)
+    #         self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(
+    #             self.next_to_camera_config
+    #         )
+    #         logger.info("Adding charuco wizard")
+    #         self.addWidget(self.wizard_charuco)
+    #         logger.info("Setting index to 2 to activate widget")
+    #         self.setCurrentIndex(1)
 
     # Start Session
     def launch_session(self):
         if self.wizard_directory.create_new_radio.isChecked():
             # only need to create a new session in the given directory:
-            self.session_directory = self.wizard_directory.new_path.textbox.text()
-            configurator = Configurator(self.session_directory)
+            self.session_path = self.wizard_directory.new_path.textbox.text()
+            configurator = Configurator(self.session_path)
             self.session = Session(configurator)
         else:
             # need to copy over config from old directory to new directory before launching
-            self.session_directory = self.wizard_directory.modified_path.textbox.text()
+            self.session_path = self.wizard_directory.modified_path.textbox.text()
             old_config_path = self.wizard_directory.original_path.textbox.text()
 
             ## but check if it's the same directory
-            if self.session_directory == old_config_path:
+            if self.session_path == old_config_path:
                 # in which case don't do anything
                 pass
             else:
                 shutil.copyfile(
                     str(Path(old_config_path, "config.toml")),
-                    str(Path(self.session_directory, "config.toml")),
+                    str(Path(self.session_path, "config.toml")),
                 )
 
-            configurator = Configurator(self.session_directory)
+            configurator = Configurator(self.session_path)
             self.session = Session(configurator)
 
     ######################## STEP 1: Charuco Builder ###########################
@@ -169,7 +182,7 @@ class CalibrationWizard(QStackedWidget):
 
     ####################### STEP 2: Single Camera Calibration #################
     def back_to_charuco_wizard(self):
-        self.setCurrentIndex(1)
+        self.setCurrentWidget(self.wizard_charuco)
         self.session.pause_all_monocalibrators()
 
     def next_to_stereoframe(self):
@@ -267,4 +280,15 @@ def launch_calibration_wizard():
 
 
 if __name__ == "__main__":
-    launch_calibration_wizard()
+    from pyxy3d import __root__ 
+    session_path = Path(__root__, "dev", "sample_sessions", "296")
+
+    # launch_calibration_wizard()
+    
+    app = QApplication(sys.argv)
+    window = CalibrationWizard(session_path)
+    window.show()
+
+    app.exec()
+    
+    

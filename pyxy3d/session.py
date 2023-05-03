@@ -63,8 +63,6 @@ class Session:
         self.synchronizer_created = False
         self.is_recording = False
 
-        # self.load_config()
-        self.cameras = self.config.get_cameras()
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
 
@@ -142,6 +140,8 @@ class Session:
         Connects to stored cameras and creates streams with provided tracking
         """
 
+        # don't bother loading cameras until you load the streams
+        self.cameras = self.config.get_cameras()
         if tracker_factory is None:
             tracker = None
         else:

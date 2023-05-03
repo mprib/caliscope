@@ -209,7 +209,7 @@ if __name__ == "__main__":
     from pyxy3d.cameras.live_stream import LiveStream
 
     charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+        3, 4, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
     charuco_tracker = CharucoTracker(charuco)
 

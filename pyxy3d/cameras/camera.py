@@ -38,6 +38,7 @@ class Camera:
         if platform.system() == "Windows":
             logger.debug(f"Windows machine detected - using backend `cv2.CAP_DSHOW`")
             self.device_connection = cv2.CAP_DSHOW
+            # self.device_connection = cv2.CAP_ANY
         else:
             logger.debug(f"Non-Windows machine detected - using backend `cv2.CAP_ANY`")
             self.device_connection = cv2.CAP_ANY

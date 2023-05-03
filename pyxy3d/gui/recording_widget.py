@@ -41,7 +41,8 @@ from pyxy3d import __root__
 from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.widgets import NavigationBarBackFinish
 from pyxy3d.recording.video_recorder import VideoRecorder
-
+from pyxy3d.configurator import Configurator
+    
 class RecordingWidget(QWidget):
      
     def __init__(self,session:Session):
@@ -355,48 +356,15 @@ def cv2_to_qlabel(frame):
     )
     return qt_frame
 
-# Trying to get away from these F5 tests and move toward working scripts in /dev that can 
-# more easily be reconfigured into /tests  
-# if __name__ == "__main__":
-        # App = QApplication(sys.argv)
 
-        # session_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
+def launch_recording_widget(session_path):
+            config = Configurator(session_path)
+            session = Session(config)
+            session.load_streams()
+            session.adjust_resolutions()
 
-        # session = Session(session_path)
-        # # session.load_cameras()
-        # session.load_streams()
-        
-        # toggle off tracking for max frame rate
-        # for port, stream in session.streams.items():
-        #     stream.track_points.clear()
-            
-        # session.adjust_resolutions()
-        # syncr = Synchronizer(session.streams, fps_target=24)
+            App = QApplication(sys.argv)
+            recording_dialog = RecordingWidget(session)
+            recording_dialog.show()
 
-        # frame_builder = RecordingFrameBuilder(syncr)
-        
-        # while True:
-        #     recording_frame = frame_builder.get_recording_frame()
-        #     cv2.imshow("Recording Frame", recording_frame)
-            
-        #     key = cv2.waitKey(1)
-
-        #     if key == ord("q"):
-        #         cv2.destroyAllWindows()
-        #         break
-
-        # sys.exit(App.exec())
-
-        # App = QApplication(sys.argv)
-
-
-        # session = Session(session_path)
-        # # session.load_cameras()
-        # session.load_streams()
-        # session.adjust_resolutions()
-
-
-        # recording_dialog = RecordingWidget(session)
-        # recording_dialog.show()
-
-        # sys.exit(App.exec())
+            sys.exit(App.exec())

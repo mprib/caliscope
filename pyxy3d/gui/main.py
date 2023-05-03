@@ -34,6 +34,7 @@ from pyxy3d.gui.stereoframe.stereo_frame_widget import (
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from pyxy3d.configurator import Configurator
 
+
 class CalibrationWizard(QStackedWidget):
     cameras_connected = pyqtSignal()
 
@@ -113,7 +114,6 @@ class CalibrationWizard(QStackedWidget):
             self.qt_logger.show()
 
     def initiate_camera_connection(self):
-
         if len(self.session.streams) > 0:
             logger.info("Cameras already connected")
         else:
@@ -127,9 +127,13 @@ class CalibrationWizard(QStackedWidget):
                     # self.# session.load_cameras()
                     logger.info("Camera connect worker about to load stream tools")
 
-                    self.session.load_streams(tracker_factory=CharucoTrackerFactory(self.session.charuco))
+                    self.session.load_streams(
+                        tracker_factory=CharucoTrackerFactory(self.session.charuco)
+                    )
                 else:
-                    logger.info(f"No previous configured cameras detected...searching for cameras....")
+                    logger.info(
+                        f"No previous configured cameras detected...searching for cameras...."
+                    )
                     self.session.find_cameras()
                 logger.info("Camera connect worker about to adjust resolutions")
                 self.session.adjust_resolutions()
@@ -169,15 +173,10 @@ class CalibrationWizard(QStackedWidget):
         self.session.pause_all_monocalibrators()
 
     def next_to_stereoframe(self):
-
         self.session.pause_all_monocalibrators()
 
         if hasattr(self.session, "synchronizer"):
             self.session.unpause_synchronizer()
-        # else:
-        # if hasattr(self, "stereoframe"):
-        # self.removeWidget(self.stereoframe)
-        # del self.stereoframe
 
         self.launch_new_stereoframe()
 
@@ -189,9 +188,6 @@ class CalibrationWizard(QStackedWidget):
         self.stereoframe.navigation_bar.back_btn.clicked.connect(
             self.back_to_camera_config_wizard
         )
-        # self.stereoframe.navigation_bar.calibrate_collect_btn.clicked.connect(
-        #     self.on_stereo_calibrate_collect_btn
-        # )
 
         self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
         self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
@@ -209,22 +205,18 @@ class CalibrationWizard(QStackedWidget):
 
         logger.info("Create new stereoframe")
         self.launch_new_stereoframe()
-         
+
     def show_calibration_qt_logger(self):
         """
         Calibration is initiated back on the stereoframe widget,here only
         the logger launch is managed because it is main that must delete the logger
         """
-        # if self.stereoframe.frame_builder.possible_to_initialize_array(MIN_THRESHOLD_FOR_EARLY_CALIBRATE):
-        # weird if statement here...trying to avoid launching the logger when beginning
-        # to collect data...
         logger.info("Launching calibration qt logger")
         self.qt_logger = QtLogger("Calibrating camera array...")
         self.qt_logger.show()
 
     def back_to_camera_config_wizard(self):
         logger.info("Moving back to camera config from stereoframe")
-        # from stereoframe to camera config
         self.setCurrentWidget(self.camera_config)
         self.session.pause_synchronizer()
 
@@ -236,10 +228,6 @@ class CalibrationWizard(QStackedWidget):
         self.camera_config.camera_tabs.toggle_tracking(active_port)
 
     def next_to_capture_volume(self):
-        # if hasattr(self, "capture_volume"):
-        #     self.setCurrentWidget(self.capture_volume)
-
-        # else:
         logger.info("Creating Capture Volume widget")
         self.capture_volume = CaptureVolumeWidget(self.session)
         logger.info("Adding capture volume widget to main Wizard")
@@ -254,7 +242,6 @@ class CalibrationWizard(QStackedWidget):
 
     ################## Capture Volume ########################
     def back_to_stereo_frame(self):
-
         logger.info("Set current widget to config temporarily")
         self.setCurrentWidget(self.camera_config)
 
@@ -270,23 +257,8 @@ class CalibrationWizard(QStackedWidget):
         self.launch_new_stereoframe()
         self.session.unpause_synchronizer()
 
-    # def on_stereo_calibrate_collect_btn(self):
-    #     """
-    #     Check if data is being collected, but not enough to initialize array
-    #     If so, just wipe everything out and start out.
-    #     """
-    #     if (
-    #         self.stereoframe.collection_in_process
-    #         and not self.stereoframe.frame_builder.possible_to_initialize_array(
-    #             MIN_THRESHOLD_FOR_EARLY_CALIBRATE
-    #         )
-    #     ):
-    #         self.session.stop_recording()
-    #         self.back_to_stereo_frame()
-
 
 def launch_pyxy3d():
-
     app = QApplication(sys.argv)
     window = CalibrationWizard()
     window.show()
@@ -295,5 +267,4 @@ def launch_pyxy3d():
 
 
 if __name__ == "__main__":
-
     launch_pyxy3d()

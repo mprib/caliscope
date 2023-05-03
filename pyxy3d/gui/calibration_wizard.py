@@ -66,24 +66,6 @@ class CalibrationWizard(QStackedWidget):
         # self.wizard_directory.launch_wizard_btn.clicked.connect(self.begin_wizard)
         self.cameras_connected.connect(self.on_cameras_connect)
 
-    # create first page of wizard (charuco builder)
-    # def begin_wizard(self):
-    #     if hasattr(self, "wizard_charuco"):
-    #         self.setCurrentIndex(1)
-    #     else:
-    #         logger.info("Launching session")
-    #         self.launch_session()
-    #         logger.info("Creating charuco wizard session")
-    #         self.wizard_charuco = WizardCharuco(self.session)
-    #         self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(
-    #             self.next_to_camera_config
-    #         )
-    #         logger.info("Adding charuco wizard")
-    #         self.addWidget(self.wizard_charuco)
-    #         logger.info("Setting index to 2 to activate widget")
-    #         self.setCurrentIndex(1)
-
-    # Start Session
     def launch_session(self):
         if self.wizard_directory.create_new_radio.isChecked():
             # only need to create a new session in the given directory:
@@ -271,11 +253,10 @@ class CalibrationWizard(QStackedWidget):
         self.session.unpause_synchronizer()
 
 
-def launch_calibration_wizard():
+def launch_calibration_wizard(session_path:Path):
     app = QApplication(sys.argv)
-    window = CalibrationWizard()
+    window = CalibrationWizard(session_path=session_path)
     window.show()
-
     app.exec()
 
 
@@ -283,12 +264,12 @@ if __name__ == "__main__":
     from pyxy3d import __root__ 
     session_path = Path(__root__, "dev", "sample_sessions", "296")
 
-    # launch_calibration_wizard()
+    launch_calibration_wizard(session_path)
     
-    app = QApplication(sys.argv)
-    window = CalibrationWizard(session_path)
-    window.show()
+    # app = QApplication(sys.argv)
+    # window = CalibrationWizard(session_path)
+    # window.show()
 
-    app.exec()
+    # app.exec()
     
     

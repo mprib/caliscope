@@ -35,4 +35,4 @@ build-backend = "poetry.core.masonry.api"
 repository = "https://github.com/mprib/pyxy3d"
 
 [tool.poetry.scripts]
-pyxy3d = "pyxy3d.__main__:launch"
+pyxy3d = "pyxy3d.__main__:CLI_parser"

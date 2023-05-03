@@ -126,25 +126,28 @@ if __name__ == "__main__":
 
     from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
     import pickle
-
+    from pyxy3d.configurator import Configurator
+    
     test_recordings = [
         # Path(__root__, "dev", "sessions_copy_delete", "mediapipe_calibration", )
-        Path(__root__, "dev", "sample_sessions", "recordings_to_process", "recording_4")
+        Path(__root__, "dev", "sample_sessions", "257", "recording_1")
     ]
 
     test_index = 0
     recording_path = test_recordings[test_index]
     session_path = recording_path.parent
-    
+    config = Configurator(session_path) 
     logger.info(f"Loading session {session_path}")
-    session = Session(session_path)
+    # session = Session(config)
 
-    session.load_estimated_capture_volume()
+    # session.load_estimated_capture_volume()
+    camera_array = config.get_camera_array()
 
+    
     app = QApplication(sys.argv)
     
-    xyz_history_path = Path(recording_path,"point_data.csv")
-    vizr_dialog = PlaybackTriangulationWidget(session.capture_volume.camera_array,xyz_history_path)
+    xyz_history_path = Path(recording_path,"xyz.csv")
+    vizr_dialog = PlaybackTriangulationWidget(camera_array,xyz_history_path)
     vizr_dialog.show()
 
     sys.exit(app.exec())

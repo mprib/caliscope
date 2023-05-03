@@ -1,6 +1,6 @@
 
-from pyxy3d.gui.main import launch_pyxy3d
+from pyxy3d.gui.calibration_wizard import launch_calibration_wizard
 
 def launch():
-    launch_pyxy3d()
+    launch_calibration_wizard()
 

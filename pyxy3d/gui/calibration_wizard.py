@@ -258,7 +258,7 @@ class CalibrationWizard(QStackedWidget):
         self.session.unpause_synchronizer()
 
 
-def launch_pyxy3d():
+def launch_calibration_wizard():
     app = QApplication(sys.argv)
     window = CalibrationWizard()
     window.show()
@@ -267,4 +267,4 @@ def launch_pyxy3d():
 
 
 if __name__ == "__main__":
-    launch_pyxy3d()
+    launch_calibration_wizard()

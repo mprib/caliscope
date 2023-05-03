@@ -130,7 +130,7 @@ if __name__ == "__main__":
     
     test_recordings = [
         # Path(__root__, "dev", "sessions_copy_delete", "mediapipe_calibration", )
-        Path(__root__, "dev", "sample_sessions", "257", "recording_1")
+        Path(__root__, "dev", "sample_sessions", "296", "recording_1")
     ]
 
     test_index = 0

@@ -15,22 +15,25 @@ filtering of the data using reprojection error...
 
 """
 
-
-
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 from time import sleep
+from queue import Queue
+import cv2
 
 import sys
 from PyQt6.QtWidgets import QApplication
 from pyxy3d.configurator import Configurator
 from pathlib import Path
 from pyxy3d import __root__
-from pyxy3d.trackers.holistic_tracker import HolisticTrackerFactory, HolisticTracker
+from pyxy3d.trackers.holistic_tracker import HolisticTrackerFactory
+from pyxy3d.trackers.pose_tracker import PoseTracker
 from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.recording.recorded_stream import RecordedStream
+from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
 from pyxy3d.cameras.synchronizer import Synchronizer
+from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
+from pyxy3d.interface import FramePacket
 
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
@@ -42,23 +45,19 @@ copy_contents(session_path, copy_session_path)
 
 config = Configurator(copy_session_path)
 camera_array: CameraArray = config.get_camera_array()
+ports = camera_array.cameras.keys()
 
 # create a tracker
-tracker = HolisticTracker()
+tracker_factory = HolisticTrackerFactory()
+# tracker = PoseTracker()
 
-recording_path = Path(copy_session_path, "recording_1")
+recording_folder_path = Path(copy_session_path, "recording_1")
 
-# loop through the recording directory
-for item in recording_path.iterdir():
-    # identify the video files to be processed
-    if item.suffix == ".mp4":
-        
-        logger.info(item)
+stream_pool = RecordedStreamPool(directory=recording_folder_path,fps_target=100, tracker_factory=tracker_factory, config_path=config.toml_path)
+synchronizer = Synchronizer(stream_pool.streams,fps_target=100)
+video_recorder = VideoRecorder(synchronizer)
+video_recorder.start_recording(destination_folder=recording_folder_path,include_video=True, show_points=True, suffix = "_xy")
+stream_pool.play_videos()
 
-    
-
-
-
-
-
-# 
+while video_recorder.recording:
+    sleep(1)

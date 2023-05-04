@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 import cv2
 
 
-@dataclass
+@dataclass(frozen=True,slots=True)
 class PointPacket:
     """
     This will be the primary return value of the Tracker Protocol
@@ -24,7 +24,23 @@ class PointPacket:
         None  # may be available in some trackers..include for downstream
     )
 
-    
+    @property
+    def obj_loc_list(self)->List[List]:
+        """
+        if obj loc is none, printing data to a table format will be undermined
+        this creates a list of length len(point_id) that is empty so that a pd.dataframe
+        can be constructed from it.
+        """
+        if self.obj_loc is not None:
+            obj_loc_x = self.obj_loc[:,0].tolist()
+            obj_loc_y = self.obj_loc[:,1].tolist()
+        else:
+            length = len(self.point_id)
+            obj_loc_x = [None]*length 
+            obj_loc_y = [None]*length 
+
+        return [obj_loc_x,obj_loc_y]
+
 class Tracker(ABC):
     @abstractmethod
     def get_points(self, frame: np.ndarray) -> PointPacket:
@@ -77,7 +93,7 @@ class Stream(ABC):
         pass
 
 
-@dataclass
+@dataclass(slots=True)
 class FramePacket:
     """
     Holds the data for a single frame from a camera, including the frame itself,
@@ -91,10 +107,11 @@ class FramePacket:
     points: PointPacket = None
     draw_instructions: callable = None
 
-    def to_tidy_table(self, sync_index):
+    def to_tidy_table(self, sync_index)->dict:
         """
         Returns a dictionary of lists where each list is as long as the
-        number of points identified on the frame
+        number of points identified on the frame; 
+        used for creating csv output via pandas
         """
         if self.points is not None:
             point_count = len(self.points.point_id)
@@ -107,8 +124,8 @@ class FramePacket:
                     "point_id": self.points.point_id.tolist(),
                     "img_loc_x": self.points.img_loc[:, 0].tolist(),
                     "img_loc_y": self.points.img_loc[:, 1].tolist(),
-                    "obj_loc_x": self.points.obj_loc[:, 0].tolist(),
-                    "obj_loc_y": self.points.obj_loc[:, 1].tolist(),
+                    "obj_loc_x": self.points.obj_loc_list[0],
+                    "obj_loc_y": self.points.obj_loc_list[1]
                 }
             else:
                 table = None
@@ -135,7 +152,7 @@ class FramePacket:
         return drawn_frame
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class SyncPacket:
     """
     SyncPacket holds syncronized frame packets.

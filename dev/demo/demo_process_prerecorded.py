@@ -21,7 +21,6 @@ recording_path = Path(session_path, "recording_1")
 
 config = Configurator(session_path)
 tracker_factory = HolisticTrackerFactory()
-
 camera_array: CameraArray = config.get_camera_array()
 
 logger.info(f"Creating RecordedStreamPool")
@@ -41,8 +40,7 @@ while real_time_triangulator.running:
     
 logger.info(f"Loading session {session_path}")
 session = Session(config)
-
-session.load_estimated_capture_volume()
+# session.load_estimated_capture_volume()
 
 app = QApplication(sys.argv)
     

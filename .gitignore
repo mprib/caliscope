@@ -13,7 +13,8 @@
 dist/*
 *.epgz
 *.pdf
-tests/sessions*
+tests/sessions/*
+tests/sessions_copy_delete/*
 dev/sample_sessions*
 *.nbi
 *.nbc

@@ -185,6 +185,7 @@ class Synchronizer:
                 logger.info(
                     f"End of frames at port {p} detected; ending synchronization"
                 )
+                
                 self.frames_complete = True
                 self.stop_event.set()
 
@@ -303,8 +304,11 @@ class Synchronizer:
                 q.put(self.current_sync_packet)
                 if self.current_sync_packet is not None:
                     logger.debug(f"Placing new synched frames packet on queue with {self.current_sync_packet.frame_packet_count} frames")
+                    logger.debug(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
                 else:
-                    logger.info(f"signaling end of frames with `None` packet on subscriber queue")
+                    logger.info(f"signaling end of frames with `None` packet on subscriber queue.")
+                    for port, q in self.frame_packet_queues.items():
+                        logger.info(f"Currently {q.qsize()} frame packets unprocessed for port {port}")
                     
             self.fps_mean = self.average_fps()
 

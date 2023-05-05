@@ -12,16 +12,15 @@ from pyxy3d.trackers.holistic_tracker import HolisticTrackerFactory, HolisticTra
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
+from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
 from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
-session_path = Path(__root__, "dev", "sample_sessions", "296")
+session_path = Path(__root__, "dev", "sample_sessions", "293")
 recording_path = Path(session_path, "recording_1")
 
 config = Configurator(session_path)
 tracker_factory = HolisticTrackerFactory()
-
 camera_array: CameraArray = config.get_camera_array()
 
 logger.info(f"Creating RecordedStreamPool")
@@ -41,8 +40,7 @@ while real_time_triangulator.running:
     
 logger.info(f"Loading session {session_path}")
 session = Session(config)
-
-session.load_estimated_capture_volume()
+# session.load_estimated_capture_volume()
 
 app = QApplication(sys.argv)
     

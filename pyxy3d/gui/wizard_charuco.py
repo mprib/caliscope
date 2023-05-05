@@ -30,7 +30,7 @@ from pyxy3d import __app_dir__
 from pyxy3d.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from pyxy3d.session import Session
 from pyxy3d.gui.qt_logger import QtLogger
-from pyxy3d.gui.widgets import NavigationBarNext
+from pyxy3d.gui.navigation_bars import NavigationBarNext
 
 class WizardCharuco(QWidget):
     def __init__(self, session):

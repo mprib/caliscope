@@ -34,7 +34,7 @@ from pyxy3d.gui.stereoframe.stereo_frame_builder import StereoFrameBuilder
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.gui.qt_logger import QtLogger
-from pyxy3d.gui.widgets import NavigationBarBackFinish
+from pyxy3d.gui.navigation_bars import NavigationBarBackFinish
 
 # the boards needed to before a pair could be used to bridge pairs without common corners
 MIN_THRESHOLD_FOR_EARLY_CALIBRATE = 5

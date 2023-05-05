@@ -105,7 +105,6 @@ class VideoRecorder:
                     if new_tidy_table is not None:  # i.e. it has data
                         for key, value in self.point_data_history.copy().items():
                             self.point_data_history[key].extend(new_tidy_table[key])
-                        print(new_tidy_table)
 
         logger.info("Save frame worker winding down...")
         self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
@@ -113,7 +112,7 @@ class VideoRecorder:
         # a proper release is strictly necessary to ensure file is readable
         if include_video:
             logger.info("releasing video writers...")
-            for port, frame_packet in sync_packet.frame_packets.items():
+            for port in self.synchronizer.ports:
                 self.video_writers[port].release()
 
             del self.video_writers

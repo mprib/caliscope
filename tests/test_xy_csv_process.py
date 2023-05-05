@@ -54,12 +54,11 @@ ports = camera_array.cameras.keys()
 
 # create a tracker
 tracker_factory = HandTrackerFactory()
-# tracker = PoseTracker()
-
 recording_folder_path = Path(copy_session_path, "calibration", "extrinsic")
 
 frame_times = pd.read_csv(Path(recording_folder_path, "frame_time_history.csv"))
-max_sync_index = frame_times["sync_index"].max()
+sync_index_count = len(frame_times["sync_index"].unique())
+
 
 stream_pool = RecordedStreamPool(
     directory=recording_folder_path,
@@ -77,13 +76,10 @@ video_recorder.start_recording(
 )
 stream_pool.play_videos()
 
-processing_time = 0
 while video_recorder.recording:
     sleep(1)
-    processing_time += 1
-    logger.info(f"Processing video data... {processing_time} seconds elapsed.")
-    percent_complete = round((video_recorder.sync_index/max_sync_index)*100,0)
-    logger.info(f"{percent_complete} % processed")
+    percent_complete = int((video_recorder.sync_index/sync_index_count)*100)
+    logger.info(f"{percent_complete}% processed")
 
 # make some basic assertions against the created file
 produced_files = [
@@ -98,9 +94,12 @@ for file in produced_files:
 
 # confirm that xy data is produced for the sync indices (slightly reduced to avoid missing data issues)
 xy_data = pd.read_csv(Path(recording_folder_path, "xy.csv"))
+xy_sync_index_count = xy_data["sync_index"].max() + 1 # zero indexed
 
-logger.info(f"Max sync index: {max_sync_index} in frame history")
+logger.info(f"Sync index count in frame history: {sync_index_count} in frame history")
 logger.info(f"Max sync index: {xy_data['sync_index'].max()} in xy.csv")
-assert(max_sync_index == xy_data["sync_index"].max())
+
+LEEWAY = 2 # sync indices that might not get copied over due to not enough frames
+assert(sync_index_count-LEEWAY <= xy_sync_index_count)
 
 #%%

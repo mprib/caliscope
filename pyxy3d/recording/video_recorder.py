@@ -18,6 +18,7 @@ class VideoRecorder:
         self.synchronizer = synchronizer
 
         self.recording = False
+        self.sync_index = 0 # no sync packets at init... absence of initialized value can cause errors elsewhere
         # build dict that will be stored to csv
         self.trigger_stop = Event()
 

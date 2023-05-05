@@ -16,6 +16,7 @@ filtering of the data using reprojection error...
 """
 
 import pyxy3d.logger
+
 logger = pyxy3d.logger.get(__name__)
 from time import sleep
 from queue import Queue
@@ -26,7 +27,9 @@ from PyQt6.QtWidgets import QApplication
 from pyxy3d.configurator import Configurator
 from pathlib import Path
 from pyxy3d import __root__
+import pandas as pd
 from pyxy3d.trackers.holistic_tracker import HolisticTrackerFactory
+from pyxy3d.trackers.hand_tracker import HandTrackerFactory
 from pyxy3d.trackers.pose_tracker import PoseTracker
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
@@ -38,8 +41,10 @@ from pyxy3d.interface import FramePacket
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
 
-session_path = Path(__root__, "tests", "sessions", "medi")
-copy_session_path = Path(__root__, "dev", "sessions_copy_delete", "xy_points")
+session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration_2_cam")
+copy_session_path = Path(
+    __root__, "tests", "sessions_copy_delete", "mediapipe_calibration_2_cam"
+)
 copy_contents(session_path, copy_session_path)
 
 
@@ -48,16 +53,42 @@ camera_array: CameraArray = config.get_camera_array()
 ports = camera_array.cameras.keys()
 
 # create a tracker
-tracker_factory = HolisticTrackerFactory()
+tracker_factory = HandTrackerFactory()
 # tracker = PoseTracker()
 
-recording_folder_path = Path(copy_session_path, "recording_1")
+recording_folder_path = Path(copy_session_path, "calibration", "extrinsic")
 
-stream_pool = RecordedStreamPool(directory=recording_folder_path,fps_target=100, tracker_factory=tracker_factory, config_path=config.toml_path)
-synchronizer = Synchronizer(stream_pool.streams,fps_target=100)
+stream_pool = RecordedStreamPool(
+    directory=recording_folder_path,
+    fps_target=100,
+    tracker_factory=tracker_factory,
+    config_path=config.toml_path,
+)
+synchronizer = Synchronizer(stream_pool.streams, fps_target=100)
 video_recorder = VideoRecorder(synchronizer)
-video_recorder.start_recording(destination_folder=recording_folder_path,include_video=True, show_points=True, suffix = "_xy")
+video_recorder.start_recording(
+    destination_folder=recording_folder_path,
+    include_video=True,
+    show_points=True,
+    suffix="_xy",
+)
 stream_pool.play_videos()
 
+processing_time = 0
 while video_recorder.recording:
     sleep(1)
+    processing_time += 1
+    logger.info(f"Processing video data... {processing_time} seconds elapsed.")
+
+# make some basic assertions against the created file
+produced_files = [
+    Path(recording_folder_path, "xy.csv"),
+    Path(recording_folder_path, "port_0_xy.mp4"),
+    Path(recording_folder_path, "port_1_xy.mp4"),
+]
+for file in produced_files:
+    logger.info(f"Asserting that the following file exists: {file}")
+    assert file.exists()
+
+
+# confirm that xy data is produced for the sync indices (slightly reduced to avoid missing data issues)

@@ -77,7 +77,7 @@ class VideoRecorder:
                 logger.info("End of sync packets signaled...breaking record loop")
                 break
 
-            sync_index = sync_packet.sync_index
+            self.sync_index = sync_packet.sync_index
 
             for port, frame_packet in sync_packet.frame_packets.items():
                 if frame_packet is not None:
@@ -96,12 +96,12 @@ class VideoRecorder:
                         self.video_writers[port].write(frame)
 
                         # store to assocated data in the dictionary
-                        self.frame_history["sync_index"].append(sync_index)
+                        self.frame_history["sync_index"].append(self.sync_index)
                         self.frame_history["port"].append(port)
                         self.frame_history["frame_index"].append(frame_index)
                         self.frame_history["frame_time"].append(frame_time)
 
-                    new_tidy_table = frame_packet.to_tidy_table(sync_index)
+                    new_tidy_table = frame_packet.to_tidy_table(self.sync_index)
                     if new_tidy_table is not None:  # i.e. it has data
                         for key, value in self.point_data_history.copy().items():
                             self.point_data_history[key].extend(new_tidy_table[key])

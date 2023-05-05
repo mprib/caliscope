@@ -15,6 +15,7 @@ filtering of the data using reprojection error...
 
 """
 
+#%%
 import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
@@ -47,7 +48,6 @@ copy_session_path = Path(
 )
 copy_contents(session_path, copy_session_path)
 
-
 config = Configurator(copy_session_path)
 camera_array: CameraArray = config.get_camera_array()
 ports = camera_array.cameras.keys()
@@ -57,6 +57,9 @@ tracker_factory = HandTrackerFactory()
 # tracker = PoseTracker()
 
 recording_folder_path = Path(copy_session_path, "calibration", "extrinsic")
+
+frame_times = pd.read_csv(Path(recording_folder_path, "frame_time_history.csv"))
+max_sync_index = frame_times["sync_index"].max()
 
 stream_pool = RecordedStreamPool(
     directory=recording_folder_path,
@@ -79,6 +82,8 @@ while video_recorder.recording:
     sleep(1)
     processing_time += 1
     logger.info(f"Processing video data... {processing_time} seconds elapsed.")
+    percent_complete = round((video_recorder.sync_index/max_sync_index)*100,0)
+    logger.info(f"{percent_complete} % processed")
 
 # make some basic assertions against the created file
 produced_files = [
@@ -92,3 +97,10 @@ for file in produced_files:
 
 
 # confirm that xy data is produced for the sync indices (slightly reduced to avoid missing data issues)
+xy_data = pd.read_csv(Path(recording_folder_path, "xy.csv"))
+
+logger.info(f"Max sync index: {max_sync_index} in frame history")
+logger.info(f"Max sync index: {xy_data['sync_index'].max()} in xy.csv")
+assert(max_sync_index == xy_data["sync_index"].max())
+
+#%%

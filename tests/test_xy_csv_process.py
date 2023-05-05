@@ -36,7 +36,7 @@ from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.recording.video_recorder import VideoRecorder
-from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
+from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
 from pyxy3d.interface import FramePacket
 
 # specify a source directory (with recordings)

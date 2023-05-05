@@ -26,7 +26,7 @@ from pyxy3d.interface import FramePacket, PointPacket, SyncPacket
 from pyxy3d.session import Session
 from pyxy3d.trackers.charuco_tracker import Charuco, CharucoTracker,CharucoTrackerFactory
 from pyxy3d.trackers.hand_tracker import HandTracker, HandTrackerFactory
-from pyxy3d.triangulate.real_time_triangulator import SyncPacketTriangulator
+from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
 
 app = QApplication(sys.argv)
 # session_path = Path(__root__,"dev", "sample_sessions", "real_time")

@@ -19,87 +19,59 @@ filtering of the data using reprojection error...
 import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
-from time import sleep
-from queue import Queue
-import cv2
 
 import sys
-from PyQt6.QtWidgets import QApplication
 from pyxy3d.configurator import Configurator
 from pathlib import Path
 from pyxy3d import __root__
 import pandas as pd
-from pyxy3d.trackers.holistic_tracker import HolisticTrackerFactory
 from pyxy3d.trackers.hand_tracker import HandTrackerFactory
-from pyxy3d.trackers.pose_tracker import PoseTracker
-from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.recording.video_recorder import VideoRecorder
-from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from pyxy3d.interface import FramePacket
 
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
-
-session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration_2_cam")
-copy_session_path = Path(
-    __root__, "tests", "sessions_copy_delete", "mediapipe_calibration_2_cam"
-)
-copy_contents(session_path, copy_session_path)
-
-config = Configurator(copy_session_path)
-camera_array: CameraArray = config.get_camera_array()
-ports = camera_array.cameras.keys()
-
-# create a tracker
-tracker_factory = HandTrackerFactory()
-recording_folder_path = Path(copy_session_path, "calibration", "extrinsic")
-
-frame_times = pd.read_csv(Path(recording_folder_path, "frame_time_history.csv"))
-sync_index_count = len(frame_times["sync_index"].unique())
+from pyxy3d.post_processing_pipelines import create_xy_points
 
 
-stream_pool = RecordedStreamPool(
-    directory=recording_folder_path,
-    fps_target=100,
-    tracker_factory=tracker_factory,
-    config_path=config.toml_path,
-)
-synchronizer = Synchronizer(stream_pool.streams, fps_target=100)
-video_recorder = VideoRecorder(synchronizer)
-video_recorder.start_recording(
-    destination_folder=recording_folder_path,
-    include_video=True,
-    show_points=True,
-    suffix="_xy",
-)
-stream_pool.play_videos()
+def test_xy_point_creation():
+    # create a clean directory to start from 
+    session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration_2_cam")
+    copy_session_path = Path(
+        __root__, "tests", "sessions_copy_delete", "mediapipe_calibration_2_cam"
+    )
+    copy_contents(session_path, copy_session_path)
+    
+    # create inputs to processing pipeline function
+    config = Configurator(copy_session_path)
+    tracker_factory = HandTrackerFactory()
+    recording_directory = Path(copy_session_path, "calibration", "extrinsic")
 
-while video_recorder.recording:
-    sleep(1)
-    percent_complete = int((video_recorder.sync_index/sync_index_count)*100)
-    logger.info(f"{percent_complete}% processed")
+    frame_times = pd.read_csv(Path(recording_directory, "frame_time_history.csv"))
+    sync_index_count = len(frame_times["sync_index"].unique())
 
-# make some basic assertions against the created file
-produced_files = [
-    Path(recording_folder_path, "xy.csv"),
-    Path(recording_folder_path, "port_0_xy.mp4"),
-    Path(recording_folder_path, "port_1_xy.mp4"),
-]
-for file in produced_files:
-    logger.info(f"Asserting that the following file exists: {file}")
-    assert file.exists()
+    create_xy_points(config, recording_directory, tracker_factory)
 
 
-# confirm that xy data is produced for the sync indices (slightly reduced to avoid missing data issues)
-xy_data = pd.read_csv(Path(recording_folder_path, "xy.csv"))
-xy_sync_index_count = xy_data["sync_index"].max() + 1 # zero indexed
+    # make some basic assertions against the created files
+    produced_files = [
+        Path(recording_directory, "xy.csv"),
+        Path(recording_directory, "port_0_xy.mp4"),
+        Path(recording_directory, "port_1_xy.mp4"),
+    ]
+    for file in produced_files:
+        logger.info(f"Asserting that the following file exists: {file}")
+        assert file.exists()
 
-logger.info(f"Sync index count in frame history: {sync_index_count} in frame history")
-logger.info(f"Max sync index: {xy_data['sync_index'].max()} in xy.csv")
+    # confirm that xy data is produced for the sync indices (slightly reduced to avoid missing data issues)
+    xy_data = pd.read_csv(Path(recording_directory, "xy.csv"))
+    xy_sync_index_count = xy_data["sync_index"].max() + 1 # zero indexed
 
-LEEWAY = 2 # sync indices that might not get copied over due to not enough frames
-assert(sync_index_count-LEEWAY <= xy_sync_index_count)
+    logger.info(f"Sync index count in frame history: {sync_index_count} in frame history")
+    logger.info(f"Max sync index: {xy_data['sync_index'].max()} in xy.csv")
 
-#%%
+    LEEWAY = 2 # sync indices that might not get copied over due to not enough frames
+    assert(sync_index_count-LEEWAY <= xy_sync_index_count)
+
+
+if __name__ == "__main__":
+    
+    test_xy_point_creation()

@@ -38,7 +38,7 @@ from pyxy3d.interface import FramePacket
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
 
-session_path = Path(__root__, "dev", "sample_sessions", "xy_points")
+session_path = Path(__root__, "tests", "sessions", "medi")
 copy_session_path = Path(__root__, "dev", "sessions_copy_delete", "xy_points")
 copy_contents(session_path, copy_session_path)
 

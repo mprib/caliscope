@@ -48,9 +48,9 @@ def create_xy_points(
 
     stream_pool = RecordedStreamPool(
         directory=recording_directory,
+        config = config,
         fps_target=100,
         tracker_factory=tracker_factory,
-        config_path=config.toml_path,
     )
     synchronizer = Synchronizer(stream_pool.streams, fps_target=100)
     video_recorder = VideoRecorder(synchronizer)

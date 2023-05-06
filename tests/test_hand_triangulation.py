@@ -51,10 +51,11 @@ def test_hand_tracker():
 
     #### Basic code for interfacing with in-progress RealTimeTriangulator
     #### Just run off of saved point_data.csv for development/testing
-    real_time_triangulator = SyncPacketTriangulator(camera_array, syncr, output_directory=session_path)
+    sync_packet_triangulator = SyncPacketTriangulator(camera_array, syncr, output_directory=session_path)
     stream_pool.play_videos()
 
-    while real_time_triangulator.running:
+    while sync_packet_triangulator.running:
+        logger.info("Waiting for streams to finish playing")
         time.sleep(1)
   
     #only getting here if the things runs

@@ -44,6 +44,7 @@ class SyncPacketTriangulator:
             self.projection_matrices[port] = cam.projection_matrix
 
         self.subscribers = []
+        self.running = True
         self.thread = Thread(target=self.process_incoming, args=(), daemon=True)
         self.thread.start()
         
@@ -55,8 +56,10 @@ class SyncPacketTriangulator:
 
 
     def process_incoming(self):
-
-        self.running = True
+        # waiting to set running property here was causing issues with identifying state of thread. 
+        # set property to true then start thread...
+        
+        # self.running = True
         while not self.stop_thread.is_set():
 
             sync_packet:SyncPacket = self.sync_packet_in_q.get()

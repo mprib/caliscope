@@ -19,4 +19,4 @@ dev/sample_sessions*
 *.nbi
 *.nbc
 *.csv
-*.toml
+*config.toml

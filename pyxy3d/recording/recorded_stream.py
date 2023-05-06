@@ -24,6 +24,7 @@ import numpy as np
 from pyxy3d.interface import FramePacket, Tracker, Stream, TrackerFactory
 from pyxy3d.cameras.live_stream import Stream
 from pyxy3d.cameras.camera_array import CameraData
+from pyxy3d.configurator import Configurator
 
 class RecordedStream(Stream):
     """
@@ -188,14 +189,12 @@ class RecordedStream(Stream):
 
 
 class RecordedStreamPool:
-    def __init__(self, directory:Path, fps_target=6, tracker_factory:TrackerFactory=None, config_path:Path = None):
+    def __init__(self, directory:Path, config:Configurator, fps_target=6, tracker_factory:TrackerFactory=None):
 
-        if config_path is None:
-            config_path = Path(directory, "config.toml")
         self.streams = {}
-        self.cameras = get_configured_camera_data(config_path)
+        self.camera_array = config.get_camera_array()
 
-        for port, camera in self.cameras.items():
+        for port, camera in self.camera_array.cameras.items():
             tracker:Tracker = tracker_factory.get_tracker()
             self.streams[port] = RecordedStream(camera, directory, fps_target=fps_target, tracker=tracker)
 

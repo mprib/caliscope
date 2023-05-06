@@ -11,21 +11,26 @@ import pandas as pd
 
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.live_stream import LiveStream
-from pyxy3d.interface import FramePacket
+from pyxy3d.interface import FramePacket, SyncPacket
 
 class VideoRecorder:
     def __init__(self, synchronizer: Synchronizer):
         self.synchronizer = synchronizer
 
         self.recording = False
+        self.sync_index = 0 # no sync packets at init... absence of initialized value can cause errors elsewhere
         # build dict that will be stored to csv
         self.trigger_stop = Event()
 
-    def build_video_writers(self):
+    def build_video_writers(self, suffix=""):
+        """
+        suffix provides a way to provide additional labels to the mp4 file name
+        This would be relevant when performing post-processing and saving out frames with points
+        """
         # create a dictionary of videowriters
         self.video_writers = {}
         for port, stream in self.synchronizer.streams.items():
-            path = str(Path(self.destination_folder, f"port_{port}.mp4"))
+            path = str(Path(self.destination_folder, f"port_{port}{suffix}.mp4"))
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
             fps = self.synchronizer.get_fps_target()
@@ -34,18 +39,18 @@ class VideoRecorder:
             writer = cv2.VideoWriter(path, fourcc, fps, frame_size)
             self.video_writers[port] = writer
 
-    def save_data_worker(self, include_video):
+    def save_data_worker(self, include_video, show_points, suffix = ""):
         # connect video recorder to synchronizer via an "in" queue
-        if include_video:
-            self.build_video_writers()
 
-            # I think I put this here so that it will get reset if you reuse the same recorder..
-            self.frame_history = {
-                "sync_index": [],
-                "port": [],
-                "frame_index": [],
-                "frame_time": [],
-            }
+        self.build_video_writers(suffix) #suffix offers additional name ending for mp4 file
+
+        # I think I put this here so that it will get reset if you reuse the same recorder..
+        self.frame_history = {
+            "sync_index": [],
+            "port": [],
+            "frame_index": [],
+            "frame_time": [],
+        }
 
         self.point_data_history = {
             "sync_index": [],
@@ -66,19 +71,24 @@ class VideoRecorder:
         # self.trigger_stop.clear()
 
         while not self.trigger_stop.is_set():
-            sync_packet = self.sync_packet_in_q.get()
+            sync_packet:SyncPacket = self.sync_packet_in_q.get()
+
             logger.debug("Pulling sync packet from queue")
             if sync_packet is None:
                 logger.info("End of sync packets signaled...breaking record loop")
                 break
 
-            sync_index = sync_packet.sync_index
+            self.sync_index = sync_packet.sync_index
 
             for port, frame_packet in sync_packet.frame_packets.items():
                 if frame_packet is not None:
                     # logger.info("Processiong frame packet...")
                     # read in the data for this frame for this port
-                    frame = frame_packet.frame
+                    if show_points:
+                        frame = frame_packet.frame_with_points
+                    else:
+                        frame = frame_packet.frame
+                    
                     frame_index = frame_packet.frame_index
                     frame_time = frame_packet.frame_time
 
@@ -87,16 +97,15 @@ class VideoRecorder:
                         self.video_writers[port].write(frame)
 
                         # store to assocated data in the dictionary
-                        self.frame_history["sync_index"].append(sync_index)
+                        self.frame_history["sync_index"].append(self.sync_index)
                         self.frame_history["port"].append(port)
                         self.frame_history["frame_index"].append(frame_index)
                         self.frame_history["frame_time"].append(frame_time)
 
-                    new_tidy_table = frame_packet.to_tidy_table(sync_index)
+                    new_tidy_table = frame_packet.to_tidy_table(self.sync_index)
                     if new_tidy_table is not None:  # i.e. it has data
                         for key, value in self.point_data_history.copy().items():
                             self.point_data_history[key].extend(new_tidy_table[key])
-                        print(new_tidy_table)
 
         logger.info("Save frame worker winding down...")
         self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
@@ -104,7 +113,7 @@ class VideoRecorder:
         # a proper release is strictly necessary to ensure file is readable
         if include_video:
             logger.info("releasing video writers...")
-            for port, frame_packet in sync_packet.frame_packets.items():
+            for port in self.synchronizer.ports:
                 self.video_writers[port].release()
 
             del self.video_writers
@@ -131,7 +140,7 @@ class VideoRecorder:
         logger.info(f"Storing frame history to {frame_hist_path}")
         df.to_csv(frame_hist_path, index=False, header=True)
 
-    def start_recording(self, destination_folder: Path, include_video=True):
+    def start_recording(self, destination_folder: Path, include_video=True, show_points=True, suffix=""):
         """
         Don't include video if only doing frameplayback to record tracked points. 
         At least that's what I think I had in mind when doing this.
@@ -144,7 +153,7 @@ class VideoRecorder:
 
         self.recording = True
         self.recording_thread = Thread(
-            target=self.save_data_worker, args=[include_video], daemon=True
+            target=self.save_data_worker, args=[include_video, show_points, suffix], daemon=True
         )
         self.recording_thread.start()
 
@@ -189,7 +198,7 @@ if __name__ == "__main__":
         tracker = Charuco(
             4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
         )
-        stream_pool = RecordedStreamPool(ports, recording_directory, charuco=tracker)
+        stream_pool = RecordedStreamPool( recording_directory, charuco=tracker)
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(stream_pool.streams, fps_target=3)
         stream_pool.play_videos()

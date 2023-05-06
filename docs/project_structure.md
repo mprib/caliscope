@@ -32,7 +32,7 @@ MonoCalibrator -.Intrinsics.-> config.toml
 
 VideoRecorder --> frame_time_history.csv
 VideoRecorder --> port_X.mp4 
-VideoRecorder -.During StereoFrameBuilder.-> point_data.csv
+VideoRecorder -.During StereoFrameBuilder.-> xy.csv
 port_X.mp4 --> RecordedStream
 frame_time_history.csv --> RecordedStream
 
@@ -50,23 +50,23 @@ subgraph recording
 end
 
 
-point_data.csv --> StereoCalibrator
+xy.csv --> StereoCalibrator
 config.toml --CameraSettings--> StereoCalibrator
 StereoCalibrator -.StereoPairs.-> config.toml
 
 
-CameraArray --> RealTimeTriangulator
-Synchronizer -.SyncPacket.-> RealTimeTriangulator
-RealTimeTriangulator -.XYZPacket.-> TrackedPointVizualizer
+CameraArray --> SyncPacketTriangulator
+Synchronizer -.SyncPacket.-> SyncPacketTriangulator
+SyncPacketTriangulator -.XYZPacket.-> TrackedPointVizualizer
 CameraMesh --> TrackedPointVizualizer
 
 
 subgraph calibration_data
-    point_data.csv
+    xy.csv
     config.toml
 end
 
-point_data.csv --> get_stereotriangulated_table
+xy.csv --> get_stereotriangulated_table
 
 ArrayStereoTriangulator --> get_stereotriangulated_table
 

@@ -12,9 +12,15 @@ def copy_contents(src_folder, dst_folder):
     src_path = Path(src_folder)
     dst_path = Path(dst_folder)
 
+
+    if dst_path.exists():
+        shutil.rmtree(dst_path)
+        
     # Create the destination folder if it doesn't exist
     dst_path.mkdir(parents=True, exist_ok=True)
 
+
+        
     for item in src_path.iterdir():
         # Construct the source and destination paths
         src_item = src_path / item

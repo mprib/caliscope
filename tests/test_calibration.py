@@ -1,4 +1,3 @@
-
 import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
@@ -10,8 +9,10 @@ from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d import __root__
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates 
-from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import get_point_estimates
+from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
+    get_point_estimates,
+)
 import pytest
 from pyxy3d.calibration.charuco import Charuco, get_charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory
@@ -38,12 +39,12 @@ from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
 from pyxy3d.session import FILTERED_FRACTION
 from pyxy3d.configurator import Configurator
 
-TEST_SESSIONS = ["post_monocal"]
+TEST_SESSIONS = ["mediapipe_calibration"]
 
 
 def copy_contents(src_folder, dst_folder):
     """
-    Helper function to port a test case data folder over to a temp directory 
+    Helper function to port a test case data folder over to a temp directory
     used for testing purposes so that the test case data doesn't get overwritten
     """
     src_path = Path(src_folder)
@@ -56,7 +57,6 @@ def copy_contents(src_folder, dst_folder):
         # Construct the source and destination paths
         src_item = src_path / item
         dst_item = dst_path / item.name
-
 
         # Copy file or directory
         if src_item.is_file():
@@ -76,34 +76,40 @@ def session_path(request, tmp_path):
     directory and then that temp directory will be passed on to the calling functions
     """
     original_test_data_path = Path(__root__, "tests", "sessions", request.param)
-    tmp_test_data_path = Path(tmp_path,request.param)
-    copy_contents(original_test_data_path,tmp_test_data_path)    
-    
+    tmp_test_data_path = Path(tmp_path, request.param)
+    copy_contents(original_test_data_path, tmp_test_data_path)
+
     return tmp_test_data_path
     # return original_test_data_path
 
+
 def test_post_monocalibration(session_path):
-   
     # This test begins with a set of cameras with calibrated intrinsics
     config = Configurator(session_path)
     # config_path = str(Path(session_path, "config.toml"))
     logger.info(f"Getting charuco from config at {config.toml_path}")
     charuco = config.get_charuco()
     charuco_tracker_factory = CharucoTrackerFactory(charuco)
-    
- 
-    # create a synchronizer based off of these stream pools 
+
+    # create a synchronizer based off of these stream pools
     logger.info(f"Creating RecordedStreamPool")
 
     recording_path = Path(session_path, "calibration", "extrinsic")
     point_data_path = Path(recording_path, "xy.csv")
 
-    stream_pool = RecordedStreamPool(recording_path,config_path= config.toml_path, fps_target = 100, tracker_factory = charuco_tracker_factory) 
+    stream_pool = RecordedStreamPool(
+        recording_path,
+        config=config,
+        fps_target=100,
+        tracker_factory=charuco_tracker_factory,
+    )
+    
     logger.info("Creating Synchronizer")
-    syncr = Synchronizer(stream_pool.streams, fps_target=None)
+    syncr = Synchronizer(stream_pool.streams, fps_target=100)
 
     # video recorder needed to save out points.csv.
     logger.info(f"Creating test video recorder to save out point data")
+
     video_recorder = VideoRecorder(syncr)
     video_recorder.start_recording(recording_path, include_video=False)
 
@@ -114,7 +120,7 @@ def test_post_monocalibration(session_path):
     while not point_data_path.exists():
         logger.info("Waiting for point_data.csv to populate...")
         sleep(1)
-    
+
     logger.info(f"Waiting for video recorder to finish processing stream...")
     stereocalibrator = StereoCalibrator(config.toml_path, point_data_path)
     stereocalibrator.stereo_calibrate_all(boards_sampled=10)
@@ -123,9 +129,7 @@ def test_post_monocalibration(session_path):
         config.toml_path
     ).get_best_camera_array()
 
-    point_estimates: PointEstimates = get_point_estimates(
-        camera_array, point_data_path
-    )
+    point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
     initial_rmse = capture_volume.rmse
@@ -138,7 +142,7 @@ def test_post_monocalibration(session_path):
     quality_controller.filter_point_estimates(FILTERED_FRACTION)
     logger.info("Re-optimizing with filtered data set")
     capture_volume.optimize()
-    optimized_filtered_rmse = capture_volume.rmse   
+    optimized_filtered_rmse = capture_volume.rmse
 
     # save out results of optimization for later assessment with F5 test walkthroughs
     config.save_camera_array(capture_volume.camera_array)
@@ -146,24 +150,21 @@ def test_post_monocalibration(session_path):
 
     for key, optimized_rmse in optimized_filtered_rmse.items():
         logger.info(f"Asserting that RMSE decreased with optimization at {key}...")
-        assert(initial_rmse[key] > optimized_rmse)
-    
+        assert initial_rmse[key] > optimized_rmse
+
 
 if __name__ == "__main__":
-    # from pyxy3d.session import Session
-    # from PyQt6.QtWidgets import QApplication
-    # import sys
-    # from pyxy3d.gui.vizualize.capture_volume_widget import CaptureVolumeWidget
-    
-    
-    original_session_path = Path(__root__, "tests", "sessions", "post_monocal")    
-    # original_session_path = Path(__root__, "dev", "sample_sessions", "low_res")
-    session_path = Path(original_session_path.parent.parent,"sessions_copy_delete","post_monocal_post_optimization")
+    original_session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration")
+    session_path = Path(
+        original_session_path.parent.parent,
+        "sessions_copy_delete",
+        "mediapipe_calibration",
+    )
 
     # clear previous test so as not to pollute current test results
     if session_path.exists() and session_path.is_dir():
-        shutil.rmtree(session_path)   
-    
-    copy_contents(original_session_path,session_path)
+        shutil.rmtree(session_path)
+
+    copy_contents(original_session_path, session_path)
 
     test_post_monocalibration(session_path)

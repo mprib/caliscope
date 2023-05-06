@@ -22,7 +22,7 @@ class VideoRecorder:
         # build dict that will be stored to csv
         self.trigger_stop = Event()
 
-    def build_video_writers(self, suffix=""):
+    def build_video_writers(self, suffix="_processed"):
         """
         suffix provides a way to provide additional labels to the mp4 file name
         This would be relevant when performing post-processing and saving out frames with points
@@ -42,7 +42,8 @@ class VideoRecorder:
     def save_data_worker(self, include_video, show_points, suffix = ""):
         # connect video recorder to synchronizer via an "in" queue
 
-        self.build_video_writers(suffix) #suffix offers additional name ending for mp4 file
+        if include_video:
+            self.build_video_writers(suffix) #suffix offers additional name ending for mp4 file
 
         # I think I put this here so that it will get reset if you reuse the same recorder..
         self.frame_history = {
@@ -140,7 +141,7 @@ class VideoRecorder:
         logger.info(f"Storing frame history to {frame_hist_path}")
         df.to_csv(frame_hist_path, index=False, header=True)
 
-    def start_recording(self, destination_folder: Path, include_video=True, show_points=True, suffix=""):
+    def start_recording(self, destination_folder: Path, include_video=True, show_points=False, suffix=""):
         """
         Don't include video if only doing frameplayback to record tracked points. 
         At least that's what I think I had in mind when doing this.

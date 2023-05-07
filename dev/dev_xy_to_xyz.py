@@ -88,4 +88,13 @@ logger.info(f"beginning triangulation at {time.time()}")
 xyz_history = triangulate_xy_data(xy_data, camera_array)
 logger.info(f"ending triangulation at {time.time()}")
 stop = time.time()
-logger.info(f"Elapsed time is {stop-start}")
+logger.info(f"Elapsed time is {stop-start}. Note that on first iteration, @jit functions will take longer")
+
+# run some basic assertions against the triangulated output
+
+
+
+
+output_path = Path(recording_directory, "xyz.csv")
+xyz_history = pd.DataFrame(xyz_history)
+xyz_history.to_csv(output_path)

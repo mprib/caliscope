@@ -100,7 +100,7 @@ class SyncPacketTriangulator:
 
         if self.output_directory is not None:
             logger.info(f"Saving xyz point data to {self.output_directory}")
-            self.save_history()
+            self.save_history(self.xyz_history, self.output_directory, self.tracker)
 
     def add_packet_to_history(self,xyz_packet:XYZPacket):
         
@@ -115,42 +115,42 @@ class SyncPacketTriangulator:
             self.xyz_history["z_coord"].extend(xyz_array[:,2].tolist())
         
           
-    def save_history(self, tracker:Tracker = None):
+def save_history(xyz_history:Dict[str,List], output_directory: Path, tracker:Tracker = None):
         
-        df_xyz:pd.DataFrame = pd.DataFrame(self.xyz_history)
-        df_xyz.to_csv(Path(self.output_directory,"xyz.csv"))
+    df_xyz:pd.DataFrame = pd.DataFrame(xyz_history)
+    df_xyz.to_csv(Path(output_directory,"xyz.csv"))
 
-        if self.tracker is not None:
-            # save out named data in a tabular format
-            df_xyz = df_xyz.rename({"x_coord":"x",
-                                    "y_coord":"y",
-                                    "z_coord":"z",               
-                                    }, axis=1)
-            df_xyz = df_xyz[["sync_index", "point_id", "x", "y", "z"]]
+    if tracker is not None:
+        # save out named data in a tabular format
+        df_xyz = df_xyz.rename({"x_coord":"x",
+                                "y_coord":"y",
+                                "z_coord":"z",               
+                                }, axis=1)
+        df_xyz = df_xyz[["sync_index", "point_id", "x", "y", "z"]]
         
-            df_xyz["point_name"] = df_xyz["point_id"].map(self.tracker.get_point_name)
-            # pivot the DataFrame wider
-            df_wide = df_xyz.pivot_table(
-                index=['sync_index'],
-                columns='point_name',
-                values=['x', 'y', 'z']
-            )
-            # flatten the column names
-            df_wide.columns = ['{}_{}'.format(y,x) for x, y in df_wide.columns]
-            # reset the index
-            df_wide = df_wide.reset_index()
-            # merge the rows with the same sync_index
-            df_merged = df_wide.groupby('sync_index').agg('first')
-            # sort the dataframe
-            df_merged = df_merged.sort_index(axis=1,ascending=True)
-            df_merged.to_csv(Path(self.output_directory, "tabular_xyz.csv"))
+        df_xyz["point_name"] = df_xyz["point_id"].map(tracker.get_point_name)
+        # pivot the DataFrame wider
+        df_wide = df_xyz.pivot_table(
+            index=['sync_index'],
+            columns='point_name',
+            values=['x', 'y', 'z']
+        )
+        # flatten the column names
+        df_wide.columns = ['{}_{}'.format(y,x) for x, y in df_wide.columns]
+        # reset the index
+        df_wide = df_wide.reset_index()
+        # merge the rows with the same sync_index
+        df_merged = df_wide.groupby('sync_index').agg('first')
+        # sort the dataframe
+        df_merged = df_merged.sort_index(axis=1,ascending=True)
+        df_merged.to_csv(Path(output_directory, "tabular_xyz.csv"))
         
         # save out version that involves  
         
        
         
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
-# @jit(nopython=True, cache=True)
+@jit(nopython=True, cache=True)
 def unique_with_counts(arr):
     sorted_arr = np.sort(arr)
     unique_values = [sorted_arr[0]]
@@ -165,9 +165,7 @@ def unique_with_counts(arr):
 
     return np.array(unique_values), np.array(counts)
 
-# NOTE: jit does not appear to improve processing time even after first compilation.
-# Test difference in the future with more points...
-# @jit(nopython=True, parallel=True, cache=True)
+@jit(nopython=True, parallel=True, cache=True)
 def triangulate_sync_index(
     projection_matrices, current_camera_indices, current_point_id, current_img
 ):

@@ -2,7 +2,6 @@
 
 #%%
 
-from pyxy3d.triangulate.helper import create_labelled_csv
 from pyxy3d.trackers.holistic_tracker import HolisticTracker, HolisticTrackerFactory
 from pathlib import Path
 from pyxy3d import __root__

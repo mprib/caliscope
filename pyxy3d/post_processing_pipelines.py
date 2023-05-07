@@ -38,13 +38,12 @@ config = Configurator(copy_session_path)
 def create_xy_points(
     config: Configurator, recording_directory: Path, tracker_factory: TrackerFactory
 ):
-
     frame_times = pd.read_csv(Path(recording_directory, "frame_time_history.csv"))
     sync_index_count = len(frame_times["sync_index"].unique())
 
     stream_pool = RecordedStreamPool(
         directory=recording_directory,
-        config = config,
+        config=config,
         fps_target=100,
         tracker_factory=tracker_factory,
     )

@@ -25,14 +25,14 @@ from pyxy3d.interface import FramePacket, TrackerFactory
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
 
-session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration_2_cam")
-copy_session_path = Path(
-    __root__, "tests", "sessions_copy_delete", "mediapipe_calibration_2_cam"
-)
-copy_contents(session_path, copy_session_path)
+# session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration_2_cam")
+# copy_session_path = Path(
+#     __root__, "tests", "sessions_copy_delete", "mediapipe_calibration_2_cam"
+# )
+# copy_contents(session_path, copy_session_path)
 
 
-config = Configurator(copy_session_path)
+# config = Configurator(copy_session_path)
 
 
 def create_xy_points(

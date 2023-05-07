@@ -100,7 +100,7 @@ class SyncPacketTriangulator:
 
         if self.output_directory is not None:
             logger.info(f"Saving xyz point data to {self.output_directory}")
-            self.save_history(self.xyz_history, self.output_directory, self.tracker)
+            save_history(self.xyz_history, self.output_directory, self.tracker)
 
     def add_packet_to_history(self,xyz_packet:XYZPacket):
         

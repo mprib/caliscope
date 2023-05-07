@@ -38,10 +38,6 @@ config = Configurator(copy_session_path)
 def create_xy_points(
     config: Configurator, recording_directory: Path, tracker_factory: TrackerFactory
 ):
-    camera_array: CameraArray = config.get_camera_array()
-    ports = camera_array.cameras.keys()
-
-    recording_directory = Path(copy_session_path, "calibration", "extrinsic")
 
     frame_times = pd.read_csv(Path(recording_directory, "frame_time_history.csv"))
     sync_index_count = len(frame_times["sync_index"].unique())

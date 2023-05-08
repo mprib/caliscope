@@ -57,13 +57,23 @@ class PostProcessingWidget(QWidget):
         self.recording_folders = QListWidget()
         for folder in dir_list:
             self.recording_folders.addItem(folder)
-
+  
+        self.vizualizer_title = QLabel(self.get_viz_title_html())
         self.visualizer = PlaybackTriangulationWidget(self.camera_array)
-        self.process_btn = QPushButton("Process")
-        self.export_btn = QPushButton("Export")
+        self.process_btn = QPushButton("&Process")
+        self.export_btn = QPushButton("&Export")
         
         self.place_widgets()
         self.connect_widgets()
+    
+    def get_viz_title_html(self):
+        if self.recording_folders.currentItem() is not None:
+            self.active_folder:str = self.recording_folders.currentItem().text()
+        else:
+            self.active_folder = "No folder selected"
+
+        title = f"<h1> {self.active_folder} </h1>"
+        return title
 
     def place_widgets(self):
         self.setLayout(QHBoxLayout())
@@ -79,13 +89,15 @@ class PostProcessingWidget(QWidget):
         self.left_vbox.addLayout(self.button_hbox)
 
         self.layout().addLayout(self.right_vbox, stretch =2)
+        self.right_vbox.addWidget(self.vizualizer_title)
         self.right_vbox.addWidget(self.visualizer)
         
         
     def connect_widgets(self):
-        self.recording_folders.itemDoubleClicked.connect(self.set_xyz_history)
-        pass
+        self.recording_folders.currentItemChanged.connect(self.set_xyz_history)
+        
 
     def set_xyz_history(self, item):
         
-        logger.info(f"Item {item.text()} selected and double-clicked.")
+        # logger.info(f"Item {item.text()} selected and double-clicked.")
+        self.vizualizer_title.setText(self.get_viz_title_html())

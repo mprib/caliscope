@@ -78,7 +78,7 @@ class PostProcessingWidget(QWidget):
         self.button_hbox.addWidget(self.export_btn)
         self.left_vbox.addLayout(self.button_hbox)
 
-        self.layout().addLayout(self.right_vbox)
+        self.layout().addLayout(self.right_vbox, stretch =2)
         self.right_vbox.addWidget(self.visualizer)
         
         

@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
     QTextEdit,
     QLineEdit,
     QDialog,
+    QListWidget,
     QGroupBox,
     QDoubleSpinBox,
     QHBoxLayout,
@@ -48,6 +49,14 @@ class PostProcessingWidget(QWidget):
         self.camera_array = self.config.get_camera_array() 
 
         # create primary elements of interface 
+        dir_list = [p.stem for p in self.config.session_path.iterdir() if p.is_dir()]
+        dir_list.remove("calibration")
+        # add each folder to the QListWidget
+        self.recording_folders= QListWidget()
+
+        for folder in dir_list:
+            self.recording_folders.addItem(folder)
+            
         self.visualizer = PlaybackTriangulationWidget(self.camera_array)
         
         self.place_widgets()
@@ -56,6 +65,7 @@ class PostProcessingWidget(QWidget):
         
     def place_widgets(self):
         self.setLayout(QHBoxLayout())
+        self.layout().addWidget(self.recording_folders)
         self.layout().addWidget(self.visualizer)
         
     def connect_widgets(self):

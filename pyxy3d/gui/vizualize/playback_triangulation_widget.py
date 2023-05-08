@@ -83,13 +83,6 @@ class TriangulationVisualizer:
             self.meshes[port] = mesh
             self.scene.addItem(mesh)
 
-        self.scatter = gl.GLScatterPlotItem(
-            pos=np.array([0, 0, 0]),
-            color=[1, 1, 1, 1],
-            size=0.01,
-            pxMode=False,
-        )
-        # self.scene.addItem(self.scatter)
 
     
     def set_xyz(self, xyz_history:pd.DataFrame):
@@ -104,6 +97,16 @@ class TriangulationVisualizer:
         y_coord = self.xyz_history["y_coord"]
         z_coord = self.xyz_history["z_coord"]
         self.xyz_coord = np.vstack([x_coord,y_coord,z_coord]).T
+
+        if not hasattr(self, "scatter"):
+            self.scatter = gl.GLScatterPlotItem(
+                pos=np.array([0, 0, 0]),
+                color=[1, 1, 1, 1],
+                size=0.01,
+                pxMode=False,
+            )
+            self.scene.addItem(self.scatter)
+
         self.display_points(self.sync_index)
          
     def display_points(self, sync_index):
@@ -117,5 +120,6 @@ class TriangulationVisualizer:
 
         self.points = self.xyz_coord[current_sync_index_flag]
         logger.info(f"Displaying xyz points for sync index {sync_index}")
+
 
         self.scatter.setData(pos=self.points)

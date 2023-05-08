@@ -7,7 +7,7 @@ import os
 from PyQt6.QtWidgets import QApplication
 from pathlib import Path
 
-from pyxy3d.gui.calibration_wizard import launch_calibration_wizard
+from pyxy3d.gui.calibration_widget import launch_calibration_widget
 from pyxy3d.gui.recording_widget import launch_recording_widget
 
 def CLI_parser():
@@ -22,7 +22,7 @@ def CLI_parser():
         launch_widget = sys.argv[1]
 
         if launch_widget in ["calibrate", "cal", "-c"]:
-            launch_calibration_wizard(session_path)
+            launch_calibration_widget(session_path)
 
         if launch_widget in ["record", "rec", "-r"]:
             launch_recording_widget(session_path)

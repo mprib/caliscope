@@ -36,7 +36,7 @@ from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolume
 from pyxy3d.configurator import Configurator
 
 
-class CalibrationWizard(QStackedWidget):
+class CalibrationWidget(QStackedWidget):
     cameras_connected = pyqtSignal()
 
     def __init__(self, session_path:Path):
@@ -253,23 +253,10 @@ class CalibrationWizard(QStackedWidget):
         self.session.unpause_synchronizer()
 
 
-def launch_calibration_wizard(session_path:Path):
+def launch_calibration_widget(session_path:Path):
     app = QApplication(sys.argv)
-    window = CalibrationWizard(session_path=session_path)
+    window = CalibrationWidget(session_path=session_path)
     window.show()
     app.exec()
 
 
-if __name__ == "__main__":
-    from pyxy3d import __root__ 
-    session_path = Path(__root__, "dev", "sample_sessions", "296")
-
-    launch_calibration_wizard(session_path)
-    
-    # app = QApplication(sys.argv)
-    # window = CalibrationWizard(session_path)
-    # window.show()
-
-    # app.exec()
-    
-    

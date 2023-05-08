@@ -21,20 +21,20 @@ from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray
 
 class PlaybackTriangulationWidget(QWidget):
-    def __init__(self, camera_array:CameraArray, xyz_history_path:Path):
+    def __init__(self, camera_array:CameraArray):
         super(PlaybackTriangulationWidget, self).__init__()
 
         self.camera_array = camera_array
-        self.xyz_history = pd.read_csv(xyz_history_path)
 
-        self.visualizer = TriangulationVisualizer(self.camera_array, self.xyz_history)
+        self.visualizer = TriangulationVisualizer(self.camera_array)
         # self.visualizer.scene.show()
         self.slider = QSlider(Qt.Orientation.Horizontal)
-        self.slider.setMinimum(self.visualizer.min_sync_index)
-        self.slider.setMaximum(self.visualizer.max_sync_index)
+
+        # these defaults mean nothing right now without xyz data. Just placeholders
+        self.slider.setMinimum(0) 
+        self.slider.setMaximum(100)
 
         self.setMinimumSize(500, 500)
-
 
         self.place_widgets()
         self.connect_widgets()
@@ -50,6 +50,11 @@ class PlaybackTriangulationWidget(QWidget):
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
 
+    def set_xyz(self, xyz_history:Path):
+        self.xyz_history = pd.read_csv(xyz_history)
+        self.visualizer.set_xyz(self.xyz_history)
+        self.slider.setMinimum(self.visualizer.min_sync_index)
+        self.slider.setMaximum(self.visualizer.max_sync_index)
 
 class TriangulationVisualizer:
     """
@@ -58,22 +63,9 @@ class TriangulationVisualizer:
     be played back.
     """
 
-    def __init__(
-        self, camera_array: CameraArray, xyz_history:pd.DataFrame
-    ):
+    def __init__( self, camera_array: CameraArray):
 
         self.camera_array = camera_array
-        self.xyz_history = xyz_history
-
-        self.sync_indices = self.xyz_history["sync_index"]
-        self.min_sync_index = np.min(self.sync_indices)
-        self.max_sync_index = np.max(self.sync_indices)
-        self.sync_index = self.min_sync_index
-
-        x_coord = self.xyz_history["x_coord"]
-        y_coord = self.xyz_history["y_coord"]
-        z_coord = self.xyz_history["z_coord"]
-        self.xyz_coord = np.vstack([x_coord,y_coord,z_coord]).T
         
         # constuct a scene
         self.scene = gl.GLViewWidget()
@@ -97,10 +89,23 @@ class TriangulationVisualizer:
             size=0.01,
             pxMode=False,
         )
-        self.scene.addItem(self.scatter)
+        # self.scene.addItem(self.scatter)
 
+    
+    def set_xyz(self, xyz_history:pd.DataFrame):
+        self.xyz_history = xyz_history
+
+        self.sync_indices = self.xyz_history["sync_index"]
+        self.min_sync_index = np.min(self.sync_indices)
+        self.max_sync_index = np.max(self.sync_indices)
+        self.sync_index = self.min_sync_index
+
+        x_coord = self.xyz_history["x_coord"]
+        y_coord = self.xyz_history["y_coord"]
+        z_coord = self.xyz_history["z_coord"]
+        self.xyz_coord = np.vstack([x_coord,y_coord,z_coord]).T
         self.display_points(self.sync_index)
-                 
+         
     def display_points(self, sync_index):
         """
         sync_index is provided from the dialog and linked to the slider
@@ -110,7 +115,7 @@ class TriangulationVisualizer:
 
         current_sync_index_flag = self.sync_indices == self.sync_index
 
-        self.single_board_points = self.xyz_coord[current_sync_index_flag]
+        self.points = self.xyz_coord[current_sync_index_flag]
         logger.info(f"Displaying xyz points for sync index {sync_index}")
 
-        self.scatter.setData(pos=self.single_board_points)
+        self.scatter.setData(pos=self.points)

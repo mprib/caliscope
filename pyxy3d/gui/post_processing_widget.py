@@ -37,6 +37,7 @@ from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.configurator import Configurator
+from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
 
 class PostProcessingWidget(QWidget):
@@ -44,7 +45,18 @@ class PostProcessingWidget(QWidget):
     def __init__(self, config:Configurator):
         super(PostProcessingWidget,self).__init__()
         self.config = config
+        self.camera_array = self.config.get_camera_array() 
+
+        # create primary elements of interface 
+        self.visualizer = PlaybackTriangulationWidget(self.camera_array)
+        
+        self.place_widgets()
+        self.connect_widgets()
         
         
+    def place_widgets(self):
+        self.setLayout(QHBoxLayout())
+        self.layout().addWidget(self.visualizer)
         
-        
+    def connect_widgets(self):
+        pass

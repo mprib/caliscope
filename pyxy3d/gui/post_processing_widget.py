@@ -8,6 +8,7 @@ from pathlib import Path
 from threading import Thread, Event
 import numpy as np
 from queue import Queue
+import pandas as pd
 
 import cv2
 from PyQt6.QtCore import Qt, pyqtSignal, QThread
@@ -50,20 +51,27 @@ class PostProcessingWidget(QWidget):
         self.camera_array = self.config.get_camera_array()
 
         self.update_recording_folders()
-        
-        
+
         # select the first element of the QListWidget
         if self.recording_folders.count() > 0:
             self.recording_folders.setCurrentRow(0)        
 
         self.vizualizer_title = QLabel(self.viz_title_html)
-        self.visualizer = PlaybackTriangulationWidget(self.camera_array)
+        self.vis_widget = PlaybackTriangulationWidget(self.camera_array)
         self.process_btn = QPushButton("&Process")
         self.export_btn = QPushButton("&Export")
         
         self.place_widgets()
         self.connect_widgets()
-        self.set_xyz_history(self.recording_folders.currentItem)
+        self.refresh_visualizer(self.recording_folders.currentItem)
+
+    def set_current_xyz(self):
+        if self.contains_xyz(self.active_folder):
+            self.xyz = pd.read_csv(Path(self.config.session_path, self.active_folder, "xyz.csv"))
+        else:
+            self.xyz = None
+        self.vis_widget.visualizer.set_xyz(self.xyz)
+            
         
     def update_recording_folders(self):
         
@@ -120,27 +128,29 @@ class PostProcessingWidget(QWidget):
 
         self.layout().addLayout(self.right_vbox, stretch =2)
         self.right_vbox.addWidget(self.vizualizer_title)
-        self.right_vbox.addWidget(self.visualizer, stretch=2)
+        self.right_vbox.addWidget(self.vis_widget, stretch=2)
         
         
     def connect_widgets(self):
-        self.recording_folders.currentItemChanged.connect(self.set_xyz_history)
+        self.recording_folders.currentItemChanged.connect(self.refresh_visualizer)
         
 
-    def set_xyz_history(self, item):
+    def refresh_visualizer(self, item):
         
         # logger.info(f"Item {item.text()} selected and double-clicked.")
         self.vizualizer_title.setText(self.viz_title_html)
         self.update_enabled_disabled()
+        self.set_current_xyz()
+    
         
     def update_enabled_disabled(self):
         if self.contains_xyz(self.active_folder):
             self.export_btn.setEnabled(True)
             self.process_btn.setEnabled(False)
-            self.visualizer.slider.setEnabled(True)
+            self.vis_widget.slider.setEnabled(True)
         else:
             self.export_btn.setEnabled(False)
             self.process_btn.setEnabled(True)
-            self.visualizer.slider.setEnabled(False)
+            self.vis_widget.slider.setEnabled(False)
             
             

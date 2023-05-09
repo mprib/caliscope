@@ -88,27 +88,32 @@ class TriangulationVisualizer:
     def set_xyz(self, xyz_history:pd.DataFrame):
         self.xyz_history = xyz_history
 
-        self.sync_indices = self.xyz_history["sync_index"]
-        self.min_sync_index = np.min(self.sync_indices)
-        self.max_sync_index = np.max(self.sync_indices)
-        self.sync_index = self.min_sync_index
+        if self.xyz_history is not None:
+            self.sync_indices = self.xyz_history["sync_index"]
+            self.min_sync_index = np.min(self.sync_indices)
+            self.max_sync_index = np.max(self.sync_indices)
+            self.sync_index = self.min_sync_index
 
-        x_coord = self.xyz_history["x_coord"]
-        y_coord = self.xyz_history["y_coord"]
-        z_coord = self.xyz_history["z_coord"]
-        self.xyz_coord = np.vstack([x_coord,y_coord,z_coord]).T
+            x_coord = self.xyz_history["x_coord"]
+            y_coord = self.xyz_history["y_coord"]
+            z_coord = self.xyz_history["z_coord"]
+            self.xyz_coord = np.vstack([x_coord,y_coord,z_coord]).T
 
-        if not hasattr(self, "scatter"):
-            self.scatter = gl.GLScatterPlotItem(
-                pos=np.array([0, 0, 0]),
-                color=[1, 1, 1, 1],
-                size=0.01,
-                pxMode=False,
-            )
-            self.scene.addItem(self.scatter)
+            if not hasattr(self, "scatter"):
+                self.scatter = gl.GLScatterPlotItem(
+                    pos=np.array([0, 0, 0]),
+                    color=[1, 1, 1, 1],
+                    size=0.01,
+                    pxMode=False,
+                )
+                self.scene.addItem(self.scatter)
 
-        self.display_points(self.sync_index)
-         
+            self.display_points(self.sync_index)
+        
+        else:
+            if hasattr(self, "scatter"):
+                self.scatter.setData(pos=None)
+
     def display_points(self, sync_index):
         """
         sync_index is provided from the dialog and linked to the slider

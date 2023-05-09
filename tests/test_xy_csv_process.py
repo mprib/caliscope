@@ -43,11 +43,12 @@ def test_xy_point_creation():
     # create inputs to processing pipeline function
     config = Configurator(copy_session_path)
     tracker_factory = HandTrackerFactory()
+    output_suffix = "hands"
     recording_directory = Path(copy_session_path, "recording_1")
 
 
 
-    create_xy_points(config, recording_directory, tracker_factory, output_suffix="hands")
+    create_xy_points(config, recording_directory, tracker_factory, output_suffix=output_suffix)
 
     # make some basic assertions against the created files
     produced_files = [
@@ -61,17 +62,17 @@ def test_xy_point_creation():
         assert file.exists()
 
     # confirm that xy data is produced for the sync indices (slightly reduced to avoid missing data issues)
-    xy_data = pd.read_csv(Path(recording_directory, "xy.csv"))
+    xy_data = pd.read_csv(Path(recording_directory, f"xy_{output_suffix}.csv"))
     xy_sync_index_count = xy_data["sync_index"].max() + 1  # zero indexed
 
+    frame_times = pd.read_csv(Path(recording_directory, "frame_time_history.csv"))
+    sync_index_count = len(frame_times["sync_index"].unique())
     logger.info(
         f"Sync index count in frame history: {sync_index_count} in frame history"
     )
     logger.info(f"Max sync index: {xy_data['sync_index'].max()} in xy.csv")
 
     LEEWAY = 2  # sync indices that might not get copied over due to not enough frames
-    frame_times = pd.read_csv(Path(recording_directory, "frame_time_history.csv"))
-    sync_index_count = len(frame_times["sync_index"].unique())
     assert sync_index_count - LEEWAY <= xy_sync_index_count
 
 

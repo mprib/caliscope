@@ -20,7 +20,7 @@ class VideoRecorder:
         # set text to be appended as port_X_{suffix}.mp4
         # will also be appended to xy_{suffix}
         if suffix is not None:
-            self.suffix = "_" & suffix
+            self.suffix = "_" + suffix
         else:
             self.suffix = ""
             

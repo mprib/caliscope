@@ -56,12 +56,11 @@ def create_xy_points(
         tracker_factory=tracker_factory,
     )
     synchronizer = Synchronizer(stream_pool.streams, fps_target=100)
-    video_recorder = VideoRecorder(synchronizer)
+    video_recorder = VideoRecorder(synchronizer, suffix=output_suffix)
     video_recorder.start_recording(
         destination_folder=recording_directory,
         include_video=True,
         show_points=True,
-        suffix=output_suffix,
     )
     stream_pool.play_videos()
 

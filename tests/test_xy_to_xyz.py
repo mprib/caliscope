@@ -38,7 +38,7 @@ def test_xy_to_xyz_postprocessing():
         == len(xyz_history["z_coord"])
     )
 
-    # Assert that coordinates are within expected bounds aroundt the set origin
+    # Assert that coordinates are within expected bounds around the origin
     min_x, max_x = -1, 1    
     min_y, max_y = -1, 1    
     min_z, max_z = -2, 4    
@@ -46,7 +46,6 @@ def test_xy_to_xyz_postprocessing():
         assert min_x <= x <= max_x
         assert min_y <= y <= max_y
         assert min_z <= z <= max_z
-
 
 
     output_path = Path(recording_directory, "xyz.csv")

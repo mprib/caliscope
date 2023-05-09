@@ -71,7 +71,8 @@ def triangulate_xy_data(xy_data:pd.DataFrame, camera_array:CameraArray)->Dict[st
     for port, cam in camera_array.cameras.items():
         projection_matrices[int(port)] = cam.projection_matrix
     
-    xyz_history = {"point_id":[],
+    xyz_history = {"sync_index": [],
+                   "point_id":[],
                    "x_coord": [],
                    "y_coord": [],
                    "z_coord": [],}
@@ -91,8 +92,10 @@ def triangulate_xy_data(xy_data:pd.DataFrame, camera_array:CameraArray)->Dict[st
 
         if len(point_id_xyz) > 0:        
             # there are points to store so store them...
-            points_xyz = np.array(points_xyz)
+            xyz_history["sync_index"].extend([index]*len(point_id_xyz))
             xyz_history["point_id"].extend(point_id_xyz)
+
+            points_xyz = np.array(points_xyz)
             xyz_history["x_coord"].extend(points_xyz[:,0].tolist())
             xyz_history["y_coord"].extend(points_xyz[:,1].tolist())
             xyz_history["z_coord"].extend(points_xyz[:,2].tolist())

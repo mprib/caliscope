@@ -21,7 +21,7 @@ from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray
 
 class PlaybackTriangulationWidget(QWidget):
-    def __init__(self, camera_array:CameraArray):
+    def __init__(self, camera_array:CameraArray, xyz_history_path:Path =None):
         super(PlaybackTriangulationWidget, self).__init__()
 
         self.camera_array = camera_array
@@ -38,7 +38,8 @@ class PlaybackTriangulationWidget(QWidget):
 
         self.place_widgets()
         self.connect_widgets()
-
+        if xyz_history_path is not None:
+            self.set_xyz(xyz_history_path)
         # self.visualizer.display_points(self.visualizer.min_sync_index)
 
     def place_widgets(self):

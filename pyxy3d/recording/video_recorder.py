@@ -14,15 +14,22 @@ from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.interface import FramePacket, SyncPacket
 
 class VideoRecorder:
-    def __init__(self, synchronizer: Synchronizer):
+    def __init__(self, synchronizer: Synchronizer, suffix:str = None):
         self.synchronizer = synchronizer
 
+        # set text to be appended as port_X_{suffix}.mp4
+        # will also be appended to xy_{suffix}
+        if suffix is not None:
+            self.suffix = "_" & suffix
+        else:
+            self.suffix = ""
+            
         self.recording = False
         self.sync_index = 0 # no sync packets at init... absence of initialized value can cause errors elsewhere
         # build dict that will be stored to csv
         self.trigger_stop = Event()
 
-    def build_video_writers(self, suffix="_processed"):
+    def build_video_writers(self):
         """
         suffix provides a way to provide additional labels to the mp4 file name
         This would be relevant when performing post-processing and saving out frames with points
@@ -30,7 +37,7 @@ class VideoRecorder:
         # create a dictionary of videowriters
         self.video_writers = {}
         for port, stream in self.synchronizer.streams.items():
-            path = str(Path(self.destination_folder, f"port_{port}{suffix}.mp4"))
+            path = str(Path(self.destination_folder, f"port_{port}{self.suffix}.mp4"))
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
             fps = self.synchronizer.get_fps_target()
@@ -130,7 +137,7 @@ class VideoRecorder:
     def store_point_history(self):
         df = pd.DataFrame(self.point_data_history)
         # TODO: #25 if file exists then change the name
-        point_data_path = str(Path(self.destination_folder, "xy.csv"))
+        point_data_path = str(Path(self.destination_folder, f"xy{self.suffix}.csv"))
         logger.info(f"Storing point data in {point_data_path}")
         df.to_csv(point_data_path, index=False, header=True)
 

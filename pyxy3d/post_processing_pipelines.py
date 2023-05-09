@@ -21,7 +21,10 @@ from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.recording.video_recorder import VideoRecorder
-from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator, triangulate_sync_index
+from pyxy3d.triangulate.sync_packet_triangulator import (
+    SyncPacketTriangulator,
+    triangulate_sync_index,
+)
 from pyxy3d.interface import FramePacket, TrackerFactory
 
 # specify a source directory (with recordings)
@@ -38,7 +41,10 @@ from pyxy3d.helper import copy_contents
 
 
 def create_xy_points(
-    config: Configurator, recording_directory: Path, tracker_factory: TrackerFactory
+    config: Configurator,
+    recording_directory: Path,
+    tracker_factory: TrackerFactory,
+    output_suffix: str,
 ):
     frame_times = pd.read_csv(Path(recording_directory, "frame_time_history.csv"))
     sync_index_count = len(frame_times["sync_index"].unique())
@@ -55,7 +61,7 @@ def create_xy_points(
         destination_folder=recording_directory,
         include_video=True,
         show_points=True,
-        suffix="_xy",
+        suffix=output_suffix,
     )
     stream_pool.play_videos()
 
@@ -64,21 +70,24 @@ def create_xy_points(
         percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
         logger.info(f"{percent_complete}% processed")
 
-def triangulate_xy_data(xy_data:pd.DataFrame, camera_array:CameraArray)->Dict[str,List]:
 
+def triangulate_xy_data(
+    xy_data: pd.DataFrame, camera_array: CameraArray
+) -> Dict[str, List]:
     # assemble numba compatible dictionary
     projection_matrices = Dict()
     for port, cam in camera_array.cameras.items():
         projection_matrices[int(port)] = cam.projection_matrix
-    
-    xyz_history = {"sync_index": [],
-                   "point_id":[],
-                   "x_coord": [],
-                   "y_coord": [],
-                   "z_coord": [],}
-    
+
+    xyz_history = {
+        "sync_index": [],
+        "point_id": [],
+        "x_coord": [],
+        "y_coord": [],
+        "z_coord": [],
+    }
+
     for index in xy_data["sync_index"].unique():
-        
         active_index = xy_data["sync_index"] == index
         cameras = xy_data["port"][active_index].to_numpy()
         point_ids = xy_data["point_id"][active_index].to_numpy()
@@ -90,14 +99,14 @@ def triangulate_xy_data(xy_data:pd.DataFrame, camera_array:CameraArray)->Dict[st
             projection_matrices, cameras, point_ids, imgs_xy
         )
 
-        if len(point_id_xyz) > 0:        
+        if len(point_id_xyz) > 0:
             # there are points to store so store them...
-            xyz_history["sync_index"].extend([index]*len(point_id_xyz))
+            xyz_history["sync_index"].extend([index] * len(point_id_xyz))
             xyz_history["point_id"].extend(point_id_xyz)
 
             points_xyz = np.array(points_xyz)
-            xyz_history["x_coord"].extend(points_xyz[:,0].tolist())
-            xyz_history["y_coord"].extend(points_xyz[:,1].tolist())
-            xyz_history["z_coord"].extend(points_xyz[:,2].tolist())
+            xyz_history["x_coord"].extend(points_xyz[:, 0].tolist())
+            xyz_history["y_coord"].extend(points_xyz[:, 1].tolist())
+            xyz_history["z_coord"].extend(points_xyz[:, 2].tolist())
 
     return xyz_history

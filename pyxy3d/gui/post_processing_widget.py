@@ -49,30 +49,60 @@ class PostProcessingWidget(QWidget):
         self.config = config
         self.camera_array = self.config.get_camera_array()
 
-        # create list of recording directories
-        dir_list = [p.stem for p in self.config.session_path.iterdir() if p.is_dir()]
-        dir_list.remove("calibration")
+        self.update_recording_folders()
+        
+        
+        # select the first element of the QListWidget
+        if self.recording_folders.count() > 0:
+            self.recording_folders.setCurrentRow(0)        
 
-        # add each folder to the QListWidget
-        self.recording_folders = QListWidget()
-        for folder in dir_list:
-            self.recording_folders.addItem(folder)
-  
-        self.vizualizer_title = QLabel(self.get_viz_title_html())
+        self.vizualizer_title = QLabel(self.viz_title_html)
         self.visualizer = PlaybackTriangulationWidget(self.camera_array)
         self.process_btn = QPushButton("&Process")
         self.export_btn = QPushButton("&Export")
         
         self.place_widgets()
         self.connect_widgets()
-    
-    def get_viz_title_html(self):
-        if self.recording_folders.currentItem() is not None:
-            self.active_folder:str = self.recording_folders.currentItem().text()
+        self.set_xyz_history(self.recording_folders.currentItem)
+        
+    def update_recording_folders(self):
+        
+        if hasattr(self, "recording_folders"):
+            self.recording_folders.clear()
         else:
-            self.active_folder = "No folder selected"
+            self.recording_folders = QListWidget()
+            
+        # create list of recording directories
+        dir_list = [p.stem for p in self.config.session_path.iterdir() if p.is_dir()]
+        dir_list.remove("calibration")
 
-        title = f"<h1> {self.active_folder} </h1>"
+        # add each folder to the QListWidget
+        for folder in dir_list:
+            self.recording_folders.addItem(folder)
+
+    def contains_xyz(self, folder_name:str):
+        session_path = self.config.session_path
+        recording_folders = [self.recording_folders.item(i).text() for i in range(self.recording_folders.count())]
+        path = Path(session_path, folder_name, "xyz.csv")
+        return path.exists()
+
+    @property
+    def active_folder(self):
+        if self.recording_folders.currentItem() is not None:
+            active_folder:str = self.recording_folders.currentItem().text()
+        else:
+            active_folder = None
+        return active_folder
+
+    @property
+    def viz_title_html(self):
+        if self.contains_xyz(self.active_folder):
+            suffix = "(x,y,z) estimates"
+        else:
+            suffix = "No processed data"
+
+        title = f"<div align='center'><h2> {self.active_folder}: {suffix} </h2></div>"
+
         return title
 
     def place_widgets(self):
@@ -90,7 +120,7 @@ class PostProcessingWidget(QWidget):
 
         self.layout().addLayout(self.right_vbox, stretch =2)
         self.right_vbox.addWidget(self.vizualizer_title)
-        self.right_vbox.addWidget(self.visualizer)
+        self.right_vbox.addWidget(self.visualizer, stretch=2)
         
         
     def connect_widgets(self):
@@ -100,4 +130,17 @@ class PostProcessingWidget(QWidget):
     def set_xyz_history(self, item):
         
         # logger.info(f"Item {item.text()} selected and double-clicked.")
-        self.vizualizer_title.setText(self.get_viz_title_html())
+        self.vizualizer_title.setText(self.viz_title_html)
+        self.update_enabled_disabled()
+        
+    def update_enabled_disabled(self):
+        if self.contains_xyz(self.active_folder):
+            self.export_btn.setEnabled(True)
+            self.process_btn.setEnabled(False)
+            self.visualizer.slider.setEnabled(True)
+        else:
+            self.export_btn.setEnabled(False)
+            self.process_btn.setEnabled(True)
+            self.visualizer.slider.setEnabled(False)
+            
+            

@@ -75,7 +75,7 @@ class PostProcessingWidget(QWidget):
         self.refresh_visualizer(self.recording_folders.currentItem)
 
     def set_current_xyz(self):
-        if self.contains_xyz(self.active_folder):
+        if self.current_selection_processed():
             self.xyz = pd.read_csv(Path(self.config.session_path, self.active_folder, "xyz.csv"))
         else:
             self.xyz = None
@@ -97,11 +97,16 @@ class PostProcessingWidget(QWidget):
         for folder in dir_list:
             self.recording_folders.addItem(folder)
 
-    def contains_xyz(self, folder_name:str):
-        session_path = self.config.session_path
-        recording_folders = [self.recording_folders.item(i).text() for i in range(self.recording_folders.count())]
-        path = Path(session_path, folder_name, "xyz.csv")
-        return path.exists()
+    def current_selection_processed(self):
+        """"
+        checks to see if their is a file in the recording directory named `xyz_TRACKERNAME.csv`
+        """
+
+        recording_folder  = Path(self.config.session_path, self.recording_folders.currentItem().text())
+        xyz_output = f"xyz_{self.tracker_combo.currentData().name}"
+        target_path = Path(recording_folder,xyz_output)
+            
+        return target_path.exists()
 
     @property
     def active_folder(self):
@@ -113,7 +118,7 @@ class PostProcessingWidget(QWidget):
 
     @property
     def viz_title_html(self):
-        if self.contains_xyz(self.active_folder):
+        if self.current_selection_processed():
             suffix = "(x,y,z) estimates"
         else:
             suffix = "No processed data"
@@ -160,7 +165,7 @@ class PostProcessingWidget(QWidget):
     
         
     def update_enabled_disabled(self):
-        if self.contains_xyz(self.active_folder):
+        if self.current_selection_processed():
             self.export_btn.setEnabled(True)
             self.process_btn.setEnabled(False)
             self.vis_widget.slider.setEnabled(True)

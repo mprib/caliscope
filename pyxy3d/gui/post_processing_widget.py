@@ -35,6 +35,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from pyxy3d.post_processing_pipelines import create_xyz
 from pyxy3d.session import Session
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
@@ -61,7 +62,8 @@ class PostProcessingWidget(QWidget):
         
         # Add items to the combo box using the name attribute of the TrackerEnum
         for tracker in TrackerEnum:
-            self.tracker_combo.addItem(tracker.name, tracker)
+            if tracker.name != "CHARUCO":
+                self.tracker_combo.addItem(tracker.name, tracker)
 
         self.vizualizer_title = QLabel(self.viz_title_html)
         self.vis_widget = PlaybackTriangulationWidget(self.camera_array)
@@ -141,7 +143,13 @@ class PostProcessingWidget(QWidget):
         
     def connect_widgets(self):
         self.recording_folders.currentItemChanged.connect(self.refresh_visualizer)
-        
+        self.process_btn.clicked.connect(self.process_current)
+                
+    def process_current(self):
+        recording_path = Path(self.config.session_path, self.active_folder)
+        # logger.info(f"{self.tracker_combo.currentData()}")
+        tracker_enum = self.tracker_combo.currentData()
+        create_xyz(self.config.session_path,recording_path, tracker_enum=tracker_enum)
 
     def refresh_visualizer(self, item):
         

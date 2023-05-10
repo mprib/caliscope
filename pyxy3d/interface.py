@@ -47,7 +47,7 @@ class Tracker(ABC):
         pass
 
     @abstractmethod
-    def get_point_name(self) -> dict:
+    def get_point_names(self) -> dict:
         """
         Used for saving out data with sensible headers
         """
@@ -61,15 +61,24 @@ class Tracker(ABC):
         """
         pass
 
+
     @abstractmethod
     def draw_instructions(self, point_id:int) ->dict:
         pass
+    
+    
 
 class TrackerFactory(ABC):
     
     @abstractmethod
     def get_tracker(self) ->Tracker:
         pass
+
+    def get_unique_name(self)-> str:
+        """
+        returns a name that will be used for naming output files
+        associated with a given tracker
+        """
 
 class Stream(ABC):
     """

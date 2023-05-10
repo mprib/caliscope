@@ -98,8 +98,8 @@ class HandTracker(Tracker):
         
         return point_packet 
 
-    def get_point_name(self) -> dict:
-        return super().get_point_name()
+    def get_point_names(self) -> dict:
+        return super().get_point_names()
     
     def draw_instructions(self, point_id:int)->dict:
         if point_id < 100:
@@ -124,3 +124,7 @@ class HandTrackerFactory(TrackerFactory):
         from different streams into the same tracker and expect efficiency
         """
         return HandTracker()
+    
+    def get_unique_name(self) -> str:
+        return "hands"
+        

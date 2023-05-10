@@ -205,7 +205,7 @@ class HolisticTracker(Tracker):
 
         return point_packet
 
-    def get_point_name(self, point_id) -> str:
+    def get_point_names(self, point_id) -> str:
         if point_id < FACE_OFFSET:
             point_name = POINT_NAMES[point_id]
         else:
@@ -213,7 +213,7 @@ class HolisticTracker(Tracker):
         return point_name
 
     def draw_instructions(self, point_id: int) -> dict:
-        point_name = self.get_point_name(point_id)
+        point_name = self.get_point_names(point_id)
         if point_name in DRAW_IGNORE_LIST:
             rules = {"radius": 0, "color": (0, 0, 0), "thickness": 0}
         elif point_name.startswith("left"):
@@ -239,5 +239,8 @@ class HolisticTrackerFactory(TrackerFactory):
     def get_tracker(self) -> Tracker:
 
         return HolisticTracker()
+    
+    def get_unique_name(self) -> str:
+        return "holistic"
 
 

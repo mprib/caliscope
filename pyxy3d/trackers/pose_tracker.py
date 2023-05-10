@@ -105,13 +105,13 @@ class PoseTracker(Tracker):
 
         return point_packet
 
-    def get_point_name(self, point_id) -> str:
+    def get_point_names(self, point_id) -> str:
         return POINT_NAMES[point_id]
 
     def draw_instructions(self, point_id: int) -> dict:
-        if self.get_point_name(point_id).startswith("left"):
+        if self.get_point_names(point_id).startswith("left"):
             rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
-        elif self.get_point_name(point_id).startswith("right"):
+        elif self.get_point_names(point_id).startswith("right"):
             rules = {"radius": 5, "color": (220, 0, 0), "thickness": 3}
         else: 
             rules = {"radius": 5, "color": (220, 0, 220), "thickness": 3}
@@ -131,4 +131,5 @@ class PoseTrackerFactory(TrackerFactory):
         """
         return PoseTracker()
 
-
+    def get_unique_name(self) -> str:
+        return "pose"

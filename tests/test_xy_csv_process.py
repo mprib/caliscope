@@ -29,7 +29,7 @@ import pandas as pd
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
 from pyxy3d.post_processing_pipelines import create_xy
-from pyxy3d.trackers.tracker_enum import Tracker
+from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 
 def test_xy_point_creation():
@@ -44,7 +44,7 @@ def test_xy_point_creation():
     config = Configurator(copy_session_path)
 
     recording_directory = Path(copy_session_path, "recording_1")
-    tracker_enum = Tracker.HAND
+    tracker_enum = TrackerEnum.HAND
     create_xy(config, recording_directory,tracker_enum=tracker_enum)
 
     # make some basic assertions against the created files

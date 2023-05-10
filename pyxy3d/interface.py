@@ -41,7 +41,7 @@ class PointPacket:
 
         return [obj_loc_x,obj_loc_y]
 
-class Tracker(ABC):
+class TrackerEnum(ABC):
     @abstractmethod
     def get_points(self, frame: np.ndarray) -> PointPacket:
         pass

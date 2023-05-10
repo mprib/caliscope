@@ -16,7 +16,7 @@ from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
 )
-from pyxy3d.trackers.tracker_enum import Tracker as trackers
+from pyxy3d.trackers.tracker_enum import TrackerEnum as trackers
 
 # session_path = Path(__root__, "dev", "sample_sessions", "293")
 # recording_path = Path(session_path, "recording_1")

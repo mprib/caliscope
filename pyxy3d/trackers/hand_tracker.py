@@ -15,11 +15,11 @@ import mediapipe as mp
 import numpy as np
 import cv2
 # cap = cv2.VideoCapture(0)
-from pyxy3d.interface import Tracker, PointPacket
+from pyxy3d.interface import TrackerEnum, PointPacket
 
 
 
-class HandTracker(Tracker):
+class HandTracker(TrackerEnum):
     # Initialize MediaPipe Hands and Drawing utility
     def __init__(self) -> None:
         

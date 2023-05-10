@@ -15,7 +15,7 @@ from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_arra
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.configurator import Configurator
 from pyxy3d.helper import copy_contents
-from pyxy3d.trackers.tracker_enum import Tracker
+from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 # TEST_SESSIONS = ["mediapipe_calibration"]
 
@@ -50,7 +50,7 @@ def test_hand_tracker():
     stream_pool = RecordedStreamPool(
         recording_directory,
         config=config,
-        tracker=Tracker.HAND,
+        tracker=TrackerEnum.HAND.value(),
         fps_target=100,
     )
     logger.info("Creating Synchronizer")

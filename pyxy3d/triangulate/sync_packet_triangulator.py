@@ -11,8 +11,8 @@ from pyxy3d.cameras.synchronizer import Synchronizer, SyncPacket
 from queue import Queue
 from threading import Thread, Event
 from pathlib import Path
-from pyxy3d.interface import XYZPacket, Tracker
-from pyxy3d.trackers.tracker_enum import Tracker
+from pyxy3d.interface import XYZPacket, TrackerEnum
+from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 class SyncPacketTriangulator:
     """
@@ -25,7 +25,7 @@ class SyncPacketTriangulator:
         camera_array: CameraArray,
         synchronizer: Synchronizer,
         output_directory: Path = None,
-        tracker_enum:Tracker = None
+        tracker_enum:TrackerEnum = None
     ):
         self.camera_array = camera_array
         self.synchronizer = synchronizer
@@ -133,7 +133,7 @@ class SyncPacketTriangulator:
 
 
 def save_history(
-    xyz_history: Dict[str, List], output_directory: Path, tracker_enum: Tracker = None
+    xyz_history: Dict[str, List], output_directory: Path, tracker_enum: TrackerEnum = None
 ):
     df_xyz: pd.DataFrame = pd.DataFrame(xyz_history)
     df_xyz.to_csv(Path(output_directory, "xyz.csv"))

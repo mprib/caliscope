@@ -27,13 +27,13 @@ from pyxy3d.session import Session
 from pyxy3d.trackers.charuco_tracker import Charuco, CharucoTracker
 from pyxy3d.trackers.hand_tracker import HandTracker
 from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from pyxy3d.trackers.tracker_enum import Tracker
+from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 app = QApplication(sys.argv)
 session_path = Path(__root__,"dev", "sample_sessions", "low_res")
 
 session = Session(session_path)
-tracker = Tracker.HAND
+tracker = TrackerEnum.HAND
 
 session.load_streams(tracker=tracker) 
 session.adjust_resolutions()

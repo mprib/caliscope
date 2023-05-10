@@ -22,8 +22,8 @@ from pyxy3d.triangulate.sync_packet_triangulator import (
     SyncPacketTriangulator,
     triangulate_sync_index,
 )
-from pyxy3d.interface import FramePacket, Tracker
-from pyxy3d.trackers.tracker_enum import Tracker
+from pyxy3d.interface import FramePacket, TrackerEnum
+from pyxy3d.trackers.tracker_enum import TrackerEnum
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
 
@@ -31,7 +31,7 @@ from pyxy3d.helper import copy_contents
 def create_xy(
     config: Configurator,
     recording_path: Path,
-    tracker_enum: Tracker,
+    tracker_enum: TrackerEnum,
 ):
     frame_times = pd.read_csv(Path(recording_path, "frame_time_history.csv"))
     sync_index_count = len(frame_times["sync_index"].unique())
@@ -42,7 +42,7 @@ def create_xy(
         directory=recording_path,
         config=config,
         fps_target=100,
-        tracker=tracker_enum,
+        tracker=tracker_enum.value()
     )
 
     synchronizer = Synchronizer(stream_pool.streams, fps_target=100)
@@ -102,7 +102,7 @@ def triangulate_xy_data(
 
 
 
-def create_xyz(session_path:Path, recording_path:Path, tracker_enum:Tracker)->None:
+def create_xyz(session_path:Path, recording_path:Path, tracker_enum:TrackerEnum)->None:
     """
     creates xyz_{tracker name}.csv file within the recording_path directory
     """

@@ -9,7 +9,7 @@ import numpy as np
 import cv2
 
 # cap = cv2.VideoCapture(0)
-from pyxy3d.interface import Tracker, PointPacket
+from pyxy3d.interface import TrackerEnum, PointPacket
 
 DRAW_IGNORE_LIST = [
     "nose",
@@ -117,7 +117,7 @@ RIGHT_HAND_OFFSET = 100
 LEFT_HAND_OFFSET = 200
 FACE_OFFSET = 500
 
-class HolisticTracker(Tracker):
+class HolisticTracker(TrackerEnum):
     def __init__(self) -> None:
         self.in_queue = Queue(-1)
         self.out_queue = Queue(-1)

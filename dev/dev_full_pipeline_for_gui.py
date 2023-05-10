@@ -7,7 +7,7 @@ from pyxy3d.configurator import Configurator
 from pathlib import Path
 from pyxy3d import __root__
 import pandas as pd
-from pyxy3d.trackers.tracker_enum import Tracker as trackers
+from pyxy3d.trackers.tracker_enum import TrackerEnum as trackers
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
 from pyxy3d.post_processing_pipelines import create_xyz

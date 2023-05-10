@@ -21,8 +21,8 @@ from time import perf_counter, sleep
 import pandas as pd
 import numpy as np
 
-from pyxy3d.interface import FramePacket, Tracker, Stream
-from pyxy3d.trackers.tracker_enum import Tracker
+from pyxy3d.interface import FramePacket, TrackerEnum, Stream
+from pyxy3d.trackers.tracker_enum import TrackerEnum
 from pyxy3d.cameras.live_stream import Stream
 from pyxy3d.cameras.camera_array import CameraData
 from pyxy3d.configurator import Configurator
@@ -36,7 +36,7 @@ class RecordedStream(Stream):
     """
 
     def __init__(
-        self, camera: CameraData, directory: Path, fps_target:int=6, tracker: Tracker = None
+        self, camera: CameraData, directory: Path, fps_target:int=6, tracker: TrackerEnum = None
     ):
         # self.port = port
         self.directory = directory
@@ -205,7 +205,7 @@ class RecordedStreamPool:
         directory: Path,
         config: Configurator,
         fps_target=6,
-        tracker: Tracker = None,
+        tracker: TrackerEnum = None,
     ):
         self.streams = {}
         self.camera_array = config.get_camera_array()

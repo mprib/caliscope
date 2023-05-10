@@ -9,7 +9,7 @@ import numpy as np
 import cv2
 
 # cap = cv2.VideoCapture(0)
-from pyxy3d.interface import Tracker, PointPacket
+from pyxy3d.interface import TrackerEnum, PointPacket
 
 POINT_NAMES = {
     0: "nose",
@@ -48,7 +48,7 @@ POINT_NAMES = {
 }
 
 
-class PoseTracker(Tracker):
+class PoseTracker(TrackerEnum):
     def __init__(self) -> None:
         self.in_queue = Queue(-1)
         self.out_queue = Queue(-1)

@@ -30,35 +30,28 @@ from pyxy3d.interface import FramePacket, TrackerFactory
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
 
-# session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration_2_cam")
-# copy_session_path = Path(
-#     __root__, "tests", "sessions_copy_delete", "mediapipe_calibration_2_cam"
-# )
-# copy_contents(session_path, copy_session_path)
 
-
-# config = Configurator(copy_session_path)
-
-
-def create_xy_points(
+def create_xy(
     config: Configurator,
-    recording_directory: Path,
+    recording_path: Path,
     tracker_factory: TrackerFactory,
-    output_suffix: str,
 ):
-    frame_times = pd.read_csv(Path(recording_directory, "frame_time_history.csv"))
+    frame_times = pd.read_csv(Path(recording_path, "frame_time_history.csv"))
     sync_index_count = len(frame_times["sync_index"].unique())
 
+    output_suffix = tracker_factory.get_unique_name()
+    
     stream_pool = RecordedStreamPool(
-        directory=recording_directory,
+        directory=recording_path,
         config=config,
         fps_target=100,
         tracker_factory=tracker_factory,
     )
+
     synchronizer = Synchronizer(stream_pool.streams, fps_target=100)
     video_recorder = VideoRecorder(synchronizer, suffix=output_suffix)
     video_recorder.start_recording(
-        destination_folder=recording_directory,
+        destination_folder=recording_path,
         include_video=True,
         show_points=True,
     )
@@ -109,3 +102,28 @@ def triangulate_xy_data(
             xyz_history["z_coord"].extend(points_xyz[:, 2].tolist())
 
     return xyz_history
+
+
+
+def create_xyz(session_path:Path, recording_path:Path, tracker_factory:TrackerFactory)->None:
+    """
+    creates xyz_{tracker name}.csv file within the recording_path directory
+    """
+    config = Configurator(session_path)
+    
+    output_suffix = tracker_factory.get_unique_name()
+    
+    # locate xy_{tracker name}.csv
+    xy_csv_path = Path(recording_path, f"xy_{output_suffix}.csv")
+   
+    # create if it doesn't already exist 
+    if not xy_csv_path.exists():
+       create_xy(config, recording_path, tracker_factory)
+    
+    # load in 2d data and triangulate it 
+    xy_data = pd.read_csv(xy_csv_path)
+    xyz_history = triangulate_xy_data(xy_data, config.get_camera_array())
+    xyz_data = pd.DataFrame(xyz_history)
+    xyz_data.to_csv(Path(recording_path, f"xyz_{output_suffix}.csv"))
+    
+    

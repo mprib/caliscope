@@ -29,7 +29,7 @@ from pyxy3d.trackers.hand_tracker import HandTrackerFactory
 
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
-from pyxy3d.post_processing_pipelines import create_xy_points
+from pyxy3d.post_processing_pipelines import create_xy
 
 
 def test_xy_point_creation():
@@ -48,7 +48,7 @@ def test_xy_point_creation():
 
 
 
-    create_xy_points(config, recording_directory, tracker_factory, output_suffix=output_suffix)
+    create_xy(config, recording_directory, tracker_factory, output_suffix=output_suffix)
 
     # make some basic assertions against the created files
     produced_files = [

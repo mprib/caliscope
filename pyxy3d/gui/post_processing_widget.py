@@ -9,6 +9,7 @@ from threading import Thread, Event
 import numpy as np
 from queue import Queue
 import pandas as pd
+from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 import cv2
 from PyQt6.QtCore import Qt, pyqtSignal, QThread
@@ -54,7 +55,13 @@ class PostProcessingWidget(QWidget):
 
         # select the first element of the QListWidget
         if self.recording_folders.count() > 0:
-            self.recording_folders.setCurrentRow(0)        
+            self.recording_folders.setCurrentRow(0)
+        
+        self.tracker_combo= QComboBox()
+        
+        # Add items to the combo box using the name attribute of the TrackerEnum
+        for tracker in TrackerEnum:
+            self.tracker_combo.addItem(tracker.name, tracker)
 
         self.vizualizer_title = QLabel(self.viz_title_html)
         self.vis_widget = PlaybackTriangulationWidget(self.camera_array)
@@ -122,6 +129,7 @@ class PostProcessingWidget(QWidget):
         self.layout().addLayout(self.left_vbox)
         
         self.left_vbox.addWidget(self.recording_folders)
+        self.left_vbox.addWidget(self.tracker_combo)
         self.button_hbox.addWidget(self.process_btn)
         self.button_hbox.addWidget(self.export_btn)
         self.left_vbox.addLayout(self.button_hbox)

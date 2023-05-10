@@ -9,7 +9,7 @@ import numpy as np
 import cv2
 
 # cap = cv2.VideoCapture(0)
-from pyxy3d.interface import Tracker, TrackerFactory, PointPacket
+from pyxy3d.interface import Tracker, PointPacket
 
 DRAW_IGNORE_LIST = [
     "nose",
@@ -224,23 +224,4 @@ class HolisticTracker(Tracker):
             rules = {"radius": 1, "color": (220, 0, 220), "thickness": 1}
 
         return rules
-
-
-class HolisticTrackerFactory(TrackerFactory):
-    """
-    Included to provide the flexibility to create distinct trackers in case
-    that is helpful for multiprocessing. I realize now that it may be 
-    better to just have a set of parameters that a single tracker could
-    take that could then be used for managing multiple processes internally
-    """
-    def __init__(self):
-        pass
-
-    def get_tracker(self) -> Tracker:
-
-        return HolisticTracker()
-    
-    def get_unique_name(self) -> str:
-        return "holistic"
-
 

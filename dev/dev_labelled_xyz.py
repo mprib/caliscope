@@ -2,7 +2,7 @@
 
 #%%
 
-from pyxy3d.trackers.holistic_tracker import HolisticTracker, HolisticTrackerFactory
+from pyxy3d.trackers.holistic_tracker import HolisticTracker
 from pathlib import Path
 from pyxy3d import __root__
 import pandas as pd

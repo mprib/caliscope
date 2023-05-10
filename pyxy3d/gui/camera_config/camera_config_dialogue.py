@@ -470,16 +470,16 @@ if __name__ == "__main__":
     App = QApplication(sys.argv)
     from pyxy3d import __root__
     from pyxy3d.configurator import Configurator
-    from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory
+    from pyxy3d.trackers.charuco_tracker import CharucoTracker
 
     config_path = Path(__root__, "dev", "sample_sessions", "257")
 
     print(config_path)
     configurator = Configurator(config_path)
     session = Session(configurator)
-    tracker_factory = CharucoTrackerFactory(session.charuco)
+    tracker = CharucoTracker(session.charuco)
     # # session.load_cameras()
-    session.load_streams(tracker_factory=tracker_factory)
+    session.load_streams(tracker=tracker)
     session.adjust_resolutions()
     session.load_monocalibrators()
 

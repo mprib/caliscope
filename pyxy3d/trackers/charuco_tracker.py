@@ -10,7 +10,7 @@ import numpy as np
 
 import pyxy3d.calibration.draw_charuco
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.interface import PointPacket, Tracker, TrackerFactory
+from pyxy3d.interface import PointPacket, Tracker
 
 class CharucoTracker(Tracker):
     def __init__(self, charuco):
@@ -113,18 +113,6 @@ class CharucoTracker(Tracker):
                  "thickness":3}
         return rules
 
-class CharucoTrackerFactory(TrackerFactory):
-    
-    def __init__(self, charuco:Charuco):
-        self.charuco_tracker = CharucoTracker(charuco)
-   
-   
-    def get_tracker(self) -> Tracker:
-        return self.charuco_tracker
-    
-    def get_unique_name(self) -> str:
-        return "charuco"
-    
      
 if __name__ == "__main__":
 

@@ -15,12 +15,13 @@ from itertools import combinations
 from time import sleep
 
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory
+from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
-from pyxy3d.interface import Tracker, TrackerFactory
+from pyxy3d.interface import Tracker
+from pyxy3d.trackers.tracker_enum import Tracker
 
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 from pyxy3d.calibration.capture_volume.point_estimates import (
@@ -135,17 +136,13 @@ class Session:
 
         # self.update_config()
 
-    def load_streams(self, tracker_factory:TrackerFactory = None):
+    def load_streams(self, tracker:Tracker = None):
         """
         Connects to stored cameras and creates streams with provided tracking
         """
 
         # don't bother loading cameras until you load the streams
         self.cameras = self.config.get_cameras()
-        if tracker_factory is None:
-            tracker = None
-        else:
-            tracker = tracker_factory.get_tracker()
 
         for port, cam in self.cameras.items():
             if port in self.streams.keys():

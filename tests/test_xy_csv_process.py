@@ -25,11 +25,11 @@ from pyxy3d.configurator import Configurator
 from pathlib import Path
 from pyxy3d import __root__
 import pandas as pd
-from pyxy3d.trackers.hand_tracker import HandTrackerFactory
 
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
 from pyxy3d.post_processing_pipelines import create_xy
+from pyxy3d.trackers.tracker_enum import Tracker
 
 
 def test_xy_point_creation():
@@ -42,19 +42,16 @@ def test_xy_point_creation():
 
     # create inputs to processing pipeline function
     config = Configurator(copy_session_path)
-    tracker_factory = HandTrackerFactory()
-    output_suffix = "hands"
+
     recording_directory = Path(copy_session_path, "recording_1")
-
-
-
-    create_xy(config, recording_directory, tracker_factory, output_suffix=output_suffix)
+    tracker_enum = Tracker.HAND
+    create_xy(config, recording_directory,tracker_enum=tracker_enum)
 
     # make some basic assertions against the created files
     produced_files = [
-        Path(recording_directory, "xy_hands.csv"),
-        Path(recording_directory, "port_0_hands.mp4"),
-        Path(recording_directory, "port_1_hands.mp4"),
+        Path(recording_directory, "xy_HAND.csv"),
+        Path(recording_directory, "port_0_HAND.mp4"),
+        Path(recording_directory, "port_1_HAND.mp4"),
     ]
 
     for file in produced_files:
@@ -62,7 +59,7 @@ def test_xy_point_creation():
         assert file.exists()
 
     # confirm that xy data is produced for the sync indices (slightly reduced to avoid missing data issues)
-    xy_data = pd.read_csv(Path(recording_directory, f"xy_{output_suffix}.csv"))
+    xy_data = pd.read_csv(Path(recording_directory, f"xy_{tracker_enum.name}.csv"))
     xy_sync_index_count = xy_data["sync_index"].max() + 1  # zero indexed
 
     frame_times = pd.read_csv(Path(recording_directory, "frame_time_history.csv"))

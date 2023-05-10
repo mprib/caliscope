@@ -15,7 +15,7 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
 )
 import pytest
 from pyxy3d.calibration.charuco import Charuco, get_charuco
-from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory
+from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
@@ -89,7 +89,7 @@ def test_post_monocalibration(session_path):
     # config_path = str(Path(session_path, "config.toml"))
     logger.info(f"Getting charuco from config at {config.toml_path}")
     charuco = config.get_charuco()
-    charuco_tracker_factory = CharucoTrackerFactory(charuco)
+    charuco_tracker = CharucoTracker(charuco)
 
     # create a synchronizer based off of these stream pools
     logger.info(f"Creating RecordedStreamPool")
@@ -101,7 +101,7 @@ def test_post_monocalibration(session_path):
         recording_path,
         config=config,
         fps_target=100,
-        tracker_factory=charuco_tracker_factory,
+        tracker=charuco_tracker
     )
     
     logger.info("Creating Synchronizer")

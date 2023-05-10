@@ -237,7 +237,7 @@ def cv2_to_qlabel(frame):
     
 if __name__ == "__main__":
         from pyxy3d.configurator import Configurator
-        from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory
+        from pyxy3d.trackers.charuco_tracker import CharucoTracker
 
         App = QApplication(sys.argv)
 
@@ -246,8 +246,8 @@ if __name__ == "__main__":
 
         session = Session(configurator)
         # session.load_cameras()
-        tracker_factory = CharucoTrackerFactory(session.charuco)
-        session.load_streams(tracker_factory)
+        tracker = CharucoTracker(session.charuco)
+        session.load_streams(tracker=tracker)
         session.adjust_resolutions()
 
 

@@ -14,9 +14,6 @@ import numpy as np
 from numba.typed import Dict, List
 from pyxy3d import __root__
 import pandas as pd
-from pyxy3d.trackers.holistic_tracker import HolisticTrackerFactory
-from pyxy3d.trackers.hand_tracker import HandTrackerFactory
-from pyxy3d.trackers.pose_tracker import PoseTracker
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
 from pyxy3d.cameras.synchronizer import Synchronizer
@@ -25,8 +22,8 @@ from pyxy3d.triangulate.sync_packet_triangulator import (
     SyncPacketTriangulator,
     triangulate_sync_index,
 )
-from pyxy3d.interface import FramePacket, TrackerFactory
-
+from pyxy3d.interface import FramePacket, Tracker
+from pyxy3d.trackers.tracker_enum import Tracker
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
 
@@ -34,18 +31,18 @@ from pyxy3d.helper import copy_contents
 def create_xy(
     config: Configurator,
     recording_path: Path,
-    tracker_factory: TrackerFactory,
+    tracker_enum: Tracker,
 ):
     frame_times = pd.read_csv(Path(recording_path, "frame_time_history.csv"))
     sync_index_count = len(frame_times["sync_index"].unique())
 
-    output_suffix = tracker_factory.get_unique_name()
+    output_suffix = tracker_enum.name
     
     stream_pool = RecordedStreamPool(
         directory=recording_path,
         config=config,
         fps_target=100,
-        tracker_factory=tracker_factory,
+        tracker=tracker_enum,
     )
 
     synchronizer = Synchronizer(stream_pool.streams, fps_target=100)
@@ -105,20 +102,20 @@ def triangulate_xy_data(
 
 
 
-def create_xyz(session_path:Path, recording_path:Path, tracker_factory:TrackerFactory)->None:
+def create_xyz(session_path:Path, recording_path:Path, tracker_enum:Tracker)->None:
     """
     creates xyz_{tracker name}.csv file within the recording_path directory
     """
     config = Configurator(session_path)
     
-    output_suffix = tracker_factory.get_unique_name()
+    output_suffix = tracker_enum.name
     
     # locate xy_{tracker name}.csv
     xy_csv_path = Path(recording_path, f"xy_{output_suffix}.csv")
    
     # create if it doesn't already exist 
     if not xy_csv_path.exists():
-       create_xy(config, recording_path, tracker_factory)
+       create_xy(config, recording_path, tracker_enum)
     
     # load in 2d data and triangulate it 
     xy_data = pd.read_csv(xy_csv_path)

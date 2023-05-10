@@ -26,7 +26,7 @@ from pyxy3d.gui.camera_config.camera_tabs import CameraWizard
 from pyxy3d.gui.wizard_directory import WizardDirectory
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.session import Stage
-from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory
+from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.stereoframe.stereo_frame_widget import (
     StereoFrameWidget,
@@ -99,9 +99,9 @@ class CalibrationWidget(QStackedWidget):
             active_port = self.camera_config.camera_tabs.currentIndex()
             self.camera_config.camera_tabs.toggle_tracking(active_port)
             logger.info("updating charuco in case necessary")
-            charuco_tracker_factory = CharucoTrackerFactory(self.session.charuco)
+            charuco_tracker = CharucoTracker(self.session.charuco)
             for port, stream in self.session.streams.items():
-                stream.update_tracker(charuco_tracker_factory.get_tracker())
+                stream.update_tracker(charuco_tracker)
         else:
             logger.info("Initiating Camera Connection")
             self.initiate_camera_connection()
@@ -123,7 +123,7 @@ class CalibrationWidget(QStackedWidget):
                     logger.info("Camera connect worker about to load stream tools")
 
                     self.session.load_streams(
-                        tracker_factory=CharucoTrackerFactory(self.session.charuco)
+                        tracker=CharucoTracker(self.session.charuco)
                     )
                 else:
                     logger.info(

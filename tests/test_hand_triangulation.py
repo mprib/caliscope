@@ -7,7 +7,7 @@ import shutil
 import cv2
 from pathlib import Path
 import time
-from pyxy3d.trackers.hand_tracker import HandTracker, HandTrackerFactory
+from pyxy3d.trackers.hand_tracker import HandTracker
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
 from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
@@ -15,6 +15,7 @@ from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_arra
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.configurator import Configurator
 from pyxy3d.helper import copy_contents
+from pyxy3d.trackers.tracker_enum import Tracker
 
 # TEST_SESSIONS = ["mediapipe_calibration"]
 
@@ -42,7 +43,6 @@ def test_hand_tracker():
     copy_contents(original_session_path, session_path)
 
     config = Configurator(session_path)
-    hand_tracker_factory = HandTrackerFactory()
 
     logger.info(f"Creating RecordedStreamPool")
     recording_directory = Path(session_path, "calibration", "extrinsic")
@@ -50,7 +50,7 @@ def test_hand_tracker():
     stream_pool = RecordedStreamPool(
         recording_directory,
         config=config,
-        tracker_factory=hand_tracker_factory,
+        tracker=Tracker.HAND,
         fps_target=100,
     )
     logger.info("Creating Synchronizer")

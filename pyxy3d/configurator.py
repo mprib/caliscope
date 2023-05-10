@@ -14,7 +14,8 @@ from dataclasses import asdict
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.live_stream import LiveStream
-from pyxy3d.interface import Tracker, TrackerFactory
+from pyxy3d.interface import Tracker
+from pyxy3d.trackers.tracker_enum import Tracker
 from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates, load_point_estimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
@@ -248,12 +249,12 @@ class Configurator:
         self.update_toml()
 
 
-    def get_live_stream_pool(self, tracker_factor:TrackerFactory = None):
+    def get_live_stream_pool(self, tracker_enum:Tracker = None):
         streams = {}
         cameras = self.get_cameras()
 
-        if tracker_factor is not None:  
-            tracker = tracker_factor.get_tracker()
+        if tracker_enum is not None:  
+            tracker = tracker_enum.value()
         else:
             tracker = None
 

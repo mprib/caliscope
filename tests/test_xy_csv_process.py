@@ -49,9 +49,9 @@ def test_xy_point_creation():
 
     # make some basic assertions against the created files
     produced_files = [
-        Path(recording_directory, "xy_HAND.csv"),
-        Path(recording_directory, "port_0_HAND.mp4"),
-        Path(recording_directory, "port_1_HAND.mp4"),
+        Path(recording_directory,"HAND", "xy_HAND.csv"),
+        Path(recording_directory,"HAND", "port_0_HAND.mp4"),
+        Path(recording_directory,"HAND", "port_1_HAND.mp4"),
     ]
 
     for file in produced_files:
@@ -59,7 +59,7 @@ def test_xy_point_creation():
         assert file.exists()
 
     # confirm that xy data is produced for the sync indices (slightly reduced to avoid missing data issues)
-    xy_data = pd.read_csv(Path(recording_directory, f"xy_{tracker_enum.name}.csv"))
+    xy_data = pd.read_csv(Path(recording_directory,"HAND", f"xy_{tracker_enum.name}.csv"))
     xy_sync_index_count = xy_data["sync_index"].max() + 1  # zero indexed
 
     frame_times = pd.read_csv(Path(recording_directory, "frame_time_history.csv"))

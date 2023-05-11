@@ -22,7 +22,7 @@ from pyxy3d.triangulate.sync_packet_triangulator import (
     SyncPacketTriangulator,
     triangulate_sync_index,
 )
-from pyxy3d.interface import FramePacket, TrackerEnum
+from pyxy3d.interface import FramePacket, Tracker
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents

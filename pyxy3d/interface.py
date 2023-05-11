@@ -41,13 +41,21 @@ class PointPacket:
 
         return [obj_loc_x,obj_loc_y]
 
-class TrackerEnum(ABC):
+class Tracker(ABC):
     @abstractmethod
     def get_points(self, frame: np.ndarray) -> PointPacket:
         pass
 
+    @property
+    def name(self)->str:
+        """
+        returns the tracker name in the same format as used by TrackerEnum
+        Used for file naming creation
+        """
+        pass
+        
     @abstractmethod
-    def get_point_names(self) -> dict:
+    def get_point_name(self, point_id:int) -> str:
         """
         Used for saving out data with sensible headers
         """
@@ -67,7 +75,7 @@ class TrackerEnum(ABC):
         pass
     
     
-
+    
 
 class Stream(ABC):
     """

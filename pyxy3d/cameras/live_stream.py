@@ -15,14 +15,14 @@ import numpy as np
 from abc import ABC, abstractmethod
 
 from pyxy3d.cameras.camera import Camera
-from pyxy3d.interface import FramePacket, Stream, TrackerEnum
+from pyxy3d.interface import FramePacket, Stream, Tracker
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 import pyxy3d.calibration.draw_charuco as draw_charuco
 
 
 class LiveStream(Stream):
-    def __init__(self, camera: Camera, fps_target: int = 6, tracker: TrackerEnum = None):
+    def __init__(self, camera: Camera, fps_target: int = 6, tracker: Tracker = None):
         self.camera: Camera = camera
         self.port = camera.port
         self.track_points = Event()
@@ -107,7 +107,7 @@ class LiveStream(Stream):
         logger.info(f"Setting fps to {self.fps}")
         self.milestones = np.array(milestones)
 
-    def update_tracker(self, tracker: TrackerEnum):
+    def update_tracker(self, tracker: Tracker):
         self.tracker = tracker
 
     def wait_to_next_frame(self):

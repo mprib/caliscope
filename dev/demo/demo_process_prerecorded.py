@@ -16,7 +16,7 @@ from pyxy3d.session import Session
 from pyxy3d.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
 )
-from pyxy3d.trackers.tracker_enum import TrackerEnum as trackers
+from pyxy3d.trackers.tracker_enum import TrackerEnum 
 
 # session_path = Path(__root__, "dev", "sample_sessions", "293")
 # recording_path = Path(session_path, "recording_1")
@@ -28,9 +28,11 @@ recording_path = Path(session_path, "recording_1")
 config = Configurator(session_path)
 camera_array: CameraArray = config.get_camera_array()
 
+tracker = TrackerEnum.HAND.value()
+
 logger.info(f"Creating RecordedStreamPool")
 stream_pool = RecordedStreamPool(
-    recording_path, config=config, tracker=trackers.HAND, fps_target=12
+    recording_path, config=config, tracker=tracker, fps_target=100
 )
 logger.info("Creating Synchronizer")
 syncr = Synchronizer(stream_pool.streams, fps_target=100)
@@ -41,9 +43,9 @@ syncr = Synchronizer(stream_pool.streams, fps_target=100)
 real_time_triangulator = SyncPacketTriangulator(
     camera_array,
     syncr,
-    output_directory=recording_path,
-    tracker_enum=tracker_factory.get_tracker(),
-)
+    recording_directory=recording_path,
+    tracker = tracker)
+
 stream_pool.play_videos()
 while real_time_triangulator.running:
     sleep(1)
@@ -54,7 +56,7 @@ session = Session(config)
 
 app = QApplication(sys.argv)
 
-xyz_history_path = Path(recording_path, "xyz.csv")
+xyz_history_path = Path(recording_path,tracker.name,  f"xyz_{tracker.name}.csv")
 vizr_dialog = PlaybackTriangulationWidget(camera_array, xyz_history_path)
 vizr_dialog.show()
 

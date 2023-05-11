@@ -15,11 +15,11 @@ import mediapipe as mp
 import numpy as np
 import cv2
 # cap = cv2.VideoCapture(0)
-from pyxy3d.interface import TrackerEnum, PointPacket
+from pyxy3d.interface import Tracker, PointPacket
 
 
 
-class HandTracker(TrackerEnum):
+class HandTracker(Tracker):
     # Initialize MediaPipe Hands and Drawing utility
     def __init__(self) -> None:
         
@@ -31,7 +31,10 @@ class HandTracker(TrackerEnum):
         
         self.thread = Thread(target=self.run, args=[],daemon=True)
         self.thread.start()
-        
+    @property
+    def name(self):
+        return "HAND"
+     
     def run(self):
         # Create a MediaPipe Hands instance
         with  mp.solutions.hands.Hands(
@@ -98,8 +101,8 @@ class HandTracker(TrackerEnum):
         
         return point_packet 
 
-    def get_point_names(self) -> dict:
-        return super().get_point_names()
+    def get_point_name(self, point_id: int) -> str:
+        return str(point_id)
     
     def draw_instructions(self, point_id:int)->dict:
         if point_id < 100:

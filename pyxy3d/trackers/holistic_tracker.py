@@ -9,7 +9,7 @@ import numpy as np
 import cv2
 
 # cap = cv2.VideoCapture(0)
-from pyxy3d.interface import TrackerEnum, PointPacket
+from pyxy3d.interface import Tracker, PointPacket
 
 DRAW_IGNORE_LIST = [
     "nose",
@@ -117,7 +117,7 @@ RIGHT_HAND_OFFSET = 100
 LEFT_HAND_OFFSET = 200
 FACE_OFFSET = 500
 
-class HolisticTracker(TrackerEnum):
+class HolisticTracker(Tracker):
     def __init__(self) -> None:
         self.in_queue = Queue(-1)
         self.out_queue = Queue(-1)
@@ -205,7 +205,7 @@ class HolisticTracker(TrackerEnum):
 
         return point_packet
 
-    def get_point_names(self, point_id) -> str:
+    def get_point_name(self, point_id) -> str:
         if point_id < FACE_OFFSET:
             point_name = POINT_NAMES[point_id]
         else:
@@ -213,7 +213,7 @@ class HolisticTracker(TrackerEnum):
         return point_name
 
     def draw_instructions(self, point_id: int) -> dict:
-        point_name = self.get_point_names(point_id)
+        point_name = self.get_point_name(point_id)
         if point_name in DRAW_IGNORE_LIST:
             rules = {"radius": 0, "color": (0, 0, 0), "thickness": 0}
         elif point_name.startswith("left"):

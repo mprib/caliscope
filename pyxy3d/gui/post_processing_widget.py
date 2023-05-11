@@ -200,6 +200,12 @@ class PostProcessingWidget(QWidget):
             self.export_btn.setEnabled(True)
             self.process_current_btn.setEnabled(False)
             self.vis_widget.slider.setEnabled(True)
+            
+            #update slider value to stored value if it exists
+            if self.processed_xyz_path in self.sync_index_cursors.keys():
+                self.vis_widget.slider.setValue(self.sync_index_cursors[self.processed_xyz_path])
+            else:
+                self.vis_widget.slider.setValue(0)
         else:
             self.export_btn.setEnabled(False)
             self.process_current_btn.setEnabled(True)

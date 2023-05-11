@@ -47,8 +47,11 @@ def create_xy(
 
     synchronizer = Synchronizer(stream_pool.streams, fps_target=100)
     video_recorder = VideoRecorder(synchronizer, suffix=output_suffix)
+    
+    # store video files in a subfolder named by the tracker_enum.name    
+    destination_folder = Path(recording_path, tracker_enum.name)
     video_recorder.start_recording(
-        destination_folder=recording_path,
+        destination_folder=destination_folder,
         include_video=True,
         show_points=True,
     )
@@ -109,9 +112,11 @@ def create_xyz(session_path:Path, recording_path:Path, tracker_enum:TrackerEnum)
     config = Configurator(session_path)
     
     output_suffix = tracker_enum.name
+     
     
+    tracker_output_path = Path(recording_path, tracker_enum.name)
     # locate xy_{tracker name}.csv
-    xy_csv_path = Path(recording_path, f"xy_{output_suffix}.csv")
+    xy_csv_path = Path(tracker_output_path, f"xy_{output_suffix}.csv")
    
     # create if it doesn't already exist 
     if not xy_csv_path.exists():
@@ -121,6 +126,6 @@ def create_xyz(session_path:Path, recording_path:Path, tracker_enum:TrackerEnum)
     xy_data = pd.read_csv(xy_csv_path)
     xyz_history = triangulate_xy_data(xy_data, config.get_camera_array())
     xyz_data = pd.DataFrame(xyz_history)
-    xyz_data.to_csv(Path(recording_path, f"xyz_{output_suffix}.csv"))
+    xyz_data.to_csv(Path(tracker_output_path, f"xyz_{output_suffix}.csv"))
     
     

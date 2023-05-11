@@ -10,9 +10,9 @@ import numpy as np
 
 import pyxy3d.calibration.draw_charuco
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.interface import PointPacket, Tracker, TrackerFactory
+from pyxy3d.interface import PointPacket, TrackerEnum
 
-class CharucoTracker(Tracker):
+class CharucoTracker(TrackerEnum):
     def __init__(self, charuco):
 
         # need camera to know resolution and to assign calibration parameters
@@ -48,7 +48,7 @@ class CharucoTracker(Tracker):
         
         return point_packet
     
-    def get_point_name(self) -> dict:
+    def get_point_names(self) -> dict:
         pass
 
     def get_connected_points(self):
@@ -113,15 +113,6 @@ class CharucoTracker(Tracker):
                  "thickness":3}
         return rules
 
-class CharucoTrackerFactory(TrackerFactory):
-    
-    def __init__(self, charuco:Charuco):
-        self.charuco_tracker = CharucoTracker(charuco)
-   
-   
-    def get_tracker(self) -> Tracker:
-        return self.charuco_tracker
-    
      
 if __name__ == "__main__":
 

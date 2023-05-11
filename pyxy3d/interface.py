@@ -41,13 +41,13 @@ class PointPacket:
 
         return [obj_loc_x,obj_loc_y]
 
-class Tracker(ABC):
+class TrackerEnum(ABC):
     @abstractmethod
     def get_points(self, frame: np.ndarray) -> PointPacket:
         pass
 
     @abstractmethod
-    def get_point_name(self) -> dict:
+    def get_point_names(self) -> dict:
         """
         Used for saving out data with sensible headers
         """
@@ -61,15 +61,13 @@ class Tracker(ABC):
         """
         pass
 
+
     @abstractmethod
     def draw_instructions(self, point_id:int) ->dict:
         pass
-
-class TrackerFactory(ABC):
     
-    @abstractmethod
-    def get_tracker(self) ->Tracker:
-        pass
+    
+
 
 class Stream(ABC):
     """

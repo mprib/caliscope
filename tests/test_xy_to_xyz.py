@@ -27,17 +27,18 @@ def test_xy_to_xyz_postprocessing():
     logger.info(f"Elapsed time is {stop-start}. Note that on first iteration, @jit functions will take longer")
 
     # Assert that the xyz_history dictionary has the expected keys
-    assert set(xyz_history.keys()) == {"point_id", "x_coord", "y_coord", "z_coord"}
+    assert set(xyz_history.keys()) == {"sync_index", "point_id", "x_coord", "y_coord", "z_coord"}
 
     # Assert that all lists in xyz_history have the same length
     assert (
-        len(xyz_history["point_id"])
+        len(xyz_history["sync_index"])
+        == len(xyz_history["point_id"])
         == len(xyz_history["x_coord"])
         == len(xyz_history["y_coord"])
         == len(xyz_history["z_coord"])
     )
 
-    # Assert that coordinates are within expected bounds aroundt the set origin
+    # Assert that coordinates are within expected bounds around the origin
     min_x, max_x = -1, 1    
     min_y, max_y = -1, 1    
     min_z, max_z = -2, 4    
@@ -47,8 +48,9 @@ def test_xy_to_xyz_postprocessing():
         assert min_z <= z <= max_z
 
 
-
     output_path = Path(recording_directory, "xyz.csv")
     xyz_history = pd.DataFrame(xyz_history)
     xyz_history.to_csv(output_path)
 
+if __name__ == "__main__":
+    test_xy_to_xyz_postprocessing()

@@ -14,15 +14,22 @@ from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.interface import FramePacket, SyncPacket
 
 class VideoRecorder:
-    def __init__(self, synchronizer: Synchronizer):
+    def __init__(self, synchronizer: Synchronizer, suffix:str = None):
         self.synchronizer = synchronizer
 
+        # set text to be appended as port_X_{suffix}.mp4
+        # will also be appended to xy_{suffix}
+        if suffix is not None:
+            self.suffix = "_" + suffix
+        else:
+            self.suffix = ""
+            
         self.recording = False
         self.sync_index = 0 # no sync packets at init... absence of initialized value can cause errors elsewhere
         # build dict that will be stored to csv
         self.trigger_stop = Event()
 
-    def build_video_writers(self, suffix="_processed"):
+    def build_video_writers(self):
         """
         suffix provides a way to provide additional labels to the mp4 file name
         This would be relevant when performing post-processing and saving out frames with points
@@ -30,7 +37,7 @@ class VideoRecorder:
         # create a dictionary of videowriters
         self.video_writers = {}
         for port, stream in self.synchronizer.streams.items():
-            path = str(Path(self.destination_folder, f"port_{port}{suffix}.mp4"))
+            path = str(Path(self.destination_folder, f"port_{port}{self.suffix}.mp4"))
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
             fps = self.synchronizer.get_fps_target()
@@ -39,11 +46,11 @@ class VideoRecorder:
             writer = cv2.VideoWriter(path, fourcc, fps, frame_size)
             self.video_writers[port] = writer
 
-    def save_data_worker(self, include_video, show_points, suffix = ""):
+    def save_data_worker(self, include_video, show_points):
         # connect video recorder to synchronizer via an "in" queue
 
         if include_video:
-            self.build_video_writers(suffix) #suffix offers additional name ending for mp4 file
+            self.build_video_writers()
 
         # I think I put this here so that it will get reset if you reuse the same recorder..
         self.frame_history = {
@@ -130,7 +137,7 @@ class VideoRecorder:
     def store_point_history(self):
         df = pd.DataFrame(self.point_data_history)
         # TODO: #25 if file exists then change the name
-        point_data_path = str(Path(self.destination_folder, "xy.csv"))
+        point_data_path = str(Path(self.destination_folder, f"xy{self.suffix}.csv"))
         logger.info(f"Storing point data in {point_data_path}")
         df.to_csv(point_data_path, index=False, header=True)
 
@@ -141,7 +148,7 @@ class VideoRecorder:
         logger.info(f"Storing frame history to {frame_hist_path}")
         df.to_csv(frame_hist_path, index=False, header=True)
 
-    def start_recording(self, destination_folder: Path, include_video=True, show_points=False, suffix=""):
+    def start_recording(self, destination_folder: Path, include_video=True, show_points=False):
         """
         Don't include video if only doing frameplayback to record tracked points. 
         At least that's what I think I had in mind when doing this.
@@ -154,7 +161,7 @@ class VideoRecorder:
 
         self.recording = True
         self.recording_thread = Thread(
-            target=self.save_data_worker, args=[include_video, show_points, suffix], daemon=True
+            target=self.save_data_worker, args=[include_video, show_points], daemon=True
         )
         self.recording_thread.start()
 
@@ -162,55 +169,3 @@ class VideoRecorder:
         logger.info("Stop recording initiated within VideoRecorder")
         self.trigger_stop.set()
 
-
-if __name__ == "__main__":
-    import time
-
-    from pyxy3d.cameras.camera import Camera
-    from pyxy3d.cameras.live_stream import LiveStream
-    from pyxy3d.session import Session
-    from pyxy3d.calibration.charuco import Charuco
-
-    from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
-    from pyxy3d import __root__
-
-    ports = [0, 1, 2, 3, 4]
-    # ports = [0,1]
-
-    test_live = True
-    # test_live = False
-
-    if test_live:
-        session_directory = Path(__root__, "tests", "please work")
-        session = Session(session_directory)
-        # session.load_cameras()
-        session.load_streams()
-        session.adjust_resolutions()
-
-        for port, stream in session.streams.items():
-            stream._show_fps = True
-            # stream._show_charuco = True
-
-        logger.info("Creating Synchronizer")
-        syncr = Synchronizer(session.streams, fps_target=30)
-        video_path = Path(session_directory, "recording2")
-    else:
-        recording_directory = Path(__root__, "sessions", "5_cameras", "recording")
-        tracker = Charuco(
-            4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-        )
-        stream_pool = RecordedStreamPool( recording_directory, charuco=tracker)
-        logger.info("Creating Synchronizer")
-        syncr = Synchronizer(stream_pool.streams, fps_target=3)
-        stream_pool.play_videos()
-        new_recording_directory = Path(__root__, "sessions", "5_cameras", "recording2")
-        video_path = Path(new_recording_directory)
-
-    video_recorder = VideoRecorder(syncr)
-
-    video_recorder.start_recording(video_path)
-    time.sleep(20)
-    # while not syncr.stop_event.is_set():
-    #     time.sleep(1)
-
-    video_recorder.stop_recording()

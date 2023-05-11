@@ -2,7 +2,7 @@
 
 #%%
 
-from pyxy3d.trackers.holistic_tracker import HolisticTracker, HolisticTrackerFactory
+from pyxy3d.trackers.holistic_tracker import HolisticTracker
 from pathlib import Path
 from pyxy3d import __root__
 import pandas as pd
@@ -21,7 +21,7 @@ df_xyz = df_xyz.rename({"x_coord":"x",
                         "z_coord":"z",               
                         }, axis=1)
 df_xyz = df_xyz[["sync_index", "point_id", "x", "y", "z"]]
-df_xyz["point_name"] = df_xyz["point_id"].map(tracker.get_point_name)
+df_xyz["point_name"] = df_xyz["point_id"].map(tracker.get_point_names)
 # pivot the DataFrame wider
 df_wide = df_xyz.pivot_table(
     index=['sync_index'],

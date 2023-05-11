@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QApplication
-from pyxy3d.gui.calibration_wizard import CalibrationWizard
+from pyxy3d.gui.calibration_widget import CalibrationWidget
 import sys
 from time import sleep
 from pyxy3d import __root__
@@ -11,7 +11,7 @@ session_path = Path(__root__, "dev", "sample_sessions", "257")
 # config_path = Path(__root__, "dev", "sample_sessions", "test_calibration")
     
 app = QApplication(sys.argv)
-window = CalibrationWizard()
+window = CalibrationWidget()
 
 # open in a session already so you don't have to go through the menu each time
 # window.open_session(config_path)

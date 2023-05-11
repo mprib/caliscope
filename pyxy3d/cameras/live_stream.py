@@ -15,15 +15,15 @@ import numpy as np
 from abc import ABC, abstractmethod
 
 from pyxy3d.cameras.camera import Camera
-from pyxy3d.interface import FramePacket, Stream, Tracker
+from pyxy3d.interface import FramePacket, Stream, TrackerEnum
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 import pyxy3d.calibration.draw_charuco as draw_charuco
 
 
 class LiveStream(Stream):
-    def __init__(self, camera:Camera, fps_target=6, tracker:Tracker=None):
-        self.camera:Camera = camera
+    def __init__(self, camera: Camera, fps_target: int = 6, tracker: TrackerEnum = None):
+        self.camera: Camera = camera
         self.port = camera.port
         self.track_points = Event()
 
@@ -36,15 +36,15 @@ class LiveStream(Stream):
             self.draw_instructions = None
 
         self.stop_event = Event()
-        
+
         # list of queues that will have frame packets pushed to them
         self.subscribers = []
-        
+
         # make sure camera no longer reading before trying to change resolution
         self.stop_confirm = Queue()
 
         self._show_fps = False  # used for testing
-        
+
         self.show_points(False)
 
         self.set_fps_target(fps_target)
@@ -64,30 +64,35 @@ class LiveStream(Stream):
         else:
             logger.info(f"Turning tracking off on stream {self.port}")
             self.track_points.clear()
-        
+
     def show_points(self, show: bool):
         if show:
             self._show_points = True
         else:
             self._show_points = False
-            
-    def subscribe(self,queue:Queue):
+
+    def subscribe(self, queue: Queue):
         if queue not in self.subscribers:
             logger.info(f"Adding queue to subscribers at stream {self.port}")
             self.subscribers.append(queue)
             logger.info(f"...now {len(self.subscribers)} subscriber(s) at {self.port}")
         else:
-            logger.warn(f"Attempted to subscribe to live stream at port {self.port} twice")
+            logger.warn(
+                f"Attempted to subscribe to live stream at port {self.port} twice"
+            )
 
-    def unsubscribe(self, queue:Queue):
+    def unsubscribe(self, queue: Queue):
         if queue in self.subscribers:
             logger.info(f"Removing subscriber from queue at port {self.port}")
             self.subscribers.remove(queue)
-            logger.info(f"{len(self.subscribers)} subscriber(s) remain at port {self.port}")
+            logger.info(
+                f"{len(self.subscribers)} subscriber(s) remain at port {self.port}"
+            )
         else:
-            logger.warn(f"Attempted to unsubscribe to live stream that was not subscribed to\
-                at port {self.port} twice")
-
+            logger.warn(
+                f"Attempted to unsubscribe to live stream that was not subscribed to\
+                at port {self.port} twice"
+            )
 
     def set_fps_target(self, fps):
         """
@@ -102,7 +107,7 @@ class LiveStream(Stream):
         logger.info(f"Setting fps to {self.fps}")
         self.milestones = np.array(milestones)
 
-    def update_tracker(self, tracker:Tracker):
+    def update_tracker(self, tracker: TrackerEnum):
         self.tracker = tracker
 
     def wait_to_next_frame(self):
@@ -133,7 +138,7 @@ class LiveStream(Stream):
             self.avg_delta_time = self.delta_time
 
         # folding in current frame rate to trailing average to smooth out
-        self.avg_delta_time = 0.5 * self.avg_delta_time + 0.5* self.delta_time
+        self.avg_delta_time = 0.5 * self.avg_delta_time + 0.5 * self.delta_time
         self.previous_time = self.start_time
         return 1 / self.avg_delta_time
 
@@ -156,21 +161,18 @@ class LiveStream(Stream):
                 first_time = False
 
             if self.camera.capture.isOpened():
-
-                # slow wait if not pushing frames                
+                # slow wait if not pushing frames
                 # this is a sub-optimal busy wait spin lock, but it works and I'm tired.
-                # stop_event condition added to allow loop to wrap up 
+                # stop_event condition added to allow loop to wrap up
                 # if attempting to change resolution
-                spinlock_looped = False 
+                spinlock_looped = False
                 while len(self.subscribers) == 0 and not self.stop_event.is_set():
                     if not spinlock_looped:
                         logger.info(f"Spinlock initiated at port {self.port}")
                         spinlock_looped = True
-                    sleep(.5)
+                    sleep(0.5)
                 if spinlock_looped == True:
                     logger.info(f"Spinlock released at port {self.port}")
-                    
-                
 
                 # Wait an appropriate amount of time to hit the frame rate target
                 sleep(self.wait_to_next_frame())
@@ -180,7 +182,7 @@ class LiveStream(Stream):
                 self.success, self.frame = self.camera.capture.retrieve()
 
                 read_stop = perf_counter()
-                point_data = None # Provide initial value here...may get overwritten
+                point_data = None  # Provide initial value here...may get overwritten
                 self.frame_time = (read_start + read_stop) / 2
 
                 if self.success and len(self.subscribers) > 0:
@@ -189,7 +191,7 @@ class LiveStream(Stream):
                     if self.track_points.is_set():
                         point_data = self.tracker.get_points(self.frame)
                     # else:
-                        # point_data = None
+                    # point_data = None
 
                     if self._show_fps:
                         self._add_fps()
@@ -199,13 +201,13 @@ class LiveStream(Stream):
                         frame_time=self.frame_time,
                         frame=self.frame,
                         points=point_data,
-                        draw_instructions=self.draw_instructions
+                        draw_instructions=self.draw_instructions,
                     )
 
                     # cv2.imshow(str(self.port), frame_packet.frame_with_points)
                     # key = cv2.waitKey(1)
                     # if key == ord("q"):
-                    #     cv2.destroyAllWindows()                   
+                    #     cv2.destroyAllWindows()
                     #     break
 
                     for q in self.subscribers:
@@ -219,7 +221,6 @@ class LiveStream(Stream):
         self.stop_confirm.put("Successful Stop")
 
     def change_resolution(self, res):
-
         logger.info(f"About to stop camera at port {self.port}")
         self.stop_event.set()
         self.stop_confirm.get()
@@ -275,10 +276,8 @@ if __name__ == "__main__":
 
     frame_packet_queues = {}
 
-
     streams = []
     for cam in cams:
-
         q = Queue(-1)
         frame_packet_queues[cam.port] = q
 
@@ -314,7 +313,7 @@ if __name__ == "__main__":
         if key == ord("v"):
             for stream in streams:
                 print(f"Attempting to change resolution at port {stream.port}")
-                stream.change_resolution((640,480))
+                stream.change_resolution((640, 480))
 
         if key == ord("s"):
             for stream in streams:

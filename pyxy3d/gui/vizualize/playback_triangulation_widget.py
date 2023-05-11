@@ -21,24 +21,25 @@ from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray
 
 class PlaybackTriangulationWidget(QWidget):
-    def __init__(self, camera_array:CameraArray, xyz_history_path:Path):
+    def __init__(self, camera_array:CameraArray, xyz_history_path:Path =None):
         super(PlaybackTriangulationWidget, self).__init__()
 
         self.camera_array = camera_array
-        self.xyz_history = pd.read_csv(xyz_history_path)
 
-        self.visualizer = TriangulationVisualizer(self.camera_array, self.xyz_history)
+        self.visualizer = TriangulationVisualizer(self.camera_array)
         # self.visualizer.scene.show()
         self.slider = QSlider(Qt.Orientation.Horizontal)
-        self.slider.setMinimum(self.visualizer.min_sync_index)
-        self.slider.setMaximum(self.visualizer.max_sync_index)
+
+        # these defaults mean nothing right now without xyz data. Just placeholders
+        self.slider.setMinimum(0) 
+        self.slider.setMaximum(100)
 
         self.setMinimumSize(500, 500)
 
-
         self.place_widgets()
         self.connect_widgets()
-
+        if xyz_history_path is not None:
+            self.set_xyz(xyz_history_path)
         # self.visualizer.display_points(self.visualizer.min_sync_index)
 
     def place_widgets(self):
@@ -50,6 +51,11 @@ class PlaybackTriangulationWidget(QWidget):
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
 
+    def set_xyz(self, xyz_history:Path):
+        self.xyz_history = pd.read_csv(xyz_history)
+        self.visualizer.set_xyz(self.xyz_history)
+        self.slider.setMinimum(self.visualizer.min_sync_index)
+        self.slider.setMaximum(self.visualizer.max_sync_index)
 
 class TriangulationVisualizer:
     """
@@ -58,22 +64,9 @@ class TriangulationVisualizer:
     be played back.
     """
 
-    def __init__(
-        self, camera_array: CameraArray, xyz_history:pd.DataFrame
-    ):
+    def __init__( self, camera_array: CameraArray):
 
         self.camera_array = camera_array
-        self.xyz_history = xyz_history
-
-        self.sync_indices = self.xyz_history["sync_index"]
-        self.min_sync_index = np.min(self.sync_indices)
-        self.max_sync_index = np.max(self.sync_indices)
-        self.sync_index = self.min_sync_index
-
-        x_coord = self.xyz_history["x_coord"]
-        y_coord = self.xyz_history["y_coord"]
-        z_coord = self.xyz_history["z_coord"]
-        self.xyz_coord = np.vstack([x_coord,y_coord,z_coord]).T
         
         # constuct a scene
         self.scene = gl.GLViewWidget()
@@ -91,16 +84,37 @@ class TriangulationVisualizer:
             self.meshes[port] = mesh
             self.scene.addItem(mesh)
 
-        self.scatter = gl.GLScatterPlotItem(
-            pos=np.array([0, 0, 0]),
-            color=[1, 1, 1, 1],
-            size=0.01,
-            pxMode=False,
-        )
-        self.scene.addItem(self.scatter)
 
-        self.display_points(self.sync_index)
-                 
+    
+    def set_xyz(self, xyz_history:pd.DataFrame):
+        self.xyz_history = xyz_history
+
+        if self.xyz_history is not None:
+            self.sync_indices = self.xyz_history["sync_index"]
+            self.min_sync_index = np.min(self.sync_indices)
+            self.max_sync_index = np.max(self.sync_indices)
+            self.sync_index = self.min_sync_index
+
+            x_coord = self.xyz_history["x_coord"]
+            y_coord = self.xyz_history["y_coord"]
+            z_coord = self.xyz_history["z_coord"]
+            self.xyz_coord = np.vstack([x_coord,y_coord,z_coord]).T
+
+            if not hasattr(self, "scatter"):
+                self.scatter = gl.GLScatterPlotItem(
+                    pos=np.array([0, 0, 0]),
+                    color=[1, 1, 1, 1],
+                    size=0.01,
+                    pxMode=False,
+                )
+                self.scene.addItem(self.scatter)
+
+            self.display_points(self.sync_index)
+        
+        else:
+            if hasattr(self, "scatter"):
+                self.scatter.setData(pos=None)
+
     def display_points(self, sync_index):
         """
         sync_index is provided from the dialog and linked to the slider
@@ -110,44 +124,8 @@ class TriangulationVisualizer:
 
         current_sync_index_flag = self.sync_indices == self.sync_index
 
-        self.single_board_points = self.xyz_coord[current_sync_index_flag]
+        self.points = self.xyz_coord[current_sync_index_flag]
         logger.info(f"Displaying xyz points for sync index {sync_index}")
 
-        self.scatter.setData(pos=self.single_board_points)
 
-if __name__ == "__main__":
-
-    from PyQt6.QtWidgets import QApplication
-
-    from pyxy3d import __root__
-    from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
-        get_point_estimates,
-    )
-
-    from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
-    import pickle
-    from pyxy3d.configurator import Configurator
-    
-    test_recordings = [
-        # Path(__root__, "dev", "sessions_copy_delete", "mediapipe_calibration", )
-        Path(__root__, "dev", "sample_sessions", "296", "recording_1")
-    ]
-
-    test_index = 0
-    recording_path = test_recordings[test_index]
-    session_path = recording_path.parent
-    config = Configurator(session_path) 
-    logger.info(f"Loading session {session_path}")
-    # session = Session(config)
-
-    # session.load_estimated_capture_volume()
-    camera_array = config.get_camera_array()
-
-    
-    app = QApplication(sys.argv)
-    
-    xyz_history_path = Path(recording_path,"xyz.csv")
-    vizr_dialog = PlaybackTriangulationWidget(camera_array,xyz_history_path)
-    vizr_dialog.show()
-
-    sys.exit(app.exec())
+        self.scatter.setData(pos=self.points)

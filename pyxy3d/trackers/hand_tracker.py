@@ -15,11 +15,11 @@ import mediapipe as mp
 import numpy as np
 import cv2
 # cap = cv2.VideoCapture(0)
-from pyxy3d.interface import Tracker, TrackerFactory, PointPacket
+from pyxy3d.interface import TrackerEnum, PointPacket
 
 
 
-class HandTracker(Tracker):
+class HandTracker(TrackerEnum):
     # Initialize MediaPipe Hands and Drawing utility
     def __init__(self) -> None:
         
@@ -98,8 +98,8 @@ class HandTracker(Tracker):
         
         return point_packet 
 
-    def get_point_name(self) -> dict:
-        return super().get_point_name()
+    def get_point_names(self) -> dict:
+        return super().get_point_names()
     
     def draw_instructions(self, point_id:int)->dict:
         if point_id < 100:
@@ -111,16 +111,3 @@ class HandTracker(Tracker):
                      "color":(220,0,0),
                      "thickness":3}
         return rules
-
-class HandTrackerFactory(TrackerFactory):
-    
-    def __init__(self):
-        pass
-    
-    def get_tracker(self) -> Tracker:
-        """
-        I think this will be necessary as mediapipe uses the previous frame to 
-        improve tracking efficiency. So you can't just shove a bunch of frames
-        from different streams into the same tracker and expect efficiency
-        """
-        return HandTracker()

@@ -26,7 +26,7 @@ from pyxy3d.gui.camera_config.camera_tabs import CameraWizard
 from pyxy3d.gui.wizard_directory import WizardDirectory
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.session import Stage
-from pyxy3d.trackers.charuco_tracker import CharucoTracker, CharucoTrackerFactory
+from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.stereoframe.stereo_frame_widget import (
     StereoFrameWidget,
@@ -36,7 +36,7 @@ from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolume
 from pyxy3d.configurator import Configurator
 
 
-class CalibrationWizard(QStackedWidget):
+class CalibrationWidget(QStackedWidget):
     cameras_connected = pyqtSignal()
 
     def __init__(self, session_path:Path):
@@ -99,9 +99,9 @@ class CalibrationWizard(QStackedWidget):
             active_port = self.camera_config.camera_tabs.currentIndex()
             self.camera_config.camera_tabs.toggle_tracking(active_port)
             logger.info("updating charuco in case necessary")
-            charuco_tracker_factory = CharucoTrackerFactory(self.session.charuco)
+            charuco_tracker = CharucoTracker(self.session.charuco)
             for port, stream in self.session.streams.items():
-                stream.update_tracker(charuco_tracker_factory.get_tracker())
+                stream.update_tracker(charuco_tracker)
         else:
             logger.info("Initiating Camera Connection")
             self.initiate_camera_connection()
@@ -123,7 +123,7 @@ class CalibrationWizard(QStackedWidget):
                     logger.info("Camera connect worker about to load stream tools")
 
                     self.session.load_streams(
-                        tracker_factory=CharucoTrackerFactory(self.session.charuco)
+                        tracker=CharucoTracker(self.session.charuco)
                     )
                 else:
                     logger.info(
@@ -253,23 +253,10 @@ class CalibrationWizard(QStackedWidget):
         self.session.unpause_synchronizer()
 
 
-def launch_calibration_wizard(session_path:Path):
+def launch_calibration_widget(session_path:Path):
     app = QApplication(sys.argv)
-    window = CalibrationWizard(session_path=session_path)
+    window = CalibrationWidget(session_path=session_path)
     window.show()
     app.exec()
 
 
-if __name__ == "__main__":
-    from pyxy3d import __root__ 
-    session_path = Path(__root__, "dev", "sample_sessions", "296")
-
-    launch_calibration_wizard(session_path)
-    
-    # app = QApplication(sys.argv)
-    # window = CalibrationWizard(session_path)
-    # window.show()
-
-    # app.exec()
-    
-    

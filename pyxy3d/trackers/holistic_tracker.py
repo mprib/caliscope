@@ -10,6 +10,7 @@ import cv2
 
 # cap = cv2.VideoCapture(0)
 from pyxy3d.interface import Tracker, PointPacket
+from pyxy3d.trackers.helper import apply_rotation, unrotate_points
 
 DRAW_IGNORE_LIST = [
     "nose",
@@ -119,21 +120,26 @@ FACE_OFFSET = 500
 
 class HolisticTracker(Tracker):
     def __init__(self) -> None:
-        self.in_queue = Queue(-1)
-        self.out_queue = Queue(-1)
 
-        self.stop_event = Event()
+        # each port gets its own mediapipe context manager
+        # use a dictionary of queues for passing 
+        self.in_queues = {}
+        self.out_queues = {}
+        self.threads = {}
 
-        self.thread = Thread(target=self.run, args=[], daemon=True)
-        self.thread.start()
+    @property
+    def name(self):
+        return "HOLISTIC"
 
-    def run(self):
+    def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance
         with mp.solutions.holistic.Holistic(
             min_detection_confidence=0.8,
             min_tracking_confidence=0.8) as holistic:
-            while not self.stop_event.set():
-                frame = self.in_queue.get()
+            while True:
+                frame = self.in_queues[port].get()
+                # apply rotation as needed
+                frame = apply_rotation(frame, rotation_count)
 
                 height, width, color = frame.shape
                 # Convert the image to RGB format
@@ -190,18 +196,29 @@ class HolisticTracker(Tracker):
 
                 point_ids = np.array(point_ids)
                 landmark_xy = np.array(landmark_xy)
+                landmark_xy = unrotate_points(landmark_xy, rotation_count, width,height)
                 point_packet = PointPacket(point_ids, landmark_xy)
 
-                self.out_queue.put(point_packet)
+                self.out_queues[port].put(point_packet)
 
-    def stop(self):
-        self.stop_event.set()
-        self.thread.join()
 
-    def get_points(self, frame: np.ndarray) -> PointPacket:
-        """ """
-        self.in_queue.put(frame)
-        point_packet = self.out_queue.get()
+    def get_points(
+        self, frame: np.ndarray, port: int, rotation_count: int
+    ) -> PointPacket:
+        if port not in self.in_queues.keys():
+            self.in_queues[port] = Queue(1)
+            self.out_queues[port] = Queue(1)
+
+            self.threads[port] = Thread(
+                target=self.run_frame_processor,
+                args=(port, rotation_count),
+                daemon=True,
+            )
+
+            self.threads[port].start()
+
+        self.in_queues[port].put(frame)
+        point_packet = self.out_queues[port].get()
 
         return point_packet
 

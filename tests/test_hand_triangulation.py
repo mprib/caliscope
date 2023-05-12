@@ -60,7 +60,7 @@ def test_hand_tracker():
     #### Just run off of saved point_data.csv for development/testing
     camera_array: CameraArray = config.get_camera_array()
     sync_packet_triangulator = SyncPacketTriangulator(
-        camera_array, syncr, output_directory=session_path
+        camera_array, syncr, recording_directory=session_path
     )
     stream_pool.play_videos()
 

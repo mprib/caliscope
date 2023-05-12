@@ -97,7 +97,7 @@ def test_real_time_triangulator(session_path):
     #### Basic code for interfacing with in-progress RealTimeTriangulator
     #### Just run off of saved point_data.csv for development/testing
     real_time_triangulator = SyncPacketTriangulator(
-        camera_array, syncr, output_directory=recording_directory
+        camera_array, syncr, recording_directory=recording_directory
     )
     stream_pool.play_videos()
     while real_time_triangulator.running:

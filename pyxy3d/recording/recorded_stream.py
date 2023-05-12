@@ -21,7 +21,7 @@ from time import perf_counter, sleep
 import pandas as pd
 import numpy as np
 
-from pyxy3d.interface import FramePacket, TrackerEnum, Stream
+from pyxy3d.interface import FramePacket, Tracker, Stream
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 from pyxy3d.cameras.live_stream import Stream
 from pyxy3d.cameras.camera_array import CameraData
@@ -36,7 +36,7 @@ class RecordedStream(Stream):
     """
 
     def __init__(
-        self, camera: CameraData, directory: Path, fps_target:int=6, tracker: TrackerEnum = None
+        self, camera: CameraData, directory: Path, fps_target:int=6, tracker: Tracker = None
     ):
         # self.port = port
         self.directory = directory
@@ -166,7 +166,7 @@ class RecordedStream(Stream):
                 break
 
             if self.track_points:
-                self.point_data = self.tracker.get_points(self.frame)
+                self.point_data = self.tracker.get_points(self.frame, self.port, self.camera.rotation_count)
             else:
                 self.point_data = None
 
@@ -178,6 +178,13 @@ class RecordedStream(Stream):
                 points=self.point_data,
                 draw_instructions=self.tracker.draw_instructions,
             )
+            
+            
+            cv2.imshow(str(self.port), frame_packet.frame_with_points)
+            key = cv2.waitKey(1)
+            if key == ord("q"):
+                cv2.destroyAllWindows()
+                break
 
             logger.debug(
                 f"Placing frame on reel {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"
@@ -205,7 +212,7 @@ class RecordedStreamPool:
         directory: Path,
         config: Configurator,
         fps_target=6,
-        tracker: TrackerEnum = None,
+        tracker: Tracker = None,
     ):
         self.streams = {}
         self.camera_array = config.get_camera_array()

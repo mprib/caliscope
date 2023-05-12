@@ -20,7 +20,7 @@ from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
-from pyxy3d.interface import TrackerEnum
+from pyxy3d.interface import Tracker
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
@@ -136,7 +136,7 @@ class Session:
 
         # self.update_config()
 
-    def load_streams(self, tracker:TrackerEnum = None):
+    def load_streams(self, tracker:Tracker = None):
         """
         Connects to stored cameras and creates streams with provided tracking
         """

@@ -25,7 +25,7 @@ class CharucoTracker(Tracker):
         self.criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.0001)
         self.conv_size = (11, 11)  # Don't make this too large.
 
-    def get_points(self, frame):
+    def get_points(self, frame:np.ndarray, port:int, rotation_count:int):
         """Will check for charuco corners in the frame, if it doesn't find any, 
         then it will look for corners in the mirror image of the frame"""
 

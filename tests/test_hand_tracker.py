@@ -19,7 +19,7 @@ while True:
 
     else:
         # Display the image with the detected hand landmarks
-        hand_points_packet: PointPacket = hand_tracker.get_points(frame)
+        hand_points_packet: PointPacket = hand_tracker.get_points(frame, port,0)
 
         frame_packet = FramePacket(
             port,

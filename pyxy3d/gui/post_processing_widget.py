@@ -191,9 +191,9 @@ class PostProcessingWidget(QWidget):
 
     def refresh_visualizer(self):
         # logger.info(f"Item {item.text()} selected and double-clicked.")
+        self.set_current_xyz()
         self.vizualizer_title.setText(self.viz_title_html)
         self.update_enabled_disabled()
-        self.set_current_xyz()
 
     def update_enabled_disabled(self):
         if self.processed_xyz_path.exists():

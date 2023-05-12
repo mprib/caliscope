@@ -31,8 +31,6 @@ class PlaybackTriangulationWidget(QWidget):
         self.slider = QSlider(Qt.Orientation.Horizontal)
 
         # these defaults mean nothing right now without xyz data. Just placeholders
-        self.slider.setMinimum(0) 
-        self.slider.setMaximum(100)
 
         self.setMinimumSize(500, 500)
 
@@ -40,7 +38,6 @@ class PlaybackTriangulationWidget(QWidget):
         self.connect_widgets()
         if xyz_history_path is not None:
             self.set_xyz(xyz_history_path)
-        # self.visualizer.display_points(self.visualizer.min_sync_index)
 
     def place_widgets(self):
         self.setLayout(QVBoxLayout())

@@ -84,7 +84,7 @@ class PostProcessingWidget(QWidget):
             self.xyz = pd.read_csv(self.processed_xyz_path)
         else:
             self.xyz = None
-        self.vis_widget.visualizer.set_xyz(self.xyz)
+        self.vis_widget.set_xyz(self.xyz)
 
     def update_recording_folders(self):
         if hasattr(self, "recording_folders"):

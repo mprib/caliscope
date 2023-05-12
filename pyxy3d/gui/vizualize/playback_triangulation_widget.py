@@ -37,7 +37,8 @@ class PlaybackTriangulationWidget(QWidget):
         self.place_widgets()
         self.connect_widgets()
         if xyz_history_path is not None:
-            self.set_xyz(xyz_history_path)
+            xyz_history = pd.read_csv(xyz_history_path)
+            self.set_xyz(xyz_history)
 
     def place_widgets(self):
         self.setLayout(QVBoxLayout())
@@ -48,11 +49,15 @@ class PlaybackTriangulationWidget(QWidget):
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
 
-    def set_xyz(self, xyz_history:Path):
-        self.xyz_history = pd.read_csv(xyz_history)
-        self.visualizer.set_xyz(self.xyz_history)
-        self.slider.setMinimum(self.visualizer.min_sync_index)
-        self.slider.setMaximum(self.visualizer.max_sync_index)
+    def set_xyz(self, xyz:pd.DataFrame):
+        # self.xyz_history = pd.read_csv(xyz_history)
+        self.visualizer.set_xyz(xyz)
+        if xyz is not None:
+            self.slider.setMinimum(self.visualizer.min_sync_index)
+            self.slider.setMaximum(self.visualizer.max_sync_index)
+        else:
+            self.slider.setMinimum(0)
+            self.slider.setMaximum(100)
 
 class TriangulationVisualizer:
     """

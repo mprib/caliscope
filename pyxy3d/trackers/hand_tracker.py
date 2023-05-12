@@ -19,7 +19,7 @@ import cv2
 
 # cap = cv2.VideoCapture(0)
 from pyxy3d.interface import Tracker, PointPacket
-
+from pyxy3d.trackers.helper import apply_rotation, unrotate_points
 
 class HandTracker(Tracker):
     # Initialize MediaPipe Hands and Drawing utility
@@ -99,6 +99,9 @@ class HandTracker(Tracker):
         self, frame: np.ndarray, port: int, rotation_count: int
     ) -> PointPacket:
         if port not in self.in_queues.keys():
+            self.in_queues[port] = Queue(1)
+            self.out_queues[port] = Queue(1)
+
             self.threads[port] = Thread(
                 target=self.run_frame_processor,
                 args=(port, rotation_count),
@@ -106,8 +109,6 @@ class HandTracker(Tracker):
             )
             self.threads[port].start()
 
-            self.in_queues[port] = Queue(1)
-            self.out_queues[port] = Queue(1)
 
         self.in_queues[port].put(frame)
         point_packet = self.out_queues[port].get()
@@ -124,40 +125,3 @@ class HandTracker(Tracker):
             rules = {"radius": 5, "color": (220, 0, 0), "thickness": 3}
         return rules
 
-
-def apply_rotation(frame: np.ndarray, rotation_count: int) -> np.ndarray:
-    if rotation_count == 0:
-        pass
-    elif rotation_count in [1, -3]:
-        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
-    elif rotation_count in [2, -2]:
-        frame = cv2.rotate(frame, cv2.ROTATE_180)
-    elif rotation_count in [-1, 3]:
-        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
-
-    return frame
-
-
-def unrotate_points(
-    xy: np.ndarray, rotation_count: int, frame_width: int, frame_height: int
-) -> np.ndarray:
-    xy_unrotated = xy.copy()
-
-    if rotation_count == 0 or len(xy) ==0:
-        pass
-    elif rotation_count in [1, -3]:
-        # Reverse of 90 degrees clockwise rotation
-        xy_unrotated[:, 0], xy_unrotated[:, 1] = xy[:, 1], frame_width - xy[:, 0]
-
-    elif rotation_count in [2, -2]:
-        # NOTE: have not verified this with a test case
-        # Reverse of 180 degrees rotation
-        xy_unrotated[:, 0], xy_unrotated[:, 1] = (
-            frame_width - xy[:, 0],
-            frame_height - xy[:, 1],
-        )
-    elif rotation_count in [-1, 3]:
-        # Reverse of 90 degrees counter-clockwise rotation
-        xy_unrotated[:, 0], xy_unrotated[:, 1] = frame_height - xy[:, 1], xy[:, 0]
-
-    return xy_unrotated

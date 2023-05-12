@@ -33,10 +33,6 @@ class HandTracker(Tracker):
         self.out_queues = {}
         self.threads = {}
 
-        self.stop_event = Event()
-
-        self.thread = Thread(target=self.run_frame_processor, args=[], daemon=True)
-        self.thread.start()
 
     @property
     def name(self):
@@ -47,8 +43,8 @@ class HandTracker(Tracker):
         with mp.solutions.hands.Hands(
             static_image_mode=False,
             max_num_hands=2,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
+            min_detection_confidence=0.8,
+            min_tracking_confidence=0.8,
         ) as hands:
             while True:
                 frame = self.in_queues[port].get()
@@ -98,9 +94,6 @@ class HandTracker(Tracker):
 
                 self.out_queues[port].put(point_packet)
 
-    # def stop(self):
-    #     self.stop_event.set()
-    #     self.thread.join()
 
     def get_points(
         self, frame: np.ndarray, port: int, rotation_count: int

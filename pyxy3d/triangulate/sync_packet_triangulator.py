@@ -139,7 +139,13 @@ def save_history(
     
 
     df_xyz: pd.DataFrame = pd.DataFrame(xyz_history)
-    df_xyz.to_csv(Path(recording_directory, tracker.name, f"xyz_{tracker.name}.csv"))
+    if tracker is None:
+        # this needs some more careful thought about standard folder strucutres
+        # but for now just leaving things mostly as is  
+        df_xyz.to_csv(Path(recording_directory,f"xyz.csv"))
+        
+    else:
+        df_xyz.to_csv(Path(recording_directory, tracker.name, f"xyz_{tracker.name}.csv"))
 
     if tracker is not None:
         # save out named data in a tabular format

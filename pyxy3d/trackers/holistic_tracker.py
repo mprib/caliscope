@@ -10,6 +10,7 @@ import cv2
 
 # cap = cv2.VideoCapture(0)
 from pyxy3d.interface import Tracker, PointPacket
+from pyxy3d.trackers.helper import apply_rotation, unrotate_points
 
 DRAW_IGNORE_LIST = [
     "nose",
@@ -67,48 +68,49 @@ POINT_NAMES = {
     30: "right_heel",
     31: "left_foot_index",
     32: "right_foot_index",
-    100 :"right_wrist",
-    101 :"right_thumb_CMC",
-    102 :"right_thumb_MCP",
-    103 :"right_thumb_IP",
-    104 :"right_thumb_tip",
-    105 :"right_index_finger_MCP",
-    106 :"right_index_finger_PIP",
-    107 :"right_index_finger_DIP",
-    108 :"right_index_finger_tip",
-    109 :"right_middle_finger_MCP",
-    110:"right_middle_finger_PIP",
-    111:"right_middle_finger_DIP",
-    112:"right_middle_finger_tip",
-    113:"right_ring_finger_MCP",
-    114:"right_ring_finger_PIP",
-    115:"right_ring_finger_DIP",
-    116:"right_ring_finger_tip",
-    117:"right_pinky_MCP",
-    118:"right_pinky_PIP",
-    119:"right_pinky_DIP",
-    120:"right_pinky_tip",
-    200:"left_wrist",
-    201:"left_thumb_CMC",
-    202:"left_thumb_MCP",
-    203:"left_thumb_IP",
-    204:"left_thumb_tip",
-    205:"left_index_finger_MCP",
-    206:"left_index_finger_PIP",
-    207:"left_index_finger_DIP",
-    208:"left_index_finger_tip",
-    209:"left_middle_finger_MCP",
-    210:"left_middle_finger_PIP",
-    211:"left_middle_finger_DIP",
-    212:"left_middle_finger_tip",
-    213:"left_ring_finger_MCP",
-    214:"left_ring_finger_PIP",
-    215:"left_ring_finger_DIP",
-    216:"left_ring_finger_tip",
-    217:"left_pinky_MCP",
-    218:"left_pinky_PIP",
-    219:"left_pinky_DIP",
-    220:"left_pinky_tip"}
+    100: "right_wrist",
+    101: "right_thumb_CMC",
+    102: "right_thumb_MCP",
+    103: "right_thumb_IP",
+    104: "right_thumb_tip",
+    105: "right_index_finger_MCP",
+    106: "right_index_finger_PIP",
+    107: "right_index_finger_DIP",
+    108: "right_index_finger_tip",
+    109: "right_middle_finger_MCP",
+    110: "right_middle_finger_PIP",
+    111: "right_middle_finger_DIP",
+    112: "right_middle_finger_tip",
+    113: "right_ring_finger_MCP",
+    114: "right_ring_finger_PIP",
+    115: "right_ring_finger_DIP",
+    116: "right_ring_finger_tip",
+    117: "right_pinky_MCP",
+    118: "right_pinky_PIP",
+    119: "right_pinky_DIP",
+    120: "right_pinky_tip",
+    200: "left_wrist",
+    201: "left_thumb_CMC",
+    202: "left_thumb_MCP",
+    203: "left_thumb_IP",
+    204: "left_thumb_tip",
+    205: "left_index_finger_MCP",
+    206: "left_index_finger_PIP",
+    207: "left_index_finger_DIP",
+    208: "left_index_finger_tip",
+    209: "left_middle_finger_MCP",
+    210: "left_middle_finger_PIP",
+    211: "left_middle_finger_DIP",
+    212: "left_middle_finger_tip",
+    213: "left_ring_finger_MCP",
+    214: "left_ring_finger_PIP",
+    215: "left_ring_finger_DIP",
+    216: "left_ring_finger_tip",
+    217: "left_pinky_MCP",
+    218: "left_pinky_PIP",
+    219: "left_pinky_DIP",
+    220: "left_pinky_tip",
+}
 
 
 # keep ids in distinct ranges to avoid clashes
@@ -117,38 +119,50 @@ RIGHT_HAND_OFFSET = 100
 LEFT_HAND_OFFSET = 200
 FACE_OFFSET = 500
 
+
 class HolisticTracker(Tracker):
     def __init__(self) -> None:
-        self.in_queue = Queue(-1)
-        self.out_queue = Queue(-1)
+        # each port gets its own mediapipe context manager
+        # use a dictionary of queues for passing
+        self.in_queues = {}
+        self.out_queues = {}
+        self.threads = {}
 
-        self.stop_event = Event()
+    @property
+    def name(self):
+        return "HOLISTIC"
 
-        self.thread = Thread(target=self.run, args=[], daemon=True)
-        self.thread.start()
-
-    def run(self):
+    def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance
         with mp.solutions.holistic.Holistic(
-            min_detection_confidence=0.8,
-            min_tracking_confidence=0.8) as holistic:
-            while not self.stop_event.set():
-                frame = self.in_queue.get()
+            min_detection_confidence=0.8, min_tracking_confidence=0.8
+        ) as holistic:
+            while True:
+                frame = self.in_queues[port].get()
+                # apply rotation as needed
+                frame = apply_rotation(frame, rotation_count)
 
                 height, width, color = frame.shape
                 # Convert the image to RGB format
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = holistic.process(frame)
-                
+
                 # initialize variables so none will be created if no points detected
                 point_ids = []
                 landmark_xy = []
 
                 if results.pose_landmarks:
-                    for landmark_id, landmark in enumerate(results.pose_landmarks.landmark):
+                    for landmark_id, landmark in enumerate(
+                        results.pose_landmarks.landmark
+                    ):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel position
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
+                        if (
+                            landmark.x < 0
+                            or landmark.x > 1
+                            or landmark.y < 0
+                            or landmark.y > 1
+                        ):
                             # ignore
                             pass
                         else:
@@ -156,52 +170,85 @@ class HolisticTracker(Tracker):
                             landmark_xy.append((x, y))
 
                 if results.right_hand_landmarks:
-                    for landmark_id, landmark in enumerate(results.right_hand_landmarks.landmark):
+                    for landmark_id, landmark in enumerate(
+                        results.right_hand_landmarks.landmark
+                    ):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel position
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
+                        if (
+                            landmark.x < 0
+                            or landmark.x > 1
+                            or landmark.y < 0
+                            or landmark.y > 1
+                        ):
                             # ignore
                             pass
                         else:
-                            point_ids.append(landmark_id +RIGHT_HAND_OFFSET)
+                            point_ids.append(landmark_id + RIGHT_HAND_OFFSET)
                             landmark_xy.append((x, y))
 
                 if results.left_hand_landmarks:
-                    for landmark_id, landmark in enumerate(results.left_hand_landmarks.landmark):
+                    for landmark_id, landmark in enumerate(
+                        results.left_hand_landmarks.landmark
+                    ):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel positionND_OFFSET
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
+                        if (
+                            landmark.x < 0
+                            or landmark.x > 1
+                            or landmark.y < 0
+                            or landmark.y > 1
+                        ):
                             # ignore
                             pass
                         else:
-                            point_ids.append(landmark_id +LEFT_HAND_OFFSET)
+                            point_ids.append(landmark_id + LEFT_HAND_OFFSET)
                             landmark_xy.append((x, y))
 
                 if results.face_landmarks:
-                    for landmark_id, landmark in enumerate(results.face_landmarks.landmark):
+                    for landmark_id, landmark in enumerate(
+                        results.face_landmarks.landmark
+                    ):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel positionFSET
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
+                        if (
+                            landmark.x < 0
+                            or landmark.x > 1
+                            or landmark.y < 0
+                            or landmark.y > 1
+                        ):
                             # ignore
                             pass
                         else:
-                            point_ids.append(landmark_id +FACE_OFFSET)
+                            point_ids.append(landmark_id + FACE_OFFSET)
                             landmark_xy.append((x, y))
 
                 point_ids = np.array(point_ids)
                 landmark_xy = np.array(landmark_xy)
+                landmark_xy = unrotate_points(
+                    landmark_xy, rotation_count, width, height
+                )
                 point_packet = PointPacket(point_ids, landmark_xy)
 
-                self.out_queue.put(point_packet)
+                self.out_queues[port].put(point_packet)
 
-    def stop(self):
-        self.stop_event.set()
-        self.thread.join()
+    def get_points(
+        self, frame: np.ndarray, port: int, rotation_count: int
+    ) -> PointPacket:
+        if port not in self.in_queues.keys():
+            self.in_queues[port] = Queue(1)
+            self.out_queues[port] = Queue(1)
 
-    def get_points(self, frame: np.ndarray) -> PointPacket:
-        """ """
-        self.in_queue.put(frame)
-        point_packet = self.out_queue.get()
+            self.threads[port] = Thread(
+                target=self.run_frame_processor,
+                args=(port, rotation_count),
+                daemon=True,
+            )
+
+            self.threads[port].start()
+
+        self.in_queues[port].put(frame)
+        point_packet = self.out_queues[port].get()
 
         return point_packet
 
@@ -209,7 +256,7 @@ class HolisticTracker(Tracker):
         if point_id < FACE_OFFSET:
             point_name = POINT_NAMES[point_id]
         else:
-            point_name = "face_" + str(point_id-FACE_OFFSET) 
+            point_name = "face_" + str(point_id - FACE_OFFSET)
         return point_name
 
     def draw_instructions(self, point_id: int) -> dict:
@@ -220,8 +267,7 @@ class HolisticTracker(Tracker):
             rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
         elif point_name.startswith("right"):
             rules = {"radius": 5, "color": (220, 0, 0), "thickness": 3}
-        else: 
+        else:
             rules = {"radius": 1, "color": (220, 0, 220), "thickness": 1}
 
         return rules
-

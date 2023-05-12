@@ -84,7 +84,7 @@ class PostProcessingWidget(QWidget):
             self.xyz = pd.read_csv(self.processed_xyz_path)
         else:
             self.xyz = None
-        self.vis_widget.visualizer.set_xyz(self.xyz)
+        self.vis_widget.set_xyz(self.xyz)
 
     def update_recording_folders(self):
         if hasattr(self, "recording_folders"):
@@ -191,9 +191,9 @@ class PostProcessingWidget(QWidget):
 
     def refresh_visualizer(self):
         # logger.info(f"Item {item.text()} selected and double-clicked.")
+        self.set_current_xyz()
         self.vizualizer_title.setText(self.viz_title_html)
         self.update_enabled_disabled()
-        self.set_current_xyz()
 
     def update_enabled_disabled(self):
         if self.processed_xyz_path.exists():

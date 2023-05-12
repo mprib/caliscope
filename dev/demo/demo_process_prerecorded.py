@@ -28,7 +28,7 @@ recording_path = Path(session_path, "recording_1")
 config = Configurator(session_path)
 camera_array: CameraArray = config.get_camera_array()
 
-tracker = TrackerEnum.HAND.value()
+tracker = TrackerEnum.HOLISTIC.value()
 
 logger.info(f"Creating RecordedStreamPool")
 stream_pool = RecordedStreamPool(

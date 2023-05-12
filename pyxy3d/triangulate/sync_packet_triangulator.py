@@ -1,7 +1,7 @@
 import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
-
+import os
 from numba import jit
 from numba.typed import Dict, List
 import numpy as np
@@ -135,7 +135,6 @@ class SyncPacketTriangulator:
 def save_history(
     xyz_history: Dict[str, List], recording_directory: Path, tracker: Tracker = None
 ):
-    
     
 
     df_xyz: pd.DataFrame = pd.DataFrame(xyz_history)

@@ -234,15 +234,15 @@ if __name__ == '__main__':
 
                         scene.addItem(cams[other_port].mesh)
                     if "rotation" in param_key:
-                        rotation = rotation_to_float(value) # feeding in 3x3 rotation matrix  from config file
-                        rotation = rotationMatrixToEulerAngles(rotation) # convert to angles
+                        rotation_count = rotation_to_float(value) # feeding in 3x3 rotation matrix  from config file
+                        rotation_count = rotationMatrixToEulerAngles(rotation_count) # convert to angles
                         if origin_port == pair[1]:
-                            rotation = -rotation
+                            rotation_count = -rotation_count
                             other_port = pair[0]
                         else:
                             other_port = pair[1]
 
-                        rot_deg = [x*(180/math.pi) for x in rotation] # convert to degrees
+                        rot_deg = [x*(180/math.pi) for x in rotation_count] # convert to degrees
                         print(f"Rotation (deg) for port {other_port}: {rot_deg}")
                         x = rot_deg[0]
                         y = rot_deg[1]

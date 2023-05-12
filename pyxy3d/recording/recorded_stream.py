@@ -42,6 +42,7 @@ class RecordedStream(Stream):
         self.directory = directory
         self.camera = camera
         self.port = camera.port
+        self.rotation = camera.rotation
 
         if tracker is not None:
             self.tracker = tracker
@@ -166,7 +167,7 @@ class RecordedStream(Stream):
                 break
 
             if self.track_points:
-                self.point_data = self.tracker.get_points(self.frame)
+                self.point_data = self.tracker.get_points(self.frame, self.port, self.rotation)
             else:
                 self.point_data = None
 
@@ -178,6 +179,13 @@ class RecordedStream(Stream):
                 points=self.point_data,
                 draw_instructions=self.tracker.draw_instructions,
             )
+            
+            
+            cv2.imshow(str(self.port), frame_packet.frame_with_points)
+            key = cv2.waitKey(1)
+            if key == ord("q"):
+                cv2.destroyAllWindows()
+                break
 
             logger.debug(
                 f"Placing frame on reel {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"

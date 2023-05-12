@@ -1,20 +1,20 @@
-from pyxy3d.trackers.holistic_tracker import HolisticTracker
+from pyxy3d.trackers.tracker_enum import TrackerEnum
 from queue import Queue
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.live_stream import LiveStream
 import cv2
 
-ports = [0]
+ports = [1,2]
 # ports = [3]
 
 cams = []
 for port in ports:
     print(f"Creating camera {port}")
     cam = Camera(port)
-    cam.exposure = -7
+    cam.exposure = -5
     cams.append(cam)
 
-tracker = HolisticTracker()
+tracker = TrackerEnum.POSE.value()
 
 frame_packet_queues = {}
 

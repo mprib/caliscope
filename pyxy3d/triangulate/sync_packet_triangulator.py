@@ -138,7 +138,7 @@ def save_history(
     
 
     df_xyz: pd.DataFrame = pd.DataFrame(xyz_history)
-    os.makedirs(Path(recording_directory,tracker.name, exist_ok = True))
+    # os.makedirs(Path(recording_directory,tracker.name, exist_ok = True))
     df_xyz.to_csv(Path(recording_directory, tracker.name, f"xyz_{tracker.name}.csv"))
 
     if tracker is not None:

@@ -27,26 +27,33 @@ class ThreadedHandTracker(Tracker):
         self.in_queue = Queue(-1)
         self.out_queue = Queue(-1)
 
-
+        self.in_queues = {}
+        self.out_queues = {}
+        self.threads = {}
+        
         self.stop_event = Event()
         
-        self.thread = Thread(target=self.run, args=[],daemon=True)
+        self.thread = Thread(target=self.run_frame_processor, args=[],daemon=True)
         self.thread.start()
+
     @property
     def name(self):
         return "THREAD_HAND"
      
-    def run(self):
+    def run_frame_processor(self, port:int, rotation_count:int):
         # Create a MediaPipe Hands instance
         with  mp.solutions.hands.Hands(
             static_image_mode=False,
-            max_num_hands=4,
+            max_num_hands=2,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5,
         ) as hands:
             
-            while not self.stop_event.set():
-                frame = self.in_queue.get()
+            while True:
+                frame = self.in_queues[port].get()
+
+                # apply rotation as needed
+                frame = apply_rotation(frame, rotation_count)
 
                 height, width, color = frame.shape
                 # Convert the image to RGB format
@@ -85,20 +92,31 @@ class ThreadedHandTracker(Tracker):
                 
                 point_ids = np.array(point_ids)
                 landmark_xy = np.array(landmark_xy)
+                landmark_xy = unrotate_points(landmark_xy, rotation_count)
+                
                 point_packet = PointPacket(point_ids,landmark_xy)
 
-                self.out_queue.put(point_packet)
+                self.out_queues[port].put(point_packet)
                 
                 
-                
-    def stop(self):
-        self.stop_event.set()
-        self.thread.join()
+    # def stop(self):
+    #     self.stop_event.set()
+    #     self.thread.join()
 
-    def get_points(self, frame:np.ndarray, port:int, rotation:int)->PointPacket:
 
-        self.in_queue.put(frame)
-        point_packet = self.out_queue.get()
+
+    def get_points(self, frame:np.ndarray, port:int, rotation_count:int)->PointPacket:
+
+        
+        if port not in self.in_queues.keys():
+            self.threads[port] = Thread(target=self.run_frame_processor,args=(port,rotation_count), daemon=True)
+            self.threads[port].start()
+
+            self.in_queues[port] = Queue(1)
+            self.out_queues[port] = Queue(1)
+
+        self.in_queues[port].put(frame)
+        point_packet = self.out_queues[port].get()
         
         return point_packet 
 
@@ -115,3 +133,33 @@ class ThreadedHandTracker(Tracker):
                      "color":(220,0,0),
                      "thickness":3}
         return rules
+
+
+def apply_rotation(frame:np.ndarray, rotation_count:int)->np.ndarray:
+    if rotation_count == 0:
+        pass
+    elif rotation_count in [1, -3]:
+        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+    elif rotation_count in [2, -2]:
+        frame = cv2.rotate(frame, cv2.ROTATE_180)
+    elif rotation_count in [-1, 3]:
+        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    
+    return frame
+
+def unrotate_points(xy:np.ndarray, rotation_count:int)-> np.ndarray:
+    if rotation_count == 0:
+        xy = xy
+    elif rotation_count in [1, -3]:
+        # frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        xy[:,0], xy[:,1] = xy[:1], xy[:,0]
+    elif rotation_count in [2, -2]:
+        # frame = cv2.rotate(frame, cv2.ROTATE_180)
+        xy[:,0], xy[:,1] = xy[:1], xy[:,0]
+    elif rotation_count in [-1, 3]:
+        # frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        xy[:,0], xy[:,1] = xy[:1], xy[:,0]
+    
+    return xy
+    
+    

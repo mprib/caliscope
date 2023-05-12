@@ -43,7 +43,7 @@ class PointPacket:
 
 class Tracker(ABC):
     @abstractmethod
-    def get_points(self, frame: np.ndarray, port:int, rotation:int) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port:int, rotation_count:int) -> PointPacket:
         pass
 
     @property

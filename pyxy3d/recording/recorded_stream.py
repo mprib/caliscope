@@ -42,7 +42,6 @@ class RecordedStream(Stream):
         self.directory = directory
         self.camera = camera
         self.port = camera.port
-        self.rotation = camera.rotation
 
         if tracker is not None:
             self.tracker = tracker
@@ -167,7 +166,7 @@ class RecordedStream(Stream):
                 break
 
             if self.track_points:
-                self.point_data = self.tracker.get_points(self.frame, self.port, self.rotation)
+                self.point_data = self.tracker.get_points(self.frame, self.port, self.camera.rotation_count)
             else:
                 self.point_data = None
 

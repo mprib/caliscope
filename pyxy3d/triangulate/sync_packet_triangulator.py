@@ -1,7 +1,7 @@
 import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
-
+import os
 from numba import jit
 from numba.typed import Dict, List
 import numpy as np
@@ -136,9 +136,9 @@ def save_history(
     xyz_history: Dict[str, List], recording_directory: Path, tracker: Tracker = None
 ):
     
-    
 
     df_xyz: pd.DataFrame = pd.DataFrame(xyz_history)
+    os.makedirs(Path(recording_directory,tracker.name, exist_ok = True))
     df_xyz.to_csv(Path(recording_directory, tracker.name, f"xyz_{tracker.name}.csv"))
 
     if tracker is not None:

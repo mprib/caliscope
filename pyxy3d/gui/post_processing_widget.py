@@ -67,8 +67,6 @@ class PostProcessingWidget(QWidget):
             if tracker.name != "CHARUCO":
                 self.tracker_combo.addItem(tracker.name, tracker)
 
-
-
         self.vizualizer_title = QLabel(self.viz_title_html)
         self.vis_widget = PlaybackTriangulationWidget(self.camera_array)
         self.process_current_btn = QPushButton("&Process")
@@ -168,11 +166,14 @@ class PostProcessingWidget(QWidget):
         self.open_folder_btn.clicked.connect(self.open_folder)
         self.tracker_combo.currentIndexChanged.connect(self.refresh_visualizer)
         self.vis_widget.slider.valueChanged.connect(self.store_sync_index_cursor)
-        
+
     def store_sync_index_cursor(self, cursor_value):
-        self.sync_index_cursors[self.processed_xyz_path] = cursor_value
-        logger.info(self.sync_index_cursors)
-         
+        if self.processed_xyz_path.exists():
+            self.sync_index_cursors[self.processed_xyz_path] = cursor_value
+            logger.info(self.sync_index_cursors)
+        else:
+            # don't bother, doesn't exist
+            pass
         
     def open_folder(self):
         """Opens the currently active folder in a system file browser"""
@@ -184,29 +185,67 @@ class PostProcessingWidget(QWidget):
             logger.warn("No folder selected")
 
     def process_current(self):
+        logger.info(f"Beginning to process video files at {self.config.session_path}")
         recording_path = Path(self.config.session_path, self.active_folder)
         # logger.info(f"{self.tracker_combo.currentData()}")
         tracker_enum = self.tracker_combo.currentData()
-        create_xyz(self.config.session_path, recording_path, tracker_enum=tracker_enum)
+        logger.info(f"Applying {tracker_enum.name} tracker")
+
+        def processing_worker():
+            self.disable_all_inputs()
+            create_xyz(
+                self.config.session_path, recording_path, tracker_enum=tracker_enum
+            )
+            self.enable_all_inputs()
+            self.refresh_visualizer()
+
+        thread = Thread(target=processing_worker, args=(), daemon=True)
+        thread.start()
 
     def refresh_visualizer(self):
         # logger.info(f"Item {item.text()} selected and double-clicked.")
         self.set_current_xyz()
         self.vizualizer_title.setText(self.viz_title_html)
         self.update_enabled_disabled()
+        self.update_slider_position()
+        
+    def disable_all_inputs(self):
+        """used to toggle off all inputs will processing is going on"""
+        self.recording_folders.setEnabled(False)
+        self.tracker_combo.setEnabled(False)
+        self.export_btn.setEnabled(False)
+        self.process_current_btn.setEnabled(False)
+        self.vis_widget.slider.setEnabled(False)
+
+    def enable_all_inputs(self):
+        """
+        after processing completes, swithes everything on again, 
+        but fine tuning of enable/disable will happen with self.update_enabled_disabled
+        """
+        self.recording_folders.setEnabled(True)
+        self.tracker_combo.setEnabled(True)
+        self.export_btn.setEnabled(True)
+        self.process_current_btn.setEnabled(True)
+        self.vis_widget.slider.setEnabled(True)
 
     def update_enabled_disabled(self):
         if self.processed_xyz_path.exists():
             self.export_btn.setEnabled(True)
             self.process_current_btn.setEnabled(False)
             self.vis_widget.slider.setEnabled(True)
-            
-            #update slider value to stored value if it exists
-            if self.processed_xyz_path in self.sync_index_cursors.keys():
-                self.vis_widget.slider.setValue(self.sync_index_cursors[self.processed_xyz_path])
-            else:
-                self.vis_widget.slider.setValue(0)
+
         else:
             self.export_btn.setEnabled(False)
             self.process_current_btn.setEnabled(True)
             self.vis_widget.slider.setEnabled(False)
+
+    def update_slider_position(self):
+        # update slider value to stored value if it exists
+        self.blockSignals(True)
+        if self.processed_xyz_path in self.sync_index_cursors.keys():
+            active_sync_index = self.sync_index_cursors[self.processed_xyz_path]
+            self.vis_widget.slider.setValue(active_sync_index)
+            self.vis_widget.visualizer.display_points(active_sync_index)
+        else:
+            self.vis_widget.slider.setValue(0)
+        self.blockSignals(False)

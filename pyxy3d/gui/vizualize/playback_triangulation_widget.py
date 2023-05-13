@@ -109,6 +109,7 @@ class TriangulationVisualizer:
 
         else:
             self.xyz_coord = None
+            self.sync_index=0
             # self.scatter.setData(pos=None)
 
         self.display_points(self.sync_index)
@@ -118,11 +119,11 @@ class TriangulationVisualizer:
         sync_index is provided from the dialog and linked to the slider
         it is initially set to the minimum viable sync index
         """
-        self.sync_index = sync_index
-
-        current_sync_index_flag = self.sync_indices == self.sync_index
 
         if self.xyz_coord is not None:
+            self.sync_index = sync_index
+
+            current_sync_index_flag = self.sync_indices == self.sync_index
             self.points = self.xyz_coord[current_sync_index_flag]
             logger.info(f"Displaying xyz points for sync index {sync_index}")
             self.scatter.setData(pos=self.points)

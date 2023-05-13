@@ -2,7 +2,7 @@ import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 
-from time import sleep
+from time import sleep, time
 from queue import Queue
 import cv2
 
@@ -79,6 +79,11 @@ def triangulate_xy_data(
         "z_coord": [],
     }
 
+    sync_index_max = xy_data["sync_index"].max()
+
+    start = time()
+    last_log_update = int(start) # only report progress each second
+    
     for index in xy_data["sync_index"].unique():
         active_index = xy_data["sync_index"] == index
         cameras = xy_data["port"][active_index].to_numpy()
@@ -100,6 +105,11 @@ def triangulate_xy_data(
             xyz_history["x_coord"].extend(points_xyz[:, 0].tolist())
             xyz_history["y_coord"].extend(points_xyz[:, 1].tolist())
             xyz_history["z_coord"].extend(points_xyz[:, 2].tolist())
+
+        # only log percent complete each second
+        if int(time())-last_log_update >=1:
+            logger.info(f"Triangulation of (x,y) point estimates is {int(100*(index/sync_index_max))}% complete") 
+            last_log_update = int(time())
 
     return xyz_history
 

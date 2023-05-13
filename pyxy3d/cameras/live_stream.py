@@ -189,9 +189,11 @@ class LiveStream(Stream):
                     logger.debug(f"Pushing frame to reel at port {self.port}")
 
                     if self.track_points.is_set():
-                        point_data = self.tracker.get_points(self.frame)
-                    # else:
-                    # point_data = None
+                        point_data = self.tracker.get_points(
+                            frame = self.frame,
+                            port = self.port,
+                            rotation_count=self.camera.rotation_count,
+                        )
 
                     if self._show_fps:
                         self._add_fps()

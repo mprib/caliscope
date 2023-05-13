@@ -162,10 +162,12 @@ class PostProcessingWidget(QWidget):
 
     def connect_widgets(self):
         self.recording_folders.currentItemChanged.connect(self.refresh_visualizer)
+        self.tracker_combo.currentIndexChanged.connect(self.refresh_visualizer)
+
+        self.vis_widget.slider.valueChanged.connect(self.store_sync_index_cursor)
+
         self.process_current_btn.clicked.connect(self.process_current)
         self.open_folder_btn.clicked.connect(self.open_folder)
-        self.tracker_combo.currentIndexChanged.connect(self.refresh_visualizer)
-        self.vis_widget.slider.valueChanged.connect(self.store_sync_index_cursor)
 
     def store_sync_index_cursor(self, cursor_value):
         if self.processed_xyz_path.exists():
@@ -241,11 +243,14 @@ class PostProcessingWidget(QWidget):
 
     def update_slider_position(self):
         # update slider value to stored value if it exists
-        self.blockSignals(True)
         if self.processed_xyz_path in self.sync_index_cursors.keys():
             active_sync_index = self.sync_index_cursors[self.processed_xyz_path]
             self.vis_widget.slider.setValue(active_sync_index)
             self.vis_widget.visualizer.display_points(active_sync_index)
         else:
-            self.vis_widget.slider.setValue(0)
-        self.blockSignals(False)
+            pass
+            # this is where there appears to be some kind of a bug associated with the switch between recordings
+            # self.vis_widget.slider.setValue(0)
+            # del self.sync_index_cursors[self.processed_xyz_path]
+            # pass
+

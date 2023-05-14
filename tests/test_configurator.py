@@ -1,6 +1,7 @@
 # more attributes could certainly be tested in here,but at least this gives some basic sense of if things
 # are working....
 from pathlib import Path
+import numpy as np
 
 from pyxy3d import __root__
 from pyxy3d.configurator import Configurator
@@ -21,6 +22,15 @@ def test_configurator():
     # load camera array
     camera_array = config.get_camera_array()
     assert(isinstance(camera_array, CameraArray))
+
+    config.save_camera_array(camera_array)
+
+    config2 = Configurator(test_delete_path)
+    camera_array2 = config2.get_camera_array()
+
+
+    # make sure that the rodrigues conversion isn't messing with anything...
+    np.testing.assert_array_almost_equal(camera_array.cameras[0].rotation,camera_array2.cameras[0].rotation, decimal=9)
 
     # load charuco
     charuco = config.get_charuco()

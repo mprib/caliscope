@@ -25,7 +25,8 @@ from pyxy3d.configurator import Configurator
 # session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res")
 # session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res_laptop")
 # session_origin_path = Path(__root__, "dev","sample_sessions", "recordings_to_process")
-session_path = Path(__root__, "dev","sample_sessions", "296")
+# session_path = Path(__root__, "dev","sample_sessions", "296")
+session_path = Path(__root__, "tests" , "sessions_copy_delete", "2_cam_set_origin_test")
 
 # clear previous test so as not to pollute current test results
 # if session_path.exists() and session_path.is_dir():

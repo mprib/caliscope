@@ -10,6 +10,7 @@ from os.path import exists
 import numpy as np
 import toml
 from dataclasses import asdict
+import  cv2
 
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera import Camera
@@ -101,6 +102,12 @@ class Configurator:
                     if "translation" in params.keys(): #Extrinsics have been calculated
                         translation = np.array(params["translation"])
                         rotation = np.array(params["rotation"])
+
+                        if rotation.shape == (3,):
+                            # camera rotation is stored as a matrix
+                            rotation = cv2.Rodrigues(rotation)[0]
+                        
+                        
                     else:
                         translation = None
                         rotation = None
@@ -174,6 +181,13 @@ class Configurator:
             else:
                 return value.tolist()
 
+        if camera.rotation is not None:
+            #store rotation as 3 parameter rodrigues
+            rotation_for_config = cv2.Rodrigues(camera.rotation)[0][:,0]
+            rotation_for_config = rotation_for_config.tolist()
+        else:
+            rotation_for_config = None
+        
         params = {
             "port": camera.port,
             "size": camera.size,
@@ -182,7 +196,7 @@ class Configurator:
             "matrix": none_or_list(camera.matrix),
             "distortions": none_or_list(camera.distortions),
             "translation": none_or_list(camera.translation),
-            "rotation": none_or_list(camera.rotation),
+            "rotation": rotation_for_config,
             "exposure": camera.exposure,
             "grid_count": camera.grid_count,
             "ignore": camera.ignore,

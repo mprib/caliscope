@@ -108,14 +108,15 @@ class CaptureVolumeWidget(QWidget):
         self.rotate_z_minus_btn.clicked.connect(
             lambda: self.rotate_capture_volume("z-")
         )
+        
 
     def set_origin_to_board(self):
         self.session.capture_volume.set_origin_to_board(
             self.slider.value(), self.session.charuco
         )
         self.visualizer.refresh_scene()
-        self.session.save_capture_volume()
-
+        self.session.config.save_capture_volume(self.session.capture_volume)
+        
     def rotate_capture_volume(self, direction):
         transformations = {
             "x+": np.array(
@@ -140,7 +141,7 @@ class CaptureVolumeWidget(QWidget):
 
         self.session.capture_volume.shift_origin(transformations[direction])
         self.visualizer.refresh_scene()
-        self.session.save_capture_volume()
+        self.session.config.save_capture_volume(self.session.capture_volume)
 
     def update_board(self, sync_index):
 

@@ -3,9 +3,10 @@ import pandas as pd
 
 from pyxy3d.interface import Tracker
 
-def xyz_to_wide_csv(xyz_path:Path, tracker:Tracker, target_path:Path):
-
+def xyz_to_wide_csv(xyz_path:Path, tracker:Tracker):
+        
         df_xyz = pd.read_csv(xyz_path)
+        target_path = Path(xyz_path.parent, f"{xyz_path.stem}_labelled.csv")
         # save out named data in a tabular format
         df_xyz = df_xyz.rename(
             {
@@ -31,3 +32,4 @@ def xyz_to_wide_csv(xyz_path:Path, tracker:Tracker, target_path:Path):
         # sort the dataframe
         df_merged = df_merged.sort_index(axis=1, ascending=True)
         df_merged.to_csv(target_path)
+

@@ -118,7 +118,7 @@ class SyncPacketTriangulator:
 
         if self.recording_directory is not None:
             logger.info(f"Saving xyz point data to {self.recording_directory}")
-            self.save_history(self.xyz_history, self.recording_directory, self.tracker_name)
+            self.save_history()
 
     def add_packet_to_history(self, xyz_packet: XYZPacket):
         point_count = len(xyz_packet.point_ids)

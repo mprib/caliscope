@@ -44,7 +44,8 @@ real_time_triangulator = SyncPacketTriangulator(
     camera_array,
     syncr,
     recording_directory=recording_path,
-    tracker = tracker)
+    tracker_name = tracker.name)
+    
 
 stream_pool.play_videos()
 while real_time_triangulator.running:

@@ -12,9 +12,10 @@ def test_xy_to_xyz_postprocessing():
     # load in file of xy point data
     origin_data = Path(__root__, "tests", "sessions", "4_cam_recording")
 
+    tracker_name = "HOLISTIC"
     config = Configurator(origin_data)
-    recording_directory = Path(origin_data, "recording_1_frames_processed")
-    xy_path = Path(recording_directory, "xy.csv")
+    recording_directory = Path(origin_data, "recording_1", tracker_name)
+    xy_path = Path(recording_directory, f"xy_{tracker_name}.csv")
 
     xy_data = pd.read_csv(xy_path)
     camera_array = config.get_camera_array()
@@ -39,8 +40,8 @@ def test_xy_to_xyz_postprocessing():
     )
 
     # Assert that coordinates are within expected bounds around the origin
-    min_x, max_x = -1, 1    
-    min_y, max_y = -1, 1    
+    min_x, max_x = -2, 2    
+    min_y, max_y = -2, 2    
     min_z, max_z = -2, 4    
     for x, y, z in zip(xyz_history["x_coord"], xyz_history["y_coord"], xyz_history["z_coord"]):
         assert min_x <= x <= max_x

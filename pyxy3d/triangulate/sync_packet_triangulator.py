@@ -29,14 +29,14 @@ class SyncPacketTriangulator:
     ):
         self.camera_array = camera_array
         self.synchronizer = synchronizer
-        self.self.recording_directory = recording_directory
+        self.recording_directory = recording_directory
 
         self.stop_thread = Event()
         self.stop_thread.clear()
 
-        self.self.tracker_name = tracker_name
+        self.tracker_name = tracker_name
 
-        self.self.xyz_history = {
+        self.xyz_history = {
             "sync_index": [],
             "point_id": [],
             "x_coord": [],
@@ -116,20 +116,20 @@ class SyncPacketTriangulator:
 
         self.running = False
 
-        if self.self.recording_directory is not None:
-            logger.info(f"Saving xyz point data to {self.self.recording_directory}")
-            self.save_history(self.self.xyz_history, self.self.recording_directory, self.self.tracker_name)
+        if self.recording_directory is not None:
+            logger.info(f"Saving xyz point data to {self.recording_directory}")
+            self.save_history(self.xyz_history, self.recording_directory, self.tracker_name)
 
     def add_packet_to_history(self, xyz_packet: XYZPacket):
         point_count = len(xyz_packet.point_ids)
 
         if point_count > 0:
-            self.self.xyz_history["sync_index"].extend([xyz_packet.sync_index] * point_count)
+            self.xyz_history["sync_index"].extend([xyz_packet.sync_index] * point_count)
             xyz_array = np.array(xyz_packet.point_xyz)
-            self.self.xyz_history["point_id"].extend(xyz_packet.point_ids)
-            self.self.xyz_history["x_coord"].extend(xyz_array[:, 0].tolist())
-            self.self.xyz_history["y_coord"].extend(xyz_array[:, 1].tolist())
-            self.self.xyz_history["z_coord"].extend(xyz_array[:, 2].tolist())
+            self.xyz_history["point_id"].extend(xyz_packet.point_ids)
+            self.xyz_history["x_coord"].extend(xyz_array[:, 0].tolist())
+            self.xyz_history["y_coord"].extend(xyz_array[:, 1].tolist())
+            self.xyz_history["z_coord"].extend(xyz_array[:, 2].tolist())
             
     
 

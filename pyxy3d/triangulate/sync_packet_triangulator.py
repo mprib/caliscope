@@ -25,18 +25,18 @@ class SyncPacketTriangulator:
         camera_array: CameraArray,
         synchronizer: Synchronizer,
         recording_directory: Path = None,
-        tracker: Tracker = None,  # used only for getting the point names and tracker name
+        tracker_name:str = None,  # used only for getting the point names and tracker name
     ):
         self.camera_array = camera_array
         self.synchronizer = synchronizer
-        self.recording_directory = recording_directory
+        self.self.recording_directory = recording_directory
 
         self.stop_thread = Event()
         self.stop_thread.clear()
 
-        self.tracker = tracker
+        self.self.tracker_name = tracker_name
 
-        self.xyz_history = {
+        self.self.xyz_history = {
             "sync_index": [],
             "point_id": [],
             "x_coord": [],
@@ -116,62 +116,36 @@ class SyncPacketTriangulator:
 
         self.running = False
 
-        if self.recording_directory is not None:
-            logger.info(f"Saving xyz point data to {self.recording_directory}")
-            save_history(self.xyz_history, self.recording_directory, self.tracker)
+        if self.self.recording_directory is not None:
+            logger.info(f"Saving xyz point data to {self.self.recording_directory}")
+            self.save_history(self.self.xyz_history, self.self.recording_directory, self.self.tracker_name)
 
     def add_packet_to_history(self, xyz_packet: XYZPacket):
         point_count = len(xyz_packet.point_ids)
 
         if point_count > 0:
-            self.xyz_history["sync_index"].extend([xyz_packet.sync_index] * point_count)
+            self.self.xyz_history["sync_index"].extend([xyz_packet.sync_index] * point_count)
             xyz_array = np.array(xyz_packet.point_xyz)
-            self.xyz_history["point_id"].extend(xyz_packet.point_ids)
-            self.xyz_history["x_coord"].extend(xyz_array[:, 0].tolist())
-            self.xyz_history["y_coord"].extend(xyz_array[:, 1].tolist())
-            self.xyz_history["z_coord"].extend(xyz_array[:, 2].tolist())
-
-
-def save_history(
-    xyz_history: Dict[str, List], recording_directory: Path, tracker: Tracker = None
-):
+            self.self.xyz_history["point_id"].extend(xyz_packet.point_ids)
+            self.self.xyz_history["x_coord"].extend(xyz_array[:, 0].tolist())
+            self.self.xyz_history["y_coord"].extend(xyz_array[:, 1].tolist())
+            self.self.xyz_history["z_coord"].extend(xyz_array[:, 2].tolist())
+            
     
 
-    df_xyz: pd.DataFrame = pd.DataFrame(xyz_history)
-    if tracker is None:
-        # this needs some more careful thought about standard folder strucutres
-        # but for now just leaving things mostly as is  
-        df_xyz.to_csv(Path(recording_directory,f"xyz.csv"))
-        
-    else:
-        df_xyz.to_csv(Path(recording_directory, tracker.name, f"xyz_{tracker.name}.csv"))
-
-    if tracker is not None:
-        # save out named data in a tabular format
-        df_xyz = df_xyz.rename(
-            {
-                "x_coord": "x",
-                "y_coord": "y",
-                "z_coord": "z",
-            },
-            axis=1,
-        )
-        df_xyz = df_xyz[["sync_index", "point_id", "x", "y", "z"]]
-
-        df_xyz["point_name"] = df_xyz["point_id"].map(tracker.get_point_name)
-        # pivot the DataFrame wider
-        df_wide = df_xyz.pivot_table(
-            index=["sync_index"], columns="point_name", values=["x", "y", "z"]
-        )
-        # flatten the column names
-        df_wide.columns = ["{}_{}".format(y, x) for x, y in df_wide.columns]
-        # reset the index
-        df_wide = df_wide.reset_index()
-        # merge the rows with the same sync_index
-        df_merged = df_wide.groupby("sync_index").agg("first")
-        # sort the dataframe
-        df_merged = df_merged.sort_index(axis=1, ascending=True)
-        df_merged.to_csv(Path(recording_directory, f"tabular_xyz_{tracker.name}.csv"))
+    def save_history(self)->None:
+        """
+        If a recording directory is provided, then save the xyz directory into it
+        If a tracker name is provided, then base name on the tracker name
+        """
+        df_xyz: pd.DataFrame = pd.DataFrame(self.xyz_history)
+       
+        if self.recording_directory is not None: 
+            if self.tracker_name is None:
+                filename = "xyz.csv"
+            else:
+                filename = f"xyz_{self.tracker_name}.csv"
+                df_xyz.to_csv(Path(self.recording_directory,filename))
 
 
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit

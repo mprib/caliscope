@@ -5,11 +5,17 @@
 from pyxy3d.trackers.holistic_tracker import HolisticTracker
 from pathlib import Path
 from pyxy3d import __root__
+from pyxy3d.helper import copy_contents
+
 import pandas as pd
 
-recording_path = Path(__root__,"dev", "sample_sessions", "test_calibration", "recording_1")
-xyz_csv_path = Path(recording_path, "xyz.csv")
+original_data_path = Path(__root__, "tests", "sessions", "4_cam_recording", "recording_1", "HOLISTIC")
+working_data_path = Path(__root__, "tests", "sessions_copy_delete", "4_cam_recording", "recording_1", "HOLISTIC")
+
+copy_contents(original_data_path,working_data_path)
+
 tracker = HolisticTracker()
+xyz_csv_path = Path(working_data_path, f"xyz_{tracker.name}.csv")
 
 # read in xyz path as pandas dataframe
 # wishing now that I had started out with polars, but here we are... 

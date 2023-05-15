@@ -17,7 +17,7 @@ def copy_contents(src_folder, dst_folder):
         shutil.rmtree(dst_path)
         
     # Create the destination folder if it doesn't exist
-    dst_path.mkdir(parents=True, exist_ok=True)
+    dst_path.mkdir(parents=True, exist_ok=False)
 
 
         

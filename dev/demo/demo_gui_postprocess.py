@@ -9,9 +9,9 @@ from pyxy3d import __root__
 from pyxy3d.configurator import Configurator
 from pathlib import Path
 
-# session_path = Path(__root__, "tests" , "sessions_copy_delete", "4_cam_recording")
 # session_path = Path(__root__, "tests" , "sessions_copy_delete", "rainy_day_test")
 session_path = Path(__root__, "tests" , "sessions_copy_delete", "2_cam_set_origin_test")
+session_path = Path(__root__, "tests" , "sessions", "4_cam_recording")
 config =  Configurator(session_path)
 
 app = QApplication(sys.argv)

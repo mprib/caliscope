@@ -4,7 +4,7 @@ from pyxy3d.trackers.holistic_tracker import HolisticTracker
 from pathlib import Path
 from pyxy3d import __root__
 from pyxy3d.helper import copy_contents
-from pyxy3d.export_xyz import xyz_to_wide_csv
+from pyxy3d.export import xyz_to_wide_csv
 
 import csv
 import pandas as pd
@@ -109,11 +109,11 @@ with open(trc_path, 'wt', newline='', encoding='utf-8') as out_file:
                         "OrigDataStartFrame",
                         "OrigNumFrames"])
     tsv_writer.writerow([data_rate, 
-                        mean_frame_rate,
+                        int(mean_frame_rate),
                         num_frames, 
                         num_markers, 
                         units, 
-                        mean_frame_rate, 
+                        int(mean_frame_rate), 
                         orig_data_start_frame, 
                         num_frames])
 

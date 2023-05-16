@@ -30,18 +30,16 @@ xyz_csv_path = Path(working_data_path, f"xyz_{tracker.name}.csv")
 
 # this file should be created now
 xyz_labelled_path = Path(xyz_csv_path.parent, f"{xyz_csv_path.stem}_labelled.csv")
-# the file shouldn't exist
+# the file shouldn't exist yet
 assert not xyz_labelled_path.exists()
 # create it
 xyz_to_wide_csv(xyz_csv_path, tracker)
 # confirm it exists
 assert xyz_labelled_path.exists()
 
-
+# do the same with the trc file
 trc_path = Path(xyz_csv_path.parent, f"{xyz_csv_path.stem}.trc")
 assert not trc_path.exists()
-
 xyz_to_trc(xyz_csv_path,tracker)
-
-assert not trc_path.exists()
+assert trc_path.exists()
 # %%

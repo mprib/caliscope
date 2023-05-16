@@ -1,5 +1,6 @@
 from pathlib import Path
 import pandas as pd
+import csv
 
 from pyxy3d.interface import Tracker
 
@@ -42,8 +43,6 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
     relies on xyz_to_wide_csv for input data
     """  
 
-    xyz_to_trc(xyz_path, tracker)
-    
     xyz_labelled_path = Path(xyz_path.parent, f"{xyz_path.stem}_labelled.csv")
 
     # load in the data and confirm it's populated
@@ -60,7 +59,7 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
 
     # Shift times so that it starts at zero
     min_time = sync_time.min()
-    sync_time = sync_time - min_time
+    sync_time = round(sync_time - min_time,3)
     df_xyz_labelled.insert(1, "mean_frame_time", sync_time)
     # %%
 
@@ -95,9 +94,6 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
 
     trc_path = Path(xyz_path.parent,f"{xyz_path.stem}.trc")
     trc_filename = str(trc_path)
-
-
-    # %%
 
     # this will create the formatted .trc file
     with open(trc_path, 'wt', newline='', encoding='utf-8') as out_file:
@@ -146,7 +142,8 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
 
         # Rename 'sync_index' to 'Frame' and 'mean_frame_time' to 'Time'
         df_xyz_labelled.rename(columns={'sync_index': 'Frame', 'mean_frame_time': 'Time'}, inplace=True)
-
+        df_xyz_labelled.drop(columns=["time_diff", "frame_rate"], inplace=True) # no longer needed
+        
         # Make sure all following fields are in alphabetical order
         # First, get the columns to be sorted, i.e., all columns excluding 'Frame' and 'Time'
         cols_to_sort = df_xyz_labelled.columns.tolist()[2:]

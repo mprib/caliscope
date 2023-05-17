@@ -46,6 +46,6 @@ holistic_face_keypoints= {
     633:"right_inner_eye",
     699:"chin_tip",
     746:"right_outer_eye",
-    862:"L_inner_eye",
-    966:"L_outer_eye",
+    862:"left_inner_eye",
+    966:"left_outer_eye",
 }

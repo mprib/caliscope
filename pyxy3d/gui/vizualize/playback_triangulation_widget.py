@@ -84,14 +84,14 @@ class TriangulationVisualizer:
             self.meshes[port] = mesh
             self.scene.addItem(mesh)
 
-            self.scatter = gl.GLScatterPlotItem(
-                pos=np.array([0, 0, 0]),
-                color=[1, 1, 1, 1],
-                size=0.01,
-                pxMode=False,
-            )
-            self.scene.addItem(self.scatter)
-            self.scatter.setData(pos=None)
+        self.scatter = gl.GLScatterPlotItem(
+            pos=np.array([0, 0, 0]),
+            color=[1, 1, 1, 1],
+            size=0.01,
+            pxMode=False,
+        )
+        self.scene.addItem(self.scatter)
+        self.scatter.setData(pos=None)
 
     def set_xyz(self, xyz_history: pd.DataFrame):
         self.xyz_history = xyz_history

@@ -120,8 +120,8 @@ POINT_NAMES = {
     633:"right_inner_eye",
     699:"chin_tip",
     746:"right_outer_eye",
-    862:"L_inner_eye",
-    966:"L_outer_eye",
+    862:"left_inner_eye",
+    966:"left_outer_eye",
 }
 
 
@@ -237,8 +237,7 @@ class HolisticTracker(Tracker):
                             # this will significantly reduce the data tracked.
                             if face_id in POINT_NAMES.keys():
                                 point_ids.append(landmark_id + FACE_OFFSET)
-            
-                            landmark_xy.append((x, y))
+                                landmark_xy.append((x, y))
 
                 point_ids = np.array(point_ids)
                 landmark_xy = np.array(landmark_xy)
@@ -295,6 +294,6 @@ class HolisticTracker(Tracker):
         elif point_name.startswith("right"):
             rules = {"radius": 5, "color": (220, 0, 0), "thickness": 3}
         else:
-            rules = {"radius": 1, "color": (220, 0, 220), "thickness": 1}
+            rules = {"radius": 3, "color": (0, 220, 220), "thickness": 3}
 
         return rules

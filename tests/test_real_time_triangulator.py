@@ -88,7 +88,7 @@ def test_real_time_triangulator(session_path):
     stream_pool = RecordedStreamPool(
         directory=recording_directory,
         config=config,
-        tracker = charuco_tracker,
+        tracker=charuco_tracker,
         fps_target=100,
     )
     logger.info("Creating Synchronizer")
@@ -97,7 +97,10 @@ def test_real_time_triangulator(session_path):
     #### Basic code for interfacing with in-progress RealTimeTriangulator
     #### Just run off of saved point_data.csv for development/testing
     real_time_triangulator = SyncPacketTriangulator(
-        camera_array, syncr, recording_directory=recording_directory
+        camera_array,
+        syncr,
+        recording_directory=recording_directory,
+        tracker_name=charuco_tracker.name,
     )
     stream_pool.play_videos()
     while real_time_triangulator.running:
@@ -109,7 +112,7 @@ def test_real_time_triangulator(session_path):
     # but sync indices will be different, so just compare mean positions
     # which should be quite close
 
-    xyz_history = pd.read_csv(Path(recording_directory, "xyz.csv"))
+    xyz_history = pd.read_csv(Path(recording_directory, "xyz_CHARUCO.csv"))
     xyz_config = np.array(config.dict["point_estimates"]["obj"])
     triangulator_x_mean = xyz_history["x_coord"].mean()
     triangulator_y_mean = xyz_history["y_coord"].mean()

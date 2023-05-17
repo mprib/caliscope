@@ -92,7 +92,10 @@ class PostProcessingWidget(QWidget):
 
         # create list of recording directories
         dir_list = [p.stem for p in self.config.session_path.iterdir() if p.is_dir()]
-        dir_list.remove("calibration")
+        try:
+            dir_list.remove("calibration")
+        except:
+            pass
 
         # add each folder to the QListWidget
         for folder in dir_list:

@@ -11,13 +11,13 @@ import pandas as pd
 
 
 original_data_path = Path(
-    __root__, "tests", "sessions", "4_cam_recording", "recording_1", "HOLISTIC"
+    __root__, "tests", "sessions_copy_delete", "rainy_day_test", "recording_1", "HOLISTIC"
 )
 working_data_path = Path(
     __root__,
-    "tests",
+    "dev",
     "sessions_copy_delete",
-    "4_cam_recording",
+    "rain_day_test",
     "recording_1",
     "HOLISTIC",
 )

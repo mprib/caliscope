@@ -37,3 +37,15 @@ fig = go.Figure(data=data, layout=layout)
 fig.show()
 
 # %%
+
+
+# The following are noted:
+holistic_face_keypoints= {
+    633:"right_inner_eye",
+    746:"right_outer_eye",
+    862:"L_inner_eye",
+    966:"L_outer_eye",
+    504:"nose_tip",
+    500:"lip_top_mid",
+    699:"chin_tip"
+}

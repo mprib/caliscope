@@ -142,7 +142,7 @@ class HolisticOpenSimTracker(Tracker):
 
     @property
     def name(self):
-        return "HOLISTIC"
+        return "HOLISTIC_OPENSIM"
 
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance

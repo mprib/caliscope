@@ -154,6 +154,10 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
         # Now, create the final column order and rearrange the DataFrame
         final_col_order = ['Frame', 'Time'] + cols_to_sort
         df_xyz_labelled = df_xyz_labelled[final_col_order]
+
+        # this is here primarily for testing purposes right now..
+        # filLs None with zeros.
+        df_xyz_labelled.fillna(0,inplace=True)
     
         # and finally actually write the trajectories
         for row in range(0, len(df_xyz_labelled)):

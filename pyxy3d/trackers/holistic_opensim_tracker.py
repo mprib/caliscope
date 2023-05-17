@@ -132,7 +132,7 @@ LEFT_HAND_OFFSET = 200
 FACE_OFFSET = 500
 
 
-class HolisticTracker(Tracker):
+class HolisticOpenSimTracker(Tracker):
     def __init__(self) -> None:
         # each port gets its own mediapipe context manager
         # use a dictionary of queues for passing

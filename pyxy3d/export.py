@@ -1,3 +1,5 @@
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 from pathlib import Path
 import pandas as pd
 import csv
@@ -163,18 +165,14 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
 
         # this is here primarily for testing purposes right now..
         # filLs None with zeros.
-        df_xyz_labelled.fillna(0,inplace=True)
-    
-        # # and finally actually write the trajectories
-        # for row in range(0, len(df_xyz_labelled)):
-        #     tsv_writer.writerow(df_xyz_labelled.iloc[row].tolist())
+        # df_xyz_labelled.fillna(0,inplace=True)
 
 
         # and finally actually write the trajectories
         for row in range(0, len(df_xyz_labelled)):
             row_data = df_xyz_labelled.iloc[row].tolist()
     
-            # Convert the 'Frame' column value to int
+            # Convert the 'Frame' column value to int to satisfy trc format requirements
             frame_index = df_xyz_labelled.columns.get_loc('Frame')
             row_data[frame_index] = int(row_data[frame_index])
 

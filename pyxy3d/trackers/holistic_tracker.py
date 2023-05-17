@@ -12,6 +12,8 @@ import cv2
 from pyxy3d.interface import Tracker, PointPacket
 from pyxy3d.trackers.helper import apply_rotation, unrotate_points
 
+# The following are from base Pose and can be ignored in favor of 
+# better estimated Holistic points
 DRAW_IGNORE_LIST = [
     "nose",
     "left_eye_inner",
@@ -110,6 +112,16 @@ POINT_NAMES = {
     218: "left_pinky_PIP",
     219: "left_pinky_DIP",
     220: "left_pinky_tip",
+
+    # HOLISTIC FACE keypoints worth keeping...
+    # this is for kinematic skull tracking, not animation.
+    500:"lip_top_mid",
+    504:"nose_tip",
+    633:"right_inner_eye",
+    699:"chin_tip",
+    746:"right_outer_eye",
+    862:"L_inner_eye",
+    966:"L_outer_eye",
 }
 
 
@@ -220,11 +232,18 @@ class HolisticTracker(Tracker):
                             # ignore
                             pass
                         else:
-                            point_ids.append(landmark_id + FACE_OFFSET)
+                            face_id = landmark_id + FACE_OFFSET
+                            # only track the point if it is in the list of names above
+                            # this will significantly reduce the data tracked.
+                            if face_id in POINT_NAMES.keys():
+                                point_ids.append(landmark_id + FACE_OFFSET)
+            
                             landmark_xy.append((x, y))
 
                 point_ids = np.array(point_ids)
                 landmark_xy = np.array(landmark_xy)
+                
+                # adjust for previous shift due to camera rotation count
                 landmark_xy = unrotate_points(
                     landmark_xy, rotation_count, width, height
                 )
@@ -235,6 +254,13 @@ class HolisticTracker(Tracker):
     def get_points(
         self, frame: np.ndarray, port: int, rotation_count: int
     ) -> PointPacket:
+        """
+        This is the primary method exposed to the rest of the code.
+        The tracker receives frames and basic camera data from the Stream,
+        then it places the frame/camera data on a queue that will hand it 
+        off to a context manager set up to process that stream of data.
+        """        
+
         if port not in self.in_queues.keys():
             self.in_queues[port] = Queue(1)
             self.out_queues[port] = Queue(1)
@@ -253,11 +279,12 @@ class HolisticTracker(Tracker):
         return point_packet
 
     def get_point_name(self, point_id) -> str:
-        if point_id < FACE_OFFSET:
-            point_name = POINT_NAMES[point_id]
-        else:
-            point_name = "face_" + str(point_id - FACE_OFFSET)
-        return point_name
+        # this if/else should be unnecessary now that only select points are being passed on up the chain.
+        # if point_id < FACE_OFFSET:
+        #     point_name = POINT_NAMES[point_id]
+        # else:
+        #     point_name = "face_" + str(point_id - FACE_OFFSET)
+        return POINT_NAMES[point_id]
 
     def draw_instructions(self, point_id: int) -> dict:
         point_name = self.get_point_name(point_id)

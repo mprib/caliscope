@@ -67,6 +67,8 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
     df_xyz_labelled.sort_values(by="mean_frame_time", inplace=True)
     df_xyz_labelled["time_diff"] = df_xyz_labelled["mean_frame_time"].diff()
 
+        
+
     # Calculate frame rate for each pair of frames (avoid division by zero)
     df_xyz_labelled["frame_rate"] = df_xyz_labelled["time_diff"].apply(
         lambda x: 1 / x if x != 0 else 0
@@ -75,6 +77,24 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
     # Calculate mean frame rate (drop the first value which is NaN due to the diff operation)
     mean_frame_rate = df_xyz_labelled["frame_rate"].dropna().mean()
 
+    # Rename 'sync_index' to 'Frame' and 'mean_frame_time' to 'Time'
+    df_xyz_labelled.rename(columns={'sync_index': 'Frame', 'mean_frame_time': 'Time'}, inplace=True)
+    df_xyz_labelled.drop(columns=["time_diff", "frame_rate"], inplace=True) # no longer needed
+
+    # Make sure all following fields are in alphabetical order
+    # First, get the columns to be sorted, i.e., all columns excluding 'Frame' and 'Time'
+    cols_to_sort = df_xyz_labelled.columns.tolist()[2:]
+    cols_to_sort = [col for col in cols_to_sort if not col.startswith("face")]
+
+    # Now, sort these columns
+    cols_to_sort.sort()
+    # Now, create the final column order and rearrange the DataFrame
+    final_col_order = ['Frame', 'Time'] + cols_to_sort
+    df_xyz_labelled = df_xyz_labelled[final_col_order]
+
+    # trying a fix...
+    df_xyz_labelled["Frame"] = df_xyz_labelled["Frame"].astype(int)
+    
     # Get column names from dataframe
     columns = df_xyz_labelled.columns
 
@@ -140,27 +160,22 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
         # the .trc fileformat expects a blank fourth line
         tsv_writer.writerow("")
 
-        # Rename 'sync_index' to 'Frame' and 'mean_frame_time' to 'Time'
-        df_xyz_labelled.rename(columns={'sync_index': 'Frame', 'mean_frame_time': 'Time'}, inplace=True)
-        df_xyz_labelled.drop(columns=["time_diff", "frame_rate"], inplace=True) # no longer needed
-        
-        # Make sure all following fields are in alphabetical order
-        # First, get the columns to be sorted, i.e., all columns excluding 'Frame' and 'Time'
-        cols_to_sort = df_xyz_labelled.columns.tolist()[2:]
-
-        # Now, sort these columns
-        cols_to_sort.sort()
-
-        # Now, create the final column order and rearrange the DataFrame
-        final_col_order = ['Frame', 'Time'] + cols_to_sort
-        df_xyz_labelled = df_xyz_labelled[final_col_order]
 
         # this is here primarily for testing purposes right now..
         # filLs None with zeros.
         df_xyz_labelled.fillna(0,inplace=True)
     
+        # # and finally actually write the trajectories
+        # for row in range(0, len(df_xyz_labelled)):
+        #     tsv_writer.writerow(df_xyz_labelled.iloc[row].tolist())
+
+
         # and finally actually write the trajectories
         for row in range(0, len(df_xyz_labelled)):
-            tsv_writer.writerow(df_xyz_labelled.iloc[row].tolist())
+            row_data = df_xyz_labelled.iloc[row].tolist()
+    
+            # Convert the 'Frame' column value to int
+            frame_index = df_xyz_labelled.columns.get_loc('Frame')
+            row_data[frame_index] = int(row_data[frame_index])
 
-
+            tsv_writer.writerow(row_data)

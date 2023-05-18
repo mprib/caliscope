@@ -70,7 +70,7 @@ class PostProcessingWidget(QWidget):
         self.vizualizer_title = QLabel(self.viz_title_html)
         self.vis_widget = PlaybackTriangulationWidget(self.camera_array)
         self.process_current_btn = QPushButton("&Process")
-        self.export_btn = QPushButton("&Export")
+        # self.export_btn = QPushButton("&Export")
         self.open_folder_btn = QPushButton("&Open Folder")
 
         self.place_widgets()
@@ -156,7 +156,7 @@ class PostProcessingWidget(QWidget):
         self.left_vbox.addWidget(self.open_folder_btn)
         self.left_vbox.addWidget(self.tracker_combo)
         self.button_hbox.addWidget(self.process_current_btn)
-        self.button_hbox.addWidget(self.export_btn)
+        # self.button_hbox.addWidget(self.export_btn)
         self.left_vbox.addLayout(self.button_hbox)
 
         self.layout().addLayout(self.right_vbox, stretch=2)
@@ -171,7 +171,7 @@ class PostProcessingWidget(QWidget):
 
         self.process_current_btn.clicked.connect(self.process_current)
         self.open_folder_btn.clicked.connect(self.open_folder)
-        self.export_btn.clicked.connect(self.export_current_file)
+        # self.export_btn.clicked.connect(self.export_current_file)
 
     def store_sync_index_cursor(self, cursor_value):
         if self.processed_xyz_path.exists():
@@ -199,9 +199,15 @@ class PostProcessingWidget(QWidget):
 
         def processing_worker():
             self.disable_all_inputs()
+
             create_xyz(
                 self.config.session_path, recording_path, tracker_enum=tracker_enum
             )
+            trc_path = Path(self.processed_xyz_path.parent, self.processed_xyz_path.stem + ".trc")
+            logger.info(f"Saving data to {trc_path.parent}")
+
+            # A side effect of the following line is that it also creates a wide labelled csv format
+            xyz_to_trc(self.processed_xyz_path, self.tracker_combo.currentData().value())
             self.enable_all_inputs()
             self.refresh_visualizer()
 
@@ -219,7 +225,7 @@ class PostProcessingWidget(QWidget):
         """used to toggle off all inputs will processing is going on"""
         self.recording_folders.setEnabled(False)
         self.tracker_combo.setEnabled(False)
-        self.export_btn.setEnabled(False)
+        # self.export_btn.setEnabled(False)
         self.process_current_btn.setEnabled(False)
         self.vis_widget.slider.setEnabled(False)
 
@@ -230,18 +236,18 @@ class PostProcessingWidget(QWidget):
         """
         self.recording_folders.setEnabled(True)
         self.tracker_combo.setEnabled(True)
-        self.export_btn.setEnabled(True)
+        # self.export_btn.setEnabled(True)
         self.process_current_btn.setEnabled(True)
         self.vis_widget.slider.setEnabled(True)
 
     def update_enabled_disabled(self):
         if self.processed_xyz_path.exists():
-            self.export_btn.setEnabled(True)
+            # self.export_btn.setEnabled(True)
             self.process_current_btn.setEnabled(False)
             self.vis_widget.slider.setEnabled(True)
 
         else:
-            self.export_btn.setEnabled(False)
+            # self.export_btn.setEnabled(False)
             self.process_current_btn.setEnabled(True)
             self.vis_widget.slider.setEnabled(False)
 
@@ -253,13 +259,3 @@ class PostProcessingWidget(QWidget):
             self.vis_widget.visualizer.display_points(active_sync_index)
         else:
             pass
-
-    def export_current_file(self):
-        """
-        Creates a .trc file within the TRACKER subfolder
-        A side effect of this is that it also creates a wide labelled csv format
-        as an intermediate step in the file creation process.
-        """
-        trc_path = Path(self.processed_xyz_path.parent, self.processed_xyz_path.stem + ".trc")
-        logger.info(f"Saving data to {trc_path.parent}")
-        xyz_to_trc(self.processed_xyz_path, self.tracker_combo.currentData().value())

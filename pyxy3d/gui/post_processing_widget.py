@@ -10,6 +10,7 @@ import numpy as np
 from queue import Queue
 import pandas as pd
 from pyxy3d.trackers.tracker_enum import TrackerEnum
+from pyxy3d.export import xyz_to_trc
 
 import cv2
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QUrl
@@ -24,7 +25,6 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QTextEdit,
     QLineEdit,
-    QDialog,
     QListWidget,
     QGroupBox,
     QDoubleSpinBox,
@@ -70,7 +70,7 @@ class PostProcessingWidget(QWidget):
         self.vizualizer_title = QLabel(self.viz_title_html)
         self.vis_widget = PlaybackTriangulationWidget(self.camera_array)
         self.process_current_btn = QPushButton("&Process")
-        self.export_btn = QPushButton("&Export")
+        # self.export_btn = QPushButton("&Export")
         self.open_folder_btn = QPushButton("&Open Folder")
 
         self.place_widgets()
@@ -138,9 +138,9 @@ class PostProcessingWidget(QWidget):
         if self.processed_xyz_path.exists():
             suffix = "(x,y,z) estimates"
         else:
-            suffix = "No processed data"
+            suffix = "(no processed data)"
 
-        title = f"<div align='center'><h2> {self.active_folder}: {suffix} </h2></div>"
+        title = f"<div align='center'><b>{self.tracker_combo.currentData().name.title()} Tracker: {self.active_folder} {suffix} </b></div>"
 
         return title
 
@@ -156,7 +156,7 @@ class PostProcessingWidget(QWidget):
         self.left_vbox.addWidget(self.open_folder_btn)
         self.left_vbox.addWidget(self.tracker_combo)
         self.button_hbox.addWidget(self.process_current_btn)
-        self.button_hbox.addWidget(self.export_btn)
+        # self.button_hbox.addWidget(self.export_btn)
         self.left_vbox.addLayout(self.button_hbox)
 
         self.layout().addLayout(self.right_vbox, stretch=2)
@@ -171,6 +171,7 @@ class PostProcessingWidget(QWidget):
 
         self.process_current_btn.clicked.connect(self.process_current)
         self.open_folder_btn.clicked.connect(self.open_folder)
+        # self.export_btn.clicked.connect(self.export_current_file)
 
     def store_sync_index_cursor(self, cursor_value):
         if self.processed_xyz_path.exists():
@@ -179,7 +180,7 @@ class PostProcessingWidget(QWidget):
         else:
             # don't bother, doesn't exist
             pass
-        
+
     def open_folder(self):
         """Opens the currently active folder in a system file browser"""
         if self.active_folder is not None:
@@ -198,9 +199,15 @@ class PostProcessingWidget(QWidget):
 
         def processing_worker():
             self.disable_all_inputs()
+
             create_xyz(
                 self.config.session_path, recording_path, tracker_enum=tracker_enum
             )
+            trc_path = Path(self.processed_xyz_path.parent, self.processed_xyz_path.stem + ".trc")
+            logger.info(f"Saving data to {trc_path.parent}")
+
+            # A side effect of the following line is that it also creates a wide labelled csv format
+            xyz_to_trc(self.processed_xyz_path, self.tracker_combo.currentData().value())
             self.enable_all_inputs()
             self.refresh_visualizer()
 
@@ -213,34 +220,34 @@ class PostProcessingWidget(QWidget):
         self.vizualizer_title.setText(self.viz_title_html)
         self.update_enabled_disabled()
         self.update_slider_position()
-        
+
     def disable_all_inputs(self):
         """used to toggle off all inputs will processing is going on"""
         self.recording_folders.setEnabled(False)
         self.tracker_combo.setEnabled(False)
-        self.export_btn.setEnabled(False)
+        # self.export_btn.setEnabled(False)
         self.process_current_btn.setEnabled(False)
         self.vis_widget.slider.setEnabled(False)
 
     def enable_all_inputs(self):
         """
-        after processing completes, swithes everything on again, 
+        after processing completes, swithes everything on again,
         but fine tuning of enable/disable will happen with self.update_enabled_disabled
         """
         self.recording_folders.setEnabled(True)
         self.tracker_combo.setEnabled(True)
-        self.export_btn.setEnabled(True)
+        # self.export_btn.setEnabled(True)
         self.process_current_btn.setEnabled(True)
         self.vis_widget.slider.setEnabled(True)
 
     def update_enabled_disabled(self):
         if self.processed_xyz_path.exists():
-            self.export_btn.setEnabled(True)
+            # self.export_btn.setEnabled(True)
             self.process_current_btn.setEnabled(False)
             self.vis_widget.slider.setEnabled(True)
 
         else:
-            self.export_btn.setEnabled(False)
+            # self.export_btn.setEnabled(False)
             self.process_current_btn.setEnabled(True)
             self.vis_widget.slider.setEnabled(False)
 
@@ -252,8 +259,3 @@ class PostProcessingWidget(QWidget):
             self.vis_widget.visualizer.display_points(active_sync_index)
         else:
             pass
-            # this is where there appears to be some kind of a bug associated with the switch between recordings
-            # self.vis_widget.slider.setValue(0)
-            # del self.sync_index_cursors[self.processed_xyz_path]
-            # pass
-

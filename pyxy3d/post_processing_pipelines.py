@@ -37,7 +37,8 @@ def create_xy(
     sync_index_count = len(frame_times["sync_index"].unique())
 
     output_suffix = tracker_enum.name
-    
+
+    logger.info("Creating pool of playback streams to begin processing")
     stream_pool = RecordedStreamPool(
         directory=recording_path,
         config=config,
@@ -46,6 +47,8 @@ def create_xy(
     )
 
     synchronizer = Synchronizer(stream_pool.streams, fps_target=100)
+    
+    logger.info("Creating video recorder to record (x,y) data estimates from PointPacket delivered by Tracker")
     video_recorder = VideoRecorder(synchronizer, suffix=output_suffix)
     
     # store video files in a subfolder named by the tracker_enum.name    
@@ -55,6 +58,7 @@ def create_xy(
         include_video=True,
         show_points=True,
     )
+    logger.info("Initiate playback and processing")
     stream_pool.play_videos()
 
     while video_recorder.recording:

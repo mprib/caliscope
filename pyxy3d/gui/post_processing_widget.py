@@ -10,6 +10,7 @@ import numpy as np
 from queue import Queue
 import pandas as pd
 from pyxy3d.trackers.tracker_enum import TrackerEnum
+from pyxy3d.export import xyz_to_trc
 
 import cv2
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QUrl
@@ -138,9 +139,9 @@ class PostProcessingWidget(QWidget):
         if self.processed_xyz_path.exists():
             suffix = "(x,y,z) estimates"
         else:
-            suffix = "No processed data"
+            suffix = "(no processed data)"
 
-        title = f"<div align='center'><h2> {self.active_folder}: {suffix} </h2></div>"
+        title = f"<div align='center'><b>{self.tracker_combo.currentData().name.title()} Tracker: {self.active_folder} {suffix} </b></div>"
 
         return title
 
@@ -252,8 +253,4 @@ class PostProcessingWidget(QWidget):
             self.vis_widget.visualizer.display_points(active_sync_index)
         else:
             pass
-            # this is where there appears to be some kind of a bug associated with the switch between recordings
-            # self.vis_widget.slider.setValue(0)
-            # del self.sync_index_cursors[self.processed_xyz_path]
-            # pass
 

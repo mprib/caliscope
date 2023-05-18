@@ -25,7 +25,6 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QTextEdit,
     QLineEdit,
-    QDialog,
     QListWidget,
     QGroupBox,
     QDoubleSpinBox,
@@ -172,6 +171,7 @@ class PostProcessingWidget(QWidget):
 
         self.process_current_btn.clicked.connect(self.process_current)
         self.open_folder_btn.clicked.connect(self.open_folder)
+        self.export_btn.clicked.connect(self.export_current_file)
 
     def store_sync_index_cursor(self, cursor_value):
         if self.processed_xyz_path.exists():
@@ -180,7 +180,7 @@ class PostProcessingWidget(QWidget):
         else:
             # don't bother, doesn't exist
             pass
-        
+
     def open_folder(self):
         """Opens the currently active folder in a system file browser"""
         if self.active_folder is not None:
@@ -214,7 +214,7 @@ class PostProcessingWidget(QWidget):
         self.vizualizer_title.setText(self.viz_title_html)
         self.update_enabled_disabled()
         self.update_slider_position()
-        
+
     def disable_all_inputs(self):
         """used to toggle off all inputs will processing is going on"""
         self.recording_folders.setEnabled(False)
@@ -225,7 +225,7 @@ class PostProcessingWidget(QWidget):
 
     def enable_all_inputs(self):
         """
-        after processing completes, swithes everything on again, 
+        after processing completes, swithes everything on again,
         but fine tuning of enable/disable will happen with self.update_enabled_disabled
         """
         self.recording_folders.setEnabled(True)
@@ -254,3 +254,12 @@ class PostProcessingWidget(QWidget):
         else:
             pass
 
+    def export_current_file(self):
+        """
+        Creates a .trc file within the TRACKER subfolder
+        A side effect of this is that it also creates a wide labelled csv format
+        as an intermediate step in the file creation process.
+        """
+        trc_path = Path(self.processed_xyz_path.parent, self.processed_xyz_path.stem + ".trc")
+        logger.info(f"Saving data to {trc_path.parent}")
+        xyz_to_trc(self.processed_xyz_path, self.tracker_combo.currentData().value())

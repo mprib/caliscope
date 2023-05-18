@@ -44,10 +44,11 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
     Will save a .trc file in the same folder as the long xyz data
     relies on xyz_to_wide_csv for input data
     """  
+    # create xyz_labelled file to provide input for trc creation
+    xyz_to_wide_csv(xyz_path, tracker)
 
+    # load in the csv file that just got created
     xyz_labelled_path = Path(xyz_path.parent, f"{xyz_path.stem}_labelled.csv")
-
-    # load in the data and confirm it's populated
     df_xyz_labelled = pd.read_csv(xyz_labelled_path)
     # assert(not df_xyz_labelled.empty)
 

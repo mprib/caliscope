@@ -472,7 +472,7 @@ if __name__ == "__main__":
     from pyxy3d.configurator import Configurator
     from pyxy3d.trackers.charuco_tracker import CharucoTracker
 
-    config_path = Path(__root__, "dev", "sample_sessions", "257")
+    config_path = Path(__root__, "dev", "sample_sessions", "293")
 
     print(config_path)
     configurator = Configurator(config_path)

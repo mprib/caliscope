@@ -39,15 +39,15 @@ from pyxy3d.configurator import Configurator
 class CalibrationWidget(QStackedWidget):
     cameras_connected = pyqtSignal()
 
-    def __init__(self, session_path:Path):
+    def __init__(self, session:Session):
         super().__init__()
         self.CAMS_IN_PROCESS = False
 
         self.setWindowTitle("Camera Calibration Wizard")
         self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/pyxy_logo.svg"))))
-        self.session_path = session_path
-        self.config = Configurator(self.session_path)
-        self.session = Session(self.config)
+        self.session_path = session.path
+        self.session = session
+        self.config = session.config
 
         # self.launch_session()
         logger.info("Creating charuco wizard session")
@@ -254,8 +254,12 @@ class CalibrationWidget(QStackedWidget):
 
 
 def launch_calibration_widget(session_path:Path):
+    config = Configurator(session_path)
+    session = Session(config)
+
     app = QApplication(sys.argv)
-    window = CalibrationWidget(session_path=session_path)
+
+    window = CalibrationWidget(session)
     window.show()
     app.exec()
 

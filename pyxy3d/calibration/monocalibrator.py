@@ -140,6 +140,7 @@ class MonoCalibrator():
                 self.connected_points,
             )
 
+
     def set_grid_frame(self):
         """Merges the current frame with the currently detected corners (red circles) 
         and a history of the stored grid information."""
@@ -157,7 +158,7 @@ class MonoCalibrator():
             self.frame_packet.frame = cv2.addWeighted(self.frame_packet.frame, 1, self.grid_capture_history, 1, 0)
             draw_charuco.corners(self.frame_packet)
 
-            self.grid_frame = self.frame_packet.frame
+            self.grid_frame = resize_to_square(self.frame_packet.frame)
             self.grid_frame_ready_q.put("frame ready")
 
         else:
@@ -201,6 +202,29 @@ class MonoCalibrator():
         self.camera.matrix = self.mtx
         self.camera.distortions = self.dist
         self.camera.grid_count = len(self.all_ids)
+
+def resize_to_square(frame):
+
+    height = frame.shape[0]
+    width = frame.shape[1]
+
+    padded_size = max(height, width)
+
+    height_pad = int((padded_size - height) / 2)
+    width_pad = int((padded_size - width) / 2)
+    pad_color = [0, 0, 0]
+
+    frame = cv2.copyMakeBorder(
+        frame,
+        height_pad,
+        height_pad,
+        width_pad,
+        width_pad,
+        cv2.BORDER_CONSTANT,
+        value=pad_color,
+    )
+
+    return frame
 
 if __name__ == "__main__":
 

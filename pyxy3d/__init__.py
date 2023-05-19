@@ -23,14 +23,13 @@ __app_dir__.mkdir(exist_ok=True, parents=True)
 # create a toml file for user settings in LOCALAPPDATA and default the project folder to USER
 __settings_path__ = Path(__app_dir__, "settings.toml")
 
+__user_dir__ = Path(os.getenv("USERPROFILE"), __package_name__)
+__user_dir__.mkdir(exist_ok=True,parents=True)
 
 if __settings_path__.exists():
     USER_SETTINGS = toml.load(__settings_path__)
     PROJECT_DIR = USER_SETTINGS["project_directory"]
 else:
-    __user_dir__ = Path(os.getenv("USERPROFILE"), __package_name__)
-    __user_dir__.mkdir(exist_ok=True,parents=True)
-
     # default to storing pyxy projects in user/__package_name__
     USER_SETTINGS = {"project_directory":str(__user_dir__)}
     PROJECT_DIR = Path(USER_SETTINGS["project_directory"])

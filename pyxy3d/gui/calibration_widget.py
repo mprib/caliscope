@@ -23,7 +23,6 @@ from PyQt6.QtWidgets import (
 from pyxy3d.session import Session, Stage
 from pyxy3d.gui.wizard_charuco import WizardCharuco
 from pyxy3d.gui.camera_config.camera_tabs import CameraWizard
-from pyxy3d.gui.wizard_directory import WizardDirectory
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.session import Stage
 from pyxy3d.trackers.charuco_tracker import CharucoTracker

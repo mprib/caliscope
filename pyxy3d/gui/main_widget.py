@@ -1,4 +1,7 @@
 import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
+
+import pyxy3d.logger
 
 from PyQt6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
 
@@ -21,6 +24,7 @@ from PyQt6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__, __user_dir__
 from pyxy3d.session import Session
 from pyxy3d.configurator import Configurator
+from pyxy3d.gui.calibration_widget import CalibrationWidget
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -78,10 +82,25 @@ class MainWindow(QMainWindow):
 
 
     def launch_session(self, path_to_folder:str):
+
         session_path = Path(path_to_folder)
         self.config = Configurator(session_path)
+        logger.info(f"Launching session with config file stored in {session_path}")
         self.session = Session(self.config)
+        logger.info("Setting calibration Widget")
 
+        # if calibration widget is currently selected, make sure it stays selected
+        old_index = self.tab_widget.currentIndex()
+        calibration_index = self.tab_widget.indexOf(self.calibration_widget)
+        self.tab_widget.removeTab(calibration_index)
+        self.calibration_widget.deleteLater()
+        new_calibration_widget = CalibrationWidget(self.session)
+        # self.tab_widget.setTabText(calibration_index, "&Calibration")  # Set the tab text
+        self.tab_widget.insertTab(calibration_index, new_calibration_widget, "&Calibration")
+        self.calibration_widget = new_calibration_widget
+        self.tab_widget.setCurrentIndex(old_index)
+
+        
     def add_to_recent_project(self, project_path:str):
         recent_project_action = QAction(project_path, self)
         recent_project_action.triggered.connect(self.open_recent_project)

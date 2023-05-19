@@ -101,7 +101,7 @@ class MainWindow(QMainWindow):
         dialog = QFileDialog()
         path_to_folder = dialog.getExistingDirectory(
             parent=None,
-            caption="Create Project Directory",
+            caption="Open Previous or Create New Project Directory",
             directory=str(default_folder),
             options=QFileDialog.Option.ShowDirsOnly,
         )

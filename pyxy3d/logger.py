@@ -10,12 +10,12 @@ from pyxy3d import __log_dir__
 
 # only one file handler accross package so all messages logged to one file
 
-file_handler = logging.FileHandler(Path(__log_dir__,'calibration.log'), "w+")
-file_handler.setLevel(logging.INFO)
+app_dir_file_handler = logging.FileHandler(Path(__log_dir__,'calibration.log'), "w+")
+app_dir_file_handler.setLevel(logging.INFO)
 
 file_log_format = " %(levelname)8s| %(name)30s| %(lineno)3d|  %(message)s"
 file_formatter = logging.Formatter(file_log_format)
-file_handler.setFormatter(file_formatter)
+app_dir_file_handler.setFormatter(file_formatter)
 
 
 console_handler = logging.StreamHandler()
@@ -80,7 +80,7 @@ def get(name): # as in __name__
 
     qt_handler = QtHandler()
     
-    logger.addHandler(file_handler)
+    logger.addHandler(app_dir_file_handler)
     logger.addHandler(console_handler)
     logger.addHandler(qt_handler)
 

@@ -67,7 +67,7 @@ class MainWindow(QMainWindow):
         self.new_project_action.triggered.connect(self.create_new_project_folder)
 
     def create_new_project_folder(self):
-        default_folder = __user_dir__
+        default_folder = Path(self.app_settings["last_project_parent"])
         dialog = QFileDialog()
         # dialog.setFileMode(QFileDialog.Option.ShowDirsOnly)
         # dialog.setViewMode()
@@ -80,11 +80,19 @@ class MainWindow(QMainWindow):
         
         if folder_path:
             logger.info(("Creating new project in :", folder_path))
+            self.add_project_to_recent(folder_path)
             
-            
+    
+    def add_project_to_recent(self, folder_path):
+        if str(folder_path) in self.app_settings["recent_projects"]:
+            pass
+        else:
+            self.app_settings["recent_projects"].append(str(folder_path))
+            self.app_settings["last_project_parent"] = str(Path(folder_path).parent)
+            self.update_app_settings()
 
     def update_app_settings(self):
-        with open(__settings_path__, "a") as f:
+        with open(__settings_path__, "w") as f:
             toml.dump(self.app_settings, f)
 
 

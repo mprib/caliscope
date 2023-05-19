@@ -153,8 +153,6 @@ class Session:
 
 
     def load_monocalibrators(self):
-        # self.corner_tracker = CornerTracker(self.charuco)
-
         for port, cam in self.cameras.items():
             if port in self.monocalibrators.keys():
                 logger.info(

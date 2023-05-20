@@ -350,7 +350,7 @@ def cartesian_product(*arrays):
 
 if __name__ == "__main__":
 # if True:
-    from pyxy3d.session import Session
+    from pyxy3d.session.session import Session
     from pyxy3d import __root__
 
     session_directory = Path(__root__, "tests", "217")

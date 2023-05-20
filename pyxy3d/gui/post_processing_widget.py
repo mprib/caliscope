@@ -36,7 +36,7 @@ from PyQt6.QtWidgets import (
 )
 
 from pyxy3d.post_processing_pipelines import create_xyz
-from pyxy3d.session import Session
+from pyxy3d.session.session import Session
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.recording.video_recorder import VideoRecorder

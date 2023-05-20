@@ -5,7 +5,7 @@ from time import sleep
 from pyxy3d import __root__
 from pathlib import Path
 from pyxy3d.configurator import Configurator
-from pyxy3d.session import Session
+from pyxy3d.session.session import Session
 
 # config_path = Path(__root__, "dev", "sample_sessions", "post_optimization")
 # config_path = Path(__root__, "dev", "sample_sessions", "real_time")

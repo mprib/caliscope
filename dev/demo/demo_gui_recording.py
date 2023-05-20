@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
 )
 
 from pyxy3d.gui.recording_widget import RecordingWidget
-from pyxy3d.session import Session
+from pyxy3d.session.session import Session
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.helper import copy_contents

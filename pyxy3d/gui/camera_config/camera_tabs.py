@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigDialog
-from pyxy3d.session import Session, Stage
+from pyxy3d.session.session import Session, Stage
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
 
 class CameraWizard(QWidget):

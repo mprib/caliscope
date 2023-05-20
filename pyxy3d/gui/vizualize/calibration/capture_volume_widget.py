@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from pyxy3d.session import Session
+from pyxy3d.session.session import Session
 from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
 from pyxy3d.gui.navigation_bars import NavigationBarBackFinish
 

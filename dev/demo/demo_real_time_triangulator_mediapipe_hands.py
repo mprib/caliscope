@@ -23,7 +23,7 @@ from pyxy3d.configurator import Configurator
 from pyxy3d.gui.vizualize.realtime_triangulation_widget import \
     RealTimeTriangulationWidget
 from pyxy3d.interface import FramePacket, PointPacket, SyncPacket
-from pyxy3d.session import Session
+from pyxy3d.session.session import Session
 from pyxy3d.trackers.charuco_tracker import Charuco, CharucoTracker
 from pyxy3d.trackers.hand_tracker import HandTracker
 from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator

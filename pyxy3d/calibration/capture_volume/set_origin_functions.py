@@ -236,7 +236,7 @@ def get_board_origin_transform(
 
 if __name__ == "__main__":
     #
-    from pyxy3d.session import Session
+    from pyxy3d.session.session import Session
     from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
     from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
     from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import (

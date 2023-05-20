@@ -36,7 +36,7 @@ from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
 
-from pyxy3d.session import FILTERED_FRACTION
+from pyxy3d.session.session import FILTERED_FRACTION
 from pyxy3d.configurator import Configurator
 
 TEST_SESSIONS = ["mediapipe_calibration"]

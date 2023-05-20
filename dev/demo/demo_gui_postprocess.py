@@ -4,15 +4,21 @@ working file for development of a post processing widget
 from PyQt6.QtWidgets import QApplication
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 import sys
+import toml
 from time import sleep
 from pyxy3d import __root__
 from pyxy3d.configurator import Configurator
 from pathlib import Path
+from pyxy3d import __app_dir__
 
-# session_path = Path(__root__, "tests" , "sessions_copy_delete", "rainy_day_test")
-# session_path = Path(__root__, "tests" , "sessions_copy_delete", "2_cam_set_origin_test")
-session_path = Path(__root__, "tests" , "sessions", "4_cam_recording")
-# session_path = Path( __root__, "dev", "sessions_copy_delete", "rain_day_test",)
+
+app_settings = toml.load(Path(__app_dir__, "settings.toml"))
+recent_projects:list = app_settings["recent_projects"]
+
+recent_project_count = len(recent_projects)
+session_path = Path(recent_projects[recent_project_count-1])
+
+
 config =  Configurator(session_path)
 
 app = QApplication(sys.argv)

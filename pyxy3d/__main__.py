@@ -9,13 +9,15 @@ from pathlib import Path
 
 from pyxy3d.gui.calibration_widget import launch_calibration_widget
 from pyxy3d.gui.recording_widget import launch_recording_widget
+from pyxy3d.gui.main_widget import launch_main
 
 def CLI_parser():
     if len(sys.argv) == 1:
-        logger.warn("No argument supplied")
-        logger.warn(
-            "Please provide specific function to perform: calibrate, record, process"
-        )
+        # logger.warn("No argument supplied")
+        # logger.warn(
+        #     "Please provide specific function to perform: calibrate, record, process"
+        # )
+        launch_main()
 
     if len(sys.argv) == 2:
         session_path = Path(os.getcwd())

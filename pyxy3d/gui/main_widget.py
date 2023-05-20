@@ -144,9 +144,12 @@ class MainWindow(QMainWindow):
         with open(__settings_path__, "w") as f:
             toml.dump(self.app_settings, f)
 
-
-if __name__ == "__main__":
+def launch_main():
+    
     app = QApplication([])
     window = MainWindow()
     window.show()
     app.exec()
+
+if __name__ == "__main__":
+    launch_main()

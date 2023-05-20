@@ -115,16 +115,10 @@ class Session:
                 else:
                     executor.submit(add_cam, i)
 
-        # remove potential stereocalibration data
-        # going to comment this out. This addressed a real issue that came up
-        # but I'm not happy with how this does it. Going to wait to run into it
-        # again to find the best solution
-
+        # remove potential stereocalibration data to start fresh
         for key in self.config.dict.copy().keys():
             if key.startswith("stereo"):
                 del self.config.dict[key]
-
-        # self.update_config()
 
     def load_streams(self, tracker: Tracker = None):
         """
@@ -173,9 +167,6 @@ class Session:
 
     def start_recording(self, destination_directory: Path):
         logger.info("Initiating recording...")
-        # if destination_folder is None:
-        # destination_folder = Path(self.path)
-        # logger.info(f"Default to saving files in {self.path}")
         destination_directory.mkdir(parents=True, exist_ok=True)
 
         self.video_recorder = VideoRecorder(self.get_synchronizer())

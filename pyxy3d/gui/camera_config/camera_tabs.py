@@ -14,7 +14,8 @@ from PyQt6.QtWidgets import (
 )
 
 from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigDialog
-from pyxy3d.session.session import Session, Stage
+from pyxy3d.session.session import Session
+from pyxy3d.session.get_stage import get_stage, Stage
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
 
 class CameraWizard(QWidget):
@@ -89,11 +90,11 @@ class CameraTabs(QTabWidget):
 
     def check_session_calibration(self):
         logger.info(f"Checking session stage....")
-      
-        if self.session.get_stage() == Stage.MONOCALIBRATED_CAMERAS:
+        current_stage = get_stage(self.session) 
+        if current_stage == Stage.MONOCALIBRATED_CAMERAS:
             logger.info("Ready for stereoframe")
             self.stereoframe_ready.emit(True)       
-        elif self.session.get_stage() == Stage.UNCALIBRATED_CAMERAS:
+        elif current_stage == Stage.UNCALIBRATED_CAMERAS:
             logger.info("Not ready for stereoframe")
             self.stereoframe_ready.emit(False)
             

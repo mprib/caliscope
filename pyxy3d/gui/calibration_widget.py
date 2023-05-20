@@ -20,11 +20,10 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
 )
 
-from pyxy3d.session.session import Session, Stage
+from pyxy3d.session.session import Session
 from pyxy3d.gui.wizard_charuco import WizardCharuco
 from pyxy3d.gui.camera_config.camera_tabs import CameraWizard
 from pyxy3d import __root__, __app_dir__
-from pyxy3d.session.session import Stage
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.stereoframe.stereo_frame_widget import (

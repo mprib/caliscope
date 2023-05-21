@@ -363,7 +363,7 @@ if __name__ == "__main__":
     from pyxy3d.trackers.charuco_tracker import CharucoTracker
     from pyxy3d.recording.recorded_stream import RecordedStreamPool,RecordedStream
     from pyxy3d.recording.video_recorder import VideoRecorder
-    from pyxy3d.session import Session
+    from pyxy3d.session.session import Session
     from pyxy3d.calibration.charuco import Charuco
     
     from pyxy3d import __root__

@@ -14,28 +14,25 @@ import shutil
 from PyQt6.QtWidgets import (
     QApplication,
 )
+import toml
 
 from pyxy3d.gui.recording_widget import RecordingWidget
-from pyxy3d.session import Session
+from pyxy3d.session.session import Session
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.helper import copy_contents
 from pyxy3d.configurator import Configurator
+from pyxy3d import __app_dir__
 
-# session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res")
-# session_origin_path = Path(__root__, "dev", "sample_sessions", "low_res_laptop")
-# session_origin_path = Path(__root__, "dev","sample_sessions", "recordings_to_process")
-# session_path = Path(__root__, "dev","sample_sessions", "296")
-session_path = Path(__root__, "tests" , "sessions_copy_delete", "2_cam_set_origin_test")
+app_settings = toml.load(Path(__app_dir__, "settings.toml"))
+recent_projects:list = app_settings["recent_projects"]
 
-# clear previous test so as not to pollute current test results
-# if session_path.exists() and session_path.is_dir():
-    # shutil.rmtree(session_path)   
-
+recent_project_count = len(recent_projects)
+session_path = Path(recent_projects[recent_project_count-1])
 # copy_contents(session_origin_path,session_path)
 config = Configurator(session_path)
 session = Session(config)
-# session.load_cameras()
+
 session.load_streams()
 session.adjust_resolutions()
 

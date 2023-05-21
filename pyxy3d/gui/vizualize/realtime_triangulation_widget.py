@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from pyxy3d.session import Session
+from pyxy3d.session.session import Session
 from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.interface import XYZPacket
 from pyxy3d.cameras.camera_array import CameraArray

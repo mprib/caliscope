@@ -3,7 +3,7 @@ from PyQt6.QtCore import pyqtSlot, Qt
 from PyQt6.QtWidgets import QDialog, QApplication, QTextBrowser, QPushButton, QVBoxLayout
 import logging
 
-from pyxy3d.session import Session
+from pyxy3d.session.session import Session
 from pathlib import Path
 from threading  import Thread
 

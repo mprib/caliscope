@@ -22,7 +22,7 @@ import toml
 from PyQt6.QtGui import QIcon, QAction, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__, __user_dir__
-from pyxy3d.session import Session
+from pyxy3d.session.session import Session
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.calibration_widget import CalibrationWidget
 

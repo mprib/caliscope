@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 import pickle
-from pyxy3d.session import Session
+from pyxy3d.session.session import Session
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 

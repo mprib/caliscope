@@ -30,7 +30,7 @@ from pyxy3d.gui.camera_config.frame_emitter import FrameEmitter
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.live_stream import LiveStream 
-from pyxy3d.session import Session
+from pyxy3d.session.session import Session
 from pyxy3d import __root__
 
 

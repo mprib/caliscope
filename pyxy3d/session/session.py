@@ -4,34 +4,22 @@ import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
-from os.path import exists
-from pathlib import Path, PurePath
-from enum import Enum, auto
-from dataclasses import asdict
-import numpy as np
-import toml
-from itertools import combinations
+from pathlib import Path
 from time import sleep
 
-from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
 from pyxy3d.interface import Tracker
-from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
-from pyxy3d.calibration.capture_volume.point_estimates import (
-    PointEstimates,
-    load_point_estimates,
-)
+from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from pyxy3d.calibration.capture_volume.quality_controller import QualityController
 
-from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_array
+from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
@@ -45,15 +33,16 @@ FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojec
 
 
 class Session:
-    def __init__(self, config:Configurator):
+    def __init__(self, config: Configurator):
         self.config = config
         # self.folder = PurePath(directory).name
         self.path = self.config.session_path
-        self.config_path = self.config.toml_path # I will know that I'm done with this branch when I can delete this...
 
         # this will not have anything to start, but the path
         # will be set
-        self.extrinsic_calibration_xy = Path(self.path,"calibration","extrinsic", "xy.csv")
+        self.extrinsic_calibration_xy = Path(
+            self.path, "calibration", "extrinsic", "xy.csv"
+        )
 
         # dictionaries of streaming related objects. key = port
         self.cameras = {}
@@ -66,7 +55,6 @@ class Session:
 
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
-
 
     def get_synchronizer(self):
         if hasattr(self, "synchronizer"):
@@ -84,14 +72,12 @@ class Session:
     def unpause_synchronizer(self):
         self.synchronizer.subscribe_to_streams()
 
-
     def get_configured_camera_count(self):
         count = 0
         for key, params in self.config.dict.copy().items():
             if key.startswith("cam"):
                 count += 1
         return count
-
 
     def set_fps_target(self, fps_target):
         if hasattr(self, "synchronizer"):
@@ -112,8 +98,12 @@ class Session:
                 logger.info(f"Success at port {port}")
                 self.cameras[port] = cam
                 self.config.save_camera(cam)
-                logger.info(f"Loading stream at port {port} with charuco tracker for calibration")
-                self.streams[port] = LiveStream(cam, tracker=CharucoTracker(self.charuco))
+                logger.info(
+                    f"Loading stream at port {port} with charuco tracker for calibration"
+                )
+                self.streams[port] = LiveStream(
+                    cam, tracker=CharucoTracker(self.charuco)
+                )
             except:
                 logger.info(f"No camera at port {port}")
 
@@ -125,18 +115,12 @@ class Session:
                 else:
                     executor.submit(add_cam, i)
 
-        # remove potential stereocalibration data
-        # going to comment this out. This addressed a real issue that came up
-        # but I'm not happy with how this does it. Going to wait to run into it 
-        # again to find the best solution
-        
+        # remove potential stereocalibration data to start fresh
         for key in self.config.dict.copy().keys():
             if key.startswith("stereo"):
                 del self.config.dict[key]
 
-        # self.update_config()
-
-    def load_streams(self, tracker:Tracker = None):
+    def load_streams(self, tracker: Tracker = None):
         """
         Connects to stored cameras and creates streams with provided tracking
         """
@@ -150,7 +134,6 @@ class Session:
             else:
                 logger.info(f"Loading Stream for port {port}")
                 self.streams[port] = LiveStream(cam, tracker=tracker)
-
 
     def load_monocalibrators(self):
         for port, cam in self.cameras.items():
@@ -182,13 +165,10 @@ class Session:
         for port, monocal in self.monocalibrators.items():
             monocal.unsubscribe_to_stream()
 
-    def start_recording(self, destination_directory:Path):
+    def start_recording(self, destination_directory: Path):
         logger.info("Initiating recording...")
-        # if destination_folder is None:
-            # destination_folder = Path(self.path)
-            # logger.info(f"Default to saving files in {self.path}")
         destination_directory.mkdir(parents=True, exist_ok=True)
-        
+
         self.video_recorder = VideoRecorder(self.get_synchronizer())
         self.video_recorder.start_recording(destination_directory)
         self.is_recording = True
@@ -224,8 +204,6 @@ class Session:
             for port in self.cameras.keys():
                 executor.submit(adjust_res_worker, port)
 
-
-
     def load_estimated_capture_volume(self):
         """
         Following capture volume optimization via bundle adjustment, or alteration
@@ -248,18 +226,19 @@ class Session:
             self.capture_volume, charuco=self.charuco
         )
 
-
     def estimate_extrinsics(self):
         """
         This is where the camera array 6 DoF is set. Many, many things are happening
         here, but they are all necessary steps of the process so I didn't want to
         try to encapsulate any further
         """
-        stereocalibrator = StereoCalibrator(self.config_path, self.extrinsic_calibration_xy)
+        stereocalibrator = StereoCalibrator(
+            self.config.toml_path, self.extrinsic_calibration_xy
+        )
         stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
         self.camera_array: CameraArray = CameraArrayInitializer(
-            self.config_path
+            self.config.toml_path
         ).get_best_camera_array()
 
         self.point_estimates: PointEstimates = get_point_estimates(
@@ -278,72 +257,3 @@ class Session:
         self.capture_volume.optimize()
 
         self.config.save_capture_volume(self.capture_volume)
-
-    ########################## STAGE ASSOCIATED METHODS #################################
-    def get_stage(self):
-        stage = None
-        if self.connected_camera_count() == 0:
-            stage = Stage.NO_CAMERAS
-
-        elif self.calibrated_camera_count() < self.connected_camera_count():
-            stage = Stage.UNCALIBRATED_CAMERAS
-
-        elif (
-            self.connected_camera_count() > 0
-            and self.calibrated_camera_count() == self.connected_camera_count()
-        ):
-            stage = Stage.MONOCALIBRATED_CAMERAS
-
-        elif len(self.calibrated_camera_pairs()) == len(self.camera_pairs()):
-            stage = Stage.OMNICALIBRATION_DONE
-
-        logger.info(f"Current stage of session is {stage}")
-        return stage
-
-    def connected_camera_count(self):
-        """Used to keep track of where the user is in the calibration process"""
-        return len(self.cameras)
-
-    def calibrated_camera_count(self):
-        """Used to keep track of where the user is in the calibration process"""
-        count = 0
-        for key in self.config.dict.keys():
-            if key.startswith("cam"):
-                if "error" in self.config.dict[key].keys():
-                    if self.config.dict[key]["error"] is not None:
-                        count += 1
-        return count
-
-    def camera_pairs(self):
-        """Used to keep track of where the user is in the calibration process"""
-        ports = [key for key in self.cameras.keys()]
-        pairs = [pair for pair in combinations(ports, 2)]
-        sorted_ports = [
-            (min(pair), max(pair)) for pair in pairs
-        ]  # sort as in (b,a) --> (a,b)
-        sorted_ports = sorted(
-            sorted_ports
-        )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
-        return sorted_ports
-
-    def calibrated_camera_pairs(self):
-        """Used to keep track of where the user is in the calibration process"""
-        calibrated_pairs = []
-        for key in self.config.dict.keys():
-            if key.startswith("stereo"):
-                portA, portB = key.split("_")[1:3]
-                calibrated_pairs.append((int(portA), int(portB)))
-        calibrated_pairs = sorted(
-            calibrated_pairs
-        )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
-        return calibrated_pairs
-
-
-class Stage(Enum):
-    NO_CAMERAS = auto()
-    UNCALIBRATED_CAMERAS = auto()
-    MONOCALIBRATED_CAMERAS = auto()
-    OMNICALIBRATION_IN_PROCESS = auto()
-    OMNICALIBRATION_DONE = auto()
-    ORIGIN_SET = auto()
-

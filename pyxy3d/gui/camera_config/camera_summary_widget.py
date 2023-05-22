@@ -16,15 +16,21 @@ class SummaryWidget(QWidget):
     def __init__(self, camera:Camera, parent=None):
         super().__init__(parent)
         self.camera = camera
-        self.initUI()
+        self.setLayout(QVBoxLayout())
+        self.update_data()
 
-    def initUI(self):
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+    def clear_layout(self):
+        while self.layout().count():
+            child = self.layout().takeAt(0)
+            if child.widget():
+                child.widget().setParent(None)
+
+    def update_data(self):
+        self.clear_layout()
 
         if self.camera.error is None:
             label = QLabel("Need to collect data...")
-            layout.addWidget(label)
+            self.layout().addWidget(label)
         else:
             # Create the first table
             scroll1 = QScrollArea()
@@ -92,12 +98,12 @@ class SummaryWidget(QWidget):
             scroll3.setWidget(table3)
             scroll3.setWidgetResizable(True)
 
-            layout.addWidget(QLabel(""))
-            layout.addWidget(scroll1)
-            layout.addWidget(QLabel("Camera Intrinsics"))
-            layout.addWidget(scroll2)
-            layout.addWidget(QLabel("Camera Distortions"))
-            layout.addWidget(scroll3)
+            self.layout().addWidget(QLabel(""))
+            self.layout().addWidget(scroll1)
+            self.layout().addWidget(QLabel("Camera Intrinsics"))
+            self.layout().addWidget(scroll2)
+            self.layout().addWidget(QLabel("Camera Distortions"))
+            self.layout().addWidget(scroll3)
             for i in range(5):
                 table3.item(i, 0).setTextAlignment(
                     Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter

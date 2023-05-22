@@ -175,31 +175,6 @@ class Camera:
             if resolution == self.size:
                 self.verified_resolutions.append(resolution)
                 
-        # min_res = self.get_nearest_resolution(MIN_RESOLUTION_CHECK)
-        # max_res = self.get_nearest_resolution(MAX_RESOLUTION_CHECK)
-
-        # min_width = min_res[0]
-        # max_width = max_res[0]
-
-        # STEPS_TO_CHECK = 20  # fast to check so cover your bases
-
-        # # the size of jump to make before checking on the resolution
-        # step_size = int((max_width - min_width) / STEPS_TO_CHECK)
-
-        # resolutions = {min_res, max_res}
-
-        # if max_width > min_width:  # i.e. only one size avaialable
-        #     for test_width in range(
-        #         int(min_width + step_size), int(max_width - step_size), int(step_size)
-        #     ):
-        #         new_res = self.get_nearest_resolution(test_width)
-        #         # print(new_res)
-        #         resolutions.add(new_res)
-        #     resolutions = list(resolutions)
-        #     resolutions.sort()
-        #     self.possible_resolutions = resolutions
-        # else:
-        #     self.possible_resolutions = self.default_resolution
 
     def rotate_CW(self):
         if self.rotation_count == 3:

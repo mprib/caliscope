@@ -31,6 +31,7 @@ from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.live_stream import LiveStream 
 from pyxy3d.session.session import Session
+from pyxy3d.gui.camera_config.camera_summary_widget import SummaryWidget
 from pyxy3d import __root__
 
 
@@ -134,51 +135,53 @@ class CalibrationControls(QGroupBox):
 
     def place_widgets(self):
 
-        self.start_stop_calibration_btn = QPushButton("Collect Data")
+        self.start_stop_calibration_btn = QPushButton("&Collect Data")
         self.layout().addWidget(self.start_stop_calibration_btn)
-        self.undistort_btn = QPushButton("Undistort")    
+        self.undistort_btn = QPushButton("Un&distort")    
         self.layout().addWidget(self.undistort_btn)
          
         if self.camera.matrix is None and self.camera.distortions is None:
             self.undistort_btn.setEnabled(False)
         
-        self.cal_output = QLabel()
-        self.cal_output.setWordWrap(True)
-        self.cal_output.setText(self.monocal.camera.calibration_summary())
-        self.layout().addWidget(self.cal_output)
+        self.camera_summary = SummaryWidget(self.camera)
+        self.layout().addWidget(self.camera_summary)
 
     def connect_widgets(self):
         self.start_stop_calibration_btn.clicked.connect(self.capture_control)
         self.undistort_btn.clicked.connect(self.undistort)
+        self.calibration_change.connect(self.update_camera_data)
 
     def capture_control(self):
         """change to turn on/off"""
 
-        if self.start_stop_calibration_btn.text() == "Collect Data":
+        if self.start_stop_calibration_btn.text() == "&Collect Data":
             self.signal_calibration_lock.emit(True)
             self.clear_camera_calibration()
             self.calibration_change.emit()
             self.monocal.capture_corners.set()
             self.undistort_btn.setEnabled(False)
-            self.start_stop_calibration_btn.setText("Calibrate")
+            self.start_stop_calibration_btn.setText("&Calibrate")
         
-        if self.start_stop_calibration_btn.text() == "Calibrate":
+        elif self.start_stop_calibration_btn.text() == "&Calibrate":
             self.signal_calibration_lock.emit(True)
             if len(self.monocal.all_ids) > 0:
-                self.cal_output.setText("Calibration can take a moment...")
+                # stop the colletion of more data
                 self.monocal.capture_corners.clear()
                 self.calibrate()    
             else:
-                self.cal_output.setText("Need to Collect Grids")
+                self.monocal.capture_corners.clear()
+                # self.camera_summary.place_widgets()
+                self.update_camera_data()
+                self.start_stop_calibration_btn.setText("&Collect Data")
 
-        if self.start_stop_calibration_btn.text() == "Re-Collect":
+        elif self.start_stop_calibration_btn.text() == "Re-&Collect":
             self.signal_calibration_lock.emit(True)
             self.clear_camera_calibration()
             self.calibration_change.emit()
             self.monocal.initialize_grid_history()
             self.undistort_btn.setEnabled(False)
             self.monocal.capture_corners.set()
-            self.start_stop_calibration_btn.setText("Calibrate")
+            self.start_stop_calibration_btn.setText("&Calibrate")
     
     def clear_camera_calibration(self):
         self.camera.matrix = None
@@ -186,7 +189,8 @@ class CalibrationControls(QGroupBox):
         self.camera.error = None
         self.camera.grid_count = None
         self.session.config.save_camera(self.camera)
-        self.cal_output.setText("Need to collect data....")
+        # self.camera_summary.place_widgets()
+        self.update_camera_data()
         self.undistort_btn.setEnabled(False)
        
     def calibrate(self):
@@ -196,14 +200,14 @@ class CalibrationControls(QGroupBox):
                 self.start_stop_calibration_btn.setEnabled(False)
 
                 self.monocal.calibrate()
-                self.cal_output.setText(self.monocal.camera.calibration_summary())
                 self.session.config.save_camera(self.camera)
-
+                # self.camera_summary.place_widgets()
+                # self.update_camera_data()
                 # signal to camera tabs to check on total session calibration status
                 self.calibration_change.emit() 
 
                 self.undistort_btn.setEnabled(True)
-                self.start_stop_calibration_btn.setText("Re-Collect")
+                self.start_stop_calibration_btn.setText("Re-&Collect")
                 self.start_stop_calibration_btn.setEnabled(True)
                 self.signal_calibration_lock.emit(False)
 
@@ -211,19 +215,25 @@ class CalibrationControls(QGroupBox):
             self.calib_thread.start()
 
     def undistort(self):
-        if self.undistort_btn.text() == "Undistort":
+        if self.undistort_btn.text() == "Un&distort":
             self.signal_calibration_lock.emit(True)
             self.start_stop_calibration_btn.setEnabled(False)
             self.frame_emitter.undistort = True
-            self.undistort_btn.setText("Revert Distortion")
+            self.undistort_btn.setText("Revert &Distortion")
                 
-        elif self.undistort_btn.text() == "Revert Distortion":
+        elif self.undistort_btn.text() == "Revert &Distortion":
             self.start_stop_calibration_btn.setEnabled(True)
             self.frame_emitter.undistort = False
-            self.undistort_btn.setText("Undistort")
+            self.undistort_btn.setText("Un&distort")
             self.signal_calibration_lock.emit(False)
             
-
+    def update_camera_data(self):
+        self.layout().removeWidget(self.camera_summary)
+        self.camera_summary.deleteLater()
+        self.camera_summary = None
+        self.camera_summary = SummaryWidget(self.camera)
+        self.layout().addWidget(self.camera_summary)
+        
         
 class AdvancedControls(QWidget):
     def __init__(self,session:Session, port, frame_emitter:FrameEmitter):
@@ -461,23 +471,30 @@ class FrameControlWidget(QWidget):
 
 
 if __name__ == "__main__":
-    App = QApplication(sys.argv)
     from pyxy3d import __root__
     from pyxy3d.configurator import Configurator
     from pyxy3d.trackers.charuco_tracker import CharucoTracker
 
-    config_path = Path(__root__, "dev", "sample_sessions", "293")
+    import toml
+    from pyxy3d import __app_dir__
 
-    print(config_path)
-    configurator = Configurator(config_path)
-    session = Session(configurator)
+    app_settings = toml.load(Path(__app_dir__, "settings.toml"))
+    recent_projects:list = app_settings["recent_projects"]
+
+    recent_project_count = len(recent_projects)
+    session_path = Path(recent_projects[recent_project_count-1])
+
+    config = Configurator(session_path)
+    session = Session(config)
+
     tracker = CharucoTracker(session.charuco)
     # # session.load_cameras()
     session.load_streams(tracker=tracker)
     session.adjust_resolutions()
     session.load_monocalibrators()
-
     test_port = 0
+
+    App = QApplication(sys.argv)
 
     logger.info("Creating Camera Config Dialog")
     cam_dialog = CameraConfigDialog(session, test_port)

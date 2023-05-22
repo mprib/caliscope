@@ -101,7 +101,6 @@ class MonoCalibrator():
             self.frame = self.frame_packet.frame
 
             if self.capture_corners.is_set() and self.frame_packet.points is not None:
-                logger.info("Points found and being processed...")
                 self.ids = self.frame_packet.points.point_id
                 self.img_loc = self.frame_packet.points.img_loc
                 self.obj_loc = self.frame_packet.points.obj_loc
@@ -116,6 +115,7 @@ class MonoCalibrator():
                 )
 
                 if enough_corners and enough_time_from_last_cal:
+                    logger.info(f"Points found and being processed for port {self.port}")
 
                     # store the corners and IDs
                     self.all_ids.append(self.ids)
@@ -124,7 +124,10 @@ class MonoCalibrator():
 
                     self.last_calibration_time = time.perf_counter()
                     self.update_grid_history()
-
+                else:
+                    logger.info(f"No points collected for processing at port {self.port}")
+                    
+                    
             if self.frame_packet.frame is not None:
                 self.set_grid_frame()
 

@@ -110,24 +110,24 @@ class StereoFrameWidget(QWidget):
         self.frame_builder.board_count_target = target
         
     def on_calibrate_connect_click(self):
-        if self.calibrate_collect_btn.text() == "Collect Data":
+        if self.calibrate_collect_btn.text() == "&Collect Data":
             logger.info("Begin collecting calibration data")
             # by default, data saved to session folder
             self.frame_builder.store_points.set()
             extrinsic_calibration_path = Path(self.session.path, "calibration", "extrinsic")
             self.session.start_recording(extrinsic_calibration_path)
-            self.calibrate_collect_btn.setText("Terminate")
+            self.calibrate_collect_btn.setText("&Terminate")
             self.calibrate_collect_btn.setEnabled(True)
             self.navigation_bar.back_btn.setEnabled(False)
 
-        elif self.calibrate_collect_btn.text() == "Terminate":
+        elif self.calibrate_collect_btn.text() == "&Terminate":
             logger.info("Terminating current data collection")
             self.terminate.emit()
             # self.session.stop_recording()
             # self.frame_builder.reset()
-            self.calibrate_collect_btn.setText("Collect Data")
+            self.calibrate_collect_btn.setText("&Collect Data")
 
-        elif self.calibrate_collect_btn.text() == "Calibrate":
+        elif self.calibrate_collect_btn.text() == "&Calibrate":
             logger.info("Prematurely end data collection")
             self.frame_builder.store_points.clear()
             self.initiate_calibration()
@@ -135,7 +135,7 @@ class StereoFrameWidget(QWidget):
 
 
     def enable_calibration(self):
-        self.calibrate_collect_btn.setText("Calibrate")
+        self.calibrate_collect_btn.setText("&Calibrate")
         self.calibrate_collect_btn.setEnabled(True)
         
         
@@ -162,7 +162,7 @@ class StereoFrameWidget(QWidget):
             self.session.pause_synchronizer()
             self.session.estimate_extrinsics()
             self.navigation_bar.back_btn.setEnabled(True)
-            self.calibrate_collect_btn.setText("Collect Data")
+            self.calibrate_collect_btn.setText("&Collect Data")
             self.calibrate_collect_btn.setEnabled(True)
             self.calibration_complete.emit()
             logger.info("Calibration Complete signal sent...")

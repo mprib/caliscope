@@ -489,21 +489,6 @@ if __name__ == "__main__":
     cam_dialog = CameraConfigDialog(session, test_port)
     cam_dialog.show()
     
-    # frame_control = FrameControlWidget(session, test_port)
-    # frame_control.show()
-
-    # adv_control = AdvancedControls(session, test_port)
-    # adv_control.show()
-
-    # DISPLAY_WIDTH = App.primaryScreen().size().width()
-    # DISPLAY_HEIGHT = App.primaryScreen().size().height()
-
-    # pixmap_edge = min(DISPLAY_WIDTH / 3, DISPLAY_HEIGHT / 3)
-    # frame_emitter = FrameEmitter(session.monocalibrators[test_port], pixmap_edge)
-    
-    # frame_emitter.start()
-    # cal_controls = CalibrationControls(session, test_port,frame_emitter)
-    # cal_controls.show()
     logger.info("About to show camera config dialog")
 
     sys.exit(App.exec())

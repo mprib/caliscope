@@ -149,6 +149,7 @@ class CalibrationControls(QGroupBox):
     def connect_widgets(self):
         self.start_stop_calibration_btn.clicked.connect(self.capture_control)
         self.undistort_btn.clicked.connect(self.undistort)
+        self.calibration_change.connect(self.update_camera_data)
 
     def capture_control(self):
         """change to turn on/off"""
@@ -169,7 +170,8 @@ class CalibrationControls(QGroupBox):
                 self.calibrate()    
             else:
                 self.monocal.capture_corners.clear()
-                self.camera_summary.update_data()
+                # self.camera_summary.place_widgets()
+                self.update_camera_data()
                 self.start_stop_calibration_btn.setText("&Collect Data")
 
         elif self.start_stop_calibration_btn.text() == "Re-&Collect":
@@ -187,7 +189,8 @@ class CalibrationControls(QGroupBox):
         self.camera.error = None
         self.camera.grid_count = None
         self.session.config.save_camera(self.camera)
-        self.camera_summary.update_data()
+        # self.camera_summary.place_widgets()
+        self.update_camera_data()
         self.undistort_btn.setEnabled(False)
        
     def calibrate(self):
@@ -198,8 +201,8 @@ class CalibrationControls(QGroupBox):
 
                 self.monocal.calibrate()
                 self.session.config.save_camera(self.camera)
-                self.camera_summary.update_data()
-
+                # self.camera_summary.place_widgets()
+                # self.update_camera_data()
                 # signal to camera tabs to check on total session calibration status
                 self.calibration_change.emit() 
 
@@ -224,7 +227,13 @@ class CalibrationControls(QGroupBox):
             self.undistort_btn.setText("Un&distort")
             self.signal_calibration_lock.emit(False)
             
-
+    def update_camera_data(self):
+        self.layout().removeWidget(self.camera_summary)
+        self.camera_summary.deleteLater()
+        self.camera_summary = None
+        self.camera_summary = SummaryWidget(self.camera)
+        self.layout().addWidget(self.camera_summary)
+        
         
 class AdvancedControls(QWidget):
     def __init__(self,session:Session, port, frame_emitter:FrameEmitter):

@@ -16,7 +16,7 @@ class NavigationBarNext(QWidget):
     def __init__(self):
         super().__init__()
         self.setLayout(QHBoxLayout())
-        self.next_wizard_step_btn = QPushButton("Next")
+        self.next_wizard_step_btn = QPushButton("&Next")
         self.next_wizard_step_btn.setMaximumWidth(50)
         self.layout().setAlignment(Qt.AlignmentFlag.AlignRight)
         self.layout().addWidget(self.next_wizard_step_btn)
@@ -31,11 +31,11 @@ class NavigationBarBackNext(QWidget):
         self.layout().addLayout(self.left_box)
         self.layout().addLayout(self.right_box)
 
-        self.back_btn = QPushButton("Back")
+        self.back_btn = QPushButton("&Back")
         self.back_btn.setMaximumWidth(50)
         self.left_box.addWidget(self.back_btn)
         
-        self.next_btn = QPushButton("Next")
+        self.next_btn = QPushButton("&Next")
         self.next_btn.setMaximumWidth(50)
         self.right_box.addWidget(self.next_btn)
         
@@ -54,11 +54,11 @@ class NavigationBarBackFinish(QWidget):
         self.layout().addLayout(self.left_box)
         self.layout().addLayout(self.right_box)
 
-        self.back_btn = QPushButton("Back")
+        self.back_btn = QPushButton("&Back")
         self.back_btn.setMaximumWidth(50)
         self.left_box.addWidget(self.back_btn)
         
-        self.finish_btn = QPushButton("Finish")
+        self.finish_btn = QPushButton("&Finish")
         self.finish_btn.setMaximumWidth(50)
         self.right_box.addWidget(self.finish_btn)
         
@@ -77,11 +77,11 @@ class NavigationBarBackFinish(QWidget):
         self.layout().addLayout(self.left_box)
         self.layout().addLayout(self.right_box)
 
-        self.back_btn = QPushButton("Back")
+        self.back_btn = QPushButton("&Back")
         self.back_btn.setMaximumWidth(50)
         self.left_box.addWidget(self.back_btn)
         
-        self.calibrate_collect_btn = QPushButton("Collect Data")
+        self.calibrate_collect_btn = QPushButton("Collect &Stereo Data")
         self.calibrate_collect_btn.setMaximumWidth(100)
         self.right_box.addWidget(self.calibrate_collect_btn)
         

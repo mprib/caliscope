@@ -273,14 +273,18 @@ class Configurator:
             stream.change_resolution(cam.size)
             streams[port] = stream
         return streams            
-                    
-                    
+
+    
+     
 if __name__ == "__main__":
-    from pyxy3d import __root__
-    
-    session_path = Path(__root__,"dev", "sample_sessions", "real_time")
+
+    import toml
+    from pyxy3d import __app_dir__
+
+    app_settings = toml.load(Path(__app_dir__, "settings.toml"))
+    recent_projects:list = app_settings["recent_projects"]
+
+    recent_project_count = len(recent_projects)
+    session_path = Path(recent_projects[recent_project_count-1])
+
     config = Configurator(session_path)
-
-    
-
-#%%

@@ -161,18 +161,18 @@ class CalibrationControls(QGroupBox):
             self.undistort_btn.setEnabled(False)
             self.start_stop_calibration_btn.setText("&Calibrate")
         
-        if self.start_stop_calibration_btn.text() == "&Calibrate":
+        elif self.start_stop_calibration_btn.text() == "&Calibrate":
             self.signal_calibration_lock.emit(True)
             if len(self.monocal.all_ids) > 0:
+                # stop the colletion of more data
                 self.monocal.capture_corners.clear()
-                # self.camera_summary = SummaryWidget(self.camera)
                 self.calibrate()    
             else:
                 self.monocal.capture_corners.clear()
-                # self.camera_summary = SummaryWidget(self.camera)
+                self.camera_summary.update_data()
                 self.start_stop_calibration_btn.setText("&Collect Data")
 
-        if self.start_stop_calibration_btn.text() == "Re-&Collect":
+        elif self.start_stop_calibration_btn.text() == "Re-&Collect":
             self.signal_calibration_lock.emit(True)
             self.clear_camera_calibration()
             self.calibration_change.emit()

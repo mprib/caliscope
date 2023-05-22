@@ -17,16 +17,16 @@ class SummaryWidget(QWidget):
         super().__init__(parent)
         self.camera = camera
         self.setLayout(QVBoxLayout())
-        self.update_data()
+        self.place_widgets()
 
-    def clear_layout(self):
-        while self.layout().count():
-            child = self.layout().takeAt(0)
-            if child.widget():
-                child.widget().setParent(None)
+    # def clear_layout(self):
+    #     while self.layout().count():
+    #         child = self.layout().takeAt(0)
+    #         if child.widget():
+    #             child.widget().deleteLater()
 
-    def update_data(self):
-        self.clear_layout()
+    def place_widgets(self):
+        # self.clear_layout()
 
         if self.camera.error is None:
             label = QLabel("Need to collect data...")

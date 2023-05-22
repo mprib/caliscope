@@ -462,23 +462,30 @@ class FrameControlWidget(QWidget):
 
 
 if __name__ == "__main__":
-    App = QApplication(sys.argv)
     from pyxy3d import __root__
     from pyxy3d.configurator import Configurator
     from pyxy3d.trackers.charuco_tracker import CharucoTracker
 
-    config_path = Path(__root__, "dev", "sample_sessions", "293")
+    import toml
+    from pyxy3d import __app_dir__
 
-    print(config_path)
-    configurator = Configurator(config_path)
-    session = Session(configurator)
+    app_settings = toml.load(Path(__app_dir__, "settings.toml"))
+    recent_projects:list = app_settings["recent_projects"]
+
+    recent_project_count = len(recent_projects)
+    session_path = Path(recent_projects[recent_project_count-1])
+
+    config = Configurator(session_path)
+    session = Session(config)
+
     tracker = CharucoTracker(session.charuco)
     # # session.load_cameras()
     session.load_streams(tracker=tracker)
     session.adjust_resolutions()
     session.load_monocalibrators()
-
     test_port = 0
+
+    App = QApplication(sys.argv)
 
     logger.info("Creating Camera Config Dialog")
     cam_dialog = CameraConfigDialog(session, test_port)

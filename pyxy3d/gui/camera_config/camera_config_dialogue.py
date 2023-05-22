@@ -143,9 +143,7 @@ class CalibrationControls(QGroupBox):
         if self.camera.matrix is None and self.camera.distortions is None:
             self.undistort_btn.setEnabled(False)
         
-        self.camera_summary = SummaryWidget(self.session.config,self.port)
-        # self.camera_summary.setWordWrap(True)
-        # self.camera_summary.setText(self.session.config.get_camera_summary(self.port))
+        self.camera_summary = SummaryWidget(self.camera)
         self.layout().addWidget(self.camera_summary)
 
     def connect_widgets(self):
@@ -166,12 +164,13 @@ class CalibrationControls(QGroupBox):
         if self.start_stop_calibration_btn.text() == "&Calibrate":
             self.signal_calibration_lock.emit(True)
             if len(self.monocal.all_ids) > 0:
-                self.camera_summary = SummaryWidget(self.session.config,self.port)
                 self.monocal.capture_corners.clear()
+                # self.camera_summary = SummaryWidget(self.camera)
                 self.calibrate()    
             else:
-                # self.camera_summary.setText("Need to Collect Grids")
-                self.camera_summary = SummaryWidget(self.session.config,self.port)
+                self.monocal.capture_corners.clear()
+                # self.camera_summary = SummaryWidget(self.camera)
+                self.start_stop_calibration_btn.setText("&Collect Data")
 
         if self.start_stop_calibration_btn.text() == "Re-&Collect":
             self.signal_calibration_lock.emit(True)
@@ -188,7 +187,7 @@ class CalibrationControls(QGroupBox):
         self.camera.error = None
         self.camera.grid_count = None
         self.session.config.save_camera(self.camera)
-        self.camera_summary.setText("Need to collect data....")
+        self.camera_summary.update_data()
         self.undistort_btn.setEnabled(False)
        
     def calibrate(self):
@@ -198,9 +197,8 @@ class CalibrationControls(QGroupBox):
                 self.start_stop_calibration_btn.setEnabled(False)
 
                 self.monocal.calibrate()
-                # self.cal_output.setText(self.monocal.camera.calibration_summary())
-                self.camera_summary.setText(self.session.config.get_camera_summary(self.port))
                 self.session.config.save_camera(self.camera)
+                self.camera_summary.update_data()
 
                 # signal to camera tabs to check on total session calibration status
                 self.calibration_change.emit() 

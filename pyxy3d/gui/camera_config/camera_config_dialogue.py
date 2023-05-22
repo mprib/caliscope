@@ -211,24 +211,18 @@ class CalibrationControls(QGroupBox):
             self.calib_thread.start()
 
     def undistort(self):
-        def undistort_worker():
-            # create thread for timer to play out
+        if self.undistort_btn.text() == "Undistort":
             self.signal_calibration_lock.emit(True)
             self.start_stop_calibration_btn.setEnabled(False)
-            self.undistort_btn.setEnabled(False)
             self.frame_emitter.undistort = True
-            for i in range(5,0,-1):
-                self.undistort_btn.setText(f"Reverting in {i}")
-                time.sleep(1)
-            self.undistort_btn.setEnabled(True)
+            self.undistort_btn.setText("Revert Distortion")
+                
+        elif self.undistort_btn.text() == "Revert Distortion":
             self.start_stop_calibration_btn.setEnabled(True)
-                    
             self.frame_emitter.undistort = False
             self.undistort_btn.setText("Undistort")
             self.signal_calibration_lock.emit(False)
             
-        undistort_thread = Thread(target=undistort_worker,args=(),daemon=True)
-        undistort_thread.start()
 
         
 class AdvancedControls(QWidget):

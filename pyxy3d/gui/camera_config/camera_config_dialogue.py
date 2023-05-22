@@ -31,6 +31,7 @@ from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.live_stream import LiveStream 
 from pyxy3d.session.session import Session
+from pyxy3d.gui.camera_config.camera_summary_widget import SummaryWidget
 from pyxy3d import __root__
 
 
@@ -142,10 +143,10 @@ class CalibrationControls(QGroupBox):
         if self.camera.matrix is None and self.camera.distortions is None:
             self.undistort_btn.setEnabled(False)
         
-        self.cal_output = QLabel()
-        self.cal_output.setWordWrap(True)
-        self.cal_output.setText(self.monocal.camera.calibration_summary())
-        self.layout().addWidget(self.cal_output)
+        self.camera_summary = SummaryWidget(self.session.config,self.port)
+        # self.camera_summary.setWordWrap(True)
+        # self.camera_summary.setText(self.session.config.get_camera_summary(self.port))
+        self.layout().addWidget(self.camera_summary)
 
     def connect_widgets(self):
         self.start_stop_calibration_btn.clicked.connect(self.capture_control)
@@ -165,11 +166,12 @@ class CalibrationControls(QGroupBox):
         if self.start_stop_calibration_btn.text() == "&Calibrate":
             self.signal_calibration_lock.emit(True)
             if len(self.monocal.all_ids) > 0:
-                self.cal_output.setText("Calibration can take a moment...")
+                self.camera_summary = SummaryWidget(self.session.config,self.port)
                 self.monocal.capture_corners.clear()
                 self.calibrate()    
             else:
-                self.cal_output.setText("Need to Collect Grids")
+                # self.camera_summary.setText("Need to Collect Grids")
+                self.camera_summary = SummaryWidget(self.session.config,self.port)
 
         if self.start_stop_calibration_btn.text() == "Re-&Collect":
             self.signal_calibration_lock.emit(True)
@@ -186,7 +188,7 @@ class CalibrationControls(QGroupBox):
         self.camera.error = None
         self.camera.grid_count = None
         self.session.config.save_camera(self.camera)
-        self.cal_output.setText("Need to collect data....")
+        self.camera_summary.setText("Need to collect data....")
         self.undistort_btn.setEnabled(False)
        
     def calibrate(self):
@@ -196,7 +198,8 @@ class CalibrationControls(QGroupBox):
                 self.start_stop_calibration_btn.setEnabled(False)
 
                 self.monocal.calibrate()
-                self.cal_output.setText(self.monocal.camera.calibration_summary())
+                # self.cal_output.setText(self.monocal.camera.calibration_summary())
+                self.camera_summary.setText(self.session.config.get_camera_summary(self.port))
                 self.session.config.save_camera(self.camera)
 
                 # signal to camera tabs to check on total session calibration status

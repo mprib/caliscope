@@ -211,24 +211,18 @@ class CalibrationControls(QGroupBox):
             self.calib_thread.start()
 
     def undistort(self):
-        def undistort_worker():
-            # create thread for timer to play out
+        if self.undistort_btn.text() == "Undistort":
             self.signal_calibration_lock.emit(True)
             self.start_stop_calibration_btn.setEnabled(False)
-            self.undistort_btn.setEnabled(False)
             self.frame_emitter.undistort = True
-            for i in range(5,0,-1):
-                self.undistort_btn.setText(f"Reverting in {i}")
-                time.sleep(1)
-            self.undistort_btn.setEnabled(True)
+            self.undistort_btn.setText("Revert Distortion")
+                
+        elif self.undistort_btn.text() == "Revert Distortion":
             self.start_stop_calibration_btn.setEnabled(True)
-                    
             self.frame_emitter.undistort = False
             self.undistort_btn.setText("Undistort")
             self.signal_calibration_lock.emit(False)
             
-        undistort_thread = Thread(target=undistort_worker,args=(),daemon=True)
-        undistort_thread.start()
 
         
 class AdvancedControls(QWidget):
@@ -489,21 +483,6 @@ if __name__ == "__main__":
     cam_dialog = CameraConfigDialog(session, test_port)
     cam_dialog.show()
     
-    # frame_control = FrameControlWidget(session, test_port)
-    # frame_control.show()
-
-    # adv_control = AdvancedControls(session, test_port)
-    # adv_control.show()
-
-    # DISPLAY_WIDTH = App.primaryScreen().size().width()
-    # DISPLAY_HEIGHT = App.primaryScreen().size().height()
-
-    # pixmap_edge = min(DISPLAY_WIDTH / 3, DISPLAY_HEIGHT / 3)
-    # frame_emitter = FrameEmitter(session.monocalibrators[test_port], pixmap_edge)
-    
-    # frame_emitter.start()
-    # cal_controls = CalibrationControls(session, test_port,frame_emitter)
-    # cal_controls.show()
     logger.info("About to show camera config dialog")
 
     sys.exit(App.exec())

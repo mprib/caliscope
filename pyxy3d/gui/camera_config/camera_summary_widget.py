@@ -10,20 +10,19 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from pyxy3d.configurator import Configurator
-
+from pyxy3d.cameras.camera import Camera
 
 class SummaryWidget(QWidget):
-    def __init__(self, config, port, parent=None):
+    def __init__(self, camera:Camera, parent=None):
         super().__init__(parent)
-        camera_name = f"cam_{port}"
-        self.data = config.dict[camera_name]
+        self.camera = camera
         self.initUI()
 
     def initUI(self):
         layout = QVBoxLayout()
         self.setLayout(layout)
 
-        if "error" not in self.data.keys():
+        if self.camera.error is None:
             label = QLabel("Need to collect data...")
             layout.addWidget(label)
         else:
@@ -32,13 +31,13 @@ class SummaryWidget(QWidget):
             table1 = QTableWidget(3, 1)
             table1.setHorizontalHeaderLabels([""])
             table1.setVerticalHeaderLabels(["Grid Count", "Resolution", "RMSE"])
-            table1.setItem(0, 0, QTableWidgetItem(str(self.data["grid_count"])))
+            table1.setItem(0, 0, QTableWidgetItem(str(self.camera.grid_count)))
             table1.setItem(
                 1,
                 0,
-                QTableWidgetItem(f"{self.data['size'][0]} x {self.data['size'][1]}"),
+                QTableWidgetItem(f"{self.camera.size[0]} x {self.camera.size[1]}"),
             )
-            table1.setItem(2, 0, QTableWidgetItem(str(round(self.data["error"], 3))))
+            table1.setItem(2, 0, QTableWidgetItem(str(round(self.camera.error, 3))))
             table1.horizontalHeader().setStretchLastSection(True)
             table1.setSizeAdjustPolicy(QTableWidget.SizeAdjustPolicy.AdjustToContents)
             scroll1.setWidget(table1)
@@ -54,10 +53,10 @@ class SummaryWidget(QWidget):
             table2 = QTableWidget(2, 2)
             table2.setHorizontalHeaderLabels(["X", "Y"])
             table2.setVerticalHeaderLabels(["Focal Length", "Optical Center"])
-            table2.setItem(0, 0, QTableWidgetItem(str(int(self.data["matrix"][0][0]))))
-            table2.setItem(0, 1, QTableWidgetItem(str(int(self.data["matrix"][0][0]))))
-            table2.setItem(1, 0, QTableWidgetItem(str(int(self.data["matrix"][0][2]))))
-            table2.setItem(1, 1, QTableWidgetItem(str(int(self.data["matrix"][1][2]))))
+            table2.setItem(0, 0, QTableWidgetItem(str(int(self.camera.matrix[0][0]))))
+            table2.setItem(0, 1, QTableWidgetItem(str(int(self.camera.matrix[0][0]))))
+            table2.setItem(1, 0, QTableWidgetItem(str(int(self.camera.matrix[0][2]))))
+            table2.setItem(1, 1, QTableWidgetItem(str(int(self.camera.matrix[1][2]))))
             table2.horizontalHeader().setStretchLastSection(True)
             table2.setSizeAdjustPolicy(QTableWidget.SizeAdjustPolicy.AdjustToContents)
             scroll2.setWidget(table2)
@@ -85,7 +84,7 @@ class SummaryWidget(QWidget):
             )
             for i in range(5):
                 table3.setItem(
-                    i, 0, QTableWidgetItem(str(round(self.data["distortions"][i], 3)))
+                    i, 0, QTableWidgetItem(str(round(self.camera.distortions[i], 3)))
                 )
             table3.horizontalHeader().setStretchLastSection(True)
             table3.setColumnWidth(0, 50)  # Adjust this value as necessary
@@ -128,10 +127,13 @@ if __name__ == "__main__":
     recent_project_count = len(recent_projects)
     session_path = Path(recent_projects[recent_project_count - 1])
     config = Configurator(session_path)
+    session = Session(config)
+    session.load_streams()
+    
     port = 2
 
     app = QApplication(sys.argv)
-    window = SummaryWidget(config, port)
+    window = SummaryWidget(session.cameras[port])
 
     window.show()
 

@@ -5,7 +5,7 @@ logger = pyxy3d.logger.get(__name__)
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtWidgets import (
     QApplication,
     QVBoxLayout,
@@ -45,6 +45,22 @@ class CameraTabs(QTabWidget):
         self.setTabPosition(QTabWidget.TabPosition.North)
         self.add_cam_tabs()
         self.currentChanged.connect(self.toggle_tracking)
+
+    def keyPressEvent(self, event):
+        """
+        Override the keyPressEvent method to allow navigation via PgUp/PgDown
+        """
+
+        if event.key() == Qt.Key.Key_PageUp:
+            current_index = self.currentIndex()
+            if current_index > 0:
+                self.setCurrentIndex(current_index - 1)
+        elif event.key() == Qt.Key.Key_PageDown:
+            current_index = self.currentIndex()
+            if current_index < self.count() - 1:
+                self.setCurrentIndex(current_index + 1)
+        else:
+            super().keyPressEvent(event)
         
         
     def toggle_tracking(self, index):

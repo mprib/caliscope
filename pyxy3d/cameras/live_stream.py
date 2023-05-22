@@ -178,7 +178,7 @@ class LiveStream(Stream):
                 sleep(self.wait_to_next_frame())
 
                 read_start = perf_counter()
-                grap_success = self.camera.capture.grab()
+                grab_success = self.camera.capture.grab()
                 self.success, self.frame = self.camera.capture.retrieve()
 
                 read_stop = perf_counter()

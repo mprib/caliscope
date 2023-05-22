@@ -81,7 +81,7 @@ class NavigationBarBackFinish(QWidget):
         self.back_btn.setMaximumWidth(50)
         self.left_box.addWidget(self.back_btn)
         
-        self.calibrate_collect_btn = QPushButton("Collect &Stereo Data")
+        self.calibrate_collect_btn = QPushButton("&Collect Data")
         self.calibrate_collect_btn.setMaximumWidth(120)
         self.right_box.addWidget(self.calibrate_collect_btn)
         

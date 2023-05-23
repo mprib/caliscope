@@ -89,8 +89,12 @@ class MainWindow(QMainWindow):
         self.session = Session(self.config)
         logger.info("Setting calibration Widget")
 
-        # if calibration widget is currently selected, make sure it stays selected
         old_index = self.tab_widget.currentIndex()
+
+        self.load_calibration_widget()
+        self.tab_widget.setCurrentIndex(old_index)
+
+    def load_calibration_widget(self):
         calibration_index = self.tab_widget.indexOf(self.calibration_widget)
         self.tab_widget.removeTab(calibration_index)
         self.calibration_widget.deleteLater()
@@ -98,9 +102,8 @@ class MainWindow(QMainWindow):
         # self.tab_widget.setTabText(calibration_index, "&Calibration")  # Set the tab text
         self.tab_widget.insertTab(calibration_index, new_calibration_widget, "&Calibration")
         self.calibration_widget = new_calibration_widget
-        self.tab_widget.setCurrentIndex(old_index)
-
         
+                
     def add_to_recent_project(self, project_path:str):
         recent_project_action = QAction(project_path, self)
         recent_project_action.triggered.connect(self.open_recent_project)

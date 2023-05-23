@@ -25,6 +25,7 @@ from pyxy3d import __root__, __settings_path__, __user_dir__
 from pyxy3d.session.session import Session
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.calibration_widget import CalibrationWidget
+from pyxy3d.gui.recording_widget import RecordingWidget
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -76,7 +77,10 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.calibration_widget, "&Calibration")
         self.tab_widget.addTab(self.recording_widget, "Rec&ording")
         self.tab_widget.addTab(self.processing_widget, "&Processing")
-
+        
+        
+        
+         
     def close_current_session(self):
         pass
 
@@ -88,10 +92,14 @@ class MainWindow(QMainWindow):
         logger.info(f"Launching session with config file stored in {session_path}")
         self.session = Session(self.config)
         logger.info("Setting calibration Widget")
+        self.session.synchronizer_created.connect(self.load_recording_widget)
+
 
         old_index = self.tab_widget.currentIndex()
 
         self.load_calibration_widget()
+        # cannot load recording widget until cameras are connected...
+        # self.load_recording_widget()
         self.tab_widget.setCurrentIndex(old_index)
 
     def load_calibration_widget(self):
@@ -103,6 +111,15 @@ class MainWindow(QMainWindow):
         self.tab_widget.insertTab(calibration_index, new_calibration_widget, "&Calibration")
         self.calibration_widget = new_calibration_widget
         
+    def load_recording_widget(self):
+        recording_index = self.tab_widget.indexOf(self.recording_widget)
+        self.tab_widget.removeTab(recording_index)
+        self.recording_widget.deleteLater()
+        new_recording_widget = RecordingWidget(self.session)
+        # self.tab_widget.setTabText(calibration_index, "&Calibration")  # Set the tab text
+        self.tab_widget.insertTab(recording_index, new_recording_widget, "Rec&ording")
+        self.recording_widget = new_recording_widget
+
                 
     def add_to_recent_project(self, project_path:str):
         recent_project_action = QAction(project_path, self)

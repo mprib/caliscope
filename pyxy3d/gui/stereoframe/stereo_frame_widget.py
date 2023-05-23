@@ -49,7 +49,7 @@ class StereoFrameWidget(QWidget):
 
         super(StereoFrameWidget, self).__init__()
         self.session = session
-        self.synchronizer:Synchronizer = self.session.get_synchronizer()
+        self.synchronizer:Synchronizer = self.session.synchronizer
 
         self.create_stereoframe_tools()
 

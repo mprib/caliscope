@@ -60,16 +60,6 @@ class Session(QObject):
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
 
-    def get_synchronizer(self):
-        if hasattr(self, "synchronizer"):
-            logger.info("returning previously created synchronizer")
-            return self.synchronizer
-        else:
-            logger.info("creating synchronizer...")
-            self.synchronizer = Synchronizer(self.streams, fps_target=6)
-            self.synchronizer_created.emit()
-            return self.synchronizer
-
     def pause_synchronizer(self):
         logger.info("pausing synchronizer")
         self.synchronizer.unsubscribe_to_streams()
@@ -128,6 +118,8 @@ class Session(QObject):
     def load_streams(self, tracker: Tracker = None):
         """
         Connects to stored cameras and creates streams with provided tracking
+        
+        Because these streams are available, the synchronizer can then be initialized
         """
 
         # don't bother loading cameras until you load the streams
@@ -139,6 +131,10 @@ class Session(QObject):
             else:
                 logger.info(f"Loading Stream for port {port}")
                 self.streams[port] = LiveStream(cam, tracker=tracker)
+        
+        self.synchronizer = Synchronizer(self.streams) # defaults to stream default fps of 6
+        # recording widget becomes available when synchronizer is created
+        self.synchronizer_created.emit()
 
     def load_monocalibrators(self):
         for port, cam in self.cameras.items():
@@ -174,7 +170,7 @@ class Session(QObject):
         logger.info("Initiating recording...")
         destination_directory.mkdir(parents=True, exist_ok=True)
 
-        self.video_recorder = VideoRecorder(self.get_synchronizer())
+        self.video_recorder = VideoRecorder(self.synchronizer)
         self.video_recorder.start_recording(destination_directory)
         self.is_recording = True
 

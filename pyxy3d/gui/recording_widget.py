@@ -45,7 +45,7 @@ class RecordingWidget(QWidget):
 
         super(RecordingWidget, self).__init__()
         self.session = session
-        self.synchronizer:Synchronizer = self.session.get_synchronizer()
+        self.synchronizer:Synchronizer = self.session.synchronizer
         
         # don't let point tracking slow down the frame reading
         self.synchronizer.set_tracking_on_streams(False)

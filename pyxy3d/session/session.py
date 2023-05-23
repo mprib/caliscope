@@ -34,6 +34,10 @@ MAX_CAMERA_PORT_CHECK = 10
 FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration
 
 class SessionTab(Enum):
+    """
+    Note: Not currently being used for anything...if this comment remains for a few days,
+    just delete this class, Mac.
+    """
     Charuco = auto()
     IntrinsicCalibration = auto()
     ExtrinsicCalibration = auto()
@@ -81,13 +85,6 @@ class Session(QObject):
                 count += 1
         return count
 
-    def set_fps_target(self, fps_target):
-        if hasattr(self, "synchronizer"):
-            self.synchronizer.set_fps_target(fps_target)
-        else:
-            logger.info(f"Attempting to change target fps in streams to {fps_target}")
-            for port, stream in self.streams.items():
-                stream.set_fps_target(fps_target)
 
     def find_cameras(self):
         """Attempt to connect to the first N cameras. It will clear out any previous calibration

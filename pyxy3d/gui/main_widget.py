@@ -107,7 +107,6 @@ class MainWindow(QMainWindow):
         self.tab_widget.removeTab(calibration_index)
         self.calibration_widget.deleteLater()
         new_calibration_widget = CalibrationWidget(self.session)
-        # self.tab_widget.setTabText(calibration_index, "&Calibration")  # Set the tab text
         self.tab_widget.insertTab(calibration_index, new_calibration_widget, "&Calibration")
         self.calibration_widget = new_calibration_widget
         
@@ -116,7 +115,6 @@ class MainWindow(QMainWindow):
         self.tab_widget.removeTab(recording_index)
         self.recording_widget.deleteLater()
         new_recording_widget = RecordingWidget(self.session)
-        # self.tab_widget.setTabText(calibration_index, "&Calibration")  # Set the tab text
         self.tab_widget.insertTab(recording_index, new_recording_widget, "Rec&ording")
         self.recording_widget = new_recording_widget
 

@@ -3,6 +3,7 @@ import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 
+from PyQt6.QtCore import QObject,pyqtSignal
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from time import sleep
@@ -32,7 +33,10 @@ MAX_CAMERA_PORT_CHECK = 10
 FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration
 
 
-class Session:
+class Session(QObject):
+    
+    synchronizer_created = pyqtSignal()
+    
     def __init__(self, config: Configurator):
         self.config = config
         # self.folder = PurePath(directory).name
@@ -50,7 +54,6 @@ class Session:
 
         # dictionaries of calibration related objects.
         self.monocalibrators = {}  # key = port
-        self.synchronizer_created = False
         self.is_recording = False
 
         self.charuco = self.config.get_charuco()
@@ -63,6 +66,7 @@ class Session:
         else:
             logger.info("creating synchronizer...")
             self.synchronizer = Synchronizer(self.streams, fps_target=6)
+            self.synchronizer_created.emit()
             return self.synchronizer
 
     def pause_synchronizer(self):

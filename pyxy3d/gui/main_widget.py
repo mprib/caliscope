@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
         self.processing_widget = QWidget()
 
         self.tab_widget.addTab(self.calibration_widget, "&Calibration")
-        self.tab_widget.addTab(self.recording_widget, "&Recording")
+        self.tab_widget.addTab(self.recording_widget, "Rec&ording")
         self.tab_widget.addTab(self.processing_widget, "&Processing")
 
     def close_current_session(self):

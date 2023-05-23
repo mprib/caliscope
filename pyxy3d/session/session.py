@@ -38,6 +38,7 @@ class Session(QObject):
     synchronizer_created = pyqtSignal()
     
     def __init__(self, config: Configurator):
+        super().__init__()
         self.config = config
         # self.folder = PurePath(directory).name
         self.path = self.config.session_path

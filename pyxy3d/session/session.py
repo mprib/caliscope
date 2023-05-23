@@ -7,6 +7,7 @@ from PyQt6.QtCore import QObject,pyqtSignal
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from time import sleep
+from enum import Enum, auto
 
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
@@ -32,7 +33,13 @@ from pyxy3d.recording.video_recorder import VideoRecorder
 MAX_CAMERA_PORT_CHECK = 10
 FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration
 
-
+class SessionTab(Enum):
+    Charuco = auto()
+    IntrinsicCalibration = auto()
+    ExtrinsicCalibration = auto()
+    Recording = auto()
+    PostProcessing = auto()
+    
 class Session(QObject):
     
     synchronizer_created = pyqtSignal()

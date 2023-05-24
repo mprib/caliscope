@@ -180,11 +180,11 @@ class RecordedStream(Stream):
             )
             
             
-            cv2.imshow(str(self.port), frame_packet.frame_with_points)
-            key = cv2.waitKey(1)
-            if key == ord("q"):
-                cv2.destroyAllWindows()
-                break
+            # cv2.imshow(str(self.port), frame_packet.frame_with_points)
+            # key = cv2.waitKey(1)
+            # if key == ord("q"):
+            #     cv2.destroyAllWindows()
+            #     break
 
             logger.debug(
                 f"Placing frame on reel {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"

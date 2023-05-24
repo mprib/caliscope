@@ -43,8 +43,9 @@ class PostProcessor(QObject):
         """
         creates xyz_{tracker name}.csv file within the recording_path directory
 
-        Uses the two functions above, first creating the xy points based on the tracker,
-        then triangulating them based on
+        Uses the two functions above, first creating the xy points based on the tracker if they 
+        don't already exist, the triangulating them. Makes use of an internal method self.triangulate_xy_data
+        
         """
 
         output_suffix = tracker_enum.name
@@ -64,10 +65,13 @@ class PostProcessor(QObject):
         xyz_data.to_csv(Path(tracker_output_path, f"xyz_{output_suffix}.csv"))
 
     def create_xy(self, recording_path: Path, tracker_enum: TrackerEnum,):
+        """
+        Reads through all .mp4  files in the recording path and applies the tracker to them
+        The xy_TrackerName.csv file is saved out to the same directory by the VideoRecorder
+        """
         frame_times = pd.read_csv(Path(recording_path, "frame_time_history.csv"))
         sync_index_count = len(frame_times["sync_index"].unique())
 
-        output_suffix = tracker_enum.name
 
         logger.info("Creating pool of playback streams to begin processing")
         stream_pool = RecordedStreamPool(
@@ -82,6 +86,7 @@ class PostProcessor(QObject):
         logger.info(
             "Creating video recorder to record (x,y) data estimates from PointPacket delivered by Tracker"
         )
+        output_suffix = tracker_enum.name
         video_recorder = VideoRecorder(synchronizer, suffix=output_suffix)
 
         # store video files in a subfolder named by the tracker_enum.name
@@ -164,7 +169,14 @@ class PostProcessor(QObject):
                     }
                 )
 
-        self.progress_update.emit("done")
+        # signalling the progress bar can now close
+        self.progress_update.emit(
+            {
+                "stage": "Triangulating (x,y,z) estimates (stage 2 of 2)",
+                "percent": 100,
+                "close_progress": True
+            }
+        )
 
         return xyz_history
 

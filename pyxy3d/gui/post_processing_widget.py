@@ -80,12 +80,6 @@ class PostProcessingWidget(QWidget):
         self.connect_widgets()
         self.refresh_visualizer()
         
-    def update_progress_bar(self,update:dict):
-
-        if "close" in update.keys():
-            self.progress_bar.hide()
-        else:
-            self.progress_bar.set_progress(update["percent"])
 
     def set_current_xyz(self):
         if self.processed_xyz_path.exists():
@@ -182,7 +176,7 @@ class PostProcessingWidget(QWidget):
         self.process_current_btn.clicked.connect(self.process_current)
         self.open_folder_btn.clicked.connect(self.open_folder)
         # self.export_btn.clicked.connect(self.export_current_file)
-        self.post_processor.progress_update.connect(self.update_progress_bar)
+        self.post_processor.progress_update.connect(self.progress_bar.update)
 
     def store_sync_index_cursor(self, cursor_value):
         if self.processed_xyz_path.exists():
@@ -209,7 +203,6 @@ class PostProcessingWidget(QWidget):
         logger.info(f"Applying {tracker_enum.name} tracker")
 
         # a way to receive updates on the progress of the post processing
-        self.progress_bar.set_progress(0)
         self.progress_bar.show()
         
         def processing_worker():

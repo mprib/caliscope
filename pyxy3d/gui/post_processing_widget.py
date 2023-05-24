@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QSizePolicy,
     QWidget,
+    QProgressBar,
     QSpinBox,
     QScrollArea,
     QComboBox,
@@ -35,7 +36,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from pyxy3d.post_processing_pipelines import create_xyz
+from pyxy3d.post_processor import PostProcessor
 from pyxy3d.session.session import Session
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
@@ -44,7 +45,7 @@ from pyxy3d.configurator import Configurator
 from pyxy3d.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
 )
-
+from pyxy3d.gui.progress_dialog import ProgressDialog
 
 class PostProcessingWidget(QWidget):
     def __init__(self, config: Configurator):
@@ -52,6 +53,8 @@ class PostProcessingWidget(QWidget):
         self.config = config
         self.camera_array = self.config.get_camera_array()
 
+        self.post_processor = PostProcessor(self.config)
+        self.progress_bar = ProgressDialog()
         self.sync_index_cursors = {}
 
         self.update_recording_folders()
@@ -76,6 +79,13 @@ class PostProcessingWidget(QWidget):
         self.place_widgets()
         self.connect_widgets()
         self.refresh_visualizer()
+        
+    def update_progress_bar(self,update:dict):
+
+        if "close" in update.keys():
+            self.progress_bar.hide()
+        else:
+            self.progress_bar.set_progress(update["percent"])
 
     def set_current_xyz(self):
         if self.processed_xyz_path.exists():
@@ -172,6 +182,7 @@ class PostProcessingWidget(QWidget):
         self.process_current_btn.clicked.connect(self.process_current)
         self.open_folder_btn.clicked.connect(self.open_folder)
         # self.export_btn.clicked.connect(self.export_current_file)
+        self.post_processor.progress_update.connect(self.update_progress_bar)
 
     def store_sync_index_cursor(self, cursor_value):
         if self.processed_xyz_path.exists():
@@ -198,17 +209,13 @@ class PostProcessingWidget(QWidget):
         logger.info(f"Applying {tracker_enum.name} tracker")
 
         # a way to receive updates on the progress of the post processing
-        self.process_progress = Queue()
-
+        self.progress_bar.set_progress(0)
+        self.progress_bar.show()
+        
         def processing_worker():
             self.disable_all_inputs()
 
-            create_xyz(
-                self.config.session_path,
-                recording_path,
-                tracker_enum=tracker_enum,
-                progress_q=self.process_progress,
-            )
+            self.post_processor.create_xyz(recording_path,tracker_enum)
             trc_path = Path(
                 self.processed_xyz_path.parent, self.processed_xyz_path.stem + ".trc"
             )
@@ -223,6 +230,7 @@ class PostProcessingWidget(QWidget):
 
         thread = Thread(target=processing_worker, args=(), daemon=True)
         thread.start()
+
 
     def refresh_visualizer(self):
         # logger.info(f"Item {item.text()} selected and double-clicked.")
@@ -269,3 +277,6 @@ class PostProcessingWidget(QWidget):
             self.vis_widget.visualizer.display_points(active_sync_index)
         else:
             pass
+
+
+

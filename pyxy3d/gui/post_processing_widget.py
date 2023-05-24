@@ -197,17 +197,27 @@ class PostProcessingWidget(QWidget):
         tracker_enum = self.tracker_combo.currentData()
         logger.info(f"Applying {tracker_enum.name} tracker")
 
+        # a way to receive updates on the progress of the post processing
+        self.process_progress = Queue()
+
         def processing_worker():
             self.disable_all_inputs()
 
             create_xyz(
-                self.config.session_path, recording_path, tracker_enum=tracker_enum
+                self.config.session_path,
+                recording_path,
+                tracker_enum=tracker_enum,
+                progress_q=self.process_progress,
             )
-            trc_path = Path(self.processed_xyz_path.parent, self.processed_xyz_path.stem + ".trc")
+            trc_path = Path(
+                self.processed_xyz_path.parent, self.processed_xyz_path.stem + ".trc"
+            )
             logger.info(f"Saving data to {trc_path.parent}")
 
             # A side effect of the following line is that it also creates a wide labelled csv format
-            xyz_to_trc(self.processed_xyz_path, self.tracker_combo.currentData().value())
+            xyz_to_trc(
+                self.processed_xyz_path, self.tracker_combo.currentData().value()
+            )
             self.enable_all_inputs()
             self.refresh_visualizer()
 

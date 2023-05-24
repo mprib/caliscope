@@ -174,7 +174,7 @@ class PostProcessor(QObject):
             {
                 "stage": "Triangulating (x,y,z) estimates (stage 2 of 2)",
                 "percent": 100,
-                "close_progress": True
+                "close": True
             }
         )
 

@@ -77,6 +77,52 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.calibration_widget, "&Calibration")
         self.tab_widget.addTab(self.recording_widget, "Rec&ording")
         self.tab_widget.addTab(self.processing_widget, "&Processing")
+
+        self.connect_signals()
+        
+    def connect_signals(self):
+        self.tab_widget.currentChanged.connect(self.on_tab_changed)
+################## FRAME READING and TRACKING CONTROL with TAB SWITCH ######################################        
+    def activate_recording(self):
+        self.session.pause_all_monocalibrators()
+        self.session.synchronizer.set_tracking_on_streams(False)
+        self.session.unpause_synchronizer()
+   
+   
+    def activate_processing(self):
+        self.session.pause_all_monocalibrators()
+        self.session.pause_synchronizer()
+         
+    def activate_calibration(self):
+        self.session.pause_synchronizer()
+
+        # synched frames not running, but a handy way to turn tracking on all by default
+        self.session.synchronizer.set_tracking_on_streams(True)
+        
+        # by default, only 
+        self.session.pause_all_monocalibrators()
+        
+        # read frames from active monocalibrator if its selected
+        if self.calibration_widget.currentWidget() == self.calibration_widget.camera_config:
+            active_camera = self.calibration_widget.camera_config.camera_tabs.currentWidget().port
+            self.session.set_active_monocalibrator(active_camera)
+    
+    
+    def on_tab_changed(self, index):
+        match index:
+            case 0:
+                logger.info(f"Activate Calibration Tab")
+                self.activate_calibration()
+
+            case 1:
+                logger.info(f"Activate Recording Tab")
+                self.activate_recording()
+            case 2:
+                logger.info(f"Activate Processing Tab")
+                self.activate_processing()
+            
+    
+
         
         
         

@@ -77,7 +77,8 @@ class Session(QObject):
 
     def unpause_synchronizer(self):
         self.synchronizer.subscribe_to_streams()
-
+        self.synchronizer.set_stream_fps(self.synchronizer.fps_target)
+        
     def get_configured_camera_count(self):
         count = 0
         for key, params in self.config.dict.copy().items():
@@ -159,6 +160,7 @@ class Session(QObject):
         for port, monocal in self.monocalibrators.items():
             if port == active_port:
                 monocal.subscribe_to_stream()
+                monocal.set_fps()
             else:
                 monocal.unsubscribe_to_stream()
 

@@ -78,7 +78,8 @@ class MainWindow(QMainWindow):
         # create log window which is fixed below main window
         self.docked_logger = QDockWidget("Log", self)
         # self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
-        self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | QDockWidget.DockWidgetFeature.DockWidgetFloatable)
+        # self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | QDockWidget.DockWidgetFeature.DockWidgetFloatable)
+        self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable)
         self.docked_logger.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea)
         self.log_widget = LogWidget()
         self.docked_logger.setWidget(self.log_widget)

@@ -29,7 +29,6 @@ from PyQt6.QtWidgets import (
 from pyxy3d import __app_dir__
 from pyxy3d.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from pyxy3d.session.session import Session
-from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.navigation_bars import NavigationBarNext
 
 class WizardCharuco(QWidget):
@@ -41,13 +40,13 @@ class WizardCharuco(QWidget):
         self.params = self.session.config.dict["charuco"]
         
         # add group to do initial configuration of the charuco board
-        self.configurator = CharucoConfigGroup(self.session)
-        self.configurator.row_spin.valueChanged.connect(self.build_charuco)
-        self.configurator.column_spin.valueChanged.connect(self.build_charuco)
-        self.configurator.width_spin.valueChanged.connect(self.build_charuco)
-        self.configurator.length_spin.valueChanged.connect(self.build_charuco)
-        self.configurator.units.currentIndexChanged.connect(self.build_charuco)
-        self.configurator.invert_checkbox.stateChanged.connect(self.build_charuco)
+        self.charuco_config = CharucoConfigGroup(self.session)
+        self.charuco_config.row_spin.valueChanged.connect(self.build_charuco)
+        self.charuco_config.column_spin.valueChanged.connect(self.build_charuco)
+        self.charuco_config.width_spin.valueChanged.connect(self.build_charuco)
+        self.charuco_config.length_spin.valueChanged.connect(self.build_charuco)
+        self.charuco_config.units.currentIndexChanged.connect(self.build_charuco)
+        self.charuco_config.invert_checkbox.stateChanged.connect(self.build_charuco)
 
         # Build primary actions
         self.build_save_png_group()
@@ -62,7 +61,7 @@ class WizardCharuco(QWidget):
         self.setLayout(QVBoxLayout())
         self.setWindowTitle("Charuco Board Builder")
 
-        self.layout().addWidget(self.configurator)
+        self.layout().addWidget(self.charuco_config)
         self.layout().addWidget(self.charuco_display)
         self.layout().addSpacing(20)
         self.layout().addLayout(self.save_png_hbox)
@@ -134,7 +133,7 @@ class WizardCharuco(QWidget):
 
             logger.info(f"Updated Square Size Overide to {self.printed_edge_length.value}")
             self.session.charuco = self.charuco
-            self.session.save_charuco()
+            self.session.config.save_charuco(self.charuco)
 
         self.printed_edge_length.valueChanged.connect(update_charuco)
 
@@ -151,15 +150,15 @@ class WizardCharuco(QWidget):
 
 
     def build_charuco(self):
-        columns = self.configurator.column_spin.value()
-        rows = self.configurator.row_spin.value()
-        board_height = self.configurator.length_spin.value()
-        board_width = self.configurator.width_spin.value()
+        columns = self.charuco_config.column_spin.value()
+        rows = self.charuco_config.row_spin.value()
+        board_height = self.charuco_config.length_spin.value()
+        board_width = self.charuco_config.width_spin.value()
         aruco_scale = 0.75
-        units = self.configurator.units.currentText()
+        units = self.charuco_config.units.currentText()
         square_edge_length = self.printed_edge_length.value()
-
-        inverted = self.configurator.invert_checkbox.isChecked()
+# a
+        inverted = self.charuco_config.invert_checkbox.isChecked()
         dictionary_str = "DICT_4X4_1000"
 
         self.charuco = Charuco(

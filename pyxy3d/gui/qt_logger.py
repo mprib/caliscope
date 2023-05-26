@@ -54,8 +54,8 @@ class LogMessageViewer(QTextBrowser):
         super(LogMessageViewer, self).__init__(parent)
         self.setReadOnly(True)
         # self.setLineWrapMode(QtGui.QTextEdit.NoWrap)
-        self.setEnabled(False)
-        self.verticalScrollBar().setVisible(False)
+        self.setEnabled(True)
+        self.verticalScrollBar().setVisible(True)
 
     @pyqtSlot(str)
     def appendLogMessage(self, msg):

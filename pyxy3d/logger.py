@@ -39,9 +39,11 @@ class QtHandler(logging.Handler):
     """
     def __init__(self):
         logging.Handler.__init__(self)
+        self.setFormatter(console_formatter)
+        # self.formatter(console_log_format)
     def emit(self, record):
         record = self.format(record)
-        if record: XStream.stdout().write('%s\n'%record)
+        if record: XStream.stdout().write(f"{record} \n")
 
 
 class XStream(QtCore.QObject):
@@ -83,6 +85,7 @@ def get(name): # as in __name__
     logger.addHandler(app_dir_file_handler)
     logger.addHandler(console_handler)
     logger.addHandler(qt_handler)
+    
 
     return logger
 

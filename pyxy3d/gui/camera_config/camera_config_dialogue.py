@@ -169,6 +169,7 @@ class CalibrationControls(QGroupBox):
                 self.monocal.capture_corners.clear()
                 self.calibrate()    
             else:
+                # no data collected
                 self.monocal.capture_corners.clear()
                 # self.camera_summary.place_widgets()
                 self.update_camera_data()

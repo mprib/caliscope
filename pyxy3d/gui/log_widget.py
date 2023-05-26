@@ -61,14 +61,16 @@ class LogMessageViewer(QTextBrowser):
     def appendLogMessage(self, msg):
         horScrollBar = self.horizontalScrollBar()
         verScrollBar = self.verticalScrollBar()
-        scrollIsAtEnd = verScrollBar.maximum() - verScrollBar.value() <= 10
+        # scrollIsAtEnd = verScrollBar.maximum() - verScrollBar.value() <= 10
 
+        verScrollBar.setValue(verScrollBar.maximum())  # Scrolls to the bottom
+        horScrollBar.setValue(0)  # scroll to the left  
         self.insertPlainText(msg)
 
-        if scrollIsAtEnd:
-            verScrollBar.setValue(verScrollBar.maximum())  # Scrolls to the bottom
-            horScrollBar.setValue(0)  # scroll to the left
-
+        # if scrollIsAtEnd:
+        #     verScrollBar.setValue(verScrollBar.maximum())  # Scrolls to the bottom
+        #     self.insertPlainText(msg)
+        #     horScrollBar.setValue(0)  # scroll to the left  
 
 if __name__ == "__main__":
     app = QApplication([])

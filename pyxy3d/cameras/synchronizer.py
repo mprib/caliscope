@@ -3,7 +3,7 @@ import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 import logging
 
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 
 import time
 from pathlib import Path

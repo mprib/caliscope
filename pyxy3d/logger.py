@@ -78,11 +78,11 @@ def get(name): # as in __name__
     else:
         logger.setLevel(logging.INFO) 
 
-    # qt_handler = QtHandler()
+    qt_handler = QtHandler()
     
     logger.addHandler(app_dir_file_handler)
     logger.addHandler(console_handler)
-    # logger.addHandler(qt_handler)
+    logger.addHandler(qt_handler)
 
     return logger
 

@@ -145,10 +145,13 @@ class MainWindow(QMainWindow):
             toml.dump(self.app_settings, f)
 
 def launch_main():
-    
+    from pyxy3d.gui.qt_logger import QtLogger
     app = QApplication([])
+    log_widget = QtLogger()
+    log_widget.show()
     window = MainWindow()
     window.show()
+    
     app.exec()
 
 if __name__ == "__main__":

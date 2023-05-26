@@ -20,14 +20,14 @@ class SignalHandler(logging.Handler, QObject):
         msg = self.format(record)
         self.log_message.emit(msg)
 
-class LogFileWatcher(QWidget):
+class LogWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.init_ui()
 
         # Start a thread that logs a message every second
-        self.thread = Thread(target=self.random_write, args=(), daemon=True)
-        self.thread.start()
+        # self.thread = Thread(target=self.random_write, args=(), daemon=True)
+        # self.thread.start()
 
     def init_ui(self):
         self.layout = QVBoxLayout()
@@ -46,10 +46,10 @@ class LogFileWatcher(QWidget):
         self.logger.setLevel(logging.INFO)
         self.logger.addHandler(self.handler)
 
-    def random_write(self):
-        while True:
-            self.logger.info(f"Time is {time()}")
-            sleep(1)
+    # def random_write(self):
+    #     while True:
+    #         self.logger.info(f"Time is {time()}")
+    #         sleep(1)
 
     def handle_message(self, message):
         self.log_view.append(message)  # append the log message to the QTextEdit
@@ -57,7 +57,7 @@ class LogFileWatcher(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    widget = LogFileWatcher()
+    widget = LogWidget()
     widget.show()
 
     sys.exit(app.exec())

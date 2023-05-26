@@ -33,7 +33,6 @@ from pyxy3d.session.session import Session
 from pyxy3d.gui.stereoframe.stereo_frame_builder import StereoFrameBuilder
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
-from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.navigation_bars import NavigationBarBackFinish
 
 # the boards needed to before a pair could be used to bridge pairs without common corners

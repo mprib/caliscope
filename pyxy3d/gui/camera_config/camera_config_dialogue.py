@@ -305,7 +305,8 @@ class AdvancedControls(QWidget):
 
         
     def on_frame_rate_spin(self,fps_rate):
-        self.stream.set_fps_target(fps_rate)
+        # self.stream.set_fps_target(fps_rate)
+        self.monocal.set_fps(fps_rate)
         logger.info(f"Changing monocalibrator frame rate for port{self.port}")
 
     def FPSUpdateSlot(self,fps):

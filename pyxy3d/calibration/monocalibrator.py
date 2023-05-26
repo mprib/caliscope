@@ -20,16 +20,21 @@ from pyxy3d.cameras.live_stream import LiveStream
 class MonoCalibrator():
 
     def __init__(
-        self, stream:LiveStream,  board_threshold=0.7, wait_time=0.5
+        self, stream:LiveStream,  board_threshold=0.7, wait_time=0.5, fps = 6
     ):
         self.stream = stream
         self.camera: Camera = stream.camera  # reference needed to update params
         self.port = self.camera.port
+        
+        # this is strange but is done to allow the GUI an easy way to restore stream fps when switching between monocal/synchronizer
+        self.fps = fps
+        self.set_fps(self.fps)
+
         self.wait_time = wait_time
         self.capture_corners = Event()
         self.capture_corners.clear() # start out not doing anything
         self.stop_event = Event()
-        
+                
         self.frame_packet_in_q = Queue(-1)    
         self.subscribe_to_stream()
 
@@ -50,6 +55,14 @@ class MonoCalibrator():
 
         logger.info(f"Beginning monocalibrator for port {self.port}")
 
+    def set_fps(self, fps_target:int=None):
+        """
+        if fps_target is none, restores to last setting
+        otherwise changes stream frame rate
+        """
+        if fps_target is not None:
+            self.fps = fps_target
+        self.stream.set_fps_target(self.fps)
      
     @property
     def grid_count(self):

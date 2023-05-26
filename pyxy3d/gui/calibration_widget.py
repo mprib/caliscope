@@ -25,7 +25,7 @@ from pyxy3d.gui.wizard_charuco import WizardCharuco
 from pyxy3d.gui.camera_config.camera_tabs import CameraWizard
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.gui.qt_logger import QtLogger
+from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.gui.stereoframe.stereo_frame_widget import (
     StereoFrameWidget,
     MIN_THRESHOLD_FOR_EARLY_CALIBRATE,

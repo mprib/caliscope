@@ -1,63 +1,78 @@
-
 import logging
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+from pyxy3d.logger import get, XStream
+logger = get(__name__)
 
-from PyQt6.QtCore import QObject, pyqtSignal
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QApplication
 import sys
+from PyQt6.QtCore import pyqtSlot, Qt
+from PyQt6.QtWidgets import (
+    QWidget,
+    QDialog,
+    QApplication,
+    QTextBrowser,
+    QPushButton,
+    QVBoxLayout,
+)
+
+from pyxy3d.session.session import Session
+from pathlib import Path
 from threading import Thread
-from time import time, sleep
 
-class SignalHandler(logging.Handler, QObject):
-    log_message = pyqtSignal(str)
+# def test():
+#     def worker():
+#         session = Session(Path(r"C:\Users\Mac Prible\repos\pyxy3d\tests\217"))
+#         session.find_cameras()
+#     thread = Thread(target=worker, args=(), daemon=True)
+#     thread.start()
 
-    def __init__(self, *args, **kwargs):
-        logging.Handler.__init__(self, *args, **kwargs)
-        QObject.__init__(self)
 
-    def emit(self, record):
-        msg = self.format(record)
-        self.log_message.emit(msg)
 
 class LogWidget(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.init_ui()
+    def __init__(self, message: str = None):
+        super(LogWidget, self).__init__()
+        self.setWindowTitle(message)
+        self._console = LogMessageViewer(self)
 
-        # Start a thread that logs a message every second
-        # self.thread = Thread(target=self.random_write, args=(), daemon=True)
-        # self.thread.start()
+        self.setWindowFlags(Qt.WindowType.WindowTitleHint)
 
-    def init_ui(self):
-        self.layout = QVBoxLayout()
-        self.log_view = QTextEdit()
-        self.log_view.setEnabled(False)
-        self.layout.addWidget(self.log_view)
-        self.setLayout(self.layout)
+        layout = QVBoxLayout()
 
-        # Create a logging handler that emits a signal when a message is logged
-        self.handler = SignalHandler()
-        self.handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-        self.handler.log_message.connect(self.handle_message)
+        layout.addWidget(self._console)
 
-        # Create a logger and add the handler to it
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)
-        self.logger.addHandler(self.handler)
+        # if __name__ == "__main__":
+        #     self._button = QPushButton(self)
+        #     self._button.setText("Test Me")
+        #     layout.addWidget(self._button)
+        #     self._button.clicked.connect(test)
 
-    # def random_write(self):
-    #     while True:
-    #         self.logger.info(f"Time is {time()}")
-    #         sleep(1)
+        self.setLayout(layout)
+        XStream.stdout().messageWritten.connect(self._console.appendLogMessage)
+        XStream.stderr().messageWritten.connect(self._console.appendLogMessage)
 
-    def handle_message(self, message):
-        self.log_view.append(message)  # append the log message to the QTextEdit
+
+class LogMessageViewer(QTextBrowser):
+    def __init__(self, parent=None):
+        super(LogMessageViewer, self).__init__(parent)
+        self.setReadOnly(True)
+        # self.setLineWrapMode(QtGui.QTextEdit.NoWrap)
+        self.setEnabled(True)
+        self.verticalScrollBar().setVisible(True)
+
+    @pyqtSlot(str)
+    def appendLogMessage(self, msg):
+        horScrollBar = self.horizontalScrollBar()
+        verScrollBar = self.verticalScrollBar()
+        scrollIsAtEnd = verScrollBar.maximum() - verScrollBar.value() <= 10
+
+        self.insertPlainText(msg)
+
+        if scrollIsAtEnd:
+            verScrollBar.setValue(verScrollBar.maximum())  # Scrolls to the bottom
+            horScrollBar.setValue(0)  # scroll to the left
+
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
+    app = QApplication([])
+    dlg = LogWidget("This is only a test")
+    dlg.show()
 
-    widget = LogWidget()
-    widget.show()
-
-    sys.exit(app.exec())
+    app.exec()

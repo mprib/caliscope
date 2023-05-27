@@ -86,7 +86,8 @@ class MainWindow(QMainWindow):
     def activate_recording(self):
         self.session.pause_all_monocalibrators()
         self.session.synchronizer.set_tracking_on_streams(False)
-        self.session.unpause_synchronizer()
+        
+        self.session.unpause_synchronizer() # unpause restores fps
    
    
     def activate_processing(self):
@@ -102,10 +103,15 @@ class MainWindow(QMainWindow):
         # by default, only 
         self.session.pause_all_monocalibrators()
         
-        # read frames from active monocalibrator if its selected
-        if self.calibration_widget.currentWidget() == self.calibration_widget.camera_config:
-            active_camera = self.calibration_widget.camera_config.camera_tabs.currentWidget().port
-            self.session.set_active_monocalibrator(active_camera)
+        match self.calibration_widget.currentWidget():
+            case self.calibration_widget.camera_config:
+                active_camera = self.calibration_widget.camera_config.camera_tabs.currentWidget().port
+                self.session.set_active_monocalibrator(active_camera) # restores fps
+            case self.calibration_widget.stereoframe:
+                pass
+                #Mac RETURN HERE     
+                # case self.calibration_widget.stereoframe
+
     
     
     def on_tab_changed(self, index):

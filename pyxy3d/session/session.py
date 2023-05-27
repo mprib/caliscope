@@ -160,7 +160,7 @@ class Session(QObject):
         for port, monocal in self.monocalibrators.items():
             if port == active_port:
                 monocal.subscribe_to_stream()
-                monocal.set_fps()
+                monocal.set_stream_fps()
             else:
                 monocal.unsubscribe_to_stream()
 

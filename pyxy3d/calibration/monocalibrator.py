@@ -55,13 +55,13 @@ class MonoCalibrator():
 
         logger.info(f"Beginning monocalibrator for port {self.port}")
 
-    def set_stream_fps(self, fps_target:int):
+    def set_stream_fps(self, fps_target:int=None):
         """
-        only stream has an actual fps target
+        If new target, update monocal property, otherwise revert to previously stored
         """
-        # if fps_target is not None:
-            # self.fps = fps_target
-        self.stream.set_fps_target(fps_target)
+        if fps_target is not None:
+            self.fps = fps_target
+        self.stream.set_fps_target(self.fps)
      
     @property
     def grid_count(self):

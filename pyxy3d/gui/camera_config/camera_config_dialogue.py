@@ -278,13 +278,13 @@ class AdvancedControls(QWidget):
         self.wait_time_spin.valueChanged.connect(self.on_wait_time_spin)
         self.grid_grp.layout().addWidget(self.wait_time_spin)
 
-        logger.debug("Building Grid Count Display")
-        self.grid_count_display = QLabel()
-        self.grid_grp.layout().addWidget(self.grid_count_display)
-        self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        # logger.debug("Building Grid Count Display")
+        # self.grid_count_display = QLabel()
+        # self.grid_grp.layout().addWidget(self.grid_count_display)
+        # self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        def grid_count_update_slot(grid_count):
-            self.grid_count_display.setText(f"Count: {grid_count}")
+        # def grid_count_update_slot(grid_count):
+        #     self.grid_count_display.setText(f"Count: {grid_count}")
         # self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
 
     def connect_widgets(self):

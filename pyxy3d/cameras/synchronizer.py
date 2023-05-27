@@ -42,9 +42,9 @@ class Synchronizer:
         self.subscribed_to_streams = False # not subscribed yet
         self.subscribe_to_streams()
 
-        self.fps_target = fps_target
+        # self.fps_target = fps_target
 
-        self.set_stream_fps(self.fps_target)
+        self.set_stream_fps(fps_target)
         self.fps_mean = fps_target
         
         # place to store a recent history of dropped frames
@@ -72,11 +72,11 @@ class Synchronizer:
         return {port:np.mean(drop_history) for port,drop_history in self.dropped_frame_history.items()}        
 
         
-    def set_stream_fps(self, target):
-        self.fps_target = target
-        logger.info(f"Attempting to change target fps in streams to {target}")
+    def set_stream_fps(self, fps_target):
+        # self.fps_target = target
+        logger.info(f"Attempting to change target fps in streams to {fps_target}")
         for port, stream in self.streams.items():
-            stream.set_fps_target(self.fps_target)
+            stream.set_fps_target(fps_target)
 
     def subscribe_to_streams(self):
         for port, stream in self.streams.items():

@@ -27,8 +27,8 @@ class MonoCalibrator():
         self.port = self.camera.port
         
         # this is strange but is done to allow the GUI an easy way to restore stream fps when switching between monocal/synchronizer
-        self.fps = fps
-        self.set_fps(self.fps)
+        # self.fps = fps # monocalibrator should not store fps...it's a stream prop. 
+        self.set_stream_fps(fps)
 
         self.wait_time = wait_time
         self.capture_corners = Event()
@@ -55,14 +55,13 @@ class MonoCalibrator():
 
         logger.info(f"Beginning monocalibrator for port {self.port}")
 
-    def set_fps(self, fps_target:int=None):
+    def set_stream_fps(self, fps_target:int):
         """
-        if fps_target is none, restores to last setting
-        otherwise changes stream frame rate
+        only stream has an actual fps target
         """
-        if fps_target is not None:
-            self.fps = fps_target
-        self.stream.set_fps_target(self.fps)
+        # if fps_target is not None:
+            # self.fps = fps_target
+        self.stream.set_fps_target(fps_target)
      
     @property
     def grid_count(self):

@@ -25,7 +25,7 @@ from pyxy3d.gui.wizard_charuco import WizardCharuco
 from pyxy3d.gui.camera_config.camera_tabs import CameraWizard
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.gui.qt_logger import QtLogger
+from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.gui.stereoframe.stereo_frame_widget import (
     StereoFrameWidget,
     MIN_THRESHOLD_FOR_EARLY_CALIBRATE,
@@ -101,10 +101,10 @@ class CalibrationWidget(QStackedWidget):
             for port, stream in self.session.streams.items():
                 stream.update_tracker(charuco_tracker)
         else:
-            logger.info("Initiating Camera Connection")
+            # logger.info("Initiating Camera Connection")
             self.initiate_camera_connection()
-            self.qt_logger = QtLogger("Connecting to Cameras...")
-            self.qt_logger.show()
+            # self.qt_logger = QtLogger("Connecting to Cameras...")
+            # self.qt_logger.show()
 
     def initiate_camera_connection(self):
         if len(self.session.streams) > 0:
@@ -183,7 +183,7 @@ class CalibrationWidget(QStackedWidget):
         )
 
         self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
-        self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
+        # self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
         self.stereoframe.terminate.connect(self.refresh_stereoframe)
 
     ###################### Stereocalibration  ######################################
@@ -199,14 +199,14 @@ class CalibrationWidget(QStackedWidget):
         logger.info("Create new stereoframe")
         self.launch_new_stereoframe()
 
-    def show_calibration_qt_logger(self):
-        """
-        Calibration is initiated back on the stereoframe widget,here only
-        the logger launch is managed because it is main that must delete the logger
-        """
-        logger.info("Launching calibration qt logger")
-        self.qt_logger = QtLogger("Calibrating camera array...")
-        self.qt_logger.show()
+    # def show_calibration_qt_logger(self):
+    #     """
+    #     Calibration is initiated back on the stereoframe widget,here only
+    #     the logger launch is managed because it is main that must delete the logger
+    #     """
+    #     logger.info("Launching calibration qt logger")
+    #     self.qt_logger = QtLogger("Calibrating camera array...")
+    #     self.qt_logger.show()
 
     def back_to_camera_config_wizard(self):
         logger.info("Moving back to camera config from stereoframe")
@@ -231,7 +231,7 @@ class CalibrationWidget(QStackedWidget):
             self.back_to_stereo_frame
         )
 
-        del self.qt_logger
+        # del self.qt_logger
 
     ################## Capture Volume ########################
     def back_to_stereo_frame(self):

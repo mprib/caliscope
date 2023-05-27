@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QStackedLayout,
     QWidget,
+    QDockWidget,
     QVBoxLayout,
     QMenu,
     QMenuBar,
@@ -23,6 +24,7 @@ from PyQt6.QtGui import QIcon, QAction, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__, __user_dir__
 from pyxy3d.session.session import Session
+from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.calibration_widget import CalibrationWidget
 from pyxy3d.gui.recording_widget import RecordingWidget
@@ -66,10 +68,24 @@ class MainWindow(QMainWindow):
         self.cameras_menu.addAction(self.disconnect_cameras_action)
         self.cameras_menu.addAction(self.connect_cameras_action)
 
-        # Set up tabs
+        # Set up layout (based on splitter)
+        # central_widget = QWidget(self)
+
         self.tab_widget = QTabWidget()
         self.setCentralWidget(self.tab_widget)
-
+        
+        
+        
+        # create log window which is fixed below main window
+        self.docked_logger = QDockWidget("Log", self)
+        # self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
+        # self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | QDockWidget.DockWidgetFeature.DockWidgetFloatable)
+        self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable)
+        self.docked_logger.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea)
+        self.log_widget = LogWidget()
+        self.docked_logger.setWidget(self.log_widget)
+        
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea,self.docked_logger)
         self.calibration_widget = QWidget()
         self.recording_widget = QWidget()
         self.processing_widget = QWidget()
@@ -215,10 +231,12 @@ class MainWindow(QMainWindow):
             toml.dump(self.app_settings, f)
 
 def launch_main():
-    
     app = QApplication([])
+    # log_widget = LogWidget()
+    # log_widget.show()
     window = MainWindow()
     window.show()
+    
     app.exec()
 
 if __name__ == "__main__":

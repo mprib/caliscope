@@ -39,9 +39,14 @@ class QtHandler(logging.Handler):
     """
     def __init__(self):
         logging.Handler.__init__(self)
+        # qt_log_format =" %(levelname)s| %(name)s |%(message)s"
+        qt_log_format =" %(name)s|%(message)s"
+        qt_formatter = logging.Formatter(qt_log_format)
+        self.setFormatter(qt_formatter)
+
     def emit(self, record):
         record = self.format(record)
-        if record: XStream.stdout().write('%s\n'%record)
+        if record: XStream.stdout().write(f"{record} \n")
 
 
 class XStream(QtCore.QObject):
@@ -83,6 +88,7 @@ def get(name): # as in __name__
     logger.addHandler(app_dir_file_handler)
     logger.addHandler(console_handler)
     logger.addHandler(qt_handler)
+    
 
     return logger
 

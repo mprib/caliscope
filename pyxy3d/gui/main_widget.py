@@ -111,20 +111,26 @@ class MainWindow(QMainWindow):
         self.session.pause_synchronizer()
          
     def activate_calibration(self):
-        self.session.pause_synchronizer()
 
-        # synched frames not running, but a handy way to turn tracking on all by default
-        self.session.synchronizer.set_tracking_on_streams(True)
-        
-        # by default, only 
+        if hasattr(self.session, "synchronizer"):
+            self.session.pause_synchronizer()
+            # synched frames not running, but a handy way to turn tracking on all by default
+            self.session.synchronizer.set_tracking_on_streams(True)
+            
+            # set syncronizer fps target to align with stereoframe fps spin box 
+            self.session.synchronizer.fps_target = self.calibration_widget.stereoframe.frame_rate_spin.value()
+
         self.session.pause_all_monocalibrators()
         
         match self.calibration_widget.currentWidget():
             case self.calibration_widget.camera_config:
                 active_camera = self.calibration_widget.camera_config.camera_tabs.currentWidget().port
+                logger.info(f"Activating calibration tab: camera config widget with Camera {active_camera} active")
                 self.session.set_active_monocalibrator(active_camera) # restores fps
             case self.calibration_widget.stereoframe:
-                pass
+                logger.info("Activating calibration tab: stereoframe widget")
+                self.session.unpause_synchronizer()
+                # pass
                 #Mac RETURN HERE     
                 # case self.calibration_widget.stereoframe
 

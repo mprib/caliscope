@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QSizePolicy,
     QWidget,
+    QProgressBar,
     QSpinBox,
     QScrollArea,
     QComboBox,
@@ -35,7 +36,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from pyxy3d.post_processing_pipelines import create_xyz
+from pyxy3d.post_processor import PostProcessor
 from pyxy3d.session.session import Session
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
@@ -44,7 +45,7 @@ from pyxy3d.configurator import Configurator
 from pyxy3d.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
 )
-
+from pyxy3d.gui.progress_dialog import ProgressDialog
 
 class PostProcessingWidget(QWidget):
     def __init__(self, config: Configurator):
@@ -52,6 +53,8 @@ class PostProcessingWidget(QWidget):
         self.config = config
         self.camera_array = self.config.get_camera_array()
 
+        self.post_processor = PostProcessor(self.config)
+        self.progress_bar = ProgressDialog()
         self.sync_index_cursors = {}
 
         self.update_recording_folders()
@@ -76,6 +79,7 @@ class PostProcessingWidget(QWidget):
         self.place_widgets()
         self.connect_widgets()
         self.refresh_visualizer()
+        
 
     def set_current_xyz(self):
         if self.processed_xyz_path.exists():
@@ -172,6 +176,7 @@ class PostProcessingWidget(QWidget):
         self.process_current_btn.clicked.connect(self.process_current)
         self.open_folder_btn.clicked.connect(self.open_folder)
         # self.export_btn.clicked.connect(self.export_current_file)
+        self.post_processor.progress_update.connect(self.progress_bar.update)
 
     def store_sync_index_cursor(self, cursor_value):
         if self.processed_xyz_path.exists():
@@ -197,22 +202,28 @@ class PostProcessingWidget(QWidget):
         tracker_enum = self.tracker_combo.currentData()
         logger.info(f"Applying {tracker_enum.name} tracker")
 
+        # a way to receive updates on the progress of the post processing
+        self.progress_bar.show()
+        
         def processing_worker():
             self.disable_all_inputs()
 
-            create_xyz(
-                self.config.session_path, recording_path, tracker_enum=tracker_enum
+            self.post_processor.create_xyz(recording_path,tracker_enum)
+            trc_path = Path(
+                self.processed_xyz_path.parent, self.processed_xyz_path.stem + ".trc"
             )
-            trc_path = Path(self.processed_xyz_path.parent, self.processed_xyz_path.stem + ".trc")
             logger.info(f"Saving data to {trc_path.parent}")
 
             # A side effect of the following line is that it also creates a wide labelled csv format
-            xyz_to_trc(self.processed_xyz_path, self.tracker_combo.currentData().value())
+            xyz_to_trc(
+                self.processed_xyz_path, self.tracker_combo.currentData().value()
+            )
             self.enable_all_inputs()
             self.refresh_visualizer()
 
         thread = Thread(target=processing_worker, args=(), daemon=True)
         thread.start()
+
 
     def refresh_visualizer(self):
         # logger.info(f"Item {item.text()} selected and double-clicked.")
@@ -259,3 +270,6 @@ class PostProcessingWidget(QWidget):
             self.vis_widget.visualizer.display_points(active_sync_index)
         else:
             pass
+
+
+

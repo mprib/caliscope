@@ -33,7 +33,6 @@ from pyxy3d.session.session import Session
 from pyxy3d.gui.stereoframe.stereo_frame_builder import StereoFrameBuilder
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
-from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.navigation_bars import NavigationBarBackFinish
 
 # the boards needed to before a pair could be used to bridge pairs without common corners
@@ -49,12 +48,12 @@ class StereoFrameWidget(QWidget):
 
         super(StereoFrameWidget, self).__init__()
         self.session = session
-        self.synchronizer:Synchronizer = self.session.get_synchronizer()
+        self.synchronizer:Synchronizer = self.session.synchronizer
 
         self.create_stereoframe_tools()
 
         self.frame_rate_spin = QSpinBox()
-        self.frame_rate_spin.setValue(self.synchronizer.get_fps_target())
+        self.frame_rate_spin.setValue(self.synchronizer.fps_target)
         self.board_count_spin = QSpinBox()
         self.board_count_spin.setValue(self.frame_builder.board_count_target)
         
@@ -102,7 +101,7 @@ class StereoFrameWidget(QWidget):
         self.calibrate_collect_btn.clicked.connect(self.on_calibrate_connect_click)
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
         self.frame_emitter.possible_to_initialize_array.connect(self.enable_calibration)
-        self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_fps_target)
+        self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_stream_fps)
         self.board_count_spin.valueChanged.connect(self.update_board_count_target)
         self.frame_emitter.calibration_data_collected.connect(self.initiate_calibration)
     

@@ -3,9 +3,11 @@ import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 
+from PyQt6.QtCore import QObject,pyqtSignal
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from time import sleep
+from enum import Enum, auto
 
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
@@ -31,9 +33,23 @@ from pyxy3d.recording.video_recorder import VideoRecorder
 MAX_CAMERA_PORT_CHECK = 10
 FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration
 
-
-class Session:
+class SessionTab(Enum):
+    """
+    Note: Not currently being used for anything...if this comment remains for a few days,
+    just delete this class, Mac.
+    """
+    Charuco = auto()
+    IntrinsicCalibration = auto()
+    ExtrinsicCalibration = auto()
+    Recording = auto()
+    PostProcessing = auto()
+    
+class Session(QObject):
+    
+    synchronizer_created = pyqtSignal()
+    
     def __init__(self, config: Configurator):
+        super().__init__()
         self.config = config
         # self.folder = PurePath(directory).name
         self.path = self.config.session_path
@@ -50,20 +66,10 @@ class Session:
 
         # dictionaries of calibration related objects.
         self.monocalibrators = {}  # key = port
-        self.synchronizer_created = False
         self.is_recording = False
 
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
-
-    def get_synchronizer(self):
-        if hasattr(self, "synchronizer"):
-            logger.info("returning previously created synchronizer")
-            return self.synchronizer
-        else:
-            logger.info("creating synchronizer...")
-            self.synchronizer = Synchronizer(self.streams, fps_target=6)
-            return self.synchronizer
 
     def pause_synchronizer(self):
         logger.info("pausing synchronizer")
@@ -71,7 +77,8 @@ class Session:
 
     def unpause_synchronizer(self):
         self.synchronizer.subscribe_to_streams()
-
+        self.synchronizer.set_stream_fps(self.synchronizer.fps_target)
+        
     def get_configured_camera_count(self):
         count = 0
         for key, params in self.config.dict.copy().items():
@@ -79,13 +86,6 @@ class Session:
                 count += 1
         return count
 
-    def set_fps_target(self, fps_target):
-        if hasattr(self, "synchronizer"):
-            self.synchronizer.set_fps_target(fps_target)
-        else:
-            logger.info(f"Attempting to change target fps in streams to {fps_target}")
-            for port, stream in self.streams.items():
-                stream.set_fps_target(fps_target)
 
     def find_cameras(self):
         """Attempt to connect to the first N cameras. It will clear out any previous calibration
@@ -123,6 +123,8 @@ class Session:
     def load_streams(self, tracker: Tracker = None):
         """
         Connects to stored cameras and creates streams with provided tracking
+        
+        Because these streams are available, the synchronizer can then be initialized
         """
 
         # don't bother loading cameras until you load the streams
@@ -134,6 +136,10 @@ class Session:
             else:
                 logger.info(f"Loading Stream for port {port}")
                 self.streams[port] = LiveStream(cam, tracker=tracker)
+        
+        self.synchronizer = Synchronizer(self.streams) # defaults to stream default fps of 6
+        # recording widget becomes available when synchronizer is created
+        self.synchronizer_created.emit()
 
     def load_monocalibrators(self):
         for port, cam in self.cameras.items():
@@ -154,6 +160,7 @@ class Session:
         for port, monocal in self.monocalibrators.items():
             if port == active_port:
                 monocal.subscribe_to_stream()
+                monocal.set_stream_fps()
             else:
                 monocal.unsubscribe_to_stream()
 
@@ -169,7 +176,7 @@ class Session:
         logger.info("Initiating recording...")
         destination_directory.mkdir(parents=True, exist_ok=True)
 
-        self.video_recorder = VideoRecorder(self.get_synchronizer())
+        self.video_recorder = VideoRecorder(self.synchronizer)
         self.video_recorder.start_recording(destination_directory)
         self.is_recording = True
 

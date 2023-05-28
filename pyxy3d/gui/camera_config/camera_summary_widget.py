@@ -81,11 +81,11 @@ class SummaryWidget(QWidget):
             table3.setHorizontalHeaderLabels([""])
             table3.setVerticalHeaderLabels(
                 [
-                    "Radial Distortion 1",
-                    "Radial Distortion 2",
-                    "Tangential Distortion 1",
-                    "Tangential Distortion 2",
-                    "Radial Distortion 3",
+                    "Radial 1",
+                    "Radial 2",
+                    "Tangential 1",
+                    "Tangential 2",
+                    "Radial 3",
                 ]
             )
             for i in range(5):

@@ -3,7 +3,7 @@ import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 import logging
 
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 
 import time
 from pathlib import Path
@@ -42,8 +42,7 @@ class Synchronizer:
         self.subscribed_to_streams = False # not subscribed yet
         self.subscribe_to_streams()
 
-        self._fps_target = fps_target
-        self.set_fps_target(self._fps_target)
+        self.set_stream_fps(fps_target)
         self.fps_mean = fps_target
         
         # place to store a recent history of dropped frames
@@ -55,9 +54,6 @@ class Synchronizer:
     def set_tracking_on_streams(self, track:bool):
         for port, stream in self.streams.items():
             stream.set_tracking_on(track)
-
-    def get_fps_target(self):
-        return self._fps_target
     
     def update_dropped_frame_history(self):
         current_dropped:dict = self.current_sync_packet.dropped    
@@ -74,11 +70,11 @@ class Synchronizer:
         return {port:np.mean(drop_history) for port,drop_history in self.dropped_frame_history.items()}        
 
         
-    def set_fps_target(self, target):
-        self._fps_target = target
-        logger.info(f"Attempting to change target fps in streams to {target}")
+    def set_stream_fps(self, fps_target):
+        self.fps_target = fps_target
+        logger.info(f"Attempting to change target fps in streams to {fps_target}")
         for port, stream in self.streams.items():
-            stream.set_fps_target(target)
+            stream.set_fps_target(fps_target)
 
     def subscribe_to_streams(self):
         for port, stream in self.streams.items():
@@ -176,7 +172,9 @@ class Synchronizer:
                 if self.subscribed_to_streams:
                     time.sleep(0.1)
                 else:
-                    logger.info("Synchronizer not subscribed to any streams and busy waiting...")
+                    # provide infrequent updates of busy waiting
+                    if int(time.time()) % 10 ==0:
+                        logger.info("Synchronizer not subscribed to any streams and busy waiting...")
                     time.sleep(1)
                     
             next_frame_time = self.all_frame_packets[frame_data_key].frame_time
@@ -297,7 +295,7 @@ class Synchronizer:
             # notify other processes that the new frames are ready for processing
             # only for tasks that can risk missing frames (i.e. only for gui purposes)
             for q in self.sync_notice_subscribers:
-                logger.info(f"Giving notice of new synched frames packet via queue")
+                logger.debug(f"Giving notice of new synched frames packet via queue")
                 q.put("new synched frames available")
 
             for q in self.synched_frames_subscribers:
@@ -305,6 +303,10 @@ class Synchronizer:
                 if self.current_sync_packet is not None:
                     logger.debug(f"Placing new synched frames packet on queue with {self.current_sync_packet.frame_packet_count} frames")
                     logger.debug(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
+                    
+                    # provide infrequent notice of synchronizer activity
+                    if self.current_sync_packet.sync_index % 100 ==0:
+                        logger.info(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
                 else:
                     logger.info(f"signaling end of frames with `None` packet on subscriber queue.")
                     for port, q in self.frame_packet_queues.items():

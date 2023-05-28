@@ -45,10 +45,10 @@ class RecordingWidget(QWidget):
 
         super(RecordingWidget, self).__init__()
         self.session = session
-        self.synchronizer:Synchronizer = self.session.get_synchronizer()
+        self.synchronizer:Synchronizer = self.session.synchronizer
         
         # don't let point tracking slow down the frame reading
-        self.synchronizer.set_tracking_on_streams(False)
+        # self.synchronizer.set_tracking_on_streams(False)
 
         # create tools to build and emit the displayed frame
         self.frame_builder = RecordingFrameBuilder(self.synchronizer)
@@ -58,7 +58,7 @@ class RecordingWidget(QWidget):
         self.video_recorder = VideoRecorder(self.synchronizer)
         
         self.frame_rate_spin = QSpinBox()
-        self.frame_rate_spin.setValue(self.synchronizer.get_fps_target())
+        self.frame_rate_spin.setValue(self.synchronizer.fps_target)
 
         self.start_stop = QPushButton("Start Recording")
         self.destination_label = QLabel("Recording Destination:")
@@ -111,7 +111,7 @@ class RecordingWidget(QWidget):
     def connect_widgets(self):
     
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
-        self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_fps_target)
+        self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_stream_fps)
         self.frame_emitter.dropped_fps.connect(self.update_dropped_fps)
         self.start_stop.clicked.connect(self.toggle_start_stop)
 

@@ -6,23 +6,31 @@ import pandas as pd
 from pathlib import Path
 from pyxy3d import __root__
 from pyxy3d.configurator import Configurator
-from pyxy3d.post_processing_pipelines import triangulate_xy_data
+from pyxy3d.post_processor import PostProcessor
+from pyxy3d.helper import copy_contents
 
 def test_xy_to_xyz_postprocessing():
     # load in file of xy point data
     origin_data = Path(__root__, "tests", "sessions", "4_cam_recording")
-
+    working_data = Path(__root__,"tests", "sessions_copy_delete", "4_cam_recording")
     tracker_name = "HOLISTIC"
-    config = Configurator(origin_data)
-    recording_directory = Path(origin_data, "recording_1", tracker_name)
+    copy_contents(origin_data, working_data)
+
+    config = Configurator(working_data)
+    recording_directory = Path(working_data, "recording_1", tracker_name)
+
     xy_path = Path(recording_directory, f"xy_{tracker_name}.csv")
 
+    post_processor = PostProcessor(config)
+    
     xy_data = pd.read_csv(xy_path)
-    camera_array = config.get_camera_array()
 
     start = time.time()
     logger.info(f"beginning triangulation at {time.time()}")
-    xyz_history = triangulate_xy_data(xy_data, camera_array)
+    # note: triangulate_xy  is a method used primarily internally by the PostProcessor
+    # the method create_xyz uses it.
+
+    xyz_history = post_processor.triangulate_xy_data(xy_data)
     logger.info(f"ending triangulation at {time.time()}")
     stop = time.time()
     logger.info(f"Elapsed time is {stop-start}. Note that on first iteration, @jit functions will take longer")

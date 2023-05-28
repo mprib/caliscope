@@ -169,6 +169,7 @@ class CalibrationControls(QGroupBox):
                 self.monocal.capture_corners.clear()
                 self.calibrate()    
             else:
+                # no data collected
                 self.monocal.capture_corners.clear()
                 # self.camera_summary.place_widgets()
                 self.update_camera_data()
@@ -278,13 +279,13 @@ class AdvancedControls(QWidget):
         self.wait_time_spin.valueChanged.connect(self.on_wait_time_spin)
         self.grid_grp.layout().addWidget(self.wait_time_spin)
 
-        logger.debug("Building Grid Count Display")
-        self.grid_count_display = QLabel()
-        self.grid_grp.layout().addWidget(self.grid_count_display)
-        self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        # logger.debug("Building Grid Count Display")
+        # self.grid_count_display = QLabel()
+        # self.grid_grp.layout().addWidget(self.grid_count_display)
+        # self.grid_count_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-        def grid_count_update_slot(grid_count):
-            self.grid_count_display.setText(f"Count: {grid_count}")
+        # def grid_count_update_slot(grid_count):
+        #     self.grid_count_display.setText(f"Count: {grid_count}")
         # self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
 
     def connect_widgets(self):
@@ -305,7 +306,8 @@ class AdvancedControls(QWidget):
 
         
     def on_frame_rate_spin(self,fps_rate):
-        self.stream.set_fps_target(fps_rate)
+        # self.stream.set_fps_target(fps_rate)
+        self.monocal.set_stream_fps(fps_rate)
         logger.info(f"Changing monocalibrator frame rate for port{self.port}")
 
     def FPSUpdateSlot(self,fps):

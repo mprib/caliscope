@@ -1,11 +1,7 @@
 from PyQt6.QtWidgets import QApplication
-from pyxy3d.gui.calibration_widget import CalibrationWidget
 import sys
-from time import sleep
 from pyxy3d import __root__
 from pathlib import Path
-from pyxy3d.configurator import Configurator
-from pyxy3d.session.session import Session
 import toml
 from pyxy3d import __app_dir__
 from pyxy3d.gui.main_widget import MainWindow

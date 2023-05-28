@@ -33,7 +33,7 @@ from pyxy3d.recording.video_recorder import VideoRecorder
 MAX_CAMERA_PORT_CHECK = 10
 FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration
 
-class SessionTab(Enum):
+class SessionMode(Enum):
     """
     Note: Not currently being used for anything...if this comment remains for a few days,
     just delete this class, Mac.
@@ -43,7 +43,8 @@ class SessionTab(Enum):
     ExtrinsicCalibration = auto()
     Recording = auto()
     PostProcessing = auto()
-    
+
+ 
 class Session(QObject):
     
     synchronizer_created = pyqtSignal()
@@ -66,6 +67,13 @@ class Session(QObject):
 
         # dictionaries of calibration related objects.
         self.monocalibrators = {}  # key = port
+
+        # store this in the config file and load from configurator      
+        self.recording_fps = 30
+        self.extrinsic_calibration_fps = 6
+        self.monocalibrator_fps = {}
+        
+                
         self.is_recording = False
 
         self.charuco = self.config.get_charuco()

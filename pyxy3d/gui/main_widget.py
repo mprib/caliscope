@@ -136,7 +136,9 @@ class MainWindow(QMainWindow):
 
     
     
+
     def on_tab_changed(self, index):
+        logger.info(f"Switching main window to tab {index}")
         match index:
             case 0:
                 logger.info(f"Activate Calibration Tab")

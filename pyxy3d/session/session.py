@@ -68,10 +68,10 @@ class Session(QObject):
         # dictionaries of calibration related objects.
         self.monocalibrators = {}  # key = port
 
-        # store this in the config file and load from configurator      
-        self.recording_fps = 30
-        self.extrinsic_calibration_fps = 6
-        self.monocalibrator_fps = {}
+        # load fps for various modes
+        self.recording_fps = self.config.get_recording_fps()
+        self.extrinsic_calibration_fps = self.config.get_extrinsic_calibration_fps()
+        self.monocalibrator_fps = self.config.get_intrinsic_calibration_fps()
         
                 
         self.is_recording = False

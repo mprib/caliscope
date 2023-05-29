@@ -49,7 +49,7 @@ class Configurator:
             self.save_recording_fps(30)
             self.save_extrinsic_calibration_fps(6)
             self.save_extrinsic_wait_time(0.5)
-            self.save_intrinsic_calibration_fps(6)
+            self.save_intrinsic_calibration_fps(12)
             self.save_intrinsic_wait_time(0.5)
     
     def get_intrinsic_wait_time(self, time_sec:float):

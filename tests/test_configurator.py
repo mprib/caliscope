@@ -2,6 +2,8 @@
 # are working....
 from pathlib import Path
 import numpy as np
+import os
+import shutil
 
 from pyxy3d import __root__
 from pyxy3d.configurator import Configurator
@@ -45,6 +47,27 @@ def test_configurator():
     new_charuco = config.get_charuco()
     assert(new_charuco.columns==12)
 
+def test_default_config():
+    pass
+
+def remove_all_files_and_folders(directory_path):
+    for item in directory_path.iterdir():
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
 
 if __name__ == "__main__":
-    test_configurator()
+    # test_configurator()
+    test_path = Path(__root__, "tests", "sessions", "default")
+    remove_all_files_and_folders(test_path)
+    test_config_path = Path(test_path, "config.toml")
+
+    config = Configurator(test_path)
+    
+    
+    
+    
+    # clear out path
+    
+    

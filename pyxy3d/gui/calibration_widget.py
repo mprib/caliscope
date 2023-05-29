@@ -116,11 +116,19 @@ class CalibrationWidget(QStackedWidget):
                 # find out if you are loading cameras or finding cameras
                 if self.session.get_configured_camera_count() > 0:
                     # self.# session.load_cameras()
-                    logger.info("Camera connect worker about to load stream tools")
+                    try:
+                        pass
 
-                    self.session.load_streams(
-                        tracker=CharucoTracker(self.session.charuco)
-                    )
+                    except:
+                        logger.warn("it wasn't safe to comment out this code")
+                        #Mac, if you come back to this well past branch 346 and don't know
+                        # what this is about, just delete it all including the get_configured_count method
+                    
+                    # logger.info("Camera connect worker about to load stream tools")
+
+                    # self.session.load_streams(
+                    #     tracker=CharucoTracker(self.session.charuco)
+                    # )
                 else:
                     logger.info(
                         f"No previous configured cameras detected...searching for cameras...."

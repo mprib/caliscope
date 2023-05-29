@@ -426,7 +426,7 @@ if __name__ == "__main__":
             frame_builder.reset()
 
         if key == ord("u"):
-            frame_builder.synchronizer.unsubscribe_to_streams() 
+            frame_builder.synchronizer.unsubscribe_from_streams() 
             
         if frame_builder.possible_to_initialize_array(5):
             logger.info("possible to initialize array now")

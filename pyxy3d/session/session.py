@@ -67,6 +67,7 @@ class Session(QObject):
 
         # dictionaries of calibration related objects.
         self.monocalibrators = {}  # key = port
+        self.active_monocalibrator = None
 
         # load fps for various modes
         self.recording_fps = self.config.get_recording_fps()
@@ -78,10 +79,19 @@ class Session(QObject):
 
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
+        self.mode = SessionMode.Charuco # default mode of session
+         
+    def set_fps(self):
+        match self.mode:
+            case SessionMode.Charuco:
+                self.synchronizer.unsubscribe_from_streams()
+            case SessionMode.IntrinsicCalibration:
+                self.synchronizer.unsubscribe_from_streams()
 
+                
     def pause_synchronizer(self):
         logger.info("pausing synchronizer")
-        self.synchronizer.unsubscribe_to_streams()
+        self.synchronizer.unsubscribe_from_streams()
 
     def unpause_synchronizer(self):
         self.synchronizer.subscribe_to_streams()

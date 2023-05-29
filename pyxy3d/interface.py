@@ -95,6 +95,10 @@ class Stream(ABC):
         pass
 
     @abstractmethod
+    def set_fps_target(self, fps_target:int):
+        pass
+
+    @abstractmethod
     def process_frames(self):
         pass
 

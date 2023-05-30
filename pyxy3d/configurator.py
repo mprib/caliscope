@@ -305,16 +305,16 @@ class Configurator:
         self.update_toml()
 
 
-    def get_live_stream_pool(self, tracker:Tracker = None):
-        streams = {}
-        cameras = self.get_cameras()
+    # def get_live_stream_pool(self, tracker:Tracker = None):
+    #     streams = {}
+    #     cameras = self.get_cameras()
 
-        for port, cam in cameras.items():
-            logger.info(f"Adding stream associated with camera {port}")
-            stream = LiveStream(cam, tracker=tracker)
-            stream.change_resolution(cam.size)
-            streams[port] = stream
-        return streams            
+    #     for port, cam in cameras.items():
+    #         logger.info(f"Adding stream associated with camera {port}")
+    #         stream = LiveStream(cam, tracker=tracker)
+    #         stream.change_resolution(cam.size)
+    #         streams[port] = stream
+    #     return streams            
 
     
      

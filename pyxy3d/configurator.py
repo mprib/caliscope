@@ -58,13 +58,13 @@ class Configurator:
     def get_extrinsic_wait_time(self, time_sec:float):
         return self.dict["extrinsic_wait_time"] 
 
-    def get_recording_fps(self, fps:int):
+    def get_fps_recording(self, fps:int):
         return self.dict["recording_fps"]  
 
-    def get_extrinsic_calibration_fps(self, fps:int):
+    def get_fps_extrinsic_calibration(self, fps:int):
         return self.dict["extrinsic_calibration_fps"]  
 
-    def get_intrinsic_calibration_fps(self, fps:int):
+    def get_fps_intrinsic_calibration(self, fps:int):
         return self.dict["intrinsic_calibration_fps"]  
 
     def save_intrinsic_wait_time(self, time_sec:float):

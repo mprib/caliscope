@@ -14,12 +14,15 @@ from PyQt6.QtWidgets import (
 )
 
 from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigDialog
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.session.get_stage import get_camera_stage, CameraStage
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
 
 class CameraWizard(QWidget):
-    def __init__(self, session):
+    """ 
+    This is basically just the camera tabs plus the navigation bar
+    """
+    def __init__(self, session: Session):
         super(CameraWizard, self).__init__()
         self.setLayout(QVBoxLayout())    
         self.camera_tabs = CameraTabs(session)
@@ -29,6 +32,11 @@ class CameraWizard(QWidget):
     
         self.camera_tabs.stereoframe_ready.connect(self.set_next_enabled)
         self.camera_tabs.check_session_calibration()
+        self.session = session
+        
+        #prior to entering intrinisc calibration mode, need to have an active monocalibrator
+        # self.session.active_monocalibrator = self.camera_tabs.currentWidget().port
+        # self.session.set_mode(SessionMode.Charuco)
          
     def set_next_enabled(self, stereoframe_ready:bool):
         logger.info(f"Setting camera tab next button enabled status to {stereoframe_ready}")
@@ -44,7 +52,8 @@ class CameraTabs(QTabWidget):
 
         self.setTabPosition(QTabWidget.TabPosition.North)
         self.add_cam_tabs()
-        self.currentChanged.connect(self.toggle_tracking)
+        # self.session.set_mode(SessionMode.IntrinsicCalibration)
+        # self.currentChanged.connect(self.toggle_tracking)
 
     def keyPressEvent(self, event):
         """
@@ -63,10 +72,10 @@ class CameraTabs(QTabWidget):
             super().keyPressEvent(event)
         
         
-    def toggle_tracking(self, index):
+    # def toggle_tracking(self, index):
 
-        logger.info(f"Toggle tracking to activate {self.tabText(index)}")
-        self.session.activate_monocalibrator(self.widget(index).stream.port)
+    #     logger.info(f"Toggle tracking to activate {self.tabText(index)}")
+    #     self.session.activate_monocalibrator(self.widget(index).stream.port)
 
 
     def add_cam_tabs(self):
@@ -102,7 +111,7 @@ class CameraTabs(QTabWidget):
         else:
             logger.info("No cameras available")
         
-        self.toggle_tracking(self.currentIndex())
+        # self.toggle_tracking(self.currentIndex())
 
     def check_session_calibration(self):
         logger.info(f"Checking session stage....")

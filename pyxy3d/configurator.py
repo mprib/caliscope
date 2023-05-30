@@ -46,10 +46,10 @@ class Configurator:
             # default values enforced below 
             charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
             self.save_charuco(charuco)
-            self.save_recording_fps(30)
-            self.save_extrinsic_calibration_fps(6)
+            self.save_fps_recording(30)
+            self.save_fps_extrinsic_calibration(6)
             self.save_extrinsic_wait_time(0.5)
-            self.save_intrinsic_calibration_fps(12)
+            self.save_fps_intrinsic_calibration(12)
             self.save_intrinsic_wait_time(0.5)
     
     def get_intrinsic_wait_time(self, time_sec:float):
@@ -59,13 +59,13 @@ class Configurator:
         return self.dict["extrinsic_wait_time"] 
 
     def get_fps_recording(self, fps:int):
-        return self.dict["recording_fps"]  
+        return self.dict["fps_recording"]  
 
     def get_fps_extrinsic_calibration(self, fps:int):
-        return self.dict["extrinsic_calibration_fps"]  
+        return self.dict["fps_extrinsic_calibration"]  
 
     def get_fps_intrinsic_calibration(self, fps:int):
-        return self.dict["intrinsic_calibration_fps"]  
+        return self.dict["fps_intrinsic_calibration"]  
 
     def save_intrinsic_wait_time(self, time_sec:float):
         self.dict["intrinsic_wait_time"] = time_sec
@@ -75,16 +75,16 @@ class Configurator:
         self.dict["extrinsic_wait_time"] = time_sec
         self.update_toml()
 
-    def save_recording_fps(self, fps:int):
-        self.dict["recording_fps"]  = fps 
+    def save_fps_recording(self, fps:int):
+        self.dict["fps_recording"]  = fps 
         self.update_toml()
 
-    def save_extrinsic_calibration_fps(self, fps:int):
-        self.dict["extrinsic_calibration_fps"]  = fps 
+    def save_fps_extrinsic_calibration(self, fps:int):
+        self.dict["fps_extrinsic_calibration"]  = fps 
         self.update_toml()
 
-    def save_intrinsic_calibration_fps(self, fps:int):
-        self.dict["intrinsic_calibration_fps"]  = fps 
+    def save_fps_intrinsic_calibration(self, fps:int):
+        self.dict["fps_intrinsic_calibration"]  = fps 
         self.update_toml()
 
     def update_toml(self):

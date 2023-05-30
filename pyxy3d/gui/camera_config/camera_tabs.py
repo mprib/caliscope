@@ -66,7 +66,7 @@ class CameraTabs(QTabWidget):
     def toggle_tracking(self, index):
 
         logger.info(f"Toggle tracking to activate {self.tabText(index)}")
-        self.session.set_active_monocalibrator(self.widget(index).stream.port)
+        self.session.activate_monocalibrator(self.widget(index).stream.port)
 
 
     def add_cam_tabs(self):

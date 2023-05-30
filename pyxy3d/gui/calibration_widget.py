@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
 )
 
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.gui.wizard_charuco import WizardCharuco
 from pyxy3d.gui.camera_config.camera_tabs import CameraWizard
 from pyxy3d import __root__, __app_dir__
@@ -50,11 +50,14 @@ class CalibrationWidget(QStackedWidget):
         # self.launch_session()
         logger.info("Creating charuco wizard session")
         self.wizard_charuco = WizardCharuco(self.session)
+        
         self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(
-            self.next_to_camera_config
+            self.activate_camera_config
         )
         logger.info("Adding charuco wizard")
+        self.session.set_mode(SessionMode.Charuco)
         self.addWidget(self.wizard_charuco)
+
         logger.info("Setting index to 2 to activate widget")
         self.setCurrentWidget(self.wizard_charuco)
 
@@ -62,44 +65,22 @@ class CalibrationWidget(QStackedWidget):
 
     def connect_widgets(self):
         # self.wizard_directory.launch_wizard_btn.clicked.connect(self.begin_wizard)
-        self.cameras_connected.connect(self.on_cameras_connect)
+        # self.cameras_connected.connect(self.on_cameras_connect)
+        pass
 
-    def launch_session(self):
-        if self.wizard_directory.create_new_radio.isChecked():
-            # only need to create a new session in the given directory:
-            self.session_path = self.wizard_directory.new_path.textbox.text()
-            configurator = Configurator(self.session_path)
-            self.session = Session(configurator)
-        else:
-            # need to copy over config from old directory to new directory before launching
-            self.session_path = self.wizard_directory.modified_path.textbox.text()
-            old_config_path = self.wizard_directory.original_path.textbox.text()
-
-            ## but check if it's the same directory
-            if self.session_path == old_config_path:
-                # in which case don't do anything
-                pass
-            else:
-                shutil.copyfile(
-                    str(Path(old_config_path, "config.toml")),
-                    str(Path(self.session_path, "config.toml")),
-                )
-
-            configurator = Configurator(self.session_path)
-            self.session = Session(configurator)
 
     ######################## STEP 1: Charuco Builder ###########################
 
-    def next_to_camera_config(self):
+    def activate_camera_config(self):
         if hasattr(self, "camera_config"):
             logger.info("Camera config already exists; changing stack current index")
-            self.setCurrentWidget(self.camera_config)
+            self.session.set_mode(SessionMode.IntrinsicCalibration)
             active_port = self.camera_config.camera_tabs.currentIndex()
-            self.camera_config.camera_tabs.toggle_tracking(active_port)
-            logger.info("updating charuco in case necessary")
-            charuco_tracker = CharucoTracker(self.session.charuco)
-            for port, stream in self.session.streams.items():
-                stream.update_tracker(charuco_tracker)
+            self.session.active_monocalibrator = active_port
+            self.setCurrentWidget(self.camera_config)
+            # self.camera_config.camera_tabs.toggle_tracking(active_port)
+
+            # charuco board might have changed, so...
         else:
             logger.info("Initiating Camera Connection")
             self.initiate_camera_connection()
@@ -142,8 +123,18 @@ class CalibrationWidget(QStackedWidget):
 
                 logger.info("emitting cameras_connected signal")
                 self.cameras_connected.emit()
-                if hasattr(self, "qt_logger"):
-                    del self.qt_logger
+                self.camera_config = CameraWizard(self.session)
+                self.addWidget(self.camera_config)
+                self.setCurrentWidget(self.camera_config)
+                self.camera_config.navigation_bar.back_btn.clicked.connect(
+                    self.back_to_charuco_wizard
+                )
+                self.camera_config.navigation_bar.next_btn.clicked.connect(
+                    self.next_to_stereoframe
+                )
+
+                # if hasattr(self, "qt_logger"):
+                #     del self.qt_logger
                 # self.qt_logger.hide()
 
         if self.CAMS_IN_PROCESS:
@@ -154,17 +145,8 @@ class CalibrationWidget(QStackedWidget):
             )
             self.connect_cams.start()
 
-    def on_cameras_connect(self):
+    # def on_cameras_connect(self):
         # load cameras config once the cameras are actually connected
-        self.camera_config = CameraWizard(self.session)
-        self.addWidget(self.camera_config)
-        self.setCurrentWidget(self.camera_config)
-        self.camera_config.navigation_bar.back_btn.clicked.connect(
-            self.back_to_charuco_wizard
-        )
-        self.camera_config.navigation_bar.next_btn.clicked.connect(
-            self.next_to_stereoframe
-        )
 
     ####################### STEP 2: Single Camera Calibration #################
     def back_to_charuco_wizard(self):

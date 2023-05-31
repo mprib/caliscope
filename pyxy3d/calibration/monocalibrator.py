@@ -25,10 +25,11 @@ class MonoCalibrator():
         self.stream = stream
         self.camera: Camera = stream.camera  # reference needed to update params
         self.port = self.camera.port
-        
-        # this is strange but is done to allow the GUI an easy way to restore stream fps when switching between monocal/synchronizer
-        # self.fps = fps # monocalibrator should not store fps...it's a stream prop. 
-        self.set_stream_fps(fps)
+        self.board_threshold = board_threshold
+                
+        # # this is strange but is done to allow the GUI an easy way to restore stream fps when switching between monocal/synchronizer
+        # # self.fps = fps # monocalibrator should not store fps...it's a stream prop. 
+        # self.set_stream_fps(fps)
 
         self.wait_time = wait_time
         self.capture_corners = Event()
@@ -39,10 +40,7 @@ class MonoCalibrator():
         self.subscribe_to_stream()
 
         self.grid_frame_ready_q = Queue()
-        self.connected_points = self.stream.tracker.get_connected_points()
 
-        board_corner_count = len(self.stream.tracker.board.getChessboardCorners())
-        self.min_points_to_process = int(board_corner_count * board_threshold)
 
         self.initialize_grid_history()
 
@@ -55,13 +53,13 @@ class MonoCalibrator():
 
         logger.info(f"Beginning monocalibrator for port {self.port}")
 
-    def set_stream_fps(self, fps_target:int=None):
-        """
-        If new target, update monocal property, otherwise revert to previously stored
-        """
-        if fps_target is not None:
-            self.fps = fps_target
-        self.stream.set_fps_target(self.fps)
+    # def set_stream_fps(self, fps_target:int=None):
+    #     """
+    #     If new target, update monocal property, otherwise revert to previously stored
+    #     """
+    #     if fps_target is not None:
+    #         self.fps = fps_target
+    #     self.stream.set_fps_target(self.fps)
      
     @property
     def grid_count(self):
@@ -103,9 +101,13 @@ class MonoCalibrator():
         that enough time has past since the last set was recorded
 
         """
-        logger.debug("Entering collect_corners thread loop")
-        
-        # self.stream.push_to_out_q.set()
+        logger.info(f"Entering collect_corners thread loop for port {self.port}")
+
+        # these values are getting initialized now because the stream may not have
+        # a tracker at the time the stream tools are loaded
+        self.connected_points = self.stream.tracker.get_connected_points()
+        board_corner_count = len(self.stream.tracker.board.getChessboardCorners())
+        self.min_points_to_process = int(board_corner_count * self.board_threshold)
         
         while not self.stop_event.is_set():
             

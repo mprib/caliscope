@@ -277,13 +277,15 @@ class Session(QObject):
                 logger.info(f"Loading Monocalibrator for port {port}")
                 self.monocalibrators[port] = MonoCalibrator(self.streams[port])
 
-    def activate_monocalibrator(self, active_port:int):
+    def activate_monocalibrator(self, active_port:int=None):
         """
         Used to make sure that only the active camera tab is reading frames during the intrinsic calibration process
         """
 
-        logger.info(f"Activate tracking on port {active_port} and deactivate others")
-        self.active_monocalibrator = active_port
+        if active_port is not None:
+            logger.info(f"Setting session active monocalibrator to {active_port}")
+            self.active_monocalibrator = active_port
+        logger.info(f"Activate tracking on port {self.active_monocalibrator} and deactivate others")
         self.monocalibrators[self.active_monocalibrator].subscribe_to_stream()
 
     def pause_all_monocalibrators(self):

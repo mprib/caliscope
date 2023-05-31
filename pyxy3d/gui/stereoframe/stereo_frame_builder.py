@@ -380,7 +380,7 @@ if __name__ == "__main__":
         session_directory = Path(__root__, "tests", "4_cameras_beginning")
         session = Session(session_directory)
         # session.load_cameras()
-        session.load_streams()
+        session.load_stream_tools()
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(session.streams, fps_target=3)
     else:

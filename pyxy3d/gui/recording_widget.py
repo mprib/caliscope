@@ -356,8 +356,8 @@ def cv2_to_qlabel(frame):
 def launch_recording_widget(session_path):
             config = Configurator(session_path)
             session = Session(config)
-            session.load_streams()
-            session.adjust_resolutions()
+            session.load_stream_tools()
+            session._adjust_resolutions()
 
             App = QApplication(sys.argv)
             recording_dialog = RecordingWidget(session)

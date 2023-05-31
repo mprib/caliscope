@@ -33,8 +33,8 @@ session_path = Path(recent_projects[recent_project_count-1])
 config = Configurator(session_path)
 session = Session(config)
 
-session.load_streams()
-session.adjust_resolutions()
+session.load_stream_tools()
+session._adjust_resolutions()
 
 
 App = QApplication(sys.argv)

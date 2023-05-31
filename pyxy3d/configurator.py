@@ -68,22 +68,27 @@ class Configurator:
         return self.dict["fps_intrinsic_calibration"]  
 
     def save_intrinsic_wait_time(self, time_sec:float):
+        logger.info(f"Updating Intrinsic Calibration Wait to to {time_sec}")
         self.dict["intrinsic_wait_time"] = time_sec
         self.update_toml()             
 
     def save_extrinsic_wait_time(self, time_sec:float):
+        logger.info(f"Updating Extrinsic Calibration Wait to to {time_sec}")
         self.dict["extrinsic_wait_time"] = time_sec
         self.update_toml()
 
     def save_fps_recording(self, fps:int):
+        logger.info(f"Updating Recording fps to {fps}")
         self.dict["fps_recording"]  = fps 
         self.update_toml()
 
     def save_fps_extrinsic_calibration(self, fps:int):
+        logger.info(f"Updating Extrinsic calibration fps to {fps}")
         self.dict["fps_extrinsic_calibration"]  = fps 
         self.update_toml()
 
     def save_fps_intrinsic_calibration(self, fps:int):
+        logger.info(f"Updating Intrinsic calibration fps to {fps}")
         self.dict["fps_intrinsic_calibration"]  = fps 
         self.update_toml()
 

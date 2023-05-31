@@ -123,8 +123,8 @@ class MainWindow(QMainWindow):
         self.session.pause_all_monocalibrators()
         
         match self.calibration_widget.currentWidget():
-            case self.calibration_widget.camera_config:
-                active_camera = self.calibration_widget.camera_config.camera_tabs.currentWidget().port
+            case self.calibration_widget.camera_wizard:
+                active_camera = self.calibration_widget.camera_wizard.camera_tabs.currentWidget().port
                 logger.info(f"Activating calibration tab: camera config widget with Camera {active_camera} active")
                 self.session.activate_monocalibrator(active_camera) # restores fps
             case self.calibration_widget.stereoframe:

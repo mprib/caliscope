@@ -79,7 +79,6 @@ class Session(QObject):
         self.is_recording = False
 
         self.charuco = self.config.get_charuco()
-        self.charuco_tracker = CharucoTracker(self.charuco)
         self.mode = SessionMode.Charuco # default mode of session
          
     
@@ -104,7 +103,10 @@ class Session(QObject):
                     self.pause_all_monocalibrators()
 
             case SessionMode.IntrinsicCalibration:
+                self.charuco_tracker = CharucoTracker(self.charuco)
+                
                 if not self.stream_tools_loaded:
+                    self.charuco_tracker = CharucoTracker(self.charuco)
                     self.load_stream_tools()
                 self.synchronizer.unsubscribe_from_streams()
                 self.pause_all_monocalibrators()
@@ -114,6 +116,7 @@ class Session(QObject):
 
             case SessionMode.ExtrinsicCalibration:
                 if not self.stream_tools_loaded:
+                    self.charuco_tracker = CharucoTracker(self.charuco)
                     self.load_stream_tools()
 
                 self.pause_all_monocalibrators()
@@ -176,8 +179,8 @@ class Session(QObject):
     def set_streams_charuco(self):
         
         logger.info("updating charuco in case necessary")
-        self.charuco_tracker = CharucoTracker(self.session.charuco)
-        for port, stream in self.session.streams.items():
+        self.charuco_tracker = CharucoTracker(self.charuco)
+        for port, stream in self.streams.items():
             stream.update_tracker(self.charuco_tracker)
 
     def pause_synchronizer(self):
@@ -232,7 +235,7 @@ class Session(QObject):
             if key.startswith("stereo"):
                 del self.config.dict[key]
 
-    def load_stream_tools(self, tracker: Tracker = None):
+    def load_stream_tools(self):
         """
         Connects to stored cameras and creates streams with provided tracking
         Because these streams are available, the synchronizer can then be initialized
@@ -249,10 +252,13 @@ class Session(QObject):
                 pass  # only add if not added yet
             else:
                 logger.info(f"Loading Stream for port {port}")
-                self.streams[port] = LiveStream(cam, tracker=tracker)
+                self.streams[port] = LiveStream(cam, tracker=self.charuco_tracker)
         
         self._adjust_resolutions()
         self._load_monocalibrators()
+
+        # set something as a default value just to get started
+        self.active_monocalibrator = min(self.monocalibrators.keys())
 
         self.synchronizer = Synchronizer(self.streams) # defaults to stream default fps of 6
         # recording widget becomes available when synchronizer is created

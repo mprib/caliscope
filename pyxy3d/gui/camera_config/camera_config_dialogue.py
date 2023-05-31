@@ -35,10 +35,10 @@ from pyxy3d.gui.camera_config.camera_summary_widget import SummaryWidget
 from pyxy3d import __root__
 
 
-class CameraConfigDialog(QDialog):
+class CameraConfigTab(QDialog):
     
     def __init__(self, session, port):
-        super(CameraConfigDialog, self).__init__()
+        super(CameraConfigTab, self).__init__()
 
         # set up variables for ease of reference
         self.session = session
@@ -497,7 +497,7 @@ if __name__ == "__main__":
     App = QApplication(sys.argv)
 
     logger.info("Creating Camera Config Dialog")
-    cam_dialog = CameraConfigDialog(session, test_port)
+    cam_dialog = CameraConfigTab(session, test_port)
     cam_dialog.show()
     
     logger.info("About to show camera config dialog")

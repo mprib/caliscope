@@ -136,6 +136,7 @@ class Session(QObject):
     def set_active_mode_fps(self, fps_target:int):
         """
         Updates the FPS used by the currently active session mode
+        This update includes the config.toml
         """
         match self.mode:
             case SessionMode.Charuco:
@@ -144,10 +145,13 @@ class Session(QObject):
                 pass
             case SessionMode.IntrinsicCalibration:
                 self.fps_intrinsic_calibration = fps_target    
+                self.config.save_fps_intrinsic_calibration(fps_target)
             case SessionMode.ExtrinsicCalibration:
                 self.fps_extrinsic_calibration = fps_target
+                self.config.save_fps_extrinsic_calibration(fps_target)
             case SessionMode.Recording:
                 self.fps_recording = fps_target 
+                self.config.save_fps_recording(fps_target)
        
         self.update_streams_fps() 
                 

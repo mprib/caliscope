@@ -104,15 +104,17 @@ class MainWindow(QMainWindow):
         logger.info(f"Switching main window to tab {index}")
         match index:
             case 0:
+                
                 logger.info(f"Activate Calibration Mode")
-                match self.calibration_widget.currentWidget():
-                    case self.calibration_widget.camera_wizard:
-                        active_camera = self.calibration_widget.camera_wizard.camera_tabs.currentWidget().port
-                        logger.info(f"Activating intrinsic calibration tab: camera config widget with Camera {active_camera} active")
-                        self.session.set_mode(SessionMode.IntrinsicCalibration)
-                    case self.calibration_widget.stereoframe:
-                        logger.info("Activating extrinsic calibration tab: stereoframe widget")
-                        self.session.set_mode(SessionMode.ExtrinsicCalibration)
+                if hasattr(self.calibration_widget,"currentWidget"):
+                    match self.calibration_widget.currentWidget():
+                        case self.calibration_widget.camera_wizard:
+                            active_camera = self.calibration_widget.camera_wizard.camera_tabs.currentWidget().port
+                            logger.info(f"Activating intrinsic calibration tab: camera config widget with Camera {active_camera} active")
+                            self.session.set_mode(SessionMode.IntrinsicCalibration)
+                        case self.calibration_widget.stereoframe:
+                            logger.info("Activating extrinsic calibration tab: stereoframe widget")
+                            self.session.set_mode(SessionMode.ExtrinsicCalibration)
 
             case 1:
                 logger.info(f"Activate Recording Mode")

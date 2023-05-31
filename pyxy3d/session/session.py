@@ -33,7 +33,7 @@ from pyxy3d.recording.video_recorder import VideoRecorder
 MAX_CAMERA_PORT_CHECK = 10
 FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration
 
-class SessionTab(Enum):
+class SessionMode(Enum):
     """
     Note: Not currently being used for anything...if this comment remains for a few days,
     just delete this class, Mac.
@@ -43,10 +43,11 @@ class SessionTab(Enum):
     ExtrinsicCalibration = auto()
     Recording = auto()
     PostProcessing = auto()
-    
+
+ 
 class Session(QObject):
     
-    synchronizer_created = pyqtSignal()
+    stream_tools_loaded_signal = pyqtSignal()
     
     def __init__(self, config: Configurator):
         super().__init__()
@@ -63,17 +64,136 @@ class Session(QObject):
         # dictionaries of streaming related objects. key = port
         self.cameras = {}
         self.streams = {}
-
+        self.stream_tools_in_process = False
+        self.stream_tools_loaded = False
         # dictionaries of calibration related objects.
         self.monocalibrators = {}  # key = port
+        self.active_monocalibrator = None
+
+        # load fps for various modes
+        self.fps_recording = self.config.get_fps_recording()
+        self.fps_extrinsic_calibration = self.config.get_fps_extrinsic_calibration()
+        self.fps_intrinsic_calibration = self.config.get_fps_intrinsic_calibration()
+        self.wait_time_extrinsic = self.config.get_extrinsic_wait_time() 
+        self.wait_time_intrinsic = self.config.get_intrinsic_wait_time()
+        
         self.is_recording = False
 
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
+        self.mode = SessionMode.Charuco # default mode of session
+         
+    
+    def set_mode(self, mode:SessionMode): 
+        """
+        Via this method, the frame reading behavior will be changed by the GUI. If some properties are 
+        not available (i.e. synchronizer) they will be created
+        """
+        self.mode = mode
+        self.update_streams_fps()
+
+        match self.mode:
+            case SessionMode.Charuco:
+                if self.stream_tools_loaded:
+                    self.synchronizer.unsubscribe_from_streams()
+                    self.pause_all_monocalibrators()
+
+            case SessionMode.PostProcessing:
+                                
+                if self.stream_tools_loaded:
+                    self.synchronizer.unsubscribe_from_streams()
+                    self.pause_all_monocalibrators()
+
+            case SessionMode.IntrinsicCalibration:
+                # update in case something has changed
+                self.charuco_tracker = CharucoTracker(self.charuco)
+                
+                if not self.stream_tools_loaded:
+                    self.load_stream_tools()
+                self.synchronizer.unsubscribe_from_streams()
+                self.pause_all_monocalibrators()
+                self.set_streams_charuco()
+                self.set_streams_tracking(True)
+                self.activate_monocalibrator(self.active_monocalibrator)
+
+            case SessionMode.ExtrinsicCalibration:
+                # update in case something has changed
+                self.charuco_tracker = CharucoTracker(self.charuco)
+                if not self.stream_tools_loaded:
+                    self.load_stream_tools()
+
+                self.pause_all_monocalibrators()
+                self.set_streams_charuco()
+                self.set_streams_tracking(True)
+                self.synchronizer.subscribe_to_streams()
+
+            case SessionMode.Recording:
+                if not self.stream_tools_loaded:
+                    self.load_stream_tools()
+
+                self.pause_all_monocalibrators()
+                self.set_streams_tracking(False)
+                self.update_streams_fps()
+                self.synchronizer.subscribe_to_streams()
+
+
+    def set_active_mode_fps(self, fps_target:int):
+        """
+        Updates the FPS used by the currently active session mode
+        This update includes the config.toml
+        """
+        match self.mode:
+            case SessionMode.Charuco:
+                pass
+            case SessionMode.PostProcessing:
+                pass
+            case SessionMode.IntrinsicCalibration:
+                self.fps_intrinsic_calibration = fps_target    
+                self.config.save_fps_intrinsic_calibration(fps_target)
+            case SessionMode.ExtrinsicCalibration:
+                self.fps_extrinsic_calibration = fps_target
+                self.config.save_fps_extrinsic_calibration(fps_target)
+            case SessionMode.Recording:
+                self.fps_recording = fps_target 
+                self.config.save_fps_recording(fps_target)
+       
+        self.update_streams_fps() 
+                
+    def get_active_mode_fps(self)-> int:
+        fps = None
+        match self.mode:
+            case SessionMode.Charuco:
+                pass
+            case SessionMode.PostProcessing:
+                pass
+            case SessionMode.IntrinsicCalibration:
+                fps = self.fps_intrinsic_calibration
+            case SessionMode.ExtrinsicCalibration:
+                fps = self.fps_extrinsic_calibration
+            case SessionMode.Recording:
+                fps = self.fps_recording
+        return fps
+    
+    def update_streams_fps(self):
+        active_mode_fps = self.get_active_mode_fps()
+        if active_mode_fps is not None:
+            for port, stream in self.streams.items():
+                stream.set_fps_target(active_mode_fps)
+
+    def set_streams_tracking(self, tracking_on:bool):
+        for port, stream in self.streams.items():
+            stream.set_tracking_on(tracking_on)
+            
+    def set_streams_charuco(self):
+        
+        logger.info("updating charuco in case necessary")
+        self.charuco_tracker = CharucoTracker(self.charuco)
+        for port, stream in self.streams.items():
+            stream.update_tracker(self.charuco_tracker)
 
     def pause_synchronizer(self):
         logger.info("pausing synchronizer")
-        self.synchronizer.unsubscribe_to_streams()
+        self.synchronizer.unsubscribe_from_streams()
 
     def unpause_synchronizer(self):
         self.synchronizer.subscribe_to_streams()
@@ -87,10 +207,13 @@ class Session(QObject):
         return count
 
 
-    def find_cameras(self):
-        """Attempt to connect to the first N cameras. It will clear out any previous calibration
-        data, including stereocalibration data"""
+    def _find_cameras(self):
+        """
+        Called by load_streams in the event that no cameras are returned by the configurator...
+        Will populate self.cameras using multiple threads
+        """
 
+        
         def add_cam(port):
             try:
                 logger.info(f"Trying port {port}")
@@ -120,28 +243,38 @@ class Session(QObject):
             if key.startswith("stereo"):
                 del self.config.dict[key]
 
-    def load_streams(self, tracker: Tracker = None):
+    def load_stream_tools(self):
         """
         Connects to stored cameras and creates streams with provided tracking
-        
         Because these streams are available, the synchronizer can then be initialized
         """
-
+        self.stream_tools_in_process = True        
         # don't bother loading cameras until you load the streams
         self.cameras = self.config.get_cameras()
 
+        if len(self.cameras) == 0:
+            self._find_cameras()
+            
         for port, cam in self.cameras.items():
             if port in self.streams.keys():
                 pass  # only add if not added yet
             else:
                 logger.info(f"Loading Stream for port {port}")
-                self.streams[port] = LiveStream(cam, tracker=tracker)
+                self.streams[port] = LiveStream(cam, tracker=self.charuco_tracker)
         
+        self._adjust_resolutions()
+        self._load_monocalibrators()
+
+        # set something as a default value just to get started
+        self.active_monocalibrator = min(self.monocalibrators.keys())
+
         self.synchronizer = Synchronizer(self.streams) # defaults to stream default fps of 6
         # recording widget becomes available when synchronizer is created
-        self.synchronizer_created.emit()
-
-    def load_monocalibrators(self):
+        self.stream_tools_loaded_signal.emit()
+        self.stream_tools_loaded = True
+        self.stream_tools_in_process = False
+        
+    def _load_monocalibrators(self):
         for port, cam in self.cameras.items():
             if port in self.monocalibrators.keys():
                 logger.info(
@@ -152,21 +285,21 @@ class Session(QObject):
                 logger.info(f"Loading Monocalibrator for port {port}")
                 self.monocalibrators[port] = MonoCalibrator(self.streams[port])
 
-    def set_active_monocalibrator(self, active_port):
+    def activate_monocalibrator(self, active_port:int=None):
         """
         Used to make sure that only the active camera tab is reading frames during the intrinsic calibration process
         """
-        logger.info(f"Activate tracking on port {active_port} and deactivate others")
-        for port, monocal in self.monocalibrators.items():
-            if port == active_port:
-                monocal.subscribe_to_stream()
-                monocal.set_stream_fps()
-            else:
-                monocal.unsubscribe_to_stream()
+
+        if active_port is not None:
+            logger.info(f"Setting session active monocalibrator to {active_port}")
+            self.active_monocalibrator = active_port
+        logger.info(f"Activate tracking on port {self.active_monocalibrator} and deactivate others")
+        self.monocalibrators[self.active_monocalibrator].subscribe_to_stream()
 
     def pause_all_monocalibrators(self):
         """
         used when not actively on the camera calibration tab
+        or when silencing all in preparation for activating only one
         """
         logger.info(f"Pausing all monocalibrator looping...")
         for port, monocal in self.monocalibrators.items():
@@ -189,7 +322,7 @@ class Session(QObject):
 
         self.is_recording = False
 
-    def adjust_resolutions(self):
+    def _adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as
         log as it is not configured for the default resolution"""
 

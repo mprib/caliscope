@@ -35,8 +35,8 @@ session_path = Path(__root__,"dev", "sample_sessions", "low_res")
 session = Session(session_path)
 tracker = TrackerEnum.HAND
 
-session.load_streams(tracker=tracker) 
-session.adjust_resolutions()
+session.load_stream_tools(tracker=tracker) 
+session._adjust_resolutions()
 
 config = Configurator(session_path)
 camera_array = config.get_camera_array()

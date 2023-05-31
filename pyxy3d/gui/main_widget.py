@@ -23,7 +23,7 @@ import toml
 from PyQt6.QtGui import QIcon, QAction, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__, __user_dir__
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.calibration_widget import CalibrationWidget
@@ -99,57 +99,29 @@ class MainWindow(QMainWindow):
     def connect_signals(self):
         self.tab_widget.currentChanged.connect(self.on_tab_changed)
 ################## FRAME READING and TRACKING CONTROL with TAB SWITCH ######################################        
-    def activate_recording(self):
-        self.session.pause_all_monocalibrators()
-        self.session.synchronizer.set_tracking_on_streams(False)
-        
-        self.session.unpause_synchronizer() # unpause restores fps
-   
-   
-    def activate_processing(self):
-        self.session.pause_all_monocalibrators()
-        self.session.pause_synchronizer()
          
-    def activate_calibration(self):
-
-        if hasattr(self.session, "synchronizer"):
-            self.session.pause_synchronizer()
-            # synched frames not running, but a handy way to turn tracking on all by default
-            self.session.synchronizer.set_tracking_on_streams(True)
-            
-            # set syncronizer fps target to align with stereoframe fps spin box 
-            self.session.synchronizer.fps_target = self.calibration_widget.stereoframe.frame_rate_spin.value()
-
-        self.session.pause_all_monocalibrators()
-        
-        match self.calibration_widget.currentWidget():
-            case self.calibration_widget.camera_config:
-                active_camera = self.calibration_widget.camera_config.camera_tabs.currentWidget().port
-                logger.info(f"Activating calibration tab: camera config widget with Camera {active_camera} active")
-                self.session.set_active_monocalibrator(active_camera) # restores fps
-            case self.calibration_widget.stereoframe:
-                logger.info("Activating calibration tab: stereoframe widget")
-                self.session.unpause_synchronizer()
-                # pass
-                #Mac RETURN HERE     
-                # case self.calibration_widget.stereoframe
-
-    
-    
-
     def on_tab_changed(self, index):
         logger.info(f"Switching main window to tab {index}")
         match index:
             case 0:
-                logger.info(f"Activate Calibration Tab")
-                self.activate_calibration()
+                
+                logger.info(f"Activate Calibration Mode")
+                if hasattr(self.calibration_widget,"currentWidget"):
+                    match self.calibration_widget.currentWidget():
+                        case self.calibration_widget.camera_wizard:
+                            active_camera = self.calibration_widget.camera_wizard.camera_tabs.currentWidget().port
+                            logger.info(f"Activating intrinsic calibration tab: camera config widget with Camera {active_camera} active")
+                            self.session.set_mode(SessionMode.IntrinsicCalibration)
+                        case self.calibration_widget.stereoframe:
+                            logger.info("Activating extrinsic calibration tab: stereoframe widget")
+                            self.session.set_mode(SessionMode.ExtrinsicCalibration)
 
             case 1:
-                logger.info(f"Activate Recording Tab")
-                self.activate_recording()
+                logger.info(f"Activate Recording Mode")
+                self.session.set_mode(SessionMode.Recording)
             case 2:
-                logger.info(f"Activate Processing Tab")
-                self.activate_processing()
+                logger.info(f"Activate Processing Mode")
+                self.session.set_mode(SessionMode.PostProcessing)
             
     
 
@@ -168,7 +140,7 @@ class MainWindow(QMainWindow):
         logger.info(f"Launching session with config file stored in {session_path}")
         self.session = Session(self.config)
         logger.info("Setting calibration Widget")
-        self.session.synchronizer_created.connect(self.load_recording_widget)
+        self.session.stream_tools_loaded_signal.connect(self.load_recording_widget)
 
 
         old_index = self.tab_widget.currentIndex()

@@ -13,13 +13,16 @@ from PyQt6.QtWidgets import (
     QTabWidget,
 )
 
-from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigDialog
-from pyxy3d.session.session import Session
+from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigTab
+from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.session.get_stage import get_camera_stage, CameraStage
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
 
 class CameraWizard(QWidget):
-    def __init__(self, session):
+    """ 
+    This is basically just the camera tabs plus the navigation bar
+    """
+    def __init__(self, session: Session):
         super(CameraWizard, self).__init__()
         self.setLayout(QVBoxLayout())    
         self.camera_tabs = CameraTabs(session)
@@ -29,6 +32,11 @@ class CameraWizard(QWidget):
     
         self.camera_tabs.stereoframe_ready.connect(self.set_next_enabled)
         self.camera_tabs.check_session_calibration()
+        self.session = session
+        
+        #prior to entering intrinisc calibration mode, need to have an active monocalibrator
+        # self.session.active_monocalibrator = self.camera_tabs.currentWidget().port
+        # self.session.set_mode(SessionMode.Charuco)
          
     def set_next_enabled(self, stereoframe_ready:bool):
         logger.info(f"Setting camera tab next button enabled status to {stereoframe_ready}")
@@ -44,7 +52,8 @@ class CameraTabs(QTabWidget):
 
         self.setTabPosition(QTabWidget.TabPosition.North)
         self.add_cam_tabs()
-        self.currentChanged.connect(self.toggle_tracking)
+        # self.session.set_mode(SessionMode.IntrinsicCalibration)
+        self.currentChanged.connect(self.activate_current_tab)
 
     def keyPressEvent(self, event):
         """
@@ -63,11 +72,18 @@ class CameraTabs(QTabWidget):
             super().keyPressEvent(event)
         
         
-    def toggle_tracking(self, index):
+    def activate_current_tab(self, index):
 
         logger.info(f"Toggle tracking to activate {self.tabText(index)}")
-        self.session.set_active_monocalibrator(self.widget(index).stream.port)
+        self.session.pause_all_monocalibrators()
+        self.session.activate_monocalibrator(self.widget(index).stream.port)
 
+        # this is where you can update the spin boxes to align with the session values
+        monocal_fps = self.session.get_active_mode_fps()
+        self.widget(index).advanced_controls.frame_rate_spin.setValue(monocal_fps)
+
+        wait_time_intrinsic = self.session.wait_time_intrinsic
+        self.widget(index).advanced_controls.wait_time_spin.setValue(wait_time_intrinsic)
 
     def add_cam_tabs(self):
         tab_names = [self.tabText(i) for i in range(self.count())]
@@ -83,7 +99,7 @@ class CameraTabs(QTabWidget):
                 if tab_name in tab_names:
                     pass  # already here, don't bother
                 else:
-                    cam_tab = CameraConfigDialog(self.session, port)
+                    cam_tab = CameraConfigTab(self.session, port)
                     
                     # when new camera calibrated, check to see if all cameras calibrated
                     cam_tab.calibrate_grp.calibration_change.connect(self.check_session_calibration)
@@ -102,7 +118,7 @@ class CameraTabs(QTabWidget):
         else:
             logger.info("No cameras available")
         
-        self.toggle_tracking(self.currentIndex())
+        # self.toggle_tracking(self.currentIndex())
 
     def check_session_calibration(self):
         logger.info(f"Checking session stage....")
@@ -126,9 +142,7 @@ if __name__ == "__main__":
     print(config_path)
     session = Session(config_path)
     # session.load_cameras()
-    session.load_streams()
-    # session.adjust_resolutions()
-    session.load_monocalibrators()
+    session.load_stream_tools()
 
     test_port = 0
 

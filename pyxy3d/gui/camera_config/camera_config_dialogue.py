@@ -35,10 +35,10 @@ from pyxy3d.gui.camera_config.camera_summary_widget import SummaryWidget
 from pyxy3d import __root__
 
 
-class CameraConfigDialog(QDialog):
+class CameraConfigTab(QDialog):
     
     def __init__(self, session, port):
-        super(CameraConfigDialog, self).__init__()
+        super(CameraConfigTab, self).__init__()
 
         # set up variables for ease of reference
         self.session = session
@@ -302,12 +302,13 @@ class AdvancedControls(QWidget):
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
         
     def on_wait_time_spin(self, wait_time):
-        self.monocal.wait_time = wait_time
+        self.session.wait_time_intrinsic = wait_time
+        self.session.config.save_intrinsic_wait_time(wait_time)
 
         
     def on_frame_rate_spin(self,fps_rate):
         # self.stream.set_fps_target(fps_rate)
-        self.monocal.set_stream_fps(fps_rate)
+        self.session.set_active_mode_fps(fps_rate)
         logger.info(f"Changing monocalibrator frame rate for port{self.port}")
 
     def FPSUpdateSlot(self,fps):
@@ -491,15 +492,13 @@ if __name__ == "__main__":
 
     tracker = CharucoTracker(session.charuco)
     # # session.load_cameras()
-    session.load_streams(tracker=tracker)
-    session.adjust_resolutions()
-    session.load_monocalibrators()
+    session.load_stream_tools(tracker=tracker)
     test_port = 0
 
     App = QApplication(sys.argv)
 
     logger.info("Creating Camera Config Dialog")
-    cam_dialog = CameraConfigDialog(session, test_port)
+    cam_dialog = CameraConfigTab(session, test_port)
     cam_dialog.show()
     
     logger.info("About to show camera config dialog")

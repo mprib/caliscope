@@ -104,7 +104,7 @@ class LiveStream(Stream):
         milestones = []
         for i in range(0, fps):
             milestones.append(i / fps)
-        logger.info(f"Setting fps to {self.fps}")
+        logger.info(f"Setting fps to {self.fps} at port {self.port}")
         self.milestones = np.array(milestones)
 
     def update_tracker(self, tracker: Tracker):
@@ -142,10 +142,10 @@ class LiveStream(Stream):
         self.previous_time = self.start_time
         return 1 / self.avg_delta_time
 
-    def stop(self):
-        self.push_to_out_q.clear()
-        self.stop_event.set()
-        logger.info(f"Stop signal sent at stream {self.port}")
+    # def stop(self):
+    #     self.push_to_out_q.clear()
+    #     self.stop_event.set()
+    #     logger.info(f"Stop signal sent at stream {self.port}")
 
     def process_frames(self):
         """

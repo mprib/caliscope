@@ -380,7 +380,7 @@ if __name__ == "__main__":
         session_directory = Path(__root__, "tests", "4_cameras_beginning")
         session = Session(session_directory)
         # session.load_cameras()
-        session.load_streams()
+        session.load_stream_tools()
         logger.info("Creating Synchronizer")
         syncr = Synchronizer(session.streams, fps_target=3)
     else:
@@ -426,7 +426,7 @@ if __name__ == "__main__":
             frame_builder.reset()
 
         if key == ord("u"):
-            frame_builder.synchronizer.unsubscribe_to_streams() 
+            frame_builder.synchronizer.unsubscribe_from_streams() 
             
         if frame_builder.possible_to_initialize_array(5):
             logger.info("possible to initialize array now")

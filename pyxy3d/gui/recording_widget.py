@@ -58,7 +58,7 @@ class RecordingWidget(QWidget):
         self.video_recorder = VideoRecorder(self.synchronizer)
         
         self.frame_rate_spin = QSpinBox()
-        self.frame_rate_spin.setValue(self.synchronizer.fps_target)
+        self.frame_rate_spin.setValue(self.session.fps_recording)
 
         self.start_stop = QPushButton("Start Recording")
         self.destination_label = QLabel("Recording Destination:")
@@ -111,7 +111,7 @@ class RecordingWidget(QWidget):
     def connect_widgets(self):
     
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
-        self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_stream_fps)
+        self.frame_rate_spin.valueChanged.connect(self.session.set_active_mode_fps)
         self.frame_emitter.dropped_fps.connect(self.update_dropped_fps)
         self.start_stop.clicked.connect(self.toggle_start_stop)
 
@@ -356,8 +356,8 @@ def cv2_to_qlabel(frame):
 def launch_recording_widget(session_path):
             config = Configurator(session_path)
             session = Session(config)
-            session.load_streams()
-            session.adjust_resolutions()
+            session.load_stream_tools()
+            session._adjust_resolutions()
 
             App = QApplication(sys.argv)
             recording_dialog = RecordingWidget(session)

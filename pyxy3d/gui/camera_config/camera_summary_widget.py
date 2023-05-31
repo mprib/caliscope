@@ -134,7 +134,7 @@ if __name__ == "__main__":
     session_path = Path(recent_projects[recent_project_count - 1])
     config = Configurator(session_path)
     session = Session(config)
-    session.load_streams()
+    session.load_stream_tools()
     
     port = 2
 

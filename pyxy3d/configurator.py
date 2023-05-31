@@ -16,9 +16,8 @@ from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.interface import Tracker
-from pyxy3d.trackers.tracker_enum import TrackerEnum
 from pyxy3d.cameras.camera_array import CameraArray, CameraData
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates, load_point_estimates
+from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from concurrent.futures import ThreadPoolExecutor
 
@@ -42,9 +41,56 @@ class Configurator:
 
             self.dict = toml.loads("")
             self.dict["CreationDate"] = datetime.now()
-            with open(self.toml_path, "a") as f:
-                toml.dump(self.dict, f)
+            self.update_toml()           
+            
+            # default values enforced below 
+            charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
+            self.save_charuco(charuco)
+            self.save_fps_recording(30)
+            self.save_fps_extrinsic_calibration(6)
+            self.save_fps_intrinsic_calibration(12)
+            self.save_extrinsic_wait_time(0.5)
+            self.save_intrinsic_wait_time(0.5)
+    
+    def get_intrinsic_wait_time(self):
+        return self.dict["intrinsic_wait_time"] 
+             
+    def get_extrinsic_wait_time(self):
+        return self.dict["extrinsic_wait_time"] 
 
+    def get_fps_recording(self):
+        return self.dict["fps_recording"]  
+
+    def get_fps_extrinsic_calibration(self):
+        return self.dict["fps_extrinsic_calibration"]  
+
+    def get_fps_intrinsic_calibration(self):
+        return self.dict["fps_intrinsic_calibration"]  
+
+    def save_intrinsic_wait_time(self, time_sec:float):
+        logger.info(f"Updating Intrinsic Calibration Wait to to {time_sec}")
+        self.dict["intrinsic_wait_time"] = time_sec
+        self.update_toml()             
+
+    def save_extrinsic_wait_time(self, time_sec:float):
+        logger.info(f"Updating Extrinsic Calibration Wait to to {time_sec}")
+        self.dict["extrinsic_wait_time"] = time_sec
+        self.update_toml()
+
+    def save_fps_recording(self, fps:int):
+        logger.info(f"Updating Recording fps to {fps}")
+        self.dict["fps_recording"]  = fps 
+        self.update_toml()
+
+    def save_fps_extrinsic_calibration(self, fps:int):
+        logger.info(f"Updating Extrinsic calibration fps to {fps}")
+        self.dict["fps_extrinsic_calibration"]  = fps 
+        self.update_toml()
+
+    def save_fps_intrinsic_calibration(self, fps:int):
+        logger.info(f"Updating Intrinsic calibration fps to {fps}")
+        self.dict["fps_intrinsic_calibration"]  = fps 
+        self.update_toml()
 
     def update_toml(self):
         # alphabetize by key to maintain standardized layout
@@ -143,26 +189,27 @@ class Configurator:
         point_estimates = PointEstimates(**point_estimates_dict)
         return point_estimates
     
-    def get_charuco(self):
-        if "charuco" in self.dict:
-            logger.info("Loading charuco from config")
-            params = self.dict["charuco"]
+    def get_charuco(self)-> Charuco:
+        # should now be the case that charuco is *definitely* in there
+        # if "charuco" in self.dict:
+        logger.info("Loading charuco from config")
+        params = self.dict["charuco"]
 
-            charuco = Charuco(
-                columns=params["columns"],
-                rows=params["rows"],
-                board_height=params["board_height"],
-                board_width=params["board_width"],
-                dictionary=params["dictionary"],
-                units=params["units"],
-                aruco_scale=params["aruco_scale"],
-                square_size_overide_cm=params["square_size_overide_cm"],
-                inverted=params["inverted"],
-            )
-        else:
-            logger.info("Loading default charuco")
-            charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
-            self.save_charuco(charuco)
+        charuco = Charuco(
+            columns=params["columns"],
+            rows=params["rows"],
+            board_height=params["board_height"],
+            board_width=params["board_width"],
+            dictionary=params["dictionary"],
+            units=params["units"],
+            aruco_scale=params["aruco_scale"],
+            square_size_overide_cm=params["square_size_overide_cm"],
+            inverted=params["inverted"],
+        )
+        # else:
+        #     logger.info("Loading default charuco")
+        #     charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
+        #     self.save_charuco(charuco)
 
         return charuco
 
@@ -263,16 +310,16 @@ class Configurator:
         self.update_toml()
 
 
-    def get_live_stream_pool(self, tracker:Tracker = None):
-        streams = {}
-        cameras = self.get_cameras()
+    # def get_live_stream_pool(self, tracker:Tracker = None):
+    #     streams = {}
+    #     cameras = self.get_cameras()
 
-        for port, cam in cameras.items():
-            logger.info(f"Adding stream associated with camera {port}")
-            stream = LiveStream(cam, tracker=tracker)
-            stream.change_resolution(cam.size)
-            streams[port] = stream
-        return streams            
+    #     for port, cam in cameras.items():
+    #         logger.info(f"Adding stream associated with camera {port}")
+    #         stream = LiveStream(cam, tracker=tracker)
+    #         stream.change_resolution(cam.size)
+    #         streams[port] = stream
+    #     return streams            
 
     
      

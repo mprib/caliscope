@@ -79,7 +79,8 @@ class CameraTabs(QTabWidget):
         self.session.activate_monocalibrator(self.widget(index).stream.port)
 
         # this is where you can update the spin boxes to align with the session values
-        self.widget(index).
+        monocal_fps = self.session.get_active_mode_fps()
+        self.widget(index).advanced_controls.frame_rate_spin.setValue(monocal_fps)
 
     def add_cam_tabs(self):
         tab_names = [self.tabText(i) for i in range(self.count())]

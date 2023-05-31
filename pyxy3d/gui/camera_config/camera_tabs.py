@@ -53,7 +53,7 @@ class CameraTabs(QTabWidget):
         self.setTabPosition(QTabWidget.TabPosition.North)
         self.add_cam_tabs()
         # self.session.set_mode(SessionMode.IntrinsicCalibration)
-        # self.currentChanged.connect(self.toggle_tracking)
+        self.currentChanged.connect(self.activate_current_tab)
 
     def keyPressEvent(self, event):
         """
@@ -72,10 +72,11 @@ class CameraTabs(QTabWidget):
             super().keyPressEvent(event)
         
         
-    # def toggle_tracking(self, index):
+    def activate_current_tab(self, index):
 
-    #     logger.info(f"Toggle tracking to activate {self.tabText(index)}")
-    #     self.session.activate_monocalibrator(self.widget(index).stream.port)
+        logger.info(f"Toggle tracking to activate {self.tabText(index)}")
+        self.session.pause_all_monocalibrators()
+        self.session.activate_monocalibrator(self.widget(index).stream.port)
 
 
     def add_cam_tabs(self):

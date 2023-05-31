@@ -93,20 +93,19 @@ class Session(QObject):
 
         match self.mode:
             case SessionMode.Charuco:
-                if hasattr(self,"synchronizer"):
+                if self.stream_tools_loaded:
                     self.synchronizer.unsubscribe_from_streams()
                     self.pause_all_monocalibrators()
+
             case SessionMode.PostProcessing:
-                
-                if hasattr(self,"synchronizer"):
+                                
+                if self.stream_tools_loaded:
                     self.synchronizer.unsubscribe_from_streams()
                     self.pause_all_monocalibrators()
 
             case SessionMode.IntrinsicCalibration:
-                if not hasattr(self, "synchronizer"):
+                if not self.stream_tools_loaded:
                     self.load_stream_tools()
-                if len(self.monocalibrators) == 0:
-                    self._load_monocalibrators()
                 self.synchronizer.unsubscribe_from_streams()
                 self.pause_all_monocalibrators()
                 self.set_streams_charuco()
@@ -114,20 +113,16 @@ class Session(QObject):
                 self.activate_monocalibrator(self.active_monocalibrator)
 
             case SessionMode.ExtrinsicCalibration:
-                if not hasattr(self, "synchronizer"):
+                if not self.stream_tools_loaded:
                     self.load_stream_tools()
-                if len(self.monocalibrators) == 0:
-                    self._load_monocalibrators()
 
                 self.pause_all_monocalibrators()
                 self.set_streams_charuco()
                 self.set_streams_tracking(True)
                 self.synchronizer.subscribe_to_streams()
             case SessionMode.Recording:
-                if not hasattr(self, "synchronizer"):
+                if not self.stream_tools_loaded:
                     self.load_stream_tools()
-                if len(self.monocalibrators) == 0:
-                    self._load_monocalibrators()
 
                 self.pause_all_monocalibrators()
                 self.set_streams_tracking(False)

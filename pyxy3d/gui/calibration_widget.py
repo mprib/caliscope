@@ -115,10 +115,11 @@ class CalibrationWidget(QStackedWidget):
                         f"No previous configured cameras detected...searching for cameras...."
                     )
                     self.session._find_cameras()
-                logger.info("Camera connect worker about to adjust resolutions")
-                self.session._adjust_resolutions()
-                logger.info("Camera connect worker about to load monocalibrators")
-                self.session._load_monocalibrators()
+                # logger.info("Camera connect worker about to adjust resolutions")
+                # self.session._adjust_resolutions()
+                # logger.info("Camera connect worker about to load monocalibrators")
+                # self.session._load_monocalibrators()
+                self.session.load_stream_tools()
                 self.CAMS_IN_PROCESS = False
 
                 logger.info("emitting cameras_connected signal")

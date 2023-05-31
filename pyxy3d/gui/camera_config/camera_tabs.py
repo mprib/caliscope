@@ -136,8 +136,6 @@ if __name__ == "__main__":
     session = Session(config_path)
     # session.load_cameras()
     session.load_stream_tools()
-    # session.adjust_resolutions()
-    session._load_monocalibrators()
 
     test_port = 0
 

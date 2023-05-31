@@ -247,7 +247,6 @@ if __name__ == "__main__":
         # session.load_cameras()
         tracker = CharucoTracker(session.charuco)
         session.load_stream_tools(tracker=tracker)
-        session._adjust_resolutions()
 
 
         stereo_dialog = StereoFrameWidget(session)

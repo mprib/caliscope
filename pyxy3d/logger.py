@@ -83,11 +83,14 @@ def get(name): # as in __name__
     else:
         logger.setLevel(logging.INFO) 
 
-    qt_handler = QtHandler()
     
     logger.addHandler(app_dir_file_handler)
     logger.addHandler(console_handler)
-    logger.addHandler(qt_handler)
+   
+    # avoid stepping through XStream object if in debug 
+    if os.getenv("DEBUG") != '1':
+        qt_handler = QtHandler()
+        logger.addHandler(qt_handler)
     
 
     return logger

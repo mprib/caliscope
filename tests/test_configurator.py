@@ -60,12 +60,9 @@ def remove_all_files_and_folders(directory_path):
 if __name__ == "__main__":
     # test_configurator()
     test_path = Path(__root__, "tests", "sessions", "default")
-    remove_all_files_and_folders(test_path)
-    
+    remove_all_files_and_folders(test_pat
+    test_config_path = Path(test_path, "config.toml")
+
     config = Configurator(test_path)
-    
-    
-    
-    # clear out path
     
     

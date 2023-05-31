@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QTabWidget,
 )
 
-from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigDialog
+from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigTab
 from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.session.get_stage import get_camera_stage, CameraStage
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
@@ -78,6 +78,8 @@ class CameraTabs(QTabWidget):
         self.session.pause_all_monocalibrators()
         self.session.activate_monocalibrator(self.widget(index).stream.port)
 
+        # this is where you can update the spin boxes to align with the session values
+        self.widget(index).
 
     def add_cam_tabs(self):
         tab_names = [self.tabText(i) for i in range(self.count())]
@@ -93,7 +95,7 @@ class CameraTabs(QTabWidget):
                 if tab_name in tab_names:
                     pass  # already here, don't bother
                 else:
-                    cam_tab = CameraConfigDialog(self.session, port)
+                    cam_tab = CameraConfigTab(self.session, port)
                     
                     # when new camera calibrated, check to see if all cameras calibrated
                     cam_tab.calibrate_grp.calibration_change.connect(self.check_session_calibration)

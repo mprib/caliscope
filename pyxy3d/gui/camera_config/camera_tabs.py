@@ -82,6 +82,9 @@ class CameraTabs(QTabWidget):
         monocal_fps = self.session.get_active_mode_fps()
         self.widget(index).advanced_controls.frame_rate_spin.setValue(monocal_fps)
 
+        wait_time_intrinsic = self.session.wait_time_intrinsic
+        self.widget(index).advanced_controls.frame_rate_spin.setValue(monocal_fps)
+
     def add_cam_tabs(self):
         tab_names = [self.tabText(i) for i in range(self.count())]
         logger.info(f"Current tabs are: {tab_names}")

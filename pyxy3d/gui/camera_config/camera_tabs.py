@@ -83,7 +83,7 @@ class CameraTabs(QTabWidget):
         self.widget(index).advanced_controls.frame_rate_spin.setValue(monocal_fps)
 
         wait_time_intrinsic = self.session.wait_time_intrinsic
-        self.widget(index).advanced_controls.frame_rate_spin.setValue(monocal_fps)
+        self.widget(index).advanced_controls.wait_time_spin.setValue(wait_time_intrinsic)
 
     def add_cam_tabs(self):
         tab_names = [self.tabText(i) for i in range(self.count())]

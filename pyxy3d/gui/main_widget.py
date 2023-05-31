@@ -168,7 +168,7 @@ class MainWindow(QMainWindow):
         logger.info(f"Launching session with config file stored in {session_path}")
         self.session = Session(self.config)
         logger.info("Setting calibration Widget")
-        self.session.synchronizer_created.connect(self.load_recording_widget)
+        self.session.stream_tools_loaded_signal.connect(self.load_recording_widget)
 
 
         old_index = self.tab_widget.currentIndex()

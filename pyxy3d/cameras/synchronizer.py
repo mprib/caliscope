@@ -337,7 +337,7 @@ if __name__ == "__main__":
         # config = Path(session_directory, "config.toml")
         session = Session(session_directory)
         # session.load_cameras()
-        session.load_streams()
+        session.load_stream_tools()
         # session.adjust_resolutions()
 
         for port, stream in session.streams.items():

@@ -74,8 +74,9 @@ class Session(QObject):
         self.fps_recording = self.config.get_fps_recording()
         self.fps_extrinsic_calibration = self.config.get_fps_extrinsic_calibration()
         self.fps_intrinsic_calibration = self.config.get_fps_intrinsic_calibration()
+        self.wait_time_extrinsic = self.config.get_extrinsic_wait_time() 
+        self.wait_time_intrinsic = self.config.get_intrinsic_wait_time()
         
-                
         self.is_recording = False
 
         self.charuco = self.config.get_charuco()

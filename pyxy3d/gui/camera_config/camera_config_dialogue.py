@@ -302,7 +302,8 @@ class AdvancedControls(QWidget):
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
         
     def on_wait_time_spin(self, wait_time):
-        self.monocal.wait_time = wait_time
+        self.session.wait_time_intrinsic = wait_time
+        self.session.config.save_intrinsic_wait_time(wait_time)
 
         
     def on_frame_rate_spin(self,fps_rate):

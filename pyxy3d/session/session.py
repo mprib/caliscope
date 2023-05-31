@@ -80,6 +80,7 @@ class Session(QObject):
         self.is_recording = False
 
         self.charuco = self.config.get_charuco()
+        self.charuco_tracker = CharucoTracker(self.charuco)
         self.mode = SessionMode.Charuco # default mode of session
          
     
@@ -104,10 +105,10 @@ class Session(QObject):
                     self.pause_all_monocalibrators()
 
             case SessionMode.IntrinsicCalibration:
+                # update in case something has changed
                 self.charuco_tracker = CharucoTracker(self.charuco)
                 
                 if not self.stream_tools_loaded:
-                    self.charuco_tracker = CharucoTracker(self.charuco)
                     self.load_stream_tools()
                 self.synchronizer.unsubscribe_from_streams()
                 self.pause_all_monocalibrators()
@@ -116,21 +117,23 @@ class Session(QObject):
                 self.activate_monocalibrator(self.active_monocalibrator)
 
             case SessionMode.ExtrinsicCalibration:
+                # update in case something has changed
+                self.charuco_tracker = CharucoTracker(self.charuco)
                 if not self.stream_tools_loaded:
-                    self.charuco_tracker = CharucoTracker(self.charuco)
                     self.load_stream_tools()
 
                 self.pause_all_monocalibrators()
                 self.set_streams_charuco()
                 self.set_streams_tracking(True)
                 self.synchronizer.subscribe_to_streams()
+
             case SessionMode.Recording:
                 if not self.stream_tools_loaded:
                     self.load_stream_tools()
 
                 self.pause_all_monocalibrators()
                 self.set_streams_tracking(False)
-                self.set_streams_fps(self.fps_recording)
+                self.update_streams_fps()
                 self.synchronizer.subscribe_to_streams()
 
 

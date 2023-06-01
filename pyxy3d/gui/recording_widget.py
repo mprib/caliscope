@@ -51,8 +51,8 @@ class RecordingWidget(QWidget):
         # self.synchronizer.set_tracking_on_streams(False)
 
         # create tools to build and emit the displayed frame
-        self.frame_builder = RecordingFrameBuilder(self.synchronizer)
-        self.frame_emitter = RecordingFrameEmitter(self.frame_builder)
+        self.frame_builder = UnpairedFrameBuilder(self.synchronizer)
+        self.frame_emitter = UnpairedFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 
         self.video_recorder = VideoRecorder(self.synchronizer)
@@ -145,7 +145,7 @@ class RecordingWidget(QWidget):
         qpixmap = QPixmap.fromImage(q_image)
         self.recording_frame_display.setPixmap(qpixmap)
         
-class RecordingFrameBuilder:
+class UnpairedFrameBuilder:
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250):
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
@@ -299,14 +299,14 @@ class RecordingFrameBuilder:
          
         return mega_frame
 
-class RecordingFrameEmitter(QThread):
+class UnpairedFrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
     dropped_fps = pyqtSignal(dict)
     
-    def __init__(self, recording_frame_builder:RecordingFrameBuilder):
+    def __init__(self, unpaired_frame_builder:UnpairedFrameBuilder):
         
-        super(RecordingFrameEmitter,self).__init__()
-        self.recording_frame_builder = recording_frame_builder
+        super(UnpairedFrameEmitter,self).__init__()
+        self.recording_frame_builder = unpaired_frame_builder
         logger.info("Initiated recording frame emitter")        
         self.keep_collecting = Event() 
         

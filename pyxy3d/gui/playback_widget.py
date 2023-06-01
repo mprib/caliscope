@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import (
 
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
-from pyxy3d.gui.recording_widget import RecordingFrameBuilder, RecordingFrameEmitter
+from pyxy3d.gui.recording_widget import UnpairedFrameBuilder, UnpairedFrameEmitter
 from pyxy3d.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
 )
@@ -51,8 +51,8 @@ class PlaybackWidget(QWidget):
         self.display = QLabel()
 
         # create tools to build and emit the displayed frame
-        self.frame_builder = RecordingFrameBuilder(self.synchronizer)
-        self.frame_emitter = RecordingFrameEmitter(self.frame_builder)
+        self.frame_builder = UnpairedFrameBuilder(self.synchronizer)
+        self.frame_emitter = UnpairedFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
        
         

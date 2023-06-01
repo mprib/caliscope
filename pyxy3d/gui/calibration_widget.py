@@ -26,7 +26,7 @@ from pyxy3d.gui.camera_config.camera_tabs import CameraWizard
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 # from pyxy3d.gui.qt_logger import QtLogger
-from pyxy3d.gui.stereoframe.stereo_frame_widget import (
+from pyxy3d.gui.stereoframe.extrinsic_calibration_widget import (
     ExtrinsicCalibrationWidget,
     MIN_THRESHOLD_FOR_EARLY_CALIBRATE,
 )

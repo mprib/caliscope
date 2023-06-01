@@ -182,7 +182,9 @@ class PairedFrameBuilder:
 
 
     def apply_rotation(self, frame, port):
-        rotation_count = self.rotation_counts[port]
+        # rotation_count = self.rotation_counts[port]
+        rotation_count = self.synchronizer.streams[port].camera.rotation
+        logger.info(f"Applying rotation {rotation_count} at port {port}")
         if rotation_count == 0:
             pass
         elif rotation_count in [1, -3]:

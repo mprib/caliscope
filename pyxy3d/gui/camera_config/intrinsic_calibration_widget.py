@@ -130,27 +130,4 @@ class CameraTabs(QTabWidget):
             logger.info("Not ready for stereoframe")
             self.stereoframe_ready.emit(False)
             
-if __name__ == "__main__":
-    from pyxy3d import __root__
-    
-    App = QApplication(sys.argv)
-
-    
-    config_path = Path(__root__, "tests", "laptop")
-    # config_path = Path(__root__, "tests", "pyxy3d")
-    # config_path = Path(repo, "sessions", "high_res_session")
-    print(config_path)
-    session = Session(config_path)
-    # session.load_cameras()
-    session.load_stream_tools()
-
-    test_port = 0
-
-    # cam_dialog = CameraConfigDialog(session, test_port)
-    # cam_tabs = CameraTabs(session)
-    # cam_tabs.show()
-    cam_wizard = IntrinsicCalibrationWidget(session)
-    cam_wizard.show()
-
-    sys.exit(App.exec())
 

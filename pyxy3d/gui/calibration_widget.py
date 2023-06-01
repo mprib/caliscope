@@ -72,22 +72,22 @@ class CalibrationWidget(QStackedWidget):
 
     def activate_camera_config(self):
         self.session.set_mode(SessionMode.IntrinsicCalibration)
-        if not hasattr(self, "camera_wizard"):
+        if not hasattr(self, "intrinsic_calibration_widget"):
             logger.info(f"No camera configuration yet...creating wizard")
-            self.camera_wizard = IntrinsicCalibrationWidget(self.session)
-            self.addWidget(self.camera_wizard)
-            self.setCurrentWidget(self.camera_wizard)
-            self.camera_wizard.navigation_bar.back_btn.clicked.connect(
+            self.intrinsic_calibration_widget = IntrinsicCalibrationWidget(self.session)
+            self.addWidget(self.intrinsic_calibration_widget)
+            self.setCurrentWidget(self.intrinsic_calibration_widget)
+            self.intrinsic_calibration_widget.navigation_bar.back_btn.clicked.connect(
                 self.activate_charuco_wizard
             )
-            self.camera_wizard.navigation_bar.next_btn.clicked.connect(
+            self.intrinsic_calibration_widget.navigation_bar.next_btn.clicked.connect(
                 self.next_to_stereoframe
             )
         else:
             logger.info("Camera config already exists; changing stack current index")
             # active_port = self.camera_wizard.camera_tabs.currentIndex()
             # self.session.active_monocalibrator = active_port
-            self.setCurrentWidget(self.camera_wizard)
+            self.setCurrentWidget(self.intrinsic_calibration_widget)
             self.session.activate_monocalibrator()
 
     ####################### STEP 2: Single Camera Calibration #################
@@ -118,7 +118,7 @@ class CalibrationWidget(QStackedWidget):
     ###################### Stereocalibration  ######################################
     def refresh_stereoframe(self):
         logger.info("Set current widget to config temporarily")
-        self.setCurrentWidget(self.camera_wizard)
+        self.setCurrentWidget(self.intrinsic_calibration_widget)
 
         logger.info("Remove stereoframe")
         self.removeWidget(self.extrinsic_calibration_widget)
@@ -131,15 +131,15 @@ class CalibrationWidget(QStackedWidget):
 
     def back_to_camera_config_wizard(self):
         logger.info("Moving back to camera config from stereoframe")
-        self.setCurrentWidget(self.camera_wizard)
+        self.setCurrentWidget(self.intrinsic_calibration_widget)
         self.session.pause_synchronizer()
 
         self.extrinsic_calibration_widget.frame_builder.unsubscribe_from_synchronizer()
         self.removeWidget(self.extrinsic_calibration_widget)
         del self.extrinsic_calibration_widget
 
-        active_port = self.camera_wizard.camera_tabs.currentIndex()
-        self.camera_wizard.camera_tabs.activate_current_tab(active_port)
+        active_port = self.intrinsic_calibration_widget.camera_tabs.currentIndex()
+        self.intrinsic_calibration_widget.camera_tabs.activate_current_tab(active_port)
 
     def next_to_capture_volume(self):
         logger.info("Creating Capture Volume widget")
@@ -157,7 +157,7 @@ class CalibrationWidget(QStackedWidget):
     ################## Capture Volume ########################
     def back_to_stereo_frame(self):
         logger.info("Set current widget to config temporarily")
-        self.setCurrentWidget(self.camera_wizard)
+        self.setCurrentWidget(self.intrinsic_calibration_widget)
 
         logger.info("Remove stereoframe")
         self.removeWidget(self.extrinsic_calibration_widget)

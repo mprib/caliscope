@@ -36,6 +36,7 @@ class FrameEmitter(QThread):
 
             self.frame = self.monocalibrator.grid_frame
             self.apply_undistortion()
+            self.frame = resize_to_square(self.frame)
             self.apply_rotation()
 
             image = self.cv2_to_qlabel(self.frame)
@@ -89,6 +90,29 @@ class FrameEmitter(QThread):
                 self.monocalibrator.camera.distortions,
             )
 
+
+def resize_to_square(frame):
+
+    height = frame.shape[0]
+    width = frame.shape[1]
+
+    padded_size = max(height, width)
+
+    height_pad = int((padded_size - height) / 2)
+    width_pad = int((padded_size - width) / 2)
+    pad_color = [0, 0, 0]
+
+    frame = cv2.copyMakeBorder(
+        frame,
+        height_pad,
+        height_pad,
+        width_pad,
+        width_pad,
+        cv2.BORDER_CONSTANT,
+        value=pad_color,
+    )
+
+    return frame
 
 if __name__ == "__main__":
     pass

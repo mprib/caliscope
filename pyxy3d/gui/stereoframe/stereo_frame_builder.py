@@ -13,7 +13,7 @@ from threading import Event
 
 COMMON_CORNER_TARGET = 5 # how many shared corners must be present to be recorded...
 
-class StereoFrameBuilder:
+class PairedFrameBuilder:
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250,board_count_target=50):
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height

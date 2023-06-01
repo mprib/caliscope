@@ -27,7 +27,7 @@ from pyxy3d import __root__, __app_dir__
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 # from pyxy3d.gui.qt_logger import QtLogger
 from pyxy3d.gui.stereoframe.stereo_frame_widget import (
-    StereoFrameWidget,
+    ExtrinsicCalibrationWidget,
     MIN_THRESHOLD_FOR_EARLY_CALIBRATE,
 )
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
@@ -103,7 +103,7 @@ class CalibrationWidget(QStackedWidget):
             # self.stereoframe.deleteLater()
             # self.removeWidget(self.stereoframe)
         else: 
-            self.stereoframe = StereoFrameWidget(self.session)
+            self.stereoframe = ExtrinsicCalibrationWidget(self.session)
             self.addWidget(self.stereoframe)
             self.setCurrentWidget(self.stereoframe)
 

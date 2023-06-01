@@ -18,12 +18,12 @@ from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.session.get_stage import get_camera_stage, CameraStage
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
 
-class CameraWizard(QWidget):
+class IntrinsicCalibrationWidget(QWidget):
     """ 
     This is basically just the camera tabs plus the navigation bar
     """
     def __init__(self, session: Session):
-        super(CameraWizard, self).__init__()
+        super(IntrinsicCalibrationWidget, self).__init__()
         self.setLayout(QVBoxLayout())    
         self.camera_tabs = CameraTabs(session)
         self.navigation_bar = NavigationBarBackNext()
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     # cam_dialog = CameraConfigDialog(session, test_port)
     # cam_tabs = CameraTabs(session)
     # cam_tabs.show()
-    cam_wizard = CameraWizard(session)
+    cam_wizard = IntrinsicCalibrationWidget(session)
     cam_wizard.show()
 
     sys.exit(App.exec())

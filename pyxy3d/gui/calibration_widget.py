@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
 
 from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.gui.wizard_charuco import WizardCharuco
-from pyxy3d.gui.camera_config.camera_tabs import CameraWizard
+from pyxy3d.gui.camera_config.intrinsic_calibration_widget import IntrinsicCalibrationWidget
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 # from pyxy3d.gui.qt_logger import QtLogger
@@ -74,7 +74,7 @@ class CalibrationWidget(QStackedWidget):
         self.session.set_mode(SessionMode.IntrinsicCalibration)
         if not hasattr(self, "camera_wizard"):
             logger.info(f"No camera configuration yet...creating wizard")
-            self.camera_wizard = CameraWizard(self.session)
+            self.camera_wizard = IntrinsicCalibrationWidget(self.session)
             self.addWidget(self.camera_wizard)
             self.setCurrentWidget(self.camera_wizard)
             self.camera_wizard.navigation_bar.back_btn.clicked.connect(
@@ -98,22 +98,22 @@ class CalibrationWidget(QStackedWidget):
     def next_to_stereoframe(self):
         self.session.set_mode(SessionMode.ExtrinsicCalibration)
 
-        if hasattr(self, "stereoframe"):
-            self.setCurrentWidget(self.stereoframe)
+        if hasattr(self, "extrinsic_calibration_widget"):
+            self.setCurrentWidget(self.extrinsic_calibration_widget)
             # self.stereoframe.deleteLater()
             # self.removeWidget(self.stereoframe)
         else: 
-            self.stereoframe = ExtrinsicCalibrationWidget(self.session)
-            self.addWidget(self.stereoframe)
-            self.setCurrentWidget(self.stereoframe)
+            self.extrinsic_calibration_widget = ExtrinsicCalibrationWidget(self.session)
+            self.addWidget(self.extrinsic_calibration_widget)
+            self.setCurrentWidget(self.extrinsic_calibration_widget)
 
-            self.stereoframe.navigation_bar.back_btn.clicked.connect(
+            self.extrinsic_calibration_widget.navigation_bar.back_btn.clicked.connect(
                 self.back_to_camera_config_wizard
             )
 
-            self.stereoframe.calibration_complete.connect(self.next_to_capture_volume)
+            self.extrinsic_calibration_widget.calibration_complete.connect(self.next_to_capture_volume)
             # self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
-            self.stereoframe.terminate.connect(self.refresh_stereoframe)
+            self.extrinsic_calibration_widget.terminate.connect(self.refresh_stereoframe)
 
     ###################### Stereocalibration  ######################################
     def refresh_stereoframe(self):
@@ -121,9 +121,9 @@ class CalibrationWidget(QStackedWidget):
         self.setCurrentWidget(self.camera_wizard)
 
         logger.info("Remove stereoframe")
-        self.removeWidget(self.stereoframe)
-        self.stereoframe.frame_builder.unsubscribe_from_synchronizer()
-        del self.stereoframe
+        self.removeWidget(self.extrinsic_calibration_widget)
+        self.extrinsic_calibration_widget.frame_builder.unsubscribe_from_synchronizer()
+        del self.extrinsic_calibration_widget
 
         logger.info("Create new stereoframe")
         self.launch_new_stereoframe()
@@ -134,9 +134,9 @@ class CalibrationWidget(QStackedWidget):
         self.setCurrentWidget(self.camera_wizard)
         self.session.pause_synchronizer()
 
-        self.stereoframe.frame_builder.unsubscribe_from_synchronizer()
-        self.removeWidget(self.stereoframe)
-        del self.stereoframe
+        self.extrinsic_calibration_widget.frame_builder.unsubscribe_from_synchronizer()
+        self.removeWidget(self.extrinsic_calibration_widget)
+        del self.extrinsic_calibration_widget
 
         active_port = self.camera_wizard.camera_tabs.currentIndex()
         self.camera_wizard.camera_tabs.activate_current_tab(active_port)
@@ -160,12 +160,12 @@ class CalibrationWidget(QStackedWidget):
         self.setCurrentWidget(self.camera_wizard)
 
         logger.info("Remove stereoframe")
-        self.removeWidget(self.stereoframe)
+        self.removeWidget(self.extrinsic_calibration_widget)
         logger.info("Remove capture volume")
         self.removeWidget(self.capture_volume)
         del self.capture_volume
-        self.stereoframe.frame_builder.unsubscribe_from_synchronizer()
-        del self.stereoframe
+        self.extrinsic_calibration_widget.frame_builder.unsubscribe_from_synchronizer()
+        del self.extrinsic_calibration_widget
 
         logger.info("Create new stereoframe")
         self.launch_new_stereoframe()

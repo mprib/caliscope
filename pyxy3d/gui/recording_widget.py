@@ -150,11 +150,11 @@ class RecordingFrameBuilder:
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
 
-        self.rotation_counts = {}
+        # self.rotation_counts = {}
         self.ports = []        
         for port, stream in self.synchronizer.streams.items():
             # override here while testing this out with pre-recorded video
-            self.rotation_counts[port] = stream.camera.rotation_count
+            # self.rotation_counts[port] = stream.camera.rotation_count
             self.ports.append(port)
         self.ports.sort()
         
@@ -219,7 +219,8 @@ class RecordingFrameBuilder:
 
 
     def apply_rotation(self, frame, port):
-        rotation_count = self.rotation_counts[port]
+        # rotation_count = self.rotation_counts[port]
+        rotation_count = self.synchronizer.streams[port].camera.rotation_count
         if rotation_count == 0:
             pass
         elif rotation_count in [1, -3]:

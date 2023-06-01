@@ -40,13 +40,12 @@ class VideoRecorder:
             path = str(Path(self.destination_folder, f"port_{port}{self.suffix}.mp4"))
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
-            fps = self.synchronizer.fps_target
             frame_size = stream.camera.size
 
-            writer = cv2.VideoWriter(path, fourcc, fps, frame_size)
+            writer = cv2.VideoWriter(path, fourcc, stream.fps, frame_size)
             self.video_writers[port] = writer
 
-    def save_data_worker(self, include_video, show_points):
+    def save_data_worker(self, include_video:bool, show_points:bool):
         # connect video recorder to synchronizer via an "in" queue
 
         if include_video:

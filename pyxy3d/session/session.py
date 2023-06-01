@@ -310,7 +310,7 @@ class Session(QObject):
         destination_directory.mkdir(parents=True, exist_ok=True)
 
         self.video_recorder = VideoRecorder(self.synchronizer)
-        self.video_recorder.start_recording(destination_directory)
+        self.video_recorder.start_recording(destination_directory, fps = self.fps_recording)
         self.is_recording = True
 
     def stop_recording(self):

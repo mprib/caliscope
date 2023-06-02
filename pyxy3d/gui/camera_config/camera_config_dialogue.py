@@ -279,6 +279,9 @@ class AdvancedControls(QWidget):
         self.wait_time_spin.valueChanged.connect(self.on_wait_time_spin)
         self.grid_grp.layout().addWidget(self.wait_time_spin)
 
+        self.ignore_box = QCheckBox("Ignore", self)
+        self.layout().addWidget(self.ignore_box)
+
         # logger.debug("Building Grid Count Display")
         # self.grid_count_display = QLabel()
         # self.grid_grp.layout().addWidget(self.grid_count_display)
@@ -300,6 +303,16 @@ class AdvancedControls(QWidget):
                 self.fps_display.setText("reconnecting to camera...")
 
         self.frame_emitter.FPSBroadcast.connect(FPSUpdateSlot)
+        self.ignore_box.stateChanged.connect(self.ignore_cam)
+
+    def ignore_cam(self,signal):
+        if signal == 0:  # not checked
+            logger.info(f"Don't ignore camera at port {self.port}")
+            self.camera.ignore = False
+        else:  # value of checkState() might be 2?
+            logger.info(f"Ignore camera at port {self.port}")
+            self.camera.ignore = True
+        self.session.config.save_camera(self.camera)
         
     def on_wait_time_spin(self, wait_time):
         self.session.wait_time_intrinsic = wait_time
@@ -338,7 +351,6 @@ class FrameControlWidget(QWidget):
         self.frame_display = QLabel()
         self.layout().addWidget(self.frame_display)
 
-        # self.build_ignore_checkbox()
 
         self.rotation_resolution_hbox = QHBoxLayout()
         self.layout().addLayout(self.rotation_resolution_hbox)
@@ -396,8 +408,8 @@ class FrameControlWidget(QWidget):
 
         self.exposure_hbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
     
-        self.ignore_box = QCheckBox("Ignore", self)
-        self.layout().addWidget(self.ignore_box)
+        # self.ignore_box = QCheckBox("Ignore", self)
+        # self.layout().addWidget(self.ignore_box)
 
     def connect_widgets(self):
         def ImageUpdateSlot(QPixmap):
@@ -418,7 +430,7 @@ class FrameControlWidget(QWidget):
 
         # exposure slider 
         self.exp_slider.valueChanged.connect(self.update_exposure)
-        self.ignore_box.stateChanged.connect(self.ignore_cam)
+        # self.ignore_box.stateChanged.connect(self.ignore_cam)
 
     def save_camera(self):
         # normally wouldn't bother with a one-liner function, but it makes connecting
@@ -426,15 +438,15 @@ class FrameControlWidget(QWidget):
         self.session.config.save_camera(self.camera)
     
     
-    def ignore_cam(self,signal):
-        if signal == 0:  # not checked
-            logger.info(f"Don't ignore camera at port {self.port}")
-            self.camera.ignore = False
-        else:  # value of checkState() might be 2?
-            logger.info(f"Ignore camera at port {self.port}")
-            self.camera.ignore = True
-        # self.session.config.save_camera(self.camera)
-        self.save_camera()
+    # def ignore_cam(self,signal):
+    #     if signal == 0:  # not checked
+    #         logger.info(f"Don't ignore camera at port {self.port}")
+    #         self.camera.ignore = False
+    #     else:  # value of checkState() might be 2?
+    #         logger.info(f"Ignore camera at port {self.port}")
+    #         self.camera.ignore = True
+    #     # self.session.config.save_camera(self.camera)
+    #     self.save_camera()
 
     def update_exposure(self, exp):
         self.monocal.camera.exposure = exp

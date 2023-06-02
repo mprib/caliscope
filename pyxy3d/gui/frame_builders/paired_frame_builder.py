@@ -11,7 +11,7 @@ from itertools import combinations
 from queue import Queue
 from threading import Event
 
-COMMON_CORNER_TARGET = 5 # how many shared corners must be present to be recorded...
+COMMON_CORNER_TARGET = 4 # how many shared corners must be present to be recorded...
 
 class PairedFrameBuilder:
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250,board_count_target=50):
@@ -114,7 +114,7 @@ class PairedFrameBuilder:
             # but the convenience is hard to pass up...
             # if there are enough corners in common, then store the corner locations
             # in the stereo history and update the board counts
-            if len(common_ids) > self.common_corner_target and self.store_points.is_set():
+            if len(common_ids) >= self.common_corner_target and self.store_points.is_set():
                 # logger.info("Storing common ids..")
                 # logger.info("Stereo History:")
                 # logger.info(self.stereo_history)
@@ -184,8 +184,8 @@ class PairedFrameBuilder:
     def apply_rotation(self, frame, port):
         # rotation_count = self.rotation_counts[port]
         rotation_count = self.synchronizer.streams[port].camera.rotation_count
-        logger.info(f"stream is {self.synchronizer.streams[port].camera}")
-        logger.info(f"Applying rotation {rotation_count} at port {port}")
+        # logger.info(f"stream is {self.synchronizer.streams[port].camera}")
+        # logger.info(f"Applying rotation {rotation_count} at port {port}")
         if rotation_count == 0:
             pass
         elif rotation_count in [1, -3]:

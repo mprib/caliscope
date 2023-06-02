@@ -48,6 +48,8 @@ class SessionMode(Enum):
 class Session(QObject):
     
     stream_tools_loaded_signal = pyqtSignal()
+    mode_change_success = pyqtSignal(SessionMode)
+    
     
     def __init__(self, config: Configurator):
         super().__init__()
@@ -82,7 +84,18 @@ class Session(QObject):
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
         self.mode = SessionMode.Charuco # default mode of session
-         
+
+    def post_processing_eligible(self):
+        """
+        Post processing can only be performed if all of the non-ignored cameras have rotation and translation parameters
+        """
+        
+        # assume fully calibrated
+        # fully_calibrated = True
+        # for port, cam in self.cameras.items():
+            
+        pass
+
     
     def set_mode(self, mode:SessionMode): 
         """
@@ -99,10 +112,11 @@ class Session(QObject):
                     self.pause_all_monocalibrators()
 
             case SessionMode.PostProcessing:
-                                
+                 
                 if self.stream_tools_loaded:
                     self.synchronizer.unsubscribe_from_streams()
                     self.pause_all_monocalibrators()
+
 
             case SessionMode.IntrinsicCalibration:
                 # update in case something has changed

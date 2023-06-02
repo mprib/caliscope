@@ -108,11 +108,11 @@ class MainWindow(QMainWindow):
                 logger.info(f"Activate Calibration Mode")
                 if hasattr(self.calibration_widget,"currentWidget"):
                     match self.calibration_widget.currentWidget():
-                        case self.calibration_widget.camera_wizard:
-                            active_camera = self.calibration_widget.camera_wizard.camera_tabs.currentWidget().port
+                        case self.calibration_widget.intrinsic_calibration_widget:
+                            active_camera = self.calibration_widget.intrinsic_calibration_widget.camera_tabs.currentWidget().port
                             logger.info(f"Activating intrinsic calibration tab: camera config widget with Camera {active_camera} active")
                             self.session.set_mode(SessionMode.IntrinsicCalibration)
-                        case self.calibration_widget.stereoframe:
+                        case self.calibration_widget.extrinsic_calibration_widget:
                             logger.info("Activating extrinsic calibration tab: stereoframe widget")
                             self.session.set_mode(SessionMode.ExtrinsicCalibration)
 

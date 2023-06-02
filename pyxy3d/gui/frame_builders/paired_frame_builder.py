@@ -13,7 +13,7 @@ from threading import Event
 
 COMMON_CORNER_TARGET = 5 # how many shared corners must be present to be recorded...
 
-class StereoFrameBuilder:
+class PairedFrameBuilder:
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250,board_count_target=50):
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
@@ -22,10 +22,10 @@ class StereoFrameBuilder:
         self.board_count_target = board_count_target 
         self.common_corner_target = COMMON_CORNER_TARGET
         
-        self.rotation_counts = {}
-        for port, stream in self.synchronizer.streams.items():
-            # override here while testing this out with pre-recorded video
-            self.rotation_counts[port] = stream.camera.rotation_count
+        # self.rotation_counts = {}
+        # for port, stream in self.synchronizer.streams.items():
+        #     # override here while testing this out with pre-recorded video
+        #     self.rotation_counts[port] = stream.camera.rotation_count
 
         self.pairs = self.get_pairs()
 
@@ -182,7 +182,10 @@ class StereoFrameBuilder:
 
 
     def apply_rotation(self, frame, port):
-        rotation_count = self.rotation_counts[port]
+        # rotation_count = self.rotation_counts[port]
+        rotation_count = self.synchronizer.streams[port].camera.rotation_count
+        logger.info(f"stream is {self.synchronizer.streams[port].camera}")
+        logger.info(f"Applying rotation {rotation_count} at port {port}")
         if rotation_count == 0:
             pass
         elif rotation_count in [1, -3]:

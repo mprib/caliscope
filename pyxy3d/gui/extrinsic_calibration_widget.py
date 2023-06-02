@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import (
 
 # Append main repo to top of path to allow import of backend
 from pyxy3d.session.session import Session
-from pyxy3d.gui.stereoframe.stereo_frame_builder import StereoFrameBuilder
+from pyxy3d.gui.frame_builders.paired_frame_builder import PairedFrameBuilder
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.gui.navigation_bars import NavigationBarBackFinish
@@ -39,14 +39,14 @@ from pyxy3d.gui.navigation_bars import NavigationBarBackFinish
 MIN_THRESHOLD_FOR_EARLY_CALIBRATE = 5
 
 
-class StereoFrameWidget(QWidget):
+class ExtrinsicCalibrationWidget(QWidget):
     calibration_complete = pyqtSignal()
     calibration_initiated = pyqtSignal()
     terminate = pyqtSignal()
      
     def __init__(self,session:Session):
 
-        super(StereoFrameWidget, self).__init__()
+        super(ExtrinsicCalibrationWidget, self).__init__()
         self.session = session
         self.synchronizer:Synchronizer = self.session.synchronizer
 
@@ -67,8 +67,8 @@ class StereoFrameWidget(QWidget):
 
     def create_stereoframe_tools(self):
 
-        self.frame_builder = StereoFrameBuilder(self.synchronizer, board_count_target=30)
-        self.frame_emitter = StereoFrameEmitter(self.frame_builder)
+        self.frame_builder = PairedFrameBuilder(self.synchronizer, board_count_target=30)
+        self.frame_emitter = PairedFrameEmitter(self.frame_builder)
         self.frame_emitter.start()
 
     def place_widgets(self):
@@ -169,15 +169,15 @@ class StereoFrameWidget(QWidget):
         self.init_calibration_thread = Thread(target=worker,args=(), daemon=True)
         self.init_calibration_thread.start()
 
-class StereoFrameEmitter(QThread):
+class PairedFrameEmitter(QThread):
     ImageBroadcast = pyqtSignal(QImage)
     calibration_data_collected = pyqtSignal() 
     possible_to_initialize_array = pyqtSignal()
     
-    def __init__(self, stereoframe_builder:StereoFrameBuilder):
+    def __init__(self, paired_frame_builder:PairedFrameBuilder):
         
-        super(StereoFrameEmitter,self).__init__()
-        self.stereoframe_builder = stereoframe_builder
+        super(PairedFrameEmitter,self).__init__()
+        self.paired_frame_builder = paired_frame_builder
         logger.info("Initiated frame emitter")        
         self.keep_collecting = Event() 
         self.collection_complete = False
@@ -193,7 +193,7 @@ class StereoFrameEmitter(QThread):
             
             # that that it is important to make sure that this signal is sent only once
             # to avoid multiple calibration attempts 
-            if len(self.stereoframe_builder.stereo_list) == 0 and not self.collection_complete:
+            if len(self.paired_frame_builder.stereo_list) == 0 and not self.collection_complete:
                 logger.info("Signalling that calibration data is fully collected.")
                 self.collection_complete = True
                 self.calibration_data_collected.emit()
@@ -202,12 +202,12 @@ class StereoFrameEmitter(QThread):
             
             if not possible_to_initialize:
                 # check to see if it is now
-                if self.stereoframe_builder.possible_to_initialize_array(MIN_THRESHOLD_FOR_EARLY_CALIBRATE):
+                if self.paired_frame_builder.possible_to_initialize_array(MIN_THRESHOLD_FOR_EARLY_CALIBRATE):
                     logger.info("Signaling that it is possible to initialize array based on collected data.")
                     possible_to_initialize = True
                     self.possible_to_initialize_array.emit()
                       
-            stereo_frame = self.stereoframe_builder.get_stereo_frame()
+            stereo_frame = self.paired_frame_builder.get_stereo_frame()
 
             if stereo_frame is not None:
                 image = cv2_to_qlabel(stereo_frame)
@@ -249,7 +249,7 @@ if __name__ == "__main__":
         session.load_stream_tools(tracker=tracker)
 
 
-        stereo_dialog = StereoFrameWidget(session)
+        stereo_dialog = ExtrinsicCalibrationWidget(session)
         stereo_dialog.show()
 
         sys.exit(App.exec())

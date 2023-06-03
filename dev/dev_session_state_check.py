@@ -25,14 +25,13 @@ from pyxy3d.session.get_stage import get_camera_stage, extrinsics_calibrated, Ca
 from pyxy3d.session.session import Session, SessionMode
 
 uncalibrated_path = Path(__root__, "tests", "reference", "only_intrinsics")
-
 uncalibrated_config = Configurator(uncalibrated_path)
 uncalibrated_camera_array = uncalibrated_config.get_camera_array()
 # %%
 # assume that it is eligible and attempt to prove that wrong
 
 
-assert not extrinsics_calibrated(uncalibrated_camera_array)
+assert not extrinsics_calibrated(uncalibrated_camera_array.cameras)
 
 session = Session(uncalibrated_config)
 stage = get_camera_stage(session)

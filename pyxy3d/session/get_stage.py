@@ -39,7 +39,7 @@ def get_camera_stage(session:Session):
 
 
     if hasattr(session, "camera_array"):
-        if extrinsics_calibrated(session.camera_array):
+        if extrinsics_calibrated(session.camera_array.cameras):
             stage = CameraStage.EXTRINSICS_ESTIMATED
 
     logger.info(f"Current stage of session is {stage}")
@@ -60,14 +60,14 @@ def calibrated_camera_count(session:Session):
                     count += 1
     return count
 
-def extrinsics_calibrated(camera_array: CameraArray) -> bool:
+def extrinsics_calibrated(cameras: dict) -> bool:
     """
-    identify the calibration stage of the camera array
+    identify the calibration stage of the dictionary of cameras
     """
 
     #assume true and prove otherwise
     has_extrinsics = True
-    for port, camera in camera_array.cameras.items():
+    for port, camera in cameras.items():
         if camera.ignore == False and (
             camera.rotation is None or camera.translation is None
         ):

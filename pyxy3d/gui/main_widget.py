@@ -1,8 +1,6 @@
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
-import pyxy3d.logger
-
 from PyQt6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
 
 logger = pyxy3d.logger.get(__name__)

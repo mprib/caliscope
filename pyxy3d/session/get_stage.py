@@ -10,6 +10,7 @@ logger = pyxy3d.logger.get(__name__)
 from enum import Enum, auto
 from itertools import combinations
 from pyxy3d.session.session import Session
+from pyxy3d.cameras.camera_array import CameraArray
 
 class CameraStage(Enum):
     NO_CAMERAS = auto()
@@ -36,8 +37,10 @@ def get_camera_stage(session:Session):
     ):
         stage = CameraStage.INTRINSICS_ESTIMATED
 
-    # elif len(calibrated_camera_pairs(session)) == len(camera_pairs(session)):
-    #     stage = Stage.OMNICALIBRATION_DONE
+
+    if hasattr(session, "camera_array"):
+        if extrinsics_calibrated(session.camera_array):
+            stage = CameraStage.EXTRINSICS_ESTIMATED
 
     logger.info(f"Current stage of session is {stage}")
     return stage
@@ -57,27 +60,23 @@ def calibrated_camera_count(session:Session):
                     count += 1
     return count
 
-# def camera_pairs(session:Session):
-#     """Used to keep track of where the user is in the calibration process"""
-#     ports = [key for key in session.cameras.keys()]
-#     pairs = [pair for pair in combinations(ports, 2)]
-#     sorted_ports = [
-#         (min(pair), max(pair)) for pair in pairs
-#     ]  # sort as in (b,a) --> (a,b)
-#     sorted_ports = sorted(
-#         sorted_ports
-#     )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
-#     return sorted_ports
+def extrinsics_calibrated(camera_array: CameraArray) -> bool:
+    """
+    identify the calibration stage of the camera array
+    """
 
-# def calibrated_camera_pairs(session:Session):
-#     """Used to keep track of where the user is in the calibration process"""
-#     calibrated_pairs = []
-#     for key in session.config.dict.keys():
-#         if key.startswith("stereo"):
-#             portA, portB = key.split("_")[1:3]
-#             calibrated_pairs.append((int(portA), int(portB)))
-#     calibrated_pairs = sorted(
-#         calibrated_pairs
-#     )  # sort as in [(b,c), (a,b)] --> [(a,b), (b,c)]
-#     return calibrated_pairs
+    #assume true and prove otherwise
+    has_extrinsics = True
+    for port, camera in camera_array.cameras.items():
+        if camera.ignore == False and (
+            camera.rotation is None or camera.translation is None
+        ):
+            has_extrinsics = False
+            logger.info(
+                f"Camera array is fully calibrated because camera {port} lacks extrinsics"
+            )
+            logger.info(f"{port} Rotation: {camera.rotation}")
+            logger.info(f"{port} Translation: {camera.translation}")
+            logger.info(f"{port} Matrix: {camera.matrix}")
 
+    return has_extrinsics

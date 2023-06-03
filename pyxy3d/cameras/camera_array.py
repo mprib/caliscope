@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from dataclasses import dataclass
 import cv2
-
+from enum import Enum, auto
 
 CAMERA_PARAM_COUNT = 6
 
@@ -134,3 +134,21 @@ class CameraArray:
             port = self.index_port[index]  # correct in case ignoring a camera
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
+
+class CalibrationStage(Enum):
+    """
+    NOTE: this is not currently implemented. I was planning to set this up
+    in dev_post_process_eligible_check as a way to help manage the flow of the
+    GUI (it would be important to now the status of teh calibration in an easy way)
+    Unfortunately this begins to touch up on how/when the session loads the camera array,
+    and that's something that I'm not sure is fully relevant right now.
+    The camera array is not initialized until it is estimated via bundle adjustment.
+    Prior to that it is only a dictionary of cameras. 
+    
+    Consider removing...
+
+    """
+    NO_INTRINSICS = auto()
+    PARTIAL_INTRINSICS = auto()
+    FULL_INTRINSICS = auto()
+    EXTRINSICS = auto()

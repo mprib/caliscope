@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from dataclasses import dataclass
 import cv2
-
+from enum import Enum, auto
 
 CAMERA_PARAM_COUNT = 6
 
@@ -135,49 +135,20 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
-# commenting this out specifically to force something to break
-# so that I can figure out where to link new configurator 
-def get_camera_array(config:dict)->CameraArray:
+class CalibrationStage(Enum):
     """
-    Load camera array directly from config file. The results of capture volume
-    optimization and origin transformation will be reflected in this array
-    which can then be the basis for future 3d point estimation
+    NOTE: this is not currently implemented. I was planning to set this up
+    in dev_post_process_eligible_check as a way to help manage the flow of the
+    GUI (it would be important to now the status of teh calibration in an easy way)
+    Unfortunately this begins to touch up on how/when the session loads the camera array,
+    and that's something that I'm not sure is fully relevant right now.
+    The camera array is not initialized until it is estimated via bundle adjustment.
+    Prior to that it is only a dictionary of cameras. 
+    
+    Consider removing...
+
     """
-    all_camera_data = {}
-    for key, params in config.items():
-        if key.startswith("cam"):
-            if not params["ignore"]:
-                port = params["port"]
-                size = params["size"]
-
-                logger.info(f"Adding camera {port} to calibrated camera array...")
-                cam_data = CameraData(
-                    port=port,
-                    size=params["size"],
-                    rotation_count=params["rotation_count"],
-                    error=params["error"],
-                    matrix=np.array(params["matrix"]),
-                    distortions=np.array(params["distortions"]),
-                    exposure=params["exposure"],
-                    grid_count=params["grid_count"],
-                    ignore=params["ignore"],
-                    verified_resolutions=params["verified_resolutions"],
-                    translation=np.array(params["translation"]),
-                    rotation=np.array(params["rotation"]),
-                )
-
-                all_camera_data[port] = cam_data
-
-    camera_array = CameraArray(all_camera_data)
-    return camera_array
-
-if __name__ == "__main__":
-    from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer  
-    from pyxy3d import __root__
-
-    session_directory = Path(__root__, "tests", "sessions", "217")
-    config_path = Path(session_directory, "config.toml")
-    array_builder = CameraArrayInitializer(config_path)
-    camera_array = array_builder.get_best_camera_array()
-
-# %%
+    NO_INTRINSICS = auto()
+    PARTIAL_INTRINSICS = auto()
+    FULL_INTRINSICS = auto()
+    EXTRINSICS = auto()

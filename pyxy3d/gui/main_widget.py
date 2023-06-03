@@ -1,8 +1,6 @@
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
-import pyxy3d.logger
-
 from PyQt6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
 
 logger = pyxy3d.logger.get(__name__)
@@ -28,6 +26,7 @@ from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.calibration_widget import CalibrationWidget
 from pyxy3d.gui.recording_widget import RecordingWidget
+from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -86,13 +85,13 @@ class MainWindow(QMainWindow):
         self.docked_logger.setWidget(self.log_widget)
         
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea,self.docked_logger)
-        self.calibration_widget = QWidget()
-        self.recording_widget = QWidget()
-        self.processing_widget = QWidget()
+        # self.calibration_widget = QWidget()
+        # self.recording_widget = QWidget()
+        # self.processing_widget = QWidget()
 
-        self.tab_widget.addTab(self.calibration_widget, "&Calibration")
-        self.tab_widget.addTab(self.recording_widget, "Rec&ording")
-        self.tab_widget.addTab(self.processing_widget, "&Processing")
+        # self.tab_widget.addTab(self.calibration_widget, "&Calibration")
+        # self.tab_widget.addTab(self.recording_widget, "Rec&ording")
+        # self.tab_widget.addTab(self.processing_widget, "&Processing")
 
         self.connect_signals()
         
@@ -122,7 +121,8 @@ class MainWindow(QMainWindow):
             case 2:
                 logger.info(f"Activate Processing Mode")
                 self.session.set_mode(SessionMode.PostProcessing)
-            
+                # may have acquired new recordings
+                self.processing_widget.update_recording_folders()
     
 
         
@@ -142,10 +142,19 @@ class MainWindow(QMainWindow):
         logger.info("Setting calibration Widget")
         self.session.stream_tools_loaded_signal.connect(self.load_recording_widget)
 
+        self.calibration_widget = CalibrationWidget(self.session)
+        self.recording_widget = QWidget()
+        # self.recording_widget = RecordingWidget(self.session)
+        self.processing_widget = PostProcessingWidget(self.config)
+
+        self.tab_widget.addTab(self.calibration_widget, "&Calibration")
+        self.tab_widget.addTab(self.recording_widget, "Rec&ording")
+        self.tab_widget.addTab(self.processing_widget, "&Processing")
 
         old_index = self.tab_widget.currentIndex()
 
         self.load_calibration_widget()
+        self.load_post_processing_widget()
         # cannot load recording widget until cameras are connected...
         # self.load_recording_widget()
         self.tab_widget.setCurrentIndex(old_index)
@@ -165,6 +174,15 @@ class MainWindow(QMainWindow):
         new_recording_widget = RecordingWidget(self.session)
         self.tab_widget.insertTab(recording_index, new_recording_widget, "Rec&ording")
         self.recording_widget = new_recording_widget
+        
+    def load_post_processing_widget(self):
+        processing_index = self.tab_widget.indexOf(self.processing_widget)
+        self.tab_widget.removeTab(processing_index)
+        self.processing_widget.deleteLater()
+        new_processing_widget = PostProcessingWidget(self.config)
+        self.tab_widget.insertTab(processing_index, new_processing_widget, "&Processing")
+        self.processing_widget = new_processing_widget
+
 
                 
     def add_to_recent_project(self, project_path:str):

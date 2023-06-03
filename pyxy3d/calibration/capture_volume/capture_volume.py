@@ -17,7 +17,7 @@ from time import perf_counter
 from pyxy3d import get_config
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates,load_point_estimates
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.cameras.camera_array import CameraArray, get_camera_array
+from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.calibration.capture_volume.set_origin_functions import (
     get_board_origin_transform,
 )

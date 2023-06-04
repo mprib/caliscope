@@ -1,6 +1,8 @@
 """
 working file for development of a post processing widget
 """
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 from PyQt6.QtWidgets import QApplication
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 import sys
@@ -17,7 +19,7 @@ recent_projects:list = app_settings["recent_projects"]
 
 recent_project_count = len(recent_projects)
 session_path = Path(recent_projects[recent_project_count-1])
-
+logger.info(f"Launching post processing widget for {session_path}")
 
 config =  Configurator(session_path)
 

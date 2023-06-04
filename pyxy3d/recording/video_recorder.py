@@ -8,6 +8,7 @@ from threading import Thread, Event
 import cv2
 import sys
 import pandas as pd
+import shutil
 
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.live_stream import LiveStream
@@ -75,9 +76,6 @@ class VideoRecorder:
         self.sync_packet_in_q = Queue(-1)
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
 
-        # reset in case recording a second time
-        # self.trigger_stop.clear()
-
         while not self.trigger_stop.is_set():
             sync_packet: SyncPacket = self.sync_packet_in_q.get()
 
@@ -137,17 +135,18 @@ class VideoRecorder:
 
     def store_point_history(self):
         df = pd.DataFrame(self.point_data_history)
-        # TODO: #25 if file exists then change the name
         point_data_path = str(Path(self.destination_folder, f"xy{self.suffix}.csv"))
         logger.info(f"Storing point data in {point_data_path}")
         df.to_csv(point_data_path, index=False, header=True)
 
     def store_frame_history(self):
         df = pd.DataFrame(self.frame_history)
-        # TODO: #25 if file exists then change the name
         frame_hist_path = str(Path(self.destination_folder, "frame_time_history.csv"))
         logger.info(f"Storing frame history to {frame_hist_path}")
         df.to_csv(frame_hist_path, index=False, header=True)
+    
+    def store_active_config(self):
+        pass
 
     def start_recording(
         self,
@@ -157,14 +156,22 @@ class VideoRecorder:
         store_point_history=True,
     ):
         """
-        Don't include video if only doing frameplayback to record tracked points.
-        At least that's what I think I had in mind when doing this.
+        Option exists to not store video if only interested in getting points from original video
+        
+        Parent of destination folder will be the source of the config file that will be stored with the video
+        This enables the nested processing of videos (i.e. Recording_1 will store the main config.toml,
+        then POSE subfolder will store config.toml from Recording_1). Each folder should largely become self
+        contained and portable for analysis / reconstruction.
         """
         logger.info(f"All video data to be saved to {destination_folder}")
 
         self.destination_folder = destination_folder
         # create the folder if it doesn't already exist
         self.destination_folder.mkdir(exist_ok=True, parents=True)
+        source_config_path = Path(self.destination_folder.parent, "config.toml")
+        duplicate_config_path = Path(self.destination_folder,"config.toml")
+        
+        shutil.copy2(source_config_path,duplicate_config_path)
 
         self.recording = True
         self.recording_thread = Thread(

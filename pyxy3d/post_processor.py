@@ -95,6 +95,7 @@ class PostProcessor(QObject):
             destination_folder=destination_folder,
             include_video=True,
             show_points=True,
+            store_point_history=True
         )
         logger.info("Initiate playback and processing")
         stream_pool.play_videos()

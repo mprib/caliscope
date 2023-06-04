@@ -114,7 +114,7 @@ class ExtrinsicCalibrationWidget(QWidget):
             # by default, data saved to session folder
             self.frame_builder.store_points.set()
             extrinsic_calibration_path = Path(self.session.path, "calibration", "extrinsic")
-            self.session.start_recording(extrinsic_calibration_path)
+            self.session.start_recording(extrinsic_calibration_path,store_point_history=True)
             self.calibrate_collect_btn.setText("&Terminate")
             self.calibrate_collect_btn.setEnabled(True)
             self.navigation_bar.back_btn.setEnabled(False)

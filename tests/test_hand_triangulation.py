@@ -11,7 +11,7 @@ from pyxy3d.trackers.hand_tracker import HandTracker
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
 from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from pyxy3d.cameras.camera_array import CameraArray, CameraData, get_camera_array
+from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.configurator import Configurator
 from pyxy3d.helper import copy_contents

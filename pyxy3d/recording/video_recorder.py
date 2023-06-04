@@ -168,7 +168,14 @@ class VideoRecorder:
         self.destination_folder = destination_folder
         # create the folder if it doesn't already exist
         self.destination_folder.mkdir(exist_ok=True, parents=True)
-        source_config_path = Path(self.destination_folder.parent, "config.toml")
+       
+        # Because calibration files are nested in a calibration directory, need to go 
+        # to parent.parent to get the config.toml file      
+        if self.destination_folder.parent.stem == "calibration":
+            source_config_path = Path(self.destination_folder.parent.parent, "config.toml")
+        else:   # just a regular recording
+            source_config_path = Path(self.destination_folder.parent, "config.toml")
+
         duplicate_config_path = Path(self.destination_folder,"config.toml")
         
         shutil.copy2(source_config_path,duplicate_config_path)

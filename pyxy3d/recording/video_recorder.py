@@ -13,8 +13,9 @@ from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.interface import FramePacket, SyncPacket
 
+
 class VideoRecorder:
-    def __init__(self, synchronizer: Synchronizer, suffix:str = None):
+    def __init__(self, synchronizer: Synchronizer, suffix: str = None):
         self.synchronizer = synchronizer
 
         # set text to be appended as port_X_{suffix}.mp4
@@ -23,9 +24,9 @@ class VideoRecorder:
             self.suffix = "_" + suffix
         else:
             self.suffix = ""
-            
+
         self.recording = False
-        self.sync_index = 0 # no sync packets at init... absence of initialized value can cause errors elsewhere
+        self.sync_index = 0  # no sync packets at init... absence of initialized value can cause errors elsewhere
         # build dict that will be stored to csv
         self.trigger_stop = Event()
 
@@ -45,7 +46,7 @@ class VideoRecorder:
             writer = cv2.VideoWriter(path, fourcc, stream.fps, frame_size)
             self.video_writers[port] = writer
 
-    def save_data_worker(self, include_video:bool, show_points:bool):
+    def save_data_worker(self, include_video: bool, show_points: bool, store_point_history:bool):
         # connect video recorder to synchronizer via an "in" queue
 
         if include_video:
@@ -78,7 +79,7 @@ class VideoRecorder:
         # self.trigger_stop.clear()
 
         while not self.trigger_stop.is_set():
-            sync_packet:SyncPacket = self.sync_packet_in_q.get()
+            sync_packet: SyncPacket = self.sync_packet_in_q.get()
 
             logger.debug("Pulling sync packet from queue")
             if sync_packet is None:
@@ -95,7 +96,7 @@ class VideoRecorder:
                         frame = frame_packet.frame_with_points
                     else:
                         frame = frame_packet.frame
-                    
+
                     frame_index = frame_packet.frame_index
                     frame_time = frame_packet.frame_time
 
@@ -129,7 +130,8 @@ class VideoRecorder:
             self.store_frame_history()
 
         logger.info("Initiate storing of point history")
-        self.store_point_history()
+        if store_point_history:
+            self.store_point_history()
         self.trigger_stop.clear()  # reset stop recording trigger
         self.recording = False
 
@@ -147,9 +149,15 @@ class VideoRecorder:
         logger.info(f"Storing frame history to {frame_hist_path}")
         df.to_csv(frame_hist_path, index=False, header=True)
 
-    def start_recording(self, destination_folder: Path, include_video=True, show_points=False):
+    def start_recording(
+        self,
+        destination_folder: Path,
+        include_video=True,
+        show_points=False,
+        store_point_history=True,
+    ):
         """
-        Don't include video if only doing frameplayback to record tracked points. 
+        Don't include video if only doing frameplayback to record tracked points.
         At least that's what I think I had in mind when doing this.
         """
         logger.info(f"All video data to be saved to {destination_folder}")
@@ -160,11 +168,10 @@ class VideoRecorder:
 
         self.recording = True
         self.recording_thread = Thread(
-            target=self.save_data_worker, args=[include_video, show_points], daemon=True
+            target=self.save_data_worker, args=[include_video, show_points, store_point_history], daemon=True
         )
         self.recording_thread.start()
 
     def stop_recording(self):
         logger.info("Stop recording initiated within VideoRecorder")
         self.trigger_stop.set()
-

@@ -111,7 +111,7 @@ def test_post_monocalibration(session_path):
     logger.info(f"Creating test video recorder to save out point data")
 
     video_recorder = VideoRecorder(syncr)
-    video_recorder.start_recording(recording_path, include_video=False)
+    video_recorder.start_recording(recording_path, include_video=False, store_point_history=True)
 
     logger.info("Initiate playing stream pool videos...")
     stream_pool.play_videos()

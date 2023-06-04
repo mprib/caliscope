@@ -117,7 +117,8 @@ class PostProcessingWidget(QWidget):
     @property
     def processed_xyz_path(self):
         file_name = f"xyz_{self.tracker_combo.currentData().name}.csv"
-        return Path(self.processed_subfolder, file_name)
+        result = Path(self.processed_subfolder, file_name)
+        return result
 
     def current_selection_processed(self) -> bool:
         """ "

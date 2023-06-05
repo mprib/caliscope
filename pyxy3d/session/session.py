@@ -106,12 +106,12 @@ class Session(QObject):
         if connected_camera_count == 0:
             stage = CameraStage.NO_CAMERAS
 
-        elif calibrated_camera_count(self) < connected_camera_count:
+        elif calibrated_camera_count < connected_camera_count:
             stage = CameraStage.UNCALIBRATED_CAMERAS
 
         elif (
             connected_camera_count > 0
-            and calibrated_camera_count(self) == connected_camera_count
+            and calibrated_camera_count == connected_camera_count
         ):
             stage = CameraStage.INTRINSICS_ESTIMATED
 
@@ -156,8 +156,10 @@ class Session(QObject):
         """
         Post processing can only be performed if all of the non-ignored cameras have rotation and translation parameters
         """
+        # the presence of these does not count as a recording
+        excluded_items = ["calibration", "config.toml"]
 
-        folders = [f for f in self.path.iterdir() if f.name != "calibration"]
+        folders = [f for f in self.path.iterdir() if f.name not in excluded_items]
         recording_count = len(folders)
         if recording_count > 0:
             eligible = True

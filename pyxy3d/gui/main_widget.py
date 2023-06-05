@@ -51,8 +51,9 @@ class MainWindow(QMainWindow):
 
         # Open Recent
         self.open_recent_project_submenu = QMenu("&Recent Projects...", self)
-        # Populate the submenu with recent project paths
-        for project_path in self.app_settings["recent_projects"]:
+        # Populate the submenu with recent project paths;
+        # reverse so that last one appended is at the top of the list
+        for project_path in reversed(self.app_settings["recent_projects"]):
             self.add_to_recent_project(project_path)
 
         self.file_menu.addMenu(self.open_recent_project_submenu)
@@ -142,7 +143,7 @@ class MainWindow(QMainWindow):
         self.calibration_widget = CalibrationWidget(self.session)
         self.recording_widget = QWidget()
         # self.recording_widget = RecordingWidget(self.session)
-        self.processing_widget = PostProcessingWidget(self.config)
+        self.processing_widget = PostProcessingWidget(self.session)
 
         self.tab_widget.addTab(self.calibration_widget, "&Calibration")
         self.tab_widget.addTab(self.recording_widget, "Rec&ording")
@@ -178,7 +179,7 @@ class MainWindow(QMainWindow):
         processing_index = self.tab_widget.indexOf(self.processing_widget)
         self.tab_widget.removeTab(processing_index)
         self.processing_widget.deleteLater()
-        new_processing_widget = PostProcessingWidget(self.config)
+        new_processing_widget = PostProcessingWidget(self.session)
         self.tab_widget.insertTab(
             processing_index, new_processing_widget, "&Processing"
         )

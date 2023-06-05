@@ -59,7 +59,8 @@ class PlaybackTriangulationWidget(QWidget):
             self.slider.setMinimum(0)
             self.slider.setMaximum(100)
 
-
+    def update_camera_array(self, camera_array:CameraArray):
+        self.visualizer.update_camera_array(camera_array)
 class TriangulationVisualizer:
     """
     Can except either a single camera array or a capture volume that includes
@@ -69,15 +70,21 @@ class TriangulationVisualizer:
 
     def __init__(self, camera_array: CameraArray):
         self.camera_array = camera_array
+        self.build_scene()
 
-        # constuct a scene
-        self.scene = gl.GLViewWidget()
-        self.scene.setCameraPosition(distance=4)  # the scene camera, not a real Camera
-
+    def build_scene(self):
+        # constuct a scene if not yet there
+        if hasattr(self, "scene"):
+            logger.info("Clearing scene in capture volume visualizer")
+            self.scene.clear()
+        else:
+            logger.info("Creating initial scene in capture volume visualizer")
+            self.scene = gl.GLViewWidget()
+            self.scene.setCameraPosition(distance=4)  # the scene camera, not a real Camera
         axis = gl.GLAxisItem()
         self.scene.addItem(axis)
 
-        # build meshes for all cameras
+
         self.meshes = {}
         for port, cam in self.camera_array.cameras.items():
             mesh: CameraMesh = mesh_from_camera(cam)
@@ -92,6 +99,11 @@ class TriangulationVisualizer:
         )
         self.scene.addItem(self.scatter)
         self.scatter.setData(pos=None)
+    
+    def update_camera_array(self, camera_array:CameraArray):
+        self.camera_array = camera_array
+        self.build_scene()
+
 
     def set_xyz(self, xyz_history: pd.DataFrame):
         logger.info(f"Updating xyz history in playback widget")
@@ -126,7 +138,7 @@ class TriangulationVisualizer:
 
             current_sync_index_flag = self.sync_indices == self.sync_index
             self.points = self.xyz_coord[current_sync_index_flag]
-            # logger.info(f"Displaying xyz points for sync index {sync_index}")
+            logger.info(f"Displaying xyz points for sync index {sync_index}")
             self.scatter.setData(pos=self.points)
 
         else: 

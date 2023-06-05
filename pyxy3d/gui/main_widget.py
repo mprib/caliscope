@@ -77,21 +77,12 @@ class MainWindow(QMainWindow):
 
         # create log window which is fixed below main window
         self.docked_logger = QDockWidget("Log", self)
-        # self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
-        # self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | QDockWidget.DockWidgetFeature.DockWidgetFloatable)
         self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable)
         self.docked_logger.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea)
         self.log_widget = LogWidget()
         self.docked_logger.setWidget(self.log_widget)
 
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
-        # self.calibration_widget = QWidget()
-        # self.recording_widget = QWidget()
-        # self.processing_widget = QWidget()
-
-        # self.tab_widget.addTab(self.calibration_widget, "&Calibration")
-        # self.tab_widget.addTab(self.recording_widget, "Rec&ording")
-        # self.tab_widget.addTab(self.processing_widget, "&Processing")
 
         self.connect_signals()
 

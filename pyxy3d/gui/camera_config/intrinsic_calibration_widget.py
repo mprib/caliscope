@@ -14,8 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigTab
-from pyxy3d.session.session import Session, SessionMode
-from pyxy3d.session.get_stage import get_camera_stage, CameraStage
+from pyxy3d.session.session import Session, SessionMode, CameraStage
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
 
 class IntrinsicCalibrationWidget(QWidget):
@@ -119,10 +118,9 @@ class CameraTabs(QTabWidget):
             logger.info("No cameras available")
         
         # self.toggle_tracking(self.currentIndex())
-
     def check_session_calibration(self):
         logger.info(f"Checking session stage....")
-        current_stage = get_camera_stage(self.session) 
+        current_stage = self.session.get_camera_stage() 
         if current_stage == CameraStage.INTRINSICS_ESTIMATED:
             logger.info("Ready for stereoframe")
             self.stereoframe_ready.emit(True)       

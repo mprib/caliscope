@@ -30,6 +30,7 @@ from pyxy3d.gui.recording_widget import RecordingWidget
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -141,18 +142,27 @@ class MainWindow(QMainWindow):
         self.session.stream_tools_loaded_signal.connect(self.load_recording_widget)
 
         self.calibration_widget = CalibrationWidget(self.session)
+        # launches without cameras connected, so just throw in a placeholder
         self.recording_widget = QWidget()
-        # self.recording_widget = RecordingWidget(self.session)
-        self.processing_widget = PostProcessingWidget(self.session)
+        if self.session.post_processing_eligible:
+            self.processing_widget = PostProcessingWidget(self.session)
+        else:
+            self.processing_widget = QWidget()
+        
 
         self.tab_widget.addTab(self.calibration_widget, "&Calibration")
         self.tab_widget.addTab(self.recording_widget, "Rec&ording")
         self.tab_widget.addTab(self.processing_widget, "&Processing")
 
+        # default no cameras...can't record
+        self.tab_widget.setTabEnabled(2, False)
+        if not self.session.post_processing_eligible:
+            self.tab_widget.setTabEnabled(3, False)
+
         old_index = self.tab_widget.currentIndex()
 
         self.load_calibration_widget()
-        self.load_post_processing_widget()
+        # self.load_post_processing_widget()
         # cannot load recording widget until cameras are connected...
         # self.load_recording_widget()
         self.tab_widget.setCurrentIndex(old_index)

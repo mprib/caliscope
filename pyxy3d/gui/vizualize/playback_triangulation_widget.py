@@ -94,6 +94,7 @@ class TriangulationVisualizer:
         self.scatter.setData(pos=None)
 
     def set_xyz(self, xyz_history: pd.DataFrame):
+        logger.info(f"Updating xyz history in playback widget")
         self.xyz_history = xyz_history
 
         if self.xyz_history is not None:
@@ -125,7 +126,7 @@ class TriangulationVisualizer:
 
             current_sync_index_flag = self.sync_indices == self.sync_index
             self.points = self.xyz_coord[current_sync_index_flag]
-            logger.info(f"Displaying xyz points for sync index {sync_index}")
+            # logger.info(f"Displaying xyz points for sync index {sync_index}")
             self.scatter.setData(pos=self.points)
 
         else: 

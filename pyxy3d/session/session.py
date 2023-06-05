@@ -52,7 +52,7 @@ class Session(QObject):
     mode_change_success = pyqtSignal(SessionMode)
 
     def __init__(self, config: Configurator):
-        super().__init__()
+        super(Session,self).__init__()
         self.config = config
         # self.folder = PurePath(directory).name
         self.path = self.config.session_path

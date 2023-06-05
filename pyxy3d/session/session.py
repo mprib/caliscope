@@ -28,7 +28,6 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
 from pyxy3d.configurator import Configurator
 from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.recording.video_recorder import VideoRecorder
-from pyxy3d.session.get_stage import extrinsics_calibrated
 # %%
 MAX_CAMERA_PORT_CHECK = 10
 FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration

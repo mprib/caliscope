@@ -144,7 +144,7 @@ class MainWindow(QMainWindow):
         self.calibration_widget = CalibrationWidget(self.session)
         # launches without cameras connected, so just throw in a placeholder
         self.recording_widget = QWidget()
-        if self.session.post_processing_eligible:
+        if self.session.post_processing_eligible():
             self.processing_widget = PostProcessingWidget(self.session)
         else:
             self.processing_widget = QWidget()
@@ -156,7 +156,7 @@ class MainWindow(QMainWindow):
 
         # default no cameras...can't record
         self.tab_widget.setTabEnabled(2, False)
-        if not self.session.post_processing_eligible:
+        if not self.session.post_processing_eligible():
             self.tab_widget.setTabEnabled(3, False)
 
         old_index = self.tab_widget.currentIndex()

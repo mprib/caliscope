@@ -151,9 +151,26 @@ class Session(QObject):
 
         return eligible
 
+    def capture_volume_eligible(self):
+        """
+        if all cameras that are not ignored have rotation and translation not None
+        and there is a capture volume loaded up, then you can launch direct
+        into the capture volume widget rather than the extrinsic calibration widget
+        """
+
+        # If not able to load, then not eligible
+        try: 
+            self.load_estimated_capture_volume()
+            eligible = True
+        except:
+            eligible = False
+        
+        return eligible
+        
+
     def post_processing_eligible(self):
         """
-        Post processing can only be performed if all of the non-ignored cameras have rotation and translation parameters
+        Post processing can only be performed if recordings exist and extrinsics are calibrated
         """
         # the presence of these does not count as a recording
         excluded_items = ["calibration", "config.toml"]

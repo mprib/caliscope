@@ -139,15 +139,6 @@ class CharucoWidget(QWidget):
 
         self.true_up_group.layout().addWidget(self.printed_edge_length)
 
-    # def build_save_config(self):
-    #     self.save_btn = QPushButton("&Save Charuco")
-    #     self.save_btn.setMaximumSize(100, 30)
-
-    #     def save_charuco():
-    #         self.session.charuco = self.charuco
-    #         self.session.save_charuco()
-    #     self.save_btn.clicked.connect(save_charuco)
-
 
     def build_charuco(self):
         columns = self.charuco_config.column_spin.value()
@@ -159,7 +150,7 @@ class CharucoWidget(QWidget):
         square_edge_length = self.printed_edge_length.value()
 # a
         inverted = self.charuco_config.invert_checkbox.isChecked()
-        dictionary_str = "DICT_4X4_1000"
+        dictionary_str = "DICT_4X4_50"
 
         self.charuco = Charuco(
             columns,

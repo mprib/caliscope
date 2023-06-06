@@ -31,7 +31,7 @@ from pyxy3d.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from pyxy3d.session.session import Session
 from pyxy3d.gui.navigation_bars import NavigationBarNext
 
-class WizardCharuco(QWidget):
+class CharucoWizard(QWidget):
     def __init__(self, session):
         super().__init__()
 
@@ -290,7 +290,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
 
-    charuco_page = WizardCharuco(session)
+    charuco_page = CharucoWizard(session)
     charuco_page.show()
 
     # configurator = CharucoConfigurator(session)

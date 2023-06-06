@@ -26,7 +26,7 @@ from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.calibration_widget import CalibrationWidget
-from pyxy3d.gui.wizard_charuco import WizardCharuco
+from pyxy3d.gui.wizard_charuco import CharucoWizard
 from pyxy3d.gui.camera_config.intrinsic_calibration_widget import IntrinsicCalibrationWidget
 from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget

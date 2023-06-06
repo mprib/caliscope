@@ -35,8 +35,6 @@ FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojec
 
 class SessionMode(Enum):
     """
-    Note: Not currently being used for anything...if this comment remains for a few days,
-    just delete this class, Mac.
     """
 
     Charuco = auto()

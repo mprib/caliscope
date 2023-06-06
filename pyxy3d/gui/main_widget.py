@@ -1,4 +1,5 @@
 import pyxy3d.logger
+
 logger = pyxy3d.logger.get(__name__)
 
 from PyQt6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
@@ -28,6 +29,8 @@ from pyxy3d.gui.calibration_widget import CalibrationWidget
 from pyxy3d.gui.recording_widget import RecordingWidget
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -47,19 +50,18 @@ class MainWindow(QMainWindow):
         self.open_project_action.triggered.connect(self.create_new_project_folder)
         self.file_menu.addAction(self.open_project_action)
 
-
         # Open Recent
         self.open_recent_project_submenu = QMenu("&Recent Projects...", self)
-        # Populate the submenu with recent project paths
-        for project_path in self.app_settings["recent_projects"]:
+        # Populate the submenu with recent project paths;
+        # reverse so that last one appended is at the top of the list
+        for project_path in reversed(self.app_settings["recent_projects"]):
             self.add_to_recent_project(project_path)
 
         self.file_menu.addMenu(self.open_recent_project_submenu)
 
-        self.close_session_action = QAction("&Close Session", self)        
+        self.close_session_action = QAction("&Close Session", self)
         self.close_session_action.triggered.connect(self.close_current_session)
         self.file_menu.addAction(self.close_session_action)
-
 
         self.cameras_menu = self.menu.addMenu("Ca&meras")
         self.disconnect_cameras_action = QAction("&Disconnect Cameras", self)
@@ -72,47 +74,40 @@ class MainWindow(QMainWindow):
 
         self.tab_widget = QTabWidget()
         self.setCentralWidget(self.tab_widget)
-        
-        
-        
+
         # create log window which is fixed below main window
         self.docked_logger = QDockWidget("Log", self)
-        # self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
-        # self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable | QDockWidget.DockWidgetFeature.DockWidgetFloatable)
         self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable)
         self.docked_logger.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea)
         self.log_widget = LogWidget()
         self.docked_logger.setWidget(self.log_widget)
-        
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea,self.docked_logger)
-        # self.calibration_widget = QWidget()
-        # self.recording_widget = QWidget()
-        # self.processing_widget = QWidget()
 
-        # self.tab_widget.addTab(self.calibration_widget, "&Calibration")
-        # self.tab_widget.addTab(self.recording_widget, "Rec&ording")
-        # self.tab_widget.addTab(self.processing_widget, "&Processing")
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
 
-        self.connect_signals()
-        
-    def connect_signals(self):
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
-################## FRAME READING and TRACKING CONTROL with TAB SWITCH ######################################        
-         
+
+
+    ################## FRAME READING and TRACKING CONTROL with TAB SWITCH ######################################
+
+
     def on_tab_changed(self, index):
         logger.info(f"Switching main window to tab {index}")
         match index:
             case 0:
-                
                 logger.info(f"Activate Calibration Mode")
-                if hasattr(self.calibration_widget,"currentWidget"):
+                if hasattr(self.calibration_widget, "currentWidget"):
                     match self.calibration_widget.currentWidget():
                         case self.calibration_widget.intrinsic_calibration_widget:
-                            active_camera = self.calibration_widget.intrinsic_calibration_widget.camera_tabs.currentWidget().port
-                            logger.info(f"Activating intrinsic calibration tab: camera config widget with Camera {active_camera} active")
+                            active_camera = (
+                                self.calibration_widget.intrinsic_calibration_widget.camera_tabs.currentWidget().port
+                            )
+                            logger.info(
+                                f"Activating intrinsic calibration tab: camera config widget with Camera {active_camera} active"
+                            )
                             self.session.set_mode(SessionMode.IntrinsicCalibration)
                         case self.calibration_widget.extrinsic_calibration_widget:
-                            logger.info("Activating extrinsic calibration tab: stereoframe widget")
+                            logger.info(
+                                "Activating extrinsic calibration tab: stereoframe widget"
+                            )
                             self.session.set_mode(SessionMode.ExtrinsicCalibration)
 
             case 1:
@@ -123,18 +118,11 @@ class MainWindow(QMainWindow):
                 self.session.set_mode(SessionMode.PostProcessing)
                 # may have acquired new recordings
                 self.processing_widget.update_recording_folders()
-    
 
-        
-        
-        
-         
     def close_current_session(self):
         pass
 
-
-    def launch_session(self, path_to_folder:str):
-
+    def launch_session(self, path_to_folder: str):
         session_path = Path(path_to_folder)
         self.config = Configurator(session_path)
         logger.info(f"Launching session with config file stored in {session_path}")
@@ -143,30 +131,52 @@ class MainWindow(QMainWindow):
         self.session.stream_tools_loaded_signal.connect(self.load_recording_widget)
 
         self.calibration_widget = CalibrationWidget(self.session)
+        # launches without cameras connected, so just throw in a placeholder
         self.recording_widget = QWidget()
-        # self.recording_widget = RecordingWidget(self.session)
-        self.processing_widget = PostProcessingWidget(self.config)
+        if self.session.post_processing_eligible():
+            self.processing_widget = PostProcessingWidget(self.session)
+        else:
+            self.processing_widget = QWidget()
+        
 
         self.tab_widget.addTab(self.calibration_widget, "&Calibration")
         self.tab_widget.addTab(self.recording_widget, "Rec&ording")
         self.tab_widget.addTab(self.processing_widget, "&Processing")
 
+        # default no cameras...can't record
+        self.tab_widget.setTabEnabled(1, False)
+        if not self.session.post_processing_eligible():
+            self.tab_widget.setTabEnabled(2, False)
+        
+            
         old_index = self.tab_widget.currentIndex()
 
         self.load_calibration_widget()
-        self.load_post_processing_widget()
+        # self.load_post_processing_widget()
         # cannot load recording widget until cameras are connected...
         # self.load_recording_widget()
         self.tab_widget.setCurrentIndex(old_index)
+        self.connect_signals()
+
+    def connect_signals(self):
+        """
+        After launching a session, connect signals and slots. 
+        Much of these will be from the GUI to the session and vice-versa
+        """
+        self.tab_widget.currentChanged.connect(self.on_tab_changed)
+        self.session.unlock_postprocessing.connect(self.load_post_processing_widget)
+        
 
     def load_calibration_widget(self):
         calibration_index = self.tab_widget.indexOf(self.calibration_widget)
         self.tab_widget.removeTab(calibration_index)
         self.calibration_widget.deleteLater()
         new_calibration_widget = CalibrationWidget(self.session)
-        self.tab_widget.insertTab(calibration_index, new_calibration_widget, "&Calibration")
+        self.tab_widget.insertTab(
+            calibration_index, new_calibration_widget, "&Calibration"
+        )
         self.calibration_widget = new_calibration_widget
-        
+
     def load_recording_widget(self):
         recording_index = self.tab_widget.indexOf(self.recording_widget)
         self.tab_widget.removeTab(recording_index)
@@ -174,18 +184,18 @@ class MainWindow(QMainWindow):
         new_recording_widget = RecordingWidget(self.session)
         self.tab_widget.insertTab(recording_index, new_recording_widget, "Rec&ording")
         self.recording_widget = new_recording_widget
-        
+
     def load_post_processing_widget(self):
         processing_index = self.tab_widget.indexOf(self.processing_widget)
         self.tab_widget.removeTab(processing_index)
         self.processing_widget.deleteLater()
-        new_processing_widget = PostProcessingWidget(self.config)
-        self.tab_widget.insertTab(processing_index, new_processing_widget, "&Processing")
+        new_processing_widget = PostProcessingWidget(self.session)
+        self.tab_widget.insertTab(
+            processing_index, new_processing_widget, "&Processing"
+        )
         self.processing_widget = new_processing_widget
 
-
-                
-    def add_to_recent_project(self, project_path:str):
+    def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)
         recent_project_action.triggered.connect(self.open_recent_project)
         self.open_recent_project_submenu.addAction(recent_project_action)
@@ -196,9 +206,6 @@ class MainWindow(QMainWindow):
         logger.info(f"Opening recent session stored at {project_path}")
         self.launch_session(project_path)
 
-
-
-
     def create_new_project_folder(self):
         default_folder = Path(self.app_settings["last_project_parent"])
         dialog = QFileDialog()
@@ -208,13 +215,12 @@ class MainWindow(QMainWindow):
             directory=str(default_folder),
             options=QFileDialog.Option.ShowDirsOnly,
         )
-        
+
         if path_to_folder:
             logger.info(("Creating new project in :", path_to_folder))
             self.add_project_to_recent(path_to_folder)
             self.launch_session(path_to_folder)
-            
-    
+
     def add_project_to_recent(self, folder_path):
         if str(folder_path) in self.app_settings["recent_projects"]:
             pass
@@ -228,14 +234,16 @@ class MainWindow(QMainWindow):
         with open(__settings_path__, "w") as f:
             toml.dump(self.app_settings, f)
 
+
 def launch_main():
     app = QApplication([])
     # log_widget = LogWidget()
     # log_widget.show()
     window = MainWindow()
     window.show()
-    
+
     app.exec()
+
 
 if __name__ == "__main__":
     launch_main()

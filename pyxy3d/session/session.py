@@ -28,7 +28,6 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
 from pyxy3d.configurator import Configurator
 from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.recording.video_recorder import VideoRecorder
-
 # %%
 MAX_CAMERA_PORT_CHECK = 10
 FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration
@@ -46,13 +45,22 @@ class SessionMode(Enum):
     Recording = auto()
     PostProcessing = auto()
 
+class CameraStage(Enum):
+    NO_CAMERAS = auto()
+    UNCALIBRATED_CAMERAS = auto()
+    INTRINSICS_IN_PROCESES = auto()
+    INTRINSICS_ESTIMATED = auto()
+    EXTRINSICS_ESTIMATED = auto()
+    ORIGIN_SET = auto()
+    # RECORDINGS_SAVED = auto()
 
 class Session(QObject):
     stream_tools_loaded_signal = pyqtSignal()
+    unlock_postprocessing = pyqtSignal()
     mode_change_success = pyqtSignal(SessionMode)
 
     def __init__(self, config: Configurator):
-        super().__init__()
+        super(Session,self).__init__()
         self.config = config
         # self.folder = PurePath(directory).name
         self.path = self.config.session_path
@@ -85,17 +93,82 @@ class Session(QObject):
         self.charuco_tracker = CharucoTracker(self.charuco)
         self.mode = SessionMode.Charuco  # default mode of session
 
+################
+    def get_camera_stage(self):
+        stage = None
+        connected_camera_count = len(self.cameras)
+        calibrated_camera_count = 0
+        for key in self.config.dict.keys():
+            if key.startswith("cam"):
+                if "error" in self.config.dict[key].keys():
+                    if self.config.dict[key]["error"] is not None:
+                        calibrated_camera_count += 1
+
+        if connected_camera_count == 0:
+            stage = CameraStage.NO_CAMERAS
+
+        elif calibrated_camera_count < connected_camera_count:
+            stage = CameraStage.UNCALIBRATED_CAMERAS
+
+        elif (
+            connected_camera_count > 0
+            and calibrated_camera_count == connected_camera_count
+        ):
+            stage = CameraStage.INTRINSICS_ESTIMATED
+
+        return stage
+
+
+
+    
+######################
+
+
+    def camera_setup_eligible(self):
+        if len(self.cameras) > 0: 
+            eligible = True
+        else:
+            eligible = False
+        return eligible
+
+    def start_recording_eligible(self):
+        """
+        Used to determine if the Record Button is enabled
+        
+        """
+        #assume true and prove otherwise
+        has_extrinsics = True
+        for port, camera in self.cameras.items():
+            if camera.ignore == False and (
+                camera.rotation is None or camera.translation is None
+            ):
+                has_extrinsics = False
+                logger.info(
+                    f"Camera array is not fully calibrated because camera {port} lacks extrinsics"
+                )
+        if has_extrinsics:
+            eligible = True
+        else:
+            eligible = False
+
+        return eligible
+
     def post_processing_eligible(self):
         """
         Post processing can only be performed if all of the non-ignored cameras have rotation and translation parameters
         """
+        # the presence of these does not count as a recording
+        excluded_items = ["calibration", "config.toml"]
 
-        # assume fully calibrated
-        # fully_calibrated = True
-        # for port, cam in self.cameras.items():
+        folders = [f for f in self.path.iterdir() if f.name not in excluded_items]
+        recording_count = len(folders)
+        if recording_count > 0:
+            eligible = True
+        else:
+            eligible = False            
 
-        pass
-
+        return eligible
+    
     def set_mode(self, mode: SessionMode):
         """
         Via this method, the frame reading behavior will be changed by the GUI. If some properties are
@@ -337,6 +410,9 @@ class Session(QObject):
 
         self.is_recording = False
 
+        if self.post_processing_eligible:
+            self.unlock_postprocessing.emit()
+
     def _adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as
         log as it is not configured for the default resolution"""
@@ -412,3 +488,4 @@ class Session(QObject):
         self.capture_volume.optimize()
 
         self.config.save_capture_volume(self.capture_volume)
+

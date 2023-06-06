@@ -48,54 +48,63 @@ from pyxy3d.gui.vizualize.playback_triangulation_widget import (
 from pyxy3d.gui.progress_dialog import ProgressDialog
 
 class PostProcessingWidget(QWidget):
-    def __init__(self, config: Configurator):
+    processing_complete = pyqtSignal()
+
+    def __init__(self, session:Session):
         super(PostProcessingWidget, self).__init__()
-        self.config = config
-        self.camera_array = self.config.get_camera_array()
+        self.session = session
+        self.config = session.config
 
         self.post_processor = PostProcessor(self.config)
-        self.progress_bar = ProgressDialog()
         self.sync_index_cursors = {}
+        self.recording_folders = QListWidget()
 
         self.update_recording_folders()
 
         # select the first element of the QListWidget
         if self.recording_folders.count() > 0:
             self.recording_folders.setCurrentRow(0)
+            self.config = Configurator(self.active_recording_path)
+            camera_array = self.config.get_camera_array()
+            self.vis_widget = PlaybackTriangulationWidget(camera_array)
+        else:
+            raise RuntimeError("No recording folders, so cannot display anything in Post Processing Widget")
+                
 
         self.tracker_combo = QComboBox()
+
+        self.vizualizer_title = QLabel()
 
         # Add items to the combo box using the name attribute of the TrackerEnum
         for tracker in TrackerEnum:
             if tracker.name != "CHARUCO":
                 self.tracker_combo.addItem(tracker.name, tracker)
 
-        self.vizualizer_title = QLabel(self.viz_title_html)
-        self.vis_widget = PlaybackTriangulationWidget(self.camera_array)
         self.process_current_btn = QPushButton("&Process")
         # self.export_btn = QPushButton("&Export")
         self.open_folder_btn = QPushButton("&Open Folder")
 
+        self.refresh_visualizer() # must happen before placement to create vis_widget and vizualizer_title
         self.place_widgets()
         self.connect_widgets()
-        self.refresh_visualizer()
         
 
     def set_current_xyz(self):
+
         if self.processed_xyz_path.exists():
+            logger.info(f"Setting xyz display coordinates to those stored in {self.processed_xyz_path}")
             self.xyz = pd.read_csv(self.processed_xyz_path)
         else:
+            logger.info(f"No points displayed; Nothing stored in {self.processed_xyz_path}")
             self.xyz = None
         self.vis_widget.set_xyz(self.xyz)
 
     def update_recording_folders(self):
-        if hasattr(self, "recording_folders"):
-            self.recording_folders.clear()
-        else:
-            self.recording_folders = QListWidget()
+        # this check here is an artifact of the way that the main widget handles refresh
+        self.recording_folders.clear()
 
         # create list of recording directories
-        dir_list = [p.stem for p in self.config.session_path.iterdir() if p.is_dir()]
+        dir_list = [p.stem for p in self.session.path.iterdir() if p.is_dir()]
         try:
             dir_list.remove("calibration")
         except:
@@ -108,7 +117,7 @@ class PostProcessingWidget(QWidget):
     @property
     def processed_subfolder(self):
         subfolder = Path(
-            self.config.session_path,
+            self.session.path,
             self.recording_folders.currentItem().text(),
             self.tracker_combo.currentData().name,
         )
@@ -138,6 +147,12 @@ class PostProcessingWidget(QWidget):
             active_folder = None
         return active_folder
 
+    @property
+    def active_recording_path(self)-> Path:
+        p = Path(self.session.path, self.active_folder)
+        logger.info(f"Active recording path is {p}")
+        return p        
+        
     @property
     def viz_title_html(self):
         if self.processed_xyz_path.exists():
@@ -171,18 +186,17 @@ class PostProcessingWidget(QWidget):
     def connect_widgets(self):
         self.recording_folders.currentItemChanged.connect(self.refresh_visualizer)
         self.tracker_combo.currentIndexChanged.connect(self.refresh_visualizer)
-
         self.vis_widget.slider.valueChanged.connect(self.store_sync_index_cursor)
-
         self.process_current_btn.clicked.connect(self.process_current)
         self.open_folder_btn.clicked.connect(self.open_folder)
         # self.export_btn.clicked.connect(self.export_current_file)
-        self.post_processor.progress_update.connect(self.progress_bar.update)
+        self.processing_complete.connect(self.enable_all_inputs)
+        self.processing_complete.connect(self.refresh_visualizer)
 
     def store_sync_index_cursor(self, cursor_value):
         if self.processed_xyz_path.exists():
             self.sync_index_cursors[self.processed_xyz_path] = cursor_value
-            logger.info(self.sync_index_cursors)
+            # logger.info(self.sync_index_cursors)
         else:
             # don't bother, doesn't exist
             pass
@@ -190,23 +204,28 @@ class PostProcessingWidget(QWidget):
     def open_folder(self):
         """Opens the currently active folder in a system file browser"""
         if self.active_folder is not None:
-            folder_path = Path(self.config.session_path, self.active_folder)
+            folder_path = Path(self.session.path, self.active_folder)
             url = QUrl.fromLocalFile(str(folder_path))
             QDesktopServices.openUrl(url)
         else:
             logger.warn("No folder selected")
 
     def process_current(self):
-        logger.info(f"Beginning to process video files at {self.config.session_path}")
-        recording_path = Path(self.config.session_path, self.active_folder)
-        # logger.info(f"{self.tracker_combo.currentData()}")
+        recording_path = Path(self.session.path, self.active_folder)
+        logger.info(f"Beginning processing of recordings at {recording_path}")
         tracker_enum = self.tracker_combo.currentData()
-        logger.info(f"Applying {tracker_enum.name} tracker")
+        logger.info(f"(x,y) tracking will be applied using {tracker_enum.name}")
+        recording_config_toml  = Path(recording_path,"config.toml")
+        logger.info(f"Camera data based on config file saved to {recording_config_toml}")
 
-        # a way to receive updates on the progress of the post processing
-        self.progress_bar.show()
+
         
         def processing_worker():
+            logger.info(f"Beginning to process video files at {recording_path}")
+            active_config = Configurator(recording_path) 
+            logger.info(f"Creating post processor using config.toml in {recording_path}")
+            self.post_processor = PostProcessor(active_config)
+
             self.disable_all_inputs()
 
             self.post_processor.create_xyz(recording_path,tracker_enum)
@@ -219,8 +238,7 @@ class PostProcessingWidget(QWidget):
             xyz_to_trc(
                 self.processed_xyz_path, self.tracker_combo.currentData().value()
             )
-            self.enable_all_inputs()
-            self.refresh_visualizer()
+            self.processing_complete.emit()
 
         thread = Thread(target=processing_worker, args=(), daemon=True)
         thread.start()
@@ -228,6 +246,12 @@ class PostProcessingWidget(QWidget):
 
     def refresh_visualizer(self):
         # logger.info(f"Item {item.text()} selected and double-clicked.")
+        active_config = Configurator(self.active_recording_path)
+        logger.info(f"Refreshing vizualizer to display camera array stored in config.toml in {self.active_recording_path}")
+        camera_array = active_config.get_camera_array()
+        
+        self.vis_widget.update_camera_array(camera_array)
+        
         self.set_current_xyz()
         self.vizualizer_title.setText(self.viz_title_html)
         self.update_enabled_disabled()

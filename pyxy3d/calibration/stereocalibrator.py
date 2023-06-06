@@ -159,7 +159,7 @@ class StereoCalibrator:
             .groupby(["sync_index", "port"])
             .agg("count")
             .rename({"point_id": "point_count"}, axis=1)
-            .query("point_count >=4")  # a requirement of the stereocalibration function
+            .query("point_count >=6")  # a requirement of the stereocalibration function
             .reset_index()
             .query(f"port == {pair[0]}")  # will be the same..only need one copy
             .drop("port", axis=1)

@@ -35,7 +35,7 @@ from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.gui.navigation_bars import NavigationBarBackFinish
 
-# the boards needed to before a pair could be used to bridge pairs without common corners
+# the boards needed before a pair could be used to bridge pairs without common corners
 MIN_THRESHOLD_FOR_EARLY_CALIBRATE = 5
 
 

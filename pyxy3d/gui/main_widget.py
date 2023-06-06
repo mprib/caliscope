@@ -84,12 +84,10 @@ class MainWindow(QMainWindow):
 
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
 
-        self.connect_signals()
 
-    def connect_signals(self):
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
 
     ################## FRAME READING and TRACKING CONTROL with TAB SWITCH ######################################
+
 
     def on_tab_changed(self, index):
         logger.info(f"Switching main window to tab {index}")
@@ -146,10 +144,11 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.processing_widget, "&Processing")
 
         # default no cameras...can't record
-        self.tab_widget.setTabEnabled(2, False)
+        self.tab_widget.setTabEnabled(1, False)
         if not self.session.post_processing_eligible():
-            self.tab_widget.setTabEnabled(3, False)
-
+            self.tab_widget.setTabEnabled(2, False)
+        
+            
         old_index = self.tab_widget.currentIndex()
 
         self.load_calibration_widget()
@@ -157,6 +156,16 @@ class MainWindow(QMainWindow):
         # cannot load recording widget until cameras are connected...
         # self.load_recording_widget()
         self.tab_widget.setCurrentIndex(old_index)
+        self.connect_signals()
+
+    def connect_signals(self):
+        """
+        After launching a session, connect signals and slots. 
+        Much of these will be from the GUI to the session and vice-versa
+        """
+        self.tab_widget.currentChanged.connect(self.on_tab_changed)
+        self.session.unlock_postprocessing.connect(self.load_post_processing_widget)
+        
 
     def load_calibration_widget(self):
         calibration_index = self.tab_widget.indexOf(self.calibration_widget)

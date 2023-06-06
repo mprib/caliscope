@@ -38,8 +38,6 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
     """
     A combination of the Extrinsic Calibration Widget and the Capture Volume Widget
     Allows the user to move back and forth between the two functions.
-    
-    
     """
     cameras_connected = pyqtSignal()
 
@@ -47,135 +45,46 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         super().__init__()
         self.CAMS_IN_PROCESS = False
 
-        self.setWindowTitle("Camera Calibration Wizard")
-        self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/pyxy_logo.svg"))))
-        self.session_path = session.path
         self.session = session
-        self.config = session.config
-
-        # self.launch_session()
-        logger.info("Creating charuco wizard session")
-        self.wizard_charuco = CharucoWidget(self.session)
-        
-        self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(
-            self.activate_camera_config
-        )
-        logger.info("Adding charuco wizard")
-        self.session.set_mode(SessionMode.Charuco)
-        self.addWidget(self.wizard_charuco)
-
-        logger.info("Setting index to 2 to activate widget")
-        self.setCurrentWidget(self.wizard_charuco)
-
-        self.connect_widgets()
-
-    def connect_widgets(self):
-        # self.wizard_directory.launch_wizard_btn.clicked.connect(self.begin_wizard)
-        # self.cameras_connected.connect(self.on_cameras_connect)
-        pass
-
-
-
-    def activate_camera_config(self):
-        self.session.set_mode(SessionMode.IntrinsicCalibration)
-        if not hasattr(self, "intrinsic_calibration_widget"):
-            logger.info(f"No camera configuration yet...creating wizard")
-            self.intrinsic_calibration_widget = IntrinsicCalibrationWidget(self.session)
-            self.addWidget(self.intrinsic_calibration_widget)
-            self.setCurrentWidget(self.intrinsic_calibration_widget)
-            self.intrinsic_calibration_widget.navigation_bar.back_btn.clicked.connect(
-                self.activate_charuco_wizard
-            )
-            self.intrinsic_calibration_widget.navigation_bar.next_btn.clicked.connect(
-                self.next_to_stereoframe
-            )
-        else:
-            logger.info("Camera config already exists; changing stack current index")
-            # active_port = self.camera_wizard.camera_tabs.currentIndex()
-            # self.session.active_monocalibrator = active_port
-            self.setCurrentWidget(self.intrinsic_calibration_widget)
-            self.session.activate_monocalibrator()
-
-    ####################### STEP 2: Single Camera Calibration #################
-    def activate_charuco_wizard(self):
-        self.session.set_mode(SessionMode.Charuco)
-        self.setCurrentWidget(self.wizard_charuco)
-
-    def next_to_stereoframe(self):
         self.session.set_mode(SessionMode.ExtrinsicCalibration)
 
-        if hasattr(self, "extrinsic_calibration_widget"):
-            self.setCurrentWidget(self.extrinsic_calibration_widget)
-            # self.stereoframe.deleteLater()
-            # self.removeWidget(self.stereoframe)
-        else: 
-            self.extrinsic_calibration_widget = ExtrinsicCalibrationWidget(self.session)
-            self.addWidget(self.extrinsic_calibration_widget)
-            self.setCurrentWidget(self.extrinsic_calibration_widget)
-
-            self.extrinsic_calibration_widget.navigation_bar.back_btn.clicked.connect(
-                self.back_to_camera_config_wizard
-            )
-
-            self.extrinsic_calibration_widget.calibration_complete.connect(self.next_to_capture_volume)
-            # self.stereoframe.calibration_initiated.connect(self.show_calibration_qt_logger)
-            self.extrinsic_calibration_widget.terminate.connect(self.refresh_stereoframe)
-
+        if self.session.capture_volume_eligible():
+            self.activate_capture_volume_widget()
+        else:
+            self.activate_extrinsic_calibration_widget()
     ###################### Stereocalibration  ######################################
-    def refresh_stereoframe(self):
-        logger.info("Set current widget to config temporarily")
-        self.setCurrentWidget(self.intrinsic_calibration_widget)
+    def activate_extrinsic_calibration_widget(self):
 
-        logger.info("Remove stereoframe")
-        self.removeWidget(self.extrinsic_calibration_widget)
-        self.extrinsic_calibration_widget.frame_builder.unsubscribe_from_synchronizer()
-        del self.extrinsic_calibration_widget
+        if hasattr(self, "extrinsic_calibration_widget"):
+            logger.info("Activate extrinsic calibration widget")
+            self.extrinsic_calibration_widget.deleteLater()
+            self.extrinsic_calibration_widget = None
+            # self.setCurrentWidget(self.extrinsic_calibration_widget)
 
-        logger.info("Create new stereoframe")
-        self.launch_new_stereoframe()
-
-
-    def back_to_camera_config_wizard(self):
-        logger.info("Moving back to camera config from stereoframe")
-        self.setCurrentWidget(self.intrinsic_calibration_widget)
-        self.session.pause_synchronizer()
-
-        self.extrinsic_calibration_widget.frame_builder.unsubscribe_from_synchronizer()
-        self.removeWidget(self.extrinsic_calibration_widget)
-        del self.extrinsic_calibration_widget
-
-        active_port = self.intrinsic_calibration_widget.camera_tabs.currentIndex()
-        self.intrinsic_calibration_widget.camera_tabs.activate_current_tab(active_port)
-
-    def next_to_capture_volume(self):
-        logger.info("Creating Capture Volume widget")
-        self.capture_volume = CaptureVolumeWidget(self.session)
-        logger.info("Adding capture volume widget to main Wizard")
-        self.addWidget(self.capture_volume)
-        logger.info("Set current index to capture volume widget")
-        self.setCurrentWidget(self.capture_volume)
-        self.capture_volume.navigation_bar.back_btn.clicked.connect(
-            self.back_to_stereo_frame
-        )
-
-        del self.qt_logger
-
-    ################## Capture Volume ########################
-    def back_to_stereo_frame(self):
-        logger.info("Set current widget to config temporarily")
-        self.setCurrentWidget(self.intrinsic_calibration_widget)
-
-        logger.info("Remove stereoframe")
-        self.removeWidget(self.extrinsic_calibration_widget)
-        logger.info("Remove capture volume")
-        self.removeWidget(self.capture_volume)
-        del self.capture_volume
-        self.extrinsic_calibration_widget.frame_builder.unsubscribe_from_synchronizer()
-        del self.extrinsic_calibration_widget
-
-        logger.info("Create new stereoframe")
-        self.launch_new_stereoframe()
+        logger.info("Create new extrinsic calibration widget")
+        self.extrinsic_calibration_widget = ExtrinsicCalibrationWidget(self.session)
+        self.addWidget(self.extrinsic_calibration_widget)
+        self.setCurrentWidget(self.extrinsic_calibration_widget)
+        self.extrinsic_calibration_widget.calibration_complete.connect(self.activate_capture_volume_widget)
+        
         self.session.unpause_synchronizer()
+        
 
+    def activate_capture_volume_widget(self):
+        if hasattr(self, "capture_volume_widget"):
+            logger.info("Set current index to capture volume widget")
+            self.capture_volume_widget.deleteLater()
+            self.capture_volume_widget = None            
 
+        logger.info("Creating Capture Volume widget")
+        self.capture_volume_widget = CaptureVolumeWidget(self.session)
+        logger.info("Adding capture volume widget to main Wizard")
+        self.addWidget(self.capture_volume_widget)
+        self.setCurrentWidget(self.capture_volume_widget)
+
+        self.capture_volume_widget.navigation_bar.back_btn.clicked.connect(
+            self.activate_extrinsic_calibration_widget
+        )
+        self.session.pause_synchronizer()
+            
 

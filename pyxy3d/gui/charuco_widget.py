@@ -73,8 +73,8 @@ class CharucoWidget(QWidget):
             self.layout().setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
         
         # add navigation bar at the end so as to not mess up alignment
-        self.navigation_bar = NavigationBarNext()
-        self.layout().addWidget(self.navigation_bar)
+        # self.navigation_bar = NavigationBarNext()
+        # self.layout().addWidget(self.navigation_bar)
 
 
         

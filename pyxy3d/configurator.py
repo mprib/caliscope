@@ -100,12 +100,15 @@ class Configurator:
         with open(self.toml_path, "w") as f:
             toml.dump(self.dict, f)
 
-    def get_capture_volume(self)->CaptureVolume:
-        camera_array = self.get_camera_array()
-        point_estimates = self.get_point_estimates()
+    # session loads capture volume in pieces
+    # also creates quality controller
+    # delete this code if you see it commented out still
+    # def get_capture_volume(self)->CaptureVolume:
+    #     camera_array = self.get_camera_array()
+    #     point_estimates = self.get_point_estimates()
         
-        capture_volume = CaptureVolume(camera_array,point_estimates)
-        return capture_volume
+    #     capture_volume = CaptureVolume(camera_array,point_estimates)
+    #     return capture_volume
     
     def save_capture_volume(self, capture_volume:CaptureVolume):
         # self.point_estimates = self.capture_volume.point_estimates

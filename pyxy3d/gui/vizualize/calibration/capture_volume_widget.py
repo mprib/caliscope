@@ -111,8 +111,12 @@ class CaptureVolumeWidget(QWidget):
         
 
     def set_origin_to_board(self):
+
+        logger.info("Setting origin to board...")
+        origin_index = self.slider.value()
+        logger.info(f"Charuco board is {self.session.charuco}")
         self.session.capture_volume.set_origin_to_board(
-            self.slider.value(), self.session.charuco
+            origin_index, self.session.charuco
         )
         self.visualizer.refresh_scene()
         self.session.config.save_capture_volume(self.session.capture_volume)

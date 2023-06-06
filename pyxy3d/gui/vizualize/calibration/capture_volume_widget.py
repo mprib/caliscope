@@ -31,7 +31,7 @@ from PyQt6.QtWidgets import (
 
 from pyxy3d.session.session import Session
 from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
-from pyxy3d.gui.navigation_bars import NavigationBarBackFinish
+from pyxy3d.gui.navigation_bars import NavigationBarBack
 
 
 class CaptureVolumeWidget(QWidget):
@@ -59,7 +59,7 @@ class CaptureVolumeWidget(QWidget):
         self.rmse_summary = QLabel(self.session.capture_volume.get_rmse_summary())
         
 
-        self.navigation_bar = NavigationBarBackFinish()
+        self.navigation_bar = NavigationBarBack()
 
         self.place_widgets()
         self.connect_widgets()

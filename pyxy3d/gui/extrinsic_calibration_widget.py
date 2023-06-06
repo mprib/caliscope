@@ -33,7 +33,7 @@ from pyxy3d.session.session import Session
 from pyxy3d.gui.frame_builders.paired_frame_builder import PairedFrameBuilder
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
-from pyxy3d.gui.navigation_bars import NavigationBarBackFinish
+from pyxy3d.gui.navigation_bars import NavigationBarBack
 
 # the boards needed before a pair could be used to bridge pairs without common corners
 MIN_THRESHOLD_FOR_EARLY_CALIBRATE = 5
@@ -58,7 +58,7 @@ class ExtrinsicCalibrationWidget(QWidget):
         self.board_count_spin.setValue(self.frame_builder.board_count_target)
         
         self.stereo_frame_display = QLabel()
-        self.navigation_bar = NavigationBarBackFinish() 
+        self.navigation_bar = NavigationBarBack() 
         self.calibrate_collect_btn = self.navigation_bar.calibrate_collect_btn
 
         

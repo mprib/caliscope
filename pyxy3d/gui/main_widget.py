@@ -135,19 +135,27 @@ class MainWindow(QMainWindow):
         self.session.stream_tools_loaded_signal.connect(self.load_recording_widget)
 
         # self.calibration_widget = CalibrationWidget(self.session)
+        # can always load charuco
+        
+        self.charuco_widget = CharucoWidget(self.session)
 
         # launches without cameras connected, so just throw in a placeholder
+        self.camera_widget = QWidget()
+
         self.recording_widget = QWidget()
         if self.session.post_processing_eligible():
             self.processing_widget = PostProcessingWidget(self.session)
         else:
             self.processing_widget = QWidget()
         
+        if self.session.capture_volume_eligible():
+            self.capture_volume_widget = CaptureVolumeWidget(self.session)
+        else:
+            self.capture_volume_widget = QWidget()
 
-        self.tab_widget.addTab(self.calibration_widget, "&Calibration")
-        self.tab_widget.addTab(self.calibration_widget, "&Calibration")
-        self.tab_widget.addTab(self.calibration_widget, "&Calibration")
-
+        self.tab_widget.addTab(self.charuco_widget, "Charuco")
+        self.tab_widget.addTab(self.camera_widget, "Cameras")
+        self.tab_widget.addTab(self.capture_volume_widget, "CaptureVolume")
         self.tab_widget.addTab(self.recording_widget, "Rec&ording")
         self.tab_widget.addTab(self.processing_widget, "&Processing")
 
@@ -159,7 +167,7 @@ class MainWindow(QMainWindow):
             
         old_index = self.tab_widget.currentIndex()
 
-        self.load_calibration_widget()
+        # self.load_calibration_widget()
         # self.load_post_processing_widget()
         # cannot load recording widget until cameras are connected...
         # self.load_recording_widget()
@@ -175,15 +183,15 @@ class MainWindow(QMainWindow):
         self.session.unlock_postprocessing.connect(self.load_post_processing_widget)
         
 
-    def load_calibration_widget(self):
-        calibration_index = self.tab_widget.indexOf(self.calibration_widget)
-        self.tab_widget.removeTab(calibration_index)
-        self.calibration_widget.deleteLater()
-        new_calibration_widget = CalibrationWidget(self.session)
-        self.tab_widget.insertTab(
-            calibration_index, new_calibration_widget, "&Calibration"
-        )
-        self.calibration_widget = new_calibration_widget
+    # def load_calibration_widget(self):
+    #     calibration_index = self.tab_widget.indexOf(self.calibration_widget)
+    #     self.tab_widget.removeTab(calibration_index)
+    #     self.calibration_widget.deleteLater()
+    #     new_calibration_widget = CalibrationWidget(self.session)
+    #     self.tab_widget.insertTab(
+    #         calibration_index, new_calibration_widget, "&Calibration"
+    #     )
+    #     self.calibration_widget = new_calibration_widget
 
     def load_recording_widget(self):
         recording_index = self.tab_widget.indexOf(self.recording_widget)

@@ -56,6 +56,7 @@ class CameraStage(Enum):
 
 class Session(QObject):
     stream_tools_loaded_signal = pyqtSignal()
+    unlock_postprocessing = pyqtSignal()
     mode_change_success = pyqtSignal(SessionMode)
 
     def __init__(self, config: Configurator):
@@ -408,6 +409,9 @@ class Session(QObject):
             sleep(0.5)
 
         self.is_recording = False
+
+        if self.post_processing_eligible:
+            self.unlock_postprocessing.emit()
 
     def _adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as

@@ -178,14 +178,4 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.session.unpause_synchronizer()
 
 
-def launch_calibration_widget(session_path:Path):
-    config = Configurator(session_path)
-    session = Session(config)
-
-    app = QApplication(sys.argv)
-
-    window = CalibrationWidget(session)
-    window.show()
-    app.exec()
-
 

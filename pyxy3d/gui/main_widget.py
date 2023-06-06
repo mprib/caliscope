@@ -26,6 +26,10 @@ from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.calibration_widget import CalibrationWidget
+from pyxy3d.gui.wizard_charuco import WizardCharuco
+from pyxy3d.gui.camera_config.intrinsic_calibration_widget import IntrinsicCalibrationWidget
+from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
+from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from pyxy3d.gui.recording_widget import RecordingWidget
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 
@@ -130,7 +134,8 @@ class MainWindow(QMainWindow):
         logger.info("Setting calibration Widget")
         self.session.stream_tools_loaded_signal.connect(self.load_recording_widget)
 
-        self.calibration_widget = CalibrationWidget(self.session)
+        # self.calibration_widget = CalibrationWidget(self.session)
+
         # launches without cameras connected, so just throw in a placeholder
         self.recording_widget = QWidget()
         if self.session.post_processing_eligible():
@@ -140,6 +145,9 @@ class MainWindow(QMainWindow):
         
 
         self.tab_widget.addTab(self.calibration_widget, "&Calibration")
+        self.tab_widget.addTab(self.calibration_widget, "&Calibration")
+        self.tab_widget.addTab(self.calibration_widget, "&Calibration")
+
         self.tab_widget.addTab(self.recording_widget, "Rec&ording")
         self.tab_widget.addTab(self.processing_widget, "&Processing")
 

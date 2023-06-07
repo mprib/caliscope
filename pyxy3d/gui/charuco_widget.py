@@ -63,15 +63,18 @@ class CharucoWidget(QWidget):
         self.setWindowTitle("Charuco Board Builder")
 
         self.layout().addWidget(self.charuco_config)
-        self.layout().addWidget(self.charuco_display)
+        self.layout().setAlignment(self.charuco_config, Qt.AlignmentFlag.AlignHCenter)
+        self.layout().addWidget(QLabel("<i>Top left corner is point (0,0,0) when setting capture volume origin</i>"))
+        self.layout().addWidget(self.charuco_display,2)
         self.layout().addSpacing(10)
         self.layout().addLayout(self.save_png_hbox)
         self.layout().addSpacing(10)
+        self.layout().addLayout(self.true_up_hbox)
+        self.layout().addWidget(QLabel("<i>Printed square size will set the scale of the capture volume</i>"))
 
-        self.layout().addWidget(self.true_up_group)
-        self.layout().addSpacing(10)
-        for w in self.children():
-            self.layout().setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
+        # self.layout().addSpacing(10)
+        # for w in self.children():
+        #     self.layout().setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
 
     def build_save_png_group(self):
         # basic png save button
@@ -117,9 +120,8 @@ class CharucoWidget(QWidget):
         self.save_png_hbox.addWidget(self.png_mirror_btn)
 
     def build_true_up_group(self):
-        self.true_up_group = QGroupBox("&True-Up Printed Square Edge")
-        self.true_up_group.setLayout(QHBoxLayout())
-        self.true_up_group.layout().addWidget(QLabel("Actual Length (cm):"))
+        self.true_up_hbox = QHBoxLayout()
+        self.true_up_hbox.addWidget(QLabel("Actual Printed Square Edge Length (cm):"))
 
         self.printed_edge_length = QDoubleSpinBox()
         self.printed_edge_length.setSingleStep(0.01)
@@ -141,7 +143,7 @@ class CharucoWidget(QWidget):
 
         self.printed_edge_length.valueChanged.connect(update_charuco)
 
-        self.true_up_group.layout().addWidget(self.printed_edge_length)
+        self.true_up_hbox.layout().addWidget(self.printed_edge_length)
 
     def build_charuco(self):
         columns = self.charuco_config.column_spin.value()
@@ -195,14 +197,14 @@ class CharucoConfigGroup(QWidget):
         self.params = self.session.config.dict["charuco"]
 
         self.column_spin = QSpinBox()
-        self.column_spin.setMinimum(2)
+        self.column_spin.setMinimum(3)
         self.column_spin.setValue(self.params["columns"])
-        self.column_spin.setMaximumWidth(50)
+        # self.column_spin.setMaximumWidth(50)
 
         self.row_spin = QSpinBox()
-        self.row_spin.setMinimum(2)
+        self.row_spin.setMinimum(4)
         self.row_spin.setValue(self.params["rows"])
-        self.row_spin.setMaximumWidth(50)
+        # self.row_spin.setMaximumWidth(50)
 
         self.width_spin = QDoubleSpinBox()
         self.width_spin.setMinimum(1)

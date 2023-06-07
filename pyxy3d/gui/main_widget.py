@@ -156,32 +156,29 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.processing_widget, "Processing")
 
         # can always modify charuco
-        self.tab_widget.setTabEnabled(TabIndex.Charuco, True)
+        self.tab_widget.setTabEnabled(TabIndex.Charuco.value, True)
 
         # session launches without cameras connected
-        self.tab_widget.setTabEnabled(TabIndex.Cameras, False)
-        self.tab_widget.setTabEnabled(TabIndex.Recording, False)
+        self.tab_widget.setTabEnabled(TabIndex.Cameras.value, False)
+        self.tab_widget.setTabEnabled(TabIndex.Recording.value, False)
 
         
         # might be able to fiddle with the capture volume origin
         if self.session.capture_volume_eligible():
-            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume, True)
+            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, True)
         else:
-            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume, False)
+            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, False)
         
         
         # might be able to do post processing if recordings and calibration available
         if self.session.post_processing_eligible():
-            self.tab_widget.setTabEnabled(TabIndex.Processing, True)
+            self.tab_widget.setTabEnabled(TabIndex.Processing.value, True)
         else:
-            self.tab_widget.setTabEnabled(TabIndex.Processing, False)
+            self.tab_widget.setTabEnabled(TabIndex.Processing.value, False)
         
         
 
         # might be able to do  
-        
-        
-            
         old_index = self.tab_widget.currentIndex()
 
         self.tab_widget.setCurrentIndex(old_index)

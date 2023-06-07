@@ -29,8 +29,7 @@ from pyxy3d.configurator import Configurator
 from pyxy3d.gui.calibration_widget import CalibrationWidget
 from pyxy3d.gui.charuco_widget import CharucoWidget
 from pyxy3d.gui.camera_config.intrinsic_calibration_widget import IntrinsicCalibrationWidget
-from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
-from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
+from pyxy3d.gui.calibrate_capture_volume_widget import CalibrateCaptureVolumeWidget
 from pyxy3d.gui.recording_widget import RecordingWidget
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 
@@ -104,13 +103,16 @@ class MainWindow(QMainWindow):
                 logger.info(f"Activating Camera Setup Widget")
                 self.session.set_mode(SessionMode.IntrinsicCalibration)
             case 2:
-                logger.info(f"Activating Capture Volume Widget")
-                self.capture_volume_widget
-                self.session.set_mode(SessionMode.ExtrinsicCalibration)
-            case 4:
+                logger.info(f"Activating Calibrate Capture Volume Widget")
+
+                if self.session.capture_volume_eligible():
+                    self.calibrate_capture_volume_widget.activate_capture_volume_widget()
+                else:
+                    self.calibrate_capture_volume_widget.activate_extrinsic_calibration_widget()
+            case 3:
                 logger.info(f"Activate Recording Mode")
                 self.session.set_mode(SessionMode.Recording)
-            case 5:
+            case 4:
                 logger.info(f"Activate Processing Mode")
                 self.session.set_mode(SessionMode.PostProcessing)
                 # may have acquired new recordings
@@ -137,13 +139,13 @@ class MainWindow(QMainWindow):
             self.processing_widget = QWidget()
         
         if self.session.capture_volume_eligible():
-            self.capture_volume_widget = CaptureVolumeWidget(self.session)
+            self.calibrate_capture_volume_widget = CalibrateCaptureVolumeWidget(self.session)
         else:
             self.capture_volume_widget = QWidget()
 
         self.tab_widget.addTab(self.charuco_widget, "Charuco")
         self.tab_widget.addTab(self.camera_widget, "Cameras")
-        self.tab_widget.addTab(self.capture_volume_widget, "CaptureVolume")
+        self.tab_widget.addTab(self.calibrate_capture_volume_widget, "CaptureVolume")
         self.tab_widget.addTab(self.recording_widget, "Recording")
         self.tab_widget.addTab(self.processing_widget, "Processing")
 

@@ -46,7 +46,6 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.CAMS_IN_PROCESS = False
 
         self.session = session
-        self.session.set_mode(SessionMode.ExtrinsicCalibration)
 
         if self.session.capture_volume_eligible():
             self.activate_capture_volume_widget()
@@ -54,6 +53,8 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
             self.activate_extrinsic_calibration_widget()
     ###################### Stereocalibration  ######################################
     def activate_extrinsic_calibration_widget(self):
+        logger.info(f"Setting session mode to {SessionMode.ExtrinsicCalibration} from within subwidget")
+        self.session.set_mode(SessionMode.ExtrinsicCalibration)
 
         if hasattr(self, "extrinsic_calibration_widget"):
             logger.info("Activate extrinsic calibration widget")
@@ -66,11 +67,16 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.addWidget(self.extrinsic_calibration_widget)
         self.setCurrentWidget(self.extrinsic_calibration_widget)
         self.extrinsic_calibration_widget.calibration_complete.connect(self.activate_capture_volume_widget)
+
         
-        self.session.unpause_synchronizer()
+        # self.session.unpause_synchronizer()
         
 
     def activate_capture_volume_widget(self):
+
+        logger.info(f"Setting session mode to {SessionMode.CaptureVolumeOrigin} from within subwidget")
+        self.session.set_mode(SessionMode.CaptureVolumeOrigin)
+
         if hasattr(self, "capture_volume_widget"):
             logger.info("Set current index to capture volume widget")
             self.capture_volume_widget.deleteLater()
@@ -85,6 +91,9 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.capture_volume_widget.navigation_bar.back_btn.clicked.connect(
             self.activate_extrinsic_calibration_widget
         )
-        self.session.pause_synchronizer()
+        
+        # this will be managed elsewhere. StreamTools may or may not 
+        # be loaded ...
+        # self.session.pause_synchronizer()
             
 

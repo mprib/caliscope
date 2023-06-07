@@ -40,6 +40,7 @@ class SessionMode(Enum):
     Charuco = auto()
     IntrinsicCalibration = auto()
     ExtrinsicCalibration = auto()
+    CaptureVolumeOrigin = auto()
     Recording = auto()
     PostProcessing = auto()
 
@@ -225,6 +226,11 @@ class Session(QObject):
                 self.set_streams_charuco()
                 self.set_streams_tracking(True)
                 self.synchronizer.subscribe_to_streams()
+                
+            case SessionMode.CaptureVolumeOrigin:
+                if self.stream_tools_loaded:
+                    self.pause_all_monocalibrators()
+                    self.synchronizer.unsubscribe_from_streams()
 
             case SessionMode.Recording:
                 if not self.stream_tools_loaded:

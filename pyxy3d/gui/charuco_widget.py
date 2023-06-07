@@ -31,6 +31,7 @@ from pyxy3d.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from pyxy3d.session.session import Session
 from pyxy3d.gui.navigation_bars import NavigationBarNext
 
+
 class CharucoWidget(QWidget):
     def __init__(self, session):
         super().__init__()
@@ -38,7 +39,7 @@ class CharucoWidget(QWidget):
         logger.info("Charuco Wizard initializing")
         self.session = session
         self.params = self.session.config.dict["charuco"]
-        
+
         # add group to do initial configuration of the charuco board
         self.charuco_config = CharucoConfigGroup(self.session)
         self.charuco_config.row_spin.valueChanged.connect(self.build_charuco)
@@ -51,7 +52,7 @@ class CharucoWidget(QWidget):
         # Build primary actions
         self.build_save_png_group()
         self.build_true_up_group()
-        # self.build_save_config()
+
         # Build display of board
         self.charuco_added = False  # track to handle redrawing of board
         self.build_charuco()
@@ -62,23 +63,19 @@ class CharucoWidget(QWidget):
         self.setWindowTitle("Charuco Board Builder")
 
         self.layout().addWidget(self.charuco_config)
-        self.layout().addWidget(self.charuco_display)
-        self.layout().addSpacing(20)
+        self.layout().setAlignment(self.charuco_config, Qt.AlignmentFlag.AlignHCenter)
+        self.layout().addWidget(QLabel("<i>Top left corner is point (0,0,0) when setting capture volume origin</i>"))
+        self.layout().addWidget(self.charuco_display,2)
+        self.layout().addSpacing(10)
         self.layout().addLayout(self.save_png_hbox)
-        self.layout().addSpacing(20)
+        self.layout().addSpacing(10)
+        self.layout().addLayout(self.true_up_hbox)
+        self.layout().addWidget(QLabel("<i>Printed square size will set the scale of the capture volume</i>"))
 
-        self.layout().addWidget(self.true_up_group)
-        self.layout().addSpacing(20)
-        for w in self.children():
-            self.layout().setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
-        
-        # add navigation bar at the end so as to not mess up alignment
-        # self.navigation_bar = NavigationBarNext()
-        # self.layout().addWidget(self.navigation_bar)
+        # self.layout().addSpacing(10)
+        # for w in self.children():
+        #     self.layout().setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
 
-
-        
-        
     def build_save_png_group(self):
         # basic png save button
         self.png_btn = QPushButton("Save &png")
@@ -86,7 +83,10 @@ class CharucoWidget(QWidget):
 
         def save_png():
             save_file_tuple = QFileDialog.getSaveFileName(
-                self, "Save As", str(Path(self.session.path,"charuco.png")), "PNG (*.png)"
+                self,
+                "Save As",
+                str(Path(self.session.path, "charuco.png")),
+                "PNG (*.png)",
             )
             print(save_file_tuple)
             save_file_name = str(Path(save_file_tuple[0]))
@@ -102,7 +102,10 @@ class CharucoWidget(QWidget):
 
         def save_mirror_png():
             save_file_tuple = QFileDialog.getSaveFileName(
-                self, "Save As", str(Path(self.session.path,"charuco_mirror.png")), "PNG (*.png)"
+                self,
+                "Save As",
+                str(Path(self.session.path, "charuco_mirror.png")),
+                "PNG (*.png)",
             )
             print(save_file_tuple)
             save_file_name = str(Path(save_file_tuple[0]))
@@ -117,28 +120,30 @@ class CharucoWidget(QWidget):
         self.save_png_hbox.addWidget(self.png_mirror_btn)
 
     def build_true_up_group(self):
-        self.true_up_group = QGroupBox("&True-Up Printed Square Edge")
-        self.true_up_group.setLayout(QHBoxLayout())
-        self.true_up_group.layout().addWidget(QLabel("Actual Length (cm):"))
+        self.true_up_hbox = QHBoxLayout()
+        self.true_up_hbox.addWidget(QLabel("Actual Printed Square Edge Length (cm):"))
 
         self.printed_edge_length = QDoubleSpinBox()
-        self.printed_edge_length.setSingleStep(.01)
+        self.printed_edge_length.setSingleStep(0.01)
         self.printed_edge_length.setMaximumWidth(100)
         # self.set_true_edge_length()
         overide = self.session.config.dict["charuco"]["square_size_overide_cm"]
         self.printed_edge_length.setValue(overide)
 
         def update_charuco():
-            self.charuco.square_size_overide_cm = round(self.printed_edge_length.value(),2)
+            self.charuco.square_size_overide_cm = round(
+                self.printed_edge_length.value(), 2
+            )
 
-            logger.info(f"Updated Square Size Overide to {self.printed_edge_length.value}")
+            logger.info(
+                f"Updated Square Size Overide to {self.printed_edge_length.value}"
+            )
             self.session.charuco = self.charuco
             self.session.config.save_charuco(self.charuco)
 
         self.printed_edge_length.valueChanged.connect(update_charuco)
 
-        self.true_up_group.layout().addWidget(self.printed_edge_length)
-
+        self.true_up_hbox.layout().addWidget(self.printed_edge_length)
 
     def build_charuco(self):
         columns = self.charuco_config.column_spin.value()
@@ -148,7 +153,7 @@ class CharucoWidget(QWidget):
         aruco_scale = 0.75
         units = self.charuco_config.units.currentText()
         square_edge_length = self.printed_edge_length.value()
-# a
+        # a
         inverted = self.charuco_config.invert_checkbox.isChecked()
         dictionary_str = "DICT_4X4_50"
 
@@ -167,19 +172,15 @@ class CharucoWidget(QWidget):
         if not self.charuco_added:
             self.charuco_display = QLabel()
             self.charuco_display.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-            # self.charuco_display.setMaximumSize(
-            #     int(self.height() / 2), int(self.width() / 2)
-            # )
-        
-        
+
         # interesting problem comes up when scaling this... I want to switch between scaling the width and height
         # based on how these two things relate....
-        if board_height>board_width:
+        if board_height > board_width:
             charuco_height = int(self.height() / 2)
-            charuco_width = int(charuco_height*(board_width/board_height))
+            charuco_width = int(charuco_height * (board_width / board_height))
         else:
             charuco_width = int(self.width() / 2)
-            charuco_height = int(charuco_width*(board_height/board_width))
+            charuco_height = int(charuco_width * (board_height / board_width))
 
         logger.info("Building charuco thumbnail...")
         charuco_img = self.charuco.board_pixmap(charuco_width, charuco_height)
@@ -188,22 +189,22 @@ class CharucoWidget(QWidget):
         self.session.charuco = self.charuco
         self.session.config.save_charuco(self.charuco)
 
+
 class CharucoConfigGroup(QWidget):
-   
-    def __init__(self, session): 
+    def __init__(self, session):
         super().__init__()
         self.session = session
         self.params = self.session.config.dict["charuco"]
-  
+
         self.column_spin = QSpinBox()
-        self.column_spin.setMinimum(2)
+        self.column_spin.setMinimum(3)
         self.column_spin.setValue(self.params["columns"])
-        self.column_spin.setMaximumWidth(50)
+        # self.column_spin.setMaximumWidth(50)
 
         self.row_spin = QSpinBox()
-        self.row_spin.setMinimum(2)
+        self.row_spin.setMinimum(4)
         self.row_spin.setValue(self.params["rows"])
-        self.row_spin.setMaximumWidth(50)
+        # self.row_spin.setMaximumWidth(50)
 
         self.width_spin = QDoubleSpinBox()
         self.width_spin.setMinimum(1)
@@ -261,9 +262,8 @@ class CharucoConfigGroup(QWidget):
         # self.charuco_build_btn.setMaximumSize(50, 30)
         # self.charuco_build_btn.clicked.connect(self.build_charuco)
         # self.config_options.addWidget(self.charuco_build_btn)
-        
+
     def update_charuco(self):
-        
         columns = self.column_spin.value()
         rows = self.row_spin.value()
         board_height = self.length_spin.value()
@@ -273,11 +273,16 @@ class CharucoConfigGroup(QWidget):
 
 
 if __name__ == "__main__":
-    
-    from pyxy3d import __root__
-    config_path = Path(__root__, "tests", "pyxy3d")
+    from pyxy3d.configurator import Configurator
+    import toml
 
-    session = Session(config_path)
+    app_settings = toml.load(Path(__app_dir__, "settings.toml"))
+    recent_projects: list = app_settings["recent_projects"]
+
+    recent_project_count = len(recent_projects)
+    session_path = Path(recent_projects[recent_project_count - 1])
+    config = Configurator(session_path)
+    session = Session(config)
 
     app = QApplication(sys.argv)
 

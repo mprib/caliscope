@@ -46,6 +46,7 @@ class CaptureVolumeVisualizer:
         self.refresh_scene()
 
     def refresh_scene(self):
+        logger.info("refreshing capture volume scene")
         self.scene.clear()
 
         axis = gl.GLAxisItem()

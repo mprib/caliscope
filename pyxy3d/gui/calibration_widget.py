@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
 )
 
 from pyxy3d.session.session import Session, SessionMode
-from pyxy3d.gui.wizard_charuco import WizardCharuco
+from pyxy3d.gui.charuco_widget import CharucoWidget
 from pyxy3d.gui.camera_config.intrinsic_calibration_widget import IntrinsicCalibrationWidget
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
@@ -49,7 +49,7 @@ class CalibrationWidget(QStackedWidget):
 
         # self.launch_session()
         logger.info("Creating charuco wizard session")
-        self.wizard_charuco = WizardCharuco(self.session)
+        self.wizard_charuco = CharucoWidget(self.session)
         
         self.wizard_charuco.navigation_bar.next_wizard_step_btn.clicked.connect(
             self.activate_camera_config

@@ -31,7 +31,7 @@ from pyxy3d.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from pyxy3d.session.session import Session
 from pyxy3d.gui.navigation_bars import NavigationBarNext
 
-class WizardCharuco(QWidget):
+class CharucoWidget(QWidget):
     def __init__(self, session):
         super().__init__()
 
@@ -73,8 +73,8 @@ class WizardCharuco(QWidget):
             self.layout().setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
         
         # add navigation bar at the end so as to not mess up alignment
-        self.navigation_bar = NavigationBarNext()
-        self.layout().addWidget(self.navigation_bar)
+        # self.navigation_bar = NavigationBarNext()
+        # self.layout().addWidget(self.navigation_bar)
 
 
         
@@ -139,15 +139,6 @@ class WizardCharuco(QWidget):
 
         self.true_up_group.layout().addWidget(self.printed_edge_length)
 
-    # def build_save_config(self):
-    #     self.save_btn = QPushButton("&Save Charuco")
-    #     self.save_btn.setMaximumSize(100, 30)
-
-    #     def save_charuco():
-    #         self.session.charuco = self.charuco
-    #         self.session.save_charuco()
-    #     self.save_btn.clicked.connect(save_charuco)
-
 
     def build_charuco(self):
         columns = self.charuco_config.column_spin.value()
@@ -159,7 +150,7 @@ class WizardCharuco(QWidget):
         square_edge_length = self.printed_edge_length.value()
 # a
         inverted = self.charuco_config.invert_checkbox.isChecked()
-        dictionary_str = "DICT_4X4_1000"
+        dictionary_str = "DICT_4X4_50"
 
         self.charuco = Charuco(
             columns,
@@ -290,7 +281,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
 
-    charuco_page = WizardCharuco(session)
+    charuco_page = CharucoWidget(session)
     charuco_page.show()
 
     # configurator = CharucoConfigurator(session)

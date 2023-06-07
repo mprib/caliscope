@@ -16,11 +16,14 @@ class NavigationBarNext(QWidget):
     def __init__(self):
         super().__init__()
         self.setLayout(QHBoxLayout())
-        self.next_wizard_step_btn = QPushButton("&Next")
-        self.next_wizard_step_btn.setMaximumWidth(50)
+
+        self.calibrate_collect_btn = QPushButton("&Collect Data")
+        self.calibrate_collect_btn.setMaximumWidth(120)
+
         self.layout().setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.layout().addWidget(self.next_wizard_step_btn)
+        self.layout().addWidget(self.calibrate_collect_btn)
         self.setMaximumHeight(NAV_BAR_HEIGHT)
+
 class NavigationBarBackNext(QWidget):
     def __init__(self):
         super().__init__()
@@ -44,7 +47,7 @@ class NavigationBarBackNext(QWidget):
         self.setMaximumHeight(NAV_BAR_HEIGHT)
 
         
-class NavigationBarBackFinish(QWidget):
+class NavigationBarBack_deprecate(QWidget):
     def __init__(self):
         super().__init__()
         self.setLayout(QHBoxLayout())
@@ -67,7 +70,7 @@ class NavigationBarBackFinish(QWidget):
         self.setMaximumHeight(NAV_BAR_HEIGHT)
 
         
-class NavigationBarBackFinish(QWidget):
+class NavigationBarBack(QWidget):
     def __init__(self):
         super().__init__()
         self.setLayout(QHBoxLayout())
@@ -81,9 +84,9 @@ class NavigationBarBackFinish(QWidget):
         self.back_btn.setMaximumWidth(50)
         self.left_box.addWidget(self.back_btn)
         
-        self.calibrate_collect_btn = QPushButton("&Collect Data")
-        self.calibrate_collect_btn.setMaximumWidth(120)
-        self.right_box.addWidget(self.calibrate_collect_btn)
+        # self.calibrate_collect_btn = qpushbutton("&collect data")
+        # self.calibrate_collect_btn.setmaximumwidth(120)
+        # self.right_box.addwidget(self.calibrate_collect_btn)
         
         self.right_box.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.left_box.setAlignment(Qt.AlignmentFlag.AlignLeft)

@@ -35,13 +35,12 @@ FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojec
 
 class SessionMode(Enum):
     """
-    Note: Not currently being used for anything...if this comment remains for a few days,
-    just delete this class, Mac.
     """
 
     Charuco = auto()
     IntrinsicCalibration = auto()
     ExtrinsicCalibration = auto()
+    CaptureVolumeOrigin = auto()
     Recording = auto()
     PostProcessing = auto()
 
@@ -153,9 +152,26 @@ class Session(QObject):
 
         return eligible
 
+    def capture_volume_eligible(self):
+        """
+        if all cameras that are not ignored have rotation and translation not None
+        and there is a capture volume loaded up, then you can launch direct
+        into the capture volume widget rather than the extrinsic calibration widget
+        """
+
+        # If not able to load, then not eligible
+        try: 
+            self.load_estimated_capture_volume()
+            eligible = True
+        except:
+            eligible = False
+        
+        return eligible
+        
+
     def post_processing_eligible(self):
         """
-        Post processing can only be performed if all of the non-ignored cameras have rotation and translation parameters
+        Post processing can only be performed if recordings exist and extrinsics are calibrated
         """
         # the presence of these does not count as a recording
         excluded_items = ["calibration", "config.toml"]
@@ -210,6 +226,11 @@ class Session(QObject):
                 self.set_streams_charuco()
                 self.set_streams_tracking(True)
                 self.synchronizer.subscribe_to_streams()
+                
+            case SessionMode.CaptureVolumeOrigin:
+                if self.stream_tools_loaded:
+                    self.pause_all_monocalibrators()
+                    self.synchronizer.unsubscribe_from_streams()
 
             case SessionMode.Recording:
                 if not self.stream_tools_loaded:
@@ -352,9 +373,10 @@ class Session(QObject):
             self.streams
         )  # defaults to stream default fps of 6
         # recording widget becomes available when synchronizer is created
-        self.stream_tools_loaded_signal.emit()
         self.stream_tools_loaded = True
         self.stream_tools_in_process = False
+        logger.info(f"Signalling successful loading of stream tools")
+        self.stream_tools_loaded_signal.emit()
 
     def _load_monocalibrators(self):
         for port, cam in self.cameras.items():

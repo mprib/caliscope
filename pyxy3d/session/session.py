@@ -373,9 +373,10 @@ class Session(QObject):
             self.streams
         )  # defaults to stream default fps of 6
         # recording widget becomes available when synchronizer is created
-        self.stream_tools_loaded_signal.emit()
         self.stream_tools_loaded = True
         self.stream_tools_in_process = False
+        logger.info(f"Signalling successful loading of stream tools")
+        self.stream_tools_loaded_signal.emit()
 
     def _load_monocalibrators(self):
         for port, cam in self.cameras.items():

@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
 
 logger = pyxy3d.logger.get(__name__)
 from pathlib import Path
+from threading import Thread
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -103,10 +104,12 @@ class MainWindow(QMainWindow):
     def connect_menu_actions(self):
         self.connect_cameras_action.triggered.connect(self.load_stream_tools)
     
+
     def load_stream_tools(self):
-        self.session.load_stream_tools()
         self.connect_cameras_action.setEnabled(False)
         self.disconnect_cameras_action.setEnabled(True)
+        self.thread = Thread(target = self.session.load_stream_tools, args=(),daemon=True)
+        self.thread.start()
 
     def on_tab_changed(self, index):
         logger.info(f"Switching main window to tab {index}")
@@ -163,13 +166,30 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.calibrate_capture_volume_widget, "CaptureVolume")
         self.tab_widget.addTab(self.recording_widget, "Recording")
         self.tab_widget.addTab(self.processing_widget, "Processing")
+        
+        # when tabs change, make sure session mode adjusts
+        self.tab_widget.currentChanged.connect(self.on_tab_changed)
 
+        # Default to having ability to search out stream tools
+        self.connect_cameras_action.setEnabled(True)        
+        self.set_tab_eligibility()
+        # might be able to do  
+        old_index = self.tab_widget.currentIndex()
+
+        self.tab_widget.setCurrentIndex(old_index)
+        self.connect_session_signals()
+
+    def set_tab_eligibility(self):
         # can always modify charuco
         self.tab_widget.setTabEnabled(TabIndex.Charuco.value, True)
 
         # session launches without cameras connected
-        self.tab_widget.setTabEnabled(TabIndex.Cameras.value, False)
-        self.tab_widget.setTabEnabled(TabIndex.Recording.value, False)
+        if self.session.stream_tools_loaded:
+            self.tab_widget.setTabEnabled(TabIndex.Cameras.value, True)
+            self.tab_widget.setTabEnabled(TabIndex.Recording.value, True)
+        else:
+            self.tab_widget.setTabEnabled(TabIndex.Cameras.value, False)
+            self.tab_widget.setTabEnabled(TabIndex.Recording.value, False)
 
         
         # might be able to fiddle with the capture volume origin
@@ -185,21 +205,14 @@ class MainWindow(QMainWindow):
         else:
             self.tab_widget.setTabEnabled(TabIndex.Processing.value, False)
         
-        self.connect_cameras_action.setEnabled(True)        
-
-        # might be able to do  
-        old_index = self.tab_widget.currentIndex()
-
-        self.tab_widget.setCurrentIndex(old_index)
-        self.connect_signals()
-
-    def connect_signals(self):
+    
+    def connect_session_signals(self):
         """
         After launching a session, connect signals and slots. 
         Much of these will be from the GUI to the session and vice-versa
         """
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
         self.session.unlock_postprocessing.connect(self.load_post_processing_widget)
+        self.session.stream_tools_loaded_signal.connect(self.set_tab_eligibility)
 
     def load_recording_widget(self):
         recording_index = self.tab_widget.indexOf(self.recording_widget)

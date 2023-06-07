@@ -75,9 +75,14 @@ class MainWindow(QMainWindow):
 
         self.cameras_menu = self.menu.addMenu("Cameras")
         self.disconnect_cameras_action = QAction("Disconnect Cameras", self)
-        self.connect_cameras_action = QAction("Connect Cameras", self)
         self.cameras_menu.addAction(self.disconnect_cameras_action)
+        self.disconnect_cameras_action.setEnabled(False)
+
+        self.connect_cameras_action = QAction("Connect Cameras", self)
         self.cameras_menu.addAction(self.connect_cameras_action)
+        self.connect_cameras_action.setEnabled(False)
+
+        self.connect_menu_actions()
 
         # Set up layout (based on splitter)
         # central_widget = QWidget(self)
@@ -95,9 +100,13 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
 
 
-
-    ################## FRAME READING and TRACKING CONTROL with TAB SWITCH ######################################
-
+    def connect_menu_actions(self):
+        self.connect_cameras_action.triggered.connect(self.load_stream_tools)
+    
+    def load_stream_tools(self):
+        self.session.load_stream_tools()
+        self.connect_cameras_action.setEnabled(False)
+        self.disconnect_cameras_action.setEnabled(True)
 
     def on_tab_changed(self, index):
         logger.info(f"Switching main window to tab {index}")
@@ -176,7 +185,7 @@ class MainWindow(QMainWindow):
         else:
             self.tab_widget.setTabEnabled(TabIndex.Processing.value, False)
         
-        
+        self.connect_cameras_action.setEnabled(True)        
 
         # might be able to do  
         old_index = self.tab_widget.currentIndex()

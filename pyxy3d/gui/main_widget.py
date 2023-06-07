@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QTabWidget,
 )
 import toml
+from enum import Enum
 from PyQt6.QtGui import QIcon, QAction, QKeySequence, QShortcut
 from PyQt6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__, __user_dir__
@@ -33,7 +34,12 @@ from pyxy3d.gui.calibrate_capture_volume_widget import CalibrateCaptureVolumeWid
 from pyxy3d.gui.recording_widget import RecordingWidget
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 
-
+class TabIndex(Enum):
+    Charuco = 0
+    Cameras = 1
+    CaptureVolume = 2
+    Recording = 3
+    Processing = 4
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -96,23 +102,23 @@ class MainWindow(QMainWindow):
     def on_tab_changed(self, index):
         logger.info(f"Switching main window to tab {index}")
         match index:
-            case 0:
+            case TabIndex.Charuco:
                 logger.info(f"Activating Charuco Widget")
                 self.session.set_mode(SessionMode.Charuco)
-            case 1:
+            case TabIndex.Cameras:
                 logger.info(f"Activating Camera Setup Widget")
                 self.session.set_mode(SessionMode.IntrinsicCalibration)
-            case 2:
+            case TabIndex.CaptureVolume:
                 logger.info(f"Activating Calibrate Capture Volume Widget")
 
                 if self.session.capture_volume_eligible():
                     self.calibrate_capture_volume_widget.activate_capture_volume_widget()
                 else:
                     self.calibrate_capture_volume_widget.activate_extrinsic_calibration_widget()
-            case 3:
+            case TabIndex.Recording:
                 logger.info(f"Activate Recording Mode")
                 self.session.set_mode(SessionMode.Recording)
-            case 4:
+            case TabIndex.Processing:
                 logger.info(f"Activate Processing Mode")
                 self.session.set_mode(SessionMode.PostProcessing)
                 # may have acquired new recordings
@@ -141,7 +147,7 @@ class MainWindow(QMainWindow):
         if self.session.capture_volume_eligible():
             self.calibrate_capture_volume_widget = CalibrateCaptureVolumeWidget(self.session)
         else:
-            self.capture_volume_widget = QWidget()
+            self.calibrate_capture_volume_widget = QWidget()
 
         self.tab_widget.addTab(self.charuco_widget, "Charuco")
         self.tab_widget.addTab(self.camera_widget, "Cameras")
@@ -149,10 +155,31 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.recording_widget, "Recording")
         self.tab_widget.addTab(self.processing_widget, "Processing")
 
-        # default no cameras...can't record
-        self.tab_widget.setTabEnabled(1, False)
-        if not self.session.post_processing_eligible():
-            self.tab_widget.setTabEnabled(2, False)
+        # can always modify charuco
+        self.tab_widget.setTabEnabled(TabIndex.Charuco, True)
+
+        # session launches without cameras connected
+        self.tab_widget.setTabEnabled(TabIndex.Cameras, False)
+        self.tab_widget.setTabEnabled(TabIndex.Recording, False)
+
+        
+        # might be able to fiddle with the capture volume origin
+        if self.session.capture_volume_eligible():
+            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume, True)
+        else:
+            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume, False)
+        
+        
+        # might be able to do post processing if recordings and calibration available
+        if self.session.post_processing_eligible():
+            self.tab_widget.setTabEnabled(TabIndex.Processing, True)
+        else:
+            self.tab_widget.setTabEnabled(TabIndex.Processing, False)
+        
+        
+
+        # might be able to do  
+        
         
             
         old_index = self.tab_widget.currentIndex()

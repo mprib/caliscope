@@ -378,6 +378,9 @@ class Session(QObject):
         logger.info(f"Signalling successful loading of stream tools")
         self.stream_tools_loaded_signal.emit()
 
+        self.pause_all_monocalibrators()
+        self.pause_synchronizer()
+
     def _load_monocalibrators(self):
         for port, cam in self.cameras.items():
             if port in self.monocalibrators.keys():

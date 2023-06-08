@@ -128,8 +128,7 @@ class VideoRecorder(QObject):
                 logger.info("Save frame worker winding down...")
                 syncronizer_subscription_released = True
                 self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
-
-        # self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
+                self.recording_stop_signal.emit()
 
         # a proper release is strictly necessary to ensure file is readable
         if include_video:
@@ -147,6 +146,8 @@ class VideoRecorder(QObject):
             self.store_point_history()
         self.trigger_stop.clear()  # reset stop recording trigger
         self.recording = False
+        self.all_frames_saved_signal.emit()
+
 
     def store_point_history(self):
         df = pd.DataFrame(self.point_data_history)

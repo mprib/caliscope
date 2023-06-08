@@ -324,8 +324,6 @@ class MainWindow(QMainWindow):
 
 def launch_main():
     app = QApplication(sys.argv)
-    # log_widget = LogWidget()
-    # log_widget.show()
     window = MainWindow()
     window.show()
 

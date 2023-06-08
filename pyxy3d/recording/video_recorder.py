@@ -75,12 +75,15 @@ class VideoRecorder:
 
         self.sync_packet_in_q = Queue(-1)
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
-
-        while not self.trigger_stop.is_set():
+        syncronizer_subscription_released = False
+        
+        # this is where the issue is... need to figure out when the queue is empty...
+        while self.sync_packet_in_q.qsize() > 0 or not self.trigger_stop.is_set(): 
             sync_packet: SyncPacket = self.sync_packet_in_q.get()
-
+            logger.info(f"Size of recording queue is {self.sync_packet_in_q.qsize()}")
             logger.debug("Pulling sync packet from queue")
             if sync_packet is None:
+                # relenvant when 
                 logger.info("End of sync packets signaled...breaking record loop")
                 break
 
@@ -112,9 +115,13 @@ class VideoRecorder:
                     if new_tidy_table is not None:  # i.e. it has data
                         for key, value in self.point_data_history.copy().items():
                             self.point_data_history[key].extend(new_tidy_table[key])
+                        
+            if not syncronizer_subscription_released and self.trigger_stop.is_set():
+                logger.info("Save frame worker winding down...")
+                syncronizer_subscription_released = True
+                self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
 
-        logger.info("Save frame worker winding down...")
-        self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
+        # self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
 
         # a proper release is strictly necessary to ensure file is readable
         if include_video:

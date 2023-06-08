@@ -432,7 +432,7 @@ class Session(QObject):
 
         self.is_recording = False
 
-        if self.post_processing_eligible:
+        if self.post_processing_eligible():
             self.unlock_postprocessing.emit()
 
     def _adjust_resolutions(self):

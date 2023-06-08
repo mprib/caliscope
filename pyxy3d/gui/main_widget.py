@@ -229,11 +229,7 @@ class MainWindow(QMainWindow):
         else:
             self.tab_widget.setTabEnabled(TabIndex.Processing.value, False)
             
-        # the only times when updates occur (init or stream connect) it 
-        # cannot be the case that active frames are being read.
 
-        # self.session.pause_all_monocalibrators()
-        # self.session.pause_synchronizer()
 
     def connect_session_signals(self):
         """

@@ -17,8 +17,8 @@ from pyxy3d.interface import FramePacket, SyncPacket
 
 
 class VideoRecorder(QObject):
-    recording_stop_signal = pyqtSignal
-    all_frames_saved_signal = pyqtSignal
+    recording_stop_signal = pyqtSignal()
+    all_frames_saved_signal = pyqtSignal()
 
     def __init__(self, synchronizer: Synchronizer, suffix: str = None):
         self.synchronizer = synchronizer

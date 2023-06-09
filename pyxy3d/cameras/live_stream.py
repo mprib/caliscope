@@ -82,18 +82,20 @@ class LiveStream(Stream):
             )
 
     def unsubscribe(self, queue: Queue):
-        if queue in self.subscribers:
-            logger.info(f"Removing subscriber from queue at port {self.port}")
-            self.subscribers.remove(queue)
-            logger.info(
-                f"{len(self.subscribers)} subscriber(s) remain at port {self.port}"
-            )
-        else:
-            logger.warn(
-                f"Attempted to unsubscribe to live stream that was not subscribed to\
-                at port {self.port} twice"
-            )
-
+        try:
+            if queue in self.subscribers:
+                logger.info(f"Removing subscriber from queue at port {self.port}")
+                self.subscribers.remove(queue)
+                logger.info(
+                    f"{len(self.subscribers)} subscriber(s) remain at port {self.port}"
+                )
+            else:
+                logger.warn(
+                    f"Attempted to unsubscribe to live stream that was not subscribed to\
+                    at port {self.port} twice"
+                )
+        except:
+            logger.warn("Attempted to remove queue that may have been removed twice at once")
     def set_fps_target(self, fps):
         """
         This is done through a method as it will also do a one-time determination of the times as which

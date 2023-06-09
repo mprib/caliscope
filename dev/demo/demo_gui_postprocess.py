@@ -19,8 +19,7 @@ app_settings = toml.load(Path(__app_dir__, "settings.toml"))
 recent_projects:list = app_settings["recent_projects"]
 
 recent_project_count = len(recent_projects)
-# session_path = Path(recent_projects[recent_project_count-1])
-session_path = Path(app_settings["last_project_parent"], "keng_hung")
+session_path = Path(recent_projects[recent_project_count-1])
 
 logger.info(f"Launching post processing widget for {session_path}")
 

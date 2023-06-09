@@ -36,7 +36,6 @@ FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojec
 class SessionMode(Enum):
     """
     """
-
     Charuco = auto()
     IntrinsicCalibration = auto()
     ExtrinsicCalibration = auto()
@@ -44,14 +43,14 @@ class SessionMode(Enum):
     Recording = auto()
     PostProcessing = auto()
 
-class CameraStage(Enum):
+class DataStage(Enum):
     NO_CAMERAS = auto()
     UNCALIBRATED_CAMERAS = auto()
     INTRINSICS_IN_PROCESES = auto()
     INTRINSICS_ESTIMATED = auto()
     EXTRINSICS_ESTIMATED = auto()
     ORIGIN_SET = auto()
-    # RECORDINGS_SAVED = auto()
+    RECORDINGS_SAVED = auto()
 
 class Session(QObject):
     stream_tools_loaded_signal = pyqtSignal()
@@ -104,16 +103,16 @@ class Session(QObject):
                         calibrated_camera_count += 1
 
         if connected_camera_count == 0:
-            stage = CameraStage.NO_CAMERAS
+            stage = DataStage.NO_CAMERAS
 
         elif calibrated_camera_count < connected_camera_count:
-            stage = CameraStage.UNCALIBRATED_CAMERAS
+            stage = DataStage.UNCALIBRATED_CAMERAS
 
         elif (
             connected_camera_count > 0
             and calibrated_camera_count == connected_camera_count
         ):
-            stage = CameraStage.INTRINSICS_ESTIMATED
+            stage = DataStage.INTRINSICS_ESTIMATED
 
         return stage
 

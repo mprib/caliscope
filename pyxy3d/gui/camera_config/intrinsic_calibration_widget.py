@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigTab
-from pyxy3d.session.session import Session, SessionMode, CameraStage
+from pyxy3d.session.session import Session, SessionMode, DataStage
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
 
 class IntrinsicCalibrationWidget(QWidget):
@@ -26,20 +26,8 @@ class IntrinsicCalibrationWidget(QWidget):
         self.setLayout(QVBoxLayout())    
         self.camera_tabs = CameraTabs(session)
         self.layout().addWidget(self.camera_tabs)
-        # self.navigation_bar = NavigationBarBackNext()
-        # self.layout().addWidget(self.navigation_bar)
     
-        self.camera_tabs.stereoframe_ready.connect(self.set_next_enabled)
-        self.camera_tabs.check_session_calibration()
         self.session = session
-        
-        #prior to entering intrinisc calibration mode, need to have an active monocalibrator
-        # self.session.active_monocalibrator = self.camera_tabs.currentWidget().port
-        # self.session.set_mode(SessionMode.Charuco)
-         
-    def set_next_enabled(self, stereoframe_ready:bool):
-        logger.info(f"Setting camera tab next button enabled status to {stereoframe_ready}")
-        # self.navigation_bar.next_btn.setEnabled(stereoframe_ready)
             
 class CameraTabs(QTabWidget):
     
@@ -99,10 +87,6 @@ class CameraTabs(QTabWidget):
                     pass  # already here, don't bother
                 else:
                     cam_tab = CameraConfigTab(self.session, port)
-                    
-                    # when new camera calibrated, check to see if all cameras calibrated
-                    cam_tab.calibrate_grp.calibration_change.connect(self.check_session_calibration)
-
                     tab_widgets[port] = cam_tab
 
             # add the widgets to the tab bar in order
@@ -111,21 +95,6 @@ class CameraTabs(QTabWidget):
             for port in ordered_ports:
                 self.insertTab(port, tab_widgets[port], f"Camera {port}")
             
-            # session may be pre-calibrated and ready to proceed...or not
-            self.check_session_calibration()
-            
         else:
             logger.info("No cameras available")
         
-        # self.toggle_tracking(self.currentIndex())
-    def check_session_calibration(self):
-        logger.info(f"Checking session stage....")
-        current_stage = self.session.get_camera_stage() 
-        if current_stage == CameraStage.INTRINSICS_ESTIMATED:
-            logger.info("Ready for stereoframe")
-            self.stereoframe_ready.emit(True)       
-        elif current_stage == CameraStage.UNCALIBRATED_CAMERAS:
-            logger.info("Not ready for stereoframe")
-            self.stereoframe_ready.emit(False)
-            
-

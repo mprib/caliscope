@@ -25,9 +25,9 @@ class IntrinsicCalibrationWidget(QWidget):
         super(IntrinsicCalibrationWidget, self).__init__()
         self.setLayout(QVBoxLayout())    
         self.camera_tabs = CameraTabs(session)
-        self.navigation_bar = NavigationBarBackNext()
         self.layout().addWidget(self.camera_tabs)
-        self.layout().addWidget(self.navigation_bar)
+        # self.navigation_bar = NavigationBarBackNext()
+        # self.layout().addWidget(self.navigation_bar)
     
         self.camera_tabs.stereoframe_ready.connect(self.set_next_enabled)
         self.camera_tabs.check_session_calibration()
@@ -39,7 +39,7 @@ class IntrinsicCalibrationWidget(QWidget):
          
     def set_next_enabled(self, stereoframe_ready:bool):
         logger.info(f"Setting camera tab next button enabled status to {stereoframe_ready}")
-        self.navigation_bar.next_btn.setEnabled(stereoframe_ready)
+        # self.navigation_bar.next_btn.setEnabled(stereoframe_ready)
             
 class CameraTabs(QTabWidget):
     

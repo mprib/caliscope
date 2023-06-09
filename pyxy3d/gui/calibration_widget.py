@@ -77,12 +77,12 @@ class CalibrationWidget(QStackedWidget):
             self.intrinsic_calibration_widget = IntrinsicCalibrationWidget(self.session)
             self.addWidget(self.intrinsic_calibration_widget)
             self.setCurrentWidget(self.intrinsic_calibration_widget)
-            self.intrinsic_calibration_widget.navigation_bar.back_btn.clicked.connect(
-                self.activate_charuco_wizard
-            )
-            self.intrinsic_calibration_widget.navigation_bar.next_btn.clicked.connect(
-                self.next_to_stereoframe
-            )
+            # self.intrinsic_calibration_widget.navigation_bar.back_btn.clicked.connect(
+            #     self.activate_charuco_wizard
+            # )
+            # self.intrinsic_calibration_widget.navigation_bar.next_btn.clicked.connect(
+            #     self.next_to_stereoframe
+            # )
         else:
             logger.info("Camera config already exists; changing stack current index")
             # active_port = self.camera_wizard.camera_tabs.currentIndex()

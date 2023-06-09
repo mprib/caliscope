@@ -21,6 +21,7 @@ class VideoRecorder(QObject):
     all_frames_saved_signal = pyqtSignal()
 
     def __init__(self, synchronizer: Synchronizer, suffix: str = None):
+        super().__init__()
         self.synchronizer = synchronizer
 
         # set text to be appended as port_X_{suffix}.mp4

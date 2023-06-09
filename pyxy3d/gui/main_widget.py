@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
 logger = pyxy3d.logger.get(__name__)
 from pathlib import Path
 from threading import Thread
-
+import sys
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -186,8 +186,11 @@ class MainWindow(QMainWindow):
 
     def update_tabs(self):
         """
-        An important method here... Need a way to refresh the GUI as appropriate whenever there is a
-        status change signaled by the session.
+        Tab updates occur primarily at 2 times:
+        1. upon main window initiation when offline capacities 
+        (capture volume and post-processing) may be available.
+
+        2. upon loading of stream tools when cameras/recording would be available
         """
 
         # can always modify charuco
@@ -225,6 +228,8 @@ class MainWindow(QMainWindow):
             self.tab_widget.setTabEnabled(TabIndex.Processing.value, True)
         else:
             self.tab_widget.setTabEnabled(TabIndex.Processing.value, False)
+            
+
 
     def connect_session_signals(self):
         """
@@ -314,9 +319,7 @@ class MainWindow(QMainWindow):
 
 
 def launch_main():
-    app = QApplication([])
-    # log_widget = LogWidget()
-    # log_widget.show()
+    app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
 

@@ -35,6 +35,7 @@ session = Session(config)
 session.set_mode(SessionMode.Recording)
 
 App = QApplication(sys.argv)
+# App = QApplication([])
 recording_dialog = RecordingWidget(session)
 recording_dialog.show()
 

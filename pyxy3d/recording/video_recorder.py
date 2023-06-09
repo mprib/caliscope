@@ -2,6 +2,7 @@ import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 
+from PyQt6.QtCore import QObject, pyqtSignal
 from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
@@ -15,7 +16,10 @@ from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.interface import FramePacket, SyncPacket
 
 
-class VideoRecorder:
+class VideoRecorder(QObject):
+    recording_stop_signal = pyqtSignal()
+    all_frames_saved_signal = pyqtSignal()
+
     def __init__(self, synchronizer: Synchronizer, suffix: str = None):
         self.synchronizer = synchronizer
 
@@ -75,12 +79,19 @@ class VideoRecorder:
 
         self.sync_packet_in_q = Queue(-1)
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
-
-        while not self.trigger_stop.is_set():
+        syncronizer_subscription_released = False
+        
+        # this is where the issue is... need to figure out when the queue is empty...
+        while self.sync_packet_in_q.qsize() > 0 or not self.trigger_stop.is_set(): 
             sync_packet: SyncPacket = self.sync_packet_in_q.get()
 
-            logger.debug("Pulling sync packet from queue")
+
+            # provide periodic updates of recording queue
+            if self.sync_packet_in_q.qsize() % 25 ==0:
+                logger.info(f"Size of unsaved frames on the recording queue is {self.sync_packet_in_q.qsize()}")
+
             if sync_packet is None:
+                # relenvant when 
                 logger.info("End of sync packets signaled...breaking record loop")
                 break
 
@@ -112,9 +123,12 @@ class VideoRecorder:
                     if new_tidy_table is not None:  # i.e. it has data
                         for key, value in self.point_data_history.copy().items():
                             self.point_data_history[key].extend(new_tidy_table[key])
-
-        logger.info("Save frame worker winding down...")
-        self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
+                        
+            if not syncronizer_subscription_released and self.trigger_stop.is_set():
+                logger.info("Save frame worker winding down...")
+                syncronizer_subscription_released = True
+                self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
+                self.recording_stop_signal.emit()
 
         # a proper release is strictly necessary to ensure file is readable
         if include_video:
@@ -132,6 +146,8 @@ class VideoRecorder:
             self.store_point_history()
         self.trigger_stop.clear()  # reset stop recording trigger
         self.recording = False
+        self.all_frames_saved_signal.emit()
+
 
     def store_point_history(self):
         df = pd.DataFrame(self.point_data_history)

@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigTab
-from pyxy3d.session.session import Session, SessionMode, DataStage
+from pyxy3d.session.session import Session
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
 
 class IntrinsicCalibrationWidget(QWidget):

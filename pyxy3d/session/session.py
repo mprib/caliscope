@@ -36,7 +36,6 @@ FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojec
 class SessionMode(Enum):
     """
     """
-
     Charuco = auto()
     IntrinsicCalibration = auto()
     ExtrinsicCalibration = auto()
@@ -44,18 +43,20 @@ class SessionMode(Enum):
     Recording = auto()
     PostProcessing = auto()
 
-class CameraStage(Enum):
-    NO_CAMERAS = auto()
-    UNCALIBRATED_CAMERAS = auto()
-    INTRINSICS_IN_PROCESES = auto()
-    INTRINSICS_ESTIMATED = auto()
-    EXTRINSICS_ESTIMATED = auto()
-    ORIGIN_SET = auto()
-    # RECORDINGS_SAVED = auto()
+# class DataStage(Enum):
+#     NO_CAMERAS = auto()
+#     UNCALIBRATED_CAMERAS = auto()
+#     INTRINSICS_IN_PROCESES = auto()
+#     INTRINSICS_ESTIMATED = auto()
+#     EXTRINSICS_ESTIMATED = auto()
+#     ORIGIN_SET = auto()
+#     RECORDINGS_SAVED = auto()
 
 class Session(QObject):
     stream_tools_loaded_signal = pyqtSignal()
+    stream_tools_disconnected_signal = pyqtSignal()
     unlock_postprocessing = pyqtSignal()
+
     mode_change_success = pyqtSignal(SessionMode)
 
     def __init__(self, config: Configurator):
@@ -93,33 +94,49 @@ class Session(QObject):
         self.mode = SessionMode.Charuco  # default mode of session
 
 ################
-    def get_camera_stage(self):
-        stage = None
-        connected_camera_count = len(self.cameras)
-        calibrated_camera_count = 0
-        for key in self.config.dict.keys():
-            if key.startswith("cam"):
-                if "error" in self.config.dict[key].keys():
-                    if self.config.dict[key]["error"] is not None:
-                        calibrated_camera_count += 1
+    # def get_stage(self):
+    #     stage = None
+    #     connected_camera_count = len(self.cameras)
+    #     calibrated_camera_count = 0
+    #     for key in self.config.dict.keys():
+    #         if key.startswith("cam"):
+    #             if "error" in self.config.dict[key].keys():
+    #                 if self.config.dict[key]["error"] is not None:
+    #                     calibrated_camera_count += 1
 
-        if connected_camera_count == 0:
-            stage = CameraStage.NO_CAMERAS
+    #     if connected_camera_count == 0:
+    #         stage = DataStage.NO_CAMERAS
 
-        elif calibrated_camera_count < connected_camera_count:
-            stage = CameraStage.UNCALIBRATED_CAMERAS
+    #     elif calibrated_camera_count < connected_camera_count:
+    #         stage = DataStage.UNCALIBRATED_CAMERAS
 
-        elif (
-            connected_camera_count > 0
-            and calibrated_camera_count == connected_camera_count
-        ):
-            stage = CameraStage.INTRINSICS_ESTIMATED
+    #     elif (
+    #         connected_camera_count > 0
+    #         and calibrated_camera_count == connected_camera_count
+    #     ):
+    #         stage = DataStage.INTRINSICS_ESTIMATED
 
-        return stage
+    #     return stage
 
-
-
-    
+    def disconnect_cameras(self):
+        """
+        Shut down the streams, close the camera captures and delete the monocalibrators and synchronizer
+        """
+        for port, stream in self.streams.items():
+            stream.stop_event.set()
+        self.streams = {}
+        for port, cam in self.cameras.items():
+            cam.disconnect()
+        self.cameras = {}
+        for port, monocal in self.monocalibrators.items():
+            monocal.stop_event.set()
+        self.monocalibrators = {} 
+        self.synchronizer.stop_event.set()
+        self.synchronizer = None
+        
+        self.stream_tools_disconnected_signal.emit()
+        
+        
 ######################
 
 

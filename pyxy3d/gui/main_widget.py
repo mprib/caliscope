@@ -74,9 +74,8 @@ class MainWindow(QMainWindow):
 
         self.file_menu.addMenu(self.open_recent_project_submenu)
 
-        self.close_session_action = QAction("Close Session", self)
-        # self.close_session_action.triggered.connect(self.close_current_session)
-        self.file_menu.addAction(self.close_session_action)
+        self.exit_pyxy3d_action = QAction("Exit", self)
+        self.file_menu.addAction(self.exit_pyxy3d_action)
 
         self.cameras_menu = self.menu.addMenu("Cameras")
         self.connect_cameras_action = QAction("Connect Cameras", self)
@@ -90,8 +89,6 @@ class MainWindow(QMainWindow):
         self.connect_menu_actions()
 
         # Set up layout (based on splitter)
-        # central_widget = QWidget(self)
-
         self.tab_widget = QTabWidget()
         self.setCentralWidget(self.tab_widget)
 
@@ -104,8 +101,31 @@ class MainWindow(QMainWindow):
 
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
 
+
+
     def connect_menu_actions(self):
         self.connect_cameras_action.triggered.connect(self.load_stream_tools)
+        self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
+        self.disconnect_cameras_action.triggered.connect(self.disconnect_cameras)
+        
+    def disconnect_cameras(self):
+        self.tab_widget.setCurrentWidget(self.charuco_widget)
+        self.tab_widget.setTabEnabled(TabIndex.Charuco.value,True)
+        self.tab_widget.setTabEnabled(TabIndex.Cameras.value,False)
+        self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value,False)
+        self.tab_widget.setTabEnabled(TabIndex.Recording.value,False)
+        self.tab_widget.setTabEnabled(TabIndex.Processing.value,True)
+        
+        self.camera_widget = QWidget()
+        self.calibrate_capture_volume_widget = QWidget()
+        self.recording_widget = QWidget()
+                
+        self.session.set_mode(SessionMode.Charuco)
+        self.session.disconnect_cameras() 
+        self.disconnect_cameras_action.setEnabled(False)
+        self.connect_cameras_action.setEnabled(True)
+
+        
 
     def load_stream_tools(self):
         self.connect_cameras_action.setEnabled(False)
@@ -131,6 +151,7 @@ class MainWindow(QMainWindow):
                     self.calibrate_capture_volume_widget.activate_capture_volume_widget()
                 else:
                     self.calibrate_capture_volume_widget.activate_extrinsic_calibration_widget()
+
             case TabIndex.Recording.value:
                 logger.info(f"Activate Recording Mode")
                 self.session.set_mode(SessionMode.Recording)

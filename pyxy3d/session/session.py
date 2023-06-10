@@ -215,33 +215,24 @@ class Session(QObject):
                 if self.monocalibrators != {}:
                     self.pause_all_monocalibrators()
 
-    def terminate_streams(self):
-        for port, stream in self.streams.items():
-            stream.stop_event.set()
-            stream = None
-        self.streams = {}
+    # def terminate_streams(self):
+    #     for port, stream in self.streams.items():
+    #         stream.stop_event.set()
+    #         stream = None
+    #     self.streams = {}
 
-    def terminate_monocalibrators(self):
-        for port, monocal in self.monocalibrators.items():
-            monocal.unsubscribe_from_stream()
-            monocal.stop_event.set()
-            monocal = None
-        self.monocalibrators = {}
+    # def terminate_monocalibrators(self):
+    #     for port, monocal in self.monocalibrators.items():
+    #         monocal.unsubscribe_from_stream()
+    #         monocal.stop_event.set()
+    #         monocal = None
+    #     self.monocalibrators = {}
 
-    def terminate_synchronizer(self):
-        self.synchronizer.unsubscribe_from_streams()
-        self.synchronizer.stop_event.set()
-        self.synchronizer = None
+    # def terminate_synchronizer(self):
+    #     self.synchronizer.unsubscribe_from_streams()
+    #     self.synchronizer.stop_event.set()
+    #     self.synchronizer = None
        
-    def load_streams(self):
-
-                
-        for port, cam in self.cameras.items():
-            logger.info(f"Loading Stream for port {port}")
-            self.streams[port] = LiveStream(cam, tracker=self.charuco_tracker)
-         
-        # this is going to get refactored as well, but I don't want to change too much at once
-        # self._adjust_resolutions() 
 
     def set_active_mode_fps(self, fps_target: int):
         """
@@ -280,6 +271,13 @@ class Session(QObject):
                 fps = self.fps_recording
         return fps
 
+    def load_streams(self):
+        for port, cam in self.cameras.items():
+            logger.info(f"Loading Stream for port {port}")
+            self.streams[port] = LiveStream(cam, tracker=self.charuco_tracker)
+         
+        # this is going to get refactored as well, but I don't want to change too much at once
+        # self._adjust_resolutions() 
     def update_streams_fps(self):
         active_mode_fps = self.get_active_mode_fps()
         if active_mode_fps is not None:
@@ -356,7 +354,13 @@ class Session(QObject):
         
         if self.streams == {}:
             self.load_streams()
-         
+
+        if self.monocalibrators == {}:
+            self.load_monocalibrators()
+
+        if self.synchronizer is None:
+            self.synchronizer = Synchronizer(self.streams)     
+
         self.cameras_connected_signal.emit()
 
     def load_stream_tools(self):

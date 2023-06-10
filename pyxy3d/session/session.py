@@ -1,6 +1,5 @@
 # Environment for managing all created objects and the primary interface for the GUI.
 import pyxy3d.logger
-
 logger = pyxy3d.logger.get(__name__)
 
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -43,15 +42,6 @@ class SessionMode(Enum):
     Recording = auto()
     PostProcessing = auto()
 
-# class DataStage(Enum):
-#     NO_CAMERAS = auto()
-#     UNCALIBRATED_CAMERAS = auto()
-#     INTRINSICS_IN_PROCESES = auto()
-#     INTRINSICS_ESTIMATED = auto()
-#     EXTRINSICS_ESTIMATED = auto()
-#     ORIGIN_SET = auto()
-#     RECORDINGS_SAVED = auto()
-
 class Session(QObject):
     stream_tools_loaded_signal = pyqtSignal()
     stream_tools_disconnected_signal = pyqtSignal()
@@ -76,7 +66,8 @@ class Session(QObject):
         self.cameras = {}
         self.streams = {}
         self.monocalibrators = {}  # key = port
-        self.active_monocalibrator = None
+        self.active_port = None
+        self.synchronizer = None
 
         # load fps for various modes
         self.fps_recording = self.config.get_fps_recording()
@@ -86,6 +77,7 @@ class Session(QObject):
         self.wait_time_intrinsic = self.config.get_intrinsic_wait_time()
 
         self.charuco = self.config.get_charuco()
+        self.charuco_tracker = CharucoTracker(self.charuco)
         self.mode = SessionMode.Charuco  # default mode of session
 
 ################
@@ -180,22 +172,38 @@ class Session(QObject):
         
         return eligible
         
+    def fully_calibrated_intrinsics(self):
+        
+        # assume true and seek to disprove
+        intrinsics_complete = True
+        for port, cam in self.cameras.items():
+            if cam.matrix is None or cam.distorations is None:
+                intrinsics_complete = False
+        return intrinsics_complete
+    
+    def fully_calibrated_extrinsics(self):
+        # assume true and seek to disprove
+        extrinsics_complete = True
+        for port, cam in self.cameras.items():
+            if cam.rotation is None or cam.translation is None:
+                extrinsics_complete = False
+        return extrinsics_complete
+        
+    # def post_processing_eligible(self):
+    #     """
+    #     Post processing can only be performed if recordings exist and extrinsics are calibrated
+    #     """
+    #     # the presence of these does not count as a recording
+    #     excluded_items = ["calibration", "config.toml"]
 
-    def post_processing_eligible(self):
-        """
-        Post processing can only be performed if recordings exist and extrinsics are calibrated
-        """
-        # the presence of these does not count as a recording
-        excluded_items = ["calibration", "config.toml"]
+    #     folders = [f for f in self.path.iterdir() if f.name not in excluded_items]
+    #     recording_count = len(folders)
+    #     if recording_count > 0:
+    #         eligible = True
+    #     else:
+    #         eligible = False            
 
-        folders = [f for f in self.path.iterdir() if f.name not in excluded_items]
-        recording_count = len(folders)
-        if recording_count > 0:
-            eligible = True
-        else:
-            eligible = False            
-
-        return eligible
+    #     return eligible
     
     def set_mode(self, mode: SessionMode):
         """
@@ -212,59 +220,80 @@ class Session(QObject):
                     
                 if self.monocalibrators != {}:
                     self.terminate_monocalibrators()
-                    
+                
+                if self.streams != {}:
+                    self.terminate_streams()                    
+
             case SessionMode.IntrinsicCalibration:
-                # update in case something has changed
                 self.charuco_tracker = CharucoTracker(self.charuco)
 
                 if self.synchronizer is not None:
                     self.terminate_synchronizer()
 
-                if self.cameras == {} or self.streams == {}:
+                if self.cameras == {}:
+                    self.connect_to_cameras()
+
+                if self.streams == {}:
                     self.load_streams()
             
                 if self.monocalibrators == {}:
                     self.load_monocalibrators()
 
+
                 self.pause_all_monocalibrators()
                 self.set_streams_charuco()
                 self.set_streams_tracking(True)
-                self.activate_monocalibrator(self.active_monocalibrator)
+                # keep this blocked out for now as it needs the GUI to activate the monocal by tab
+                # self.activate_monocalibrator(self.active_port)
 
             case SessionMode.ExtrinsicCalibration:
                 # update in case something has changed
                 self.charuco_tracker = CharucoTracker(self.charuco)
                 if self.monocalibrators != {}:
                     self.terminate_monocalibrators()
+
+                if self.cameras == {}:
+                    self.connect_to_cameras()
                 
                 if self.streams == {}:
                     self.load_streams()
 
-                
                 if self.synchronizer is None:
                     self.synchronizer = Synchronizer(self.streams) 
                     
-
-                if not self.stream_tools_loaded:
-                    self.load_stream_tools()
-
                 self.pause_all_monocalibrators()
                 self.set_streams_charuco()
                 self.set_streams_tracking(True)
                 self.synchronizer.subscribe_to_streams()
                 
             case SessionMode.CaptureVolumeOrigin:
-                if self.stream_tools_loaded:
-                    self.pause_all_monocalibrators()
-                    self.synchronizer.unsubscribe_from_streams()
+                if self.monocalibrators != {}:
+                    self.terminate_monocalibrators()
+
+                if self.synchronizer is not None:
+                    self.terminate_synchronizer()
+                    
+                if self.streams != {}:
+                    self.terminate_streams()                    
+
+
 
             case SessionMode.Recording:
-                if not self.stream_tools_loaded:
-                    self.load_stream_tools()
+                if self.monocalibrators != {}:
+                    self.terminate_monocalibrators()
 
-                self.pause_all_monocalibrators()
-                self.set_streams_tracking(False)
+                if self.cameras == {}:
+                    self.connect_to_cameras()
+                
+                if self.streams == {}:
+                    self.load_streams()
+
+                if self.synchronizer is None:
+                    self.synchronizer = Synchronizer(self.streams) 
+                    
+
                 self.update_streams_fps()
+                self.set_streams_tracking(False)
                 self.synchronizer.subscribe_to_streams()
 
             case SessionMode.PostProcessing:
@@ -293,7 +322,8 @@ class Session(QObject):
         self.synchronizer = None
        
     def load_streams(self):
-        
+
+                
         for port, cam in self.cameras.items():
             logger.info(f"Loading Stream for port {port}")
             self.streams[port] = LiveStream(cam, tracker=self.charuco_tracker)
@@ -429,7 +459,7 @@ class Session(QObject):
         self.load_monocalibrators()
 
         # set something as a default value just to get started
-        self.active_monocalibrator = min(self.monocalibrators.keys())
+        self.active_port = min(self.monocalibrators.keys())
 
 
         # recording widget becomes available when synchronizer is created
@@ -457,11 +487,11 @@ class Session(QObject):
 
         if active_port is not None:
             logger.info(f"Setting session active monocalibrator to {active_port}")
-            self.active_monocalibrator = active_port
+            self.active_port = active_port
         logger.info(
-            f"Activate tracking on port {self.active_monocalibrator} and deactivate others"
+            f"Activate tracking on port {self.active_port} and deactivate others"
         )
-        self.monocalibrators[self.active_monocalibrator].subscribe_to_stream()
+        self.monocalibrators[self.active_port].subscribe_to_stream()
 
     def pause_all_monocalibrators(self):
         """
@@ -490,8 +520,8 @@ class Session(QObject):
             logger.info("Waiting for video recorder to save out data...")
             sleep(0.5)
 
-        if self.post_processing_eligible():
-            self.unlock_postprocessing.emit()
+        # if self.post_processing_eligible():
+        #     self.unlock_postprocessing.emit()
 
     def _adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as

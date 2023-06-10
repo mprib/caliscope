@@ -115,32 +115,3 @@ class SummaryWidget(QWidget):
             table2.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers) 
             table3.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers) 
             
-
-if __name__ == "__main__":
-    from PyQt6.QtWidgets import QApplication
-    from pyxy3d.gui.calibration_widget import CalibrationWidget
-    import sys
-    from time import sleep
-    from pyxy3d import __root__
-    from pathlib import Path
-    from pyxy3d.session.session import Session
-    import toml
-    from pyxy3d import __app_dir__
-
-    app_settings = toml.load(Path(__app_dir__, "settings.toml"))
-    recent_projects: list = app_settings["recent_projects"]
-
-    recent_project_count = len(recent_projects)
-    session_path = Path(recent_projects[recent_project_count - 1])
-    config = Configurator(session_path)
-    session = Session(config)
-    session.load_stream_tools()
-    
-    port = 2
-
-    app = QApplication(sys.argv)
-    window = SummaryWidget(session.cameras[port])
-
-    window.show()
-
-    app.exec()

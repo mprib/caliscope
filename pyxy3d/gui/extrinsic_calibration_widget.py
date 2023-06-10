@@ -234,22 +234,3 @@ def cv2_to_qlabel(frame):
     return qt_frame
 
     
-if __name__ == "__main__":
-        from pyxy3d.configurator import Configurator
-        from pyxy3d.trackers.charuco_tracker import CharucoTracker
-
-        App = QApplication(sys.argv)
-
-        session_path = Path(__root__, "dev","sample_sessions", "257")
-        configurator = Configurator(session_path)
-
-        session = Session(configurator)
-        # session.load_cameras()
-        tracker = CharucoTracker(session.charuco)
-        session.load_stream_tools(tracker=tracker)
-
-
-        stereo_dialog = ExtrinsicCalibrationWidget(session)
-        stereo_dialog.show()
-
-        sys.exit(App.exec())

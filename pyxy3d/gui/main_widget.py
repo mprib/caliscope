@@ -125,13 +125,13 @@ class MainWindow(QMainWindow):
 
         
 
-    def load_stream_tools(self):
-        self.connect_cameras_action.setEnabled(False)
-        self.disconnect_cameras_action.setEnabled(True)
-        self.thread = Thread(
-            target=self.session.load_stream_tools, args=(), daemon=True
-        )
-        self.thread.start()
+    # def load_stream_tools(self):
+    #     self.connect_cameras_action.setEnabled(False)
+    #     self.disconnect_cameras_action.setEnabled(True)
+    #     self.thread = Thread(
+    #         target=self.session.load_stream_tools, args=(), daemon=True
+    #     )
+    #     self.thread.start()
 
     def on_tab_changed(self, index):
         logger.info(f"Switching main window to tab {index}")
@@ -165,6 +165,7 @@ class MainWindow(QMainWindow):
         logger.info(f"Launching session with config file stored in {session_path}")
         self.session = Session(self.config)
         self.connect_cameras_action.triggered.connect(self.session.connect_to_cameras)
+        self.session.cameras_connected_signal.connect(self.update_tabs_eligibility)
 
         # can always load charuco
         self.charuco_widget = CharucoWidget(self.session)

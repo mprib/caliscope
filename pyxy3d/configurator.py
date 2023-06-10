@@ -274,9 +274,14 @@ class Configurator:
                 pass  # don't load it in
             else:
                 if "verified_resolutions" in params.keys():
+                    # don't need to check for possible resolutions...run with last used camera resolution
                     verified_resolutions = params["verified_resolutions"]
-                    cameras[port] = Camera(port, verified_resolutions)
+                    cam = Camera(port, verified_resolutions)
+                    target_size = params["size"]
+                    cam.size = target_size
+                    cameras[port] = cam
                 else:
+                    # go through full camera initialization process (finding possible resolutions)
                     cameras[port] = Camera(port)
 
                 camera = cameras[port]  # just for ease of reference

@@ -139,21 +139,26 @@ class MainWindow(QMainWindow):
             case TabIndex.Cameras.value:
                 logger.info(f"Activating Camera Setup Widget")
                 self.session.set_mode(SessionMode.IntrinsicCalibration)
+                if type(self.camera_widget) != IntrinsicCalibrationWidget:
+                    self.load_camera_widget()
+                else:
+                    self.session.activate_monocalibrator(self.session.active_port)
+                # self.camera_widget = IntrinsicCalibrationWidget(self.session)
             case TabIndex.CaptureVolume.value:
                 logger.info(f"Activating Calibrate Capture Volume Widget")
-
-                if self.session.capture_volume_eligible():
-                    self.calibrate_capture_volume_widget.activate_capture_volume_widget()
-                else:
-                    self.calibrate_capture_volume_widget.activate_extrinsic_calibration_widget()
-
+                # not that when created, Capture Volume widget will set session mode based on state of calibration
+                self.load_capture_volume_widget()
+                # self.calibrate_capture_volume_widget = CalibrateCaptureVolumeWidget(self.session)
             case TabIndex.Recording.value:
                 logger.info(f"Activate Recording Mode")
                 self.session.set_mode(SessionMode.Recording)
+                # self.load_recording_widget()
+                self.recording_widget = RecordingWidget(self.session)
             case TabIndex.Processing.value:
                 logger.info(f"Activate Processing Mode")
                 self.session.set_mode(SessionMode.PostProcessing)
                 # may have acquired new recordings
+                # self.load_post_processing_widget()
                 self.processing_widget.update_recording_folders()
 
     def launch_session(self, path_to_folder: str):
@@ -211,15 +216,19 @@ class MainWindow(QMainWindow):
         # if you are connected to comeras, can configure them
         # recording widget may not be able to actually record if not calibrated
         if self.session.camera_setup_eligible():
+            logger.info("Updating tab eligibility for cameras and recording to True")
             self.tab_widget.setTabEnabled(TabIndex.Cameras.value, True)
             self.tab_widget.setTabEnabled(TabIndex.Recording.value, True)
         else:
+            logger.info("Updating tab eligibility for cameras and recording to False")
             self.tab_widget.setTabEnabled(TabIndex.Cameras.value, False)
             self.tab_widget.setTabEnabled(TabIndex.Recording.value, False)
         
-        if self.session.fully_calibrated_intrinsics():
+        if self.session.fully_calibrated_intrinsics() and self.session.camera_setup_eligible():
+            logger.info("Updating tab eligibility for Capture Volume to True")
             self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, True)
         else:
+            logger.info("Updating tab eligibility for Capture Volume to False")
             self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, False)
 
 

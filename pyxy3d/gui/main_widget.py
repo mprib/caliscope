@@ -225,24 +225,29 @@ class MainWindow(QMainWindow):
 
             if type(self.recording_widget) != RecordingWidget:
                 self.load_recording_widget()
+            
+            if type(self.calibrate_capture_volume_widget) != CalibrateCaptureVolumeWidget:
+                self.load_capture_volume_widget()
 
             self.tab_widget.setTabEnabled(TabIndex.Cameras.value, True)
             self.tab_widget.setTabEnabled(TabIndex.Recording.value, True)
+            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, True)
         else:
             self.tab_widget.setTabEnabled(TabIndex.Cameras.value, False)
             self.tab_widget.setTabEnabled(TabIndex.Recording.value, False)
+            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, False)
 
         # might be able to fiddle with the capture volume origin
-        if self.session.capture_volume_eligible():
-            if (
-                type(self.calibrate_capture_volume_widget)
-                != CalibrateCaptureVolumeWidget
-            ):
-                self.load_capture_volume_widget()
+        # if self.session.capture_volume_eligible():
+        #     if (
+        #         type(self.calibrate_capture_volume_widget)
+        #         != CalibrateCaptureVolumeWidget
+        #     ):
+        #         self.load_capture_volume_widget()
 
-            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, True)
-        else:
-            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, False)
+        #     self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, True)
+        # else:
+        #     self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, False)
 
         # might be able to do post processing if recordings and calibration available
         if self.session.post_processing_eligible():
@@ -284,11 +289,11 @@ class MainWindow(QMainWindow):
         self.calibrate_capture_volume_widget.deleteLater()
         new_capture_volume_widget = CalibrateCaptureVolumeWidget(self.session)
         self.tab_widget.insertTab(
-            TabIndex.Cameras.value,
+            TabIndex.CaptureVolume.value,
             new_capture_volume_widget,
             TabIndex.CaptureVolume.name,
         )
-        self.camera_widget = new_capture_volume_widget
+        self.calibrate_capture_volume_widget = new_capture_volume_widget
 
     def load_camera_widget(self):
         self.tab_widget.removeTab(TabIndex.Cameras.value)
@@ -298,6 +303,9 @@ class MainWindow(QMainWindow):
             TabIndex.Cameras.value, new_camera_widget, TabIndex.Cameras.name
         )
         self.camera_widget = new_camera_widget
+        
+        # if fully calibrated, then make capture volume available
+        # self.camera_widget.camera_tabs.stereoframe_ready.connect(self.update_tabs)
 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)

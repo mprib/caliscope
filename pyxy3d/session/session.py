@@ -177,7 +177,7 @@ class Session(QObject):
         # assume true and seek to disprove
         intrinsics_complete = True
         for port, cam in self.cameras.items():
-            if cam.matrix is None or cam.distorations is None:
+            if cam.matrix is None or cam.distortions is None:
                 intrinsics_complete = False
         return intrinsics_complete
     
@@ -311,7 +311,7 @@ class Session(QObject):
 
     def terminate_monocalibrators(self):
         for port, monocal in self.monocalibrators.items():
-            monocal.unsubscribe_frome_streams()
+            monocal.unsubscribe_from_stream()
             monocal.stop_event.set()
             monocal = None
         self.monocalibrators = {}

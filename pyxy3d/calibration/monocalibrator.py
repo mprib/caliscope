@@ -89,7 +89,7 @@ class MonoCalibrator():
     def subscribe_to_stream(self):
         self.stream.subscribe(self.frame_packet_in_q)
     
-    def unsubscribe_to_stream(self): 
+    def unsubscribe_from_stream(self): 
         self.stream.unsubscribe(self.frame_packet_in_q)
     
 

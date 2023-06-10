@@ -84,12 +84,12 @@ class TriangulationVisualizer:
         axis = gl.GLAxisItem()
         self.scene.addItem(axis)
 
-
-        self.meshes = {}
-        for port, cam in self.camera_array.cameras.items():
-            mesh: CameraMesh = mesh_from_camera(cam)
-            self.meshes[port] = mesh
-            self.scene.addItem(mesh)
+        if self.camera_array.extrinsics_calibrated:
+            self.meshes = {}
+            for port, cam in self.camera_array.cameras.items():
+                mesh: CameraMesh = mesh_from_camera(cam)
+                self.meshes[port] = mesh
+                self.scene.addItem(mesh)
 
         self.scatter = gl.GLScatterPlotItem(
             pos=np.array([0, 0, 0]),

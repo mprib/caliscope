@@ -22,6 +22,7 @@ logger.info(f"Attempting to launch session stored at {session_path}")
 
 config = Configurator(session_path)
 session = Session(config)
+session.connect_to_cameras()
 session.set_mode(SessionMode.IntrinsicCalibration) 
 app = QApplication(sys.argv)
 window = IntrinsicCalibrationWidget(session)

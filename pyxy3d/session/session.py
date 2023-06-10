@@ -68,6 +68,7 @@ class Session(QObject):
         self.monocalibrators = {}  # key = port
         self.active_port = None
         self.synchronizer = None
+        self.cameras_connected = False
 
         # load fps for various modes
         self.fps_recording = self.config.get_fps_recording()
@@ -199,8 +200,9 @@ class Session(QObject):
                 self.set_streams_tracking(True)
                 
             case SessionMode.CaptureVolumeOrigin:
-                self.pause_all_monocalibrators()
-                self.pause_synchronizer()
+                if self.cameras_connected:
+                    self.pause_all_monocalibrators()
+                    self.pause_synchronizer()
 
             case SessionMode.Recording:
                 self.pause_all_monocalibrators()
@@ -361,32 +363,36 @@ class Session(QObject):
         if self.synchronizer is None:
             self.synchronizer = Synchronizer(self.streams)     
 
-        self.cameras_connected_signal.emit()
-
-    def load_stream_tools(self):
-        """
-        Connects to stored cameras and creates streams with provided tracking
-        Because these streams are available, the synchronizer can then be initialized
-        """
-
-        if len(self.cameras) ==  0:
-            self.connect_to_cameras()
-       
-        self.load_streams() 
-
-        self._adjust_resolutions()
-        self.load_monocalibrators()
-
-        # set something as a default value just to get started
-        self.active_port = min(self.monocalibrators.keys())
-
-
-        # recording widget becomes available when synchronizer is created
-        logger.info(f"Signalling successful loading of stream tools")
-        self.stream_tools_loaded_signal.emit()
-
         self.pause_all_monocalibrators()
         self.pause_synchronizer()
+        self.cameras_connected = True
+        self.cameras_connected_signal.emit()
+        
+
+    # def load_stream_tools(self):
+    #     """
+    #     Connects to stored cameras and creates streams with provided tracking
+    #     Because these streams are available, the synchronizer can then be initialized
+    #     """
+
+    #     if len(self.cameras) ==  0:
+    #         self.connect_to_cameras()
+       
+    #     self.load_streams() 
+
+    #     self._adjust_resolutions()
+    #     self.load_monocalibrators()
+
+    #     # set something as a default value just to get started
+    #     self.active_port = min(self.monocalibrators.keys())
+
+
+    #     # recording widget becomes available when synchronizer is created
+    #     logger.info(f"Signalling successful loading of stream tools")
+    #     self.stream_tools_loaded_signal.emit()
+
+    #     self.pause_all_monocalibrators()
+    #     self.pause_synchronizer()
 
     def load_monocalibrators(self):
         for port, cam in self.cameras.items():

@@ -32,6 +32,7 @@ session_path = Path(recent_projects[recent_project_count-1])
 # copy_contents(session_origin_path,session_path)
 config = Configurator(session_path)
 session = Session(config)
+session.connect_to_cameras()
 session.set_mode(SessionMode.Recording)
 
 App = QApplication(sys.argv)

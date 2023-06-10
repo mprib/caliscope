@@ -17,6 +17,7 @@ session_path = Path(recent_projects[recent_project_count-1])
 
 config = Configurator(session_path)
 session = Session(config)
+session.connect_to_cameras()
 
 app = QApplication(sys.argv)
 window = CalibrateCaptureVolumeWidget(session)

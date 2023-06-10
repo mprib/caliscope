@@ -28,7 +28,6 @@ from pyxy3d import __root__, __settings_path__, __user_dir__
 from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.configurator import Configurator
-from pyxy3d.gui.calibration_widget import CalibrationWidget
 from pyxy3d.gui.charuco_widget import CharucoWidget
 from pyxy3d.gui.camera_config.intrinsic_calibration_widget import (
     IntrinsicCalibrationWidget,
@@ -170,22 +169,13 @@ class MainWindow(QMainWindow):
         # can always load charuco
         self.charuco_widget = CharucoWidget(self.session)
 
-        # launches without cameras connected, so just throw in placeholders
+        # Only active tab has a real widget, everything else is a placeholder that
+        # is built as needed from scratch when that tab is selected
         self.camera_widget = QWidget()
+        self.calibrate_capture_volume_widget = QWidget()
         self.recording_widget = QWidget()
-
-        # need to check whether some offline tasks are available now...
-        if self.session.post_processing_eligible():
-            self.processing_widget = PostProcessingWidget(self.session)
-        else:
-            self.processing_widget = QWidget()
-
-        if self.session.capture_volume_eligible():
-            self.calibrate_capture_volume_widget = CalibrateCaptureVolumeWidget(
-                self.session
-            )
-        else:
-            self.calibrate_capture_volume_widget = QWidget()
+        self.processing_widget = QWidget()
+        
 
         self.tab_widget.addTab(self.charuco_widget, "Charuco")
         self.tab_widget.addTab(self.camera_widget, "Cameras")
@@ -198,58 +188,41 @@ class MainWindow(QMainWindow):
 
         # Default to having ability to search out stream tools
         self.connect_cameras_action.setEnabled(True)
-        self.update_tabs()
+        self.update_tabs_eligibility()
         # might be able to do
         old_index = self.tab_widget.currentIndex()
 
         self.tab_widget.setCurrentIndex(old_index)
         self.connect_session_signals()
 
-    def update_tabs(self):
+    def update_tabs_eligibility(self):
         """
-        Tab updates occur primarily at 2 times:
-        1. upon main window initiation when offline capacities 
-        (capture volume and post-processing) may be available.
-
-        2. upon loading of stream tools when cameras/recording would be available
+        current state of the session defines what functionality the GUI should be
+        capable of moving into... this method makes sure that the user cannot 
+        initiate a mode/GUI widget that cannot be created by the session.
         """
 
-        # can always modify charuco
+        # can always modify charuco and access postprocessing
         self.tab_widget.setTabEnabled(TabIndex.Charuco.value, True)
+        # self.tab_widget.setTabEnabled(TabIndex.Processing.value, True)
+        
+        # for now, disable just because that widget needs fixing...
+        self.tab_widget.setTabEnabled(TabIndex.Processing.value, False)
 
-        # if you are connected to comeras
-        if self.session.stream_tools_loaded:
-            # but haven't already loaded a non-placeholder widget
-            if type(self.camera_widget) != IntrinsicCalibrationWidget:
-                self.load_camera_widget()
-
-            if type(self.recording_widget) != RecordingWidget:
-                self.load_recording_widget()
-
+        # if you are connected to comeras, can configure them
+        # recording widget may not be able to actually record if not calibrated
+        if self.session.camera_setup_eligible():
             self.tab_widget.setTabEnabled(TabIndex.Cameras.value, True)
             self.tab_widget.setTabEnabled(TabIndex.Recording.value, True)
         else:
             self.tab_widget.setTabEnabled(TabIndex.Cameras.value, False)
             self.tab_widget.setTabEnabled(TabIndex.Recording.value, False)
-
-        # might be able to fiddle with the capture volume origin
-        if self.session.capture_volume_eligible():
-            if (
-                type(self.calibrate_capture_volume_widget)
-                != CalibrateCaptureVolumeWidget
-            ):
-                self.load_capture_volume_widget()
-
+        
+        if self.session.fully_calibrated_intrinsics():
             self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, True)
         else:
             self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, False)
 
-        # might be able to do post processing if recordings and calibration available
-        if self.session.post_processing_eligible():
-            self.tab_widget.setTabEnabled(TabIndex.Processing.value, True)
-        else:
-            self.tab_widget.setTabEnabled(TabIndex.Processing.value, False)
-            
 
 
     def connect_session_signals(self):
@@ -258,7 +231,7 @@ class MainWindow(QMainWindow):
         Much of these will be from the GUI to the session and vice-versa
         """
         self.session.unlock_postprocessing.connect(self.load_post_processing_widget)
-        self.session.stream_tools_loaded_signal.connect(self.update_tabs)
+        self.session.stream_tools_loaded_signal.connect(self.update_tabs_eligibility)
 
     def load_recording_widget(self):
         # recording_index = self.tab_widget.indexOf(self.recording_widget)

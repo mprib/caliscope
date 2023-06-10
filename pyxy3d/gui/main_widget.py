@@ -104,7 +104,6 @@ class MainWindow(QMainWindow):
 
 
     def connect_menu_actions(self):
-        self.connect_cameras_action.triggered.connect(self.load_stream_tools)
         self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
         self.disconnect_cameras_action.triggered.connect(self.disconnect_cameras)
         
@@ -166,6 +165,7 @@ class MainWindow(QMainWindow):
         self.config = Configurator(session_path)
         logger.info(f"Launching session with config file stored in {session_path}")
         self.session = Session(self.config)
+        self.connect_cameras_action.triggered.connect(self.session.connect_to_cameras)
 
         # can always load charuco
         self.charuco_widget = CharucoWidget(self.session)

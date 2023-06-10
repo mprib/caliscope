@@ -134,6 +134,20 @@ class CameraArray:
             port = self.index_port[index]  # correct in case ignoring a camera
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
+        
+    @property
+    def extrinsics_calibrated(self)->bool:
+       
+        # assume extrinsics calibrated and provide otherwise
+        full_extrinsics = True 
+        for port, cam in self.cameras.items():
+            if cam.rotation is None or cam.translation is None:
+                full_extrinsics = False
+
+        return full_extrinsics
+        
+            
+            
 
 class CalibrationStage(Enum):
     """

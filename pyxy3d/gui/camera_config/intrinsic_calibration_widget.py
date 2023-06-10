@@ -41,6 +41,8 @@ class CameraTabs(QTabWidget):
         self.add_cam_tabs()
         # self.session.set_mode(SessionMode.IntrinsicCalibration)
         self.currentChanged.connect(self.activate_current_tab)
+        self.session.active_monocalibrator = self.currentWidget().stream.port
+        self.session.activate_monocalibrator()
 
     def keyPressEvent(self, event):
         """

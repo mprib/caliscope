@@ -39,6 +39,10 @@ class CaptureVolumeWidget(QWidget):
         super(CaptureVolumeWidget, self).__init__()
 
         self.session = session
+
+        if not hasattr(self.session, "capture_volume"):
+            self.session.load_estimated_capture_volume()
+            
         self.visualizer = CaptureVolumeVisualizer(self.session.capture_volume)
         # self.visualizer.scene.show()
         self.slider = QSlider(Qt.Orientation.Horizontal)

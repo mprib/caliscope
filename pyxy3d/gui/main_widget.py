@@ -148,9 +148,16 @@ class MainWindow(QMainWindow):
                 logger.info(f"Activating Calibrate Capture Volume Widget")
 
                 if self.session.capture_volume_eligible():
+                    logger.info(f"Session is eligible for setting of origin...activating capture volume origin widget")
                     self.calibrate_capture_volume_widget.activate_capture_volume_widget()
                 else:
+                    logger.info(f"Session is not eligible for setting of origin...activating extrinsic calibration widget")
                     self.calibrate_capture_volume_widget.activate_extrinsic_calibration_widget()
+
+                    if self.session.extrinsic_calibration_eligible():
+                        self.calibrate_capture_volume_widget.extrinsic_calibration_widget.calibrate_collect_btn.setEnabled(True)
+                    else:
+                        self.calibrate_capture_volume_widget.extrinsic_calibration_widget.calibrate_collect_btn.setEnabled(False)
 
             case TabIndex.Recording.value:
                 logger.info(f"Activate Recording Mode")
@@ -225,6 +232,9 @@ class MainWindow(QMainWindow):
             self.tab_widget.setTabEnabled(TabIndex.Cameras.value, True)
             self.tab_widget.setTabEnabled(TabIndex.Recording.value, True)
             self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, True)
+        
+
+
         else:
             self.tab_widget.setTabEnabled(TabIndex.Cameras.value, False)
             self.tab_widget.setTabEnabled(TabIndex.Recording.value, False)

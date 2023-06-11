@@ -126,8 +126,9 @@ class Session(QObject):
     def extrinsic_calibration_eligible(self):
 
         # assume it is and prove if it's not
+        self.camera_array = self.config.get_camera_array()
         eligible = True
-        for port, cam in self.cameras.items():
+        for port, cam in self.camera_array.cameras.items():
             if cam.matrix is None or cam.distortions is None:
                 eligible = False
                 
@@ -141,12 +142,17 @@ class Session(QObject):
         into the capture volume widget rather than the extrinsic calibration widget
         """
 
+        self.camera_array = self.config.get_camera_array()
         # assume it is and prove if it's not
         eligible = True
-        for port, cam in self.cameras.items():
+        for port, cam in self.camera_array.cameras.items():
             if cam.rotation is None or cam.translation is None:
                 eligible = False
-                
+                logger.info(f"Failed capture volume eligibility due to camera {port}: {cam.__dict__}")
+        
+        logger.info(f"Eligible to load capture volume? (i.e. fully calibrated extrinsics): {eligible}") 
+
+
         return eligible
 
     def start_recording_eligible(self):

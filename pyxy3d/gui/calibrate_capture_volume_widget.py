@@ -88,7 +88,7 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.addWidget(self.capture_volume_widget)
         self.setCurrentWidget(self.capture_volume_widget)
 
-        self.capture_volume_widget.navigation_bar.back_btn.clicked.connect(
+        self.capture_volume_widget.recalibrate_btn.clicked.connect(
             self.activate_extrinsic_calibration_widget
         )
         

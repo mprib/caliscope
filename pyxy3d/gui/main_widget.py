@@ -173,19 +173,8 @@ class MainWindow(QMainWindow):
         # launches without cameras connected, so just throw in placeholders
         self.camera_widget = QWidget()
         self.recording_widget = QWidget()
-
-        # need to check whether some offline tasks are available now...
-        if self.session.post_processing_eligible():
-            self.processing_widget = PostProcessingWidget(self.session)
-        else:
-            self.processing_widget = QWidget()
-
-        if self.session.capture_volume_eligible():
-            self.calibrate_capture_volume_widget = CalibrateCaptureVolumeWidget(
-                self.session
-            )
-        else:
-            self.calibrate_capture_volume_widget = QWidget()
+        self.processing_widget = QWidget()
+        self.calibrate_capture_volume_widget = QWidget()
 
         self.tab_widget.addTab(self.charuco_widget, "Charuco")
         self.tab_widget.addTab(self.camera_widget, "Cameras")
@@ -196,9 +185,13 @@ class MainWindow(QMainWindow):
         # when tabs change, make sure session mode adjusts
         self.tab_widget.currentChanged.connect(self.on_tab_changed)
 
-        # Default to having ability to search out stream tools
+        # Make sure file menu can allow camera connection action
         self.connect_cameras_action.setEnabled(True)
+        
+        # based on session parameters, may be able to load more than the defualt tabs
+        # check on that now...
         self.update_tabs()
+
         # might be able to do
         old_index = self.tab_widget.currentIndex()
 
@@ -237,20 +230,9 @@ class MainWindow(QMainWindow):
             self.tab_widget.setTabEnabled(TabIndex.Recording.value, False)
             self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, False)
 
-        # might be able to fiddle with the capture volume origin
-        # if self.session.capture_volume_eligible():
-        #     if (
-        #         type(self.calibrate_capture_volume_widget)
-        #         != CalibrateCaptureVolumeWidget
-        #     ):
-        #         self.load_capture_volume_widget()
-
-        #     self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, True)
-        # else:
-        #     self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, False)
-
         # might be able to do post processing if recordings and calibration available
         if self.session.post_processing_eligible():
+            self.load_post_processing_widget()
             self.tab_widget.setTabEnabled(TabIndex.Processing.value, True)
         else:
             self.tab_widget.setTabEnabled(TabIndex.Processing.value, False)

@@ -103,7 +103,7 @@ class PostProcessor(QObject):
         while video_recorder.recording:
             sleep(1)
             percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
-            logger.info(f"{percent_complete}% processed")
+            logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
             self.progress_update.emit(
                 {
                     "stage": "Estimating (x,y) landmark positions (stage 1 of 2)",
@@ -160,7 +160,7 @@ class PostProcessor(QObject):
             if int(time()) - last_log_update >= 1:
                 percent_complete = int(100*(index/sync_index_max))
                 logger.info(
-                    f"Triangulation of (x,y) point estimates is {percent_complete}% complete"
+                    f"(Stage 2 of 2): Triangulation of (x,y) point estimates is {percent_complete}% complete"
                 )
                 last_log_update = int(time())
                 self.progress_update.emit(

@@ -55,11 +55,10 @@ class CaptureVolumeWidget(QWidget):
         self.rotate_z_plus_btn = QPushButton("Z+")
         self.rotate_z_minus_btn = QPushButton("Z-")
 
-        self.distance_error_summary = QLabel(self.session.quality_controller.distance_error_summary.to_string(index=False))
+        # self.distance_error_summary = QLabel(self.session.quality_controller.distance_error_summary.to_string(index=False))
         self.rmse_summary = QLabel(self.session.capture_volume.get_rmse_summary())
-        
-
-        self.navigation_bar = NavigationBarBack()
+       
+        self.recalibrate_btn = QPushButton("Recalibrate") 
 
         self.place_widgets()
         self.connect_widgets()
@@ -69,13 +68,10 @@ class CaptureVolumeWidget(QWidget):
     def place_widgets(self):
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.visualizer.scene, stretch=2)
-        self.visualizer.scene.setMinimumHeight(400)
         self.layout().addWidget(self.slider)
-        self.layout().addWidget(self.set_origin_btn)
     
 
         self.grid = QGridLayout()
-        self.layout().addLayout(self.grid)
         self.grid.addWidget(self.rotate_x_plus_btn, 0, 0)
         self.grid.addWidget(self.rotate_x_minus_btn, 1, 0)
         self.grid.addWidget(self.rotate_y_plus_btn, 0, 1)
@@ -83,14 +79,22 @@ class CaptureVolumeWidget(QWidget):
         self.grid.addWidget(self.rotate_z_plus_btn, 0, 2)
         self.grid.addWidget(self.rotate_z_minus_btn, 1, 2)
 
-        # thie distance error summary here is ugly and needs to be in a table,
-        # But thats out of scope for my current objectives.
-        self.hbox_summary = QHBoxLayout()
-        self.hbox_summary.addWidget(self.rmse_summary)  
-        self.hbox_summary.addWidget(self.distance_error_summary)  
-        self.layout().addLayout(self.hbox_summary)
-
-        self.layout().addWidget(self.navigation_bar)
+        self.world_origin_group = QGroupBox()
+        self.world_origin_group.setLayout(QVBoxLayout())
+        self.world_origin_group.layout().addWidget(self.set_origin_btn)
+        self.world_origin_group.layout().addLayout(self.grid)
+        
+        self.calibrate_group = QGroupBox()
+        self.calibrate_group.setLayout(QVBoxLayout())
+        self.calibrate_group.layout().addWidget(self.rmse_summary)
+        self.calibrate_group.layout().addWidget(self.recalibrate_btn)
+        
+        self.hbox = QHBoxLayout()
+        self.hbox.addWidget(self.calibrate_group)
+        self.hbox.addWidget(self.world_origin_group)
+        self.layout().addLayout(self.hbox)
+        
+        # self.layout().addWidget(self.recalibrate_btn)
 
 
     def connect_widgets(self):

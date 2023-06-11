@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from threading import Thread, Event
 import time
+from enum import Enum
 
 import cv2
 from PyQt6.QtCore import Qt, pyqtSignal, QThread
@@ -39,6 +40,11 @@ from pyxy3d.gui.navigation_bars import NavigationBarNext
 MIN_THRESHOLD_FOR_EARLY_CALIBRATE = 5
 
 
+class PossibleActions(Enum):
+    CollectData = "Collect Data"
+    Terminate = "Terminate"
+    Calibrate = "Calibrate"
+
 class ExtrinsicCalibrationWidget(QWidget):
     calibration_complete = pyqtSignal()
     calibration_initiated = pyqtSignal()
@@ -58,9 +64,9 @@ class ExtrinsicCalibrationWidget(QWidget):
         self.board_count_spin.setValue(self.frame_builder.board_count_target)
         
         self.stereo_frame_display = QLabel()
-        self.navigation_bar = NavigationBarNext() 
-        self.calibrate_collect_btn = self.navigation_bar.calibrate_collect_btn
-
+        # self.navigation_bar = NavigationBarNext() 
+        self.possible_action = PossibleActions.CollectData
+        self.calibrate_collect_btn = QPushButton(self.possible_action.value)
         
         self.place_widgets()
         self.connect_widgets()        
@@ -92,13 +98,13 @@ class ExtrinsicCalibrationWidget(QWidget):
 
         self.scroll_area.setWidget(self.stereo_frame_display)
        
-        self.layout().addWidget(self.navigation_bar)
+        self.layout().addWidget(self.calibrate_collect_btn)
 
 
 
     def connect_widgets(self):
         
-        self.calibrate_collect_btn.clicked.connect(self.on_calibrate_connect_click)
+        self.calibrate_collect_btn.clicked.connect(self.on_calibrate_collect_click)
         self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
         self.frame_emitter.possible_to_initialize_array.connect(self.enable_calibration)
         self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_stream_fps)
@@ -108,33 +114,36 @@ class ExtrinsicCalibrationWidget(QWidget):
     def update_board_count_target(self, target):
         self.frame_builder.board_count_target = target
         
-    def on_calibrate_connect_click(self):
-        if self.calibrate_collect_btn.text() == "&Collect Data":
+    def on_calibrate_collect_click(self):
+        if self.possible_action == PossibleActions.CollectData:
             logger.info("Begin collecting calibration data")
             # by default, data saved to session folder
             self.frame_builder.store_points.set()
             extrinsic_calibration_path = Path(self.session.path, "calibration", "extrinsic")
             self.session.start_recording(extrinsic_calibration_path,store_point_history=True)
-            self.calibrate_collect_btn.setText("&Terminate")
+            self.possible_action = PossibleActions.Terminate
+            self.calibrate_collect_btn.setText(self.possible_action.value)
             self.calibrate_collect_btn.setEnabled(True)
             self.navigation_bar.back_btn.setEnabled(False)
 
-        elif self.calibrate_collect_btn.text() == "&Terminate":
+        elif self.possible_action == PossibleActions.Terminate:
             logger.info("Terminating current data collection")
             self.terminate.emit()
             # self.session.stop_recording()
             # self.frame_builder.reset()
-            self.calibrate_collect_btn.setText("&Collect Data")
+            self.possible_action = PossibleActions.CollectData
+            self.calibrate_collect_btn.setText(self.possible_action.value)
 
-        elif self.calibrate_collect_btn.text() == "&Calibrate":
-            logger.info("Prematurely end data collection")
+        elif self.possible_action == PossibleActions.Calibrate:
+            logger.info("Prematurely end data collection to initiate calibration")
             self.frame_builder.store_points.clear()
             self.initiate_calibration()
             
 
 
     def enable_calibration(self):
-        self.calibrate_collect_btn.setText("&Calibrate")
+        self.possible_action = PossibleActions.Calibrate
+        self.calibrate_collect_btn.setText(self.possible_action.value)
         self.calibrate_collect_btn.setEnabled(True)
         
         
@@ -160,8 +169,9 @@ class ExtrinsicCalibrationWidget(QWidget):
             logger.info("Pause synchronizer")
             self.session.pause_synchronizer()
             self.session.estimate_extrinsics()
-            # self.navigation_bar.back_btn.setEnabled(True)
-            self.calibrate_collect_btn.setText("&Collect Data")
+
+            self.possible_action = PossibleActions.CollectData
+            self.calibrate_collect_btn.setText(self.possible_action.value)
             self.calibrate_collect_btn.setEnabled(True)
             self.calibration_complete.emit()
             logger.info("Calibration Complete signal sent...")

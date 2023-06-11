@@ -31,9 +31,7 @@ class Configurator:
         self.toml_path = Path(self.session_path,"config.toml")
         
         if exists(self.toml_path):
-            logger.info("Found previous config")
-            with open(self.toml_path, "r") as f:
-                self.dict = toml.load(self.toml_path)
+            self.refresh_from_toml()
         else:
             logger.info(
                 "No existing config.toml found; creating starter file with charuco"
@@ -92,6 +90,13 @@ class Configurator:
         self.dict["fps_intrinsic_calibration"]  = fps 
         self.update_toml()
 
+
+    def refresh_from_toml(self):
+        logger.info("Populating config dictionary with config.toml data")
+        with open(self.toml_path, "r") as f:
+            self.dict = toml.load(self.toml_path)
+        
+        
     def update_toml(self):
         # alphabetize by key to maintain standardized layout
         sorted_dict = {key: value for key, value in sorted(self.dict.items())}
@@ -100,15 +105,6 @@ class Configurator:
         with open(self.toml_path, "w") as f:
             toml.dump(self.dict, f)
 
-    # session loads capture volume in pieces
-    # also creates quality controller
-    # delete this code if you see it commented out still
-    # def get_capture_volume(self)->CaptureVolume:
-    #     camera_array = self.get_camera_array()
-    #     point_estimates = self.get_point_estimates()
-        
-    #     capture_volume = CaptureVolume(camera_array,point_estimates)
-    #     return capture_volume
     
     def save_capture_volume(self, capture_volume:CaptureVolume):
         # self.point_estimates = self.capture_volume.point_estimates

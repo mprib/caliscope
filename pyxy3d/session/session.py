@@ -126,6 +126,7 @@ class Session(QObject):
     def extrinsic_calibration_eligible(self):
 
         # assume it is and prove if it's not
+        self.config.refresh_from_toml()
         self.camera_array = self.config.get_camera_array()
         eligible = True
         for port, cam in self.camera_array.cameras.items():
@@ -141,7 +142,8 @@ class Session(QObject):
         and there is a capture volume loaded up, then you can launch direct
         into the capture volume widget rather than the extrinsic calibration widget
         """
-
+        
+        self.config.refresh_from_toml()
         self.camera_array = self.config.get_camera_array()
         # assume it is and prove if it's not
         eligible = True
@@ -161,8 +163,11 @@ class Session(QObject):
         
         """
         #assume true and prove otherwise
+        self.config.refresh_from_toml()
+        self.camera_array = self.config.get_camera_array()
+
         has_extrinsics = True
-        for port, camera in self.cameras.items():
+        for port, camera in self.camera_array.cameras.items():
             if camera.ignore == False and (
                 camera.rotation is None or camera.translation is None
             ):

@@ -138,7 +138,7 @@ class TriangulationVisualizer:
 
             current_sync_index_flag = self.sync_indices == self.sync_index
             self.points = self.xyz_coord[current_sync_index_flag]
-            logger.info(f"Displaying xyz points for sync index {sync_index}")
+            logger.debug(f"Displaying xyz points for sync index {sync_index}")
             self.scatter.setData(pos=self.points)
 
         else: 

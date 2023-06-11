@@ -48,9 +48,12 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.session = session
 
         if self.session.capture_volume_eligible():
+            logger.info("able to load Capture Volume, proceeeding with load of capture volume widget")
             self.activate_capture_volume_widget()
         else:
+            logger.info("Unable to load capture volume from config; load extrinsic calibration widget")
             self.activate_extrinsic_calibration_widget()
+
     ###################### Stereocalibration  ######################################
     def activate_extrinsic_calibration_widget(self):
         logger.info(f"Setting session mode to {SessionMode.ExtrinsicCalibration} from within subwidget")
@@ -88,7 +91,7 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.addWidget(self.capture_volume_widget)
         self.setCurrentWidget(self.capture_volume_widget)
 
-        self.capture_volume_widget.navigation_bar.back_btn.clicked.connect(
+        self.capture_volume_widget.recalibrate_btn.clicked.connect(
             self.activate_extrinsic_calibration_widget
         )
         

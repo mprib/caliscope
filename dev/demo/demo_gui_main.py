@@ -13,13 +13,7 @@ recent_project_count = len(recent_projects)
 session_path = Path(recent_projects[recent_project_count - 1])
 
 app = QApplication(sys.argv)
-# app = QApplication([])
-
 window = MainWindow()
-
 window.launch_session(str(session_path))
-
-
 window.show()
-
 app.exec()

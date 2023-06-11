@@ -86,9 +86,9 @@ class VideoRecorder(QObject):
         while self.sync_packet_in_q.qsize() > 0 or not self.trigger_stop.is_set(): 
             sync_packet: SyncPacket = self.sync_packet_in_q.get()
 
-
             # provide periodic updates of recording queue
-            if self.sync_packet_in_q.qsize() % 25 ==0:
+            backlog = self.sync_packet_in_q.qsize()
+            if backlog % 25 == 0 and backlog !=0:
                 logger.info(f"Size of unsaved frames on the recording queue is {self.sync_packet_in_q.qsize()}")
 
             if sync_packet is None:

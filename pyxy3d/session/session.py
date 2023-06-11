@@ -93,30 +93,6 @@ class Session(QObject):
         self.charuco_tracker = CharucoTracker(self.charuco)
         self.mode = SessionMode.Charuco  # default mode of session
 
-################
-    # def get_stage(self):
-    #     stage = None
-    #     connected_camera_count = len(self.cameras)
-    #     calibrated_camera_count = 0
-    #     for key in self.config.dict.keys():
-    #         if key.startswith("cam"):
-    #             if "error" in self.config.dict[key].keys():
-    #                 if self.config.dict[key]["error"] is not None:
-    #                     calibrated_camera_count += 1
-
-    #     if connected_camera_count == 0:
-    #         stage = DataStage.NO_CAMERAS
-
-    #     elif calibrated_camera_count < connected_camera_count:
-    #         stage = DataStage.UNCALIBRATED_CAMERAS
-
-    #     elif (
-    #         connected_camera_count > 0
-    #         and calibrated_camera_count == connected_camera_count
-    #     ):
-    #         stage = DataStage.INTRINSICS_ESTIMATED
-
-    #     return stage
 
     def disconnect_cameras(self):
         """
@@ -147,14 +123,51 @@ class Session(QObject):
             eligible = False
         return eligible
 
+    def extrinsic_calibration_eligible(self):
+
+        # assume it is and prove if it's not
+        self.config.refresh_from_toml()
+        self.camera_array = self.config.get_camera_array()
+        eligible = True
+        for port, cam in self.camera_array.cameras.items():
+            if cam.matrix is None or cam.distortions is None:
+                eligible = False
+                
+        return eligible
+        
+
+    def capture_volume_eligible(self):
+        """
+        if all cameras that are not ignored have rotation and translation not None
+        and there is a capture volume loaded up, then you can launch direct
+        into the capture volume widget rather than the extrinsic calibration widget
+        """
+        
+        self.config.refresh_from_toml()
+        self.camera_array = self.config.get_camera_array()
+        # assume it is and prove if it's not
+        eligible = True
+        for port, cam in self.camera_array.cameras.items():
+            if cam.rotation is None or cam.translation is None:
+                eligible = False
+                logger.info(f"Failed capture volume eligibility due to camera {port}: {cam.__dict__}")
+        
+        logger.info(f"Eligible to load capture volume? (i.e. fully calibrated extrinsics): {eligible}") 
+
+
+        return eligible
+
     def start_recording_eligible(self):
         """
         Used to determine if the Record Button is enabled
         
         """
         #assume true and prove otherwise
+        self.config.refresh_from_toml()
+        self.camera_array = self.config.get_camera_array()
+
         has_extrinsics = True
-        for port, camera in self.cameras.items():
+        for port, camera in self.camera_array.cameras.items():
             if camera.ignore == False and (
                 camera.rotation is None or camera.translation is None
             ):
@@ -168,24 +181,8 @@ class Session(QObject):
             eligible = False
 
         return eligible
-
-    def capture_volume_eligible(self):
-        """
-        if all cameras that are not ignored have rotation and translation not None
-        and there is a capture volume loaded up, then you can launch direct
-        into the capture volume widget rather than the extrinsic calibration widget
-        """
-
-        # If not able to load, then not eligible
-        try: 
-            self.load_estimated_capture_volume()
-            eligible = True
-        except:
-            eligible = False
         
-        return eligible
         
-
     def post_processing_eligible(self):
         """
         Post processing can only be performed if recordings exist and extrinsics are calibrated
@@ -201,6 +198,7 @@ class Session(QObject):
             eligible = False            
 
         return eligible
+   
     
     def set_mode(self, mode: SessionMode):
         """

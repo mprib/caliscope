@@ -74,15 +74,13 @@ class CaptureVolume:
         return rmse
 
     def get_rmse_summary(self):
-        
-        rmse_string = f"\nRMSE of Reprojection\n"
-        rmse_string+= f"    Overall: {round(self.rmse['overall'],2)}\n"
+        rmse_string = f"RMSE of Reprojection Overall: {round(self.rmse['overall'],2)}\n"
         rmse_string+= "    by camera:\n"
         for key, value in self.rmse.items():
             if key == "overall":
                 pass
             else:
-                rmse_string+=f"{key: >9}: {round(float(value),2)} \n"
+                rmse_string+=f"    {key: >9}: {round(float(value),2)}\n"
 
         return rmse_string
         

@@ -6,6 +6,15 @@
 
 Pyxy3D is an open-source python tool for converting two-dimensional (x,y) coordinates obtained from multiple standard webcams into 3D point estimates. It provides an integrated system for camera calibration and point triangulation that enables the creation of cost-efficient small scale motion capture systems. When combined with markerless tracking algorithms such as Google's Mediapipe, it is possible to perform markerless 3D tracking with a standard computer and a couple webcams. 
 
+## Video Walkthrough
+
+### Installation
+
+
+
+### A complete session
+
+
 
 
 ## Key Features
@@ -89,20 +98,24 @@ pip install pyxy3d
 Installation may take a moment...
 
 ### 3. Launch from the command line
-{#cli}
 With the package installed and the virtual environment activated, the main GUI can be launched by running the following command to launch the tool:
 
 ```
 pyxy3d
 ```
 
+You can create a new session folder from the menu. Connect to available cameras to begin the calibration process.
 
+If you experience crashes after initializing the session folder, then you can launch the individual interface components one at a time as needed. **NAVIGATE TO THE FOLDER OF THE SESSION YOU WANT TO LAUNCH** and run one of the following as needed: `charuco`, `cameras`, `calibrate`, `record`, `process`
 
-A window should pop up and you can proceed with the capture session
+For example, if you are getting crashes when trying to record, within the terminal navigate to the session folder you previously created and run:
 
-### Example session
+```
+pyxy3d record
+```
 
-For a detailed walkthrough, refer to the project's comprehensive [documentation](link_to_documentation).
+A recording widget will open up that will hopefully be more efficient and stable than the complete GUI.
+
 
 ## Reporting Issues and Requesting Features
 

@@ -184,17 +184,17 @@ class Session(QObject):
 
     def is_post_processing_eligible(self):
         """
-        Post processing can only be performed if recordings exist and extrinsics are calibrated
+        Post processing can only be performed if recordings (mp4 files) exist and extrinsics 
+        (config.toml) are calibrated in the 'record' directory
         """
-        # the presence of these does not count as a recording
-        excluded_items = ["calibration", "config.toml"]
-
-        folders = [f for f in self.path.iterdir() if f.name not in excluded_items]
-        recording_count = len(folders)
-        if recording_count > 0:
-            eligible = True
-        else:
-            eligible = False
+        #assume false and prove otherwise
+        eligible = False
+        for child in self.path.iterdir():
+            if child.is_dir():
+                mp4_files = list(child.glob('*.mp4'))
+                config_file = child / 'config.toml'
+                if mp4_files and config_file.exists():
+                    eligible=True
 
         return eligible
 

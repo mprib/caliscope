@@ -449,6 +449,7 @@ class Session(QObject):
 
         self.is_recording = False
 
+        logger.info(f"Recording of frames is complete...signalling change in status")
         self.recording_complete_signal.emit()
 
         if self.is_post_processing_eligible():

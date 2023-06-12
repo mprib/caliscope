@@ -41,9 +41,7 @@ Please note that the system currently has the following **limitations**:
 
 Pyxy3D is installable via pip and the GUI can be launched from the command line. It is **strongly** advised that you do so within a virtual environment. The package requires [Python 3.10](https://www.python.org/downloads/release/python-3100/)  or higher. Because the Mediapipe implementation only works on Windows currently, these steps assume you are installing on Windows 10.
 
-I include here a great deal of detail on setting up the virtual environment because this can create a stumbling block for many folks who are not accustomed to the pitfalls of python environment and package management.
-
-### Create a virtual environment
+### 1. Create a virtual environment
 
 Find the path to your python.exe file. You can install Python 3.10 from [here](https://www.python.org/downloads/release/python-3100/). For me the path is `C:\Python310\python.exe`
 
@@ -70,7 +68,7 @@ python -c "import sys; print(sys.executable)"
 which should point to the file in the virtual environment you created:
 ![[Pasted image 20230608100059.png]]
 
-### Install pyxy3D via pip
+### 2. Install pyxy3D via pip
 
 For extra caution, upgrade pip with the following command:
 ```
@@ -85,7 +83,7 @@ pip install pyxy3d
 
 Installation may take a moment...
 
-### Launch from the command line
+### 3. Launch from the command line
 
 With the package installed and the virtual environment activated, run the following command to launch the tool:
 

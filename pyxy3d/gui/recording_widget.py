@@ -79,7 +79,11 @@ class RecordingWidget(QWidget):
         self.connect_widgets()        
     
     def update_btn_eligibility(self):
-        if self.session.is_recording_eligible()
+        if self.session.is_recording_eligible():
+            self.start_stop.setEnabled(True)
+        else:
+            self.start_stop.setEnabled(False)
+            
 
     def get_next_recording_directory(self):
 

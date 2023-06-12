@@ -45,7 +45,8 @@ Pyxy3D is installable via pip and the GUI can be launched from the command line.
 
 Find the path to your python.exe file. You can install Python 3.10 from [here](https://www.python.org/downloads/release/python-3100/). For me the path is `C:\Python310\python.exe`
 
-Create a folder where you would like the code and virtual environment to live. This can be different from the folder where your motion capture calibration and recording data is stored. Open the folder and right click within it, select  ![[Pasted image 20230608102647.png]] from the context menu to launch a terminal. 
+Create a folder where you would like the code and virtual environment to live. This can be different from the folder where your motion capture calibration and recording data is stored. Open the folder and right click within it, select  ![Pasted image 20230608102647](https://github.com/mprib/pyxy3d/assets/31831778/5c0ad5a7-fa57-473b-a549-243d93628dd3)
+ from the context menu to launch a terminal. 
    
 Run the following at the command prompt. Substitute in the path to `python.exe` that is true for your machine
 ```
@@ -58,7 +59,7 @@ This will create a fresh version of python within that folder which you will use
 ```
 
 The terminal should now show the environment is activated with something like this green parenthetical:
-![[Pasted image 20230608095719.png]]
+![Pasted image 20230608095719](https://github.com/mprib/pyxy3d/assets/31831778/10a91524-9a81-41d1-b27b-0b6ba723cb27)
 
 You can confirm that your python path is set by running
 
@@ -66,7 +67,7 @@ You can confirm that your python path is set by running
 python -c "import sys; print(sys.executable)"
 ```
 which should point to the file in the virtual environment you created:
-![[Pasted image 20230608100059.png]]
+![Pasted image 20230608100059](https://github.com/mprib/pyxy3d/assets/31831778/e214ebae-692c-4b50-b6f4-f34dcb44df43)
 
 ### 2. Install pyxy3D via pip
 

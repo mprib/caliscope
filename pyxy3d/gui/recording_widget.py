@@ -77,6 +77,7 @@ class RecordingWidget(QWidget):
         
         self.place_widgets()
         self.connect_widgets()        
+        self.update_btn_eligibility()
     
     def update_btn_eligibility(self):
         if self.session.is_recording_eligible():

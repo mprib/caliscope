@@ -172,12 +172,12 @@ class CalibrationWidget(QStackedWidget):
         self.session.unpause_synchronizer()
 
 
-def launch_calibration_widget(session_path:Path):
+def launch_extrinsic_calibration_widget(session_path:Path):
     config = Configurator(session_path)
     session = Session(config)
+    session.set_mode(SessionMode.ExtrinsicCalibration)
 
     app = QApplication(sys.argv)
-
     window = CalibrationWidget(session)
     window.show()
     app.exec()

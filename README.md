@@ -84,11 +84,6 @@ which should point to the file in the virtual environment you created:
 
 ### 2. Install pyxy3D via pip
 
-For extra caution, upgrade pip with the following command:
-```
-pip install --upgrade pip
-```
-
 You are now ready to install pyxy3D from the Python Package Index (PyPI) via pip:
 
 ```

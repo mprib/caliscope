@@ -45,20 +45,11 @@ class SessionMode(Enum):
     PostProcessing = auto()
 
 
-# class DataStage(Enum):
-#     NO_CAMERAS = auto()
-#     UNCALIBRATED_CAMERAS = auto()
-#     INTRINSICS_IN_PROCESES = auto()
-#     INTRINSICS_ESTIMATED = auto()
-#     EXTRINSICS_ESTIMATED = auto()
-#     ORIGIN_SET = auto()
-#     RECORDINGS_SAVED = auto()
-
-
 class Session(QObject):
     stream_tools_loaded_signal = pyqtSignal()
     stream_tools_disconnected_signal = pyqtSignal()
     unlock_postprocessing = pyqtSignal()
+    recording_complete_signal = pyqtSignal()        
 
     mode_change_success = pyqtSignal(SessionMode)
 
@@ -457,6 +448,8 @@ class Session(QObject):
             sleep(0.5)
 
         self.is_recording = False
+
+        self.recording_complete_signal.emit()
 
         if self.post_processing_eligible():
             self.unlock_postprocessing.emit()

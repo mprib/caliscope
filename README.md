@@ -6,6 +6,8 @@
 
 Pyxy3D is an open-source python tool for converting two-dimensional (x,y) coordinates obtained from multiple standard webcams into 3D point estimates. It provides an integrated system for camera calibration and point triangulation that enables the creation of cost-efficient small scale motion capture systems. When combined with markerless tracking algorithms such as Google's Mediapipe, it is possible to perform markerless 3D tracking with a standard computer and a couple webcams. 
 
+
+
 ## Key Features
 
 The project leans heavily upon OpenCV, SciPy, and PyQt to provide the following **key features**:
@@ -35,7 +37,9 @@ Please note that the system currently has the following **limitations**:
     - the underlying data processing pipeline was designed to accommodate real-time tracking but I want to make sure that everything works well with the simpler and more stable post-processing workflow before trying to get that implemented in an integrated way
 - Data export is currently limited to .csv, and .trc files. Use in 3D animation tools like Blender, which require character rigging, will require additional processing.
 
+## Known Issues
 
+The main GUI allows for accessing of all of the package's functionality at once, though this imposes some additional processing overhead that can undermine recording, and switching between GUI modes can provoke crashes. Improvements are on the To Do list, but in the meantime can be sidestepped by launching individual widgets from the command line as [described below](#CLI)
 
 ## Installation
 
@@ -84,13 +88,15 @@ pip install pyxy3d
 
 Installation may take a moment...
 
-### 3. Launch from the command line
+### 3. Launch from the command line {#CLI}
 
-With the package installed and the virtual environment activated, run the following command to launch the tool:
+With the package installed and the virtual environment activated, the main GUI can be launched by running the following command to launch the tool:
 
 ```
 pyxy3d
 ```
+
+
 
 A window should pop up and you can proceed with the capture session
 

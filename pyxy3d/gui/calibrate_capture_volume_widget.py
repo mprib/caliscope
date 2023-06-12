@@ -47,7 +47,7 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
 
         self.session = session
 
-        if self.session.capture_volume_eligible():
+        if self.session.is_capture_volume_eligible():
             logger.info("able to load Capture Volume, proceeeding with load of capture volume widget")
             self.activate_capture_volume_widget()
         else:
@@ -70,7 +70,7 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.addWidget(self.extrinsic_calibration_widget)
         self.setCurrentWidget(self.extrinsic_calibration_widget)
         self.extrinsic_calibration_widget.calibration_complete.connect(self.activate_capture_volume_widget)
-
+        self.extrinsic_calibration_widget.update_btn_eligibility()
         
         # self.session.unpause_synchronizer()
         

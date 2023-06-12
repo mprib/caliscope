@@ -45,20 +45,11 @@ class SessionMode(Enum):
     PostProcessing = auto()
 
 
-# class DataStage(Enum):
-#     NO_CAMERAS = auto()
-#     UNCALIBRATED_CAMERAS = auto()
-#     INTRINSICS_IN_PROCESES = auto()
-#     INTRINSICS_ESTIMATED = auto()
-#     EXTRINSICS_ESTIMATED = auto()
-#     ORIGIN_SET = auto()
-#     RECORDINGS_SAVED = auto()
-
-
 class Session(QObject):
     stream_tools_loaded_signal = pyqtSignal()
     stream_tools_disconnected_signal = pyqtSignal()
     unlock_postprocessing = pyqtSignal()
+    recording_complete_signal = pyqtSignal()        
 
     mode_change_success = pyqtSignal(SessionMode)
 
@@ -114,14 +105,14 @@ class Session(QObject):
 
         self.stream_tools_disconnected_signal.emit()
 
-    def camera_setup_eligible(self):
+    def is_camera_setup_eligible(self):
         if len(self.cameras) > 0:
             eligible = True
         else:
             eligible = False
         return eligible
 
-    def extrinsic_calibration_eligible(self):
+    def is_extrinsic_calibration_eligible(self):
         # assume it is and prove if it's not
         self.config.refresh_from_toml()
         self.camera_array = self.config.get_camera_array()
@@ -132,7 +123,7 @@ class Session(QObject):
 
         return eligible
 
-    def capture_volume_eligible(self):
+    def is_capture_volume_eligible(self):
         """
         if all cameras that are not ignored have rotation and translation not None
         and there is a capture volume loaded up, then you can launch direct
@@ -161,7 +152,7 @@ class Session(QObject):
 
         return eligible
 
-    def start_recording_eligible(self):
+    def is_recording_eligible(self):
         """
         Used to determine if the Record Button is enabled
 
@@ -191,7 +182,7 @@ class Session(QObject):
 
         return eligible
 
-    def post_processing_eligible(self):
+    def is_post_processing_eligible(self):
         """
         Post processing can only be performed if recordings exist and extrinsics are calibrated
         """
@@ -458,7 +449,10 @@ class Session(QObject):
 
         self.is_recording = False
 
-        if self.post_processing_eligible():
+        logger.info(f"Recording of frames is complete...signalling change in status")
+        self.recording_complete_signal.emit()
+
+        if self.is_post_processing_eligible():
             self.unlock_postprocessing.emit()
 
     def _adjust_resolutions(self):

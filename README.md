@@ -39,7 +39,7 @@ Please note that the system currently has the following **limitations**:
 
 ## Known Issues
 
-The main GUI allows for accessing of all of the package's functionality at once, though this imposes some additional processing overhead that can undermine recording, and switching between GUI modes can provoke crashes. Improvements are on the To Do list, but in the meantime can be sidestepped by launching individual widgets from the command line as [described below](#CLI)
+The main GUI allows for accessing of all of the package's functionality at once, though this imposes some additional processing overhead that can undermine recording, and switching between GUI modes can provoke crashes. Improvements are on the To Do list, but in the meantime can be sidestepped by launching individual widgets from the command line as [described below](#cli)
 
 ## Installation
 
@@ -88,7 +88,7 @@ pip install pyxy3d
 
 Installation may take a moment...
 
-### 3. Launch from the command line {#CLI}
+### 3. Launch from the command line {#cli}
 
 With the package installed and the virtual environment activated, the main GUI can be launched by running the following command to launch the tool:
 

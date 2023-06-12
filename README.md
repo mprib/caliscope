@@ -89,7 +89,7 @@ pip install pyxy3d
 Installation may take a moment...
 
 ### 3. Launch from the command line
-
+{#cli}
 With the package installed and the virtual environment activated, the main GUI can be launched by running the following command to launch the tool:
 
 ```

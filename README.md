@@ -32,7 +32,7 @@ The project leans heavily upon OpenCV, SciPy, and PyQt to provide the following 
 - Tracker API for future extensibility with included sample implementation using Mediapipe 
 - Triangulation of tracked landmarks
 - Visualization of triangulated points for quick confirmation of output quality
-- currently exporting to `.csv` and `.trc` file formats
+- Currently exporting to `.csv` and `.trc` file formats
 
 ## Limitations
 
@@ -104,7 +104,7 @@ With the package installed and the virtual environment activated, the main GUI c
 pyxy3d
 ```
 
-You can create a new session folder from the menu. Connect to available cameras to begin the calibration process.
+A video walkthrough of a sample session is [here]()
 
 If you experience crashes after initializing the session folder, then you can launch the individual interface components one at a time as needed. **NAVIGATE TO THE FOLDER OF THE SESSION YOU WANT TO LAUNCH** and run one of the following as needed: `charuco`, `cameras`, `calibrate`, `record`, `process`
 
@@ -114,16 +114,16 @@ For example, if you are getting crashes when trying to record, within the termin
 pyxy3d record
 ```
 
-A recording widget will open up that will hopefully be more efficient and stable than the complete GUI.
+A recording widget will open up that should be more efficient and stable than the complete GUI.
 
 
 ## Reporting Issues and Requesting Features
 
-To report a bug or request a feature, please open an issue.
+To report a bug or request a feature, please [open an issue](https://github.com/mprib/pyxy3d/issues). Please keep in mind that this is an open-source project supported by volunteer effort, so your patience is appreciated.
 
 ## General Questions and Conversation
 
-Post any questions in the Discussions section of the repo. As you post your questions, please keep in mind that this is an open-source project supported by volunteer effort, so your patience is appreciated.
+Post any questions in the [Discussions](https://github.com/mprib/pyxy3d/discussions) section of the repo. 
 
 ## Acknowledgments
 

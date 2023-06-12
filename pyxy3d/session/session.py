@@ -28,20 +28,22 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
 from pyxy3d.configurator import Configurator
 from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.recording.video_recorder import VideoRecorder
+
 # %%
 MAX_CAMERA_PORT_CHECK = 10
 FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration
 
 
 class SessionMode(Enum):
-    """
-    """
+    """ """
+
     Charuco = auto()
     IntrinsicCalibration = auto()
     ExtrinsicCalibration = auto()
     CaptureVolumeOrigin = auto()
     Recording = auto()
     PostProcessing = auto()
+
 
 # class DataStage(Enum):
 #     NO_CAMERAS = auto()
@@ -52,6 +54,7 @@ class SessionMode(Enum):
 #     ORIGIN_SET = auto()
 #     RECORDINGS_SAVED = auto()
 
+
 class Session(QObject):
     stream_tools_loaded_signal = pyqtSignal()
     stream_tools_disconnected_signal = pyqtSignal()
@@ -60,7 +63,7 @@ class Session(QObject):
     mode_change_success = pyqtSignal(SessionMode)
 
     def __init__(self, config: Configurator):
-        super(Session,self).__init__()
+        super(Session, self).__init__()
         self.config = config
         # self.folder = PurePath(directory).name
         self.path = self.config.session_path
@@ -93,7 +96,6 @@ class Session(QObject):
         self.charuco_tracker = CharucoTracker(self.charuco)
         self.mode = SessionMode.Charuco  # default mode of session
 
-
     def disconnect_cameras(self):
         """
         Shut down the streams, close the camera captures and delete the monocalibrators and synchronizer
@@ -106,22 +108,20 @@ class Session(QObject):
         self.cameras = {}
         for port, monocal in self.monocalibrators.items():
             monocal.stop_event.set()
-        self.monocalibrators = {} 
+        self.monocalibrators = {}
         self.synchronizer.stop_event.set()
         self.synchronizer = None
-        
+
         self.stream_tools_disconnected_signal.emit()
-        
-        
+
     def camera_setup_eligible(self):
-        if len(self.cameras) > 0: 
+        if len(self.cameras) > 0:
             eligible = True
         else:
             eligible = False
         return eligible
 
     def extrinsic_calibration_eligible(self):
-
         # assume it is and prove if it's not
         self.config.refresh_from_toml()
         self.camera_array = self.config.get_camera_array()
@@ -129,9 +129,8 @@ class Session(QObject):
         for port, cam in self.camera_array.cameras.items():
             if cam.matrix is None or cam.distortions is None:
                 eligible = False
-                
+
         return eligible
-        
 
     def capture_volume_eligible(self):
         """
@@ -139,40 +138,43 @@ class Session(QObject):
         and there is a capture volume loaded up, then you can launch direct
         into the capture volume widget rather than the extrinsic calibration widget
         """
-        
-        # update current data        
+
+        # update current data
         self.config.refresh_from_toml()
         self.camera_array = self.config.get_camera_array()
 
         # assume it is and prove if it's not
         eligible = True
-        if len(self.camera_array.cameras) <2:
-            eligible = False 
+        if len(self.camera_array.cameras) < 2:
+            eligible = False
 
         for port, cam in self.camera_array.cameras.items():
             if cam.rotation is None or cam.translation is None:
                 eligible = False
-                logger.info(f"Failed capture volume eligibility due to camera {port}: {cam.__dict__}")
-        
-        logger.info(f"Eligible to load capture volume? (i.e. fully calibrated extrinsics): {eligible}") 
+                logger.info(
+                    f"Failed capture volume eligibility due to camera {port}: {cam.__dict__}"
+                )
 
+        logger.info(
+            f"Eligible to load capture volume? (i.e. fully calibrated extrinsics): {eligible}"
+        )
 
         return eligible
 
     def start_recording_eligible(self):
         """
         Used to determine if the Record Button is enabled
-        
+
         """
 
-        # update current data        
+        # update current data
         self.config.refresh_from_toml()
         self.camera_array = self.config.get_camera_array()
 
-        #assume true and prove otherwise
+        # assume true and prove otherwise
         eligible = True
-        if len(self.camera_array.cameras) <2:
-            eligible = False 
+        if len(self.camera_array.cameras) < 2:
+            eligible = False
 
         for port, camera in self.camera_array.cameras.items():
             if camera.ignore == False and (
@@ -188,8 +190,7 @@ class Session(QObject):
             eligible = False
 
         return eligible
-        
-        
+
     def post_processing_eligible(self):
         """
         Post processing can only be performed if recordings exist and extrinsics are calibrated
@@ -202,11 +203,10 @@ class Session(QObject):
         if recording_count > 0:
             eligible = True
         else:
-            eligible = False            
+            eligible = False
 
         return eligible
-   
-    
+
     def set_mode(self, mode: SessionMode):
         """
         Via this method, the frame reading behavior will be changed by the GUI. If some properties are
@@ -248,7 +248,7 @@ class Session(QObject):
                 self.set_streams_charuco()
                 self.set_streams_tracking(True)
                 self.synchronizer.subscribe_to_streams()
-                
+
             case SessionMode.CaptureVolumeOrigin:
                 if self.stream_tools_loaded:
                     self.pause_all_monocalibrators()
@@ -536,4 +536,3 @@ class Session(QObject):
         self.capture_volume.optimize()
 
         self.config.save_capture_volume(self.capture_volume)
-

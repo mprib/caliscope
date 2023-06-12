@@ -71,6 +71,15 @@ class ExtrinsicCalibrationWidget(QWidget):
         self.place_widgets()
         self.connect_widgets()        
 
+        self.update_btn_eligibility()
+    
+    def update_btn_eligibility(self):
+        if self.session.is_extrinsic_calibration_eligible():
+            self.calibrate_collect_btn.setEnabled(True)
+        else:
+            self.calibrate_collect_btn.setEnabled(False)
+    
+
     def create_stereoframe_tools(self):
 
         self.frame_builder = PairedFrameBuilder(self.synchronizer, board_count_target=30)

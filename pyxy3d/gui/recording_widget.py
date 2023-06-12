@@ -67,7 +67,8 @@ class RecordingWidget(QWidget):
         self.frame_rate_spin = QSpinBox()
         self.frame_rate_spin.setValue(self.session.fps_recording)
 
-        self.start_stop = QPushButton("Start Recording")
+        self.next_action = NextRecordingActions.StartRecording
+        self.start_stop = QPushButton(self.next_action.value)
         self.destination_label = QLabel("Recording Destination:")
         self.recording_directory = QLineEdit(self.get_next_recording_directory())
         
@@ -133,32 +134,32 @@ class RecordingWidget(QWidget):
 
     def toggle_start_stop(self):
         if self.next_action == NextRecordingActions.StartRecording:
-            self.recording_directory.setEnabled(False)
             self.next_action = NextRecordingActions.StopRecording
             self.start_stop.setText(self.next_action.value)
-            self.start_stop.setEnabled(True)
+            self.recording_directory.setEnabled(False)
 
             logger.info("Initiate recording")
             recording_path:Path = Path(self.session.path, self.recording_directory.text()) 
             self.session.start_recording(recording_path)
 
         elif self.next_action == NextRecordingActions.StopRecording:
-            self.session.stop_recording()
-            
+            self.start_stop.setEnabled(False)
             # need to wait for session to signal that recording is complete
             self.next_action = NextRecordingActions.AwaitSave
+            # self.start_stop.setText("HELLO")
             self.start_stop.setText(self.next_action.value)
-            self.start_stop.setEnabled(False)
+            self.session.stop_recording()
 
-            self.start_stop.setText("Saving frames...")
             self.recording_directory.setEnabled(True)
             logger.info("Stop recording and initiate final save of file") 
             self.recording_directory.setText(self.get_next_recording_directory())
 
     def on_recording_complete(self):
+        logger.info("Recording complete signal received...updating next action and button")
         self.next_action = NextRecordingActions.StartRecording
         self.start_stop.setText(self.next_action.value)
         self.start_stop.setEnabled(True)
+        logger.info("Enabling start/stop recording button")
                     
     def update_dropped_fps(self, dropped_fps:dict):
         "Unravel dropped fps dictionary to a more readable string"

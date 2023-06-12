@@ -154,11 +154,6 @@ class MainWindow(QMainWindow):
                     logger.info(f"Session is not eligible for setting of origin...activating extrinsic calibration widget")
                     self.calibrate_capture_volume_widget.activate_extrinsic_calibration_widget()
 
-                    if self.session.is_extrinsic_calibration_eligible():
-                        self.calibrate_capture_volume_widget.extrinsic_calibration_widget.calibrate_collect_btn.setEnabled(True)
-                    else:
-                        self.calibrate_capture_volume_widget.extrinsic_calibration_widget.calibrate_collect_btn.setEnabled(False)
-
             case TabIndex.Recording.value:
                 logger.info(f"Activate Recording Mode")
                 self.session.set_mode(SessionMode.Recording)

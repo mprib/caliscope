@@ -113,9 +113,6 @@ class Session(QObject):
         self.stream_tools_disconnected_signal.emit()
         
         
-######################
-
-
     def camera_setup_eligible(self):
         if len(self.cameras) > 0: 
             eligible = True
@@ -143,10 +140,15 @@ class Session(QObject):
         into the capture volume widget rather than the extrinsic calibration widget
         """
         
+        # update current data        
         self.config.refresh_from_toml()
         self.camera_array = self.config.get_camera_array()
+
         # assume it is and prove if it's not
         eligible = True
+        if len(self.camera_array.cameras) <2:
+            eligible = False 
+
         for port, cam in self.camera_array.cameras.items():
             if cam.rotation is None or cam.translation is None:
                 eligible = False
@@ -162,20 +164,25 @@ class Session(QObject):
         Used to determine if the Record Button is enabled
         
         """
-        #assume true and prove otherwise
+
+        # update current data        
         self.config.refresh_from_toml()
         self.camera_array = self.config.get_camera_array()
 
-        has_extrinsics = True
+        #assume true and prove otherwise
+        eligible = True
+        if len(self.camera_array.cameras) <2:
+            eligible = False 
+
         for port, camera in self.camera_array.cameras.items():
             if camera.ignore == False and (
                 camera.rotation is None or camera.translation is None
             ):
-                has_extrinsics = False
+                eligible = False
                 logger.info(
                     f"Camera array is not fully calibrated because camera {port} lacks extrinsics"
                 )
-        if has_extrinsics:
+        if eligible:
             eligible = True
         else:
             eligible = False
@@ -387,6 +394,7 @@ class Session(QObject):
         self.synchronizer = Synchronizer(
             self.streams
         )  # defaults to stream default fps of 6
+
         # recording widget becomes available when synchronizer is created
         self.stream_tools_loaded = True
         self.stream_tools_in_process = False

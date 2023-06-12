@@ -70,7 +70,7 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.addWidget(self.extrinsic_calibration_widget)
         self.setCurrentWidget(self.extrinsic_calibration_widget)
         self.extrinsic_calibration_widget.calibration_complete.connect(self.activate_capture_volume_widget)
-
+        self.extrinsic_calibration_widget.update_btn_eligibility()
         
         # self.session.unpause_synchronizer()
         

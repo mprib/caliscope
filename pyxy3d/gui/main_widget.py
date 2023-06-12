@@ -147,14 +147,14 @@ class MainWindow(QMainWindow):
             case TabIndex.CaptureVolume.value:
                 logger.info(f"Activating Calibrate Capture Volume Widget")
 
-                if self.session.capture_volume_eligible():
+                if self.session.is_capture_volume_eligible():
                     logger.info(f"Session is eligible for setting of origin...activating capture volume origin widget")
                     self.calibrate_capture_volume_widget.activate_capture_volume_widget()
                 else:
                     logger.info(f"Session is not eligible for setting of origin...activating extrinsic calibration widget")
                     self.calibrate_capture_volume_widget.activate_extrinsic_calibration_widget()
 
-                    if self.session.extrinsic_calibration_eligible():
+                    if self.session.is_extrinsic_calibration_eligible():
                         self.calibrate_capture_volume_widget.extrinsic_calibration_widget.calibrate_collect_btn.setEnabled(True)
                     else:
                         self.calibrate_capture_volume_widget.extrinsic_calibration_widget.calibrate_collect_btn.setEnabled(False)
@@ -241,7 +241,7 @@ class MainWindow(QMainWindow):
             self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, False)
 
         # might be able to do post processing if recordings and calibration available
-        if self.session.post_processing_eligible():
+        if self.session.is_post_processing_eligible():
             self.load_post_processing_widget()
             self.tab_widget.setTabEnabled(TabIndex.Processing.value, True)
         else:

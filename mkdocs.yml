@@ -30,19 +30,15 @@ theme:
 
 
 nav:
-  - Home: index.md
+  - Home: home.md
   - Getting Started:
-      - Installation: getting_started/installation.md
-      - Quickstart: getting_started/quickstart.md
-  - Documentation:
+      - Requirements: requirements.md
+      - Installation: installation.md
+  - Reference:
       - User Guide: user_guide.md
       - Code Map: project_structure.md
-  # - Examples:
-  #     - Example 1: examples/example1.md
-  #     - Example 2: examples/example2.md
-  - Contributing: contributing.md
-  - Changelog: changelog.md
-  - License: license.md
+      - Docs: doc_notes.md
+  - License: LICENSE.md
 
 plugins:
   - search

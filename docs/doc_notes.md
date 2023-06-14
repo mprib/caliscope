@@ -1,4 +1,6 @@
-# Welcome to MkDocs
+# Reminders for using MkDocs
+
+This will likely get deleted soon, but I just want a place to store reminders of the workflow here...
 
 For full documentation visit [mkdocs.org](https://www.mkdocs.org).
 

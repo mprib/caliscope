@@ -8,4 +8,4 @@ If you are just starting out here and trying to get a basic handle on what this 
 
 From there, the [installation]() guide will walk you through the process of getting a system up and running, the [calibration]() guide will help you get it dialed in, and the [motion capture]() guide will walk through the process of collecting data.
 
-Please note that landmark position data is currently only being exported to `csv` and `trc` (used by biomechanists) formats, which very likeLy is not going to satisfy the needs of animators. If you have experience in character rigging and python programming and are interested in contributing, please reach out in [discussions]() to get the ball rolling on a game plan. Pull requests are welcome!
+Please note that landmark position data is currently only being exported to `csv` and `trc` (used by biomechanists) formats, which very likely is not going to satisfy the needs of animators. If you have experience in character rigging and python programming and are interested in contributing, please reach out in [discussions]() to get the ball rolling on a game plan. Pull requests are welcome!

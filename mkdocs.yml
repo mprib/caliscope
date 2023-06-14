@@ -1,4 +1,4 @@
-site_name: PyXY3D
+site_name: Pyxy3D
 site_description: A brief description of your project
 site_url: https://mprib.github.io/pyxy3d/
 repo_url: https://github.com/mprib/pyxy3d
@@ -31,6 +31,7 @@ theme:
 
 nav:
   - Home: home.md
+  - FAQ: faq.md
   - Getting Started:
       - Requirements: requirements.md
       - Installation: installation.md

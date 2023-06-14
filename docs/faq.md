@@ -10,7 +10,7 @@ Not currently, but this feature is planned for near-term future development. Pro
 
 ### Why is the software limited to Windows?
 
-The sample markerless tracking tool used in this software, Google's [Holistic Mediapipe](https://github.com/google/mediapipe/blob/master/docs/solutions/holistic.md), is configured to run only on Windows and only on CPU. It's worth underscoring that it is not my intention to create a complete stand-alone motion capture system, but rather a central processing pipeline with well-defined APIs for video input, tracking algorithms,j and 3D data export. In this way, third parties can build out the input/output pipeline to create a more comprehensive set of tools.
+The sample markerless tracking tool used in this software, Google's [Holistic Mediapipe](https://github.com/google/mediapipe/blob/master/docs/solutions/holistic.md), is configured to run only on Windows and only on CPU. It's worth underscoring that it is not my intention to create a complete stand-alone motion capture system, but rather a central processing pipeline with well-defined APIs for video input, tracking algorithms,and 3D data export. In this way, third parties can build out the input/output pipeline to create a more comprehensive set of tools.
 
 
 While the sample tracking tool may not run on other platforms, the core camera calibration probably will. The underlying tools, OpenCV/SciPy/PyQT, are cross-platform, but please anticipate some challenges as this has not been extensively tested.

@@ -52,7 +52,7 @@ class MainWindow(QMainWindow):
 
         self.app_settings = toml.load(__settings_path__)
 
-        self.setWindowTitle("PyXY3D")
+        self.setWindowTitle("Pyxy3D")
         self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/pyxy_logo.svg"))))
         self.setMinimumSize(500, 500)
 

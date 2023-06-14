@@ -1,4 +1,4 @@
-site_name: PyXY3D
+site_name: Pyxy3D
 site_description: A brief description of your project
 site_url: https://mprib.github.io/pyxy3d/
 repo_url: https://github.com/mprib/pyxy3d
@@ -30,19 +30,15 @@ theme:
 
 
 nav:
-  - Home: index.md
+  - Home: home.md
+  - FAQ: faq.md
   - Getting Started:
-      - Installation: getting_started/installation.md
-      - Quickstart: getting_started/quickstart.md
-  - Documentation:
-      - User Guide: user_guide.md
+      - Requirements: requirements.md
+      - Installation: installation.md
+  - Reference:
       - Code Map: project_structure.md
-  # - Examples:
-  #     - Example 1: examples/example1.md
-  #     - Example 2: examples/example2.md
-  - Contributing: contributing.md
-  - Changelog: changelog.md
-  - License: license.md
+      - Docs: doc_notes.md
+  - License: LICENSE.md
 
 plugins:
   - search

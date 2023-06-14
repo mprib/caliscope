@@ -36,7 +36,6 @@ nav:
       - Requirements: requirements.md
       - Installation: installation.md
   - Reference:
-      - User Guide: user_guide.md
       - Code Map: project_structure.md
       - Docs: doc_notes.md
   - License: LICENSE.md

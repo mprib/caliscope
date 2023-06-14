@@ -1,3 +1,32 @@
+
+# License 
+---
+
+>*me*: I have an open source project that is licensed under the AGPL-3.0. Please create a plain language summary for users that explains what obligations that license imposes.
+
+---
+
+> *ChatGPT*: Sure, here is a plain language summary of the AGPL-3.0 license. Note that while this simplifies the legal language, it's important to still read and understand the full license.
+
+>The AGPL-3.0, or the GNU Affero General Public License version 3, is a free software license published by the Free Software Foundation (FSF).
+
+>**Use**: You can use the software for any purpose. It doesn't matter if it's for personal use, for your business, or for a non-profit organization. You're free to use it however you want.
+
+>**Modify**: You can change the software, add new features, fix bugs, and adapt it to your needs. The license encourages you to make the software better.
+
+>**Distribute**: You can share copies of the original software with others. This can be helpful if you want to help spread the word about the software.
+
+>**Place of Network Interaction**: If you run this software on a server and let others interact with it there, you have to provide the entire source code to the users of your application, not just the AGPL-covered part. This is a key difference from the standard GPL.
+
+>**Share changes**: If you modify the software and distribute your modified versions, or run your modified versions on a server for others to interact with, you must make your changes available to others and license them under the AGPL as well. This includes not only the original software, but any changes, additions, or subtractions you made.
+
+>**Preserve Notices**: You need to give credit where credit is due. This means that you must keep all copyright notices and disclaimers of warranty intact.
+
+>Please remember, this is a simplified explanation of the AGPL-3.0. It is important to read and understand the full text of the license. If you have any doubts or questions about your rights and responsibilities under the AGPL-3.0, you should consult with a legal professional.
+
+---
+
+
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 
@@ -58,7 +87,7 @@ modification follow.
 
                        TERMS AND CONDITIONS
 
-  0. Definitions.
+  1. Definitions.
 
   "This License" refers to version 3 of the GNU Affero General Public License.
 

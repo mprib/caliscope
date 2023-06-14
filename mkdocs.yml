@@ -31,9 +31,11 @@ theme:
 
 nav:
   - FAQ: faq.md
-  - Getting Started:
+  - User Guide:
       - Requirements: requirements.md
       - Installation: installation.md
+      - Calibration: calibration.md
+      - Data Capture: data_capture.md
   - Reference:
       - Code Map: project_structure.md
       - Docs: doc_notes.md

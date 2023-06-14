@@ -2,20 +2,24 @@
 
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 
-## Description
+#### Table of Contents
+
+[Introduction](#introduction)
+
+[Quick Start](#quick-start)
+
+[Key Features](#key-features)
+
+[Limitations](#limitations)
+
+[Known Issues](#known-issues)
+
+---
+## Introduction 
 
 Pyxy3D is an open-source python tool for converting two-dimensional (x,y) coordinates obtained from multiple standard webcams into 3D point estimates. It provides an integrated system for camera calibration and point triangulation that enables the creation of cost-efficient small scale motion capture systems. When combined with markerless tracking algorithms such as Google's Mediapipe, it is possible to perform markerless 3D tracking with a standard computer and a couple webcams. 
 
-## Video Walkthrough
-
-### Installation
-
-
-
-### A complete session
-
-
-
+## Quick Start
 
 ## Key Features
 

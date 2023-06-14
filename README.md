@@ -5,13 +5,9 @@
 # Table of Contents
 
 [Introduction](#introduction)
-
 [Quick Start](#quick-start)
-
 [Key Features](#key-features)
-
 [Limitations](#limitations)
-
 [Known Issues](#known-issues)
 
 

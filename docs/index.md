@@ -1,4 +1,3 @@
-
 <div align="center"><img src = "images/pyxy3d_logo.svg" width = "150"></div>
 
 # Welcome

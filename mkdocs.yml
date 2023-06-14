@@ -30,7 +30,6 @@ theme:
 
 
 nav:
-  - Home: home.md
   - FAQ: faq.md
   - Getting Started:
       - Requirements: requirements.md

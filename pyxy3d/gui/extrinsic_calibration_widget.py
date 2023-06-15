@@ -56,7 +56,9 @@ class ExtrinsicCalibrationWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.synchronizer
 
-        self.create_stereoframe_tools()
+        self.frame_builder = PairedFrameBuilder(self.synchronizer, board_count_target=30)
+        self.frame_emitter = PairedFrameEmitter(self.frame_builder)
+        self.frame_emitter.start()
 
         self.frame_rate_spin = QSpinBox()
         self.frame_rate_spin.setValue(self.synchronizer.fps_target)
@@ -73,18 +75,21 @@ class ExtrinsicCalibrationWidget(QWidget):
 
         self.update_btn_eligibility()
     
+    def shutdown_threads(self):
+        """
+        There may be some lingering threads running when the extrinsic calibrator loses focus
+        This may be causing python to overload and pyqt to segfault during the calibration process
+        if I've moved from the extrinsic calibration widget to a different one...
+        """
+        self.frame_builder.unsubscribe_from_synchronizer()
+        self.frame_emitter.keep_collecting.clear()
+
     def update_btn_eligibility(self):
         if self.session.is_extrinsic_calibration_eligible():
             self.calibrate_collect_btn.setEnabled(True)
         else:
             self.calibrate_collect_btn.setEnabled(False)
     
-
-    def create_stereoframe_tools(self):
-
-        self.frame_builder = PairedFrameBuilder(self.synchronizer, board_count_target=30)
-        self.frame_emitter = PairedFrameEmitter(self.frame_builder)
-        self.frame_emitter.start()
 
     def place_widgets(self):
         self.setLayout(QVBoxLayout())

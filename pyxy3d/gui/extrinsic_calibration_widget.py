@@ -56,14 +56,14 @@ class ExtrinsicCalibrationWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.synchronizer
 
-        self.frame_builder = PairedFrameBuilder(self.synchronizer, board_count_target=30)
-        self.frame_emitter = PairedFrameEmitter(self.frame_builder)
-        self.frame_emitter.start()
+        self.paired_frame_builder = PairedFrameBuilder(self.synchronizer, board_count_target=30)
+        self.paired_frame_emitter = PairedFrameEmitter(self.paired_frame_builder)
+        self.paired_frame_emitter.start()
 
         self.frame_rate_spin = QSpinBox()
         self.frame_rate_spin.setValue(self.synchronizer.fps_target)
         self.board_count_spin = QSpinBox()
-        self.board_count_spin.setValue(self.frame_builder.board_count_target)
+        self.board_count_spin.setValue(self.paired_frame_builder.board_count_target)
         
         self.stereo_frame_display = QLabel()
         # self.navigation_bar = NavigationBarNext() 
@@ -81,8 +81,10 @@ class ExtrinsicCalibrationWidget(QWidget):
         This may be causing python to overload and pyqt to segfault during the calibration process
         if I've moved from the extrinsic calibration widget to a different one...
         """
-        self.frame_builder.unsubscribe_from_synchronizer()
-        self.frame_emitter.keep_collecting.clear()
+        logger.info("Unsubscribe paired frame builder from sync notice")
+        self.paired_frame_builder.unsubscribe_from_synchronizer()
+        logger.info("signal paired frame emitter to stop collecting frames")
+        self.paired_frame_emitter.keep_collecting.clear()
 
     def update_btn_eligibility(self):
         if self.session.is_extrinsic_calibration_eligible():
@@ -119,20 +121,20 @@ class ExtrinsicCalibrationWidget(QWidget):
     def connect_widgets(self):
         
         self.calibrate_collect_btn.clicked.connect(self.on_calibrate_collect_click)
-        self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
-        self.frame_emitter.possible_to_initialize_array.connect(self.enable_calibration)
+        self.paired_frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
+        self.paired_frame_emitter.possible_to_initialize_array.connect(self.enable_calibration)
         self.frame_rate_spin.valueChanged.connect(self.synchronizer.set_stream_fps)
         self.board_count_spin.valueChanged.connect(self.update_board_count_target)
-        self.frame_emitter.calibration_data_collected.connect(self.initiate_calibration)
+        self.paired_frame_emitter.calibration_data_collected.connect(self.initiate_calibration)
     
     def update_board_count_target(self, target):
-        self.frame_builder.board_count_target = target
+        self.paired_frame_builder.board_count_target = target
         
     def on_calibrate_collect_click(self):
         if self.possible_action == PossibleActions.CollectData:
             logger.info("Begin collecting calibration data")
             # by default, data saved to session folder
-            self.frame_builder.store_points.set()
+            self.paired_frame_builder.store_points.set()
             extrinsic_calibration_path = Path(self.session.path, "calibration", "extrinsic")
             self.session.start_recording(extrinsic_calibration_path,store_point_history=True)
             self.possible_action = PossibleActions.Terminate
@@ -148,7 +150,7 @@ class ExtrinsicCalibrationWidget(QWidget):
 
         elif self.possible_action == PossibleActions.Calibrate:
             logger.info("Prematurely end data collection to initiate calibration")
-            self.frame_builder.store_points.clear()
+            self.paired_frame_builder.store_points.clear()
             self.initiate_calibration()
             
 

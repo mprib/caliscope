@@ -78,6 +78,7 @@ class Synchronizer:
 
     def subscribe_to_streams(self):
         for port, stream in self.streams.items():
+            logger.info(f"Subscribing synchronizer to stream from port {port}")
             stream.subscribe(self.frame_packet_queues[port])
         self.subscribed_to_streams = True
 
@@ -295,7 +296,7 @@ class Synchronizer:
             # notify other processes that the new frames are ready for processing
             # only for tasks that can risk missing frames (i.e. only for gui purposes)
             for q in self.sync_notice_subscribers:
-                logger.debug(f"Giving notice of new synched frames packet via queue")
+                logger.debug(f"Giving notice of new synched frames packet via queue; sync index: {sync_index}")
                 q.put("new synched frames available")
 
             for q in self.synched_frames_subscribers:
@@ -316,67 +317,3 @@ class Synchronizer:
 
         logger.info("Frame synch worker successfully ended")
 
-
-if __name__ == "__main__":
-    from pyxy3d.calibration.charuco import Charuco
-    from pyxy3d.trackers.charuco_tracker import CharucoTracker
-    from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
-
-    from pyxy3d.session.session import Session
-    import time
-
-    from pyxy3d import __root__
-    
-
-    # test_live = True
-    test_live = False
-
-    if test_live:
-
-        session_directory = Path(__root__, "tests", "217")
-        # config = Path(session_directory, "config.toml")
-        session = Session(session_directory)
-        # session.load_cameras()
-        session.load_stream_tools()
-        # session.adjust_resolutions()
-
-        for port, stream in session.streams.items():
-            stream._show_fps = True
-            stream._show_charuco = True
-
-        logger.info("Creating Synchronizer")
-        syncr = Synchronizer(session.streams, fps_target=5)
-    else:
-        ports = [0, 1, 2, 3, 4]
-        # ports = [0,1]
-        recording_directory = Path(__root__, "tests","sessions", "217")
-        tracker = Charuco(
-                4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-            )
-        recorded_stream_pool = RecordedStreamPool(
-            ports, recording_directory, charuco=tracker
-        )
-        logger.info("Creating Synchronizer")
-        syncr = Synchronizer(recorded_stream_pool.streams, fps_target=20)
-        recorded_stream_pool.play_videos()
-
-    notification_q = Queue()
-
-    syncr.subscribe_to_notice(notification_q)
-    logger.info(f"Beginning playback at {time.perf_counter()}")
-
-    while not syncr.stop_event.is_set():
-        synched_frames_notice = notification_q.get()
-        sync_packet = syncr.current_sync_packet
-        for port, frame_packet in sync_packet.frame_packets.items():
-
-            if frame_packet:
-                cv2.imshow(f"Port {port}", frame_packet.frame)
-
-        key = cv2.waitKey(1)
-
-        if key == ord("q"):
-            cv2.destroyAllWindows()
-            break
-
-    logger.info(f"Playback finished at {time.perf_counter()}")

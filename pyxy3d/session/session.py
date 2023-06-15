@@ -238,6 +238,7 @@ class Session(QObject):
                 self.pause_all_monocalibrators()
                 self.set_streams_charuco()
                 self.set_streams_tracking(True)
+                
                 self.synchronizer.subscribe_to_streams()
 
             case SessionMode.CaptureVolumeOrigin:
@@ -246,12 +247,20 @@ class Session(QObject):
                     self.synchronizer.unsubscribe_from_streams()
 
             case SessionMode.Recording:
+                logger.info("Attempting to set recording mode")
                 if not self.stream_tools_loaded:
+                    logger.info("Stream tools not loaded, so loading them up...")
                     self.load_stream_tools()
 
+                logger.info("Pausing monocals to enter recording mode")
                 self.pause_all_monocalibrators()
+                
+                logger.info("Stop tracking for recording mode")
                 self.set_streams_tracking(False)
+                logger.info("Update stream fps to recording fps")
                 self.update_streams_fps()
+                
+                logger.info("Subscribe synchronizer to streams so video recorder can manage")
                 self.synchronizer.subscribe_to_streams()
 
     def set_active_mode_fps(self, fps_target: int):
@@ -389,11 +398,13 @@ class Session(QObject):
         # recording widget becomes available when synchronizer is created
         self.stream_tools_loaded = True
         self.stream_tools_in_process = False
-        logger.info(f"Signalling successful loading of stream tools")
-        self.stream_tools_loaded_signal.emit()
 
+        logger.info("Pausing stream tools since default loads to charuco")
         self.pause_all_monocalibrators()
         self.pause_synchronizer()
+        
+        logger.info(f"Signalling successful loading of stream tools")
+        self.stream_tools_loaded_signal.emit()
 
     def _load_monocalibrators(self):
         for port, cam in self.cameras.items():

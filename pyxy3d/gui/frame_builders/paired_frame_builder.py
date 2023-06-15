@@ -33,13 +33,6 @@ class PairedFrameBuilder:
         self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
         self.store_points = Event()
     
-        self.reset() 
-        # self.board_counts = {pair: 0 for pair in self.pairs} 
-        # self.stereo_list = self.pairs.copy()
-        # self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
-        # self.store_points.clear()   # don't default to storing tracked points
-    
-    def reset(self): 
         logger.info("Resetting Frame Builder")
         self.board_counts = {pair: 0 for pair in self.pairs} 
         self.stereo_list = self.pairs.copy()

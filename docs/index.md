@@ -1,11 +1,16 @@
 <div align="center"><img src = "images/pyxy3d_logo.svg" width = "150"></div>
 
+
+
 # Welcome
 
 
-Pyxy3D is an open-source software tool for calibrating multiple webcams such that they can be used for 3D point tracking, allowing users to create small-scale DIY motion capture studios. This project is at a very early stage so please bear with us while going through the inevitable growing pains that are ahead. You feedback is appreciated. If you have specific recommendations, please consider creating an [issue](https://github.com/mprib/pyxy3d/issues). If you have more general questions or thoughts about the project, please open up a thread in the [discussions](https://github.com/mprib/pyxy3d/discussions).
+Pyxy3D is an open-source python package designed for two primary purposes: *calibrating* DIY motion capture systems and *triangulating* the 3D position  of tracked landmarks where (x,y) coordinates have been identified across concurrent frames. It includes a pre-built implementation of Google's Holistic Mediapipe, but aims to be tracker-agnostic and provides an API for implementing alternative tracking packages. Pyxy3D also provides functionality for recording synchronized frames from a small number of connected webcams. This may be sufficient for small-scale use cases, but it will become unstable as the resolution, frame rate, and number of cameras increases. Consequently, where larger capture volumes or greater spatial or temporal resolution is needed, alternate data capture techniques will be required. 
 
-If you are just starting out here and trying to get a basic handle on what this is, what it does, and how it is used, it might be best to dive into the [FAQ]().
+
+This project is at a very early stage so please bear with us while going through the inevitable growing pains that are ahead. You feedback is appreciated. If you have specific recommendations, please consider creating an [issue](https://github.com/mprib/pyxy3d/issues). If you have more general questions or thoughts about the project, please open up a thread in the [discussions](https://github.com/mprib/pyxy3d/discussions).
+
+If you are just starting out here and trying to get a basic handle on what this is, what it does, and how it is used, it might be best to dive into the [FAQ](), or just watch this quick demo of a calibration and capture session:
 
 <div align="center">
 <iframe width="1280" height="720" src="https://www.youtube.com/embed/QHQKkLCE0e4" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe> </div>

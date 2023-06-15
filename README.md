@@ -15,11 +15,16 @@
 [Known Issues](#known-issues)
 
 ---
-## Introduction 
+## About
+Pyxy3D is an open-source python package designed for two primary purposes: calibrating DIY motion capture systems and triangulating the 3D position of tracked landmarks where (x,y) coordinates have been identified across concurrent frames. 
 
-Pyxy3D is an open-source python tool for converting two-dimensional (x,y) coordinates obtained from multiple standard webcams into 3D point estimates. It provides an integrated system for camera calibration and point triangulation that enables the creation of cost-efficient small scale motion capture systems. When combined with markerless tracking algorithms such as Google's Mediapipe, it is possible to perform markerless 3D tracking with a standard computer and a couple webcams. 
 
 ## Quick Start
+
+1. Create a new virtual environment with Python 3.10 or later
+2. Activate the virtual environment
+3. Install pyxy3d
+4. Launch pyxy3d
 
 ## Key Features
 
@@ -42,16 +47,15 @@ The project leans heavily upon OpenCV, SciPy, and PyQt to provide the following 
 
 Please note that the system currently has the following **limitations**:
 - MediaPipe is only configured to run on Windows
-    - while the camera calibration will likely work on other systems, the markerless tracking will not (currently)
-- It does not support anything other than standard webcams. 
-    - I currently have no intention of supporting mobile phones as cameras for the system
-- Based on recent testing, some webcams will deliver poor connection times/frame rates/calibrations. I'm currently using 4 EMEET SmartCam C960 cameras. These are inexpensive (~$25 each) and readily available. They deliver decent results at 30 fps and 720p. I welcome feedback about user experiences with other cameras
-- No real-time tracking
-    - the underlying data processing pipeline was designed to accommodate real-time tracking but I want to make sure that everything works well with the simpler and more stable post-processing workflow before trying to get that implemented in an integrated way
+    - while the camera calibration will likely work on other systems, the included sample markerless tracking will not (currently)
+- It does not support anything other than standard webcams at the moment 
+    - calibration in post-processing is on the development roadmap
+    - once calibration in post is implemented, a method of synchronize pre-recorded frames will still be needed
 - Data export is currently limited to .csv, and .trc files. Use in 3D animation tools like Blender, which require character rigging, will require additional processing.
 
 ## Known Issues
 
+### Crashes in the main GUI 
 The main GUI allows for accessing of all of the package's functionality at once, though this imposes some additional processing overhead that can undermine recording, and switching between GUI modes can provoke crashes. Improvements are on the To Do list, but in the meantime can be sidestepped by launching individual widgets from the command line as [described below](#3-launch-from-the-command-line)
 
 

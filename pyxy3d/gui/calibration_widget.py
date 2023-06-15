@@ -122,7 +122,7 @@ class CalibrationWidget(QStackedWidget):
 
         logger.info("Remove stereoframe")
         self.removeWidget(self.extrinsic_calibration_widget)
-        self.extrinsic_calibration_widget.frame_builder.unsubscribe_from_synchronizer()
+        self.extrinsic_calibration_widget.paired_frame_builder.unsubscribe_from_synchronizer()
         del self.extrinsic_calibration_widget
 
         logger.info("Create new stereoframe")
@@ -134,7 +134,7 @@ class CalibrationWidget(QStackedWidget):
         self.setCurrentWidget(self.intrinsic_calibration_widget)
         self.session.pause_synchronizer()
 
-        self.extrinsic_calibration_widget.frame_builder.unsubscribe_from_synchronizer()
+        self.extrinsic_calibration_widget.paired_frame_builder.unsubscribe_from_synchronizer()
         self.removeWidget(self.extrinsic_calibration_widget)
         del self.extrinsic_calibration_widget
 
@@ -164,7 +164,7 @@ class CalibrationWidget(QStackedWidget):
         logger.info("Remove capture volume")
         self.removeWidget(self.capture_volume)
         del self.capture_volume
-        self.extrinsic_calibration_widget.frame_builder.unsubscribe_from_synchronizer()
+        self.extrinsic_calibration_widget.paired_frame_builder.unsubscribe_from_synchronizer()
         del self.extrinsic_calibration_widget
 
         logger.info("Create new stereoframe")

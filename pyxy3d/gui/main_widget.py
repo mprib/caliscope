@@ -90,6 +90,7 @@ class MainWindow(QMainWindow):
 
         # Set up layout (based on splitter)
         self.tab_widget = QTabWidget()
+        # self.tab_widget = CentralTabWidget()
         self.setCentralWidget(self.tab_widget)
 
         # create log window which is fixed below main window
@@ -125,24 +126,32 @@ class MainWindow(QMainWindow):
         self.disconnect_cameras_action.setEnabled(False)
         self.connect_cameras_action.setEnabled(True)
 
-        
+    def pause_all_frame_reading(self):
+        logger.info("Pausing all frame reading at load of stream tools; should be on charuco tab right now")
+        self.session.pause_all_monocalibrators()
+        self.session.pause_synchronizer()  
 
     def load_stream_tools(self):
         self.connect_cameras_action.setEnabled(False)
         self.disconnect_cameras_action.setEnabled(True)
+        self.session.stream_tools_loaded_signal.connect(self.pause_all_frame_reading)
         self.thread = Thread(
             target=self.session.load_stream_tools, args=(), daemon=True
         )
         self.thread.start()
 
+            
+            
     def on_tab_changed(self, index):
         logger.info(f"Switching main window to tab {index}")
         match index:
             case TabIndex.Charuco.value:
                 logger.info(f"Activating Charuco Widget")
+                # self.silence_extrinsic_cal_widget()
                 self.session.set_mode(SessionMode.Charuco)
             case TabIndex.Cameras.value:
                 logger.info(f"Activating Camera Setup Widget")
+                # self.silence_extrinsic_cal_widget()
                 self.session.set_mode(SessionMode.IntrinsicCalibration)
             case TabIndex.CaptureVolume.value:
                 logger.info(f"Activating Calibrate Capture Volume Widget")
@@ -156,9 +165,17 @@ class MainWindow(QMainWindow):
 
             case TabIndex.Recording.value:
                 logger.info(f"Activate Recording Mode")
+
+                try:
+                    logger.info("Attempting to spin down the extrinsic calibration widget")
+                    self.calibrate_capture_volume_widget.extrinsic_calibration_widget.shutdown_threads()
+                except:
+                    logger.info("No extrinsic calibration calibration widget exists")
+
                 self.session.set_mode(SessionMode.Recording)
             case TabIndex.Processing.value:
                 logger.info(f"Activate Processing Mode")
+                # self.silence_extrinsic_cal_widget()
                 self.session.set_mode(SessionMode.PostProcessing)
                 # may have acquired new recordings
                 self.processing_widget.update_recording_folders()
@@ -333,6 +350,26 @@ class MainWindow(QMainWindow):
         with open(__settings_path__, "w") as f:
             toml.dump(self.app_settings, f)
 
+
+class CentralTabWidget(QTabWidget):
+    """
+    Switching between tabs, particularly when system resource utilization is high,
+    is prone to result in segfault crashes. Working hypothesis is that this is due to mode
+    changes happening when the tab is changed and the GUI tries to render something it doesn't have
+    
+    This override slips the mode change between click and change to try to stabilize the mode switches.
+    
+    """
+    
+    def __init__(self):
+        super(CentralTabWidget, self).__init__()
+        
+    def tabBarClicked(self, index):
+        # Emit a custom signal or perform any desired action before the tab changes
+        logger.info(f"Tab {index} clicked")
+        
+        # Uncomment the following line to allow the tab to change after the signal is emitted
+        super(CentralTabWidget, self).tabBarClicked(index)
 
 def launch_main():
     app = QApplication(sys.argv)

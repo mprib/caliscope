@@ -58,9 +58,9 @@ class RecordingWidget(QWidget):
         # self.synchronizer.set_tracking_on_streams(False)
 
         # create tools to build and emit the displayed frame
-        self.frame_builder = UnpairedFrameBuilder(self.synchronizer)
-        self.frame_emitter = UnpairedFrameEmitter(self.frame_builder)
-        self.frame_emitter.start()
+        self.unpaired_frame_builder = UnpairedFrameBuilder(self.synchronizer)
+        self.unpaired_frame_emitter = UnpairedFrameEmitter(self.unpaired_frame_builder)
+        self.unpaired_frame_emitter.start()
 
         self.video_recorder = VideoRecorder(self.synchronizer)
         
@@ -126,9 +126,9 @@ class RecordingWidget(QWidget):
 
     def connect_widgets(self):
     
-        self.frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
+        self.unpaired_frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
         self.frame_rate_spin.valueChanged.connect(self.session.set_active_mode_fps)
-        self.frame_emitter.dropped_fps.connect(self.update_dropped_fps)
+        self.unpaired_frame_emitter.dropped_fps.connect(self.update_dropped_fps)
         self.start_stop.clicked.connect(self.toggle_start_stop)
         self.session.recording_complete_signal.connect(self.on_recording_complete)
 

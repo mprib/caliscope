@@ -334,6 +334,26 @@ class MainWindow(QMainWindow):
             toml.dump(self.app_settings, f)
 
 
+class CentralTabWidget(QTabWidget):
+    """
+    Switching between tabs, particularly when system resource utilization is high,
+    is prone to result in segfault crashes. Working hypothesis is that this is due to mode
+    changes happening when the tab is changed and the GUI tries to render something it doesn't have
+    
+    This override slips the mode change between click and change to try to stabilize the mode switches.
+    
+    """
+    
+    def __init__(self, parent=None):
+        super(CentralTabWidget, self).__init__()
+        
+    def tabBarClicked(self, index):
+        # Emit a custom signal or perform any desired action before the tab changes
+        logger.info(f"Tab {index} clicked")
+        
+        # Uncomment the following line to allow the tab to change after the signal is emitted
+        super(CentralTabWidget, self).tabBarClicked(index)
+
 def launch_main():
     app = QApplication(sys.argv)
     window = MainWindow()

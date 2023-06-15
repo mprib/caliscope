@@ -78,6 +78,7 @@ class Synchronizer:
 
     def subscribe_to_streams(self):
         for port, stream in self.streams.items():
+            logger.info(f"Subscribing synchronizer to stream from port {port}")
             stream.subscribe(self.frame_packet_queues[port])
         self.subscribed_to_streams = True
 

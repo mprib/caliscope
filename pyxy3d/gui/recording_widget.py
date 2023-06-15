@@ -34,7 +34,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.recording.video_recorder import VideoRecorder
@@ -387,9 +387,9 @@ def cv2_to_qlabel(frame):
 def launch_recording_widget(session_path):
             config = Configurator(session_path)
             session = Session(config)
-            session.load_stream_tools()
-            session._adjust_resolutions()
-
+            # session.load_stream_tools()
+            # session._adjust_resolutions()
+            session.set_mode(SessionMode.Recording)
             App = QApplication(sys.argv)
             recording_dialog = RecordingWidget(session)
             recording_dialog.show()

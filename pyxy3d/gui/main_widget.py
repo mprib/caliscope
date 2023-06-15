@@ -90,6 +90,7 @@ class MainWindow(QMainWindow):
 
         # Set up layout (based on splitter)
         self.tab_widget = QTabWidget()
+        # self.tab_widget = CentralTabWidget()
         self.setCentralWidget(self.tab_widget)
 
         # create log window which is fixed below main window
@@ -125,11 +126,15 @@ class MainWindow(QMainWindow):
         self.disconnect_cameras_action.setEnabled(False)
         self.connect_cameras_action.setEnabled(True)
 
-        
+    def pause_all_frame_reading(self):
+        logger.info("Pausing all frame reading at load of stream tools; should be on charuco tab right now")
+        self.session.pause_all_monocalibrators()
+        self.session.pause_synchronizer()  
 
     def load_stream_tools(self):
         self.connect_cameras_action.setEnabled(False)
         self.disconnect_cameras_action.setEnabled(True)
+        self.session.stream_tools_loaded_signal.connect(self.pause_all_frame_reading)
         self.thread = Thread(
             target=self.session.load_stream_tools, args=(), daemon=True
         )
@@ -344,7 +349,7 @@ class CentralTabWidget(QTabWidget):
     
     """
     
-    def __init__(self, parent=None):
+    def __init__(self):
         super(CentralTabWidget, self).__init__()
         
     def tabBarClicked(self, index):

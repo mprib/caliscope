@@ -247,12 +247,20 @@ class Session(QObject):
                     self.synchronizer.unsubscribe_from_streams()
 
             case SessionMode.Recording:
+                logger.info("Attempting to set recording mode")
                 if not self.stream_tools_loaded:
+                    logger.info("Stream tools not loaded, so loading them up...")
                     self.load_stream_tools()
 
+                logger.info("Pausing monocals to enter recording mode")
                 self.pause_all_monocalibrators()
+                
+                logger.info("Stop tracking for recording mode")
                 self.set_streams_tracking(False)
+                logger.info("Update stream fps to recording fps")
                 self.update_streams_fps()
+                
+                logger.info("Subscribe synchronizer to streams so video recorder can manage")
                 self.synchronizer.subscribe_to_streams()
 
     def set_active_mode_fps(self, fps_target: int):

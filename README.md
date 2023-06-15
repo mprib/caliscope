@@ -15,8 +15,10 @@
 [Known Issues](#known-issues)
 
 ---
-## Introduction 
+## About
+Pyxy3D is an open-source python package designed for two primary purposes: calibrating DIY motion capture systems and triangulating the 3D position of tracked landmarks where (x,y) coordinates have been identified across concurrent frames. 
 
+It includes a pre-built implementation of Google's Holistic Mediapipe, but aims to be tracker-agnostic and provides an API for implementing alternative tracking packages. Pyxy3D also provides functionality for recording synchronized frames from a small number of connected webcams. This may be sufficient for small-scale use cases, but it will become unstable as the resolution, frame rate, and number of cameras increases. Consequently, where larger capture volumes or greater spatial or temporal resolution is needed, alternate data capture techniques will be required. 
 Pyxy3D is an open-source python tool for converting two-dimensional (x,y) coordinates obtained from multiple standard webcams into 3D point estimates. It provides an integrated system for camera calibration and point triangulation that enables the creation of cost-efficient small scale motion capture systems. When combined with markerless tracking algorithms such as Google's Mediapipe, it is possible to perform markerless 3D tracking with a standard computer and a couple webcams. 
 
 ## Quick Start

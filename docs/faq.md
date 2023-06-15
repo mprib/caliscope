@@ -2,18 +2,18 @@
 
 ### Does it do real-time processing?
 
-While the data processing pipeline is designed with the ultimate goal of real-time tracking, the current version does not support it. The processing demands of landmark detection across concurrent frames currently throttles the frame rate to such an extent that I don't consider this a worthile investment of time at the moment. As a stack of hardware/tracking algorithm emerges that shows a viable path to a scaleable system, this will get bumped as a priority. If you have expertise in this area and are interested in contributing, please consider opening up a thread in the [discussions](https://github.com/mprib/pyxy3d/discussions) to start
+While the data processing pipeline is designed with the ultimate goal of real-time tracking, the current version does not support it. The processing demands of landmark detection across concurrent frames currently throttles the frame rate to such an extent that I don't consider this a worthile investment of time at the moment. As a stack of hardware/tracking algorithm emerges that shows a viable path to a scaleable system, this will get bumped as a priority. If you have expertise in this area and are interested in contributing, please consider opening up a thread in the [discussions](https://github.com/mprib/pyxy3d/discussions) to start a conversation.
 
-### Can I process pre-recorded videos?
+### Can I process videos I pre-recorded with GoPros, etc?
 
-Not currently, but this feature is planned for near-term future development. Processing videos offline will enable the use of more cameras and higher frame rates and resolutions, but it also requires some method of frame synchronization. It also presents the need to perform intrinsic calibration from pre-recorded videos. This is a development priority, but not currently implemented. I aim to create an API that will support such post-processing in the future so that Pyxy3D could be used programmatically by third-party Python processing pipelines.
+Not currently, but this feature is planned for near-term roll out. Processing videos offline will enable the use of more cameras and higher frame rates and resolutions, but it also requires some method of frame synchronization and presents the need to perform calibration from pre-recorded videos. This is a development priority, but not currently implemented. I aim to create an API that will support such post-processing in the future so that Pyxy3D could be used programmatically by third-party Python processing pipelines.
 
 ### Why is the software limited to Windows?
 
 The sample markerless tracking tool used in this software, Google's [Holistic Mediapipe](https://github.com/google/mediapipe/blob/master/docs/solutions/holistic.md), is configured to run only on Windows and only on CPU. It's worth underscoring that it is not my intention to create a complete stand-alone motion capture system, but rather a central processing pipeline with well-defined APIs for video input, tracking algorithms,and 3D data export. In this way, third parties can build out the input/output pipeline to create a more comprehensive set of tools.
 
 
-While the sample tracking tool may not run on other platforms, the core camera calibration probably will. The underlying tools, OpenCV/SciPy/PyQT, are cross-platform, but please anticipate some challenges as this has not been extensively tested.
+While the sample tracking tool may not run on other platforms, the core camera calibration probably will. The underlying tools (OpenCV/SciPy/PyQT) are cross-platform, but please anticipate some challenges as this has not been extensively tested.
 
 ### Can I use my smartphone as a camera?
 
@@ -27,9 +27,9 @@ I will note that I have had success with the EMeet HD1080p cameras, which are re
 
 ### Can the software export to Blender (or Unreal/Maya/etc)?
 
-Currently, the software only exports unfiltered 3D estimates in `csv` and `trc` formats. The `trc` format is designed for biomechanists. Those interested in creating an output pipeline to other formats may find the 'csv' files a good starting point.
+Currently, the software only exports unfiltered 3D estimates in `csv` and `trc` formats. The `trc` format is designed for biomechanists. Those interested in creating an output pipeline to other formats may find the 'csv' files a good starting point and I invite you to open up a [discussion](https://github.com/mprib/pyxy3d/discussions) if you would like to talk through code.
 
 ### What is happening with my data? Are you storing videos I record?
 
-Absolutely not. All operations are performed locally on your machine. An imagined future use-case for this package is as a tool that could be used in human subjects research or in clinical domains. Data privacy is absolutely critical under those circumstances, so the commitment that you will always control your data is at the heart of this project. 
+Absolutely not. All operations are performed locally on your machine. An imagined future use-case for this package is as a tool that could be used in clinical settings or human subjects research. Data privacy is absolutely critical under those circumstances. The commitment that **you will always control your data** is at the heart of this project. 
 

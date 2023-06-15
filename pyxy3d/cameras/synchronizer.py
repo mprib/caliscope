@@ -296,7 +296,7 @@ class Synchronizer:
             # notify other processes that the new frames are ready for processing
             # only for tasks that can risk missing frames (i.e. only for gui purposes)
             for q in self.sync_notice_subscribers:
-                logger.info(f"Giving notice of new synched frames packet via queue; sync index: {sync_index}")
+                logger.debug(f"Giving notice of new synched frames packet via queue; sync index: {sync_index}")
                 q.put("new synched frames available")
 
             for q in self.synched_frames_subscribers:

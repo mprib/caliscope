@@ -16,7 +16,15 @@
 
 ---
 ## About
-Pyxy3D is an open-source python package designed for two primary purposes: calibrating DIY motion capture systems and triangulating the 3D position of tracked landmarks where (x,y) coordinates have been identified across concurrent frames. 
+
+Pyxy3D is an open-source python package intended to serve as the primary calibration and triangulation workhorse of a low-cost DIY motion capture studio. It's core functionality includes: 
+
+- the estimation of intrinsic (focal length/optical center/distortion) and extrinsic (rotation and translation) camera parameters via a GUI
+- triangulation of tracked points based on those estimates
+
+The current functionality includes a sample tracker using Google's mediapipe which illustrates how to use the tracker API. The camera management backend allows for recording of synchronized frames from connected webcams, though the frame rate/resolution/number of cameras will be limited by the bandwidth of the current system.
+
+A central goal of this project is the crafting of sensible APIs that allow the integration of multiple tracking algorithms and camera management workflows. This will enable a robust and flexible platform for low-cost motion capture.
 
 
 ## Quick Start

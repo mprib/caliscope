@@ -140,14 +140,27 @@ class MainWindow(QMainWindow):
         )
         self.thread.start()
 
+    def silence_extrinsic_cal_widget(self):
+        """quick and dirty test of it I can spin down the extrinsic calibration widget on tab change
+        to improve GUI stability"""
+        
+        if hasattr(self.calibrate_capture_volume_widget, "extrinsic_calibration_widget"):
+            logger.info("Attempting to spin down the extrinsic calibration widget")
+            self.calibrate_capture_volume_widget.extrinsic_calibration_widget.shutdown_threads()
+        else:
+            logger.info("No extrinsic calibration calibration widget exists")
+            
+            
     def on_tab_changed(self, index):
         logger.info(f"Switching main window to tab {index}")
         match index:
             case TabIndex.Charuco.value:
                 logger.info(f"Activating Charuco Widget")
+                # self.silence_extrinsic_cal_widget()
                 self.session.set_mode(SessionMode.Charuco)
             case TabIndex.Cameras.value:
                 logger.info(f"Activating Camera Setup Widget")
+                # self.silence_extrinsic_cal_widget()
                 self.session.set_mode(SessionMode.IntrinsicCalibration)
             case TabIndex.CaptureVolume.value:
                 logger.info(f"Activating Calibrate Capture Volume Widget")
@@ -161,9 +174,11 @@ class MainWindow(QMainWindow):
 
             case TabIndex.Recording.value:
                 logger.info(f"Activate Recording Mode")
+                # self.silence_extrinsic_cal_widget()
                 self.session.set_mode(SessionMode.Recording)
             case TabIndex.Processing.value:
                 logger.info(f"Activate Processing Mode")
+                # self.silence_extrinsic_cal_widget()
                 self.session.set_mode(SessionMode.PostProcessing)
                 # may have acquired new recordings
                 self.processing_widget.update_recording_folders()

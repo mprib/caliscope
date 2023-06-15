@@ -143,8 +143,6 @@ class ExtrinsicCalibrationWidget(QWidget):
         elif self.possible_action == PossibleActions.Terminate:
             logger.info("Terminating current data collection")
             self.terminate.emit()
-            # self.session.stop_recording()
-            # self.frame_builder.reset()
             self.possible_action = PossibleActions.CollectData
             self.calibrate_collect_btn.setText(self.possible_action.value)
 

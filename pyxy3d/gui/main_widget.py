@@ -140,17 +140,6 @@ class MainWindow(QMainWindow):
         )
         self.thread.start()
 
-    def silence_extrinsic_cal_widget(self):
-        """quick and dirty test of it I can spin down the extrinsic calibration widget on tab change
-        to improve GUI stability"""
-        
-        if hasattr(self.calibrate_capture_volume_widget, "extrinsic_calibration_widget"):
-            logger.info("Attempting to spin down the extrinsic calibration widget")
-            self.calibrate_capture_volume_widget.extrinsic_calibration_widget.shutdown_threads()
-            # self.calibrate_capture_volume_widget.extrinsic_calibration_widget.deleteLater()
-            # self.calibrate_capture_volume_widget.extrinsic_calibration_widget = None
-        else:
-            logger.info("No extrinsic calibration calibration widget exists")
             
             
     def on_tab_changed(self, index):
@@ -176,7 +165,13 @@ class MainWindow(QMainWindow):
 
             case TabIndex.Recording.value:
                 logger.info(f"Activate Recording Mode")
-                self.silence_extrinsic_cal_widget()
+
+                try:
+                    logger.info("Attempting to spin down the extrinsic calibration widget")
+                    self.calibrate_capture_volume_widget.extrinsic_calibration_widget.shutdown_threads()
+                except:
+                    logger.info("No extrinsic calibration calibration widget exists")
+
                 self.session.set_mode(SessionMode.Recording)
             case TabIndex.Processing.value:
                 logger.info(f"Activate Processing Mode")

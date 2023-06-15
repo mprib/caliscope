@@ -21,6 +21,11 @@ Pyxy3D is an open-source python package designed for two primary purposes: calib
 
 ## Quick Start
 
+1. Create a new virtual environment with Python 3.10 or later
+2. Activate the virtual environment
+3. Install pyxy3d
+4. Launch pyxy3d
+
 ## Key Features
 
 The project leans heavily upon OpenCV, SciPy, and PyQt to provide the following **key features**:

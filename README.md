@@ -54,8 +54,7 @@ pip install pyxy3d
 ```powershell
 pyxy3d
 ```
-
-Refer to the [Quick Start Video Walkthrough](https://youtu.be/QHQKkLCE0e4) to see how to calibrate, record and process data
+At this point, an application window should launch. Refer to the [Quick Start Video Walkthrough](https://youtu.be/QHQKkLCE0e4) to see how to calibrate, record and process data
 ## Key Features
 
 The project leans heavily upon OpenCV, SciPy, and PyQt to provide the following **key features**:
@@ -79,6 +78,7 @@ Please note that the system currently has the following **limitations**:
 - MediaPipe is only configured to run on Windows
     - while the camera calibration will likely work on other systems, the included sample markerless tracking will not (currently)
 - It does not support anything other than standard webcams at the moment 
+- The frame capture backend presents a primary bottleneck that will limit the number of cameras/resolution/frame rates that can be used, which ultimately limits the size and precision of the capture volume.
 - Data export is currently limited to .csv, and .trc files. Use in 3D animation tools like Blender, which require character rigging, will require additional processing.
 
 

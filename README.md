@@ -28,7 +28,7 @@ The current functionality includes a sample tracker using Google's Mediapipe whi
 
 From a terminal (the code below is using Powershell), do the following:
 
-1. Create a new project folder with a virtual environment for Python 3.10 or later
+1. Create a new project folder
 ```powershell
 mkdir pyxy3d_demo
 ```

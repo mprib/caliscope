@@ -22,7 +22,7 @@ Pyxy3D (*pixie-3d*) is an open-source **Py**thon package for converting 2D **(x,
 - API for slotting various tracking solutions into the data pipeline
 - triangulation of tracked points
 
-The current functionality includes a sample tracker using Google's Mediapipe which illustrates how to use the tracker API. The camera management backend allows for recording of synchronized frames from connected webcams, though the frame rate/resolution/number of cameras will be limited by the bandwidth of the current system.
+The package comes included with a sample tracker using Google's Mediapipe which illustrates how to use the tracker API. The camera management backend allows for recording of synchronized frames from connected webcams, though the frame rate/resolution/number of cameras will be limited by the bandwidth of the current system.
 
 ## Quick Start
 

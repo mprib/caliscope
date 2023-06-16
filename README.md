@@ -26,11 +26,36 @@ The current functionality includes a sample tracker using Google's Mediapipe whi
 
 ## Quick Start
 
-1. Create a new virtual environment with Python 3.10 or later
-2. Activate the virtual environment
-3. Install pyxy3d
-4. Launch pyxy3d
+From a terminal (the code below is using Powershell), do the following:
 
+1. Create a new project folder with a virtual environment for Python 3.10 or later
+```powershell
+mkdir pyxy3d_demo
+```
+2. Navigate into that directory
+```powershell
+cd pyxy3d_demo
+```
+3. Create a virtual environment with [Python 3.10](https://www.python.org/downloads/release/python-3100/) or later:
+```powershell
+C:\Python310\python.exe -m venv .venv
+```
+4. Activate the environment
+```powershell
+.\.venv\Scripts\activate
+```
+
+5. Install Pyxy3D
+```powershell
+pip install pyxy3d
+```
+
+6. Launch Pyxy3D    
+```powershell
+pyxy3d
+```
+
+Refer to the [Quick Start Video Walkthrough](https://youtu.be/QHQKkLCE0e4) to see how to calibrate, record and process data
 ## Key Features
 
 The project leans heavily upon OpenCV, SciPy, and PyQt to provide the following **key features**:

@@ -4,9 +4,13 @@
 
 # Welcome
 
+Pyxy3D (*pixie-3d*) is an open-source **Py**thon package for converting 2D **(x,y)** point data to **3D** estimates. It is intended to serve as the calibration and triangulation workhorse of a low-cost DIY motion capture studio. It's core functionality includes: 
 
-Pyxy3D is an open-source python package designed for two primary purposes: *calibrating* DIY motion capture systems and *triangulating* the 3D position  of tracked landmarks where (x,y) coordinates have been identified across concurrent frames. It includes a pre-built implementation of Google's Holistic Mediapipe, but aims to be tracker-agnostic and provides an API for implementing alternative tracking packages. Pyxy3D also provides functionality for recording synchronized frames from a small number of connected webcams. This may be sufficient for small-scale use cases, but it will become unstable as the resolution, frame rate, and number of cameras increases. Consequently, where larger capture volumes or greater spatial or temporal resolution is needed, alternate data capture techniques will be required. 
+- the estimation of intrinsic (focal length/optical center/distortion) and extrinsic (rotation and translation) camera parameters via a GUI
+- API for slotting various tracking solutions into the data pipeline
+- triangulation of tracked points
 
+The packages comes included with a sample tracker using Google's Mediapipe which illustrates how to use the tracker API. The camera management backend allows for recording of synchronized frames from connected webcams, though the frame rate/resolution/number of cameras will be limited by the bandwidth of the current system.
 
 This project is at a very early stage so please bear with us while going through the inevitable growing pains that are ahead. You feedback is appreciated. If you have specific recommendations, please consider creating an [issue](https://github.com/mprib/pyxy3d/issues). If you have more general questions or thoughts about the project, please open up a thread in the [discussions](https://github.com/mprib/pyxy3d/discussions).
 

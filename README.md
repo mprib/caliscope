@@ -11,8 +11,6 @@
 
 [Limitations](#limitations)
 
-[Known Issues](#known-issues)
-
 ---
 ## About
 
@@ -22,7 +20,9 @@ Pyxy3D (*pixie-3d*) is an open-source **Py**thon package for converting 2D **(x,
 - API for slotting various tracking solutions into the data pipeline
 - triangulation of tracked points
 
-The current functionality includes a sample tracker using Google's Mediapipe which illustrates how to use the tracker API. The camera management backend allows for recording of synchronized frames from connected webcams, though the frame rate/resolution/number of cameras will be limited by the bandwidth of the current system.
+The package comes included with a sample tracker using Google's Mediapipe which illustrates how to use the tracker API. The camera management backend allows for recording of synchronized frames from connected webcams, though the frame rate/resolution/number of cameras will be limited by the bandwidth of the current system.
+
+![Quick_Demo](https://github.com/mprib/pyxy3d/assets/31831778/5fc8e15e-ca64-447b-86b8-69c64601199c)
 
 ## Quick Start
 
@@ -49,13 +49,14 @@ C:\Python310\python.exe -m venv .venv
 ```powershell
 pip install pyxy3d
 ```
+Note that this will also install dependencies into the virtual environment, so complete download and installation make take several minutes..
 
 6. Launch Pyxy3D    
 ```powershell
 pyxy3d
 ```
+At this point, an application window should launch. It may take several seconds for this to load. Refer to the [Quick Start Video Walkthrough](https://youtu.be/QHQKkLCE0e4) to see how to calibrate, record and process data
 
-Refer to the [Quick Start Video Walkthrough](https://youtu.be/QHQKkLCE0e4) to see how to calibrate, record and process data
 ## Key Features
 
 The project leans heavily upon OpenCV, SciPy, and PyQt to provide the following **key features**:
@@ -79,6 +80,7 @@ Please note that the system currently has the following **limitations**:
 - MediaPipe is only configured to run on Windows
     - while the camera calibration will likely work on other systems, the included sample markerless tracking will not (currently)
 - It does not support anything other than standard webcams at the moment 
+- The frame capture backend presents a primary bottleneck that will limit the number of cameras/resolution/frame rates that can be used, which ultimately limits the size and precision of the capture volume.
 - Data export is currently limited to .csv, and .trc files. Use in 3D animation tools like Blender, which require character rigging, will require additional processing.
 
 

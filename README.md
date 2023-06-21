@@ -49,12 +49,14 @@ C:\Python310\python.exe -m venv .venv
 ```powershell
 pip install pyxy3d
 ```
+Note that this will also install dependencies into the virtual environment, so complete download and installation make take several minutes..
 
 6. Launch Pyxy3D    
 ```powershell
 pyxy3d
 ```
-At this point, an application window should launch. Refer to the [Quick Start Video Walkthrough](https://youtu.be/QHQKkLCE0e4) to see how to calibrate, record and process data
+At this point, an application window should launch. It may take several seconds for this to load. Refer to the [Quick Start Video Walkthrough](https://youtu.be/QHQKkLCE0e4) to see how to calibrate, record and process data
+
 ## Key Features
 
 The project leans heavily upon OpenCV, SciPy, and PyQt to provide the following **key features**:

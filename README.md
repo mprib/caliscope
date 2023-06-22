@@ -26,6 +26,8 @@ The package comes included with a sample tracker using Google's Mediapipe which 
 
 ## Quick Start
 
+NOTE: This package has only been tested on Windows 10. There are known issues launching on MacOS and Linux that will keep it from loading. Cross platform compatibility with Windows and MacOS is a near-term goal of the project.
+
 From a terminal (the code below is using Powershell), do the following:
 
 1. Create a new project folder

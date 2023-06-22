@@ -26,7 +26,7 @@ The package comes included with a sample tracker using Google's Mediapipe which 
 
 ## Quick Start
 
-NOTE: This package has only been tested on Windows 10. There are known issues launching on MacOS and Linux that will keep it from loading. Cross platform compatibility with Windows and MacOS is a near-term goal of the project.
+This package has only been successfully tested on Windows 10 and MacOS 12 Ventura. Limited testing on Linx (Ubuntu) has failed due to issues loading PyQt6.
 
 From a terminal (the code below is using Powershell), do the following:
 
@@ -40,7 +40,7 @@ cd pyxy3d_demo
 ```
 3. Create a virtual environment with [Python 3.10](https://www.python.org/downloads/release/python-3100/) or later:
 ```powershell
-C:\Python310\python.exe -m venv .venv
+python3.10 -m venv .venv
 ```
 4. Activate the environment
 ```powershell

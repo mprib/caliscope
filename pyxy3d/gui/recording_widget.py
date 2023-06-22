@@ -153,6 +153,7 @@ class RecordingWidget(QWidget):
             self.recording_directory.setEnabled(True)
             logger.info("Stop recording and initiate final save of file") 
             self.recording_directory.setText(self.get_next_recording_directory())
+            logger.info("successfully reset text and renamed recording directory")
 
     def on_recording_complete(self):
         logger.info("Recording complete signal received...updating next action and button")

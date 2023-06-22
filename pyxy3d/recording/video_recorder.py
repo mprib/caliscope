@@ -147,6 +147,7 @@ class VideoRecorder(QObject):
             self.store_point_history()
         self.trigger_stop.clear()  # reset stop recording trigger
         self.recording = False
+        logger.info("About to emit `all frames saved` signal")
         self.all_frames_saved_signal.emit()
 
 

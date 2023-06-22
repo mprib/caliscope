@@ -148,10 +148,10 @@ class RecordingWidget(QWidget):
             self.next_action = NextRecordingActions.AwaitSave
             # self.start_stop.setText("HELLO")
             self.start_stop.setText(self.next_action.value)
+            logger.info("Stop recording and initiate final save of file") 
             self.session.stop_recording()
 
             self.recording_directory.setEnabled(True)
-            logger.info("Stop recording and initiate final save of file") 
             self.recording_directory.setText(self.get_next_recording_directory())
             logger.info("successfully reset text and renamed recording directory")
 

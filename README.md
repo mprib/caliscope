@@ -49,7 +49,7 @@ C:\Python310\python.exe -m venv .venv
 ```powershell
 pip install pyxy3d
 ```
-Note that this will also install dependencies into the virtual environment, so complete download and installation make take several minutes..
+Note that this will also install dependencies into the virtual environment, so complete download and installation may take several minutes..
 
 6. Launch Pyxy3D    
 ```powershell

@@ -101,7 +101,7 @@ class VideoRecorder:
 
             for port, frame_packet in sync_packet.frame_packets.items():
                 if frame_packet is not None:
-                    logger.info("Processiong frame packet...")
+                    logger.debug("Processiong frame packet...")
                     # read in the data for this frame for this port
                     if show_points:
                         frame = frame_packet.frame_with_points
@@ -113,7 +113,7 @@ class VideoRecorder:
 
                     if include_video:
                         # store the frame
-                        logger.info("Writing frame")
+                        logger.debug("Writing frame")
                         self.video_writers[port].write(frame)
 
                         # store to assocated data in the dictionary
@@ -125,7 +125,7 @@ class VideoRecorder:
                     new_tidy_table = frame_packet.to_tidy_table(self.sync_index)
                     if new_tidy_table is not None:  # i.e. it has data
                         for key, value in self.point_data_history.copy().items():
-                            logger.info("Extending tidy table of point history")
+                            logger.debug("Extending tidy table of point history")
                             self.point_data_history[key].extend(new_tidy_table[key])
                         
             if not syncronizer_subscription_released and self.trigger_stop.is_set():

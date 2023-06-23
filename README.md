@@ -2,14 +2,11 @@
 
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 
-<table align="center", style="border: none;">
-<tr>
-<td style="border: none;"><a href="#quick-start">Quick Start</a></td>
-<td style="border: none;"><a href="#key-features">Key Features</a></td>
-<td style="border: none;"><a href="#limitations">Limitations</a></td>
-<td style="border: none;"><a href="#known-issues">Known Issues</a></td>
-</tr>
-</table>
+<center>
+
+[Quick Start](#quick-start) | [Key Features](#key-features) | [Limitations](#limitations) | [Known Issues](#known-issues)
+
+</center>
 
 
 ---

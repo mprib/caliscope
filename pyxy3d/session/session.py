@@ -1,4 +1,5 @@
 # Environment for managing all created objects and the primary interface for the GUI.
+import typing
 import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
@@ -44,17 +45,22 @@ class SessionMode(Enum):
     Recording = auto()
     PostProcessing = auto()
 
+class QtSignaler(QObject):
+    stream_tools_loaded_signal = pyqtSignal()
+    stream_tools_disconnected_signal = pyqtSignal()
+    unlock_postprocessing = pyqtSignal()
+    recording_complete_signal = pyqtSignal()        
+    mode_change_success = pyqtSignal(SessionMode)
+
+    def __init__(self) -> None:
+        super(QtSignaler, self).__init__()
+
+        
 class Session:
-# class Session(QObject):
-#     # stream_tools_loaded_signal = pyqtSignal()
-    # stream_tools_disconnected_signal = pyqtSignal()
-    # unlock_postprocessing = pyqtSignal()
-    # recording_complete_signal = pyqtSignal()        
-
-    # mode_change_success = pyqtSignal(SessionMode)
-
     def __init__(self, config: Configurator):
-        super(Session, self).__init__()
+        # need a way to let the GUI know when certain actions have been completed
+        self.qt_signaler = QtSignaler()
+
         self.config = config
         # self.folder = PurePath(directory).name
         self.path = self.config.session_path
@@ -103,7 +109,7 @@ class Session:
         self.synchronizer.stop_event.set()
         self.synchronizer = None
 
-        # self.stream_tools_disconnected_signal.emit()
+        self.qt_signaler.stream_tools_disconnected_signal.emit()
 
     def is_camera_setup_eligible(self):
         if len(self.cameras) > 0:
@@ -404,7 +410,7 @@ class Session:
         self.pause_synchronizer()
         
         logger.info(f"Signalling successful loading of stream tools")
-        # self.stream_tools_loaded_signal.emit()
+        self.qt_signaler.stream_tools_loaded_signal.emit()
 
     def _load_monocalibrators(self):
         for port, cam in self.cameras.items():
@@ -461,10 +467,10 @@ class Session:
         self.is_recording = False
 
         logger.info(f"Recording of frames is complete...signalling change in status")
-        # self.recording_complete_signal.emit()
+        self.qt_signaler.recording_complete_signal.emit()
 
         if self.is_post_processing_eligible():
-            self.unlock_postprocessing.emit()
+            self.qt_signaler.unlock_postprocessing.emit()
 
     def _adjust_resolutions(self):
         """Changes the camera resolution to the value in the configuration, as

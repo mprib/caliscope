@@ -2,11 +2,11 @@
 
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 
-<center>
+<div align="center">
 
 [Quick Start](#quick-start) | [Key Features](#key-features) | [Limitations](#limitations) | [Known Issues](#known-issues)
 
-</center>
+</div>
 
 
 ---

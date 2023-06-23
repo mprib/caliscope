@@ -88,7 +88,7 @@ Please note that the system currently has the following **limitations**:
 
 ## Known Issues
 ### Seg Faults on Windows 10
-[June 23, 2023] The most recent version of the package on PyPI (0.1.3) has been updated to allow it to run on MacOS 12. This update did not change any code, but did change which versions of the underlying dependencies where configured to install. Segmentation faults during recording emerged after this update and are currently being addressed as a top priority.
+[June 23, 2023] The most recent version of the package on PyPI (0.1.3) has been updated to allow it to run on MacOS 12. This update did not change any code, but did change which versions of the underlying dependencies were configured to install. Segmentation faults during recording emerged after this update and are currently being addressed as a top priority.
 
 ## Reporting Issues and Requesting Features
 

@@ -44,14 +44,14 @@ class SessionMode(Enum):
     Recording = auto()
     PostProcessing = auto()
 
+class Session:
+# class Session(QObject):
+#     # stream_tools_loaded_signal = pyqtSignal()
+    # stream_tools_disconnected_signal = pyqtSignal()
+    # unlock_postprocessing = pyqtSignal()
+    # recording_complete_signal = pyqtSignal()        
 
-class Session(QObject):
-    stream_tools_loaded_signal = pyqtSignal()
-    stream_tools_disconnected_signal = pyqtSignal()
-    unlock_postprocessing = pyqtSignal()
-    recording_complete_signal = pyqtSignal()        
-
-    mode_change_success = pyqtSignal(SessionMode)
+    # mode_change_success = pyqtSignal(SessionMode)
 
     def __init__(self, config: Configurator):
         super(Session, self).__init__()
@@ -103,7 +103,7 @@ class Session(QObject):
         self.synchronizer.stop_event.set()
         self.synchronizer = None
 
-        self.stream_tools_disconnected_signal.emit()
+        # self.stream_tools_disconnected_signal.emit()
 
     def is_camera_setup_eligible(self):
         if len(self.cameras) > 0:
@@ -404,7 +404,7 @@ class Session(QObject):
         self.pause_synchronizer()
         
         logger.info(f"Signalling successful loading of stream tools")
-        self.stream_tools_loaded_signal.emit()
+        # self.stream_tools_loaded_signal.emit()
 
     def _load_monocalibrators(self):
         for port, cam in self.cameras.items():
@@ -461,7 +461,7 @@ class Session(QObject):
         self.is_recording = False
 
         logger.info(f"Recording of frames is complete...signalling change in status")
-        self.recording_complete_signal.emit()
+        # self.recording_complete_signal.emit()
 
         if self.is_post_processing_eligible():
             self.unlock_postprocessing.emit()

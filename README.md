@@ -4,8 +4,7 @@
 
 <div align="center">
 
-[Quick Start](#quick-start) | [Key Features](#key-features) | [Limitations](#limitations) | [Known Issues](#known-issues)
-
+[Quick Start](#quick-start) | [Key Features](#key-features) | [Limitations](#limitations)
 </div>
 
 
@@ -45,7 +44,7 @@ cd pyxy3d_demo
 ```
 3. Create a virtual environment with [Python 3.10](https://www.python.org/downloads/release/python-3100/) or later:
 ```powershell
-python3.10 -m venv .venv
+C:\Python310\python.exe -m venv .venv
 ```
 4. Activate the environment
 ```powershell
@@ -91,9 +90,7 @@ Please note that the system currently has the following **limitations**:
 - The frame capture backend presents a primary bottleneck that will limit the number of cameras/resolution/frame rates that can be used, which ultimately limits the size and precision of the capture volume.
 - Data export is currently limited to .csv, and .trc files. Use in 3D animation tools like Blender, which require character rigging, will require additional processing.
 
-## Known Issues
-### Seg Faults on Windows 10
-[June 23, 2023] The most recent version of the package on PyPI (0.1.3) has been updated to allow it to run on MacOS 12. This update did not change any code, but did change which versions of the underlying dependencies were configured to install. Segmentation faults during recording emerged after this update and are currently being addressed as a top priority.
+
 
 ## Reporting Issues and Requesting Features
 

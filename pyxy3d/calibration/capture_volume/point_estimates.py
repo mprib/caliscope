@@ -36,11 +36,11 @@ class PointEstimates:
 
 
     def __post_init__(self):
-        self.sync_indices = self.sync_indices.astype(np.uint32)
-        self.camera_indices = self.camera_indices.astype(np.uint16)
+        self.sync_indices = self.sync_indices.astype(np.int32)
+        self.camera_indices = self.camera_indices.astype(np.int16)
         self.point_id = self.point_id.astype(np.uint16)
         self.img = self.img.astype(np.float64)
-        self.obj_indices = self.obj_indices.astype(np.uint32)
+        self.obj_indices = self.obj_indices.astype(np.int32)
         self.obj = self.obj.astype(np.float64)    
 
     @property

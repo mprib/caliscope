@@ -2,9 +2,8 @@
 
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 
-<table style="border: none;">
+<table align="center", style="border: none;">
 <tr>
-<td style="border: none;"><a href="#introduction">Introduction</a></td>
 <td style="border: none;"><a href="#quick-start">Quick Start</a></td>
 <td style="border: none;"><a href="#key-features">Key Features</a></td>
 <td style="border: none;"><a href="#limitations">Limitations</a></td>

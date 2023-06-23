@@ -17,8 +17,6 @@ from pyxy3d.interface import FramePacket, SyncPacket
 
 
 class VideoRecorder:
-    # recording_stop_signal = pyqtSignal()
-    # all_frames_saved_signal = pyqtSignal()
 
     def __init__(self, synchronizer: Synchronizer, suffix: str = None):
         super().__init__()
@@ -35,6 +33,8 @@ class VideoRecorder:
         self.sync_index = 0  # no sync packets at init... absence of initialized value can cause errors elsewhere
         # build dict that will be stored to csv
         self.trigger_stop = Event()
+
+        self.sync_packet_in_q = Queue(-1)
 
     def build_video_writers(self):
         """
@@ -77,7 +77,6 @@ class VideoRecorder:
             "obj_loc_y": [],
         }
 
-        self.sync_packet_in_q = Queue(-1)
         
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
         syncronizer_subscription_released = False
@@ -88,6 +87,7 @@ class VideoRecorder:
             sync_packet: SyncPacket = self.sync_packet_in_q.get()
 
             # provide periodic updates of recording queue
+            logger.info("Getting sidze of sync packet q")
             backlog = self.sync_packet_in_q.qsize()
             if backlog % 25 == 0 and backlog !=0:
                 logger.info(f"Size of unsaved frames on the recording queue is {self.sync_packet_in_q.qsize()}")
@@ -101,7 +101,7 @@ class VideoRecorder:
 
             for port, frame_packet in sync_packet.frame_packets.items():
                 if frame_packet is not None:
-                    # logger.info("Processiong frame packet...")
+                    logger.info("Processiong frame packet...")
                     # read in the data for this frame for this port
                     if show_points:
                         frame = frame_packet.frame_with_points
@@ -113,6 +113,7 @@ class VideoRecorder:
 
                     if include_video:
                         # store the frame
+                        logger.info("Writing frame")
                         self.video_writers[port].write(frame)
 
                         # store to assocated data in the dictionary
@@ -124,12 +125,14 @@ class VideoRecorder:
                     new_tidy_table = frame_packet.to_tidy_table(self.sync_index)
                     if new_tidy_table is not None:  # i.e. it has data
                         for key, value in self.point_data_history.copy().items():
+                            logger.info("Extending tidy table of point history")
                             self.point_data_history[key].extend(new_tidy_table[key])
                         
             if not syncronizer_subscription_released and self.trigger_stop.is_set():
                 logger.info("Save frame worker winding down...")
                 syncronizer_subscription_released = True
                 self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
+                # self.sync_packet_in_q = Queue(-1)
                 # self.recording_stop_signal.emit()
 
         # a proper release is strictly necessary to ensure file is readable
@@ -138,7 +141,7 @@ class VideoRecorder:
             for port in self.synchronizer.ports:
                 self.video_writers[port].release()
 
-            del self.video_writers
+            # del self.video_writers
 
             logger.info("Initiate storing of frame history")
             self.store_frame_history()

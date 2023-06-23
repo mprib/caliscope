@@ -130,7 +130,7 @@ class RecordingWidget(QWidget):
         self.frame_rate_spin.valueChanged.connect(self.session.set_active_mode_fps)
         self.unpaired_frame_emitter.dropped_fps.connect(self.update_dropped_fps)
         self.start_stop.clicked.connect(self.toggle_start_stop)
-        self.session.recording_complete_signal.connect(self.on_recording_complete)
+        self.session.qt_signaler.recording_complete_signal.connect(self.on_recording_complete)
 
     def toggle_start_stop(self):
         logger.info("Start/Stop Recording Toggled...")

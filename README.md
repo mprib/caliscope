@@ -20,6 +20,13 @@ Pyxy3D (*pixie-3d*) is an open-source **Py**thon package for converting 2D **(x,
 
 The package comes included with a sample tracker using Google's Mediapipe which illustrates how to use the tracker API. The camera management backend allows for recording of synchronized frames from connected webcams, though the frame rate/resolution/number of cameras will be limited by the bandwidth of the current system.
 
+The gif below gives a quick demo of the following steps:
+1. Single Camera Calibration
+2. Multicamera Calibratoin
+3. Synchronized Recording
+4. Post-processing with Mediapipe Holistic
+5. Visualization of triangulated results
+
 ![Quick_Demo](https://github.com/mprib/pyxy3d/assets/31831778/5fc8e15e-ca64-447b-86b8-69c64601199c)
 
 ## Quick Start
@@ -80,8 +87,6 @@ The project leans heavily upon OpenCV, SciPy, and PyQt to provide the following 
 ## Limitations
 
 Please note that the system currently has the following **limitations**:
-- MediaPipe is only configured to run on Windows
-    - while the camera calibration will likely work on other systems, the included sample markerless tracking will not (currently)
 - It does not support anything other than standard webcams at the moment 
 - The frame capture backend presents a primary bottleneck that will limit the number of cameras/resolution/frame rates that can be used, which ultimately limits the size and precision of the capture volume.
 - Data export is currently limited to .csv, and .trc files. Use in 3D animation tools like Blender, which require character rigging, will require additional processing.

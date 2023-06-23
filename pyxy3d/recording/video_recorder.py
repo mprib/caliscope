@@ -2,7 +2,7 @@ import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 
-from PyQt6.QtCore import QObject, pyqtSignal
+# from PyQt6.QtCore import QObject, pyqtSignal
 from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
@@ -16,9 +16,9 @@ from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.interface import FramePacket, SyncPacket
 
 
-class VideoRecorder(QObject):
-    recording_stop_signal = pyqtSignal()
-    all_frames_saved_signal = pyqtSignal()
+class VideoRecorder:
+    # recording_stop_signal = pyqtSignal()
+    # all_frames_saved_signal = pyqtSignal()
 
     def __init__(self, synchronizer: Synchronizer, suffix: str = None):
         super().__init__()
@@ -54,7 +54,6 @@ class VideoRecorder(QObject):
 
     def save_data_worker(self, include_video: bool, show_points: bool, store_point_history:bool):
         # connect video recorder to synchronizer via an "in" queue
-
         if include_video:
             self.build_video_writers()
 
@@ -79,10 +78,12 @@ class VideoRecorder(QObject):
         }
 
         self.sync_packet_in_q = Queue(-1)
+        
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
         syncronizer_subscription_released = False
         
         # this is where the issue is... need to figure out when the queue is empty...
+        logger.info("Entering Save data worker loop entered")
         while self.sync_packet_in_q.qsize() > 0 or not self.trigger_stop.is_set(): 
             sync_packet: SyncPacket = self.sync_packet_in_q.get()
 
@@ -129,7 +130,7 @@ class VideoRecorder(QObject):
                 logger.info("Save frame worker winding down...")
                 syncronizer_subscription_released = True
                 self.synchronizer.release_sync_packet_q(self.sync_packet_in_q)
-                self.recording_stop_signal.emit()
+                # self.recording_stop_signal.emit()
 
         # a proper release is strictly necessary to ensure file is readable
         if include_video:
@@ -148,7 +149,7 @@ class VideoRecorder(QObject):
         self.trigger_stop.clear()  # reset stop recording trigger
         self.recording = False
         logger.info("About to emit `all frames saved` signal")
-        self.all_frames_saved_signal.emit()
+        # self.all_frames_saved_signal.emit()
 
 
     def store_point_history(self):
@@ -205,5 +206,6 @@ class VideoRecorder(QObject):
         self.recording_thread.start()
 
     def stop_recording(self):
-        logger.info("Stop recording initiated within VideoRecorder")
+        logger.info("about to Stop recording initiated within VideoRecorder")
         self.trigger_stop.set()
+        logger.info("Stop recording initiated within VideoRecorder")

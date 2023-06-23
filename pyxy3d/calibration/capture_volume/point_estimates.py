@@ -33,7 +33,15 @@ class PointEstimates:
     obj_indices: np.ndarray # mapping of x,y img points to their respective list of estimated x,y,z obj points
     obj: np.ndarray  # x,y,z estimates of object points
     # obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point; is this necessary?
-    
+
+
+    def __post_init__(self):
+        self.sync_indices = self.sync_indices.astype(np.int32)
+        self.camera_indices = self.camera_indices.astype(np.int16)
+        self.point_id = self.point_id.astype(np.uint16)
+        self.img = self.img.astype(np.float64)
+        self.obj_indices = self.obj_indices.astype(np.int32)
+        self.obj = self.obj.astype(np.float64)    
 
     @property
     def n_cameras(self):

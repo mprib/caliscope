@@ -28,7 +28,6 @@ from pyxy3d import __root__, __settings_path__, __user_dir__
 from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.configurator import Configurator
-from pyxy3d.gui.calibration_widget import CalibrationWidget
 from pyxy3d.gui.charuco_widget import CharucoWidget
 from pyxy3d.gui.camera_config.intrinsic_calibration_widget import (
     IntrinsicCalibrationWidget,
@@ -134,7 +133,7 @@ class MainWindow(QMainWindow):
     def load_stream_tools(self):
         self.connect_cameras_action.setEnabled(False)
         self.disconnect_cameras_action.setEnabled(True)
-        self.session.stream_tools_loaded_signal.connect(self.pause_all_frame_reading)
+        self.session.qt_signaler.stream_tools_loaded_signal.connect(self.pause_all_frame_reading)
         self.thread = Thread(
             target=self.session.load_stream_tools, args=(), daemon=True
         )
@@ -266,8 +265,8 @@ class MainWindow(QMainWindow):
         After launching a session, connect signals and slots.
         Much of these will be from the GUI to the session and vice-versa
         """
-        self.session.unlock_postprocessing.connect(self.load_post_processing_widget)
-        self.session.stream_tools_loaded_signal.connect(self.update_tabs)
+        self.session.qt_signaler.unlock_postprocessing.connect(self.load_post_processing_widget)
+        self.session.qt_signaler.stream_tools_loaded_signal.connect(self.update_tabs)
 
     def load_recording_widget(self):
         # recording_index = self.tab_widget.indexOf(self.recording_widget)

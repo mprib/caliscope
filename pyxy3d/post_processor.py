@@ -32,11 +32,11 @@ from pyxy3d.gui.playback_widget import PlaybackWidget
 from pyxy3d.helper import copy_contents
 
 
-class PostProcessor(QObject):
-    progress_update = pyqtSignal(dict)  # {"stage": str, "percent":int}
+class PostProcessor:
+    # progress_update = pyqtSignal(dict)  # {"stage": str, "percent":int}
 
     def __init__(self,config:Configurator ):
-        super().__init__()
+        # super().__init__()
         self.config = config
 
     def create_xyz(self, recording_path: Path, tracker_enum: TrackerEnum,) -> None:
@@ -104,12 +104,12 @@ class PostProcessor(QObject):
             sleep(1)
             percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
             logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
-            self.progress_update.emit(
-                {
-                    "stage": "Estimating (x,y) landmark positions (stage 1 of 2)",
-                    "percent": percent_complete,
-                }
-            )
+            # self.progress_update.emit(
+            #     {
+            #         "stage": "Estimating (x,y) landmark positions (stage 1 of 2)",
+            #         "percent": percent_complete,
+            #     }
+            # )
 
 
     def triangulate_xy_data(self, xy_data: pd.DataFrame) -> Dict[str, List]:
@@ -163,21 +163,20 @@ class PostProcessor(QObject):
                     f"(Stage 2 of 2): Triangulation of (x,y) point estimates is {percent_complete}% complete"
                 )
                 last_log_update = int(time())
-                self.progress_update.emit(
-                    {
-                        "stage": "Triangulating (x,y,z) estimates (stage 2 of 2)",
-                        "percent": percent_complete,
-                    }
-                )
+                # self.progress_update.emit(
+                #     {
+                #         "stage": "Triangulating (x,y,z) estimates (stage 2 of 2)",
+                #         "percent": percent_complete,
+                #     }
+                # )
 
         # signalling the progress bar can now close
-        self.progress_update.emit(
-            {
-                "stage": "Triangulating (x,y,z) estimates (stage 2 of 2)",
-                "percent": 100,
-                "close": True
-            }
-        )
+        # self.progress_update.emit(
+        #     {
+        #         "stage": "Triangulating (x,y,z) estimates (stage 2 of 2)",
+        #         "percent": 100,
+        #         "close": True
+        #     }
+        # )
 
         return xyz_history
-

@@ -130,9 +130,10 @@ class RecordingWidget(QWidget):
         self.frame_rate_spin.valueChanged.connect(self.session.set_active_mode_fps)
         self.unpaired_frame_emitter.dropped_fps.connect(self.update_dropped_fps)
         self.start_stop.clicked.connect(self.toggle_start_stop)
-        self.session.recording_complete_signal.connect(self.on_recording_complete)
+        self.session.qt_signaler.recording_complete_signal.connect(self.on_recording_complete)
 
     def toggle_start_stop(self):
+        logger.info("Start/Stop Recording Toggled...")
         if self.next_action == NextRecordingActions.StartRecording:
             self.next_action = NextRecordingActions.StopRecording
             self.start_stop.setText(self.next_action.value)
@@ -151,16 +152,23 @@ class RecordingWidget(QWidget):
             logger.info("Stop recording and initiate final save of file") 
             self.session.stop_recording()
 
+            next_recording = self.get_next_recording_directory()
             self.recording_directory.setEnabled(True)
-            self.recording_directory.setText(self.get_next_recording_directory())
-            logger.info("successfully reset text and renamed recording directory")
+            self.recording_directory.setText(next_recording)
+            logger.info(f"successfully reset text and renamed recording directory to {next_recording}")
 
+        elif self.next_action == NextRecordingActions.AwaitSave:
+            logger.info("recording button toggled while awaiting save")
+            
     def on_recording_complete(self):
         logger.info("Recording complete signal received...updating next action and button")
         self.next_action = NextRecordingActions.StartRecording
         self.start_stop.setText(self.next_action.value)
-        self.start_stop.setEnabled(True)
         logger.info("Enabling start/stop recording button")
+        self.start_stop.setEnabled(True)
+        logger.info("Successfully enabled start/stop recording button")
+        # pass
+        
                     
     def update_dropped_fps(self, dropped_fps:dict):
         "Unravel dropped fps dictionary to a more readable string"

@@ -87,7 +87,7 @@ class VideoRecorder:
             sync_packet: SyncPacket = self.sync_packet_in_q.get()
 
             # provide periodic updates of recording queue
-            logger.info("Getting sidze of sync packet q")
+            logger.debug("Getting size of sync packet q")
             backlog = self.sync_packet_in_q.qsize()
             if backlog % 25 == 0 and backlog !=0:
                 logger.info(f"Size of unsaved frames on the recording queue is {self.sync_packet_in_q.qsize()}")

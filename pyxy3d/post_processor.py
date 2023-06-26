@@ -59,7 +59,9 @@ class PostProcessor:
             self.create_xy(recording_path, tracker_enum)
 
         # load in 2d data and triangulate it
+        logger.info("Reading in (x,y) data..")
         xy_data = pd.read_csv(xy_csv_path)
+        logger.info("Beginning data triangulation")
         xyz_history = self.triangulate_xy_data(xy_data)
         xyz_data = pd.DataFrame(xyz_history)
         xyz_data.to_csv(Path(tracker_output_path, f"xyz_{output_suffix}.csv"))
@@ -118,6 +120,7 @@ class PostProcessor:
         # assemble numba compatible dictionary
         projection_matrices = Dict()
         for port, cam in camera_array.cameras.items():
+            logger.info(f"At port {port}, the projection matrix is {cam.projection_matrix}")
             projection_matrices[int(port)] = cam.projection_matrix
 
         xyz_history = {

@@ -30,7 +30,7 @@ The gif below gives a quick demo of the following steps:
 
 ## Quick Start
 
-This package has only been successfully tested on Windows 10 and MacOS 12 Ventura. Limited testing on Linx (Ubuntu) has failed due to issues loading PyQt6.
+This package has only been successfully tested on Windows 10 and MacOS 12 Ventura. Limited testing on Linux (Ubuntu) has failed due to issues loading PyQt6.
 
 From a terminal (the code below is using Powershell), do the following:
 

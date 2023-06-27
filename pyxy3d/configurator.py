@@ -279,15 +279,19 @@ class Configurator:
                 camera.rotation_count = params["rotation_count"]
                 camera.exposure = params["exposure"]
 
-                # if calibration done, then populate those as well
-                if "error" in params.keys():
+                if "error" in params.keys(): # then intrinsic params available
+                    # if calibration done, then populate those as well
+                    logger.info(f"Adding in preconfigured intrinsic params at port {port}")
                     logger.info(f"Camera RMSE error for port {port}: {params['error']}")
                     camera.error = params["error"]
                     camera.matrix = np.array(params["matrix"]).astype(float)
                     camera.distortions = np.array(params["distortions"]).astype(float)
                     camera.grid_count = params["grid_count"]
-            # except:
-            #     logger.info("Unable to connect... camera may be in use.")
+
+                if "rotation" in params.keys(): # then extrinsic params available
+                    logger.info(f"Adding in preconfigured extrinsic params at port {port}")
+                    camera.rotation = cv2.Rodrigues(np.array(params["rotation"]))[0]
+                    camera.translation = np.array(params["translation"])
 
         with ThreadPoolExecutor() as executor:
             for key, params in self.dict.items():

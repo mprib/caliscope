@@ -20,29 +20,28 @@ import numpy as np
 from scipy.signal import butter, filtfilt
 
 import matplotlib.pyplot as plt
+
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
 from pyxy3d.post_processor import PostProcessor
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 
-#%%
+from PyQt6.QtWidgets import QApplication
+from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
 
+# %%
 # load config:
 test_folder = Path(__root__, r"tests\reference\2d_data")
 config = Configurator(test_folder)
-logger.info("Loading data...")
-xyz_history = pd.read_csv(Path(test_folder, "xyz_HOLISTIC.csv"))
 
-#%%
+# %%
 # for initial testing, just pull out the left heel
-# in the future, may rearrange this to just start from xy and filter 
+# in the future, may rearrange this to just start from xy and filter
 # left heel then go from there...
-left_heel_id = 29
-xyz_history = xyz_history.query(f"point_id=={left_heel_id}")
-#%%
-
-
+# left_heel_id = 29
+# xyz_history = xyz_history.query(f"point_id=={left_heel_id}")
+# %%
 
 # load the data
 # test_data_path = Path(__root__, r"tests\reference\2d_data\xy_HOLISTIC.csv")
@@ -52,15 +51,10 @@ xyz_history = xyz_history.query(f"point_id=={left_heel_id}")
 # xyz_history = post_processor.triangulate_xy_data(xy_data)
 # xyz_history = pd.DataFrame(xyz_history)
 # xyz_history.to_csv(Path(test_folder, "xyz_HOLISTIC.csv"))
-#%%
 # creating filter groups which are contiguous observations of a single point
-xyz_history = xyz_history.sort_values(by=["point_id", "sync_index"])
-xyz_history["sync_index_shifted"] = xyz_history["sync_index"].shift(1)
-xyz_history["new_filter_group"] = xyz_history["sync_index"] != xyz_history["sync_index_shifted"] + 1
-xyz_history["filter_group_index"] = xyz_history["new_filter_group"].cumsum()
-xyz_history = xyz_history.drop(["sync_index_shifted", "new_filter_group"], axis=1)
 
-#%%
+
+# %%
 # Define your Butterworth filter functions
 def butter_lowpass(cutoff, fs, order=5):
     nyq = 0.5 * fs  # Nyquist Frequency
@@ -77,58 +71,50 @@ def butter_lowpass_filter(data, cutoff, fs, order=5):
     y = filtfilt(b, a, data, padlen=padlen)
     return y
 
-#%%
+
+# %%
+def filter_xyz(xyz_history_path: Path, order, fs, cutoff):
+
+    logger.info("Loading data...")
+    xyz_history = pd.read_csv(xyz_history_path)
+    xyz_history = xyz_history.sort_values(by=["point_id", "sync_index"])
+    xyz_history["sync_index_shifted"] = xyz_history["sync_index"].shift(1)
+    xyz_history["new_filter_group"] = (
+        xyz_history["sync_index"] != xyz_history["sync_index_shifted"] + 1
+    )
+    xyz_history["filter_group_index"] = xyz_history["new_filter_group"].cumsum()
+    xyz_history = xyz_history.drop(["sync_index_shifted", "new_filter_group"], axis=1)
+
+    logger.info("Applying butterworth filter to xy point coordinates")
+    # Apply the filter to each piecewise group
+    xyz_history["x_coord"] = xyz_history.groupby(["filter_group_index"])[
+        "x_coord"
+    ].transform(butter_lowpass_filter, cutoff, fs, order)
+    xyz_history["y_coord"] = xyz_history.groupby(["filter_group_index"])[
+        "y_coord"
+    ].transform(butter_lowpass_filter, cutoff, fs, order)
+    xyz_history["z_coord"] = xyz_history.groupby(["filter_group_index"])[
+        "z_coord"
+    ].transform(butter_lowpass_filter, cutoff, fs, order)
+
+    
+    xyz_history = xyz_history.sort_values(["sync_index", "point_id"])
+    destination_path = Path(xyz_history_path.parent, "xyz_HOLISTIC_filtered.csv")
+    logger.info(f"Saving filtered data to {destination_path}")
+    xyz_history.to_csv(destination_path)
+
 # Define your filter parameters
 order = 2
-
 fs = config.get_fps_recording()  # sample rate, Hz
+cutoff = 3  # desired cutoff frequency, Hz
+# filter_xyz(Path(test_folder,"xyz_HOLISTIC.csv"), order,fs, cutoff)
 
-cutoff = 3 # desired cutoff frequency, Hz
+app = QApplication(sys.argv)
+camera_array = config.get_camera_array()
+# filtered_window = PlaybackTriangulationWidget(camera_array, Path(test_folder, "xyz_HOLISTIC_filtered.csv"))
+# filtered_window.show()
 
-logger.info("Applying butterworth filter to xy point coordinates")
-# Apply the filter to each piecewise group
-xyz_history["filtered_x_coord"] = xyz_history.groupby(["filter_group_index"])[
-    "x_coord"
-].transform(butter_lowpass_filter, cutoff, fs, order)
-xyz_history["filtered_y_coord"] = xyz_history.groupby(["filter_group_index"])[
-    "y_coord"
-].transform(butter_lowpass_filter, cutoff, fs, order)
-xyz_history["filtered_z_coord"] = xyz_history.groupby(["filter_group_index"])[
-    "z_coord"
-].transform(butter_lowpass_filter, cutoff, fs, order)
+unfiltered_window = PlaybackTriangulationWidget(camera_array, Path(test_folder, "xyz_HOLISTIC.csv"))
+unfiltered_window.show()
 
-xyz_history = xyz_history.sort_values(["sync_index", "point_id"])
-
-# Creating subplots
-fig, ax = plt.subplots(3, 1, figsize=(10, 15))
-
-# Plotting x-coordinates
-ax[0].plot(xyz_history['sync_index'], xyz_history['x_coord'], color='blue', label='Original')
-ax[0].plot(xyz_history['sync_index'], xyz_history['filtered_x_coord'], color='red', label='Filtered')
-ax[0].set_title('X Coordinates')
-ax[0].set_xlabel('sync_index')
-ax[0].set_ylabel('x_coord')
-ax[0].legend()
-
-# Plotting y-coordinates
-ax[1].plot(xyz_history['sync_index'], xyz_history['y_coord'], color='green', label='Original')
-ax[1].plot(xyz_history['sync_index'], xyz_history['filtered_y_coord'], color='purple', label='Filtered')
-ax[1].set_title('Y Coordinates')
-ax[1].set_xlabel('sync_index')
-ax[1].set_ylabel('y_coord')
-ax[1].legend()
-
-# Plotting z-coordinates
-ax[2].plot(xyz_history['sync_index'], xyz_history['z_coord'], color='orange', label='Original')
-ax[2].plot(xyz_history['sync_index'], xyz_history['filtered_z_coord'], color='brown', label='Filtered')
-ax[2].set_title('Z Coordinates')
-ax[2].set_xlabel('sync_index')
-ax[2].set_ylabel('z_coord')
-ax[2].legend()
-
-# Adjusting the spacing between the plots
-plt.tight_layout()
-
-# Displaying the plot
-plt.show()
-# %%
+app.exec()

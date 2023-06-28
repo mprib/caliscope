@@ -21,7 +21,7 @@ The package comes included with a sample tracker using Google's Mediapipe which 
 
 The gif below gives a quick demo of the following steps:
 1. Single Camera Calibration
-2. Multicamera Calibratoin
+2. Multicamera Calibration
 3. Synchronized Recording
 4. Post-processing with Mediapipe Holistic
 5. Visualization of triangulated results

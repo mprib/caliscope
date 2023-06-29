@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyxy3d"
-version = "0.1.5"
+version = "0.1.6"
 description = "A package for calibrating standard webcams to enable 3d motion tracking"
 authors = ["Mac Prible <prible@gmail.com>"]
 license = "AGPL-3.0-only"

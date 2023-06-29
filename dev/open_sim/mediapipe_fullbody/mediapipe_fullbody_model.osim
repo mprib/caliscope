@@ -6818,27 +6818,19 @@
 		<!--Markers in the model.-->
 		<MarkerSet name="markerset">
 			<objects>
-				<Marker name="nose">
+				<Marker name="right_outer_eye">
 					<!--Path to a Component that satisfies the Socket 'parent_frame' of type PhysicalFrame (description: The frame to which this station is fixed.).-->
 					<socket_parent_frame>/bodyset/head</socket_parent_frame>
 					<!--The fixed location of the station expressed in its parent frame.-->
-					<location>0.089048103588134683 0.53297803277213529 0.00060992640972054623</location>
+					<location>0.068045415302463441 0.55884282880695779 0.037950401974291011</location>
 					<!--Flag (true or false) specifying whether the marker is fixed in its parent frame during the marker placement step of scaling.  If false, the marker is free to move within its parent Frame to match its experimental counterpart.-->
 					<fixed>true</fixed>
 				</Marker>
-				<Marker name="right_eye_outer">
+				<Marker name="left_outer_eye">
 					<!--Path to a Component that satisfies the Socket 'parent_frame' of type PhysicalFrame (description: The frame to which this station is fixed.).-->
 					<socket_parent_frame>/bodyset/head</socket_parent_frame>
 					<!--The fixed location of the station expressed in its parent frame.-->
-					<location>0.068045415306746793 0.55884282880695779 0.02624377032626082</location>
-					<!--Flag (true or false) specifying whether the marker is fixed in its parent frame during the marker placement step of scaling.  If false, the marker is free to move within its parent Frame to match its experimental counterpart.-->
-					<fixed>true</fixed>
-				</Marker>
-				<Marker name="left_eye_outer">
-					<!--Path to a Component that satisfies the Socket 'parent_frame' of type PhysicalFrame (description: The frame to which this station is fixed.).-->
-					<socket_parent_frame>/bodyset/head</socket_parent_frame>
-					<!--The fixed location of the station expressed in its parent frame.-->
-					<location>0.069857071913979135 0.55697305173123246 -0.029007770243867158</location>
+					<location>0.069857071919052507 0.55697305173123246 -0.042873511167999666</location>
 					<!--Flag (true or false) specifying whether the marker is fixed in its parent frame during the marker placement step of scaling.  If false, the marker is free to move within its parent Frame to match its experimental counterpart.-->
 					<fixed>true</fixed>
 				</Marker>
@@ -6997,6 +6989,12 @@
 					<location>-0.0038140388526764924 -0.071245978525771636 -0.032599452177237864</location>
 					<!--Flag (true or false) specifying whether the marker is fixed in its parent frame during the marker placement step of scaling.  If false, the marker is free to move within its parent Frame to match its experimental counterpart.-->
 					<fixed>true</fixed>
+				</Marker>
+				<Marker name="chin_tip">
+					<!--Path to a Component that satisfies the Socket 'parent_frame' of type PhysicalFrame (description: The frame to which this station is fixed.).-->
+					<socket_parent_frame>/bodyset/head</socket_parent_frame>
+					<!--The fixed location of the station expressed in its parent frame.-->
+					<location>0.06625584696255625 0.46078807287335638 -0.0020181673632707255</location>
 				</Marker>
 			</objects>
 			<groups />

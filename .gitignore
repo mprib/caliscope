@@ -20,3 +20,4 @@ dev/sample_sessions*
 *.nbc
 *.csv
 *config.toml
+*.xlsx

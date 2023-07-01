@@ -14007,25 +14007,27 @@
 					<!--Path to a Component that satisfies the Socket 'parent_frame' of type PhysicalFrame (description: The frame to which this station is fixed.).-->
 					<socket_parent_frame>/bodyset/hand_l</socket_parent_frame>
 					<!--The fixed location of the station expressed in its parent frame.-->
-					<location>3.4169337732656414e-05 -0.080589870708367844 -0.017114031576073021</location>
+					<location>9.1019670131791978e-35 -0.080589870708367844 -0.018780208057088549</location>
 				</Marker>
 				<Marker name="right_index_finger_MCP">
 					<!--Path to a Component that satisfies the Socket 'parent_frame' of type PhysicalFrame (description: The frame to which this station is fixed.).-->
 					<socket_parent_frame>/bodyset/hand_r</socket_parent_frame>
 					<!--The fixed location of the station expressed in its parent frame.-->
-					<location>0.0054119031410698442 -0.077839129601358678 0.017787330519372861</location>
+					<location>0.0054119031410698442 -0.085555976593000904 0.017787330519372861</location>
+				</Marker>
+				<Marker name="right_outer_eye">
+					<!--Path to a Component that satisfies the Socket 'parent_frame' of type PhysicalFrame (description: The frame to which this station is fixed.).-->
+					<socket_parent_frame>/bodyset/hand_r</socket_parent_frame>
+					<!--The fixed location of the station expressed in its parent frame.-->
+					<location>-0.0028928136556154423 -0.071989930939300423 -0.033135934062460029</location>
+					<!--Flag (true or false) specifying whether the marker is fixed in its parent frame during the marker placement step of scaling.  If false, the marker is free to move within its parent Frame to match its experimental counterpart.-->
+					<fixed>true</fixed>
 				</Marker>
 				<Marker name="left_pinky_MCP">
 					<!--Path to a Component that satisfies the Socket 'parent_frame' of type PhysicalFrame (description: The frame to which this station is fixed.).-->
 					<socket_parent_frame>/bodyset/hand_l</socket_parent_frame>
 					<!--The fixed location of the station expressed in its parent frame.-->
-					<location>0.00047233674866390643 -0.063499187868908763 0.030427278174030285</location>
-				</Marker>
-				<Marker name="right_pinky_MCP">
-					<!--Path to a Component that satisfies the Socket 'parent_frame' of type PhysicalFrame (description: The frame to which this station is fixed.).-->
-					<socket_parent_frame>/bodyset/hand_r</socket_parent_frame>
-					<!--The fixed location of the station expressed in its parent frame.-->
-					<location>5.2856297951016834e-36 -0.065271122686859168 -0.02920499147086901</location>
+					<location>2.7547884386183554e-35 -0.076252168810350018 0.020246485210467315</location>
 				</Marker>
 			</objects>
 			<groups />

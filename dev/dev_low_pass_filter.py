@@ -25,13 +25,15 @@ import matplotlib.pyplot as plt
 from pyxy3d.helper import copy_contents
 from pyxy3d.post_processor import PostProcessor
 from pyxy3d.trackers.tracker_enum import TrackerEnum
-
+import toml
 from PyQt6.QtWidgets import QApplication
 from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
 
 # %%
 # load config:
+
+
 test_folder = Path(__root__, r"tests\reference\2d_data")
 config = Configurator(test_folder)
 
@@ -99,22 +101,36 @@ def filter_xyz(xyz_history_path: Path, order, fs, cutoff):
 
     
     xyz_history = xyz_history.sort_values(["sync_index", "point_id"])
-    destination_path = Path(xyz_history_path.parent, "xyz_HOLISTIC_filtered.csv")
+    destination_path = Path(xyz_history_path.parent, xyz_history_path.stem + "_filtered.csv")
     logger.info(f"Saving filtered data to {destination_path}")
     xyz_history.to_csv(destination_path)
+
+
+processed_folder = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\4_cam\recording_1\HOLISTIC_OPENSIM")
+trajectory_data_path = Path(processed_folder, "xyz_HOLISTIC_OPENSIM.csv")
+
+config_path = Path(processed_folder, "config.toml")
+config_dict = toml.load(config_path)
+
+fps = config_dict["fps_recording"]
 
 # Define your filter parameters
 order = 2
 fs = config.get_fps_recording()  # sample rate, Hz
-cutoff = 3  # desired cutoff frequency, Hz
-# filter_xyz(Path(test_folder,"xyz_HOLISTIC.csv"), order,fs, cutoff)
+cutoff = 6  # desired cutoff frequency, Hz
+
+# test_data = Path(test_folder,"xyz_HOLISTIC.csv")
+
+
+filter_xyz(trajectory_data_path, order,fs, cutoff)
 
 app = QApplication(sys.argv)
 camera_array = config.get_camera_array()
-# filtered_window = PlaybackTriangulationWidget(camera_array, Path(test_folder, "xyz_HOLISTIC_filtered.csv"))
-# filtered_window.show()
+filtered_data =Path(processed_folder, "xyz_HOLISTIC_OPENSIM_filtered.csv") 
+filtered_window = PlaybackTriangulationWidget(camera_array,filtered_data)
+filtered_window.show()
 
-unfiltered_window = PlaybackTriangulationWidget(camera_array, Path(test_folder, "xyz_HOLISTIC.csv"))
-unfiltered_window.show()
+# unfiltered_window = PlaybackTriangulationWidget(camera_array, trajectory_data_path)
+# unfiltered_window.show()
 
 app.exec()

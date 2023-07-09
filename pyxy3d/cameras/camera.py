@@ -46,7 +46,7 @@ class Camera:
 
         # check if source has a data feed before proceeding...if not it is
         # either in use or fake
-        logger.info(f"Attempting to connect video capure at port {port}")
+        logger.info(f"Attempting to connect video capture at port {port}")
         test_capture = cv2.VideoCapture(port,self.device_connection)
         for _ in range(0, TEST_FRAME_COUNT):
             good_read, frame = test_capture.read()
@@ -260,15 +260,18 @@ RESOLUTIONS_TO_CHECK = [
 ######################### TEST FUNCTIONALITY OF CAMERAS ########################
 if __name__ == "__main__":
 
-    cam = Camera(0, verified_resolutions=[(640,480), (1280,720)])
+    cam = Camera(4, verified_resolutions=[(640,480), (1280,720)])
     logger.info(f"Camera {cam.port} has possible resolutions: {cam.verified_resolutions}")
 
     for res in cam.verified_resolutions:
         logger.info(f"Testing Resolution {res}")
-
+        logger.info("Disconnecting from camera")
         cam.disconnect()
+        logger.info("Reconnecting to camera")
         cam.connect()
+        logger.info(f"Setting camera size to {res}")
         cam.size = res
+        logger.info(f"Resolution successfully updated...")
             
         while True:
             success, frame = cam.capture.read()
@@ -305,3 +308,5 @@ if __name__ == "__main__":
             cam.disconnect()
             cv2.destroyAllWindows()
             break 
+
+# %%

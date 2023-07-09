@@ -107,7 +107,7 @@ class CharucoTracker(Tracker):
         else:
             return np.array([])
 
-    # @staticmethod    
+    # @property
     def draw_instructions(self, point_id: int) ->dict:
         rules = {"radius":5,
                  "color":(0,0,220),
@@ -119,25 +119,26 @@ if __name__ == "__main__":
 
     from pyxy3d.cameras.camera import Camera
     from pyxy3d.cameras.live_stream import LiveStream
-    
-    tracker = Charuco(
+    from queue import Queue
+     
+    charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
     cam = Camera(1)
 
     print(f"Using Optimized Code?: {cv2.useOptimized()}")
-    trackr = CharucoTracker(tracker)
-    stream = LiveStream(cam,fps_target=10,charuco=tracker)
+    trackr = CharucoTracker(charuco)
+    stream = LiveStream(cam,fps_target=10,tracker=trackr)
     stream._show_fps = True
-        
+
+    q = Queue()
+    stream.subscribe(q)
     print("About to enter main loop")
     while True:
 
-        # read_success, frame = cam.capture.read()
-        frame_packet = stream.out_q.get()
-        pyxy3d.calibration.draw_charuco.corners(frame_packet)
+        frame_packet = q.get()
 
-        cv2.imshow("Press 'q' to quit", frame_packet.frame)
+        cv2.imshow("Press 'q' to quit", frame_packet.frame_with_points)
         key = cv2.waitKey(1)
 
         # end capture when enough grids collected

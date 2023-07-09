@@ -19,6 +19,10 @@ from pyxy3d.interface import FramePacket, SyncPacket
 class VideoRecorder:
 
     def __init__(self, synchronizer: Synchronizer, suffix: str = None):
+        """
+        suffix: provide a way to clarify any modifications to the video that are being saved
+        This is likely going to be the name of the tracker used in most cases
+        """
         super().__init__()
         self.synchronizer = synchronizer
 

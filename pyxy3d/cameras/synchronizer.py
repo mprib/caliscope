@@ -145,13 +145,13 @@ class Synchronizer:
         while not self.stop_event.is_set():
             frame_packet = self.frame_packet_queues[port].get()
             frame_index = self.port_frame_count[port]
-            frame_packet.frame_index = frame_index
+            # frame_packet.frame_index = frame_index
 
-            self.all_frame_packets[f"{port}_{frame_packet.frame_index}"] = frame_packet
+            self.all_frame_packets[f"{port}_{frame_index}"] = frame_packet
             self.port_frame_count[port] += 1
 
             logger.debug(
-                f"Frame data harvested from reel {frame_packet.port} with index {frame_packet.frame_index} and frame time of {frame_packet.frame_time}"
+                f"Frame data harvested from reel {frame_packet.port} with index {frame_index} and frame time of {frame_packet.frame_time}"
             )
 
         logger.info(f"Frame harvester for port {port} completed")

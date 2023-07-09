@@ -107,7 +107,8 @@ class Stream(ABC):
         pass
 
 
-@dataclass(slots=True)
+# @dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class FramePacket:
     """
     Holds the data for a single frame from a camera, including the frame itself,
@@ -117,7 +118,7 @@ class FramePacket:
     port: int
     frame_time: float
     frame: np.ndarray
-    frame_index: int = None
+    # frame_index: int = None
     points: PointPacket = None
     draw_instructions: callable = None
 
@@ -133,7 +134,7 @@ class FramePacket:
                 table = {
                     "sync_index": [sync_index] * point_count,
                     "port": [self.port] * point_count,
-                    "frame_index": [self.frame_index] * point_count,
+                    # "frame_index": [self.frame_index] * point_count,
                     "frame_time": [self.frame_time] * point_count,
                     "point_id": self.points.point_id.tolist(),
                     "img_loc_x": self.points.img_loc[:, 0].tolist(),

@@ -180,9 +180,9 @@ class RecordingWidget(QWidget):
          
         
     def ImageUpdateSlot(self, q_image):
-        self.recording_frame_display.resize(self.recording_frame_display.sizeHint())
         qpixmap = QPixmap.fromImage(q_image)
         self.recording_frame_display.setPixmap(qpixmap)
+        # self.recording_frame_display.resize(self.recording_frame_display.sizeHint())
         
 class UnpairedFrameBuilder:
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250):
@@ -201,7 +201,6 @@ class UnpairedFrameBuilder:
         # make it as square as you can get it
         camera_count = len(self.ports)
         self.frame_columns = int(math.ceil(camera_count**.5))
-        self.frame_rows = int(math.ceil(camera_count/self.frame_columns))
 
         self.new_sync_packet_notice = Queue()
         self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
@@ -303,39 +302,45 @@ class UnpairedFrameBuilder:
             
             thumbnail_frames[port] = text_frame
                     
+        # Begin to assemble the individual frames into a grid
         frame_rows = [] 
-        current_row = None
+        current_row = None # no frames laid down yet
         current_row_length = 0
-        frames_added = 0 
-        frames_remaining = len(self.ports)
+
         for port,frame in thumbnail_frames.items():
-            # for column in range(self.frame_columns):
             if current_row is None:
                 current_row = frame
+                current_row_length += 1
             else:
-                current_row = np.hstack([current_row,frame])  
-            current_row_length +=1
-            frames_remaining -=1
+                current_row = np.hstack([current_row, frame])  
+                current_row_length += 1
+                if current_row_length == self.frame_columns:
 
-            if frames_remaining ==0:
-                # pad with blanks
-                while current_row_length < self.frame_columns:
-                    current_row = np.hstack([current_row,self.get_frame_or_blank(None)]) 
-                    current_row_length += 1
-
-            if current_row_length == self.frame_columns:
-                frame_rows.append(current_row)            
-                current_row = None
-                current_row_length = 0
+                    current_row = prep_img_for_qpixmap(current_row)
+                    frame_rows.append(current_row)            
+                    current_row = None
+                    current_row_length = 0
+            
         
+
+        # After the loop
+        if current_row is not None:
+            while current_row_length < self.frame_columns:
+                current_row = np.hstack([current_row, self.get_frame_or_blank(None)]) 
+
+                current_row_length += 1
+
+            current_row = prep_img_for_qpixmap(current_row)
+            frame_rows.append(current_row)
+
+
         mega_frame = None
         for row in frame_rows:
             if mega_frame is None:
                 mega_frame = row
             else:
                 mega_frame = np.vstack([mega_frame,row]) 
-                         
-         
+        
         return mega_frame
 
 class UnpairedFrameEmitter(QThread):
@@ -354,9 +359,6 @@ class UnpairedFrameEmitter(QThread):
         self.keep_collecting.set()
         
         while self.keep_collecting.is_set():
-            # that that it is important to make sure that this signal is sent only once
-            # to avoid multiple calibration attempts 
-                      
             recording_frame = self.recording_frame_builder.get_recording_frame()
 
             if recording_frame is not None:
@@ -366,7 +368,16 @@ class UnpairedFrameEmitter(QThread):
 
         logger.info("Stereoframe emitter run thread ended...") 
             
+def prep_img_for_qpixmap(image:np.ndarray):
+    """
+    qpixmap needs dimensions divisible by 4 and without that weird things happen.
+    """
+    if image.shape[1] % 4 != 0:  # If the width of the row isn't divisible by 4
+        padding_width = 4 - (image.shape[1] % 4)  # Calculate how much padding is needed
+        padding = np.zeros((image.shape[0], padding_width, image.shape[2]), dtype=image.dtype)  # Create a black image of the required size
+        image = np.hstack([image, padding])  # Add the padding to the right of the image
 
+    return image
 
 def get_empty_pairs(board_counts, min_threshold):
     empty_pairs = [key for key, value in board_counts.items() if value < min_threshold]
@@ -390,6 +401,7 @@ def cv2_to_qlabel(frame):
         image.shape[0],
         QImage.Format.Format_RGB888,
     )
+
     return qt_frame
 
 

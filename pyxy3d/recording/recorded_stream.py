@@ -177,7 +177,7 @@ class RecordedStream(Stream):
                 port=self.port,
                 frame_time=self.frame_time,
                 frame=self.frame,
-                frame_index=self.frame_index,
+                # frame_index=self.frame_index,
                 points=self.point_data,
                 draw_instructions=draw_instructions
             )

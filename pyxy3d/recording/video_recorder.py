@@ -112,7 +112,7 @@ class VideoRecorder:
                     else:
                         frame = frame_packet.frame
 
-                    frame_index = frame_packet.frame_index
+                    # frame_index = frame_packet.frame_index
                     frame_time = frame_packet.frame_time
 
                     if include_video:
@@ -123,7 +123,7 @@ class VideoRecorder:
                         # store to assocated data in the dictionary
                         self.frame_history["sync_index"].append(self.sync_index)
                         self.frame_history["port"].append(port)
-                        self.frame_history["frame_index"].append(frame_index)
+                        # self.frame_history["frame_index"].append(frame_index)
                         self.frame_history["frame_time"].append(frame_time)
 
                     new_tidy_table = frame_packet.to_tidy_table(self.sync_index)

@@ -10,13 +10,8 @@ import cv2
 
 def grid_history(frame, ids, img_locs, connected_corners):
     """
-    NOTE: This is used in the monocalibrator, which is somewhat deliberately broken
-    right now while I sort out an alternate calibration framework. The long
-    term plan is to re-integrate the monocalibration workflow as a final "touch-up"
-    step in the event that the intrinsics have a poor RMSE of reprojection
+    add the history of captured boards so that the user can see which ares of the camera FOV may not have data
     """
-    # ids = ids[:,0] pretty sure no longer needed
-    # img_locs = img_locs[:,0] pretty sure no longer needed
     
     possible_pairs = {pair for pair in combinations(ids, 2)}
     connected_pairs = connected_corners.intersection(possible_pairs)
@@ -36,12 +31,3 @@ def grid_history(frame, ids, img_locs, connected_corners):
     return frame
 
 
-def corners(frame_packet):
-    frame = frame_packet.frame
-    if frame_packet.points is not None:
-        locs = frame_packet.points.img_loc
-        for coord in locs:
-            x = round(coord[0])
-            y = round(coord[1])
-
-            cv2.circle(frame, (x, y), 5, (0, 0, 220), 3)

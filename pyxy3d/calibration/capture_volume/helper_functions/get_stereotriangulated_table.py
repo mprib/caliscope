@@ -59,7 +59,7 @@ def get_stereotriangulated_table(camera_array:CameraArray, point_data_path:Path)
             if port in port_points["port"].unique():
                 points = port_points.query(f"port == {port}")
                 frame_time = points["frame_time"].iloc[0]
-                frame_index = points["frame_index"].iloc[0]
+                # frame_index = points["frame_index"].iloc[0]
 
                 point_id = points["point_id"].to_numpy()
 
@@ -73,7 +73,7 @@ def get_stereotriangulated_table(camera_array:CameraArray, point_data_path:Path)
 
                 point_packet = PointPacket(point_id, img_loc, obj_loc)
                 frame_packet = FramePacket(
-                    port, frame_time, None, frame_index, point_packet
+                    port = port, frame_time = frame_time, frame = None, points= point_packet
                 )
                 frame_packets[port] = frame_packet
             else:

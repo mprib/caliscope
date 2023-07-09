@@ -172,10 +172,9 @@ class MonoCalibrator():
             self.frame.shape[0] == self.grid_capture_history.shape[0]
             and self.frame.shape[1] == self.grid_capture_history.shape[1]
         ):
-            self.frame_packet.frame = cv2.addWeighted(self.frame_packet.frame, 1, self.grid_capture_history, 1, 0)
-            draw_charuco.corners(self.frame_packet)
+            self.grid_frame = self.frame_packet.frame_with_points
+            self.grid_frame = cv2.addWeighted(self.grid_frame, 1, self.grid_capture_history, 1, 0)
 
-            self.grid_frame = self.frame_packet.frame
             self.grid_frame_ready_q.put("frame ready")
 
         else:

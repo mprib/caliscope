@@ -65,14 +65,14 @@ class VideoRecorder:
         self.frame_history = {
             "sync_index": [],
             "port": [],
-            "frame_index": [],
+            # "frame_index": [],
             "frame_time": [],
         }
 
         self.point_data_history = {
             "sync_index": [],
             "port": [],
-            "frame_index": [],
+            # "frame_index": [],
             "frame_time": [],
             "point_id": [],
             "img_loc_x": [],

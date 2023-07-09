@@ -64,6 +64,8 @@ class RecordedStream(Stream):
         self.port_history = synched_frames_history[
             synched_frames_history["port"] == self.port
         ]
+       
+        self.port_history['frame_index'] = self.port_history['frame_time'].rank(method='min').astype(int) - 1
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
 

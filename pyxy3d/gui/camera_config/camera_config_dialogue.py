@@ -332,8 +332,13 @@ class FrameControlWidget(QWidget):
         self.setLayout(QVBoxLayout())
         ###### FRAME ####################################
         # return a QLabel that is linked to the constantly changing image
+
+        frame_hbox = QHBoxLayout()
+        frame_hbox.addStretch(1)
         self.frame_display = QLabel()
-        self.layout().addWidget(self.frame_display)
+        frame_hbox.addWidget(self.frame_display)
+        frame_hbox.addStretch(1)
+        self.layout().addLayout(frame_hbox)
 
         self.rotation_resolution_hbox = QHBoxLayout()
         self.layout().addLayout(self.rotation_resolution_hbox)

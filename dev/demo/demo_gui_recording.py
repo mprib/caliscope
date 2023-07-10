@@ -34,10 +34,12 @@ config = Configurator(session_path)
 session = Session(config)
 session.set_mode(SessionMode.Recording)
 while not hasattr(session.synchronizer, "current_sync_packet"):
+    logger.info("Waiting for session syncrhonizer to load")
     time.sleep(.5)
 
 App = QApplication(sys.argv)
 # App = QApplication([])
+logger.info("About to create Recording Widget")
 recording_dialog = RecordingWidget(session)
 recording_dialog.show()
 

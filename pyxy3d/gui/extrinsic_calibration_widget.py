@@ -5,7 +5,7 @@ logger = pyxy3d.logger.get(__name__)
 import sys
 from pathlib import Path
 from threading import Thread, Event
-import time
+from time import sleep, perf_counter
 from enum import Enum
 
 import cv2
@@ -206,6 +206,23 @@ class PairedFrameEmitter(QThread):
         logger.info("Initiated frame emitter")        
         self.keep_collecting = Event() 
         self.collection_complete = False
+
+    def wait_to_next_frame(self):
+        """
+        based on the next milestone time, return the time needed to sleep so that
+        a frame read immediately after would occur when needed
+        """
+        time = perf_counter()
+        fractional_time = time % 1
+        all_wait_times = self.paired_frame_builder.milestones - fractional_time
+        future_wait_times = all_wait_times[all_wait_times > 0]
+
+        if len(future_wait_times) == 0:
+            wait =  1 - fractional_time
+        else:
+            wait =  future_wait_times[0]
+        
+        sleep(wait)
         
     def run(self):
 
@@ -222,8 +239,6 @@ class PairedFrameEmitter(QThread):
                 logger.info("Signalling that calibration data is fully collected.")
                 self.collection_complete = True
                 self.calibration_data_collected.emit()
-        
-                # break
             
             if not possible_to_initialize:
                 # check to see if it is now
@@ -233,7 +248,8 @@ class PairedFrameEmitter(QThread):
                     self.possible_to_initialize_array.emit()
                       
             stereo_frame = self.paired_frame_builder.get_stereo_frame()
-
+            self.wait_to_next_frame()
+            
             if stereo_frame is not None:
                 image = cv2_to_qlabel(stereo_frame)
                 self.ImageBroadcast.emit(image)

@@ -22,15 +22,11 @@ class PairedFrameBuilder:
         self.board_count_target = board_count_target 
         self.common_corner_target = COMMON_CORNER_TARGET
         
-        # self.rotation_counts = {}
-        # for port, stream in self.synchronizer.streams.items():
-        #     # override here while testing this out with pre-recorded video
-        #     self.rotation_counts[port] = stream.camera.rotation_count
-
         self.pairs = self.get_pairs()
 
-        self.new_sync_packet_notice = Queue()
-        self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
+        self.rendered_fps = self.synchronizer.fps_target
+        self.set_wait_milestones()
+
         self.store_points = Event()
     
         logger.info("Resetting Frame Builder")
@@ -39,9 +35,13 @@ class PairedFrameBuilder:
         self.stereo_history = {pair:{"img_loc_A":[], "img_loc_B":[]} for pair in self.pairs}
         self.store_points.clear()   # don't default to storing tracked points
 
-    def unsubscribe_from_synchronizer(self):
-        logger.info("Unsubscribe frame builder from synchronizer.")
-        self.synchronizer.unsubscribe_to_notice(self.new_sync_packet_notice) 
+
+    def set_wait_milestones(self):
+        logger.info(f"Setting wait milestones for fps target of {self.rendered_fps}")
+        milestones = []
+        for i in range(0, int(self.rendered_fps)):
+            milestones.append(i / self.rendered_fps)
+        self.milestones = np.array(milestones)
 
     def get_pairs(self):
         pairs = [pair for pair in combinations(self.synchronizer.ports, 2)]
@@ -71,7 +71,7 @@ class PairedFrameBuilder:
             logger.debug("plugging blank frame data")
             frame = np.zeros((edge, edge, 3), dtype=np.uint8)
         else:
-            frame = frame_packet.frame.copy()
+            frame = frame_packet.frame
 
         return frame
 
@@ -108,9 +108,6 @@ class PairedFrameBuilder:
             # if there are enough corners in common, then store the corner locations
             # in the stereo history and update the board counts
             if len(common_ids) >= self.common_corner_target and self.store_points.is_set():
-                # logger.info("Storing common ids..")
-                # logger.info("Stereo History:")
-                # logger.info(self.stereo_history)
                 self.stereo_history[(portA,portB)]['img_loc_A'].extend(img_loc_A.tolist())
                 self.stereo_history[(portA,portB)]['img_loc_B'].extend(img_loc_B.tolist())
                 self.board_counts[(portA,portB)]+=1
@@ -240,7 +237,6 @@ class PairedFrameBuilder:
             fontScale=1,
             color=(0,0,255),
             thickness=2,
-             
         )
 
         return hstacked_pair
@@ -271,7 +267,13 @@ class PairedFrameBuilder:
         This glues together the stereopairs with summary blocks of the common board count
         """
 
-        self.new_sync_packet_notice.get()
+        # update the wait milestones used by the frame emitter in the event that 
+        # the target fps of the synchronizer has changed.
+        if self.rendered_fps != self.synchronizer.fps_target:
+            logger.info(f"Change in fps target detected...updating wait milestones from {self.rendered_fps} to {self.synchronizer.fps_target}")
+            self.rendered_fps = self.synchronizer.fps_target
+            self.set_wait_milestones()
+
         self.current_sync_packet = self.synchronizer.current_sync_packet
         
         stereo_frame = None

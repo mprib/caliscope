@@ -182,6 +182,7 @@ class Session:
                     f"Camera array is not fully calibrated because camera {port} lacks extrinsics"
                 )
         if eligible:
+            logger.info("Camera array eligible for recording")
             eligible = True
         else:
             eligible = False

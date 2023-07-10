@@ -174,8 +174,9 @@ class Configurator:
                     )
 
                     all_camera_data[port] = cam_data
-
+                    logger.info(f"Camera successfully added at port {port}")
         camera_array = CameraArray(all_camera_data)
+        logger.info(f"Camera array successfully created and being passed back to caller")
         return camera_array
     
     

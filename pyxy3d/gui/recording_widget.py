@@ -87,6 +87,7 @@ class RecordingWidget(QWidget):
         self.place_widgets()
         self.connect_widgets()        
         self.update_btn_eligibility()
+        logger.info("Recording widget init complete")
     
     def update_btn_eligibility(self):
         if self.session.is_recording_eligible():
@@ -216,7 +217,7 @@ class UnpairedFrameBuilder:
         camera_count = len(self.ports)
         self.frame_columns = int(math.ceil(camera_count**.5))
                 
-        self.rendered_fps = self.synchronizer.fps_mean * SKIPPED_FRAMES_PCT
+        self.rendered_fps = self.synchronizer.fps_target * (1-SKIPPED_FRAMES_PCT)
         self.set_wait_milestones()
         
         
@@ -291,15 +292,15 @@ class UnpairedFrameBuilder:
         This glues together the individual frames in the sync packet into one large block
         It takes the sync packet that is currently sitting in the synchronizer as the input
         """
-
         # update the wait milestones used by the frame emitter in the event that 
         # the target fps of the synchronizer has changed.
-        if self.rendered_fps != self.synchronizer.fps_target*SKIPPED_FRAMES_PCT:
-            logger.info(f"Change in fps target detected...updating wait milestones from {self.rendered_fps} to {self.synchronizer.fps_target*SKIPPED_FRAMES_PCT}")
-            self.rendered_fps = self.synchronizer.fps_target*SKIPPED_FRAMES_PCT
+        if self.rendered_fps != self.synchronizer.fps_target*(1-SKIPPED_FRAMES_PCT):
+            logger.info(f"Change in fps target detected...updating wait milestones from {self.rendered_fps} to {self.synchronizer.fps_target*(1-SKIPPED_FRAMES_PCT)}")
+            self.rendered_fps = self.synchronizer.fps_target*(1-SKIPPED_FRAMES_PCT)
             self.set_wait_milestones()
         
 
+        logger.info("Referencing current sync packet in synchronizer")
         self.current_sync_packet = self.synchronizer.current_sync_packet
         
         thumbnail_frames = {} 
@@ -378,7 +379,7 @@ class UnpairedFrameEmitter(QThread):
         based on the next milestone time, return the time needed to sleep so that
         a frame read immediately after would occur when needed
         """
-        logger.debug("Begin wait to next frame")
+        logger.info("Begin wait to next frame")
         time = perf_counter()
         fractional_time = time % 1
         all_wait_times = self.recording_frame_builder.milestones - fractional_time
@@ -390,6 +391,7 @@ class UnpairedFrameEmitter(QThread):
             wait =  future_wait_times[0]
         
         sleep(wait)
+        logger.info("Done waiting")
         
         
     def run(self):
@@ -401,6 +403,7 @@ class UnpairedFrameEmitter(QThread):
             self.wait_to_next_frame()
 
             if recording_frame is not None:
+                logger.info(f"Emitting frame of size {recording_frame.shape}")
                 image = cv2_to_qlabel(recording_frame)
                 self.ImageBroadcast.emit(image)
                 self.dropped_fps.emit(self.recording_frame_builder.synchronizer.dropped_fps)

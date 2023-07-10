@@ -21,9 +21,6 @@ class Synchronizer:
         self.streams = streams
         self.current_synched_frames = None
 
-        self.sync_notice_subscribers = (
-            []
-        )  # queues that will be notified of new synched frames
         self.synched_frames_subscribers = (
             []
         )  # queues that will receive actual frame data
@@ -114,20 +111,6 @@ class Synchronizer:
         logger.info("Starting frame synchronizer...")
         self.thread = Thread(target=self.synch_frames_worker, args=(), daemon=True)
         self.thread.start()
-
-    def subscribe_to_notice(self, q):
-        # subscribers are notified via the queue that new frames are available
-        # this is intended to avoid issues with latency due to multiple iterations
-        # of frames being passed from one queue to another
-        logger.info("Adding queue to receive notice of synched frames update")
-        self.sync_notice_subscribers.append(q)
-
-    def unsubscribe_to_notice(self, q):
-        # subscribers are notified via the queue that new frames are available
-        # this is intended to avoid issues with latency due to multiple iterations
-        # of frames being passed from one queue to another
-        logger.info("Removing queue that had been receiving notice of synched frames update")
-        self.sync_notice_subscribers.remove(q)
 
 
     def subscribe_to_sync_packets(self, q):
@@ -293,12 +276,6 @@ class Synchronizer:
             if self.stop_event.is_set():
                 logger.info("Sending `None` on queue to signal end of synced frames.")
                 self.current_sync_packet = None
-
-            # notify other processes that the new frames are ready for processing
-            # only for tasks that can risk missing frames (i.e. only for gui purposes)
-            for q in self.sync_notice_subscribers:
-                logger.debug(f"Giving notice of new synched frames packet via queue; sync index: {sync_index}")
-                q.put("new synched frames available")
 
             for q in self.synched_frames_subscribers:
                 q.put(self.current_sync_packet)

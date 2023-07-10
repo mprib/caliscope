@@ -43,9 +43,8 @@ from pyxy3d.configurator import Configurator
 
 
 # Whatever the target frame rate, the GUI will only display a portion of the actual frames
-# this is done to cut down on computational overhead. In practice ~ 10 fps seems sufficient
-# to easily get a sense of quality of the capture
-SKIPPED_FRAMES_PCT = 0.5
+# this is done to cut down on computational overhead. 
+RENDERED_FPS = 6
 
 
 class NextRecordingActions(Enum):
@@ -92,8 +91,11 @@ class RecordingWidget(QWidget):
     def update_btn_eligibility(self):
         if self.session.is_recording_eligible():
             self.start_stop.setEnabled(True)
+            logger.info("Record button eligibility updated: Eligible")
         else:
             self.start_stop.setEnabled(False)
+            logger.info("Record button eligibility updated: Not Eligible")
+
             
 
     def get_next_recording_directory(self):
@@ -199,8 +201,11 @@ class RecordingWidget(QWidget):
          
         
     def ImageUpdateSlot(self, q_image):
+        logger.info("About to get qpixmap from qimage")
         qpixmap = QPixmap.fromImage(q_image)
+        logger.info("About to set qpixmap to display")
         self.recording_frame_display.setPixmap(qpixmap)
+        logger.info("successfully set display")
         # self.recording_frame_display.resize(self.recording_frame_display.sizeHint())
         
 class UnpairedFrameBuilder:
@@ -217,16 +222,17 @@ class UnpairedFrameBuilder:
         camera_count = len(self.ports)
         self.frame_columns = int(math.ceil(camera_count**.5))
                 
-        self.rendered_fps = self.synchronizer.fps_target * (1-SKIPPED_FRAMES_PCT)
-        self.set_wait_milestones()
+        # self.rendered_fps = RENDERED_FPS
+        # self.set_wait_milestones()
         
         
-    def set_wait_milestones(self):
-        logger.info(f"Setting wait milestones for fps target of {self.rendered_fps}")
-        milestones = []
-        for i in range(0, int(self.rendered_fps)):
-            milestones.append(i / self.rendered_fps)
-        self.milestones = np.array(milestones)
+        
+    # def set_wait_milestones(self):
+    #     logger.info(f"Setting wait milestones for fps target of {self.rendered_fps}")
+    #     milestones = []
+    #     for i in range(0, int(self.rendered_fps)):
+    #         milestones.append(i / self.rendered_fps)
+    #     self.milestones = np.array(milestones)
 
     def get_frame_or_blank(self, frame_packet):
         """Synchronization issues can lead to some frames being None among
@@ -294,11 +300,7 @@ class UnpairedFrameBuilder:
         """
         # update the wait milestones used by the frame emitter in the event that 
         # the target fps of the synchronizer has changed.
-        if self.rendered_fps != self.synchronizer.fps_target*(1-SKIPPED_FRAMES_PCT):
-            logger.info(f"Change in fps target detected...updating wait milestones from {self.rendered_fps} to {self.synchronizer.fps_target*(1-SKIPPED_FRAMES_PCT)}")
-            self.rendered_fps = self.synchronizer.fps_target*(1-SKIPPED_FRAMES_PCT)
-            self.set_wait_milestones()
-        
+        # logger.info(f"Begin process of getting recording frame and rendering at {self.rendered_fps}")
 
         logger.info("Referencing current sync packet in synchronizer")
         self.current_sync_packet = self.synchronizer.current_sync_packet
@@ -359,7 +361,7 @@ class UnpairedFrameBuilder:
                 mega_frame = row
             else:
                 mega_frame = np.vstack([mega_frame,row]) 
-        
+        logger.info("Returning megaframe")
         return mega_frame
 
 class UnpairedFrameEmitter(QThread):
@@ -369,29 +371,29 @@ class UnpairedFrameEmitter(QThread):
     def __init__(self, unpaired_frame_builder:UnpairedFrameBuilder):
         
         super(UnpairedFrameEmitter,self).__init__()
-        self.recording_frame_builder = unpaired_frame_builder
+        self.unpaired_frame_builder = unpaired_frame_builder
         logger.info("Initiated recording frame emitter")        
         self.keep_collecting = Event() 
        
       
-    def wait_to_next_frame(self):
-        """
-        based on the next milestone time, return the time needed to sleep so that
-        a frame read immediately after would occur when needed
-        """
-        logger.info("Begin wait to next frame")
-        time = perf_counter()
-        fractional_time = time % 1
-        all_wait_times = self.recording_frame_builder.milestones - fractional_time
-        future_wait_times = all_wait_times[all_wait_times > 0]
+    # def wait_to_next_frame(self):
+    #     """
+    #     based on the next milestone time, return the time needed to sleep so that
+    #     a frame read immediately after would occur when needed
+    #     """
+    #     logger.info("Begin wait to next frame")
+    #     time = perf_counter()
+    #     fractional_time = time % 1
+    #     all_wait_times = self.unpaired_frame_builder.milestones - fractional_time
+    #     future_wait_times = all_wait_times[all_wait_times > 0]
 
-        if len(future_wait_times) == 0:
-            wait =  1 - fractional_time
-        else:
-            wait =  future_wait_times[0]
+    #     if len(future_wait_times) == 0:
+    #         wait =  1 - fractional_time
+    #     else:
+    #         wait =  future_wait_times[0]
         
-        sleep(wait)
-        logger.info("Done waiting")
+    #     logger.info(f"Begin waiting for {wait}")
+    #     sleep(wait)
         
         
     def run(self):
@@ -399,15 +401,19 @@ class UnpairedFrameEmitter(QThread):
         self.keep_collecting.set()
         
         while self.keep_collecting.is_set():
-            recording_frame = self.recording_frame_builder.get_recording_frame()
-            self.wait_to_next_frame()
-
+            logger.info("About to get next recording frame")
+            # self.wait_to_next_frame()
+            sleep(1/RENDERED_FPS)
+            recording_frame = self.unpaired_frame_builder.get_recording_frame()
+            cv2.imshow("Recording Frame", recording_frame)
+            cv2.waitKey(0)
             if recording_frame is not None:
                 logger.info(f"Emitting frame of size {recording_frame.shape}")
                 image = cv2_to_qlabel(recording_frame)
                 self.ImageBroadcast.emit(image)
-                self.dropped_fps.emit(self.recording_frame_builder.synchronizer.dropped_fps)
-
+                self.dropped_fps.emit(self.unpaired_frame_builder.synchronizer.dropped_fps)
+            else:
+                logger.info("Recording frame is none...")
         logger.info("Stereoframe emitter run thread ended...") 
             
 def prep_img_for_qpixmap(image:np.ndarray):

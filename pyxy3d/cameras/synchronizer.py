@@ -129,7 +129,6 @@ class Synchronizer:
         while not self.stop_event.is_set():
             frame_packet = self.frame_packet_queues[port].get()
             frame_index = self.port_frame_count[port]
-            # frame_packet.frame_index = frame_index
 
             self.all_frame_packets[f"{port}_{frame_index}"] = frame_packet
             self.port_frame_count[port] += 1
@@ -267,6 +266,7 @@ class Synchronizer:
 
             self.mean_frame_times.append(np.mean(layer_frame_times))
 
+            logger.info(f"Updating sync packet for sync_index {sync_index}")
             self.current_sync_packet = SyncPacket(sync_index, current_frame_packets)
             
             self.update_dropped_frame_history()
@@ -281,10 +281,10 @@ class Synchronizer:
                 q.put(self.current_sync_packet)
                 if self.current_sync_packet is not None:
                     logger.debug(f"Placing new synched frames packet on queue with {self.current_sync_packet.frame_packet_count} frames")
-                    logger.debug(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
+                    logger.info(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
                     
                     # provide infrequent notice of synchronizer activity
-                    if self.current_sync_packet.sync_index % 100 ==0:
+                    if self.current_sync_packet.sync_index % 100 == 0:
                         logger.info(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
                 else:
                     logger.info(f"signaling end of frames with `None` packet on subscriber queue.")

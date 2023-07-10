@@ -96,6 +96,7 @@ class LiveStream(Stream):
                 )
         except:
             logger.warn("Attempted to remove queue that may have been removed twice at once")
+
     def set_fps_target(self, fps):
         """
         This is done through a method as it will also do a one-time determination of the times as which

@@ -113,6 +113,7 @@ class ExtrinsicCalibrationWidget(QWidget):
         self.layout().addWidget(self.scroll_area)
 
         self.scroll_area.setWidget(self.stereo_frame_display)
+        self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignHCenter)
        
         self.layout().addWidget(self.calibrate_collect_btn)
 

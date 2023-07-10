@@ -4,6 +4,7 @@ import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
 import sys
+from time import perf_counter, sleep
 import math
 from pathlib import Path
 from threading import Thread, Event
@@ -40,6 +41,13 @@ from pyxy3d import __root__
 from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.configurator import Configurator
 
+
+# Whatever the target frame rate, the GUI will only display a portion of the actual frames
+# this is done to cut down on computational overhead. In practice ~ 10 fps seems sufficient
+# to easily get a sense of quality of the capture
+SKIPPED_FRAMES_PCT = 0.5
+
+
 class NextRecordingActions(Enum):
     StartRecording = "Start Recording"
     StopRecording = "Stop Recording"
@@ -54,9 +62,9 @@ class RecordingWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.synchronizer
         
-        # don't let point tracking slow down the frame reading
-        # self.synchronizer.set_tracking_on_streams(False)
-
+        # need to let synchronizer spin up before able to display frames
+        # while not hasattr(session.synchronizer, "current_sync_packet"):
+            # sleep(.5)
         # create tools to build and emit the displayed frame
         self.unpaired_frame_builder = UnpairedFrameBuilder(self.synchronizer)
         self.unpaired_frame_emitter = UnpairedFrameEmitter(self.unpaired_frame_builder)
@@ -119,9 +127,19 @@ class RecordingWidget(QWidget):
         self.record_controls.layout().addWidget(self.recording_directory)
 
         self.layout().addWidget(self.record_controls)
-        self.layout().addWidget(self.dropped_fps_label)
 
-        self.layout().addWidget(self.recording_frame_display)
+        dropped_fps_layout = QHBoxLayout()
+        dropped_fps_layout.addStretch(1)
+        dropped_fps_layout.addWidget(self.dropped_fps_label)
+        dropped_fps_layout.addStretch(1)
+
+        self.layout().addLayout(dropped_fps_layout)
+
+        frame_display_layout = QHBoxLayout()
+        frame_display_layout.addStretch(1)
+        frame_display_layout.addWidget(self.recording_frame_display)
+        frame_display_layout.addStretch(1)
+        self.layout().addLayout(frame_display_layout)
 
 
     def connect_widgets(self):
@@ -189,26 +207,25 @@ class UnpairedFrameBuilder:
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
 
-        # self.rotation_counts = {}
         self.ports = []        
         for port, stream in self.synchronizer.streams.items():
-            # override here while testing this out with pre-recorded video
-            # self.rotation_counts[port] = stream.camera.rotation_count
             self.ports.append(port)
         self.ports.sort()
         
-        # reasonable default for the shape of the all-cameras frame
         # make it as square as you can get it
         camera_count = len(self.ports)
         self.frame_columns = int(math.ceil(camera_count**.5))
-
-        self.new_sync_packet_notice = Queue()
-        self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
-    
-    def unsubscribe_from_synchronizer(self):
-        logger.info("Unsubscribe frame builder from synchronizer.")
-        self.synchronizer.unsubscribe_to_notice(self.new_sync_packet_notice) 
-
+                
+        self.rendered_fps = self.synchronizer.fps_mean * SKIPPED_FRAMES_PCT
+        self.set_wait_milestones()
+        
+        
+    def set_wait_milestones(self):
+        logger.info(f"Setting wait milestones for fps target of {self.rendered_fps}")
+        milestones = []
+        for i in range(0, int(self.rendered_fps)):
+            milestones.append(i / self.rendered_fps)
+        self.milestones = np.array(milestones)
 
     def get_frame_or_blank(self, frame_packet):
         """Synchronization issues can lead to some frames being None among
@@ -229,8 +246,6 @@ class UnpairedFrameBuilder:
         """To make sure that frames align well, scale them all to thumbnails
         squares with black borders."""
         logger.debug("resizing square")
-
-        # frame = cv2.flip(frame, 1)
 
         height = frame.shape[0]
         width = frame.shape[1]
@@ -274,12 +289,17 @@ class UnpairedFrameBuilder:
     def get_recording_frame(self):
         """
         This glues together the individual frames in the sync packet into one large block
-
-        Currently just stacking all frames vertically, but this should be expanded on the 
-        the future to allow wrapping to a more square shape
+        It takes the sync packet that is currently sitting in the synchronizer as the input
         """
 
-        self.new_sync_packet_notice.get()
+        # update the wait milestones used by the frame emitter in the event that 
+        # the target fps of the synchronizer has changed.
+        if self.rendered_fps != self.synchronizer.fps_target*SKIPPED_FRAMES_PCT:
+            logger.info(f"Change in fps target detected...updating wait milestones from {self.rendered_fps} to {self.synchronizer.fps_target*SKIPPED_FRAMES_PCT}")
+            self.rendered_fps = self.synchronizer.fps_target*SKIPPED_FRAMES_PCT
+            self.set_wait_milestones()
+        
+
         self.current_sync_packet = self.synchronizer.current_sync_packet
         
         thumbnail_frames = {} 
@@ -321,8 +341,6 @@ class UnpairedFrameBuilder:
                     current_row = None
                     current_row_length = 0
             
-        
-
         # After the loop
         if current_row is not None:
             while current_row_length < self.frame_columns:
@@ -353,6 +371,26 @@ class UnpairedFrameEmitter(QThread):
         self.recording_frame_builder = unpaired_frame_builder
         logger.info("Initiated recording frame emitter")        
         self.keep_collecting = Event() 
+       
+      
+    def wait_to_next_frame(self):
+        """
+        based on the next milestone time, return the time needed to sleep so that
+        a frame read immediately after would occur when needed
+        """
+        logger.debug("Begin wait to next frame")
+        time = perf_counter()
+        fractional_time = time % 1
+        all_wait_times = self.recording_frame_builder.milestones - fractional_time
+        future_wait_times = all_wait_times[all_wait_times > 0]
+
+        if len(future_wait_times) == 0:
+            wait =  1 - fractional_time
+        else:
+            wait =  future_wait_times[0]
+        
+        sleep(wait)
+        
         
     def run(self):
 
@@ -360,6 +398,7 @@ class UnpairedFrameEmitter(QThread):
         
         while self.keep_collecting.is_set():
             recording_frame = self.recording_frame_builder.get_recording_frame()
+            self.wait_to_next_frame()
 
             if recording_frame is not None:
                 image = cv2_to_qlabel(recording_frame)

@@ -42,6 +42,7 @@ class Synchronizer:
         self.subscribed_to_streams = False # not subscribed yet
         self.subscribe_to_streams()
 
+        # note that self.fps target is set in set_stream_fps
         self.set_stream_fps(fps_target)
         self.fps_mean = fps_target
         

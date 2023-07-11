@@ -151,14 +151,16 @@ class RecordingWidget(QWidget):
         frame_grid = QGridLayout()
         row = 0
         column = 0        
-        for port in self.ports:
-            if column >= grid_columns:
+        for port in sorted(self.ports):
+            frame_grid.addWidget(self.recording_displays[port], row,column)
+            
+            # update row and column for next iteration
+            if column >= grid_columns-1:
                 # start fresh on next row
                 column = 0
                 row += 1
             else:
                 column += 1
-            frame_grid.addWidget(self.recording_displays[port], row,column)
             
         frame_display_layout = QHBoxLayout()
         frame_display_layout.addStretch(1)

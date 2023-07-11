@@ -17,6 +17,7 @@ import cv2
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QObject, pyqtSlot
 from PyQt6.QtGui import QImage, QPixmap, QIcon
 from PyQt6.QtWidgets import (
+    QGridLayout,
     QApplication,
     QSizePolicy,
     QWidget,
@@ -61,7 +62,8 @@ class RecordingWidget(QWidget):
         super(RecordingWidget, self).__init__()
         self.session = session
         self.synchronizer:Synchronizer = self.session.synchronizer
-        
+        self.ports = self.synchronizer.ports
+
         # need to let synchronizer spin up before able to display frames
         # while not hasattr(session.synchronizer, "current_sync_packet"):
             # sleep(.5)
@@ -81,8 +83,11 @@ class RecordingWidget(QWidget):
         self.recording_directory = QLineEdit(self.get_next_recording_directory())
         
         self.dropped_fps_label = QLabel()
-                
-        self.recording_frame_display = QLabel()
+        
+        # all video output routed to qlabels stored in a dictionariy 
+        # make it as square as you can get it
+        self.recording_displays = {port:QLabel() for port in self.ports}
+        # self.recording_frame_display = QLabel()
         
         self.place_widgets()
         self.connect_widgets()        
@@ -139,9 +144,25 @@ class RecordingWidget(QWidget):
 
         self.layout().addLayout(dropped_fps_layout)
 
+        camera_count = len(self.ports)
+        grid_columns = int(math.ceil(camera_count**.5))
+        grid_rows = int(math.ceil(camera_count/grid_columns))
+
+        frame_grid = QGridLayout()
+        row = 0
+        column = 0        
+        for port, qlabel in self.recording_displays.items():
+            if column > grid_columns:
+                # start fresh on next row
+                column = 0
+                row += 1
+            else:
+                frame_grid.addWidget(qlabel, row,column)
+                column += 1
+            
         frame_display_layout = QHBoxLayout()
         frame_display_layout.addStretch(1)
-        frame_display_layout.addWidget(self.recording_frame_display)
+        frame_display_layout.addLayout(frame_grid)
         frame_display_layout.addStretch(1)
         self.layout().addLayout(frame_display_layout)
 

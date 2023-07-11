@@ -3,6 +3,7 @@
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
+import copy
 import sys
 from time import perf_counter, sleep
 import math
@@ -13,7 +14,7 @@ from queue import Queue
 from enum import Enum
 
 import cv2
-from PyQt6.QtCore import Qt, pyqtSignal, QThread
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, QObject
 from PyQt6.QtGui import QImage, QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
@@ -206,9 +207,8 @@ class RecordingWidget(QWidget):
         logger.info("About to set qpixmap to display")
         self.recording_frame_display.setPixmap(qpixmap)
         logger.info("successfully set display")
-        # self.recording_frame_display.resize(self.recording_frame_display.sizeHint())
         
-class UnpairedFrameBuilder:
+class UnpairedFrameBuilder(QObject):
     def __init__(self, synchronizer: Synchronizer, single_frame_height=250):
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
@@ -405,11 +405,11 @@ class UnpairedFrameEmitter(QThread):
             # self.wait_to_next_frame()
             sleep(1/RENDERED_FPS)
             recording_frame = self.unpaired_frame_builder.get_recording_frame()
-            cv2.imshow("Recording Frame", recording_frame)
-            cv2.waitKey(0)
             if recording_frame is not None:
                 logger.info(f"Emitting frame of size {recording_frame.shape}")
                 image = cv2_to_qlabel(recording_frame)
+                # cv2.imshow("Recording Frame", recording_frame)
+                # cv2.waitKey(0)
                 self.ImageBroadcast.emit(image)
                 self.dropped_fps.emit(self.unpaired_frame_builder.synchronizer.dropped_fps)
             else:

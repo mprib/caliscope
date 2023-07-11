@@ -21,9 +21,6 @@ class Synchronizer:
         self.streams = streams
         self.current_synched_frames = None
 
-        self.sync_notice_subscribers = (
-            []
-        )  # queues that will be notified of new synched frames
         self.synched_frames_subscribers = (
             []
         )  # queues that will receive actual frame data
@@ -42,6 +39,7 @@ class Synchronizer:
         self.subscribed_to_streams = False # not subscribed yet
         self.subscribe_to_streams()
 
+        # note that self.fps target is set in set_stream_fps
         self.set_stream_fps(fps_target)
         self.fps_mean = fps_target
         
@@ -114,20 +112,6 @@ class Synchronizer:
         self.thread = Thread(target=self.synch_frames_worker, args=(), daemon=True)
         self.thread.start()
 
-    def subscribe_to_notice(self, q):
-        # subscribers are notified via the queue that new frames are available
-        # this is intended to avoid issues with latency due to multiple iterations
-        # of frames being passed from one queue to another
-        logger.info("Adding queue to receive notice of synched frames update")
-        self.sync_notice_subscribers.append(q)
-
-    def unsubscribe_to_notice(self, q):
-        # subscribers are notified via the queue that new frames are available
-        # this is intended to avoid issues with latency due to multiple iterations
-        # of frames being passed from one queue to another
-        logger.info("Removing queue that had been receiving notice of synched frames update")
-        self.sync_notice_subscribers.remove(q)
-
 
     def subscribe_to_sync_packets(self, q):
         logger.info("Adding queue to receive synched frames")
@@ -145,7 +129,6 @@ class Synchronizer:
         while not self.stop_event.is_set():
             frame_packet = self.frame_packet_queues[port].get()
             frame_index = self.port_frame_count[port]
-            # frame_packet.frame_index = frame_index
 
             self.all_frame_packets[f"{port}_{frame_index}"] = frame_packet
             self.port_frame_count[port] += 1
@@ -283,6 +266,7 @@ class Synchronizer:
 
             self.mean_frame_times.append(np.mean(layer_frame_times))
 
+            logger.info(f"Updating sync packet for sync_index {sync_index}")
             self.current_sync_packet = SyncPacket(sync_index, current_frame_packets)
             
             self.update_dropped_frame_history()
@@ -293,20 +277,14 @@ class Synchronizer:
                 logger.info("Sending `None` on queue to signal end of synced frames.")
                 self.current_sync_packet = None
 
-            # notify other processes that the new frames are ready for processing
-            # only for tasks that can risk missing frames (i.e. only for gui purposes)
-            for q in self.sync_notice_subscribers:
-                logger.debug(f"Giving notice of new synched frames packet via queue; sync index: {sync_index}")
-                q.put("new synched frames available")
-
             for q in self.synched_frames_subscribers:
                 q.put(self.current_sync_packet)
                 if self.current_sync_packet is not None:
                     logger.debug(f"Placing new synched frames packet on queue with {self.current_sync_packet.frame_packet_count} frames")
-                    logger.debug(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
+                    logger.info(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
                     
                     # provide infrequent notice of synchronizer activity
-                    if self.current_sync_packet.sync_index % 100 ==0:
+                    if self.current_sync_packet.sync_index % 100 == 0:
                         logger.info(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
                 else:
                     logger.info(f"signaling end of frames with `None` packet on subscriber queue.")

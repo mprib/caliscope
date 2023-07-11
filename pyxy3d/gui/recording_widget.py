@@ -3,7 +3,9 @@
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
+import copy
 import sys
+from time import perf_counter, sleep
 import math
 from pathlib import Path
 from threading import Thread, Event
@@ -12,7 +14,7 @@ from queue import Queue
 from enum import Enum
 
 import cv2
-from PyQt6.QtCore import Qt, pyqtSignal, QThread
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, QObject, pyqtSlot
 from PyQt6.QtGui import QImage, QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
@@ -40,6 +42,12 @@ from pyxy3d import __root__
 from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.configurator import Configurator
 
+
+# Whatever the target frame rate, the GUI will only display a portion of the actual frames
+# this is done to cut down on computational overhead. 
+RENDERED_FPS = 6
+
+
 class NextRecordingActions(Enum):
     StartRecording = "Start Recording"
     StopRecording = "Stop Recording"
@@ -54,9 +62,9 @@ class RecordingWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.synchronizer
         
-        # don't let point tracking slow down the frame reading
-        # self.synchronizer.set_tracking_on_streams(False)
-
+        # need to let synchronizer spin up before able to display frames
+        # while not hasattr(session.synchronizer, "current_sync_packet"):
+            # sleep(.5)
         # create tools to build and emit the displayed frame
         self.unpaired_frame_builder = UnpairedFrameBuilder(self.synchronizer)
         self.unpaired_frame_emitter = UnpairedFrameEmitter(self.unpaired_frame_builder)
@@ -79,12 +87,16 @@ class RecordingWidget(QWidget):
         self.place_widgets()
         self.connect_widgets()        
         self.update_btn_eligibility()
+        logger.info("Recording widget init complete")
     
     def update_btn_eligibility(self):
         if self.session.is_recording_eligible():
             self.start_stop.setEnabled(True)
+            logger.info("Record button eligibility updated: Eligible")
         else:
             self.start_stop.setEnabled(False)
+            logger.info("Record button eligibility updated: Not Eligible")
+
             
 
     def get_next_recording_directory(self):
@@ -119,9 +131,19 @@ class RecordingWidget(QWidget):
         self.record_controls.layout().addWidget(self.recording_directory)
 
         self.layout().addWidget(self.record_controls)
-        self.layout().addWidget(self.dropped_fps_label)
 
-        self.layout().addWidget(self.recording_frame_display)
+        dropped_fps_layout = QHBoxLayout()
+        dropped_fps_layout.addStretch(1)
+        dropped_fps_layout.addWidget(self.dropped_fps_label)
+        dropped_fps_layout.addStretch(1)
+
+        self.layout().addLayout(dropped_fps_layout)
+
+        frame_display_layout = QHBoxLayout()
+        frame_display_layout.addStretch(1)
+        frame_display_layout.addWidget(self.recording_frame_display)
+        frame_display_layout.addStretch(1)
+        self.layout().addLayout(frame_display_layout)
 
 
     def connect_widgets(self):
@@ -178,37 +200,27 @@ class RecordingWidget(QWidget):
 
         self.dropped_fps_label.setText(text)
          
-        
-    def ImageUpdateSlot(self, q_image):
+    @pyqtSlot(QImage) 
+    def ImageUpdateSlot(self, q_image:QImage):
+        logger.info("About to get qpixmap from qimage")
         qpixmap = QPixmap.fromImage(q_image)
+        logger.info("About to set qpixmap to display")
         self.recording_frame_display.setPixmap(qpixmap)
-        # self.recording_frame_display.resize(self.recording_frame_display.sizeHint())
+        logger.info("successfully set display")
         
-class UnpairedFrameBuilder:
-    def __init__(self, synchronizer: Synchronizer, single_frame_height=250):
+class UnpairedFrameBuilder(QObject):
+    def __init__(self, synchronizer: Synchronizer, single_frame_height=100):
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
 
-        # self.rotation_counts = {}
         self.ports = []        
         for port, stream in self.synchronizer.streams.items():
-            # override here while testing this out with pre-recorded video
-            # self.rotation_counts[port] = stream.camera.rotation_count
             self.ports.append(port)
         self.ports.sort()
         
-        # reasonable default for the shape of the all-cameras frame
         # make it as square as you can get it
         camera_count = len(self.ports)
         self.frame_columns = int(math.ceil(camera_count**.5))
-
-        self.new_sync_packet_notice = Queue()
-        self.synchronizer.subscribe_to_notice(self.new_sync_packet_notice)
-    
-    def unsubscribe_from_synchronizer(self):
-        logger.info("Unsubscribe frame builder from synchronizer.")
-        self.synchronizer.unsubscribe_to_notice(self.new_sync_packet_notice) 
-
 
     def get_frame_or_blank(self, frame_packet):
         """Synchronization issues can lead to some frames being None among
@@ -224,13 +236,10 @@ class UnpairedFrameBuilder:
 
         return frame
 
-
     def resize_to_square(self, frame):
         """To make sure that frames align well, scale them all to thumbnails
         squares with black borders."""
         logger.debug("resizing square")
-
-        # frame = cv2.flip(frame, 1)
 
         height = frame.shape[0]
         width = frame.shape[1]
@@ -274,18 +283,20 @@ class UnpairedFrameBuilder:
     def get_recording_frame(self):
         """
         This glues together the individual frames in the sync packet into one large block
-
-        Currently just stacking all frames vertically, but this should be expanded on the 
-        the future to allow wrapping to a more square shape
+        It takes the sync packet that is currently sitting in the synchronizer as the input
         """
+        # update the wait milestones used by the frame emitter in the event that 
+        # the target fps of the synchronizer has changed.
+        # logger.info(f"Begin process of getting recording frame and rendering at {self.rendered_fps}")
 
-        self.new_sync_packet_notice.get()
+        logger.info("Referencing current sync packet in synchronizer")
         self.current_sync_packet = self.synchronizer.current_sync_packet
         
         thumbnail_frames = {} 
         for port in self.ports:
             frame_packet = self.current_sync_packet.frame_packets[port]
             raw_frame = self.get_frame_or_blank(frame_packet)
+            # raw_frame = self.get_frame_or_blank(None)
             square_frame = self.resize_to_square(raw_frame)
             rotated_frame = self.apply_rotation(square_frame,port)
             flipped_frame = cv2.flip(rotated_frame, 1)
@@ -316,13 +327,11 @@ class UnpairedFrameBuilder:
                 current_row_length += 1
                 if current_row_length == self.frame_columns:
 
-                    current_row = prep_img_for_qpixmap(current_row)
+                    # current_row = prep_img_for_qpixmap(current_row)
                     frame_rows.append(current_row)            
                     current_row = None
                     current_row_length = 0
             
-        
-
         # After the loop
         if current_row is not None:
             while current_row_length < self.frame_columns:
@@ -330,7 +339,7 @@ class UnpairedFrameBuilder:
 
                 current_row_length += 1
 
-            current_row = prep_img_for_qpixmap(current_row)
+            # current_row = prep_img_for_qpixmap(current_row)
             frame_rows.append(current_row)
 
 
@@ -340,7 +349,7 @@ class UnpairedFrameBuilder:
                 mega_frame = row
             else:
                 mega_frame = np.vstack([mega_frame,row]) 
-        
+        logger.info("Returning megaframe")
         return mega_frame
 
 class UnpairedFrameEmitter(QThread):
@@ -350,22 +359,49 @@ class UnpairedFrameEmitter(QThread):
     def __init__(self, unpaired_frame_builder:UnpairedFrameBuilder):
         
         super(UnpairedFrameEmitter,self).__init__()
-        self.recording_frame_builder = unpaired_frame_builder
+        self.unpaired_frame_builder = unpaired_frame_builder
         logger.info("Initiated recording frame emitter")        
         self.keep_collecting = Event() 
+       
+      
+    # def wait_to_next_frame(self):
+    #     """
+    #     based on the next milestone time, return the time needed to sleep so that
+    #     a frame read immediately after would occur when needed
+    #     """
+    #     logger.info("Begin wait to next frame")
+    #     time = perf_counter()
+    #     fractional_time = time % 1
+    #     all_wait_times = self.unpaired_frame_builder.milestones - fractional_time
+    #     future_wait_times = all_wait_times[all_wait_times > 0]
+
+    #     if len(future_wait_times) == 0:
+    #         wait =  1 - fractional_time
+    #     else:
+    #         wait =  future_wait_times[0]
+        
+    #     logger.info(f"Begin waiting for {wait}")
+    #     sleep(wait)
+        
         
     def run(self):
 
         self.keep_collecting.set()
         
         while self.keep_collecting.is_set():
-            recording_frame = self.recording_frame_builder.get_recording_frame()
-
+            logger.info("About to get next recording frame")
+            # self.wait_to_next_frame()
+            sleep(1/RENDERED_FPS)
+            recording_frame = self.unpaired_frame_builder.get_recording_frame()
             if recording_frame is not None:
+                logger.info(f"Emitting frame of size {recording_frame.shape}")
                 image = cv2_to_qlabel(recording_frame)
+                # cv2.imshow("Recording Frame", recording_frame)
+                # cv2.waitKey(0)
                 self.ImageBroadcast.emit(image)
-                self.dropped_fps.emit(self.recording_frame_builder.synchronizer.dropped_fps)
-
+                self.dropped_fps.emit(self.unpaired_frame_builder.synchronizer.dropped_fps)
+            else:
+                logger.info("Recording frame is none...")
         logger.info("Stereoframe emitter run thread ended...") 
             
 def prep_img_for_qpixmap(image:np.ndarray):

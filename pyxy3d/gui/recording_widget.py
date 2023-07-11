@@ -14,7 +14,7 @@ from queue import Queue
 from enum import Enum
 
 import cv2
-from PyQt6.QtCore import Qt, pyqtSignal, QThread, QObject
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, QObject, pyqtSlot
 from PyQt6.QtGui import QImage, QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
@@ -200,8 +200,8 @@ class RecordingWidget(QWidget):
 
         self.dropped_fps_label.setText(text)
          
-        
-    def ImageUpdateSlot(self, q_image):
+    @pyqtSlot(QImage) 
+    def ImageUpdateSlot(self, q_image:QImage):
         logger.info("About to get qpixmap from qimage")
         qpixmap = QPixmap.fromImage(q_image)
         logger.info("About to set qpixmap to display")
@@ -209,7 +209,7 @@ class RecordingWidget(QWidget):
         logger.info("successfully set display")
         
 class UnpairedFrameBuilder(QObject):
-    def __init__(self, synchronizer: Synchronizer, single_frame_height=250):
+    def __init__(self, synchronizer: Synchronizer, single_frame_height=100):
         self.synchronizer = synchronizer 
         self.single_frame_height = single_frame_height
 
@@ -221,18 +221,6 @@ class UnpairedFrameBuilder(QObject):
         # make it as square as you can get it
         camera_count = len(self.ports)
         self.frame_columns = int(math.ceil(camera_count**.5))
-                
-        # self.rendered_fps = RENDERED_FPS
-        # self.set_wait_milestones()
-        
-        
-        
-    # def set_wait_milestones(self):
-    #     logger.info(f"Setting wait milestones for fps target of {self.rendered_fps}")
-    #     milestones = []
-    #     for i in range(0, int(self.rendered_fps)):
-    #         milestones.append(i / self.rendered_fps)
-    #     self.milestones = np.array(milestones)
 
     def get_frame_or_blank(self, frame_packet):
         """Synchronization issues can lead to some frames being None among
@@ -247,7 +235,6 @@ class UnpairedFrameBuilder(QObject):
             frame = frame_packet.frame
 
         return frame
-
 
     def resize_to_square(self, frame):
         """To make sure that frames align well, scale them all to thumbnails
@@ -309,6 +296,7 @@ class UnpairedFrameBuilder(QObject):
         for port in self.ports:
             frame_packet = self.current_sync_packet.frame_packets[port]
             raw_frame = self.get_frame_or_blank(frame_packet)
+            # raw_frame = self.get_frame_or_blank(None)
             square_frame = self.resize_to_square(raw_frame)
             rotated_frame = self.apply_rotation(square_frame,port)
             flipped_frame = cv2.flip(rotated_frame, 1)
@@ -339,7 +327,7 @@ class UnpairedFrameBuilder(QObject):
                 current_row_length += 1
                 if current_row_length == self.frame_columns:
 
-                    current_row = prep_img_for_qpixmap(current_row)
+                    # current_row = prep_img_for_qpixmap(current_row)
                     frame_rows.append(current_row)            
                     current_row = None
                     current_row_length = 0
@@ -351,7 +339,7 @@ class UnpairedFrameBuilder(QObject):
 
                 current_row_length += 1
 
-            current_row = prep_img_for_qpixmap(current_row)
+            # current_row = prep_img_for_qpixmap(current_row)
             frame_rows.append(current_row)
 
 

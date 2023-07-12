@@ -59,7 +59,6 @@ class MainWindow(QMainWindow):
         # File Menu
         self.menu = self.menuBar()
         
-        
         # CREATE FILE MENU
         self.file_menu = self.menu.addMenu("&File")
         self.open_project_action = QAction("New/Open Project", self)
@@ -98,14 +97,13 @@ class MainWindow(QMainWindow):
         self.processing_mode_select = QAction(SessionMode.PostProcessing.value)
         self.mode_menu.addAction(self.charuco_mode_select)
         self.mode_menu.addAction(self.intrinsic_mode_select)
+        self.mode_menu.addAction(self.extrinsic_mode_select)
         self.mode_menu.addAction(self.capture_volume_mode_select)
         self.mode_menu.addAction(self.recording_mode_select)
         self.mode_menu.addAction(self.processing_mode_select)
 
         for action in self.mode_menu.actions():
             action.setEnabled(False)
-        # for action in self.mode_menu.actions():
-            # action.setEnabled(False)
 
         self.connect_menu_actions()
         self.blank_widget = QWidget()
@@ -170,6 +168,9 @@ class MainWindow(QMainWindow):
         self.disconnect_cameras_action.setEnabled(False)
         self.connect_cameras_action.setEnabled(True)
 
+        self.intrinsic_mode_select.setEnabled(False)
+        self.extrinsic_mode_select.setEnabled(False)
+
     def pause_all_frame_reading(self):
         logger.info("Pausing all frame reading at load of stream tools; should be on charuco tab right now")
         self.session.pause_all_monocalibrators()
@@ -196,8 +197,12 @@ class MainWindow(QMainWindow):
         self.charuco_widget = CharucoWidget(self.session)
         self.setCentralWidget(self.charuco_widget)
 
-        self.connect_cameras_action.setEnabled(True)
+        # now connecting to cameras is an option
+        self.connect_cameras_action.setEnabled(True) 
         
+        # but must exit and start over to launch a new session for now
+        self.open_project_action.setEnabled(False) 
+        self.open_recent_project_submenu.setEnabled(False)
         self.connect_session_signals()
 
 
@@ -218,9 +223,6 @@ class MainWindow(QMainWindow):
         self.extrinsic_mode_select.setEnabled(True)
         self.recording_mode_select.setEnabled(True)
         
-        
-        
-
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)
         recent_project_action.triggered.connect(self.open_recent_project)
@@ -259,8 +261,6 @@ class MainWindow(QMainWindow):
     def update_app_settings(self):
         with open(__settings_path__, "w") as f:
             toml.dump(self.app_settings, f)
-
-
 
 def launch_main():
     app = QApplication(sys.argv)

@@ -50,7 +50,7 @@ class QtSignaler(QObject):
     stream_tools_disconnected_signal = pyqtSignal()
     unlock_postprocessing = pyqtSignal()
     recording_complete_signal = pyqtSignal()        
-    mode_change_success = pyqtSignal(SessionMode)
+    mode_change_success = pyqtSignal()
 
     def __init__(self) -> None:
         super(QtSignaler, self).__init__()
@@ -210,6 +210,7 @@ class Session:
         Via this method, the frame reading behavior will be changed by the GUI. If some properties are
         not available (i.e. synchronizer) they will be created
         """
+        logger.info(f"Initiating switch to mode: {mode.value}")
         self.mode = mode
         self.update_streams_fps()
 
@@ -269,12 +270,15 @@ class Session:
                 
                 logger.info("Subscribe synchronizer to streams so video recorder can manage")
                 self.synchronizer.subscribe_to_streams()
+        
+        self.qt_signaler.mode_change_success.emit()
 
     def set_active_mode_fps(self, fps_target: int):
         """
         Updates the FPS used by the currently active session mode
         This update includes the config.toml
         """
+        logger.info(f"Updating streams fps to {fps_target} to align with {self.mode} mode")
         match self.mode:
             case SessionMode.Charuco:
                 pass

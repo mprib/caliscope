@@ -58,12 +58,11 @@ class MainWindow(QMainWindow):
 
         # File Menu
         self.menu = self.menuBar()
+        
+        
+        # CREATE FILE MENU
         self.file_menu = self.menu.addMenu("&File")
-        self.mode_menu = self.menu.addMenu("&Mode")
-
-        # Open or New project (can just create a folder in the dialog in truly new)
         self.open_project_action = QAction("New/Open Project", self)
-        self.open_project_action.triggered.connect(self.create_new_project_folder)
         self.file_menu.addAction(self.open_project_action)
 
         # Open Recent
@@ -78,6 +77,8 @@ class MainWindow(QMainWindow):
         self.exit_pyxy3d_action = QAction("Exit", self)
         self.file_menu.addAction(self.exit_pyxy3d_action)
 
+
+        # CREATE CAMERA MENU
         self.cameras_menu = self.menu.addMenu("&Cameras")
         self.connect_cameras_action = QAction("Co&nnect Cameras", self)
         self.cameras_menu.addAction(self.connect_cameras_action)
@@ -87,21 +88,22 @@ class MainWindow(QMainWindow):
         self.cameras_menu.addAction(self.disconnect_cameras_action)
         self.disconnect_cameras_action.setEnabled(False)
 
-
-        self.charuco_mode_select = QAction("Charuco")
-        self.intrinsic_mode_select = QAction("Single Camera Setup")
-        self.extrinsic_mode_select = QAction("Multicamera Setup")
-        self.capture_volume_mode_select = QAction("Capture Volume")
-        self.recording_mode_select = QAction("Recording")
-        self.processing_mode_select = QAction("Post Processing")
+        # CREATE MODE MENU
+        self.mode_menu = self.menu.addMenu("&Mode")
+        self.charuco_mode_select = QAction(SessionMode.Charuco.value)
+        self.intrinsic_mode_select = QAction(SessionMode.IntrinsicCalibration.value)
+        self.extrinsic_mode_select = QAction(SessionMode.ExtrinsicCalibration.value)
+        self.capture_volume_mode_select = QAction(SessionMode.CaptureVolumeOrigin.value)
+        self.recording_mode_select = QAction(SessionMode.Recording.value)
+        self.processing_mode_select = QAction(SessionMode.PostProcessing.value)
         self.mode_menu.addAction(self.charuco_mode_select)
         self.mode_menu.addAction(self.intrinsic_mode_select)
         self.mode_menu.addAction(self.capture_volume_mode_select)
         self.mode_menu.addAction(self.recording_mode_select)
         self.mode_menu.addAction(self.processing_mode_select)
 
-        for action in self.mode_menu.actions():
-            action.setEnabled(False)
+        # for action in self.mode_menu.actions():
+            # action.setEnabled(False)
 
         self.connect_menu_actions()
         self.blank_widget = QWidget()
@@ -116,6 +118,13 @@ class MainWindow(QMainWindow):
 
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
 
+    def mode_change_action(self):
+        action = self.sender()
+        SessionModeLookup = {mode.value: mode for mode in SessionMode}
+        mode = SessionModeLookup[action.text()]
+        self.set_mode(mode)
+        
+             
     def set_mode(self, mode:SessionMode):
         
         # Delete the current central widget
@@ -123,6 +132,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(None)
         old_widget.deleteLater()
 
+        logger.info(f"Attempting to set session mode to {mode.value}")
         self.session.set_mode(mode)
 
         # Create the new central widget based on the mode
@@ -133,15 +143,26 @@ class MainWindow(QMainWindow):
                 new_widget = IntrinsicCalibrationWidget(self.session)
             case SessionMode.ExtrinsicCalibration:
                 new_widget = ExtrinsicCalibrationWidget(self.session)    
-            
+            case SessionMode.CaptureVolumeOrigin:
+                new_widget = CaptureVolumeWidget(self.session)
+            case SessionMode.Recording:
+                new_widget = RecordingWidget(self.session)
+            case SessionMode.PostProcessing:
+                new_widget = PostProcessingWidget(self.session)
             
             
         self.setCentralWidget(new_widget)        
 
     def connect_menu_actions(self):
+        self.open_project_action.triggered.connect(self.create_new_project_folder)
         self.connect_cameras_action.triggered.connect(self.load_stream_tools)
         self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
         self.disconnect_cameras_action.triggered.connect(self.disconnect_cameras)
+
+        for action in self.mode_menu.actions():
+            action.triggered.connect(self.mode_change_action)
+       
+     
         
     def disconnect_cameras(self):
         self.tab_widget.setCurrentWidget(self.charuco_widget)

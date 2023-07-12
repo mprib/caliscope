@@ -38,12 +38,12 @@ FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojec
 class SessionMode(Enum):
     """ """
 
-    Charuco = auto()
-    IntrinsicCalibration = auto()
-    ExtrinsicCalibration = auto()
-    CaptureVolumeOrigin = auto()
-    Recording = auto()
-    PostProcessing = auto()
+    Charuco = "&Charuco"
+    IntrinsicCalibration = "&Single Camera"
+    ExtrinsicCalibration = "&Multicamera"
+    CaptureVolumeOrigin = "Capture &Volume"
+    Recording = "&Recording"
+    PostProcessing = "&Post-processing"
 
 class QtSignaler(QObject):
     stream_tools_loaded_signal = pyqtSignal()

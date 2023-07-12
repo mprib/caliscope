@@ -164,6 +164,10 @@ class MainWindow(QMainWindow):
         
         # note: if the cameras are connected,then you can peak
         # into extrinsic/recording tabs, though cannot collect data        
+        
+        
+        # you can always look at a charuco board
+        self.charuco_mode_select.setEnabled(True)
 
         if self.session.is_camera_setup_eligible():
             self.intrinsic_mode_select.setEnabled(True)

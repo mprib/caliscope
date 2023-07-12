@@ -18,7 +18,7 @@ recent_project_count = len(recent_projects)
 session_path = Path(recent_projects[recent_project_count - 1])
 config = Configurator(session_path)
 session = Session(config)
-session.set_mode(SessionMode.ExtrinsicCalibration)
+session.set_mode(SessionMode.IntrinsicCalibration)
 
 app = QApplication(sys.argv)
 window = IntrinsicCalibrationWidget(session)

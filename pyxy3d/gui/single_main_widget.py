@@ -38,13 +38,6 @@ from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 
-class TabIndex(Enum):
-    Charuco = 0
-    Cameras = 1
-    CaptureVolume = 2
-    Recording = 3
-    Processing = 4
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -138,12 +131,18 @@ class MainWindow(QMainWindow):
     def update_central_widget_mode(self):
         # Delete the current central widget
         old_widget = self.centralWidget()
-        self.setCentralWidget(None)
+        self.setCentralWidget(QWidget())
         old_widget.deleteLater()
 
         if type(old_widget) == RecordingWidget:
             old_widget.thumbnail_emitter.keep_collecting.clear()
         
+        if type(old_widget) == ExtrinsicCalibrationWidget:
+            old_widget.paired_frame_emitter.keep_collecting.clear()
+       
+        if type(old_widget) ==  IntrinsicCalibrationWidget:
+            for port, tab in old_widget.camera_tabs.tab_widgets.items():
+                tab.frame_emitter.keep_collecting.clear()
         # Create the new central widget based on the mode
         match self.session.mode:
             case SessionMode.Charuco:
@@ -161,15 +160,39 @@ class MainWindow(QMainWindow):
             
         self.setCentralWidget(new_widget)        
 
+    def update_enable_disable(self):
+        
+        # note: if the cameras are connected,then you can peak
+        # into extrinsic/recording tabs, though cannot collect data        
+
+        if self.session.is_camera_setup_eligible():
+            self.intrinsic_mode_select.setEnabled(True)
+            self.extrinsic_mode_select.setEnabled(True)
+            self.recording_mode_select.setEnabled(True)
+        else:
+            self.intrinsic_mode_select.setEnabled(False)
+            self.extrinsic_mode_select.setEnabled(True)
+            self.recording_mode_select.setEnabled(True)
+        
+
+        if self.session.is_capture_volume_eligible():
+            self.capture_volume_mode_select.setEnabled(True)
+        else:
+            self.capture_volume_mode_select.setEnabled(True)
+
+        
+        if self.session.is_post_processing_eligible():
+            self.processing_mode_select.setEnabled(True) 
+        else:
+            self.processing_mode_select.setEnabled(False) 
+        
     def disconnect_cameras(self):
                 
         self.session.set_mode(SessionMode.Charuco)
         self.session.disconnect_cameras() 
         self.disconnect_cameras_action.setEnabled(False)
         self.connect_cameras_action.setEnabled(True)
-
-        self.intrinsic_mode_select.setEnabled(False)
-        self.extrinsic_mode_select.setEnabled(False)
+        self.update_enable_disable()
 
     def pause_all_frame_reading(self):
         logger.info("Pausing all frame reading at load of stream tools; should be on charuco tab right now")
@@ -193,7 +216,6 @@ class MainWindow(QMainWindow):
         self.session = Session(self.config)
 
         # can always load charuco
-        self.charuco_mode_select.setEnabled(True) 
         self.charuco_widget = CharucoWidget(self.session)
         self.setCentralWidget(self.charuco_widget)
 
@@ -201,27 +223,23 @@ class MainWindow(QMainWindow):
         self.connect_cameras_action.setEnabled(True) 
         
         # but must exit and start over to launch a new session for now
-        self.open_project_action.setEnabled(False) 
-        self.open_recent_project_submenu.setEnabled(False)
         self.connect_session_signals()
 
+        self.open_project_action.setEnabled(False) 
+        self.open_recent_project_submenu.setEnabled(False)
+        self.update_enable_disable()
 
     def connect_session_signals(self):
         """
         After launching a session, connect signals and slots.
         Much of these will be from the GUI to the session and vice-versa
         """
-        self.session.qt_signaler.unlock_postprocessing.connect(self.enable_post_processing)
-        self.session.qt_signaler.stream_tools_loaded_signal.connect(self.enable_camera_tools)
+        self.session.qt_signaler.unlock_postprocessing.connect(self.update_enable_disable)
         self.session.qt_signaler.mode_change_success.connect(self.update_central_widget_mode)
+        self.session.qt_signaler.stream_tools_loaded_signal.connect(self.update_enable_disable)
+        self.session.qt_signaler.stream_tools_disconnected_signal.connect(self.update_enable_disable)
+        self.session.qt_signaler.mode_change_success.connect(self.update_enable_disable)
 
-    def enable_post_processing(self):
-        self.processing_mode_select.setEnabled(True)
-    
-    def enable_camera_tools(self):
-        self.intrinsic_mode_select.setEnabled(True)
-        self.extrinsic_mode_select.setEnabled(True)
-        self.recording_mode_select.setEnabled(True)
         
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)

@@ -66,7 +66,7 @@ class RecordingWidget(QWidget):
 
         # need to let synchronizer spin up before able to display frames
         while not hasattr(session.synchronizer, "current_sync_packet"):
-            sleep(.5)
+            sleep(.25)
         # create tools to build and emit the displayed frame
         # self.unpaired_frame_builder = FramePrepper(self.synchronizer)
         self.thumbnail_emitter = FrameDictionaryEmitter(self.synchronizer)

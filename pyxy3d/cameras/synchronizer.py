@@ -266,7 +266,7 @@ class Synchronizer:
 
             self.mean_frame_times.append(np.mean(layer_frame_times))
 
-            logger.info(f"Updating sync packet for sync_index {sync_index}")
+            logger.debug(f"Updating sync packet for sync_index {sync_index}")
             self.current_sync_packet = SyncPacket(sync_index, current_frame_packets)
             
             self.update_dropped_frame_history()

@@ -112,10 +112,12 @@ class Session:
         self.qt_signaler.stream_tools_disconnected_signal.emit()
 
     def is_camera_setup_eligible(self):
-        if len(self.cameras) > 0:
-            eligible = True
-        else:
+        # assume true and prove false        
+        eligible = True
+
+        if len(self.cameras) == 0:
             eligible = False
+
         return eligible
 
     def is_extrinsic_calibration_eligible(self):
@@ -126,6 +128,9 @@ class Session:
         for port, cam in self.camera_array.cameras.items():
             if cam.matrix is None or cam.distortions is None:
                 eligible = False
+
+        if len(self.cameras) == 0:
+            eligible = False
 
         return eligible
 
@@ -185,6 +190,10 @@ class Session:
             logger.info("Camera array eligible for recording")
             eligible = True
         else:
+            eligible = False
+
+        # must have connected cameras to be able to record
+        if len(self.cameras) == 0:
             eligible = False
 
         return eligible

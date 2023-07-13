@@ -24,9 +24,9 @@ config = Configurator(session_path)
 session = Session(config)
 session.set_mode(SessionMode.ExtrinsicCalibration)
 
-while not hasattr(session.synchronizer, "current_sync_packet"):
-    logger.info("waiting for synchronizer to create first sync packet")
-    time.sleep(.5)
+# while not hasattr(session.synchronizer, "current_sync_packet"):
+#     logger.info("waiting for synchronizer to create first sync packet")
+#     time.sleep(.5)
 
 app = QApplication(sys.argv)
 window = ExtrinsicCalibrationWidget(session)

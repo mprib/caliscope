@@ -81,7 +81,7 @@ class CameraTabs(QTabWidget):
         if len(self.session.monocalibrators) > 0:
             
             # construct a dict of tabs so that they can then be placed in order
-            tab_widgets = {}
+            self.tab_widgets = {}
             for port, monocal in self.session.monocalibrators.items():
                 tab_name = f"Camera {port}"
                 logger.info(f"Potentially adding {tab_name}")
@@ -89,13 +89,13 @@ class CameraTabs(QTabWidget):
                     pass  # already here, don't bother
                 else:
                     cam_tab = CameraConfigTab(self.session, port)
-                    tab_widgets[port] = cam_tab
+                    self.tab_widgets[port] = cam_tab
 
             # add the widgets to the tab bar in order
-            ordered_ports = list(tab_widgets.keys())
+            ordered_ports = list(self.tab_widgets.keys())
             ordered_ports.sort()
             for port in ordered_ports:
-                self.insertTab(port, tab_widgets[port], f"Camera {port}")
+                self.insertTab(port, self.tab_widgets[port], f"Camera {port}")
             
         else:
             logger.info("No cameras available")

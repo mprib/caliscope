@@ -56,6 +56,11 @@ class ExtrinsicCalibrationWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.synchronizer
 
+        logger.info(f"about to check if synchronizer has a sync packet")
+        while not hasattr(self.session.synchronizer, "current_sync_packet"):
+            logger.info("waiting for synchronizer to create first sync packet")
+            sleep(.5)
+
         self.paired_frame_builder = PairedFrameBuilder(self.synchronizer, board_count_target=30)
         self.paired_frame_emitter = PairedFrameEmitter(self.paired_frame_builder)
         self.paired_frame_emitter.start()

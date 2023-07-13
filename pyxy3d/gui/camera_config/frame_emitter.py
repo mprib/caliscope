@@ -4,21 +4,23 @@ logger = pyxy3d.logger.get(__name__)
 
 from datetime import datetime
 from pathlib import Path
+from time import sleep
+from threading import Event
 
 import cv2
 from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QImage, QPixmap
+from pyxy3d.calibration.monocalibrator import MonoCalibrator
 
 
 class FrameEmitter(QThread):
     # establish signals from the frame that will be displayed in real time
     # within the GUI
     ImageBroadcast = pyqtSignal(QPixmap)
-
     FPSBroadcast = pyqtSignal(float)
     GridCountBroadcast = pyqtSignal(int)
 
-    def __init__(self, monocalibrator, pixmap_edge_length=None):
+    def __init__(self, monocalibrator:MonoCalibrator, pixmap_edge_length=None):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(FrameEmitter, self).__init__()
@@ -26,15 +28,15 @@ class FrameEmitter(QThread):
         self.pixmap_edge_length = pixmap_edge_length
         self.rotation_count = monocalibrator.camera.rotation_count
         self.undistort = False
-
+        self.keep_collecting = Event()
     def run(self):
-        self.ThreadActive = True
+        self.keep_collecting.set()
 
-        while self.ThreadActive:
+        while self.keep_collecting.is_set():
             # Grab a frame from the queue and broadcast to displays
             self.monocalibrator.grid_frame_ready_q.get()
-
             self.frame = self.monocalibrator.grid_frame
+
             self.apply_undistortion()
             self.frame = resize_to_square(self.frame)
             self.apply_rotation()
@@ -54,8 +56,10 @@ class FrameEmitter(QThread):
             self.FPSBroadcast.emit(self.monocalibrator.stream.FPS_actual)
             self.GridCountBroadcast.emit(self.monocalibrator.grid_count)
 
+        logger.info(f"Thread loop within frame emitter at port {self.monocalibrator.port} successfully ended")
+
     def stop(self):
-        self.ThreadActive = False
+        self.keep_collecting = False
         self.quit()
 
     def cv2_to_qlabel(self, frame):

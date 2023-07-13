@@ -38,19 +38,19 @@ FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojec
 class SessionMode(Enum):
     """ """
 
-    Charuco = auto()
-    IntrinsicCalibration = auto()
-    ExtrinsicCalibration = auto()
-    CaptureVolumeOrigin = auto()
-    Recording = auto()
-    PostProcessing = auto()
+    Charuco = "&Charuco"
+    IntrinsicCalibration = "&Single Camera"
+    ExtrinsicCalibration = "&Multicamera"
+    CaptureVolumeOrigin = "Capture &Volume"
+    Recording = "&Recording"
+    PostProcessing = "&Post-processing"
 
 class QtSignaler(QObject):
     stream_tools_loaded_signal = pyqtSignal()
     stream_tools_disconnected_signal = pyqtSignal()
     unlock_postprocessing = pyqtSignal()
     recording_complete_signal = pyqtSignal()        
-    mode_change_success = pyqtSignal(SessionMode)
+    mode_change_success = pyqtSignal()
 
     def __init__(self) -> None:
         super(QtSignaler, self).__init__()
@@ -112,10 +112,12 @@ class Session:
         self.qt_signaler.stream_tools_disconnected_signal.emit()
 
     def is_camera_setup_eligible(self):
-        if len(self.cameras) > 0:
-            eligible = True
-        else:
+        # assume true and prove false        
+        eligible = True
+
+        if len(self.cameras) == 0:
             eligible = False
+
         return eligible
 
     def is_extrinsic_calibration_eligible(self):
@@ -126,6 +128,9 @@ class Session:
         for port, cam in self.camera_array.cameras.items():
             if cam.matrix is None or cam.distortions is None:
                 eligible = False
+
+        if len(self.cameras) == 0:
+            eligible = False
 
         return eligible
 
@@ -187,6 +192,10 @@ class Session:
         else:
             eligible = False
 
+        # must have connected cameras to be able to record
+        if len(self.cameras) == 0:
+            eligible = False
+
         return eligible
 
     def is_post_processing_eligible(self):
@@ -210,6 +219,7 @@ class Session:
         Via this method, the frame reading behavior will be changed by the GUI. If some properties are
         not available (i.e. synchronizer) they will be created
         """
+        logger.info(f"Initiating switch to mode: {mode.value}")
         self.mode = mode
         self.update_streams_fps()
 
@@ -269,12 +279,15 @@ class Session:
                 
                 logger.info("Subscribe synchronizer to streams so video recorder can manage")
                 self.synchronizer.subscribe_to_streams()
+        
+        self.qt_signaler.mode_change_success.emit()
 
     def set_active_mode_fps(self, fps_target: int):
         """
         Updates the FPS used by the currently active session mode
         This update includes the config.toml
         """
+        logger.info(f"Updating streams fps to {fps_target} to align with {self.mode} mode")
         match self.mode:
             case SessionMode.Charuco:
                 pass

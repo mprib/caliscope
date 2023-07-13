@@ -56,7 +56,8 @@ class ExtrinsicCalibrationWidget(QWidget):
         self.session = session
         self.synchronizer:Synchronizer = self.session.synchronizer
 
-        while not hasattr(session.synchronizer, "current_sync_packet"):
+        logger.info(f"about to check if synchronizer has a sync packet")
+        while not hasattr(self.session.synchronizer, "current_sync_packet"):
             logger.info("waiting for synchronizer to create first sync packet")
             sleep(.5)
 

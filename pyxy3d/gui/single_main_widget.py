@@ -124,16 +124,20 @@ class MainWindow(QMainWindow):
         action = self.sender()
         SessionModeLookup = {mode.value: mode for mode in SessionMode}
         mode = SessionModeLookup[action.text()]
-        self.session.set_mode(mode)
-            
         logger.info(f"Attempting to set session mode to {mode.value}")
+        self.session.set_mode(mode)
+
+        logger.info(f"Successful change to {mode} Mode")
+            
          
     def update_central_widget_mode(self):
+        logger.info(f"Begin process of updating central widget")
         # Delete the current central widget
         old_widget = self.centralWidget()
         self.setCentralWidget(QWidget())
         old_widget.deleteLater()
 
+        logger.info(f"Clearing events in emmitter threads to get them to wind down")
         if type(old_widget) == RecordingWidget:
             old_widget.thumbnail_emitter.keep_collecting.clear()
         
@@ -143,6 +147,8 @@ class MainWindow(QMainWindow):
         if type(old_widget) ==  IntrinsicCalibrationWidget:
             for port, tab in old_widget.camera_tabs.tab_widgets.items():
                 tab.frame_emitter.keep_collecting.clear()
+
+        logger.info(f"Matching next tab to active session mode: {self.session.mode}")
         # Create the new central widget based on the mode
         match self.session.mode:
             case SessionMode.Charuco:
@@ -150,6 +156,7 @@ class MainWindow(QMainWindow):
             case SessionMode.IntrinsicCalibration:
                 new_widget = IntrinsicCalibrationWidget(self.session)
             case SessionMode.ExtrinsicCalibration:
+                logger.info(f"About to create extrinsic calibration widget")
                 new_widget = ExtrinsicCalibrationWidget(self.session)    
             case SessionMode.CaptureVolumeOrigin:
                 new_widget = CaptureVolumeWidget(self.session)
@@ -175,14 +182,14 @@ class MainWindow(QMainWindow):
             self.recording_mode_select.setEnabled(True)
         else:
             self.intrinsic_mode_select.setEnabled(False)
-            self.extrinsic_mode_select.setEnabled(True)
-            self.recording_mode_select.setEnabled(True)
+            self.extrinsic_mode_select.setEnabled(False)
+            self.recording_mode_select.setEnabled(False)
         
 
         if self.session.is_capture_volume_eligible():
             self.capture_volume_mode_select.setEnabled(True)
         else:
-            self.capture_volume_mode_select.setEnabled(True)
+            self.capture_volume_mode_select.setEnabled(False)
 
         
         if self.session.is_post_processing_eligible():

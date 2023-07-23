@@ -8,13 +8,6 @@ While the data processing pipeline is designed with the ultimate goal of real-ti
 
 Not currently, but this feature is planned for near-term roll out. Processing videos offline will enable the use of more cameras and higher frame rates and resolutions, but it also requires some method of frame synchronization and presents the need to perform calibration from pre-recorded videos. This is a development priority, but not currently implemented. I aim to create an API that will support such post-processing in the future so that Pyxy3D could be used programmatically by third-party Python processing pipelines.
 
-### Why is the software limited to Windows?
-
-The sample markerless tracking tool used in this software, Google's [Holistic Mediapipe](https://github.com/google/mediapipe/blob/master/docs/solutions/holistic.md), is configured to run only on Windows and only on CPU. It's worth underscoring that it is not my intention to create a complete stand-alone motion capture system, but rather a central processing pipeline with well-defined APIs for video input, tracking algorithms,and 3D data export. In this way, third parties can build out the input/output pipeline to create a more comprehensive set of tools.
-
-
-While the sample tracking tool may not run on other platforms, the core camera calibration probably will. The underlying tools (OpenCV/SciPy/PyQT) are cross-platform, but please anticipate some challenges as this has not been extensively tested.
-
 ### Can I use my smartphone as a camera?
 
 Unfortunately, no. Supporting such input streams would present a unique challenge that would detract from the development of core processing. Including this ability is not a priority for development.

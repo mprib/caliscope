@@ -281,7 +281,7 @@ class Synchronizer:
                 q.put(self.current_sync_packet)
                 if self.current_sync_packet is not None:
                     logger.debug(f"Placing new synched frames packet on queue with {self.current_sync_packet.frame_packet_count} frames")
-                    logger.info(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
+                    logger.debug(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
                     
                     # provide infrequent notice of synchronizer activity
                     if self.current_sync_packet.sync_index % 100 == 0:

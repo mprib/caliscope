@@ -17,6 +17,7 @@ PyOpenGL = "^3.1.6"
 toml = "^0.10.2"
 numba = "^0.56.4"
 mediapipe = "0.10.1"
+siuba = "^0.4.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

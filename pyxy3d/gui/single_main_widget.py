@@ -122,6 +122,8 @@ class MainWindow(QMainWindow):
 
     def mode_change_action(self):
         action = self.sender()
+        
+        # create a reverse lookup dictionary to pull the mode enum that should be activated
         SessionModeLookup = {mode.value: mode for mode in SessionMode}
         mode = SessionModeLookup[action.text()]
         logger.info(f"Attempting to set session mode to {mode.value}")
@@ -131,6 +133,10 @@ class MainWindow(QMainWindow):
             
          
     def update_central_widget_mode(self):
+        """
+        This will be triggered whenever the session successfully completes a mode change and emits
+        a signal to that effect.
+        """
         logger.info(f"Begin process of updating central widget")
         # Delete the current central widget
         old_widget = self.centralWidget()

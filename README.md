@@ -102,14 +102,6 @@ To report a bug or request a feature, please [open an issue](https://github.com/
 Post any questions in the [Discussions](https://github.com/mprib/pyxy3d/discussions) section of the repo. 
 
 
-## Roadmap
-
-- Blender integration
-    - [ ] create metarig_config.json from calibration movement 
-    - [ ] set IK constraints
-    - [ ] Blender add-on to import metarig and motion capture
-
-
 ## Acknowledgments
 
 This project was inspired by [FreeMoCap](https://github.com/freemocap/freemocap) (FMC), which is spearheaded by [Jon Matthis, PhD](https://jonmatthis.com/) of the HuMoN Research Lab. The FMC calibration and triangulation system is built upon [Anipose](https://github.com/lambdaloop/anipose), created by Lili Karushchek, PhD. Pyxy3D was originally envisioned as an alternative calibration tool to Anipose that would allow more granular estimation of intrinsics as well as visual feedback during the calibration process. Several lines of of the original Anipose triangulation code are used in this code base, though otherwise it was written from-the-ground up. I'm grateful to Dr. Matthis for his time developing FreeMoCap, discussing it with me, pointing out important code considerations, and providing a great deal of information regarding open-source project management.

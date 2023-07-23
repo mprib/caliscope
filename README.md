@@ -11,7 +11,7 @@
 ---
 ## About
 
-Pyxy3D (*pixie-3d*) is an open-source **Py**thon package for converting 2D **(x,y)** point data to **3D** estimates. In other words, an open source motion capture tool. It's core functionality includes: 
+Pyxy3D (*pixie-3d*) is an open-source motion capture tool that allows for markerless motion tracking with a typical computer (Windows or MacOS currently) and 2 or more webcams. In other words, it is a **Py**thon package for converting 2D **(x,y)** point data to **3D** estimates. It's core functionality includes: 
 
 - the estimation of intrinsic (focal length/optical center/distortion) and extrinsic (rotation and translation) camera parameters via a GUI
 - API for slotting various tracking solutions into the data pipeline
@@ -31,7 +31,7 @@ The gif below gives a quick demo of the following steps:
 
 ## Quick Start
 
-This package has only been successfully tested on Windows 10 and MacOS 12 Ventura. Limited testing on Linux (Ubuntu) has failed due to issues loading PyQt6.
+This package has only been successfully tested on Windows 10 and MacOS 12 Ventura. 
 
 From a terminal (the code below is using Powershell), do the following:
 
@@ -56,7 +56,7 @@ C:\Python310\python.exe -m venv .venv
 ```powershell
 pip install pyxy3d
 ```
-Note that this will also install dependencies into the virtual environment, some of which are large (OpenCV, SciPy and Numpy are among the core dependencies). Complete download and installation may take several minutes. 
+Note that this will also install dependencies into the virtual environment, some of which are large (OpenCV, SciPy, Numpy and Mediapipe are among the core dependencies). Complete download and installation may take several minutes. 
 
 6. Launch Pyxy3D    
 ```powershell
@@ -64,7 +64,7 @@ pyxy3d
 ```
 
 
-At this point, an application window should launch, though be aware that it may take several seconds for this to load. 
+At this point, an application window will launch, though be aware that it may take several seconds for this to load particularly on the first launch on your machine. 
 Refer to the [Quick Start Video Walkthrough](https://youtu.be/QHQKkLCE0e4) to see how to calibrate, record and process data
 
 ## Key Features

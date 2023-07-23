@@ -1,6 +1,7 @@
 
 #%%
 import pyxy3d.logger
+import json
 
 logger = pyxy3d.logger.get(__name__)
 from pyxy3d import __root__
@@ -17,7 +18,8 @@ import matplotlib.pyplot as plt
 
 def calculate_distance(xyz_trajectory_data:pd.DataFrame, point1:str, point2:str):
     """
-    
+    Given a set of xyz trajectories from tracked and triangulated landmarks, calculate the 
+    mean distance between two named points, excluding outlier points for data cleanliness
     
     """
     # calculate the distance
@@ -36,13 +38,6 @@ def calculate_distance(xyz_trajectory_data:pd.DataFrame, point1:str, point2:str)
 
     # calculate the average length
     average_length = filtered_distances.mean()
-    # print(f"Average Length: {average_length}")
-    # histogram of the distances
-    # plt.hist(filtered_distances, bins=30, alpha=0.8)
-    # plt.xlabel('Distance')
-    # plt.ylabel('Frequency')
-    # plt.title('Histogram of Distances')
-    # plt.show()
     return average_length
 
 
@@ -52,12 +47,9 @@ symmetrical_measures = {
     "Inner_Eye_Distance":["left_inner_eye", "right_inner_eye"]
 }
 
-averaged_measures = {
-    "Hip_Shoulder_Distance":["hip", "shoulder"],
-    "Shoulder_Inner_Eye_Distance":["inner_eye", "shoulder"]
-}
-
 bilateral_measures = {
+    "Hip_Shoulder_Distance":["hip", "shoulder"],
+    "Shoulder_Inner_Eye_Distance":["inner_eye", "shoulder"],
     "Palm": ["index_finger_MCP", "pinky_MCP"],
     "Foot":["heel", "foot_index"],  
     "Upper_Arm":["shoulder","elbow"],
@@ -90,10 +82,19 @@ if __name__ == "__main__":
     xyz_csv_path = Path(__root__,"tests", "reference", "auto_rig_config_data", "xyz_HOLISTIC_OPENSIM_labelled.csv")
 
     xyz_trajectories = pd.read_csv(xyz_csv_path)
+    json_path = Path(xyz_csv_path.parent, "autorig.json")
 
+    # for testing purposes, need to make sure that this file is not there before proceeding
+    json_path.unlink(missing_ok=True)
+    assert not json_path.exists()
+    
+    autorig_config = {} # Dictionary that will become json
+
+    # average distances across the bilateral measures
     for measure, points in bilateral_measures.items():
         logger.info(f"Calculating mean distance (IQR) for {measure}")
 
+        mean_distance = 0
         for side in ["left", "right"]:
             
             point1 = f"{side}_{points[0]}"
@@ -101,5 +102,28 @@ if __name__ == "__main__":
 
             distance = calculate_distance(xyz_trajectories, point1,point2)
             logger.info(f"Between {point1} and {point2} the mean distance is {distance}")     
-        
-            
+            mean_distance += distance/2
+        autorig_config[measure] = round(mean_distance,4)
+           
+           
+    for measure, points in symmetrical_measures.items():
+        distance = calculate_distance(xyz_trajectories, points[0],points[1])
+        autorig_config[measure] = round(distance,4)
+     
+    with open(json_path,"w") as f:
+        json.dump(autorig_config, f, indent=4)    
+   
+    # make sure you created the file 
+    assert json_path.exists()
+
+    with open(json_path,"r") as f:
+        check_autorig_config = json.load(f)    
+  
+    # make sure all measures are accounted for and sensible  
+    for measure, points in symmetrical_measures.items():
+        assert measure in check_autorig_config.keys()
+        assert type(check_autorig_config[measure]) == float
+
+    for measure, points in bilateral_measures.items():
+        assert measure in check_autorig_config.keys()
+        assert type(check_autorig_config[measure]) == float

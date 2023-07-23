@@ -1,3 +1,5 @@
+
+#%%
 import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
@@ -7,14 +9,85 @@ import shutil
 import cv2
 from pathlib import Path
 import time
-from pyxy3d.trackers.hand_tracker import HandTracker
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
-from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from pyxy3d.cameras.camera_array import CameraArray, CameraData
-from pyxy3d.recording.recorded_stream import RecordedStreamPool
-from pyxy3d.configurator import Configurator
-from pyxy3d.helper import copy_contents
-from pyxy3d.trackers.tracker_enum import TrackerEnum
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
-input_file = Path(__root__,"tests", "reference", "auto_rig_config_data", "")
+
+
+def calculate_distance(xyz_trajectory_data:pd.DataFrame, point1:str, point2:str):
+    """
+    
+    
+    """
+    # calculate the distance
+    distances = np.sqrt((xyz_trajectory_data[point1 + '_x'] - xyz_trajectory_data[point2 + '_x']) ** 2 +
+                     (xyz_trajectory_data[point1 + '_y'] - xyz_trajectory_data[point2 + '_y']) ** 2 +
+                     (xyz_trajectory_data[point1 + '_z'] - xyz_trajectory_data[point2 + '_z']) ** 2)
+    
+
+        # calculate Q1, Q3 and IQR for outlier detection
+    Q1 = distances.quantile(0.25)
+    Q3 = distances.quantile(0.75)
+    IQR = Q3 - Q1
+
+    # filter out the outliers
+    filtered_distances = distances[(distances >= Q1 - 1.5 * IQR) & (distances <= Q3 + 1.5 * IQR)]
+
+    # calculate the average length
+    average_length = filtered_distances.mean()
+    print(f"Average Length: {average_length}")
+
+    # histogram of the distances
+    plt.hist(filtered_distances, bins=30, alpha=0.8)
+    plt.xlabel('Distance')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Distances')
+    plt.show()
+
+symmetrical_measures = {
+    "Shoulder_Width":["left_shoulder", "right_shoulder"],
+    "Hip_Width":["left_hip", "right_hip"],
+    "Inner_Eye_Distance":["left_inner_eye", "right_inner_eye"]
+}
+
+averaged_measures = {
+    "Hip_Shoulder_Distance":["hip", "shoulder"],
+    "Shoulder_Inner_Eye_Distance":["inner_eye", "shoulder"]
+}
+
+bilateral_measures = {
+    "Palm": ["index_MCP", "pinky_MCP"],
+    "Foot":["heel", "foot_index"],  
+    "Upper_Arm":["shoulder","elbow"],
+    "Forearm":["elbow", "wrist"],
+    "Wrist_to_MCP1":["wrist", "thumb_MCP"],
+    "Wrist_to_MCP2":["wrist", "index_MCP"],
+    "Wrist_to_MCP3":["wrist", "middle_MCP"],
+    "Wrist_to_MCP4":["wrist", "ring_MCP"],
+    "Wrist_to_MCP5":["wrist", "pinky_MCP"],
+    "Prox_Phalanx_1":["thumb_MCP", "thumb_IP"],
+    "Prox_Phalanx_2":["index_finger_MCP", "index_finger_PIP"],
+    "Prox_Phalanx_3":["middle_finger_MCP", "middle_finger_PIP"],
+    "Prox_Phalanx_4":["ring_finger_MCP", "ring_finger_PIP"],
+    "Prox_Phalanx_5":["pinky_finger_MCP", "pinky_finger_PIP"],
+    "Mid_Phalanx_2":["index_finger_PIP", "index_finger_DIP"],
+    "Mid_Phalanx_3":["middle_finger_PIP","middle_finger_DIP"],
+    "Mid_Phalanx_4":["ring_finger_PIP", "ring_finger_DIP"],
+    "Mid_Phalanx_5":["pinky_finger_PIP", "pinky_finger_DIP"],
+    "Dist_Phalanx_1":["thumb_IP", "thumb_TIP"],
+    "Dist_Phalanx_2":["index_finger_DIP", "index_finger_TIP"],
+    "Dist_Phalanx_3":["middle_finger_DIP","middle_finger_TIP"],
+    "Dist_Phalanx_4":["ring_finger_DIP", "middle_finger_TIP"],
+    "Dist_Phalanx_5":["pinky_finger_DIP", "pinky_finger_TIP"],
+    "Thigh_Length":["hip","knee"],
+    "Shin_Length": ["knee", "ankle"]
+}
+# usage 
+
+if __name__ == "__main__":
+    xyz_csv_path = Path(__root__,"tests", "reference", "auto_rig_config_data", "xyz_HOLISTIC_OPENSIM_labelled.csv")
+
+    xyz_trajectories = pd.read_csv(xyz_csv_path)
+    calculate_distance(xyz_trajectories, 'chin_tip', 'left_ear')
+

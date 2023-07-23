@@ -105,12 +105,6 @@ class PostProcessor:
             sleep(1)
             percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
             logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
-            # self.progress_update.emit(
-            #     {
-            #         "stage": "Estimating (x,y) landmark positions (stage 1 of 2)",
-            #         "percent": percent_complete,
-            #     }
-            # )
 
 
     def triangulate_xy_data(self, xy_data: pd.DataFrame) -> Dict[str, List]:

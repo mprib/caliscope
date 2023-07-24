@@ -294,11 +294,24 @@ class PostProcessingWidget(QWidget):
     def update_enabled_disabled(self):
 
         # set availability of metarig generation 
-        tracker = self.tracker_combo.value()
+        logger.info("Checking if metarig config can be created...")
+        tracker = self.tracker_combo.currentData().value()
+        logger.info(tracker)
         if (tracker.metarig_mapped and self.processed_xyz_path.exists() and not self.metarig_config_path.exists()):
             self.generate_metarig_config_btn.setEnabled(True)
+            self.generate_metarig_config_btn.setToolTip("Creation of metarig configuration file is now available")
         else:
             self.generate_metarig_config_btn.setEnabled(False)
+        
+        if not tracker.metarig_mapped:
+            self.generate_metarig_config_btn.setToolTip("Tracker is not set up to scale to a metarig")
+        elif self.metarig_config_path.exists():
+            self.generate_metarig_config_btn.setToolTip("The Metarig configuration json file has already been created.Check the tracker subfolder in the recording directory.")
+        elif not self.processed_xyz_path.exists():
+            self.generate_metarig_config_btn.setToolTip("Must process recording to create xyz estimates for metarig configuration")
+        else:
+            self.generate_metarig_config_btn.setToolTip("Click to create a file in the tracker subfolder that can be used to scale a Blender metarig")
+            
 
         # set availability of Proecssing and slider                
         if self.processed_xyz_path.exists():

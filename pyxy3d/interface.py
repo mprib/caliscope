@@ -53,7 +53,15 @@ class Tracker(ABC):
         Used for file naming creation
         """
         pass
-        
+     
+    @property
+    def metarig_symmetrical_measures(self):
+        raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
+
+    @property
+    def metarig_bilateral_measures(self):
+        raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
+
     @abstractmethod
     def get_point_name(self, point_id:int) -> str:
         """

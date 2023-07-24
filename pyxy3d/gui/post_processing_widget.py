@@ -293,20 +293,21 @@ class PostProcessingWidget(QWidget):
 
     def update_enabled_disabled(self):
 
+        # set availability of metarig generation 
+        tracker = self.tracker_combo.value()
+        if (tracker.metarig_mapped and self.processed_xyz_path.exists() and not self.metarig_config_path.exists()):
+            self.generate_metarig_config_btn.setEnabled(True)
+        else:
+            self.generate_metarig_config_btn.setEnabled(False)
+
+        # set availability of Proecssing and slider                
         if self.processed_xyz_path.exists():
             self.process_current_btn.setEnabled(False)
             self.vis_widget.slider.setEnabled(True)
-            
-            # must have xyz params to be able to generate metarig config
-            if self.metarig_config_path.exists():
-                self.generate_metarig_config_btn.setEnabled(False)
-            else:
-                self.generate_metarig_config_btn.setEnabled(True)
                 
         else:
             self.process_current_btn.setEnabled(True)
             self.vis_widget.slider.setEnabled(False)
-            self.generate_metarig_config_btn.setEnabled(False)
 
     def update_slider_position(self):
         # update slider value to stored value if it exists

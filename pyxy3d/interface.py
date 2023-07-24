@@ -53,7 +53,15 @@ class Tracker(ABC):
         Used for file naming creation
         """
         pass
-     
+    @property
+    def metarig_mapped(self):
+        """
+        Defaults to false and can be overriden to True
+        Used to ensure that metarig_config creation is not presented as 
+        an option in GUI
+        """
+        return False
+         
     @property
     def metarig_symmetrical_measures(self):
         """

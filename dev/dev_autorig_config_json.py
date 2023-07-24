@@ -14,7 +14,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-
+from pyxy3d.trackers.tracker_enum import TrackerEnum
+from pyxy3d.trackers.holistic_opensim_tracker import HolisticOpenSimTracker
 
 def calculate_distance(xyz_trajectory_data:pd.DataFrame, point1:str, point2:str):
     """
@@ -41,45 +42,46 @@ def calculate_distance(xyz_trajectory_data:pd.DataFrame, point1:str, point2:str)
     return average_length
 
 
-symmetrical_measures = {
-    "Shoulder_Width":["left_shoulder", "right_shoulder"],
-    "Hip_Width":["left_hip", "right_hip"],
-    "Inner_Eye_Distance":["left_inner_eye", "right_inner_eye"]
-}
+# symmetrical_measures = {
+#     "Shoulder_Width":["left_shoulder", "right_shoulder"],
+#     "Hip_Width":["left_hip", "right_hip"],
+#     "Inner_Eye_Distance":["left_inner_eye", "right_inner_eye"]
+# }
 
-bilateral_measures = {
-    "Hip_Shoulder_Distance":["hip", "shoulder"],
-    "Shoulder_Inner_Eye_Distance":["inner_eye", "shoulder"],
-    "Palm": ["index_finger_MCP", "pinky_MCP"],
-    "Foot":["heel", "foot_index"],  
-    "Upper_Arm":["shoulder","elbow"],
-    "Forearm":["elbow", "wrist"],
-    "Wrist_to_MCP1":["wrist", "thumb_MCP"],
-    "Wrist_to_MCP2":["wrist", "index_finger_MCP"],
-    "Wrist_to_MCP3":["wrist", "middle_finger_MCP"],
-    "Wrist_to_MCP4":["wrist", "ring_finger_MCP"],
-    "Wrist_to_MCP5":["wrist", "pinky_MCP"],
-    "Prox_Phalanx_1":["thumb_MCP", "thumb_IP"],
-    "Prox_Phalanx_2":["index_finger_MCP", "index_finger_PIP"],
-    "Prox_Phalanx_3":["middle_finger_MCP", "middle_finger_PIP"],
-    "Prox_Phalanx_4":["ring_finger_MCP", "ring_finger_PIP"],
-    "Prox_Phalanx_5":["pinky_MCP", "pinky_PIP"],
-    "Mid_Phalanx_2":["index_finger_PIP", "index_finger_DIP"],
-    "Mid_Phalanx_3":["middle_finger_PIP","middle_finger_DIP"],
-    "Mid_Phalanx_4":["ring_finger_PIP", "ring_finger_DIP"],
-    "Mid_Phalanx_5":["pinky_PIP", "pinky_DIP"],
-    "Dist_Phalanx_1":["thumb_IP", "thumb_tip"],
-    "Dist_Phalanx_2":["index_finger_DIP", "index_finger_tip"],
-    "Dist_Phalanx_3":["middle_finger_DIP","middle_finger_tip"],
-    "Dist_Phalanx_4":["ring_finger_DIP", "middle_finger_tip"],
-    "Dist_Phalanx_5":["pinky_DIP", "pinky_tip"],
-    "Thigh_Length":["hip","knee"],
-    "Shin_Length": ["knee", "ankle"]
-}
+# bilateral_measures = {
+#     "Hip_Shoulder_Distance":["hip", "shoulder"],
+#     "Shoulder_Inner_Eye_Distance":["inner_eye", "shoulder"],
+#     "Palm": ["index_finger_MCP", "pinky_MCP"],
+#     "Foot":["heel", "foot_index"],  
+#     "Upper_Arm":["shoulder","elbow"],
+#     "Forearm":["elbow", "wrist"],
+#     "Wrist_to_MCP1":["wrist", "thumb_MCP"],
+#     "Wrist_to_MCP2":["wrist", "index_finger_MCP"],
+#     "Wrist_to_MCP3":["wrist", "middle_finger_MCP"],
+#     "Wrist_to_MCP4":["wrist", "ring_finger_MCP"],
+#     "Wrist_to_MCP5":["wrist", "pinky_MCP"],
+#     "Prox_Phalanx_1":["thumb_MCP", "thumb_IP"],
+#     "Prox_Phalanx_2":["index_finger_MCP", "index_finger_PIP"],
+#     "Prox_Phalanx_3":["middle_finger_MCP", "middle_finger_PIP"],
+#     "Prox_Phalanx_4":["ring_finger_MCP", "ring_finger_PIP"],
+#     "Prox_Phalanx_5":["pinky_MCP", "pinky_PIP"],
+#     "Mid_Phalanx_2":["index_finger_PIP", "index_finger_DIP"],
+#     "Mid_Phalanx_3":["middle_finger_PIP","middle_finger_DIP"],
+#     "Mid_Phalanx_4":["ring_finger_PIP", "ring_finger_DIP"],
+#     "Mid_Phalanx_5":["pinky_PIP", "pinky_DIP"],
+#     "Dist_Phalanx_1":["thumb_IP", "thumb_tip"],
+#     "Dist_Phalanx_2":["index_finger_DIP", "index_finger_tip"],
+#     "Dist_Phalanx_3":["middle_finger_DIP","middle_finger_tip"],
+#     "Dist_Phalanx_4":["ring_finger_DIP", "middle_finger_tip"],
+#     "Dist_Phalanx_5":["pinky_DIP", "pinky_tip"],
+#     "Thigh_Length":["hip","knee"],
+#     "Shin_Length": ["knee", "ankle"]
+# }
 # usage 
 
 if __name__ == "__main__":
     xyz_csv_path = Path(__root__,"tests", "reference", "auto_rig_config_data", "xyz_HOLISTIC_OPENSIM_labelled.csv")
+    tracker = HolisticOpenSimTracker()
 
     xyz_trajectories = pd.read_csv(xyz_csv_path)
     json_path = Path(xyz_csv_path.parent, "autorig.json")

@@ -183,6 +183,10 @@ class HolisticOpenSimTracker(Tracker):
         return "HOLISTIC_OPENSIM"
 
     @property
+    def metarig_mapped(self):
+        return True
+    
+    @property
     def metarig_symmetrical_measures(self):
         return METARIG_SYMMETRICAL_MEASURES
     

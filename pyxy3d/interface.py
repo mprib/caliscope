@@ -53,7 +53,25 @@ class Tracker(ABC):
         Used for file naming creation
         """
         pass
-        
+     
+    @property
+    def metarig_symmetrical_measures(self):
+        """
+        a dictionary of key: value in the form Measure_Name:[pointA, pointB]
+        when processed, the mean distances (excluding outliers) of both 
+        left_pointA,left_pointB and right_pointA, right_pointB will be calculated. 
+        The mean of the two sides will be taken
+        """
+        raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
+
+    @property
+    def metarig_bilateral_measures(self):
+        """
+        a dictionary of key: value in the form Measure_Name:[side_pointA, side_pointB]
+        when processed, mean distance (excluding outliers) between the two points will be calculated and stored as the measure
+        """
+        raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
+
     @abstractmethod
     def get_point_name(self, point_id:int) -> str:
         """
@@ -118,7 +136,6 @@ class FramePacket:
     port: int
     frame_time: float
     frame: np.ndarray
-    # frame_index: int = None
     points: PointPacket = None
     draw_instructions: callable = None
 

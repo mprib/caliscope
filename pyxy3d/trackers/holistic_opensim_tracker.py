@@ -125,6 +125,44 @@ POINT_NAMES = {
 }
 
 
+METARIG_BILATERAL_MEAUSURES = {
+    "Hip_Shoulder_Distance":["hip", "shoulder"],
+    "Shoulder_Inner_Eye_Distance":["inner_eye", "shoulder"],
+    "Palm": ["index_finger_MCP", "pinky_MCP"],
+    "Foot":["heel", "foot_index"],  
+    "Upper_Arm":["shoulder","elbow"],
+    "Forearm":["elbow", "wrist"],
+    "Wrist_to_MCP1":["wrist", "thumb_MCP"],
+    "Wrist_to_MCP2":["wrist", "index_finger_MCP"],
+    "Wrist_to_MCP3":["wrist", "middle_finger_MCP"],
+    "Wrist_to_MCP4":["wrist", "ring_finger_MCP"],
+    "Wrist_to_MCP5":["wrist", "pinky_MCP"],
+    "Prox_Phalanx_1":["thumb_MCP", "thumb_IP"],
+    "Prox_Phalanx_2":["index_finger_MCP", "index_finger_PIP"],
+    "Prox_Phalanx_3":["middle_finger_MCP", "middle_finger_PIP"],
+    "Prox_Phalanx_4":["ring_finger_MCP", "ring_finger_PIP"],
+    "Prox_Phalanx_5":["pinky_MCP", "pinky_PIP"],
+    "Mid_Phalanx_2":["index_finger_PIP", "index_finger_DIP"],
+    "Mid_Phalanx_3":["middle_finger_PIP","middle_finger_DIP"],
+    "Mid_Phalanx_4":["ring_finger_PIP", "ring_finger_DIP"],
+    "Mid_Phalanx_5":["pinky_PIP", "pinky_DIP"],
+    "Dist_Phalanx_1":["thumb_IP", "thumb_tip"],
+    "Dist_Phalanx_2":["index_finger_DIP", "index_finger_tip"],
+    "Dist_Phalanx_3":["middle_finger_DIP","middle_finger_tip"],
+    "Dist_Phalanx_4":["ring_finger_DIP", "middle_finger_tip"],
+    "Dist_Phalanx_5":["pinky_DIP", "pinky_tip"],
+    "Thigh_Length":["hip","knee"],
+    "Shin_Length": ["knee", "ankle"]
+}
+
+
+METARIG_SYMMETRICAL_MEASURES = {
+    "Shoulder_Width":["left_shoulder", "right_shoulder"],
+    "Hip_Width":["left_hip", "right_hip"],
+    "Inner_Eye_Distance":["left_inner_eye", "right_inner_eye"]
+}
+
+
 # keep ids in distinct ranges to avoid clashes
 POSE_OFFSET = 0
 RIGHT_HAND_OFFSET = 100
@@ -143,6 +181,14 @@ class HolisticOpenSimTracker(Tracker):
     @property
     def name(self):
         return "HOLISTIC_OPENSIM"
+
+    @property
+    def metarig_symmetrical_measures(self):
+        return METARIG_SYMMETRICAL_MEASURES
+    
+    @property
+    def metarig_bilateral_measures(self):
+        return METARIG_BILATERAL_MEAUSURES
 
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance

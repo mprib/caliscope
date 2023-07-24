@@ -35,7 +35,6 @@ class PostProcessor:
     # progress_update = pyqtSignal(dict)  # {"stage": str, "percent":int}
 
     def __init__(self,config:Configurator ):
-        # super().__init__()
         self.config = config
 
     def create_xyz(self, recording_path: Path, tracker_enum: TrackerEnum,) -> None:
@@ -105,12 +104,6 @@ class PostProcessor:
             sleep(1)
             percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
             logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
-            # self.progress_update.emit(
-            #     {
-            #         "stage": "Estimating (x,y) landmark positions (stage 1 of 2)",
-            #         "percent": percent_complete,
-            #     }
-            # )
 
 
     def triangulate_xy_data(self, xy_data: pd.DataFrame) -> Dict[str, List]:
@@ -137,7 +130,7 @@ class PostProcessor:
 
         for index in xy_data["sync_index"].unique():
             active_index = xy_data["sync_index"] == index
-            cameras = xy_data["port"][active_index].to_numpy()
+            port = xy_data["port"][active_index].to_numpy()
             point_ids = xy_data["point_id"][active_index].to_numpy()
             img_loc_x = xy_data["img_loc_x"][active_index].to_numpy()
             img_loc_y = xy_data["img_loc_y"][active_index].to_numpy()
@@ -145,7 +138,7 @@ class PostProcessor:
 
             # the fancy part
             point_id_xyz, points_xyz = triangulate_sync_index(
-                projection_matrices, cameras, point_ids, imgs_xy
+                projection_matrices, port, point_ids, imgs_xy
             )
 
             if len(point_id_xyz) > 0:
@@ -165,20 +158,5 @@ class PostProcessor:
                     f"(Stage 2 of 2): Triangulation of (x,y) point estimates is {percent_complete}% complete"
                 )
                 last_log_update = int(time())
-                # self.progress_update.emit(
-                #     {
-                #         "stage": "Triangulating (x,y,z) estimates (stage 2 of 2)",
-                #         "percent": percent_complete,
-                #     }
-                # )
-
-        # signalling the progress bar can now close
-        # self.progress_update.emit(
-        #     {
-        #         "stage": "Triangulating (x,y,z) estimates (stage 2 of 2)",
-        #         "percent": 100,
-        #         "close": True
-        #     }
-        # )
 
         return xyz_history

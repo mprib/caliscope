@@ -6,7 +6,7 @@ import pandas as pd
 from pathlib import Path
 from pyxy3d import __root__
 from pyxy3d.configurator import Configurator
-from pyxy3d.post_processor import PostProcessor
+from pyxy3d.post_processing.post_processor import PostProcessor
 from pyxy3d.helper import copy_contents
 
 def test_xy_to_xyz_postprocessing():

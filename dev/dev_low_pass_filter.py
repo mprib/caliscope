@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
-from pyxy3d.post_processor import PostProcessor
+from pyxy3d.post_processing.post_processor import PostProcessor
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 import toml
 from PyQt6.QtWidgets import QApplication

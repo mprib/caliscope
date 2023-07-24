@@ -1,4 +1,4 @@
-from pyxy3d.post_processor import PostProcessor
+from pyxy3d.post_processing.post_processor import PostProcessor
 import toml
 from pathlib import Path
 from pyxy3d.configurator import Configurator

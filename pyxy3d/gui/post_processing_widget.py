@@ -36,7 +36,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from pyxy3d.post_processor import PostProcessor
+from pyxy3d.post_processing.post_processor import PostProcessor
 from pyxy3d.session.session import Session
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__

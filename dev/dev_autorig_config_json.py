@@ -93,7 +93,7 @@ if __name__ == "__main__":
     autorig_config = {} # Dictionary that will become json
 
     # average distances across the bilateral measures
-    for measure, points in bilateral_measures.items():
+    for measure, points in tracker.metarig_bilateral_measures.items():
         logger.info(f"Calculating mean distance (IQR) for {measure}")
 
         mean_distance = 0
@@ -108,7 +108,7 @@ if __name__ == "__main__":
         autorig_config[measure] = round(mean_distance,4)
            
            
-    for measure, points in symmetrical_measures.items():
+    for measure, points in tracker.metarig_symmetrical_measures.items():
         distance = calculate_distance(xyz_trajectories, points[0],points[1])
         autorig_config[measure] = round(distance,4)
      
@@ -122,10 +122,10 @@ if __name__ == "__main__":
         check_autorig_config = json.load(f)    
   
     # make sure all measures are accounted for and sensible  
-    for measure, points in symmetrical_measures.items():
+    for measure, points in tracker.metarig_symmetrical_measures.items():
         assert measure in check_autorig_config.keys()
         assert type(check_autorig_config[measure]) == float
 
-    for measure, points in bilateral_measures.items():
+    for measure, points in tracker.metarig_bilateral_measures.items():
         assert measure in check_autorig_config.keys()
         assert type(check_autorig_config[measure]) == float

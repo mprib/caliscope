@@ -51,6 +51,9 @@ class Configurator:
             self.save_fps_intrinsic_calibration(6)
             self.save_extrinsic_wait_time(0.5)
             self.save_intrinsic_wait_time(0.5)
+        
+        if exists(self.point_estimates_toml_path):
+            self.dict["point_estimates"] = toml.load(self.point_estimates_toml_path)
     
     def get_intrinsic_wait_time(self):
         return self.dict["intrinsic_wait_time"] 
@@ -98,7 +101,6 @@ class Configurator:
         # with open(self.config_toml_path, "r") as f:
         self.dict = toml.load(self.config_toml_path)
         
-        
     def update_config_toml(self):
         # alphabetize by key to maintain standardized layout
         sorted_dict = {key: value for key, value in sorted(self.dict.items())}
@@ -108,7 +110,6 @@ class Configurator:
         with open(self.config_toml_path, "w") as f:
             toml.dump(dict_wo_point_estimates, f)
 
-    
     def save_capture_volume(self, capture_volume:CaptureVolume):
         # self.point_estimates = self.capture_volume.point_estimates
         # self.camera_array = self.capture_volume.camera_array
@@ -185,15 +186,16 @@ class Configurator:
     
     def get_point_estimates(self)->PointEstimates:
 
-        if self.last_point_estimates_save_time > self.last_point_estimates_load_time:        
-            with open(self.point_estimates_toml_path,"r") as f:
-                point_estimates_dict = toml.load(f)
-            self.last_point_estimates_load_time = time()
+        # only load point estimates into dictionary if saved more recently than last loaded
+        # if self.last_point_estimates_save_time > self.last_point_estimates_load_time:        
+        #     self.dict["point_estimates"] = toml.load(self.point_estimates_toml_path)
+        #     self.last_point_estimates_load_time = time()
 
-        for key, value in point_estimates_dict.items():
-            point_estimates_dict[key] = np.array(value)
+        temp_data = self.dict["point_estimates"].copy()
+        for key, value in temp_data.items():
+            temp_data[key] = np.array(value)
 
-        point_estimates = PointEstimates(**point_estimates_dict)
+        point_estimates = PointEstimates(**temp_data)
         return point_estimates
     
     def get_charuco(self)-> Charuco:
@@ -310,15 +312,18 @@ class Configurator:
 
 
     def save_point_estimates(self, point_estimates:PointEstimates):
-        logger.info("Saving point estimates to config...")
-
+        logger.info("Saving point estimates to toml...")
+        
         temp_data = asdict(point_estimates)
+
         for key, params in temp_data.items():
             temp_data[key] = params.tolist()
 
         self.dict["point_estimates"] = temp_data
 
-        self.update_config_toml()
+        with open(self.point_estimates_toml_path,"w") as f:
+            toml.dump(self.dict["point_estimates"], f)
+        # self.update_config_toml()
 
     
      

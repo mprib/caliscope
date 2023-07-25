@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QApplication
 from pathlib import Path
 
 from pyxy3d.gui.recording_widget import launch_recording_widget
-from pyxy3d.gui.main_widget import launch_main
+from pyxy3d.gui.single_main_widget import launch_main
 
 def CLI_parser():
     if len(sys.argv) == 1:

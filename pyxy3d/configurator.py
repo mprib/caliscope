@@ -53,7 +53,7 @@ class Configurator:
             self.save_intrinsic_wait_time(0.5)
         
         if exists(self.point_estimates_toml_path):
-            self.dict["point_estimates"] = toml.load(self.point_estimates_toml_path)
+            self.refresh_point_estimates_from_toml()
     
     def get_intrinsic_wait_time(self):
         return self.dict["intrinsic_wait_time"] 
@@ -101,6 +101,11 @@ class Configurator:
         # with open(self.config_toml_path, "r") as f:
         self.dict = toml.load(self.config_toml_path)
         
+    def refresh_point_estimates_from_toml(self):
+        logger.info("Populating config dictionary with config.toml data")
+        # with open(self.config_toml_path, "r") as f:
+        self.dict["point_estimates"] = toml.load(self.point_estimates_toml_path)
+
     def update_config_toml(self):
         # alphabetize by key to maintain standardized layout
         sorted_dict = {key: value for key, value in sorted(self.dict.items())}

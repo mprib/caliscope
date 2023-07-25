@@ -46,7 +46,7 @@ class Configurator:
             self.save_charuco(charuco)
             self.save_fps_recording(30)
             self.save_fps_extrinsic_calibration(6)
-            self.save_fps_intrinsic_calibration(12)
+            self.save_fps_intrinsic_calibration(6)
             self.save_extrinsic_wait_time(0.5)
             self.save_intrinsic_wait_time(0.5)
     

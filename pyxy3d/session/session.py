@@ -51,6 +51,8 @@ class QtSignaler(QObject):
     unlock_postprocessing = pyqtSignal()
     recording_complete_signal = pyqtSignal()        
     mode_change_success = pyqtSignal()
+    extrinsic_calibration_complete = pyqtSignal()
+
 
     def __init__(self) -> None:
         super(QtSignaler, self).__init__()
@@ -259,6 +261,7 @@ class Session:
                 self.synchronizer.subscribe_to_streams()
 
             case SessionMode.CaptureVolumeOrigin:
+                self.load_estimated_capture_volume()
                 if self.stream_tools_loaded:
                     self.pause_all_monocalibrators()
                     self.synchronizer.unsubscribe_from_streams()
@@ -561,3 +564,5 @@ class Session:
         self.capture_volume.optimize()
 
         self.config.save_capture_volume(self.capture_volume)
+
+        self.qt_signaler.extrinsic_calibration_complete.emit()

@@ -1,12 +1,12 @@
 import pyxy3d.logger
 import pyxy3d.logger
-
+import os
+from pathlib import Path
 logger = pyxy3d.logger.get(__name__)
+
 
 from PyQt6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
 
-logger = pyxy3d.logger.get(__name__)
-from pathlib import Path
 from threading import Thread
 import sys
 from PyQt6.QtWidgets import (

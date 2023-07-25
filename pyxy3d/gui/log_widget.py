@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
 from pyxy3d.session.session import Session
 from pathlib import Path
 from threading import Thread
-
+from time import time
 # def test():
 #     def worker():
 #         session = Session(Path(r"C:\Users\Mac Prible\repos\pyxy3d\tests\217"))
@@ -38,16 +38,20 @@ class LogWidget(QWidget):
 
         layout.addWidget(self._console)
 
-        # if __name__ == "__main__":
-        #     self._button = QPushButton(self)
-        #     self._button.setText("Test Me")
-        #     layout.addWidget(self._button)
-        #     self._button.clicked.connect(test)
+        ## Verify widget working with a button to send a message
+        if __name__ == "__main__":
+            self._button = QPushButton(self)
+            self._button.setText("Test Me")
+            layout.addWidget(self._button)
+            self._button.clicked.connect(test)
 
         self.setLayout(layout)
         XStream.stdout().messageWritten.connect(self._console.appendLogMessage)
         XStream.stderr().messageWritten.connect(self._console.appendLogMessage)
 
+
+def test():
+    logger.info(f"This is a test; It is {time()}")
 
 class LogMessageViewer(QTextBrowser):
     def __init__(self, parent=None):
@@ -76,5 +80,7 @@ if __name__ == "__main__":
     app = QApplication([])
     dlg = LogWidget("This is only a test")
     dlg.show()
+
+    
 
     app.exec()

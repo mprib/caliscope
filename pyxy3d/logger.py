@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from pyxy3d import __log_dir__
 
+
 # only one file handler accross package so all messages logged to one file
 
 app_dir_file_handler = logging.FileHandler(Path(__log_dir__,'calibration.log'), "w+")
@@ -25,7 +26,7 @@ console_log_format =" %(levelname)8s| %(name)30s| %(lineno)3d|  %(message)s"
 console_formatter = logging.Formatter(console_log_format)
 console_handler.setFormatter(console_formatter)
 
-log_level_overides = {"pyxy3d.cameras.live_stream": logging.INFO}
+# log_level_overides = {"pyxy3d.cameras.live_stream": logging.INFO}
 
 
 class QtHandler(logging.Handler):
@@ -34,6 +35,7 @@ class QtHandler(logging.Handler):
     This handler will allow a QDialog box to pick up the logger output which may be useful for a  
     splash screen to show users that something is happening during big processing moments like:
     - loading/finding cameras
+
     - building / unbuilding synchronizer
     - performing stereocalibration
     """
@@ -78,20 +80,18 @@ class XStream(QtCore.QObject):
 def get(name): # as in __name__
     logger = logging.getLogger(name)
 
-    if name in log_level_overides.keys():
-        logger.setLevel(log_level_overides[name])
-    else:
-        logger.setLevel(logging.INFO) 
-
+    logger.setLevel(logging.INFO) 
     
     logger.addHandler(app_dir_file_handler)
     logger.addHandler(console_handler)
-   
+ 
     # avoid stepping through XStream object if in debug 
     if os.getenv("DEBUG") != '1':
         qt_handler = QtHandler()
         logger.addHandler(qt_handler)
     
+    # qt_handler = QtHandler()
+    # logger.addHandler(qt_handler)
 
     return logger
 

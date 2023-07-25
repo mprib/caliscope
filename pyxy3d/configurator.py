@@ -11,6 +11,7 @@ import numpy as np
 import toml
 from dataclasses import asdict
 import  cv2
+from time import time
 
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera import Camera
@@ -28,10 +29,11 @@ class Configurator:
     """    
     def __init__(self, session_path:Path) -> None:
         self.session_path = session_path
-        self.toml_path = Path(self.session_path,"config.toml")
-        
-        if exists(self.toml_path):
-            self.refresh_from_toml()
+        self.config_toml_path = Path(self.session_path,"config.toml")
+        self.point_estimates_toml_path = Path(self.session_path,"point_estimates.toml")
+
+        if exists(self.config_toml_path):
+            self.refresh_config_from_toml()
         else:
             logger.info(
                 "No existing config.toml found; creating starter file with charuco"
@@ -39,16 +41,19 @@ class Configurator:
 
             self.dict = toml.loads("")
             self.dict["CreationDate"] = datetime.now()
-            self.update_toml()           
+            self.update_config_toml()           
             
             # default values enforced below 
             charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
             self.save_charuco(charuco)
             self.save_fps_recording(30)
             self.save_fps_extrinsic_calibration(6)
-            self.save_fps_intrinsic_calibration(12)
+            self.save_fps_intrinsic_calibration(6)
             self.save_extrinsic_wait_time(0.5)
             self.save_intrinsic_wait_time(0.5)
+        
+        if exists(self.point_estimates_toml_path):
+            self.refresh_point_estimates_from_toml()
     
     def get_intrinsic_wait_time(self):
         return self.dict["intrinsic_wait_time"] 
@@ -68,44 +73,48 @@ class Configurator:
     def save_intrinsic_wait_time(self, time_sec:float):
         logger.info(f"Updating Intrinsic Calibration Wait to to {time_sec}")
         self.dict["intrinsic_wait_time"] = time_sec
-        self.update_toml()             
+        self.update_config_toml()             
 
     def save_extrinsic_wait_time(self, time_sec:float):
         logger.info(f"Updating Extrinsic Calibration Wait to to {time_sec}")
         self.dict["extrinsic_wait_time"] = time_sec
-        self.update_toml()
+        self.update_config_toml()
 
     def save_fps_recording(self, fps:int):
         logger.info(f"Updating Recording fps to {fps}")
         self.dict["fps_recording"]  = fps 
-        self.update_toml()
+        self.update_config_toml()
 
     def save_fps_extrinsic_calibration(self, fps:int):
         logger.info(f"Updating Extrinsic calibration fps to {fps}")
         self.dict["fps_extrinsic_calibration"]  = fps 
-        self.update_toml()
+        self.update_config_toml()
 
     def save_fps_intrinsic_calibration(self, fps:int):
         logger.info(f"Updating Intrinsic calibration fps to {fps}")
         self.dict["fps_intrinsic_calibration"]  = fps 
-        self.update_toml()
+        self.update_config_toml()
 
 
-    def refresh_from_toml(self):
+    def refresh_config_from_toml(self):
         logger.info("Populating config dictionary with config.toml data")
-        with open(self.toml_path, "r") as f:
-            self.dict = toml.load(self.toml_path)
+        # with open(self.config_toml_path, "r") as f:
+        self.dict = toml.load(self.config_toml_path)
         
-        
-    def update_toml(self):
+    def refresh_point_estimates_from_toml(self):
+        logger.info("Populating config dictionary with config.toml data")
+        # with open(self.config_toml_path, "r") as f:
+        self.dict["point_estimates"] = toml.load(self.point_estimates_toml_path)
+
+    def update_config_toml(self):
         # alphabetize by key to maintain standardized layout
         sorted_dict = {key: value for key, value in sorted(self.dict.items())}
         self.dict = sorted_dict
 
-        with open(self.toml_path, "w") as f:
-            toml.dump(self.dict, f)
+        dict_wo_point_estimates = {key:value for key, value in self.dict.items() if key != "point_estimates"}
+        with open(self.config_toml_path, "w") as f:
+            toml.dump(dict_wo_point_estimates, f)
 
-    
     def save_capture_volume(self, capture_volume:CaptureVolume):
         # self.point_estimates = self.capture_volume.point_estimates
         # self.camera_array = self.capture_volume.camera_array
@@ -118,7 +127,7 @@ class Configurator:
         self.dict["capture_volume"][
             "origin_sync_index"
         ] = capture_volume.origin_sync_index
-        self.update_toml()
+        self.update_config_toml()
         
      
     def get_camera_array(self)->CameraArray:
@@ -181,12 +190,17 @@ class Configurator:
     
     
     def get_point_estimates(self)->PointEstimates:
-        point_estimates_dict = self.dict["point_estimates"]
 
-        for key, value in point_estimates_dict.items():
-            point_estimates_dict[key] = np.array(value)
+        # only load point estimates into dictionary if saved more recently than last loaded
+        # if self.last_point_estimates_save_time > self.last_point_estimates_load_time:        
+        #     self.dict["point_estimates"] = toml.load(self.point_estimates_toml_path)
+        #     self.last_point_estimates_load_time = time()
 
-        point_estimates = PointEstimates(**point_estimates_dict)
+        temp_data = self.dict["point_estimates"].copy()
+        for key, value in temp_data.items():
+            temp_data[key] = np.array(value)
+
+        point_estimates = PointEstimates(**temp_data)
         return point_estimates
     
     def get_charuco(self)-> Charuco:
@@ -217,7 +231,7 @@ class Configurator:
     def save_charuco(self, charuco:Charuco):
         self.dict["charuco"] = charuco.__dict__
         logger.info(f"Saving charuco with params {charuco.__dict__} to config")
-        self.update_toml()
+        self.update_config_toml()
 
     def save_camera(self, camera: Camera | CameraData):
         def none_or_list(value):
@@ -251,7 +265,7 @@ class Configurator:
         }
 
         self.dict["cam_" + str(camera.port)] = params
-        self.update_toml()
+        self.update_config_toml()
 
     def save_camera_array(self, camera_array:CameraArray):
         logger.info("Saving camera array....")
@@ -303,15 +317,18 @@ class Configurator:
 
 
     def save_point_estimates(self, point_estimates:PointEstimates):
-        logger.info("Saving point estimates to config...")
-
+        logger.info("Saving point estimates to toml...")
+        
         temp_data = asdict(point_estimates)
+
         for key, params in temp_data.items():
             temp_data[key] = params.tolist()
 
         self.dict["point_estimates"] = temp_data
 
-        self.update_toml()
+        with open(self.point_estimates_toml_path,"w") as f:
+            toml.dump(self.dict["point_estimates"], f)
+        # self.update_config_toml()
 
     
      

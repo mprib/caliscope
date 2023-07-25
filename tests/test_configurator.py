@@ -1,5 +1,8 @@
 # more attributes could certainly be tested in here,but at least this gives some basic sense of if things
 # are working....
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
+
 from pathlib import Path
 import numpy as np
 import os
@@ -10,7 +13,17 @@ from pyxy3d.configurator import Configurator
 from pyxy3d.helper import copy_contents
 from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.calibration.charuco import Charuco
+from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 
+def point_estimates_are_equal(pe1: PointEstimates, pe2: PointEstimates) -> bool:
+    return (
+        np.array_equal(pe1.sync_indices, pe2.sync_indices) and
+        np.array_equal(pe1.camera_indices, pe2.camera_indices) and
+        np.array_equal(pe1.point_id, pe2.point_id) and
+        np.array_equal(pe1.img, pe2.img) and
+        np.array_equal(pe1.obj_indices, pe2.obj_indices) and
+        np.array_equal(pe1.obj, pe2.obj)
+    )
 
 def test_configurator():
     # provided with a path, load toml or create a default toml.
@@ -47,8 +60,29 @@ def test_configurator():
     new_charuco = config.get_charuco()
     assert(new_charuco.columns==12)
 
-def test_default_config():
-    pass
+    
+    # load point estimates
+    logger.info("Getting point estimates from config...")
+    point_estimates = config.get_point_estimates()
+    assert(type(point_estimates)==PointEstimates)
+
+    # delete point estimates data
+    config.point_estimates_toml_path.unlink()
+    assert not config.point_estimates_toml_path.exists()
+     
+    # save point estimates stored in memory 
+    config.save_point_estimates(point_estimates)
+    
+    # confirm it exists 
+    assert config.point_estimates_toml_path.exists()
+    config.refresh_point_estimates_from_toml()
+    
+    # create new point estimates with newly saved data
+    point_estimates_reloaded = config.get_point_estimates()
+    assert(type(point_estimates_reloaded)==PointEstimates)
+
+    assert point_estimates_are_equal(point_estimates, point_estimates_reloaded)
+
 
 def remove_all_files_and_folders(directory_path):
     for item in directory_path.iterdir():
@@ -58,11 +92,6 @@ def remove_all_files_and_folders(directory_path):
             item.unlink()
 
 if __name__ == "__main__":
-    # test_configurator()
-    test_path = Path(__root__, "tests", "sessions", "default")
-    remove_all_files_and_folders(test_path)
-    test_config_path = Path(test_path, "config.toml")
-
-    config = Configurator(test_path)
+    test_configurator()
     
     

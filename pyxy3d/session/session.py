@@ -122,7 +122,7 @@ class Session:
 
     def is_extrinsic_calibration_eligible(self):
         # assume it is and prove if it's not
-        self.config.refresh_from_toml()
+        self.config.refresh_config_from_toml()
         self.camera_array = self.config.get_camera_array()
         eligible = True
         for port, cam in self.camera_array.cameras.items():
@@ -142,7 +142,7 @@ class Session:
         """
 
         # update current data
-        self.config.refresh_from_toml()
+        self.config.refresh_config_from_toml()
         self.camera_array = self.config.get_camera_array()
 
         # assume it is and prove if it's not
@@ -170,7 +170,7 @@ class Session:
         """
 
         # update current data
-        self.config.refresh_from_toml()
+        self.config.refresh_config_from_toml()
         self.camera_array = self.config.get_camera_array()
 
         # assume true and prove otherwise
@@ -537,12 +537,12 @@ class Session:
         try to encapsulate any further
         """
         stereocalibrator = StereoCalibrator(
-            self.config.toml_path, self.extrinsic_calibration_xy
+            self.config.config_toml_path, self.extrinsic_calibration_xy
         )
         stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
         self.camera_array: CameraArray = CameraArrayInitializer(
-            self.config.toml_path
+            self.config.config_toml_path
         ).get_best_camera_array()
 
         self.point_estimates: PointEstimates = get_point_estimates(

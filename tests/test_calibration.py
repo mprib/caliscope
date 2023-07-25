@@ -87,7 +87,7 @@ def test_post_monocalibration(session_path):
     # This test begins with a set of cameras with calibrated intrinsics
     config = Configurator(session_path)
     # config_path = str(Path(session_path, "config.toml"))
-    logger.info(f"Getting charuco from config at {config.toml_path}")
+    logger.info(f"Getting charuco from config at {config.config_toml_path}")
     charuco = config.get_charuco()
     charuco_tracker = CharucoTracker(charuco)
 
@@ -122,11 +122,11 @@ def test_post_monocalibration(session_path):
         sleep(1)
 
     logger.info(f"Waiting for video recorder to finish processing stream...")
-    stereocalibrator = StereoCalibrator(config.toml_path, point_data_path)
+    stereocalibrator = StereoCalibrator(config.config_toml_path, point_data_path)
     stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
     camera_array: CameraArray = CameraArrayInitializer(
-        config.toml_path
+        config.config_toml_path
     ).get_best_camera_array()
 
     point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)

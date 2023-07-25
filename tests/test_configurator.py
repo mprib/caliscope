@@ -47,8 +47,6 @@ def test_configurator():
     new_charuco = config.get_charuco()
     assert(new_charuco.columns==12)
 
-def test_default_config():
-    pass
 
 def remove_all_files_and_folders(directory_path):
     for item in directory_path.iterdir():
@@ -58,11 +56,11 @@ def remove_all_files_and_folders(directory_path):
             item.unlink()
 
 if __name__ == "__main__":
-    # test_configurator()
-    test_path = Path(__root__, "tests", "sessions", "default")
-    remove_all_files_and_folders(test_path)
-    test_config_path = Path(test_path, "config.toml")
+    test_configurator()
+    # test_path = Path(__root__, "tests", "sessions", "default")
+    # remove_all_files_and_folders(test_path)
+    # test_config_path = Path(test_path, "config.toml")
 
-    config = Configurator(test_path)
+    # config = Configurator(test_path)
     
     

@@ -173,6 +173,12 @@ class MainWindow(QMainWindow):
             
         self.setCentralWidget(new_widget)        
 
+    def switch_to_capture_volume(self):
+        """
+        Once the extrinsic calibration is complete, the GUI should automatically switch over to the capture volume widget
+        """
+        self.session.set_mode(SessionMode.CaptureVolumeOrigin) 
+        
     def update_enable_disable(self):
         
         # note: if the cameras are connected,then you can peak
@@ -204,7 +210,7 @@ class MainWindow(QMainWindow):
             self.processing_mode_select.setEnabled(False) 
         
     def disconnect_cameras(self):
-                
+
         self.session.set_mode(SessionMode.Charuco)
         self.session.disconnect_cameras() 
         self.disconnect_cameras_action.setEnabled(False)
@@ -256,7 +262,7 @@ class MainWindow(QMainWindow):
         self.session.qt_signaler.stream_tools_loaded_signal.connect(self.update_enable_disable)
         self.session.qt_signaler.stream_tools_disconnected_signal.connect(self.update_enable_disable)
         self.session.qt_signaler.mode_change_success.connect(self.update_enable_disable)
-
+        self.session.qt_signaler.extrinsic_calibration_complete.connect(self.switch_to_capture_volume)
         
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)

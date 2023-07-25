@@ -196,11 +196,15 @@ class Configurator:
         #     self.dict["point_estimates"] = toml.load(self.point_estimates_toml_path)
         #     self.last_point_estimates_load_time = time()
 
+        if "point_estimates" not in self.dict.keys():
+            self.refresh_point_estimates_from_toml()        
+        
         temp_data = self.dict["point_estimates"].copy()
         for key, value in temp_data.items():
             temp_data[key] = np.array(value)
 
         point_estimates = PointEstimates(**temp_data)
+        
         return point_estimates
     
     def get_charuco(self)-> Charuco:

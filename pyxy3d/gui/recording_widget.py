@@ -225,12 +225,12 @@ class RecordingWidget(QWidget):
          
     @pyqtSlot(dict) 
     def ImageUpdateSlot(self, q_image_dict:dict):
-        logger.info("About to get qpixmap from qimage")
+        logger.debug("About to get qpixmap from qimage")
         for port, thumbnail in q_image_dict.items():
             qpixmap = QPixmap.fromImage(thumbnail)
-            logger.info("About to set qpixmap to display")
+            logger.debug("About to set qpixmap to display")
             self.recording_displays[port].setPixmap(qpixmap)
-            logger.info("successfully set display")
+            logger.debug("successfully set display")
         
 
 class FrameDictionaryEmitter(QThread):

@@ -110,7 +110,7 @@ class Session:
         self.monocalibrators = {}
         self.synchronizer.stop_event.set()
         self.synchronizer = None
-
+        self.stream_tools_loaded = False
         self.qt_signaler.stream_tools_disconnected_signal.emit()
 
     def is_camera_setup_eligible(self):

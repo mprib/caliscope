@@ -4,7 +4,7 @@ from pyxy3d import __root__
 from pathlib import Path
 import toml
 from pyxy3d import __app_dir__
-from pyxy3d.gui.main_widget import MainWindow
+from pyxy3d.gui.single_main_widget import MainWindow
 
 app_settings = toml.load(Path(__app_dir__, "settings.toml"))
 recent_projects: list = app_settings["recent_projects"]

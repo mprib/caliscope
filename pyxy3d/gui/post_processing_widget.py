@@ -56,7 +56,7 @@ class PostProcessingWidget(QWidget):
         self.session = session
         self.config = session.config
 
-        self.post_processor = PostProcessor(self.config)
+        # self.post_processor = PostProcessor(self.config)
         self.sync_index_cursors = {}
         self.recording_folders = QListWidget()
 
@@ -231,13 +231,12 @@ class PostProcessingWidget(QWidget):
         
         def processing_worker():
             logger.info(f"Beginning to process video files at {recording_path}")
-            active_config = Configurator(recording_path) 
-            logger.info(f"Creating post processor using config.toml in {recording_path}")
-            self.post_processor = PostProcessor(active_config)
+            logger.info(f"Creating post processor for {recording_path}")
+            self.post_processor = PostProcessor(recording_path, tracker_enum)
 
             self.disable_all_inputs()
 
-            self.post_processor.create_xyz(recording_path,tracker_enum)
+            self.post_processor.create_xyz()
             trc_path = Path(
                 self.processed_xyz_path.parent, self.processed_xyz_path.stem + ".trc"
             )

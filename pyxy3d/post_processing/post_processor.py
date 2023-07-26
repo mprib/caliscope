@@ -121,7 +121,8 @@ class PostProcessor:
         xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
         xyz_data.to_csv(xyz_csv_path)
 
-        if include_trc:
+        # only include trc if wanted and only if there is actually good data to export
+        if include_trc and xyz_data.shape[0] > 0:
            xyz_to_trc(xyz_csv_path, tracker = self.tracker_enum.value()) 
 
     def triangulate_xy_data(self, xy_data: pd.DataFrame) -> Dict[str, List]:

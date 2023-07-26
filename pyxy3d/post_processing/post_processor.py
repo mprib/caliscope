@@ -34,12 +34,56 @@ from pyxy3d.helper import copy_contents
 class PostProcessor:
     """
     The post processer operates independently of the session. It does not need to worry about camera management.
-    
+        
     """
     # progress_update = pyqtSignal(dict)  # {"stage": str, "percent":int}
 
     def __init__(self,config:Configurator ):
         self.config = config
+
+    def create_xy(self, recording_path: Path, tracker_enum: TrackerEnum,):
+        """
+        Reads through all .mp4  files in the recording path and applies the tracker to them
+        The xy_TrackerName.csv file is saved out to the same directory by the VideoRecorder
+        """
+        frame_times = pd.read_csv(Path(recording_path, "frame_time_history.csv"))
+        sync_index_count = len(frame_times["sync_index"].unique())
+
+
+        logger.info("Creating pool of playback streams to begin processing")
+        stream_pool = RecordedStreamPool(
+            directory=recording_path,
+            config=self.config,
+            fps_target=self.config.get_fps_recording(),
+            tracker=tracker_enum.value(),
+        )
+
+        synchronizer = Synchronizer(stream_pool.streams)
+
+        logger.info(
+            "Creating video recorder to record (x,y) data estimates from PointPacket delivered by Tracker"
+        )
+        output_suffix = tracker_enum.name
+        
+        # it is the videorecorder that will save the (x,y) landmark positionsj
+        video_recorder = VideoRecorder(synchronizer, suffix=output_suffix)
+
+        # these (x,y) positions will be stored within the subdirectory of the recording folder
+        # this destination subfolder is named to align with the tracker_enum.name
+        destination_folder = Path(recording_path, tracker_enum.name)
+        video_recorder.start_recording(
+            destination_folder=destination_folder,
+            include_video=True,
+            show_points=True,
+            store_point_history=True
+        )
+        logger.info("Initiate playback and processing")
+        stream_pool.play_videos()
+
+        while video_recorder.recording:
+            sleep(1)
+            percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
+            logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
 
     def create_xyz(self, recording_path: Path, tracker_enum: TrackerEnum,) -> None:
         """
@@ -68,46 +112,6 @@ class PostProcessor:
         xyz_data = pd.DataFrame(xyz_history)
         xyz_data.to_csv(Path(tracker_output_path, f"xyz_{output_suffix}.csv"))
 
-    def create_xy(self, recording_path: Path, tracker_enum: TrackerEnum,):
-        """
-        Reads through all .mp4  files in the recording path and applies the tracker to them
-        The xy_TrackerName.csv file is saved out to the same directory by the VideoRecorder
-        """
-        frame_times = pd.read_csv(Path(recording_path, "frame_time_history.csv"))
-        sync_index_count = len(frame_times["sync_index"].unique())
-
-
-        logger.info("Creating pool of playback streams to begin processing")
-        stream_pool = RecordedStreamPool(
-            directory=recording_path,
-            config=self.config,
-            fps_target=100,
-            tracker=tracker_enum.value(),
-        )
-
-        synchronizer = Synchronizer(stream_pool.streams, fps_target=100)
-
-        logger.info(
-            "Creating video recorder to record (x,y) data estimates from PointPacket delivered by Tracker"
-        )
-        output_suffix = tracker_enum.name
-        video_recorder = VideoRecorder(synchronizer, suffix=output_suffix)
-
-        # store video files in a subfolder named by the tracker_enum.name
-        destination_folder = Path(recording_path, tracker_enum.name)
-        video_recorder.start_recording(
-            destination_folder=destination_folder,
-            include_video=True,
-            show_points=True,
-            store_point_history=True
-        )
-        logger.info("Initiate playback and processing")
-        stream_pool.play_videos()
-
-        while video_recorder.recording:
-            sleep(1)
-            percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
-            logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
 
 
     def triangulate_xy_data(self, xy_data: pd.DataFrame) -> Dict[str, List]:

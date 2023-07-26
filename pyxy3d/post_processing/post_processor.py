@@ -29,7 +29,7 @@ from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
-
+from pyxy3d.export import xyz_to_trc
 
 class PostProcessor:
     """
@@ -57,16 +57,16 @@ class PostProcessor:
         frame_times = pd.read_csv(Path(self.recording_path, "frame_time_history.csv"))
         sync_index_count = len(frame_times["sync_index"].unique())
 
-
+        fps_recording = self.config.get_fps_recording()
         logger.info("Creating pool of playback streams to begin processing")
         stream_pool = RecordedStreamPool(
             directory=self.recording_path,
             config=self.config,
-            fps_target=self.config.get_fps_recording(),
+            fps_target=fps_recording,
             tracker=self.tracker_enum.value(),
         )
 
-        synchronizer = Synchronizer(stream_pool.streams)
+        synchronizer = Synchronizer(stream_pool.streams, fps_target=fps_recording)
 
         logger.info(
             "Creating video recorder to record (x,y) data estimates from PointPacket delivered by Tracker"
@@ -93,7 +93,7 @@ class PostProcessor:
             percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
             logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
 
-    def create_xyz(self) -> None:
+    def create_xyz(self, include_trc = True) -> None:
         """
         creates xyz_{tracker name}.csv file within the recording_path directory
 
@@ -110,7 +110,7 @@ class PostProcessor:
 
         # create if it doesn't already exist
         if not xy_csv_path.exists():
-            self.create_xy(self.recording_path, self.tracker_enum)
+            self.create_xy()
 
         # load in 2d data and triangulate it
         logger.info("Reading in (x,y) data..")
@@ -118,7 +118,11 @@ class PostProcessor:
         logger.info("Beginning data triangulation")
         xyz_history = self.triangulate_xy_data(xy_data)
         xyz_data = pd.DataFrame(xyz_history)
-        xyz_data.to_csv(Path(tracker_output_path, f"xyz_{output_suffix}.csv"))
+        xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
+        xyz_data.to_csv(xyz_csv_path)
+
+        if include_trc:
+           xyz_to_trc(xyz_csv_path, tracker = self.tracker_enum.value()) 
 
     def triangulate_xy_data(self, xy_data: pd.DataFrame) -> Dict[str, List]:
         

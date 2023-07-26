@@ -164,7 +164,13 @@ def unique_with_counts(arr):
 
     return np.array(unique_values), np.array(counts)
 
-
+#####################################################################################
+# The following code is adapted from the `Anipose` project, 
+# in particular the `triangulate_simple` function of `aniposelib`
+# Original author:  Lili Karashchuk
+# Project: https://github.com/lambdaloop/aniposelib/
+# Original Source Code : https://github.com/lambdaloop/aniposelib/blob/d03b485c4e178d7cff076e9fe1ac36837db49158/aniposelib/cameras.py#L21
+# This code is licensed under the BSD 2-Clause License
 @jit(nopython=True, parallel=True, cache=True)
 def triangulate_sync_index(
     projection_matrices, current_camera_indices, current_point_id, current_img
@@ -196,3 +202,5 @@ def triangulate_sync_index(
             obj_xyz.append(point_xyz)
 
     return point_indices_xyz, obj_xyz
+# End of adapted code
+##################################################################################

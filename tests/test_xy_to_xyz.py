@@ -8,21 +8,22 @@ from pyxy3d import __root__
 from pyxy3d.configurator import Configurator
 from pyxy3d.post_processing.post_processor import PostProcessor
 from pyxy3d.helper import copy_contents
+from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 def test_xy_to_xyz_postprocessing():
     # load in file of xy point data
     origin_data = Path(__root__, "tests", "sessions", "4_cam_recording")
     working_data = Path(__root__,"tests", "sessions_copy_delete", "4_cam_recording")
-    tracker_name = "HOLISTIC"
+    
     copy_contents(origin_data, working_data)
 
     config = Configurator(working_data)
-    recording_directory = Path(working_data, "recording_1", tracker_name)
+    recording_directory = Path(working_data, "recording_1")
+    tracker_enum = TrackerEnum.HOLISTIC
 
-    xy_path = Path(recording_directory, f"xy_{tracker_name}.csv")
-
-    post_processor = PostProcessor(config)
+    post_processor = PostProcessor(recording_directory, tracker_enum)
     
+    xy_path = Path(recording_directory,tracker_enum.name, f"xy_{tracker_enum.name}.csv")
     xy_data = pd.read_csv(xy_path)
 
     start = time.time()

@@ -41,12 +41,12 @@ def test_xy_point_creation():
     copy_contents(session_path, copy_session_path)
 
     # create inputs to processing pipeline function
-    config = Configurator(copy_session_path)
+    # config = Configurator(copy_session_path)
 
-    post_processor = PostProcessor(config)
     
     recording_path = Path(copy_session_path, "recording_1")
     tracker_enum = TrackerEnum.HAND
+    post_processor = PostProcessor(recording_path, tracker_enum)
     
 
     # make some basic assertions against the created files
@@ -56,12 +56,12 @@ def test_xy_point_creation():
         Path(recording_path,"HAND", "port_1_HAND.mp4"),
     ]
 
-    # confirm that the directoty does not have these files prior to running test function
+    # confirm that the directory does not have these files prior to running xy creation method
     for file in produced_files:
         logger.info(f"Asserting that the following file exists: {file}")
         assert not file.exists()
 
-    post_processor.create_xy(recording_path, tracker_enum=tracker_enum)
+    post_processor.create_xy()
     # create_xy(config, recording_directory,tracker_enum=tracker_enum)
 
     for file in produced_files:

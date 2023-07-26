@@ -29,68 +29,56 @@ from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
-
+from pyxy3d.export import xyz_to_trc
 
 class PostProcessor:
+    """
+    The post processer operates independently of the session. It does not need to worry about camera management.
+    Provide it with a path to the directory that contains the following:
+    - config.toml
+    - frame_time.csv 
+    - .mp4 files
+    
+
+    """
     # progress_update = pyqtSignal(dict)  # {"stage": str, "percent":int}
 
-    def __init__(self,config:Configurator ):
-        self.config = config
-
-    def create_xyz(self, recording_path: Path, tracker_enum: TrackerEnum,) -> None:
-        """
-        creates xyz_{tracker name}.csv file within the recording_path directory
-
-        Uses the two functions above, first creating the xy points based on the tracker if they 
-        don't already exist, the triangulating them. Makes use of an internal method self.triangulate_xy_data
+    def __init__(self,recording_path:Path, tracker_enum:TrackerEnum):
+        self.recording_path = recording_path
+        self.tracker_enum = tracker_enum
         
-        """
+        self.config = Configurator(self.recording_path)
 
-        output_suffix = tracker_enum.name
-
-        tracker_output_path = Path(recording_path, tracker_enum.name)
-        # locate xy_{tracker name}.csv
-        xy_csv_path = Path(tracker_output_path, f"xy_{output_suffix}.csv")
-
-        # create if it doesn't already exist
-        if not xy_csv_path.exists():
-            self.create_xy(recording_path, tracker_enum)
-
-        # load in 2d data and triangulate it
-        logger.info("Reading in (x,y) data..")
-        xy_data = pd.read_csv(xy_csv_path)
-        logger.info("Beginning data triangulation")
-        xyz_history = self.triangulate_xy_data(xy_data)
-        xyz_data = pd.DataFrame(xyz_history)
-        xyz_data.to_csv(Path(tracker_output_path, f"xyz_{output_suffix}.csv"))
-
-    def create_xy(self, recording_path: Path, tracker_enum: TrackerEnum,):
+    def create_xy(self):
         """
         Reads through all .mp4  files in the recording path and applies the tracker to them
         The xy_TrackerName.csv file is saved out to the same directory by the VideoRecorder
         """
-        frame_times = pd.read_csv(Path(recording_path, "frame_time_history.csv"))
+        frame_times = pd.read_csv(Path(self.recording_path, "frame_time_history.csv"))
         sync_index_count = len(frame_times["sync_index"].unique())
 
-
+        fps_recording = self.config.get_fps_recording()
         logger.info("Creating pool of playback streams to begin processing")
         stream_pool = RecordedStreamPool(
-            directory=recording_path,
+            directory=self.recording_path,
             config=self.config,
-            fps_target=100,
-            tracker=tracker_enum.value(),
+            fps_target=fps_recording,
+            tracker=self.tracker_enum.value(),
         )
 
-        synchronizer = Synchronizer(stream_pool.streams, fps_target=100)
+        synchronizer = Synchronizer(stream_pool.streams, fps_target=fps_recording)
 
         logger.info(
             "Creating video recorder to record (x,y) data estimates from PointPacket delivered by Tracker"
         )
-        output_suffix = tracker_enum.name
+        output_suffix = self.tracker_enum.name
+        
+        # it is the videorecorder that will save the (x,y) landmark positionsj
         video_recorder = VideoRecorder(synchronizer, suffix=output_suffix)
 
-        # store video files in a subfolder named by the tracker_enum.name
-        destination_folder = Path(recording_path, tracker_enum.name)
+        # these (x,y) positions will be stored within the subdirectory of the recording folder
+        # this destination subfolder is named to align with the tracker_enum.name
+        destination_folder = Path(self.recording_path, self.tracker_enum.name)
         video_recorder.start_recording(
             destination_folder=destination_folder,
             include_video=True,
@@ -105,6 +93,37 @@ class PostProcessor:
             percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
             logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
 
+    def create_xyz(self, include_trc = True) -> None:
+        """
+        creates xyz_{tracker name}.csv file within the recording_path directory
+
+        Uses the two functions above, first creating the xy points based on the tracker if they 
+        don't already exist, the triangulating them. Makes use of an internal method self.triangulate_xy_data
+        
+        """
+
+        output_suffix = self.tracker_enum.name
+
+        tracker_output_path = Path(self.recording_path, self.tracker_enum.name)
+        # locate xy_{tracker name}.csv
+        xy_csv_path = Path(tracker_output_path, f"xy_{output_suffix}.csv")
+
+        # create if it doesn't already exist
+        if not xy_csv_path.exists():
+            self.create_xy()
+
+        # load in 2d data and triangulate it
+        logger.info("Reading in (x,y) data..")
+        xy_data = pd.read_csv(xy_csv_path)
+        logger.info("Beginning data triangulation")
+        xyz_history = self.triangulate_xy_data(xy_data)
+        xyz_data = pd.DataFrame(xyz_history)
+        xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
+        xyz_data.to_csv(xyz_csv_path)
+
+        # only include trc if wanted and only if there is actually good data to export
+        if include_trc and xyz_data.shape[0] > 0:
+           xyz_to_trc(xyz_csv_path, tracker = self.tracker_enum.value()) 
 
     def triangulate_xy_data(self, xy_data: pd.DataFrame) -> Dict[str, List]:
         

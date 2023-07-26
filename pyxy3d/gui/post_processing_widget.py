@@ -18,6 +18,7 @@ from PyQt6.QtGui import QDesktopServices, QImage, QPixmap, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QSizePolicy,
+    QMessageBox,
     QWidget,
     QProgressBar,
     QSpinBox,
@@ -56,7 +57,6 @@ class PostProcessingWidget(QWidget):
         self.session = session
         self.config = session.config
 
-        self.post_processor = PostProcessor(self.config)
         self.sync_index_cursors = {}
         self.recording_folders = QListWidget()
 
@@ -93,8 +93,15 @@ class PostProcessingWidget(QWidget):
     def set_current_xyz(self):
 
         if self.processed_xyz_path.exists():
-            logger.info(f"Setting xyz display coordinates to those stored in {self.processed_xyz_path}")
-            self.xyz = pd.read_csv(self.processed_xyz_path)
+            # confirm that there are some triangulated values to observe
+            xyz = pd.read_csv(self.processed_xyz_path)
+            if xyz.shape[0] != 0:
+                logger.info(f"Setting xyz display coordinates to those stored in {self.processed_xyz_path}")
+                self.xyz = xyz
+            else:
+                logger.info("Not enough data to triangulate points")
+                QMessageBox.warning(self, "Warning", f"The {self.active_tracker_enum.name} tracker did not identify sufficient points for triangulation to occur for recordings stored in:\n{self.active_recording_path}.") # show a warning dialog
+                self.xyz = None
         else:
             logger.info(f"No points displayed; Nothing stored in {self.processed_xyz_path}")
             self.xyz = None
@@ -130,6 +137,11 @@ class PostProcessingWidget(QWidget):
         result = Path(self.processed_subfolder, file_name)
         return result
 
+
+    @property
+    def active_tracker_enum(self):
+        return self.tracker_combo.currentData()
+        
     @property
     def metarig_config_path(self):
         file_name = f"metarig_config_{self.tracker_combo.currentData().name}.json"
@@ -231,22 +243,10 @@ class PostProcessingWidget(QWidget):
         
         def processing_worker():
             logger.info(f"Beginning to process video files at {recording_path}")
-            active_config = Configurator(recording_path) 
-            logger.info(f"Creating post processor using config.toml in {recording_path}")
-            self.post_processor = PostProcessor(active_config)
-
+            logger.info(f"Creating post processor for {recording_path}")
+            self.post_processor = PostProcessor(recording_path, tracker_enum)
             self.disable_all_inputs()
-
-            self.post_processor.create_xyz(recording_path,tracker_enum)
-            trc_path = Path(
-                self.processed_xyz_path.parent, self.processed_xyz_path.stem + ".trc"
-            )
-            logger.info(f"Saving data to {trc_path.parent}")
-
-            # A side effect of the following line is that it also creates a wide labelled csv format
-            xyz_to_trc(
-                self.processed_xyz_path, self.tracker_combo.currentData().value()
-            )
+            self.post_processor.create_xyz()
             self.processing_complete.emit()
 
         thread = Thread(target=processing_worker, args=(), daemon=True)

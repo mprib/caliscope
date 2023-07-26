@@ -34,28 +34,36 @@ from pyxy3d.helper import copy_contents
 class PostProcessor:
     """
     The post processer operates independently of the session. It does not need to worry about camera management.
-        
+    Provide it with a path to the directory that contains the following:
+    - config.toml
+    - frame_time.csv 
+    - .mp4 files
+    
+
     """
     # progress_update = pyqtSignal(dict)  # {"stage": str, "percent":int}
 
-    def __init__(self,config:Configurator ):
-        self.config = config
+    def __init__(self,recording_path:Path, tracker_enum:TrackerEnum):
+        self.recording_path = recording_path
+        self.tracker_enum = tracker_enum
+        
+        self.config = Configurator(self.recording_path)
 
-    def create_xy(self, recording_path: Path, tracker_enum: TrackerEnum,):
+    def create_xy(self):
         """
         Reads through all .mp4  files in the recording path and applies the tracker to them
         The xy_TrackerName.csv file is saved out to the same directory by the VideoRecorder
         """
-        frame_times = pd.read_csv(Path(recording_path, "frame_time_history.csv"))
+        frame_times = pd.read_csv(Path(self.recording_path, "frame_time_history.csv"))
         sync_index_count = len(frame_times["sync_index"].unique())
 
 
         logger.info("Creating pool of playback streams to begin processing")
         stream_pool = RecordedStreamPool(
-            directory=recording_path,
+            directory=self.recording_path,
             config=self.config,
             fps_target=self.config.get_fps_recording(),
-            tracker=tracker_enum.value(),
+            tracker=self.tracker_enum.value(),
         )
 
         synchronizer = Synchronizer(stream_pool.streams)
@@ -63,14 +71,14 @@ class PostProcessor:
         logger.info(
             "Creating video recorder to record (x,y) data estimates from PointPacket delivered by Tracker"
         )
-        output_suffix = tracker_enum.name
+        output_suffix = self.tracker_enum.name
         
         # it is the videorecorder that will save the (x,y) landmark positionsj
         video_recorder = VideoRecorder(synchronizer, suffix=output_suffix)
 
         # these (x,y) positions will be stored within the subdirectory of the recording folder
         # this destination subfolder is named to align with the tracker_enum.name
-        destination_folder = Path(recording_path, tracker_enum.name)
+        destination_folder = Path(self.recording_path, self.tracker_enum.name)
         video_recorder.start_recording(
             destination_folder=destination_folder,
             include_video=True,
@@ -85,7 +93,7 @@ class PostProcessor:
             percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
             logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
 
-    def create_xyz(self, recording_path: Path, tracker_enum: TrackerEnum,) -> None:
+    def create_xyz(self) -> None:
         """
         creates xyz_{tracker name}.csv file within the recording_path directory
 
@@ -94,15 +102,15 @@ class PostProcessor:
         
         """
 
-        output_suffix = tracker_enum.name
+        output_suffix = self.tracker_enum.name
 
-        tracker_output_path = Path(recording_path, tracker_enum.name)
+        tracker_output_path = Path(self.recording_path, self.tracker_enum.name)
         # locate xy_{tracker name}.csv
         xy_csv_path = Path(tracker_output_path, f"xy_{output_suffix}.csv")
 
         # create if it doesn't already exist
         if not xy_csv_path.exists():
-            self.create_xy(recording_path, tracker_enum)
+            self.create_xy(self.recording_path, self.tracker_enum)
 
         # load in 2d data and triangulate it
         logger.info("Reading in (x,y) data..")
@@ -111,8 +119,6 @@ class PostProcessor:
         xyz_history = self.triangulate_xy_data(xy_data)
         xyz_data = pd.DataFrame(xyz_history)
         xyz_data.to_csv(Path(tracker_output_path, f"xyz_{output_suffix}.csv"))
-
-
 
     def triangulate_xy_data(self, xy_data: pd.DataFrame) -> Dict[str, List]:
         

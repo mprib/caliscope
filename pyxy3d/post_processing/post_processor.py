@@ -32,6 +32,10 @@ from pyxy3d.helper import copy_contents
 
 
 class PostProcessor:
+    """
+    The post processer operates independently of the session. It does not need to worry about camera management.
+    
+    """
     # progress_update = pyqtSignal(dict)  # {"stage": str, "percent":int}
 
     def __init__(self,config:Configurator ):

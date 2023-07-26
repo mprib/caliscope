@@ -23,7 +23,7 @@ class MyWidget(QWidget):
     def update_label(self, data):
         "Unravel dropped fps dictionary to a more readable string"
         print(f"Just received {data}")
-        self.label.setText(f"{data[1]}")
+        self.label.setText(f"{data['1']}")
          
 class EmitterThread(QThread):
     my_signal = Signal(dict)
@@ -31,7 +31,7 @@ class EmitterThread(QThread):
     def run(self):
         while True:
 
-            emitted_dictionary = {1:str(random.randint(1,10))}
+            emitted_dictionary = {"1":str(random.randint(1,10))}
             self.my_signal.emit(emitted_dictionary)
             print(f"Emit dictionary: {emitted_dictionary}")
 

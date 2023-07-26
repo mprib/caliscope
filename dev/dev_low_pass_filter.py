@@ -26,7 +26,7 @@ from pyxy3d.helper import copy_contents
 from pyxy3d.post_processing.post_processor import PostProcessor
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 import toml
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
 

@@ -5,8 +5,8 @@ logger = pyxy3d.logger.get(__name__)
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QSize, Qt, QThread, Signal
+from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
     QCheckBox,

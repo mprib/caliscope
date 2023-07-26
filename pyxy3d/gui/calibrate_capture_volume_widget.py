@@ -8,9 +8,9 @@ import shutil
 import time
 from pathlib import Path
 from threading import Thread
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QIcon, QAction
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QIcon, QAction
+from PySide6.QtWidgets import (
     QWidget,
     QApplication,
     QVBoxLayout,
@@ -39,7 +39,7 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
     A combination of the Extrinsic Calibration Widget and the Capture Volume Widget
     Allows the user to move back and forth between the two functions.
     """
-    cameras_connected = pyqtSignal()
+    cameras_connected = Signal()
 
     def __init__(self, session:Session):
         super().__init__()

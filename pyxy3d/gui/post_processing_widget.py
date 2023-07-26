@@ -13,9 +13,9 @@ from pyxy3d.trackers.tracker_enum import TrackerEnum
 from pyxy3d.export import xyz_to_trc
 
 import cv2
-from PyQt6.QtCore import Qt, pyqtSignal, QThread, QUrl
-from PyQt6.QtGui import QDesktopServices, QImage, QPixmap, QIcon
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, Signal, QThread, QUrl
+from PySide6.QtGui import QDesktopServices, QImage, QPixmap, QIcon
+from PySide6.QtWidgets import (
     QApplication,
     QSizePolicy,
     QMessageBox,
@@ -50,7 +50,7 @@ from pyxy3d.gui.vizualize.playback_triangulation_widget import (
 from pyxy3d.gui.progress_dialog import ProgressDialog
 
 class PostProcessingWidget(QWidget):
-    processing_complete = pyqtSignal()
+    processing_complete = Signal()
 
     def __init__(self, session:Session):
         super(PostProcessingWidget, self).__init__()

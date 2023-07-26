@@ -14,9 +14,9 @@ from queue import Queue
 from enum import Enum
 
 import cv2
-from PyQt6.QtCore import Qt, pyqtSignal, QThread, QObject, pyqtSlot
-from PyQt6.QtGui import QImage, QPixmap, QIcon
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, Signal, QThread, QObject, Slot
+from PySide6.QtGui import QImage, QPixmap, QIcon
+from PySide6.QtWidgets import (
     QGridLayout,
     QApplication,
     QSizePolicy,
@@ -223,7 +223,7 @@ class RecordingWidget(QWidget):
 
         self.dropped_fps_label.setText(text)
          
-    @pyqtSlot(dict) 
+    @Slot(dict) 
     def ImageUpdateSlot(self, q_image_dict:dict):
         logger.debug("About to get qpixmap from qimage")
         for port, thumbnail in q_image_dict.items():
@@ -234,8 +234,8 @@ class RecordingWidget(QWidget):
         
 
 class FrameDictionaryEmitter(QThread):
-    ThumbnailImagesBroadcast = pyqtSignal(dict)
-    dropped_fps = pyqtSignal(dict)
+    ThumbnailImagesBroadcast = Signal(dict)
+    dropped_fps = Signal(dict)
     
     def __init__(self, synchronizer: Synchronizer, single_frame_height=200):
         

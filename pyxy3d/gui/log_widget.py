@@ -3,8 +3,8 @@ from pyxy3d.logger import get, XStream
 logger = get(__name__)
 
 import sys
-from PyQt6.QtCore import pyqtSlot, Qt
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Slot, Qt
+from PySide6.QtWidgets import (
     QWidget,
     QDialog,
     QApplication,
@@ -61,7 +61,7 @@ class LogMessageViewer(QTextBrowser):
         self.setEnabled(True)
         self.verticalScrollBar().setVisible(True)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def appendLogMessage(self, msg):
         horScrollBar = self.horizontalScrollBar()
         verScrollBar = self.verticalScrollBar()

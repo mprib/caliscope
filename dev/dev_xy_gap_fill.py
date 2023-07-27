@@ -1,38 +1,36 @@
 
+#%%
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 
 import pandas as pd
 import numpy as np
 
-# Set the maximum size of a gap that will be filled
-GAP_SIZE_TO_FILL = 3  # Change this value as needed
+from pathlib import Path
+from pyxy3d.trackers.tracker_enum import TrackerEnum
+from pyxy3d.post_processing.gap_filling import xy_gap_fill
+from pyxy3d import __root__
 
-# Load the data
-data = pd.read_csv('/path/to/xy_HOLISTIC_OPENSIM.csv')
+def test_gap_fill_xy():
+    recording_directory = Path(__root__, "tests", "reference", "base_data")
+    tracker_enum = TrackerEnum.HOLISTIC_OPENSIM
 
-# Initialize a DataFrame to store the data with filled gaps
-data_filled = pd.DataFrame()
+    # Load the data
+    xy_all_base_path = Path(recording_directory,tracker_enum.name, f"xy_{tracker_enum.name}.csv")
+    logger.info(f"Reading in raw xy data located at {xy_all_base_path}")
+    xy_all_base = pd.read_csv(xy_all_base_path)
+    base_length = xy_all_base.shape[0]
+    xy_all_filled = xy_gap_fill(xy_all_base)
+    filled_length = xy_all_filled.shape[0]
 
-# Loop through each combination of port and point_id
-for (port, point_id), group in data.groupby(['port', 'point_id']):
-    # Sort by frame_index to ensure the data is in order
-    group = group.sort_values('frame_index')
-    
-    # Calculate the differences between consecutive frame_indices
-    group['frame_gap'] = group['frame_index'].diff()
-    
-    # Identify the gaps that are less than or equal to the specified size
-    gaps_to_fill = group['frame_gap'].between(2, GAP_SIZE_TO_FILL + 1)
-    
-    # Interpolate the values for img_loc_x and img_loc_y
-    group.loc[gaps_to_fill, 'img_loc_x'] = group['img_loc_x'].interpolate(method='linear').round().astype(int)
-    group.loc[gaps_to_fill, 'img_loc_y'] = group['img_loc_y'].interpolate(method='linear').round().astype(int)
-    
-    # Append to the overall DataFrame
-    data_filled = data_filled.append(group)
+    assert base_length < filled_length
 
-# Remove the 'frame_gap' column
-data_filled.drop('frame_gap', axis=1, inplace=True)
 
 # Write the DataFrame to a new CSV file
-data_filled.to_csv('/path/to/xy_HOLISTIC_OPENSIM_gaps_filled.csv', index=False)
+
+
+
+# xy_filled_path = Path(xy_all_base_path.parent, f"xy_{tracker_enum.name}_filled.csv")
+# xy_all_filled.to_csv(xy_filled_path, index=False)
+# %%

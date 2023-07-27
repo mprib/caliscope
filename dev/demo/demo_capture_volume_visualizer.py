@@ -1,5 +1,5 @@
 
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 
 from pyxy3d import __root__
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (

@@ -4,7 +4,7 @@ import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PySide6.QtCore import QObject, Signal
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from time import sleep
@@ -46,12 +46,12 @@ class SessionMode(Enum):
     PostProcessing = "&Post-processing"
 
 class QtSignaler(QObject):
-    stream_tools_loaded_signal = pyqtSignal()
-    stream_tools_disconnected_signal = pyqtSignal()
-    unlock_postprocessing = pyqtSignal()
-    recording_complete_signal = pyqtSignal()        
-    mode_change_success = pyqtSignal()
-    extrinsic_calibration_complete = pyqtSignal()
+    stream_tools_loaded_signal = Signal()
+    stream_tools_disconnected_signal = Signal()
+    unlock_postprocessing = Signal()
+    recording_complete_signal = Signal()        
+    mode_change_success = Signal()
+    extrinsic_calibration_complete = Signal()
 
 
     def __init__(self) -> None:

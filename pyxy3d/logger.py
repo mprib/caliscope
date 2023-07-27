@@ -2,7 +2,7 @@
 # Detail will be logged to a single file with INFO logged to the console
 
 import logging
-from PyQt6 import QtCore
+from PySide6 import QtCore
 import sys
 import os
 from pathlib import Path
@@ -54,7 +54,7 @@ class QtHandler(logging.Handler):
 class XStream(QtCore.QObject):
     _stdout = None
     _stderr = None
-    messageWritten = QtCore.pyqtSignal(str)
+    messageWritten = QtCore.Signal(str)
     def flush( self ):
         pass
     def fileno( self ):

@@ -1,5 +1,5 @@
 
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 import sys
 from pyxy3d import __root__
 from pathlib import Path

@@ -11,7 +11,7 @@ import time
 from queue import Queue
 import shutil
 
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QApplication,
 )
 import toml

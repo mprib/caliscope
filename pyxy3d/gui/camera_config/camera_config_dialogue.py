@@ -8,9 +8,9 @@ from threading import Thread
 import time
 
 import cv2
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QImage, QPixmap, QIcon
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QImage, QPixmap, QIcon
+from PySide6.QtWidgets import (
     QApplication,
     QWidget,
     QSpinBox,
@@ -120,8 +120,8 @@ class CameraConfigTab(QDialog):
 
 
 class CalibrationControls(QGroupBox):
-    signal_calibration_lock = pyqtSignal(bool)
-    calibration_change = pyqtSignal()
+    signal_calibration_lock = Signal(bool)
+    calibration_change = Signal()
 
     def __init__(self, session: Session, port, frame_emitter: FrameEmitter):
         super(CalibrationControls, self).__init__("Calibration Summary")

@@ -6,10 +6,10 @@ logger = pyxy3d.logger.get(__name__)
 from time import sleep, time
 from queue import Queue
 import cv2
-from PyQt6.QtCore import QObject, pyqtSignal
+from PySide6.QtCore import QObject, Signal
 
 import sys
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 from pyxy3d.configurator import Configurator
 from pathlib import Path
 import numpy as np
@@ -41,7 +41,7 @@ class PostProcessor:
     
 
     """
-    # progress_update = pyqtSignal(dict)  # {"stage": str, "percent":int}
+    # progress_update = Signal(dict)  # {"stage": str, "percent":int}
 
     def __init__(self,recording_path:Path, tracker_enum:TrackerEnum):
         self.recording_path = recording_path

@@ -12,8 +12,8 @@ from queue import Queue
 from threading import Thread
 import pyqtgraph.opengl as gl
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
     QApplication,
     QSlider,
     QVBoxLayout,
@@ -113,7 +113,7 @@ class TriangulationVisualizer:
 
 if __name__ == "__main__":
 
-    from PyQt6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication
     import time
     from pyxy3d import __root__
     from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (

@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QWidget,
@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QScrollArea,
 )
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import Qt
 from pyxy3d.configurator import Configurator
 from pyxy3d.cameras.camera import Camera
 
@@ -117,7 +117,7 @@ class SummaryWidget(QWidget):
             
 
 if __name__ == "__main__":
-    from PyQt6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication
     from pyxy3d.gui.calibration_widget import CalibrationWidget
     import sys
     from time import sleep

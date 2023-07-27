@@ -9,8 +9,8 @@ import pandas as pd
 
 import pyqtgraph.opengl as gl
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
     QApplication,
     QSlider,
     QVBoxLayout,

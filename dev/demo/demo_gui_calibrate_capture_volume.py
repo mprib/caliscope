@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 from pyxy3d.gui.calibrate_capture_volume_widget import CalibrateCaptureVolumeWidget
 import sys
 from time import sleep

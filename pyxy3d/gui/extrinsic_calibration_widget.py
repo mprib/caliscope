@@ -9,9 +9,9 @@ from time import sleep, perf_counter
 from enum import Enum
 
 import cv2
-from PyQt6.QtCore import Qt, pyqtSignal, QThread
-from PyQt6.QtGui import QImage, QPixmap, QIcon
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtGui import QImage, QPixmap, QIcon
+from PySide6.QtWidgets import (
     QApplication,
     QSizePolicy,
     QWidget,
@@ -46,9 +46,9 @@ class PossibleActions(Enum):
     Calibrate = "Calibrate"
 
 class ExtrinsicCalibrationWidget(QWidget):
-    calibration_complete = pyqtSignal()
-    calibration_initiated = pyqtSignal()
-    terminate = pyqtSignal()
+    calibration_complete = Signal()
+    calibration_initiated = Signal()
+    terminate = Signal()
      
     def __init__(self,session:Session):
 
@@ -200,9 +200,9 @@ class ExtrinsicCalibrationWidget(QWidget):
         self.init_calibration_thread.start()
 
 class PairedFrameEmitter(QThread):
-    ImageBroadcast = pyqtSignal(QImage)
-    calibration_data_collected = pyqtSignal() 
-    possible_to_initialize_array = pyqtSignal()
+    ImageBroadcast = Signal(QImage)
+    calibration_data_collected = Signal() 
+    possible_to_initialize_array = Signal()
     
     def __init__(self, paired_frame_builder:PairedFrameBuilder):
         

@@ -2,7 +2,7 @@ import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 
-# from PyQt6.QtCore import QObject, pyqtSignal
+# from PySide6.QtCore import QObject, Signal
 from pathlib import Path
 from queue import Queue
 from threading import Thread, Event

@@ -14,7 +14,7 @@ from queue import Queue
 from enum import Enum
 
 import cv2
-from PySide6.QtCore import Qt, Signal, QThread, QObject, Slot
+from PySide6.QtCore import Qt, Signal,Slot, QThread, QObject
 from PySide6.QtGui import QImage, QPixmap, QIcon
 from PySide6.QtWidgets import (
     QGridLayout,
@@ -86,7 +86,7 @@ class RecordingWidget(QWidget):
         
         # all video output routed to qlabels stored in a dictionariy 
         # make it as square as you can get it
-        self.recording_displays = {port:QLabel() for port in self.ports}
+        self.recording_displays = {str(port):QLabel() for port in self.ports}
         # self.recording_frame_display = QLabel()
         
         self.place_widgets()
@@ -152,7 +152,7 @@ class RecordingWidget(QWidget):
         row = 0
         column = 0        
         for port in sorted(self.ports):
-            frame_grid.addWidget(self.recording_displays[port], row,column)
+            frame_grid.addWidget(self.recording_displays[str(port)], row,column)
             
             # update row and column for next iteration
             if column >= grid_columns-1:
@@ -214,13 +214,13 @@ class RecordingWidget(QWidget):
         logger.info("Successfully enabled start/stop recording button")
         # pass
         
-                    
+    @Slot(dict)                
     def update_dropped_fps(self, dropped_fps:dict):
         "Unravel dropped fps dictionary to a more readable string"
+        logger.info(f"Just received {dropped_fps}")
         text = "Rate of Frame Dropping by Port:    "
         for port, drop_rate in dropped_fps.items():
             text += f"{port}: {drop_rate:.0%}        "
-
         self.dropped_fps_label.setText(text)
          
     @Slot(dict) 
@@ -264,10 +264,14 @@ class FrameDictionaryEmitter(QThread):
 
                 text_frame = frame_packet_2_thumbnail(frame_packet, rotation_count, self.single_frame_height, port) 
                 q_image = cv2_to_qimage(text_frame)
-                thumbnail_qimage[port] = q_image
+                thumbnail_qimage[str(port)] = q_image
             
             self.ThumbnailImagesBroadcast.emit(thumbnail_qimage)
-            self.dropped_fps.emit(self.synchronizer.dropped_fps)
+            
+            dropped_fps_dict = {str(port):dropped for port, dropped in self.synchronizer.dropped_fps.items()}
+            logger.info(f"About to emit dictionary: {dropped_fps_dict}")
+            # self.dropped_fps.emit(self.synchronizer.dropped_fps)
+            self.dropped_fps.emit(dropped_fps_dict)
 
         logger.info("Stereoframe emitter run thread ended...") 
     

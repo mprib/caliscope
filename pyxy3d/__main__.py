@@ -4,7 +4,7 @@ logger = pyxy3d.logger.get(__name__)
 
 import sys
 import os
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 from pathlib import Path
 
 from pyxy3d.gui.recording_widget import launch_recording_widget

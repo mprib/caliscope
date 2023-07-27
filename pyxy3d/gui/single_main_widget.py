@@ -5,11 +5,11 @@ from pathlib import Path
 logger = pyxy3d.logger.get(__name__)
 
 
-from PyQt6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
+from PySide6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
 
 from threading import Thread
 import sys
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
     QStackedLayout,
@@ -22,8 +22,8 @@ from PyQt6.QtWidgets import (
 )
 import toml
 from enum import Enum
-from PyQt6.QtGui import QIcon, QAction, QKeySequence, QShortcut
-from PyQt6.QtCore import Qt
+from PySide6.QtGui import QIcon, QAction, QKeySequence, QShortcut
+from PySide6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__, __user_dir__
 from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.gui.log_widget import LogWidget

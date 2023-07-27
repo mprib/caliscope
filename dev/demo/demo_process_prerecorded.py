@@ -4,7 +4,7 @@ logger = pyxy3d.logger.get(__name__)
 from time import sleep
 
 import sys
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 from pyxy3d.configurator import Configurator
 from pathlib import Path
 from pyxy3d import __root__

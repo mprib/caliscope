@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QLabel, QDialog, QProgressBar, QVBoxLayout
-from PyQt6.QtCore import Qt
+from PySide6.QtWidgets import QLabel, QDialog, QProgressBar, QVBoxLayout
+from PySide6.QtCore import Qt
 
 
 class ProgressDialog(QDialog):

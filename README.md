@@ -108,4 +108,4 @@ This project was inspired by [FreeMoCap](https://github.com/freemocap/freemocap)
 
 ## License
 
-Pyxy3D is licensed under AGPL-3.0.
+Pyxy3D is licensed under the BSD-2-Clause license.

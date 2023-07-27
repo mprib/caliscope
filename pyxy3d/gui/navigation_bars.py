@@ -1,6 +1,6 @@
 
-from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QSize, Qt, QThread, Signal
+from PySide6.QtWidgets import (
     QWidget,
     QApplication,
     QVBoxLayout,

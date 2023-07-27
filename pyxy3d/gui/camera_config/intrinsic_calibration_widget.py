@@ -5,8 +5,8 @@ logger = pyxy3d.logger.get(__name__)
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Signal, Qt
+from PySide6.QtWidgets import (
     QApplication,
     QVBoxLayout,
     QWidget,
@@ -31,7 +31,7 @@ class IntrinsicCalibrationWidget(QWidget):
             
 class CameraTabs(QTabWidget):
     
-    stereoframe_ready = pyqtSignal(bool)
+    stereoframe_ready = Signal(bool)
 
     def __init__(self, session: Session):
         super(CameraTabs, self).__init__()

@@ -3,7 +3,7 @@ working file for development of a post processing widget
 """
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 import sys
 import toml

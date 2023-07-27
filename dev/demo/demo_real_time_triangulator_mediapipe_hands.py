@@ -13,7 +13,7 @@ from pathlib import Path
 from queue import Queue
 from time import sleep
 
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 
 from pyxy3d import __root__
 from pyxy3d.cameras.camera_array import (CameraArray, CameraData,

@@ -8,17 +8,17 @@ from time import sleep
 from threading import Event
 
 import cv2
-from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont, QIcon, QImage, QPixmap
+from PySide6.QtCore import QSize, Qt, QThread, Signal
+from PySide6.QtGui import QFont, QIcon, QImage, QPixmap
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 
 
 class FrameEmitter(QThread):
     # establish signals from the frame that will be displayed in real time
     # within the GUI
-    ImageBroadcast = pyqtSignal(QPixmap)
-    FPSBroadcast = pyqtSignal(float)
-    GridCountBroadcast = pyqtSignal(int)
+    ImageBroadcast = Signal(QPixmap)
+    FPSBroadcast = Signal(float)
+    GridCountBroadcast = Signal(int)
 
     def __init__(self, monocalibrator:MonoCalibrator, pixmap_edge_length=None):
         # pixmap_edge length is from the display window. Keep the display area

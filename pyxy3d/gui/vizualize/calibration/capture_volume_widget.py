@@ -8,10 +8,10 @@ from pathlib import Path
 from threading import Thread
 
 import cv2
-from PyQt6.QtCore import Qt, pyqtSignal
+from PySide6.QtCore import Qt, Signal
 import pyqtgraph as pg
-from PyQt6.QtGui import QImage, QPixmap
-from PyQt6.QtWidgets import (
+from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
@@ -164,7 +164,7 @@ class CaptureVolumeWidget(QWidget):
 
 if __name__ == "__main__":
 
-    from PyQt6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication
 
     from pyxy3d import __root__
     from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (

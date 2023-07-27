@@ -11,8 +11,8 @@ from collections import defaultdict
 from itertools import combinations
 import cv2
 import toml
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QImage, QPixmap
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QImage, QPixmap
 
 INCHES_PER_CM = 0.393701
 class Charuco:

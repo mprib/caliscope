@@ -25,12 +25,12 @@ def test_gap_fill_xy():
     filled_length = xy_all_filled.shape[0]
 
     assert base_length < filled_length
+    assert xy_all_filled["gap_size"].max() > 0
 
+if __name__ == "__main__":
+    test_gap_fill_xy()
 
 # Write the DataFrame to a new CSV file
-
-
-
 # xy_filled_path = Path(xy_all_base_path.parent, f"xy_{tracker_enum.name}_filled.csv")
 # xy_all_filled.to_csv(xy_filled_path, index=False)
 # %%

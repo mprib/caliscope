@@ -19,7 +19,7 @@
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 import time
-import platform
+import os
 
 import cv2
 
@@ -32,22 +32,20 @@ class Camera:
 
     # https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
     # see above for constants used to access properties
-    def __init__(self, port, verified_resolutions = None):
+    def __init__(self, port, verified_resolutions = None, connect_API = None):
 
-        # get the platform in use:
-        if platform.system() == "Windows":
-            logger.debug(f"Windows machine detected - using backend `cv2.CAP_DSHOW`")
-            self.device_connection = cv2.CAP_DSHOW
-            # self.device_connection = cv2.CAP_ANY
+        if connect_API is not None:
+            self.connect_API = connect_API
         else:
-            logger.debug(f"Non-Windows machine detected - using backend `cv2.CAP_ANY`")
-            self.device_connection = cv2.CAP_ANY
-        # self.device_connection = cv2.CAP_ANY
+            if os.name == 'nt': #windows
+                self.connect_API = cv2.CAP_DSHOW
+            else: # UNIX variant
+                self.connect_API = cv2.CAP_ANY
 
         # check if source has a data feed before proceeding...if not it is
         # either in use or fake
         logger.info(f"Attempting to connect video capture at port {port}")
-        test_capture = cv2.VideoCapture(port,self.device_connection)
+        test_capture = cv2.VideoCapture(port,self.connect_API)
         for _ in range(0, TEST_FRAME_COUNT):
             good_read, frame = test_capture.read()
 
@@ -192,7 +190,7 @@ class Camera:
         self.capture.release()
 
     def connect(self):
-        self.capture = cv2.VideoCapture(self.port, self.device_connection)
+        self.capture = cv2.VideoCapture(self.port, self.connect_API)
 
     def calibration_summary(self):
         # Calibration output presented in label on far right

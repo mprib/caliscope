@@ -39,7 +39,7 @@ class Camera:
         else:
             if os.name == 'nt': #windows
                 self.connect_API = cv2.CAP_DSHOW
-            else: # UNIX varient
+            else: # UNIX variant
                 self.connect_API = cv2.CAP_ANY
 
         # check if source has a data feed before proceeding...if not it is

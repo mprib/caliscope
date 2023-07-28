@@ -24,6 +24,7 @@ def test_gap_fill_xy():
     xy_all_filled = xy_gap_fill(xy_all_base)
     filled_length = xy_all_filled.shape[0]
 
+    # a coupLe basic assertions
     assert base_length < filled_length
     assert xy_all_filled["gap_size"].max() > 0
 

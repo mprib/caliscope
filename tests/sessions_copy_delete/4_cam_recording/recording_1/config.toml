@@ -1,9 +1,4 @@
 CreationDate = 2023-05-06T11:12:27.631355
-extrinsic_wait_time = 0.5
-fps_extrinsic_calibration = 6
-fps_intrinsic_calibration = 6
-fps_recording = 28
-intrinsic_wait_time = 0.5
 
 [cam_0]
 port = 0

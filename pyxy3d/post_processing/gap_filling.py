@@ -10,7 +10,7 @@ from pathlib import Path
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 
-def xy_gap_fill(xy_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
+def gap_fill_xy(xy_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
     """
     xy_base: dataframe which should contain the following columns:
         sync_index (or frame_index)
@@ -42,7 +42,7 @@ def xy_gap_fill(xy_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
         
         # some conditional logging
         if last_port != port:
-            logger.info(f"Gap filling for (x,y) data from port {port}. Gap fill size is {max_gap_size} frames.")
+            logger.info(f"Gap filling for (x,y) data from port {port}. Filling gaps that are {max_gap_size} frames or less...")
         last_port = port
         # Sort by frame_index to ensure the data is in order
         group = group.sort_values(index_key)
@@ -63,8 +63,8 @@ def xy_gap_fill(xy_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
 
         # Interpolate the values for img_loc_x and img_loc_y, limit the interpolation to GAP_SIZE_TO_FILL
         merged['frame_time'] = merged['frame_time'].interpolate(method='linear', limit=max_gap_size).astype('float64')
-        merged['img_loc_x'] = merged['img_loc_x'].interpolate(method='linear', limit=max_gap_size).astype('Int64')
-        merged['img_loc_y'] = merged['img_loc_y'].interpolate(method='linear', limit=max_gap_size).astype('Int64')
+        merged['img_loc_x'] = merged['img_loc_x'].interpolate(method='linear', limit=max_gap_size).astype('float64')
+        merged['img_loc_y'] = merged['img_loc_y'].interpolate(method='linear', limit=max_gap_size).astype('float64')
 
         # Append to the overall DataFrame
         xy_filled = pd.concat([xy_filled, merged])
@@ -74,7 +74,7 @@ def xy_gap_fill(xy_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
 
     
 
-def xyz_gap_fill(xyz_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
+def gap_fill_xyz(xyz_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
     """
     xyz_base: dataframe which should contain the following columns:
         sync_index 
@@ -87,7 +87,7 @@ def xyz_gap_fill(xyz_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
     xyz_filled = pd.DataFrame()
 
     # Loop through each combination of port and point_id
-    for point_id, group in xyz_base.groupby(['point_id']):
+    for point_id, group in xyz_base.groupby('point_id'):
         # Sort by frame_index to ensure the data is in order
         group = group.sort_values("sync_index")
     

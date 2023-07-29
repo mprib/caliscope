@@ -39,7 +39,6 @@ nav:
   - Reference:
       - Code Map: project_structure.md
       - Docs: doc_notes.md
-  - License: LICENSE.md
 
 plugins:
   - search

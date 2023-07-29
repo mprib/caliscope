@@ -34,8 +34,6 @@ from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangula
 # load config:
 
 
-test_folder = Path(__root__, r"tests\reference\2d_data")
-config = Configurator(test_folder)
 
 # %%
 # for initial testing, just pull out the left heel
@@ -57,15 +55,15 @@ config = Configurator(test_folder)
 
 
 # %%
-# Define your Butterworth filter functions
-def butter_lowpass(cutoff, fs, order=5):
+# Define Butterworth filter functions
+def butter_lowpass(cutoff, fs, order=2):
     nyq = 0.5 * fs  # Nyquist Frequency
     normal_cutoff = cutoff / nyq
     b, a = butter(order, normal_cutoff, btype="low", analog=False)
     return b, a
 
 
-def butter_lowpass_filter(data, cutoff, fs, order=5):
+def butter_lowpass_filter(data, cutoff, fs, order=2):
     b, a = butter_lowpass(cutoff, fs, order=order)
 
     # need to adjust for short input sequences
@@ -74,40 +72,33 @@ def butter_lowpass_filter(data, cutoff, fs, order=5):
     return y
 
 
-# %%
-def filter_xyz(xyz_history_path: Path, order, fs, cutoff):
-
-    logger.info("Loading data...")
-    xyz_history = pd.read_csv(xyz_history_path)
-    xyz_history = xyz_history.sort_values(by=["point_id", "sync_index"])
-    xyz_history["sync_index_shifted"] = xyz_history["sync_index"].shift(1)
-    xyz_history["new_filter_group"] = (
-        xyz_history["sync_index"] != xyz_history["sync_index_shifted"] + 1
+def filter_xyz(xyz: pd.DataFrame, order, fs, cutoff)->pd.DataFrame:
+    xyz = xyz.sort_values(by=["point_id", "sync_index"])
+    xyz["sync_index_shifted"] = xyz["sync_index"].shift(1)
+    xyz["new_filter_group"] = (
+        xyz["sync_index"] != xyz["sync_index_shifted"] + 1
     )
-    xyz_history["filter_group_index"] = xyz_history["new_filter_group"].cumsum()
-    xyz_history = xyz_history.drop(["sync_index_shifted", "new_filter_group"], axis=1)
+    xyz["filter_group_index"] = xyz["new_filter_group"].cumsum()
+    xyz = xyz.drop(["sync_index_shifted", "new_filter_group"], axis=1)
 
     logger.info("Applying butterworth filter to xy point coordinates")
     # Apply the filter to each piecewise group
-    xyz_history["x_coord"] = xyz_history.groupby(["filter_group_index"])[
-        "x_coord"
-    ].transform(butter_lowpass_filter, cutoff, fs, order)
-    xyz_history["y_coord"] = xyz_history.groupby(["filter_group_index"])[
-        "y_coord"
-    ].transform(butter_lowpass_filter, cutoff, fs, order)
-    xyz_history["z_coord"] = xyz_history.groupby(["filter_group_index"])[
-        "z_coord"
-    ].transform(butter_lowpass_filter, cutoff, fs, order)
+
+    for coord in ["x_coord", "y_coord", "z_coord"]:
+        xyz[coord] = xyz.groupby(["filter_group_index"])[
+            coord
+        ].transform(butter_lowpass_filter, cutoff, fs, order)
 
     
-    xyz_history = xyz_history.sort_values(["sync_index", "point_id"])
-    destination_path = Path(xyz_history_path.parent, xyz_history_path.stem + "_filtered.csv")
-    logger.info(f"Saving filtered data to {destination_path}")
-    xyz_history.to_csv(destination_path)
+    xyz = xyz.sort_values(["sync_index", "point_id"])
+    
+    return xyz   
 
 
-processed_folder = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\4_cam\recording_1\HOLISTIC_OPENSIM")
-trajectory_data_path = Path(processed_folder, "xyz_HOLISTIC_OPENSIM.csv")
+processed_folder = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\4_cam_A\recording_4\HOLISTIC_OPENSIM")
+xyz_path = Path(processed_folder, "xyz_HOLISTIC_OPENSIM.csv")
+
+config = Configurator(processed_folder)
 
 config_path = Path(processed_folder, "config.toml")
 config_dict = toml.load(config_path)
@@ -117,20 +108,30 @@ fps = config_dict["fps_recording"]
 # Define your filter parameters
 order = 2
 fs = config.get_fps_recording()  # sample rate, Hz
+# note that the cutoff must be < 0.5*(sampling rate, a.k.a. nyquist frequency)
 cutoff = 6  # desired cutoff frequency, Hz
 
-# test_data = Path(test_folder,"xyz_HOLISTIC.csv")
+logger.info("Loading data...")
+xyz = pd.read_csv(xyz_path)
 
+xyz_filtered = filter_xyz(xyz, order,fs, cutoff)
 
-filter_xyz(trajectory_data_path, order,fs, cutoff)
+# save out the filterd data
+destination_path = Path(xyz_path.parent, xyz_path.stem + "_filtered.csv")
+logger.info(f"Saving filtered data to {destination_path}")
+xyz_filtered.to_csv(destination_path)
 
 app = QApplication(sys.argv)
-camera_array = config.get_camera_array()
-filtered_data =Path(processed_folder, "xyz_HOLISTIC_OPENSIM_filtered.csv") 
-filtered_window = PlaybackTriangulationWidget(camera_array,filtered_data)
-filtered_window.show()
 
-# unfiltered_window = PlaybackTriangulationWidget(camera_array, trajectory_data_path)
-# unfiltered_window.show()
+# load in the data for the playback
+camera_array = config.get_camera_array()
+filtered_data_path =Path(processed_folder, "xyz_HOLISTIC_OPENSIM_filtered.csv") 
+# filtered_data_path =Path(processed_folder, "xyz_HOLISTIC_OPENSIM.csv") 
+filtered_data = pd.read_csv(filtered_data_path)
+
+# create and show the playback widget
+filtered_window = PlaybackTriangulationWidget(camera_array)
+filtered_window.set_xyz(filtered_data)
+filtered_window.show()
 
 app.exec()

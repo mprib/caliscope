@@ -25,7 +25,7 @@ def butter_lowpass_filter(data, cutoff, fs, order=2):
     y = filtfilt(b, a, data, padlen=padlen)
     return y
 
-def _smooth(landmark_data:pd.Dataframe, order, fs, cutoff, coord_names, index_name)->pd.DataFrame:
+def _smooth(landmark_data:pd.DataFrame, order, fs, cutoff, coord_names, index_name)->pd.DataFrame:
 
     shifted_index_name = f"{index_name}_shifted"
 
@@ -50,8 +50,19 @@ def _smooth(landmark_data:pd.Dataframe, order, fs, cutoff, coord_names, index_na
     
     return landmark_data   
 
-def smooth_xy(xy: pd.DataFrame, order, fs, cutoff)->pd.DataFrame:
-    index_name = "frame_index"
+
+
+def _smooth_xy(xy: pd.DataFrame, order, fs, cutoff)->pd.DataFrame:
+    """
+    Running this function takes a considerable amount of time. Dramatically more than 
+    the xyz version. So just let this be for now and don't bother implementing it
+    in practice.
+    
+    Gap fill the xy, but don't bother with the smoothing for now.
+    
+    """
+    # note that in future refactors, the xy coordinates my only have a frame_index and not a sync_index
+    index_name = "sync_index" 
     coord_names = ["img_loc_x","img_loc_y"]
     
     return _smooth(xy, order, fs, cutoff, coord_names,index_name)

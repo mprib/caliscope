@@ -116,16 +116,15 @@ class PostProcessor:
         logger.info("Reading in (x,y) data..")
         xy_data = pd.read_csv(xy_csv_path)
         logger.info("Beginning data triangulation")
-        xyz_history = self.triangulate_xy(xy_data)
-        xyz_data = pd.DataFrame(xyz_history)
+        xyz = self.triangulate_xy(xy_data)
         xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
-        xyz_data.to_csv(xyz_csv_path)
+        xyz.to_csv(xyz_csv_path)
 
         # only include trc if wanted and only if there is actually good data to export
-        if include_trc and xyz_data.shape[0] > 0:
+        if include_trc and xyz.shape[0] > 0:
            xyz_to_trc(xyz_csv_path, tracker = self.tracker_enum.value()) 
 
-    def triangulate_xy(self, xy: pd.DataFrame) -> Dict[str, List]:
+    def triangulate_xy(self, xy: pd.DataFrame) -> pd.DataFrame:
         
         camera_array = self.config.get_camera_array()
         # assemble numba compatible dictionary
@@ -146,6 +145,8 @@ class PostProcessor:
 
         for index in xy["sync_index"].unique():
             active_index = xy["sync_index"] == index
+
+            # load variables for given sync index
             port = xy["port"][active_index].to_numpy()
             point_ids = xy["point_id"][active_index].to_numpy()
             img_loc_x = xy["img_loc_x"][active_index].to_numpy()
@@ -175,4 +176,6 @@ class PostProcessor:
                 )
                 last_log_update = int(time())
 
+        # convert to dataframe prior to returning
+        xyz = pd.DataFrame(xyz)
         return xyz

@@ -116,7 +116,7 @@ class PostProcessor:
         logger.info("Reading in (x,y) data..")
         xy_data = pd.read_csv(xy_csv_path)
         logger.info("Beginning data triangulation")
-        xyz_history = self.triangulate_xy_data(xy_data)
+        xyz_history = self.triangulate_xy(xy_data)
         xyz_data = pd.DataFrame(xyz_history)
         xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
         xyz_data.to_csv(xyz_csv_path)
@@ -125,16 +125,13 @@ class PostProcessor:
         if include_trc and xyz_data.shape[0] > 0:
            xyz_to_trc(xyz_csv_path, tracker = self.tracker_enum.value()) 
 
-    def triangulate_xy_data(self, xy_data: pd.DataFrame) -> Dict[str, List]:
+    def triangulate_xy(self, xy: pd.DataFrame) -> Dict[str, List]:
         
         camera_array = self.config.get_camera_array()
         # assemble numba compatible dictionary
-        projection_matrices = Dict()
-        for port, cam in camera_array.cameras.items():
-            logger.info(f"At port {port}, the projection matrix is {cam.projection_matrix}")
-            projection_matrices[int(port)] = cam.projection_matrix
+        projection_matrices = camera_array.projection_matrices
 
-        xyz_history = {
+        xyz = {
             "sync_index": [],
             "point_id": [],
             "x_coord": [],
@@ -142,17 +139,17 @@ class PostProcessor:
             "z_coord": [],
         }
 
-        sync_index_max = xy_data["sync_index"].max()
+        sync_index_max = xy["sync_index"].max()
 
         start = time()
         last_log_update = int(start)  # only report progress each second
 
-        for index in xy_data["sync_index"].unique():
-            active_index = xy_data["sync_index"] == index
-            port = xy_data["port"][active_index].to_numpy()
-            point_ids = xy_data["point_id"][active_index].to_numpy()
-            img_loc_x = xy_data["img_loc_x"][active_index].to_numpy()
-            img_loc_y = xy_data["img_loc_y"][active_index].to_numpy()
+        for index in xy["sync_index"].unique():
+            active_index = xy["sync_index"] == index
+            port = xy["port"][active_index].to_numpy()
+            point_ids = xy["point_id"][active_index].to_numpy()
+            img_loc_x = xy["img_loc_x"][active_index].to_numpy()
+            img_loc_y = xy["img_loc_y"][active_index].to_numpy()
             imgs_xy = np.vstack([img_loc_x, img_loc_y]).T
 
             # the fancy part
@@ -162,13 +159,13 @@ class PostProcessor:
 
             if len(point_id_xyz) > 0:
                 # there are points to store so store them...
-                xyz_history["sync_index"].extend([index] * len(point_id_xyz))
-                xyz_history["point_id"].extend(point_id_xyz)
+                xyz["sync_index"].extend([index] * len(point_id_xyz))
+                xyz["point_id"].extend(point_id_xyz)
 
                 points_xyz = np.array(points_xyz)
-                xyz_history["x_coord"].extend(points_xyz[:, 0].tolist())
-                xyz_history["y_coord"].extend(points_xyz[:, 1].tolist())
-                xyz_history["z_coord"].extend(points_xyz[:, 2].tolist())
+                xyz["x_coord"].extend(points_xyz[:, 0].tolist())
+                xyz["y_coord"].extend(points_xyz[:, 1].tolist())
+                xyz["z_coord"].extend(points_xyz[:, 2].tolist())
 
             # only log percent complete each second
             if int(time()) - last_log_update >= 1:
@@ -178,4 +175,4 @@ class PostProcessor:
                 )
                 last_log_update = int(time())
 
-        return xyz_history
+        return xyz

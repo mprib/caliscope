@@ -8,6 +8,7 @@ import numpy as np
 from dataclasses import dataclass
 import cv2
 from enum import Enum, auto
+from numba.typed import Dict
 
 CAMERA_PARAM_COUNT = 6
 
@@ -145,8 +146,15 @@ class CameraArray:
                 full_extrinsics = False
 
         return full_extrinsics
+    
+    @property
+    def projection_matrices(self) -> Dict: 
+        logger.info(f"Creating camera array projection matrices")
+        proj_mat = Dict()
+        for port, cam in self.cameras.items():
+            proj_mat[port] = cam.projection_matrix
         
-            
+        return proj_mat
             
 
 class CalibrationStage(Enum):

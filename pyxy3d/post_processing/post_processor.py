@@ -124,9 +124,7 @@ class PostProcessor:
         xyz = gap_fill_xyz(xyz)
         logger.info(f"Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz")
         xyz = smooth_xyz(xyz, order=2, fps=self.fps, cutoff=cutoff_freq)
-        logger.info()       
-        
-
+        logger.info("Saving (x,y,z) to csv file")       
         xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
         xyz.to_csv(xyz_csv_path)
 

@@ -269,8 +269,7 @@ class FrameDictionaryEmitter(QThread):
             
             dropped_fps_dict = {str(port):dropped for port, dropped in self.synchronizer.dropped_fps.items()}
             self.dropped_fps.emit(dropped_fps_dict)
-
-        logger.info("Stereoframe emitter run thread ended...") 
+        logger.info("Recording thumbnail emitter run thread ended...") 
     
 def frame_packet_2_thumbnail(frame_packet:FramePacket, rotation_count:int, edge_length:int, port:int):
     raw_frame = get_frame_or_blank(frame_packet, edge_length)

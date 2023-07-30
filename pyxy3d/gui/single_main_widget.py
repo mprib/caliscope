@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 logger = pyxy3d.logger.get(__name__)
 
-
 from PySide6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
 
 from threading import Thread
@@ -138,7 +137,7 @@ class MainWindow(QMainWindow):
         a signal to that effect.
         """
         logger.info(f"Begin process of updating central widget")
-        # Delete the current central widget
+        
         old_widget = self.centralWidget()
         self.setCentralWidget(QWidget())
         old_widget.deleteLater()
@@ -146,9 +145,13 @@ class MainWindow(QMainWindow):
         logger.info(f"Clearing events in emmitter threads to get them to wind down")
         if type(old_widget) == RecordingWidget:
             old_widget.thumbnail_emitter.keep_collecting.clear()
+            logger.info("Waiting for recording widget to wrap up")
+            old_widget.thumbnail_emitter.wait()
         
         if type(old_widget) == ExtrinsicCalibrationWidget:
             old_widget.paired_frame_emitter.keep_collecting.clear()
+            logger.info("Waiting for extrinsic calibration widget to wrap up")
+            old_widget.paired_frame_emitter.wait()
        
         if type(old_widget) ==  IntrinsicCalibrationWidget:
             for port, tab in old_widget.camera_tabs.tab_widgets.items():
@@ -170,7 +173,8 @@ class MainWindow(QMainWindow):
                 new_widget = RecordingWidget(self.session)
             case SessionMode.PostProcessing:
                 new_widget = PostProcessingWidget(self.session)
-            
+        
+
         self.setCentralWidget(new_widget)        
 
     def switch_to_capture_volume(self):

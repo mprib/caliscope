@@ -2,9 +2,12 @@
 import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
-
+import pandas as pd
+from time import time
 from numba import jit
 from numba.typed import Dict, List
+from pyxy3d.cameras.camera_array import CameraArray
+
 import numpy as np
 
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
@@ -89,3 +92,61 @@ def triangulate_sync_index(
     return point_indices_xyz, obj_xyz
 # End of adapted code
 ##################################################################################
+
+
+
+
+def triangulate_xy(camera_array:CameraArray, xy: pd.DataFrame) -> pd.DataFrame:
+        
+    # assemble numba compatible dictionary
+    projection_matrices = camera_array.projection_matrices
+
+    xyz = {
+        "sync_index": [],
+        "point_id": [],
+        "x_coord": [],
+        "y_coord": [],
+        "z_coord": [],
+    }
+
+    sync_index_max = xy["sync_index"].max()
+
+    start = time()
+    last_log_update = int(start)  # only report progress each second
+
+    for index in xy["sync_index"].unique():
+        active_index = xy["sync_index"] == index
+
+        # load variables for given sync index
+        port = xy["port"][active_index].to_numpy()
+        point_ids = xy["point_id"][active_index].to_numpy()
+        img_loc_x = xy["img_loc_x"][active_index].to_numpy()
+        img_loc_y = xy["img_loc_y"][active_index].to_numpy()
+        imgs_xy = np.vstack([img_loc_x, img_loc_y]).T
+
+        # the fancy part
+        point_id_xyz, points_xyz = triangulate_sync_index(
+            projection_matrices, port, point_ids, imgs_xy
+        )
+
+        if len(point_id_xyz) > 0:
+            # there are points to store so store them...
+            xyz["sync_index"].extend([index] * len(point_id_xyz))
+            xyz["point_id"].extend(point_id_xyz)
+
+            points_xyz = np.array(points_xyz)
+            xyz["x_coord"].extend(points_xyz[:, 0].tolist())
+            xyz["y_coord"].extend(points_xyz[:, 1].tolist())
+            xyz["z_coord"].extend(points_xyz[:, 2].tolist())
+
+        # only log percent complete each second
+        if int(time()) - last_log_update >= 1:
+            percent_complete = int(100*(index/sync_index_max))
+            logger.info(
+                f"(Stage 2 of 2): Triangulation of (x,y) point estimates is {percent_complete}% complete"
+            )
+            last_log_update = int(time())
+
+    # convert to dataframe prior to returning
+    xyz = pd.DataFrame(xyz)
+    return xyz

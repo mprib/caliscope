@@ -1,11 +1,8 @@
 import pyxy3d.logger
-import pyxy3d.logger
-import os
 from pathlib import Path
 logger = pyxy3d.logger.get(__name__)
 
 from PySide6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
-
 from threading import Thread
 import sys
 from PySide6.QtWidgets import (
@@ -308,10 +305,12 @@ class MainWindow(QMainWindow):
             toml.dump(self.app_settings, f)
 
 def launch_main():
+    import qdarktheme
+    
     app = QApplication(sys.argv)
+    qdarktheme.setup_theme('auto')
     window = MainWindow()
     window.show()
-
     app.exec()
 
 

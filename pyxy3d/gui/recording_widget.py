@@ -2,7 +2,7 @@
 
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
-
+from PySide6.QtCore import QTimer
 import copy
 import sys
 from time import perf_counter, sleep
@@ -14,6 +14,7 @@ from queue import Queue
 from enum import Enum
 
 import cv2
+import time
 from PySide6.QtCore import Qt, Signal,Slot, QThread, QObject
 from PySide6.QtGui import QImage, QPixmap, QIcon
 from PySide6.QtWidgets import (
@@ -176,9 +177,11 @@ class RecordingWidget(QWidget):
         self.thumbnail_emitter.dropped_fps.connect(self.update_dropped_fps)
         self.start_stop.clicked.connect(self.toggle_start_stop)
         self.session.qt_signaler.recording_complete_signal.connect(self.on_recording_complete)
-
+        
+        
     def toggle_start_stop(self):
-        logger.info("Start/Stop Recording Toggled...")
+        logger.info(f"Start/Stop Recording Toggled... Current state: {self.next_action}")
+
         if self.next_action == NextRecordingActions.StartRecording:
             self.next_action = NextRecordingActions.StopRecording
             self.start_stop.setText(self.next_action.value)
@@ -189,22 +192,19 @@ class RecordingWidget(QWidget):
             self.session.start_recording(recording_path)
 
         elif self.next_action == NextRecordingActions.StopRecording:
-            self.start_stop.setEnabled(False)
             # need to wait for session to signal that recording is complete
             self.next_action = NextRecordingActions.AwaitSave
-            # self.start_stop.setText("HELLO")
+            self.start_stop.setEnabled(False)
             self.start_stop.setText(self.next_action.value)
             logger.info("Stop recording and initiate final save of file") 
-            self.session.stop_recording()
+            thread = Thread(target=self.session.stop_recording, args=[], daemon=True)
+            thread.start()
+            # self.session.stop_recording()
 
-            next_recording = self.get_next_recording_directory()
-            self.recording_directory.setEnabled(True)
-            self.recording_directory.setText(next_recording)
-            logger.info(f"successfully reset text and renamed recording directory to {next_recording}")
 
         elif self.next_action == NextRecordingActions.AwaitSave:
-            logger.info("recording button toggled while awaiting save")
-            
+            logger.info("Recording button toggled while awaiting save") 
+        
     def on_recording_complete(self):
         logger.info("Recording complete signal received...updating next action and button")
         self.next_action = NextRecordingActions.StartRecording
@@ -212,6 +212,10 @@ class RecordingWidget(QWidget):
         logger.info("Enabling start/stop recording button")
         self.start_stop.setEnabled(True)
         logger.info("Successfully enabled start/stop recording button")
+        next_recording = self.get_next_recording_directory()
+        self.recording_directory.setEnabled(True)
+        self.recording_directory.setText(next_recording)
+        logger.info(f"Successfully reset text and renamed recording directory to {next_recording}")
         # pass
         
     @Slot(dict)                
@@ -250,10 +254,10 @@ class FrameDictionaryEmitter(QThread):
         
         while self.keep_collecting.is_set():
             sleep(1/RENDERED_FPS)
-            logger.info("About to get next recording frame")
+            logger.debug("About to get next recording frame")
             # recording_frame = self.unpaired_frame_builder.get_recording_frame()
             
-            logger.info("Referencing current sync packet in synchronizer")
+            logger.debug("Referencing current sync packet in synchronizer")
             self.current_sync_packet = self.synchronizer.current_sync_packet
         
             thumbnail_qimage = {} 

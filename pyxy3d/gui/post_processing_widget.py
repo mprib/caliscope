@@ -92,19 +92,27 @@ class PostProcessingWidget(QWidget):
 
     def set_current_xyz(self):
 
-        if self.processed_xyz_path.exists():
+        if self.xyz_processed_path.exists():
             # confirm that there are some triangulated values to observe
-            xyz = pd.read_csv(self.processed_xyz_path)
+            xyz = pd.read_csv(self.xyz_processed_path)
             if xyz.shape[0] != 0:
-                logger.info(f"Setting xyz display coordinates to those stored in {self.processed_xyz_path}")
+                logger.info(f"Setting xyz display coordinates to those stored in {self.xyz_processed_path}")
                 self.xyz = xyz
             else:
                 logger.info("Not enough data to triangulate points")
                 QMessageBox.warning(self, "Warning", f"The {self.active_tracker_enum.name} tracker did not identify sufficient points for triangulation to occur for recordings stored in:\n{self.active_recording_path}.") # show a warning dialog
                 self.xyz = None
         else:
-            logger.info(f"No points displayed; Nothing stored in {self.processed_xyz_path}")
+            logger.info(f"No points displayed; Nothing stored in {self.xyz_processed_path}")
             self.xyz = None
+
+            # check if there aren't any points to track and warn about that
+            if self.xy_base_path.exists():
+                xy = pd.read_csv(self.xy_base_path)
+                if xy.shape[0] == 0:
+                    logger.info("No points tracked")
+                    QMessageBox.warning(self, "Warning", f"The {self.active_tracker_enum.name} tracker did not identify any points to track in recordings stored in:\n{self.active_recording_path}.") # show a warning dialog
+
         self.vis_widget.set_xyz(self.xyz)
 
     def update_recording_folders(self):
@@ -132,11 +140,16 @@ class PostProcessingWidget(QWidget):
         return subfolder
 
     @property
-    def processed_xyz_path(self):
+    def xyz_processed_path(self):
         file_name = f"xyz_{self.tracker_combo.currentData().name}.csv"
         result = Path(self.processed_subfolder, file_name)
         return result
 
+    @property
+    def xy_base_path(self):
+        file_name = f"xy_{self.tracker_combo.currentData().name}.csv"
+        result = Path(self.processed_subfolder, file_name)
+        return result
 
     @property
     def active_tracker_enum(self):
@@ -149,15 +162,15 @@ class PostProcessingWidget(QWidget):
         return result
         
 
-    def current_selection_processed(self) -> bool:
-        """ "
-        checks to see if their is a file in the recording directory named `xyz_TRACKERNAME.csv`
-        """
+    # def current_selection_processed(self) -> bool:
+    #     """ "
+    #     checks to see if their is a file in the recording directory named `xyz_TRACKERNAME.csv`
+    #     """
 
-        xyz_output = f"xyz_{self.tracker_combo.currentData().name}.csv"
-        target_path = Path(self.processed_subfolder, xyz_output)
+    #     xyz_output = f"xyz_{self.tracker_combo.currentData().name}.csv"
+    #     target_path = Path(self.processed_subfolder, xyz_output)
 
-        return target_path.exists()
+    #     return target_path.exists()
 
     @property
     def active_folder(self):
@@ -175,7 +188,7 @@ class PostProcessingWidget(QWidget):
         
     @property
     def viz_title_html(self):
-        if self.processed_xyz_path.exists():
+        if self.xyz_processed_path.exists():
             suffix = "(x,y,z) estimates"
         else:
             suffix = "(no processed data)"
@@ -215,8 +228,8 @@ class PostProcessingWidget(QWidget):
         self.processing_complete.connect(self.refresh_visualizer)
 
     def store_sync_index_cursor(self, cursor_value):
-        if self.processed_xyz_path.exists():
-            self.sync_index_cursors[self.processed_xyz_path] = cursor_value
+        if self.xyz_processed_path.exists():
+            self.sync_index_cursors[self.xyz_processed_path] = cursor_value
             # logger.info(self.sync_index_cursors)
         else:
             # don't bother, doesn't exist
@@ -297,7 +310,7 @@ class PostProcessingWidget(QWidget):
         logger.info("Checking if metarig config can be created...")
         tracker = self.tracker_combo.currentData().value()
         logger.info(tracker)
-        if (tracker.metarig_mapped and self.processed_xyz_path.exists() and not self.metarig_config_path.exists()):
+        if (tracker.metarig_mapped and self.xyz_processed_path.exists() and not self.metarig_config_path.exists()):
             self.generate_metarig_config_btn.setEnabled(True)
             self.generate_metarig_config_btn.setToolTip("Creation of metarig configuration file is now available")
         else:
@@ -307,25 +320,29 @@ class PostProcessingWidget(QWidget):
             self.generate_metarig_config_btn.setToolTip("Tracker is not set up to scale to a metarig")
         elif self.metarig_config_path.exists():
             self.generate_metarig_config_btn.setToolTip("The Metarig configuration json file has already been created.Check the tracker subfolder in the recording directory.")
-        elif not self.processed_xyz_path.exists():
+        elif not self.xyz_processed_path.exists():
             self.generate_metarig_config_btn.setToolTip("Must process recording to create xyz estimates for metarig configuration")
         else:
             self.generate_metarig_config_btn.setToolTip("Click to create a file in the tracker subfolder that can be used to scale a Blender metarig")
             
 
         # set availability of Proecssing and slider                
-        if self.processed_xyz_path.exists():
+        if self.xyz_processed_path.exists():
             self.process_current_btn.setEnabled(False)
             self.vis_widget.slider.setEnabled(True)
-                
+        elif self.xy_base_path.exists() and not self.xyz_processed_path.exists():
+            # nothing available to triangulate
+            self.process_current_btn.setEnabled(False)
+            self.vis_widget.slider.setEnabled(False)
+            
         else:
             self.process_current_btn.setEnabled(True)
             self.vis_widget.slider.setEnabled(False)
 
     def update_slider_position(self):
         # update slider value to stored value if it exists
-        if self.processed_xyz_path in self.sync_index_cursors.keys():
-            active_sync_index = self.sync_index_cursors[self.processed_xyz_path]
+        if self.xyz_processed_path in self.sync_index_cursors.keys():
+            active_sync_index = self.sync_index_cursors[self.xyz_processed_path]
             self.vis_widget.slider.setValue(active_sync_index)
             self.vis_widget.visualizer.display_points(active_sync_index)
         else:

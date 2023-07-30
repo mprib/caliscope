@@ -116,17 +116,28 @@ class PostProcessor:
         # load in 2d data and triangulate it
         logger.info("Reading in (x,y) data..")
         xy = pd.read_csv(xy_csv_path)
-        logger.info("Filling small gaps in (x,y) data")
-        xy = gap_fill_xy(xy)
-        logger.info("Beginning data triangulation")
-        xyz = triangulate_xy(self.camera_array, xy)
-        logger.info("Filling small gaps in (x,y,z) data")
-        xyz = gap_fill_xyz(xyz)
-        logger.info(f"Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz")
-        xyz = smooth_xyz(xyz, order=2, fps=self.fps, cutoff=cutoff_freq)
-        logger.info("Saving (x,y,z) to csv file")       
-        xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
-        xyz.to_csv(xyz_csv_path)
+        if xy.shape[0] > 0:
+            logger.info("Filling small gaps in (x,y) data")
+            xy = gap_fill_xy(xy)
+            logger.info("Beginning data triangulation")
+            xyz = triangulate_xy(self.camera_array, xy)
+        else:
+            logger.warn("No points tracked. Terminating post-processing early.")
+            return
+       
+         
+        if xyz.shape[0] > 0:
+            logger.info("Filling small gaps in (x,y,z) data")
+            xyz = gap_fill_xyz(xyz)
+            logger.info(f"Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz")
+            xyz = smooth_xyz(xyz, order=2, fps=self.fps, cutoff=cutoff_freq)
+            logger.info("Saving (x,y,z) to csv file")       
+            xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
+            xyz.to_csv(xyz_csv_path)
+
+        else: 
+            logger.warn("No points triangulated. Terminating post-processing early.")
+            return
 
         # only include trc if wanted and only if there is actually good data to export
         if include_trc and xyz.shape[0] > 0:

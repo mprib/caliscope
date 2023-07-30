@@ -31,7 +31,7 @@ def test_xy_to_xyz_postprocessing():
     # note: triangulate_xy  is a method used primarily internally by the PostProcessor
     # the method create_xyz uses it.
 
-    xyz_history = post_processor.triangulate_xy_data(xy_data)
+    xyz_history = post_processor.triangulate_xy(xy_data)
     logger.info(f"ending triangulation at {time.time()}")
     stop = time.time()
     logger.info(f"Elapsed time is {stop-start}. Note that on first iteration, @jit functions will take longer")

@@ -62,7 +62,7 @@ class CaptureVolumeWidget(QWidget):
         # self.distance_error_summary = QLabel(self.session.quality_controller.distance_error_summary.to_string(index=False))
         self.rmse_summary = QLabel(self.session.capture_volume.get_rmse_summary())
        
-        self.recalibrate_btn = QPushButton("Recalibrate") 
+        # self.recalibrate_btn = QPushButton("Recalibrate") 
 
         self.place_widgets()
         self.connect_widgets()
@@ -91,7 +91,7 @@ class CaptureVolumeWidget(QWidget):
         self.calibrate_group = QGroupBox()
         self.calibrate_group.setLayout(QVBoxLayout())
         self.calibrate_group.layout().addWidget(self.rmse_summary)
-        self.calibrate_group.layout().addWidget(self.recalibrate_btn)
+        # self.calibrate_group.layout().addWidget(self.recalibrate_btn)
         
         self.hbox = QHBoxLayout()
         self.hbox.addWidget(self.calibrate_group)

@@ -112,7 +112,12 @@ class Camera:
         """Note that OpenCV appears to change the exposure value, but
         this is not read back accurately through the getter, so just
         track it manually after updating"""
-        self.capture.set(cv2.CAP_PROP_EXPOSURE, value)
+        if os.name == "nt":
+            self.capture.set(cv2.CAP_PROP_EXPOSURE, value)
+        
+        else:
+            self.capture.set(cv2.CAP_PROP_IOS_DEVICE_EXPOSURE, value)
+
         self._exposure = value
 
     @property

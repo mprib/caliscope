@@ -17,15 +17,15 @@ def butter_lowpass(cutoff, fs, order=2):
     return b, a
 
 
-def butter_lowpass_filter(data, cutoff, fs, order=2):
-    b, a = butter_lowpass(cutoff, fs, order=order)
+def butter_lowpass_filter(data, cutoff, fps, order=2):
+    b, a = butter_lowpass(cutoff, fps, order=order)
 
     # need to adjust for short input sequences
     padlen = min(len(data) - 1, 3 * (max(len(a), len(b)) - 1))
     y = filtfilt(b, a, data, padlen=padlen)
     return y
 
-def _smooth(landmark_data:pd.DataFrame, order, fs, cutoff, coord_names, index_name)->pd.DataFrame:
+def _smooth(landmark_data:pd.DataFrame, order, fps, cutoff, coord_names, index_name)->pd.DataFrame:
 
     shifted_index_name = f"{index_name}_shifted"
 
@@ -44,7 +44,7 @@ def _smooth(landmark_data:pd.DataFrame, order, fs, cutoff, coord_names, index_na
     for coord in coord_names:
         landmark_data[coord] = landmark_data.groupby(["smooth_group_index"])[
             coord
-        ].transform(butter_lowpass_filter, cutoff, fs, order)
+        ].transform(butter_lowpass_filter, cutoff, fps, order)
     
     landmark_data = landmark_data.sort_values([index_name, "point_id"])
     
@@ -52,7 +52,7 @@ def _smooth(landmark_data:pd.DataFrame, order, fs, cutoff, coord_names, index_na
 
 
 
-def _smooth_xy(xy: pd.DataFrame, order, fs, cutoff)->pd.DataFrame:
+def _smooth_xy(xy: pd.DataFrame, order, fps, cutoff)->pd.DataFrame:
     """
     Running this function takes a considerable amount of time. Dramatically more than 
     the xyz version. So just let this be for now and don't bother implementing it
@@ -65,10 +65,10 @@ def _smooth_xy(xy: pd.DataFrame, order, fs, cutoff)->pd.DataFrame:
     index_name = "sync_index" 
     coord_names = ["img_loc_x","img_loc_y"]
     
-    return _smooth(xy, order, fs, cutoff, coord_names,index_name)
+    return _smooth(xy, order, fps, cutoff, coord_names,index_name)
 
-def smooth_xyz(xyz: pd.DataFrame, order, fs, cutoff)->pd.DataFrame:
+def smooth_xyz(xyz: pd.DataFrame, order, fps, cutoff)->pd.DataFrame:
     index_name = "sync_index"
     coord_names = ["x_coord", "y_coord", "z_coord"]
     
-    return _smooth(xyz, order, fs, cutoff, coord_names,index_name)
+    return _smooth(xyz, order, fps, cutoff, coord_names,index_name)

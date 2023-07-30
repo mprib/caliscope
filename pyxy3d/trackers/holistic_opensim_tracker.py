@@ -37,29 +37,29 @@ DRAW_IGNORE_LIST = [
 ]
 
 POINT_NAMES = {
-    0: "nose",
-    1: "left_eye_inner",
-    2: "left_eye",
-    3: "left_eye_outer",
-    4: "right_eye_inner",
-    5: "right_eye",
-    6: "right_eye_outer",
-    7: "left_ear",
-    8: "right_ear",
-    9: "mouth_left",
-    10: "mouth_right",
+    # 0: "nose",
+    # 1: "left_eye_inner",
+    # 2: "left_eye",
+    # 3: "left_eye_outer",
+    # 4: "right_eye_inner",
+    # 5: "right_eye",
+    # 6: "right_eye_outer",
+    # 7: "left_ear",
+    # 8: "right_ear",
+    # 9: "mouth_left",
+    # 10: "mouth_right",
     11: "left_shoulder",
     12: "right_shoulder",
     13: "left_elbow",
     14: "right_elbow",
-    15: "left_wrist_pose",
-    16: "right_wrist_pose",
-    17: "left_pinky",
-    18: "right_pinky",
-    19: "left_index",
-    20: "right_index",
-    21: "left_thumb",
-    22: "right_thumb",
+    # 15: "left_wrist_pose",
+    # 16: "right_wrist_pose",
+    # 17: "left_pinky",
+    # 18: "right_pinky",
+    # 19: "left_index",
+    # 20: "right_index",
+    # 21: "left_thumb",
+    # 22: "right_thumb",
     23: "left_hip",
     24: "right_hip",
     25: "left_knee",
@@ -228,8 +228,12 @@ class HolisticOpenSimTracker(Tracker):
                             # ignore
                             pass
                         else:
-                            point_ids.append(landmark_id + POSE_OFFSET)
-                            landmark_xy.append((x, y))
+                            mapped_point_id = landmark_id + POSE_OFFSET
+                            # some of the pose values are too noisy to bother with including considering that holistic face and hand tracking is so good
+                            # ignore those points that aren't in the POINT_NAMES list
+                            if mapped_point_id in POINT_NAMES:
+                                point_ids.append(landmark_id + POSE_OFFSET)
+                                landmark_xy.append((x, y))
 
                 if results.right_hand_landmarks:
                     for landmark_id, landmark in enumerate(

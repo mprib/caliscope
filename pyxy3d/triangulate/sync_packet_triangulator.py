@@ -1,9 +1,7 @@
 import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
-import os
-from numba import jit
-from numba.typed import Dict, List
+from numba.typed import Dict
 import numpy as np
 import pandas as pd
 from pyxy3d.cameras.camera_array import CameraArray
@@ -11,8 +9,9 @@ from pyxy3d.cameras.synchronizer import Synchronizer, SyncPacket
 from queue import Queue
 from threading import Thread, Event
 from pathlib import Path
-from pyxy3d.interface import XYZPacket, Tracker
+from pyxy3d.interface import XYZPacket
 
+from pyxy3d.triangulate.triangulation import triangulate_sync_index
 
 class SyncPacketTriangulator:
     """
@@ -48,11 +47,13 @@ class SyncPacketTriangulator:
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
 
         # assemble numba compatible dictionary
-        self.projection_matrices = Dict()
-        # self.projection_matrices = {}
-        for port, cam in self.camera_array.cameras.items():
-            self.projection_matrices[port] = cam.projection_matrix
+        # self.projection_matrices = Dict()
+        # # self.projection_matrices = {}
+        # for port, cam in self.camera_array.cameras.items():
+        #     self.projection_matrices[port] = cam.projection_matrix
 
+        self.projection_matrices = self.camera_array.projection_matrices
+        
         self.subscribers = []
         self.running = True
         self.thread = Thread(target=self.process_incoming, args=(), daemon=True)
@@ -147,60 +148,3 @@ class SyncPacketTriangulator:
                 filename = f"xyz_{self.tracker_name}.csv"
                 df_xyz.to_csv(Path(self.recording_directory,filename))
 
-
-# helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
-@jit(nopython=True, cache=True)
-def unique_with_counts(arr):
-    sorted_arr = np.sort(arr)
-    unique_values = [sorted_arr[0]]
-    counts = [1]
-
-    for i in range(1, len(sorted_arr)):
-        if sorted_arr[i] != sorted_arr[i - 1]:
-            unique_values.append(sorted_arr[i])
-            counts.append(1)
-        else:
-            counts[-1] += 1
-
-    return np.array(unique_values), np.array(counts)
-
-#####################################################################################
-# The following code is adapted from the `Anipose` project, 
-# in particular the `triangulate_simple` function of `aniposelib`
-# Original author:  Lili Karashchuk
-# Project: https://github.com/lambdaloop/aniposelib/
-# Original Source Code : https://github.com/lambdaloop/aniposelib/blob/d03b485c4e178d7cff076e9fe1ac36837db49158/aniposelib/cameras.py#L21
-# This code is licensed under the BSD 2-Clause License
-@jit(nopython=True, parallel=True, cache=True)
-def triangulate_sync_index(
-    projection_matrices, current_camera_indices, current_point_id, current_img
-):
-    # sync_indices_xyz = List()
-    point_indices_xyz = List()
-    obj_xyz = List()
-
-    unique_points, point_counts = unique_with_counts(current_point_id)
-    for index in range(len(point_counts)):
-        if point_counts[index] > 1:
-            # triangulate that point...
-            point = unique_points[index]
-            points_xy = current_img[current_point_id == point]
-            camera_ids = current_camera_indices[current_point_id == point]
-
-            num_cams = len(camera_ids)
-            A = np.zeros((num_cams * 2, 4))
-            for i in range(num_cams):
-                x, y = points_xy[i]
-                P = projection_matrices[camera_ids[i]]
-                A[(i * 2) : (i * 2 + 1)] = x * P[2] - P[0]
-                A[(i * 2 + 1) : (i * 2 + 2)] = y * P[2] - P[1]
-            u, s, vh = np.linalg.svd(A, full_matrices=True)
-            point_xyzw = vh[-1]
-            point_xyz = point_xyzw[:3] / point_xyzw[3]
-
-            point_indices_xyz.append(point)
-            obj_xyz.append(point_xyz)
-
-    return point_indices_xyz, obj_xyz
-# End of adapted code
-##################################################################################

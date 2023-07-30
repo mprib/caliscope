@@ -20,16 +20,16 @@ from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.recording.video_recorder import VideoRecorder
-from pyxy3d.triangulate.sync_packet_triangulator import (
-    SyncPacketTriangulator,
-    triangulate_sync_index,
-)
+from pyxy3d.triangulate.triangulation import triangulate_xy
+
 from pyxy3d.interface import FramePacket, Tracker
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
 from pyxy3d.export import xyz_to_trc
+from pyxy3d.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
+from pyxy3d.post_processing.smoothing import smooth_xyz
 
 class PostProcessor:
     """
@@ -46,8 +46,9 @@ class PostProcessor:
     def __init__(self,recording_path:Path, tracker_enum:TrackerEnum):
         self.recording_path = recording_path
         self.tracker_enum = tracker_enum
-        
         self.config = Configurator(self.recording_path)
+        self.camera_array = self.config.get_camera_array()
+        self.fps = self.config.get_fps_recording()
 
     def create_xy(self):
         """
@@ -93,7 +94,7 @@ class PostProcessor:
             percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
             logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
 
-    def create_xyz(self, include_trc = True) -> None:
+    def create_xyz(self, xy_gap_fill = 3, xyz_gap_fill = 3, cutoff_freq = 6, include_trc = True) -> None:
         """
         creates xyz_{tracker name}.csv file within the recording_path directory
 
@@ -114,68 +115,20 @@ class PostProcessor:
 
         # load in 2d data and triangulate it
         logger.info("Reading in (x,y) data..")
-        xy_data = pd.read_csv(xy_csv_path)
+        xy = pd.read_csv(xy_csv_path)
+        logger.info("Filling small gaps in (x,y) data")
+        xy = gap_fill_xy(xy)
         logger.info("Beginning data triangulation")
-        xyz_history = self.triangulate_xy_data(xy_data)
-        xyz_data = pd.DataFrame(xyz_history)
+        xyz = triangulate_xy(self.camera_array, xy)
+        logger.info("Filling small gaps in (x,y,z) data")
+        xyz = gap_fill_xyz(xyz)
+        logger.info(f"Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz")
+        xyz = smooth_xyz(xyz, order=2, fps=self.fps, cutoff=cutoff_freq)
+        logger.info("Saving (x,y,z) to csv file")       
         xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
-        xyz_data.to_csv(xyz_csv_path)
+        xyz.to_csv(xyz_csv_path)
 
         # only include trc if wanted and only if there is actually good data to export
-        if include_trc and xyz_data.shape[0] > 0:
+        if include_trc and xyz.shape[0] > 0:
            xyz_to_trc(xyz_csv_path, tracker = self.tracker_enum.value()) 
 
-    def triangulate_xy_data(self, xy_data: pd.DataFrame) -> Dict[str, List]:
-        
-        camera_array = self.config.get_camera_array()
-        # assemble numba compatible dictionary
-        projection_matrices = Dict()
-        for port, cam in camera_array.cameras.items():
-            logger.info(f"At port {port}, the projection matrix is {cam.projection_matrix}")
-            projection_matrices[int(port)] = cam.projection_matrix
-
-        xyz_history = {
-            "sync_index": [],
-            "point_id": [],
-            "x_coord": [],
-            "y_coord": [],
-            "z_coord": [],
-        }
-
-        sync_index_max = xy_data["sync_index"].max()
-
-        start = time()
-        last_log_update = int(start)  # only report progress each second
-
-        for index in xy_data["sync_index"].unique():
-            active_index = xy_data["sync_index"] == index
-            port = xy_data["port"][active_index].to_numpy()
-            point_ids = xy_data["point_id"][active_index].to_numpy()
-            img_loc_x = xy_data["img_loc_x"][active_index].to_numpy()
-            img_loc_y = xy_data["img_loc_y"][active_index].to_numpy()
-            imgs_xy = np.vstack([img_loc_x, img_loc_y]).T
-
-            # the fancy part
-            point_id_xyz, points_xyz = triangulate_sync_index(
-                projection_matrices, port, point_ids, imgs_xy
-            )
-
-            if len(point_id_xyz) > 0:
-                # there are points to store so store them...
-                xyz_history["sync_index"].extend([index] * len(point_id_xyz))
-                xyz_history["point_id"].extend(point_id_xyz)
-
-                points_xyz = np.array(points_xyz)
-                xyz_history["x_coord"].extend(points_xyz[:, 0].tolist())
-                xyz_history["y_coord"].extend(points_xyz[:, 1].tolist())
-                xyz_history["z_coord"].extend(points_xyz[:, 2].tolist())
-
-            # only log percent complete each second
-            if int(time()) - last_log_update >= 1:
-                percent_complete = int(100*(index/sync_index_max))
-                logger.info(
-                    f"(Stage 2 of 2): Triangulation of (x,y) point estimates is {percent_complete}% complete"
-                )
-                last_log_update = int(time())
-
-        return xyz_history

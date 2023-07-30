@@ -96,7 +96,7 @@ def triangulate_sync_index(
 
 
 
-def triangulate_xy(camera_array:CameraArray, xy: pd.DataFrame) -> pd.DataFrame:
+def triangulate_xy(xy: pd.DataFrame, camera_array:CameraArray) -> pd.DataFrame:
         
     # assemble numba compatible dictionary
     projection_matrices = camera_array.projection_matrices

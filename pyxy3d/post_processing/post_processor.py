@@ -120,7 +120,7 @@ class PostProcessor:
             logger.info("Filling small gaps in (x,y) data")
             xy = gap_fill_xy(xy)
             logger.info("Beginning data triangulation")
-            xyz = triangulate_xy(self.camera_array, xy)
+            xyz = triangulate_xy( xy, self.camera_array)
         else:
             logger.warn("No points tracked. Terminating post-processing early.")
             return

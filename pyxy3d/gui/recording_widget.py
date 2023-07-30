@@ -217,7 +217,6 @@ class RecordingWidget(QWidget):
     @Slot(dict)                
     def update_dropped_fps(self, dropped_fps:dict):
         "Unravel dropped fps dictionary to a more readable string"
-        logger.info(f"Just received {dropped_fps}")
         text = "Rate of Frame Dropping by Port:    "
         for port, drop_rate in dropped_fps.items():
             text += f"{port}: {drop_rate:.0%}        "
@@ -269,8 +268,6 @@ class FrameDictionaryEmitter(QThread):
             self.ThumbnailImagesBroadcast.emit(thumbnail_qimage)
             
             dropped_fps_dict = {str(port):dropped for port, dropped in self.synchronizer.dropped_fps.items()}
-            logger.info(f"About to emit dictionary: {dropped_fps_dict}")
-            # self.dropped_fps.emit(self.synchronizer.dropped_fps)
             self.dropped_fps.emit(dropped_fps_dict)
 
         logger.info("Stereoframe emitter run thread ended...") 

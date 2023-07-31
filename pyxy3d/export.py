@@ -6,15 +6,14 @@ import csv
 
 from pyxy3d.interface import Tracker
 
-def xyz_to_wide_csv(xyz_path:Path, tracker:Tracker):
+def xyz_to_wide_labelled(xyz:pd.DataFrame, tracker:Tracker)->pd.DataFrame:
     """
     Will save a csv file in the same directory as the long xyz point data
     Column headings will be based on the point_id names in the Tracker
     """
-    df_xyz = pd.read_csv(xyz_path)
-    target_path = Path(xyz_path.parent, f"{xyz_path.stem}_labelled.csv")
+
     # save out named data in a tabular format
-    df_xyz = df_xyz.rename(
+    xyz = xyz.rename(
         {
             "x_coord": "x",
             "y_coord": "y",
@@ -22,11 +21,11 @@ def xyz_to_wide_csv(xyz_path:Path, tracker:Tracker):
         },
         axis=1,
     )
-    df_xyz = df_xyz[["sync_index", "point_id", "x", "y", "z"]]
+    xyz = xyz[["sync_index", "point_id", "x", "y", "z"]]
 
-    df_xyz["point_name"] = df_xyz["point_id"].map(tracker.get_point_name)
+    xyz["point_name"] = xyz["point_id"].map(tracker.get_point_name)
     # pivot the DataFrame wider
-    df_wide = df_xyz.pivot_table(
+    df_wide = xyz.pivot_table(
         index=["sync_index"], columns="point_name", values=["x", "y", "z"]
     )
     # flatten the column names
@@ -37,23 +36,18 @@ def xyz_to_wide_csv(xyz_path:Path, tracker:Tracker):
     df_merged = df_wide.groupby("sync_index").agg("first")
     # sort the dataframe
     df_merged = df_merged.sort_index(axis=1, ascending=True)
-    df_merged.to_csv(target_path)
+    return df_merged
 
-def xyz_to_trc(xyz_path:Path, tracker:Tracker):
+def xyz_to_trc(xyz:pd.DataFrame, tracker:Tracker, time_history_path:Path, target_path:Path):
     """
     Will save a .trc file in the same folder as the long xyz data
     relies on xyz_to_wide_csv for input data
     """  
     # create xyz_labelled file to provide input for trc creation
-    xyz_to_wide_csv(xyz_path, tracker)
-
-    # load in the csv file that just got created
-    xyz_labelled_path = Path(xyz_path.parent, f"{xyz_path.stem}_labelled.csv")
-    df_xyz_labelled = pd.read_csv(xyz_labelled_path)
-    # assert(not df_xyz_labelled.empty)
+    xyz_labelled = xyz_to_wide_labelled(xyz, tracker)
 
     # from here I need to get a .trc file format. For part of that I also need to know the framerate.
-    time_history_path = Path(xyz_path.parent, "frame_time_history.csv")
+    # time_history_path = Path(target_path.parent, "frame_time_history.csv")
     time_history = pd.read_csv(time_history_path)
 
     # get the mean time by sync index
@@ -63,43 +57,44 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
     # Shift times so that it starts at zero
     min_time = sync_time.min()
     sync_time = round(sync_time - min_time,3)
-    df_xyz_labelled.insert(1, "mean_frame_time", sync_time)
+    xyz_labelled.insert(1, "mean_frame_time", sync_time)
     # %%
 
     # Calculate time differences between consecutive frames
-    df_xyz_labelled.sort_values(by="mean_frame_time", inplace=True)
-    df_xyz_labelled["time_diff"] = df_xyz_labelled["mean_frame_time"].diff()
+    xyz_labelled.sort_values(by="mean_frame_time", inplace=True)
+    xyz_labelled["time_diff"] = xyz_labelled["mean_frame_time"].diff()
 
         
 
     # Calculate frame rate for each pair of frames (avoid division by zero)
-    df_xyz_labelled["frame_rate"] = df_xyz_labelled["time_diff"].apply(
+    xyz_labelled["frame_rate"] = xyz_labelled["time_diff"].apply(
         lambda x: 1 / x if x != 0 else 0
     )
 
     # Calculate mean frame rate (drop the first value which is NaN due to the diff operation)
-    mean_frame_rate = df_xyz_labelled["frame_rate"].dropna().mean()
-
+    mean_frame_rate = xyz_labelled["frame_rate"].dropna().mean()
+    
     # Rename 'sync_index' to 'Frame' and 'mean_frame_time' to 'Time'
-    df_xyz_labelled.rename(columns={'sync_index': 'Frame', 'mean_frame_time': 'Time'}, inplace=True)
-    df_xyz_labelled.drop(columns=["time_diff", "frame_rate"], inplace=True) # no longer needed
+    xyz_labelled = xyz_labelled.reset_index() # need sync_index to be just a regular column
+    xyz_labelled.rename(columns={'sync_index': 'Frame', 'mean_frame_time': 'Time'}, inplace=True)
+    xyz_labelled.drop(columns=["time_diff", "frame_rate"], inplace=True) # no longer needed
 
     # Make sure all following fields are in alphabetical order
     # First, get the columns to be sorted, i.e., all columns excluding 'Frame' and 'Time'
-    cols_to_sort = df_xyz_labelled.columns.tolist()[2:]
+    cols_to_sort = xyz_labelled.columns.tolist()[2:]
     cols_to_sort = [col for col in cols_to_sort if not col.startswith("face")]
 
     # Now, sort these columns
     cols_to_sort.sort()
     # Now, create the final column order and rearrange the DataFrame
     final_col_order = ['Frame', 'Time'] + cols_to_sort
-    df_xyz_labelled = df_xyz_labelled[final_col_order]
+    xyz_labelled = xyz_labelled[final_col_order]
 
     # trying a fix...
-    df_xyz_labelled["Frame"] = df_xyz_labelled["Frame"].astype(int)
+    xyz_labelled["Frame"] = xyz_labelled["Frame"].astype(int)
     
     # Get column names from dataframe
-    columns = df_xyz_labelled.columns
+    columns = xyz_labelled.columns
 
     # Remove '_x', '_y', and '_z' suffixes and get unique names
     tracked_points = list(
@@ -113,9 +108,9 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
     units = "m"
     original_data_rate = int(mean_frame_rate)
     orig_data_start_frame = 0
-    num_frames = len(df_xyz_labelled)-1
+    num_frames = len(xyz_labelled)-1
 
-    trc_path = Path(xyz_path.parent,f"{xyz_path.stem}.trc")
+    trc_path = Path(target_path.parent,f"{target_path.stem}.trc")
     trc_filename = str(trc_path)
 
     # this will create the formatted .trc file
@@ -170,11 +165,11 @@ def xyz_to_trc(xyz_path:Path, tracker:Tracker):
 
 
         # and finally actually write the trajectories
-        for row in range(0, len(df_xyz_labelled)):
-            row_data = df_xyz_labelled.iloc[row].tolist()
+        for row in range(0, len(xyz_labelled)):
+            row_data = xyz_labelled.iloc[row].tolist()
     
             # Convert the 'Frame' column value to int to satisfy trc format requirements
-            frame_index = df_xyz_labelled.columns.get_loc('Frame')
+            frame_index = xyz_labelled.columns.get_loc('Frame')
             row_data[frame_index] = int(row_data[frame_index])
 
             tsv_writer.writerow(row_data)

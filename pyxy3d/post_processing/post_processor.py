@@ -27,7 +27,7 @@ from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
-from pyxy3d.export import xyz_to_trc
+from pyxy3d.export import xyz_to_trc, xyz_to_wide_labelled
 from pyxy3d.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
 from pyxy3d.post_processing.smoothing import smooth_xyz
 
@@ -134,6 +134,9 @@ class PostProcessor:
             logger.info("Saving (x,y,z) to csv file")       
             xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
             xyz.to_csv(xyz_csv_path)
+            xyz_wide_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}_labelled.csv")
+            xyz_labelled  = xyz_to_wide_labelled(xyz,self.tracker_enum.value())
+            xyz_labelled.to_csv(xyz_wide_csv_path)
 
         else: 
             logger.warn("No points triangulated. Terminating post-processing early.")
@@ -141,5 +144,7 @@ class PostProcessor:
 
         # only include trc if wanted and only if there is actually good data to export
         if include_trc and xyz.shape[0] > 0:
-           xyz_to_trc(xyz_csv_path, tracker = self.tracker_enum.value()) 
+           trc_path = Path(tracker_output_path, f"xyz_{output_suffix}.trc")
+           time_history_path = Path(tracker_output_path, f"frame_time_history.csv")
+           xyz_to_trc(xyz,tracker=self.tracker_enum.value(), time_history_path=time_history_path,target_path= trc_path) 
 

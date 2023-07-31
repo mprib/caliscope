@@ -6,7 +6,7 @@ Thinking through the steps that must occur:
 
 xy_base
 xy_gapfilled
-~xy_smoothed~ # this actually takes too long, so ignore for now.
+xy_smoothed
 xyz_base
 xyz_gapfilled
 xyz_smoothed

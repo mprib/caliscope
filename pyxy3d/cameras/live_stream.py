@@ -26,6 +26,7 @@ class LiveStream(Stream):
         self.camera: Camera = camera
         self.port = camera.port
         self.track_points = Event()
+        self.size = camera.size
 
         if tracker is not None:
             self.tracker = tracker

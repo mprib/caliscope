@@ -17,8 +17,7 @@ Pyxy3D (*pixie-3d*) is an open-source motion capture tool that allows for marker
 - API for slotting various tracking solutions into the data pipeline
 - triangulation of tracked points
 
-The package comes included with a sample tracker using Google's Mediapipe which illustrates how to use the tracker API and provides markerless motion tracking capacity. The camera management backend allows for recording of synchronized frames from connected webcams. The frame rate, resolution and number of cameras combine to create a pixel processing rate that will ultimately hit a limit for any given hardware configuration. A long term goal of this project is developing integrated open-source hardware that will allow for arbitrary system scalability, but in the meantime, you will need to decide on a balance of resolution, fps and camera count for your given needs.
-
+The package comes included with a sample tracker using Google's Mediapipe which illustrates how to use the tracker API and provides markerless motion tracking capacity. The camera management backend allows for recording of synchronized frames from connected webcams. The frame rate, resolution and number of cameras combine to create a pixel processing rate that will ultimately hit a limit for any given hardware configuration. A long term goal of this project is developing integrated open-source hardware that will allow for arbitrary system scalability, but in the meantime, you will need to decide on a balance of resolution, fps and camera count for your given needs
 
 The gif below gives a quick demo of the following steps:
 1. Single Camera Calibration
@@ -87,7 +86,7 @@ The project leans heavily upon OpenCV, SciPy, and PyQt to provide the following 
 ## Limitations
 
 Please note that the system currently has the following **limitations**:
-- It does not support anything other than standard webcams at the moment 
+- It does not support anything other than standard webcams at the moment (a pipeline for processing pre-recorded videos is in the works).
 - The frame capture backend presents a primary bottleneck that will limit the number of cameras/resolution/frame rates that can be used, which ultimately limits the size and precision of the capture volume.
 - Data export is currently limited to .csv, and .trc files. Use in 3D animation tools like Blender, which require character rigging, will require additional processing.
 

@@ -92,7 +92,10 @@ class RecordingWidget(QWidget):
         
         self.place_widgets()
         self.connect_widgets()        
-        self.update_btn_eligibility()
+        
+        # commenting this out for now...just let people record whenever.
+        # self.update_btn_eligibility()
+        
         logger.info("Recording widget init complete")
     
     def update_btn_eligibility(self):

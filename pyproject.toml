@@ -19,6 +19,7 @@ mediapipe = "0.10.1"
 pyside6 = "^6.5.2"
 pyqtdarktheme = "^2.1.0"
 moviepy = "^1.0.3"
+polars = "^0.18.11"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

@@ -1555,6 +1555,38 @@ dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
+name = "polars"
+version = "0.18.11"
+description = "Blazingly fast DataFrame library"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "polars-0.18.11-cp38-abi3-macosx_10_7_x86_64.whl", hash = "sha256:05f426019092206a3e50844f4b630f43437e52d6c94f90b7382d42136cce2524"},
+    {file = "polars-0.18.11-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:f7ecef0b529838d7985ebd3cfaf303b4f38e88046b0f4e131d91bc09503ace41"},
+    {file = "polars-0.18.11-cp38-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:706e6d23e401bbeda1b3e1f011503f727bd7b68b86b29725e4c567812a9ddb7f"},
+    {file = "polars-0.18.11-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:38d0265647633353e9f895bd3167081e912b0dd38890ae1ccd7f2095e430cee7"},
+    {file = "polars-0.18.11-cp38-abi3-win_amd64.whl", hash = "sha256:7c05a81ebb7b749a5e5e0c6866246f22860f849e474fdf265b43f6f851561acc"},
+    {file = "polars-0.18.11.tar.gz", hash = "sha256:063e0f7c050462b20c0136de04cf5db6fd6424db4395cffcc022a36722ad9fca"},
+]
+
+[package.extras]
+adbc = ["adbc_driver_sqlite"]
+all = ["polars[adbc,cloudpickle,connectorx,deltalake,fsspec,matplotlib,numpy,pandas,pyarrow,pydantic,sqlalchemy,timezone,xlsx2csv,xlsxwriter]"]
+cloudpickle = ["cloudpickle"]
+connectorx = ["connectorx"]
+deltalake = ["deltalake (>=0.10.0)"]
+fsspec = ["fsspec"]
+matplotlib = ["matplotlib"]
+numpy = ["numpy (>=1.16.0)"]
+pandas = ["pandas", "pyarrow (>=7.0.0)"]
+pyarrow = ["pyarrow (>=7.0.0)"]
+pydantic = ["pydantic"]
+sqlalchemy = ["pandas", "sqlalchemy"]
+timezone = ["backports.zoneinfo", "tzdata"]
+xlsx2csv = ["xlsx2csv (>=0.8.0)"]
+xlsxwriter = ["xlsxwriter"]
+
+[[package]]
 name = "proglog"
 version = "0.1.10"
 description = "Log and progress bar manager for console, notebooks, web..."
@@ -2429,4 +2461,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10, <3.10.11"
-content-hash = "b4a0aabc1eaaa958f461072f534395f291e14d1138489eba858c3f9ca5dc4c59"
+content-hash = "a7de4b28834eb7879df2a25a8e984e9e4331a5844007ac7cec22f484b2376b00"

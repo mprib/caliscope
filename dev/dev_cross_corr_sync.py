@@ -1,7 +1,7 @@
 from pyxy3d.logger import get
 import cv2
 from threading import Thread
-
+import time
 logger = get(__name__)
 import pandas as pd
 import numpy as np
@@ -16,21 +16,28 @@ from pyxy3d.interface import FramePacket, Tracker
 
 
 def get_video_data(file_path):
+    logger.info(f"Grabbing video metadata for file at {str(file_path)}")
     video_data = {}
     with VideoFileClip(str(file_path)) as clip:
         video_data["size"] = clip.size
         video_data["fps"] = clip.fps
         video_data["start"] = clip.start
         video_data["end"] = clip.end
+        video_data["duration"] = clip.duration
     return video_data
 
 def save_point_data(mp4_path:Path, tracker:Tracker, camera_index:int, rotation_count:int):
 
     frame_index = 0
     file_data = get_video_data(mp4_path)
-    start_time = file_data["start"]
+    
+    # add camera_index to start time to create known offset for checking purposes.
+    start_time = file_data["start"] + camera_index
+    end_time = file_data["end"]
+    duration = file_data["duration"]
     fps = file_data["fps"]
 
+    frame_count = duration*fps
     logger.info(f"For path:{mp4_path} the data is {file_data}")
 
     capture = cv2.VideoCapture(str(mp4_path))
@@ -43,6 +50,7 @@ def save_point_data(mp4_path:Path, tracker:Tracker, camera_index:int, rotation_c
                   "obj_loc_x":[],
                   "obj_loc_y":[]}  
     while True:
+        current_frame_time = start_time+frame_index/fps
         success, frame = capture.read()
 
         if not success:
@@ -51,7 +59,7 @@ def save_point_data(mp4_path:Path, tracker:Tracker, camera_index:int, rotation_c
         point_packet = tracker.get_points(frame, camera_index, rotation_count)
         frame_packet = FramePacket(
             camera_index,
-            frame_time=frame_index,
+            frame_time=current_frame_time,
             frame=frame,
             points=point_packet,
             draw_instructions=tracker.draw_instructions,
@@ -64,10 +72,14 @@ def save_point_data(mp4_path:Path, tracker:Tracker, camera_index:int, rotation_c
                 point_data[key].extend(new_tidy_table[key])
 
         frame_index += 1
+        
+        percent_complete = round((frame_index/frame_count),2)*100
+        if round(time.time(),1) % 2 == 0:
+            logger.info(f"Landmark tracking for video data from camera index {camera_index} is {percent_complete}% complete.")
 
     point_data_path = Path(mp4_path.parent, f"point_data_{camera_index}.csv")
     logger.info(f"Saving out point data for video file associated with camera {camera_index}...")
-    pd.DataFrame(point_data).to_csv(point_data_path)
+    pd.DataFrame(point_data).to_csv(point_data_path, index= False)
     
 
  
@@ -76,21 +88,25 @@ def create_points_in_directory(recording_directory:Path, tracker:Tracker):
 
     mp4s = recording_directory.glob("*.mp4")
 
-    video_streams = []
-
+    threads = []
     camera_index = 0
     rotation_count = 0  # none of the files are rotated...
     # resolutions = get_resolutions_of_all_mp4s_in_folder(recording_directory)
-
     for mp4_path in mp4s:
         logger.info(f"Begin processing of {mp4_path.name}")
 
         thread = Thread(target=save_point_data, args = [mp4_path, tracker, camera_index, rotation_count])
         thread.start()
         camera_index += 1
+        threads.append(thread)
+        
+    for thread in threads:
+        thread.join()
 
-
-def remove_random_frames(file_path, fps=30, seed=42):
+def _remove_random_frames(file_path, fps=30, seed=42):
+    """
+    This is just a temporary utility function to create some more incomplete sample data to work with.
+    """
     # Set seed for reproducibility
     np.random.seed(seed)
     
@@ -122,32 +138,45 @@ def remove_random_frames(file_path, fps=30, seed=42):
     data.to_csv(new_file_path, index=False)
     
 
+
 if __name__ == "__main__":
     recording_directory = Path(
         r"C:\Users\Mac Prible\OneDrive\pyxy3d\test_record\recording_1"
     )
 
-    charuco = Charuco(
-        columns=4,
-        rows=5,
-        board_height=11,
-        board_width=8.5,
-        dictionary="DICT_4X4_50",
-        units="inch",
-        aruco_scale=0.75,
-        square_size_overide_cm=5.4,
-        inverted=True,
-    )
+    # charuco = Charuco(
+    #     columns=4,
+    #     rows=5,
+    #     board_height=11,
+    #     board_width=8.5,
+    #     dictionary="DICT_4X4_50",
+    #     units="inch",
+    #     aruco_scale=0.75,
+    #     square_size_overide_cm=5.4,
+    #     inverted=True,
+    # )
 
-    tracker = CharucoTracker(charuco)
+    # tracker = CharucoTracker(charuco)
 
-    # comment this out so you don't have to rerun it every time    
+    # # comment this out so you don't have to rerun it every time    
     # create_points_in_directory(recording_directory, tracker)
 
-    for csv_path in recording_directory.glob("*_alt.csv"):
-        logger.info(f"removing file contained at {csv_path}")
-        csv_path.unlink()
+    # for csv_path in recording_directory.glob("*_alt.csv"):
+    #     logger.info(f"removing file contained at {csv_path}")
+    #     csv_path.unlink()
 
-    for csv_path in recording_directory.glob("point_data_*"):
-        logger.info(f"Creating alternate data for test purposes with beginning and ending data deleted")
-        remove_random_frames(csv_path)
+    # for csv_path in recording_directory.glob("point_data_*"):
+    #     logger.info(f"Creating alternate data for test purposes with beginning and ending data deleted")
+    #     _remove_random_frames(csv_path)
+
+    # combine all of the testing data into a single file for ease of interacting with chat GPT
+    data = None
+    for csv_path in recording_directory.glob("*_alt.csv"):
+        if data is None:
+            data = pd.read_csv(csv_path)
+        
+        else:
+            current_data = pd.read_csv(csv_path)
+            data = pd.concat([data,current_data])
+    
+    data.to_csv(Path(recording_directory, "all_alt_data.csv"), index= False)

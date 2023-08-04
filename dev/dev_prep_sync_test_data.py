@@ -78,9 +78,11 @@ def save_point_data(mp4_path:Path, tracker:Tracker, camera_index:int, rotation_c
         if round(time.time(),1) % 2 == 0:
             logger.info(f"Landmark tracking for video data from camera index {camera_index} is {int(percent_complete)}% complete.")
 
+    # rename sync_index to frame_index for clarity...it is only synchronized with itself... 
     point_data_path = Path(mp4_path.parent, f"point_data_{camera_index}.csv")
     logger.info(f"Saving out point data for video file associated with camera {camera_index}...")
     temp_df = pd.DataFrame(point_data)
+    temp_df = temp_df.rename({"sync_index":"frame_index"},axis=1)
     temp_df.to_csv(point_data_path, index=False)
     
 
@@ -144,12 +146,12 @@ def _remove_random_frames(file_path, fps=30, seed=42):
     frames_to_remove_start = np.random.randint(0, max_frames_to_remove)
     frames_to_remove_end = np.random.randint(0, max_frames_to_remove)
     
-    min_frame = data["sync_index"].min()
-    max_frame = data["sync_index"].max()
+    min_frame = data["frame_index"].min()
+    max_frame = data["frame_index"].max()
     
     
     # Remove frames
-    data = data.query(f"sync_index > {min_frame + frames_to_remove_start} and sync_index < {max_frame-frames_to_remove_end}")
+    data = data.query(f"frame_index > {min_frame + frames_to_remove_start} and frame_index < {max_frame-frames_to_remove_end}")
     
     # Reset index
     data.reset_index(drop=True, inplace=True)
@@ -193,10 +195,10 @@ if __name__ == "__main__":
         logger.info(f"Creating alternate data for test purposes with beginning and ending data deleted")
         _remove_random_frames(csv_path)
 
-    combined_data = gap_filled_xy_from_dir(recording_directory=recording_directory,match_string="*_alt.csv", max_gap_size=10)
+    combined_data = gap_filled_xy_from_dir(recording_directory=recording_directory,match_string="*_alt.csv", max_gap_size=3)
 
     # this presence of this here is only going to introduce confusion
-    combined_data = combined_data.drop(labels=["sync_index"], axis=1)
+    # combined_data = combined_data.drop(labels=["sync_index"], axis=1)
 
     combined_data_path = Path(recording_directory, "combined_gap_filled_alt.csv")
     logger.info(f"Saving combined gap-filled data to {combined_data_path}")

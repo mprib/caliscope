@@ -2,6 +2,7 @@ from pyxy3d.logger import get
 import cv2
 from threading import Thread
 import time
+
 logger = get(__name__)
 import pandas as pd
 import numpy as np
@@ -13,6 +14,7 @@ from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.interface import FramePacket, Tracker
 from pyxy3d.post_processing.gap_filling import gap_fill_xy
+
 # first things first, need to process the .mp4 files and create individual files with their tracked data.
 
 
@@ -27,31 +29,35 @@ def get_video_data(file_path):
         video_data["duration"] = clip.duration
     return video_data
 
-def save_point_data(mp4_path:Path, tracker:Tracker, camera_index:int, rotation_count:int):
 
+def save_point_data(
+    mp4_path: Path, tracker: Tracker, camera_index: int, rotation_count: int
+):
     frame_index = 0
     file_data = get_video_data(mp4_path)
-    
+
     # add camera_index to start time to create known offset for checking purposes.
     start_time = file_data["start"] + camera_index
     end_time = file_data["end"]
     duration = file_data["duration"]
     fps = file_data["fps"]
 
-    frame_count = duration*fps
+    frame_count = duration * fps
     logger.info(f"For path:{mp4_path} the data is {file_data}")
 
     capture = cv2.VideoCapture(str(mp4_path))
-    point_data = {"sync_index":[],
-                  "port":[],
-                  "frame_time":[],
-                  "point_id":[],
-                  "img_loc_x":[],
-                  "img_loc_y":[],
-                  "obj_loc_x":[],
-                  "obj_loc_y":[]}  
+    point_data = {
+        "sync_index": [],
+        "port": [],
+        "frame_time": [],
+        "point_id": [],
+        "img_loc_x": [],
+        "img_loc_y": [],
+        "obj_loc_x": [],
+        "obj_loc_y": [],
+    }
     while True:
-        current_frame_time = start_time+frame_index/fps
+        current_frame_time = start_time + frame_index / fps
         success, frame = capture.read()
 
         if not success:
@@ -65,7 +71,7 @@ def save_point_data(mp4_path:Path, tracker:Tracker, camera_index:int, rotation_c
             points=point_packet,
             draw_instructions=tracker.draw_instructions,
         )
-        
+
         new_tidy_table = frame_packet.to_tidy_table(frame_index)
         if new_tidy_table is not None:  # i.e. it has data
             for key, value in point_data.copy().items():
@@ -73,23 +79,24 @@ def save_point_data(mp4_path:Path, tracker:Tracker, camera_index:int, rotation_c
                 point_data[key].extend(new_tidy_table[key])
 
         frame_index += 1
-        
-        percent_complete = round((frame_index/frame_count),2)*100
-        if round(time.time(),1) % 2 == 0:
-            logger.info(f"Landmark tracking for video data from camera index {camera_index} is {int(percent_complete)}% complete.")
 
-    # rename sync_index to frame_index for clarity...it is only synchronized with itself... 
+        percent_complete = round((frame_index / frame_count), 2) * 100
+        if round(time.time(), 1) % 2 == 0:
+            logger.info(
+                f"Landmark tracking for video data from camera index {camera_index} is {int(percent_complete)}% complete."
+            )
+
+    # rename sync_index to frame_index for clarity...it is only synchronized with itself...
     point_data_path = Path(mp4_path.parent, f"point_data_{camera_index}.csv")
-    logger.info(f"Saving out point data for video file associated with camera {camera_index}...")
+    logger.info(
+        f"Saving out point data for video file associated with camera {camera_index}..."
+    )
     temp_df = pd.DataFrame(point_data)
-    temp_df = temp_df.rename({"sync_index":"frame_index"},axis=1)
+    temp_df = temp_df.rename({"sync_index": "frame_index"}, axis=1)
     temp_df.to_csv(point_data_path, index=False)
-    
 
- 
- 
-def create_points_in_directory(recording_directory:Path, tracker:Tracker):
 
+def create_points_in_directory(recording_directory: Path, tracker: Tracker):
     mp4s = recording_directory.glob("*.mp4")
 
     threads = []
@@ -99,15 +106,21 @@ def create_points_in_directory(recording_directory:Path, tracker:Tracker):
     for mp4_path in mp4s:
         logger.info(f"Begin processing of {mp4_path.name}")
 
-        thread = Thread(target=save_point_data, args = [mp4_path, tracker, camera_index, rotation_count])
+        thread = Thread(
+            target=save_point_data,
+            args=[mp4_path, tracker, camera_index, rotation_count],
+        )
         thread.start()
         camera_index += 1
         threads.append(thread)
-        
+
     for thread in threads:
         thread.join()
-            
-def gap_filled_xy_from_dir(recording_directory:Path, match_string, max_gap_size:int)->pd.DataFrame:
+
+
+def gap_filled_xy_from_dir(
+    recording_directory: Path, match_string, max_gap_size: int
+) -> pd.DataFrame:
     """
     this may be a function that is going to actually be used as part of the primary pipeline
     going forward
@@ -117,17 +130,18 @@ def gap_filled_xy_from_dir(recording_directory:Path, match_string, max_gap_size:
 
     1. load in the altered data
     2. perform gap filling on it
-    3. combine all data and return as a df    
+    3. combine all data and return as a df
     """
     data = []
     for csv_path in recording_directory.glob(match_string):
         base_data = pd.read_csv(csv_path)
         gap_filled_data = gap_fill_xy(base_data, max_gap_size)
-        data.append(gap_filled_data)    
-    
+        data.append(gap_filled_data)
+
     combined_data = pd.concat(data)
 
     return combined_data
+
 
 def _remove_random_frames(file_path, fps=30, seed=42):
     """
@@ -135,34 +149,34 @@ def _remove_random_frames(file_path, fps=30, seed=42):
     """
     # Set seed for reproducibility
     np.random.seed(seed)
-    
+
     # Load data
     data = pd.read_csv(file_path)
-    
+
     # Calculate the number of frames equivalent to 2 seconds
     max_frames_to_remove = 2 * fps
-    
+
     # Generate random number of frames to remove from the beginning and end
     frames_to_remove_start = np.random.randint(0, max_frames_to_remove)
     frames_to_remove_end = np.random.randint(0, max_frames_to_remove)
-    
+
     min_frame = data["frame_index"].min()
     max_frame = data["frame_index"].max()
-    
-    
+
     # Remove frames
-    data = data.query(f"frame_index > {min_frame + frames_to_remove_start} and frame_index < {max_frame-frames_to_remove_end}")
-    
+    data = data.query(
+        f"frame_index > {min_frame + frames_to_remove_start} and frame_index < {max_frame-frames_to_remove_end}"
+    )
+
     # Reset index
     data.reset_index(drop=True, inplace=True)
-    
+
     # Generate new file path
     file_path = Path(file_path)
     new_file_path = file_path.with_name(file_path.stem + "_alt" + file_path.suffix)
-    
+
     # Save to new file
     data.to_csv(new_file_path, index=False)
-    
 
 
 if __name__ == "__main__":
@@ -184,7 +198,7 @@ if __name__ == "__main__":
 
     tracker = CharucoTracker(charuco)
 
-    # comment this out so you don't have to rerun it every time    
+    # comment this out so you don't have to rerun it every time
     # create_points_in_directory(recording_directory, tracker)
 
     for csv_path in recording_directory.glob("*_alt.csv"):
@@ -192,10 +206,16 @@ if __name__ == "__main__":
         csv_path.unlink()
 
     for csv_path in recording_directory.glob("point_data_*"):
-        logger.info(f"Creating alternate data for test purposes with beginning and ending data deleted")
+        logger.info(
+            f"Creating alternate data for test purposes with beginning and ending data deleted"
+        )
         _remove_random_frames(csv_path)
 
-    combined_data = gap_filled_xy_from_dir(recording_directory=recording_directory,match_string="*_alt.csv", max_gap_size=3)
+    combined_data = gap_filled_xy_from_dir(
+        recording_directory=recording_directory,
+        match_string="*_alt.csv",
+        max_gap_size=12,
+    )
 
     # this presence of this here is only going to introduce confusion
     # combined_data = combined_data.drop(labels=["sync_index"], axis=1)
@@ -204,4 +224,3 @@ if __name__ == "__main__":
     logger.info(f"Saving combined gap-filled data to {combined_data_path}")
     combined_data.to_csv(combined_data_path, index=False)
     # combine all of the testing data into a single file for ease of interacting with chat GPT
-    

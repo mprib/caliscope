@@ -1,11 +1,11 @@
 
 #%%
 from plotnine import *
-from pyxy3d.logger import get
+# from pyxy3d.logger import get
+# logger = get(__name__)
 import cv2
 from threading import Thread
 import time
-logger = get(__name__)
 import polars as pl
 import numpy as np
 from pathlib import Path
@@ -27,8 +27,18 @@ def assign_tracked_group(df:pl.DataFrame):
 def normalize_y_displacement(df: pl.DataFrame) -> pl.DataFrame:
     mean_y = df['img_loc_y'].mean()
     std_y = df['img_loc_y'].std()
-    df = df.with_columns(((c('img_loc_y') - mean_y) / std_y).alias("norm_y"))
+    
+    mean_x = df['img_loc_x'].mean()
+    std_x = df['img_loc_x'].std()
+
+    df = (df.with_columns(((c('img_loc_x') - mean_x) / std_x).alias("norm_x"))
+            .with_columns(((c('img_loc_y') - mean_y) / std_y).alias("norm_y"))
+    )
     return df
+
+def assign_tracked_group_size(df:pl.DataFrame):
+    counts = df.groupby("track_id").agg(c("port").count().alias("track_group_size"))
+    return df.join(counts, on="track_id") 
 
 # Applying the function in the pipeline
 df_sync = (data
@@ -37,6 +47,7 @@ df_sync = (data
             .groupby(["port", "point_id"]).apply(assign_tracked_group)
             .with_columns(pl.concat_str([c("port"), c("point_id"), c("tracked_subgroup")], separator="_").alias("track_id"))
             .groupby("track_id").apply(normalize_y_displacement)
+            .pipe(assign_tracked_group_size)
            )
 
 df_sync
@@ -46,13 +57,16 @@ df_sync
 df_plt =(df_sync
         #  .filter(c("port").is_in([0,1]))
          .filter(c("point_id")==7)
+         .filter(c("track_group_size")>20)
         #  .to_pandas()
+
         )
 
 plot = (ggplot(df_plt)+
         aes(x="frame_time", y = "norm_y", color = "track_id")+
-        facet_grid("port ~.")+
-        geom_point()
+        facet_grid("port ~ point_id")+
+        geom_point()+
+        theme(legend_position='none')
 )
 plot
 # %%

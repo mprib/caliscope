@@ -214,7 +214,7 @@ if __name__ == "__main__":
     combined_data = gap_filled_xy_from_dir(
         recording_directory=recording_directory,
         match_string="*_alt.csv",
-        max_gap_size=12,
+        max_gap_size=3,
     )
 
     # this presence of this here is only going to introduce confusion

@@ -55,18 +55,18 @@ df_sync
 #%%
 
 df_plt =(df_sync
-        #  .filter(c("port").is_in([0,1]))
-         .filter(c("point_id")==7)
-         .filter(c("track_group_size")>20)
+        #  .filter(c("port").is_in([0]))
+         .filter(c("point_id")==4)
+         .filter(c("track_group_size")>40)
         #  .to_pandas()
 
         )
-
+df_plt.write_csv(Path(recording_directory,"inspect.csv" ))
 plot = (ggplot(df_plt)+
         aes(x="frame_time", y = "norm_y", color = "track_id")+
         facet_grid("port ~ point_id")+
-        geom_point()+
-        theme(legend_position='none')
+        geom_point()
+        # theme(legend_position='none')
 )
 plot
 # %%

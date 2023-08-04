@@ -12,6 +12,7 @@ from pyxy3d.recording.recorded_stream import RecordedStream
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.interface import FramePacket, Tracker
+from pyxy3d.post_processing.gap_filling import gap_fill_xy
 # first things first, need to process the .mp4 files and create individual files with their tracked data.
 
 
@@ -103,6 +104,28 @@ def create_points_in_directory(recording_directory:Path, tracker:Tracker):
         
     for thread in threads:
         thread.join()
+            
+def gap_filled_xy_from_dir(recording_directory:Path, match_string, max_gap_size:int)->pd.DataFrame:
+    """
+    this may be a function that is going to actually be used as part of the primary pipeline
+    going forward
+
+    The gap fill here can be far more aggressive than during actual tracking because the intention
+    is only to create longer sequences that can be used to align the frame_times across multiple cameras
+
+    1. load in the altered data
+    2. perform gap filling on it
+    3. combine all data and return as a df    
+    """
+    data = []
+    for csv_path in recording_directory.glob(match_string):
+        base_data = pd.read_csv(csv_path)
+        gap_filled_data = gap_fill_xy(base_data, max_gap_size)
+        data.append(gap_filled_data)    
+    
+    combined_data = pd.concat(data)
+
+    return combined_data
 
 def _remove_random_frames(file_path, fps=30, seed=42):
     """
@@ -160,7 +183,7 @@ if __name__ == "__main__":
     tracker = CharucoTracker(charuco)
 
     # comment this out so you don't have to rerun it every time    
-    create_points_in_directory(recording_directory, tracker)
+    # create_points_in_directory(recording_directory, tracker)
 
     for csv_path in recording_directory.glob("*_alt.csv"):
         logger.info(f"removing file contained at {csv_path}")
@@ -170,14 +193,13 @@ if __name__ == "__main__":
         logger.info(f"Creating alternate data for test purposes with beginning and ending data deleted")
         _remove_random_frames(csv_path)
 
+    combined_data = gap_filled_xy_from_dir(recording_directory=recording_directory,match_string="*_alt.csv", max_gap_size=10)
+
+    # this presence of this here is only going to introduce confusion
+    combined_data = combined_data.drop(labels=["sync_index"], axis=1)
+
+    combined_data_path = Path(recording_directory, "combined_gap_filled_alt.csv")
+    logger.info(f"Saving combined gap-filled data to {combined_data_path}")
+    combined_data.to_csv(combined_data_path, index=False)
     # combine all of the testing data into a single file for ease of interacting with chat GPT
-    data = None
-    for csv_path in recording_directory.glob("*_alt.csv"):
-        if data is None:
-            data = pd.read_csv(csv_path)
-        
-        else:
-            current_data = pd.read_csv(csv_path)
-            data = pd.concat([data,current_data])
     
-    data.to_csv(Path(recording_directory, "all_alt_data.csv"), index= False)

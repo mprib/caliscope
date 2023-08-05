@@ -51,7 +51,7 @@ class VideoRecorder:
             path = str(Path(self.destination_folder, f"port_{port}{self.suffix}.mp4"))
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
-            frame_size = stream.camera.size
+            frame_size = stream.size
 
             writer = cv2.VideoWriter(path, fourcc, stream.fps, frame_size)
             self.video_writers[port] = writer

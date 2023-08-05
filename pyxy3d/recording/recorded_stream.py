@@ -36,12 +36,19 @@ class RecordedStream(Stream):
     """
 
     def __init__(
-        self, camera: CameraData, directory: Path, fps_target:int=6, tracker: Tracker = None
+        self,
+        directory: Path,
+        port: int,
+        size, 
+        rotation_count: int,
+        fps_target: int = 6,
+        tracker: Tracker = None,
     ):
         # self.port = port
         self.directory = directory
-        self.camera = camera
-        self.port = camera.port
+        self.port = port
+        self.size = size
+        self.rotation_count = rotation_count
 
         if tracker is not None:
             self.tracker = tracker
@@ -64,8 +71,10 @@ class RecordedStream(Stream):
         self.port_history = synched_frames_history[
             synched_frames_history["port"] == self.port
         ]
-       
-        self.port_history['frame_index'] = self.port_history['frame_time'].rank(method='min').astype(int) - 1
+
+        self.port_history["frame_index"] = (
+            self.port_history["frame_time"].rank(method="min").astype(int) - 1
+        )
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
 
@@ -168,12 +177,13 @@ class RecordedStream(Stream):
                 break
 
             if self.track_points:
-                self.point_data = self.tracker.get_points(self.frame, self.port, self.camera.rotation_count)
+                self.point_data = self.tracker.get_points(
+                    self.frame, self.port, self.rotation_count
+                )
                 draw_instructions = self.tracker.draw_instructions
             else:
                 self.point_data = None
                 draw_instructions = None
-
 
             frame_packet = FramePacket(
                 port=self.port,
@@ -181,9 +191,8 @@ class RecordedStream(Stream):
                 frame=self.frame,
                 # frame_index=self.frame_index,
                 points=self.point_data,
-                draw_instructions=draw_instructions
+                draw_instructions=draw_instructions,
             )
-            
 
             logger.debug(
                 f"Placing frame on reel {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"
@@ -218,8 +227,10 @@ class RecordedStreamPool:
 
         for port, camera in self.camera_array.cameras.items():
             # tracker: Tracker = tracker.value()
+            rotation_count = camera.rotation_count
+            size = camera.size
             self.streams[port] = RecordedStream(
-                camera, directory, fps_target=fps_target, tracker=tracker
+                directory, port,size, rotation_count, fps_target=fps_target, tracker=tracker
             )
 
     def play_videos(self):

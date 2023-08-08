@@ -143,6 +143,7 @@ class VideoRecorder:
         if include_video:
             logger.info("releasing video writers...")
             for port in self.synchronizer.ports:
+                logger.info(f"Releasing video writer associated with port {port}")
                 self.video_writers[port].release()
 
             # del self.video_writers

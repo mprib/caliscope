@@ -26,7 +26,6 @@ class LiveStream(Stream):
         self.camera: Camera = camera
         self.port = camera.port
         self.track_points = Event()
-        self.size = camera.size
 
         if tracker is not None:
             self.tracker = tracker
@@ -57,6 +56,12 @@ class LiveStream(Stream):
         # initialize time trackers for actual FPS determination
         self.frame_time = perf_counter()
         self.avg_delta_time = 1  # initialize to something to avoid errors elsewhere
+
+    @property
+    def size(self):
+        # because the camera resolution will potentially change after stream initialization, this should be 
+        # read directly from the camera whenever a caller (e.g. videorecorder) wants the current resolution
+        return self.camera.size
 
     def set_tracking_on(self, track: bool):
         if track:

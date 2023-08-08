@@ -8,7 +8,6 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.10, <3.10.11"  #frequent segfaults in python 3.10.11
-opencv-contrib-python = "^4.7"
 pandas = "^1.5.0"
 scipy = "^1.10.1"
 pyqtgraph = "^0.13.2"
@@ -21,6 +20,7 @@ pyqtdarktheme = "^2.1.0"
 polars = "^0.18.11"
 plotnine = "^0.12.2"
 pyarrow = "^12.0.1"
+opencv-contrib-python = "^4.8.0.74"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

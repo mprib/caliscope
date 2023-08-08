@@ -52,7 +52,7 @@ class VideoRecorder:
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
             frame_size = stream.size
-
+            logger.info(f"Creating video writer with fps of {stream.fps} and frame size of {frame_size}")
             writer = cv2.VideoWriter(path, fourcc, stream.fps, frame_size)
             self.video_writers[port] = writer
 
@@ -117,7 +117,10 @@ class VideoRecorder:
 
                     if include_video:
                         # store the frame
-                        logger.debug("Writing frame")
+                        if self.sync_index %50==0:
+                            logger.info(f"Writing frame for port {port} and sync index {self.sync_index}")
+                            logger.info(f"frame size  {frame.shape}")
+                    
                         self.video_writers[port].write(frame)
 
                         # store to assocated data in the dictionary
@@ -143,6 +146,7 @@ class VideoRecorder:
         if include_video:
             logger.info("releasing video writers...")
             for port in self.synchronizer.ports:
+                logger.info(f"releasing video writer for port {port}")
                 self.video_writers[port].release()
 
             # del self.video_writers

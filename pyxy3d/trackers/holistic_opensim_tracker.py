@@ -1,5 +1,6 @@
 import pyxy3d.logger
 
+
 logger = pyxy3d.logger.get(__name__)
 from threading import Thread, Event
 from queue import Queue
@@ -11,6 +12,9 @@ import cv2
 # cap = cv2.VideoCapture(0)
 from pyxy3d.interface import Tracker, PointPacket
 from pyxy3d.trackers.helper import apply_rotation, unrotate_points
+
+MIN_DETECTION_CONFIDENCE = 0.5
+MIN_TRACKING_CONFIDENCE = 0.95
 
 # The following are from base Pose and can be ignored in favor of 
 # better estimated Holistic points
@@ -197,7 +201,7 @@ class HolisticOpenSimTracker(Tracker):
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance
         with mp.solutions.holistic.Holistic(
-            min_detection_confidence=0.8, min_tracking_confidence=0.8
+            min_detection_confidence=MIN_DETECTION_CONFIDENCE, min_tracking_confidence=MIN_TRACKING_CONFIDENCE
         ) as holistic:
             while True:
                 frame = self.in_queues[port].get()

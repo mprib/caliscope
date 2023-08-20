@@ -8,6 +8,10 @@
 </div>
 
 
+
+https://github.com/mprib/pyxy3d/assets/31831778/a098fae3-6fe0-4344-846c-7d1c7cb6780e
+
+
 ---
 ## About
 

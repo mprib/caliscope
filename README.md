@@ -9,8 +9,11 @@
 
 
 
-![Output Used in Blender Rigging](https://github.com/mprib/pyxy3d/assets/31831778/a098fae3-6fe0-4344-846c-7d1c7cb6780e)
 
+https://github.com/mprib/pyxy3d/assets/31831778/96413cf8-52d7-4054-ab13-a5f8daa4cbf9
+
+
+![charuco_ballerina](https://github.com/mprib/pyxy3d/assets/31831778/2f235ecd-0f1d-4bb8-9935-2ed21517cd0e)
 
 ---
 ## About

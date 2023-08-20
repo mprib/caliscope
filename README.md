@@ -8,12 +8,12 @@
 </div>
 
 
-
-
 https://github.com/mprib/pyxy3d/assets/31831778/96413cf8-52d7-4054-ab13-a5f8daa4cbf9
 
+The above was created with a t440p laptop and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames, landmark detection, and point triangulation. The Blender output process is currently a bit ad hoc. The plan is to evolve that workflow into a dedicated Blender add on that can process the output of pyxy3d and create rigged animations in blender.
 
-![charuco_ballerina](https://github.com/mprib/pyxy3d/assets/31831778/2f235ecd-0f1d-4bb8-9935-2ed21517cd0e)
+
+<div align="center"><img src = "https://github.com/mprib/pyxy3d/assets/31831778/2f235ecd-0f1d-4bb8-9935-2ed21517cd0e" width = "50%"></div>
 
 ---
 ## About

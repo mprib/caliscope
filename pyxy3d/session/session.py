@@ -32,7 +32,7 @@ from pyxy3d.recording.video_recorder import VideoRecorder
 
 # %%
 MAX_CAMERA_PORT_CHECK = 10
-FILTERED_FRACTION = 0.05  # by default, 5% of image points with highest reprojection error are filtered out during calibration
+FILTERED_FRACTION = 0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
 
 
 class SessionMode(Enum):

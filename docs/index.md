@@ -14,7 +14,7 @@ The packages comes included with a sample tracker using Google's Mediapipe which
 
 This project is at a very early stage so please bear with us while going through the inevitable growing pains that are ahead. You feedback is appreciated. If you have specific recommendations, please consider creating an [issue](https://github.com/mprib/pyxy3d/issues). If you have more general questions or thoughts about the project, please open up a thread in the [discussions](https://github.com/mprib/pyxy3d/discussions).
 
-If you are just starting out here and trying to get a basic handle on what this is, what it does, and how it is used, it might be best to dive into the [FAQ](), or just watch this quick demo of a calibration and capture session:
+If you are just starting out here and trying to get a basic handle on what this is, what it does, and how it is used, it might be best to dive into the [FAQ](), or just watch this quick demo of a calibration and capture session. Please note that the interface has evolved from this demo and creating a new one is on the to-do list:
 
 <div align="center">
 <iframe width="1280" height="720" src="https://www.youtube.com/embed/QHQKkLCE0e4" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe> </div>

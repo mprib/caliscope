@@ -77,7 +77,7 @@ Refer to the [Quick Start Video Walkthrough](https://youtu.be/QHQKkLCE0e4) to se
 
 ## Key Features
 
-The project leans heavily upon OpenCV, SciPy, and PyQt to provide the following **key features**:
+The project leans heavily upon OpenCV, SciPy, and PySide6 to provide the following **key features**:
 
 - User-friendly graphical user interface (GUI)
 - Easy creation and modification of the charuco calibration board

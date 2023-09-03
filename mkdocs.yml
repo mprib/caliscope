@@ -36,9 +36,6 @@ nav:
       - Installation: installation.md
       - Calibration: calibration.md
       - Data Capture: data_capture.md
-  - Reference:
-      - Code Map: project_structure.md
-      - Docs: doc_notes.md
 
 plugins:
   - search

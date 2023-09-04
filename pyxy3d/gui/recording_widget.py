@@ -243,7 +243,7 @@ class FrameDictionaryEmitter(QThread):
     ThumbnailImagesBroadcast = Signal(dict)
     dropped_fps = Signal(dict)
     
-    def __init__(self, synchronizer: Synchronizer, single_frame_height=200):
+    def __init__(self, synchronizer: Synchronizer, single_frame_height=300):
         
         super(FrameDictionaryEmitter,self).__init__()
         self.single_frame_height = single_frame_height

@@ -46,7 +46,9 @@ The project leans heavily upon OpenCV, SciPy, and PySide6 to provide the followi
 
 | Feature | Demo|
 |---------|-----|
-|Charuco Board .png creation|https://github.com/mprib/pyxy3d/assets/31831778/1fde65a9-3386-40e1-95c2-3bc05ea71a03|
+|Charuco Board .png creation||
+
+https://github.com/mprib/pyxy3d/assets/31831778/1fde65a9-3386-40e1-95c2-3bc05ea71a03
 
 
 

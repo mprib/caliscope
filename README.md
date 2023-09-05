@@ -52,7 +52,7 @@ The project leans heavily upon OpenCV, SciPy, PySide6 and Google's Mediapipe to 
 
 ### Charuco Board Creation
 
-A .png file of the board is saved and the calibration tracking will refer to this board. A mirror image board can also be used to improve multicamera calibration data collection for cameras that may not have an easy view of a single plane of the board.
+A .png file of the configured board can be saved out for ease of printing. The colors can be inverted to save on ink, in which case the video data will be converted to grayscale and inverted. A mirror image board can also be used to improve multicamera data collection for cameras that may not have an easy view of a single plane of the board.
 
 https://github.com/mprib/pyxy3d/assets/31831778/b8b4736f-c7d7-4ba4-a92a-6817ba9cbf61
 

@@ -29,6 +29,8 @@ Pyxy3D (*pixie-3d*) is an open-source motion capture tool that allows for marker
 
 ## Key Features
 
+[Charuco Board Creation](###charuco-board-creation)
+
 The project leans heavily upon OpenCV, SciPy, and PySide6 to provide the following **key features**:
 
 - User-friendly graphical user interface (GUI)
@@ -58,7 +60,7 @@ Connect to available webcams, set exposure, resolution, and adjust for any rotat
 
 https://github.com/mprib/pyxy3d/assets/31831778/2fe0181d-eaf0-4b76-84db-98bedfc9dbee
 
-### Calibrate Camera Intrinsics
+### Intrinsic Camera Calibration
 
 With visual feedback to confirm quality of recorded data, intrinsic camera characteristics (camera matrix and distortion are estimated). In addition to displaying RMSE, the distortion model can be applied to the live video feed to assess reasonability. Once good estimates of these parameters are estimated for a given camera, they don't need to be estimated again, allowing quick multicamera recalibration as the recording setup changes.
 

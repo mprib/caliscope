@@ -79,6 +79,18 @@ https://github.com/mprib/pyxy3d/assets/31831778/08656444-e846-4dbc-b278-51f0ab8d
 
 ### Post Processing
 
+https://github.com/mprib/pyxy3d/assets/31831778/25bdf3a1-2bd0-48e4-a4d8-2815867c94ff
+
+Recordings can be processed with built in landmark trackers which are currently based around Google's Mediapipe. The post-processing pipeline goes through several stages:
+
+1. landmark identification across all recordings
+2. small 2D gap-filling (<3 frames)
+3. point triangulation
+4. small 3d gap-filling (<3 frames)
+5. trajectory smoothing (bidirectional butterworth at 6Hz)
+
+Results are visualized in the pyqtgraph window for checking quality of results. Labelled (x,y,z) coordinates are saved in a `.csv` file accessible from the recording directory (can be opened from the post-processing tab). When  full body data is tracked (I'm at my desk in this walk-through so not applicable) a configuration file can be generated that specificies mean distances between landmarks. This configuration was used to auto-scale the metarig animation shown in the ballet video at the top.
+
 
 
 ## Quick Start

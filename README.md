@@ -33,13 +33,18 @@ The project leans heavily upon OpenCV, SciPy, PySide6 and Google's Mediapipe to 
 
 [Charuco Board Creation](#charuco-board-creation)
 
+
 [Camera Configuration](#camera-configuration)
+
 
 [Intrinsic Camera Calibration](#intrinsic-camera-calibration)
 
+
 [Multicamera Calibration](#multicamera-calibration)
 
+
 [Recording of Synchronized Frames](#record-synchronized-frames)
+
 
 [Post-Processing](#post-processing)
 

@@ -29,7 +29,7 @@ Pyxy3D (*pixie-3d*) is an open-source motion capture tool that allows for marker
 
 ## Key Features
 
-[Charuco Board Creation](###charuco-board-creation)
+[Charuco Board Creation](#charuco-board-creation)
 
 The project leans heavily upon OpenCV, SciPy, and PySide6 to provide the following **key features**:
 

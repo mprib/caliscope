@@ -61,8 +61,6 @@ https://github.com/mprib/pyxy3d/assets/31831778/b8b4736f-c7d7-4ba4-a92a-6817ba9c
 ### Camera Configuration
 Connect to available webcams, set exposure, resolution, and adjust for any rotation in the camera.
 
----
-
 https://github.com/mprib/pyxy3d/assets/31831778/2fe0181d-eaf0-4b76-84db-98bedfc9dbee
 
 ---

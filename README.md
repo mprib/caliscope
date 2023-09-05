@@ -30,6 +30,12 @@ Pyxy3D (*pixie-3d*) is an open-source motion capture tool that allows for marker
 ## Key Features
 
 [Charuco Board Creation](#charuco-board-creation)
+[Camera Configuration](#camera-configuration)
+[Intrinsic Camera Calibration](#intrinsic-camera-calibration)
+[Multicamera Calibration](#multicamera-calibration)
+[Recording of Synchronized Frames](#record-synchronized-frames)
+[Post-Processing](#post-processing)
+
 
 The project leans heavily upon OpenCV, SciPy, and PySide6 to provide the following **key features**:
 
@@ -79,7 +85,7 @@ Frames are synchronized in real-time meaning that frame drops can be assessed an
 https://github.com/mprib/pyxy3d/assets/31831778/08656444-e846-4dbc-b278-51f0ab8d76db
 
 
-### Post Processing
+### Post-Processing
 
 https://github.com/mprib/pyxy3d/assets/31831778/25bdf3a1-2bd0-48e4-a4d8-2815867c94ff
 

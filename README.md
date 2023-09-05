@@ -67,7 +67,9 @@ https://github.com/mprib/pyxy3d/assets/31831778/2fe0181d-eaf0-4b76-84db-98bedfc9
 
 ### Intrinsic Camera Calibration
 
-With visual feedback to confirm quality of recorded data, intrinsic camera characteristics (camera matrix and distortion are estimated). In addition to displaying RMSE, the distortion model can be applied to the live video feed to assess reasonability. Once good estimates of these parameters are estimated for a given camera, they don't need to be estimated again, allowing quick multicamera recalibration as the recording setup changes.
+Visual feedback is provided to enable easy assessment of how well the calibration board is being picked up by the camera. Intrinsic camera characteristics (camera matrix and distortion) can be quickly estimated. In addition to displaying RMSE, the distortion model can be applied to the live video feed to assess reasonability. 
+
+Once good estimates of these parameters are made for a given camera, they don't need to be estimated again, allowing quick multicamera recalibration as the recording setup changes. All camera parameters are stored in a `.toml` config file for ease of storage and inspection.
 
 https://github.com/mprib/pyxy3d/assets/31831778/b975546f-8ba1-481e-8fd1-29be5e565572
 

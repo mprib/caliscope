@@ -61,8 +61,11 @@ https://github.com/mprib/pyxy3d/assets/31831778/b8b4736f-c7d7-4ba4-a92a-6817ba9c
 ### Camera Configuration
 Connect to available webcams, set exposure, resolution, and adjust for any rotation in the camera.
 
+---
 
 https://github.com/mprib/pyxy3d/assets/31831778/2fe0181d-eaf0-4b76-84db-98bedfc9dbee
+
+---
 
 ### Intrinsic Camera Calibration
 
@@ -70,11 +73,15 @@ With visual feedback to confirm quality of recorded data, intrinsic camera chara
 
 https://github.com/mprib/pyxy3d/assets/31831778/b975546f-8ba1-481e-8fd1-29be5e565572
 
+---
+
 ### Multicamera Calibration
 
 Visual feedback, target board counts, and real-time checks on the collected data ensure that the bundle adjustment optimization quickly converges to a solution given good intrinisic camera parameter estimates and sensible initialization of 6DoF estimates based on daisy-chained stereopairs.
 
 https://github.com/mprib/pyxy3d/assets/31831778/2a02b10f-b7a8-4dba-ac15-965605f42f6f
+
+---
 
 ### Record Synchronized Frames
 
@@ -82,6 +89,7 @@ Frames are synchronized in real-time meaning that frame drops can be assessed an
 
 https://github.com/mprib/pyxy3d/assets/31831778/08656444-e846-4dbc-b278-51f0ab8d76db
 
+---
 
 ### Post-Processing
 
@@ -97,7 +105,7 @@ Recordings can be processed with built in landmark trackers which are currently 
 
 Results are visualized in the pyqtgraph window for checking quality of results. Labelled (x,y,z) coordinates are saved in a `.csv` file accessible from the recording directory (can be opened from the post-processing tab). When  full body data is tracked (I'm at my desk in this walk-through so not applicable) a configuration file can be generated that specificies mean distances between landmarks. This configuration was used to auto-scale the metarig animation shown in the ballet video at the top.
 
-
+---
 
 ## Quick Start
 

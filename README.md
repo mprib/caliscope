@@ -44,13 +44,22 @@ The project leans heavily upon OpenCV, SciPy, and PySide6 to provide the followi
 - Visualization of triangulated points for quick confirmation of output quality
 - Currently exporting to `.csv` and `.trc` file formats
 
-| Feature | Demo|
-|---------|-----|
-|Charuco Board .png creation||
 
+### Charuco Board Creation
+
+A .png file of the board is saved and the calibration tracking will refer to this board. A mirror image board can also be used to improve multicamera calibration data collection for cameras that may not have an easy view of a single plane of the board.
 https://github.com/mprib/pyxy3d/assets/31831778/1fde65a9-3386-40e1-95c2-3bc05ea71a03
 
+### Camera Configuration
+Connect to available webcams, set exposure, resolution, and adjust for any rotation in the camera.
 
+https://github.com/mprib/pyxy3d/assets/31831778/935c5f1e-26a1-44f1-af79-4dd476482966
+
+### Calibrate Camera Intrinsics
+
+With visual feedback to confirm quality of recorded data, intrinsic camera characteristics (camera matrix and distortion are estimated). In addition to displaying RMSE, the distortion model can be applied to the live video feed to assess reasonability.
+
+https://github.com/mprib/pyxy3d/assets/31831778/52aa9884-16b7-42b0-bbad-8dd8f1d95afc
 
 
 ## Quick Start

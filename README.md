@@ -53,13 +53,17 @@ https://github.com/mprib/pyxy3d/assets/31831778/1fde65a9-3386-40e1-95c2-3bc05ea7
 ### Camera Configuration
 Connect to available webcams, set exposure, resolution, and adjust for any rotation in the camera.
 
-https://github.com/mprib/pyxy3d/assets/31831778/935c5f1e-26a1-44f1-af79-4dd476482966
+
+https://github.com/mprib/pyxy3d/assets/31831778/2fe0181d-eaf0-4b76-84db-98bedfc9dbee
 
 ### Calibrate Camera Intrinsics
 
 With visual feedback to confirm quality of recorded data, intrinsic camera characteristics (camera matrix and distortion are estimated). In addition to displaying RMSE, the distortion model can be applied to the live video feed to assess reasonability.
 
-https://github.com/mprib/pyxy3d/assets/31831778/52aa9884-16b7-42b0-bbad-8dd8f1d95afc
+https://github.com/mprib/pyxy3d/assets/31831778/b975546f-8ba1-481e-8fd1-29be5e565572
+
+### Multicamera Calbibration
+
 
 
 ## Quick Start

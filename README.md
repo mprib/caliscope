@@ -58,13 +58,15 @@ https://github.com/mprib/pyxy3d/assets/31831778/2fe0181d-eaf0-4b76-84db-98bedfc9
 
 ### Calibrate Camera Intrinsics
 
-With visual feedback to confirm quality of recorded data, intrinsic camera characteristics (camera matrix and distortion are estimated). In addition to displaying RMSE, the distortion model can be applied to the live video feed to assess reasonability.
+With visual feedback to confirm quality of recorded data, intrinsic camera characteristics (camera matrix and distortion are estimated). In addition to displaying RMSE, the distortion model can be applied to the live video feed to assess reasonability. Once good estimates of these parameters are estimated for a given camera, they don't need to be estimated again, allowing quick multicamera recalibration as the recording setup changes.
 
 https://github.com/mprib/pyxy3d/assets/31831778/b975546f-8ba1-481e-8fd1-29be5e565572
 
-### Multicamera Calbibration
+### Multicamera Calibration
 
+Visual feedback, target board counts, and real-time checks on the collected data ensure that the bundle adjustment optimization quickly converges to a solution given good intrinisic camera parameter estimates and sensible initialization of 6DoF estimates based on daisy-chained stereopairs.
 
+https://github.com/mprib/pyxy3d/assets/31831778/2a02b10f-b7a8-4dba-ac15-965605f42f6f
 
 ## Quick Start
 

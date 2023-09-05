@@ -29,28 +29,19 @@ Pyxy3D (*pixie-3d*) is an open-source motion capture tool that allows for marker
 
 ## Key Features
 
+The project leans heavily upon OpenCV, SciPy, PySide6 and Google's Mediapipe to provide the following **key features**:
+
 [Charuco Board Creation](#charuco-board-creation)
+
 [Camera Configuration](#camera-configuration)
+
 [Intrinsic Camera Calibration](#intrinsic-camera-calibration)
+
 [Multicamera Calibration](#multicamera-calibration)
+
 [Recording of Synchronized Frames](#record-synchronized-frames)
+
 [Post-Processing](#post-processing)
-
-
-The project leans heavily upon OpenCV, SciPy, and PySide6 to provide the following **key features**:
-
-- User-friendly graphical user interface (GUI)
-- Easy creation and modification of the charuco calibration board
-- Both extrinsic and intrinsic camera parameters are estimated
-- Optional double-sided charuco board for better positional estimates of cameras placed opposite each other
-- Visual feedback during the calibration process 
-- World origin setting using the calibration board 
-- Fast convergence during bundle adjustment due to parameter initializations based on daisy-chained stereopairs of cameras
-- Recording of synchronized frames from connected webcams for post-processing
-- Tracker API for future extensibility with included sample implementation using Mediapipe 
-- Triangulation of tracked landmarks
-- Visualization of triangulated points for quick confirmation of output quality
-- Currently exporting to `.csv` and `.trc` file formats
 
 
 ### Charuco Board Creation

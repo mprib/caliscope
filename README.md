@@ -70,6 +70,17 @@ Visual feedback, target board counts, and real-time checks on the collected data
 
 https://github.com/mprib/pyxy3d/assets/31831778/2a02b10f-b7a8-4dba-ac15-965605f42f6f
 
+### Record Synchronized Frames
+
+Frames are synchronized in real-time meaning that frame drops can be assessed and the target frame rate can be adjusted as need be. In the example below, port 1 drops 1-2% of frames at 30fps, but this resolves with a minor tweak to the frame rate.
+
+https://github.com/mprib/pyxy3d/assets/31831778/08656444-e846-4dbc-b278-51f0ab8d76db
+
+
+### Post Processing
+
+
+
 ## Quick Start
 
 This package has only been successfully tested on Windows 10 and MacOS 12 Ventura. 

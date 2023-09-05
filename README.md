@@ -48,6 +48,7 @@ The project leans heavily upon OpenCV, SciPy, PySide6 and Google's Mediapipe to 
 
 [Post-Processing](#post-processing)
 
+---
 
 ### Charuco Board Creation
 
@@ -55,6 +56,7 @@ A .png file of the board is saved and the calibration tracking will refer to thi
 
 https://github.com/mprib/pyxy3d/assets/31831778/b8b4736f-c7d7-4ba4-a92a-6817ba9cbf61
 
+---
 
 ### Camera Configuration
 Connect to available webcams, set exposure, resolution, and adjust for any rotation in the camera.

@@ -49,8 +49,8 @@ The project leans heavily upon OpenCV, SciPy, and PySide6 to provide the followi
 
 A .png file of the board is saved and the calibration tracking will refer to this board. A mirror image board can also be used to improve multicamera calibration data collection for cameras that may not have an easy view of a single plane of the board.
 
+https://github.com/mprib/pyxy3d/assets/31831778/b8b4736f-c7d7-4ba4-a92a-6817ba9cbf61
 
-https://github.com/mprib/pyxy3d/assets/31831778/1fde65a9-3386-40e1-95c2-3bc05ea71a03
 
 ### Camera Configuration
 Connect to available webcams, set exposure, resolution, and adjust for any rotation in the camera.

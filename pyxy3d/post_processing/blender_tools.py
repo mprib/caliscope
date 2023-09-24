@@ -2,18 +2,12 @@
 import pyxy3d.logger
 import json
 
-logger = pyxy3d.logger.get(__name__)
-from pyxy3d import __root__
-import pytest
-import shutil
-import cv2
 from pathlib import Path
-import time
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 
 from pyxy3d.trackers.tracker_enum import TrackerEnum
+logger = pyxy3d.logger.get(__name__)
 
 def calculate_distance(xyz_trajectory_data:pd.DataFrame, point1:str, point2:str):
     """

@@ -5,7 +5,7 @@ import toml
 import platform
 
 __package_name__ = "pyxy3d"
-__version__ = "v0.0.17"
+__version__ = "v0.2.4"
 
 __author__ = """Mac Prible"""
 __email__ = "prible@gmail.com"

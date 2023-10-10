@@ -21,3 +21,4 @@ dev/sample_sessions*
 *.csv
 *config.toml
 *.xlsx
+pyxy3d/_version.py

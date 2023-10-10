@@ -16,12 +16,13 @@
 # New camera configurations
 #%%
 
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import platform
 import time
 import os
 
 import cv2
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 TEST_FRAME_COUNT = 10
 MIN_RESOLUTION_CHECK = 200
@@ -112,7 +113,7 @@ class Camera:
         """Note that OpenCV appears to change the exposure value, but
         this is not read back accurately through the getter, so just
         track it manually after updating"""
-        if os.name == "nt":
+        if platform.system()=="Windows":
             self.capture.set(cv2.CAP_PROP_EXPOSURE, value)
         
         else:
@@ -274,7 +275,7 @@ if __name__ == "__main__":
         cam.connect()
         logger.info(f"Setting camera size to {res}")
         cam.size = res
-        logger.info(f"Resolution successfully updated...")
+        logger.info("Resolution successfully updated...")
             
         while True:
             success, frame = cam.capture.read()
@@ -298,7 +299,7 @@ if __name__ == "__main__":
         elapsed_seconds = int(time.perf_counter()-start_time)
         logger.debug(f"{elapsed_seconds} seconds have elapsed since loop began")
 
-        cv2.imshow(f"Exposure Test", frame)
+        cv2.imshow("Exposure Test", frame)
        
         cam.exposure = -10+elapsed_seconds 
          

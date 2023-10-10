@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 import toml
-
+import platform
 
 __package_name__ = "pyxy3d"
 __version__ = "v0.0.17"
@@ -27,7 +27,8 @@ __repo_issues_url__ = f"{__repo_url__}issues"
 # # __user_dir__.mkdir(exist_ok=True,parents=True)
 
 # Determine platform-specific application data directory
-if os.name == 'nt':  # Windows
+if platform.system() == "Windows":
+    print("Windows platform identified")
     app_data_dir = os.getenv('LOCALAPPDATA')
 else:  # macOS, Linux, and other UNIX variants
     app_data_dir = os.path.join(os.path.expanduser("~"), '.local', 'share')

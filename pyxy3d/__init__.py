@@ -2,10 +2,10 @@
 import os
 from pathlib import Path
 import toml
-
+import platform
 
 __package_name__ = "pyxy3d"
-__version__ = "v0.0.17"
+__version__ = "v0.2.4"
 
 __author__ = """Mac Prible"""
 __email__ = "prible@gmail.com"
@@ -16,20 +16,13 @@ __repo_url__ = (
 __repo_issues_url__ = f"{__repo_url__}issues"
 
 
-# # set up local app data folder and logging
-# __app_dir__ = Path(os.getenv("LOCALAPPDATA"), __package_name__)
-# __app_dir__.mkdir(exist_ok=True, parents=True)
-
-# # create a toml file for user settings in LOCALAPPDATA and default the project folder to USER
-# __settings_path__ = Path(__app_dir__, "settings.toml")
-
-# __user_dir__ = Path(os.getenv("USERPROFILE"))
-# # __user_dir__.mkdir(exist_ok=True,parents=True)
 
 # Determine platform-specific application data directory
-if os.name == 'nt':  # Windows
+if platform.system() == "Windows":
+    print("Windows platform identified")
     app_data_dir = os.getenv('LOCALAPPDATA')
 else:  # macOS, Linux, and other UNIX variants
+    print(f"Non-windows platform identified: {platform.system()}")
     app_data_dir = os.path.join(os.path.expanduser("~"), '.local', 'share')
 
 __app_dir__ = Path(app_data_dir, __package_name__)

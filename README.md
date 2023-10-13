@@ -20,7 +20,7 @@ The Blender output process is currently a bit ad hoc. The plan is to evolve that
 ---
 ## About
 
-Pyxy3D (*pixie-3d*) is an open-source motion capture tool that can operate with only a typical computer (Windows or MacOS currently) and 2 or more webcams. In other words, it is a **Py**thon package for converting 2D **(x,y)** point data to **3D** estimates. It's core functionality includes: 
+Pyxy3D (*pixie-3d*) is an open-source motion capture tool that can operate with only a typical computer (Windows or macOS currently - note there is a recent report of Mediapipe failing to load on macOS 14) and 2 or more webcams. In other words, it is a **Py**thon package for converting 2D **(x,y)** point data to **3D** estimates. It's core functionality includes: 
 
 - the estimation of intrinsic (focal length/optical center/distortion) and extrinsic (rotation and translation) camera parameters via a GUI
 - API for slotting various tracking solutions into the data pipeline (currently works with Google's Mediapipe)

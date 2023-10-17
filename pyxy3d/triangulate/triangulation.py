@@ -35,7 +35,7 @@ def unique_with_counts(arr):
 # This code is licensed under the BSD 2-Clause License
 # BSD 2-Clause License
 
-# Copyright (c) 2019, Pierre Karashchuk
+# Copyright (c) 2019, Lili Karashchuk
 # All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without

@@ -19,11 +19,6 @@ class SummaryWidget(QWidget):
         self.setLayout(QVBoxLayout())
         self.place_widgets()
 
-    # def clear_layout(self):
-    #     while self.layout().count():
-    #         child = self.layout().takeAt(0)
-    #         if child.widget():
-    #             child.widget().deleteLater()
 
     def place_widgets(self):
         # self.clear_layout()

@@ -78,13 +78,13 @@ class MainWindow(QMainWindow):
         self.extrinsic_mode_select = QAction(SessionMode.ExtrinsicCalibration.value)
         self.capture_volume_mode_select = QAction(SessionMode.CaptureVolumeOrigin.value)
         self.recording_mode_select = QAction(SessionMode.Recording.value)
-        self.processing_mode_select = QAction(SessionMode.Triangulate.value)
+        self.triangulate_mode_select = QAction(SessionMode.Triangulate.value)
         self.mode_menu.addAction(self.charuco_mode_select)
         self.mode_menu.addAction(self.intrinsic_mode_select)
         self.mode_menu.addAction(self.extrinsic_mode_select)
         self.mode_menu.addAction(self.capture_volume_mode_select)
         self.mode_menu.addAction(self.recording_mode_select)
-        self.mode_menu.addAction(self.processing_mode_select)
+        self.mode_menu.addAction(self.triangulate_mode_select)
 
         for action in self.mode_menu.actions():
             action.setEnabled(False)
@@ -119,7 +119,6 @@ class MainWindow(QMainWindow):
         mode = SessionModeLookup[action.text()]
         logger.info(f"Attempting to set session mode to {mode.value}")
         self.session.set_mode(mode)
-
         logger.info(f"Successful change to {mode} Mode")
 
     def update_central_widget_mode(self):
@@ -195,9 +194,9 @@ class MainWindow(QMainWindow):
             self.capture_volume_mode_select.setEnabled(False)
 
         if self.session.is_triangulate_eligible():
-            self.processing_mode_select.setEnabled(True)
+            self.triangulate_mode_select.setEnabled(True)
         else:
-            self.processing_mode_select.setEnabled(False)
+            self.triangulate_mode_select.setEnabled(False)
 
     def disconnect_cameras(self):
         self.session.set_mode(SessionMode.Charuco)

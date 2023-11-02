@@ -43,7 +43,7 @@ class SessionMode(Enum):
     ExtrinsicCalibration = "&Multicamera"
     CaptureVolumeOrigin = "Capture &Volume"
     Recording = "&Recording"
-    PostProcessing = "&Post-processing"
+    Triangulate = "&Triangulate"
 
 class QtSignaler(QObject):
     stream_tools_loaded_signal = Signal()
@@ -200,11 +200,12 @@ class Session:
 
         return eligible
 
-    def is_post_processing_eligible(self):
+    def is_triangulate_eligible(self):
         """
-        Post processing can only be performed if recordings (mp4 files) exist and extrinsics 
+        Triangulation can only be performed if recordings (mp4 files) exist and extrinsics 
         (config.toml) are calibrated in the 'record' directory
         """
+
         #assume false and prove otherwise
         eligible = False
         for child in self.path.iterdir():
@@ -231,7 +232,7 @@ class Session:
                     self.synchronizer.unsubscribe_from_streams()
                     self.pause_all_monocalibrators()
 
-            case SessionMode.PostProcessing:
+            case SessionMode.Triangulate:
                 if self.stream_tools_loaded:
                     self.synchronizer.unsubscribe_from_streams()
                     self.pause_all_monocalibrators()
@@ -294,7 +295,7 @@ class Session:
         match self.mode:
             case SessionMode.Charuco:
                 pass
-            case SessionMode.PostProcessing:
+            case SessionMode.Triangulate:
                 pass
             case SessionMode.IntrinsicCalibration:
                 self.fps_intrinsic_calibration = fps_target
@@ -313,7 +314,7 @@ class Session:
         match self.mode:
             case SessionMode.Charuco:
                 pass
-            case SessionMode.PostProcessing:
+            case SessionMode.Triangulate:
                 pass
             case SessionMode.IntrinsicCalibration:
                 fps = self.fps_intrinsic_calibration
@@ -486,7 +487,7 @@ class Session:
         logger.info(f"Recording of frames is complete...signalling change in status")
         self.qt_signaler.recording_complete_signal.emit()
 
-        if self.is_post_processing_eligible():
+        if self.is_triangulate_eligible():
             self.qt_signaler.unlock_postprocessing.emit()
 
     def _adjust_resolutions(self):

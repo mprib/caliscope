@@ -1,26 +1,21 @@
 import pyxy3d.logger
 from pathlib import Path
-logger = pyxy3d.logger.get(__name__)
 
-from PySide6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
+
+from PySide6.QtWidgets import QMainWindow, QFileDialog
 from threading import Thread
 import sys
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
-    QStackedLayout,
     QWidget,
     QDockWidget,
-    QVBoxLayout,
     QMenu,
-    QMenuBar,
-    QTabWidget,
 )
 import toml
-from enum import Enum
-from PySide6.QtGui import QIcon, QAction, QKeySequence, QShortcut
+from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt
-from pyxy3d import __root__, __settings_path__, __user_dir__
+from pyxy3d import __root__, __settings_path__
 from pyxy3d.session.session import Session, SessionMode
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.configurator import Configurator
@@ -28,11 +23,12 @@ from pyxy3d.gui.charuco_widget import CharucoWidget
 from pyxy3d.gui.camera_config.intrinsic_calibration_widget import (
     IntrinsicCalibrationWidget,
 )
-from pyxy3d.gui.calibrate_capture_volume_widget import CalibrateCaptureVolumeWidget
 from pyxy3d.gui.recording_widget import RecordingWidget
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
+
+logger = pyxy3d.logger.get(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -47,7 +43,7 @@ class MainWindow(QMainWindow):
 
         # File Menu
         self.menu = self.menuBar()
-        
+
         # CREATE FILE MENU
         self.file_menu = self.menu.addMenu("&File")
         self.open_project_action = QAction("New/Open Project", self)
@@ -64,7 +60,6 @@ class MainWindow(QMainWindow):
 
         self.exit_pyxy3d_action = QAction("Exit", self)
         self.file_menu.addAction(self.exit_pyxy3d_action)
-
 
         # CREATE CAMERA MENU
         self.cameras_menu = self.menu.addMenu("&Cameras")
@@ -118,7 +113,7 @@ class MainWindow(QMainWindow):
 
     def mode_change_action(self):
         action = self.sender()
-        
+
         # create a reverse lookup dictionary to pull the mode enum that should be activated
         SessionModeLookup = {mode.value: mode for mode in SessionMode}
         mode = SessionModeLookup[action.text()]
@@ -126,31 +121,30 @@ class MainWindow(QMainWindow):
         self.session.set_mode(mode)
 
         logger.info(f"Successful change to {mode} Mode")
-            
-         
+
     def update_central_widget_mode(self):
         """
         This will be triggered whenever the session successfully completes a mode change and emits
         a signal to that effect.
         """
-        logger.info(f"Begin process of updating central widget")
-        
+        logger.info("Begin process of updating central widget")
+
         old_widget = self.centralWidget()
         self.setCentralWidget(QWidget())
         old_widget.deleteLater()
 
-        logger.info(f"Clearing events in emmitter threads to get them to wind down")
+        logger.info("Clearing events in emmitter threads to get them to wind down")
         if type(old_widget) == RecordingWidget:
             old_widget.thumbnail_emitter.keep_collecting.clear()
             logger.info("Waiting for recording widget to wrap up")
             old_widget.thumbnail_emitter.wait()
-        
+
         if type(old_widget) == ExtrinsicCalibrationWidget:
             old_widget.paired_frame_emitter.keep_collecting.clear()
             logger.info("Waiting for extrinsic calibration widget to wrap up")
             old_widget.paired_frame_emitter.wait()
-       
-        if type(old_widget) ==  IntrinsicCalibrationWidget:
+
+        if type(old_widget) == IntrinsicCalibrationWidget:
             for port, tab in old_widget.camera_tabs.tab_widgets.items():
                 tab.frame_emitter.keep_collecting.clear()
 
@@ -162,30 +156,27 @@ class MainWindow(QMainWindow):
             case SessionMode.IntrinsicCalibration:
                 new_widget = IntrinsicCalibrationWidget(self.session)
             case SessionMode.ExtrinsicCalibration:
-                logger.info(f"About to create extrinsic calibration widget")
-                new_widget = ExtrinsicCalibrationWidget(self.session)    
+                logger.info("About to create extrinsic calibration widget")
+                new_widget = ExtrinsicCalibrationWidget(self.session)
             case SessionMode.CaptureVolumeOrigin:
                 new_widget = CaptureVolumeWidget(self.session)
             case SessionMode.Recording:
                 new_widget = RecordingWidget(self.session)
             case SessionMode.Triangulate:
                 new_widget = PostProcessingWidget(self.session)
-        
 
-        self.setCentralWidget(new_widget)        
+        self.setCentralWidget(new_widget)
 
     def switch_to_capture_volume(self):
         """
         Once the extrinsic calibration is complete, the GUI should automatically switch over to the capture volume widget
         """
-        self.session.set_mode(SessionMode.CaptureVolumeOrigin) 
-        
+        self.session.set_mode(SessionMode.CaptureVolumeOrigin)
+
     def update_enable_disable(self):
-        
         # note: if the cameras are connected,then you can peak
-        # into extrinsic/recording tabs, though cannot collect data        
-        
-        
+        # into extrinsic/recording tabs, though cannot collect data
+
         # you can always look at a charuco board
         self.charuco_mode_select.setEnabled(True)
 
@@ -197,41 +188,41 @@ class MainWindow(QMainWindow):
             self.intrinsic_mode_select.setEnabled(False)
             self.extrinsic_mode_select.setEnabled(False)
             self.recording_mode_select.setEnabled(False)
-        
 
         if self.session.is_capture_volume_eligible():
             self.capture_volume_mode_select.setEnabled(True)
         else:
             self.capture_volume_mode_select.setEnabled(False)
 
-        
         if self.session.is_triangulate_eligible():
-            self.processing_mode_select.setEnabled(True) 
+            self.processing_mode_select.setEnabled(True)
         else:
-            self.processing_mode_select.setEnabled(False) 
-        
-    def disconnect_cameras(self):
+            self.processing_mode_select.setEnabled(False)
 
+    def disconnect_cameras(self):
         self.session.set_mode(SessionMode.Charuco)
-        self.session.disconnect_cameras() 
+        self.session.disconnect_cameras()
         self.disconnect_cameras_action.setEnabled(False)
         self.connect_cameras_action.setEnabled(True)
         self.update_enable_disable()
 
     def pause_all_frame_reading(self):
-        logger.info("Pausing all frame reading at load of stream tools; should be on charuco tab right now")
+        logger.info(
+            "Pausing all frame reading at load of stream tools; should be on charuco tab right now"
+        )
         self.session.pause_all_monocalibrators()
-        self.session.pause_synchronizer()  
+        self.session.pause_synchronizer()
 
     def load_stream_tools(self):
         self.connect_cameras_action.setEnabled(False)
         self.disconnect_cameras_action.setEnabled(True)
-        self.session.qt_signaler.stream_tools_loaded_signal.connect(self.pause_all_frame_reading)
+        self.session.qt_signaler.stream_tools_loaded_signal.connect(
+            self.pause_all_frame_reading
+        )
         self.thread = Thread(
             target=self.session.load_stream_tools, args=(), daemon=True
         )
         self.thread.start()
-            
 
     def launch_session(self, path_to_folder: str):
         session_path = Path(path_to_folder)
@@ -244,12 +235,12 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.charuco_widget)
 
         # now connecting to cameras is an option
-        self.connect_cameras_action.setEnabled(True) 
-        
+        self.connect_cameras_action.setEnabled(True)
+
         # but must exit and start over to launch a new session for now
         self.connect_session_signals()
 
-        self.open_project_action.setEnabled(False) 
+        self.open_project_action.setEnabled(False)
         self.open_recent_project_submenu.setEnabled(False)
         self.update_enable_disable()
 
@@ -258,13 +249,23 @@ class MainWindow(QMainWindow):
         After launching a session, connect signals and slots.
         Much of these will be from the GUI to the session and vice-versa
         """
-        self.session.qt_signaler.unlock_postprocessing.connect(self.update_enable_disable)
-        self.session.qt_signaler.mode_change_success.connect(self.update_central_widget_mode)
-        self.session.qt_signaler.stream_tools_loaded_signal.connect(self.update_enable_disable)
-        self.session.qt_signaler.stream_tools_disconnected_signal.connect(self.update_enable_disable)
+        self.session.qt_signaler.unlock_postprocessing.connect(
+            self.update_enable_disable
+        )
+        self.session.qt_signaler.mode_change_success.connect(
+            self.update_central_widget_mode
+        )
+        self.session.qt_signaler.stream_tools_loaded_signal.connect(
+            self.update_enable_disable
+        )
+        self.session.qt_signaler.stream_tools_disconnected_signal.connect(
+            self.update_enable_disable
+        )
         self.session.qt_signaler.mode_change_success.connect(self.update_enable_disable)
-        self.session.qt_signaler.extrinsic_calibration_complete.connect(self.switch_to_capture_volume)
-        
+        self.session.qt_signaler.extrinsic_calibration_complete.connect(
+            self.switch_to_capture_volume
+        )
+
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)
         recent_project_action.triggered.connect(self.open_recent_project)
@@ -304,11 +305,12 @@ class MainWindow(QMainWindow):
         with open(__settings_path__, "w") as f:
             toml.dump(self.app_settings, f)
 
+
 def launch_main():
     import qdarktheme
-    
+
     app = QApplication(sys.argv)
-    qdarktheme.setup_theme('auto')
+    qdarktheme.setup_theme("auto")
     window = MainWindow()
     window.show()
     app.exec()

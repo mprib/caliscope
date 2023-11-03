@@ -1,6 +1,5 @@
 import pyxy3d.logger
 
-
 from time import sleep
 import shutil
 from pathlib import Path

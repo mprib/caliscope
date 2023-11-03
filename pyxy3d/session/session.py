@@ -1,7 +1,6 @@
 # Environment for managing all created objects and the primary interface for the GUI.
 import pyxy3d.logger
 
-
 from PySide6.QtCore import QObject, Signal
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path

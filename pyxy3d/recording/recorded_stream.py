@@ -8,9 +8,6 @@
 import pyxy3d.logger
 import logging
 
-logger = pyxy3d.logger.get(__name__)
-logger.setLevel(logging.INFO)
-
 from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
@@ -22,10 +19,12 @@ import pandas as pd
 import numpy as np
 
 from pyxy3d.interface import FramePacket, Tracker, Stream
-from pyxy3d.trackers.tracker_enum import TrackerEnum
 from pyxy3d.cameras.live_stream import Stream
 from pyxy3d.cameras.camera_array import CameraData
 from pyxy3d.configurator import Configurator
+
+logger = pyxy3d.logger.get(__name__)
+logger.setLevel(logging.INFO)
 
 
 class RecordedStream(Stream):
@@ -39,7 +38,7 @@ class RecordedStream(Stream):
         self,
         directory: Path,
         port: int,
-        size, 
+        size,
         rotation_count: int,
         fps_target: int = 6,
         tracker: Tracker = None,
@@ -64,7 +63,7 @@ class RecordedStream(Stream):
         self.subscribers = []
 
         synched_frames_history_path = str(
-            Path(self.directory, f"frame_time_history.csv")
+            Path(self.directory, "frame_time_history.csv")
         )
         synched_frames_history = pd.read_csv(synched_frames_history_path)
 
@@ -230,7 +229,12 @@ class RecordedStreamPool:
             rotation_count = camera.rotation_count
             size = camera.size
             self.streams[port] = RecordedStream(
-                directory, port,size, rotation_count, fps_target=fps_target, tracker=tracker
+                directory,
+                port,
+                size,
+                rotation_count,
+                fps_target=fps_target,
+                tracker=tracker,
             )
 
     def play_videos(self):

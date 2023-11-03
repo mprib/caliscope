@@ -1,6 +1,5 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -32,6 +31,7 @@ from pyxy3d.session.session import Session
 from pyxy3d.gui.navigation_bars import NavigationBarNext
 
 
+logger = pyxy3d.logger.get(__name__)
 class CharucoWidget(QWidget):
     def __init__(self, session):
         super().__init__()

@@ -208,7 +208,7 @@ class Synchronizer:
 
     def synch_frames_worker(self):
 
-        logger.info(f"Waiting for all ports to begin harvesting corners...")
+        logger.info("Waiting for all ports to begin harvesting corners...")
 
         sync_index = 0
 
@@ -287,7 +287,7 @@ class Synchronizer:
                     if self.current_sync_packet.sync_index % 100 == 0:
                         logger.info(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
                 else:
-                    logger.info(f"signaling end of frames with `None` packet on subscriber queue.")
+                    logger.info("signaling end of frames with `None` packet on subscriber queue.")
                     for port, q in self.frame_packet_queues.items():
                         logger.info(f"Currently {q.qsize()} frame packets unprocessed for port {port}")
                     

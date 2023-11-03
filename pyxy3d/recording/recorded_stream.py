@@ -74,6 +74,7 @@ class RecordedStream(Stream):
         self.port_history["frame_index"] = (
             self.port_history["frame_time"].rank(method="min").astype(int) - 1
         )
+
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
 
@@ -247,7 +248,7 @@ def get_configured_camera_data(config_path, intrinsics_only=True):
     return a list of CameraData objects that is built from the config
     file that is found in the directory. This will be the same
     file where the mp4 files are located.
-    """
+    """  
 
     with open(config_path, "r") as f:
         config = toml.load(config_path)
@@ -306,7 +307,7 @@ if __name__ == "__main__":
 
     from pyxy3d import __root__
 
-    recording_directory = Path(__root__, "tests", "sessions", "post_monocal")
+    recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
@@ -314,26 +315,33 @@ if __name__ == "__main__":
 
     tracker = CharucoTracker(charuco)
 
-    cameras = get_configured_camera_data(recording_directory)
+    config = Configurator(recording_directory)
+    cameras = get_configured_camera_data(Path(recording_directory,"config.toml"))
 
     recorded_stream_pool = RecordedStreamPool(
-        recording_directory, tracker_factory=tracker
+        directory=recording_directory, 
+        config=config,
+        tracker=tracker
     )
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
-    recorded_stream_pool.play_videos()
 
     syncr.subscribe_to_streams()
 
     in_q = Queue(-1)
     syncr.subscribe_to_sync_packets(in_q)
+    recorded_stream_pool.play_videos()
 
-    while not syncr.frames_complete:
-        sleep(0.03)
+    
+    while True:
+        # logger.info("Pulling sync_packet from queue")
+        sleep(0.3)
+
         sync_packet = in_q.get()
+        if sync_packet is None:
+            break
+
         for port, frame_packet in sync_packet.frame_packets.items():
             if frame_packet:
-                if frame_packet.frame_time == -1:
-                    break  # end of frames
                 cv2.imshow(f"Port {port}", frame_packet.frame_with_points)
 
         key = cv2.waitKey(1)

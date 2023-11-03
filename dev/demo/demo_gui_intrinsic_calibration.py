@@ -7,7 +7,7 @@ import toml
 from pyxy3d import __app_dir__
 from pyxy3d.gui.main_widget import MainWindow
 from pyxy3d.configurator import Configurator
-from pyxy3d.gui.camera_config.intrinsic_calibration_widget import IntrinsicCalibrationWidget
+from pyxy3d.gui.live_camera_config.intrinsic_calibration_widget import IntrinsicCalibrationWidget
 from pyxy3d.session.session import LiveSession, SessionMode
 
 

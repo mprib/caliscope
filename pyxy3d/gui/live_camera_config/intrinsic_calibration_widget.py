@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
 )
 
-from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigTab
+from pyxy3d.gui.live_camera_config.camera_config_dialogue import CameraConfigTab
 from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
 

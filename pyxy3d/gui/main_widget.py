@@ -20,7 +20,7 @@ from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.charuco_widget import CharucoWidget
-from pyxy3d.gui.camera_config.intrinsic_calibration_widget import (
+from pyxy3d.gui.live_camera_config.intrinsic_calibration_widget import (
     IntrinsicCalibrationWidget,
 )
 from pyxy3d.gui.recording_widget import RecordingWidget

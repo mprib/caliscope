@@ -17,9 +17,6 @@ numba = "^0.56.4"
 mediapipe = "0.10.1"
 pyside6 = "^6.5.2"
 pyqtdarktheme = "^2.1.0"
-polars = "^0.18.11"
-plotnine = "^0.12.2"
-pyarrow = "^12.0.1"
 opencv-contrib-python = "^4.8.0.74"
 
 [tool.poetry.group.dev.dependencies]

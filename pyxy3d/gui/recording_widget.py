@@ -38,7 +38,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from pyxy3d.session.session import Session, SessionMode
+from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.recording.video_recorder import VideoRecorder
@@ -58,7 +58,7 @@ class NextRecordingActions(Enum):
  
 class RecordingWidget(QWidget):
      
-    def __init__(self,session:Session):
+    def __init__(self,session:LiveSession):
 
         super(RecordingWidget, self).__init__()
         self.session = session
@@ -391,7 +391,7 @@ def cv2_to_qimage(frame):
 
 def launch_recording_widget(session_path):
             config = Configurator(session_path)
-            session = Session(config)
+            session = LiveSession(config)
             # session.load_stream_tools()
             # session._adjust_resolutions()
             session.set_mode(SessionMode.Recording)

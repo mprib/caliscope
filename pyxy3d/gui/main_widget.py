@@ -16,7 +16,7 @@ import toml
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__
-from pyxy3d.session.session import Session, SessionMode
+from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.charuco_widget import CharucoWidget
@@ -227,7 +227,7 @@ class MainWindow(QMainWindow):
         session_path = Path(path_to_folder)
         self.config = Configurator(session_path)
         logger.info(f"Launching session with config file stored in {session_path}")
-        self.session = Session(self.config)
+        self.session = LiveSession(self.config)
 
         # can always load charuco
         self.charuco_widget = CharucoWidget(self.session)

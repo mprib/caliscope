@@ -29,13 +29,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
 from pyxy3d.gui.navigation_bars import NavigationBarBack
 
 
 class CaptureVolumeWidget(QWidget):
-    def __init__(self, session: Session):
+    def __init__(self, session: LiveSession):
         super(CaptureVolumeWidget, self).__init__()
 
         self.session = session
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     test_session_index = 0
     session_path = test_sessions[test_session_index]
     logger.info(f"Loading session {session_path}")
-    session = Session(session_path)
+    session = LiveSession(session_path)
 
     session.load_estimated_capture_volume()
 

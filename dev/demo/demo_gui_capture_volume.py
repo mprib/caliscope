@@ -6,7 +6,7 @@ from time import sleep
 from pyxy3d import __root__
 from pathlib import Path
 from pyxy3d.configurator import Configurator
-from pyxy3d.session.session import Session, SessionMode
+from pyxy3d.session.session import LiveSession, SessionMode
 import toml
 from pyxy3d import __app_dir__
 
@@ -17,7 +17,7 @@ recent_project_count = len(recent_projects)
 session_path = Path(recent_projects[recent_project_count-1])
 
 config = Configurator(session_path)
-session = Session(config)
+session = LiveSession(config)
 session.load_estimated_capture_volume()
 # session.set_mode(SessionMode.ExtrinsicCalibration)
 app = QApplication(sys.argv)

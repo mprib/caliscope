@@ -12,7 +12,7 @@ from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
 )
@@ -53,7 +53,7 @@ while real_time_triangulator.running:
 
 
 logger.info(f"Loading session {session_path}")
-session = Session(config)
+session = LiveSession(config)
 
 app = QApplication(sys.argv)
 

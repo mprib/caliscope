@@ -57,7 +57,7 @@ class QtSignaler(QObject):
         super(QtSignaler, self).__init__()
 
 
-class Session:
+class LiveSession:
     def __init__(self, config: Configurator):
         # need a way to let the GUI know when certain actions have been completed
         self.qt_signaler = QtSignaler()

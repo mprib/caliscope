@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QStackedWidget,
 )
 
-from pyxy3d.session.session import Session, SessionMode
+from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.gui.charuco_widget import CharucoWidget
 from pyxy3d.gui.camera_config.intrinsic_calibration_widget import IntrinsicCalibrationWidget
 from pyxy3d import __root__, __app_dir__
@@ -41,7 +41,7 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
     """
     cameras_connected = Signal()
 
-    def __init__(self, session:Session):
+    def __init__(self, session:LiveSession):
         super().__init__()
         self.CAMS_IN_PROCESS = False
 

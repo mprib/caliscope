@@ -5,9 +5,10 @@ from pyxy3d.trackers.charuco_tracker import CharucoTracker
 logger = pyxy3d.logger.get(__name__)
 
 
-class IntrinsicCalibrator:
+class PreRecordedIntrinsicCalibrator:
     """
     Takes a recorded stream and determines a CameraData object from it 
+    Stream needs to have a charuco tracker assigned to it
     """ 
-    def __init__(self, stream: RecordedStream, tracker:CharucoTracker) -> None:
+    def __init__(self, stream: RecordedStream) -> None:
         pass

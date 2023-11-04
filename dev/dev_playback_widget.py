@@ -11,27 +11,30 @@ class VideoPlayer(QWidget):
         self.cap = cv2.VideoCapture(self.video_path)
         self.frame_rate = int(self.cap.get(cv2.CAP_PROP_FPS))
         self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-        self.init_ui()
         self.timer = QTimer()
-        self.timer.timeout.connect(self.next_frame)
 
-    def init_ui(self):
+        self.place_widgets()
+        self.connect_widgets()
+
+    def place_widgets(self):
         self.layout = QVBoxLayout()
 
         self.image_label = QLabel(self)
         self.layout.addWidget(self.image_label)
 
         self.play_button = QPushButton("Play", self)
-        self.play_button.clicked.connect(self.play_video)
         self.layout.addWidget(self.play_button)
 
         self.slider = QSlider(Qt.Horizontal, self)
         self.slider.setMaximum(self.total_frames)
-        self.slider.sliderMoved.connect(self.slider_moved)
         self.layout.addWidget(self.slider)
 
         self.setLayout(self.layout)
+    
+    def connect_widgets(self):
+        self.play_button.clicked.connect(self.play_video)
+        self.slider.sliderMoved.connect(self.slider_moved)
+        self.timer.timeout.connect(self.next_frame)
 
     def play_video(self):
         if self.timer.isActive():

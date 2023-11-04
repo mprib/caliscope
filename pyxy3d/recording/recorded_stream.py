@@ -248,7 +248,7 @@ def get_configured_camera_data(config_path, intrinsics_only=True):
     return a list of CameraData objects that is built from the config
     file that is found in the directory. This will be the same
     file where the mp4 files are located.
-    """  
+    """
 
     with open(config_path, "r") as f:
         config = toml.load(config_path)
@@ -307,7 +307,9 @@ if __name__ == "__main__":
 
     from pyxy3d import __root__
 
-    recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
+    recording_directory = Path(
+        __root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic"
+    )
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
@@ -316,12 +318,10 @@ if __name__ == "__main__":
     tracker = CharucoTracker(charuco)
 
     config = Configurator(recording_directory)
-    cameras = get_configured_camera_data(Path(recording_directory,"config.toml"))
+    cameras = get_configured_camera_data(Path(recording_directory, "config.toml"))
 
     recorded_stream_pool = RecordedStreamPool(
-        directory=recording_directory, 
-        config=config,
-        tracker=tracker
+        directory=recording_directory, config=config, tracker=tracker
     )
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
 
@@ -331,7 +331,6 @@ if __name__ == "__main__":
     syncr.subscribe_to_sync_packets(in_q)
     recorded_stream_pool.play_videos()
 
-    
     while True:
         # logger.info("Pulling sync_packet from queue")
         sleep(0.3)

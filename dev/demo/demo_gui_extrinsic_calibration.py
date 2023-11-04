@@ -12,7 +12,7 @@ from pyxy3d import __app_dir__
 from pyxy3d.gui.main_widget import MainWindow
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
-from pyxy3d.session.session import Session, SessionMode
+from pyxy3d.session.session import LiveSession, SessionMode
 
 
 app_settings = toml.load(Path(__app_dir__, "settings.toml"))
@@ -21,7 +21,7 @@ recent_projects: list = app_settings["recent_projects"]
 recent_project_count = len(recent_projects)
 session_path = Path(recent_projects[recent_project_count - 1])
 config = Configurator(session_path)
-session = Session(config)
+session = LiveSession(config)
 session.set_mode(SessionMode.ExtrinsicCalibration)
 
 # while not hasattr(session.synchronizer, "current_sync_packet"):

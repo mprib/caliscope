@@ -23,7 +23,7 @@ from pyxy3d.configurator import Configurator
 from pyxy3d.gui.vizualize.realtime_triangulation_widget import \
     RealTimeTriangulationWidget
 from pyxy3d.interface import FramePacket, PointPacket, SyncPacket
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import LiveSession
 from pyxy3d.trackers.charuco_tracker import Charuco, CharucoTracker
 from pyxy3d.trackers.hand_tracker import HandTracker
 from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
@@ -32,7 +32,7 @@ from pyxy3d.trackers.tracker_enum import TrackerEnum
 app = QApplication(sys.argv)
 session_path = Path(__root__,"dev", "sample_sessions", "low_res")
 
-session = Session(session_path)
+session = LiveSession(session_path)
 tracker = TrackerEnum.HAND
 
 session.load_stream_tools(tracker=tracker) 

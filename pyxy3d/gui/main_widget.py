@@ -1,48 +1,34 @@
 import pyxy3d.logger
-import pyxy3d.logger
-
-logger = pyxy3d.logger.get(__name__)
-
-from PySide6.QtWidgets import QMainWindow, QStackedLayout, QFileDialog
-
-logger = pyxy3d.logger.get(__name__)
 from pathlib import Path
+
+
+from PySide6.QtWidgets import QMainWindow, QFileDialog
 from threading import Thread
 import sys
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
-    QStackedLayout,
     QWidget,
     QDockWidget,
-    QVBoxLayout,
     QMenu,
-    QMenuBar,
-    QTabWidget,
 )
 import toml
-from enum import Enum
-from PySide6.QtGui import QIcon, QAction, QKeySequence, QShortcut
+from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt
-from pyxy3d import __root__, __settings_path__, __user_dir__
-from pyxy3d.session.session import Session, SessionMode
+from pyxy3d import __root__, __settings_path__
+from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.charuco_widget import CharucoWidget
-from pyxy3d.gui.camera_config.intrinsic_calibration_widget import (
+from pyxy3d.gui.live_camera_config.intrinsic_calibration_widget import (
     IntrinsicCalibrationWidget,
 )
-from pyxy3d.gui.calibrate_capture_volume_widget import CalibrateCaptureVolumeWidget
 from pyxy3d.gui.recording_widget import RecordingWidget
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
+from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
+from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 
-
-class TabIndex(Enum):
-    Charuco = 0
-    Cameras = 1
-    CaptureVolume = 2
-    Recording = 3
-    Processing = 4
+logger = pyxy3d.logger.get(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -57,11 +43,10 @@ class MainWindow(QMainWindow):
 
         # File Menu
         self.menu = self.menuBar()
-        self.file_menu = self.menu.addMenu("File")
 
-        # Open or New project (can just create a folder in the dialog in truly new)
+        # CREATE FILE MENU
+        self.file_menu = self.menu.addMenu("&File")
         self.open_project_action = QAction("New/Open Project", self)
-        self.open_project_action.triggered.connect(self.create_new_project_folder)
         self.file_menu.addAction(self.open_project_action)
 
         # Open Recent
@@ -76,21 +61,37 @@ class MainWindow(QMainWindow):
         self.exit_pyxy3d_action = QAction("Exit", self)
         self.file_menu.addAction(self.exit_pyxy3d_action)
 
-        self.cameras_menu = self.menu.addMenu("Cameras")
-        self.connect_cameras_action = QAction("Connect Cameras", self)
+        # CREATE CAMERA MENU
+        self.cameras_menu = self.menu.addMenu("&Cameras")
+        self.connect_cameras_action = QAction("Co&nnect Cameras", self)
         self.cameras_menu.addAction(self.connect_cameras_action)
         self.connect_cameras_action.setEnabled(False)
 
-        self.disconnect_cameras_action = QAction("Disconnect Cameras", self)
+        self.disconnect_cameras_action = QAction("&Disconnect Cameras", self)
         self.cameras_menu.addAction(self.disconnect_cameras_action)
         self.disconnect_cameras_action.setEnabled(False)
 
-        self.connect_menu_actions()
+        # CREATE MODE MENU
+        self.mode_menu = self.menu.addMenu("&Mode")
+        self.charuco_mode_select = QAction(SessionMode.Charuco.value)
+        self.intrinsic_mode_select = QAction(SessionMode.IntrinsicCalibration.value)
+        self.extrinsic_mode_select = QAction(SessionMode.ExtrinsicCalibration.value)
+        self.capture_volume_mode_select = QAction(SessionMode.CaptureVolumeOrigin.value)
+        self.recording_mode_select = QAction(SessionMode.Recording.value)
+        self.triangulate_mode_select = QAction(SessionMode.Triangulate.value)
+        self.mode_menu.addAction(self.charuco_mode_select)
+        self.mode_menu.addAction(self.intrinsic_mode_select)
+        self.mode_menu.addAction(self.extrinsic_mode_select)
+        self.mode_menu.addAction(self.capture_volume_mode_select)
+        self.mode_menu.addAction(self.recording_mode_select)
+        self.mode_menu.addAction(self.triangulate_mode_select)
 
-        # Set up layout (based on splitter)
-        self.tab_widget = QTabWidget()
-        # self.tab_widget = CentralTabWidget()
-        self.setCentralWidget(self.tab_widget)
+        for action in self.mode_menu.actions():
+            action.setEnabled(False)
+
+        self.connect_menu_actions()
+        self.blank_widget = QWidget()
+        self.setCentralWidget(self.blank_widget)
 
         # create log window which is fixed below main window
         self.docked_logger = QDockWidget("Log", self)
@@ -101,214 +102,168 @@ class MainWindow(QMainWindow):
 
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
 
-
-
     def connect_menu_actions(self):
+        self.open_project_action.triggered.connect(self.create_new_project_folder)
         self.connect_cameras_action.triggered.connect(self.load_stream_tools)
         self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
         self.disconnect_cameras_action.triggered.connect(self.disconnect_cameras)
-        
+
+        for action in self.mode_menu.actions():
+            action.triggered.connect(self.mode_change_action)
+
+    def mode_change_action(self):
+        action = self.sender()
+
+        # create a reverse lookup dictionary to pull the mode enum that should be activated
+        SessionModeLookup = {mode.value: mode for mode in SessionMode}
+        mode = SessionModeLookup[action.text()]
+        logger.info(f"Attempting to set session mode to {mode.value}")
+        self.session.set_mode(mode)
+        logger.info(f"Successful change to {mode} Mode")
+
+    def update_central_widget_mode(self):
+        """
+        This will be triggered whenever the session successfully completes a mode change and emits
+        a signal to that effect.
+        """
+        logger.info("Begin process of updating central widget")
+
+        old_widget = self.centralWidget()
+        self.setCentralWidget(QWidget())
+        old_widget.deleteLater()
+
+        logger.info("Clearing events in emmitter threads to get them to wind down")
+        if type(old_widget) == RecordingWidget:
+            old_widget.thumbnail_emitter.keep_collecting.clear()
+            logger.info("Waiting for recording widget to wrap up")
+            old_widget.thumbnail_emitter.wait()
+
+        if type(old_widget) == ExtrinsicCalibrationWidget:
+            old_widget.paired_frame_emitter.keep_collecting.clear()
+            logger.info("Waiting for extrinsic calibration widget to wrap up")
+            old_widget.paired_frame_emitter.wait()
+
+        if type(old_widget) == IntrinsicCalibrationWidget:
+            for port, tab in old_widget.camera_tabs.tab_widgets.items():
+                tab.frame_emitter.keep_collecting.clear()
+
+        logger.info(f"Matching next tab to active session mode: {self.session.mode}")
+        # Create the new central widget based on the mode
+        match self.session.mode:
+            case SessionMode.Charuco:
+                new_widget = CharucoWidget(self.session)
+            case SessionMode.IntrinsicCalibration:
+                new_widget = IntrinsicCalibrationWidget(self.session)
+            case SessionMode.ExtrinsicCalibration:
+                logger.info("About to create extrinsic calibration widget")
+                new_widget = ExtrinsicCalibrationWidget(self.session)
+            case SessionMode.CaptureVolumeOrigin:
+                new_widget = CaptureVolumeWidget(self.session)
+            case SessionMode.Recording:
+                new_widget = RecordingWidget(self.session)
+            case SessionMode.Triangulate:
+                new_widget = PostProcessingWidget(self.session)
+
+        self.setCentralWidget(new_widget)
+
+    def switch_to_capture_volume(self):
+        """
+        Once the extrinsic calibration is complete, the GUI should automatically switch over to the capture volume widget
+        """
+        self.session.set_mode(SessionMode.CaptureVolumeOrigin)
+
+    def update_enable_disable(self):
+        # note: if the cameras are connected,then you can peak
+        # into extrinsic/recording tabs, though cannot collect data
+
+        # you can always look at a charuco board
+        self.charuco_mode_select.setEnabled(True)
+
+        if self.session.is_camera_setup_eligible():
+            self.intrinsic_mode_select.setEnabled(True)
+            self.extrinsic_mode_select.setEnabled(True)
+            self.recording_mode_select.setEnabled(True)
+        else:
+            self.intrinsic_mode_select.setEnabled(False)
+            self.extrinsic_mode_select.setEnabled(False)
+            self.recording_mode_select.setEnabled(False)
+
+        if self.session.is_capture_volume_eligible():
+            self.capture_volume_mode_select.setEnabled(True)
+        else:
+            self.capture_volume_mode_select.setEnabled(False)
+
+        if self.session.is_triangulate_eligible():
+            self.triangulate_mode_select.setEnabled(True)
+        else:
+            self.triangulate_mode_select.setEnabled(False)
+
     def disconnect_cameras(self):
-        self.tab_widget.setCurrentWidget(self.charuco_widget)
-        self.tab_widget.setTabEnabled(TabIndex.Charuco.value,True)
-        self.tab_widget.setTabEnabled(TabIndex.Cameras.value,False)
-        self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value,False)
-        self.tab_widget.setTabEnabled(TabIndex.Recording.value,False)
-        self.tab_widget.setTabEnabled(TabIndex.Processing.value,True)
-        
-        self.camera_widget = QWidget()
-        self.calibrate_capture_volume_widget = QWidget()
-        self.recording_widget = QWidget()
-                
         self.session.set_mode(SessionMode.Charuco)
-        self.session.disconnect_cameras() 
+        self.session.disconnect_cameras()
         self.disconnect_cameras_action.setEnabled(False)
         self.connect_cameras_action.setEnabled(True)
+        self.update_enable_disable()
 
     def pause_all_frame_reading(self):
-        logger.info("Pausing all frame reading at load of stream tools; should be on charuco tab right now")
+        logger.info(
+            "Pausing all frame reading at load of stream tools; should be on charuco tab right now"
+        )
         self.session.pause_all_monocalibrators()
-        self.session.pause_synchronizer()  
+        self.session.pause_synchronizer()
 
     def load_stream_tools(self):
         self.connect_cameras_action.setEnabled(False)
         self.disconnect_cameras_action.setEnabled(True)
-        self.session.qt_signaler.stream_tools_loaded_signal.connect(self.pause_all_frame_reading)
+        self.session.qt_signaler.stream_tools_loaded_signal.connect(
+            self.pause_all_frame_reading
+        )
         self.thread = Thread(
             target=self.session.load_stream_tools, args=(), daemon=True
         )
         self.thread.start()
 
-            
-            
-    def on_tab_changed(self, index):
-        logger.info(f"Switching main window to tab {index}")
-        match index:
-            case TabIndex.Charuco.value:
-                logger.info(f"Activating Charuco Widget")
-                # self.silence_extrinsic_cal_widget()
-                self.session.set_mode(SessionMode.Charuco)
-            case TabIndex.Cameras.value:
-                logger.info(f"Activating Camera Setup Widget")
-                # self.silence_extrinsic_cal_widget()
-                self.session.set_mode(SessionMode.IntrinsicCalibration)
-            case TabIndex.CaptureVolume.value:
-                logger.info(f"Activating Calibrate Capture Volume Widget")
-
-                if self.session.is_capture_volume_eligible():
-                    logger.info(f"Session is eligible for setting of origin...activating capture volume origin widget")
-                    self.calibrate_capture_volume_widget.activate_capture_volume_widget()
-                else:
-                    logger.info(f"Session is not eligible for setting of origin...activating extrinsic calibration widget")
-                    self.calibrate_capture_volume_widget.activate_extrinsic_calibration_widget()
-
-            case TabIndex.Recording.value:
-                logger.info(f"Activate Recording Mode")
-
-                try:
-                    logger.info("Attempting to spin down the extrinsic calibration widget")
-                    self.calibrate_capture_volume_widget.extrinsic_calibration_widget.shutdown_threads()
-                except:
-                    logger.info("No extrinsic calibration calibration widget exists")
-
-                self.session.set_mode(SessionMode.Recording)
-            case TabIndex.Processing.value:
-                logger.info(f"Activate Processing Mode")
-                # self.silence_extrinsic_cal_widget()
-                self.session.set_mode(SessionMode.PostProcessing)
-                # may have acquired new recordings
-                self.processing_widget.update_recording_folders()
-
     def launch_session(self, path_to_folder: str):
         session_path = Path(path_to_folder)
         self.config = Configurator(session_path)
         logger.info(f"Launching session with config file stored in {session_path}")
-        self.session = Session(self.config)
+        self.session = LiveSession(self.config)
 
         # can always load charuco
         self.charuco_widget = CharucoWidget(self.session)
+        self.setCentralWidget(self.charuco_widget)
 
-        # launches without cameras connected, so just throw in placeholders
-        self.camera_widget = QWidget()
-        self.recording_widget = QWidget()
-        self.processing_widget = QWidget()
-        self.calibrate_capture_volume_widget = QWidget()
-
-        self.tab_widget.addTab(self.charuco_widget, "Charuco")
-        self.tab_widget.addTab(self.camera_widget, "Cameras")
-        self.tab_widget.addTab(self.calibrate_capture_volume_widget, "CaptureVolume")
-        self.tab_widget.addTab(self.recording_widget, "Recording")
-        self.tab_widget.addTab(self.processing_widget, "Processing")
-
-        # when tabs change, make sure session mode adjusts
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
-
-        # Make sure file menu can allow camera connection action
+        # now connecting to cameras is an option
         self.connect_cameras_action.setEnabled(True)
-        
-        # based on session parameters, may be able to load more than the defualt tabs
-        # check on that now...
-        self.update_tabs()
 
-        # might be able to do
-        old_index = self.tab_widget.currentIndex()
-
-        self.tab_widget.setCurrentIndex(old_index)
+        # but must exit and start over to launch a new session for now
         self.connect_session_signals()
 
-    def update_tabs(self):
-        """
-        Tab updates occur primarily at 2 times:
-        1. upon main window initiation when offline capacities 
-        (capture volume and post-processing) may be available.
-
-        2. upon loading of stream tools when cameras/recording would be available
-        """
-
-        # can always modify charuco
-        self.tab_widget.setTabEnabled(TabIndex.Charuco.value, True)
-
-        # if you are connected to comeras
-        if self.session.stream_tools_loaded:
-            # but haven't already loaded a non-placeholder widget
-            if type(self.camera_widget) != IntrinsicCalibrationWidget:
-                self.load_camera_widget()
-
-            if type(self.recording_widget) != RecordingWidget:
-                self.load_recording_widget()
-            
-            if type(self.calibrate_capture_volume_widget) != CalibrateCaptureVolumeWidget:
-                self.load_capture_volume_widget()
-
-            self.tab_widget.setTabEnabled(TabIndex.Cameras.value, True)
-            self.tab_widget.setTabEnabled(TabIndex.Recording.value, True)
-            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, True)
-        
-
-
-        else:
-            self.tab_widget.setTabEnabled(TabIndex.Cameras.value, False)
-            self.tab_widget.setTabEnabled(TabIndex.Recording.value, False)
-            self.tab_widget.setTabEnabled(TabIndex.CaptureVolume.value, False)
-
-        # might be able to do post processing if recordings and calibration available
-        if self.session.is_post_processing_eligible():
-            self.load_post_processing_widget()
-            self.tab_widget.setTabEnabled(TabIndex.Processing.value, True)
-        else:
-            self.tab_widget.setTabEnabled(TabIndex.Processing.value, False)
-            
-
+        self.open_project_action.setEnabled(False)
+        self.open_recent_project_submenu.setEnabled(False)
+        self.update_enable_disable()
 
     def connect_session_signals(self):
         """
         After launching a session, connect signals and slots.
         Much of these will be from the GUI to the session and vice-versa
         """
-        self.session.qt_signaler.unlock_postprocessing.connect(self.load_post_processing_widget)
-        self.session.qt_signaler.stream_tools_loaded_signal.connect(self.update_tabs)
-
-    def load_recording_widget(self):
-        # recording_index = self.tab_widget.indexOf(self.recording_widget)
-        self.tab_widget.removeTab(TabIndex.Recording.value)
-        self.recording_widget.deleteLater()
-        new_recording_widget = RecordingWidget(self.session)
-        self.tab_widget.insertTab(
-            TabIndex.Recording.value, new_recording_widget, TabIndex.Recording.name
+        self.session.qt_signaler.unlock_postprocessing.connect(
+            self.update_enable_disable
         )
-        self.recording_widget = new_recording_widget
-
-    def load_post_processing_widget(self):
-        self.tab_widget.removeTab(TabIndex.Processing.value)
-        self.processing_widget.deleteLater()
-        new_processing_widget = PostProcessingWidget(self.session)
-        self.tab_widget.insertTab(
-            TabIndex.Processing.value, new_processing_widget, TabIndex.Processing.name
+        self.session.qt_signaler.mode_change_success.connect(
+            self.update_central_widget_mode
         )
-        self.processing_widget = new_processing_widget
-
-    def load_capture_volume_widget(self):
-        self.tab_widget.removeTab(TabIndex.CaptureVolume.value)
-        self.calibrate_capture_volume_widget.deleteLater()
-        new_capture_volume_widget = CalibrateCaptureVolumeWidget(self.session)
-        self.tab_widget.insertTab(
-            TabIndex.CaptureVolume.value,
-            new_capture_volume_widget,
-            TabIndex.CaptureVolume.name,
+        self.session.qt_signaler.stream_tools_loaded_signal.connect(
+            self.update_enable_disable
         )
-        self.calibrate_capture_volume_widget = new_capture_volume_widget
-
-    def load_camera_widget(self):
-        self.tab_widget.removeTab(TabIndex.Cameras.value)
-        self.camera_widget.deleteLater()
-        new_camera_widget = IntrinsicCalibrationWidget(self.session)
-        self.tab_widget.insertTab(
-            TabIndex.Cameras.value, new_camera_widget, TabIndex.Cameras.name
+        self.session.qt_signaler.stream_tools_disconnected_signal.connect(
+            self.update_enable_disable
         )
-        self.camera_widget = new_camera_widget
-        
-        # if fully calibrated, then make capture volume available
-        # self.camera_widget.camera_tabs.stereoframe_ready.connect(self.update_tabs)
+        self.session.qt_signaler.mode_change_success.connect(self.update_enable_disable)
+        self.session.qt_signaler.extrinsic_calibration_complete.connect(
+            self.switch_to_capture_volume
+        )
 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)
@@ -327,7 +282,7 @@ class MainWindow(QMainWindow):
         path_to_folder = dialog.getExistingDirectory(
             parent=None,
             caption="Open Previous or Create New Project Directory",
-            directory=str(default_folder),
+            dir=str(default_folder),
             options=QFileDialog.Option.ShowDirsOnly,
         )
 
@@ -350,31 +305,13 @@ class MainWindow(QMainWindow):
             toml.dump(self.app_settings, f)
 
 
-class CentralTabWidget(QTabWidget):
-    """
-    Switching between tabs, particularly when system resource utilization is high,
-    is prone to result in segfault crashes. Working hypothesis is that this is due to mode
-    changes happening when the tab is changed and the GUI tries to render something it doesn't have
-    
-    This override slips the mode change between click and change to try to stabilize the mode switches.
-    
-    """
-    
-    def __init__(self):
-        super(CentralTabWidget, self).__init__()
-        
-    def tabBarClicked(self, index):
-        # Emit a custom signal or perform any desired action before the tab changes
-        logger.info(f"Tab {index} clicked")
-        
-        # Uncomment the following line to allow the tab to change after the signal is emitted
-        super(CentralTabWidget, self).tabBarClicked(index)
-
 def launch_main():
+    import qdarktheme
+
     app = QApplication(sys.argv)
+    qdarktheme.setup_theme("auto")
     window = MainWindow()
     window.show()
-
     app.exec()
 
 

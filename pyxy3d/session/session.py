@@ -1,21 +1,17 @@
 # Environment for managing all created objects and the primary interface for the GUI.
-import typing
 import pyxy3d.logger
-
-logger = pyxy3d.logger.get(__name__)
 
 from PySide6.QtCore import QObject, Signal
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from time import sleep
-from enum import Enum, auto
+from enum import Enum
 
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
-from pyxy3d.interface import Tracker
 
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
@@ -30,6 +26,8 @@ from pyxy3d.configurator import Configurator
 from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.recording.video_recorder import VideoRecorder
 
+logger = pyxy3d.logger.get(__name__)
+
 # %%
 MAX_CAMERA_PORT_CHECK = 10
 FILTERED_FRACTION = 0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
@@ -43,22 +41,22 @@ class SessionMode(Enum):
     ExtrinsicCalibration = "&Multicamera"
     CaptureVolumeOrigin = "Capture &Volume"
     Recording = "&Recording"
-    PostProcessing = "&Post-processing"
+    Triangulate = "&Triangulate"
+
 
 class QtSignaler(QObject):
     stream_tools_loaded_signal = Signal()
     stream_tools_disconnected_signal = Signal()
     unlock_postprocessing = Signal()
-    recording_complete_signal = Signal()        
+    recording_complete_signal = Signal()
     mode_change_success = Signal()
     extrinsic_calibration_complete = Signal()
-
 
     def __init__(self) -> None:
         super(QtSignaler, self).__init__()
 
-        
-class Session:
+
+class LiveSession:
     def __init__(self, config: Configurator):
         # need a way to let the GUI know when certain actions have been completed
         self.qt_signaler = QtSignaler()
@@ -114,7 +112,7 @@ class Session:
         self.qt_signaler.stream_tools_disconnected_signal.emit()
 
     def is_camera_setup_eligible(self):
-        # assume true and prove false        
+        # assume true and prove false
         eligible = True
 
         if len(self.cameras) == 0:
@@ -200,19 +198,20 @@ class Session:
 
         return eligible
 
-    def is_post_processing_eligible(self):
+    def is_triangulate_eligible(self):
         """
-        Post processing can only be performed if recordings (mp4 files) exist and extrinsics 
+        Triangulation can only be performed if recordings (mp4 files) exist and extrinsics
         (config.toml) are calibrated in the 'record' directory
         """
-        #assume false and prove otherwise
+
+        # assume false and prove otherwise
         eligible = False
         for child in self.path.iterdir():
             if child.is_dir():
-                mp4_files = list(child.glob('*.mp4'))
-                config_file = child / 'config.toml'
+                mp4_files = list(child.glob("*.mp4"))
+                config_file = child / "config.toml"
                 if mp4_files and config_file.exists():
-                    eligible=True
+                    eligible = True
 
         return eligible
 
@@ -231,7 +230,7 @@ class Session:
                     self.synchronizer.unsubscribe_from_streams()
                     self.pause_all_monocalibrators()
 
-            case SessionMode.PostProcessing:
+            case SessionMode.Triangulate:
                 if self.stream_tools_loaded:
                     self.synchronizer.unsubscribe_from_streams()
                     self.pause_all_monocalibrators()
@@ -257,7 +256,7 @@ class Session:
                 self.pause_all_monocalibrators()
                 self.set_streams_charuco()
                 self.set_streams_tracking(True)
-                
+
                 self.synchronizer.subscribe_to_streams()
 
             case SessionMode.CaptureVolumeOrigin:
@@ -274,15 +273,17 @@ class Session:
 
                 logger.info("Pausing monocals to enter recording mode")
                 self.pause_all_monocalibrators()
-                
+
                 logger.info("Stop tracking for recording mode")
                 self.set_streams_tracking(False)
                 logger.info("Update stream fps to recording fps")
                 self.update_streams_fps()
-                
-                logger.info("Subscribe synchronizer to streams so video recorder can manage")
+
+                logger.info(
+                    "Subscribe synchronizer to streams so video recorder can manage"
+                )
                 self.synchronizer.subscribe_to_streams()
-        
+
         self.qt_signaler.mode_change_success.emit()
 
     def set_active_mode_fps(self, fps_target: int):
@@ -290,11 +291,13 @@ class Session:
         Updates the FPS used by the currently active session mode
         This update includes the config.toml
         """
-        logger.info(f"Updating streams fps to {fps_target} to align with {self.mode} mode")
+        logger.info(
+            f"Updating streams fps to {fps_target} to align with {self.mode} mode"
+        )
         match self.mode:
             case SessionMode.Charuco:
                 pass
-            case SessionMode.PostProcessing:
+            case SessionMode.Triangulate:
                 pass
             case SessionMode.IntrinsicCalibration:
                 self.fps_intrinsic_calibration = fps_target
@@ -313,7 +316,7 @@ class Session:
         match self.mode:
             case SessionMode.Charuco:
                 pass
-            case SessionMode.PostProcessing:
+            case SessionMode.Triangulate:
                 pass
             case SessionMode.IntrinsicCalibration:
                 fps = self.fps_intrinsic_calibration
@@ -425,8 +428,8 @@ class Session:
         logger.info("Pausing stream tools since default loads to charuco")
         self.pause_all_monocalibrators()
         self.pause_synchronizer()
-        
-        logger.info(f"Signalling successful loading of stream tools")
+
+        logger.info("Signalling successful loading of stream tools")
         self.qt_signaler.stream_tools_loaded_signal.emit()
 
     def _load_monocalibrators(self):
@@ -458,7 +461,7 @@ class Session:
         used when not actively on the camera calibration tab
         or when silencing all in preparation for activating only one
         """
-        logger.info(f"Pausing all monocalibrator looping...")
+        logger.info("Pausing all monocalibrator looping...")
         for port, monocal in self.monocalibrators.items():
             monocal.unsubscribe_to_stream()
 
@@ -483,10 +486,10 @@ class Session:
 
         self.is_recording = False
 
-        logger.info(f"Recording of frames is complete...signalling change in status")
+        logger.info("Recording of frames is complete...signalling change in status")
         self.qt_signaler.recording_complete_signal.emit()
 
-        if self.is_post_processing_eligible():
+        if self.is_triangulate_eligible():
             self.qt_signaler.unlock_postprocessing.emit()
 
     def _adjust_resolutions(self):

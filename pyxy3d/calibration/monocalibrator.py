@@ -1,8 +1,4 @@
-
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
-# import logging
-# logger.setLevel(logging.DEBUG)
 import time
 from queue import Queue
 from threading import Thread, Event
@@ -17,30 +13,25 @@ from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.interface import FramePacket
 from pyxy3d.cameras.live_stream import LiveStream
 
-class MonoCalibrator():
+logger = pyxy3d.logger.get(__name__)
 
-    def __init__(
-        self, stream:LiveStream,  board_threshold=0.7, wait_time=0.5, fps = 6
-    ):
+
+class MonoCalibrator:
+    def __init__(self, stream: LiveStream, board_threshold=0.7, wait_time=0.5, fps=6):
         self.stream = stream
         self.camera: Camera = stream.camera  # reference needed to update params
         self.port = self.camera.port
         self.board_threshold = board_threshold
-                
-        # # this is strange but is done to allow the GUI an easy way to restore stream fps when switching between monocal/synchronizer
-        # # self.fps = fps # monocalibrator should not store fps...it's a stream prop. 
-        # self.set_stream_fps(fps)
 
         self.wait_time = wait_time
         self.capture_corners = Event()
-        self.capture_corners.clear() # start out not doing anything
+        self.capture_corners.clear()  # start out not doing anything
         self.stop_event = Event()
-                
-        self.frame_packet_in_q = Queue(-1)    
+
+        self.frame_packet_in_q = Queue(-1)
         self.subscribe_to_stream()
 
         self.grid_frame_ready_q = Queue()
-
 
         self.initialize_grid_history()
 
@@ -53,14 +44,6 @@ class MonoCalibrator():
 
         logger.info(f"Beginning monocalibrator for port {self.port}")
 
-    # def set_stream_fps(self, fps_target:int=None):
-    #     """
-    #     If new target, update monocal property, otherwise revert to previously stored
-    #     """
-    #     if fps_target is not None:
-    #         self.fps = fps_target
-    #     self.stream.set_fps_target(self.fps)
-     
     @property
     def grid_count(self):
         """How many sets of corners have been collected up to this point"""
@@ -81,17 +64,16 @@ class MonoCalibrator():
         self.all_ids = []
         self.all_img_loc = []
         self.all_obj_loc = []
-    
+
     def stop(self):
         self.stop_event.set()
         self.thread.join()
 
     def subscribe_to_stream(self):
         self.stream.subscribe(self.frame_packet_in_q)
-    
-    def unsubscribe_to_stream(self): 
+
+    def unsubscribe_to_stream(self):
         self.stream.unsubscribe(self.frame_packet_in_q)
-    
 
     def collect_corners(self):
         """
@@ -108,9 +90,8 @@ class MonoCalibrator():
         self.connected_points = self.stream.tracker.get_connected_points()
         board_corner_count = len(self.stream.tracker.board.getChessboardCorners())
         self.min_points_to_process = int(board_corner_count * self.board_threshold)
-        
+
         while not self.stop_event.is_set():
-            
             self.frame_packet: FramePacket = self.frame_packet_in_q.get()
             self.frame = self.frame_packet.frame
 
@@ -129,7 +110,9 @@ class MonoCalibrator():
                 )
 
                 if enough_corners and enough_time_from_last_cal:
-                    logger.debug(f"Points found and being processed for port {self.port}")
+                    logger.debug(
+                        f"Points found and being processed for port {self.port}"
+                    )
 
                     # store the corners and IDs
                     self.all_ids.append(self.ids)
@@ -139,15 +122,16 @@ class MonoCalibrator():
                     self.last_calibration_time = time.perf_counter()
                     self.update_grid_history()
                 else:
-                    logger.debug(f"No points collected for processing at port {self.port}")
-                    
-                    
+                    logger.debug(
+                        f"No points collected for processing at port {self.port}"
+                    )
+
             if self.frame_packet.frame is not None:
                 self.set_grid_frame()
 
         logger.info(f"Monocalibrator at port {self.port} successfully shutdown...")
         self.stream.push_to_out_q.clear()
-        
+
     def update_grid_history(self):
         if len(self.ids) > 2:
             self.grid_capture_history = draw_charuco.grid_history(
@@ -157,15 +141,12 @@ class MonoCalibrator():
                 self.connected_points,
             )
 
-
     def set_grid_frame(self):
-        """Merges the current frame with the currently detected corners (red circles) 
+        """Merges the current frame with the currently detected corners (red circles)
         and a history of the stored grid information."""
 
         logger.debug(f"Frame Size is {self.frame.shape} at port {self.port}")
-        logger.debug(
-            f"camera resolution is {self.camera.size} at port {self.port}"
-        )
+        logger.debug(f"camera resolution is {self.camera.size} at port {self.port}")
 
         # check to see if the camera resolution changed from the last round
         if (
@@ -173,7 +154,9 @@ class MonoCalibrator():
             and self.frame.shape[1] == self.grid_capture_history.shape[1]
         ):
             self.grid_frame = self.frame_packet.frame_with_points
-            self.grid_frame = cv2.addWeighted(self.grid_frame, 1, self.grid_capture_history, 1, 0)
+            self.grid_frame = cv2.addWeighted(
+                self.grid_frame, 1, self.grid_capture_history, 1, 0
+            )
 
             self.grid_frame_ready_q.put("frame ready")
 
@@ -221,7 +204,6 @@ class MonoCalibrator():
 
 
 if __name__ == "__main__":
-
     from pyxy3d.cameras.camera import Camera
     from pyxy3d.cameras.synchronizer import Synchronizer
     from pyxy3d.cameras.live_stream import LiveStream
@@ -230,7 +212,6 @@ if __name__ == "__main__":
         3, 4, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
     )
     charuco_tracker = CharucoTracker(charuco)
-
 
     test_port = 0
     cam = Camera(0)
@@ -241,7 +222,7 @@ if __name__ == "__main__":
     monocal = MonoCalibrator(stream)
 
     monocal.capture_corners.set()
-    
+
     print("About to enter main loop")
     while True:
         # read_success, frame = cam.capture.read()
@@ -263,9 +244,9 @@ if __name__ == "__main__":
                 monocal.stream.track_points.clear()
             else:
                 monocal.stream.track_points.set()
-    
+
         if key == ord("v"):
-            stream.change_resolution((1280,720))
+            stream.change_resolution((1280, 720))
 
     monocal.calibrate()
     monocal.update_camera()

@@ -1,6 +1,5 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -28,10 +27,11 @@ from PySide6.QtWidgets import (
 
 from pyxy3d import __app_dir__
 from pyxy3d.calibration.charuco import ARUCO_DICTIONARIES, Charuco
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.navigation_bars import NavigationBarNext
 
 
+logger = pyxy3d.logger.get(__name__)
 class CharucoWidget(QWidget):
     def __init__(self, session):
         super().__init__()
@@ -282,7 +282,7 @@ if __name__ == "__main__":
     recent_project_count = len(recent_projects)
     session_path = Path(recent_projects[recent_project_count - 1])
     config = Configurator(session_path)
-    session = Session(config)
+    session = LiveSession(config)
 
     app = QApplication(sys.argv)
 

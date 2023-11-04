@@ -236,7 +236,7 @@ def get_board_origin_transform(
 
 if __name__ == "__main__":
     #
-    from pyxy3d.session.session import Session
+    from pyxy3d.session.session import LiveSession
     from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
     from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
     from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import (
@@ -270,7 +270,7 @@ if __name__ == "__main__":
     config_path = Path(session_directory, "config.toml")
 
     # need to get the charuco board that was used during the session for later
-    session = Session(session_directory)
+    session = LiveSession(session_directory)
     tracker = session.charuco
 
     REOPTIMIZE_CAPTURE_VOLUME = True

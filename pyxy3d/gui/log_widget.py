@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import LiveSession
 from pathlib import Path
 from threading import Thread
 from time import time

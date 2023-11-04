@@ -8,9 +8,6 @@
 import pyxy3d.logger
 import logging
 
-logger = pyxy3d.logger.get(__name__)
-logger.setLevel(logging.INFO)
-
 from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
@@ -22,10 +19,12 @@ import pandas as pd
 import numpy as np
 
 from pyxy3d.interface import FramePacket, Tracker, Stream
-from pyxy3d.trackers.tracker_enum import TrackerEnum
 from pyxy3d.cameras.live_stream import Stream
 from pyxy3d.cameras.camera_array import CameraData
 from pyxy3d.configurator import Configurator
+
+logger = pyxy3d.logger.get(__name__)
+logger.setLevel(logging.INFO)
 
 
 class RecordedStream(Stream):
@@ -39,9 +38,9 @@ class RecordedStream(Stream):
         self,
         directory: Path,
         port: int,
-        size, 
-        rotation_count: int,
-        fps_target: int = 6,
+        size: tuple = None,
+        rotation_count: int = 0,
+        fps_target: int = None,
         tracker: Tracker = None,
     ):
         # self.port = port
@@ -59,12 +58,22 @@ class RecordedStream(Stream):
         video_path = str(Path(self.directory, f"port_{self.port}.mp4"))
         self.capture = cv2.VideoCapture(video_path)
 
+        # for playback, set the fps target to the actual
+        if fps_target is None:
+            fps_target = int(self.capture.get(cv2.CAP_PROP_FPS))
+            
+            
         self.stop_event = Event()
-
         self.subscribers = []
 
+        ###################### This is going to be something that needs to be reconsidered
+        # I think that with a new framework there needs to be a tool to create the 
+        # frame time history whenever video files are loaded in.
+        # these could be for an individual file or a group of files
+        # Don't ditch this just yet, Mac. Populate this info if it exists
+        # estimate based on FPS and  frame count if it does not.
         synched_frames_history_path = str(
-            Path(self.directory, f"frame_time_history.csv")
+            Path(self.directory, "frame_time_history.csv")
         )
         synched_frames_history = pd.read_csv(synched_frames_history_path)
 
@@ -75,8 +84,12 @@ class RecordedStream(Stream):
         self.port_history["frame_index"] = (
             self.port_history["frame_time"].rank(method="min").astype(int) - 1
         )
+
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
+        #####################
+
+
 
         # initializing to something to avoid errors elsewhere
         self.frame_index = 0
@@ -165,7 +178,7 @@ class RecordedStream(Stream):
                     logger.info(f"Spinlock initiated at port {self.port}")
                     spinlock_looped = True
                 sleep(0.5)
-            if spinlock_looped == True:
+            if spinlock_looped:
                 logger.info(f"Spinlock released at port {self.port}")
 
             if self.milestones is not None:
@@ -189,7 +202,6 @@ class RecordedStream(Stream):
                 port=self.port,
                 frame_time=self.frame_time,
                 frame=self.frame,
-                # frame_index=self.frame_index,
                 points=self.point_data,
                 draw_instructions=draw_instructions,
             )
@@ -230,7 +242,12 @@ class RecordedStreamPool:
             rotation_count = camera.rotation_count
             size = camera.size
             self.streams[port] = RecordedStream(
-                directory, port,size, rotation_count, fps_target=fps_target, tracker=tracker
+                directory,
+                port,
+                size,
+                rotation_count,
+                fps_target=fps_target,
+                tracker=tracker,
             )
 
     def play_videos(self):
@@ -302,7 +319,9 @@ if __name__ == "__main__":
 
     from pyxy3d import __root__
 
-    recording_directory = Path(__root__, "tests", "sessions", "post_monocal")
+    recording_directory = Path(
+        __root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic"
+    )
 
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
@@ -310,26 +329,30 @@ if __name__ == "__main__":
 
     tracker = CharucoTracker(charuco)
 
-    cameras = get_configured_camera_data(recording_directory)
+    config = Configurator(recording_directory)
+    cameras = get_configured_camera_data(Path(recording_directory, "config.toml"))
 
     recorded_stream_pool = RecordedStreamPool(
-        recording_directory, tracker_factory=tracker
+        directory=recording_directory, config=config, tracker=tracker
     )
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=None)
-    recorded_stream_pool.play_videos()
 
     syncr.subscribe_to_streams()
 
     in_q = Queue(-1)
     syncr.subscribe_to_sync_packets(in_q)
+    recorded_stream_pool.play_videos()
 
-    while not syncr.frames_complete:
-        sleep(0.03)
+    while True:
+        # logger.info("Pulling sync_packet from queue")
+        # sleep(0.3)
+
         sync_packet = in_q.get()
+        if sync_packet is None:
+            break
+
         for port, frame_packet in sync_packet.frame_packets.items():
             if frame_packet:
-                if frame_packet.frame_time == -1:
-                    break  # end of frames
                 cv2.imshow(f"Port {port}", frame_packet.frame_with_points)
 
         key = cv2.waitKey(1)

@@ -39,7 +39,7 @@ from PySide6.QtWidgets import (
 
 from pyxy3d.post_processing.post_processor import PostProcessor
 from pyxy3d.post_processing.blender_tools import generate_metarig_config
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import LiveSession
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.recording.video_recorder import VideoRecorder
@@ -52,7 +52,7 @@ from pyxy3d.gui.progress_dialog import ProgressDialog
 class PostProcessingWidget(QWidget):
     processing_complete = Signal()
 
-    def __init__(self, session:Session):
+    def __init__(self, session:LiveSession):
         super(PostProcessingWidget, self).__init__()
         self.session = session
         self.config = session.config

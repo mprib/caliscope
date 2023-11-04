@@ -10,7 +10,7 @@ import toml
 from time import sleep
 from pyxy3d import __root__
 from pyxy3d.configurator import Configurator
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import LiveSession
 from pathlib import Path
 from pyxy3d import __app_dir__
 
@@ -24,7 +24,7 @@ session_path = Path(recent_projects[recent_project_count-1])
 logger.info(f"Launching post processing widget for {session_path}")
 
 config =  Configurator(session_path)
-session = Session(config)
+session = LiveSession(config)
 
 app = QApplication(sys.argv)
 

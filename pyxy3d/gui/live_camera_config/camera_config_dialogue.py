@@ -1,15 +1,10 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
-
-import sys
 from pathlib import Path
 from threading import Thread
-import time
 
-import cv2
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QImage, QPixmap, QIcon
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QWidget,
@@ -27,13 +22,15 @@ from PySide6.QtWidgets import (
 )
 
 # Append main repo to top of path to allow import of backend
-from pyxy3d.gui.camera_config.frame_emitter import FrameEmitter
+from pyxy3d.gui.live_camera_config.frame_emitter import FrameEmitter
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.live_stream import LiveStream
-from pyxy3d.session.session import Session
-from pyxy3d.gui.camera_config.camera_summary_widget import SummaryWidget
+from pyxy3d.session.session import LiveSession
+from pyxy3d.gui.live_camera_config.camera_summary_widget import SummaryWidget
 from pyxy3d import __root__
+
+logger = pyxy3d.logger.get(__name__)
 
 
 class CameraConfigTab(QDialog):
@@ -123,10 +120,10 @@ class CalibrationControls(QGroupBox):
     signal_calibration_lock = Signal(bool)
     calibration_change = Signal()
 
-    def __init__(self, session: Session, port, frame_emitter: FrameEmitter):
+    def __init__(self, session: LiveSession, port, frame_emitter: FrameEmitter):
         super(CalibrationControls, self).__init__("Calibration Summary")
 
-        self.session: Session = session
+        self.session: LiveSession = session
         self.port = port
         self.monocal: MonoCalibrator = self.session.monocalibrators[port]
         self.stream: LiveStream = self.monocal.stream
@@ -235,9 +232,9 @@ class CalibrationControls(QGroupBox):
 
 
 class AdvancedControls(QWidget):
-    def __init__(self, session: Session, port, frame_emitter: FrameEmitter):
+    def __init__(self, session: LiveSession, port, frame_emitter: FrameEmitter):
         super(AdvancedControls, self).__init__()
-        self.session: Session = session
+        self.session: LiveSession = session
         self.port = port
         self.monocal: MonoCalibrator = self.session.monocalibrators[port]
         self.stream: LiveStream = self.monocal.stream
@@ -317,9 +314,9 @@ class AdvancedControls(QWidget):
 
 
 class FrameControlWidget(QWidget):
-    def __init__(self, session: Session, port, frame_emitter: FrameEmitter):
+    def __init__(self, session: LiveSession, port, frame_emitter: FrameEmitter):
         super(FrameControlWidget, self).__init__()
-        self.session: Session = session
+        self.session: LiveSession = session
         self.monocal: MonoCalibrator = session.monocalibrators[port]
         self.port = port
         self.camera: Camera = self.monocal.stream.camera
@@ -421,7 +418,6 @@ class FrameControlWidget(QWidget):
         # to the signal more straightforward
         self.session.config.save_camera(self.camera)
 
-
     def update_exposure(self, exp):
         self.monocal.camera.exposure = exp
         self.exposure_number.setText(str(exp))
@@ -452,4 +448,3 @@ class FrameControlWidget(QWidget):
             daemon=True,
         )
         self.change_res_thread.start()
-

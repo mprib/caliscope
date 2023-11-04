@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.interface import XYZPacket
 from pyxy3d.cameras.camera_array import CameraArray
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     test_session_index = 0
     session_path = test_sessions[test_session_index]
     logger.info(f"Loading session {session_path}")
-    session = Session(session_path)
+    session = LiveSession(session_path)
 
     session.load_estimated_capture_volume()
 

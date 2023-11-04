@@ -4,32 +4,26 @@ The Place where I'm putting together the RealTimeTriangulator working stuff that
 Hopefully I can keep things clean enough for that...
 
 """
-# %%
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 from time import sleep
 
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
 from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from pyxy3d.cameras.camera_array import CameraArray, CameraData
+from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.recording.recorded_stream import RecordedStreamPool
-from pyxy3d.calibration.charuco import Charuco, get_charuco
+from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.configurator import Configurator
 
 import pytest
 import shutil
 from pathlib import Path
-from numba import jit
-from numba.typed import Dict, List
 import numpy as np
-import cv2
 import pandas as pd
-from time import time
 from pyxy3d import __root__
 
+logger = pyxy3d.logger.get(__name__)
 TEST_SESSIONS = ["post_optimization"]
 
 
@@ -83,7 +77,7 @@ def test_real_time_triangulator(session_path):
 
     camera_array: CameraArray = config.get_camera_array()
 
-    logger.info(f"Creating RecordedStreamPool based on calibration recordings")
+    logger.info("Creating RecordedStreamPool based on calibration recordings")
     recording_directory = Path(session_path, "calibration", "extrinsic")
     stream_pool = RecordedStreamPool(
         directory=recording_directory,
@@ -106,7 +100,6 @@ def test_real_time_triangulator(session_path):
     while real_time_triangulator.running:
         sleep(1)
 
-    # %%
     # need to compare the output of the triangulator to the point_estimats
     # this is nice because it's two totally different processing pipelines
     # but sync indices will be different, so just compare mean positions
@@ -126,7 +119,7 @@ def test_real_time_triangulator(session_path):
     logger.info(f"y: {round(triangulator_y_mean,4)} vs {round(config_y_mean,4)} ")
     logger.info(f"z: {round(triangulator_z_mean,4)} vs {round(config_z_mean,4)} ")
 
-    logger.info(f"Assert that mean positions are within 1.5 centimeters...")
+    logger.info("Assert that mean positions are within 1.5 centimeters...")
     assert abs(config_x_mean - triangulator_x_mean) < 0.015
     assert abs(config_y_mean - triangulator_y_mean) < 0.015
     assert abs(config_z_mean - triangulator_z_mean) < 0.015

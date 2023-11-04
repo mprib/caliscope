@@ -1,7 +1,5 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
-
 from time import sleep
 import shutil
 from pathlib import Path
@@ -14,30 +12,20 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
     get_point_estimates,
 )
 import pytest
-from pyxy3d.calibration.charuco import Charuco, get_charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.calibration.monocalibrator import MonoCalibrator
-from pyxy3d.cameras.camera import Camera
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
-
 
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
-from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from pyxy3d.calibration.capture_volume.quality_controller import QualityController
 
-from pyxy3d.cameras.camera_array import CameraArray, CameraData
-from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
-    get_point_estimates,
-)
 
-from pyxy3d.cameras.live_stream import LiveStream
 from pyxy3d.recording.video_recorder import VideoRecorder
-from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
+from pyxy3d.recording.recorded_stream import RecordedStreamPool
 
 from pyxy3d.session.session import FILTERED_FRACTION
 from pyxy3d.configurator import Configurator
+
+logger = pyxy3d.logger.get(__name__)
 
 TEST_SESSIONS = ["mediapipe_calibration"]
 
@@ -92,26 +80,25 @@ def test_post_monocalibration(session_path):
     charuco_tracker = CharucoTracker(charuco)
 
     # create a synchronizer based off of these stream pools
-    logger.info(f"Creating RecordedStreamPool")
+    logger.info("Creating RecordedStreamPool")
 
     recording_path = Path(session_path, "calibration", "extrinsic")
     point_data_path = Path(recording_path, "xy.csv")
 
     stream_pool = RecordedStreamPool(
-        recording_path,
-        config=config,
-        fps_target=100,
-        tracker=charuco_tracker
+        recording_path, config=config, fps_target=100, tracker=charuco_tracker
     )
-    
+
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(stream_pool.streams, fps_target=100)
 
     # video recorder needed to save out points.csv.
-    logger.info(f"Creating test video recorder to save out point data")
+    logger.info("Creating test video recorder to save out point data")
 
     video_recorder = VideoRecorder(syncr)
-    video_recorder.start_recording(recording_path, include_video=False, store_point_history=True)
+    video_recorder.start_recording(
+        recording_path, include_video=False, store_point_history=True
+    )
 
     logger.info("Initiate playing stream pool videos...")
     stream_pool.play_videos()
@@ -121,7 +108,7 @@ def test_post_monocalibration(session_path):
         logger.info("Waiting for point_data.csv to populate...")
         sleep(1)
 
-    logger.info(f"Waiting for video recorder to finish processing stream...")
+    logger.info("Waiting for video recorder to finish processing stream...")
     stereocalibrator = StereoCalibrator(config.config_toml_path, point_data_path)
     stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 

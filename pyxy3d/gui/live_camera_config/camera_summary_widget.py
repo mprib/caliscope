@@ -19,11 +19,6 @@ class SummaryWidget(QWidget):
         self.setLayout(QVBoxLayout())
         self.place_widgets()
 
-    # def clear_layout(self):
-    #     while self.layout().count():
-    #         child = self.layout().takeAt(0)
-    #         if child.widget():
-    #             child.widget().deleteLater()
 
     def place_widgets(self):
         # self.clear_layout()
@@ -123,7 +118,7 @@ if __name__ == "__main__":
     from time import sleep
     from pyxy3d import __root__
     from pathlib import Path
-    from pyxy3d.session.session import Session
+    from pyxy3d.session.session import LiveSession
     import toml
     from pyxy3d import __app_dir__
 
@@ -133,7 +128,7 @@ if __name__ == "__main__":
     recent_project_count = len(recent_projects)
     session_path = Path(recent_projects[recent_project_count - 1])
     config = Configurator(session_path)
-    session = Session(config)
+    session = LiveSession(config)
     session.load_stream_tools()
     
     port = 2

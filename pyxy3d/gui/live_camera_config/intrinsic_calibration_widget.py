@@ -13,15 +13,15 @@ from PySide6.QtWidgets import (
     QTabWidget,
 )
 
-from pyxy3d.gui.camera_config.camera_config_dialogue import CameraConfigTab
-from pyxy3d.session.session import Session
+from pyxy3d.gui.live_camera_config.camera_config_dialogue import CameraConfigTab
+from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
 
 class IntrinsicCalibrationWidget(QWidget):
     """ 
     This is basically just the camera tabs plus the navigation bar
     """
-    def __init__(self, session: Session):
+    def __init__(self, session: LiveSession):
         super(IntrinsicCalibrationWidget, self).__init__()
         self.setLayout(QVBoxLayout())    
         self.camera_tabs = CameraTabs(session)
@@ -33,7 +33,7 @@ class CameraTabs(QTabWidget):
     
     stereoframe_ready = Signal(bool)
 
-    def __init__(self, session: Session):
+    def __init__(self, session: LiveSession):
         super(CameraTabs, self).__init__()
         self.session = session
 

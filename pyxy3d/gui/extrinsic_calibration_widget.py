@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 # Append main repo to top of path to allow import of backend
-from pyxy3d.session.session import Session
+from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.frame_builders.paired_frame_builder import PairedFrameBuilder
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
@@ -50,7 +50,7 @@ class ExtrinsicCalibrationWidget(QWidget):
     calibration_initiated = Signal()
     terminate = Signal()
      
-    def __init__(self,session:Session):
+    def __init__(self,session:LiveSession):
 
         super(ExtrinsicCalibrationWidget, self).__init__()
         self.session = session
@@ -289,7 +289,7 @@ if __name__ == "__main__":
         session_path = Path(__root__, "dev","sample_sessions", "257")
         configurator = Configurator(session_path)
 
-        session = Session(configurator)
+        session = LiveSession(configurator)
         # session.load_cameras()
         tracker = CharucoTracker(session.charuco)
         session.load_stream_tools(tracker=tracker)

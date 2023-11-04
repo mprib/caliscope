@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 import toml
 
 from pyxy3d.gui.recording_widget import RecordingWidget
-from pyxy3d.session.session import Session, SessionMode
+from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d import __root__
 from pyxy3d.helper import copy_contents
@@ -31,7 +31,7 @@ recent_project_count = len(recent_projects)
 session_path = Path(recent_projects[recent_project_count-1])
 # copy_contents(session_origin_path,session_path)
 config = Configurator(session_path)
-session = Session(config)
+session = LiveSession(config)
 session.set_mode(SessionMode.Recording)
 
 App = QApplication(sys.argv)

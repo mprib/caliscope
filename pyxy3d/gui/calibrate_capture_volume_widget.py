@@ -1,6 +1,5 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 
 import os
 import sys
@@ -20,9 +19,9 @@ from PySide6.QtWidgets import (
     QStackedWidget,
 )
 
-from pyxy3d.session.session import Session, SessionMode
+from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.gui.charuco_widget import CharucoWidget
-from pyxy3d.gui.camera_config.intrinsic_calibration_widget import IntrinsicCalibrationWidget
+from pyxy3d.gui.live_camera_config.intrinsic_calibration_widget import IntrinsicCalibrationWidget
 from pyxy3d import __root__, __app_dir__
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 # from pyxy3d.gui.qt_logger import QtLogger
@@ -33,6 +32,7 @@ from pyxy3d.gui.extrinsic_calibration_widget import (
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from pyxy3d.configurator import Configurator
 
+logger = pyxy3d.logger.get(__name__)
 
 class CalibrateCaptureVolumeWidget(QStackedWidget):
     """
@@ -41,7 +41,7 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
     """
     cameras_connected = Signal()
 
-    def __init__(self, session:Session):
+    def __init__(self, session:LiveSession):
         super().__init__()
         self.CAMS_IN_PROCESS = False
 

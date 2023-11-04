@@ -38,9 +38,9 @@ class RecordedStream(Stream):
         self,
         directory: Path,
         port: int,
-        size,
-        rotation_count: int,
-        fps_target: int = 6,
+        size: tuple = None,
+        rotation_count: int = 0,
+        fps_target: int = None,
         tracker: Tracker = None,
     ):
         # self.port = port
@@ -58,10 +58,20 @@ class RecordedStream(Stream):
         video_path = str(Path(self.directory, f"port_{self.port}.mp4"))
         self.capture = cv2.VideoCapture(video_path)
 
+        # for playback, set the fps target to the actual
+        if fps_target is None:
+            fps_target = int(self.capture.get(cv2.CAP_PROP_FPS))
+            
+            
         self.stop_event = Event()
-
         self.subscribers = []
 
+        ###################### This is going to be something that needs to be reconsidered
+        # I think that with a new framework there needs to be a tool to create the 
+        # frame time history whenever video files are loaded in.
+        # these could be for an individual file or a group of files
+        # Don't ditch this just yet, Mac. Populate this info if it exists
+        # estimate based on FPS and  frame count if it does not.
         synched_frames_history_path = str(
             Path(self.directory, "frame_time_history.csv")
         )
@@ -77,6 +87,9 @@ class RecordedStream(Stream):
 
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
+        #####################
+
+
 
         # initializing to something to avoid errors elsewhere
         self.frame_index = 0
@@ -165,7 +178,7 @@ class RecordedStream(Stream):
                     logger.info(f"Spinlock initiated at port {self.port}")
                     spinlock_looped = True
                 sleep(0.5)
-            if spinlock_looped == True:
+            if spinlock_looped:
                 logger.info(f"Spinlock released at port {self.port}")
 
             if self.milestones is not None:
@@ -189,7 +202,6 @@ class RecordedStream(Stream):
                 port=self.port,
                 frame_time=self.frame_time,
                 frame=self.frame,
-                # frame_index=self.frame_index,
                 points=self.point_data,
                 draw_instructions=draw_instructions,
             )
@@ -333,7 +345,7 @@ if __name__ == "__main__":
 
     while True:
         # logger.info("Pulling sync_packet from queue")
-        sleep(0.3)
+        # sleep(0.3)
 
         sync_packet = in_q.get()
         if sync_packet is None:

@@ -2,7 +2,6 @@
 #%%
 
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 
 from pathlib import Path
 from datetime import datetime
@@ -11,16 +10,14 @@ import numpy as np
 import toml
 from dataclasses import asdict
 import  cv2
-from time import time
 
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera import Camera
-from pyxy3d.cameras.live_stream import LiveStream
-from pyxy3d.interface import Tracker
 from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from concurrent.futures import ThreadPoolExecutor
+logger = pyxy3d.logger.get(__name__)
 
 class Configurator:
     """
@@ -185,7 +182,7 @@ class Configurator:
                     all_camera_data[port] = cam_data
                     logger.info(f"Camera successfully added at port {port}")
         camera_array = CameraArray(all_camera_data)
-        logger.info(f"Camera array successfully created and being passed back to caller")
+        logger.info("Camera array successfully created and being passed back to caller")
         return camera_array
     
     

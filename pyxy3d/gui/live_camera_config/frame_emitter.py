@@ -1,6 +1,5 @@
 
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +11,7 @@ from PySide6.QtCore import QSize, Qt, QThread, Signal
 from PySide6.QtGui import QFont, QIcon, QImage, QPixmap
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 
+logger = pyxy3d.logger.get(__name__)
 
 class FrameEmitter(QThread):
     # establish signals from the frame that will be displayed in real time

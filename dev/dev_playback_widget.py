@@ -4,44 +4,46 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
 from PySide6.QtCore import (Qt, QTimer)
 from PySide6.QtGui import (QPixmap, QImage)
 
+
+from pyxy3d.controller import Controller
+
 class VideoPlayer(QWidget):
-    def __init__(self, video_path, parent=None):
+    def __init__(self, controller:Controller, camera_index:int,parent=None):
         super().__init__(parent)
-        self.video_path = video_path
-        self.cap = cv2.VideoCapture(self.video_path)
-        self.frame_rate = int(self.cap.get(cv2.CAP_PROP_FPS))
-        self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.timer = QTimer()
+        self.controller = controller
+        self.camera_index = camera_index 
+
+        self.frame_image = QLabel(self)
+        self.play_button = QPushButton("Play", self)
+        self.slider = QSlider(Qt.Horizontal, self)
+        self.slider.setMaximum(self.total_frames)
+
+        self.is_playing = False
 
         self.place_widgets()
         self.connect_widgets()
 
     def place_widgets(self):
         self.layout = QVBoxLayout()
-
-        self.image_label = QLabel(self)
-        self.layout.addWidget(self.image_label)
-
-        self.play_button = QPushButton("Play", self)
+        self.layout.addWidget(self.frame_image)
         self.layout.addWidget(self.play_button)
-
-        self.slider = QSlider(Qt.Horizontal, self)
-        self.slider.setMaximum(self.total_frames)
         self.layout.addWidget(self.slider)
-
         self.setLayout(self.layout)
     
     def connect_widgets(self):
         self.play_button.clicked.connect(self.play_video)
         self.slider.sliderMoved.connect(self.slider_moved)
         self.timer.timeout.connect(self.next_frame)
-
+        
+        
     def play_video(self):
-        if self.timer.isActive():
-            self.timer.stop()
-            self.play_button.setText("Play")
+        if self.is_playing:
+            self.is_playing = False    
+            self.controller.pause_stream(self.camera_index)
+            self.play_button.setText("Pause")
         else:
-            self.timer.start(1000 // self.frame_rate)
+            self.is_playing = True
+            self.controller.unpause_stream(self.camera_index)
             self.play_button.setText("Pause")
 
     def next_frame(self):
@@ -65,7 +67,7 @@ class VideoPlayer(QWidget):
         bytes_per_line = 3 * width
         q_img = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(q_img)
-        self.image_label.setPixmap(pixmap.scaled(self.image_label.width(), self.image_label.height(), Qt.KeepAspectRatio))
+        self.frame_image.setPixmap(pixmap.scaled(self.frame_image.width(), self.frame_image.height(), Qt.KeepAspectRatio))
 
     def closeEvent(self, event):
         self.cap.release()
@@ -79,10 +81,16 @@ class VideoWindow(QMainWindow):
         self.setCentralWidget(self.player)
 
 if __name__ == "__main__":
+    # from pyxy3d.configurator import Configurator
+    from pathlib import Path
     app = QApplication(sys.argv)
-    # Define the input file path here.
-    input_file = r"C:\Users\Mac Prible\repos\pyxy3d\tests\sessions\4_cam_recording\calibration\extrinsic\port_0.mp4"
 
+    # Define the input file path here.
+    workspace_dir = Path(r"C:\Users\Mac Prible\repos\pyxy3d\tests\sessions\4_cam_recording")
+    input_file = Path(r"C:\Users\Mac Prible\repos\pyxy3d\tests\sessions\4_cam_recording\calibration\extrinsic\port_0.mp4")
+    
+    controller = Controller(workspace_dir)
+    
 
     window = VideoWindow(input_file)
     window.resize(800, 600)

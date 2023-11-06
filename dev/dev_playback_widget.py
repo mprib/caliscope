@@ -44,7 +44,7 @@ class VideoPlayer(QWidget):
         else:
             self.is_playing = True
             self.controller.unpause_stream(self.camera_index)
-            self.play_button.setText("Pause")
+            self.play_button.setText("Play")
 
     def next_frame(self):
         ret, frame = self.cap.read()

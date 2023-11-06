@@ -260,6 +260,8 @@ def get_configured_camera_data(config_path, intrinsics_only=True):
     return a list of CameraData objects that is built from the config
     file that is found in the directory. This will be the same
     file where the mp4 files are located.
+    
+    Note: This is a helper function for the debugging test code at the bottom of the file
     """
 
     with open(config_path, "r") as f:

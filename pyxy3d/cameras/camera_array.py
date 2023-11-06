@@ -1,15 +1,14 @@
 # %%
 
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 
-from pathlib import Path
 import numpy as np
 from dataclasses import dataclass
 import cv2
 from enum import Enum, auto
 from numba.typed import Dict
 
+logger = pyxy3d.logger.get(__name__)
 CAMERA_PARAM_COUNT = 6
 
 @dataclass

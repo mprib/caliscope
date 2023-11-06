@@ -10,25 +10,24 @@ import cv2
 from PySide6.QtCore import QSize, Qt, QThread, Signal
 from PySide6.QtGui import QFont, QIcon, QImage, QPixmap
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
+from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
 
 logger = pyxy3d.logger.get(__name__)
 
-class FrameEmitter(QThread):
-    # establish signals from the frame that will be displayed in real time
-    # within the GUI
+class PlaybackFrameEmitter(QThread):
+    # establish signals that will be displayed within the GUI
     ImageBroadcast = Signal(QPixmap)
-    FPSBroadcast = Signal(float)
     GridCountBroadcast = Signal(int)
 
-    def __init__(self, monocalibrator:MonoCalibrator, pixmap_edge_length=None):
+    def __init__(self, intrinisic_calibrator:IntrinsicCalibrator, pixmap_edge_length=None):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
-        super(FrameEmitter, self).__init__()
-        self.monocalibrator = monocalibrator
+        super(PlaybackFrameEmitter, self).__init__()
+        self.monocalibrator = intrinisic_calibrator
         self.pixmap_edge_length = pixmap_edge_length
-        self.rotation_count = monocalibrator.camera.rotation_count
         self.undistort = False
         self.keep_collecting = Event()
+
     def run(self):
         self.keep_collecting.set()
 
@@ -53,7 +52,6 @@ class FrameEmitter(QThread):
             self.ImageBroadcast.emit(pixmap)
             
             # moved to monocalibrator...delete if works well
-            self.FPSBroadcast.emit(self.monocalibrator.stream.FPS_actual)
             self.GridCountBroadcast.emit(self.monocalibrator.grid_count)
 
         logger.info(f"Thread loop within frame emitter at port {self.monocalibrator.port} successfully ended")
@@ -87,7 +85,7 @@ class FrameEmitter(QThread):
 
     def apply_undistortion(self):
         
-        if self.undistort == True:  # and self.mono_cal.is_calibrated:
+        if self.undistort:  # and self.mono_cal.is_calibrated:
             self.frame = cv2.undistort(
                 self.frame,
                 self.monocalibrator.camera.matrix,

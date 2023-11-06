@@ -171,4 +171,4 @@ This project was inspired by [FreeMoCap](https://github.com/freemocap/freemocap)
 
 ## License
 
-Pyxy3D is licensed under AGPL-3.0.
+Pyxy3D is licensed under [LGPL-3.0](https://www.gnu.org/licenses/lgpl-3.0.html). The triangulation function was adapted from the [Anipose](https://github.com/lambdaloop/anipose) code base which is licensed under [BSD-2 Clause](https://opensource.org/license/bsd-2-clause/).

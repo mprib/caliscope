@@ -50,7 +50,7 @@ class LiveStream(Stream):
         self.set_fps_target(fps_target)
         self.FPS_actual = 0
         # Start the thread to read frames from the video stream
-        self.thread = Thread(target=self.process_frames, args=(), daemon=True)
+        self.thread = Thread(target=self._play_video_worker, args=(), daemon=True)
         self.thread.start()
 
         # initialize time trackers for actual FPS determination
@@ -156,7 +156,7 @@ class LiveStream(Stream):
     #     self.stop_event.set()
     #     logger.info(f"Stop signal sent at stream {self.port}")
 
-    def process_frames(self):
+    def _play_video_worker(self):
         """
         Worker function that is spun up by Thread. Reads in a working frame,
         calls various frame processing methods on it, and updates the exposed
@@ -251,7 +251,7 @@ class LiveStream(Stream):
         logger.info(
             f"Beginning roll_camera thread at port {self.port} with resolution {res}"
         )
-        self.thread = Thread(target=self.process_frames, args=(), daemon=True)
+        self.thread = Thread(target=self._play_video_worker, args=(), daemon=True)
         self.thread.start()
 
     def _add_fps(self):

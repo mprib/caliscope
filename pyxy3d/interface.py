@@ -129,7 +129,7 @@ class Stream(ABC):
         pass
 
     @abstractmethod
-    def _play_video_worker(self):
+    def _play_worker(self):
         pass
 
 

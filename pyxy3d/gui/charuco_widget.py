@@ -155,7 +155,7 @@ class CharucoWidget(QWidget):
         square_edge_length = self.printed_edge_length.value()
         # a
         inverted = self.charuco_config.invert_checkbox.isChecked()
-        dictionary_str = "DICT_4X4_50"
+        dictionary_str = self.params["dictionary"]
 
         self.charuco = Charuco(
             columns,

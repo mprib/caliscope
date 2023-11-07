@@ -61,35 +61,39 @@ class RecordedStream(Stream):
         # for playback, set the fps target to the actual
         if fps_target is None:
             fps_target = int(self.capture.get(cv2.CAP_PROP_FPS))
-            
-            
+
         self.stop_event = Event()
+        self._jump_q = Queue()
+        self._pause_event = Event()
+        self._pause_event.clear()
         self.subscribers = []
 
         ###################### This is going to be something that needs to be reconsidered
-        # I think that with a new framework there needs to be a tool to create the 
+        # I think that with a new framework there needs to be a tool to create the
         # frame time history whenever video files are loaded in.
         # these could be for an individual file or a group of files
         # Don't ditch this just yet, Mac. Populate this info if it exists
-        # estimate based on FPS and  frame count if it does not.
-        synched_frames_history_path = str(
-            Path(self.directory, "frame_time_history.csv")
-        )
-        synched_frames_history = pd.read_csv(synched_frames_history_path)
+        # estimate based on FPS and frame count if it does not.
+        synched_frames_history_path = Path(self.directory, "frame_time_history.csv")
 
-        self.port_history = synched_frames_history[
-            synched_frames_history["port"] == self.port
-        ]
+        if synched_frames_history_path.exists():
+            synched_frames_history = pd.read_csv(synched_frames_history_path)
 
-        self.port_history["frame_index"] = (
-            self.port_history["frame_time"].rank(method="min").astype(int) - 1
-        )
+            self.port_history = synched_frames_history[
+                synched_frames_history["port"] == self.port
+            ]
 
+            self.port_history["frame_index"] = (
+                self.port_history["frame_time"].rank(method="min").astype(int) - 1
+            )
+
+        else:
+            pass
+            #TODO: Need to create a mock of the history
+            
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
         #####################
-
-
 
         # initializing to something to avoid errors elsewhere
         self.frame_index = 0
@@ -156,22 +160,37 @@ class RecordedStream(Stream):
         else:
             return future_wait_times[0]
 
+    def jump_to(self, frame_index: int):
+        logger.info(f"Placing {frame_index} on jump q to reset capture position")
+        self._jump_q.put(frame_index)
+
+    def pause(self):
+        logger.info(f"Pausing recorded stream at port {self.port}")
+        self._pause_event.set()
+
+    def unpause(self):
+        logger.info(f"Unpausing recorded stream at port {self.port}")
+        self._pause_event.clear()
+
     def play_video(self):
-        self.thread = Thread(target=self.process_frames, args=[], daemon=True)
+        self.thread = Thread(target=self._play_worker, args=[], daemon=False)
         self.thread.start()
 
-    def process_frames(self):
+    def _play_worker(self):
         """
         Places FramePacket on the out_q, mimicking the behaviour of the LiveStream.
         """
 
         self.frame_index = self.start_frame_index
         logger.info(f"Beginning playback of video for port {self.port}")
+
         while not self.stop_event.is_set():
+
             current_frame = self.port_history["frame_index"] == self.frame_index
             self.frame_time = self.port_history[current_frame]["frame_time"]
             self.frame_time = float(self.frame_time)
 
+            ########## BEGIN NO SUBSCRIBERS SPINLOCK ##################
             spinlock_looped = False
             while len(self.subscribers) == 0 and not self.stop_event.is_set():
                 if not spinlock_looped:
@@ -180,6 +199,7 @@ class RecordedStream(Stream):
                 sleep(0.5)
             if spinlock_looped:
                 logger.info(f"Spinlock released at port {self.port}")
+            ########## END NO SUBSCRIBERS SPINLOCK ##################
 
             if self.milestones is not None:
                 sleep(self.wait_to_next_frame())
@@ -206,8 +226,8 @@ class RecordedStream(Stream):
                 draw_instructions=draw_instructions,
             )
 
-            logger.debug(
-                f"Placing frame on reel {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"
+            logger.info(
+                f"Placing frame on q {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"
             )
 
             for q in self.subscribers:
@@ -224,7 +244,26 @@ class RecordedStream(Stream):
                 for q in self.subscribers:
                     q.put(frame_packet)
                 break
+          
+            ############ SPIN LOCK FOR PAUSE ################## 
+            pause_logged = False
+            while self._pause_event.is_set():
+                # logger.info("I'm paused")
+                if not pause_logged:
+                    logger.info("Initiating Pause")
+                    pause_logged = True
+                
+                if not self._jump_q.empty():           
+                    logger.info("New Value on jump queue, exiting pause spin lock")
+                    break
 
+                sleep(.1)
+                
+            # change frame position if needed
+            if not self._jump_q.empty():
+                self.frame_index = self._jump_q.get()
+                logger.info(f"Setting port {self.port} capture object to frame index {self.frame_index}")
+                self.capture.set(cv2.CAP_PROP_POS_FRAMES, self.frame_index)
 
 class RecordedStreamPool:
     def __init__(
@@ -260,7 +299,7 @@ def get_configured_camera_data(config_path, intrinsics_only=True):
     return a list of CameraData objects that is built from the config
     file that is found in the directory. This will be the same
     file where the mp4 files are located.
-    
+
     Note: This is a helper function for the debugging test code at the bottom of the file
     """
 

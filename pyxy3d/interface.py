@@ -129,7 +129,7 @@ class Stream(ABC):
         pass
 
     @abstractmethod
-    def process_frames(self):
+    def _play_worker(self):
         pass
 
 

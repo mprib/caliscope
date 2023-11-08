@@ -1,7 +1,6 @@
 # more attributes could certainly be tested in here,but at least this gives some basic sense of if things
 # are working....
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 
 from pathlib import Path
 import numpy as np
@@ -14,6 +13,8 @@ from pyxy3d.helper import copy_contents
 from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+
+logger = pyxy3d.logger.get(__name__)
 
 def point_estimates_are_equal(pe1: PointEstimates, pe2: PointEstimates) -> bool:
     return (

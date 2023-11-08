@@ -126,8 +126,7 @@ class Configurator:
         ] = capture_volume.origin_sync_index
         self.update_config_toml()
         
-     
-    def get_camera_array(self)->CameraArray:
+    def get_all_camera_data(self)->CameraArray:
         """
         Load camera array directly from config file. The results of capture volume
         optimization and origin transformation will be reflected in this array
@@ -136,7 +135,7 @@ class Configurator:
         all_camera_data = {}
         for key, params in self.dict.items():
             if key.startswith("cam"):
-                if params["ignore"] == False:
+                if not params["ignore"]:
                     port = params["port"]
 
                     if "error" in params.keys(): #intrinsics have been calculated
@@ -154,15 +153,23 @@ class Configurator:
                         translation = np.array(params["translation"])
                         rotation = np.array(params["rotation"])
 
-                        if rotation.shape == (3,):
-                            # camera rotation is stored as a matrix
+                        if rotation.shape == (3,):  # camera rotation is stored as a matrix
                             rotation = cv2.Rodrigues(rotation)[0]
-                        
                         
                     else:
                         translation = None
                         rotation = None
 
+                    if "original_intrinsic_source" in params.keys():
+                        original_intrinsic_source = params["original_intrinsic_source"]
+                    else:
+                        original_intrinsic_source = None
+                        
+                    if "original_extrinsic_source" in params.keys():
+                        original_extrinsic_source = params["original_extrinsic_source"]
+                    else:
+                        original_extrinsic_source = None
+                        
                     logger.info(f"Adding camera {port} to calibrated camera array...")
                     cam_data = CameraData(
                         port=port,
@@ -176,11 +183,23 @@ class Configurator:
                         ignore=params["ignore"],
                         verified_resolutions=params["verified_resolutions"],
                         translation=translation,
-                        rotation=rotation
+                        rotation=rotation,
+                        original_intrinsic_source=original_intrinsic_source,
+                        original_extrinsic_source=original_extrinsic_source
                     )
 
                     all_camera_data[port] = cam_data
                     logger.info(f"Camera successfully added at port {port}")
+        logger.info("Camera data loaded and being passed back to caller")
+        return all_camera_data
+     
+    def get_camera_array(self)->CameraArray:
+        """
+        Load camera array directly from config file. The results of capture volume
+        optimization and origin transformation will be reflected in this array
+        which can then be the basis for future 3d point estimation
+        """
+        all_camera_data = self.get_all_camera_data()
         camera_array = CameraArray(all_camera_data)
         logger.info("Camera array successfully created and being passed back to caller")
         return camera_array
@@ -205,8 +224,10 @@ class Configurator:
         return point_estimates
     
     def get_charuco(self)-> Charuco:
-        # should now be the case that charuco is *definitely* in there
-        # if "charuco" in self.dict:
+        """
+        Charuco will always be available as it is created when initializing the config
+        """
+
         logger.info("Loading charuco from config")
         params = self.dict["charuco"]
 
@@ -221,10 +242,6 @@ class Configurator:
             square_size_overide_cm=params["square_size_overide_cm"],
             inverted=params["inverted"],
         )
-        # else:
-        #     logger.info("Loading default charuco")
-        #     charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
-        #     self.save_charuco(charuco)
 
         return charuco
 
@@ -263,6 +280,8 @@ class Configurator:
             "grid_count": camera.grid_count,
             "ignore": camera.ignore,
             "verified_resolutions": camera.verified_resolutions,
+            "original_intrinsic_source":camera.original_intrinsic_source,
+            "original_extrinsic_source":camera.original_extrinsic_source
         }
 
         self.dict["cam_" + str(camera.port)] = params
@@ -270,8 +289,15 @@ class Configurator:
 
     def save_camera_array(self, camera_array:CameraArray):
         logger.info("Saving camera array....")
-        for port, camera_data in camera_array.cameras.items():
-            camera_data = camera_array.cameras[port]
+        # for port, camera_data in camera_array.cameras.items():
+        #     camera_data = camera_array.cameras[port]
+        #     self.save_camera(camera_data)
+        self.save_all_camera_data(camera_array.cameras)
+
+    def save_all_camera_data(self, all_camera_data:dict):
+        logger.info("Saving all camera data")
+        for port, camera_data in all_camera_data.items():
+            camera_data = all_camera_data[port]
             self.save_camera(camera_data)
 
     def get_cameras(self)-> dict[Camera]:
@@ -345,3 +371,5 @@ if __name__ == "__main__":
     session_path = Path(recent_projects[recent_project_count-1])
 
     config = Configurator(session_path)
+
+# %%

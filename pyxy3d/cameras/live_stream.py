@@ -2,9 +2,8 @@
 # establishes the connection with the video source and manages the thread
 # that reads in frames.
 
-import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
+import pyxy3d.logger
 
 from time import perf_counter, sleep
 from queue import Queue
@@ -12,14 +11,13 @@ from threading import Thread, Event
 
 import cv2
 import numpy as np
-from abc import ABC, abstractmethod
 
 from pyxy3d.cameras.camera import Camera
 from pyxy3d.interface import FramePacket, Stream, Tracker
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
-import pyxy3d.calibration.draw_charuco as draw_charuco
 
+logger = pyxy3d.logger.get(__name__)
 
 class LiveStream(Stream):
     def __init__(self, camera: Camera, fps_target: int = 6, tracker: Tracker = None):

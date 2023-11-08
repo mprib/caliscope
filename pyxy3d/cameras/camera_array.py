@@ -21,16 +21,19 @@ class CameraData:
 
     port: int
     size: tuple
-    rotation_count: int
-    error: float  # the RMSE of reprojection associated with the intrinsic calibration
-    matrix: np.ndarray
-    distortions: np.ndarray  #
-    exposure: int
-    grid_count: int
-    ignore: bool
-    verified_resolutions: np.ndarray
+    rotation_count: int=0
+    error: float=None  # the RMSE of reprojection associated with the intrinsic calibration
+    matrix: np.ndarray=None
+    distortions: np.ndarray=None  #
+    exposure: int=None
+    grid_count: int=None
+    ignore: bool=False
+    verified_resolutions: np.ndarray=None
     translation: np.ndarray =None # camera relative to world
     rotation: np.ndarray = None# camera relative to world
+    original_intrinsic_source:str=None
+    original_extrinsic_source:str=None
+
 
     @property
     def transformation(self):

@@ -15,12 +15,6 @@ import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 def test_stream():
     
-    # use a general video file with a charuco for convenience
-    original_data_path= Path(__root__, "tests", "sessions", "4_cam_recording")
-    destination_path =Path(__root__, "tests", "sessions_copy_delete", "4_cam_recording")
-    copy_contents(original_data_path,destination_path)
-
-
     recording_directory = Path(
         __root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic"
     )
@@ -74,12 +68,10 @@ def test_stream():
             assert(current_frame == 20)
             stream.unpause()
 
-        cv2.imshow("Test", frame_packet.frame_with_points)
-
-   
-        key = cv2.waitKey(1)
-        if key == ord("q"):
-            break
+        # cv2.imshow("Test", frame_packet.frame_with_points)
+        # key = cv2.waitKey(1)
+        # if key == ord("q"):
+        #     break
 
 if __name__ == "__main__":
     test_stream()

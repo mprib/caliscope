@@ -16,6 +16,13 @@ import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 def test_controller_load_camera_and_stream():
+    """
+    Note that in this test the copied workspace config does not have camera data 
+    in it, nor mp4s set up for intrinsic calibration (these are in extrinsic).
+    
+    This is done to make sure it is testing out setting up intrinsic source and config info from imported mp4
+    
+    """
     original_workspace = Path(__root__, "tests", "sessions", "prerecorded_calibration")
     workspace = Path( __root__, "tests", "sessions_copy_delete", "prerecorded_calibration")
     copy_contents(original_workspace, workspace)
@@ -36,7 +43,6 @@ def test_controller_load_camera_and_stream():
     sleep(.1)
     controller.pause_stream(0)
     controller.stream_jump_to(0,10)
-    
 
 def test_video_property_reader():
 

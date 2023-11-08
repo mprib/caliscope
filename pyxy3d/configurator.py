@@ -126,8 +126,7 @@ class Configurator:
         ] = capture_volume.origin_sync_index
         self.update_config_toml()
         
-     
-    def get_camera_array(self)->CameraArray:
+    def get_all_camera_data(self)->CameraArray:
         """
         Load camera array directly from config file. The results of capture volume
         optimization and origin transformation will be reflected in this array
@@ -181,6 +180,16 @@ class Configurator:
 
                     all_camera_data[port] = cam_data
                     logger.info(f"Camera successfully added at port {port}")
+        logger.info("Camera data loaded and being passed back to caller")
+        return all_camera_data
+     
+    def get_camera_array(self)->CameraArray:
+        """
+        Load camera array directly from config file. The results of capture volume
+        optimization and origin transformation will be reflected in this array
+        which can then be the basis for future 3d point estimation
+        """
+        all_camera_data = self.get_all_camera_data()
         camera_array = CameraArray(all_camera_data)
         logger.info("Camera array successfully created and being passed back to caller")
         return camera_array
@@ -205,8 +214,10 @@ class Configurator:
         return point_estimates
     
     def get_charuco(self)-> Charuco:
-        # should now be the case that charuco is *definitely* in there
-        # if "charuco" in self.dict:
+        """
+        Charuco will always be available as it is created when initializing the config
+        """
+
         logger.info("Loading charuco from config")
         params = self.dict["charuco"]
 
@@ -221,10 +232,6 @@ class Configurator:
             square_size_overide_cm=params["square_size_overide_cm"],
             inverted=params["inverted"],
         )
-        # else:
-        #     logger.info("Loading default charuco")
-        #     charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
-        #     self.save_charuco(charuco)
 
         return charuco
 
@@ -345,3 +352,5 @@ if __name__ == "__main__":
     session_path = Path(recent_projects[recent_project_count-1])
 
     config = Configurator(session_path)
+
+# %%

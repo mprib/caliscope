@@ -87,9 +87,11 @@ class RecordedStream(Stream):
             )
 
         else:
-            pass
-            #TODO: Need to create a mock of the history
-            
+            frame_count =  int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            mocked_port_history = {"frame_index":[i for i in range(0,frame_count)] ,
+                                 "frame_time": [i/fps_target for i in range(0,frame_count)]}
+            self.port_history = pd.DataFrame(mocked_port_history) 
+
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
         #####################

@@ -19,7 +19,6 @@ import pandas as pd
 import numpy as np
 
 from pyxy3d.interface import FramePacket, Tracker, Stream
-from pyxy3d.cameras.live_stream import Stream
 from pyxy3d.cameras.camera_array import CameraData
 from pyxy3d.configurator import Configurator
 

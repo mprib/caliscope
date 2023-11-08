@@ -135,7 +135,7 @@ class Configurator:
         all_camera_data = {}
         for key, params in self.dict.items():
             if key.startswith("cam"):
-                if params["ignore"] == False:
+                if not params["ignore"]:
                     port = params["port"]
 
                     if "error" in params.keys(): #intrinsics have been calculated
@@ -153,15 +153,23 @@ class Configurator:
                         translation = np.array(params["translation"])
                         rotation = np.array(params["rotation"])
 
-                        if rotation.shape == (3,):
-                            # camera rotation is stored as a matrix
+                        if rotation.shape == (3,):  # camera rotation is stored as a matrix
                             rotation = cv2.Rodrigues(rotation)[0]
-                        
                         
                     else:
                         translation = None
                         rotation = None
 
+                    if "original_intrinsic_source" in params.keys():
+                        original_intrinsic_source = params["original_intrinsic_source"]
+                    else:
+                        original_intrinsic_source = None
+                        
+                    if "original_extrinsic_source" in params.keys():
+                        original_extrinsic_source = params["original_extrinsic_source"]
+                    else:
+                        original_extrinsic_source = None
+                        
                     logger.info(f"Adding camera {port} to calibrated camera array...")
                     cam_data = CameraData(
                         port=port,
@@ -175,7 +183,9 @@ class Configurator:
                         ignore=params["ignore"],
                         verified_resolutions=params["verified_resolutions"],
                         translation=translation,
-                        rotation=rotation
+                        rotation=rotation,
+                        original_intrinsic_source=original_intrinsic_source,
+                        original_extrinsic_source=original_extrinsic_source
                     )
 
                     all_camera_data[port] = cam_data
@@ -270,6 +280,8 @@ class Configurator:
             "grid_count": camera.grid_count,
             "ignore": camera.ignore,
             "verified_resolutions": camera.verified_resolutions,
+            "original_intrinsic_source":camera.original_intrinsic_source,
+            "original_extrinsic_source":camera.original_extrinsic_source
         }
 
         self.dict["cam_" + str(camera.port)] = params
@@ -277,8 +289,15 @@ class Configurator:
 
     def save_camera_array(self, camera_array:CameraArray):
         logger.info("Saving camera array....")
-        for port, camera_data in camera_array.cameras.items():
-            camera_data = camera_array.cameras[port]
+        # for port, camera_data in camera_array.cameras.items():
+        #     camera_data = camera_array.cameras[port]
+        #     self.save_camera(camera_data)
+        self.save_all_camera_data(camera_array.cameras)
+
+    def save_all_camera_data(self, all_camera_data:dict):
+        logger.info("Saving all camera data")
+        for port, camera_data in all_camera_data.items():
+            camera_data = all_camera_data[port]
             self.save_camera(camera_data)
 
     def get_cameras(self)-> dict[Camera]:

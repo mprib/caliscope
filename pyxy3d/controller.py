@@ -1,7 +1,8 @@
-from typing import Optional
+from typing import Optional, Callable
 from PySide6.QtCore import QObject
 
 import shutil
+from PySide6.QtWidgets import QLabel
 from threading import Thread, Event
 from time import sleep
 from pathlib import Path
@@ -48,6 +49,19 @@ class Controller(QObject):
         self.charuco_tracker = CharucoTracker(self.charuco)
         self.load_intrinsic_streams()
 
+    def get_intrinsic_stream_frame_count(self,port):
+        start_frame_index = self.intrinsic_streams[port].start_frame_index
+        last_frame_index = self.intrinsic_streams[port].last_frame_index
+        
+        return last_frame_index-start_frame_index+1
+    
+    def connect_frame_emitter(self, port:int, frame_updater:Callable):
+        stream = self.intrinsic_streams[port]
+
+        self.frame_emitters[port] = PlaybackFrameEmitter(stream) 
+        self.frame_emitters[port].start()
+        self.frame_emitters[port].ImageBroadcast.connect(frame_updater)
+    
     def load_intrinsic_streams(self):
         source_directory = Path(self.workspace, "calibration", "intrinsic")
 
@@ -67,6 +81,7 @@ class Controller(QObject):
             )
             logger.info(f"Loading recorded stream stored in {source_file}")
 
+
     def add_camera_from_source(
         self, intrinsic_mp4: Path = None, port: int = None
     ) -> int:
@@ -80,7 +95,9 @@ class Controller(QObject):
 
         # copy source over to standard workspace structure
         intrinsic_source_dir = Path(self.workspace, "calibration", "intrinsic")
+        intrinsic_source_dir.mkdir(exist_ok=True,parents=True)  # make sure the containing directory exists
         target_mp4_path = Path(intrinsic_source_dir, f"port_{port}.mp4")
+        
         shutil.copy(intrinsic_mp4, target_mp4_path)
 
         video_properties = read_video_properties(target_mp4_path)

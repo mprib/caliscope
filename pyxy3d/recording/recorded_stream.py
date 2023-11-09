@@ -92,6 +92,8 @@ class RecordedStream(Stream):
                                  "frame_time": [i/fps_target for i in range(0,frame_count)]}
             self.port_history = pd.DataFrame(mocked_port_history) 
 
+        # note that this is not simply 0 and frame count because the syncronized recording might start recording many frames into pulling from a camera
+        # this is one of those unhappy artifacts that may be a good candidate for simplification in a future refactor
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
         #####################
@@ -204,7 +206,7 @@ class RecordedStream(Stream):
 
             if self.milestones is not None:
                 sleep(self.wait_to_next_frame())
-
+            logger.info(f"about to read from capture at port {self.port}")
             success, self.frame = self.capture.read()
 
             if not success:

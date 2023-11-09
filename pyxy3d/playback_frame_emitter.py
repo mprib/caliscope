@@ -5,12 +5,14 @@ from datetime import datetime
 from pathlib import Path
 from time import sleep
 from threading import Event
+from queue import Queue
 
 import cv2
 from PySide6.QtCore import QSize, Qt, QThread, Signal
 from PySide6.QtGui import QFont, QIcon, QImage, QPixmap
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
+from pyxy3d.recording.recorded_stream import RecordedStream
 
 logger = pyxy3d.logger.get(__name__)
 
@@ -19,24 +21,28 @@ class PlaybackFrameEmitter(QThread):
     ImageBroadcast = Signal(QPixmap)
     GridCountBroadcast = Signal(int)
 
-    def __init__(self, intrinisic_calibrator:IntrinsicCalibrator, pixmap_edge_length=None):
+    def __init__(self, recorded_stream:RecordedStream, pixmap_edge_length=500):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(PlaybackFrameEmitter, self).__init__()
-        self.monocalibrator = intrinisic_calibrator
+        self.stream = recorded_stream
+        self.frame_packet_q = Queue()
+        self.stream.subscribe(self.frame_packet_q)
         self.pixmap_edge_length = pixmap_edge_length
         self.undistort = False
         self.keep_collecting = Event()
-
+         
     def run(self):
         self.keep_collecting.set()
 
         while self.keep_collecting.is_set():
             # Grab a frame from the queue and broadcast to displays
-            self.monocalibrator.grid_frame_ready_q.get()
-            self.frame = self.monocalibrator.grid_frame
+            # self.monocalibrator.grid_frame_ready_q.get()
+            logger.info("Getting frame packet from queue")
+            frame_packet = self.frame_packet_q.get()
+            self.frame = frame_packet.frame_with_points
 
-            self.apply_undistortion()
+            # self.apply_undistortion()
             self.frame = resize_to_square(self.frame)
             self.apply_rotation()
 
@@ -52,9 +58,9 @@ class PlaybackFrameEmitter(QThread):
             self.ImageBroadcast.emit(pixmap)
             
             # moved to monocalibrator...delete if works well
-            self.GridCountBroadcast.emit(self.monocalibrator.grid_count)
+            # self.GridCountBroadcast.emit(self.monocalibrator.grid_count)
 
-        logger.info(f"Thread loop within frame emitter at port {self.monocalibrator.port} successfully ended")
+        logger.info(f"Thread loop within frame emitter at port {self.stream.port} successfully ended")
 
     def stop(self):
         self.keep_collecting = False
@@ -74,13 +80,13 @@ class PlaybackFrameEmitter(QThread):
 
     def apply_rotation(self):
         # logger.debug("Applying Rotation")
-        if self.monocalibrator.camera.rotation_count == 0:
+        if self.stream.rotation_count == 0:
             pass
-        elif self.monocalibrator.camera.rotation_count in [1, -3]:
+        elif self.stream.rotation_count in [1, -3]:
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_CLOCKWISE)
-        elif self.monocalibrator.camera.rotation_count in [2, -2]:
+        elif self.stream.rotation_count in [2, -2]:
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_180)
-        elif self.monocalibrator.camera.rotation_count in [-1, 3]:
+        elif self.stream.rotation_count in [-1, 3]:
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     def apply_undistortion(self):
@@ -88,8 +94,8 @@ class PlaybackFrameEmitter(QThread):
         if self.undistort:  # and self.mono_cal.is_calibrated:
             self.frame = cv2.undistort(
                 self.frame,
-                self.monocalibrator.camera.matrix,
-                self.monocalibrator.camera.distortions,
+                self.stream.camera.matrix,
+                self.stream.camera.distortions,
             )
 
 

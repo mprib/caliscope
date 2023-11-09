@@ -28,7 +28,7 @@ class VideoPlayer(QWidget):
      
     def place_widgets(self):
         self.layout = QVBoxLayout()
-        self.layout.addWidget(self.frame_image)
+        self.layout.addWidget(self.frame_image, alignment=Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(self.play_button)
         self.layout.addWidget(self.slider)
         self.setLayout(self.layout)
@@ -65,10 +65,7 @@ class VideoPlayer(QWidget):
             self.slider.setValue(0)
 
     def slider_moved(self, position):
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, position)
-        ret, frame = self.cap.read()
-        if ret:
-            self.display_image(frame)
+        self.controller.stream_jump_to(self.port, position)
 
     def display_image(self, pixmap):
         self.frame_image.setPixmap(pixmap)

@@ -1,15 +1,18 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QSlider, QLabel)
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Slot, Signal
 
 from pyxy3d.controller import Controller
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
 class CustomSlider(QSlider):
+    arrowKeyPressed = Signal(int)  # Custom signal
+
     def __init__(self):
         super(CustomSlider, self).__init__(Qt.Horizontal)
         self._isDragging = False
+        self.valueChanged.connect(self.checkForArrowKey)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -27,19 +30,26 @@ class CustomSlider(QSlider):
     def isUsingArrowKeys(self):
         return self.hasFocus() and not self._isDragging
 
+    @Slot(int)
+    def checkForArrowKey(self, value):
+        if self.isUsingArrowKeys():
+            self.arrowKeyPressed.emit(value)  # Emit the custom signal
+
 class VideoPlayer(QWidget):
     def __init__(self, controller:Controller, port:int,parent=None):
         super().__init__(parent)
         self.controller = controller
         self.port = port 
+       
+
         self.total_frames = self.controller.get_intrinsic_stream_frame_count(self.port)
         self.frame_image = QLabel(self)
-
+        
         self.play_button = QPushButton("Play", self)
         self.slider = CustomSlider()
-        self.slider.setEnabled(False)
+        # self.slider.setEnabled(False)
         self.slider.setMaximum(self.total_frames-1)
-        self.play_started = False
+        # self.play_started = False
         self.is_playing = False
 
         self.place_widgets()
@@ -55,28 +65,39 @@ class VideoPlayer(QWidget):
     def connect_widgets(self):
         self.play_button.clicked.connect(self.play_video)
         self.slider.sliderMoved.connect(self.slider_moved)
+        self.slider.arrowKeyPressed.connect(self.slider_moved)
         self.controller.connect_frame_emitter(self.port, self.display_image,self.update_slider)
+
+        # initialize stream to push first frame to widget then hold
+        # must be done after signals and slots connected for effect to take hold
+        self.controller.play_stream(self.port)
+        
+        # self.play_started = True
+        self.controller.pause_stream(self.port)
+        self.controller.stream_jump_to(self.port, 0)
         
     def play_video(self):
-        if self.play_started:
-            if self.is_playing:
-                self.is_playing = False    
-                self.controller.pause_stream(self.port)
-                self.play_button.setText("Play") # now paused so only option is play
-            else:
-                self.is_playing = True
-                self.controller.unpause_stream(self.port)
-                self.play_button.setText("Pause")  # now playing so only option is pause
+        # if self.play_started:
+        if self.is_playing:
+            self.is_playing = False    
+            self.controller.pause_stream(self.port)
+            self.play_button.setText("Play") # now paused so only option is play
         else:
-            self.slider.setEnabled(True)
-            self.play_started = True
             self.is_playing = True
-            logger.info(f"Initiate stream playback at port {self.port}")
-            self.controller.play_stream(self.port)
+            self.controller.unpause_stream(self.port)
             self.play_button.setText("Pause")  # now playing so only option is pause
             
     def slider_moved(self, position):
         self.controller.stream_jump_to(self.port, position)
+        if position == self.total_frames-1:
+            self.controller.pause_stream(self.port)    
+            self.is_playing = False 
+            self.play_button.setEnabled(False)
+            self.play_button.setText("Play") # now paused so only option is play
+        else:
+            if not self.play_button.isEnabled():
+                self.play_button.setEnabled(True)
+
 
     def update_slider(self, position):
         """
@@ -88,7 +109,12 @@ class VideoPlayer(QWidget):
             pass  # don't change slider position as this would create a feedback loop
         else:
             self.slider.setValue(position)
-        
+            if position == self.total_frames-1:
+                self.controller.pause_stream(self.port)    
+                self.is_playing = False 
+                self.play_button.setEnabled(False)
+                self.play_button.setText("Play") # now paused so only option is play
+
     def display_image(self, pixmap):
         self.frame_image.setPixmap(pixmap)
 
@@ -96,15 +122,15 @@ class VideoPlayer(QWidget):
         # self.cap.release()
         super().closeEvent(event)
 
-class VideoWindow(QMainWindow):
-    def __init__(self, video_path, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Video Player")
-        self.player = VideoPlayer(video_path, self)
-        self.setCentralWidget(self.player)
+# class VideoWindow(QMainWindow):
+#     def __init__(self, video_path, parent=None):
+#         super().__init__(parent)
+#         self.setWindowTitle("Video Player")
+#         self.player = VideoPlayer(video_path, self)
+#         self.setCentralWidget(self.player)
 
 if __name__ == "__main__":
-    # from pyxy3d.configurator import Configurator
+
     from pathlib import Path
     app = QApplication(sys.argv)
     from pyxy3d import __root__

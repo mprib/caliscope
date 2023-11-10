@@ -62,7 +62,7 @@ class RecordedStream(Stream):
             fps_target = int(self.capture.get(cv2.CAP_PROP_FPS))
 
         self.stop_event = Event()
-        self._jump_q = Queue()
+        self._jump_q = Queue(maxsize=1)
         self._pause_event = Event()
         self._pause_event.clear()
         self.subscribers = []

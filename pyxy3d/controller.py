@@ -55,12 +55,13 @@ class Controller(QObject):
         
         return last_frame_index-start_frame_index+1
     
-    def connect_frame_emitter(self, port:int, frame_updater:Callable):
+    def connect_frame_emitter(self, port:int, frame_updater:Callable, slider_updater:Callable):
         stream = self.intrinsic_streams[port]
 
         self.frame_emitters[port] = PlaybackFrameEmitter(stream) 
         self.frame_emitters[port].start()
         self.frame_emitters[port].ImageBroadcast.connect(frame_updater)
+        self.frame_emitters[port].FrameIndexBroadcast.connect(slider_updater)
     
     def load_intrinsic_streams(self):
         source_directory = Path(self.workspace, "calibration", "intrinsic")
@@ -78,6 +79,8 @@ class Controller(QObject):
                 size=size,
                 rotation_count=rotation_count,
                 tracker=self.charuco_tracker,
+                break_on_last=False
+                
             )
             logger.info(f"Loading recorded stream stored in {source_file}")
 

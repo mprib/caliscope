@@ -142,6 +142,7 @@ class FramePacket:
     """
 
     port: int
+    frame_index: int
     frame_time: float
     frame: np.ndarray
     points: PointPacket = None
@@ -159,7 +160,7 @@ class FramePacket:
                 table = {
                     "sync_index": [sync_index] * point_count,
                     "port": [self.port] * point_count,
-                    # "frame_index": [self.frame_index] * point_count,
+                    "frame_index": [self.frame_index] * point_count,
                     "frame_time": [self.frame_time] * point_count,
                     "point_id": self.points.point_id.tolist(),
                     "img_loc_x": self.points.img_loc[:, 0].tolist(),

@@ -41,12 +41,14 @@ class RecordedStream(Stream):
         rotation_count: int = 0,
         fps_target: int = None,
         tracker: Tracker = None,
+        break_on_last=True,
     ):
         # self.port = port
         self.directory = directory
         self.port = port
         self.size = size
         self.rotation_count = rotation_count
+        self.break_on_last = break_on_last  # stop while loop if end reached. Preferred behavior for automated file processing, not interactive frame selection
 
         if tracker is not None:
             self.tracker = tracker
@@ -62,7 +64,7 @@ class RecordedStream(Stream):
             fps_target = int(self.capture.get(cv2.CAP_PROP_FPS))
 
         self.stop_event = Event()
-        self._jump_q = Queue()
+        self._jump_q = Queue(maxsize=1)
         self._pause_event = Event()
         self._pause_event.clear()
         self.subscribers = []
@@ -87,10 +89,12 @@ class RecordedStream(Stream):
             )
 
         else:
-            frame_count =  int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
-            mocked_port_history = {"frame_index":[i for i in range(0,frame_count)] ,
-                                 "frame_time": [i/fps_target for i in range(0,frame_count)]}
-            self.port_history = pd.DataFrame(mocked_port_history) 
+            frame_count = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            mocked_port_history = {
+                "frame_index": [i for i in range(0, frame_count)],
+                "frame_time": [i / fps_target for i in range(0, frame_count)],
+            }
+            self.port_history = pd.DataFrame(mocked_port_history)
 
         # note that this is not simply 0 and frame count because the syncronized recording might start recording many frames into pulling from a camera
         # this is one of those unhappy artifacts that may be a good candidate for simplification in a future refactor
@@ -188,7 +192,6 @@ class RecordedStream(Stream):
         logger.info(f"Beginning playback of video for port {self.port}")
 
         while not self.stop_event.is_set():
-
             current_frame = self.port_history["frame_index"] == self.frame_index
             self.frame_time = self.port_history[current_frame]["frame_time"]
             self.frame_time = float(self.frame_time)
@@ -206,7 +209,9 @@ class RecordedStream(Stream):
 
             if self.milestones is not None:
                 sleep(self.wait_to_next_frame())
-            logger.info(f"about to read from capture at port {self.port}")
+            logger.debug(
+                f"about to read frame {self.frame_index} from capture at port {self.port}"
+            )
             success, self.frame = self.capture.read()
 
             if not success:
@@ -223,13 +228,14 @@ class RecordedStream(Stream):
 
             frame_packet = FramePacket(
                 port=self.port,
+                frame_index=self.frame_index,
                 frame_time=self.frame_time,
                 frame=self.frame,
                 points=self.point_data,
                 draw_instructions=draw_instructions,
             )
 
-            logger.info(
+            logger.debug(
                 f"Placing frame on q {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"
             )
 
@@ -239,34 +245,48 @@ class RecordedStream(Stream):
             # self.out_q.put(frame_packet)
             self.frame_index += 1
 
-            if self.frame_index >= self.last_frame_index:
+            if self.frame_index >= self.last_frame_index and self.break_on_last:
                 logger.info(f"Ending recorded playback at port {self.port}")
                 # time of -1 indicates end of stream
-                frame_packet = FramePacket(self.port, -1, None, None)
+                frame_packet = FramePacket(
+                    port=self.port,
+                    frame_index=-1,
+                    frame_time=-1,
+                    frame=None,
+                    points=None,
+                )
 
                 for q in self.subscribers:
                     q.put(frame_packet)
                 break
-          
-            ############ SPIN LOCK FOR PAUSE ################## 
+
+            ############ Autopause if last frame and in playback mode (i.e. break_on_last == False)
+            if not self.break_on_last and self.frame_index > self.last_frame_index:
+                self.frame_index = self.last_frame_index
+                self._pause_event.set()
+
+            ############ SPIN LOCK FOR PAUSE ##################
             pause_logged = False
             while self._pause_event.is_set():
                 # logger.info("I'm paused")
                 if not pause_logged:
                     logger.info("Initiating Pause")
                     pause_logged = True
-                
-                if not self._jump_q.empty():           
+
+                if not self._jump_q.empty():
                     logger.info("New Value on jump queue, exiting pause spin lock")
                     break
 
-                sleep(.1)
-                
-            # change frame position if needed
+                sleep(0.1)
+
+            ############
             if not self._jump_q.empty():
                 self.frame_index = self._jump_q.get()
-                logger.info(f"Setting port {self.port} capture object to frame index {self.frame_index}")
+                logger.info(
+                    f"Setting port {self.port} capture object to frame index {self.frame_index}"
+                )
                 self.capture.set(cv2.CAP_PROP_POS_FRAMES, self.frame_index)
+
 
 class RecordedStreamPool:
     def __init__(

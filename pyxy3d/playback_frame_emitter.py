@@ -20,7 +20,8 @@ class PlaybackFrameEmitter(QThread):
     # establish signals that will be displayed within the GUI
     ImageBroadcast = Signal(QPixmap)
     GridCountBroadcast = Signal(int)
-
+    FrameIndexBroadcast = Signal(int)
+    
     def __init__(self, recorded_stream:RecordedStream, pixmap_edge_length=500):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
@@ -56,6 +57,7 @@ class PlaybackFrameEmitter(QThread):
                     Qt.AspectRatioMode.KeepAspectRatio,
                 )
             self.ImageBroadcast.emit(pixmap)
+            self.FrameIndexBroadcast.emit(frame_packet.frame_index)
             
             # moved to monocalibrator...delete if works well
             # self.GridCountBroadcast.emit(self.monocalibrator.grid_count)

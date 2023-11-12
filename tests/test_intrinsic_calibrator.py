@@ -33,7 +33,22 @@ def test_intrinsic_calibrator():
     stream.subscribe(frame_q)
     
     stream.play_video()
+    stream.pause()
+    while frame_q.qsize() > 0:
+        packet = frame_q.get() # pull off frame 0 to clear queue
+
+    stream.jump_to(3)
+    packet = frame_q.get()
+    logger.info(packet.frame_index)
+
+    stream.jump_to(7)
+    packet = frame_q.get()
+    logger.info(packet.frame_index)
     
+    stream.jump_to(17)
+    packet = frame_q.get()
+    logger.info(packet.frame_index)
+
     
 if __name__ == "__main__":
     test_intrinsic_calibrator()

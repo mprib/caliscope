@@ -31,7 +31,7 @@ class RecordedStream(Stream):
         self,
         directory: Path,
         port: int,
-        size: tuple = None,
+        # size: tuple = None,
         rotation_count: int = 0,
         fps_target: int = None,
         tracker: Tracker = None,
@@ -40,7 +40,6 @@ class RecordedStream(Stream):
         # self.port = port
         self.directory = directory
         self.port = port
-        self.size = size
         self.rotation_count = rotation_count
         self.break_on_last = break_on_last  # stop while loop if end reached. Preferred behavior for automated file processing, not interactive frame selection
 
@@ -56,6 +55,10 @@ class RecordedStream(Stream):
         # for playback, set the fps target to the actual
         if fps_target is None:
             fps_target = int(self.capture.get(cv2.CAP_PROP_FPS))
+
+        width =  int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.size = (width,height)
 
         self.stop_event = Event()
         self._jump_q = Queue(maxsize=1)
@@ -289,13 +292,10 @@ class RecordedStreamPool:
         self.camera_array = config.get_camera_array()
 
         for port, camera in self.camera_array.cameras.items():
-            # tracker: Tracker = tracker.value()
             rotation_count = camera.rotation_count
-            size = camera.size
             self.streams[port] = RecordedStream(
                 directory,
                 port,
-                size,
                 rotation_count,
                 fps_target=fps_target,
                 tracker=tracker,

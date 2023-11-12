@@ -76,7 +76,6 @@ class Controller(QObject):
             self.intrinsic_streams[port] = RecordedStream(
                 directory=source_directory,
                 port=port,
-                size=size,
                 rotation_count=rotation_count,
                 tracker=self.charuco_tracker,
                 break_on_last=False
@@ -133,6 +132,9 @@ class Controller(QObject):
         logger.info(f"Jump to frame {frame_index} at port {port}")
         self.intrinsic_streams[port].jump_to(frame_index)
 
+    def end_stream(self,port):
+        self.intrinsic_streams[port].stop_event.set()
+        self.unpause_stream(port)
 
 def read_video_properties(source_path: Path) -> dict:
     # Dictionary to hold video properties

@@ -43,7 +43,8 @@ def test_controller_load_camera_and_stream():
     sleep(.1)
     controller.pause_stream(0)
     controller.stream_jump_to(0,10)
-
+    controller.end_stream(0)
+    
 def test_video_property_reader():
 
     test_source = Path(__root__, "tests", "sessions", "prerecorded_calibration","calibration", "extrinsic", "port_1.mp4")

@@ -1,9 +1,3 @@
-# The objective of this class is to create a dictionary of video streams that can
-# be handed off to a synchronizer, which will then interact with the streams
-# as though they were live video
-# this is useful for two purposes:
-#   1: future testing (don't have to keep recording live video)
-#   2: future off-line processing of pre-recorded video.
 
 import pyxy3d.logger
 import logging
@@ -69,12 +63,7 @@ class RecordedStream(Stream):
         self._pause_event.clear()
         self.subscribers = []
 
-        ###################### This is going to be something that needs to be reconsidered
-        # I think that with a new framework there needs to be a tool to create the
-        # frame time history whenever video files are loaded in.
-        # these could be for an individual file or a group of files
-        # Don't ditch this just yet, Mac. Populate this info if it exists
-        # estimate based on FPS and frame count if it does not.
+        ############ PROCESS WITH TRUE TIME STAMPS IF AVAILABLE #########################
         synched_frames_history_path = Path(self.directory, "frame_time_history.csv")
 
         if synched_frames_history_path.exists():
@@ -88,6 +77,7 @@ class RecordedStream(Stream):
                 self.port_history["frame_time"].rank(method="min").astype(int) - 1
             )
 
+        ########### INFER TIME STANCE IF NOT AVAILABLE ####################################
         else:
             frame_count = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
             mocked_port_history = {
@@ -100,9 +90,8 @@ class RecordedStream(Stream):
         # this is one of those unhappy artifacts that may be a good candidate for simplification in a future refactor
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
-        #####################
 
-        # initializing to something to avoid errors elsewhere
+        # initialize properties
         self.frame_index = 0
         self.frame_time = 0
         self.set_fps_target(fps_target)
@@ -235,7 +224,7 @@ class RecordedStream(Stream):
                 draw_instructions=draw_instructions,
             )
 
-            logger.debug(
+            logger.info(
                 f"Placing frame on q {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"
             )
 

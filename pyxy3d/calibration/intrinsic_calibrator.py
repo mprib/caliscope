@@ -21,19 +21,10 @@ class IntrinsicCalibrator:
     Stream needs to have a charuco tracker assigned to it
     """ 
     def __init__(self, camera_data:CameraData):
-        self.camera: camera_data  # reference needed to update params
-        self.port = self.camera.port
+        self.camera = camera_data  # reference needed to update params
 
         self.initialize_grid_history()
 
-        self.last_calibration_time = (
-            time.perf_counter()
-        )  # need to initialize to *something*
-
-        self.thread = Thread(target=self.collect_corners, args=(), daemon=True)
-        self.thread.start()
-
-        logger.info(f"Beginning monocalibrator for port {self.port}")
 
     @property
     def grid_count(self):
@@ -61,18 +52,27 @@ class IntrinsicCalibrator:
         self.thread.join()
 
     def add_corners(self, points:PointPacket):
-        self.all_ids.append(points.point_id)
-        self.all_img_loc.append(points.img_loc)
-        self.all_obj_loc.append(points.obj_loc)
+        ids = points.point_id
+        img_loc = points.img_loc
+        obj_loc = points.obj_loc
 
-        self.update_grid_history()
+        self.all_ids.append(ids)
+        self.all_img_loc.append(img_loc)
+        self.all_obj_loc.append(obj_loc)
+
+        # self.update_grid_history(ids, img_loc)
         
-    def update_grid_history(self):
+    def update_grid_history(self, ids,img_loc):
+        """
+        Note that the connected points here comes from the charuco tracker.
+        This grid history is likely best tracked by the controller and 
+        a reference should be past to the frame emitter
+        """
         if len(self.ids) > 2:
             self.grid_capture_history = draw_charuco.grid_history(
                 self.grid_capture_history,
-                self.ids,
-                self.img_loc,
+                ids,
+                img_loc,
                 self.connected_points,
             )
 
@@ -80,26 +80,14 @@ class IntrinsicCalibrator:
         """Merges the current frame with the currently detected corners (red circles)
         and a history of the stored grid information."""
 
-        logger.debug(f"Frame Size is {self.frame.shape} at port {self.port}")
-        logger.debug(f"camera resolution is {self.camera.size} at port {self.port}")
 
-        # check to see if the camera resolution changed from the last round
-        if (
-            self.frame.shape[0] == self.grid_capture_history.shape[0]
-            and self.frame.shape[1] == self.grid_capture_history.shape[1]
-        ):
-            self.grid_frame = self.frame_packet.frame_with_points
-            self.grid_frame = cv2.addWeighted(
-                self.grid_frame, 1, self.grid_capture_history, 1, 0
-            )
+        self.grid_frame = self.frame_packet.frame_with_points
+        self.grid_frame = cv2.addWeighted(
+            self.grid_frame, 1, self.grid_capture_history, 1, 0
+        )
 
-            self.grid_frame_ready_q.put("frame ready")
+        self.grid_frame_ready_q.put("frame ready")
 
-        else:
-            logger.debug("Reinitializing Grid Capture History")
-            self.initialize_grid_history()
-            self.grid_frame = self.grid_capture_history
-            self.grid_frame_ready_q.put("frame ready")
 
     def calibrate(self):
         """
@@ -127,13 +115,14 @@ class IntrinsicCalibrator:
         logger.info(f"Error: {self.error}")
         logger.info(f"Camera Matrix: {self.mtx}")
         logger.info(f"Distortion: {self.dist}")
-        logger.info(f"Grid Count: {self.camera.grid_count}")
+        logger.info(f"Grid Count: {self.grid_count}")
 
     def update_camera(self):
         logger.info(f"Setting calibration params on camera {self.camera.port}")
+
         # ret is RMSE of reprojection
         self.camera.error = round(self.error, 3)
         self.camera.matrix = self.mtx
         self.camera.distortions = self.dist
-        self.camera.grid_count = len(self.all_ids)
+        self.camera.grid_count = self.grid_count
 

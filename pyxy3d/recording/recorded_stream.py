@@ -1,9 +1,3 @@
-# The objective of this class is to create a dictionary of video streams that can
-# be handed off to a synchronizer, which will then interact with the streams
-# as though they were live video
-# this is useful for two purposes:
-#   1: future testing (don't have to keep recording live video)
-#   2: future off-line processing of pre-recorded video.
 
 import pyxy3d.logger
 import logging
@@ -37,7 +31,7 @@ class RecordedStream(Stream):
         self,
         directory: Path,
         port: int,
-        size: tuple = None,
+        # size: tuple = None,
         rotation_count: int = 0,
         fps_target: int = None,
         tracker: Tracker = None,
@@ -46,7 +40,6 @@ class RecordedStream(Stream):
         # self.port = port
         self.directory = directory
         self.port = port
-        self.size = size
         self.rotation_count = rotation_count
         self.break_on_last = break_on_last  # stop while loop if end reached. Preferred behavior for automated file processing, not interactive frame selection
 
@@ -63,18 +56,17 @@ class RecordedStream(Stream):
         if fps_target is None:
             fps_target = int(self.capture.get(cv2.CAP_PROP_FPS))
 
+        width =  int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.size = (width,height)
+
         self.stop_event = Event()
         self._jump_q = Queue(maxsize=1)
         self._pause_event = Event()
         self._pause_event.clear()
         self.subscribers = []
 
-        ###################### This is going to be something that needs to be reconsidered
-        # I think that with a new framework there needs to be a tool to create the
-        # frame time history whenever video files are loaded in.
-        # these could be for an individual file or a group of files
-        # Don't ditch this just yet, Mac. Populate this info if it exists
-        # estimate based on FPS and frame count if it does not.
+        ############ PROCESS WITH TRUE TIME STAMPS IF AVAILABLE #########################
         synched_frames_history_path = Path(self.directory, "frame_time_history.csv")
 
         if synched_frames_history_path.exists():
@@ -88,6 +80,7 @@ class RecordedStream(Stream):
                 self.port_history["frame_time"].rank(method="min").astype(int) - 1
             )
 
+        ########### INFER TIME STANCE IF NOT AVAILABLE ####################################
         else:
             frame_count = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
             mocked_port_history = {
@@ -100,9 +93,8 @@ class RecordedStream(Stream):
         # this is one of those unhappy artifacts that may be a good candidate for simplification in a future refactor
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
-        #####################
 
-        # initializing to something to avoid errors elsewhere
+        # initialize properties
         self.frame_index = 0
         self.frame_time = 0
         self.set_fps_target(fps_target)
@@ -235,7 +227,7 @@ class RecordedStream(Stream):
                 draw_instructions=draw_instructions,
             )
 
-            logger.debug(
+            logger.info(
                 f"Placing frame on q {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"
             )
 
@@ -300,13 +292,10 @@ class RecordedStreamPool:
         self.camera_array = config.get_camera_array()
 
         for port, camera in self.camera_array.cameras.items():
-            # tracker: Tracker = tracker.value()
             rotation_count = camera.rotation_count
-            size = camera.size
             self.streams[port] = RecordedStream(
                 directory,
                 port,
-                size,
                 rotation_count,
                 fps_target=fps_target,
                 tracker=tracker,

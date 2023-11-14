@@ -39,28 +39,36 @@ def test_intrinsic_calibrator():
     assert(camera.matrix is None)
     assert(camera.distortions is None)
     
-    intrinsic_calibrator = IntrinsicCalibrator(camera)
+    intrinsic_calibrator = IntrinsicCalibrator(camera, stream)
 
     frame_q = Queue()
     stream.subscribe(frame_q)
     
     stream.play_video()
     stream.pause()
-    while frame_q.qsize() > 0:
-        packet = frame_q.get() # pull off frame 0 to clear queue
 
-    test_frames = [3,5,7,9,20, 25]
+    packet = frame_q.get() # pull off frame 0 to clear queue
+
+    # safety check to really clear queue
+    while frame_q.qsize() > 0:
+        packet = frame_q.get() 
+
+    test_frames = [3,5,7,9,20,25]
     for i in test_frames:
         stream.jump_to(i)
         packet = frame_q.get()
+        assert(i == packet.frame_index)
         logger.info(packet.frame_index)
-        intrinsic_calibrator.add_corners(packet.points)
+        intrinsic_calibrator.add_frame_packet(packet)
+        intrinsic_calibrator.add_calibration_frame_indices(packet.frame_index)
 
     stream.stop_event.set()
-    intrinsic_calibrator.calibrate()
-    # logger.info(intrinsic_calibrator.camera)
+    intrinsic_calibrator.stop_event.set()
+
+    intrinsic_calibrator.calibrate_camera()
     logger.info(camera)
-    
+
+    # basic assertions to confirm return values from opencv calibration
     assert(camera.grid_count==6)
     assert(isinstance(camera.matrix, np.ndarray))
     assert(isinstance(camera.distortions, np.ndarray))

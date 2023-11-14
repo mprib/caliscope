@@ -26,6 +26,7 @@ from pyxy3d.configurator import Configurator
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.interface import Tracker
 from pyxy3d.playback_frame_emitter import PlaybackFrameEmitter
+from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
 
 logger = pyxy3d.logger.get(__name__)
 
@@ -47,6 +48,10 @@ class Controller(QObject):
         self.intrinsic_calibrators = {}
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
+
+        self.intrinsic_source_directory = Path(self.workspace, "calibration", "intrinsic")
+        self.intrinsic_source_directory.mkdir(exist_ok=True,parents=True)  # make sure the containing directory exists
+
         self.load_intrinsic_streams()
 
     def get_intrinsic_stream_frame_count(self,port):
@@ -55,32 +60,33 @@ class Controller(QObject):
         
         return last_frame_index-start_frame_index+1
     
-    def connect_frame_emitter(self, port:int, frame_updater:Callable, slider_updater:Callable):
+    def connect_frame_emitter(self, port:int, frame_updater:Callable, index_updater:Callable):
         stream = self.intrinsic_streams[port]
 
         self.frame_emitters[port] = PlaybackFrameEmitter(stream) 
         self.frame_emitters[port].start()
         self.frame_emitters[port].ImageBroadcast.connect(frame_updater)
-        self.frame_emitters[port].FrameIndexBroadcast.connect(slider_updater)
+        self.frame_emitters[port].FrameIndexBroadcast.connect(index_updater)
     
     def load_intrinsic_streams(self):
-        source_directory = Path(self.workspace, "calibration", "intrinsic")
 
         for port, camera_data in self.all_camera_data.items():
             # data storage convention defined here
-            source_file = Path(source_directory, f"port_{port}.mp4")
+            source_file = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
             size = camera_data.size
             rotation_count = camera_data.rotation_count
             source_properties = read_video_properties(source_file)
             assert size == source_properties["size"]  # just to make sure
-            self.intrinsic_streams[port] = RecordedStream(
-                directory=source_directory,
+            stream = RecordedStream(
+                directory=self.intrinsic_source_directory,
                 port=port,
                 rotation_count=rotation_count,
                 tracker=self.charuco_tracker,
                 break_on_last=False
                 
             )
+            self.intrinsic_streams[port] = stream
+            self.intrinsic_calibrators[port] = IntrinsicCalibrator(camera_data,stream)
             logger.info(f"Loading recorded stream stored in {source_file}")
 
 
@@ -96,9 +102,7 @@ class Controller(QObject):
             port = len(self.all_camera_data)
 
         # copy source over to standard workspace structure
-        intrinsic_source_dir = Path(self.workspace, "calibration", "intrinsic")
-        intrinsic_source_dir.mkdir(exist_ok=True,parents=True)  # make sure the containing directory exists
-        target_mp4_path = Path(intrinsic_source_dir, f"port_{port}.mp4")
+        target_mp4_path = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
         
         shutil.copy(intrinsic_mp4, target_mp4_path)
 
@@ -135,6 +139,13 @@ class Controller(QObject):
     def end_stream(self,port):
         self.intrinsic_streams[port].stop_event.set()
         self.unpause_stream(port)
+
+    def add_calibration_grid(self,port:int, frame_index:int):
+        intr_calib = self.intrinsic_calibrators[port]
+        intr_calib.add_calibration_frame_indices(frame_index)
+        new_ids = intr_calib.all_ids[frame_index]
+        new_img_loc = intr_calib.all_img_loc[frame_index]
+        self.frame_emitters[port].add_to_grid_history(new_ids,new_img_loc)
 
 def read_video_properties(source_path: Path) -> dict:
     # Dictionary to hold video properties

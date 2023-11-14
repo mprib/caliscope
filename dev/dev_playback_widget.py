@@ -69,8 +69,11 @@ class VideoPlayer(QWidget):
         self.play_button.clicked.connect(self.play_video)
         self.slider.sliderMoved.connect(self.slider_moved)
         self.slider.arrowKeyPressed.connect(self.slider_moved)
-        self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
+        self.add_grid_btn.clicked.connect(self.add_grid)    
+        
 
+        self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
+    
         # initialize stream to push first frame to widget then hold
         # must be done after signals and slots connected for effect to take hold
         self.controller.play_stream(self.port)
@@ -125,7 +128,8 @@ class VideoPlayer(QWidget):
         self.frame_image.setPixmap(pixmap)
 
     def add_grid(self):
-        self.controller.add_grid
+        self.controller.add_calibration_grid(self.port, self.index)
+        self.controller.stream_jump_to(self.port,self.index)
 
     def closeEvent(self, event):
         # self.cap.release()

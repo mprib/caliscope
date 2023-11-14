@@ -2,11 +2,9 @@
 # regarding the capture history and corner identification of
 # the charuco board
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
-
 from itertools import combinations
-
 import cv2
+logger = pyxy3d.logger.get(__name__)
 
 def grid_history(frame, ids, img_locs, connected_corners):
     """

@@ -1,5 +1,5 @@
-
 import pyxy3d.logger
+import numpy as np
 
 from datetime import datetime
 from pathlib import Path
@@ -10,19 +10,21 @@ from queue import Queue
 import cv2
 from PySide6.QtCore import QSize, Qt, QThread, Signal
 from PySide6.QtGui import QFont, QIcon, QImage, QPixmap
+import pyxy3d.calibration.draw_charuco as draw_charuco
 from pyxy3d.calibration.monocalibrator import MonoCalibrator
 from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
 from pyxy3d.recording.recorded_stream import RecordedStream
 
 logger = pyxy3d.logger.get(__name__)
 
+
 class PlaybackFrameEmitter(QThread):
     # establish signals that will be displayed within the GUI
     ImageBroadcast = Signal(QPixmap)
     GridCountBroadcast = Signal(int)
     FrameIndexBroadcast = Signal(int)
-    
-    def __init__(self, recorded_stream:RecordedStream, pixmap_edge_length=500):
+
+    def __init__(self, recorded_stream: RecordedStream, pixmap_edge_length=500):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(PlaybackFrameEmitter, self).__init__()
@@ -32,7 +34,15 @@ class PlaybackFrameEmitter(QThread):
         self.pixmap_edge_length = pixmap_edge_length
         self.undistort = False
         self.keep_collecting = Event()
-         
+        self.initialize_grid_capture_history()
+
+    def initialize_grid_capture_history(self):
+        self.connected_points = self.stream.tracker.get_connected_points()
+        width = self.stream.size[0]
+        height = self.stream.size[1]
+        channels = 3
+        self.grid_capture_history = np.zeros((height,width, channels), dtype="uint8")
+
     def run(self):
         self.keep_collecting.set()
 
@@ -43,8 +53,15 @@ class PlaybackFrameEmitter(QThread):
             frame_packet = self.frame_packet_q.get()
             self.frame = frame_packet.frame_with_points
 
+            logger.info(f"Frame size is {self.frame.shape}")
+            logger.info(f"Grid Capture History size is {self.grid_capture_history.shape}")
+            self.frame = cv2.addWeighted(
+                self.frame, 1, self.grid_capture_history, 1, 0
+            )
+
             # self.apply_undistortion()
             self.frame = resize_to_square(self.frame)
+
             self.apply_rotation()
 
             image = self.cv2_to_qlabel(self.frame)
@@ -58,11 +75,10 @@ class PlaybackFrameEmitter(QThread):
                 )
             self.ImageBroadcast.emit(pixmap)
             self.FrameIndexBroadcast.emit(frame_packet.frame_index)
-            
-            # moved to monocalibrator...delete if works well
-            # self.GridCountBroadcast.emit(self.monocalibrator.grid_count)
 
-        logger.info(f"Thread loop within frame emitter at port {self.stream.port} successfully ended")
+        logger.info(
+            f"Thread loop within frame emitter at port {self.stream.port} successfully ended"
+        )
 
     def stop(self):
         self.keep_collecting = False
@@ -92,7 +108,6 @@ class PlaybackFrameEmitter(QThread):
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     def apply_undistortion(self):
-        
         if self.undistort:  # and self.mono_cal.is_calibrated:
             self.frame = cv2.undistort(
                 self.frame,
@@ -100,9 +115,28 @@ class PlaybackFrameEmitter(QThread):
                 self.stream.camera.distortions,
             )
 
+    def add_to_grid_history(self, ids, img_loc):
+        """
+        Note that the connected points here comes from the charuco tracker.
+        This grid history is likely best tracked by the controller and
+        a reference should be past to the frame emitter
+        """
+        logger.info("Attempting to add to grid history")
+        if len(ids) > 2:
+            logger.info("enough points to add")
+            self.grid_capture_history = draw_charuco.grid_history(
+                self.grid_capture_history,
+                ids,
+                img_loc,
+                self.connected_points,
+            )
+
+    # def set_grid_frame(self):
+    #     """Merges the current frame with the currently detected corners (red circles)
+    #     and a history of the stored grid information."""
+
 
 def resize_to_square(frame):
-
     height = frame.shape[0]
     width = frame.shape[1]
 
@@ -123,8 +157,3 @@ def resize_to_square(frame):
     )
 
     return frame
-
-if __name__ == "__main__":
-    pass
-
-    # not much to look at here... go to camera_config_dialogue.py for test

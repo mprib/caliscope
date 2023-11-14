@@ -6,7 +6,6 @@ from threading import Thread, Event
 import cv2
 import numpy as np
 
-import pyxy3d.calibration.draw_charuco as draw_charuco
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.interface import FramePacket, PointPacket
@@ -64,7 +63,6 @@ class IntrinsicCalibrator:
         return image_size
 
     def initialize_point_history(self):
-        self.grid_capture_history = np.zeros(self.image_size, dtype="uint8")
 
         # list of frame_indices that will go into the calibration
         self.calibration_frame_indices = []
@@ -89,32 +87,8 @@ class IntrinsicCalibrator:
     def add_calibration_frame_indices(self, frame_index: int):
         self.calibration_frame_indices.append(frame_index)
 
-    def update_grid_history(self, ids, img_loc):
-        """
-        Note that the connected points here comes from the charuco tracker.
-        This grid history is likely best tracked by the controller and
-        a reference should be past to the frame emitter
-        """
-        if len(self.ids) > 2:
-            self.grid_capture_history = draw_charuco.grid_history(
-                self.grid_capture_history,
-                ids,
-                img_loc,
-                self.connected_points,
-            )
 
-    def set_grid_frame(self):
-        """Merges the current frame with the currently detected corners (red circles)
-        and a history of the stored grid information."""
-
-        self.grid_frame = self.frame_packet.frame_with_points
-        self.grid_frame = cv2.addWeighted(
-            self.grid_frame, 1, self.grid_capture_history, 1, 0
-        )
-
-        self.grid_frame_ready_q.put("frame ready")
-
-    def _set_calibration_inputs(self):
+    def set_calibration_inputs(self):
         self.calibration_point_ids = []
         self.calibration_img_loc = []
         self.calibration_obj_loc = []
@@ -124,13 +98,14 @@ class IntrinsicCalibrator:
             self.calibration_img_loc.append(self.all_img_loc[index])
             self.calibration_obj_loc.append(self.all_obj_loc[index])
 
+
     def calibrate_camera(self):
         """
         Use the recorded image corner positions along with the objective
         corner positions based on the board definition to calculated
         the camera matrix and distortion parameters
         """
-        self._set_calibration_inputs()
+        self.set_calibration_inputs()
 
         logger.info(f"Calibrating camera {self.camera.port}....")
 

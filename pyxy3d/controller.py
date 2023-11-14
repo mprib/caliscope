@@ -26,6 +26,7 @@ from pyxy3d.configurator import Configurator
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.interface import Tracker
 from pyxy3d.playback_frame_emitter import PlaybackFrameEmitter
+from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
 
 logger = pyxy3d.logger.get(__name__)
 
@@ -76,7 +77,7 @@ class Controller(QObject):
             rotation_count = camera_data.rotation_count
             source_properties = read_video_properties(source_file)
             assert size == source_properties["size"]  # just to make sure
-            self.intrinsic_streams[port] = RecordedStream(
+            stream = RecordedStream(
                 directory=self.intrinsic_source_directory,
                 port=port,
                 rotation_count=rotation_count,
@@ -84,6 +85,8 @@ class Controller(QObject):
                 break_on_last=False
                 
             )
+            self.intrinsic_streams[port] = stream
+            self.intrinsic_calibrators[port] = IntrinsicCalibrator(camera_data,stream)
             logger.info(f"Loading recorded stream stored in {source_file}")
 
 
@@ -136,6 +139,13 @@ class Controller(QObject):
     def end_stream(self,port):
         self.intrinsic_streams[port].stop_event.set()
         self.unpause_stream(port)
+
+    def add_calibration_grid(self,port:int, frame_index:int):
+        intr_calib = self.intrinsic_calibrators[port]
+        intr_calib.add_calibration_frame_indices(frame_index)
+        new_ids = intr_calib.all_ids[frame_index]
+        new_img_loc = intr_calib.all_img_loc[frame_index]
+        self.frame_emitters[port].add_to_grid_history(new_ids,new_img_loc)
 
 def read_video_properties(source_path: Path) -> dict:
     # Dictionary to hold video properties

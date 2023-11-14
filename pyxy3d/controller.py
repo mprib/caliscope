@@ -83,8 +83,8 @@ class Controller(QObject):
                 rotation_count=rotation_count,
                 tracker=self.charuco_tracker,
                 break_on_last=False
-                
             )
+
             self.intrinsic_streams[port] = stream
             self.intrinsic_calibrators[port] = IntrinsicCalibrator(camera_data,stream)
             logger.info(f"Loading recorded stream stored in {source_file}")
@@ -146,6 +146,11 @@ class Controller(QObject):
         new_ids = intr_calib.all_ids[frame_index]
         new_img_loc = intr_calib.all_img_loc[frame_index]
         self.frame_emitters[port].add_to_grid_history(new_ids,new_img_loc)
+
+    def calibrate_camera(self,port):
+        logger.info(f"Calibrating camera at port {port}")
+        self.intrinsic_calibrators[port].calibrate_camera()
+        logger.info(f"{self.all_camera_data[port]}")
 
 def read_video_properties(source_path: Path) -> dict:
     # Dictionary to hold video properties

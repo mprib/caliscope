@@ -47,6 +47,10 @@ class Controller(QObject):
         self.intrinsic_calibrators = {}
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
+
+        self.intrinsic_source_directory = Path(self.workspace, "calibration", "intrinsic")
+        self.intrinsic_source_directory.mkdir(exist_ok=True,parents=True)  # make sure the containing directory exists
+
         self.load_intrinsic_streams()
 
     def get_intrinsic_stream_frame_count(self,port):
@@ -62,19 +66,19 @@ class Controller(QObject):
         self.frame_emitters[port].start()
         self.frame_emitters[port].ImageBroadcast.connect(frame_updater)
         self.frame_emitters[port].FrameIndexBroadcast.connect(slider_updater)
+        self.frame_emitters[port].FrameIndexBroadcast.connect(slider_updater)
     
     def load_intrinsic_streams(self):
-        source_directory = Path(self.workspace, "calibration", "intrinsic")
 
         for port, camera_data in self.all_camera_data.items():
             # data storage convention defined here
-            source_file = Path(source_directory, f"port_{port}.mp4")
+            source_file = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
             size = camera_data.size
             rotation_count = camera_data.rotation_count
             source_properties = read_video_properties(source_file)
             assert size == source_properties["size"]  # just to make sure
             self.intrinsic_streams[port] = RecordedStream(
-                directory=source_directory,
+                directory=self.intrinsic_source_directory,
                 port=port,
                 rotation_count=rotation_count,
                 tracker=self.charuco_tracker,
@@ -96,9 +100,7 @@ class Controller(QObject):
             port = len(self.all_camera_data)
 
         # copy source over to standard workspace structure
-        intrinsic_source_dir = Path(self.workspace, "calibration", "intrinsic")
-        intrinsic_source_dir.mkdir(exist_ok=True,parents=True)  # make sure the containing directory exists
-        target_mp4_path = Path(intrinsic_source_dir, f"port_{port}.mp4")
+        target_mp4_path = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
         
         shutil.copy(intrinsic_mp4, target_mp4_path)
 

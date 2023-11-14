@@ -44,9 +44,10 @@ class VideoPlayer(QWidget):
 
         self.total_frames = self.controller.get_intrinsic_stream_frame_count(self.port)
         self.frame_image = QLabel(self)
-        
+        self.frame_index_label = QLabel(self)
         self.play_button = QPushButton("Play", self)
         self.slider = CustomSlider()
+        self.add_grid_btn = QPushButton("Add Grid")
         # self.slider.setEnabled(False)
         self.slider.setMaximum(self.total_frames-1)
         # self.play_started = False
@@ -60,13 +61,15 @@ class VideoPlayer(QWidget):
         self.layout.addWidget(self.frame_image, alignment=Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(self.play_button)
         self.layout.addWidget(self.slider)
+        self.layout.addWidget(self.add_grid_btn)
+        self.layout.addWidget(self.frame_index_label)
         self.setLayout(self.layout)
     
     def connect_widgets(self):
         self.play_button.clicked.connect(self.play_video)
         self.slider.sliderMoved.connect(self.slider_moved)
         self.slider.arrowKeyPressed.connect(self.slider_moved)
-        self.controller.connect_frame_emitter(self.port, self.display_image,self.update_slider)
+        self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
 
         # initialize stream to push first frame to widget then hold
         # must be done after signals and slots connected for effect to take hold
@@ -99,12 +102,14 @@ class VideoPlayer(QWidget):
                 self.play_button.setEnabled(True)
 
 
-    def update_slider(self, position):
+    def update_index(self, position):
         """
         only update slider with the position when the stream is making it happen
         track user interact with the widget to assess whether user is currently interacting
         with the slider, at which point don't try to programmatically change the position
         """
+        self.index = position
+        self.frame_index_label.setText(f"Frame Index: {self.index}")
         if self.slider.isDragging() or self.slider.isUsingArrowKeys():
             pass  # don't change slider position as this would create a feedback loop
         else:
@@ -115,19 +120,17 @@ class VideoPlayer(QWidget):
                 self.play_button.setEnabled(False)
                 self.play_button.setText("Play") # now paused so only option is play
 
-    def display_image(self, pixmap):
+
+    def update_image(self, pixmap):
         self.frame_image.setPixmap(pixmap)
+
+    def add_grid(self):
+        self.controller.add_grid
 
     def closeEvent(self, event):
         # self.cap.release()
         super().closeEvent(event)
 
-# class VideoWindow(QMainWindow):
-#     def __init__(self, video_path, parent=None):
-#         super().__init__(parent)
-#         self.setWindowTitle("Video Player")
-#         self.player = VideoPlayer(video_path, self)
-#         self.setCentralWidget(self.player)
 
 if __name__ == "__main__":
 

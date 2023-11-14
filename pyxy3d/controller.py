@@ -59,14 +59,13 @@ class Controller(QObject):
         
         return last_frame_index-start_frame_index+1
     
-    def connect_frame_emitter(self, port:int, frame_updater:Callable, slider_updater:Callable):
+    def connect_frame_emitter(self, port:int, frame_updater:Callable, index_updater:Callable):
         stream = self.intrinsic_streams[port]
 
         self.frame_emitters[port] = PlaybackFrameEmitter(stream) 
         self.frame_emitters[port].start()
         self.frame_emitters[port].ImageBroadcast.connect(frame_updater)
-        self.frame_emitters[port].FrameIndexBroadcast.connect(slider_updater)
-        self.frame_emitters[port].FrameIndexBroadcast.connect(slider_updater)
+        self.frame_emitters[port].FrameIndexBroadcast.connect(index_updater)
     
     def load_intrinsic_streams(self):
 

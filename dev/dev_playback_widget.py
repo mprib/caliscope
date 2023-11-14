@@ -48,6 +48,8 @@ class VideoPlayer(QWidget):
         self.play_button = QPushButton("Play", self)
         self.slider = CustomSlider()
         self.add_grid_btn = QPushButton("Add Grid")
+        self.calibrate_btn = QPushButton("Calibrate")
+        # self.calibrate_btn.setEnabled(False)
         # self.slider.setEnabled(False)
         self.slider.setMaximum(self.total_frames-1)
         # self.play_started = False
@@ -61,7 +63,9 @@ class VideoPlayer(QWidget):
         self.layout.addWidget(self.frame_image, alignment=Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(self.play_button)
         self.layout.addWidget(self.slider)
+
         self.layout.addWidget(self.add_grid_btn)
+        self.layout.addWidget(self.calibrate_btn)
         self.layout.addWidget(self.frame_index_label)
         self.setLayout(self.layout)
     
@@ -70,7 +74,7 @@ class VideoPlayer(QWidget):
         self.slider.sliderMoved.connect(self.slider_moved)
         self.slider.arrowKeyPressed.connect(self.slider_moved)
         self.add_grid_btn.clicked.connect(self.add_grid)    
-        
+        self.calibrate_btn.clicked.connect(self.calibrate)
 
         self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
     
@@ -130,7 +134,11 @@ class VideoPlayer(QWidget):
     def add_grid(self):
         self.controller.add_calibration_grid(self.port, self.index)
         self.controller.stream_jump_to(self.port,self.index)
+            
 
+    def calibrate(self):
+        self.controller.calibrate_camera(self.port)
+        
     def closeEvent(self, event):
         # self.cap.release()
         super().closeEvent(event)

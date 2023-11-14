@@ -109,8 +109,8 @@ class IntrinsicCalibrator:
 
         logger.info(f"Calibrating camera {self.camera.port}....")
 
-        height = self.grid_capture_history.shape[0]
-        width = self.grid_capture_history.shape[1]
+        width = self.stream.size[0]
+        height = self.stream.size[1]
 
         self.error, self.mtx, self.dist, self.rvecs, self.tvecs = cv2.calibrateCamera(
             self.calibration_obj_loc,

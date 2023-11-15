@@ -20,15 +20,17 @@ logger = pyxy3d.logger.get(__name__)
 
 class PlaybackFrameEmitter(QThread):
     # establish signals that will be displayed within the GUI
-    ImageBroadcast = Signal(QPixmap)
+    ImageBroadcast = Signal(int, QPixmap)
     GridCountBroadcast = Signal(int)
-    FrameIndexBroadcast = Signal(int)
+    FrameIndexBroadcast = Signal(int, int)
 
     def __init__(self, recorded_stream: RecordedStream, pixmap_edge_length=500):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(PlaybackFrameEmitter, self).__init__()
         self.stream = recorded_stream
+        self.port = self.stream.port
+
         self.frame_packet_q = Queue()
         self.stream.subscribe(self.frame_packet_q)
         self.pixmap_edge_length = pixmap_edge_length
@@ -73,8 +75,8 @@ class PlaybackFrameEmitter(QThread):
                     int(self.pixmap_edge_length),
                     Qt.AspectRatioMode.KeepAspectRatio,
                 )
-            self.ImageBroadcast.emit(pixmap)
-            self.FrameIndexBroadcast.emit(frame_packet.frame_index)
+            self.ImageBroadcast.emit(self.port, pixmap)
+            self.FrameIndexBroadcast.emit(self.port, frame_packet.frame_index)
 
         logger.info(
             f"Thread loop within frame emitter at port {self.stream.port} successfully ended"

@@ -94,9 +94,13 @@ class IntrinsicCalibrator:
         self.calibration_obj_loc = []
 
         for index in self.calibration_frame_indices:
-            self.calibration_point_ids.append(self.all_ids[index])
-            self.calibration_img_loc.append(self.all_img_loc[index])
-            self.calibration_obj_loc.append(self.all_obj_loc[index])
+            id_count = len(self.all_ids[index])
+            if id_count > 0:  # can't add empty frames
+                self.calibration_point_ids.append(self.all_ids[index])
+                self.calibration_img_loc.append(self.all_img_loc[index])
+                self.calibration_obj_loc.append(self.all_obj_loc[index])
+            else:
+                logger.info(f"Note that empty data stored in frame index {index}. This is not being used in the calibration")
 
 
     def calibrate_camera(self):

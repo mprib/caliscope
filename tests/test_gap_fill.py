@@ -1,7 +1,6 @@
 
 #%%
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 
 
 import pandas as pd
@@ -12,6 +11,7 @@ from pyxy3d.trackers.tracker_enum import TrackerEnum
 from pyxy3d.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
 from pyxy3d import __root__
 from pyxy3d.helper import copy_contents
+logger = pyxy3d.logger.get(__name__)
 
 original_recording_directory = Path(__root__, "tests", "reference", "base_data")
 tracker_enum = TrackerEnum.HOLISTIC_OPENSIM

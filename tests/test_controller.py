@@ -3,6 +3,7 @@
 from pathlib import Path
 from queue import Queue
 from time import sleep
+from PySide6.QtWidgets import QApplication
 
 import cv2
 from pyxy3d import __root__
@@ -23,6 +24,7 @@ def test_controller_load_camera_and_stream():
     This is done to make sure it is testing out setting up intrinsic source and config info from imported mp4
     
     """
+    app = QApplication()
     original_workspace = Path(__root__, "tests", "sessions", "prerecorded_calibration")
     workspace = Path( __root__, "tests", "sessions_copy_delete", "prerecorded_calibration")
     copy_contents(original_workspace, workspace)

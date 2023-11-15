@@ -92,23 +92,30 @@ class CameraData:
         else:
             k1, k2, p1, p2, k3 = None, None, None, None, None
 
+        def round_or_none(value,places):
+            if value is None:
+                return None
+            else:
+                return round(value,places)
+            
         # Creating the dictionary with OrderedDict
         camera_display_dict = OrderedDict([
             ("size", self.size),
             ("RMSE", self.error),
+            ("Grid_Count", self.grid_count),
             ("rotation_count", self.rotation_count),
             ("intrinsic_parameters", OrderedDict([
-                ("focal_length_x", fx),
-                ("focal_length_y", fy),
-                ("optical_center_x", cx),
-                ("optical_center_y", cy)
+                ("focal_length_x", round_or_none(fx,2)),
+                ("focal_length_y", round_or_none(fy,2)),
+                ("optical_center_x", round_or_none(cx,2)),
+                ("optical_center_y", round_or_none(cy,2))
             ])),
             ("distortion_coefficients", OrderedDict([
-                ("radial_k1", k1),
-                ("radial_k2", k2),
-                ("radial_k3", k3),
-                ("tangential_p1", p1),
-                ("tangential_p2", p2)
+                ("radial_k1", round_or_none(k1,2)),
+                ("radial_k2", round_or_none(k2,2)),
+                ("radial_k3", round_or_none(k3,2)),
+                ("tangential_p1", round_or_none(p1,2)),
+                ("tangential_p2", round_or_none(p2,2))
             ]))
         ])
 

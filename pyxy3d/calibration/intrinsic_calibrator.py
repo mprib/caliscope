@@ -87,6 +87,11 @@ class IntrinsicCalibrator:
     def add_calibration_frame_indices(self, frame_index: int):
         self.calibration_frame_indices.append(frame_index)
 
+    def clear_calibration_data(self):
+        self.calibration_frame_indices = []
+        self.set_calibration_inputs()
+        
+        
 
     def set_calibration_inputs(self):
         self.calibration_point_ids = []
@@ -95,7 +100,7 @@ class IntrinsicCalibrator:
 
         for index in self.calibration_frame_indices:
             id_count = len(self.all_ids[index])
-            if id_count > 0:  # can't add empty frames
+            if id_count > 3:  # I believe this is a requirement of opencv
                 self.calibration_point_ids.append(self.all_ids[index])
                 self.calibration_img_loc.append(self.all_img_loc[index])
                 self.calibration_obj_loc.append(self.all_obj_loc[index])

@@ -18,7 +18,9 @@ class CameraDataDisplayWidget(QWidget):
 
         self.place_widgets()
         self.connect_widgets()
-        
+
+        # make sure you populate whatever is there on load
+        self.controller.push_camera_data(self.port)
 
     def place_widgets(self):
         

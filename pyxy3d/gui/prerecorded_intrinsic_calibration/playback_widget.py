@@ -36,7 +36,7 @@ class CustomSlider(QSlider):
         if self.isUsingArrowKeys():
             self.arrowKeyPressed.emit(value)  # Emit the custom signal
 
-class VideoPlayer(QWidget):
+class IntrinsicCalibrationWidget(QWidget):
     def __init__(self, controller:Controller, port:int,parent=None):
         super().__init__(parent)
         self.controller = controller
@@ -67,6 +67,7 @@ class VideoPlayer(QWidget):
         self.layout.addWidget(self.add_grid_btn)
         self.layout.addWidget(self.calibrate_btn)
         self.layout.addWidget(self.frame_index_label)
+        self.layout.addWidget(self.camera_data_display)
         self.setLayout(self.layout)
     
     def connect_widgets(self):
@@ -76,7 +77,9 @@ class VideoPlayer(QWidget):
         self.add_grid_btn.clicked.connect(self.add_grid)    
         self.calibrate_btn.clicked.connect(self.calibrate)
 
-        self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
+        # self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
+        self.controller.ImageUpdate.connect(self.update_image)
+        self.controller.IndexUpdate.connect(self.update_index)
     
         # initialize stream to push first frame to widget then hold
         # must be done after signals and slots connected for effect to take hold
@@ -109,27 +112,29 @@ class VideoPlayer(QWidget):
                 self.play_button.setEnabled(True)
 
 
-    def update_index(self, position):
+    def update_index(self, port, position):
         """
         only update slider with the position when the stream is making it happen
         track user interact with the widget to assess whether user is currently interacting
         with the slider, at which point don't try to programmatically change the position
         """
-        self.index = position
-        self.frame_index_label.setText(f"Frame Index: {self.index}")
-        if self.slider.isDragging() or self.slider.isUsingArrowKeys():
-            pass  # don't change slider position as this would create a feedback loop
-        else:
-            self.slider.setValue(position)
-            if position == self.total_frames-1:
-                self.controller.pause_stream(self.port)    
-                self.is_playing = False 
-                self.play_button.setEnabled(False)
-                self.play_button.setText("Play") # now paused so only option is play
+        if port == self.port:
+            self.index = position
+            self.frame_index_label.setText(f"Frame Index: {self.index}")
+            if self.slider.isDragging() or self.slider.isUsingArrowKeys():
+                pass  # don't change slider position as this would create a feedback loop
+            else:
+                self.slider.setValue(position)
+                if position == self.total_frames-1:
+                    self.controller.pause_stream(self.port)    
+                    self.is_playing = False 
+                    self.play_button.setEnabled(False)
+                    self.play_button.setText("Play") # now paused so only option is play
 
 
-    def update_image(self, pixmap):
-        self.frame_image.setPixmap(pixmap)
+    def update_image(self, port, pixmap):
+        if port == self.port:
+            self.frame_image.setPixmap(pixmap)
 
     def add_grid(self):
         self.controller.add_calibration_grid(self.port, self.index)
@@ -158,7 +163,7 @@ if __name__ == "__main__":
     controller.add_camera_from_source(Path(workspace_dir,"calibration", "extrinsic", "port_0.mp4"))
     controller.load_intrinsic_streams()
     
-    window = VideoPlayer(controller=controller,port=0)
+    window = IntrinsicCalibrationWidget(controller=controller,port=0)
     window.resize(800, 600)
     logger.info("About to show window")
     window.show()

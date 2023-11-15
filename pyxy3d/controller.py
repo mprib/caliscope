@@ -1,5 +1,5 @@
 from typing import Optional, Callable
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, Signal, Slot
 
 import shutil
 from PySide6.QtWidgets import QLabel
@@ -15,6 +15,8 @@ import cv2
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 
+from PySide6.QtGui import QPixmap
+
 import pyxy3d.logger
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera import Camera
@@ -27,7 +29,7 @@ from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.interface import Tracker
 from pyxy3d.playback_frame_emitter import PlaybackFrameEmitter
 from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
-
+from collections import OrderedDict
 logger = pyxy3d.logger.get(__name__)
 
 
@@ -35,6 +37,10 @@ class Controller(QObject):
     """
     Thin layer to integrate GUI and backend
     """
+
+    CameraDataUpdate = Signal(int,OrderedDict)  # port, camera_display_dictionary
+    ImageUpdate = Signal(int, QPixmap)  # port, image
+    IndexUpdate = Signal(int, int)  # port, frame_index
 
     def __init__(self, workspace_dir: Path):
         super().__init__()
@@ -60,13 +66,9 @@ class Controller(QObject):
         
         return last_frame_index-start_frame_index+1
     
-    def connect_frame_emitter(self, port:int, frame_updater:Callable, index_updater:Callable):
-        stream = self.intrinsic_streams[port]
+    # def connect_frame_emitter(self, port:int, frame_updater:Callable, index_updater:Callable):
+    #     stream = self.intrinsic_streams[port]
 
-        self.frame_emitters[port] = PlaybackFrameEmitter(stream) 
-        self.frame_emitters[port].start()
-        self.frame_emitters[port].ImageBroadcast.connect(frame_updater)
-        self.frame_emitters[port].FrameIndexBroadcast.connect(index_updater)
     
     def load_intrinsic_streams(self):
 
@@ -85,11 +87,25 @@ class Controller(QObject):
                 break_on_last=False
             )
 
+            self.frame_emitters[port] = PlaybackFrameEmitter(stream) 
+            self.frame_emitters[port].start()
+            self.frame_emitters[port].ImageBroadcast.connect(self.broadcast_frame_update)
+            self.frame_emitters[port].FrameIndexBroadcast.connect(self.broadcast_index_update)
+
             self.intrinsic_streams[port] = stream
             self.intrinsic_calibrators[port] = IntrinsicCalibrator(camera_data,stream)
             logger.info(f"Loading recorded stream stored in {source_file}")
 
-
+    @Slot(int, QPixmap)
+    def broadcast_frame_update(self, port, pixmap):
+        logger.info(f"Broadcast frame update from port {port}")
+        self.ImageUpdate.emit(port, pixmap)
+       
+    @Slot(int, int)
+    def broadcast_index_update(self, port, index):
+        logger.info(f"Broadcast index update from port {port}")
+        self.IndexUpdate.emit(port, index)
+         
     def add_camera_from_source(
         self, intrinsic_mp4: Path = None, port: int = None
     ) -> int:
@@ -151,6 +167,14 @@ class Controller(QObject):
         logger.info(f"Calibrating camera at port {port}")
         self.intrinsic_calibrators[port].calibrate_camera()
         logger.info(f"{self.all_camera_data[port]}")
+        self.push_camera_data(port)
+        # camera_display_data = self.all_camera_data[port].get_display_data()
+        # self.CameraDataUpdate.emit(port,camera_display_data)
+
+    def push_camera_data(self, port):
+        camera_display_data = self.all_camera_data[port].get_display_data()
+        self.CameraDataUpdate.emit(port,camera_display_data)
+        
 
 def read_video_properties(source_path: Path) -> dict:
     # Dictionary to hold video properties

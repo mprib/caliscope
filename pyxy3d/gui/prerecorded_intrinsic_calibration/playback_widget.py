@@ -2,6 +2,7 @@ import sys
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
+    QCheckBox,
     QWidget,
     QPushButton,
     QSlider,
@@ -65,6 +66,8 @@ class IntrinsicCalibrationWidget(QWidget):
         self.calibrate_btn = QPushButton("Calibrate")
         self.camera_data_display = CameraDataDisplayWidget(self.port, self.controller)
         self.clear_calibration_data_btn = QPushButton("Clear Data")
+        self.toggle_distortion = QCheckBox("Apply Distortion")
+
         self.slider.setMaximum(self.total_frames - 1)
         self.is_playing = False
 
@@ -84,6 +87,7 @@ class IntrinsicCalibrationWidget(QWidget):
         self.right_panel.addWidget(self.calibrate_btn)
         self.right_panel.addWidget(self.clear_calibration_data_btn)
         self.right_panel.addWidget(self.frame_index_label)
+        self.right_panel.addWidget(self.toggle_distortion)
         self.layout.addLayout(self.right_panel)
 
     def connect_widgets(self):
@@ -93,6 +97,7 @@ class IntrinsicCalibrationWidget(QWidget):
         self.add_grid_btn.clicked.connect(self.add_grid)
         self.calibrate_btn.clicked.connect(self.calibrate)
         self.clear_calibration_data_btn.clicked.connect(self.clear_calibration_data)
+        self.toggle_distortion.stateChanged.connect(self.toggle_distortion_changed)
         
         # self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
         self.controller.ImageUpdate.connect(self.update_image)
@@ -163,7 +168,19 @@ class IntrinsicCalibrationWidget(QWidget):
     def clear_calibration_data(self):
         self.controller.clear_calibration_data(self.port)
         self.controller.stream_jump_to(self.port, self.index)
-        
+       
+       
+    def toggle_distortion_changed(self, state):
+        if state ==2:
+            logger.info("Apply distortion model")
+            self.controller.apply_distortion(self.port, True)
+            self.controller.stream_jump_to(self.port, self.index)
+            
+        else:
+            logger.info("Removing distortion") 
+            self.controller.apply_distortion(self.port, False)
+            self.controller.stream_jump_to(self.port, self.index)
+
     def closeEvent(self, event):
         # self.cap.release()
         super().closeEvent(event)

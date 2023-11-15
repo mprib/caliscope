@@ -61,7 +61,7 @@ class PlaybackFrameEmitter(QThread):
                 self.frame, 1, self.grid_capture_history, 1, 0
             )
 
-            # self.apply_undistortion()
+            self.apply_undistortion()
             self.frame = resize_to_square(self.frame)
 
             self.apply_rotation()
@@ -110,11 +110,11 @@ class PlaybackFrameEmitter(QThread):
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     def apply_undistortion(self):
-        if self.undistort:  # and self.mono_cal.is_calibrated:
+        if self.undistort and self.matrix is not None:
             self.frame = cv2.undistort(
                 self.frame,
-                self.stream.camera.matrix,
-                self.stream.camera.distortions,
+                self.matrix,
+                self.distortions,
             )
 
     def add_to_grid_history(self, ids, img_loc):

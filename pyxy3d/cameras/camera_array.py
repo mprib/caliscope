@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import cv2
 from enum import Enum, auto
 from numba.typed import Dict
-
+from collections import OrderedDict
 logger = pyxy3d.logger.get(__name__)
 CAMERA_PARAM_COUNT = 6
 
@@ -74,6 +74,47 @@ class CameraData:
         self.rotation = cv2.Rodrigues(row[0:3])[0]
         self.translation = np.array([row[3:6]], dtype=np.float64)[0]
 
+    def get_display_data(self)-> OrderedDict:
+        
+        # Extracting camera matrix parameters
+        # self.matrix = None
+        if self.matrix is not None:
+            fx, fy = self.matrix[0, 0], self.matrix[1, 1]
+            cx, cy = self.matrix[0, 2], self.matrix[1, 2]
+        else:
+            fx, fy = None, None
+            cx, cy = None, None
+            
+
+        # Extracting distortion coefficients
+        if self.distortions is not None:
+            k1, k2, p1, p2, k3 = self.distortions.ravel()[:5]
+        else:
+            k1, k2, p1, p2, k3 = None, None, None, None, None
+
+        # Creating the dictionary with OrderedDict
+        camera_display_dict = OrderedDict([
+            ("size", self.size),
+            ("RMSE", self.error),
+            ("rotation_count", self.rotation_count),
+            ("intrinsic_parameters", OrderedDict([
+                ("focal_length_x", fx),
+                ("focal_length_y", fy),
+                ("optical_center_x", cx),
+                ("optical_center_y", cy)
+            ])),
+            ("distortion_coefficients", OrderedDict([
+                ("radial_k1", k1),
+                ("radial_k2", k2),
+                ("radial_k3", k3),
+                ("tangential_p1", p1),
+                ("tangential_p2", p2)
+            ]))
+        ])
+
+        logger.info(camera_display_dict)
+    
+        return camera_display_dict
 
 @dataclass
 class CameraArray:

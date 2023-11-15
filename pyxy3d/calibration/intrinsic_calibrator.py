@@ -87,6 +87,11 @@ class IntrinsicCalibrator:
     def add_calibration_frame_indices(self, frame_index: int):
         self.calibration_frame_indices.append(frame_index)
 
+    def clear_calibration_data(self):
+        self.calibration_frame_indices = []
+        self.set_calibration_inputs()
+        
+        
 
     def set_calibration_inputs(self):
         self.calibration_point_ids = []

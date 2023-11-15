@@ -163,6 +163,11 @@ class Controller(QObject):
         new_img_loc = intr_calib.all_img_loc[frame_index]
         self.frame_emitters[port].add_to_grid_history(new_ids,new_img_loc)
 
+    def clear_calibration_data(self, port:int):
+        intr_calib = self.intrinsic_calibrators[port]
+        intr_calib.clear_calibration_data()
+        self.frame_emitters[port].initialize_grid_capture_history()
+    
     def calibrate_camera(self,port):
         logger.info(f"Calibrating camera at port {port}")
         self.intrinsic_calibrators[port].calibrate_camera()

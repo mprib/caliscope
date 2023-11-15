@@ -124,7 +124,7 @@ class PlaybackFrameEmitter(QThread):
         a reference should be past to the frame emitter
         """
         logger.info("Attempting to add to grid history")
-        if len(ids) > 2:
+        if len(ids) > 3:
             logger.info("enough points to add")
             self.grid_capture_history = draw_charuco.grid_history(
                 self.grid_capture_history,

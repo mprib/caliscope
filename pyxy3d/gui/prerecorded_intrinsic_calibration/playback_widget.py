@@ -1,6 +1,7 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QPushButton, QSlider, QLabel)
 from PySide6.QtCore import Qt, Slot, Signal
+from pyxy3d.gui.prerecorded_intrinsic_calibration.camera_display_widget import CameraDataDisplayWidget
 
 from pyxy3d.controller import Controller
 import pyxy3d.logger
@@ -49,10 +50,9 @@ class VideoPlayer(QWidget):
         self.slider = CustomSlider()
         self.add_grid_btn = QPushButton("Add Grid")
         self.calibrate_btn = QPushButton("Calibrate")
-        # self.calibrate_btn.setEnabled(False)
-        # self.slider.setEnabled(False)
+        self.camera_data_display = CameraDataDisplayWidget(self.port, self.controller)
+
         self.slider.setMaximum(self.total_frames-1)
-        # self.play_started = False
         self.is_playing = False
 
         self.place_widgets()

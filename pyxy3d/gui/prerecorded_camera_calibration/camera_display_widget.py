@@ -2,9 +2,9 @@ import sys
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem
 
 class CameraDataDisplayWidget(QWidget):
-    def __init__(self, camera_data):
+    def __init__(self, camera_dict:dict):
         super().__init__()
-        self.camera_data = camera_data
+        self.camera_dict = camera_dict
         self.initUI()
 
     def initUI(self):
@@ -15,7 +15,7 @@ class CameraDataDisplayWidget(QWidget):
         tree.setHeaderLabels(["Parameter", "Value"])
 
         # Adding top-level items
-        self.add_items(None, tree, self.camera_data)
+        self.add_items(None, tree, self.camera_dict)
 
         # Expand all items
         self.expand_all_items(tree)
@@ -53,22 +53,21 @@ if __name__ == '__main__':
 
     # Example camera data
     camera_data = {
+        "rmse": "0.2",
         "size": "(1920, 1080)",
         "rotation_count": "3",
         "intrinsic_parameters": {
             "focal_length_x": "1000",
             "focal_length_y": "1000",
             "optical_center_x": "500",
-            "optical_center_y": "500",
-            "distortion_coefficients": {
-                "radial_k1": "0.1",
-                "radial_k2": "0.01",
-                "radial_k3": "0.001",
-                "tangential_p1": "0.005",
-                "tangential_p2": "0.005"
-            }
-        },
-        "rmse": "0.2"
+            "optical_center_y": "500"},
+        "distortion_coefficients": {
+            "radial_k1": "0.1",
+            "radial_k2": "0.01",
+            "radial_k3": "0.001",
+            "tangential_p1": "0.005",
+            "tangential_p2": "0.005"
+        }
     }
 
     ex = CameraDataDisplayWidget(camera_data)

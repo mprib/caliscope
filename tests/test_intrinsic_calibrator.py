@@ -63,7 +63,10 @@ def test_intrinsic_calibrator():
         intrinsic_calibrator.add_calibration_frame_indices(packet.frame_index)
 
     stream.stop_event.set()
+    stream.unpause()
     intrinsic_calibrator.stop_event.set()
+
+    logger.info(camera.get_display_data())
 
     intrinsic_calibrator.calibrate_camera()
     logger.info(camera)
@@ -73,6 +76,9 @@ def test_intrinsic_calibrator():
     assert(isinstance(camera.matrix, np.ndarray))
     assert(isinstance(camera.distortions, np.ndarray))
     assert(camera.error > 0)
+    
+    logger.info(camera.get_display_data())
+
 
 if __name__ == "__main__":
     test_intrinsic_calibrator()

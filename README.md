@@ -1,4 +1,6 @@
 
+NOTE (11/16/2023): I'm currently in the midst of a large refactor to allow a processing pipeline that integrates entirely with pre-recorded footage. This is intended to sidestep the limitations of a webcam-based approach. My internal target for this milestone is the end of November. At that point, frame syncronization will need to be performed in an outside process, and streamlining that would be my next major milestone. I'm hoping interested people can point me toward useful tools for this that could be integrated into pyxy3d: https://github.com/mprib/pyxy3d/discussions/496
+
 
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 

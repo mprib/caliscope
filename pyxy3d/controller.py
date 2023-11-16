@@ -78,7 +78,9 @@ class Controller(QObject):
             size = camera_data.size
             rotation_count = camera_data.rotation_count
             source_properties = read_video_properties(source_file)
-            assert size == source_properties["size"]  # just to make sure
+            assert size[0] == source_properties["size"][0]  # just to make sure
+            assert size[1] == source_properties["size"][1]  # just to make sure
+
             stream = RecordedStream(
                 directory=self.intrinsic_source_directory,
                 port=port,

@@ -196,21 +196,31 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     from pyxy3d import __root__
     from pyxy3d.helper import copy_contents
-
+    from pyxy3d.trackers.charuco_tracker import CharucoTracker
+    from pyxy3d.calibration.charuco import Charuco
+    
     # Define the input file path here.
     original_workspace_dir = Path(
         __root__, "tests", "sessions", "prerecorded_calibration"
     )
-    workspace_dir = Path(
-        __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
-    )
-    copy_contents(original_workspace_dir, workspace_dir)
-    controller = Controller(workspace_dir)
-    controller.add_camera_from_source(
-        Path(workspace_dir, "calibration", "extrinsic", "port_0.mp4")
-    )
-    controller.load_intrinsic_streams()
+    # workspace_dir = Path(
+    #     __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
+    # )
 
+    # copy_contents(original_workspace_dir, workspace_dir)
+    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
+    controller = Controller(workspace_dir)
+    charuco = Charuco(
+        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+    )
+    charuco_tracker = CharucoTracker(charuco)
+    controller.charuco_tracker = charuco_tracker
+
+    controller.add_camera_from_source(
+        Path(workspace_dir,"phone_test.mov")
+    )
+
+    controller.load_intrinsic_streams()
     window = IntrinsicCalibrationWidget(controller=controller, port=0)
     window.resize(800, 600)
     logger.info("About to show window")

@@ -61,7 +61,7 @@ class PlaybackFrameEmitter(QThread):
                 self.frame, 1, self.grid_capture_history, 1, 0
             )
 
-            self.apply_undistortion()
+            self._apply_undistortion()
             self.frame = resize_to_square(self.frame)
 
             self.apply_rotation()
@@ -109,12 +109,28 @@ class PlaybackFrameEmitter(QThread):
         elif self.stream.rotation_count in [-1, 3]:
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-    def apply_undistortion(self):
+    def update_distortion_params(self, undistort, matrix, distortions):
+        if matrix is not None:
+            logger.info(f"Updating camera matrix and distortion parameters for frame emitter at port {self.port}")
+            self.undistort = undistort
+            self.matrix = matrix
+            self.distortions = distortions
+            self.new_matrix, valid_roi = cv2.getOptimalNewCameraMatrix(
+                self.matrix, self.distortions, self.frame.shape[1::-1], 1, self.frame.shape[1::-1])
+            logger.info(f"Valid ROI is {valid_roi}")
+        else:
+            logger.info(f"No camera matrix calculated yet at port {self.port}")
+
+    def _apply_undistortion(self):
         if self.undistort and self.matrix is not None:
+            # Compute the optimal new camera matrix
+            # Undistort the image
             self.frame = cv2.undistort(
                 self.frame,
                 self.matrix,
                 self.distortions,
+                None,
+                self.new_matrix
             )
 
     def add_to_grid_history(self, ids, img_loc):

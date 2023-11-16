@@ -1,7 +1,6 @@
 import typing
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 
 from time import sleep, time
 from queue import Queue
@@ -31,6 +30,7 @@ from pyxy3d.export import xyz_to_trc, xyz_to_wide_labelled
 from pyxy3d.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
 from pyxy3d.post_processing.smoothing import smooth_xyz
 
+logger = pyxy3d.logger.get(__name__)
 class PostProcessor:
     """
     The post processer operates independently of the session. It does not need to worry about camera management.

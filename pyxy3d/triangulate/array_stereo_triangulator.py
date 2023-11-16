@@ -1,11 +1,4 @@
-# this class is only a way to hold data related to the stereocamera triangulation.
-# These will load from a config file (.toml) and provide a way for the 3D triangulation
-# and plotting to manage the parameters. It feels like some duplication of the camera object,
-# but I want something that is designed to be simple and not actually manage the cameras, just
-# organize the saved data
-
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 
 from queue import Queue
 from threading import Thread, Event
@@ -19,9 +12,8 @@ from itertools import combinations
 from pyxy3d.triangulate.stereo_points_builder import StereoPointsBuilder, StereoPointsPacket
 from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
 from pyxy3d.triangulate.stereo_points_builder import StereoPointsPacket, SynchedStereoPointsPacket
-
-
 from pyxy3d.cameras.camera_array import CameraData, CameraArray
+logger = pyxy3d.logger.get(__name__)
 
 
 class ArrayStereoTriangulator:
@@ -79,26 +71,26 @@ class StereoPairTriangulator:
         mtx_B = self.camera_B.matrix
         self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
 
-    def build_projection_matrices_old(self):
+    # def build_projection_matrices_old(self):
 
-        # inversion/negation of R t here is legacy code that  
-        # was based on my understanding at the time of frames of reference.
-        # and it yields highly reasonable results. 
-        # see https://stackoverflow.com/questions/17210424/3d-camera-coordinates-to-world-coordinates-change-of-basis
-        # for a potential explanation. 
-        # I would expect this to be a more common topic for computer vision forums
-        # but I can't really find a reference to this and it bothers me
-        rot_A = np.linalg.inv(self.camera_A.rotation)
-        trans_A = np.array(self.camera_A.translation) * -1
-        rot_trans_A = np.column_stack([rot_A, trans_A])
-        mtx_A = self.camera_A.matrix
-        self.proj_A = mtx_A @ rot_trans_A  # projection matrix for CamA
+    #     # inversion/negation of R t here is legacy code that  
+    #     # was based on my understanding at the time of frames of reference.
+    #     # and it yields highly reasonable results. 
+    #     # see https://stackoverflow.com/questions/17210424/3d-camera-coordinates-to-world-coordinates-change-of-basis
+    #     # for a potential explanation. 
+    #     # I would expect this to be a more common topic for computer vision forums
+    #     # but I can't really find a reference to this and it bothers me
+    #     rot_A = np.linalg.inv(self.camera_A.rotation)
+    #     trans_A = np.array(self.camera_A.translation) * -1
+    #     rot_trans_A = np.column_stack([rot_A, trans_A])
+    #     mtx_A = self.camera_A.matrix
+    #     self.proj_A = mtx_A @ rot_trans_A  # projection matrix for CamA
 
-        rot_B = np.linalg.inv(self.camera_B.rotation)
-        trans_B = np.array(self.camera_B.translation) * -1
-        rot_trans_B = np.column_stack([rot_B, trans_B])
-        mtx_B = self.camera_B.matrix
-        self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
+    #     rot_B = np.linalg.inv(self.camera_B.rotation)
+    #     trans_B = np.array(self.camera_B.translation) * -1
+    #     rot_trans_B = np.column_stack([rot_B, trans_B])
+    #     mtx_B = self.camera_B.matrix
+    #     self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
 
     def add_3D_points(self, paired_points:StereoPointsPacket):
             

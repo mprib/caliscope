@@ -1,6 +1,5 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 import time
 import pandas as pd
 from pathlib import Path
@@ -11,6 +10,7 @@ from pyxy3d.triangulate.triangulation import triangulate_xy
 
 from pyxy3d.helper import copy_contents
 from pyxy3d.trackers.tracker_enum import TrackerEnum
+logger = pyxy3d.logger.get(__name__)
 
 def test_xy_to_xyz_postprocessing():
     # load in file of xy point data

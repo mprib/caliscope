@@ -1,7 +1,6 @@
 
-import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
+import pyxy3d.logger
 import pandas as pd
 from time import time
 from numba import jit
@@ -9,6 +8,7 @@ from numba.typed import Dict, List
 from pyxy3d.cameras.camera_array import CameraArray
 
 import numpy as np
+logger = pyxy3d.logger.get(__name__)
 
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
 @jit(nopython=True, cache=True)

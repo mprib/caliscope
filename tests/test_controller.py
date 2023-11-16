@@ -24,7 +24,7 @@ def test_controller_load_camera_and_stream():
     This is done to make sure it is testing out setting up intrinsic source and config info from imported mp4
     
     """
-    app = QApplication()
+    app = QApplication()  # must exist prior to QPixels which are downstream when controller is created
     original_workspace = Path(__root__, "tests", "sessions", "prerecorded_calibration")
     workspace = Path( __root__, "tests", "sessions_copy_delete", "prerecorded_calibration")
     copy_contents(original_workspace, workspace)
@@ -46,7 +46,8 @@ def test_controller_load_camera_and_stream():
     controller.pause_stream(0)
     controller.stream_jump_to(0,10)
     controller.end_stream(0)
-    
+    app.quit()
+     
 def test_video_property_reader():
 
     test_source = Path(__root__, "tests", "sessions", "prerecorded_calibration","calibration", "extrinsic", "port_1.mp4")

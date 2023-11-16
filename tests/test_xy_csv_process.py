@@ -18,8 +18,6 @@ filtering of the data using reprojection error...
 # %%
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
-
 import sys
 from pyxy3d.configurator import Configurator
 from pathlib import Path
@@ -31,6 +29,7 @@ from pyxy3d.helper import copy_contents
 from pyxy3d.post_processing.post_processor import PostProcessor
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 
+logger = pyxy3d.logger.get(__name__)
 
 def test_xy_point_creation():
     # create a clean directory to start from

@@ -164,7 +164,10 @@ class IntrinsicCalibrationWidget(QWidget):
 
     def calibrate(self):
         self.controller.calibrate_camera(self.port)
-
+        self.toggle_distortion_changed(2)
+        self.toggle_distortion.setChecked(True)
+        # self.controller.stream_jump_to(self.port, self.index)
+        
     def clear_calibration_data(self):
         self.controller.clear_calibration_data(self.port)
         self.controller.stream_jump_to(self.port, self.index)

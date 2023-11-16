@@ -216,9 +216,9 @@ if __name__ == "__main__":
     charuco_tracker = CharucoTracker(charuco)
     controller.charuco_tracker = charuco_tracker
 
-    controller.add_camera_from_source(
-        Path(workspace_dir,"phone_test.mov")
-    )
+    # controller.add_camera_from_source(
+    #     Path(workspace_dir,"phone_test.mov")
+    # )
 
     controller.load_intrinsic_streams()
     window = IntrinsicCalibrationWidget(controller=controller, port=0)

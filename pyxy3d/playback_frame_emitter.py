@@ -30,7 +30,7 @@ class PlaybackFrameEmitter(QThread):
         super(PlaybackFrameEmitter, self).__init__()
         self.stream = recorded_stream
         self.port = self.stream.port
-        
+
         self.frame_packet_q = Queue()
         self.stream.subscribe(self.frame_packet_q)
         self.pixmap_edge_length = pixmap_edge_length
@@ -43,7 +43,7 @@ class PlaybackFrameEmitter(QThread):
         width = self.stream.size[0]
         height = self.stream.size[1]
         channels = 3
-        self.grid_capture_history = np.zeros((height,width, channels), dtype="uint8")
+        self.grid_capture_history = np.zeros((height, width, channels), dtype="uint8")
 
     def run(self):
         self.keep_collecting.set()
@@ -56,12 +56,20 @@ class PlaybackFrameEmitter(QThread):
             self.frame = frame_packet.frame_with_points
 
             logger.info(f"Frame size is {self.frame.shape}")
-            logger.info(f"Grid Capture History size is {self.grid_capture_history.shape}")
-            self.frame = cv2.addWeighted(
-                self.frame, 1, self.grid_capture_history, 1, 0
+            logger.info(
+                f"Grid Capture History size is {self.grid_capture_history.shape}"
             )
+            self.frame = cv2.addWeighted(self.frame, 1, self.grid_capture_history, 1, 0)
 
             self._apply_undistortion()
+            
+            # cv2.imshow("emitted frame", self.frame)
+            # key = cv2.waitKey(1)
+            # if key == ord('q'):
+            #     break
+            
+
+            logger.info(f"Frame size is {self.frame.shape} following undistortion")
             self.frame = resize_to_square(self.frame)
 
             self.apply_rotation()
@@ -88,12 +96,12 @@ class PlaybackFrameEmitter(QThread):
 
     def cv2_to_qlabel(self, frame):
         Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        FlippedImage = cv2.flip(Image, 1)
+        # FlippedImage = cv2.flip(Image, 1)
 
         qt_frame = QImage(
-            FlippedImage.data,
-            FlippedImage.shape[1],
-            FlippedImage.shape[0],
+            Image.data,
+            Image.shape[1],
+            Image.shape[0],
             QImage.Format.Format_RGB888,
         )
         return qt_frame
@@ -110,27 +118,77 @@ class PlaybackFrameEmitter(QThread):
             self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     def update_distortion_params(self, undistort, matrix, distortions):
-        if matrix is not None:
-            logger.info(f"Updating camera matrix and distortion parameters for frame emitter at port {self.port}")
+        if matrix is None:
+            logger.info(f"No camera matrix calculated yet at port {self.port}")
+        else:
+            logger.info(
+                f"Updating camera matrix and distortion parameters for frame emitter at port {self.port}"
+            )
             self.undistort = undistort
             self.matrix = matrix
             self.distortions = distortions
-            self.new_matrix, valid_roi = cv2.getOptimalNewCameraMatrix(
-                self.matrix, self.distortions, self.frame.shape[1::-1], 1, self.frame.shape[1::-1])
+            h, w = self.stream.size
+            # h, w = original_image_size
+            initial_new_matrix, valid_roi = cv2.getOptimalNewCameraMatrix(
+                self.matrix, self.distortions, (w, h), 1
+            )
+
             logger.info(f"Valid ROI is {valid_roi}")
-        else:
-            logger.info(f"No camera matrix calculated yet at port {self.port}")
+
+            # Find extreme points and midpoints in the original image
+            corners = np.array([[0, 0], [0, h], [w, 0], [w, h]], dtype=np.float32)
+            midpoints = np.array([[w/2, 0], [w/2, h], [0, h/2], [w, h/2]], dtype=np.float32)
+            extreme_points = np.vstack((corners, midpoints))
+
+            # Undistort these points
+            undistorted_points = cv2.undistortPoints(
+                np.expand_dims(extreme_points, axis=1),
+                self.matrix,
+                self.distortions,
+                P=initial_new_matrix,
+            )
+
+            # Find min/max x and y in undistorted points
+            min_x = min(undistorted_points[:, 0, 0])
+            max_x = max(undistorted_points[:, 0, 0])
+            min_y = min(undistorted_points[:, 0, 1])
+            max_y = max(undistorted_points[:, 0, 1])
+
+            # # Calculate new image width and height
+            # new_width = int(np.ceil(max_x - min_x))
+            # new_height = int(np.ceil(max_y - min_y))
+
+            # Calculate scaling factors
+            scale_x = (max_x - min_x) / w
+            scale_y = (max_y - min_y) / h
+
+            # Apply a safety margin to the scaling factors (e.g., 5%)
+            # Note that this scaling factor is not currently making any changes, though
+            # I believe it could be used to "zoom out" and avoid the excessive cropping that 
+            # seems quite tricky to get around.
+            # Not a huge priority at the moment because if there is major cropping happening,
+            # this is probably a sign all its own that the calibration is not great.
+            self.scaling_factor = 1
+            scale_x *= self.scaling_factor
+            scale_y *= self.scaling_factor
+
+            # Adjust new image width and height
+            adjusted_width = int(w * scale_x)
+            adjusted_height = int(h * scale_y)
+
+            logger.info(f"New image size for undistorted frame: {(adjusted_width,adjusted_height)}")
+            # Now use new_width and new_height as your NewImageSize for undistortion
+            # newImageSize = (new_width, new_height)
+            self.new_matrix, valid_roi = cv2.getOptimalNewCameraMatrix(
+                self.matrix, self.distortions, (w, h), 1, (adjusted_width, adjusted_height)
+            )
 
     def _apply_undistortion(self):
         if self.undistort and self.matrix is not None:
             # Compute the optimal new camera matrix
             # Undistort the image
             self.frame = cv2.undistort(
-                self.frame,
-                self.matrix,
-                self.distortions,
-                None,
-                self.new_matrix
+                self.frame, self.matrix, self.distortions, None, self.new_matrix
             )
 
     def add_to_grid_history(self, ids, img_loc):
@@ -148,10 +206,8 @@ class PlaybackFrameEmitter(QThread):
                 img_loc,
                 self.connected_points,
             )
-
-    # def set_grid_frame(self):
-    #     """Merges the current frame with the currently detected corners (red circles)
-    #     and a history of the stored grid information."""
+        else:
+            logger.info("Not enough points....grid not added...")
 
 
 def resize_to_square(frame):
@@ -163,6 +219,7 @@ def resize_to_square(frame):
     height_pad = int((padded_size - height) / 2)
     width_pad = int((padded_size - width) / 2)
     pad_color = [0, 0, 0]
+    pad_color = [100, 100, 100]
 
     frame = cv2.copyMakeBorder(
         frame,

@@ -1,6 +1,5 @@
 
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -16,6 +15,7 @@ from PySide6.QtWidgets import (
 from pyxy3d.gui.live_camera_config.camera_config_dialogue import CameraConfigTab
 from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.navigation_bars import NavigationBarBackNext
+logger = pyxy3d.logger.get(__name__)
 
 class IntrinsicCalibrationWidget(QWidget):
     """ 

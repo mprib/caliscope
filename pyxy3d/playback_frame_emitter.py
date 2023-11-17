@@ -30,7 +30,7 @@ class PlaybackFrameEmitter(QThread):
         super(PlaybackFrameEmitter, self).__init__()
         self.stream = recorded_stream
         self.port = self.stream.port
-
+        
         self.frame_packet_q = Queue()
         self.stream.subscribe(self.frame_packet_q)
         self.pixmap_edge_length = pixmap_edge_length
@@ -99,7 +99,7 @@ class PlaybackFrameEmitter(QThread):
         return qt_frame
 
     def apply_rotation(self):
-        # logger.debug("Applying Rotation")
+        logger.info(f"Current rotation count is {self.stream.rotation_count}")
         if self.stream.rotation_count == 0:
             pass
         elif self.stream.rotation_count in [1, -3]:

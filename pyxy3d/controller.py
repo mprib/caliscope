@@ -186,10 +186,23 @@ class Controller(QObject):
         camera_data = self.all_camera_data[port]
         emitter = self.frame_emitters[port]
         emitter.update_distortion_params(undistort, camera_data.matrix, camera_data.distortions)
-        # emitter.matrix = camera_data.matrix
-        # emitter.distortions = camera_data.distortions
-        # emitter.undistort = undistort
-        
+       
+    def rotate_camera(self, port, change):
+        camera_data = self.all_camera_data[port]
+         
+        count = camera_data.rotation_count 
+        count += change
+        if count in [-4,4]:
+            # reset if it completes a revolution
+            camera_data.rotation_count = 0
+        else:
+            camera_data.rotation_count = count
+            
+        stream = self.intrinsic_streams[port]
+        stream.rotation_count = camera_data.rotation_count
+        self.push_camera_data(port) 
+        self.config.save_camera(camera_data)
+     
 def read_video_properties(source_path: Path) -> dict:
     # Dictionary to hold video properties
     properties = {}

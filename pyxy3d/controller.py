@@ -175,6 +175,8 @@ class Controller(QObject):
         self.intrinsic_calibrators[port].calibrate_camera()
         logger.info(f"{self.all_camera_data[port]}")
         self.push_camera_data(port)
+        camera_data = self.all_camera_data[port]
+        self.config.save_camera(camera_data)
         # camera_display_data = self.all_camera_data[port].get_display_data()
         # self.CameraDataUpdate.emit(port,camera_display_data)
 

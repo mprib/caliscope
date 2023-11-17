@@ -1,4 +1,7 @@
 import sys
+from PySide6.QtWidgets import QStyle
+from PySide6.QtGui import QIcon, QPixmap, QPainter
+from pathlib import Path
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -10,15 +13,32 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
 )
-from PySide6.QtCore import Qt, Slot, Signal
+from PySide6.QtCore import Qt, Slot, Signal, QSize
 from pyxy3d.gui.prerecorded_intrinsic_calibration.camera_display_widget import (
     CameraDataDisplayWidget,
 )
-
+from PySide6.QtSvg import QSvgRenderer
 from pyxy3d.controller import Controller
 import pyxy3d.logger
+from pyxy3d import __root__
 
 logger = pyxy3d.logger.get(__name__)
+
+
+def svg_to_pixmap(svg_path: Path, size):
+    # Load SVG file
+    renderer = QSvgRenderer(str(svg_path))
+
+    # Create an empty QPixmap and fill it with transparent color
+    pixmap = QPixmap(size)
+    pixmap.fill(Qt.transparent)
+
+    # Render SVG onto QPixmap
+    painter = QPainter(pixmap)
+    renderer.render(painter)
+    painter.end()
+
+    return pixmap
 
 
 class CustomSlider(QSlider):
@@ -50,6 +70,9 @@ class CustomSlider(QSlider):
         if self.isUsingArrowKeys():
             self.arrowKeyPressed.emit(value)  # Emit the custom signal
 
+# icons from https://iconoir.com
+CAM_ROTATE_RIGHT_PATH = Path(__root__, "pyxy3d", "gui", "icons", "rotate-camera-right.svg")
+CAM_ROTATE_LEFT_PATH = Path(__root__, "pyxy3d", "gui", "icons", "rotate-camera-left.svg")
 
 class IntrinsicCalibrationWidget(QWidget):
     def __init__(self, controller: Controller, port: int, parent=None):
@@ -62,13 +85,21 @@ class IntrinsicCalibrationWidget(QWidget):
         self.frame_index_label = QLabel(self)
         self.play_button = QPushButton("Play", self)
         self.slider = CustomSlider()
+        self.slider.setMaximum(self.total_frames - 1)
+
         self.add_grid_btn = QPushButton("Add Grid")
         self.calibrate_btn = QPushButton("Calibrate")
         self.camera_data_display = CameraDataDisplayWidget(self.port, self.controller)
         self.clear_calibration_data_btn = QPushButton("Clear Data")
         self.toggle_distortion = QCheckBox("Apply Distortion")
 
-        self.slider.setMaximum(self.total_frames - 1)
+        self.cw_rotation_btn = QPushButton(QIcon(str(CAM_ROTATE_RIGHT_PATH)), "")
+        self.cw_rotation_btn.setMaximumSize(35, 35)
+        self.ccw_rotation_btn = QPushButton(QIcon(str(CAM_ROTATE_LEFT_PATH)), "")
+        self.ccw_rotation_btn.setMaximumSize(35, 35)
+
+        # self.ccw_rotation_btn.setMaximumSize(35, 35)
+
         self.is_playing = False
 
         self.place_widgets()
@@ -78,11 +109,22 @@ class IntrinsicCalibrationWidget(QWidget):
         self.layout = QHBoxLayout()
         self.setLayout(self.layout)
         self.layout.addWidget(self.camera_data_display)
-
         self.right_panel = QVBoxLayout()
-        self.right_panel.addWidget(self.frame_image, alignment=Qt.AlignmentFlag.AlignCenter)
-        self.right_panel.addWidget(self.play_button)
-        self.right_panel.addWidget(self.slider)
+        self.right_panel.addWidget(
+            self.frame_image, alignment=Qt.AlignmentFlag.AlignCenter
+        )
+
+        self.rotate_span = QHBoxLayout()
+        self.rotate_span.addWidget(self.cw_rotation_btn)
+        self.rotate_span.addWidget(self.ccw_rotation_btn)
+        self.right_panel.addLayout(self.rotate_span)
+
+        self.play_span = QHBoxLayout()
+        self.play_span.addWidget(self.play_button, stretch=1)
+        self.play_span.addWidget(self.slider, stretch=4)
+        self.right_panel.addLayout(self.play_span)
+        # self.right_panel.addWidget(self.play_button)
+        # self.right_panel.addWidget(self.slider)
         self.right_panel.addWidget(self.add_grid_btn)
         self.right_panel.addWidget(self.calibrate_btn)
         self.right_panel.addWidget(self.clear_calibration_data_btn)
@@ -98,6 +140,8 @@ class IntrinsicCalibrationWidget(QWidget):
         self.calibrate_btn.clicked.connect(self.calibrate)
         self.clear_calibration_data_btn.clicked.connect(self.clear_calibration_data)
         self.toggle_distortion.stateChanged.connect(self.toggle_distortion_changed)
+        self.ccw_rotation_btn.clicked.connect(self.rotate_ccw)
+        self.cw_rotation_btn.clicked.connect(self.rotate_cw)
         
         # self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
         self.controller.ImageUpdate.connect(self.update_image)
@@ -167,20 +211,19 @@ class IntrinsicCalibrationWidget(QWidget):
         self.toggle_distortion_changed(2)
         self.toggle_distortion.setChecked(True)
         # self.controller.stream_jump_to(self.port, self.index)
-        
+
     def clear_calibration_data(self):
         self.controller.clear_calibration_data(self.port)
         self.controller.stream_jump_to(self.port, self.index)
-       
-       
+
     def toggle_distortion_changed(self, state):
-        if state ==2:
+        if state == 2:
             logger.info("Apply distortion model")
             self.controller.apply_distortion(self.port, True)
             self.controller.stream_jump_to(self.port, self.index)
-            
+
         else:
-            logger.info("Removing distortion") 
+            logger.info("Removing distortion")
             self.controller.apply_distortion(self.port, False)
             self.controller.stream_jump_to(self.port, self.index)
 
@@ -188,29 +231,43 @@ class IntrinsicCalibrationWidget(QWidget):
         # self.cap.release()
         super().closeEvent(event)
 
+    def rotate_cw(self):
+        self.controller.rotate_camera(self.port, 1)
+        self.controller.stream_jump_to(self.port, self.index)
 
+    def rotate_ccw(self):
+        self.controller.rotate_camera(self.port, -1)
+        self.controller.stream_jump_to(self.port, self.index)
 
 if __name__ == "__main__":
-    from pathlib import Path
-
     app = QApplication(sys.argv)
     from pyxy3d import __root__
     from pyxy3d.helper import copy_contents
+    from pyxy3d.trackers.charuco_tracker import CharucoTracker
+    from pyxy3d.calibration.charuco import Charuco
 
     # Define the input file path here.
     original_workspace_dir = Path(
         __root__, "tests", "sessions", "prerecorded_calibration"
     )
-    workspace_dir = Path(
-        __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
-    )
-    copy_contents(original_workspace_dir, workspace_dir)
-    controller = Controller(workspace_dir)
-    controller.add_camera_from_source(
-        Path(workspace_dir, "calibration", "extrinsic", "port_0.mp4")
-    )
-    controller.load_intrinsic_streams()
+    # workspace_dir = Path(
+    #     __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
+    # )
 
+    # copy_contents(original_workspace_dir, workspace_dir)
+    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
+    controller = Controller(workspace_dir)
+    charuco = Charuco(
+        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
+    )
+    charuco_tracker = CharucoTracker(charuco)
+    controller.charuco_tracker = charuco_tracker
+
+    # controller.add_camera_from_source(
+    #     Path(workspace_dir,"phone_test.mov")
+    # )
+
+    controller.load_intrinsic_streams()
     window = IntrinsicCalibrationWidget(controller=controller, port=0)
     window.resize(800, 600)
     logger.info("About to show window")

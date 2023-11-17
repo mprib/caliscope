@@ -5,7 +5,6 @@
 # readability of 3D positional output downstream
 
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 
 from collections import defaultdict
 from itertools import combinations
@@ -13,6 +12,7 @@ import cv2
 import toml
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
+logger = pyxy3d.logger.get(__name__)
 
 INCHES_PER_CM = 0.393701
 class Charuco:

@@ -66,9 +66,13 @@ class Controller(QObject):
         
         return last_frame_index-start_frame_index+1
     
-    # def connect_frame_emitter(self, port:int, frame_updater:Callable, index_updater:Callable):
-    #     stream = self.intrinsic_streams[port]
+    def get_charuco_params(self)->dict:
+        return self.config.dict["charuco"]
 
+    def update_charuco(self, charuco:Charuco):
+        self.charuco = charuco
+        self.charuco_tracker.charuco = self.charuco
+        self.config.save_charuco(self.charuco)
     
     def load_intrinsic_streams(self):
 

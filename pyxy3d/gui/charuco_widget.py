@@ -29,19 +29,19 @@ from pyxy3d import __app_dir__
 from pyxy3d.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.navigation_bars import NavigationBarNext
-
+from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)
 class CharucoWidget(QWidget):
-    def __init__(self, session):
+    def __init__(self, controller:Controller):
         super().__init__()
 
         logger.info("Charuco Wizard initializing")
-        self.session = session
-        self.params = self.session.config.dict["charuco"]
+        self.controller = controller 
+        self.params = self.controller.get_charuco_params()
 
         # add group to do initial configuration of the charuco board
-        self.charuco_config = CharucoConfigGroup(self.session)
+        self.charuco_config = CharucoConfigGroup(self.controller)
         self.charuco_config.row_spin.valueChanged.connect(self.build_charuco)
         self.charuco_config.column_spin.valueChanged.connect(self.build_charuco)
         self.charuco_config.width_spin.valueChanged.connect(self.build_charuco)
@@ -85,7 +85,7 @@ class CharucoWidget(QWidget):
             save_file_tuple = QFileDialog.getSaveFileName(
                 self,
                 "Save As",
-                str(Path(self.session.path, "charuco.png")),
+                str(Path(self.controller.path, "charuco.png")),
                 "PNG (*.png)",
             )
             print(save_file_tuple)
@@ -104,7 +104,7 @@ class CharucoWidget(QWidget):
             save_file_tuple = QFileDialog.getSaveFileName(
                 self,
                 "Save As",
-                str(Path(self.session.path, "charuco_mirror.png")),
+                str(Path(self.controller.path, "charuco_mirror.png")),
                 "PNG (*.png)",
             )
             print(save_file_tuple)
@@ -127,7 +127,7 @@ class CharucoWidget(QWidget):
         self.printed_edge_length.setSingleStep(0.01)
         self.printed_edge_length.setMaximumWidth(100)
         # self.set_true_edge_length()
-        overide = self.session.config.dict["charuco"]["square_size_overide_cm"]
+        overide = self.controller.config.dict["charuco"]["square_size_overide_cm"]
         self.printed_edge_length.setValue(overide)
 
         def update_charuco():
@@ -138,8 +138,8 @@ class CharucoWidget(QWidget):
             logger.info(
                 f"Updated Square Size Overide to {self.printed_edge_length.value}"
             )
-            self.session.charuco = self.charuco
-            self.session.config.save_charuco(self.charuco)
+            self.controller.charuco = self.charuco
+            self.controller.config.save_charuco(self.charuco)
 
         self.printed_edge_length.valueChanged.connect(update_charuco)
 
@@ -186,15 +186,15 @@ class CharucoWidget(QWidget):
         charuco_img = self.charuco.board_pixmap(charuco_width, charuco_height)
         self.charuco_display.setPixmap(charuco_img)
 
-        self.session.charuco = self.charuco
-        self.session.config.save_charuco(self.charuco)
+        self.controller.charuco = self.charuco
+        self.controller.config.save_charuco(self.charuco)
 
 
 class CharucoConfigGroup(QWidget):
-    def __init__(self, session):
+    def __init__(self, controller:Controller):
         super().__init__()
-        self.session = session
-        self.params = self.session.config.dict["charuco"]
+        self.controller = controller
+        self.params = self.controller.config.dict["charuco"]
 
         self.column_spin = QSpinBox()
         self.column_spin.setMinimum(3)
@@ -256,40 +256,32 @@ class CharucoConfigGroup(QWidget):
         ############################# INVERT ####################################
         self.config_options.addWidget(self.invert_checkbox)
 
-        ####################################### UPDATE CHARUCO #################
-
-        # self.charuco_build_btn = QPushButton("&Update")
-        # self.charuco_build_btn.setMaximumSize(50, 30)
-        # self.charuco_build_btn.clicked.connect(self.build_charuco)
-        # self.config_options.addWidget(self.charuco_build_btn)
-
-    def update_charuco(self):
-        columns = self.column_spin.value()
-        rows = self.row_spin.value()
-        board_height = self.length_spin.value()
-        board_width = self.width_spin.value()
-        aruco_scale = 0.75
-        units = self.units.currentText()
-
-
 if __name__ == "__main__":
-    from pyxy3d.configurator import Configurator
-    import toml
 
-    app_settings = toml.load(Path(__app_dir__, "settings.toml"))
-    recent_projects: list = app_settings["recent_projects"]
 
-    recent_project_count = len(recent_projects)
-    session_path = Path(recent_projects[recent_project_count - 1])
-    config = Configurator(session_path)
-    session = LiveSession(config)
 
     app = QApplication(sys.argv)
+    from pyxy3d import __root__
+    from pyxy3d.helper import copy_contents
+    from pyxy3d.trackers.charuco_tracker import CharucoTracker
+    from pyxy3d.calibration.charuco import Charuco
 
-    charuco_page = CharucoWidget(session)
-    charuco_page.show()
+    # Define the input file path here.
+    original_workspace_dir = Path(
+        __root__, "tests", "sessions", "prerecorded_calibration"
+    )
+    workspace_dir = Path(
+        __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
+    )
 
-    # configurator = CharucoConfigurator(session)
-    # configurator.show()
+    # copy_contents(original_workspace_dir, workspace_dir)
+    # workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
+    controller = Controller(workspace_dir)
+    charuco_page = CharucoWidget(controller)
 
+    controller.load_intrinsic_streams()
+    window = CharucoWidget(controller=controller)
+    window.resize(800, 600)
+    logger.info("About to show window")
+    window.show()
     sys.exit(app.exec())

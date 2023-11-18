@@ -186,8 +186,7 @@ class CharucoWidget(QWidget):
         charuco_img = self.charuco.board_pixmap(charuco_width, charuco_height)
         self.charuco_display.setPixmap(charuco_img)
 
-        self.controller.charuco = self.charuco
-        self.controller.config.save_charuco(self.charuco)
+        self.controller.update_charuco(self.charuco)
 
 
 class CharucoConfigGroup(QWidget):
@@ -270,12 +269,12 @@ if __name__ == "__main__":
     original_workspace_dir = Path(
         __root__, "tests", "sessions", "prerecorded_calibration"
     )
-    workspace_dir = Path(
-        __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
-    )
+    # workspace_dir = Path(
+    #     __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
+    # )
 
     # copy_contents(original_workspace_dir, workspace_dir)
-    # workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
+    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
     controller = Controller(workspace_dir)
     charuco_page = CharucoWidget(controller)
 

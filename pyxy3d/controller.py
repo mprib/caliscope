@@ -68,6 +68,11 @@ class Controller(QObject):
     
     def get_charuco_params(self)->dict:
         return self.config.dict["charuco"]
+
+    def update_charuco(self, charuco:Charuco):
+        self.charuco = charuco
+        self.charuco_tracker.charuco = self.charuco
+        self.config.save_charuco(self.charuco)
     
     def load_intrinsic_streams(self):
 

@@ -48,7 +48,7 @@ class Controller(QObject):
         self.config = Configurator(self.workspace)
 
         # streams will be used to play back recorded video with tracked markers to select frames
-        self.all_camera_data = self.config.get_all_camera_data()
+        self.all_camera_data = self.config.get_configured_camera_data()
         self.intrinsic_streams = {}
         self.frame_emitters = {}
         self.intrinsic_calibrators = {}
@@ -81,11 +81,7 @@ class Controller(QObject):
             source_file = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
             logger.info(f"Loading stream associated with source file at {source_file}")
 
-            size = camera_data.size
             rotation_count = camera_data.rotation_count
-            source_properties = read_video_properties(source_file)
-            assert size[0] == source_properties["size"][0]  # just to make sure
-            assert size[1] == source_properties["size"][1]  # just to make sure
 
             stream = RecordedStream(
                 directory=self.intrinsic_source_directory,
@@ -121,14 +117,7 @@ class Controller(QObject):
         in keeping with project layout
         """
         # copy source over to standard workspace structure
-        target_mp4_path = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
-        video_properties = read_video_properties(target_mp4_path)
-        size = video_properties["size"]
-
-        new_cam_data = CameraData(
-            port=port,
-            size=size,
-        )
+        new_cam_data = self.config.get_camera_from_source(port)
         self.all_camera_data[port] = new_cam_data
         self.config.save_all_camera_data(self.all_camera_data)
 
@@ -202,26 +191,3 @@ class Controller(QObject):
         self.push_camera_data(port) 
         self.config.save_camera(camera_data)
      
-def read_video_properties(source_path: Path) -> dict:
-    # Dictionary to hold video properties
-    properties = {}
-
-    # Open the video file
-    video = cv2.VideoCapture(str(source_path))
-    logger.info(f"Attempting to open video file: {source_path}")
-
-    # Check if video opened successfully
-    if not video.isOpened():
-        raise ValueError(f"Could not open the video file: {source_path}")
-
-    # Extract video properties
-    properties["frame_count"] = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    properties["fps"] = video.get(cv2.CAP_PROP_FPS)
-    properties["width"] = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
-    properties["height"] = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    properties["size"] = (properties["width"], properties["height"])
-
-    # Release the video capture object
-    video.release()
-
-    return properties

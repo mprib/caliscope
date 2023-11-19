@@ -12,7 +12,7 @@ from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.recording.recorded_stream import RecordedStream
 from pyxy3d.interface import FramePacket
-from pyxy3d.controller import Controller, read_video_properties
+from pyxy3d.controller import Controller
 import pyxy3d.logger
 
 import shutil
@@ -56,17 +56,7 @@ def test_controller_load_camera_and_stream():
     controller.end_stream(0)
     app.quit()
      
-def test_video_property_reader():
-
-    test_source = Path(__root__, "tests", "sessions", "prerecorded_calibration","calibration", "extrinsic", "port_1.mp4")
-    logger.info(f"Testing with source file: {test_source}")
-    assert(test_source.exists())
-    source_properties = read_video_properties(source_path=test_source)
-    assert(source_properties["frame_count"]==48)    
-    assert(source_properties["fps"]==6.0)    
-    assert(source_properties["size"]==(1280,720))
 
 
 if __name__ == "__main__":
-    test_video_property_reader()
     test_controller_load_camera_and_stream()

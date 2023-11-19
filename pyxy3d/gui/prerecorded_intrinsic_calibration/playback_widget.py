@@ -268,7 +268,7 @@ if __name__ == "__main__":
     # )
 
     controller.load_intrinsic_streams()
-    window = IntrinsicCalibrationWidget(controller=controller, port=0)
+    window = IntrinsicCalibrationWidget(controller=controller, port=1)
     window.resize(800, 600)
     logger.info("About to show window")
     window.show()

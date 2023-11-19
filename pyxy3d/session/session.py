@@ -63,7 +63,7 @@ class LiveSession:
 
         self.config = config
         # self.folder = PurePath(directory).name
-        self.path = self.config.session_path
+        self.path = self.config.workspace_path
 
         # this will not have anything to start, but the path
         # will be set

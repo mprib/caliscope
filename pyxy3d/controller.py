@@ -48,7 +48,7 @@ class Controller(QObject):
         self.config = Configurator(self.workspace)
 
         # streams will be used to play back recorded video with tracked markers to select frames
-        self.all_camera_data = self.config.get_all_camera_data()
+        self.all_camera_data = self.config.get_configured_camera_data()
         self.intrinsic_streams = {}
         self.frame_emitters = {}
         self.intrinsic_calibrators = {}
@@ -58,13 +58,14 @@ class Controller(QObject):
         self.intrinsic_source_directory = Path(self.workspace, "calibration", "intrinsic")
         self.intrinsic_source_directory.mkdir(exist_ok=True,parents=True)  # make sure the containing directory exists
 
-        self.load_intrinsic_streams()
+        # self.load_intrinsic_streams()
 
     def get_intrinsic_stream_frame_count(self,port):
         start_frame_index = self.intrinsic_streams[port].start_frame_index
         last_frame_index = self.intrinsic_streams[port].last_frame_index
         
         return last_frame_index-start_frame_index+1
+    
     
     def get_charuco_params(self)->dict:
         return self.config.dict["charuco"]
@@ -79,11 +80,9 @@ class Controller(QObject):
         for port, camera_data in self.all_camera_data.items():
             # data storage convention defined here
             source_file = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
-            size = camera_data.size
+            logger.info(f"Loading stream associated with source file at {source_file}")
+
             rotation_count = camera_data.rotation_count
-            source_properties = read_video_properties(source_file)
-            assert size[0] == source_properties["size"][0]  # just to make sure
-            assert size[1] == source_properties["size"][1]  # just to make sure
 
             stream = RecordedStream(
                 directory=self.intrinsic_source_directory,
@@ -111,31 +110,22 @@ class Controller(QObject):
     def broadcast_index_update(self, port, index):
         logger.info(f"Broadcast index update from port {port}")
         self.IndexUpdate.emit(port, index)
-         
-    def add_camera_from_source(
-        self, intrinsic_mp4: Path = None, port: int = None
-    ) -> int:
+        
+    def add_all_cameras_in_intrinsics_folder(self):
+        all_ports = self.config.get_all_source_camera_ports()
+        for port in all_ports:
+            if port not in self.all_camera_data:
+                self.add_camera_from_source(port)
+    
+
+    def add_camera_from_source( self, port: int):
         """
         When adding source video to calibrate a camera, the function returns the camera index
         File will be transferred to workspace/calibration/intrinsic/port_{index}.mp4
         in keeping with project layout
         """
-        if port is None:
-            port = len(self.all_camera_data)
-
         # copy source over to standard workspace structure
-        target_mp4_path = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
-        
-        shutil.copy(intrinsic_mp4, target_mp4_path)
-
-        video_properties = read_video_properties(target_mp4_path)
-        size = video_properties["size"]
-
-        new_cam_data = CameraData(
-            port=port,
-            size=size,
-            original_intrinsic_source=str(intrinsic_mp4)
-        )
+        new_cam_data = self.config.get_camera_from_source(port)
         self.all_camera_data[port] = new_cam_data
         self.config.save_all_camera_data(self.all_camera_data)
 
@@ -209,26 +199,3 @@ class Controller(QObject):
         self.push_camera_data(port) 
         self.config.save_camera(camera_data)
      
-def read_video_properties(source_path: Path) -> dict:
-    # Dictionary to hold video properties
-    properties = {}
-
-    # Open the video file
-    video = cv2.VideoCapture(str(source_path))
-    logger.info(f"Attempting to open video file: {source_path}")
-
-    # Check if video opened successfully
-    if not video.isOpened():
-        raise ValueError(f"Could not open the video file: {source_path}")
-
-    # Extract video properties
-    properties["frame_count"] = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    properties["fps"] = video.get(cv2.CAP_PROP_FPS)
-    properties["width"] = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
-    properties["height"] = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    properties["size"] = (properties["width"], properties["height"])
-
-    # Release the video capture object
-    video.release()
-
-    return properties

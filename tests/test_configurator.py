@@ -8,7 +8,7 @@ import os
 import shutil
 
 from pyxy3d import __root__
-from pyxy3d.configurator import Configurator
+from pyxy3d.configurator import Configurator, read_video_properties
 from pyxy3d.helper import copy_contents
 from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.calibration.charuco import Charuco
@@ -84,6 +84,15 @@ def test_configurator():
 
     assert point_estimates_are_equal(point_estimates, point_estimates_reloaded)
 
+def test_video_property_reader():
+
+    test_source = Path(__root__, "tests", "sessions", "prerecorded_calibration","calibration", "intrinsic", "port_1.mp4")
+    logger.info(f"Testing with source file: {test_source}")
+    assert(test_source.exists())
+    source_properties = read_video_properties(source_path=test_source)
+    assert(source_properties["frame_count"]==48)    
+    assert(source_properties["fps"]==6.0)    
+    assert(source_properties["size"]==(1280,720))
 
 def remove_all_files_and_folders(directory_path):
     for item in directory_path.iterdir():
@@ -95,4 +104,5 @@ def remove_all_files_and_folders(directory_path):
 if __name__ == "__main__":
     test_configurator()
     
+    test_video_property_reader()
     

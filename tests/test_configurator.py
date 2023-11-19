@@ -86,7 +86,7 @@ def test_configurator():
 
 def test_video_property_reader():
 
-    test_source = Path(__root__, "tests", "sessions", "prerecorded_calibration","calibration", "extrinsic", "port_1.mp4")
+    test_source = Path(__root__, "tests", "sessions", "prerecorded_calibration","calibration", "intrinsic", "port_1.mp4")
     logger.info(f"Testing with source file: {test_source}")
     assert(test_source.exists())
     source_properties = read_video_properties(source_path=test_source)

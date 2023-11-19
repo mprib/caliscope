@@ -129,7 +129,7 @@ class Configurator:
         ] = capture_volume.origin_sync_index
         self.update_config_toml()
 
-    def get_camera_from_source(self, port):
+    def get_camera_from_source(self, port:int)->CameraData:
         target_mp4_path = Path(self.workspace_path, "calibration", "intrinsic", f"port_{port}.mp4")
         video_properties = read_video_properties(target_mp4_path)
         size = video_properties["size"]
@@ -138,6 +138,16 @@ class Configurator:
             size=size,
         )
         return new_cam_data
+    
+    def get_all_source_camera_ports(self)-> list:
+        target_mp4_dir = Path(self.workspace_path, "calibration", "intrinsic")
+        ports = []
+        for file in target_mp4_dir.iterdir():
+            if file.stem[0:5] == "port_":
+                port = file.stem.split("_")[1]
+                ports.append(int(port))
+
+        return ports
 
     def get_configured_camera_data(self) -> CameraArray:
         """

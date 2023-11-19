@@ -58,13 +58,14 @@ class Controller(QObject):
         self.intrinsic_source_directory = Path(self.workspace, "calibration", "intrinsic")
         self.intrinsic_source_directory.mkdir(exist_ok=True,parents=True)  # make sure the containing directory exists
 
-        self.load_intrinsic_streams()
+        # self.load_intrinsic_streams()
 
     def get_intrinsic_stream_frame_count(self,port):
         start_frame_index = self.intrinsic_streams[port].start_frame_index
         last_frame_index = self.intrinsic_streams[port].last_frame_index
         
         return last_frame_index-start_frame_index+1
+    
     
     def get_charuco_params(self)->dict:
         return self.config.dict["charuco"]
@@ -109,7 +110,14 @@ class Controller(QObject):
     def broadcast_index_update(self, port, index):
         logger.info(f"Broadcast index update from port {port}")
         self.IndexUpdate.emit(port, index)
-         
+        
+    def add_all_cameras_in_intrinsics_folder(self):
+        all_ports = self.config.get_all_source_camera_ports()
+        for port in all_ports:
+            if port not in self.all_camera_data:
+                self.add_camera_from_source(port)
+    
+
     def add_camera_from_source( self, port: int):
         """
         When adding source video to calibrate a camera, the function returns the camera index

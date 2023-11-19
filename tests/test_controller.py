@@ -32,14 +32,6 @@ def test_controller_load_camera_and_stream():
     copy_contents(original_workspace, workspace)
 
     controller = Controller(workspace) 
-    
-    source_0 = Path(workspace,"calibration","extrinsic", "port_0.mp4")
-    source_1 = Path(workspace,"calibration","extrinsic", "port_1.mp4")
-    source_0_destination = Path(workspace,"calibration","intrinsic", "port_0.mp4")
-    source_1_destination = Path(workspace,"calibration","intrinsic", "port_1.mp4")
-
-    shutil.copy(str(source_0),str(source_0_destination))
-    shutil.copy(str(source_1),str(source_1_destination))
 
     controller.add_camera_from_source(0)
     controller.add_camera_from_source(1)
@@ -48,15 +40,23 @@ def test_controller_load_camera_and_stream():
     # controller will load in streams used for intrinsic calibration
     controller.load_intrinsic_streams()    
     assert(len(controller.intrinsic_streams) ==2)    
+    ports = controller.config.get_all_source_camera_ports()
+    assert(ports == [0,1,2,3]) # there are 4 mp4 files in the intrinsic folder
 
+    for port in ports:
+        if port not in controller.all_camera_data:
+            controller.add_camera_from_source(port)
+
+    assert(list(controller.all_camera_data.keys()) == [0,1,2,3])
+        
     controller.play_stream(0)
     sleep(.1)
     controller.pause_stream(0)
     controller.stream_jump_to(0,10)
     controller.end_stream(0)
     app.quit()
-     
 
 
 if __name__ == "__main__":
     test_controller_load_camera_and_stream()
+# %%

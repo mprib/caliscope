@@ -15,6 +15,8 @@ from pyxy3d.interface import FramePacket
 from pyxy3d.controller import Controller, read_video_properties
 import pyxy3d.logger
 
+import shutil
+
 logger = pyxy3d.logger.get(__name__)
 def test_controller_load_camera_and_stream():
     """
@@ -33,8 +35,14 @@ def test_controller_load_camera_and_stream():
     
     source_0 = Path(workspace,"calibration","extrinsic", "port_0.mp4")
     source_1 = Path(workspace,"calibration","extrinsic", "port_1.mp4")
-    controller.add_camera_from_source(source_0)
-    controller.add_camera_from_source(source_1)
+    source_0_destination = Path(workspace,"calibration","intrinsic", "port_0.mp4")
+    source_1_destination = Path(workspace,"calibration","intrinsic", "port_1.mp4")
+
+    shutil.copy(str(source_0),str(source_0_destination))
+    shutil.copy(str(source_1),str(source_1_destination))
+
+    controller.add_camera_from_source(0)
+    controller.add_camera_from_source(1)
 
     assert(len(controller.all_camera_data) ==2)    
     # controller will load in streams used for intrinsic calibration

@@ -79,6 +79,8 @@ class Controller(QObject):
         for port, camera_data in self.all_camera_data.items():
             # data storage convention defined here
             source_file = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
+            logger.info(f"Loading stream associated with source file at {source_file}")
+
             size = camera_data.size
             rotation_count = camera_data.rotation_count
             source_properties = read_video_properties(source_file)
@@ -112,29 +114,20 @@ class Controller(QObject):
         logger.info(f"Broadcast index update from port {port}")
         self.IndexUpdate.emit(port, index)
          
-    def add_camera_from_source(
-        self, intrinsic_mp4: Path = None, port: int = None
-    ) -> int:
+    def add_camera_from_source( self, port: int):
         """
         When adding source video to calibrate a camera, the function returns the camera index
         File will be transferred to workspace/calibration/intrinsic/port_{index}.mp4
         in keeping with project layout
         """
-        if port is None:
-            port = len(self.all_camera_data)
-
         # copy source over to standard workspace structure
         target_mp4_path = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
-        
-        shutil.copy(intrinsic_mp4, target_mp4_path)
-
         video_properties = read_video_properties(target_mp4_path)
         size = video_properties["size"]
 
         new_cam_data = CameraData(
             port=port,
             size=size,
-            original_intrinsic_source=str(intrinsic_mp4)
         )
         self.all_camera_data[port] = new_cam_data
         self.config.save_all_camera_data(self.all_camera_data)

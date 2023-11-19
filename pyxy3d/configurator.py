@@ -160,15 +160,15 @@ class Configurator:
                         translation = None
                         rotation = None
 
-                    if "original_intrinsic_source" in params.keys():
-                        original_intrinsic_source = params["original_intrinsic_source"]
-                    else:
-                        original_intrinsic_source = None
+                    # if "original_intrinsic_source" in params.keys():
+                    #     original_intrinsic_source = params["original_intrinsic_source"]
+                    # else:
+                    #     original_intrinsic_source = None
                         
-                    if "original_extrinsic_source" in params.keys():
-                        original_extrinsic_source = params["original_extrinsic_source"]
-                    else:
-                        original_extrinsic_source = None
+                    # if "original_extrinsic_source" in params.keys():
+                    #     original_extrinsic_source = params["original_extrinsic_source"]
+                    # else:
+                    #     original_extrinsic_source = None
                         
                     logger.info(f"Adding camera {port} to calibrated camera array...")
                     cam_data = CameraData(
@@ -184,8 +184,8 @@ class Configurator:
                         # verified_resolutions=params["verified_resolutions"],
                         translation=translation,
                         rotation=rotation,
-                        original_intrinsic_source=original_intrinsic_source,
-                        original_extrinsic_source=original_extrinsic_source
+                        # original_intrinsic_source=original_intrinsic_source,
+                        # original_extrinsic_source=original_extrinsic_source
                     )
 
                     all_camera_data[port] = cam_data
@@ -280,8 +280,6 @@ class Configurator:
             "grid_count": camera.grid_count,
             "ignore": camera.ignore,
             "verified_resolutions": camera.verified_resolutions,
-            "original_intrinsic_source":camera.original_intrinsic_source,
-            "original_extrinsic_source":camera.original_extrinsic_source
         }
 
         self.dict["cam_" + str(camera.port)] = params

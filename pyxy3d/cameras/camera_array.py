@@ -31,9 +31,6 @@ class CameraData:
     verified_resolutions: np.ndarray=None
     translation: np.ndarray =None # camera relative to world
     rotation: np.ndarray = None# camera relative to world
-    original_intrinsic_source:str=None
-    original_extrinsic_source:str=None
-
 
     @property
     def transformation(self):

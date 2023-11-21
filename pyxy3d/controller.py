@@ -51,7 +51,7 @@ class Controller(QObject):
         # streams will be used to play back recorded video with tracked markers to select frames
         self.all_camera_data = self.config.get_configured_camera_data()
         self.intrinsic_streams = {}
-        self.intrinsic_frame_emitters = {}
+        self.frame_emitters = {}
         self.intrinsic_calibrators = {}
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
@@ -96,10 +96,10 @@ class Controller(QObject):
                 break_on_last=False
             )
 
-            self.intrinsic_frame_emitters[port] = PlaybackFrameEmitter(stream) 
-            self.intrinsic_frame_emitters[port].start()
-            self.intrinsic_frame_emitters[port].ImageBroadcast.connect(self.broadcast_frame_update)
-            self.intrinsic_frame_emitters[port].FrameIndexBroadcast.connect(self.broadcast_index_update)
+            self.frame_emitters[port] = PlaybackFrameEmitter(stream) 
+            self.frame_emitters[port].start()
+            self.frame_emitters[port].ImageBroadcast.connect(self.broadcast_frame_update)
+            self.frame_emitters[port].FrameIndexBroadcast.connect(self.broadcast_index_update)
 
             self.intrinsic_streams[port] = stream
             self.intrinsic_calibrators[port] = IntrinsicCalibrator(camera_data,stream)
@@ -163,12 +163,12 @@ class Controller(QObject):
         intr_calib.add_calibration_frame_indices(frame_index)
         new_ids = intr_calib.all_ids[frame_index]
         new_img_loc = intr_calib.all_img_loc[frame_index]
-        self.intrinsic_frame_emitters[port].add_to_grid_history(new_ids,new_img_loc)
+        self.frame_emitters[port].add_to_grid_history(new_ids,new_img_loc)
 
     def clear_calibration_data(self, port:int):
         intr_calib = self.intrinsic_calibrators[port]
         intr_calib.clear_calibration_data()
-        self.intrinsic_frame_emitters[port].initialize_grid_capture_history()
+        self.frame_emitters[port].initialize_grid_capture_history()
     
     def calibrate_camera(self,port):
         logger.info(f"Calibrating camera at port {port}")
@@ -186,7 +186,7 @@ class Controller(QObject):
         
     def apply_distortion(self,port, undistort:bool):
         camera_data = self.all_camera_data[port]
-        emitter = self.intrinsic_frame_emitters[port]
+        emitter = self.frame_emitters[port]
         emitter.update_distortion_params(undistort, camera_data.matrix, camera_data.distortions)
        
     def rotate_camera(self, port, change):

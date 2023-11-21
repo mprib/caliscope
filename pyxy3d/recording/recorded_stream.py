@@ -306,8 +306,12 @@ class RecordedStreamPool:
             stream.play_video()
 
 
-def get_configured_camera_data(config_path, intrinsics_only=True):
+def _get_configured_camera_data(config_path, intrinsics_only=True):
+
     """
+    Literally only used in the if __name__=="__main__" code portion below...consider removing
+    
+    
     return a list of CameraData objects that is built from the config
     file that is found in the directory. This will be the same
     file where the mp4 files are located.
@@ -383,7 +387,7 @@ if __name__ == "__main__":
     tracker = CharucoTracker(charuco)
 
     config = Configurator(recording_directory)
-    cameras = get_configured_camera_data(Path(recording_directory, "config.toml"))
+    cameras = _get_configured_camera_data(Path(recording_directory, "config.toml"))
 
     recorded_stream_pool = RecordedStreamPool(
         directory=recording_directory, config=config, tracker=tracker

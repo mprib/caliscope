@@ -144,7 +144,7 @@ class IntrinsicCalibrationWidget(QWidget):
         self.cw_rotation_btn.clicked.connect(self.rotate_cw)
         
         # self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
-        self.controller.ImageUpdate.connect(self.update_image)
+        self.controller.IntrinsicImageUpdate.connect(self.update_image)
         self.controller.IndexUpdate.connect(self.update_index)
 
         # initialize stream to push first frame to widget then hold

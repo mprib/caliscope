@@ -39,8 +39,9 @@ class Controller(QObject):
     """
 
     CameraDataUpdate = Signal(int,OrderedDict)  # port, camera_display_dictionary
-    ImageUpdate = Signal(int, QPixmap)  # port, image
+    IntrinsicImageUpdate = Signal(int, QPixmap)  # port, image
     IndexUpdate = Signal(int, int)  # port, frame_index
+    ExtrinsicImageUpdate = Signal(dict)
 
     def __init__(self, workspace_dir: Path):
         super().__init__()
@@ -50,13 +51,16 @@ class Controller(QObject):
         # streams will be used to play back recorded video with tracked markers to select frames
         self.all_camera_data = self.config.get_configured_camera_data()
         self.intrinsic_streams = {}
-        self.frame_emitters = {}
+        self.intrinsic_frame_emitters = {}
         self.intrinsic_calibrators = {}
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
 
         self.intrinsic_source_directory = Path(self.workspace, "calibration", "intrinsic")
         self.intrinsic_source_directory.mkdir(exist_ok=True,parents=True)  # make sure the containing directory exists
+
+        self.extrinsic_source_directory = Path(self.workspace, "calibration", "extrinsic")
+        self.extrinsic_source_directory.mkdir(exist_ok=True,parents=True)  # make sure the containing directory exists
 
         # self.load_intrinsic_streams()
 
@@ -92,19 +96,21 @@ class Controller(QObject):
                 break_on_last=False
             )
 
-            self.frame_emitters[port] = PlaybackFrameEmitter(stream) 
-            self.frame_emitters[port].start()
-            self.frame_emitters[port].ImageBroadcast.connect(self.broadcast_frame_update)
-            self.frame_emitters[port].FrameIndexBroadcast.connect(self.broadcast_index_update)
+            self.intrinsic_frame_emitters[port] = PlaybackFrameEmitter(stream) 
+            self.intrinsic_frame_emitters[port].start()
+            self.intrinsic_frame_emitters[port].ImageBroadcast.connect(self.broadcast_frame_update)
+            self.intrinsic_frame_emitters[port].FrameIndexBroadcast.connect(self.broadcast_index_update)
 
             self.intrinsic_streams[port] = stream
             self.intrinsic_calibrators[port] = IntrinsicCalibrator(camera_data,stream)
             logger.info(f"Loading recorded stream stored in {source_file}")
 
+
+
     @Slot(int, QPixmap)
     def broadcast_frame_update(self, port, pixmap):
         logger.info(f"Broadcast frame update from port {port}")
-        self.ImageUpdate.emit(port, pixmap)
+        self.IntrinsicImageUpdate.emit(port, pixmap)
        
     @Slot(int, int)
     def broadcast_index_update(self, port, index):
@@ -157,12 +163,12 @@ class Controller(QObject):
         intr_calib.add_calibration_frame_indices(frame_index)
         new_ids = intr_calib.all_ids[frame_index]
         new_img_loc = intr_calib.all_img_loc[frame_index]
-        self.frame_emitters[port].add_to_grid_history(new_ids,new_img_loc)
+        self.intrinsic_frame_emitters[port].add_to_grid_history(new_ids,new_img_loc)
 
     def clear_calibration_data(self, port:int):
         intr_calib = self.intrinsic_calibrators[port]
         intr_calib.clear_calibration_data()
-        self.frame_emitters[port].initialize_grid_capture_history()
+        self.intrinsic_frame_emitters[port].initialize_grid_capture_history()
     
     def calibrate_camera(self,port):
         logger.info(f"Calibrating camera at port {port}")
@@ -180,7 +186,7 @@ class Controller(QObject):
         
     def apply_distortion(self,port, undistort:bool):
         camera_data = self.all_camera_data[port]
-        emitter = self.frame_emitters[port]
+        emitter = self.intrinsic_frame_emitters[port]
         emitter.update_distortion_params(undistort, camera_data.matrix, camera_data.distortions)
        
     def rotate_camera(self, port, change):

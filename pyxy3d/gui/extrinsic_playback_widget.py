@@ -253,9 +253,6 @@ def prep_img_for_qpixmap(image:np.ndarray):
 
     return image
 
-# def get_empty_pairs(board_counts, min_threshold):
-#     empty_pairs = [key for key, value in board_counts.items() if value < min_threshold]
-#     return empty_pairs
 
 def cv2_to_qimage(frame):
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

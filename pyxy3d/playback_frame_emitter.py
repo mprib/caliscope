@@ -163,12 +163,7 @@ class PlaybackFrameEmitter(QThread):
             scale_y = (max_y - min_y) / h
 
             # Apply a safety margin to the scaling factors (e.g., 5%)
-            # Note that this scaling factor is not currently making any changes, though
-            # I believe it could be used to "zoom out" and avoid the excessive cropping that 
-            # seems quite tricky to get around.
-            # Not a huge priority at the moment because if there is major cropping happening,
-            # this is probably a sign all its own that the calibration is not great.
-            self.scaling_factor = 1
+            self.scaling_factor = 0.95
             scale_x *= self.scaling_factor
             scale_y *= self.scaling_factor
 

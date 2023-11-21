@@ -1,6 +1,3 @@
-import pyxy3d.logger
-
-
 import sys
 from pathlib import Path
 
@@ -30,6 +27,7 @@ from pyxy3d.calibration.charuco import ARUCO_DICTIONARIES, Charuco
 from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.navigation_bars import NavigationBarNext
 from pyxy3d.controller import Controller
+import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)
 class CharucoWidget(QWidget):
@@ -72,9 +70,6 @@ class CharucoWidget(QWidget):
         self.layout().addLayout(self.true_up_hbox)
         self.layout().addWidget(QLabel("<i>Printed square size will set the scale of the capture volume</i>"))
 
-        # self.layout().addSpacing(10)
-        # for w in self.children():
-        #     self.layout().setAlignment(w, Qt.AlignmentFlag.AlignHCenter)
 
     def build_save_png_group(self):
         # basic png save button

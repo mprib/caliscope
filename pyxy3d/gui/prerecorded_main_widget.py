@@ -28,6 +28,7 @@ from pyxy3d.gui.live_camera_config.intrinsic_calibration_widget import (
 from pyxy3d.gui.recording_widget import RecordingWidget
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
+from pyxy3d.gui.prerecorded_intrinsic_calibration.multiplayback_widget import MultiPlayback
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from pyxy3d.controller import Controller
 
@@ -44,6 +45,14 @@ class PreRecordedMainWindow(QMainWindow):
         self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/pyxy_logo.svg"))))
         self.setMinimumSize(500, 500)
 
+        self.build_menus()
+        self.build_docked_logger()
+
+    def connect_menu_actions(self):
+        self.open_project_action.triggered.connect(self.create_new_project_folder)
+        self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
+
+    def build_menus(self):
         # File Menu
         self.menu = self.menuBar()
 
@@ -65,9 +74,16 @@ class PreRecordedMainWindow(QMainWindow):
         self.exit_pyxy3d_action = QAction("Exit", self)
         self.file_menu.addAction(self.exit_pyxy3d_action)
 
+    def build_central_tabs(self):
+    
         self.central_tab = QTabWidget()
         self.setCentralWidget(self.central_tab)
+        self.charuco_widget = CharucoWidget(self.controller)
+        self.central_tab.addTab(self.charuco_widget,"Charuco")    
+        self.intrinsic_cal_widget = MultiPlayback(self.controller)
+        self.central_tab.addTab(self.intrinsic_cal_widget, "Intrinsic") 
 
+    def build_docked_logger(self):
         # create log window which is fixed below main window
         self.docked_logger = QDockWidget("Log", self)
         self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable)
@@ -76,12 +92,8 @@ class PreRecordedMainWindow(QMainWindow):
         self.docked_logger.setWidget(self.log_widget)
 
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
-
-    def connect_menu_actions(self):
-        self.open_project_action.triggered.connect(self.create_new_project_folder)
-        self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
-
-
+        
+                
     def update_enable_disable(self):
         # note: if the cameras are connected,then you can peak
         # into extrinsic/recording tabs, though cannot collect data
@@ -114,9 +126,9 @@ class PreRecordedMainWindow(QMainWindow):
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
         self.controller = Controller(Path(path_to_workspace))
 
-        # can always load charuco
-        self.charuco_widget = CharucoWidget(self.controller)
-        self.setCentralWidget(self.charuco_widget)
+        self.controller.load_intrinsic_streams()
+        # must have controller in
+        self.build_central_tabs()
 
         # but must exit and start over to launch a new session for now
         self.connect_controller_signals()

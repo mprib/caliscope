@@ -20,7 +20,7 @@ class MultiPlayback(QWidget):
 
     def initUI(self):
         self.tabWidget = QTabWidget(self)
-        self.tabWidget.setTabPosition(QTabWidget.West)  # Tabs on the left side
+        self.tabWidget.setTabPosition(QTabWidget.South)  # Tabs on the left side
         self.loadTabs()
 
         self.setLayout(QVBoxLayout())

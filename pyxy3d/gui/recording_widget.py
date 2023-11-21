@@ -1,7 +1,6 @@
 
 
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 from PySide6.QtCore import QTimer
 import copy
 import sys
@@ -45,6 +44,7 @@ from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.configurator import Configurator
 from pyxy3d.interface import FramePacket
 
+logger = pyxy3d.logger.get(__name__)
 # Whatever the target frame rate, the GUI will only display a portion of the actual frames
 # this is done to cut down on computational overhead. 
 RENDERED_FPS = 6

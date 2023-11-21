@@ -1,18 +1,16 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
-import logging
 
 # logger.setLevel(logging.DEBUG)
 
 import time
-from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
 
-import cv2
 import numpy as np
 from pyxy3d.interface import SyncPacket
+
+logger = pyxy3d.logger.get(__name__)
 
 DROPPED_FRAME_TRACK_WINDOW = 100 # trailing frames tracked for reporting purposes
 

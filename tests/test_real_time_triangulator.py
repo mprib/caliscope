@@ -15,8 +15,8 @@ from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.configurator import Configurator
+from pyxy3d.helper import copy_contents
 
-import pytest
 import shutil
 from pathlib import Path
 import numpy as np
@@ -24,52 +24,24 @@ import pandas as pd
 from pyxy3d import __root__
 
 logger = pyxy3d.logger.get(__name__)
-TEST_SESSIONS = ["post_optimization"]
 
 
-def copy_contents(src_folder, dst_folder):
-    """
-    Helper function to port a test case data folder over to a temp directory
-    used for testing purposes so that the test case data doesn't get overwritten
-    """
-    src_path = Path(src_folder)
-    dst_path = Path(dst_folder)
 
-    # Create the destination folder if it doesn't exist
-    dst_path.mkdir(parents=True, exist_ok=True)
+def test_real_time_triangulator():
+    original_session = Path(__root__, "tests", "sessions", "post_optimization")
+    test_session = Path(
+        original_session.parent.parent,
+        "sessions_copy_delete",
+        "post_optimization",
+    )
 
-    for item in src_path.iterdir():
-        # Construct the source and destination paths
-        src_item = src_path / item
-        dst_item = dst_path / item.name
+    # clear previous test so as not to pollute current test results
+    if test_session.exists() and test_session.is_dir():
+        shutil.rmtree(test_session)
 
-        # Copy file or directory
-        if src_item.is_file():
-            logger.info(f"Copying file at {src_item} to {dst_item}")
-            shutil.copy2(src_item, dst_item)  # Copy file preserving metadata
-
-        elif src_item.is_dir():
-            logger.info(f"Copying directory at {src_item} to {dst_item}")
-            shutil.copytree(src_item, dst_item)
-
-
-@pytest.fixture(params=TEST_SESSIONS)
-def session_path(request, tmp_path):
-    """
-    Tests will be run based on data stored in tests/sessions, but to avoid overwriting
-    or altering test cases,the tested directory will get copied over to a temp
-    directory and then that temp directory will be passed on to the calling functions
-    """
-    original_test_data_path = Path(__root__, "tests", "sessions", request.param)
-    tmp_test_data_path = Path(tmp_path, request.param)
-    copy_contents(original_test_data_path, tmp_test_data_path)
-
-    return tmp_test_data_path
-    # return original_test_data_path
-
-
-def test_real_time_triangulator(session_path):
-    config = Configurator(session_path)
+    copy_contents(original_session, test_session)
+    
+    config = Configurator(test_session)
     # origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
 
     charuco: Charuco = config.get_charuco()
@@ -78,7 +50,7 @@ def test_real_time_triangulator(session_path):
     camera_array: CameraArray = config.get_camera_array()
 
     logger.info("Creating RecordedStreamPool based on calibration recordings")
-    recording_directory = Path(session_path, "calibration", "extrinsic")
+    recording_directory = Path(test_session, "calibration", "extrinsic")
     stream_pool = RecordedStreamPool(
         directory=recording_directory,
         config=config,
@@ -126,18 +98,6 @@ def test_real_time_triangulator(session_path):
 
 
 if __name__ == "__main__":
-    original_session_path = Path(__root__, "tests", "sessions", "post_optimization")
-    session_path = Path(
-        original_session_path.parent.parent,
-        "sessions_copy_delete",
-        "post_monocal_post_optimization",
-    )
 
-    # clear previous test so as not to pollute current test results
-    if session_path.exists() and session_path.is_dir():
-        shutil.rmtree(session_path)
-
-    copy_contents(original_session_path, session_path)
-
-    test_real_time_triangulator(session_path)
+    test_real_time_triangulator()
 # %%

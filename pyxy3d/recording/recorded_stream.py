@@ -53,8 +53,9 @@ class RecordedStream(Stream):
         self.capture = cv2.VideoCapture(video_path)
 
         # for playback, set the fps target to the actual
+        self.original_fps = int(self.capture.get(cv2.CAP_PROP_FPS))
         if fps_target is None:
-            fps_target = int(self.capture.get(cv2.CAP_PROP_FPS))
+            fps_target = self.original_fps
 
         width =  int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -80,12 +81,12 @@ class RecordedStream(Stream):
                 self.port_history["frame_time"].rank(method="min").astype(int) - 1
             )
 
-        ########### INFER TIME STANCE IF NOT AVAILABLE ####################################
+        ########### INFER TIME STAMP IF NOT AVAILABLE ####################################
         else:
             frame_count = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
             mocked_port_history = {
                 "frame_index": [i for i in range(0, frame_count)],
-                "frame_time": [i / fps_target for i in range(0, frame_count)],
+                "frame_time": [i / self.original_fps for i in range(0, frame_count)],
             }
             self.port_history = pd.DataFrame(mocked_port_history)
 

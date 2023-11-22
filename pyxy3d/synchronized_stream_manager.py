@@ -10,7 +10,7 @@ from pyxy3d.cameras.camera_array import CameraData
 
 logger = pyxy3d.logger.get(__name__)
 
-class ExtrinsicStreamManager():
+class SynchronizedStreamManager():
     """
     
     """

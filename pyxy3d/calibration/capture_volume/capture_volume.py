@@ -2,7 +2,6 @@
 
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 
 from pathlib import Path
 import pickle
@@ -10,17 +9,15 @@ from dataclasses import dataclass
 import numpy as np
 import cv2
 from scipy.optimize import least_squares
-import pandas as pd
-from time import perf_counter
 
-
-from pyxy3d import get_config
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.calibration.capture_volume.set_origin_functions import (
     get_board_origin_transform,
 )
+
+logger = pyxy3d.logger.get(__name__)
 
 CAMERA_PARAM_COUNT = 6
 

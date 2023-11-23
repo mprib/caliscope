@@ -14,20 +14,18 @@ logger = pyxy3d.logger.get(__name__)
 
 class SynchronizedStreamManager():
     """
-    This manager has substantial and broad responsibilities that include creation of:
+    The primary job of the SynchronizedStreamManager is to take in a directory of concurrently recorded video
+    as well as a Tracker and produce the xy.csv file that is the foundation of both the extrinsic calibration 
+    as well as the point triangulation.
+    
+    Related to this, it also directs where the recorded data will go and builds the DictionaryFrameEmitter
+    that will broadcast a dictionary of frames while they are being processed.
+    
+    Because of this it has substantial and broad responsibilities that include creation of:
     - streams
     - synchronizer
     - video recorder
     - frame dictionary emitter for GUI
-
-    For a given recording directory, it manages the overhead of processing multiple 
-    recorded streams concurrently
-    - establishes frame dictionary emitter that can be used to display the tracking results to the user while being processed
-    - option to save out processed results to a subfolder that contains:
-        - mp4 files with tracked points
-        - xy.csv file of tracked points from each camera source as well as the sync index
-
-    Admittedly large in scope, it offloads substantial responsibilties from the controller layer.
     """
     
     def __init__(self, recording_dir:Path, all_camera_data:dict[CameraData], tracker:Tracker=None) -> None:

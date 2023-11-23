@@ -27,7 +27,7 @@ from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from pyxy3d.configurator import Configurator
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.interface import Tracker
-from pyxy3d.playback_frame_emitter import PlaybackFrameEmitter
+from pyxy3d.gui.frame_emitters.playback_frame_emitter import PlaybackFrameEmitter
 from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
 from collections import OrderedDict
 logger = pyxy3d.logger.get(__name__)

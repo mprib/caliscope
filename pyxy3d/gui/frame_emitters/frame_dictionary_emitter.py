@@ -64,9 +64,9 @@ class FrameDictionaryEmitter(QThread):
                         int(self.pixmap_edge_length),
                         Qt.AspectRatioMode.KeepAspectRatio,
                     )
-                emitted_dict[str(port)] = frame               
+                emitted_dict[str(port)] = pixmap               
 
-            logger.info(f"About to emit q_image_dict: {emitted_dict}")
+            logger.debug(f"About to emit q_image_dict: {emitted_dict}")
             self.FramesBroadcast.emit(emitted_dict) 
             dropped_fps_dict = {str(port):dropped for port, dropped in self.synchronizer.dropped_fps.items()}
             self.dropped_fps.emit(dropped_fps_dict)

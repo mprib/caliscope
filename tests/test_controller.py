@@ -1,21 +1,14 @@
 
 #%% 
 from pathlib import Path
-from queue import Queue
 from time import sleep
 from PySide6.QtWidgets import QApplication
 
-import cv2
 from pyxy3d import __root__
 from pyxy3d.helper import copy_contents
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.recording.recorded_stream import RecordedStream
-from pyxy3d.interface import FramePacket
 from pyxy3d.controller import Controller
 import pyxy3d.logger
 
-import shutil
 
 logger = pyxy3d.logger.get(__name__)
 def test_controller_load_camera_and_stream():
@@ -49,9 +42,9 @@ def test_controller_load_camera_and_stream():
 
     assert(list(controller.all_camera_data.keys()) == [0,1,2,3])
         
-    controller.play_stream(0)
+    controller.play_intrinsic_stream(0)
     sleep(.1)
-    controller.pause_stream(0)
+    controller.pause_intrinsic_stream(0)
     controller.stream_jump_to(0,10)
     controller.end_stream(0)
     app.quit()

@@ -149,27 +149,27 @@ class IntrinsicCalibrationWidget(QWidget):
 
         # initialize stream to push first frame to widget then hold
         # must be done after signals and slots connected for effect to take hold
-        self.controller.play_stream(self.port)
+        self.controller.play_intrinsic_stream(self.port)
 
         # self.play_started = True
-        self.controller.pause_stream(self.port)
+        self.controller.pause_intrinsic_stream(self.port)
         self.controller.stream_jump_to(self.port, 0)
 
     def play_video(self):
         # if self.play_started:
         if self.is_playing:
             self.is_playing = False
-            self.controller.pause_stream(self.port)
+            self.controller.pause_intrinsic_stream(self.port)
             self.play_button.setText("Play")  # now paused so only option is play
         else:
             self.is_playing = True
-            self.controller.unpause_stream(self.port)
+            self.controller.unpause_intrinsic_stream(self.port)
             self.play_button.setText("Pause")  # now playing so only option is pause
 
     def slider_moved(self, position):
         self.controller.stream_jump_to(self.port, position)
         if position == self.total_frames - 1:
-            self.controller.pause_stream(self.port)
+            self.controller.pause_intrinsic_stream(self.port)
             self.is_playing = False
             self.play_button.setEnabled(False)
             self.play_button.setText("Play")  # now paused so only option is play
@@ -191,7 +191,7 @@ class IntrinsicCalibrationWidget(QWidget):
             else:
                 self.slider.setValue(position)
                 if position == self.total_frames - 1:
-                    self.controller.pause_stream(self.port)
+                    self.controller.pause_intrinsic_stream(self.port)
                     self.is_playing = False
                     self.play_button.setEnabled(False)
                     self.play_button.setText(

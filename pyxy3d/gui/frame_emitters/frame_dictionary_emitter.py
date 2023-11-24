@@ -19,7 +19,8 @@ logger = pyxy3d.logger.get(__name__)
 
 class FrameDictionaryEmitter(QThread):
     # establish signals that will be displayed within the GUI
-    FramesBroadcast = Signal(dict[QPixmap])
+    FramesBroadcast = Signal(dict)
+    dropped_fps = Signal(dict)
     # GridCountBroadcast = Signal(int)
     # FrameIndexBroadcast = Signal(int, int)
 
@@ -33,18 +34,21 @@ class FrameDictionaryEmitter(QThread):
         self.all_camera_data = all_camera_data
 
         self.sync_packet_q = Queue()
-        self.synchronizer.subscribe(self.sync_packet_q)
+        self.synchronizer.subscribe_to_sync_packets(self.sync_packet_q)
         self.pixmap_edge_length = pixmap_edge_length
         self.keep_collecting = Event()
+        logger.info("frame dictionary emitter initialized")
 
     def run(self):
+        logger.info("Frame dictionary emitter beginning to run")
         self.keep_collecting.set()
 
         while self.keep_collecting.is_set():
             # Grab a frame from the queue and broadcast to displays
             # self.monocalibrator.grid_frame_ready_q.get()
-            logger.info("Getting frame packet from queue")
+            logger.info("Getting sync packet from queue")
             sync_packet = self.sync_packet_q.get()
+            logger.info(f"Sync packet: {sync_packet}")
             emitted_dict = {}
             for port, frame_packet in sync_packet.frame_packets.items():
                 rotation_count = self.streams[port].rotation_count
@@ -62,7 +66,10 @@ class FrameDictionaryEmitter(QThread):
                     )
                 emitted_dict[str(port)] = frame               
 
+            logger.info(f"About to emit q_image_dict: {emitted_dict}")
             self.FramesBroadcast.emit(emitted_dict) 
+            dropped_fps_dict = {str(port):dropped for port, dropped in self.synchronizer.dropped_fps.items()}
+            self.dropped_fps.emit(dropped_fps_dict)
 
         logger.info(
             f"Thread loop within frame emitter at port {self.synchronizer.port} successfully ended"

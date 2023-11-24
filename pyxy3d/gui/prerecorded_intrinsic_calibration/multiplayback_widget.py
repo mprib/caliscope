@@ -12,7 +12,7 @@ from pyxy3d.gui.prerecorded_intrinsic_calibration.playback_widget import (
 from pyxy3d.controller import Controller
 
 
-class MultiPlayback(QWidget):
+class MultiIntrinsicPlaybackWidget(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
@@ -41,6 +41,6 @@ if __name__ == "__main__":
     controller.add_all_cameras_in_intrinsics_folder()
     controller.load_intrinsic_streams()
 
-    mainWin = MultiPlayback(controller)
+    mainWin = MultiIntrinsicPlaybackWidget(controller)
     mainWin.show()
     sys.exit(app.exec())

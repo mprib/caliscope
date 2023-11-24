@@ -1,49 +1,34 @@
-import pyxy3d.logger
-
-logger = pyxy3d.logger.get(__name__)
-from time import sleep
-
 import sys
-from PySide6.QtWidgets import QApplication
-from pyxy3d.configurator import Configurator
 from pathlib import Path
+from PySide6.QtWidgets import (
+    QApplication,
+)
+from pyxy3d.controller import Controller
+import pyxy3d.logger
 from pyxy3d import __root__
-from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.recording.recorded_stream import RecordedStreamPool
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from pyxy3d.session.session import LiveSession
-from pyxy3d.gui.vizualize.playback_triangulation_widget import (
-    PlaybackTriangulationWidget,
-)
-from pyxy3d.trackers.tracker_enum import TrackerEnum
-
-# session_path = Path(__root__, "dev", "sample_sessions", "293")
-# recording_path = Path(session_path, "recording_1")
-
-# session_path = Path(__root__, "dev", "sample_sessions", "293")
-session_path = Path(
-    __root__,
-    "dev",
-    "sessions_copy_delete",
-    "rain_day_test",
-)
-
-
-config = Configurator(session_path)
-camera_array: CameraArray = config.get_camera_array()
-
-tracker = TrackerEnum.HOLISTIC.value()
-
-
-logger.info(f"Loading session {session_path}")
-session = LiveSession(config)
+from pyxy3d.gui.prerecorded_intrinsic_calibration.multiplayback_widget import MultiIntrinsicPlaybackWidget
+from pyxy3d.trackers.charuco_tracker import CharucoTracker
+from pyxy3d.calibration.charuco import Charuco
+logger = pyxy3d.logger.get(__name__)
 
 app = QApplication(sys.argv)
-recording_path = Path(session_path, "recording_1")
+# Define the input file path here.
+original_workspace_dir = Path(
+    __root__, "tests", "sessions", "prerecorded_calibration"
+)
+# workspace_dir = Path(
+#     __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
+# )
 
-xyz_history_path = Path(recording_path, tracker.name, f"xyz_{tracker.name}.csv")
-vizr_dialog = PlaybackTriangulationWidget(camera_array, xyz_history_path)
-vizr_dialog.show()
+# copy_contents(original_workspace_dir, workspace_dir)
+workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
 
+controller = Controller(workspace_dir)
+controller.add_all_cameras_in_intrinsics_folder()
+controller.load_intrinsic_streams()
+
+window = MultiIntrinsicPlaybackWidget(controller=controller)
+window.resize(800, 600)
+logger.info("About to show window")
+window.show()
 sys.exit(app.exec())

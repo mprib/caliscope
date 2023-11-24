@@ -1,128 +1,58 @@
 
 
 import pyxy3d.logger
-from PySide6.QtCore import QTimer
-import copy
 import sys
-from time import perf_counter, sleep
+from time import sleep
 import math
-from pathlib import Path
-from threading import Thread, Event
+from threading import Event
 import numpy as np
-from queue import Queue
-from enum import Enum
 
 import cv2
-import time
-from PySide6.QtCore import Qt, Signal,Slot, QThread, QObject
-from PySide6.QtGui import QImage, QPixmap, QIcon
+from PySide6.QtCore import Signal,Slot, QThread
+from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QGridLayout,
     QApplication,
-    QSizePolicy,
     QWidget,
-    QSpinBox,
-    QScrollArea,
-    QComboBox,
-    QCheckBox,
-    QTextEdit,
-    QLineEdit,
-    QDialog,
     QGroupBox,
-    QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
-    QPushButton,
-    QSlider,
     QVBoxLayout,
 )
 
 from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d import __root__
-from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.configurator import Configurator
 from pyxy3d.interface import FramePacket
+from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)
-# Whatever the target frame rate, the GUI will only display a portion of the actual frames
-# this is done to cut down on computational overhead. 
-RENDERED_FPS = 6
-
-
-class NextRecordingActions(Enum):
-    StartRecording = "Start Recording"
-    StopRecording = "Stop Recording"
-    AwaitSave = "--Saving Frames--"
-    
  
-class RecordingWidget(QWidget):
+class ExtrinsicPlaybackWidget(QWidget):
      
-    def __init__(self,session:LiveSession):
+    def __init__(self,controller:Controller):
 
-        super(RecordingWidget, self).__init__()
-        self.session = session
-        self.synchronizer:Synchronizer = self.session.synchronizer
+        super(ExtrinsicPlaybackWidget, self).__init__()
+        self.controller = controller
+        self.synchronizer:Synchronizer = self.controller.synchronizer
         self.ports = self.synchronizer.ports
 
         # need to let synchronizer spin up before able to display frames
-        while not hasattr(session.synchronizer, "current_sync_packet"):
+        while not hasattr(controller.synchronizer, "current_sync_packet"):
             sleep(.25)
         # create tools to build and emit the displayed frame
         # self.unpaired_frame_builder = FramePrepper(self.synchronizer)
         self.thumbnail_emitter = FrameDictionaryEmitter(self.synchronizer)
         self.thumbnail_emitter.start()
 
-        self.video_recorder = VideoRecorder(self.synchronizer)
-        
-        self.frame_rate_spin = QSpinBox()
-        self.frame_rate_spin.setValue(self.session.fps_recording)
-
-        self.next_action = NextRecordingActions.StartRecording
-        self.start_stop = QPushButton(self.next_action.value)
-        self.destination_label = QLabel("Recording Destination:")
-        self.recording_directory = QLineEdit(self.get_next_recording_directory())
-        
-        self.dropped_fps_label = QLabel()
-        
         # all video output routed to qlabels stored in a dictionariy 
         # make it as square as you can get it
-        self.recording_displays = {str(port):QLabel() for port in self.ports}
+        self.playback_displays = {str(port):QLabel() for port in self.ports}
         # self.recording_frame_display = QLabel()
         
         self.place_widgets()
         self.connect_widgets()        
-        
-        # commenting this out for now...just let people record whenever.
-        # self.update_btn_eligibility()
-        
-        logger.info("Recording widget init complete")
     
-    def update_btn_eligibility(self):
-        if self.session.is_recording_eligible():
-            self.start_stop.setEnabled(True)
-            logger.info("Record button eligibility updated: Eligible")
-        else:
-            self.start_stop.setEnabled(False)
-            logger.info("Record button eligibility updated: Not Eligible")
-
-            
-
-    def get_next_recording_directory(self):
-
-        folders = [item.name for item in self.session.path.iterdir() if item.is_dir()]
-        recording_folders = [folder for folder in folders if folder.startswith("recording_")]
-        recording_counts = [folder.split("_")[1] for folder in recording_folders]
-        recording_counts = [int(rec_count) for rec_count in recording_counts if rec_count.isnumeric()]
-
-        if len(recording_counts) == 0:
-            next_directory = "recording_1"
-        
-        else:
-            next_directory = "recording_" + str(max(recording_counts)+1)
-       
-        return next_directory 
-        
         
 
     def place_widgets(self):
@@ -156,7 +86,7 @@ class RecordingWidget(QWidget):
         row = 0
         column = 0        
         for port in sorted(self.ports):
-            frame_grid.addWidget(self.recording_displays[str(port)], row,column)
+            frame_grid.addWidget(self.playback_displays[str(port)], row,column)
             
             # update row and column for next iteration
             if column >= grid_columns-1:
@@ -176,58 +106,11 @@ class RecordingWidget(QWidget):
     def connect_widgets(self):
     
         self.thumbnail_emitter.ThumbnailImagesBroadcast.connect(self.ImageUpdateSlot)
-        self.frame_rate_spin.valueChanged.connect(self.session.set_active_mode_fps)
+        self.frame_rate_spin.valueChanged.connect(self.controller.set_active_mode_fps)
         self.thumbnail_emitter.dropped_fps.connect(self.update_dropped_fps)
         self.start_stop.clicked.connect(self.toggle_start_stop)
-        self.session.qt_signaler.recording_complete_signal.connect(self.on_recording_complete)
+        self.controller.qt_signaler.recording_complete_signal.connect(self.on_recording_complete)
         
-        
-    def toggle_start_stop(self):
-        logger.info(f"Start/Stop Recording Toggled... Current state: {self.next_action}")
-
-        if self.next_action == NextRecordingActions.StartRecording:
-            self.next_action = NextRecordingActions.StopRecording
-            self.start_stop.setText(self.next_action.value)
-            self.recording_directory.setEnabled(False)
-
-            logger.info("Initiate recording")
-            recording_path:Path = Path(self.session.path, self.recording_directory.text()) 
-            self.session.start_recording(recording_path)
-
-        elif self.next_action == NextRecordingActions.StopRecording:
-            # need to wait for session to signal that recording is complete
-            self.next_action = NextRecordingActions.AwaitSave
-            self.start_stop.setEnabled(False)
-            self.start_stop.setText(self.next_action.value)
-            logger.info("Stop recording and initiate final save of file") 
-            thread = Thread(target=self.session.stop_recording, args=[], daemon=True)
-            thread.start()
-            # self.session.stop_recording()
-
-
-        elif self.next_action == NextRecordingActions.AwaitSave:
-            logger.info("Recording button toggled while awaiting save") 
-        
-    def on_recording_complete(self):
-        logger.info("Recording complete signal received...updating next action and button")
-        self.next_action = NextRecordingActions.StartRecording
-        self.start_stop.setText(self.next_action.value)
-        logger.info("Enabling start/stop recording button")
-        self.start_stop.setEnabled(True)
-        logger.info("Successfully enabled start/stop recording button")
-        next_recording = self.get_next_recording_directory()
-        self.recording_directory.setEnabled(True)
-        self.recording_directory.setText(next_recording)
-        logger.info(f"Successfully reset text and renamed recording directory to {next_recording}")
-        # pass
-        
-    @Slot(dict)                
-    def update_dropped_fps(self, dropped_fps:dict):
-        "Unravel dropped fps dictionary to a more readable string"
-        text = "Rate of Frame Dropping by Port:    "
-        for port, drop_rate in dropped_fps.items():
-            text += f"{port}: {drop_rate:.0%}        "
-        self.dropped_fps_label.setText(text)
          
     @Slot(dict) 
     def ImageUpdateSlot(self, q_image_dict:dict):
@@ -235,7 +118,7 @@ class RecordingWidget(QWidget):
         for port, thumbnail in q_image_dict.items():
             qpixmap = QPixmap.fromImage(thumbnail)
             logger.debug("About to set qpixmap to display")
-            self.recording_displays[port].setPixmap(qpixmap)
+            self.playback_displays[port].setPixmap(qpixmap)
             logger.debug("successfully set display")
         
 
@@ -256,7 +139,6 @@ class FrameDictionaryEmitter(QThread):
         self.keep_collecting.set()
         
         while self.keep_collecting.is_set():
-            sleep(1/RENDERED_FPS)
             logger.debug("About to get next recording frame")
             # recording_frame = self.unpaired_frame_builder.get_recording_frame()
             
@@ -300,8 +182,7 @@ def frame_packet_2_thumbnail(frame_packet:FramePacket, rotation_count:int, edge_
     return text_frame        
 
 
-
-def get_frame_or_blank(frame_packet, edge_length):
+def get_frame_or_blank(frame_packet: FramePacket, edge_length):
     """Synchronization issues can lead to some frames being None among
     the synched frames, so plug that with a blank frame"""
 
@@ -309,7 +190,7 @@ def get_frame_or_blank(frame_packet, edge_length):
         logger.debug("plugging blank frame data")
         frame = np.zeros((edge_length, edge_length, 3), dtype=np.uint8)
     else:
-        frame = frame_packet.frame
+        frame = frame_packet.frame_with_points
 
     return frame
 
@@ -372,9 +253,6 @@ def prep_img_for_qpixmap(image:np.ndarray):
 
     return image
 
-# def get_empty_pairs(board_counts, min_threshold):
-#     empty_pairs = [key for key, value in board_counts.items() if value < min_threshold]
-#     return empty_pairs
 
 def cv2_to_qimage(frame):
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -396,7 +274,7 @@ def launch_recording_widget(session_path):
             # session._adjust_resolutions()
             session.set_mode(SessionMode.Recording)
             App = QApplication(sys.argv)
-            recording_dialog = RecordingWidget(session)
+            recording_dialog = ExtrinsicPlaybackWidget(session)
             recording_dialog.show()
 
             sys.exit(App.exec())

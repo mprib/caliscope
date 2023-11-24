@@ -1,19 +1,15 @@
 import pyxy3d.logger
 import numpy as np
 
-from datetime import datetime
-from pathlib import Path
-from time import sleep
 from threading import Event
 from queue import Queue
 
 import cv2
-from PySide6.QtCore import QSize, Qt, QThread, Signal
-from PySide6.QtGui import QFont, QIcon, QImage, QPixmap
+from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtGui import QImage, QPixmap
 import pyxy3d.calibration.draw_charuco as draw_charuco
-from pyxy3d.calibration.monocalibrator import MonoCalibrator
-from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
 from pyxy3d.recording.recorded_stream import RecordedStream
+from pyxy3d.gui.frame_emitters.tools import resize_to_square, apply_rotation, cv2_to_qlabel
 
 logger = pyxy3d.logger.get(__name__)
 
@@ -71,10 +67,8 @@ class PlaybackFrameEmitter(QThread):
 
             logger.info(f"Frame size is {self.frame.shape} following undistortion")
             self.frame = resize_to_square(self.frame)
-
-            self.apply_rotation()
-
-            image = self.cv2_to_qlabel(self.frame)
+            self.frame = apply_rotation(self.frame, self.stream.rotation_count)
+            image = cv2_to_qlabel(self.frame)
             pixmap = QPixmap.fromImage(image)
 
             if self.pixmap_edge_length:
@@ -93,29 +87,6 @@ class PlaybackFrameEmitter(QThread):
     def stop(self):
         self.keep_collecting = False
         self.quit()
-
-    def cv2_to_qlabel(self, frame):
-        Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        # FlippedImage = cv2.flip(Image, 1)
-
-        qt_frame = QImage(
-            Image.data,
-            Image.shape[1],
-            Image.shape[0],
-            QImage.Format.Format_RGB888,
-        )
-        return qt_frame
-
-    def apply_rotation(self):
-        logger.info(f"Current rotation count is {self.stream.rotation_count}")
-        if self.stream.rotation_count == 0:
-            pass
-        elif self.stream.rotation_count in [1, -3]:
-            self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_CLOCKWISE)
-        elif self.stream.rotation_count in [2, -2]:
-            self.frame = cv2.rotate(self.frame, cv2.ROTATE_180)
-        elif self.stream.rotation_count in [-1, 3]:
-            self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     def update_distortion_params(self, undistort, matrix, distortions):
         if matrix is None:
@@ -205,25 +176,3 @@ class PlaybackFrameEmitter(QThread):
             logger.info("Not enough points....grid not added...")
 
 
-def resize_to_square(frame):
-    height = frame.shape[0]
-    width = frame.shape[1]
-
-    padded_size = max(height, width)
-
-    height_pad = int((padded_size - height) / 2)
-    width_pad = int((padded_size - width) / 2)
-    pad_color = [0, 0, 0]
-    pad_color = [100, 100, 100]
-
-    frame = cv2.copyMakeBorder(
-        frame,
-        height_pad,
-        height_pad,
-        width_pad,
-        width_pad,
-        cv2.BORDER_CONSTANT,
-        value=pad_color,
-    )
-
-    return frame

@@ -1,8 +1,8 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 from pathlib import Path
 import shutil
+logger = pyxy3d.logger.get(__name__)
 
 def copy_contents(src_folder, dst_folder):
     """

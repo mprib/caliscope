@@ -52,8 +52,8 @@ class VideoRecorder:
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
             frame_size = stream.size
-            logger.info(f"Creating video writer with fps of {stream.fps} and frame size of {frame_size}")
-            writer = cv2.VideoWriter(path, fourcc, stream.fps, frame_size)
+            logger.info(f"Creating video writer with fps of {stream.original_fps} and frame size of {frame_size}")
+            writer = cv2.VideoWriter(path, fourcc, stream.original_fps, frame_size)
             self.video_writers[port] = writer
 
     def save_data_worker(self, include_video: bool, show_points: bool, store_point_history:bool):
@@ -199,16 +199,17 @@ class VideoRecorder:
         # create the folder if it doesn't already exist
         self.destination_folder.mkdir(exist_ok=True, parents=True)
        
-        # Because calibration files are nested in a calibration directory, need to go 
-        # to parent.parent to get the config.toml file      
-        if self.destination_folder.parent.stem == "calibration":
-            source_config_path = Path(self.destination_folder.parent.parent, "config.toml")
-        else:   # just a regular recording
-            source_config_path = Path(self.destination_folder.parent, "config.toml")
+        # # Because calibration files are nested in a calibration directory, need to go 
+        # # to parent.parent to get the config.toml file      
+        # if self.destination_folder.parent.stem == "calibration":
+        #     source_config_path = Path(self.destination_folder.parent.parent, "config.toml")
+        # else:   # just a regular recording
+        #     source_config_path = Path(self.destination_folder.parent, "config.toml")
 
-        duplicate_config_path = Path(self.destination_folder,"config.toml")
-        
-        shutil.copy2(source_config_path,duplicate_config_path)
+        # No longer storing config file with recordings....can't know when they were done relative to calibration so will only complicate things..
+        # source_config_path = find_config_file(self.destination_folder)
+        # duplicate_config_path = Path(self.destination_folder,"config.toml")
+        # shutil.copy2(source_config_path,duplicate_config_path)
 
         self.recording = True
         self.recording_thread = Thread(
@@ -220,3 +221,23 @@ class VideoRecorder:
         logger.info("about to Stop recording initiated within VideoRecorder")
         self.trigger_stop.set()
         logger.info("Stop recording initiated within VideoRecorder")
+
+def find_config_file(start_dir):
+    """
+    Search for a 'config.toml' file starting from 'start_dir' and moving up to the parent directories.
+
+    :param start_dir: Pathlib Path object of the starting directory
+    :return: Path object of the found 'config.toml' file or None if not found
+    """
+    current_dir = start_dir
+
+    while True:
+        config_file = current_dir / 'config.toml'
+        if config_file.is_file():
+            return config_file
+        if current_dir.parent == current_dir:
+            # We have reached the root directory without finding the file
+            break
+        current_dir = current_dir.parent
+
+    return None

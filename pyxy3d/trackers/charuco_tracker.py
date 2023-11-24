@@ -3,14 +3,13 @@
 # accumulates a frame of corners to be drawn onto the displayed frame.
 
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
-
 import cv2
 import numpy as np
-
 import pyxy3d.calibration.draw_charuco
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.interface import PointPacket, Tracker
+
+logger = pyxy3d.logger.get(__name__)
 
 class CharucoTracker(Tracker):
     def __init__(self, charuco):

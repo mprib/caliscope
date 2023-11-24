@@ -28,7 +28,7 @@ from pyxy3d.gui.live_camera_config.intrinsic_calibration_widget import (
 from pyxy3d.gui.recording_widget import RecordingWidget
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
-from pyxy3d.gui.prerecorded_intrinsic_calibration.multiplayback_widget import MultiPlayback
+from pyxy3d.gui.prerecorded_intrinsic_calibration.multiplayback_widget import MultiIntrinsicPlaybackWidget
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from pyxy3d.controller import Controller
 
@@ -80,7 +80,7 @@ class PreRecordedMainWindow(QMainWindow):
         self.setCentralWidget(self.central_tab)
         self.charuco_widget = CharucoWidget(self.controller)
         self.central_tab.addTab(self.charuco_widget,"Charuco")    
-        self.intrinsic_cal_widget = MultiPlayback(self.controller)
+        self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
         self.central_tab.addTab(self.intrinsic_cal_widget, "Intrinsic") 
 
     def build_docked_logger(self):

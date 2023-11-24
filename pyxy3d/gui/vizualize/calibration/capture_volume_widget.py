@@ -1,38 +1,27 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 
 import sys
 import numpy as np
 from pathlib import Path
-from threading import Thread
 
-import cv2
-from PySide6.QtCore import Qt, Signal
-import pyqtgraph as pg
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication,
-    QComboBox,
-    QDialog,
-    QDoubleSpinBox,
     QGroupBox,
     QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QRadioButton,
-    QScrollArea,
     QSlider,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
-from pyxy3d.gui.navigation_bars import NavigationBarBack
 
+logger = pyxy3d.logger.get(__name__)
 
 class CaptureVolumeWidget(QWidget):
     def __init__(self, session: LiveSession):
@@ -167,12 +156,7 @@ if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
 
     from pyxy3d import __root__
-    from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
-        get_point_estimates,
-    )
 
-    from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
-    import pickle
 
     test_sessions = [
         Path(__root__, "dev", "sample_sessions", "test_calibration")

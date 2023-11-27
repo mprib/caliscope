@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
     controller = Controller(workspace_dir)
-    controller.add_all_cameras_in_intrinsics_folder()
+    controller.load_camera_array()
     controller.load_intrinsic_streams()
 
     mainWin = MultiIntrinsicPlaybackWidget(controller)

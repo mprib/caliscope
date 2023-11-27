@@ -125,7 +125,7 @@ class PreRecordedMainWindow(QMainWindow):
     def launch_workspace(self, path_to_workspace: str):
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
         self.controller = Controller(Path(path_to_workspace))
-
+        self.controller.load_camera_array()
         self.controller.load_intrinsic_streams()
         # must have controller in
         self.build_central_tabs()
@@ -203,14 +203,4 @@ def launch_main():
 
 if __name__ == "__main__":
     # launch_main()
-
-    import qdarktheme
-    app = QApplication(sys.argv)
-    qdarktheme.setup_theme("auto")
-    window = PreRecordedMainWindow()
-
-    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
-
-    window.launch_workspace(str(workspace_dir))
-    window.show()
-    app.exec()
+    pass

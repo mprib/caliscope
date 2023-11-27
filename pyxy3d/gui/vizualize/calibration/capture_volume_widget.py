@@ -151,27 +151,3 @@ class CaptureVolumeWidget(QWidget):
         self.visualizer.display_points(sync_index)
 
 
-if __name__ == "__main__":
-
-    from PySide6.QtWidgets import QApplication
-
-    from pyxy3d import __root__
-
-
-    test_sessions = [
-        Path(__root__, "dev", "sample_sessions", "test_calibration")
-    ]
-
-    test_session_index = 0
-    session_path = test_sessions[test_session_index]
-    logger.info(f"Loading session {session_path}")
-    session = LiveSession(session_path)
-
-    session.load_estimated_capture_volume()
-
-    app = QApplication(sys.argv)
-
-    vizr_dialog = CaptureVolumeWidget(session)
-    vizr_dialog.show()
-
-    sys.exit(app.exec())

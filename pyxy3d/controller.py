@@ -46,7 +46,6 @@ class Controller(QObject):
         self.config = Configurator(self.workspace)
 
         # streams will be used to play back recorded video with tracked markers to select frames
-        self.all_camera_data = self.config.get_configured_camera_data()
         self.intrinsic_streams = {}
         self.frame_emitters = {}
         self.intrinsic_calibrators = {}
@@ -68,8 +67,9 @@ class Controller(QObject):
             exist_ok=True, parents=True
         )  # make sure the containing directory exists
 
-        # self.load_intrinsic_streams()
-
+        self.capture_volume = None
+        
+        
     def get_intrinsic_stream_frame_count(self, port):
         start_frame_index = self.intrinsic_streams[port].start_frame_index
         last_frame_index = self.intrinsic_streams[port].last_frame_index
@@ -81,8 +81,13 @@ class Controller(QObject):
 
     def update_charuco(self, charuco: Charuco):
         self.charuco = charuco
-        self.charuco_tracker.charuco = self.charuco
+        self.charuco_tracker = CharucoTracker(self.charuco)
         self.config.save_charuco(self.charuco)
+
+        for port, stream in self.intrinsic_streams.items():
+            logger.info(f"Updating tracker for stream at port {port}")
+            stream.tracker = self.charuco_tracker
+            # stream.set_tracking_on(True)
 
     def process_extrinsic_streams(self):
 
@@ -133,12 +138,15 @@ class Controller(QObject):
         logger.info(f"Broadcast index update from port {port}")
         self.IndexUpdate.emit(port, index)
 
-    def add_all_cameras_in_intrinsics_folder(self):
+    def load_camera_array(self):
+
+        self.all_camera_data = self.config.get_configured_camera_data()
         all_ports = self.config.get_all_source_camera_ports()
         for port in all_ports:
             if port not in self.all_camera_data:
                 self.add_camera_from_source(port)
-
+        self.camera_array = CameraArray(self.all_camera_data)
+        
     def add_camera_from_source(self, port: int):
         """
         When adding source video to calibrate a camera, the function returns the camera index

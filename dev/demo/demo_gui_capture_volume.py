@@ -11,12 +11,16 @@ import toml
 from pyxy3d import __app_dir__
 from pyxy3d.controller import Controller
 
+app = QApplication(sys.argv)
 workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\4_cam_prerecorded_practice_working")
 
 controller = Controller(workspace_dir)
-app = QApplication(sys.argv)
+controller.load_camera_array()
+controller.process_extrinsic_streams()
+controller.load_intrinsic_streams()
+
 window = CaptureVolumeWidget(controller)
 
-# window.show()
+window.show()
 
-# app.exec()
+app.exec()

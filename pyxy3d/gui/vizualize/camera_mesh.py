@@ -1,9 +1,5 @@
-# I'm just going to say that for now this is working. The next step will be to build something
-# to create a more comprehensive visualization of all the cameras at once.
-# there will likey be some refactoring to come back to this, but here we are
 
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
@@ -11,6 +7,7 @@ import math
 
 from pyxy3d.cameras.camera_array import CameraData
 import numpy as np
+logger = pyxy3d.logger.get(__name__)
 
 class CameraMesh:
     """Build a camera mesh object that is looking up from the origin"""
@@ -77,25 +74,6 @@ class CameraMesh:
                        [0,0,0,.9]]
 
         self.colors = np.array(self.colors)        
-
-
-
-# def rotationMatrixToEulerAngles(R) :
- 
-#     sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
- 
-#     singular = sy < 1e-6
- 
-#     if  not singular :
-#         x = math.atan2(R[2,1] , R[2,2])
-#         y = math.atan2(-R[2,0], sy)
-#         z = math.atan2(R[1,0], R[0,0])
-#     else :
-#         x = math.atan2(-R[1,2], R[1,1])
-#         y = math.atan2(-R[2,0], sy)
-#         z = 0
- 
-#     return np.array([x, y, z])
 
 def rotation_to_float(rotation_matrix):
     new_matrix = []

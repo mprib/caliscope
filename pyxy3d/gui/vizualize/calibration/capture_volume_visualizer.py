@@ -1,17 +1,9 @@
 import pyxy3d.logger
 
 
-import math
-import sys
-import time
-from pathlib import Path
-from threading import Thread
-from queue import Queue
-import pandas as pd
 import numpy as np
 import pyqtgraph.opengl as gl
 
-from random import random
 
 from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray

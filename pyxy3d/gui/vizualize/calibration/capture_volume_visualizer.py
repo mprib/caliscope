@@ -1,6 +1,5 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 
 import math
 import sys
@@ -18,6 +17,7 @@ from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 
+logger = pyxy3d.logger.get(__name__)
 
 class CaptureVolumeVisualizer:
     """

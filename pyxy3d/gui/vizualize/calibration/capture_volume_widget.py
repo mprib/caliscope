@@ -18,21 +18,21 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pyxy3d.session.session import LiveSession
+from pyxy3d.controller import Controller
 from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
 
 logger = pyxy3d.logger.get(__name__)
 
 class CaptureVolumeWidget(QWidget):
-    def __init__(self, session: LiveSession):
+    def __init__(self, controller: Controller):
         super(CaptureVolumeWidget, self).__init__()
 
-        self.session = session
+        self.controller = controller
 
-        if not hasattr(self.session, "capture_volume"):
-            self.session.load_estimated_capture_volume()
+        if not hasattr(self.controller, "capture_volume"):
+            self.controller.load_estimated_capture_volume()
             
-        self.visualizer = CaptureVolumeVisualizer(self.session.capture_volume)
+        self.visualizer = CaptureVolumeVisualizer(self.controller.capture_volume)
         # self.visualizer.scene.show()
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setMinimum(self.visualizer.min_sync_index)
@@ -49,7 +49,7 @@ class CaptureVolumeWidget(QWidget):
         self.rotate_z_minus_btn = QPushButton("Z-")
 
         # self.distance_error_summary = QLabel(self.session.quality_controller.distance_error_summary.to_string(index=False))
-        self.rmse_summary = QLabel(self.session.capture_volume.get_rmse_summary())
+        self.rmse_summary = QLabel(self.controller.capture_volume.get_rmse_summary())
        
         # self.recalibrate_btn = QPushButton("Recalibrate") 
 
@@ -111,12 +111,12 @@ class CaptureVolumeWidget(QWidget):
 
         logger.info("Setting origin to board...")
         origin_index = self.slider.value()
-        logger.info(f"Charuco board is {self.session.charuco}")
-        self.session.capture_volume.set_origin_to_board(
-            origin_index, self.session.charuco
+        logger.info(f"Charuco board is {self.controller.charuco}")
+        self.controller.capture_volume.set_origin_to_board(
+            origin_index, self.controller.charuco
         )
         self.visualizer.refresh_scene()
-        self.session.config.save_capture_volume(self.session.capture_volume)
+        self.controller.config.save_capture_volume(self.controller.capture_volume)
         
     def rotate_capture_volume(self, direction):
         transformations = {
@@ -140,9 +140,9 @@ class CaptureVolumeWidget(QWidget):
             ),
         }
 
-        self.session.capture_volume.shift_origin(transformations[direction])
+        self.controller.capture_volume.shift_origin(transformations[direction])
         self.visualizer.refresh_scene()
-        self.session.config.save_capture_volume(self.session.capture_volume)
+        self.controller.config.save_capture_volume(self.controller.capture_volume)
 
     def update_board(self, sync_index):
 

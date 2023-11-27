@@ -100,13 +100,13 @@ class RecordedStream(Stream):
         self.frame_time = 0
         self.set_fps_target(fps_target)
 
-    def set_tracking_on(self, track: bool):
-        if track:
-            logger.info(f"Turning tracking on for recorded stream {self.port}")
-            self.track_points.set()
-        else:
-            logger.info(f"Turning tracking off for recorded stream {self.port}")
-            self.track_points.clear()
+    # def set_tracking_on(self, track: bool):
+    #     if track:
+    #         logger.info(f"Turning tracking on for recorded stream {self.port}")
+    #         self.track_points = 
+    #     else:
+    #         logger.info(f"Turning tracking off for recorded stream {self.port}")
+    #         self.track_points.clear()
 
     def subscribe(self, queue: Queue):
         if queue not in self.subscribers:
@@ -210,7 +210,7 @@ class RecordedStream(Stream):
             if not success:
                 break
 
-            if self.track_points:
+            if self.tracker is not None:
                 self.point_data = self.tracker.get_points(
                     self.frame, self.port, self.rotation_count
                 )

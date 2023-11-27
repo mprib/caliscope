@@ -45,11 +45,11 @@ class Configurator:
             # default values enforced below
             charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
             self.save_charuco(charuco)
-            self.save_fps_recording(30)
-            self.save_fps_extrinsic_calibration(6)
-            self.save_fps_intrinsic_calibration(6)
-            self.save_extrinsic_wait_time(0.5)
-            self.save_intrinsic_wait_time(0.5)
+            # self.save_fps_recording(30)
+            # self.save_fps_extrinsic_calibration(6)
+            # self.save_fps_intrinsic_calibration(6)
+            # self.save_extrinsic_wait_time(0.5)
+            # self.save_intrinsic_wait_time(0.5)
 
         if exists(self.point_estimates_toml_path):
             self.refresh_point_estimates_from_toml()
@@ -68,31 +68,6 @@ class Configurator:
 
     def get_fps_intrinsic_calibration(self):
         return self.dict["fps_intrinsic_calibration"]
-
-    def save_intrinsic_wait_time(self, time_sec: float):
-        logger.info(f"Updating Intrinsic Calibration Wait to to {time_sec}")
-        self.dict["intrinsic_wait_time"] = time_sec
-        self.update_config_toml()
-
-    def save_extrinsic_wait_time(self, time_sec: float):
-        logger.info(f"Updating Extrinsic Calibration Wait to to {time_sec}")
-        self.dict["extrinsic_wait_time"] = time_sec
-        self.update_config_toml()
-
-    def save_fps_recording(self, fps: int):
-        logger.info(f"Updating Recording fps to {fps}")
-        self.dict["fps_recording"] = fps
-        self.update_config_toml()
-
-    def save_fps_extrinsic_calibration(self, fps: int):
-        logger.info(f"Updating Extrinsic calibration fps to {fps}")
-        self.dict["fps_extrinsic_calibration"] = fps
-        self.update_config_toml()
-
-    def save_fps_intrinsic_calibration(self, fps: int):
-        logger.info(f"Updating Intrinsic calibration fps to {fps}")
-        self.dict["fps_intrinsic_calibration"] = fps
-        self.update_config_toml()
 
     def refresh_config_from_toml(self):
         logger.info("Populating config dictionary with config.toml data")

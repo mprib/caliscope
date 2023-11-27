@@ -17,7 +17,6 @@ def test_controller_load_camera_and_stream():
     in it, nor mp4s set up for intrinsic calibration (these are in extrinsic).
     
     This is done to make sure it is testing out setting up intrinsic source and config info from imported mp4
-    
     """
     app = QApplication()  # must exist prior to QPixels which are downstream when controller is created
     original_workspace = Path(__root__, "tests", "sessions", "prerecorded_calibration")
@@ -50,6 +49,14 @@ def test_controller_load_camera_and_stream():
     app.quit()
 
 
+def test_extrinsic_calibration():
+    # app = QApplication()  # must exist prior to QPixels which are downstream when controller is created
+    original_workspace = Path(__root__, "tests", "sessions", "prerecorded_calibration")
+    workspace = Path( __root__, "tests", "sessions_copy_delete", "prerecorded_calibration")
+    copy_contents(original_workspace, workspace)
+
+
 if __name__ == "__main__":
-    test_controller_load_camera_and_stream()
+    # test_controller_load_camera_and_stream()
+    test_extrinsic_calibration()
 # %%

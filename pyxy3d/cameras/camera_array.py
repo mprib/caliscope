@@ -127,8 +127,6 @@ class CameraArray:
 
     cameras: dict
 
-    # least_sq_result = None # this may be a vestige of an old way of doing things. remove if commenting out doesn't break anything.
-
     @property
     def port_index(self):
         """

@@ -61,6 +61,9 @@ class PreRecordedMainWindow(QMainWindow):
         self.open_project_action = QAction("New/Open Project", self)
         self.file_menu.addAction(self.open_project_action)
 
+        self.calibrate_capture_volume = QAction("Calibrate Capture Volume", self)
+        self.file_menu.addAction(self.calibrate_capture_volume)
+
         # Open Recent
         self.open_recent_project_submenu = QMenu("Recent Projects...", self)
 
@@ -81,7 +84,9 @@ class PreRecordedMainWindow(QMainWindow):
         self.charuco_widget = CharucoWidget(self.controller)
         self.central_tab.addTab(self.charuco_widget,"Charuco")    
         self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
-        self.central_tab.addTab(self.intrinsic_cal_widget, "Intrinsic") 
+        self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras") 
+        self.capture_volume_widget = QWidget() # place holder 
+        self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
 
     def build_docked_logger(self):
         # create log window which is fixed below main window

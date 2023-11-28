@@ -18,6 +18,7 @@ from PySide6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.gui.charuco_widget import CharucoWidget
+from pyxy3d.gui.workspace_widget import WorkspaceSummaryWidget
 from pyxy3d.gui.prerecorded_intrinsic_calibration.multiplayback_widget import MultiIntrinsicPlaybackWidget
 from pyxy3d.controller import Controller
 
@@ -70,6 +71,9 @@ class PreRecordedMainWindow(QMainWindow):
     
         self.central_tab = QTabWidget()
         self.setCentralWidget(self.central_tab)
+        self.workspace_summary = WorkspaceSummaryWidget(self.controller)
+        self.central_tab.addTab(self.workspace_summary, "Workspace")
+
         self.charuco_widget = CharucoWidget(self.controller)
         self.central_tab.addTab(self.charuco_widget,"Charuco")    
         self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)

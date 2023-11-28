@@ -15,7 +15,7 @@ logger = pyxy3d.logger.get(__name__)
 def test_xy_to_xyz_postprocessing():
     # load in file of xy point data
     origin_data = Path(__root__, "tests", "sessions", "4_cam_recording")
-    working_data = Path(__root__,"tests", "sessions_copy_delete", "4_cam_recording")
+    working_data = Path(__root__,"tests", "sessions_copy_delete", "4_cam_recording_2") # create alternate test directory because running into permission errors when invoking pytest
     
     copy_contents(origin_data, working_data)
 

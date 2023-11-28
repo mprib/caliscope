@@ -1,10 +1,9 @@
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot, QThread
 
 from pathlib import Path
 
 from PySide6.QtGui import QPixmap
-
-import pyxy3d.logger
+from time import sleep
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.recording.recorded_stream import RecordedStream
 from pyxy3d.configurator import Configurator
@@ -24,6 +23,7 @@ from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
 from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
 from collections import OrderedDict
 
+import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
 
@@ -39,6 +39,7 @@ class Controller(QObject):
     IndexUpdate = Signal(int, int)  # port, frame_index
     ExtrinsicImageUpdate = Signal(dict)
     ExtrinsicCalibrationComplete = Signal()
+    extrinsic_2D_complete = Signal()
     
     def __init__(self, workspace_dir: Path):
         super().__init__()
@@ -47,6 +48,7 @@ class Controller(QObject):
 
         # streams will be used to play back recorded video with tracked markers to select frames
         self.intrinsic_streams = {}
+        self.all_camera_data = {}
         self.frame_emitters = {}
         self.intrinsic_calibrators = {}
         self.charuco = self.config.get_charuco()
@@ -91,13 +93,24 @@ class Controller(QObject):
 
     def process_extrinsic_streams(self, fps_target = None):
 
+        def worker():
+            self.sync_stream_manager = SynchronizedStreamManager(
+                recording_dir=self.extrinsic_source_directory,
+                all_camera_data=self.all_camera_data,
+                tracker=self.charuco_tracker,
+            )
+            self.sync_stream_manager.process_streams(fps_target=fps_target)
+            
+            output_path = Path(self.extrinsic_source_directory,"CHARUCO", "xy_CHARUCO.csv")
+            while not output_path.exists():
+                sleep(.5)
+                logger.info(f"Waiting for 2D tracked points to populate at {output_path}")
+
+        self.extrinsic_process_thread = QThread()
+        self.extrinsic_process_thread.run = worker
+        self.extrinsic_process_thread.finished.connect(self.extrinsic_2D_complete.emit)
+        self.extrinsic_process_thread.start()
         
-        self.sync_stream_manager = SynchronizedStreamManager(
-            recording_dir=self.extrinsic_source_directory,
-            all_camera_data=self.all_camera_data,
-            tracker=self.charuco_tracker,
-        )
-        self.sync_stream_manager.process_streams(fps_target=fps_target)
 
     def load_intrinsic_streams(self):
         for port, camera_data in self.all_camera_data.items():
@@ -205,8 +218,6 @@ class Controller(QObject):
         self.push_camera_data(port)
         camera_data = self.all_camera_data[port]
         self.config.save_camera(camera_data)
-        # camera_display_data = self.all_camera_data[port].get_display_data()
-        # self.CameraDataUpdate.emit(port,camera_display_data)
 
     def push_camera_data(self, port):
         camera_display_data = self.all_camera_data[port].get_display_data()
@@ -263,35 +274,39 @@ class Controller(QObject):
         here, but they are all necessary steps of the process so I didn't want to
         try to encapsulate any further
         """
-        self.extrinsic_calibration_xy = Path(
-            self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
-        )
+        def worker():
+            self.extrinsic_calibration_xy = Path(
+                self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
+            )
 
-        stereocalibrator = StereoCalibrator(
-            self.config.config_toml_path, self.extrinsic_calibration_xy
-        )
-        stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+            stereocalibrator = StereoCalibrator(
+                self.config.config_toml_path, self.extrinsic_calibration_xy
+            )
+            stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
-        self.camera_array: CameraArray = CameraArrayInitializer(
-            self.config.config_toml_path
-        ).get_best_camera_array()
+            self.camera_array: CameraArray = CameraArrayInitializer(
+                self.config.config_toml_path
+            ).get_best_camera_array()
 
-        self.point_estimates: PointEstimates = get_point_estimates(
-            self.camera_array, self.extrinsic_calibration_xy
-        )
+            self.point_estimates: PointEstimates = get_point_estimates(
+                self.camera_array, self.extrinsic_calibration_xy
+            )
 
-        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
-        self.capture_volume.optimize()
+            self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
+            self.capture_volume.optimize()
 
-        self.quality_controller = QualityController(self.capture_volume, self.charuco)
+            self.quality_controller = QualityController(self.capture_volume, self.charuco)
 
-        logger.info(
-            f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model"
-        )
-        self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
-        self.capture_volume.optimize()
+            logger.info(
+                f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model"
+            )
+            self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
+            self.capture_volume.optimize()
 
-        # saves both point estimates and camera array
-        self.config.save_capture_volume(self.capture_volume)
+            # saves both point estimates and camera array
+            self.config.save_capture_volume(self.capture_volume)
 
-        self.ExtrinsicCalibrationComplete.emit()
+        self.extrinsicCalibrationThread = QThread()
+        self.extrinsicCalibrationThread.run = worker
+        self.extrinsicCalibrationThread.finished.connect(self.ExtrinsicCalibrationComplete.emit)
+        self.extrinsicCalibrationThread.start()

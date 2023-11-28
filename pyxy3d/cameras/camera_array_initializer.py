@@ -1,7 +1,4 @@
 # %%
-import pyxy3d.logger
-
-logger = pyxy3d.logger.get(__name__)
 
 
 from pathlib import Path
@@ -17,6 +14,8 @@ from pyxy3d import __root__
 import numpy as np
 from dataclasses import dataclass, asdict
 import toml
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 
 @dataclass
@@ -238,10 +237,10 @@ class CameraArrayInitializer:
                 error = data["error"]
                 matrix = np.array(data["matrix"], dtype=np.float64)
                 distortions = np.array(data["distortions"], dtype=np.float64)
-                exposure = data["exposure"]
+                # exposure = data["exposure"]
                 grid_count = data["grid_count"]
                 ignore = data["ignore"]
-                verified_resolutions = data["verified_resolutions"]
+                # verified_resolutions = data["verified_resolutions"]
 
                 # update with extrinsics, though place anchor camera at origin
                 if port == anchor_port:
@@ -256,18 +255,18 @@ class CameraArrayInitializer:
                     total_error_score += anchored_stereopair.error_score
 
                 cam_data = CameraData(
-                    port,
-                    size,
-                    rotation_count,
-                    error,
-                    matrix,
-                    distortions,
-                    exposure,
-                    grid_count,
-                    ignore,
-                    verified_resolutions,
-                    translation,
-                    rotation,
+                    port=port,
+                    size=size,
+                    rotation_count=rotation_count,
+                    error=error,
+                    matrix=matrix,
+                    distortions=distortions,
+                    # exposure,
+                    grid_count=grid_count,
+                    ignore=ignore,
+                    # verified_resolutions,
+                    translation=translation,
+                    rotation=rotation,
                 )
 
                 cameras[port] = cam_data

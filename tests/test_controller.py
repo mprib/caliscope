@@ -74,6 +74,7 @@ def test_extrinsic_calibration():
 
     xy_path = Path(workspace,"calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv")
 
+
     while not xy_path.exists():
         sleep(1)
         logger.info(f"Waiting on data to populate in {xy_path}")
@@ -81,10 +82,14 @@ def test_extrinsic_calibration():
     # with the charuco points tracked and saved out, the calibration can now proceed
     controller.estimate_extrinsics()
 
+    while not controller.camera_array.all_extrinsics_calibrated:
+        sleep(1)
+        logger.info(f"waiting on camera array to finalize calibration...")
+
     logger.info(f"New Camera array is {controller.camera_array}")
     assert(controller.camera_array.all_extrinsics_calibrated)
 
 if __name__ == "__main__":
-    # test_controller_load_camera_and_stream()
-    test_extrinsic_calibration()
+    test_controller_load_camera_and_stream()
+    # test_extrinsic_calibration()
 # %%

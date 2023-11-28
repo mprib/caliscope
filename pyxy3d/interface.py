@@ -116,18 +116,14 @@ class Stream(ABC):
     def unsubscribe(self, queue: Queue):
         pass
 
-    @abstractmethod
-    def set_tracking_on(self, track: bool):
-        pass
+    # @abstractmethod
+    # def set_tracking_on(self, track: bool):
+    #     pass
     
     @abstractmethod
     def set_fps_target(self, fps_target:int):
         pass
     
-    @abstractmethod
-    def set_fps_target(self, fps_target:int):
-        pass
-
     @abstractmethod
     def _play_worker(self):
         pass

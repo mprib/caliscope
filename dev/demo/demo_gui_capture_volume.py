@@ -9,19 +9,17 @@ from pyxy3d.configurator import Configurator
 from pyxy3d.session.session import LiveSession, SessionMode
 import toml
 from pyxy3d import __app_dir__
+from pyxy3d.controller import Controller
 
-app_settings = toml.load(Path(__app_dir__, "settings.toml"))
-recent_projects:list = app_settings["recent_projects"]
-
-recent_project_count = len(recent_projects)
-session_path = Path(recent_projects[recent_project_count-1])
-
-config = Configurator(session_path)
-session = LiveSession(config)
-session.load_estimated_capture_volume()
-# session.set_mode(SessionMode.ExtrinsicCalibration)
 app = QApplication(sys.argv)
-window = CaptureVolumeWidget(session)
+workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\4_cam_prerecorded_practice_working")
+
+controller = Controller(workspace_dir)
+controller.load_camera_array()
+controller.process_extrinsic_streams()
+controller.load_intrinsic_streams()
+
+window = CaptureVolumeWidget(controller)
 
 window.show()
 

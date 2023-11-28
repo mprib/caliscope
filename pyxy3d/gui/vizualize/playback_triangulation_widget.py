@@ -84,7 +84,7 @@ class TriangulationVisualizer:
         axis = gl.GLAxisItem()
         self.scene.addItem(axis)
 
-        if self.camera_array.extrinsics_calibrated:
+        if self.camera_array.all_extrinsics_calibrated:
             self.meshes = {}
             for port, cam in self.camera_array.cameras.items():
                 mesh: CameraMesh = mesh_from_camera(cam)

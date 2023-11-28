@@ -13,14 +13,12 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
 )
 import pytest
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.cameras.synchronizer import Synchronizer
 
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 from pyxy3d.calibration.capture_volume.quality_controller import QualityController
 
+from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
 
-from pyxy3d.recording.video_recorder import VideoRecorder
-from pyxy3d.recording.recorded_stream import RecordedStreamPool
 
 from pyxy3d.session.session import FILTERED_FRACTION
 from pyxy3d.configurator import Configurator
@@ -83,25 +81,13 @@ def test_post_monocalibration(session_path):
     logger.info("Creating RecordedStreamPool")
 
     recording_path = Path(session_path, "calibration", "extrinsic")
-    point_data_path = Path(recording_path, "xy.csv")
+    point_data_path = Path(recording_path,"CHARUCO", "xy_CHARUCO.csv")
 
-    stream_pool = RecordedStreamPool(
-        recording_path, config=config, fps_target=100, tracker=charuco_tracker
+    camera_array = config.get_camera_array()
+    sync_stream_manager = SynchronizedStreamManager(
+        recording_dir=recording_path, all_camera_data= camera_array.cameras, tracker=charuco_tracker
     )
-
-    logger.info("Creating Synchronizer")
-    syncr = Synchronizer(stream_pool.streams, fps_target=100)
-
-    # video recorder needed to save out points.csv.
-    logger.info("Creating test video recorder to save out point data")
-
-    video_recorder = VideoRecorder(syncr)
-    video_recorder.start_recording(
-        recording_path, include_video=False, store_point_history=True
-    )
-
-    logger.info("Initiate playing stream pool videos...")
-    stream_pool.play_videos()
+    sync_stream_manager.process_streams(fps_target=100)
 
     # need to wait for points.csv file to populate
     while not point_data_path.exists():

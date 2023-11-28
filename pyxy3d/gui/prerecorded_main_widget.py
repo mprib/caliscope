@@ -61,6 +61,9 @@ class PreRecordedMainWindow(QMainWindow):
         self.open_project_action = QAction("New/Open Project", self)
         self.file_menu.addAction(self.open_project_action)
 
+        self.calibrate_capture_volume = QAction("Calibrate Capture Volume", self)
+        self.file_menu.addAction(self.calibrate_capture_volume)
+
         # Open Recent
         self.open_recent_project_submenu = QMenu("Recent Projects...", self)
 
@@ -81,7 +84,9 @@ class PreRecordedMainWindow(QMainWindow):
         self.charuco_widget = CharucoWidget(self.controller)
         self.central_tab.addTab(self.charuco_widget,"Charuco")    
         self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
-        self.central_tab.addTab(self.intrinsic_cal_widget, "Intrinsic") 
+        self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras") 
+        self.capture_volume_widget = QWidget() # place holder 
+        self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
 
     def build_docked_logger(self):
         # create log window which is fixed below main window
@@ -125,7 +130,7 @@ class PreRecordedMainWindow(QMainWindow):
     def launch_workspace(self, path_to_workspace: str):
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
         self.controller = Controller(Path(path_to_workspace))
-
+        self.controller.load_camera_array()
         self.controller.load_intrinsic_streams()
         # must have controller in
         self.build_central_tabs()
@@ -203,14 +208,4 @@ def launch_main():
 
 if __name__ == "__main__":
     # launch_main()
-
-    import qdarktheme
-    app = QApplication(sys.argv)
-    qdarktheme.setup_theme("auto")
-    window = PreRecordedMainWindow()
-
-    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
-
-    window.launch_workspace(str(workspace_dir))
-    window.show()
-    app.exec()
+    pass

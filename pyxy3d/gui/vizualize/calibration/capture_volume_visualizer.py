@@ -1,23 +1,15 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 
-import math
-import sys
-import time
-from pathlib import Path
-from threading import Thread
-from queue import Queue
-import pandas as pd
 import numpy as np
 import pyqtgraph.opengl as gl
 
-from random import random
 
 from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 
+logger = pyxy3d.logger.get(__name__)
 
 class CaptureVolumeVisualizer:
     """

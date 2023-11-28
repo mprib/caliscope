@@ -10,6 +10,15 @@ from pyxy3d.recording.recorded_stream import RecordedStream
 from pyxy3d.configurator import Configurator
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.interface import Tracker
+from pyxy3d.calibration.stereocalibrator import StereoCalibrator
+from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
+from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+from pyxy3d.cameras.camera_array import CameraArray
+from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
+from pyxy3d.calibration.capture_volume.quality_controller import QualityController
+from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
+    get_point_estimates,
+)
 from pyxy3d.gui.frame_emitters.playback_frame_emitter import PlaybackFrameEmitter
 from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
 from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
@@ -17,6 +26,8 @@ from collections import OrderedDict
 
 logger = pyxy3d.logger.get(__name__)
 
+
+FILTERED_FRACTION = 0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
 
 class Controller(QObject):
     """
@@ -27,14 +38,14 @@ class Controller(QObject):
     IntrinsicImageUpdate = Signal(int, QPixmap)  # port, image
     IndexUpdate = Signal(int, int)  # port, frame_index
     ExtrinsicImageUpdate = Signal(dict)
-
+    ExtrinsicCalibrationComplete = Signal()
+    
     def __init__(self, workspace_dir: Path):
         super().__init__()
         self.workspace = workspace_dir
         self.config = Configurator(self.workspace)
 
         # streams will be used to play back recorded video with tracked markers to select frames
-        self.all_camera_data = self.config.get_configured_camera_data()
         self.intrinsic_streams = {}
         self.frame_emitters = {}
         self.intrinsic_calibrators = {}
@@ -56,8 +67,9 @@ class Controller(QObject):
             exist_ok=True, parents=True
         )  # make sure the containing directory exists
 
-        # self.load_intrinsic_streams()
-
+        self.capture_volume = None
+        
+        
     def get_intrinsic_stream_frame_count(self, port):
         start_frame_index = self.intrinsic_streams[port].start_frame_index
         last_frame_index = self.intrinsic_streams[port].last_frame_index
@@ -69,16 +81,23 @@ class Controller(QObject):
 
     def update_charuco(self, charuco: Charuco):
         self.charuco = charuco
-        self.charuco_tracker.charuco = self.charuco
+        self.charuco_tracker = CharucoTracker(self.charuco)
         self.config.save_charuco(self.charuco)
 
-    def process_extrinsic_streams(self):
+        for port, stream in self.intrinsic_streams.items():
+            logger.info(f"Updating tracker for stream at port {port}")
+            stream.tracker = self.charuco_tracker
+            # stream.set_tracking_on(True)
+
+    def process_extrinsic_streams(self, fps_target = None):
+
+        
         self.sync_stream_manager = SynchronizedStreamManager(
             recording_dir=self.extrinsic_source_directory,
             all_camera_data=self.all_camera_data,
             tracker=self.charuco_tracker,
         )
-        self.sync_stream_manager.process_streams(fps_target=6)
+        self.sync_stream_manager.process_streams(fps_target=fps_target)
 
     def load_intrinsic_streams(self):
         for port, camera_data in self.all_camera_data.items():
@@ -119,12 +138,20 @@ class Controller(QObject):
         logger.info(f"Broadcast index update from port {port}")
         self.IndexUpdate.emit(port, index)
 
-    def add_all_cameras_in_intrinsics_folder(self):
+    def load_camera_array(self):
+        """
+        Loads self.camera_array by first populating self.all_camera_data
+        """
+        # load all previously configured data if it is there
+        self.all_camera_data = self.config.get_configured_camera_data()
+        
+        # double check that no new camera associated files have been placed in the intrinsic calibration folder
         all_ports = self.config.get_all_source_camera_ports()
         for port in all_ports:
             if port not in self.all_camera_data:
                 self.add_camera_from_source(port)
-
+        self.camera_array = CameraArray(self.all_camera_data)
+        
     def add_camera_from_source(self, port: int):
         """
         When adding source video to calibrate a camera, the function returns the camera index
@@ -207,3 +234,64 @@ class Controller(QObject):
         stream.rotation_count = camera_data.rotation_count
         self.push_camera_data(port)
         self.config.save_camera(camera_data)
+
+    def load_estimated_capture_volume(self):
+        """
+        Following capture volume optimization via bundle adjustment, or alteration
+        via a transform of the origin, the entire capture volume can be reloaded
+        from the config data without needing to go through the steps
+
+        """
+        self.point_estimates = self.config.get_point_estimates()
+        self.camera_array = self.config.get_camera_array()
+        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
+        # self.capture_volume.rmse = self.config["capture_volume"]["RMSE"]
+        self.capture_volume.stage = self.config.dict["capture_volume"]["stage"]
+        if "origin_sync_index" in self.config.dict["capture_volume"].keys():
+            self.capture_volume.origin_sync_index = self.config.dict["capture_volume"][
+                "origin_sync_index"
+            ]
+
+        # QC needed to get the corner distance accuracy within the GUI
+        self.quality_controller = QualityController(
+            self.capture_volume, charuco=self.charuco
+        )
+
+    def estimate_extrinsics(self):
+        """
+        This is where the camera array 6 DoF is set. Many, many things are happening
+        here, but they are all necessary steps of the process so I didn't want to
+        try to encapsulate any further
+        """
+        self.extrinsic_calibration_xy = Path(
+            self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
+        )
+
+        stereocalibrator = StereoCalibrator(
+            self.config.config_toml_path, self.extrinsic_calibration_xy
+        )
+        stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+
+        self.camera_array: CameraArray = CameraArrayInitializer(
+            self.config.config_toml_path
+        ).get_best_camera_array()
+
+        self.point_estimates: PointEstimates = get_point_estimates(
+            self.camera_array, self.extrinsic_calibration_xy
+        )
+
+        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
+        self.capture_volume.optimize()
+
+        self.quality_controller = QualityController(self.capture_volume, self.charuco)
+
+        logger.info(
+            f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model"
+        )
+        self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
+        self.capture_volume.optimize()
+
+        # saves both point estimates and camera array
+        self.config.save_capture_volume(self.capture_volume)
+
+        self.ExtrinsicCalibrationComplete.emit()

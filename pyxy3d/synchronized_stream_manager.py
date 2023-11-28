@@ -25,7 +25,6 @@ class SynchronizedStreamManager:
     - streams
     - synchronizer
     - video recorder
-    - frame dictionary emitter for GUI
     """
 
     def __init__(
@@ -58,7 +57,8 @@ class SynchronizedStreamManager:
             self.streams[camera.port] = stream
 
         self.synchronizer = Synchronizer(self.streams)
-        self.recorder = VideoRecorder(self.synchronizer, suffix=self.tracker.name)
+
+        self.recorder = VideoRecorder(self.synchronizer, suffix=self.subfolder_name)
 
     def process_streams(self, fps_target=None):
         """

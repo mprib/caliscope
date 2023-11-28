@@ -127,8 +127,6 @@ class CameraArray:
 
     cameras: dict
 
-    # least_sq_result = None # this may be a vestige of an old way of doing things. remove if commenting out doesn't break anything.
-
     @property
     def port_index(self):
         """
@@ -184,7 +182,7 @@ class CameraArray:
             self.cameras[port].extrinsics_from_vector(cam_vec)
         
     @property
-    def extrinsics_calibrated(self)->bool:
+    def all_extrinsics_calibrated(self)->bool:
        
         # assume extrinsics calibrated and provide otherwise
         full_extrinsics = True 

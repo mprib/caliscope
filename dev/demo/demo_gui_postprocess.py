@@ -2,7 +2,6 @@
 working file for development of a post processing widget
 """
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 from PySide6.QtWidgets import QApplication
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 import sys
@@ -14,6 +13,7 @@ from pyxy3d.session.session import LiveSession
 from pathlib import Path
 from pyxy3d import __app_dir__
 
+logger = pyxy3d.logger.get(__name__)
 
 app_settings = toml.load(Path(__app_dir__, "settings.toml"))
 recent_projects:list = app_settings["recent_projects"]

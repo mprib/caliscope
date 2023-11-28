@@ -45,11 +45,6 @@ class Configurator:
             # default values enforced below
             charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
             self.save_charuco(charuco)
-            self.save_fps_recording(30)
-            self.save_fps_extrinsic_calibration(6)
-            self.save_fps_intrinsic_calibration(6)
-            self.save_extrinsic_wait_time(0.5)
-            self.save_intrinsic_wait_time(0.5)
 
         if exists(self.point_estimates_toml_path):
             self.refresh_point_estimates_from_toml()
@@ -68,31 +63,6 @@ class Configurator:
 
     def get_fps_intrinsic_calibration(self):
         return self.dict["fps_intrinsic_calibration"]
-
-    def save_intrinsic_wait_time(self, time_sec: float):
-        logger.info(f"Updating Intrinsic Calibration Wait to to {time_sec}")
-        self.dict["intrinsic_wait_time"] = time_sec
-        self.update_config_toml()
-
-    def save_extrinsic_wait_time(self, time_sec: float):
-        logger.info(f"Updating Extrinsic Calibration Wait to to {time_sec}")
-        self.dict["extrinsic_wait_time"] = time_sec
-        self.update_config_toml()
-
-    def save_fps_recording(self, fps: int):
-        logger.info(f"Updating Recording fps to {fps}")
-        self.dict["fps_recording"] = fps
-        self.update_config_toml()
-
-    def save_fps_extrinsic_calibration(self, fps: int):
-        logger.info(f"Updating Extrinsic calibration fps to {fps}")
-        self.dict["fps_extrinsic_calibration"] = fps
-        self.update_config_toml()
-
-    def save_fps_intrinsic_calibration(self, fps: int):
-        logger.info(f"Updating Intrinsic calibration fps to {fps}")
-        self.dict["fps_intrinsic_calibration"] = fps
-        self.update_config_toml()
 
     def refresh_config_from_toml(self):
         logger.info("Populating config dictionary with config.toml data")
@@ -187,16 +157,6 @@ class Configurator:
                         translation = None
                         rotation = None
 
-                    # if "original_intrinsic_source" in params.keys():
-                    #     original_intrinsic_source = params["original_intrinsic_source"]
-                    # else:
-                    #     original_intrinsic_source = None
-
-                    # if "original_extrinsic_source" in params.keys():
-                    #     original_extrinsic_source = params["original_extrinsic_source"]
-                    # else:
-                    #     original_extrinsic_source = None
-
                     logger.info(f"Adding camera {port} to calibrated camera array...")
                     cam_data = CameraData(
                         port=port,
@@ -205,14 +165,10 @@ class Configurator:
                         error=error,
                         matrix=matrix,
                         distortions=distortions,
-                        # exposure=params["exposure"],
                         grid_count=grid_count,
                         ignore=params["ignore"],
-                        # verified_resolutions=params["verified_resolutions"],
                         translation=translation,
                         rotation=rotation,
-                        # original_intrinsic_source=original_intrinsic_source,
-                        # original_extrinsic_source=original_extrinsic_source
                     )
 
                     all_camera_data[port] = cam_data
@@ -322,52 +278,53 @@ class Configurator:
             camera_data = all_camera_data[port]
             self.save_camera(camera_data)
 
-    def get_cameras(self) -> dict[Camera]:
-        cameras = {}
+    # Mac: leave this reference code in here for a potential splitting out of the recording functionality. 
+    # def get_cameras(self) -> dict[Camera]:
+    #     cameras = {}
 
-        def add_preconfigured_cam(params):
-            # try:
-            port = params["port"]
-            logger.info(f"Attempting to add pre-configured camera at port {port}")
+    #     def add_preconfigured_cam(params):
+    #         # try:
+    #         port = params["port"]
+    #         logger.info(f"Attempting to add pre-configured camera at port {port}")
 
-            if params["ignore"]:
-                logger.info(f"Ignoring camera at port {port}")
-                pass  # don't load it in
-            else:
-                if "verified_resolutions" in params.keys():
-                    verified_resolutions = params["verified_resolutions"]
-                    cameras[port] = Camera(port, verified_resolutions)
-                else:
-                    cameras[port] = Camera(port)
+    #         if params["ignore"]:
+    #             logger.info(f"Ignoring camera at port {port}")
+    #             pass  # don't load it in
+    #         else:
+    #             if "verified_resolutions" in params.keys():
+    #                 verified_resolutions = params["verified_resolutions"]
+    #                 cameras[port] = Camera(port, verified_resolutions)
+    #             else:
+    #                 cameras[port] = Camera(port)
 
-                camera = cameras[port]  # just for ease of reference
-                camera.rotation_count = params["rotation_count"]
-                camera.exposure = params["exposure"]
+    #             camera = cameras[port]  # just for ease of reference
+    #             camera.rotation_count = params["rotation_count"]
+    #             camera.exposure = params["exposure"]
 
-                if "error" in params.keys():  # then intrinsic params available
-                    # if calibration done, then populate those as well
-                    logger.info(
-                        f"Adding in preconfigured intrinsic params at port {port}"
-                    )
-                    logger.info(f"Camera RMSE error for port {port}: {params['error']}")
-                    camera.error = params["error"]
-                    camera.matrix = np.array(params["matrix"]).astype(float)
-                    camera.distortions = np.array(params["distortions"]).astype(float)
-                    camera.grid_count = params["grid_count"]
+    #             if "error" in params.keys():  # then intrinsic params available
+    #                 # if calibration done, then populate those as well
+    #                 logger.info(
+    #                     f"Adding in preconfigured intrinsic params at port {port}"
+    #                 )
+    #                 logger.info(f"Camera RMSE error for port {port}: {params['error']}")
+    #                 camera.error = params["error"]
+    #                 camera.matrix = np.array(params["matrix"]).astype(float)
+    #                 camera.distortions = np.array(params["distortions"]).astype(float)
+    #                 camera.grid_count = params["grid_count"]
 
-                if "rotation" in params.keys():  # then extrinsic params available
-                    logger.info(
-                        f"Adding in preconfigured extrinsic params at port {port}"
-                    )
-                    camera.rotation = cv2.Rodrigues(np.array(params["rotation"]))[0]
-                    camera.translation = np.array(params["translation"])
+    #             if "rotation" in params.keys():  # then extrinsic params available
+    #                 logger.info(
+    #                     f"Adding in preconfigured extrinsic params at port {port}"
+    #                 )
+    #                 camera.rotation = cv2.Rodrigues(np.array(params["rotation"]))[0]
+    #                 camera.translation = np.array(params["translation"])
 
-        with ThreadPoolExecutor() as executor:
-            for key, params in self.dict.items():
-                if key.startswith("cam"):
-                    logger.info(f"Beginning to load {key} with params {params}")
-                    executor.submit(add_preconfigured_cam, params)
-        return cameras
+    #     with ThreadPoolExecutor() as executor:
+    #         for key, params in self.dict.items():
+    #             if key.startswith("cam"):
+    #                 logger.info(f"Beginning to load {key} with params {params}")
+    #                 executor.submit(add_preconfigured_cam, params)
+    #     return cameras
 
     def save_point_estimates(self, point_estimates: PointEstimates):
         logger.info("Saving point estimates to toml...")

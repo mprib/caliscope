@@ -2,12 +2,10 @@
 import pyxy3d.logger
 from pathlib import Path
 
-
-from PySide6.QtWidgets import QMainWindow, QFileDialog
-from threading import Thread
 import sys
 from PySide6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QMainWindow,
     QWidget,
     QTabWidget,
@@ -18,18 +16,9 @@ import toml
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__
-from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.gui.log_widget import LogWidget
-from pyxy3d.configurator import Configurator
 from pyxy3d.gui.charuco_widget import CharucoWidget
-from pyxy3d.gui.live_camera_config.intrinsic_calibration_widget import (
-    IntrinsicCalibrationWidget,
-)
-from pyxy3d.gui.recording_widget import RecordingWidget
-from pyxy3d.gui.post_processing_widget import PostProcessingWidget
-from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
 from pyxy3d.gui.prerecorded_intrinsic_calibration.multiplayback_widget import MultiIntrinsicPlaybackWidget
-from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)

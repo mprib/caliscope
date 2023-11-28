@@ -89,7 +89,7 @@ class Controller(QObject):
             stream.tracker = self.charuco_tracker
             # stream.set_tracking_on(True)
 
-    def process_extrinsic_streams(self):
+    def process_extrinsic_streams(self, fps_target = None):
 
         
         self.sync_stream_manager = SynchronizedStreamManager(
@@ -97,7 +97,7 @@ class Controller(QObject):
             all_camera_data=self.all_camera_data,
             tracker=self.charuco_tracker,
         )
-        self.sync_stream_manager.process_streams(fps_target=6)
+        self.sync_stream_manager.process_streams(fps_target=fps_target)
 
     def load_intrinsic_streams(self):
         for port, camera_data in self.all_camera_data.items():
@@ -139,8 +139,13 @@ class Controller(QObject):
         self.IndexUpdate.emit(port, index)
 
     def load_camera_array(self):
-
+        """
+        Loads self.camera_array by first populating self.all_camera_data
+        """
+        # load all previously configured data if it is there
         self.all_camera_data = self.config.get_configured_camera_data()
+        
+        # double check that no new camera associated files have been placed in the intrinsic calibration folder
         all_ports = self.config.get_all_source_camera_ports()
         for port in all_ports:
             if port not in self.all_camera_data:
@@ -259,7 +264,7 @@ class Controller(QObject):
         try to encapsulate any further
         """
         self.extrinsic_calibration_xy = Path(
-            self.path, "calibration", "extrinsic", "xy.csv"
+            self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
         )
 
         stereocalibrator = StereoCalibrator(
@@ -286,6 +291,7 @@ class Controller(QObject):
         self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
         self.capture_volume.optimize()
 
+        # saves both point estimates and camera array
         self.config.save_capture_volume(self.capture_volume)
 
         self.ExtrinsicCalibrationComplete.emit()

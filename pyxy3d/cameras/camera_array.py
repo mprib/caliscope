@@ -182,7 +182,7 @@ class CameraArray:
             self.cameras[port].extrinsics_from_vector(cam_vec)
         
     @property
-    def extrinsics_calibrated(self)->bool:
+    def all_extrinsics_calibrated(self)->bool:
        
         # assume extrinsics calibrated and provide otherwise
         full_extrinsics = True 

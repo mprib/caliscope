@@ -4,6 +4,7 @@ from PySide6.QtGui import QIcon, QPixmap, QPainter
 from pathlib import Path
 from PySide6.QtWidgets import (
     QApplication,
+    QSpinBox,
     QMainWindow,
     QCheckBox,
     QWidget,
@@ -98,7 +99,13 @@ class IntrinsicCalibrationWidget(QWidget):
         self.ccw_rotation_btn = QPushButton(QIcon(str(CAM_ROTATE_LEFT_PATH)), "")
         self.ccw_rotation_btn.setMaximumSize(35, 35)
 
-        # self.ccw_rotation_btn.setMaximumSize(35, 35)
+
+        # Create the spinbox
+        self.spin_box_label = QLabel("Undistorted Image Scale")
+        self.scaling_spinBox = QSpinBox(self)
+        self.scaling_spinBox.setRange(50, 150)
+        self.scaling_spinBox.setValue(100)
+        self.scaling_spinBox.setSingleStep(5)
 
         self.is_playing = False
 
@@ -120,16 +127,23 @@ class IntrinsicCalibrationWidget(QWidget):
         self.right_panel.addLayout(self.rotate_span)
 
         self.play_span = QHBoxLayout()
-        self.play_span.addWidget(self.play_button, stretch=1)
-        self.play_span.addWidget(self.slider, stretch=4)
+        self.play_span.addWidget(self.play_button)
+        self.play_button.setMaximumWidth(35)
+        self.play_span.addWidget(self.slider)
         self.right_panel.addLayout(self.play_span)
-        # self.right_panel.addWidget(self.play_button)
-        # self.right_panel.addWidget(self.slider)
-        self.right_panel.addWidget(self.add_grid_btn)
-        self.right_panel.addWidget(self.calibrate_btn)
-        self.right_panel.addWidget(self.clear_calibration_data_btn)
-        self.right_panel.addWidget(self.frame_index_label)
-        self.right_panel.addWidget(self.toggle_distortion)
+        
+        self.calibration_control_span = QHBoxLayout()
+        self.calibration_control_span.addWidget(self.add_grid_btn)
+        self.calibration_control_span.addWidget(self.calibrate_btn)
+        self.calibration_control_span.addWidget(self.clear_calibration_data_btn)
+        self.right_panel.addLayout(self.calibration_control_span)
+
+        self.distortion_control_span = QHBoxLayout()
+        self.distortion_control_span.addWidget(self.frame_index_label)
+        self.distortion_control_span.addWidget(self.toggle_distortion)
+        self.distortion_control_span.addWidget(self.scaling_spinBox)
+        self.distortion_control_span.addWidget(self.spin_box_label)
+        self.right_panel.addLayout(self.distortion_control_span)
         self.layout.addLayout(self.right_panel)
 
     def connect_widgets(self):
@@ -142,7 +156,8 @@ class IntrinsicCalibrationWidget(QWidget):
         self.toggle_distortion.stateChanged.connect(self.toggle_distortion_changed)
         self.ccw_rotation_btn.clicked.connect(self.rotate_ccw)
         self.cw_rotation_btn.clicked.connect(self.rotate_cw)
-        
+       
+        self.scaling_spinBox.valueChanged.connect(self.on_scale_change)
         # self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
         self.controller.IntrinsicImageUpdate.connect(self.update_image)
         self.controller.IndexUpdate.connect(self.update_index)
@@ -204,6 +219,15 @@ class IntrinsicCalibrationWidget(QWidget):
 
     def add_grid(self):
         self.controller.add_calibration_grid(self.port, self.index)
+        self.controller.stream_jump_to(self.port, self.index)
+
+    def on_scale_change(self, value):
+        """
+        Way too much starting to happen here, but there we are...
+        """
+        new_scale = value/100
+        logger.info(f"Changing frame_emitter scale factor to {new_scale}")
+        self.controller.frame_emitters[self.port].set_scale_factor(new_scale) 
         self.controller.stream_jump_to(self.port, self.index)
 
     def calibrate(self):

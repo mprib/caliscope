@@ -26,6 +26,10 @@ class PlaybackFrameEmitter(QThread):
         super(PlaybackFrameEmitter, self).__init__()
         self.stream = recorded_stream
         self.port = self.stream.port
+        
+        # Apply a safety margin to the scaling factors (e.g., 5%)
+        # used only when applying the undistortion
+        self.scaling_factor = 1
 
         self.frame_packet_q = Queue()
         self.stream.subscribe(self.frame_packet_q)
@@ -87,17 +91,25 @@ class PlaybackFrameEmitter(QThread):
     def stop(self):
         self.keep_collecting = False
         self.quit()
+        
+    def set_scale_factor(self, scaling_factor):
+        self.scaling_factor = scaling_factor
 
-    def update_distortion_params(self, undistort, matrix, distortions):
+        if hasattr(self, "matrix") and hasattr(self, "distortions"):
+            self.update_distortion_params(self.undistort,self.matrix, self.distortions)
+
+    def update_distortion_params(self, undistort=None, matrix=None, distortions=None):
         if matrix is None:
             logger.info(f"No camera matrix calculated yet at port {self.port}")
         else:
             logger.info(
                 f"Updating camera matrix and distortion parameters for frame emitter at port {self.port}"
             )
+            
             self.undistort = undistort
             self.matrix = matrix
             self.distortions = distortions
+
             h, w = self.stream.size
             # h, w = original_image_size
             initial_new_matrix, valid_roi = cv2.getOptimalNewCameraMatrix(
@@ -133,8 +145,6 @@ class PlaybackFrameEmitter(QThread):
             scale_x = (max_x - min_x) / w
             scale_y = (max_y - min_y) / h
 
-            # Apply a safety margin to the scaling factors (e.g., 5%)
-            self.scaling_factor = 0.95
             scale_x *= self.scaling_factor
             scale_y *= self.scaling_factor
 

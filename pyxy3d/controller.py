@@ -1,4 +1,4 @@
-from PySide6.QtCore import QObject, Signal, Slot
+from PySide6.QtCore import QObject, Signal, Slot, QThread
 
 from pathlib import Path
 
@@ -47,6 +47,7 @@ class Controller(QObject):
 
         # streams will be used to play back recorded video with tracked markers to select frames
         self.intrinsic_streams = {}
+        self.all_camera_data = {}
         self.frame_emitters = {}
         self.intrinsic_calibrators = {}
         self.charuco = self.config.get_charuco()
@@ -263,35 +264,39 @@ class Controller(QObject):
         here, but they are all necessary steps of the process so I didn't want to
         try to encapsulate any further
         """
-        self.extrinsic_calibration_xy = Path(
-            self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
-        )
+        def worker():
+            self.extrinsic_calibration_xy = Path(
+                self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
+            )
 
-        stereocalibrator = StereoCalibrator(
-            self.config.config_toml_path, self.extrinsic_calibration_xy
-        )
-        stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+            stereocalibrator = StereoCalibrator(
+                self.config.config_toml_path, self.extrinsic_calibration_xy
+            )
+            stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
-        self.camera_array: CameraArray = CameraArrayInitializer(
-            self.config.config_toml_path
-        ).get_best_camera_array()
+            self.camera_array: CameraArray = CameraArrayInitializer(
+                self.config.config_toml_path
+            ).get_best_camera_array()
 
-        self.point_estimates: PointEstimates = get_point_estimates(
-            self.camera_array, self.extrinsic_calibration_xy
-        )
+            self.point_estimates: PointEstimates = get_point_estimates(
+                self.camera_array, self.extrinsic_calibration_xy
+            )
 
-        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
-        self.capture_volume.optimize()
+            self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
+            self.capture_volume.optimize()
 
-        self.quality_controller = QualityController(self.capture_volume, self.charuco)
+            self.quality_controller = QualityController(self.capture_volume, self.charuco)
 
-        logger.info(
-            f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model"
-        )
-        self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
-        self.capture_volume.optimize()
+            logger.info(
+                f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model"
+            )
+            self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
+            self.capture_volume.optimize()
 
-        # saves both point estimates and camera array
-        self.config.save_capture_volume(self.capture_volume)
+            # saves both point estimates and camera array
+            self.config.save_capture_volume(self.capture_volume)
 
-        self.ExtrinsicCalibrationComplete.emit()
+        self.extrinsicCalibrationThread = QThread()
+        self.extrinsicCalibrationThread.run = worker
+        self.extrinsicCalibrationThread.finished.connect(self.ExtrinsicCalibrationComplete.emit)
+        self.extrinsicCalibrationThread.start()

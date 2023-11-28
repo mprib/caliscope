@@ -16,9 +16,6 @@ app = QApplication(sys.argv)
 original_workspace_dir = Path(
     __root__, "tests", "sessions", "prerecorded_calibration"
 )
-# workspace_dir = Path(
-#     __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
-# )
 
 # copy_contents(original_workspace_dir, workspace_dir)
 workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")

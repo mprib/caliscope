@@ -43,11 +43,7 @@ class RecordedStream(Stream):
         self.rotation_count = rotation_count
         self.break_on_last = break_on_last  # stop while loop if end reached. Preferred behavior for automated file processing, not interactive frame selection
 
-        if tracker is not None:
-            self.tracker = tracker
-            self.track_points = True
-        else:
-            self.track_points = False
+        self.tracker = tracker
 
         video_path = str(Path(self.directory, f"port_{self.port}.mp4"))
         self.capture = cv2.VideoCapture(video_path)
@@ -209,6 +205,7 @@ class RecordedStream(Stream):
 
             if not success:
                 break
+
 
             if self.tracker is not None:
                 self.point_data = self.tracker.get_points(

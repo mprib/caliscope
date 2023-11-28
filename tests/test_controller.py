@@ -44,7 +44,9 @@ def test_controller_load_camera_and_stream():
     controller.play_intrinsic_stream(0)
     sleep(.1)
     controller.pause_intrinsic_stream(0)
+    sleep(.1)
     controller.stream_jump_to(0,10)
+    sleep(.1)
     controller.end_stream(0)
     app.quit()
 

@@ -1,4 +1,3 @@
-
 import pyxy3d.logger
 
 import pandas as pd
@@ -6,16 +5,11 @@ from pyxy3d import __root__
 import shutil
 from pathlib import Path
 import time
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.configurator import Configurator
 from pyxy3d.helper import copy_contents
-from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
+
 logger = pyxy3d.logger.get(__name__)
-
-# TEST_SESSIONS = ["mediapipe_calibration"]
-
 
 def test_synchronizer():
     original_session_path = Path(__root__, "tests", "sessions", "4_cam_recording")
@@ -41,27 +35,31 @@ def test_synchronizer():
     recording_directory = Path(session_path, "recording_1")
 
     camera_array = config.get_camera_array()
-    stream_manager = SynchronizedStreamManager(recording_dir=recording_directory, all_camera_data=camera_array.cameras) 
+    stream_manager = SynchronizedStreamManager(
+        recording_dir=recording_directory, all_camera_data=camera_array.cameras
+    )
 
     logger.info("Creating Synchronizer")
     stream_manager.process_streams(fps_target=100)
-    target_frame_time_path = Path(recording_directory,"processed", "frame_time_history.csv")
-    
+    target_frame_time_path = Path(
+        recording_directory, "processed", "frame_time_history.csv"
+    )
+
     while not target_frame_time_path.exists():
         # recorder hasn't finished yet
         time.sleep(1)
-        
 
     df = pd.read_csv(target_frame_time_path)
 
     # Group by sync_index and calculate the min and max frame_time for each group
-    group = df.groupby('sync_index')['frame_time'].agg(['min', 'max'])
+    group = df.groupby("sync_index")["frame_time"].agg(["min", "max"])
     logger.info(group)
 
     # Iterate over consecutive pairs of groups
     for i in range(len(group) - 1):
         # Check that the max frame_time of the current group is less than the min frame_time of the next group
-        assert group['max'].iloc[i] < group['min'].iloc[i+1]
+        assert group["max"].iloc[i] < group["min"].iloc[i + 1]
+
 
 if __name__ == "__main__":
     test_synchronizer()

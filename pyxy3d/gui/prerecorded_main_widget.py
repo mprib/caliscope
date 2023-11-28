@@ -18,6 +18,7 @@ from PySide6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.gui.charuco_widget import CharucoWidget
+from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from pyxy3d.gui.workspace_widget import WorkspaceSummaryWidget
 from pyxy3d.gui.prerecorded_intrinsic_calibration.multiplayback_widget import MultiIntrinsicPlaybackWidget
 from pyxy3d.controller import Controller
@@ -78,7 +79,7 @@ class PreRecordedMainWindow(QMainWindow):
         self.central_tab.addTab(self.charuco_widget,"Charuco")    
         self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
         self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras") 
-        self.capture_volume_widget = QWidget() # place holder 
+        self.capture_volume_widget = CaptureVolumeWidget(self.controller)
         self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
 
     def build_docked_logger(self):
@@ -125,6 +126,7 @@ class PreRecordedMainWindow(QMainWindow):
         self.controller = Controller(Path(path_to_workspace))
         self.controller.load_camera_array()
         self.controller.load_intrinsic_streams()
+        self.controller.load_estimated_capture_volume()
         # must have controller in
         self.build_central_tabs()
 

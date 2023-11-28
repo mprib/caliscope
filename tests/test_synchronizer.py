@@ -11,6 +11,7 @@ from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.configurator import Configurator
 from pyxy3d.helper import copy_contents
 from pyxy3d.recording.video_recorder import VideoRecorder
+from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
 logger = pyxy3d.logger.get(__name__)
 
 # TEST_SESSIONS = ["mediapipe_calibration"]
@@ -39,20 +40,12 @@ def test_synchronizer():
     logger.info("Creating RecordedStreamPool")
     recording_directory = Path(session_path, "recording_1")
 
-    stream_pool = RecordedStreamPool(
-        recording_directory,
-        config=config,
-        fps_target=100,
-    )
-    logger.info("Creating Synchronizer")
-    syncr = Synchronizer(stream_pool.streams, fps_target=100)
+    camera_array = config.get_camera_array()
+    stream_manager = SynchronizedStreamManager(recording_dir=recording_directory, all_camera_data=camera_array.cameras) 
 
-    recorder = VideoRecorder(syncr, suffix="test")
-    
-    test_recordings = Path(session_path, "test_recording_1")
-    recorder.start_recording(destination_folder=test_recordings, include_video=True,show_points=False, store_point_history=False)
-    stream_pool.play_videos()
-    target_frame_time_path = Path(test_recordings, "frame_time_history.csv")
+    logger.info("Creating Synchronizer")
+    stream_manager.process_streams(fps_target=100)
+    target_frame_time_path = Path(recording_directory,"processed", "frame_time_history.csv")
     
     while not target_frame_time_path.exists():
         # recorder hasn't finished yet

@@ -225,7 +225,7 @@ class RecordedStream(Stream):
                 draw_instructions=draw_instructions,
             )
 
-            logger.info(
+            logger.debug(
                 f"Placing frame on q {self.port} for frame time: {self.frame_time} and frame index: {self.frame_index}"
             )
 

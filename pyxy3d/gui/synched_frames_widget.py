@@ -25,7 +25,7 @@ class SynchedFramesWidget(QWidget):
         super(SynchedFramesWidget, self).__init__()
         self.controller = controller
         self.synchronizer: Synchronizer = (
-            self.controller.sync_stream_manager.synchronizer
+            self.controller.extrinsic_stream_manager.synchronizer
         )
         self.ports = self.synchronizer.ports
 
@@ -35,7 +35,7 @@ class SynchedFramesWidget(QWidget):
 
         # create tools to build and emit the displayed frame
         self.frame_dictionary_emitter = FrameDictionaryEmitter(
-            self.synchronizer, self.controller.all_camera_data
+            self.synchronizer, self.controller.camera_array.cameras
         )
         self.frame_dictionary_emitter.start()
 

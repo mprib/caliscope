@@ -125,7 +125,7 @@ class PreRecordedMainWindow(QMainWindow):
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
         self.controller = Controller(Path(path_to_workspace))
         self.controller.load_camera_array()
-        self.controller.load_intrinsic_streams()
+        self.controller.load_intrinsic_stream_manager()
         # self.controller.load_estimated_capture_volume()
         # must have controller in
         self.build_central_tabs()

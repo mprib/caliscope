@@ -20,12 +20,13 @@ workspace_dir = Path(__root__, "tests", "sessions_copy_delete", "4_cam_recording
 copy_contents(original_workspace_dir, workspace_dir)
 
 controller = Controller(workspace_dir)
+controller.load_camera_array()
+controller.load_extrinsic_stream_manager()
 controller.process_extrinsic_streams()
-
 window = SynchedFramesWidget(controller)
+window.show()
 window.resize(800, 600)
 logger.info("About to show window")
-window.show()
 sys.exit(app.exec())
 
 

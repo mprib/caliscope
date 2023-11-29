@@ -28,9 +28,9 @@ class MultiIntrinsicPlaybackWidget(QWidget):
         # self.resize(1200, 800)
 
     def loadTabs(self):
-        for port in self.controller.intrinsic_streams:
-            tab = IntrinsicCalibrationWidget(controller=self.controller, port=port)
-            self.tabWidget.addTab(tab, f"Cam {port}")
+        for camera in self.controller.camera_array.cameras.values():
+            tab = IntrinsicCalibrationWidget(controller=self.controller, port=camera.port)
+            self.tabWidget.addTab(tab, f"Cam {camera.port}")
 
 
 if __name__ == "__main__":
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
     controller = Controller(workspace_dir)
     controller.load_camera_array()
-    controller.load_intrinsic_streams()
+    controller.load_intrinsic_stream_manager()
 
     mainWin = MultiIntrinsicPlaybackWidget(controller)
     mainWin.show()

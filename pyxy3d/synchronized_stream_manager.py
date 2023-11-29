@@ -41,10 +41,11 @@ class SynchronizedStreamManager:
         self.output_dir = Path(self.recording_dir, self.subfolder_name)
 
         # To be filled when loading stream tools
-        self.streams = {}
         self.load_stream_tools()
 
     def load_stream_tools(self):
+        self.streams = {}
+
         for camera in self.all_camera_data.values():
             stream = RecordedStream(
                 directory=self.recording_dir,
@@ -77,3 +78,5 @@ class SynchronizedStreamManager:
                 stream.set_fps_target(fps_target)
 
             stream.play_video()
+            
+            

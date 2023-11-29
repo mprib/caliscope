@@ -6,6 +6,7 @@ from PySide6.QtGui import QPixmap
 from time import sleep
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.recording.recorded_stream import RecordedStream
+from pyxy3d.intrinsic_stream_manager import IntrinsicStreamManager
 from pyxy3d.configurator import Configurator
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.interface import Tracker
@@ -24,10 +25,12 @@ from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
 from collections import OrderedDict
 
 import pyxy3d.logger
+
 logger = pyxy3d.logger.get(__name__)
 
 
 FILTERED_FRACTION = 0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
+
 
 class Controller(QObject):
     """
@@ -40,132 +43,87 @@ class Controller(QObject):
     ExtrinsicImageUpdate = Signal(dict)
     ExtrinsicCalibrationComplete = Signal()
     extrinsic_2D_complete = Signal()
-    
+
     def __init__(self, workspace_dir: Path):
         super().__init__()
         self.workspace = workspace_dir
         self.config = Configurator(self.workspace)
 
         # streams will be used to play back recorded video with tracked markers to select frames
-        self.intrinsic_streams = {}
-        self.camera_array = CameraArray({}) # empty camera array at init
-        self.frame_emitters = {}
-        self.intrinsic_calibrators = {}
+        self.camera_array = CameraArray({})  # empty camera array at init
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
 
-        self.intrinsic_source_directory = Path(
-            self.workspace, "calibration", "intrinsic"
-        )
-        self.intrinsic_source_directory.mkdir(
-            exist_ok=True, parents=True
-        )  # make sure the containing directory exists
+        self.intrinsic_dir = Path(self.workspace, "calibration", "intrinsic")
+        # make sure the containing directory exists
+        self.intrinsic_dir.mkdir(exist_ok=True, parents=True)
 
-        self.extrinsic_source_directory = Path(
-            self.workspace, "calibration", "extrinsic"
-        )
-
-        self.extrinsic_source_directory.mkdir(
-            exist_ok=True, parents=True
-        )  # make sure the containing directory exists
+        self.extrinsic_dir = Path(self.workspace, "calibration", "extrinsic")
+        # make sure the containing directory exists
+        self.extrinsic_dir.mkdir(exist_ok=True, parents=True)
 
         self.capture_volume = None
-        
-        
-    def get_intrinsic_stream_frame_count(self, port):
-        start_frame_index = self.intrinsic_streams[port].start_frame_index
-        last_frame_index = self.intrinsic_streams[port].last_frame_index
-
-        return last_frame_index - start_frame_index + 1
 
     def get_charuco_params(self) -> dict:
         return self.config.dict["charuco"]
 
     def update_charuco(self, charuco: Charuco):
         self.charuco = charuco
-        self.charuco_tracker = CharucoTracker(self.charuco)
         self.config.save_charuco(self.charuco)
+        self.charuco_tracker = CharucoTracker(self.charuco)
 
         for port, stream in self.intrinsic_streams.items():
             logger.info(f"Updating tracker for stream at port {port}")
             stream.tracker = self.charuco_tracker
             # stream.set_tracking_on(True)
 
-    def process_extrinsic_streams(self, fps_target = None):
+    def load_extrinsic_stream_manager(self):
+        logger.info(f"Loading manager for streams saved to {self.extrinsic_dir}")
+        self.extrinsic_stream_manager = SynchronizedStreamManager(
+            recording_dir=self.extrinsic_dir,
+            all_camera_data=self.camera_array.cameras,
+            tracker=self.charuco_tracker,
+        )
 
+    def process_extrinsic_streams(self, fps_target=None):
         def worker():
-            self.sync_stream_manager = SynchronizedStreamManager(
-                recording_dir=self.extrinsic_source_directory,
-                all_camera_data=self.camera_array.cameras,
-                tracker=self.charuco_tracker,
-            )
-            self.sync_stream_manager.process_streams(fps_target=fps_target)
-            
-            output_path = Path(self.extrinsic_source_directory,"CHARUCO", "xy_CHARUCO.csv")
+            self.extrinsic_stream_manager.process_streams(fps_target=fps_target)
+
+            output_path = Path(self.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv")
             while not output_path.exists():
-                sleep(.5)
-                logger.info(f"Waiting for 2D tracked points to populate at {output_path}")
+                sleep(0.5)
+                logger.info(
+                    f"Waiting for 2D tracked points to populate at {output_path}"
+                )
 
         self.extrinsic_process_thread = QThread()
         self.extrinsic_process_thread.run = worker
         self.extrinsic_process_thread.finished.connect(self.extrinsic_2D_complete.emit)
         self.extrinsic_process_thread.start()
+
         
-
-    def load_intrinsic_streams(self):
-        for port, camera_data in self.camera_array.cameras.items():
-            # data storage convention defined here
-            source_file = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
-            logger.info(f"Loading stream associated with source file at {source_file}")
-
-            rotation_count = camera_data.rotation_count
-
-            stream = RecordedStream(
-                directory=self.intrinsic_source_directory,
-                port=port,
-                rotation_count=rotation_count,
-                tracker=self.charuco_tracker,
-                break_on_last=False,
-            )
-
-            self.frame_emitters[port] = PlaybackFrameEmitter(stream)
-            self.frame_emitters[port].start()
-            self.frame_emitters[port].ImageBroadcast.connect(
-                self.broadcast_frame_update
-            )
-            self.frame_emitters[port].FrameIndexBroadcast.connect(
-                self.broadcast_index_update
-            )
-
-            self.intrinsic_streams[port] = stream
-            self.intrinsic_calibrators[port] = IntrinsicCalibrator(camera_data, stream)
-            logger.info(f"Loading recorded stream stored in {source_file}")
-
-    @Slot(int, QPixmap)
-    def broadcast_frame_update(self, port, pixmap):
-        logger.info(f"Broadcast frame update from port {port}")
-        self.IntrinsicImageUpdate.emit(port, pixmap)
-
-    @Slot(int, int)
-    def broadcast_index_update(self, port, index):
-        logger.info(f"Broadcast index update from port {port}")
-        self.IndexUpdate.emit(port, index)
+    def load_intrinsic_stream_manager(self):
+        self.intrinsic_stream_manager = IntrinsicStreamManager(
+            recording_dir=self.intrinsic_dir,
+            cameras=self.camera_array.cameras,
+            tracker=self.charuco_tracker,
+        )
 
     def load_camera_array(self):
         """
         Loads self.camera_array by first populating self.all_camera_data
         """
         # load all previously configured data if it is there
-        all_camera_data = self.config.get_configured_camera_data()
-        
+        cameras = self.config.get_configured_camera_data()
+
         # double check that no new camera associated files have been placed in the intrinsic calibration folder
         all_ports = self.config.get_all_source_camera_ports()
         for port in all_ports:
-            if port not in all_camera_data:
-                self.add_camera_from_source(port)
-        self.camera_array = CameraArray(all_camera_data)
-        
-    def add_camera_from_source(self, port: int):
+            if port not in cameras:
+                self._add_camera_from_source(port)
+        self.camera_array = CameraArray(cameras)
+
+    def _add_camera_from_source(self, port: int):
         """
         When adding source video to calibrate a camera, the function returns the camera index
         File will be transferred to workspace/calibration/intrinsic/port_{index}.mp4
@@ -175,64 +133,61 @@ class Controller(QObject):
         new_cam_data = self.config.get_camera_from_source(port)
         self.camera_array.cameras[port] = new_cam_data
         self.config.save_camera_array(self.camera_array)
+    
 
-    def set_current_tracker(self, tracker: Tracker = None):
-        self.tracker = tracker
+    def get_intrinsic_stream_frame_count(self, port):
+        return self.intrinsic_stream_manager.get_frame_count(port)
 
     def play_intrinsic_stream(self, port):
         logger.info(f"Begin playing stream at port {port}")
-        self.intrinsic_streams[port].play_video()
+        self.intrinsic_stream_manager.play_stream(port)
 
     def pause_intrinsic_stream(self, port):
         logger.info(f"Pausing stream at port {port}")
-        self.intrinsic_streams[port].pause()
+        self.intrinsic_stream_manager.pause_stream(port)
 
     def unpause_intrinsic_stream(self, port):
         logger.info(f"Unpausing stream at port {port}")
-        self.intrinsic_streams[port].unpause()
+        self.intrinsic_stream_manager.unpause_stream(port)
 
     def stream_jump_to(self, port, frame_index):
         logger.info(f"Jump to frame {frame_index} at port {port}")
-        self.intrinsic_streams[port].jump_to(frame_index)
+        self.intrinsic_stream_manager.stream_jump_to(port, frame_index)
 
     def end_stream(self, port):
-        self.intrinsic_streams[port].stop_event.set()
-        self.unpause_intrinsic_stream(port)
+        self.intrinsic_stream_manager.end_stream(port)
 
     def add_calibration_grid(self, port: int, frame_index: int):
-        intr_calib = self.intrinsic_calibrators[port]
-        intr_calib.add_calibration_frame_indices(frame_index)
-        new_ids = intr_calib.all_ids[frame_index]
-        new_img_loc = intr_calib.all_img_loc[frame_index]
-        self.frame_emitters[port].add_to_grid_history(new_ids, new_img_loc)
+        self.intrinsic_stream_manager.add_calibration_grid(port, frame_index)
 
     def clear_calibration_data(self, port: int):
-        intr_calib = self.intrinsic_calibrators[port]
-        intr_calib.clear_calibration_data()
-        self.frame_emitters[port].initialize_grid_capture_history()
+        self.intrinsic_stream_manager.clear_calibration_data(port)
+
+    def scale_intrinsic_stream(self, port, new_scale):
+        self.intrinsic_stream_manager.frame_emitters[port].set_scale_factor(new_scale)
 
     def calibrate_camera(self, port):
-        logger.info(f"Calibrating camera at port {port}")
-        self.intrinsic_calibrators[port].calibrate_camera()
-        logger.info(f"{self.camera_array.cameras[port]}")
-        self.push_camera_data(port)
-        camera_data = self.camera_array.cameras[port]
-        self.config.save_camera(camera_data)
+        def worker():
+            logger.info(f"Calibrating camera at port {port}")
+            self.intrinsic_stream_manager.calibrate_camera(port)
+            self.push_camera_data(port)
+            camera_data = self.camera_array.cameras[port]
+            self.config.save_camera(camera_data)
+        
+        self.calibrateCameraThread = QThread()
+        self.calibrateCameraThread.run = worker
+        self.calibrateCameraThread.start()
 
     def push_camera_data(self, port):
         camera_display_data = self.camera_array.cameras[port].get_display_data()
         self.CameraDataUpdate.emit(port, camera_display_data)
 
     def apply_distortion(self, port, undistort: bool):
-        camera_data = self.camera_array.cameras[port]
-        emitter = self.frame_emitters[port]
-        emitter.update_distortion_params(
-            undistort, camera_data.matrix, camera_data.distortions
-        )
+        camera = self.camera_array.cameras[port]
+        self.intrinsic_stream_manager.apply_distortion(camera, undistort)
 
     def rotate_camera(self, port, change):
-        camera_data = self.all_camera_data[port]
-
+        camera_data = self.camera_array.cameras[port]
         count = camera_data.rotation_count
         count += change
         if count in [-4, 4]:
@@ -241,8 +196,7 @@ class Controller(QObject):
         else:
             camera_data.rotation_count = count
 
-        stream = self.intrinsic_streams[port]
-        stream.rotation_count = camera_data.rotation_count
+        self.intrinsic_stream_manager.set_stream_rotation(port,camera_data.rotation_count)
         self.push_camera_data(port)
         self.config.save_camera(camera_data)
 
@@ -264,6 +218,7 @@ class Controller(QObject):
             ]
 
         # QC needed to get the corner distance accuracy within the GUI
+        # Note that the corner distance accuracy calcs need validation...I'm not relying on them now...
         self.quality_controller = QualityController(
             self.capture_volume, charuco=self.charuco
         )
@@ -274,6 +229,7 @@ class Controller(QObject):
         here, but they are all necessary steps of the process so I didn't want to
         try to encapsulate any further
         """
+
         def worker():
             self.extrinsic_calibration_xy = Path(
                 self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
@@ -284,6 +240,7 @@ class Controller(QObject):
             )
             stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
+            # refreshing camera array from config file
             self.camera_array: CameraArray = CameraArrayInitializer(
                 self.config.config_toml_path
             ).get_best_camera_array()
@@ -295,7 +252,9 @@ class Controller(QObject):
             self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
             self.capture_volume.optimize()
 
-            self.quality_controller = QualityController(self.capture_volume, self.charuco)
+            self.quality_controller = QualityController(
+                self.capture_volume, self.charuco
+            )
 
             logger.info(
                 f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model"
@@ -308,5 +267,7 @@ class Controller(QObject):
 
         self.extrinsicCalibrationThread = QThread()
         self.extrinsicCalibrationThread.run = worker
-        self.extrinsicCalibrationThread.finished.connect(self.ExtrinsicCalibrationComplete.emit)
+        self.extrinsicCalibrationThread.finished.connect(
+            self.ExtrinsicCalibrationComplete.emit
+        )
         self.extrinsicCalibrationThread.start()

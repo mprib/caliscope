@@ -79,8 +79,8 @@ class PreRecordedMainWindow(QMainWindow):
         self.central_tab.addTab(self.charuco_widget,"Charuco")    
         self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
         self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras") 
-        self.capture_volume_widget = CaptureVolumeWidget(self.controller)
-        self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
+        # self.capture_volume_widget = CaptureVolumeWidget(self.controller)
+        # self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
 
     def build_docked_logger(self):
         # create log window which is fixed below main window
@@ -126,7 +126,7 @@ class PreRecordedMainWindow(QMainWindow):
         self.controller = Controller(Path(path_to_workspace))
         self.controller.load_camera_array()
         self.controller.load_intrinsic_streams()
-        self.controller.load_estimated_capture_volume()
+        # self.controller.load_estimated_capture_volume()
         # must have controller in
         self.build_central_tabs()
 

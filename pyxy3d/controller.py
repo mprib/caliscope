@@ -48,7 +48,7 @@ class Controller(QObject):
 
         # streams will be used to play back recorded video with tracked markers to select frames
         self.intrinsic_streams = {}
-        self.all_camera_data = {}
+        self.camera_array = CameraArray({}) # empty camera array at init
         self.frame_emitters = {}
         self.intrinsic_calibrators = {}
         self.charuco = self.config.get_charuco()
@@ -96,7 +96,7 @@ class Controller(QObject):
         def worker():
             self.sync_stream_manager = SynchronizedStreamManager(
                 recording_dir=self.extrinsic_source_directory,
-                all_camera_data=self.all_camera_data,
+                all_camera_data=self.camera_array.cameras,
                 tracker=self.charuco_tracker,
             )
             self.sync_stream_manager.process_streams(fps_target=fps_target)
@@ -113,7 +113,7 @@ class Controller(QObject):
         
 
     def load_intrinsic_streams(self):
-        for port, camera_data in self.all_camera_data.items():
+        for port, camera_data in self.camera_array.cameras.items():
             # data storage convention defined here
             source_file = Path(self.intrinsic_source_directory, f"port_{port}.mp4")
             logger.info(f"Loading stream associated with source file at {source_file}")
@@ -156,14 +156,14 @@ class Controller(QObject):
         Loads self.camera_array by first populating self.all_camera_data
         """
         # load all previously configured data if it is there
-        self.all_camera_data = self.config.get_configured_camera_data()
+        all_camera_data = self.config.get_configured_camera_data()
         
         # double check that no new camera associated files have been placed in the intrinsic calibration folder
         all_ports = self.config.get_all_source_camera_ports()
         for port in all_ports:
-            if port not in self.all_camera_data:
+            if port not in all_camera_data:
                 self.add_camera_from_source(port)
-        self.camera_array = CameraArray(self.all_camera_data)
+        self.camera_array = CameraArray(all_camera_data)
         
     def add_camera_from_source(self, port: int):
         """
@@ -173,8 +173,8 @@ class Controller(QObject):
         """
         # copy source over to standard workspace structure
         new_cam_data = self.config.get_camera_from_source(port)
-        self.all_camera_data[port] = new_cam_data
-        self.config.save_all_camera_data(self.all_camera_data)
+        self.camera_array.cameras[port] = new_cam_data
+        self.config.save_camera_array(self.camera_array)
 
     def set_current_tracker(self, tracker: Tracker = None):
         self.tracker = tracker
@@ -214,17 +214,17 @@ class Controller(QObject):
     def calibrate_camera(self, port):
         logger.info(f"Calibrating camera at port {port}")
         self.intrinsic_calibrators[port].calibrate_camera()
-        logger.info(f"{self.all_camera_data[port]}")
+        logger.info(f"{self.camera_array.cameras[port]}")
         self.push_camera_data(port)
-        camera_data = self.all_camera_data[port]
+        camera_data = self.camera_array.cameras[port]
         self.config.save_camera(camera_data)
 
     def push_camera_data(self, port):
-        camera_display_data = self.all_camera_data[port].get_display_data()
+        camera_display_data = self.camera_array.cameras[port].get_display_data()
         self.CameraDataUpdate.emit(port, camera_display_data)
 
     def apply_distortion(self, port, undistort: bool):
-        camera_data = self.all_camera_data[port]
+        camera_data = self.camera_array.cameras[port]
         emitter = self.frame_emitters[port]
         emitter.update_distortion_params(
             undistort, camera_data.matrix, camera_data.distortions

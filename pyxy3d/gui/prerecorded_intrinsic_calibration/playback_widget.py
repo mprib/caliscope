@@ -159,8 +159,10 @@ class IntrinsicCalibrationWidget(QWidget):
        
         self.scaling_spinBox.valueChanged.connect(self.on_scale_change)
         # self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
-        self.controller.IntrinsicImageUpdate.connect(self.update_image)
-        self.controller.IndexUpdate.connect(self.update_index)
+        self.controller.intrinsic_stream_manager.frame_emitters[self.port].ImageBroadcast.connect(self.update_image)
+        self.controller.intrinsic_stream_manager.frame_emitters[self.port].FrameIndexBroadcast.connect(self.update_index)
+        # self.controller.IntrinsicImageUpdate.connect(self.update_image)
+        # self.controller.IndexUpdate.connect(self.update_index)
 
         # initialize stream to push first frame to widget then hold
         # must be done after signals and slots connected for effect to take hold
@@ -214,6 +216,7 @@ class IntrinsicCalibrationWidget(QWidget):
                     )  # now paused so only option is play
 
     def update_image(self, port, pixmap):
+        logger.info(f"Running `update_image` in playback widget for port {self.port}")
         if port == self.port:
             self.frame_image.setPixmap(pixmap)
 
@@ -227,7 +230,7 @@ class IntrinsicCalibrationWidget(QWidget):
         """
         new_scale = value/100
         logger.info(f"Changing frame_emitter scale factor to {new_scale}")
-        self.controller.frame_emitters[self.port].set_scale_factor(new_scale) 
+        self.controller.scale_intrinsic_stream(self.port, new_scale) 
         self.controller.stream_jump_to(self.port, self.index)
 
     def calibrate(self):
@@ -291,7 +294,7 @@ if __name__ == "__main__":
     #     Path(workspace_dir,"phone_test.mov")
     # )
 
-    controller.load_intrinsic_streams()
+    controller.load_intrinsic_stream_manager()
     window = IntrinsicCalibrationWidget(controller=controller, port=1)
     window.resize(800, 600)
     logger.info("About to show window")

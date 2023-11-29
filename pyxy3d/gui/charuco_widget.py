@@ -273,7 +273,7 @@ if __name__ == "__main__":
     controller = Controller(workspace_dir)
     charuco_page = CharucoWidget(controller)
 
-    controller.load_intrinsic_streams()
+    controller.load_intrinsic_stream_manager()
     window = CharucoWidget(controller=controller)
     window.resize(800, 600)
     logger.info("About to show window")

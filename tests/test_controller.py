@@ -25,21 +25,21 @@ def test_controller_load_camera_and_stream():
 
     controller = Controller(workspace) 
 
-    controller.add_camera_from_source(0)
-    controller.add_camera_from_source(1)
+    controller._add_camera_from_source(0)
+    controller._add_camera_from_source(1)
 
-    assert(len(controller.all_camera_data) ==2)    
+    assert(len(controller.camera_array.cameras) ==2)    
     # controller will load in streams used for intrinsic calibration
-    controller.load_intrinsic_streams()    
-    assert(len(controller.intrinsic_streams) ==2)    
+    controller.load_intrinsic_stream_manager()    
+    assert(len(controller.intrinsic_stream_manager.streams) ==2)    
     ports = controller.config.get_all_source_camera_ports()
     assert(ports == [0,1,2,3]) # there are 4 mp4 files in the intrinsic folder
 
     for port in ports:
-        if port not in controller.all_camera_data:
-            controller.add_camera_from_source(port)
+        if port not in controller.camera_array.cameras:
+            controller._add_camera_from_source(port)
 
-    assert(list(controller.all_camera_data.keys()) == [0,1,2,3])
+    assert(list(controller.camera_array.cameras.keys()) == [0,1,2,3])
         
     controller.play_intrinsic_stream(0)
     sleep(.1)
@@ -62,7 +62,8 @@ def test_extrinsic_calibration():
     # calibration requires a capture volume object which is composed of both a camera array, 
     # and a set of point estimates
     controller.load_camera_array()
-    
+    controller.load_extrinsic_stream_manager()
+
     # want to make sure that no previously stored data is leaking into this test
     
     for cam in controller.camera_array.cameras.values():
@@ -90,6 +91,6 @@ def test_extrinsic_calibration():
     assert(controller.camera_array.all_extrinsics_calibrated)
 
 if __name__ == "__main__":
-    test_controller_load_camera_and_stream()
-    # test_extrinsic_calibration()
+    # test_controller_load_camera_and_stream()
+    test_extrinsic_calibration()
 # %%

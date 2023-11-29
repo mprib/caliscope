@@ -17,7 +17,7 @@ workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\4_cam_prerecorded_pra
 controller = Controller(workspace_dir)
 controller.load_camera_array()
 controller.process_extrinsic_streams()
-controller.load_intrinsic_streams()
+controller.load_intrinsic_stream_manager()
 
 window = CaptureVolumeWidget(controller)
 

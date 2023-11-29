@@ -109,16 +109,6 @@ class Controller(QObject):
             tracker=self.charuco_tracker,
         )
 
-    # @Slot(int, QPixmap)
-    # def broadcast_frame_update(self, port, pixmap):
-    #     logger.info(f"Broadcast frame update from port {port}")
-    #     self.IntrinsicImageUpdate.emit(port, pixmap)
-
-    # @Slot(int, int)
-    # def broadcast_index_update(self, port, index):
-    #     logger.info(f"Broadcast index update from port {port}")
-    #     self.IndexUpdate.emit(port, index)
-
     def load_camera_array(self):
         """
         Loads self.camera_array by first populating self.all_camera_data
@@ -228,6 +218,7 @@ class Controller(QObject):
             ]
 
         # QC needed to get the corner distance accuracy within the GUI
+        # Note that the corner distance accuracy calcs need validation...I'm not relying on them now...
         self.quality_controller = QualityController(
             self.capture_volume, charuco=self.charuco
         )
@@ -249,6 +240,7 @@ class Controller(QObject):
             )
             stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
+            # refreshing camera array from config file
             self.camera_array: CameraArray = CameraArrayInitializer(
                 self.config.config_toml_path
             ).get_best_camera_array()

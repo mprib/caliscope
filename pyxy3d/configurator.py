@@ -119,12 +119,7 @@ class Configurator:
 
         return ports
 
-    def get_configured_camera_data(self) -> CameraArray:
-        """
-        Load camera array directly from config file. The results of capture volume
-        optimization and origin transformation will be reflected in this array
-        which can then be the basis for future 3d point estimation
-        """
+    def get_configured_camera_data(self) -> dict[CameraData]:
         all_camera_data = {}
         for key, params in self.dict.items():
             if key.startswith("cam"):
@@ -267,15 +262,7 @@ class Configurator:
 
     def save_camera_array(self, camera_array: CameraArray):
         logger.info("Saving camera array....")
-        # for port, camera_data in camera_array.cameras.items():
-        #     camera_data = camera_array.cameras[port]
-        #     self.save_camera(camera_data)
-        self.save_all_camera_data(camera_array.cameras)
-
-    def save_all_camera_data(self, all_camera_data: dict):
-        logger.info("Saving all camera data")
-        for port, camera_data in all_camera_data.items():
-            camera_data = all_camera_data[port]
+        for port, camera_data in camera_array.cameras.items():
             self.save_camera(camera_data)
 
     # Mac: leave this reference code in here for a potential splitting out of the recording functionality. 

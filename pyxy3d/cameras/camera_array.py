@@ -181,41 +181,28 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
         
-    @property
     def all_extrinsics_calibrated(self)->bool:
-       
         # assume extrinsics calibrated and provide otherwise
         full_extrinsics = True 
         for port, cam in self.cameras.items():
             if cam.rotation is None or cam.translation is None:
                 full_extrinsics = False
-
         return full_extrinsics
+   
+    def all_intrinsics_calibrated(self)->bool:
+        # assume true and prove false
+        full_intrinsics = True
+        for port, cam in self.cameras.items():
+            if cam.matrix is None or cam.distortions is None:
+                full_intrinsics = False
+        return full_intrinsics
     
     @property
     def projection_matrices(self) -> Dict: 
-        logger.info(f"Creating camera array projection matrices")
+        logger.info("Creating camera array projection matrices")
         proj_mat = Dict()
         for port, cam in self.cameras.items():
             proj_mat[port] = cam.projection_matrix
         
         return proj_mat
             
-
-class CalibrationStage(Enum):
-    """
-    NOTE: this is not currently implemented. I was planning to set this up
-    in dev_post_process_eligible_check as a way to help manage the flow of the
-    GUI (it would be important to now the status of teh calibration in an easy way)
-    Unfortunately this begins to touch up on how/when the session loads the camera array,
-    and that's something that I'm not sure is fully relevant right now.
-    The camera array is not initialized until it is estimated via bundle adjustment.
-    Prior to that it is only a dictionary of cameras. 
-    
-    Consider removing...
-
-    """
-    NO_INTRINSICS = auto()
-    PARTIAL_INTRINSICS = auto()
-    FULL_INTRINSICS = auto()
-    EXTRINSICS = auto()

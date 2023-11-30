@@ -5,8 +5,9 @@ from time import sleep
 from PySide6.QtWidgets import QApplication
 
 from pyxy3d import __root__
+from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.helper import copy_contents
-from pyxy3d.controller import Controller
+from pyxy3d.controller import Controller, read_video_properties
 import pyxy3d.logger
 
 
@@ -32,14 +33,11 @@ def test_controller_load_camera_and_stream():
     # controller will load in streams used for intrinsic calibration
     controller.load_intrinsic_stream_manager()    
     assert(len(controller.intrinsic_stream_manager.streams) ==2)    
-    ports = controller.config.get_all_source_camera_ports()
-    assert(ports == [0,1,2,3]) # there are 4 mp4 files in the intrinsic folder
 
-    for port in ports:
-        if port not in controller.camera_array.cameras:
-            controller._add_camera_from_source(port)
-
+    # start fresh
+    controller.load_camera_array()
     assert(list(controller.camera_array.cameras.keys()) == [0,1,2,3])
+    controller.load_intrinsic_stream_manager()
         
     controller.play_intrinsic_stream(0)
     sleep(.1)
@@ -70,7 +68,7 @@ def test_extrinsic_calibration():
         cam.rotation = None
         cam.translation = None
 
-    assert(not controller.camera_array.all_extrinsics_calibrated)
+    assert(not controller.camera_array.all_extrinsics_calibrated())
     controller.process_extrinsic_streams(fps_target=100)
 
     xy_path = Path(workspace,"calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv")
@@ -83,14 +81,25 @@ def test_extrinsic_calibration():
     # with the charuco points tracked and saved out, the calibration can now proceed
     controller.estimate_extrinsics()
 
-    while not controller.camera_array.all_extrinsics_calibrated:
+    while not controller.camera_array.all_extrinsics_calibrated():
         sleep(1)
-        logger.info(f"waiting on camera array to finalize calibration...")
+        logger.info("waiting on camera array to finalize calibration...")
 
     logger.info(f"New Camera array is {controller.camera_array}")
-    assert(controller.camera_array.all_extrinsics_calibrated)
+    assert(controller.camera_array.all_extrinsics_calibrated())
+
+def test_video_property_reader():
+
+    test_source = Path(__root__, "tests", "sessions", "prerecorded_calibration","calibration", "intrinsic", "port_1.mp4")
+    logger.info(f"Testing with source file: {test_source}")
+    assert(test_source.exists())
+    source_properties = read_video_properties(source_path=test_source)
+    assert(source_properties["frame_count"]==48)    
+    assert(source_properties["fps"]==6.0)    
+    assert(source_properties["size"]==(1280,720))
 
 if __name__ == "__main__":
-    # test_controller_load_camera_and_stream()
-    test_extrinsic_calibration()
-# %%
+    test_controller_load_camera_and_stream()
+    # test_extrinsic_calibration()
+    # test_video_property_reader()
+

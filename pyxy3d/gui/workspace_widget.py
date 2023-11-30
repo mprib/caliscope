@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 from pathlib import Path
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QSpinBox
 from PySide6.QtCore import Slot
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
@@ -17,7 +17,8 @@ class WorkspaceSummaryWidget(QWidget):
         self.process_extrinsics_btn = QPushButton("Process Extrinsics", self)
         self.calibrate_btn = QPushButton("Calibrate Extrinsics", self)
 
-
+        self.camera_count_spin = QSpinBox()
+        self.camera_count_spin.setValue(self.controller.get_camera_count())
         # Set the layout for the widget
         self.place_widgets()
         self.connect_widgets()
@@ -27,6 +28,7 @@ class WorkspaceSummaryWidget(QWidget):
         # Layout
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
+        self.layout.addWidget(self.camera_count_spin)
         self.layout.addWidget(self.open_workspace_folder_btn)
         self.layout.addWidget(self.process_extrinsics_btn)
         self.layout.addWidget(self.calibrate_btn)
@@ -37,7 +39,7 @@ class WorkspaceSummaryWidget(QWidget):
         self.open_workspace_folder_btn.clicked.connect(self.open_workspace)  
         self.calibrate_btn.clicked.connect(self.on_calibrate_btn_clicked)
         self.process_extrinsics_btn.clicked.connect(self.on_process_extrinsics_clicked)
-        
+        self.camera_count_spin.valueChanged.connect(self.set_camera_count)
         
     @Slot()
     def on_calibrate_btn_clicked(self):
@@ -49,7 +51,9 @@ class WorkspaceSummaryWidget(QWidget):
         logger.info("Calling controller to process extrinsic streams into 2D data")
         self.controller.process_extrinsic_streams(fps_target=100)
 
-
+    def set_camera_count(self, value):
+        self.controller.set_camera_count(value)
+        
     def open_workspace(self):
         logger.info(f"Opening workspace within File Explorer...  located at {self.controller.workspace}")
         if sys.platform == 'win32':

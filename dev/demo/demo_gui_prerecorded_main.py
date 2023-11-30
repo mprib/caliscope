@@ -16,5 +16,7 @@ workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\4_cam_prerecorded_pra
 
 window.launch_workspace(str(workspace_dir))
 window.controller
+window.controller.load_camera_array()
+window.controller.load_intrinsic_stream_manager()
 window.show()
 app.exec()

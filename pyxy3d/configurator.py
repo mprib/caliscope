@@ -40,6 +40,7 @@ class Configurator:
 
             self.dict = toml.loads("")
             self.dict["CreationDate"] = datetime.now()
+            self.dict["camera_count"] = 0
             self.update_config_toml()
 
             # default values enforced below
@@ -49,6 +50,14 @@ class Configurator:
         if exists(self.point_estimates_toml_path):
             self.refresh_point_estimates_from_toml()
 
+    def save_camera_count(self, count):
+        self.camera_count = count
+        self.dict["camera_count"] = count
+        self.update_config_toml()
+        
+    def get_camera_count(self):
+        return self.dict["camera_count"]
+        
     def get_intrinsic_wait_time(self):
         return self.dict["intrinsic_wait_time"]
 
@@ -99,34 +108,16 @@ class Configurator:
         ] = capture_volume.origin_sync_index
         self.update_config_toml()
 
-    def get_camera_from_source(self, port:int)->CameraData:
-        target_mp4_path = Path(self.workspace_path, "calibration", "intrinsic", f"port_{port}.mp4")
-        video_properties = read_video_properties(target_mp4_path)
-        size = video_properties["size"]
-        new_cam_data = CameraData(
-            port=port,
-            size=size,
-        )
-        return new_cam_data
     
-    def get_all_source_camera_ports(self)-> list:
-        target_mp4_dir = Path(self.workspace_path, "calibration", "intrinsic")
-        ports = []
-        for file in target_mp4_dir.iterdir():
-            if file.stem[0:5] == "port_":
-                port = file.stem.split("_")[1]
-                ports.append(int(port))
-
-        return ports
 
     def get_configured_camera_data(self) -> dict[CameraData]:
         all_camera_data = {}
         for key, params in self.dict.items():
-            if key.startswith("cam"):
+            if key.startswith("cam_"):
                 if not params["ignore"]:
                     port = params["port"]
 
-                    if "error" in params.keys():  # intrinsics have been calculated
+                    if "error" in params.keys() and params["error"] is not None:  # intrinsics have been calculated
                         error = params["error"]
                         matrix = np.array(params["matrix"])
                         distortions = np.array(params["distortions"])
@@ -138,7 +129,7 @@ class Configurator:
                         grid_count = None
 
                     if (
-                        "translation" in params.keys()
+                        "translation" in params.keys() and params["translation"] is not None
                     ):  # Extrinsics have been calculated
                         translation = np.array(params["translation"])
                         rotation = np.array(params["rotation"])
@@ -327,29 +318,6 @@ class Configurator:
             toml.dump(self.dict["point_estimates"], f)
         # self.update_config_toml()
 
-def read_video_properties(source_path: Path) -> dict:
-    # Dictionary to hold video properties
-    properties = {}
-
-    # Open the video file
-    video = cv2.VideoCapture(str(source_path))
-    logger.info(f"Attempting to open video file: {source_path}")
-
-    # Check if video opened successfully
-    if not video.isOpened():
-        raise ValueError(f"Could not open the video file: {source_path}")
-
-    # Extract video properties
-    properties["frame_count"] = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    properties["fps"] = video.get(cv2.CAP_PROP_FPS)
-    properties["width"] = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
-    properties["height"] = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    properties["size"] = (properties["width"], properties["height"])
-
-    # Release the video capture object
-    video.release()
-
-    return properties
 
 if __name__ == "__main__":
     import toml

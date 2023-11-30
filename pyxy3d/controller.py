@@ -1,26 +1,22 @@
-from PySide6.QtCore import QObject, Signal, Slot, QThread
-
+from PySide6.QtCore import QObject, Signal, QThread
+import cv2
+from enum import Enum, auto
 from pathlib import Path
-
 from PySide6.QtGui import QPixmap
 from time import sleep
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.recording.recorded_stream import RecordedStream
 from pyxy3d.intrinsic_stream_manager import IntrinsicStreamManager
 from pyxy3d.configurator import Configurator
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.interface import Tracker
 from pyxy3d.calibration.stereocalibrator import StereoCalibrator
 from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
 from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
-from pyxy3d.cameras.camera_array import CameraArray
+from pyxy3d.cameras.camera_array import CameraArray, CameraData
 from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
 from pyxy3d.calibration.capture_volume.quality_controller import QualityController
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
-from pyxy3d.gui.frame_emitters.playback_frame_emitter import PlaybackFrameEmitter
-from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
 from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
 from collections import OrderedDict
 
@@ -31,10 +27,18 @@ logger = pyxy3d.logger.get(__name__)
 
 FILTERED_FRACTION = 0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
 
+class CalibrationStage(Enum):
+    NO_INTRINSIC_VIDEO = auto()
+    INTRINSIC_VIDEO_NO_INTRINSIC_CAL = auto()
+    PARTIAL_INTRINSICS = auto()
+    FULL_INTRINSICS_NO_EXTRINSICS = auto()
+    FULLY_CALIBRATED = auto()
+
 
 class Controller(QObject):
     """
     Thin layer to integrate GUI and backend
+    Tracks stage of the calibration based on a variety of factors
     """
 
     CameraDataUpdate = Signal(int, OrderedDict)  # port, camera_display_dictionary
@@ -64,6 +68,25 @@ class Controller(QObject):
 
         self.capture_volume = None
 
+    def set_camera_count(self, count:int):
+        self.camera_count = count
+        self.config.save_camera_count(count)
+    
+    def get_camera_count(self)->int:
+        count = self.config.get_camera_count()
+        self.camera_count = count
+        return count
+
+    def get_stage(self) ->CalibrationStage:
+        """
+        
+        """
+
+        if self.camera_array.all_intrinsics_calibrated():
+
+            pass
+    
+    
     def get_charuco_params(self) -> dict:
         return self.config.dict["charuco"]
 
@@ -72,9 +95,12 @@ class Controller(QObject):
         self.config.save_charuco(self.charuco)
         self.charuco_tracker = CharucoTracker(self.charuco)
 
-        for port, stream in self.intrinsic_streams.items():
-            logger.info(f"Updating tracker for stream at port {port}")
-            stream.tracker = self.charuco_tracker
+        if hasattr(self, "intrinsic_stream_manager"):
+            self.intrinsic_stream_manager.update_charuco(self.charuco_tracker)
+            
+        # for port, stream in self.intrinsic_streams.items():
+        #     logger.info(f"Updating tracker for stream at port {port}")
+        #     stream.tracker = self.charuco_tracker
             # stream.set_tracking_on(True)
 
     def load_extrinsic_stream_manager(self):
@@ -87,6 +113,7 @@ class Controller(QObject):
 
     def process_extrinsic_streams(self, fps_target=None):
         def worker():
+            self.load_extrinsic_stream_manager()
             self.extrinsic_stream_manager.process_streams(fps_target=fps_target)
 
             output_path = Path(self.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv")
@@ -114,14 +141,20 @@ class Controller(QObject):
         Loads self.camera_array by first populating self.all_camera_data
         """
         # load all previously configured data if it is there
-        cameras = self.config.get_configured_camera_data()
+        preconfigured_cameras = self.config.get_configured_camera_data()
+        self.camera_array = CameraArray(preconfigured_cameras)
 
         # double check that no new camera associated files have been placed in the intrinsic calibration folder
-        all_ports = self.config.get_all_source_camera_ports()
+        all_ports = []
+        for file in self.intrinsic_dir.iterdir():
+            if file.stem[0:5] == "port_":
+                port = file.stem.split("_")[1]
+                all_ports.append(int(port))
+
         for port in all_ports:
-            if port not in cameras:
+            if port not in self.camera_array.cameras:
                 self._add_camera_from_source(port)
-        self.camera_array = CameraArray(cameras)
+
 
     def _add_camera_from_source(self, port: int):
         """
@@ -130,7 +163,13 @@ class Controller(QObject):
         in keeping with project layout
         """
         # copy source over to standard workspace structure
-        new_cam_data = self.config.get_camera_from_source(port)
+        target_mp4_path = Path(self.intrinsic_dir, f"port_{port}.mp4")
+        video_properties = read_video_properties(target_mp4_path)
+        size = video_properties["size"]
+        new_cam_data = CameraData(
+            port=port,
+            size=size,
+        )
         self.camera_array.cameras[port] = new_cam_data
         self.config.save_camera_array(self.camera_array)
     
@@ -187,6 +226,7 @@ class Controller(QObject):
         self.intrinsic_stream_manager.apply_distortion(camera, undistort)
 
     def rotate_camera(self, port, change):
+
         camera_data = self.camera_array.cameras[port]
         count = camera_data.rotation_count
         count += change
@@ -196,7 +236,9 @@ class Controller(QObject):
         else:
             camera_data.rotation_count = count
 
+        # note that extrinsic streams not altered.... just reload an replay
         self.intrinsic_stream_manager.set_stream_rotation(port,camera_data.rotation_count)
+        
         self.push_camera_data(port)
         self.config.save_camera(camera_data)
 
@@ -271,3 +313,27 @@ class Controller(QObject):
             self.ExtrinsicCalibrationComplete.emit
         )
         self.extrinsicCalibrationThread.start()
+
+def read_video_properties(source_path: Path) -> dict:
+    # Dictionary to hold video properties
+    properties = {}
+
+    # Open the video file
+    video = cv2.VideoCapture(str(source_path))
+    logger.info(f"Attempting to open video file: {source_path}")
+
+    # Check if video opened successfully
+    if not video.isOpened():
+        raise ValueError(f"Could not open the video file: {source_path}")
+
+    # Extract video properties
+    properties["frame_count"] = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    properties["fps"] = video.get(cv2.CAP_PROP_FPS)
+    properties["width"] = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+    properties["height"] = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    properties["size"] = (properties["width"], properties["height"])
+
+    # Release the video capture object
+    video.release()
+
+    return properties

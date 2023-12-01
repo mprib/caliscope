@@ -3,7 +3,6 @@ import sys
 from pathlib import Path
 
 import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
 
 import cv2
 import pandas as pd
@@ -14,6 +13,7 @@ import time
 import numpy as np
 import toml
 from itertools import combinations
+logger = pyxy3d.logger.get(__name__)
 
 class StereoCalibrator:
     def __init__(
@@ -27,7 +27,7 @@ class StereoCalibrator:
         self.ports = [] 
         # set ports keeping in mind that something may be flagged for ignore
         for key, value in self.config.items():
-            if key[0:3] == "cam":
+            if key[0:4] == "cam_":
                 #it's a camera so check if it should not be ignored
                 if not self.config[key]["ignore"]:
                     self.ports.append(int(key[4:]))

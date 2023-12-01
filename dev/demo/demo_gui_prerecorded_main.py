@@ -15,6 +15,5 @@ window = PreRecordedMainWindow()
 workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\4_cam_prerecorded_practice_working")
 
 window.launch_workspace(str(workspace_dir))
-window.controller
 window.show()
 app.exec()

@@ -69,6 +69,16 @@ class CameraDataDisplayWidget(QWidget):
         for i in range(item.childCount()):
             self.expand_item(item.child(i))
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.adjust_column_widths()
+
+    def adjust_column_widths(self):
+        total_width = self.tree.width() - 2  # Subtracting 2 pixels for border
+        self.tree.setColumnWidth(0, int(total_width * 0.7))  # 70% for parameter column
+        self.tree.setColumnWidth(1, int(total_width * 0.3))  # 30% for value column
+
+
 if __name__ == '__main__':
     from pyxy3d import __root__
     from pathlib import Path
@@ -97,7 +107,7 @@ if __name__ == '__main__':
 
     test_path = Path(__root__, "tests", "sessions", "prerecorded_calibration")
     controller = Controller(test_path)
-    
+    controller.config.dict["camera_count"] = 1
     ex = CameraDataDisplayWidget(port=0,controller=controller)
     controller.CameraDataUpdate.emit(0,camera_data)
     ex.show()

@@ -1,6 +1,7 @@
 
 import pyxy3d.logger
 from pathlib import Path
+from enum import Enum
 
 import sys
 from PySide6.QtWidgets import (
@@ -25,6 +26,11 @@ from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)
 
+class TabTypes(Enum):
+    Workspace = 1
+    Charuco = 2
+    Cameras = 3
+    CaptureVolume = 4
 
 class PreRecordedMainWindow(QMainWindow):
     def __init__(self):
@@ -43,6 +49,8 @@ class PreRecordedMainWindow(QMainWindow):
         self.open_project_action.triggered.connect(self.create_new_project_folder)
         self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
 
+
+        
     def build_menus(self):
         # File Menu
         self.menu = self.menuBar()
@@ -77,11 +85,29 @@ class PreRecordedMainWindow(QMainWindow):
 
         self.charuco_widget = CharucoWidget(self.controller)
         self.central_tab.addTab(self.charuco_widget,"Charuco")    
-        self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
-        self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras") 
-        # self.capture_volume_widget = CaptureVolumeWidget(self.controller)
-        # self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
+        
+        if self.controller.all_instrinsic_mp4s():
+            self.controller.load_camera_array()
+            self.controller.load_intrinsic_stream_manager()
+            self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
+            cameras_enabled = True
+        else:
+            self.intrinsic_cal_widget = QWidget()
+            cameras_enabled = False
+        
+        self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras")
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),cameras_enabled)
 
+        if self.controller.all_extrinsics_estimated():
+            self.controller.load_estimated_capture_volume()
+            self.capture_volume_widget = CaptureVolumeWidget(self.controller)
+            capture_volume_enabled = True
+        else:
+            self.capture_volume_widget = QWidget()
+            capture_volume_enabled = False
+        self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Capture Volume"),capture_volume_enabled)
+        
     def build_docked_logger(self):
         # create log window which is fixed below main window
         self.docked_logger = QDockWidget("Log", self)
@@ -92,42 +118,24 @@ class PreRecordedMainWindow(QMainWindow):
 
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
         
-                
+     
     def update_enable_disable(self):
-        # note: if the cameras are connected,then you can peak
-        # into extrinsic/recording tabs, though cannot collect data
+        if self.controller.all_instrinsic_mp4s():
+            self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),True)
+        else:
+            self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),False)
 
-        # you can always look at a charuco board
-        # self.charuco_mode_select.setEnabled(True)
-        pass # this may be useful later so leaving it here as a template
+        if self.controller.all_extrinsic_mp4s() and self.controller.camera_array.all_intrinsics_calibrated():
+            self.workspace_summary.calibrate_btn.setEnabled(True)
+        else:
+            self.workspace_summary.calibrate_btn.setEnabled(False)
 
-        # the code below gives a sense of how I previously managed this
-        # if self.session.is_camera_setup_eligible():
-        #     self.intrinsic_mode_select.setEnabled(True)
-        #     self.extrinsic_mode_select.setEnabled(True)
-        #     self.recording_mode_select.setEnabled(True)
-        # else:
-        #     self.intrinsic_mode_select.setEnabled(False)
-        #     self.extrinsic_mode_select.setEnabled(False)
-        #     self.recording_mode_select.setEnabled(False)
 
-        # if self.session.is_capture_volume_eligible():
-        #     self.capture_volume_mode_select.setEnabled(True)
-        # else:
-        #     self.capture_volume_mode_select.setEnabled(False)
-
-        # if self.session.is_triangulate_eligible():
-        #     self.triangulate_mode_select.setEnabled(True)
-        # else:
-        #     self.triangulate_mode_select.setEnabled(False)
 
     def launch_workspace(self, path_to_workspace: str):
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
         self.controller = Controller(Path(path_to_workspace))
-        self.controller.load_camera_array()
-        self.controller.load_intrinsic_stream_manager()
-        # self.controller.load_estimated_capture_volume()
-        # must have controller in
+        
         self.build_central_tabs()
 
         # but must exit and start over to launch a new session for now
@@ -142,7 +150,8 @@ class PreRecordedMainWindow(QMainWindow):
         After launching a session, connect signals and slots.
         Much of these will be from the GUI to the session and vice-versa
         """
-        pass
+        self.controller.intrinsicStreamsLoaded.connect(self.reload_camera_tab)
+        self.controller.ExtrinsicCalibrationComplete.connect(self.reload_capture_volume_tab)
         # some placeholder code that might get implemented:
         # self.controller.unlock_postprocessing.connect(
         #     self.update_enable_disable
@@ -151,6 +160,39 @@ class PreRecordedMainWindow(QMainWindow):
         #     self.switch_to_capture_volume
         # )
 
+    def reload_camera_tab(self):
+        """
+        Called when the controller emits a signal after loading the intrinsic stream manager
+        The camera control widget needs to get reloaded so that the new frame emitters can wire up to the display 
+        """
+        # get index of the Camera tab
+        camera_tab_index = self.find_tab_index_by_title("Cameras")
+        logger.info(f"Reloading camera tab to index {camera_tab_index}")
+        self.central_tab.removeTab(camera_tab_index)
+        self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
+        self.central_tab.insertTab(camera_tab_index, self.intrinsic_cal_widget, "Cameras")
+        self.update_enable_disable()
+           
+    def reload_capture_volume_tab(self):
+        # get index of the Camera tab
+        capture_volume_tab_index = self.find_tab_index_by_title("Capture Volume")
+        logger.info(f"Reloading capture volume tab to index {capture_volume_tab_index}")
+        self.central_tab.removeTab(capture_volume_tab_index)
+
+        # Re-create or refresh the MultiIntrinsicPlaybackWidget
+        # need to do this to 
+        self.capture_volume_widget = CaptureVolumeWidget(self.controller)
+        # Insert the new tab at the same position
+        self.central_tab.insertTab(capture_volume_tab_index, self.capture_volume_widget, "Capture Volume")
+        self.update_enable_disable()
+
+    def find_tab_index_by_title(self, title):
+        # Iterate through tabs to find the index of the tab with the given title
+        for index in range(self.central_tab.count()):
+            if self.central_tab.tabText(index) == title:
+                return index
+        return -1  # Return -1 if the tab is not found
+ 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)
         recent_project_action.triggered.connect(self.open_recent_project)

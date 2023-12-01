@@ -84,7 +84,9 @@ class IntrinsicCalibrationWidget(QWidget):
         self.total_frames = self.controller.get_intrinsic_stream_frame_count(self.port)
         self.frame_image = QLabel(self)
         self.frame_index_label = QLabel(self)
-        self.play_button = QPushButton("Play", self)
+        self.play_button = QPushButton("", self)
+        play_icon = self.style().standardIcon(QStyle.SP_MediaPlay)
+        self.play_button.setIcon(play_icon)
         self.slider = CustomSlider()
         self.slider.setMaximum(self.total_frames - 1)
 
@@ -158,11 +160,8 @@ class IntrinsicCalibrationWidget(QWidget):
         self.cw_rotation_btn.clicked.connect(self.rotate_cw)
        
         self.scaling_spinBox.valueChanged.connect(self.on_scale_change)
-        # self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].ImageBroadcast.connect(self.update_image)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].FrameIndexBroadcast.connect(self.update_index)
-        # self.controller.IntrinsicImageUpdate.connect(self.update_image)
-        # self.controller.IndexUpdate.connect(self.update_index)
 
         # initialize stream to push first frame to widget then hold
         # must be done after signals and slots connected for effect to take hold
@@ -177,11 +176,13 @@ class IntrinsicCalibrationWidget(QWidget):
         if self.is_playing:
             self.is_playing = False
             self.controller.pause_intrinsic_stream(self.port)
-            self.play_button.setText("Play")  # now paused so only option is play
+            play_icon = self.style().standardIcon(QStyle.SP_MediaPlay)
+            self.play_button.setIcon(play_icon)
         else:
             self.is_playing = True
             self.controller.unpause_intrinsic_stream(self.port)
-            self.play_button.setText("Pause")  # now playing so only option is pause
+            pause_icon = self.style().standardIcon(QStyle.SP_MediaPause)
+            self.play_button.setIcon(pause_icon)
 
     def slider_moved(self, position):
         self.controller.stream_jump_to(self.port, position)
@@ -290,9 +291,6 @@ if __name__ == "__main__":
     charuco_tracker = CharucoTracker(charuco)
     controller.charuco_tracker = charuco_tracker
 
-    # controller.add_camera_from_source(
-    #     Path(workspace_dir,"phone_test.mov")
-    # )
 
     controller.load_intrinsic_stream_manager()
     window = IntrinsicCalibrationWidget(controller=controller, port=1)

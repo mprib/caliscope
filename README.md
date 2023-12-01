@@ -3,6 +3,8 @@ NOTE (11/16/2023): I'm currently in the midst of a large refactor to allow a pro
 
 The current `main` is no longer targetting the webcam based workflow, so if you would like to play around with that I would recommend installing from PyPI or going back to an [older version](https://github.com/mprib/pyxy3d/tree/f0c69821c3a744d16b5bc44bbba0f9763a9a279c)
 
+UPDATE (12/1/2023): The end of November came and went. Progress has been made and I'm now on a final push through the weekend to try to knit things together. 
+
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 
 <div align="center">
@@ -14,8 +16,6 @@ The current `main` is no longer targetting the webcam based workflow, so if you 
 https://github.com/mprib/pyxy3d/assets/31831778/96413cf8-52d7-4054-ab13-a5f8daa4cbf9
 
 The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames (720p @ 24 fps), landmark detection, and point triangulation. 
-
-The Blender output process is currently a bit ad hoc. The plan is to evolve that workflow into a dedicated Blender add-on (also free and open source) that can process the output of pyxy3d and create rigged animations in blender. Thanks to Dorothy Overbey for being a test subject (and a wonderful wife).
 
 
 <div align="center"><img src = "https://github.com/mprib/pyxy3d/assets/31831778/2f235ecd-0f1d-4bb8-9935-2ed21517cd0e" width = "50%"></div>

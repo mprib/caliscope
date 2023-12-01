@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 from PySide6.QtCore import Qt, Slot, Signal, QSize
-from pyxy3d.gui.prerecorded_intrinsic_calibration.camera_display_widget import (
+from pyxy3d.gui.camera_management.camera_display_widget import (
     CameraDataDisplayWidget,
 )
 from PySide6.QtSvg import QSvgRenderer

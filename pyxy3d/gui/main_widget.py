@@ -21,7 +21,7 @@ from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.gui.charuco_widget import CharucoWidget
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from pyxy3d.gui.workspace_widget import WorkspaceSummaryWidget
-from pyxy3d.gui.prerecorded_intrinsic_calibration.multiplayback_widget import MultiIntrinsicPlaybackWidget
+from pyxy3d.gui.camera_management.multiplayback_widget import MultiIntrinsicPlaybackWidget
 from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)
@@ -60,8 +60,8 @@ class MainWindow(QMainWindow):
         self.open_project_action = QAction("New/Open Project", self)
         self.file_menu.addAction(self.open_project_action)
 
-        self.calibrate_capture_volume = QAction("Calibrate Capture Volume", self)
-        self.file_menu.addAction(self.calibrate_capture_volume)
+        self.reload_workspace_action = QAction("Reload workspace", self)
+        self.file_menu.addAction(self.reload_workspace_action)
 
         # Open Recent
         self.open_recent_project_submenu = QMenu("Recent Projects...", self)
@@ -77,7 +77,7 @@ class MainWindow(QMainWindow):
         self.file_menu.addAction(self.exit_pyxy3d_action)
 
     def build_central_tabs(self):
-    
+        
         self.central_tab = QTabWidget()
         self.setCentralWidget(self.central_tab)
         self.workspace_summary = WorkspaceSummaryWidget(self.controller)
@@ -87,8 +87,10 @@ class MainWindow(QMainWindow):
         self.central_tab.addTab(self.charuco_widget,"Charuco")    
         
         if self.controller.all_instrinsic_mp4s():
+            logger.info("Loading intrinsic stream manager")
             self.controller.load_camera_array()
             self.controller.load_intrinsic_stream_manager()
+            logger.info("Creating MultiIntrinsic Playback Widget")
             self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
             cameras_enabled = True
         else:
@@ -100,6 +102,7 @@ class MainWindow(QMainWindow):
 
         if self.controller.all_extrinsics_estimated():
             self.controller.load_estimated_capture_volume()
+            logger.info("Creating capture Volume Widget")
             self.capture_volume_widget = CaptureVolumeWidget(self.controller)
             capture_volume_enabled = True
         else:
@@ -152,6 +155,8 @@ class MainWindow(QMainWindow):
         """
         self.controller.intrinsicStreamsLoaded.connect(self.reload_camera_tab)
         self.controller.ExtrinsicCalibrationComplete.connect(self.reload_capture_volume_tab)
+        self.reload_workspace_action.triggered.connect(self.reload_workspace)
+
         # some placeholder code that might get implemented:
         # self.controller.unlock_postprocessing.connect(
         #     self.update_enable_disable
@@ -192,7 +197,28 @@ class MainWindow(QMainWindow):
             if self.central_tab.tabText(index) == title:
                 return index
         return -1  # Return -1 if the tab is not found
- 
+
+    
+    def reload_workspace(self):
+        # Clear all existing tabs
+        logger.info("Clearing workspace")
+        # Iterate backwards through the tabs and remove them
+        for index in range(self.central_tab.count() - 1, -1, -1):
+            widget_to_remove = self.central_tab.widget(index)
+            self.central_tab.removeTab(index)
+            if widget_to_remove is not None:
+                widget_to_remove.deleteLater()
+        
+            self.central_tab.clear()
+
+        del self.controller.intrinsic_stream_manager
+        # Rebuild the central tabs
+        logger.info("Building Central tabs")
+        self.build_central_tabs()
+
+        # Update any necessary states or enable/disable UI elements
+        self.update_enable_disable() 
+        
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)
         recent_project_action.triggered.connect(self.open_recent_project)

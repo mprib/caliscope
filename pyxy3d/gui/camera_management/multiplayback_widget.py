@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from pathlib import Path
-from pyxy3d.gui.prerecorded_intrinsic_calibration.playback_widget import (
+from pyxy3d.gui.camera_management.playback_widget import (
     IntrinsicCalibrationWidget,
 )
 from pyxy3d.controller import Controller

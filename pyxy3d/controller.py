@@ -88,7 +88,21 @@ class Controller(QObject):
         intrinsic_mp4_ports = self._get_intrinsic_camera_ports()
         extrinsic_mp4_ports = self._get_extrinsic_camera_ports()
         return sorted(intrinsic_mp4_ports) == sorted(extrinsic_mp4_ports)
-        
+   
+    def all_intrinsics_estimated(self)->bool:
+        """
+        At this point, processing extrinsics and calibrating capture volume should be allowed
+        """
+        return self.camera_array.all_intrinsics_calibrated()
+    
+    def all_extrinsics_estimated(self)->bool:
+        """
+        At this point, the capture volume tab should be available
+        """
+        cameras_good =  self.camera_array.all_extrinsics_calibrated()
+        point_estimates_good = self.config.point_estimates_toml_path.exists()
+        return cameras_good and point_estimates_good
+         
     def get_charuco_params(self) -> dict:
         return self.config.dict["charuco"]
 

@@ -32,9 +32,9 @@ class TabTypes(Enum):
     Cameras = 3
     CaptureVolume = 4
 
-class PreRecordedMainWindow(QMainWindow):
+class MainWindow(QMainWindow):
     def __init__(self):
-        super(PreRecordedMainWindow, self).__init__()
+        super(MainWindow, self).__init__()
 
         self.app_settings = toml.load(__settings_path__)
 
@@ -238,7 +238,7 @@ def launch_main():
 
     app = QApplication(sys.argv)
     qdarktheme.setup_theme("auto")
-    window = PreRecordedMainWindow()
+    window = MainWindow()
     window.show()
     app.exec()
 

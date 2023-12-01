@@ -1,14 +1,15 @@
+
 import pyxy3d.logger
 from pathlib import Path
+from enum import Enum
 
-
-from PySide6.QtWidgets import QMainWindow, QFileDialog
-from threading import Thread
 import sys
 from PySide6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QMainWindow,
     QWidget,
+    QTabWidget,
     QDockWidget,
     QMenu,
 )
@@ -16,20 +17,20 @@ import toml
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__
-from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.gui.log_widget import LogWidget
-from pyxy3d.configurator import Configurator
 from pyxy3d.gui.charuco_widget import CharucoWidget
-from pyxy3d.gui.live_camera_config.intrinsic_calibration_widget import (
-    IntrinsicCalibrationWidget,
-)
-from pyxy3d.gui.recording_widget import RecordingWidget
-from pyxy3d.gui.post_processing_widget import PostProcessingWidget
-from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
+from pyxy3d.gui.workspace_widget import WorkspaceSummaryWidget
+from pyxy3d.gui.prerecorded_intrinsic_calibration.multiplayback_widget import MultiIntrinsicPlaybackWidget
+from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)
 
+class TabTypes(Enum):
+    Workspace = 1
+    Charuco = 2
+    Cameras = 3
+    CaptureVolume = 4
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -41,6 +42,16 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/pyxy_logo.svg"))))
         self.setMinimumSize(500, 500)
 
+        self.build_menus()
+        self.build_docked_logger()
+
+    def connect_menu_actions(self):
+        self.open_project_action.triggered.connect(self.create_new_project_folder)
+        self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
+
+
+        
+    def build_menus(self):
         # File Menu
         self.menu = self.menuBar()
 
@@ -49,8 +60,12 @@ class MainWindow(QMainWindow):
         self.open_project_action = QAction("New/Open Project", self)
         self.file_menu.addAction(self.open_project_action)
 
+        self.calibrate_capture_volume = QAction("Calibrate Capture Volume", self)
+        self.file_menu.addAction(self.calibrate_capture_volume)
+
         # Open Recent
         self.open_recent_project_submenu = QMenu("Recent Projects...", self)
+
         # Populate the submenu with recent project paths;
         # reverse so that last one appended is at the top of the list
         for project_path in reversed(self.app_settings["recent_projects"]):
@@ -61,38 +76,39 @@ class MainWindow(QMainWindow):
         self.exit_pyxy3d_action = QAction("Exit", self)
         self.file_menu.addAction(self.exit_pyxy3d_action)
 
-        # CREATE CAMERA MENU
-        self.cameras_menu = self.menu.addMenu("&Cameras")
-        self.connect_cameras_action = QAction("Co&nnect Cameras", self)
-        self.cameras_menu.addAction(self.connect_cameras_action)
-        self.connect_cameras_action.setEnabled(False)
+    def build_central_tabs(self):
+    
+        self.central_tab = QTabWidget()
+        self.setCentralWidget(self.central_tab)
+        self.workspace_summary = WorkspaceSummaryWidget(self.controller)
+        self.central_tab.addTab(self.workspace_summary, "Workspace")
 
-        self.disconnect_cameras_action = QAction("&Disconnect Cameras", self)
-        self.cameras_menu.addAction(self.disconnect_cameras_action)
-        self.disconnect_cameras_action.setEnabled(False)
+        self.charuco_widget = CharucoWidget(self.controller)
+        self.central_tab.addTab(self.charuco_widget,"Charuco")    
+        
+        if self.controller.all_instrinsic_mp4s():
+            self.controller.load_camera_array()
+            self.controller.load_intrinsic_stream_manager()
+            self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
+            cameras_enabled = True
+        else:
+            self.intrinsic_cal_widget = QWidget()
+            cameras_enabled = False
+        
+        self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras")
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),cameras_enabled)
 
-        # CREATE MODE MENU
-        self.mode_menu = self.menu.addMenu("&Mode")
-        self.charuco_mode_select = QAction(SessionMode.Charuco.value)
-        self.intrinsic_mode_select = QAction(SessionMode.IntrinsicCalibration.value)
-        self.extrinsic_mode_select = QAction(SessionMode.ExtrinsicCalibration.value)
-        self.capture_volume_mode_select = QAction(SessionMode.CaptureVolumeOrigin.value)
-        self.recording_mode_select = QAction(SessionMode.Recording.value)
-        self.triangulate_mode_select = QAction(SessionMode.Triangulate.value)
-        self.mode_menu.addAction(self.charuco_mode_select)
-        self.mode_menu.addAction(self.intrinsic_mode_select)
-        self.mode_menu.addAction(self.extrinsic_mode_select)
-        self.mode_menu.addAction(self.capture_volume_mode_select)
-        self.mode_menu.addAction(self.recording_mode_select)
-        self.mode_menu.addAction(self.triangulate_mode_select)
-
-        for action in self.mode_menu.actions():
-            action.setEnabled(False)
-
-        self.connect_menu_actions()
-        self.blank_widget = QWidget()
-        self.setCentralWidget(self.blank_widget)
-
+        if self.controller.all_extrinsics_estimated():
+            self.controller.load_estimated_capture_volume()
+            self.capture_volume_widget = CaptureVolumeWidget(self.controller)
+            capture_volume_enabled = True
+        else:
+            self.capture_volume_widget = QWidget()
+            capture_volume_enabled = False
+        self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Capture Volume"),capture_volume_enabled)
+        
+    def build_docked_logger(self):
         # create log window which is fixed below main window
         self.docked_logger = QDockWidget("Log", self)
         self.docked_logger.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetMovable)
@@ -101,170 +117,82 @@ class MainWindow(QMainWindow):
         self.docked_logger.setWidget(self.log_widget)
 
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
-
-    def connect_menu_actions(self):
-        self.open_project_action.triggered.connect(self.create_new_project_folder)
-        self.connect_cameras_action.triggered.connect(self.load_stream_tools)
-        self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
-        self.disconnect_cameras_action.triggered.connect(self.disconnect_cameras)
-
-        for action in self.mode_menu.actions():
-            action.triggered.connect(self.mode_change_action)
-
-    def mode_change_action(self):
-        action = self.sender()
-
-        # create a reverse lookup dictionary to pull the mode enum that should be activated
-        SessionModeLookup = {mode.value: mode for mode in SessionMode}
-        mode = SessionModeLookup[action.text()]
-        logger.info(f"Attempting to set session mode to {mode.value}")
-        self.session.set_mode(mode)
-        logger.info(f"Successful change to {mode} Mode")
-
-    def update_central_widget_mode(self):
-        """
-        This will be triggered whenever the session successfully completes a mode change and emits
-        a signal to that effect.
-        """
-        logger.info("Begin process of updating central widget")
-
-        old_widget = self.centralWidget()
-        self.setCentralWidget(QWidget())
-        old_widget.deleteLater()
-
-        logger.info("Clearing events in emmitter threads to get them to wind down")
-        if type(old_widget) == RecordingWidget:
-            old_widget.thumbnail_emitter.keep_collecting.clear()
-            logger.info("Waiting for recording widget to wrap up")
-            old_widget.thumbnail_emitter.wait()
-
-        if type(old_widget) == ExtrinsicCalibrationWidget:
-            old_widget.paired_frame_emitter.keep_collecting.clear()
-            logger.info("Waiting for extrinsic calibration widget to wrap up")
-            old_widget.paired_frame_emitter.wait()
-
-        if type(old_widget) == IntrinsicCalibrationWidget:
-            for port, tab in old_widget.camera_tabs.tab_widgets.items():
-                tab.frame_emitter.keep_collecting.clear()
-
-        logger.info(f"Matching next tab to active session mode: {self.session.mode}")
-        # Create the new central widget based on the mode
-        match self.session.mode:
-            case SessionMode.Charuco:
-                new_widget = CharucoWidget(self.session)
-            case SessionMode.IntrinsicCalibration:
-                new_widget = IntrinsicCalibrationWidget(self.session)
-            case SessionMode.ExtrinsicCalibration:
-                logger.info("About to create extrinsic calibration widget")
-                new_widget = ExtrinsicCalibrationWidget(self.session)
-            case SessionMode.CaptureVolumeOrigin:
-                new_widget = CaptureVolumeWidget(self.session)
-            case SessionMode.Recording:
-                new_widget = RecordingWidget(self.session)
-            case SessionMode.Triangulate:
-                new_widget = PostProcessingWidget(self.session)
-
-        self.setCentralWidget(new_widget)
-
-    def switch_to_capture_volume(self):
-        """
-        Once the extrinsic calibration is complete, the GUI should automatically switch over to the capture volume widget
-        """
-        self.session.set_mode(SessionMode.CaptureVolumeOrigin)
-
+        
+     
     def update_enable_disable(self):
-        # note: if the cameras are connected,then you can peak
-        # into extrinsic/recording tabs, though cannot collect data
-
-        # you can always look at a charuco board
-        self.charuco_mode_select.setEnabled(True)
-
-        if self.session.is_camera_setup_eligible():
-            self.intrinsic_mode_select.setEnabled(True)
-            self.extrinsic_mode_select.setEnabled(True)
-            self.recording_mode_select.setEnabled(True)
+        if self.controller.all_instrinsic_mp4s():
+            self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),True)
         else:
-            self.intrinsic_mode_select.setEnabled(False)
-            self.extrinsic_mode_select.setEnabled(False)
-            self.recording_mode_select.setEnabled(False)
+            self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),False)
 
-        if self.session.is_capture_volume_eligible():
-            self.capture_volume_mode_select.setEnabled(True)
+        if self.controller.all_extrinsic_mp4s() and self.controller.camera_array.all_intrinsics_calibrated():
+            self.workspace_summary.calibrate_btn.setEnabled(True)
         else:
-            self.capture_volume_mode_select.setEnabled(False)
+            self.workspace_summary.calibrate_btn.setEnabled(False)
 
-        if self.session.is_triangulate_eligible():
-            self.triangulate_mode_select.setEnabled(True)
-        else:
-            self.triangulate_mode_select.setEnabled(False)
 
-    def disconnect_cameras(self):
-        self.session.set_mode(SessionMode.Charuco)
-        self.session.disconnect_cameras()
-        self.disconnect_cameras_action.setEnabled(False)
-        self.connect_cameras_action.setEnabled(True)
-        self.update_enable_disable()
 
-    def pause_all_frame_reading(self):
-        logger.info(
-            "Pausing all frame reading at load of stream tools; should be on charuco tab right now"
-        )
-        self.session.pause_all_monocalibrators()
-        self.session.pause_synchronizer()
-
-    def load_stream_tools(self):
-        self.connect_cameras_action.setEnabled(False)
-        self.disconnect_cameras_action.setEnabled(True)
-        self.session.qt_signaler.stream_tools_loaded_signal.connect(
-            self.pause_all_frame_reading
-        )
-        self.thread = Thread(
-            target=self.session.load_stream_tools, args=(), daemon=True
-        )
-        self.thread.start()
-
-    def launch_session(self, path_to_folder: str):
-        session_path = Path(path_to_folder)
-        self.config = Configurator(session_path)
-        logger.info(f"Launching session with config file stored in {session_path}")
-        self.session = LiveSession(self.config)
-
-        # can always load charuco
-        self.charuco_widget = CharucoWidget(self.session)
-        self.setCentralWidget(self.charuco_widget)
-
-        # now connecting to cameras is an option
-        self.connect_cameras_action.setEnabled(True)
+    def launch_workspace(self, path_to_workspace: str):
+        logger.info(f"Launching session with config file stored in {path_to_workspace}")
+        self.controller = Controller(Path(path_to_workspace))
+        
+        self.build_central_tabs()
 
         # but must exit and start over to launch a new session for now
-        self.connect_session_signals()
+        self.connect_controller_signals()
 
         self.open_project_action.setEnabled(False)
         self.open_recent_project_submenu.setEnabled(False)
         self.update_enable_disable()
 
-    def connect_session_signals(self):
+    def connect_controller_signals(self):
         """
         After launching a session, connect signals and slots.
         Much of these will be from the GUI to the session and vice-versa
         """
-        self.session.qt_signaler.unlock_postprocessing.connect(
-            self.update_enable_disable
-        )
-        self.session.qt_signaler.mode_change_success.connect(
-            self.update_central_widget_mode
-        )
-        self.session.qt_signaler.stream_tools_loaded_signal.connect(
-            self.update_enable_disable
-        )
-        self.session.qt_signaler.stream_tools_disconnected_signal.connect(
-            self.update_enable_disable
-        )
-        self.session.qt_signaler.mode_change_success.connect(self.update_enable_disable)
-        self.session.qt_signaler.extrinsic_calibration_complete.connect(
-            self.switch_to_capture_volume
-        )
+        self.controller.intrinsicStreamsLoaded.connect(self.reload_camera_tab)
+        self.controller.ExtrinsicCalibrationComplete.connect(self.reload_capture_volume_tab)
+        # some placeholder code that might get implemented:
+        # self.controller.unlock_postprocessing.connect(
+        #     self.update_enable_disable
+        # )
+        # self.controller.extrinsic_calibration_complete.connect(
+        #     self.switch_to_capture_volume
+        # )
 
+    def reload_camera_tab(self):
+        """
+        Called when the controller emits a signal after loading the intrinsic stream manager
+        The camera control widget needs to get reloaded so that the new frame emitters can wire up to the display 
+        """
+        # get index of the Camera tab
+        camera_tab_index = self.find_tab_index_by_title("Cameras")
+        logger.info(f"Reloading camera tab to index {camera_tab_index}")
+        self.central_tab.removeTab(camera_tab_index)
+        self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
+        self.central_tab.insertTab(camera_tab_index, self.intrinsic_cal_widget, "Cameras")
+        self.update_enable_disable()
+           
+    def reload_capture_volume_tab(self):
+        # get index of the Camera tab
+        capture_volume_tab_index = self.find_tab_index_by_title("Capture Volume")
+        logger.info(f"Reloading capture volume tab to index {capture_volume_tab_index}")
+        self.central_tab.removeTab(capture_volume_tab_index)
+
+        # Re-create or refresh the MultiIntrinsicPlaybackWidget
+        # need to do this to 
+        self.capture_volume_widget = CaptureVolumeWidget(self.controller)
+        # Insert the new tab at the same position
+        self.central_tab.insertTab(capture_volume_tab_index, self.capture_volume_widget, "Capture Volume")
+        self.update_enable_disable()
+
+    def find_tab_index_by_title(self, title):
+        # Iterate through tabs to find the index of the tab with the given title
+        for index in range(self.central_tab.count()):
+            if self.central_tab.tabText(index) == title:
+                return index
+        return -1  # Return -1 if the tab is not found
+ 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)
         recent_project_action.triggered.connect(self.open_recent_project)
@@ -274,7 +202,7 @@ class MainWindow(QMainWindow):
         action = self.sender()
         project_path = action.text()
         logger.info(f"Opening recent session stored at {project_path}")
-        self.launch_session(project_path)
+        self.launch_workspace(project_path)
 
     def create_new_project_folder(self):
         default_folder = Path(self.app_settings["last_project_parent"])
@@ -289,7 +217,7 @@ class MainWindow(QMainWindow):
         if path_to_folder:
             logger.info(("Creating new project in :", path_to_folder))
             self.add_project_to_recent(path_to_folder)
-            self.launch_session(path_to_folder)
+            self.launch_workspace(path_to_folder)
 
     def add_project_to_recent(self, folder_path):
         if str(folder_path) in self.app_settings["recent_projects"]:
@@ -316,4 +244,5 @@ def launch_main():
 
 
 if __name__ == "__main__":
-    launch_main()
+    # launch_main()
+    pass

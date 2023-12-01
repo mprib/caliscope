@@ -85,13 +85,28 @@ class PreRecordedMainWindow(QMainWindow):
 
         self.charuco_widget = CharucoWidget(self.controller)
         self.central_tab.addTab(self.charuco_widget,"Charuco")    
-        self.intrinsic_cal_widget = QWidget()
+        
+        if self.controller.all_instrinsic_mp4s():
+            self.controller.load_camera_array()
+            self.controller.load_intrinsic_stream_manager()
+            self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
+            cameras_enabled = True
+        else:
+            self.intrinsic_cal_widget = QWidget()
+            cameras_enabled = False
+        
         self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),False)
-        self.capture_volume_widget = QWidget()
-        self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Capture Volume"),False)
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),cameras_enabled)
 
+        if self.controller.all_extrinsics_estimated():
+            self.controller.load_estimated_capture_volume()
+            self.capture_volume_widget = CaptureVolumeWidget(self.controller)
+            capture_volume_enabled = True
+        else:
+            self.capture_volume_widget = QWidget()
+            capture_volume_enabled = False
+        self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Capture Volume"),capture_volume_enabled)
         
     def build_docked_logger(self):
         # create log window which is fixed below main window
@@ -111,19 +126,16 @@ class PreRecordedMainWindow(QMainWindow):
             self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),False)
 
         if self.controller.all_extrinsic_mp4s() and self.controller.camera_array.all_intrinsics_calibrated():
-            self.workspace_summary.process_extrinsics_btn.setEnabled(True)
+            self.workspace_summary.calibrate_btn.setEnabled(True)
         else:
-            self.workspace_summary.process_extrinsics_btn.setEnabled(False)
+            self.workspace_summary.calibrate_btn.setEnabled(False)
 
 
 
     def launch_workspace(self, path_to_workspace: str):
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
         self.controller = Controller(Path(path_to_workspace))
-        self.controller.load_camera_array()
-        self.controller.load_intrinsic_stream_manager()
-        # self.controller.load_estimated_capture_volume()
-        # must have controller in
+        
         self.build_central_tabs()
 
         # but must exit and start over to launch a new session for now

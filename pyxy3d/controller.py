@@ -47,6 +47,7 @@ class Controller(QObject):
     ExtrinsicImageUpdate = Signal(dict)
     ExtrinsicCalibrationComplete = Signal()
     extrinsic_2D_complete = Signal()
+    intrinsicStreamsLoaded = Signal()
 
     def __init__(self, workspace_dir: Path):
         super().__init__()
@@ -57,6 +58,7 @@ class Controller(QObject):
         self.camera_array = CameraArray({})  # empty camera array at init
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
+        # self.camera_count = self.config.get_camera_count()  # reference to ensure that files are in place to meet user intent
 
         self.intrinsic_dir = Path(self.workspace, "calibration", "intrinsic")
         # make sure the containing directory exists
@@ -77,16 +79,30 @@ class Controller(QObject):
         self.camera_count = count
         return count
 
-    def get_stage(self) ->CalibrationStage:
-        """
-        
-        """
-
-        if self.camera_array.all_intrinsics_calibrated():
-
-            pass
     
+    def all_instrinsic_mp4s(self)->bool:
+        intrinsic_mp4_ports = self._get_intrinsic_camera_ports()
+        return len(intrinsic_mp4_ports) == self.camera_count
+   
+    def all_extrinsic_mp4s(self)->bool:
+        intrinsic_mp4_ports = self._get_intrinsic_camera_ports()
+        extrinsic_mp4_ports = self._get_extrinsic_camera_ports()
+        return sorted(intrinsic_mp4_ports) == sorted(extrinsic_mp4_ports)
+   
+    def all_intrinsics_estimated(self)->bool:
+        """
+        At this point, processing extrinsics and calibrating capture volume should be allowed
+        """
+        return self.camera_array.all_intrinsics_calibrated()
     
+    def all_extrinsics_estimated(self)->bool:
+        """
+        At this point, the capture volume tab should be available
+        """
+        cameras_good =  self.camera_array.all_extrinsics_calibrated()
+        point_estimates_good = self.config.point_estimates_toml_path.exists()
+        return cameras_good and point_estimates_good
+         
     def get_charuco_params(self) -> dict:
         return self.config.dict["charuco"]
 
@@ -98,11 +114,6 @@ class Controller(QObject):
         if hasattr(self, "intrinsic_stream_manager"):
             self.intrinsic_stream_manager.update_charuco(self.charuco_tracker)
             
-        # for port, stream in self.intrinsic_streams.items():
-        #     logger.info(f"Updating tracker for stream at port {port}")
-        #     stream.tracker = self.charuco_tracker
-            # stream.set_tracking_on(True)
-
     def load_extrinsic_stream_manager(self):
         logger.info(f"Loading manager for streams saved to {self.extrinsic_dir}")
         self.extrinsic_stream_manager = SynchronizedStreamManager(
@@ -135,6 +146,10 @@ class Controller(QObject):
             cameras=self.camera_array.cameras,
             tracker=self.charuco_tracker,
         )
+        
+        # signal to main GUI that the Camera tab needs to be reloaded
+        logger.info("Signalling that intrinsic stream manager has loaded")
+        self.intrinsicStreamsLoaded.emit()
 
     def load_camera_array(self):
         """
@@ -145,15 +160,27 @@ class Controller(QObject):
         self.camera_array = CameraArray(preconfigured_cameras)
 
         # double check that no new camera associated files have been placed in the intrinsic calibration folder
+        all_ports = self._get_intrinsic_camera_ports()
+
+        for port in all_ports:
+            if port not in self.camera_array.cameras:
+                self._add_camera_from_source(port)
+
+    def _get_intrinsic_camera_ports(self)->list:
         all_ports = []
         for file in self.intrinsic_dir.iterdir():
             if file.stem[0:5] == "port_":
                 port = file.stem.split("_")[1]
                 all_ports.append(int(port))
-
-        for port in all_ports:
-            if port not in self.camera_array.cameras:
-                self._add_camera_from_source(port)
+        return all_ports
+        
+    def _get_extrinsic_camera_ports(self)->list:
+        all_ports = []
+        for file in self.extrinsic_dir.iterdir():
+            if file.stem[0:5] == "port_":
+                port = file.stem.split("_")[1]
+                all_ports.append(int(port))
+        return all_ports
 
 
     def _add_camera_from_source(self, port: int):

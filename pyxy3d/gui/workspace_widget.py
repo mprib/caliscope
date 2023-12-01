@@ -4,17 +4,19 @@ import subprocess
 from pathlib import Path
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QSpinBox
 from PySide6.QtCore import Slot
+from pyxy3d.controller import Controller
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
 class WorkspaceSummaryWidget(QWidget):
-    def __init__(self, controller):
+    def __init__(self, controller:Controller):
         super().__init__()
 
         self.controller = controller
 
         self.open_workspace_folder_btn = QPushButton("Open Workspace Directory", self)
-        self.process_extrinsics_btn = QPushButton("Process Extrinsics", self)
+        self.load_intrinsics_btn = QPushButton("Load Intrinsic Camera Data")
+        self.process_extrinsics_btn = QPushButton("Process Extrinsics") 
         self.calibrate_btn = QPushButton("Calibrate Extrinsics", self)
 
         self.camera_count_spin = QSpinBox()
@@ -29,27 +31,26 @@ class WorkspaceSummaryWidget(QWidget):
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
         self.layout.addWidget(self.camera_count_spin)
+        self.layout.addWidget(self.load_intrinsics_btn)
         self.layout.addWidget(self.open_workspace_folder_btn)
-        self.layout.addWidget(self.process_extrinsics_btn)
         self.layout.addWidget(self.calibrate_btn)
         
 
-    
     def connect_widgets(self):
         self.open_workspace_folder_btn.clicked.connect(self.open_workspace)  
+        self.load_intrinsics_btn.clicked.connect(self.load_intrinsics)
         self.calibrate_btn.clicked.connect(self.on_calibrate_btn_clicked)
-        self.process_extrinsics_btn.clicked.connect(self.on_process_extrinsics_clicked)
         self.camera_count_spin.valueChanged.connect(self.set_camera_count)
         
-    @Slot()
+    def load_intrinsics(self):
+        self.controller.load_camera_array()
+        self.controller.load_intrinsic_stream_manager()
+        
     def on_calibrate_btn_clicked(self):
-        # Call the extrinsic calibration method in the controller
-        self.controller.estimate_extrinsics()
-
-    @Slot()
-    def on_process_extrinsics_clicked(self):
         logger.info("Calling controller to process extrinsic streams into 2D data")
         self.controller.process_extrinsic_streams(fps_target=100)
+        # Call the extrinsic calibration method in the controller
+        self.controller.estimate_extrinsics()
 
     def set_camera_count(self, value):
         self.controller.set_camera_count(value)

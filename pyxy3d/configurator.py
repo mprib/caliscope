@@ -114,51 +114,49 @@ class Configurator:
         all_camera_data = {}
         for key, params in self.dict.items():
             if key.startswith("cam_"):
-                if not params["ignore"]:
-                    port = params["port"]
+                port = params["port"]
 
-                    if "error" in params.keys() and params["error"] is not None:  # intrinsics have been calculated
-                        error = params["error"]
-                        matrix = np.array(params["matrix"])
-                        distortions = np.array(params["distortions"])
-                        grid_count = params["grid_count"]
-                    else:
-                        error = None
-                        matrix = None
-                        distortions = None
-                        grid_count = None
+                if "error" in params.keys() and params["error"] is not None:  # intrinsics have been calculated
+                    error = params["error"]
+                    matrix = np.array(params["matrix"])
+                    distortions = np.array(params["distortions"])
+                    grid_count = params["grid_count"]
+                else:
+                    error = None
+                    matrix = None
+                    distortions = None
+                    grid_count = None
 
-                    if (
-                        "translation" in params.keys() and params["translation"] is not None
-                    ):  # Extrinsics have been calculated
-                        translation = np.array(params["translation"])
-                        rotation = np.array(params["rotation"])
+                if (
+                    "translation" in params.keys() and params["translation"] is not None
+                ):  # Extrinsics have been calculated
+                    translation = np.array(params["translation"])
+                    rotation = np.array(params["rotation"])
 
-                        if rotation.shape == (
-                            3,
-                        ):  # camera rotation is stored as a matrix
-                            rotation = cv2.Rodrigues(rotation)[0]
+                    if rotation.shape == (
+                        3,
+                    ):  # camera rotation is stored as a matrix
+                        rotation = cv2.Rodrigues(rotation)[0]
 
-                    else:
-                        translation = None
-                        rotation = None
+                else:
+                    translation = None
+                    rotation = None
 
-                    logger.info(f"Adding camera {port} to calibrated camera array...")
-                    cam_data = CameraData(
-                        port=port,
-                        size=params["size"],
-                        rotation_count=params["rotation_count"],
-                        error=error,
-                        matrix=matrix,
-                        distortions=distortions,
-                        grid_count=grid_count,
-                        ignore=params["ignore"],
-                        translation=translation,
-                        rotation=rotation,
-                    )
+                logger.info(f"Adding camera {port} to calibrated camera array...")
+                cam_data = CameraData(
+                    port=port,
+                    size=params["size"],
+                    rotation_count=params["rotation_count"],
+                    error=error,
+                    matrix=matrix,
+                    distortions=distortions,
+                    grid_count=grid_count,
+                    translation=translation,
+                    rotation=rotation,
+                )
 
-                    all_camera_data[port] = cam_data
-                    logger.info(f"Camera successfully added at port {port}")
+                all_camera_data[port] = cam_data
+                logger.info(f"Camera successfully added at port {port}")
         logger.info("Camera data loaded and being passed back to caller")
         return all_camera_data
 

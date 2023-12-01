@@ -160,11 +160,8 @@ class IntrinsicCalibrationWidget(QWidget):
         self.cw_rotation_btn.clicked.connect(self.rotate_cw)
        
         self.scaling_spinBox.valueChanged.connect(self.on_scale_change)
-        # self.controller.connect_frame_emitter(self.port, self.update_image,self.update_index)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].ImageBroadcast.connect(self.update_image)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].FrameIndexBroadcast.connect(self.update_index)
-        # self.controller.IntrinsicImageUpdate.connect(self.update_image)
-        # self.controller.IndexUpdate.connect(self.update_index)
 
         # initialize stream to push first frame to widget then hold
         # must be done after signals and slots connected for effect to take hold
@@ -294,9 +291,6 @@ if __name__ == "__main__":
     charuco_tracker = CharucoTracker(charuco)
     controller.charuco_tracker = charuco_tracker
 
-    # controller.add_camera_from_source(
-    #     Path(workspace_dir,"phone_test.mov")
-    # )
 
     controller.load_intrinsic_stream_manager()
     window = IntrinsicCalibrationWidget(controller=controller, port=1)

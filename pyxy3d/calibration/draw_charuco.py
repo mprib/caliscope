@@ -24,7 +24,7 @@ def grid_history(frame, ids, img_locs, connected_corners):
         point_1 = observed_corners[pair[0]]
         point_2 = observed_corners[pair[1]]
 
-        cv2.line(frame, point_1, point_2, (255, 165, 0), 1)
+        cv2.line(frame, point_1, point_2, (255, 165, 0), 3)
 
     return frame
 

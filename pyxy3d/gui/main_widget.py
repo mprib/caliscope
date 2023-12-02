@@ -77,29 +77,38 @@ class MainWindow(QMainWindow):
         self.file_menu.addAction(self.exit_pyxy3d_action)
 
     def build_central_tabs(self):
-        
-        self.central_tab = QTabWidget()
-        self.setCentralWidget(self.central_tab)
+        if not hasattr(self, "central_tab"): 
+            self.central_tab = QTabWidget()
+            self.setCentralWidget(self.central_tab)
+
+        logger.info("Building workspace summary")
         self.workspace_summary = WorkspaceSummaryWidget(self.controller)
         self.central_tab.addTab(self.workspace_summary, "Workspace")
 
+        logger.info("Building Charuco widget")
         self.charuco_widget = CharucoWidget(self.controller)
         self.central_tab.addTab(self.charuco_widget,"Charuco")    
         
+
+        logger.info("About to load Camera tab")
         if self.controller.all_instrinsic_mp4s():
             logger.info("Loading intrinsic stream manager")
             self.controller.load_camera_array()
             self.controller.load_intrinsic_stream_manager()
             logger.info("Creating MultiIntrinsic Playback Widget")
             self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
+            logger.info("MultiIntrinsic Playback Widget created")
             cameras_enabled = True
         else:
             self.intrinsic_cal_widget = QWidget()
             cameras_enabled = False
         
+        logger.info("finished loading camera tab")
         self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras")
         self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),cameras_enabled)
+        logger.info("Camera tab enabled")
 
+        logger.info("About to load capture volume tab")
         if self.controller.all_extrinsics_estimated():
             self.controller.load_estimated_capture_volume()
             logger.info("Creating capture Volume Widget")
@@ -149,47 +158,7 @@ class MainWindow(QMainWindow):
         self.update_enable_disable()
 
     def connect_controller_signals(self):
-        """
-        After launching a session, connect signals and slots.
-        Much of these will be from the GUI to the session and vice-versa
-        """
-        self.controller.intrinsicStreamsLoaded.connect(self.reload_camera_tab)
-        self.controller.ExtrinsicCalibrationComplete.connect(self.reload_capture_volume_tab)
         self.reload_workspace_action.triggered.connect(self.reload_workspace)
-
-        # some placeholder code that might get implemented:
-        # self.controller.unlock_postprocessing.connect(
-        #     self.update_enable_disable
-        # )
-        # self.controller.extrinsic_calibration_complete.connect(
-        #     self.switch_to_capture_volume
-        # )
-
-    def reload_camera_tab(self):
-        """
-        Called when the controller emits a signal after loading the intrinsic stream manager
-        The camera control widget needs to get reloaded so that the new frame emitters can wire up to the display 
-        """
-        # get index of the Camera tab
-        camera_tab_index = self.find_tab_index_by_title("Cameras")
-        logger.info(f"Reloading camera tab to index {camera_tab_index}")
-        self.central_tab.removeTab(camera_tab_index)
-        self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
-        self.central_tab.insertTab(camera_tab_index, self.intrinsic_cal_widget, "Cameras")
-        self.update_enable_disable()
-           
-    def reload_capture_volume_tab(self):
-        # get index of the Camera tab
-        capture_volume_tab_index = self.find_tab_index_by_title("Capture Volume")
-        logger.info(f"Reloading capture volume tab to index {capture_volume_tab_index}")
-        self.central_tab.removeTab(capture_volume_tab_index)
-
-        # Re-create or refresh the MultiIntrinsicPlaybackWidget
-        # need to do this to 
-        self.capture_volume_widget = CaptureVolumeWidget(self.controller)
-        # Insert the new tab at the same position
-        self.central_tab.insertTab(capture_volume_tab_index, self.capture_volume_widget, "Capture Volume")
-        self.update_enable_disable()
 
     def find_tab_index_by_title(self, title):
         # Iterate through tabs to find the index of the tab with the given title
@@ -198,7 +167,6 @@ class MainWindow(QMainWindow):
                 return index
         return -1  # Return -1 if the tab is not found
 
-    
     def reload_workspace(self):
         # Clear all existing tabs
         logger.info("Clearing workspace")
@@ -210,8 +178,11 @@ class MainWindow(QMainWindow):
                 widget_to_remove.deleteLater()
         
             self.central_tab.clear()
+    
+        if hasattr(self.controller, "intrinsic_stream_manager"):
+            logger.info("Attempting to wind down currently existing stream tools")
+            self.controller.intrinsic_stream_manager.close_stream_tools()            
 
-        del self.controller.intrinsic_stream_manager
         # Rebuild the central tabs
         logger.info("Building Central tabs")
         self.build_central_tabs()

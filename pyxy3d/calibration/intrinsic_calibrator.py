@@ -26,8 +26,8 @@ class IntrinsicCalibrator:
         self.stream = stream
         self.initialize_point_history()
 
-        self.frame_packet_in = Queue()
-        self.stream.subscribe(self.frame_packet_in)
+        self.frame_packet_q = Queue()
+        self.stream.subscribe(self.frame_packet_q)
         self.harvest_frames()
 
     def harvest_frames(self):
@@ -36,18 +36,25 @@ class IntrinsicCalibrator:
 
         def harvest_worker():
             while True:
-                frame_packet = self.frame_packet_in.get()
+                frame_packet = self.frame_packet_q.get()
+                if self.stop_event.is_set():
+                    
+                    break
                 self.add_frame_packet(frame_packet)
 
-                if self.stop_event.is_set():
-                    break
-
+            logger.info(f"Harvest frames successfully ended in calibrator for port {self.stream.port}")
         self.harvest_thread = Thread(target=harvest_worker, args=[], daemon=True)
         self.harvest_thread.start()
 
     def stop(self):
+        logger.info("Beginning to stop intrinsic calibrator")
         self.stop_event.set()
-        self.thread.join()
+    
+        self.stream.unsubscribe(self.frame_packet_q)
+        
+        self.frame_packet_q.put(-1)
+        # logger.info(f"Waiting for harvest thread to stop at port {self.port}")
+        # self.harvest_thread.join()
 
     @property
     def grid_count(self):

@@ -1,53 +1,32 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 
-import sys
-import math
 from pathlib import Path
-from threading import Thread, Event
-import numpy as np
-from queue import Queue
+from threading import Thread
 import pandas as pd
 from pyxy3d.trackers.tracker_enum import TrackerEnum
-from pyxy3d.export import xyz_to_trc
 
-import cv2
-from PySide6.QtCore import Qt, Signal, QThread, QUrl
-from PySide6.QtGui import QDesktopServices, QImage, QPixmap, QIcon
+from PySide6.QtCore import Signal, QUrl
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
-    QApplication,
-    QSizePolicy,
     QMessageBox,
     QWidget,
-    QProgressBar,
-    QSpinBox,
-    QScrollArea,
     QComboBox,
-    QCheckBox,
-    QTextEdit,
-    QLineEdit,
     QListWidget,
-    QGroupBox,
-    QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSlider,
     QVBoxLayout,
 )
 
 from pyxy3d.post_processing.post_processor import PostProcessor
 from pyxy3d.post_processing.blender_tools import generate_metarig_config
 from pyxy3d.session.session import LiveSession
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d import __root__
-from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
 )
-from pyxy3d.gui.progress_dialog import ProgressDialog
+logger = pyxy3d.logger.get(__name__)
 
 class PostProcessingWidget(QWidget):
     processing_complete = Signal()
@@ -161,16 +140,6 @@ class PostProcessingWidget(QWidget):
         result = Path(self.processed_subfolder, file_name)
         return result
         
-
-    # def current_selection_processed(self) -> bool:
-    #     """ "
-    #     checks to see if their is a file in the recording directory named `xyz_TRACKERNAME.csv`
-    #     """
-
-    #     xyz_output = f"xyz_{self.tracker_combo.currentData().name}.csv"
-    #     target_path = Path(self.processed_subfolder, xyz_output)
-
-    #     return target_path.exists()
 
     @property
     def active_folder(self):

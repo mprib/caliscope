@@ -46,7 +46,30 @@ class IntrinsicStreamManager:
             self.frame_emitters[camera.port] = PlaybackFrameEmitter(stream)
             self.frame_emitters[camera.port].start()
             self.calibrators[camera.port] = IntrinsicCalibrator(camera,stream)
-    
+   
+   
+    def close_stream_tools(self):
+        for port, emitter in self.frame_emitters.items():
+            logger.info(f"Beginning to shut down frame emitter for port {port}")
+            emitter.stop()
+
+            logger.info(f"Waiting on camera {port} emitter to wrap up...")         
+            emitter.wait()
+            logger.info(f"Finished waiting for camera {port} emitter to wrap up")         
+        
+        for port, calibrator in self.calibrators.items():
+            logger.info("stopping calibrator")
+            calibrator.stop()
+            
+        for port, stream in self.streams.items():
+            stream.stop_event.set()
+            stream.unpause()
+            logger.info(f"About to wait for camera {port} to close")
+            # stream.jump_to(0)
+            stream.thread.join() 
+
+        logger.info("Finished closing stream tools") 
+             
     def get_frame_count(self,port):
         """
         Note that if frame_index may not start at 0 if frame_history is from a real-time capture

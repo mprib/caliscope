@@ -15,14 +15,14 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 from PySide6.QtCore import Qt, Slot, Signal, QSize
-from pyxy3d.gui.prerecorded_intrinsic_calibration.camera_display_widget import (
+from pyxy3d.gui.camera_management.camera_display_widget import (
     CameraDataDisplayWidget,
 )
 from PySide6.QtSvg import QSvgRenderer
 from pyxy3d.controller import Controller
-import pyxy3d.logger
 from pyxy3d import __root__
 
+import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
 
@@ -160,6 +160,7 @@ class IntrinsicCalibrationWidget(QWidget):
         self.cw_rotation_btn.clicked.connect(self.rotate_cw)
        
         self.scaling_spinBox.valueChanged.connect(self.on_scale_change)
+        
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].ImageBroadcast.connect(self.update_image)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].FrameIndexBroadcast.connect(self.update_index)
 

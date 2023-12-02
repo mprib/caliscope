@@ -6,10 +6,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from pathlib import Path
-from pyxy3d.gui.prerecorded_intrinsic_calibration.playback_widget import (
+from pyxy3d.gui.camera_management.playback_widget import (
     IntrinsicCalibrationWidget,
 )
 from pyxy3d.controller import Controller
+import pyxy3d.logger
+
+logger = pyxy3d.logger.get(__name__)
 
 
 class MultiIntrinsicPlaybackWidget(QWidget):
@@ -28,8 +31,13 @@ class MultiIntrinsicPlaybackWidget(QWidget):
         # self.resize(1200, 800)
 
     def loadTabs(self):
+        logger.info("Beginning to load individual tabs")
         for camera in self.controller.camera_array.cameras.values():
-            tab = IntrinsicCalibrationWidget(controller=self.controller, port=camera.port)
+            logger.info(f"About to create calibration widget for camera {camera.port}")
+            tab = IntrinsicCalibrationWidget(
+                controller=self.controller, port=camera.port
+            )
+            logger.info(f"Calibration widget for camera {camera.port} successfully created")
             self.tabWidget.addTab(tab, f"Cam {camera.port}")
 
 

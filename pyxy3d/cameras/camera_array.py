@@ -116,8 +116,6 @@ class CameraData:
             ]))
         ])
 
-        logger.info(camera_display_dict)
-    
         return camera_display_dict
 
 @dataclass

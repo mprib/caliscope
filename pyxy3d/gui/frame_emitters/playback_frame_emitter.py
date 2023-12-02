@@ -53,6 +53,9 @@ class PlaybackFrameEmitter(QThread):
             # self.monocalibrator.grid_frame_ready_q.get()
             logger.info("Getting frame packet from queue")
             frame_packet = self.frame_packet_q.get()
+            if not self.keep_collecting.is_set():
+                break
+
             self.frame = frame_packet.frame_with_points
 
             logger.info(f"Frame size is {self.frame.shape}")
@@ -89,7 +92,10 @@ class PlaybackFrameEmitter(QThread):
         )
 
     def stop(self):
-        self.keep_collecting = False
+        logger.info(f"Beginning to shut down frame emitter at port {self.port}")
+        self.stream.unsubscribe(self.frame_packet_q)
+        self.keep_collecting.clear()
+        self.frame_packet_q.put(-1)
         self.quit()
         
     def set_scale_factor(self, scaling_factor):

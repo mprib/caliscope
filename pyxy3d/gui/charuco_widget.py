@@ -1,10 +1,9 @@
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, QThread, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication,
-    QButtonGroup,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -12,20 +11,13 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
-    QRadioButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
-    QWizard,
-    QWizardPage,
 )
 
-from pyxy3d import __app_dir__
-from pyxy3d.calibration.charuco import ARUCO_DICTIONARIES, Charuco
-from pyxy3d.session.session import LiveSession
-from pyxy3d.gui.navigation_bars import NavigationBarNext
+from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.controller import Controller
 import pyxy3d.logger
 
@@ -256,8 +248,6 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     from pyxy3d import __root__
-    from pyxy3d.helper import copy_contents
-    from pyxy3d.trackers.charuco_tracker import CharucoTracker
     from pyxy3d.calibration.charuco import Charuco
 
     # Define the input file path here.

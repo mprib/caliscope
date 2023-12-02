@@ -44,8 +44,6 @@ class CameraDataDisplayWidget(QWidget):
             # Expand all items
             self.expand_all_items(self.tree)
         
-        logger.info(camera_display_dict)        
-
     def add_items(self, parent, tree, data_dict):
         if parent is None:
             parent = tree

@@ -1,49 +1,40 @@
-import typing
 import pyxy3d.logger
 
 
-from time import sleep, time
-from queue import Queue
-import cv2
-from PySide6.QtCore import QObject, Signal
+from time import sleep
 
-import sys
-from PySide6.QtWidgets import QApplication
 from pyxy3d.configurator import Configurator
 from pathlib import Path
-import numpy as np
-from numba.typed import Dict, List
-from pyxy3d import __root__
 import pandas as pd
-from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.recording.recorded_stream import RecordedStream, RecordedStreamPool
+from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.triangulate.triangulation import triangulate_xy
 
-from pyxy3d.interface import FramePacket, Tracker
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 # specify a source directory (with recordings)
-from pyxy3d.helper import copy_contents
 from pyxy3d.export import xyz_to_trc, xyz_to_wide_labelled
 from pyxy3d.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
 from pyxy3d.post_processing.smoothing import smooth_xyz
 
 logger = pyxy3d.logger.get(__name__)
+
+
 class PostProcessor:
     """
     The post processer operates independently of the session. It does not need to worry about camera management.
     Provide it with a path to the directory that contains the following:
     - config.toml
-    - frame_time.csv 
+    - frame_time.csv
     - .mp4 files
-    
+
 
     """
+
     # progress_update = Signal(dict)  # {"stage": str, "percent":int}
 
-    def __init__(self,recording_path:Path, tracker_enum:TrackerEnum):
+    def __init__(self, recording_path: Path, tracker_enum: TrackerEnum):
         self.recording_path = recording_path
         self.tracker_enum = tracker_enum
         self.config = Configurator(self.recording_path)
@@ -73,7 +64,7 @@ class PostProcessor:
             "Creating video recorder to record (x,y) data estimates from PointPacket delivered by Tracker"
         )
         output_suffix = self.tracker_enum.name
-        
+
         # it is the videorecorder that will save the (x,y) landmark positionsj
         video_recorder = VideoRecorder(synchronizer, suffix=output_suffix)
 
@@ -84,7 +75,7 @@ class PostProcessor:
             destination_folder=destination_folder,
             include_video=True,
             show_points=True,
-            store_point_history=True
+            store_point_history=True,
         )
         logger.info("Initiate playback and processing")
         stream_pool.play_videos()
@@ -92,15 +83,19 @@ class PostProcessor:
         while video_recorder.recording:
             sleep(1)
             percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
-            logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
+            logger.info(
+                f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection"
+            )
 
-    def create_xyz(self, xy_gap_fill = 3, xyz_gap_fill = 3, cutoff_freq = 6, include_trc = True) -> None:
+    def create_xyz(
+        self, xy_gap_fill=3, xyz_gap_fill=3, cutoff_freq=6, include_trc=True
+    ) -> None:
         """
         creates xyz_{tracker name}.csv file within the recording_path directory
 
-        Uses the two functions above, first creating the xy points based on the tracker if they 
+        Uses the two functions above, first creating the xy points based on the tracker if they
         don't already exist, the triangulating them. Makes use of an internal method self.triangulate_xy_data
-        
+
         """
 
         output_suffix = self.tracker_enum.name
@@ -120,31 +115,38 @@ class PostProcessor:
             logger.info("Filling small gaps in (x,y) data")
             xy = gap_fill_xy(xy)
             logger.info("Beginning data triangulation")
-            xyz = triangulate_xy( xy, self.camera_array)
+            xyz = triangulate_xy(xy, self.camera_array)
         else:
             logger.warn("No points tracked. Terminating post-processing early.")
             return
-       
-         
+
         if xyz.shape[0] > 0:
             logger.info("Filling small gaps in (x,y,z) data")
             xyz = gap_fill_xyz(xyz)
-            logger.info(f"Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz")
+            logger.info(
+                "Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz"
+            )
             xyz = smooth_xyz(xyz, order=2, fps=self.fps, cutoff=cutoff_freq)
-            logger.info("Saving (x,y,z) to csv file")       
+            logger.info("Saving (x,y,z) to csv file")
             xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
             xyz.to_csv(xyz_csv_path)
-            xyz_wide_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}_labelled.csv")
-            xyz_labelled  = xyz_to_wide_labelled(xyz,self.tracker_enum.value())
+            xyz_wide_csv_path = Path(
+                tracker_output_path, f"xyz_{output_suffix}_labelled.csv"
+            )
+            xyz_labelled = xyz_to_wide_labelled(xyz, self.tracker_enum.value())
             xyz_labelled.to_csv(xyz_wide_csv_path)
 
-        else: 
+        else:
             logger.warn("No points triangulated. Terminating post-processing early.")
             return
 
         # only include trc if wanted and only if there is actually good data to export
         if include_trc and xyz.shape[0] > 0:
-           trc_path = Path(tracker_output_path, f"xyz_{output_suffix}.trc")
-           time_history_path = Path(tracker_output_path, f"frame_time_history.csv")
-           xyz_to_trc(xyz,tracker=self.tracker_enum.value(), time_history_path=time_history_path,target_path= trc_path) 
-
+            trc_path = Path(tracker_output_path, f"xyz_{output_suffix}.trc")
+            time_history_path = Path(tracker_output_path, "frame_time_history.csv")
+            xyz_to_trc(
+                xyz,
+                tracker=self.tracker_enum.value(),
+                time_history_path=time_history_path,
+                target_path=trc_path,
+            )

@@ -2,7 +2,6 @@ import pyxy3d.logger
 
 
 from pathlib import Path
-from threading import Thread
 import pandas as pd
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 
@@ -19,8 +18,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from pyxy3d.post_processing.post_processor import PostProcessor
-from pyxy3d.post_processing.blender_tools import generate_metarig_config
 from pyxy3d.controller import Controller
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.vizualize.playback_triangulation_widget import (
@@ -92,6 +89,9 @@ class PostProcessingWidget(QWidget):
         # add each folder to the QListWidget
         for folder in dir_list:
             self.recording_folders.addItem(folder)
+        
+        if len(dir_list)>0:
+            self.recording_folders.setCurrentRow(0)
 
     @property
     def processed_subfolder(self):
@@ -180,8 +180,8 @@ class PostProcessingWidget(QWidget):
         self.process_current_btn.clicked.connect(self.process_current)
         self.open_folder_btn.clicked.connect(self.open_folder)
 
-        self.processing_complete.connect(self.enable_all_inputs)
-        self.processing_complete.connect(self.refresh_visualizer)
+        self.controller.post_processing_complete.connect(self.enable_all_inputs)
+        self.controller.post_processing_complete.connect(self.refresh_visualizer)
 
     def store_sync_index_cursor(self, cursor_value):
         if self.xyz_processed_path.exists():
@@ -212,11 +212,8 @@ class PostProcessingWidget(QWidget):
         
     def refresh_visualizer(self):
         # logger.info(f"Item {item.text()} selected and double-clicked.")
-        active_config = Configurator(self.active_recording_path)
-        logger.info(f"Refreshing vizualizer to display camera array stored in config.toml in {self.active_recording_path}")
-        camera_array = active_config.get_camera_array()
         
-        self.vis_widget.update_camera_array(camera_array)
+        self.vis_widget.update_camera_array(self.controller.camera_array)
         
         self.set_current_xyz()
         self.vizualizer_title.setText(self.viz_title_html)

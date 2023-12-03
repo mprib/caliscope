@@ -4,6 +4,9 @@ from enum import Enum, auto
 from pathlib import Path
 from PySide6.QtGui import QPixmap
 from time import sleep
+from pyxy3d.interface import Tracker
+from pyxy3d.trackers.tracker_enum import TrackerEnum
+from pyxy3d.post_processing.post_processor import PostProcessor
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.intrinsic_stream_manager import IntrinsicStreamManager
 from pyxy3d.configurator import Configurator
@@ -17,7 +20,7 @@ from pyxy3d.calibration.capture_volume.quality_controller import QualityControll
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
-from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
+from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager, read_video_properties
 from collections import OrderedDict
 
 import pyxy3d.logger
@@ -48,7 +51,8 @@ class Controller(QObject):
     ExtrinsicCalibrationComplete = Signal()
     extrinsic_2D_complete = Signal()
     intrinsicStreamsLoaded = Signal()
-
+    post_processing_complete = Signal()
+    
     def __init__(self, workspace_dir: Path):
         super().__init__()
         self.workspace = workspace_dir
@@ -67,7 +71,7 @@ class Controller(QObject):
         self.extrinsic_dir = Path(self.workspace, "calibration", "extrinsic")
         # make sure the containing directory exists
         self.extrinsic_dir.mkdir(exist_ok=True, parents=True)
-
+        self.recording_dir = Path(self.workspace, "recordings")
         self.capture_volume = None
 
     def set_camera_count(self, count:int):
@@ -341,26 +345,19 @@ class Controller(QObject):
         )
         self.extrinsicCalibrationThread.start()
 
-def read_video_properties(source_path: Path) -> dict:
-    # Dictionary to hold video properties
-    properties = {}
+    def process_recordings(self, recording_path:Path, tracker_enum:TrackerEnum):
+        """
+        Initiates worker thread to begin post processing.
+        TrackerEnum passed in so that access is given to both the tracker and the name because the name is needed for file/folder naming
+        """
+        def worker():
+            logger.info(f"Beginning to process video files at {recording_path}")
+            logger.info(f"Creating post processor for {recording_path}")
+            self.post_processor = PostProcessor(self.camera_array, recording_path, tracker_enum)
+            self.post_processor.create_xy()
+            self.post_processor.create_xyz()
 
-    # Open the video file
-    video = cv2.VideoCapture(str(source_path))
-    logger.info(f"Attempting to open video file: {source_path}")
-
-    # Check if video opened successfully
-    if not video.isOpened():
-        raise ValueError(f"Could not open the video file: {source_path}")
-
-    # Extract video properties
-    properties["frame_count"] = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    properties["fps"] = video.get(cv2.CAP_PROP_FPS)
-    properties["width"] = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
-    properties["height"] = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    properties["size"] = (properties["width"], properties["height"])
-
-    # Release the video capture object
-    video.release()
-
-    return properties
+        self.process_recordings_thread = QThread()
+        self.process_recordings_thread.run = worker
+        self.process_recordings_thread.finished.connect(self.post_processing_complete)
+        self.process_recordings_thread.start()

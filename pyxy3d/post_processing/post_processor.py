@@ -3,17 +3,12 @@ import pyxy3d.logger
 
 from time import sleep
 
-from pyxy3d.configurator import Configurator
 from pathlib import Path
 import pandas as pd
-from pyxy3d.recording.recorded_stream import RecordedStreamPool
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.triangulate.triangulation import triangulate_xy
 from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
 
 from pyxy3d.trackers.tracker_enum import TrackerEnum
-from pyxy3d.interface import Tracker
 from pyxy3d.cameras.camera_array import CameraArray
 
 from pyxy3d.export import xyz_to_trc, xyz_to_wide_labelled
@@ -30,11 +25,7 @@ class PostProcessor:
     - config.toml
     - frame_time.csv
     - .mp4 files
-
-
     """
-
-    # progress_update = Signal(dict)  # {"stage": str, "percent":int}
 
     def __init__(
         self, camera_array: CameraArray, recording_path: Path, tracker_enum: TrackerEnum
@@ -108,7 +99,9 @@ class PostProcessor:
             logger.info(
                 "Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz"
             )
-            xyz = smooth_xyz(xyz, order=2, fps=self.sync_stream_manager.mean_fps, cutoff=cutoff_freq)
+            xyz = smooth_xyz(
+                xyz, order=2, fps=self.sync_stream_manager.mean_fps, cutoff=cutoff_freq
+            )
             logger.info("Saving (x,y,z) to csv file")
             xyz_csv_path = Path(tracker_output_path, f"xyz_{self.tracker_name}.csv")
             xyz.to_csv(xyz_csv_path)

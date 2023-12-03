@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 from pyxy3d.post_processing.post_processor import PostProcessor
 from pyxy3d.post_processing.blender_tools import generate_metarig_config
-from pyxy3d.session.session import LiveSession
+from pyxy3d.controller import Controller
 from pyxy3d.configurator import Configurator
 from pyxy3d.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
@@ -31,25 +31,16 @@ logger = pyxy3d.logger.get(__name__)
 class PostProcessingWidget(QWidget):
     processing_complete = Signal()
 
-    def __init__(self, session:LiveSession):
+    def __init__(self, controller:Controller):
         super(PostProcessingWidget, self).__init__()
-        self.session = session
-        self.config = session.config
+        self.controller = controller 
+        self.config = self.controller.config
 
-        self.sync_index_cursors = {}
+        self.sync_index_cursors = {}  # track where the slider is for each playback...
         self.recording_folders = QListWidget()
-
         self.update_recording_folders()
 
-        # select the first element of the QListWidget
-        if self.recording_folders.count() > 0:
-            self.recording_folders.setCurrentRow(0)
-            self.config = Configurator(self.active_recording_path)
-            camera_array = self.config.get_camera_array()
-            self.vis_widget = PlaybackTriangulationWidget(camera_array)
-        else:
-            raise RuntimeError("No recording folders, so cannot display anything in Post Processing Widget")
-                
+        self.vis_widget = PlaybackTriangulationWidget(self.controller.camera_array)  
 
         self.tracker_combo = QComboBox()
         self.vizualizer_title = QLabel()
@@ -60,10 +51,8 @@ class PostProcessingWidget(QWidget):
                 self.tracker_combo.addItem(tracker.name, tracker)
 
 
-
         self.open_folder_btn = QPushButton("&Open Folder")
         self.process_current_btn = QPushButton("&Process")
-        self.generate_metarig_config_btn = QPushButton("Generate Metarig Config")
         self.refresh_visualizer() # must happen before placement to create vis_widget and vizualizer_title
         self.place_widgets()
         self.connect_widgets()
@@ -97,13 +86,8 @@ class PostProcessingWidget(QWidget):
     def update_recording_folders(self):
         # this check here is an artifact of the way that the main widget handles refresh
         self.recording_folders.clear()
-
         # create list of recording directories
-        dir_list = [p.stem for p in self.session.path.iterdir() if p.is_dir()]
-        try:
-            dir_list.remove("calibration")
-        except:
-            pass
+        dir_list = [p.stem for p in self.controller.recording_dir.iterdir() if p.is_dir()]
 
         # add each folder to the QListWidget
         for folder in dir_list:
@@ -112,7 +96,7 @@ class PostProcessingWidget(QWidget):
     @property
     def processed_subfolder(self):
         subfolder = Path(
-            self.session.path,
+            self.controller.recording_dir,
             self.recording_folders.currentItem().text(),
             self.tracker_combo.currentData().name,
         )
@@ -134,24 +118,28 @@ class PostProcessingWidget(QWidget):
     def active_tracker_enum(self):
         return self.tracker_combo.currentData()
         
-    @property
-    def metarig_config_path(self):
-        file_name = f"metarig_config_{self.tracker_combo.currentData().name}.json"
-        result = Path(self.processed_subfolder, file_name)
-        return result
+    # @property
+    # def metarig_config_path(self):
+    #     file_name = f"metarig_config_{self.tracker_combo.currentData().name}.json"
+    #     result = Path(self.processed_subfolder, file_name)
+        # return result
         
 
     @property
     def active_folder(self):
-        if self.recording_folders.currentItem() is not None:
+        if self.recording_folders.count() == 0:
+            active_folder = None
+        elif self.recording_folders.currentItem() is None:
+            self.recording_folders.setCurrentRow(0)
             active_folder: str = self.recording_folders.currentItem().text()
         else:
-            active_folder = None
+            active_folder: str = self.recording_folders.currentItem().text()
+            
         return active_folder
 
     @property
     def active_recording_path(self)-> Path:
-        p = Path(self.session.path, self.active_folder)
+        p = Path(self.controller.recording_dir, self.active_folder)
         logger.info(f"Active recording path is {p}")
         return p        
         
@@ -178,7 +166,7 @@ class PostProcessingWidget(QWidget):
         self.left_vbox.addWidget(self.open_folder_btn)
         self.left_vbox.addWidget(self.tracker_combo)
         self.button_hbox.addWidget(self.process_current_btn)
-        self.button_hbox.addWidget(self.generate_metarig_config_btn)
+        # self.button_hbox.addWidget(self.generate_metarig_config_btn)
         self.left_vbox.addLayout(self.button_hbox)
 
         self.layout().addLayout(self.right_vbox, stretch=2)
@@ -191,7 +179,6 @@ class PostProcessingWidget(QWidget):
         self.vis_widget.slider.valueChanged.connect(self.store_sync_index_cursor)
         self.process_current_btn.clicked.connect(self.process_current)
         self.open_folder_btn.clicked.connect(self.open_folder)
-        self.generate_metarig_config_btn.clicked.connect(self.create_metarig_config)
 
         self.processing_complete.connect(self.enable_all_inputs)
         self.processing_complete.connect(self.refresh_visualizer)
@@ -199,48 +186,29 @@ class PostProcessingWidget(QWidget):
     def store_sync_index_cursor(self, cursor_value):
         if self.xyz_processed_path.exists():
             self.sync_index_cursors[self.xyz_processed_path] = cursor_value
-            # logger.info(self.sync_index_cursors)
-        else:
-            # don't bother, doesn't exist
-            pass
 
     def open_folder(self):
         """Opens the currently active folder in a system file browser"""
         if self.active_folder is not None:
-            folder_path = Path(self.session.path, self.active_folder)
+            folder_path = Path(self.controller.recording_dir, self.active_folder)
             url = QUrl.fromLocalFile(str(folder_path))
             QDesktopServices.openUrl(url)
         else:
             logger.warn("No folder selected")
 
     def process_current(self):
-        recording_path = Path(self.session.path, self.active_folder)
+        """
+        
+        This needs to get pushed into the controller layer
+        """
+        recording_path = Path(self.controller.recording_dir, self.active_folder)
         logger.info(f"Beginning processing of recordings at {recording_path}")
         tracker_enum = self.tracker_combo.currentData()
         logger.info(f"(x,y) tracking will be applied using {tracker_enum.name}")
         recording_config_toml  = Path(recording_path,"config.toml")
         logger.info(f"Camera data based on config file saved to {recording_config_toml}")
 
-
-        
-        def processing_worker():
-            logger.info(f"Beginning to process video files at {recording_path}")
-            logger.info(f"Creating post processor for {recording_path}")
-            self.post_processor = PostProcessor(recording_path, tracker_enum)
-            self.disable_all_inputs()
-            self.post_processor.create_xyz()
-            self.processing_complete.emit()
-
-        thread = Thread(target=processing_worker, args=(), daemon=True)
-        thread.start()
-
-    def create_metarig_config(self):
-        logger.info(f"Beginning metarig_config creation in {self.processed_subfolder}")
-        tracker_enum = self.tracker_combo.currentData()
-        xyz_csv_path = Path(self.processed_subfolder, f"xyz_{tracker_enum.name}_labelled.csv")
-        generate_metarig_config(tracker_enum, xyz_csv_path)
-
-        self.update_enabled_disabled()
+        self.controller.process_recordings(recording_path, tracker_enum)
         
     def refresh_visualizer(self):
         # logger.info(f"Item {item.text()} selected and double-clicked.")
@@ -276,23 +244,23 @@ class PostProcessingWidget(QWidget):
     def update_enabled_disabled(self):
 
         # set availability of metarig generation 
-        logger.info("Checking if metarig config can be created...")
-        tracker = self.tracker_combo.currentData().value()
-        logger.info(tracker)
-        if (tracker.metarig_mapped and self.xyz_processed_path.exists() and not self.metarig_config_path.exists()):
-            self.generate_metarig_config_btn.setEnabled(True)
-            self.generate_metarig_config_btn.setToolTip("Creation of metarig configuration file is now available")
-        else:
-            self.generate_metarig_config_btn.setEnabled(False)
+        # logger.info("Checking if metarig config can be created...")
+        # tracker = self.tracker_combo.currentData().value()
+        # logger.info(tracker)
+        # if (tracker.metarig_mapped and self.xyz_processed_path.exists() and not self.metarig_config_path.exists()):
+        #     self.generate_metarig_config_btn.setEnabled(True)
+        #     self.generate_metarig_config_btn.setToolTip("Creation of metarig configuration file is now available")
+        # else:
+        #     self.generate_metarig_config_btn.setEnabled(False)
         
-        if not tracker.metarig_mapped:
-            self.generate_metarig_config_btn.setToolTip("Tracker is not set up to scale to a metarig")
-        elif self.metarig_config_path.exists():
-            self.generate_metarig_config_btn.setToolTip("The Metarig configuration json file has already been created.Check the tracker subfolder in the recording directory.")
-        elif not self.xyz_processed_path.exists():
-            self.generate_metarig_config_btn.setToolTip("Must process recording to create xyz estimates for metarig configuration")
-        else:
-            self.generate_metarig_config_btn.setToolTip("Click to create a file in the tracker subfolder that can be used to scale a Blender metarig")
+        # if not tracker.metarig_mapped:
+        #     self.generate_metarig_config_btn.setToolTip("Tracker is not set up to scale to a metarig")
+        # elif self.metarig_config_path.exists():
+        #     self.generate_metarig_config_btn.setToolTip("The Metarig configuration json file has already been created.Check the tracker subfolder in the recording directory.")
+        # elif not self.xyz_processed_path.exists():
+        #     self.generate_metarig_config_btn.setToolTip("Must process recording to create xyz estimates for metarig configuration")
+        # else:
+        #     self.generate_metarig_config_btn.setToolTip("Click to create a file in the tracker subfolder that can be used to scale a Blender metarig")
             
 
         # set availability of Proecssing and slider                

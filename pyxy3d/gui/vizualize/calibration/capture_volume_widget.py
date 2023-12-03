@@ -1,13 +1,9 @@
 import pyxy3d.logger
 
-
-import sys
 import numpy as np
-from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QApplication,
     QGroupBox,
     QGridLayout,
     QHBoxLayout,
@@ -19,9 +15,12 @@ from PySide6.QtWidgets import (
 )
 
 from pyxy3d.controller import Controller
-from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
+from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import (
+    CaptureVolumeVisualizer,
+)
 
 logger = pyxy3d.logger.get(__name__)
+
 
 class CaptureVolumeWidget(QWidget):
     def __init__(self, controller: Controller):
@@ -31,7 +30,7 @@ class CaptureVolumeWidget(QWidget):
 
         if not hasattr(self.controller, "capture_volume"):
             self.controller.load_estimated_capture_volume()
-            
+
         self.visualizer = CaptureVolumeVisualizer(self.controller.capture_volume)
         # self.visualizer.scene.show()
         self.slider = QSlider(Qt.Orientation.Horizontal)
@@ -50,8 +49,8 @@ class CaptureVolumeWidget(QWidget):
 
         # self.distance_error_summary = QLabel(self.session.quality_controller.distance_error_summary.to_string(index=False))
         self.rmse_summary = QLabel(self.controller.capture_volume.get_rmse_summary())
-       
-        # self.recalibrate_btn = QPushButton("Recalibrate") 
+
+        # self.recalibrate_btn = QPushButton("Recalibrate")
 
         self.place_widgets()
         self.connect_widgets()
@@ -62,7 +61,6 @@ class CaptureVolumeWidget(QWidget):
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.visualizer.scene, stretch=2)
         self.layout().addWidget(self.slider)
-    
 
         self.grid = QGridLayout()
         self.grid.addWidget(self.rotate_x_plus_btn, 0, 0)
@@ -76,19 +74,18 @@ class CaptureVolumeWidget(QWidget):
         self.world_origin_group.setLayout(QVBoxLayout())
         self.world_origin_group.layout().addWidget(self.set_origin_btn)
         self.world_origin_group.layout().addLayout(self.grid)
-        
+
         self.calibrate_group = QGroupBox()
         self.calibrate_group.setLayout(QVBoxLayout())
         self.calibrate_group.layout().addWidget(self.rmse_summary)
         # self.calibrate_group.layout().addWidget(self.recalibrate_btn)
-        
+
         self.hbox = QHBoxLayout()
         self.hbox.addWidget(self.calibrate_group)
         self.hbox.addWidget(self.world_origin_group)
         self.layout().addLayout(self.hbox)
-        
-        # self.layout().addWidget(self.recalibrate_btn)
 
+        # self.layout().addWidget(self.recalibrate_btn)
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
@@ -105,10 +102,8 @@ class CaptureVolumeWidget(QWidget):
         self.rotate_z_minus_btn.clicked.connect(
             lambda: self.rotate_capture_volume("z-")
         )
-        
 
     def set_origin_to_board(self):
-
         logger.info("Setting origin to board...")
         origin_index = self.slider.value()
         logger.info(f"Charuco board is {self.controller.charuco}")
@@ -117,7 +112,7 @@ class CaptureVolumeWidget(QWidget):
         )
         self.visualizer.refresh_scene()
         self.controller.config.save_capture_volume(self.controller.capture_volume)
-        
+
     def rotate_capture_volume(self, direction):
         transformations = {
             "x+": np.array(
@@ -145,9 +140,6 @@ class CaptureVolumeWidget(QWidget):
         self.controller.config.save_capture_volume(self.controller.capture_volume)
 
     def update_board(self, sync_index):
-
         logger.info(f"Updating board to sync index {sync_index}")
 
         self.visualizer.display_points(sync_index)
-
-

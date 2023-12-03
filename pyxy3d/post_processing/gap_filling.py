@@ -31,19 +31,23 @@ def gap_fill_xy(xy_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
     # Initialize a DataFrame to store the data with filled gaps
     xy_filled = pd.DataFrame()
 
-    if "frame_index" in xy_base.columns:
-        index_key = "frame_index"
-    else:
-        index_key = "sync_index"
+    # if "frame_index" in xy_base.columns:
+    #     index_key = "frame_index"
+    # else:
+    #     index_key = "sync_index"
+    # index_key = "frame_index"
+    index_key = "sync_index"
 
     last_port = -1 # init to impossible value to kick off log event on first run
+
     # Loop through each combination of port and point_id
     for (port, point_id), group in xy_base.groupby(['port', 'point_id']):
-        
-        # some conditional logging
+        #### some overhead to allow sparse logging only on the first run through
         if last_port != port:
             logger.info(f"Gap filling for (x,y) data from port {port}. Filling gaps that are {max_gap_size} frames or less...")
         last_port = port
+        ### End Conditional Logging
+        
         # Sort by frame_index to ensure the data is in order
         group = group.sort_values(index_key)
     

@@ -1,24 +1,20 @@
-import pyxy3d.logger
-
-logger = pyxy3d.logger.get(__name__)
-
-import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
 
 import pyqtgraph.opengl as gl
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QApplication,
     QSlider,
     QVBoxLayout,
     QWidget,
 )
-from pyxy3d.session.session import LiveSession
 from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray
+import pyxy3d.logger
+
+logger = pyxy3d.logger.get(__name__)
 
 
 class PlaybackTriangulationWidget(QWidget):
@@ -26,12 +22,8 @@ class PlaybackTriangulationWidget(QWidget):
         super(PlaybackTriangulationWidget, self).__init__()
 
         self.camera_array = camera_array
-
         self.visualizer = TriangulationVisualizer(self.camera_array)
-        # self.visualizer.scene.show()
         self.slider = QSlider(Qt.Orientation.Horizontal)
-
-        # these defaults mean nothing right now without xyz data. Just placeholders
 
         self.setMinimumSize(500, 500)
 
@@ -59,8 +51,10 @@ class PlaybackTriangulationWidget(QWidget):
             self.slider.setMinimum(0)
             self.slider.setMaximum(100)
 
-    def update_camera_array(self, camera_array:CameraArray):
+    def update_camera_array(self, camera_array: CameraArray):
         self.visualizer.update_camera_array(camera_array)
+
+
 class TriangulationVisualizer:
     """
     Can except either a single camera array or a capture volume that includes
@@ -80,7 +74,9 @@ class TriangulationVisualizer:
         else:
             logger.info("Creating initial scene in capture volume visualizer")
             self.scene = gl.GLViewWidget()
-            self.scene.setCameraPosition(distance=4)  # the scene camera, not a real Camera
+
+            # the scene camera, not a real Camera
+            self.scene.setCameraPosition( distance=4)  
         axis = gl.GLAxisItem()
         self.scene.addItem(axis)
 
@@ -99,14 +95,13 @@ class TriangulationVisualizer:
         )
         self.scene.addItem(self.scatter)
         self.scatter.setData(pos=None)
-    
-    def update_camera_array(self, camera_array:CameraArray):
+
+    def update_camera_array(self, camera_array: CameraArray):
         self.camera_array = camera_array
         self.build_scene()
 
-
     def set_xyz(self, xyz_history: pd.DataFrame):
-        logger.info(f"Updating xyz history in playback widget")
+        logger.info("Updating xyz history in playback widget")
         self.xyz_history = xyz_history
 
         if self.xyz_history is not None:
@@ -122,7 +117,7 @@ class TriangulationVisualizer:
 
         else:
             self.xyz_coord = None
-            self.sync_index=0
+            self.sync_index = 0
             # self.scatter.setData(pos=None)
 
         self.display_points(self.sync_index)
@@ -141,5 +136,5 @@ class TriangulationVisualizer:
             logger.debug(f"Displaying xyz points for sync index {sync_index}")
             self.scatter.setData(pos=self.points)
 
-        else: 
+        else:
             self.scatter.setData(pos=None)

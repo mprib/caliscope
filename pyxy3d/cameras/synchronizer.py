@@ -15,7 +15,7 @@ logger = pyxy3d.logger.get(__name__)
 DROPPED_FRAME_TRACK_WINDOW = 100 # trailing frames tracked for reporting purposes
 
 class Synchronizer:
-    def __init__(self, streams: dict, fps_target=6):
+    def __init__(self, streams: dict):
         self.streams = streams
         self.current_synched_frames = None
 
@@ -38,8 +38,8 @@ class Synchronizer:
         self.subscribe_to_streams()
 
         # note that self.fps target is set in set_stream_fps
-        self.set_stream_fps(fps_target)
-        self.fps_mean = fps_target
+        # self.set_stream_fps(fps_target)
+        # self.fps_mean = fps_target
         
         # place to store a recent history of dropped frames
         self.dropped_frame_history = {port:[] for port in sorted(self.ports)} 
@@ -66,11 +66,11 @@ class Synchronizer:
         return {port:np.mean(drop_history) for port,drop_history in self.dropped_frame_history.items()}        
 
         
-    def set_stream_fps(self, fps_target):
-        self.fps_target = fps_target
-        logger.info(f"Attempting to change target fps in streams to {fps_target}")
-        for port, stream in self.streams.items():
-            stream.set_fps_target(fps_target)
+    # def set_stream_fps(self, fps_target):
+    #     self.fps_target = fps_target
+    #     logger.info(f"Attempting to change target fps in streams to {fps_target}")
+    #     for port, stream in self.streams.items():
+    #         stream.set_fps_target(fps_target)
 
     def subscribe_to_streams(self):
         for port, stream in self.streams.items():

@@ -1,21 +1,17 @@
-import pyxy3d.logger
-
-logger = pyxy3d.logger.get(__name__)
 from pyxy3d import __root__
-import pytest
 import shutil
-import cv2
 from pathlib import Path
 import time
-from pyxy3d.trackers.hand_tracker import HandTracker
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
 from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from pyxy3d.cameras.camera_array import CameraArray, CameraData
-from pyxy3d.recording.recorded_stream import RecordedStreamPool
+from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.configurator import Configurator
 from pyxy3d.helper import copy_contents
 from pyxy3d.trackers.tracker_enum import TrackerEnum
+from pyxy3d.recording.recorded_stream import RecordedStream
+import pyxy3d.logger
+
+logger = pyxy3d.logger.get(__name__)
 
 # TEST_SESSIONS = ["mediapipe_calibration"]
 
@@ -44,17 +40,23 @@ def test_hand_tracker():
 
     config = Configurator(session_path)
 
-    logger.info(f"Creating RecordedStreamPool")
+    logger.info("Creating RecordedStreamPool")
     recording_directory = Path(session_path, "calibration", "extrinsic")
 
-    stream_pool = RecordedStreamPool(
-        recording_directory,
-        config=config,
-        tracker=TrackerEnum.HAND.value(),
-        fps_target=100,
-    )
+    camera_array = config.get_camera_array()
+    streams = {}
+    for port, camera in camera_array.cameras.items():
+        rotation_count = camera.rotation_count
+        streams[port] = RecordedStream(
+            recording_directory,
+            port,
+            rotation_count,
+            fps_target=100,
+            tracker=TrackerEnum.HAND.value(),
+        )
+
     logger.info("Creating Synchronizer")
-    syncr = Synchronizer(stream_pool.streams, fps_target=100)
+    syncr = Synchronizer(streams)
 
     #### Basic code for interfacing with in-progress RealTimeTriangulator
     #### Just run off of saved point_data.csv for development/testing
@@ -62,7 +64,9 @@ def test_hand_tracker():
     sync_packet_triangulator = SyncPacketTriangulator(
         camera_array, syncr, recording_directory=session_path
     )
-    stream_pool.play_videos()
+
+    for port, stream in streams.items():
+        stream.play_video()
 
     while sync_packet_triangulator.running:
         logger.info("Waiting for streams to finish playing")

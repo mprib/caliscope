@@ -1,23 +1,18 @@
-import pyxy3d.logger
-
-logger = pyxy3d.logger.get(__name__)
-
 # from PySide6.QtCore import QObject, Signal
 from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
 import cv2
-import sys
 import pandas as pd
-import shutil
 
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.cameras.live_stream import LiveStream
-from pyxy3d.interface import FramePacket, SyncPacket
+from pyxy3d.interface import SyncPacket
+import pyxy3d.logger
+
+logger = pyxy3d.logger.get(__name__)
 
 
 class VideoRecorder:
-
     def __init__(self, synchronizer: Synchronizer, suffix: str = None):
         """
         suffix: provide a way to clarify any modifications to the video that are being saved
@@ -52,11 +47,15 @@ class VideoRecorder:
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
             frame_size = stream.size
-            logger.info(f"Creating video writer with fps of {stream.original_fps} and frame size of {frame_size}")
+            logger.info(
+                f"Creating video writer with fps of {stream.original_fps} and frame size of {frame_size}"
+            )
             writer = cv2.VideoWriter(path, fourcc, stream.original_fps, frame_size)
             self.video_writers[port] = writer
 
-    def save_data_worker(self, include_video: bool, show_points: bool, store_point_history:bool):
+    def save_data_worker(
+        self, include_video: bool, show_points: bool, store_point_history: bool
+    ):
         # connect video recorder to synchronizer via an "in" queue
         if include_video:
             self.build_video_writers()
@@ -81,23 +80,24 @@ class VideoRecorder:
             "obj_loc_y": [],
         }
 
-        
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
         syncronizer_subscription_released = False
-        
+
         # this is where the issue is... need to figure out when the queue is empty...
         logger.info("Entering Save data worker loop entered")
-        while self.sync_packet_in_q.qsize() > 0 or not self.trigger_stop.is_set(): 
+        while self.sync_packet_in_q.qsize() > 0 or not self.trigger_stop.is_set():
             sync_packet: SyncPacket = self.sync_packet_in_q.get()
 
             # provide periodic updates of recording queue
             logger.debug("Getting size of sync packet q")
             backlog = self.sync_packet_in_q.qsize()
-            if backlog % 25 == 0 and backlog !=0:
-                logger.info(f"Size of unsaved frames on the recording queue is {self.sync_packet_in_q.qsize()}")
+            if backlog % 25 == 0 and backlog != 0:
+                logger.info(
+                    f"Size of unsaved frames on the recording queue is {self.sync_packet_in_q.qsize()}"
+                )
 
             if sync_packet is None:
-                # relenvant when 
+                # relenvant when
                 logger.info("End of sync packets signaled...breaking record loop")
                 break
 
@@ -117,10 +117,12 @@ class VideoRecorder:
 
                     if include_video:
                         # store the frame
-                        if self.sync_index %50==0:
-                            logger.info(f"Writing frame for port {port} and sync index {self.sync_index}")
-                            logger.info(f"frame size  {frame.shape}")
-                    
+                        if self.sync_index % 50 == 0:
+                            logger.debug(
+                                f"Writing frame for port {port} and sync index {self.sync_index}"
+                            )
+                            logger.debug(f"frame size  {frame.shape}")
+
                         self.video_writers[port].write(frame)
 
                         # store to assocated data in the dictionary
@@ -134,7 +136,7 @@ class VideoRecorder:
                         for key, value in self.point_data_history.copy().items():
                             logger.debug("Extending tidy table of point history")
                             self.point_data_history[key].extend(new_tidy_table[key])
-                        
+
             if not syncronizer_subscription_released and self.trigger_stop.is_set():
                 logger.info("Save frame worker winding down...")
                 syncronizer_subscription_released = True
@@ -162,7 +164,6 @@ class VideoRecorder:
         logger.info("About to emit `all frames saved` signal")
         # self.all_frames_saved_signal.emit()
 
-
     def store_point_history(self):
         df = pd.DataFrame(self.point_data_history)
         point_data_path = str(Path(self.destination_folder, f"xy{self.suffix}.csv"))
@@ -174,7 +175,7 @@ class VideoRecorder:
         frame_hist_path = str(Path(self.destination_folder, "frame_time_history.csv"))
         logger.info(f"Storing frame history to {frame_hist_path}")
         df.to_csv(frame_hist_path, index=False, header=True)
-    
+
     def store_active_config(self):
         pass
 
@@ -187,7 +188,7 @@ class VideoRecorder:
     ):
         """
         Option exists to not store video if only interested in getting points from original video
-        
+
         Parent of destination folder will be the source of the config file that will be stored with the video
         This enables the nested processing of videos (i.e. Recording_1 will store the main config.toml,
         then POSE subfolder will store config.toml from Recording_1). Each folder should largely become self
@@ -198,9 +199,9 @@ class VideoRecorder:
         self.destination_folder = destination_folder
         # create the folder if it doesn't already exist
         self.destination_folder.mkdir(exist_ok=True, parents=True)
-       
-        # # Because calibration files are nested in a calibration directory, need to go 
-        # # to parent.parent to get the config.toml file      
+
+        # # Because calibration files are nested in a calibration directory, need to go
+        # # to parent.parent to get the config.toml file
         # if self.destination_folder.parent.stem == "calibration":
         #     source_config_path = Path(self.destination_folder.parent.parent, "config.toml")
         # else:   # just a regular recording
@@ -213,7 +214,9 @@ class VideoRecorder:
 
         self.recording = True
         self.recording_thread = Thread(
-            target=self.save_data_worker, args=[include_video, show_points, store_point_history], daemon=True
+            target=self.save_data_worker,
+            args=[include_video, show_points, store_point_history],
+            daemon=True,
         )
         self.recording_thread.start()
 
@@ -221,6 +224,7 @@ class VideoRecorder:
         logger.info("about to Stop recording initiated within VideoRecorder")
         self.trigger_stop.set()
         logger.info("Stop recording initiated within VideoRecorder")
+
 
 def find_config_file(start_dir):
     """
@@ -232,7 +236,7 @@ def find_config_file(start_dir):
     current_dir = start_dir
 
     while True:
-        config_file = current_dir / 'config.toml'
+        config_file = current_dir / "config.toml"
         if config_file.is_file():
             return config_file
         if current_dir.parent == current_dir:

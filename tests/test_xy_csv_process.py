@@ -31,6 +31,7 @@ from pyxy3d.trackers.tracker_enum import TrackerEnum
 
 logger = pyxy3d.logger.get(__name__)
 
+
 def test_xy_point_creation():
     # create a clean directory to start from
     session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration_2_cam")
@@ -42,17 +43,21 @@ def test_xy_point_creation():
     # create inputs to processing pipeline function
     # config = Configurator(copy_session_path)
 
-    
+    config = Configurator(copy_session_path)
+    camera_array = config.get_camera_array()
     recording_path = Path(copy_session_path, "recording_1")
     tracker_enum = TrackerEnum.HAND
-    post_processor = PostProcessor(recording_path, tracker_enum)
-    
+    post_processor = PostProcessor(
+        camera_array=camera_array,
+        recording_path=recording_path,
+        tracker_enum=tracker_enum,
+    )
 
     # make some basic assertions against the created files
     produced_files = [
-        Path(recording_path,"HAND", "xy_HAND.csv"),
-        Path(recording_path,"HAND", "port_0_HAND.mp4"),
-        Path(recording_path,"HAND", "port_1_HAND.mp4"),
+        Path(recording_path, "HAND", "xy_HAND.csv"),
+        Path(recording_path, "HAND", "port_0_HAND.mp4"),
+        Path(recording_path, "HAND", "port_1_HAND.mp4"),
     ]
 
     # confirm that the directory does not have these files prior to running xy creation method
@@ -68,7 +73,7 @@ def test_xy_point_creation():
         assert file.exists()
 
     # confirm that xy data is produced for the sync indices (slightly reduced to avoid missing data issues)
-    xy_data = pd.read_csv(Path(recording_path,"HAND", f"xy_{tracker_enum.name}.csv"))
+    xy_data = pd.read_csv(Path(recording_path, "HAND", f"xy_{tracker_enum.name}.csv"))
     xy_sync_index_count = xy_data["sync_index"].max() + 1  # zero indexed
 
     frame_times = pd.read_csv(Path(recording_path, "frame_time_history.csv"))

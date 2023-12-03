@@ -11,7 +11,7 @@ from time import sleep
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
 from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.recording.recorded_stream import RecordedStreamPool
+from pyxy3d.recording.recorded_stream import RecordedStream
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.configurator import Configurator
@@ -51,14 +51,20 @@ def test_real_time_triangulator():
 
     logger.info("Creating RecordedStreamPool based on calibration recordings")
     recording_directory = Path(test_session, "calibration", "extrinsic")
-    stream_pool = RecordedStreamPool(
-        directory=recording_directory,
-        config=config,
-        tracker=charuco_tracker,
-        fps_target=100,
-    )
+    
+    streams = {}
+    for port, camera in camera_array.cameras.items():
+        rotation_count = camera.rotation_count
+        streams[port] = RecordedStream(
+            recording_directory,
+            port,
+            rotation_count,
+            fps_target=100,
+            tracker=charuco_tracker
+        )
+    
     logger.info("Creating Synchronizer")
-    syncr = Synchronizer(stream_pool.streams, fps_target=100)
+    syncr = Synchronizer(streams)
 
     #### Basic code for interfacing with in-progress RealTimeTriangulator
     #### Just run off of saved point_data.csv for development/testing
@@ -68,7 +74,10 @@ def test_real_time_triangulator():
         recording_directory=recording_directory,
         tracker_name=charuco_tracker.name,
     )
-    stream_pool.play_videos()
+    
+    for port, stream in streams.items():
+        stream.play_video()
+
     while real_time_triangulator.running:
         sleep(1)
 

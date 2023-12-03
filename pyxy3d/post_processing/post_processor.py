@@ -10,10 +10,12 @@ from pyxy3d.recording.recorded_stream import RecordedStreamPool
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.recording.video_recorder import VideoRecorder
 from pyxy3d.triangulate.triangulation import triangulate_xy
+from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
 
 from pyxy3d.trackers.tracker_enum import TrackerEnum
+from pyxy3d.interface import Tracker
+from pyxy3d.cameras.camera_array import CameraArray
 
-# specify a source directory (with recordings)
 from pyxy3d.export import xyz_to_trc, xyz_to_wide_labelled
 from pyxy3d.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
 from pyxy3d.post_processing.smoothing import smooth_xyz
@@ -34,55 +36,38 @@ class PostProcessor:
 
     # progress_update = Signal(dict)  # {"stage": str, "percent":int}
 
-    def __init__(self, recording_path: Path, tracker_enum: TrackerEnum):
+    def __init__(
+        self, camera_array: CameraArray, recording_path: Path, tracker_enum: TrackerEnum
+    ):
+        self.camera_array = camera_array
         self.recording_path = recording_path
         self.tracker_enum = tracker_enum
-        self.config = Configurator(self.recording_path)
-        self.camera_array = self.config.get_camera_array()
-        self.fps = self.config.get_fps_recording()
+        self.tracker_name = tracker_enum.name
+        self.tracker = tracker_enum.value()
+
+        logger.info(
+            f"Creating sync stream manager for videos stored in {self.recording_path}"
+        )
+        self.sync_stream_manager = SynchronizedStreamManager(
+            self.recording_path, self.camera_array.cameras, self.tracker
+        )
 
     def create_xy(self):
         """
         Reads through all .mp4  files in the recording path and applies the tracker to them
         The xy_TrackerName.csv file is saved out to the same directory by the VideoRecorder
         """
-        frame_times = pd.read_csv(Path(self.recording_path, "frame_time_history.csv"))
-        sync_index_count = len(frame_times["sync_index"].unique())
+        self.sync_stream_manager.process_streams(fps_target=100)
 
-        fps_recording = self.config.get_fps_recording()
-        logger.info("Creating pool of playback streams to begin processing")
-        stream_pool = RecordedStreamPool(
-            directory=self.recording_path,
-            config=self.config,
-            fps_target=fps_recording,
-            tracker=self.tracker_enum.value(),
-        )
-
-        synchronizer = Synchronizer(stream_pool.streams, fps_target=fps_recording)
-
-        logger.info(
-            "Creating video recorder to record (x,y) data estimates from PointPacket delivered by Tracker"
-        )
-        output_suffix = self.tracker_enum.name
-
-        # it is the videorecorder that will save the (x,y) landmark positionsj
-        video_recorder = VideoRecorder(synchronizer, suffix=output_suffix)
-
-        # these (x,y) positions will be stored within the subdirectory of the recording folder
-        # this destination subfolder is named to align with the tracker_enum.name
-        destination_folder = Path(self.recording_path, self.tracker_enum.name)
-        video_recorder.start_recording(
-            destination_folder=destination_folder,
-            include_video=True,
-            show_points=True,
-            store_point_history=True,
-        )
-        logger.info("Initiate playback and processing")
-        stream_pool.play_videos()
-
-        while video_recorder.recording:
+        while self.sync_stream_manager.recorder.recording:
             sleep(1)
-            percent_complete = int((video_recorder.sync_index / sync_index_count) * 100)
+            percent_complete = int(
+                (
+                    self.sync_stream_manager.recorder.sync_index
+                    / self.sync_stream_manager.mean_frame_count
+                )
+                * 100
+            )
             logger.info(
                 f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection"
             )
@@ -98,11 +83,8 @@ class PostProcessor:
 
         """
 
-        output_suffix = self.tracker_enum.name
-
-        tracker_output_path = Path(self.recording_path, self.tracker_enum.name)
-        # locate xy_{tracker name}.csv
-        xy_csv_path = Path(tracker_output_path, f"xy_{output_suffix}.csv")
+        tracker_output_path = Path(self.recording_path, self.tracker_name)
+        xy_csv_path = Path(tracker_output_path, f"xy_{self.tracker_name}.csv")
 
         # create if it doesn't already exist
         if not xy_csv_path.exists():
@@ -126,12 +108,12 @@ class PostProcessor:
             logger.info(
                 "Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz"
             )
-            xyz = smooth_xyz(xyz, order=2, fps=self.fps, cutoff=cutoff_freq)
+            xyz = smooth_xyz(xyz, order=2, fps=self.sync_stream_manager.mean_fps, cutoff=cutoff_freq)
             logger.info("Saving (x,y,z) to csv file")
-            xyz_csv_path = Path(tracker_output_path, f"xyz_{output_suffix}.csv")
+            xyz_csv_path = Path(tracker_output_path, f"xyz_{self.tracker_name}.csv")
             xyz.to_csv(xyz_csv_path)
             xyz_wide_csv_path = Path(
-                tracker_output_path, f"xyz_{output_suffix}_labelled.csv"
+                tracker_output_path, f"xyz_{self.tracker_name}_labelled.csv"
             )
             xyz_labelled = xyz_to_wide_labelled(xyz, self.tracker_enum.value())
             xyz_labelled.to_csv(xyz_wide_csv_path)
@@ -142,7 +124,7 @@ class PostProcessor:
 
         # only include trc if wanted and only if there is actually good data to export
         if include_trc and xyz.shape[0] > 0:
-            trc_path = Path(tracker_output_path, f"xyz_{output_suffix}.trc")
+            trc_path = Path(tracker_output_path, f"xyz_{self.tracker_name}.trc")
             time_history_path = Path(tracker_output_path, "frame_time_history.csv")
             xyz_to_trc(
                 xyz,
@@ -150,3 +132,24 @@ class PostProcessor:
                 time_history_path=time_history_path,
                 target_path=trc_path,
             )
+
+
+if __name__ == "__main__":
+    from pyxy3d.controller import Controller
+
+    workspace_dir = Path(
+        r"C:\Users\Mac Prible\OneDrive\pyxy3d\4_cam_prerecorded_practice_working"
+    )
+    controller = Controller(workspace_dir)
+    controller.load_camera_array()
+
+    camera_aray = controller.camera_array
+    recording_dir = Path(workspace_dir, "recordings", "recording_1")
+
+    post_processor = PostProcessor(
+        camera_array=camera_aray,
+        recording_path=recording_dir,
+        tracker_enum=TrackerEnum.HAND,
+    )
+
+    post_processor.create_xyz()

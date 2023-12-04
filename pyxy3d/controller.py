@@ -21,6 +21,7 @@ from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates impo
     get_point_estimates,
 )
 from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager, read_video_properties
+from pyxy3d.workspace_guide import WorkspaceGuide
 from collections import OrderedDict
 
 import pyxy3d.logger
@@ -57,6 +58,7 @@ class Controller(QObject):
         super().__init__()
         self.workspace = workspace_dir
         self.config = Configurator(self.workspace)
+        self.camera_count = self.config.get_camera_count()
 
         # streams will be used to play back recorded video with tracked markers to select frames
         self.camera_array = CameraArray({})  # empty camera array at init
@@ -64,14 +66,11 @@ class Controller(QObject):
         self.charuco_tracker = CharucoTracker(self.charuco)
         # self.camera_count = self.config.get_camera_count()  # reference to ensure that files are in place to meet user intent
 
-        self.intrinsic_dir = Path(self.workspace, "calibration", "intrinsic")
-        # make sure the containing directory exists
-        self.intrinsic_dir.mkdir(exist_ok=True, parents=True)
+        self.workspace_guide = WorkspaceGuide(self.workspace,self.camera_count)
+        self.workspace_guide.intrinsic_dir.mkdir(exist_ok=True, parents=True)
+        self.workspace_guide.extrinsic_dir.mkdir(exist_ok=True, parents=True)
+        self.workspace_guide.recording_dir.mkdir(exist_ok=True, parents=True)
 
-        self.extrinsic_dir = Path(self.workspace, "calibration", "extrinsic")
-        # make sure the containing directory exists
-        self.extrinsic_dir.mkdir(exist_ok=True, parents=True)
-        self.recording_dir = Path(self.workspace, "recordings")
         self.capture_volume = None
 
     def set_camera_count(self, count:int):
@@ -84,15 +83,13 @@ class Controller(QObject):
         return count
 
     
-    def all_instrinsic_mp4s(self)->bool:
-        intrinsic_mp4_ports = self._get_intrinsic_camera_ports()
-        return len(intrinsic_mp4_ports) == self.camera_count
+    def all_instrinsic_mp4s_available(self)->bool:
+        return self.workspace_guide.all_instrinsic_mp4s_available()
    
-    def all_extrinsic_mp4s(self)->bool:
-        intrinsic_mp4_ports = self._get_intrinsic_camera_ports()
-        extrinsic_mp4_ports = self._get_extrinsic_camera_ports()
-        return sorted(intrinsic_mp4_ports) == sorted(extrinsic_mp4_ports)
-   
+    def all_extrinsic_mp4s_available(self)->bool:
+        return self.workspace_guide.all_extrinsic_mp4s_available()
+
+
     def all_intrinsics_estimated(self)->bool:
         """
         At this point, processing extrinsics and calibrating capture volume should be allowed
@@ -108,35 +105,8 @@ class Controller(QObject):
         return cameras_good and point_estimates_good
          
     def recordings_available(self)->bool:
-        """
-        Checks if for each camera_data object in the camera_array, there is a corresponding
-        'port_#.mp4' file in any of the subfolders of the recording directory.
-
-        Returns:
-            bool: True if all required recordings are available, False otherwise.
-        """
-
-        # Iterate over each CameraData in the camera array
-        for port, camera_data in self.camera_array.cameras.items():
-            file_name = f"port_{port}.mp4"
-            file_found = False
-
-            # Check each subfolder in the recording directory
-            for subfolder in self.recording_dir.iterdir():
-                if subfolder.is_dir():  # Make sure it's a directory
-                    # Check if the required file exists in this subfolder
-                    expected_file_path = subfolder / file_name
-                    if expected_file_path.exists():
-                        file_found = True
-                        break
-
-            # If the file was not found for this camera, return False
-            if not file_found:
-                return False
-
-        # All required files were found
-        return True
-        
+        return len(self.workspace_guide.valid_recording_dirs()) > 0
+         
     def get_charuco_params(self) -> dict:
         return self.config.dict["charuco"]
 
@@ -176,7 +146,7 @@ class Controller(QObject):
         
     def load_intrinsic_stream_manager(self):
         self.intrinsic_stream_manager = IntrinsicStreamManager(
-            recording_dir=self.intrinsic_dir,
+            recording_dir=self.workspace_guide.intrinsic_dir,
             cameras=self.camera_array.cameras,
             tracker=self.charuco_tracker,
         )
@@ -194,28 +164,11 @@ class Controller(QObject):
         self.camera_array = CameraArray(preconfigured_cameras)
 
         # double check that no new camera associated files have been placed in the intrinsic calibration folder
-        all_ports = self._get_intrinsic_camera_ports()
+        all_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.intrinsic_dir)
 
         for port in all_ports:
             if port not in self.camera_array.cameras:
                 self._add_camera_from_source(port)
-
-    def _get_intrinsic_camera_ports(self)->list:
-        all_ports = []
-        for file in self.intrinsic_dir.iterdir():
-            if file.stem[0:5] == "port_":
-                port = file.stem.split("_")[1]
-                all_ports.append(int(port))
-        return all_ports
-        
-    def _get_extrinsic_camera_ports(self)->list:
-        all_ports = []
-        for file in self.extrinsic_dir.iterdir():
-            if file.stem[0:5] == "port_":
-                port = file.stem.split("_")[1]
-                all_ports.append(int(port))
-        return all_ports
-
 
     def _add_camera_from_source(self, port: int):
         """

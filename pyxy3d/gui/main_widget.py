@@ -1,4 +1,3 @@
-
 import pyxy3d.logger
 from pathlib import Path
 from enum import Enum
@@ -15,23 +14,27 @@ from PySide6.QtWidgets import (
 )
 import toml
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread
 from pyxy3d import __root__, __settings_path__
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.gui.charuco_widget import CharucoWidget
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from pyxy3d.gui.workspace_widget import WorkspaceSummaryWidget
-from pyxy3d.gui.camera_management.multiplayback_widget import MultiIntrinsicPlaybackWidget
+from pyxy3d.gui.camera_management.multiplayback_widget import (
+    MultiIntrinsicPlaybackWidget,
+)
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)
+
 
 class TabTypes(Enum):
     Workspace = 1
     Charuco = 2
     Cameras = 3
     CaptureVolume = 4
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -50,8 +53,6 @@ class MainWindow(QMainWindow):
         self.open_project_action.triggered.connect(self.create_new_project_folder)
         self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
 
-
-        
     def build_menus(self):
         # File Menu
         self.menu = self.menuBar()
@@ -78,8 +79,8 @@ class MainWindow(QMainWindow):
         self.file_menu.addAction(self.exit_pyxy3d_action)
 
     def build_central_tabs(self):
-        if not hasattr(self, "central_tab"): 
-            self.central_tab = QTabWidget()
+        if not hasattr(self, "central_tab"):
+            self.central_tab = QTabWidget(self)
             self.setCentralWidget(self.central_tab)
 
         logger.info("Building workspace summary")
@@ -88,11 +89,10 @@ class MainWindow(QMainWindow):
 
         logger.info("Building Charuco widget")
         self.charuco_widget = CharucoWidget(self.controller)
-        self.central_tab.addTab(self.charuco_widget,"Charuco")    
-        
+        self.central_tab.addTab(self.charuco_widget, "Charuco")
 
         logger.info("About to load Camera tab")
-        if self.controller.all_instrinsic_mp4s():
+        if self.controller.all_instrinsic_mp4s_available():
             logger.info("Loading intrinsic stream manager")
             self.controller.load_camera_array()
             self.controller.load_intrinsic_stream_manager()
@@ -103,10 +103,12 @@ class MainWindow(QMainWindow):
         else:
             self.intrinsic_cal_widget = QWidget()
             cameras_enabled = False
-        
+
         logger.info("finished loading camera tab")
         self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),cameras_enabled)
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Cameras"), cameras_enabled
+        )
         logger.info("Camera tab enabled")
 
         logger.info("About to load capture volume tab")
@@ -119,9 +121,10 @@ class MainWindow(QMainWindow):
             self.capture_volume_widget = QWidget()
             capture_volume_enabled = False
         self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Capture Volume"),capture_volume_enabled)
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Capture Volume"), capture_volume_enabled
+        )
 
-        
         logger.info("About to load post-processing tab")
         if self.controller.recordings_available():
             self.post_processing_widget = PostProcessingWidget(self.controller)
@@ -130,8 +133,10 @@ class MainWindow(QMainWindow):
             self.post_processing_widget = QWidget()
             post_processing_enabled = False
         self.central_tab.addTab(self.post_processing_widget, "Post Processing")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Post Processing"),post_processing_enabled)
-        
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Post Processing"), post_processing_enabled
+        )
+
     def build_docked_logger(self):
         # create log window which is fixed below main window
         self.docked_logger = QDockWidget("Log", self)
@@ -141,25 +146,29 @@ class MainWindow(QMainWindow):
         self.docked_logger.setWidget(self.log_widget)
 
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
-        
-     
-    def update_enable_disable(self):
-        if self.controller.all_instrinsic_mp4s():
-            self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),True)
-        else:
-            self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"),False)
 
-        if self.controller.all_extrinsic_mp4s() and self.controller.camera_array.all_intrinsics_calibrated():
+    def update_enable_disable(self):
+        if self.controller.all_instrinsic_mp4s_available():
+            self.central_tab.setTabEnabled(
+                self.find_tab_index_by_title("Cameras"), True
+            )
+        else:
+            self.central_tab.setTabEnabled(
+                self.find_tab_index_by_title("Cameras"), False
+            )
+
+        if (
+            self.controller.all_extrinsic_mp4s_available()
+            and self.controller.camera_array.all_intrinsics_calibrated()
+        ):
             self.workspace_summary.calibrate_btn.setEnabled(True)
         else:
             self.workspace_summary.calibrate_btn.setEnabled(False)
 
-
-
     def launch_workspace(self, path_to_workspace: str):
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
         self.controller = Controller(Path(path_to_workspace))
-        
+
         self.build_central_tabs()
 
         # but must exit and start over to launch a new session for now
@@ -185,23 +194,24 @@ class MainWindow(QMainWindow):
         # Iterate backwards through the tabs and remove them
         for index in range(self.central_tab.count() - 1, -1, -1):
             widget_to_remove = self.central_tab.widget(index)
+            logger.info(f"Removing tab with index {index}")
             self.central_tab.removeTab(index)
             if widget_to_remove is not None:
                 widget_to_remove.deleteLater()
-        
+
             self.central_tab.clear()
-    
+
         if hasattr(self.controller, "intrinsic_stream_manager"):
             logger.info("Attempting to wind down currently existing stream tools")
-            self.controller.intrinsic_stream_manager.close_stream_tools()            
+            self.controller.intrinsic_stream_manager.close_stream_tools()
 
         # Rebuild the central tabs
         logger.info("Building Central tabs")
         self.build_central_tabs()
 
         # Update any necessary states or enable/disable UI elements
-        self.update_enable_disable() 
-        
+        self.update_enable_disable()
+
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)
         recent_project_action.triggered.connect(self.open_recent_project)

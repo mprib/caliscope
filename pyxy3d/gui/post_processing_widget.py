@@ -84,7 +84,7 @@ class PostProcessingWidget(QWidget):
         # this check here is an artifact of the way that the main widget handles refresh
         self.recording_folders.clear()
         # create list of recording directories
-        dir_list = [p.stem for p in self.controller.recording_dir.iterdir() if p.is_dir()]
+        dir_list = self.controller.workspace_guide.valid_recording_dirs()
 
         # add each folder to the QListWidget
         for folder in dir_list:
@@ -96,7 +96,7 @@ class PostProcessingWidget(QWidget):
     @property
     def processed_subfolder(self):
         subfolder = Path(
-            self.controller.recording_dir,
+            self.controller.workspace_guide.recording_dir,
             self.recording_folders.currentItem().text(),
             self.tracker_combo.currentData().name,
         )
@@ -139,7 +139,7 @@ class PostProcessingWidget(QWidget):
 
     @property
     def active_recording_path(self)-> Path:
-        p = Path(self.controller.recording_dir, self.active_folder)
+        p = Path(self.controller.workspace_guide.recording_dir, self.active_folder)
         logger.info(f"Active recording path is {p}")
         return p        
         
@@ -190,7 +190,7 @@ class PostProcessingWidget(QWidget):
     def open_folder(self):
         """Opens the currently active folder in a system file browser"""
         if self.active_folder is not None:
-            folder_path = Path(self.controller.recording_dir, self.active_folder)
+            folder_path = Path(self.controller.workspace_guide.recording_dir, self.active_folder)
             url = QUrl.fromLocalFile(str(folder_path))
             QDesktopServices.openUrl(url)
         else:
@@ -201,7 +201,7 @@ class PostProcessingWidget(QWidget):
         
         This needs to get pushed into the controller layer
         """
-        recording_path = Path(self.controller.recording_dir, self.active_folder)
+        recording_path = Path(self.controller.workspace_guide.recording_dir, self.active_folder)
         logger.info(f"Beginning processing of recordings at {recording_path}")
         tracker_enum = self.tracker_combo.currentData()
         logger.info(f"(x,y) tracking will be applied using {tracker_enum.name}")

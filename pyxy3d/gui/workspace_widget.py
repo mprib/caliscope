@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 from pathlib import Path
-from PySide6.QtWidgets import QLabel, QWidget, QVBoxLayout, QPushButton, QSpinBox, QGridLayout, QTextBrowser
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QVBoxLayout, QPushButton, QSpinBox, QGridLayout, QTextBrowser
 from PySide6.QtCore import QFileSystemWatcher, Slot
 from pyxy3d.controller import Controller
 import pyxy3d.logger
@@ -15,10 +15,10 @@ class WorkspaceSummaryWidget(QWidget):
         self.controller = controller
         self.watcher = QFileSystemWatcher()
 
-        self.directory = QLabel(str(self.controller.workspace))
-        self.open_workspace_folder_btn = QPushButton("Open", self)
+        # self.directory = QLabel(str(self.controller.workspace))
+        self.open_workspace_folder_btn = QPushButton("Open Workspace Folder", self)
 
-        self.calibrate_btn = QPushButton("Calibrate", self)
+        self.calibrate_btn = QPushButton("Calibrate Capture Volume", self)
 
         self.camera_count_spin = QSpinBox()
         self.camera_count_spin.setValue(self.controller.get_camera_count())
@@ -36,17 +36,14 @@ class WorkspaceSummaryWidget(QWidget):
         # Layout
         self.layout = QGridLayout()
         self.setLayout(self.layout)
+        self.layout.addWidget(self.status_HTML,0,0,1,3)
 
-        self.layout.addWidget(QLabel("Workspace Directory:"),0,0)
-        self.layout.addWidget(self.directory,0,1)
-        self.layout.addWidget(self.open_workspace_folder_btn, 0,2)
-
-        self.layout.addWidget(QLabel("Camera Count:"),1,0)
-        self.layout.addWidget(self.camera_count_spin,1,1)
-        
-        self.layout.addWidget(self.status_HTML)
-
-        self.layout.addWidget(self.calibrate_btn,5,0)
+        camera_spin_layout = QHBoxLayout()
+        camera_spin_layout.addWidget(QLabel("Cameras:"))
+        camera_spin_layout.addWidget(self.camera_count_spin)
+        self.layout.addLayout(camera_spin_layout,1,0,)
+        self.layout.addWidget(self.open_workspace_folder_btn, 1,1)
+        self.layout.addWidget(self.calibrate_btn,1,2)
         
     def connect_widgets(self):
         self.open_workspace_folder_btn.clicked.connect(self.open_workspace)  
@@ -73,16 +70,4 @@ class WorkspaceSummaryWidget(QWidget):
 
             
     def update_status(self):
-        html_content = f"""
-        <html>
-            <head></head>
-            <body>
-                <h1>Workspace Status</h1>
-                <p>Files present: Yes/No</p>
-                <p>Actions possible: List of actions</p>
-                <!-- More status information -->
-            </body>
-        </html> 
-        """
-        
-        self.status_HTML.setHtml(html_content)
+        self.status_HTML.setHtml(self.controller.workspace_guide.get_html_summary())

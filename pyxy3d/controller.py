@@ -107,6 +107,36 @@ class Controller(QObject):
         point_estimates_good = self.config.point_estimates_toml_path.exists()
         return cameras_good and point_estimates_good
          
+    def recordings_available(self)->bool:
+        """
+        Checks if for each camera_data object in the camera_array, there is a corresponding
+        'port_#.mp4' file in any of the subfolders of the recording directory.
+
+        Returns:
+            bool: True if all required recordings are available, False otherwise.
+        """
+
+        # Iterate over each CameraData in the camera array
+        for port, camera_data in self.camera_array.cameras.items():
+            file_name = f"port_{port}.mp4"
+            file_found = False
+
+            # Check each subfolder in the recording directory
+            for subfolder in self.recording_dir.iterdir():
+                if subfolder.is_dir():  # Make sure it's a directory
+                    # Check if the required file exists in this subfolder
+                    expected_file_path = subfolder / file_name
+                    if expected_file_path.exists():
+                        file_found = True
+                        break
+
+            # If the file was not found for this camera, return False
+            if not file_found:
+                return False
+
+        # All required files were found
+        return True
+        
     def get_charuco_params(self) -> dict:
         return self.config.dict["charuco"]
 

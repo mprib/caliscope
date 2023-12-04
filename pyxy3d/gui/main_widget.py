@@ -22,6 +22,7 @@ from pyxy3d.gui.charuco_widget import CharucoWidget
 from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from pyxy3d.gui.workspace_widget import WorkspaceSummaryWidget
 from pyxy3d.gui.camera_management.multiplayback_widget import MultiIntrinsicPlaybackWidget
+from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)
@@ -119,6 +120,17 @@ class MainWindow(QMainWindow):
             capture_volume_enabled = False
         self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
         self.central_tab.setTabEnabled(self.find_tab_index_by_title("Capture Volume"),capture_volume_enabled)
+
+        
+        logger.info("About to load post-processing tab")
+        if self.controller.recordings_available():
+            self.post_processing_widget = PostProcessingWidget(self.controller)
+            post_processing_enabled = True
+        else:
+            self.post_processing_widget = QWidget()
+            post_processing_enabled = False
+        self.central_tab.addTab(self.post_processing_widget, "Post Processing")
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Post Processing"),post_processing_enabled)
         
     def build_docked_logger(self):
         # create log window which is fixed below main window

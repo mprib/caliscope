@@ -120,9 +120,9 @@ class Controller(QObject):
             self.intrinsic_stream_manager.update_charuco(self.charuco_tracker)
             
     def load_extrinsic_stream_manager(self):
-        logger.info(f"Loading manager for streams saved to {self.extrinsic_dir}")
+        logger.info(f"Loading manager for streams saved to {self.workspace_guide.extrinsic_dir}")
         self.extrinsic_stream_manager = SynchronizedStreamManager(
-            recording_dir=self.extrinsic_dir,
+            recording_dir=self.workspace_guide.extrinsic_dir,
             all_camera_data=self.camera_array.cameras,
             tracker=self.charuco_tracker,
         )
@@ -178,7 +178,7 @@ class Controller(QObject):
         in keeping with project layout
         """
         # copy source over to standard workspace structure
-        target_mp4_path = Path(self.intrinsic_dir, f"port_{port}.mp4")
+        target_mp4_path = Path(self.workspace_guide.intrinsic_dir, f"port_{port}.mp4")
         video_properties = read_video_properties(target_mp4_path)
         size = video_properties["size"]
         new_cam_data = CameraData(

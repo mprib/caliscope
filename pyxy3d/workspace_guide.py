@@ -101,20 +101,26 @@ class WorkspaceGuide:
 
         html = f"""
             <html>
-                <head></head>
+                <head>
+                    <style>
+                        p {{
+                            text-indent: 30px; 
+                        }}
+                    </style>
+                </head>
                 <body>
-                    <h3> Workspace Status </h3>
-                    <p>Directory: {str(self.workspace_dir)}</p>
-                    <p>Camera Count: {self.camera_count}</p>
-                    <h3>Intrinsic Calibration: {self.intrinsic_calibration_status()}</h3>
-                    <p>subdirectory: {str(self.intrinsic_dir)}</p>
-                    <p>missing files:{self.missing_files_in_dir(self.intrinsic_dir)}<p>
-                    <p>cameras needing calibration: {self.uncalibrated_cameras()}
-                    <h3>Extrinsic Calibration: {self.extrinsic_calibration_status()}</h3>
-                    <p>subdirectory: {str(self.extrinsic_dir)}</p>
-                    <p>missing files:{self.missing_files_in_dir(self.extrinsic_dir)}<p>
-                    <h3>Recordings</h3>
-                    <p>valid directories: {self.valid_recording_dir_text()}<p>
+                    <h4>Summary</h4>
+                    <p>    Directory: {str(self.workspace_dir)}</p>
+                    <p>    Camera Count: {self.camera_count}</p>
+                    <h4>Intrinsic Calibration: {self.intrinsic_calibration_status()}</h4>
+                    <p>    subdirectory: {str(self.intrinsic_dir)}</p>
+                    <p>    missing files:{self.missing_files_in_dir(self.intrinsic_dir)}</p>
+                    <p>    cameras needing calibration: {self.uncalibrated_cameras()}</p>
+                    <h4>Extrinsic Calibration: {self.extrinsic_calibration_status()}</h4>
+                    <p>    subdirectory: {str(self.extrinsic_dir)}</p>
+                    <p>    missing files:{self.missing_files_in_dir(self.extrinsic_dir)}</p>
+                    <h4>Recordings</h4>
+                    <p>    valid directories: {self.valid_recording_dir_text()}</p>
                     <p>
                 </body>
             </html> 

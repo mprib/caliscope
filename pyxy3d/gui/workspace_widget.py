@@ -2,8 +2,8 @@ import os
 import sys
 import subprocess
 from pathlib import Path
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QSpinBox
-from PySide6.QtCore import Slot
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QVBoxLayout, QPushButton, QSpinBox, QGridLayout, QTextBrowser
+from PySide6.QtCore import QFileSystemWatcher, Slot
 from pyxy3d.controller import Controller
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
@@ -13,38 +13,42 @@ class WorkspaceSummaryWidget(QWidget):
         super().__init__()
 
         self.controller = controller
+        self.watcher = QFileSystemWatcher()
 
-        self.open_workspace_folder_btn = QPushButton("Open Workspace Directory", self)
-        self.load_intrinsics_btn = QPushButton("Load Intrinsic Camera Data")
-        self.process_extrinsics_btn = QPushButton("Process Extrinsics") 
-        self.calibrate_btn = QPushButton("Calibrate Extrinsics", self)
+        # self.directory = QLabel(str(self.controller.workspace))
+        self.open_workspace_folder_btn = QPushButton("Open Workspace Folder", self)
+
+        self.calibrate_btn = QPushButton("Calibrate Capture Volume", self)
 
         self.camera_count_spin = QSpinBox()
         self.camera_count_spin.setValue(self.controller.get_camera_count())
+        self.camera_count_spin.setMaximumWidth(40)
+
+        self.status_HTML = QTextBrowser()
         # Set the layout for the widget
         self.place_widgets()
         self.connect_widgets()
+
+        self.update_status()
         
         
     def place_widgets(self):
         # Layout
-        self.layout = QVBoxLayout()
+        self.layout = QGridLayout()
         self.setLayout(self.layout)
-        self.layout.addWidget(self.camera_count_spin)
-        self.layout.addWidget(self.load_intrinsics_btn)
-        self.layout.addWidget(self.open_workspace_folder_btn)
-        self.layout.addWidget(self.calibrate_btn)
-        
+        self.layout.addWidget(self.status_HTML,0,0,1,3)
 
+        camera_spin_layout = QHBoxLayout()
+        camera_spin_layout.addWidget(QLabel("Cameras:"))
+        camera_spin_layout.addWidget(self.camera_count_spin)
+        self.layout.addLayout(camera_spin_layout,1,0,)
+        self.layout.addWidget(self.open_workspace_folder_btn, 1,1)
+        self.layout.addWidget(self.calibrate_btn,1,2)
+        
     def connect_widgets(self):
         self.open_workspace_folder_btn.clicked.connect(self.open_workspace)  
-        self.load_intrinsics_btn.clicked.connect(self.load_intrinsics)
         self.calibrate_btn.clicked.connect(self.on_calibrate_btn_clicked)
         self.camera_count_spin.valueChanged.connect(self.set_camera_count)
-        
-    def load_intrinsics(self):
-        self.controller.load_camera_array()
-        self.controller.load_intrinsic_stream_manager()
         
     def on_calibrate_btn_clicked(self):
         logger.info("Calling controller to process extrinsic streams into 2D data")
@@ -63,3 +67,7 @@ class WorkspaceSummaryWidget(QWidget):
             subprocess.run(["open", self.controller.workspace])
         else:  # Linux and Unix-like systems
             subprocess.run(["xdg-open", self.controller.workspace])
+
+            
+    def update_status(self):
+        self.status_HTML.setHtml(self.controller.workspace_guide.get_html_summary())

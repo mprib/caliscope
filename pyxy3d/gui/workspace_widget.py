@@ -3,7 +3,7 @@ import sys
 import subprocess
 from pathlib import Path
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QVBoxLayout, QPushButton, QSpinBox, QGridLayout, QTextBrowser
-from PySide6.QtCore import QFileSystemWatcher, Slot
+from PySide6.QtCore import QFileSystemWatcher, Slot, Qt
 from pyxy3d.controller import Controller
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
@@ -17,8 +17,8 @@ class WorkspaceSummaryWidget(QWidget):
 
         # self.directory = QLabel(str(self.controller.workspace))
         self.open_workspace_folder_btn = QPushButton("Open Workspace Folder", self)
-
         self.calibrate_btn = QPushButton("Calibrate Capture Volume", self)
+        self.reload_workspace_btn = QPushButton("Reload Workspace")
 
         self.camera_count_spin = QSpinBox()
         self.camera_count_spin.setValue(self.controller.get_camera_count())
@@ -36,14 +36,15 @@ class WorkspaceSummaryWidget(QWidget):
         # Layout
         self.layout = QGridLayout()
         self.setLayout(self.layout)
-        self.layout.addWidget(self.status_HTML,0,0,1,3)
+        self.layout.addWidget(self.status_HTML,0,0,1,4)
 
         camera_spin_layout = QHBoxLayout()
-        camera_spin_layout.addWidget(QLabel("Cameras:"))
-        camera_spin_layout.addWidget(self.camera_count_spin)
+        camera_spin_layout.addWidget(QLabel("Cameras:"), alignment=Qt.AlignmentFlag.AlignRight)
+        camera_spin_layout.addWidget(self.camera_count_spin, alignment=Qt.AlignmentFlag.AlignLeft)
         self.layout.addLayout(camera_spin_layout,1,0,)
-        self.layout.addWidget(self.open_workspace_folder_btn, 1,1)
-        self.layout.addWidget(self.calibrate_btn,1,2)
+        self.layout.addWidget(self.reload_workspace_btn, 1,1)
+        self.layout.addWidget(self.open_workspace_folder_btn, 1,2)
+        self.layout.addWidget(self.calibrate_btn,1,3)
         
     def connect_widgets(self):
         self.open_workspace_folder_btn.clicked.connect(self.open_workspace)  

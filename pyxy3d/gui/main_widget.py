@@ -1,8 +1,9 @@
 import pyxy3d.logger
 from pathlib import Path
 from enum import Enum
-
+import os
 import sys
+import subprocess
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -25,6 +26,7 @@ from pyxy3d.gui.camera_management.multiplayback_widget import (
 )
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 from pyxy3d.controller import Controller
+from pyxy3d import __log_dir__
 
 logger = pyxy3d.logger.get(__name__)
 
@@ -45,13 +47,19 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Pyxy3D")
         self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/pyxy_logo.svg"))))
         self.setMinimumSize(500, 500)
-
+        self.central_tab = QWidget(self)
+        self.setCentralWidget(self.central_tab)
+        
+        
         self.build_menus()
+        self.connect_menu_actions()
         self.build_docked_logger()
+
 
     def connect_menu_actions(self):
         self.open_project_action.triggered.connect(self.create_new_project_folder)
         self.exit_pyxy3d_action.triggered.connect(QApplication.instance().quit)
+        self.open_log_directory_action.triggered.connect(self.open_log_dir)
 
     def build_menus(self):
         # File Menu
@@ -62,10 +70,7 @@ class MainWindow(QMainWindow):
         self.open_project_action = QAction("New/Open Project", self)
         self.file_menu.addAction(self.open_project_action)
 
-        self.reload_workspace_action = QAction("Reload workspace", self)
-        self.file_menu.addAction(self.reload_workspace_action)
-
-        # Open Recent
+        ####################  Open Recent  ################################
         self.open_recent_project_submenu = QMenu("Recent Projects...", self)
 
         # Populate the submenu with recent project paths;
@@ -74,17 +79,20 @@ class MainWindow(QMainWindow):
             self.add_to_recent_project(project_path)
 
         self.file_menu.addMenu(self.open_recent_project_submenu)
+        ###################################################################
 
+        self.open_log_directory_action = QAction("Open Log Directory")
+        self.file_menu.addAction(self.open_log_directory_action)
         self.exit_pyxy3d_action = QAction("Exit", self)
         self.file_menu.addAction(self.exit_pyxy3d_action)
 
     def build_central_tabs(self):
-        if not hasattr(self, "central_tab"):
-            self.central_tab = QTabWidget(self)
-            self.setCentralWidget(self.central_tab)
+        self.central_tab = QTabWidget(self)
+        self.setCentralWidget(self.central_tab)
 
         logger.info("Building workspace summary")
         self.workspace_summary = WorkspaceSummaryWidget(self.controller)
+        self.workspace_summary.reload_workspace_btn.clicked.connect(self.reload_workspace)
         self.central_tab.addTab(self.workspace_summary, "Workspace")
 
         logger.info("Building Charuco widget")
@@ -172,14 +180,11 @@ class MainWindow(QMainWindow):
         self.build_central_tabs()
 
         # but must exit and start over to launch a new session for now
-        self.connect_controller_signals()
 
         self.open_project_action.setEnabled(False)
         self.open_recent_project_submenu.setEnabled(False)
         self.update_enable_disable()
 
-    def connect_controller_signals(self):
-        self.reload_workspace_action.triggered.connect(self.reload_workspace)
 
     def find_tab_index_by_title(self, title):
         # Iterate through tabs to find the index of the tab with the given title
@@ -223,6 +228,16 @@ class MainWindow(QMainWindow):
         logger.info(f"Opening recent session stored at {project_path}")
         self.launch_workspace(project_path)
 
+    def open_log_dir(self):
+        logger.info(f"Opening logging directory within File Explorer...  located at {__log_dir__}")
+        if sys.platform == 'win32':
+            os.startfile(__log_dir__)
+        elif sys.platform == 'darwin':
+            subprocess.run(["open", __log_dir__])
+        else:  # Linux and Unix-like systems
+            subprocess.run(["xdg-open", __log_dir__])
+        pass
+        
     def create_new_project_folder(self):
         default_folder = Path(self.app_settings["last_project_parent"])
         dialog = QFileDialog()
@@ -263,5 +278,5 @@ def launch_main():
 
 
 if __name__ == "__main__":
-    # launch_main()
-    pass
+    launch_main()
+    # pass

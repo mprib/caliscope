@@ -1,7 +1,3 @@
-import pyxy3d.logger
-
-logger = pyxy3d.logger.get(__name__)
-
 import sys
 import os
 from PySide6.QtWidgets import QApplication
@@ -9,6 +5,10 @@ from pathlib import Path
 
 from pyxy3d.gui.recording_widget import launch_recording_widget
 from pyxy3d.gui.main_widget import launch_main
+import pyxy3d.logger
+
+logger = pyxy3d.logger.get(__name__)
+
 
 def CLI_parser():
     if len(sys.argv) == 1:
@@ -23,4 +23,3 @@ def CLI_parser():
 
         if launch_widget in ["record", "rec", "-r"]:
             launch_recording_widget(session_path)
-

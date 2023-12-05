@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "pyxy3d"
 version = "0.2.4"
-description = "A package for calibrating standard webcams to enable 3d motion tracking"
+description = "GUI based multicamera calibration that integrates with 2D landmark tracking to triangulate 3D landmark positions"
 authors = ["Mac Prible <prible@gmail.com>"]
 license = "LGPL-3.0-only"
 readme = "README.md"

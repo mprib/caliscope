@@ -33,6 +33,10 @@ class Configurator:
 
         if exists(self.config_toml_path):
             self.refresh_config_from_toml()
+            # this check only included for interfacing with historical tests...
+            # if underlying tests data updated, this should be removed 
+            if "camera_count" not in self.dict.keys():
+                self.dict["camera_count"] = 0
         else:
             logger.info(
                 "No existing config.toml found; creating starter file with charuco"

@@ -102,7 +102,8 @@ class Controller(QObject):
         """
         cameras_good =  self.camera_array.all_extrinsics_calibrated()
         point_estimates_good = self.config.point_estimates_toml_path.exists()
-        return cameras_good and point_estimates_good
+        all_data_available = self.workspace_guide.all_extrinsic_mp4s_available()
+        return cameras_good and point_estimates_good and all_data_available
          
     def recordings_available(self)->bool:
         return len(self.workspace_guide.valid_recording_dirs()) > 0

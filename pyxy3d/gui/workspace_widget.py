@@ -53,7 +53,6 @@ class WorkspaceSummaryWidget(QWidget):
         
     def on_calibrate_btn_clicked(self):
         logger.info("Calling controller to process extrinsic streams into 2D data")
-        self.controller.process_extrinsic_streams(fps_target=100)
         # Call the extrinsic calibration method in the controller
         self.controller.estimate_extrinsics()
 

@@ -85,8 +85,10 @@ class IntrinsicCalibrationWidget(QWidget):
         self.frame_image = QLabel(self)
         self.frame_index_label = QLabel(self)
         self.play_button = QPushButton("", self)
-        play_icon = self.style().standardIcon(QStyle.SP_MediaPlay)
-        self.play_button.setIcon(play_icon)
+        self.play_icon = self.style().standardIcon(QStyle.SP_MediaPlay)
+        self.pause_icon = self.style().standardIcon(QStyle.SP_MediaPause)
+
+        self.play_button.setIcon(self.play_icon)
         self.slider = CustomSlider()
         self.slider.setMaximum(self.total_frames - 1)
 
@@ -177,13 +179,11 @@ class IntrinsicCalibrationWidget(QWidget):
         if self.is_playing:
             self.is_playing = False
             self.controller.pause_intrinsic_stream(self.port)
-            play_icon = self.style().standardIcon(QStyle.SP_MediaPlay)
-            self.play_button.setIcon(play_icon)
+            self.play_button.setIcon(self.play_icon)
         else:
             self.is_playing = True
             self.controller.unpause_intrinsic_stream(self.port)
-            pause_icon = self.style().standardIcon(QStyle.SP_MediaPause)
-            self.play_button.setIcon(pause_icon)
+            self.play_button.setIcon(self.pause_icon)
 
     def slider_moved(self, position):
         self.controller.stream_jump_to(self.port, position)
@@ -191,7 +191,7 @@ class IntrinsicCalibrationWidget(QWidget):
             self.controller.pause_intrinsic_stream(self.port)
             self.is_playing = False
             self.play_button.setEnabled(False)
-            self.play_button.setText("Play")  # now paused so only option is play
+            self.play_button.setIcon(self.play_icon)
         else:
             if not self.play_button.isEnabled():
                 self.play_button.setEnabled(True)
@@ -213,9 +213,8 @@ class IntrinsicCalibrationWidget(QWidget):
                     self.controller.pause_intrinsic_stream(self.port)
                     self.is_playing = False
                     self.play_button.setEnabled(False)
-                    self.play_button.setText(
-                        "Play"
-                    )  # now paused so only option is play
+                    # now paused so only option is play
+                    self.play_button.setIcon(self.play_icon)
 
     def update_image(self, port, pixmap):
         logger.info(f"Running `update_image` in playback widget for port {self.port}")
@@ -236,10 +235,8 @@ class IntrinsicCalibrationWidget(QWidget):
         self.controller.stream_jump_to(self.port, self.index)
 
     def calibrate(self):
+        
         self.controller.calibrate_camera(self.port)
-        self.toggle_distortion_changed(2)
-        self.toggle_distortion.setChecked(True)
-        # self.controller.stream_jump_to(self.port, self.index)
 
     def clear_calibration_data(self):
         self.controller.clear_calibration_data(self.port)

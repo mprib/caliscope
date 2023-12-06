@@ -60,23 +60,18 @@ def test_extrinsic_calibration():
     # calibration requires a capture volume object which is composed of both a camera array, 
     # and a set of point estimates
     controller.load_camera_array()
-    controller.load_extrinsic_stream_manager()
 
     # want to make sure that no previously stored data is leaking into this test
-    
     for cam in controller.camera_array.cameras.values():
         cam.rotation = None
         cam.translation = None
 
     assert(not controller.camera_array.all_extrinsics_calibrated())
-    controller.process_extrinsic_streams(fps_target=100)
 
-    xy_path = Path(workspace,"calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv")
-
-
-    while not xy_path.exists():
-        sleep(1)
-        logger.info(f"Waiting on data to populate in {xy_path}")
+    # xy_path = Path(workspace,"calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv")
+    # while not xy_path.exists():
+    #     sleep(1)
+    #     logger.info(f"Waiting on data to populate in {xy_path}")
 
     # with the charuco points tracked and saved out, the calibration can now proceed
     controller.estimate_extrinsics()

@@ -129,20 +129,23 @@ class Controller(QObject):
 
     def process_extrinsic_streams(self, fps_target=None):
         def worker():
+            output_path = Path(self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv")
+            output_path.unlink() # make sure this doesn't exist to begin with.
+
             self.load_extrinsic_stream_manager()
             self.extrinsic_stream_manager.process_streams(fps_target=fps_target)
 
-            output_path = Path(self.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv")
+            logger.info(f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}")
             while not output_path.exists():
                 sleep(0.5)
                 logger.info(
                     f"Waiting for 2D tracked points to populate at {output_path}"
                 )
 
-        self.extrinsic_process_thread = QThread()
-        self.extrinsic_process_thread.run = worker
-        self.extrinsic_process_thread.finished.connect(self.extrinsic_2D_complete.emit)
-        self.extrinsic_process_thread.start()
+        # self.extrinsic_process_thread = QThread()
+        # self.extrinsic_process_thread.run = worker
+        # self.extrinsic_process_thread.finished.connect(self.extrinsic_2D_complete.emit)
+        # self.extrinsic_process_thread.start()
 
         
     def load_intrinsic_stream_manager(self):
@@ -222,6 +225,7 @@ class Controller(QObject):
 
     def calibrate_camera(self, port):
         def worker():
+            # self.intrinsic_stream_manager.pause_stream(port)
             logger.info(f"Calibrating camera at port {port}")
             self.intrinsic_stream_manager.calibrate_camera(port)
             self.push_camera_data(port)
@@ -288,6 +292,23 @@ class Controller(QObject):
         """
 
         def worker():
+            output_path = Path(self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv")
+            if output_path.exists():
+                output_path.unlink() # make sure this doesn't exist to begin with.
+
+            self.load_extrinsic_stream_manager()
+            self.extrinsic_stream_manager.process_streams(fps_target=100)
+
+            logger.info(f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}")
+
+            while not output_path.exists():
+                sleep(0.5)
+                logger.info( f"Waiting for 2D tracked points to populate at {output_path}")
+
+            # note that this processing will wait until it is complete
+            self.process_extrinsic_streams(fps_target=100)
+            logger.info("Processing if extrinsic caliberation streams complete...")
+
             self.extrinsic_calibration_xy = Path(
                 self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
             )

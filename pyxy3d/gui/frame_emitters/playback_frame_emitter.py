@@ -56,36 +56,37 @@ class PlaybackFrameEmitter(QThread):
             if not self.keep_collecting.is_set():
                 break
 
-            self.frame = frame_packet.frame_with_points
+            if frame_packet.frame is not None:  # stream end signal when None frame placed on out queue
+                self.frame = frame_packet.frame_with_points
 
-            logger.info(f"Frame size is {self.frame.shape}")
-            logger.info(
-                f"Grid Capture History size is {self.grid_capture_history.shape}"
-            )
-            self.frame = cv2.addWeighted(self.frame, 1, self.grid_capture_history, 1, 0)
-
-            self._apply_undistortion()
-            
-            # cv2.imshow("emitted frame", self.frame)
-            # key = cv2.waitKey(1)
-            # if key == ord('q'):
-            #     break
-            
-
-            logger.info(f"Frame size is {self.frame.shape} following undistortion")
-            self.frame = resize_to_square(self.frame)
-            self.frame = apply_rotation(self.frame, self.stream.rotation_count)
-            image = cv2_to_qlabel(self.frame)
-            pixmap = QPixmap.fromImage(image)
-
-            if self.pixmap_edge_length:
-                pixmap = pixmap.scaled(
-                    int(self.pixmap_edge_length),
-                    int(self.pixmap_edge_length),
-                    Qt.AspectRatioMode.KeepAspectRatio,
+                logger.info(f"Frame size is {self.frame.shape}")
+                logger.info(
+                    f"Grid Capture History size is {self.grid_capture_history.shape}"
                 )
-            self.ImageBroadcast.emit(self.port, pixmap)
-            self.FrameIndexBroadcast.emit(self.port, frame_packet.frame_index)
+                self.frame = cv2.addWeighted(self.frame, 1, self.grid_capture_history, 1, 0)
+
+                self._apply_undistortion()
+            
+                # cv2.imshow("emitted frame", self.frame)
+                # key = cv2.waitKey(1)
+                # if key == ord('q'):
+                #     break
+            
+
+                logger.info(f"Frame size is {self.frame.shape} following undistortion")
+                self.frame = resize_to_square(self.frame)
+                self.frame = apply_rotation(self.frame, self.stream.rotation_count)
+                image = cv2_to_qlabel(self.frame)
+                pixmap = QPixmap.fromImage(image)
+
+                if self.pixmap_edge_length:
+                    pixmap = pixmap.scaled(
+                        int(self.pixmap_edge_length),
+                        int(self.pixmap_edge_length),
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                    )
+                self.ImageBroadcast.emit(self.port, pixmap)
+                self.FrameIndexBroadcast.emit(self.port, frame_packet.frame_index)
 
         logger.info(
             f"Thread loop within frame emitter at port {self.stream.port} successfully ended"

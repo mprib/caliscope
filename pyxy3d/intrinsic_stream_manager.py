@@ -39,7 +39,7 @@ class IntrinsicStreamManager:
                 port=camera.port,
                 rotation_count=camera.rotation_count,
                 tracker=self.tracker,
-                break_on_last=True,
+                break_on_last=False,
             )
 
             self.streams[camera.port] = stream

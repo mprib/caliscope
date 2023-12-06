@@ -1,9 +1,7 @@
 
-NOTE (11/16/2023): I'm currently in the midst of a large refactor to allow a processing pipeline that integrates entirely with pre-recorded footage. This is intended to sidestep the limitations of a webcam-based approach. My internal target for this milestone is the end of November. At that point, frame syncronization will need to be performed in an outside process, and streamlining that would be my next major milestone. I'm hoping interested people can point me toward useful tools for this that could be integrated into pyxy3d: https://github.com/mprib/pyxy3d/discussions/496
+NOTE (12/06/2023): I've published to PyPI a version of pyxy3D that works with pre-recorded footage. This remains a work-in-progress but does exhibit the core calibration/triangulation functionality. In advance of writing out full documentation of the new process I have put some videos out on youtube that illustrate the [basic folder structure](https://youtu.be/dvosFrFVDsU) that a project needs as well as how to proceed through [the calibration/triangulation workflow](https://www.youtube.com/watch?v=XDfuQ_7m1oQ).
 
-The current `main` is no longer targetting the webcam based workflow, so if you would like to play around with that I would recommend installing from PyPI or going back to an [older version](https://github.com/mprib/pyxy3d/tree/f0c69821c3a744d16b5bc44bbba0f9763a9a279c)
 
-UPDATE (12/1/2023): The end of November came and went. Progress has been made and I'm now on a final push through the weekend to try to knit things together. 
 
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 

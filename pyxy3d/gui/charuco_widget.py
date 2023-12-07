@@ -72,7 +72,7 @@ class CharucoWidget(QWidget):
             save_file_tuple = QFileDialog.getSaveFileName(
                 self,
                 "Save As",
-                str(Path(self.controller.path, "charuco.png")),
+                str(Path(self.controller.workspace, "charuco.png")),
                 "PNG (*.png)",
             )
             print(save_file_tuple)
@@ -91,7 +91,7 @@ class CharucoWidget(QWidget):
             save_file_tuple = QFileDialog.getSaveFileName(
                 self,
                 "Save As",
-                str(Path(self.controller.path, "charuco_mirror.png")),
+                str(Path(self.controller.workspace, "charuco_mirror.png")),
                 "PNG (*.png)",
             )
             print(save_file_tuple)

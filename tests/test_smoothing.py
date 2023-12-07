@@ -13,7 +13,7 @@ from scipy.stats import pearsonr
 
 # specify a source directory (with recordings)
 from pyxy3d.helper import copy_contents
-import toml
+import rtoml
 from PySide6.QtWidgets import QApplication
 from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 from pyxy3d.post_processing.smoothing import _smooth_xy, smooth_xyz

@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
-import toml
+import rtoml
 
 import cv2
 from time import perf_counter, sleep

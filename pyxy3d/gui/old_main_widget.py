@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QDockWidget,
     QMenu,
 )
-import toml
+import rtoml
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__
@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        self.app_settings = toml.load(__settings_path__)
+        self.app_settings = rtoml.load(__settings_path__)
 
         self.setWindowTitle("Pyxy3D")
         self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/pyxy_logo.svg"))))
@@ -302,7 +302,7 @@ class MainWindow(QMainWindow):
 
     def update_app_settings(self):
         with open(__settings_path__, "w") as f:
-            toml.dump(self.app_settings, f)
+            rtoml.dump(self.app_settings, f)
 
 
 def launch_main():

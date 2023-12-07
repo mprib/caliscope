@@ -11,7 +11,7 @@ from pyxy3d import __root__
 import time
 
 import numpy as np
-import toml
+import rtoml
 from itertools import combinations
 logger = pyxy3d.logger.get(__name__)
 
@@ -22,7 +22,7 @@ class StereoCalibrator:
         point_data_path: Path,
     ):
         self.config_path = config_path
-        self.config = toml.load(config_path)
+        self.config = rtoml.load(config_path)
        
         self.ports = [] 
         # set ports keeping in mind that something may be flagged for ignore
@@ -217,7 +217,7 @@ class StereoCalibrator:
         logger.info(f"Direct stereocalibration complete for all pairs for which data is available")
         logger.info(f"Saving stereo-pair extrinsic data to {self.config_path}")
         with open(self.config_path, "w") as f:
-            toml.dump(self.config, f)
+            rtoml.dump(self.config, f)
 
     def stereo_calibrate(self, pair, boards_sampled=10):
 

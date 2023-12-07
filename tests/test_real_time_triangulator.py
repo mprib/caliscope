@@ -42,12 +42,14 @@ def test_real_time_triangulator():
     copy_contents(original_session, test_session)
     
     config = Configurator(test_session)
+    config.refresh_point_estimates_from_toml()
     # origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
 
     charuco: Charuco = config.get_charuco()
     charuco_tracker = CharucoTracker(charuco)
 
     camera_array: CameraArray = config.get_camera_array()
+
 
     logger.info("Creating RecordedStreamPool based on calibration recordings")
     recording_directory = Path(test_session, "calibration", "extrinsic")

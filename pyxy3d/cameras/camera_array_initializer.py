@@ -13,7 +13,7 @@ from itertools import permutations
 from pyxy3d import __root__
 import numpy as np
 from dataclasses import dataclass, asdict
-import toml
+import rtoml
 import pyxy3d.logger
 logger = pyxy3d.logger.get(__name__)
 
@@ -101,7 +101,7 @@ class CameraArrayInitializer:
 
         logger.info("Creating initial estimate of camera array based on stereopairs...")
 
-        self.config = toml.load(config_path)
+        self.config = rtoml.load(config_path)
         self.ports = self._get_ports()
         self.estimated_stereopairs = self._get_captured_stereopairs()
         self._fill_stereopair_gaps()

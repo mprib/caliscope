@@ -1,7 +1,7 @@
 """Top-level package for basic_template_repo."""
 import os
 from pathlib import Path
-import toml
+import rtoml
 import platform
 
 __package_name__ = "pyxy3d"
@@ -35,7 +35,7 @@ __settings_path__ = Path(__app_dir__, 'settings.toml')
 __user_dir__ = Path(os.path.expanduser("~"))
 
 if __settings_path__.exists():
-    USER_SETTINGS = toml.load(__settings_path__)
+    USER_SETTINGS = rtoml.load(__settings_path__)
 else:
     # default to storing pyxy projects in user/__package_name__
     USER_SETTINGS = {"recent_projects":[],
@@ -44,7 +44,7 @@ else:
 
     
     with open(__settings_path__, "a") as f:
-        toml.dump(USER_SETTINGS, f)
+        rtoml.dump(USER_SETTINGS, f)
 
 
 __log_dir__ = Path(__app_dir__, "logs")
@@ -68,5 +68,5 @@ def get_config(session_directory: Path) -> dict:
     config_path = Path(session_directory, "config.toml")
 
     with open(config_path, "r") as f:
-        config = toml.load(config_path)
+        config = rtoml.load(config_path)
     return config

@@ -9,7 +9,7 @@ import sys
 from scipy import stats
 import numpy as np
 import pandas as pd
-import toml
+import rtoml
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.calibration.capture_volume.capture_volume import (
     CaptureVolume,
@@ -318,7 +318,7 @@ def get_capture_volume(capture_volume_pkl_path: Path) -> CaptureVolume:
     return capture_volume
 
 def get_charuco(config_path) -> Charuco:
-    config = toml.load(config_path)
+    config = rtoml.load(config_path)
 
     ## create charuco
     charuco = Charuco(

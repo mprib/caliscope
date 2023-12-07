@@ -82,7 +82,9 @@ class IntrinsicStreamManager:
     def update_charuco(self,charuco_tracker:CharucoTracker):
         for stream in self.streams.values():
             stream.tracker = charuco_tracker
-            
+        
+        for emitter in self.frame_emitters.values():
+            emitter.initialize_grid_capture_history()
      
     def play_stream(self,port):
         logger.info(f"Begin playing stream at port {port}")

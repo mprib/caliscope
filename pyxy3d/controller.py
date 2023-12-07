@@ -116,8 +116,11 @@ class Controller(QObject):
         self.config.save_charuco(self.charuco)
         self.charuco_tracker = CharucoTracker(self.charuco)
 
+
         if hasattr(self, "intrinsic_stream_manager"):
+            logger.info("Updating charuco within the intrinsic stream manager")
             self.intrinsic_stream_manager.update_charuco(self.charuco_tracker)
+
             
     def load_extrinsic_stream_manager(self):
         logger.info(f"Loading manager for streams saved to {self.workspace_guide.extrinsic_dir}")

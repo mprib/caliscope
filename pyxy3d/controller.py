@@ -53,7 +53,7 @@ class Controller(QObject):
     # extrinsic_2D_complete = Signal()
     # intrinsicStreamsLoaded = Signal()
     post_processing_complete = Signal()
-    workspace_loaded = Signal()
+    # workspace_loaded = Signal()
 
     def __init__(self, workspace_dir: Path):
         super().__init__()
@@ -75,16 +75,29 @@ class Controller(QObject):
         self.workspace_guide.recording_dir.mkdir(exist_ok=True, parents=True)
 
         self.capture_volume = None
-        self.load_workspace()
+        # needs to exist before main widget can connect to its finished signal
+        self.load_workspace_thread = QThread()
         
     def load_workspace(self):
+        
         def worker():
-            
-            
-            pass        
-        self.load_workspace_thread = QThread()
+            logger.info("Assess whether to load cameras")
+            if self.workspace_guide.all_instrinsic_mp4s_available():
+                self.load_camera_array()
+                self.load_intrinsic_stream_manager()
+                self.cameras_loaded = True
+            else:
+                self.cameras_loaded = False 
+           
+            logger.info("Assess whether to load capture volume")
+            if self.camera_array.all_extrinsics_calibrated():
+                self.load_estimated_capture_volume()
+                self.capture_volume_loaded = True
+            else:
+                self.capture_volume_loaded = False
+
+             
         self.load_workspace_thread.run = worker
-        self.load_workspace_thread.finished.connect(self.workspace_loaded.emit)
         self.load_workspace_thread.start()
 
     def set_camera_count(self, count:int):
@@ -287,7 +300,7 @@ class Controller(QObject):
         """
         logger.info("Beginning to load estimated capture volume")
         self.point_estimates = self.config.get_point_estimates()
-        self.camera_array = self.config.get_camera_array()
+        # self.camera_array = self.config.get_camera_array()
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
         logger.info("Load of capture volume complete")
 

@@ -95,42 +95,42 @@ class MainWindow(QMainWindow):
         self.workspace_summary.reload_workspace_btn.clicked.connect(self.reload_workspace)
         self.central_tab.addTab(self.workspace_summary, "Workspace")
 
+        if (
+            self.controller.all_extrinsic_mp4s_available()
+            and self.controller.camera_array.all_intrinsics_calibrated()
+        ):
+            self.workspace_summary.calibrate_btn.setEnabled(True)
+        else:
+            self.workspace_summary.calibrate_btn.setEnabled(False)
+
         logger.info("Building Charuco widget")
         self.charuco_widget = CharucoWidget(self.controller)
         self.central_tab.addTab(self.charuco_widget, "Charuco")
 
         logger.info("About to load Camera tab")
-        if self.controller.all_instrinsic_mp4s_available():
-            logger.info("Loading intrinsic stream manager")
-            self.controller.load_camera_array()
-            self.controller.load_intrinsic_stream_manager()
+        if self.controller.cameras_loaded:
             logger.info("Creating MultiIntrinsic Playback Widget")
             self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
             logger.info("MultiIntrinsic Playback Widget created")
-            cameras_enabled = True
         else:
             self.intrinsic_cal_widget = QWidget()
-            cameras_enabled = False
 
         logger.info("finished loading camera tab")
         self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras")
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Cameras"), cameras_enabled
+            self.find_tab_index_by_title("Cameras"), self.controller.cameras_loaded
         )
         logger.info("Camera tab enabled")
 
         logger.info("About to load capture volume tab")
-        if self.controller.all_extrinsics_estimated():
-            self.controller.load_estimated_capture_volume()
+        if self.controller.capture_volume_loaded:
             logger.info("Creating capture Volume Widget")
             self.capture_volume_widget = CaptureVolumeWidget(self.controller)
-            capture_volume_enabled = True
         else:
             self.capture_volume_widget = QWidget()
-            capture_volume_enabled = False
         self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Capture Volume"), capture_volume_enabled
+            self.find_tab_index_by_title("Capture Volume"), self.controller.capture_volume_loaded
         )
 
         logger.info("About to load post-processing tab")
@@ -155,36 +155,15 @@ class MainWindow(QMainWindow):
 
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
 
-    def update_enable_disable(self):
-        if self.controller.all_instrinsic_mp4s_available():
-            self.central_tab.setTabEnabled(
-                self.find_tab_index_by_title("Cameras"), True
-            )
-        else:
-            self.central_tab.setTabEnabled(
-                self.find_tab_index_by_title("Cameras"), False
-            )
-
-        if (
-            self.controller.all_extrinsic_mp4s_available()
-            and self.controller.camera_array.all_intrinsics_calibrated()
-        ):
-            self.workspace_summary.calibrate_btn.setEnabled(True)
-        else:
-            self.workspace_summary.calibrate_btn.setEnabled(False)
-
     def launch_workspace(self, path_to_workspace: str):
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
         self.controller = Controller(Path(path_to_workspace))
-        logger.info("controller loaded")
-
-        self.build_central_tabs()
-
-        # but must exit and start over to launch a new session for now
+        self.controller.load_workspace_thread.finished.connect(self.build_central_tabs)
+        logger.info("Initiate controller loading")
+        self.controller.load_workspace()
 
         self.open_project_action.setEnabled(False)
         self.open_recent_project_submenu.setEnabled(False)
-        self.update_enable_disable()
 
 
     def find_tab_index_by_title(self, title):
@@ -207,16 +186,20 @@ class MainWindow(QMainWindow):
 
             self.central_tab.clear()
 
-        if hasattr(self.controller, "intrinsic_stream_manager"):
-            logger.info("Attempting to wind down currently existing stream tools")
-            self.controller.intrinsic_stream_manager.close_stream_tools()
+        workspace = self.controller.workspace
+        del self.controller
+        self.controller = Controller(workspace_dir=workspace)
+        self.controller.load_workspace()
+        self.controller.load_workspace_thread.finished.connect(self.build_central_tabs)
+        
+        # if hasattr(self.controller, "intrinsic_stream_manager"):
+            # logger.info("Attempting to wind down currently existing stream tools")
+            # self.controller.intrinsic_stream_manager.close_stream_tools()
 
         # Rebuild the central tabs
-        logger.info("Building Central tabs")
-        self.build_central_tabs()
+        # logger.info("Building Central tabs")
+        # self.build_central_tabs()
 
-        # Update any necessary states or enable/disable UI elements
-        self.update_enable_disable()
 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)

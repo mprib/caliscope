@@ -83,7 +83,7 @@ class Configurator:
         self.dict = toml.load(self.config_toml_path)
 
     def refresh_point_estimates_from_toml(self):
-        logger.info("Populating config dictionary with config.toml data")
+        logger.info("Populating config dictionary with point_estimates.toml data")
         # with open(self.config_toml_path, "r") as f:
         self.dict["point_estimates"] = toml.load(self.point_estimates_toml_path)
 

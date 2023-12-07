@@ -75,6 +75,8 @@ class Controller(QObject):
 
         self.capture_volume = None
 
+        
+
     def set_camera_count(self, count:int):
         self.camera_count = count
         self.config.save_camera_count(count)
@@ -154,10 +156,10 @@ class Controller(QObject):
             cameras=self.camera_array.cameras,
             tracker=self.charuco_tracker,
         )
+        logger.info("Intrinsic stream manager has loaded")
         
         # signal to main GUI that the Camera tab needs to be reloaded
-        logger.info("Signalling that intrinsic stream manager has loaded")
-        self.intrinsicStreamsLoaded.emit()
+        # self.intrinsicStreamsLoaded.emit()
 
     def load_camera_array(self):
         """
@@ -228,16 +230,21 @@ class Controller(QObject):
             # self.intrinsic_stream_manager.pause_stream(port)
             logger.info(f"Calibrating camera at port {port}")
             self.intrinsic_stream_manager.calibrate_camera(port)
-            self.push_camera_data(port)
+            
+            # safety assignment here as references seem to be getting disjointed.
+            self.camera_array.cameras[port] = self.intrinsic_stream_manager.cameras[port]
             camera_data = self.camera_array.cameras[port]
             self.config.save_camera(camera_data)
+            self.push_camera_data(port)
         
         self.calibrateCameraThread = QThread()
         self.calibrateCameraThread.run = worker
         self.calibrateCameraThread.start()
 
     def push_camera_data(self, port):
+        logger.info(f"Pushing camera data for port {port}")
         camera_display_data = self.camera_array.cameras[port].get_display_data()
+        logger.info(f"camera display data is {camera_display_data}")
         self.CameraDataUpdate.emit(port, camera_display_data)
 
     def apply_distortion(self, port, undistort: bool):

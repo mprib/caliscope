@@ -289,7 +289,7 @@ if __name__ == "__main__":
     charuco_tracker = CharucoTracker(charuco)
     controller.charuco_tracker = charuco_tracker
 
-
+    controller.load_camera_array()
     controller.load_intrinsic_stream_manager()
     window = IntrinsicCalibrationWidget(controller=controller, port=1)
     window.resize(800, 600)

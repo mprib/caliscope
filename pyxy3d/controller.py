@@ -62,10 +62,12 @@ class Controller(QObject):
 
         # streams will be used to play back recorded video with tracked markers to select frames
         self.camera_array = CameraArray({})  # empty camera array at init
+        logger.info("Retrieving charuco from config")
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
         # self.camera_count = self.config.get_camera_count()  # reference to ensure that files are in place to meet user intent
 
+        logger.info("Building workpace guide")
         self.workspace_guide = WorkspaceGuide(self.workspace,self.camera_count)
         self.workspace_guide.intrinsic_dir.mkdir(exist_ok=True, parents=True)
         self.workspace_guide.extrinsic_dir.mkdir(exist_ok=True, parents=True)
@@ -144,11 +146,6 @@ class Controller(QObject):
                 logger.info(
                     f"Waiting for 2D tracked points to populate at {output_path}"
                 )
-
-        # self.extrinsic_process_thread = QThread()
-        # self.extrinsic_process_thread.run = worker
-        # self.extrinsic_process_thread.finished.connect(self.extrinsic_2D_complete.emit)
-        # self.extrinsic_process_thread.start()
 
         
     def load_intrinsic_stream_manager(self):
@@ -271,10 +268,12 @@ class Controller(QObject):
         from the config data without needing to go through the steps
 
         """
+        logger.info("Beginning to load estimated capture volume")
         self.point_estimates = self.config.get_point_estimates()
         self.camera_array = self.config.get_camera_array()
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
-        # self.capture_volume.rmse = self.config["capture_volume"]["RMSE"]
+        logger.info("Load of capture volume complete")
+
         self.capture_volume.stage = self.config.dict["capture_volume"]["stage"]
         if "origin_sync_index" in self.config.dict["capture_volume"].keys():
             self.capture_volume.origin_sync_index = self.config.dict["capture_volume"][

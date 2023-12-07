@@ -176,6 +176,7 @@ class MainWindow(QMainWindow):
     def launch_workspace(self, path_to_workspace: str):
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
         self.controller = Controller(Path(path_to_workspace))
+        logger.info("controller loaded")
 
         self.build_central_tabs()
 

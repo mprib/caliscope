@@ -35,6 +35,7 @@ class CameraDataDisplayWidget(QWidget):
         
     
     def update_tree(self, port, camera_display_dict):
+        # logger.info(f"Updating display tree for port {port} with camera data {camera_display_dict}")
         # port, camera_display_dict = port_camera_display_dict
 
         if port == self.port:

@@ -45,15 +45,16 @@ class Controller(QObject):
     Tracks stage of the calibration based on a variety of factors
     """
 
-    CameraDataUpdate = Signal(int, OrderedDict)  # port, camera_display_dictionary
-    IntrinsicImageUpdate = Signal(int, QPixmap)  # port, image
-    IndexUpdate = Signal(int, int)  # port, frame_index
-    ExtrinsicImageUpdate = Signal(dict)
-    ExtrinsicCalibrationComplete = Signal()
-    extrinsic_2D_complete = Signal()
-    intrinsicStreamsLoaded = Signal()
+    new_camera_data = Signal(int, OrderedDict)  # port, camera_display_dictionary
+    # IntrinsicImageUpdate = Signal(int, QPixmap)  # port, image
+    # IndexUpdate = Signal(int, int)  # port, frame_index
+    # ExtrinsicImageUpdate = Signal(dict)
+    capture_volume_calibrated = Signal()
+    # extrinsic_2D_complete = Signal()
+    # intrinsicStreamsLoaded = Signal()
     post_processing_complete = Signal()
-    
+    workspace_loaded = Signal()
+
     def __init__(self, workspace_dir: Path):
         super().__init__()
         self.workspace = workspace_dir
@@ -74,8 +75,17 @@ class Controller(QObject):
         self.workspace_guide.recording_dir.mkdir(exist_ok=True, parents=True)
 
         self.capture_volume = None
-
+        self.load_workspace()
         
+    def load_workspace(self):
+        def worker():
+            
+            
+            pass        
+        self.load_workspace_thread = QThread()
+        self.load_workspace_thread.run = worker
+        self.load_workspace_thread.finished.connect(self.workspace_loaded.emit)
+        self.load_workspace_thread.start()
 
     def set_camera_count(self, count:int):
         self.camera_count = count
@@ -245,7 +255,7 @@ class Controller(QObject):
         logger.info(f"Pushing camera data for port {port}")
         camera_display_data = self.camera_array.cameras[port].get_display_data()
         logger.info(f"camera display data is {camera_display_data}")
-        self.CameraDataUpdate.emit(port, camera_display_data)
+        self.new_camera_data.emit(port, camera_display_data)
 
     def apply_distortion(self, port, undistort: bool):
         camera = self.camera_array.cameras[port]
@@ -293,7 +303,7 @@ class Controller(QObject):
             self.capture_volume, charuco=self.charuco
         )
 
-    def estimate_extrinsics(self):
+    def calibrate_capture_volume(self):
         """
         This is where the camera array 6 DoF is set. Many, many things are happening
         here, but they are all necessary steps of the process so I didn't want to
@@ -354,12 +364,12 @@ class Controller(QObject):
             # saves both point estimates and camera array
             self.config.save_capture_volume(self.capture_volume)
 
-        self.extrinsicCalibrationThread = QThread()
-        self.extrinsicCalibrationThread.run = worker
-        self.extrinsicCalibrationThread.finished.connect(
-            self.ExtrinsicCalibrationComplete.emit
+        self.calibrate_capture_volume_thread = QThread()
+        self.calibrate_capture_volume_thread.run = worker
+        self.calibrate_capture_volume_thread.finished.connect(
+            self.capture_volume_calibrated.emit
         )
-        self.extrinsicCalibrationThread.start()
+        self.calibrate_capture_volume_thread.start()
 
     def process_recordings(self, recording_path:Path, tracker_enum:TrackerEnum):
         """

@@ -69,7 +69,7 @@ def test_extrinsic_calibration():
     assert(not controller.camera_array.all_extrinsics_calibrated())
 
     # with the charuco points tracked and saved out, the calibration can now proceed
-    controller.estimate_extrinsics()
+    controller.calibrate_capture_volume()
 
     while not controller.camera_array.all_extrinsics_calibrated():
         sleep(1)

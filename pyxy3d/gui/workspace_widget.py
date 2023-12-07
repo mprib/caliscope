@@ -54,7 +54,7 @@ class WorkspaceSummaryWidget(QWidget):
     def on_calibrate_btn_clicked(self):
         logger.info("Calling controller to process extrinsic streams into 2D data")
         # Call the extrinsic calibration method in the controller
-        self.controller.estimate_extrinsics()
+        self.controller.calibrate_capture_volume()
 
     def set_camera_count(self, value):
         self.controller.set_camera_count(value)

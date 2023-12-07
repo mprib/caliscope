@@ -31,7 +31,7 @@ class CameraDataDisplayWidget(QWidget):
 
 
     def connect_widgets(self):
-        self.controller.CameraDataUpdate.connect(self.update_tree)
+        self.controller.new_camera_data.connect(self.update_tree)
         
     
     def update_tree(self, port, camera_display_dict):
@@ -108,6 +108,6 @@ if __name__ == '__main__':
     controller = Controller(test_path)
     controller.config.dict["camera_count"] = 1
     ex = CameraDataDisplayWidget(port=0,controller=controller)
-    controller.CameraDataUpdate.emit(0,camera_data)
+    controller.new_camera_data.emit(0,camera_data)
     ex.show()
     sys.exit(app.exec())

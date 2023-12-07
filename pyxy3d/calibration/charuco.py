@@ -9,7 +9,7 @@ import pyxy3d.logger
 from collections import defaultdict
 from itertools import combinations
 import cv2
-import toml
+import rtoml
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 logger = pyxy3d.logger.get(__name__)
@@ -226,7 +226,7 @@ def get_charuco(config_path)-> Charuco:
     """
 
     with open(config_path, "r") as f:
-        config = toml.load(config_path)
+        config = rtoml.load(config_path)
 
     params = config["charuco"]
 

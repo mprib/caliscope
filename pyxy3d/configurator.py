@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 from os.path import exists
 import numpy as np
-import toml
+import rtoml
 from dataclasses import asdict
 import cv2
 
@@ -42,7 +42,7 @@ class Configurator:
                 "No existing config.toml found; creating starter file with charuco"
             )
 
-            self.dict = toml.loads("")
+            self.dict = rtoml.loads("")
             self.dict["CreationDate"] = datetime.now()
             self.dict["camera_count"] = 0
             self.update_config_toml()
@@ -80,12 +80,12 @@ class Configurator:
     def refresh_config_from_toml(self):
         logger.info("Populating config dictionary with config.toml data")
         # with open(self.config_toml_path, "r") as f:
-        self.dict = toml.load(self.config_toml_path)
+        self.dict = rtoml.load(self.config_toml_path)
 
     def refresh_point_estimates_from_toml(self):
         logger.info("Populating config dictionary with point_estimates.toml data")
         # with open(self.config_toml_path, "r") as f:
-        self.dict["point_estimates"] = toml.load(self.point_estimates_toml_path)
+        self.dict["point_estimates"] = rtoml.load(self.point_estimates_toml_path)
 
     def update_config_toml(self):
         # alphabetize by key to maintain standardized layout
@@ -96,7 +96,7 @@ class Configurator:
             key: value for key, value in self.dict.items() if key != "point_estimates"
         }
         with open(self.config_toml_path, "w") as f:
-            toml.dump(dict_wo_point_estimates, f)
+            rtoml.dump(dict_wo_point_estimates, f)
 
     def save_capture_volume(self, capture_volume: CaptureVolume):
         # self.point_estimates = self.capture_volume.point_estimates
@@ -314,15 +314,15 @@ class Configurator:
         self.dict["point_estimates"] = temp_data
 
         with open(self.point_estimates_toml_path, "w") as f:
-            toml.dump(self.dict["point_estimates"], f)
+            rtoml.dump(self.dict["point_estimates"], f)
         # self.update_config_toml()
 
 
 if __name__ == "__main__":
-    import toml
+    import rtoml
     from pyxy3d import __app_dir__
 
-    app_settings = toml.load(Path(__app_dir__, "settings.toml"))
+    app_settings = rtoml.load(Path(__app_dir__, "settings.toml"))
     recent_projects: list = app_settings["recent_projects"]
 
     recent_project_count = len(recent_projects)

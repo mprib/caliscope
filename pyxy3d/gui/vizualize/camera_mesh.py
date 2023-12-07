@@ -137,7 +137,7 @@ def rotationMatrixToEulerAngles(R):
     return np.array([x, y, z])
 
 if __name__ == '__main__':
-    import toml
+    import rtoml
     from pathlib import Path
     
     app = pg.mkQApp("GLMeshItem Example")
@@ -156,7 +156,7 @@ if __name__ == '__main__':
 
     repo = Path(str(Path(__file__)).split("pyxy")[0],"pyxy")
     # config_path = r"config 2.toml"
-    config = toml.load(Path(repo, "sessions", "iterative_adjustment", "config.toml"))
+    config = rtoml.load(Path(repo, "sessions", "iterative_adjustment", "config.toml"))
     cams = {}    
     ports = []
 

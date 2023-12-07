@@ -51,7 +51,7 @@ class PlaybackFrameEmitter(QThread):
         while self.keep_collecting.is_set():
             # Grab a frame from the queue and broadcast to displays
             # self.monocalibrator.grid_frame_ready_q.get()
-            logger.info("Getting frame packet from queue")
+            logger.debug("Getting frame packet from queue")
             frame_packet = self.frame_packet_q.get()
             if not self.keep_collecting.is_set():
                 break
@@ -59,21 +59,15 @@ class PlaybackFrameEmitter(QThread):
             if frame_packet.frame is not None:  # stream end signal when None frame placed on out queue
                 self.frame = frame_packet.frame_with_points
 
-                logger.info(f"Frame size is {self.frame.shape}")
-                logger.info(
+                logger.debug(f"Frame size is {self.frame.shape}")
+                logger.debug(
                     f"Grid Capture History size is {self.grid_capture_history.shape}"
                 )
                 self.frame = cv2.addWeighted(self.frame, 1, self.grid_capture_history, 1, 0)
 
                 self._apply_undistortion()
-            
-                # cv2.imshow("emitted frame", self.frame)
-                # key = cv2.waitKey(1)
-                # if key == ord('q'):
-                #     break
-            
 
-                logger.info(f"Frame size is {self.frame.shape} following undistortion")
+                logger.debug(f"Frame size is {self.frame.shape} following undistortion")
                 self.frame = resize_to_square(self.frame)
                 self.frame = apply_rotation(self.frame, self.stream.rotation_count)
                 image = cv2_to_qlabel(self.frame)

@@ -51,8 +51,8 @@ class Configurator:
             charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
             self.save_charuco(charuco)
 
-        if exists(self.point_estimates_toml_path):
-            self.refresh_point_estimates_from_toml()
+        # if exists(self.point_estimates_toml_path):
+            # self.refresh_point_estimates_from_toml()
 
     def save_camera_count(self, count):
         self.camera_count = count
@@ -177,9 +177,6 @@ class Configurator:
 
     def get_point_estimates(self) -> PointEstimates:
         # only load point estimates into dictionary if saved more recently than last loaded
-        # if self.last_point_estimates_save_time > self.last_point_estimates_load_time:
-        #     self.dict["point_estimates"] = toml.load(self.point_estimates_toml_path)
-        #     self.last_point_estimates_load_time = time()
 
         if "point_estimates" not in self.dict.keys():
             self.refresh_point_estimates_from_toml()

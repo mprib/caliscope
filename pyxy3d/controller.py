@@ -3,7 +3,7 @@ import cv2
 from enum import Enum, auto
 from pathlib import Path
 from PySide6.QtGui import QPixmap
-from time import sleep
+from time import sleep, time
 from pyxy3d.interface import Tracker
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 from pyxy3d.post_processing.post_processor import PostProcessor
@@ -305,8 +305,10 @@ class Controller(QObject):
             logger.info(f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}")
 
             while not output_path.exists():
-                sleep(0.5)
-                logger.info( f"Waiting for 2D tracked points to populate at {output_path}")
+                sleep(.5)
+                # moderate the frequency with which logging statements get made
+                if round(time())%3==0:
+                    logger.info( f"Waiting for 2D tracked points to populate at {output_path}")
 
             # note that this processing will wait until it is complete
             self.process_extrinsic_streams(fps_target=100)

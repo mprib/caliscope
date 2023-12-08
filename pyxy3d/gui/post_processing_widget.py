@@ -211,7 +211,7 @@ class PostProcessingWidget(QWidget):
         self.controller.process_recordings(recording_path, tracker_enum)
         
     def refresh_visualizer(self):
-        # logger.info(f"Item {item.text()} selected and double-clicked.")
+        logger.info("Refreshing vizualizer within post_processing widget")
         
         self.vis_widget.update_camera_array(self.controller.camera_array)
         

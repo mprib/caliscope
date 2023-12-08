@@ -1,4 +1,5 @@
 from PySide6.QtCore import QObject, Signal, QThread
+import numpy as np
 import cv2
 from enum import Enum, auto
 from pathlib import Path
@@ -46,14 +47,9 @@ class Controller(QObject):
     """
 
     new_camera_data = Signal(int, OrderedDict)  # port, camera_display_dictionary
-    # IntrinsicImageUpdate = Signal(int, QPixmap)  # port, image
-    # IndexUpdate = Signal(int, int)  # port, frame_index
-    # ExtrinsicImageUpdate = Signal(dict)
     capture_volume_calibrated = Signal()
-    # extrinsic_2D_complete = Signal()
-    # intrinsicStreamsLoaded = Signal()
+    capture_volume_shifted = Signal()
     post_processing_complete = Signal()
-    # workspace_loaded = Signal()
 
     def __init__(self, workspace_dir: Path):
         super().__init__()
@@ -400,3 +396,50 @@ class Controller(QObject):
         self.process_recordings_thread.run = worker
         self.process_recordings_thread.finished.connect(self.post_processing_complete)
         self.process_recordings_thread.start()
+
+        
+    def rotate_capture_volume(self,direction:str):
+        transformations = {
+            "x+": np.array(
+                [[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]], dtype=float
+            ),
+            "x-": np.array(
+                [[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=float
+            ),
+            "y+": np.array(
+                [[0, 0, -1, 0], [0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1]], dtype=float
+            ),
+            "y-": np.array(
+                [[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]], dtype=float
+            ),
+            "z+": np.array(
+                [[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float
+            ),
+            "z-": np.array(
+                [[0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float
+            ),
+        }
+
+        self.capture_volume.shift_origin(transformations[direction])
+        self.capture_volume_shifted.emit()
+        # don't hold up the rest of the processing just to save the capture volume
+        def worker():
+            self.config.save_capture_volume(self.capture_volume)
+        
+        self.rotate_capture_volume_thread = QThread()
+        self.rotate_capture_volume_thread.run = worker
+        self.rotate_capture_volume_thread.start()
+        
+
+    def set_capture_volume_origin_to_board(self, origin_index):
+        self.capture_volume.set_origin_to_board(
+            origin_index, self.charuco
+        )
+        self.capture_volume_shifted.emit()
+        def worker():
+            self.config.save_capture_volume(self.capture_volume)
+
+        self.set_origin_thread = QThread()
+        self.set_origin_thread.run = worker
+        self.set_origin_thread.start()
+        

@@ -1,4 +1,5 @@
 import pyxy3d.logger
+import pyqtgraph
 from pathlib import Path
 from enum import Enum
 import os
@@ -27,6 +28,8 @@ from pyxy3d.gui.camera_management.multiplayback_widget import (
 from pyxy3d.gui.post_processing_widget import PostProcessingWidget
 from pyxy3d.controller import Controller
 from pyxy3d import __log_dir__
+from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
+from pyxy3d.cameras.camera_array import CameraArray
 
 logger = pyxy3d.logger.get(__name__)
 
@@ -127,6 +130,7 @@ class MainWindow(QMainWindow):
             logger.info("Creating capture Volume Widget")
             self.capture_volume_widget = CaptureVolumeWidget(self.controller)
         else:
+            logger.info("Creating dummy widget")
             self.capture_volume_widget = QWidget()
         self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
         self.central_tab.setTabEnabled(
@@ -134,10 +138,13 @@ class MainWindow(QMainWindow):
         )
 
         logger.info("About to load post-processing tab")
-        if self.controller.recordings_available():
+        if self.controller.capture_volume_loaded and self.controller.recordings_available():
+            logger.info("Creating post processing widget")
             self.post_processing_widget = PostProcessingWidget(self.controller)
+            self.controller.capture_volume_shifted.connect(self.post_processing_widget.refresh_visualizer)
             post_processing_enabled = True
         else:
+            logger.info("Creating dummy widget")
             self.post_processing_widget = QWidget()
             post_processing_enabled = False
         self.central_tab.addTab(self.post_processing_widget, "Post Processing")
@@ -255,6 +262,8 @@ def launch_main():
     import qdarktheme
 
     app = QApplication(sys.argv)
+    dummy_widget = CaptureVolumeVisualizer(camera_array=CameraArray({})) #  try to force "blinking to initial main"
+    del dummy_widget
     qdarktheme.setup_theme("auto")
     window = MainWindow()
     window.show()

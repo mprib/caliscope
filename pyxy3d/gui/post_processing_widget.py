@@ -109,6 +109,11 @@ class PostProcessingWidget(QWidget):
         return result
 
     @property
+    def archived_config_path(self):
+        return Path(self.processed_subfolder, "config.toml")
+        
+
+    @property
     def xy_base_path(self):
         file_name = f"xy_{self.tracker_combo.currentData().name}.csv"
         result = Path(self.processed_subfolder, file_name)
@@ -209,11 +214,25 @@ class PostProcessingWidget(QWidget):
         logger.info(f"Camera data based on config file saved to {recording_config_toml}")
 
         self.controller.process_recordings(recording_path, tracker_enum)
+
+    def active_tracker_config_path(self):
+        """
+        This will exist of the tracker has been processed. It should have a camera array within it 
+        that can be displayed to the user and will align 
+        """
+        return Path(self.active_recording_path,self.active_tracker_enum.name, "config.toml")
         
     def refresh_visualizer(self):
-        # logger.info(f"Item {item.text()} selected and double-clicked.")
+        logger.info("Refreshing vizualizer within post_processing widget")
         
-        self.vis_widget.update_camera_array(self.controller.camera_array)
+        if self.archived_config_path.exists():  # processing has been done and their is a camera array that can be loaded
+            stored_config = Configurator(self.archived_config_path.parent)
+            presented_camera_array = stored_config.get_camera_array()
+        else:
+            presented_camera_array = self.controller.camera_array
+
+        self.vis_widget.update_camera_array(presented_camera_array)
+
         
         self.set_current_xyz()
         self.vizualizer_title.setText(self.viz_title_html)
@@ -239,26 +258,6 @@ class PostProcessingWidget(QWidget):
         self.vis_widget.slider.setEnabled(True)
 
     def update_enabled_disabled(self):
-
-        # set availability of metarig generation 
-        # logger.info("Checking if metarig config can be created...")
-        # tracker = self.tracker_combo.currentData().value()
-        # logger.info(tracker)
-        # if (tracker.metarig_mapped and self.xyz_processed_path.exists() and not self.metarig_config_path.exists()):
-        #     self.generate_metarig_config_btn.setEnabled(True)
-        #     self.generate_metarig_config_btn.setToolTip("Creation of metarig configuration file is now available")
-        # else:
-        #     self.generate_metarig_config_btn.setEnabled(False)
-        
-        # if not tracker.metarig_mapped:
-        #     self.generate_metarig_config_btn.setToolTip("Tracker is not set up to scale to a metarig")
-        # elif self.metarig_config_path.exists():
-        #     self.generate_metarig_config_btn.setToolTip("The Metarig configuration json file has already been created.Check the tracker subfolder in the recording directory.")
-        # elif not self.xyz_processed_path.exists():
-        #     self.generate_metarig_config_btn.setToolTip("Must process recording to create xyz estimates for metarig configuration")
-        # else:
-        #     self.generate_metarig_config_btn.setToolTip("Click to create a file in the tracker subfolder that can be used to scale a Blender metarig")
-            
 
         # set availability of Proecssing and slider                
         if self.xyz_processed_path.exists():

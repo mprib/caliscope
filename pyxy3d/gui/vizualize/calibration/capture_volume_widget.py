@@ -106,38 +106,14 @@ class CaptureVolumeWidget(QWidget):
     def set_origin_to_board(self):
         logger.info("Setting origin to board...")
         origin_index = self.slider.value()
-        logger.info(f"Charuco board is {self.controller.charuco}")
-        self.controller.capture_volume.set_origin_to_board(
-            origin_index, self.controller.charuco
-        )
+        self.controller.set_capture_volume_origin_to_board(origin_index)
         self.visualizer.refresh_scene()
-        self.controller.config.save_capture_volume(self.controller.capture_volume)
 
     def rotate_capture_volume(self, direction):
-        transformations = {
-            "x+": np.array(
-                [[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]], dtype=float
-            ),
-            "x-": np.array(
-                [[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=float
-            ),
-            "y+": np.array(
-                [[0, 0, -1, 0], [0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1]], dtype=float
-            ),
-            "y-": np.array(
-                [[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]], dtype=float
-            ),
-            "z+": np.array(
-                [[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float
-            ),
-            "z-": np.array(
-                [[0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float
-            ),
-        }
+        logger.info(f"Rotating capture volume: {direction}")
 
-        self.controller.capture_volume.shift_origin(transformations[direction])
+        self.controller.rotate_capture_volume(direction)
         self.visualizer.refresh_scene()
-        self.controller.config.save_capture_volume(self.controller.capture_volume)
 
     def update_board(self, sync_index):
         logger.info(f"Updating board to sync index {sync_index}")

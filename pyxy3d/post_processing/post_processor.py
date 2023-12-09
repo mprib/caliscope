@@ -1,5 +1,5 @@
 import pyxy3d.logger
-
+import shutil
 
 from time import sleep
 
@@ -25,6 +25,8 @@ class PostProcessor:
     - config.toml
     - frame_time.csv
     - .mp4 files
+    
+    The post processor will archive the active config.toml file into the subdirectory
     """
 
     def __init__(
@@ -36,6 +38,11 @@ class PostProcessor:
         self.tracker_name = tracker_enum.name
         self.tracker = tracker_enum.value()
 
+        # save out current camera array to output folder
+        tracker_subdirectory = Path(self.recording_path, self.tracker_name)
+        tracker_subdirectory.mkdir(exist_ok=True,parents=True)
+        shutil.copy(Path(self.recording_path.parent.parent,"config.toml"), Path(tracker_subdirectory, "config.toml"))
+        
         logger.info(
             f"Creating sync stream manager for videos stored in {self.recording_path}"
         )

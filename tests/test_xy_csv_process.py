@@ -1,21 +1,4 @@
-"""
-This may actually end up as a test (please, let that be the case...).
-I want to set up a pipeline that could be used by the session to run the 
-tracker point detection on each of the video files and save out
-the xy point data. This may end up just being incapsulated in a simple
-helper function that gets called from the session. I could do some
-basic assertions at the end of it to make sure *something* happened.
 
-All I need to do here is run the tracking on an mp4 and save the points out.
-This is currenlty happening as part of the calibration process, but it should
-also be happening during all of the initial processing.
-
-This xy.csv file will provide the means to rapidly triangulate with 
-filtering of the data using reprojection error...
-
-"""
-
-# %%
 import pyxy3d.logger
 
 import sys
@@ -45,7 +28,7 @@ def test_xy_point_creation():
 
     config = Configurator(copy_session_path)
     camera_array = config.get_camera_array()
-    recording_path = Path(copy_session_path, "recording_1")
+    recording_path = Path(copy_session_path, "recordings", "recording_1")
     tracker_enum = TrackerEnum.HAND
     post_processor = PostProcessor(
         camera_array=camera_array,

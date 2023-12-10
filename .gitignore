@@ -4,7 +4,6 @@
 *.png
 .vscode*
 .idea*
-*.mp4
 *.bz2
 .venv*
 *.pkl
@@ -13,8 +12,8 @@
 dist/*
 *.epgz
 *.pdf
-tests/sessions/*
 tests/sessions_copy_delete/*
+dev/sessions_copy_delete/*
 dev/sample_sessions*
 *.nbi
 *.nbc

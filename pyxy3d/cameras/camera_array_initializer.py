@@ -230,7 +230,9 @@ class CameraArrayInitializer:
         total_error_score = 0
 
         for key, data in self.config.items():
-            if key.startswith("cam_") and not self.config[key]["ignore"]:
+            # NOTE: commenting out second conditional check below. If you come back to this in a month and 
+            # things haven't been breaking, then just delete all these comments.
+            if key.startswith("cam_"): # and not self.config[key]["ignore"]:
                 port = data["port"]
                 size = data["size"]
                 rotation_count = data["rotation_count"]
@@ -239,7 +241,7 @@ class CameraArrayInitializer:
                 distortions = np.array(data["distortions"], dtype=np.float64)
                 # exposure = data["exposure"]
                 grid_count = data["grid_count"]
-                ignore = data["ignore"]
+                # ignore = data["ignore"]
                 # verified_resolutions = data["verified_resolutions"]
 
                 # update with extrinsics, though place anchor camera at origin
@@ -263,7 +265,7 @@ class CameraArrayInitializer:
                     distortions=distortions,
                     # exposure,
                     grid_count=grid_count,
-                    ignore=ignore,
+                    # ignore=ignore,
                     # verified_resolutions,
                     translation=translation,
                     rotation=rotation,

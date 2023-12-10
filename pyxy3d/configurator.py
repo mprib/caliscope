@@ -29,12 +29,14 @@ class Configurator:
     def __init__(self, workspace_path: Path) -> None:
         self.workspace_path = workspace_path
         self.config_toml_path = Path(self.workspace_path, "config.toml")
-        self.point_estimates_toml_path = Path(self.workspace_path, "point_estimates.toml")
+        self.point_estimates_toml_path = Path(
+            self.workspace_path, "point_estimates.toml"
+        )
 
         if exists(self.config_toml_path):
             self.refresh_config_from_toml()
             # this check only included for interfacing with historical tests...
-            # if underlying tests data updated, this should be removed 
+            # if underlying tests data updated, this should be removed
             if "camera_count" not in self.dict.keys():
                 self.dict["camera_count"] = 0
         else:
@@ -52,16 +54,16 @@ class Configurator:
             self.save_charuco(charuco)
 
         # if exists(self.point_estimates_toml_path):
-            # self.refresh_point_estimates_from_toml()
+        # self.refresh_point_estimates_from_toml()
 
     def save_camera_count(self, count):
         self.camera_count = count
         self.dict["camera_count"] = count
         self.update_config_toml()
-        
+
     def get_camera_count(self):
         return self.dict["camera_count"]
-        
+
     def get_intrinsic_wait_time(self):
         return self.dict["intrinsic_wait_time"]
 
@@ -112,15 +114,17 @@ class Configurator:
         ] = capture_volume.origin_sync_index
         self.update_config_toml()
 
-    
-
     def get_configured_camera_data(self) -> dict[CameraData]:
         all_camera_data = {}
         for key, params in self.dict.items():
             if key.startswith("cam_"):
                 port = params["port"]
 
-                if "error" in params.keys() and params["error"] is not None:  # intrinsics have been calculated
+                if (
+                    "error" in params.keys()
+                    and params["error"] is not None
+                    and params["error"] != "null"
+                ):  # intrinsics have been calculated
                     error = params["error"]
                     matrix = np.array(params["matrix"])
                     distortions = np.array(params["distortions"])
@@ -132,14 +136,14 @@ class Configurator:
                     grid_count = None
 
                 if (
-                    "translation" in params.keys() and params["translation"] is not None
+                    "translation" in params.keys()
+                    and params["translation"] is not None
+                    and params["translation"] != "null"
                 ):  # Extrinsics have been calculated
                     translation = np.array(params["translation"])
                     rotation = np.array(params["rotation"])
 
-                    if rotation.shape == (
-                        3,
-                    ):  # camera rotation is stored as a matrix
+                    if rotation.shape == (3,):  # camera rotation is stored as a matrix
                         rotation = cv2.Rodrigues(rotation)[0]
 
                 else:
@@ -220,12 +224,12 @@ class Configurator:
         def none_or_list(value):
             # required to make sensible numeric format
             # otherwise toml formats as text
-            if value is None:
+            if value is None or value == "null":
                 return None
             else:
                 return value.tolist()
 
-        if camera.rotation is not None:
+        if camera.rotation is not None and camera.rotation != "null":
             # store rotation as 3 parameter rodrigues
             rotation_for_config = cv2.Rodrigues(camera.rotation)[0][:, 0]
             rotation_for_config = rotation_for_config.tolist()
@@ -243,8 +247,8 @@ class Configurator:
             "rotation": rotation_for_config,
             "exposure": camera.exposure,
             "grid_count": camera.grid_count,
-            "ignore": camera.ignore,
-            "verified_resolutions": camera.verified_resolutions,
+            # "ignore": camera.ignore,
+            # "verified_resolutions": camera.verified_resolutions,
         }
 
         self.dict["cam_" + str(camera.port)] = params
@@ -255,7 +259,7 @@ class Configurator:
         for port, camera_data in camera_array.cameras.items():
             self.save_camera(camera_data)
 
-    # Mac: leave this reference code in here for a potential splitting out of the recording functionality. 
+    # Mac: leave this reference code in here for a potential splitting out of the recording functionality.
     # def get_cameras(self) -> dict[Camera]:
     #     cameras = {}
 

@@ -1,19 +1,14 @@
-#%%
-import sys
 from pathlib import Path
-
 import pyxy3d.logger
-
 import cv2
 import pandas as pd
 from pyxy3d import __root__
-
-import time
-
 import numpy as np
 import rtoml
 from itertools import combinations
+
 logger = pyxy3d.logger.get(__name__)
+
 
 class StereoCalibrator:
     def __init__(
@@ -23,20 +18,19 @@ class StereoCalibrator:
     ):
         self.config_path = config_path
         self.config = rtoml.load(config_path)
-       
-        self.ports = [] 
+
+        self.ports = []
         # set ports keeping in mind that something may be flagged for ignore
         for key, value in self.config.items():
             if key[0:4] == "cam_":
-                #it's a camera so check if it should not be ignored
-                if not self.config[key]["ignore"]:
-                    self.ports.append(int(key[4:]))
+                # NOTE: Commenting out this line as "ignore" was only a property needed when managing webcams but does not make sense here
+                # if not self.config[key]["ignore"]:
+                self.ports.append(int(key[4:]))
 
         # import point data, adding coverage regions to each port
         raw_point_data = pd.read_csv(point_data_path)
         self.all_point_data = self.points_with_coverage_region(raw_point_data)
         self.all_boards = self.get_boards_with_coverage()
-
 
         # self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
@@ -128,11 +122,11 @@ class StereoCalibrator:
 
         return all_boards
 
-
-    def get_stereopair_data(self, pair: tuple, boards_sampled: int, random_state=1)-> pd.DataFrame or None:
-
+    def get_stereopair_data(
+        self, pair: tuple, boards_sampled: int, random_state=1
+    ) -> pd.DataFrame or None:
         # convenience function to get the points that are in the overlap regions of the pairs
-        def in_pair(row:int, pair: tuple):
+        def in_pair(row: int, pair: tuple):
             """
             Uses the coverage_region string generated previously to flag points that are in
             a shared region of the pair
@@ -179,11 +173,13 @@ class StereoCalibrator:
                 n=sample_size, weights=sample_weight, random_state=random_state
             )
 
-            selected_pair_points = pair_points.merge(selected_boards, "right", "sync_index")
+            selected_pair_points = pair_points.merge(
+                selected_boards, "right", "sync_index"
+            )
         else:
             logger.info(f"For pair {pair} there are no shared boards")
             selected_pair_points = None
-            
+
         return selected_pair_points
 
     def stereo_calibrate_all(self, boards_sampled=10):
@@ -203,34 +199,37 @@ class StereoCalibrator:
             if error is not None:
                 # only store data if there was sufficient stereopair coverage to get
                 # a good calibration
-                     
+
                 # toml dumps arrays as strings, so needs to be converted to list
                 rotation = rotation.tolist()
                 translation = translation.tolist()
-            
+
                 config_key = "stereo_" + str(pair[0]) + "_" + str(pair[1])
                 self.config[config_key] = {}
                 self.config[config_key]["rotation"] = rotation
                 self.config[config_key]["translation"] = translation
                 self.config[config_key]["RMSE"] = error
 
-        logger.info(f"Direct stereocalibration complete for all pairs for which data is available")
+        logger.info(
+            "Direct stereocalibration complete for all pairs for which data is available"
+        )
         logger.info(f"Saving stereo-pair extrinsic data to {self.config_path}")
         with open(self.config_path, "w") as f:
             rtoml.dump(self.config, f)
 
     def stereo_calibrate(self, pair, boards_sampled=10):
-
         stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 40, 0.000001)
 
-        paired_point_data = self.get_stereopair_data(
-            pair, boards_sampled
-        )
-        
+        paired_point_data = self.get_stereopair_data(pair, boards_sampled)
+
         if paired_point_data is not None:
-            img_locs_A, obj_locs_A = self.get_stereocal_inputs(pair[0], paired_point_data)
-            img_locs_B, obj_locs_B = self.get_stereocal_inputs(pair[1], paired_point_data)
+            img_locs_A, obj_locs_A = self.get_stereocal_inputs(
+                pair[0], paired_point_data
+            )
+            img_locs_B, obj_locs_B = self.get_stereocal_inputs(
+                pair[1], paired_point_data
+            )
 
             camera_matrix_A = self.config["cam_" + str(pair[0])]["matrix"]
             camera_matrix_B = self.config["cam_" + str(pair[1])]["matrix"]
@@ -267,16 +266,15 @@ class StereoCalibrator:
 
             logger.info(f"RMSE of reprojection for pair {pair} is {ret}")
 
-        else: 
+        else:
             logger.info(f"No stereocalibration produced for pair {pair}")
             ret = None
             rotation = None
             translation = None
-            
+
         return ret, rotation, translation
 
     def get_stereocal_inputs(self, port, point_data):
-
         port_point_data = point_data.query(f"port == {port}")
 
         sync_indices = port_point_data["sync_index"].to_numpy().round().astype(int)
@@ -316,8 +314,7 @@ if __name__ == "__main__":
         config_path,
         point_data_path,
     )
-    
-# %%
+
+    # %%
 
     stereocal.stereo_calibrate_all(boards_sampled=15)
-

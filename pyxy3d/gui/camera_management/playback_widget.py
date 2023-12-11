@@ -185,6 +185,7 @@ class IntrinsicCalibrationWidget(QWidget):
         self.scaling_spin.valueChanged.connect(self.on_scale_change)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].ImageBroadcast.connect(self.update_image)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].FrameIndexBroadcast.connect(self.update_index)
+        self.controller.enable_inputs.connect(self.update_enable_all_inputs)
 
         # initialize stream to push first frame to widget then hold
         # must be done after signals and slots connected for effect to take hold
@@ -193,6 +194,7 @@ class IntrinsicCalibrationWidget(QWidget):
         # self.play_started = True
         self.controller.pause_intrinsic_stream(self.port)
         self.controller.stream_jump_to(self.port, 0)
+
 
     def play_video(self):
         # if self.play_started:
@@ -286,10 +288,28 @@ class IntrinsicCalibrationWidget(QWidget):
         self.controller.stream_jump_to(self.port, self.index)
 
 
+    def update_enable_all_inputs(self, port, enable:bool):
+        # Control widget accessibilty from controller signal to all ports
+        if port == self.port:
+            self.play_button.setEnabled(enable)
+            self.slider.setEnabled(enable)
+            self.add_grid_btn.setEnabled(enable)
+            self.calibrate_btn.setEnabled(enable)
+            self.camera_data_display.setEnabled(enable)
+            self.clear_calibration_data_btn.setEnabled(enable)
+            self.toggle_distortion.setEnabled(enable)
+            self.cw_rotation_btn.setEnabled(enable)
+            self.ccw_rotation_btn.setEnabled(enable)
+            self.autocalibrate_btn.setEnabled(enable)
+            self.target_grid_count_spin.setEnabled(enable)
+            self.board_threshold_spin.setEnabled(enable)
+            self.scaling_spin.setEnabled(enable)
+        
     def autocalibrate(self):
         grid_count = self.target_grid_count_spin.value()
         board_threshold = self.board_threshold_spin.value()
-        self.controller.intrinsic_stream_manager.autopopulate_grids(self.port,grid_count, board_threshold)
+        self.update_enable_all_inputs(self.port, False)
+        self.controller.autocalibrate(self.port,grid_count, board_threshold)
         
 if __name__ == "__main__":
     app = QApplication(sys.argv)

@@ -1,5 +1,5 @@
 import pyxy3d.logger
-
+from time import sleep
 import cv2
 from pathlib import Path
 from pyxy3d.interface import FramePacket
@@ -127,7 +127,7 @@ class IntrinsicStreamManager:
     def set_stream_rotation(self, port, rotation_count):
         self.streams[port].rotation_count = rotation_count
 
-    def autopopulate_grids(self, port, grid_count, pct_board_threshold):
+    def autocalibrate(self, port, grid_count, pct_board_threshold):
         stream = self.streams[port]
         intrinsic_calibrator = self.calibrators[port]
         frame_emitter = self.frame_emitters[port]
@@ -158,3 +158,9 @@ class IntrinsicStreamManager:
         )
 
         stream.unpause()
+
+        while intrinsic_calibrator.grid_count < grid_count:
+            logger.info(f"Waiting for sufficient calibration boards to become populated at port {port}")
+            sleep(2)
+        
+        intrinsic_calibrator.calibrate_camera()

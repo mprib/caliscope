@@ -199,14 +199,6 @@ class MainWindow(QMainWindow):
         self.controller.load_workspace()
         self.controller.load_workspace_thread.finished.connect(self.build_central_tabs)
         
-        # if hasattr(self.controller, "intrinsic_stream_manager"):
-            # logger.info("Attempting to wind down currently existing stream tools")
-            # self.controller.intrinsic_stream_manager.close_stream_tools()
-
-        # Rebuild the central tabs
-        # logger.info("Building Central tabs")
-        # self.build_central_tabs()
-
 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)

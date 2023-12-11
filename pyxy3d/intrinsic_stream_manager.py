@@ -134,25 +134,26 @@ class IntrinsicStreamManager:
 
         board_corners = self.tracker.charuco.board.getChessboardCorners()
         total_corner_count = board_corners.shape[0]
-        threshold_corner_count = (total_corner_count*pct_board_threshold)
-        
-        logger.info(f"Corners for charuco are {board_corners}") 
+        threshold_corner_count = total_corner_count * pct_board_threshold
 
+        logger.info(f"Corners for charuco are {board_corners}")
+
+        # calculate basic wait time between board collections 
+        # if many frames have incomplete data, this will fail to reach the target board count
         start_frame_index = stream.start_frame_index
         last_frame_index = stream.last_frame_index
-
         total_frames = last_frame_index - start_frame_index + 1
         wait_between = int(total_frames / grid_count)
 
-        last_grid_index = -wait_between
-        original_fps = stream.fps
         stream.set_fps_target(100)  # speed through the stream
 
         # jump to first frame, play videos and cycle quickly through frames
         stream.jump_to(0)
         frame_emitter.initialize_grid_capture_history()
         intrinsic_calibrator.initiate_auto_pop(
-            wait_between=wait_between, threshold_corner_count=threshold_corner_count
+            wait_between=wait_between,
+            threshold_corner_count=threshold_corner_count,
+            target_grid_count=grid_count,
         )
 
         stream.unpause()

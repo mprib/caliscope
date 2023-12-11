@@ -2,7 +2,7 @@ import pyxy3d.logger
 import time
 from queue import Queue
 from threading import Thread, Event
-
+import random
 import cv2
 import numpy as np
 
@@ -34,6 +34,7 @@ class IntrinsicCalibrator:
         self.auto_store_data = Event()
         self.auto_store_data.clear()
         self.auto_pop_frame_wait = 0  # how many frames will you hold ofF checking if the board can be added to the calibration pile.
+        self.target_grid_count = 0
 
         self.harvest_frames()
          
@@ -95,6 +96,8 @@ class IntrinsicCalibrator:
 
             self.active_frame_index = index
         
+            # when auto store data is set, the stream should be pushing out all
+            # frames consecutively from the beginning
             if self.auto_store_data.is_set():
                 point_id = frame_packet.points.point_id
                 
@@ -102,19 +105,42 @@ class IntrinsicCalibrator:
                     corner_count = 0
                 else:
                     corner_count = frame_packet.points.point_id.shape[0]
-                logger.info(f"Corner count is {corner_count} and frame wait is {self.auto_pop_frame_wait}")
+                logger.debug(f"Corner count is {corner_count} and frame wait is {self.auto_pop_frame_wait}")
                 if self.auto_pop_frame_wait == 0 and corner_count > self.threshold_corner_count:
                     # add frame to calibration data and reset the wait time
-                    self.add_calibration_frame_indices(index)
+                    self.add_calibration_frame_index(index)
                     self.auto_pop_frame_wait = self.wait_between 
                 else:
                     # count down to the next frame to consider autopopulating
                     self.auto_pop_frame_wait = max(self.auto_pop_frame_wait-1,0)       
                 
-        else:  # end of stream, so stop auto pop
-            self.auto_store_data.clear()    
+                logger.info(f"Current index is {index}")
+                if index == self.stream.last_frame_index:
+                # end of stream, so stop auto pop and backfill to hit grid target
+                    logger.info("End of autopop detected...")
+                    self.auto_store_data.clear()
+                    self.backfill_calibration_frames()
 
-    def add_calibration_frame_indices(self, frame_index: int):
+
+    def backfill_calibration_frames(self):
+        logger.info(f"Initiating backfill of frames to hit target grid count of {self.target_grid_count}...currently at {self.grid_count}")
+        actual_grid_count = len(self.calibration_frame_indices)
+        # build new frame list
+        new_potential_frames = []
+        for frame_index, ids in self.all_ids.items():
+            if frame_index not in self.calibration_frame_indices:
+                if len(ids) > 3: # just a quick check for minimal data in the frame
+                    new_potential_frames.append(frame_index)
+            
+        sample_size = self.target_grid_count-actual_grid_count
+        sample_size = min(sample_size, len(new_potential_frames))
+        sample_size = max(sample_size,0)
+
+        random_frames = random.sample(new_potential_frames,sample_size)
+        for frame in random_frames:
+            self.add_calibration_frame_index(frame)
+        
+    def add_calibration_frame_index(self, frame_index: int):
         """
         A "side effect" of this method is that the corner id and img_loc
         data is placed on a q. This q is consumed by the frame_emitter
@@ -137,15 +163,28 @@ class IntrinsicCalibrator:
         self.calibration_frame_indices = []
         self.set_calibration_inputs()
         
-    def initiate_auto_pop(self, wait_between,threshold_corner_count):
+    def initiate_auto_pop(self, wait_between,threshold_corner_count, target_grid_count):
+        """
+        This will enable actions within self.add_frame_packet
+        
+        Now when frame_packets are read in from the stream, the
+        
+        """
         logger.info(f"Initiating autopopulation of corner data in port {self.camera.port}")
         self.clear_calibration_data()
         self.wait_between = wait_between
         self.threshold_corner_count = threshold_corner_count        
+        self.target_grid_count = target_grid_count
         self.auto_store_data.set()
         self.initialize_point_history()
 
     def set_calibration_inputs(self):
+        """
+        The data that will ultimately go into the calibration is determined by the calibration
+        frame indices. This is where the calibration data is populated based on which frames
+        have been flagged (either by the user via self.add_calibration_frame_index or by autopopulated
+        within self.add_frame_packet when autopop is enabled.)
+        """
         self.calibration_point_ids = []
         self.calibration_img_loc = []
         self.calibration_obj_loc = []

@@ -21,7 +21,10 @@ from pyxy3d.calibration.capture_volume.quality_controller import QualityControll
 from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
-from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager, read_video_properties
+from pyxy3d.synchronized_stream_manager import (
+    SynchronizedStreamManager,
+    read_video_properties,
+)
 from pyxy3d.workspace_guide import WorkspaceGuide
 from collections import OrderedDict
 
@@ -31,6 +34,7 @@ logger = pyxy3d.logger.get(__name__)
 
 
 FILTERED_FRACTION = 0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
+
 
 class CalibrationStage(Enum):
     NO_INTRINSIC_VIDEO = auto()
@@ -49,6 +53,7 @@ class Controller(QObject):
     new_camera_data = Signal(int, OrderedDict)  # port, camera_display_dictionary
     capture_volume_calibrated = Signal()
     capture_volume_shifted = Signal()
+    enable_inputs = Signal(int, bool)  # port, enable
     post_processing_complete = Signal()
 
     def __init__(self, workspace_dir: Path):
@@ -65,7 +70,7 @@ class Controller(QObject):
         # self.camera_count = self.config.get_camera_count()  # reference to ensure that files are in place to meet user intent
 
         logger.info("Building workpace guide")
-        self.workspace_guide = WorkspaceGuide(self.workspace,self.camera_count)
+        self.workspace_guide = WorkspaceGuide(self.workspace, self.camera_count)
         self.workspace_guide.intrinsic_dir.mkdir(exist_ok=True, parents=True)
         self.workspace_guide.extrinsic_dir.mkdir(exist_ok=True, parents=True)
         self.workspace_guide.recording_dir.mkdir(exist_ok=True, parents=True)
@@ -73,9 +78,10 @@ class Controller(QObject):
         self.capture_volume = None
         # needs to exist before main widget can connect to its finished signal
         self.load_workspace_thread = QThread()
+        self.calibrate_camera_threads = {}
+        self.autocalibrate_threads = {}
         
     def load_workspace(self):
-        
         def worker():
             logger.info("Assess whether to load cameras")
             if self.workspace_guide.all_instrinsic_mp4s_available():
@@ -83,8 +89,8 @@ class Controller(QObject):
                 self.load_intrinsic_stream_manager()
                 self.cameras_loaded = True
             else:
-                self.cameras_loaded = False 
-           
+                self.cameras_loaded = False
+
             logger.info("Assess whether to load capture volume")
             if self.camera_array.all_extrinsics_calibrated():
                 self.load_estimated_capture_volume()
@@ -92,45 +98,42 @@ class Controller(QObject):
             else:
                 self.capture_volume_loaded = False
 
-             
         self.load_workspace_thread.run = worker
         self.load_workspace_thread.start()
 
-    def set_camera_count(self, count:int):
+    def set_camera_count(self, count: int):
         self.camera_count = count
         self.config.save_camera_count(count)
-    
-    def get_camera_count(self)->int:
+
+    def get_camera_count(self) -> int:
         count = self.config.get_camera_count()
         self.camera_count = count
         return count
 
-    
-    def all_instrinsic_mp4s_available(self)->bool:
+    def all_instrinsic_mp4s_available(self) -> bool:
         return self.workspace_guide.all_instrinsic_mp4s_available()
-   
-    def all_extrinsic_mp4s_available(self)->bool:
+
+    def all_extrinsic_mp4s_available(self) -> bool:
         return self.workspace_guide.all_extrinsic_mp4s_available()
 
-
-    def all_intrinsics_estimated(self)->bool:
+    def all_intrinsics_estimated(self) -> bool:
         """
         At this point, processing extrinsics and calibrating capture volume should be allowed
         """
         return self.camera_array.all_intrinsics_calibrated()
-    
-    def all_extrinsics_estimated(self)->bool:
+
+    def all_extrinsics_estimated(self) -> bool:
         """
         At this point, the capture volume tab should be available
         """
-        cameras_good =  self.camera_array.all_extrinsics_calibrated()
+        cameras_good = self.camera_array.all_extrinsics_calibrated()
         point_estimates_good = self.config.point_estimates_toml_path.exists()
         all_data_available = self.workspace_guide.all_extrinsic_mp4s_available()
         return cameras_good and point_estimates_good and all_data_available
-         
-    def recordings_available(self)->bool:
+
+    def recordings_available(self) -> bool:
         return len(self.workspace_guide.valid_recording_dirs()) > 0
-         
+
     def get_charuco_params(self) -> dict:
         return self.config.dict["charuco"]
 
@@ -139,14 +142,14 @@ class Controller(QObject):
         self.config.save_charuco(self.charuco)
         self.charuco_tracker = CharucoTracker(self.charuco)
 
-
         if hasattr(self, "intrinsic_stream_manager"):
             logger.info("Updating charuco within the intrinsic stream manager")
             self.intrinsic_stream_manager.update_charuco(self.charuco_tracker)
 
-            
     def load_extrinsic_stream_manager(self):
-        logger.info(f"Loading manager for streams saved to {self.workspace_guide.extrinsic_dir}")
+        logger.info(
+            f"Loading manager for streams saved to {self.workspace_guide.extrinsic_dir}"
+        )
         self.extrinsic_stream_manager = SynchronizedStreamManager(
             recording_dir=self.workspace_guide.extrinsic_dir,
             all_camera_data=self.camera_array.cameras,
@@ -155,20 +158,23 @@ class Controller(QObject):
 
     def process_extrinsic_streams(self, fps_target=None):
         def worker():
-            output_path = Path(self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv")
-            output_path.unlink() # make sure this doesn't exist to begin with.
+            output_path = Path(
+                self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv"
+            )
+            output_path.unlink()  # make sure this doesn't exist to begin with.
 
             self.load_extrinsic_stream_manager()
             self.extrinsic_stream_manager.process_streams(fps_target=fps_target)
 
-            logger.info(f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}")
+            logger.info(
+                f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
+            )
             while not output_path.exists():
                 sleep(0.5)
                 logger.info(
                     f"Waiting for 2D tracked points to populate at {output_path}"
                 )
 
-        
     def load_intrinsic_stream_manager(self):
         self.intrinsic_stream_manager = IntrinsicStreamManager(
             recording_dir=self.workspace_guide.intrinsic_dir,
@@ -176,7 +182,7 @@ class Controller(QObject):
             tracker=self.charuco_tracker,
         )
         logger.info("Intrinsic stream manager has loaded")
-        
+
         # signal to main GUI that the Camera tab needs to be reloaded
         # self.intrinsicStreamsLoaded.emit()
 
@@ -189,7 +195,9 @@ class Controller(QObject):
         self.camera_array = CameraArray(preconfigured_cameras)
 
         # double check that no new camera associated files have been placed in the intrinsic calibration folder
-        all_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.intrinsic_dir)
+        all_ports = self.workspace_guide.get_ports_in_dir(
+            self.workspace_guide.intrinsic_dir
+        )
 
         for port in all_ports:
             if port not in self.camera_array.cameras:
@@ -211,7 +219,6 @@ class Controller(QObject):
         )
         self.camera_array.cameras[port] = new_cam_data
         self.config.save_camera_array(self.camera_array)
-    
 
     def get_intrinsic_stream_frame_count(self, port):
         return self.intrinsic_stream_manager.get_frame_count(port)
@@ -246,19 +253,22 @@ class Controller(QObject):
 
     def calibrate_camera(self, port):
         def worker():
-            # self.intrinsic_stream_manager.pause_stream(port)
-            logger.info(f"Calibrating camera at port {port}")
-            self.intrinsic_stream_manager.calibrate_camera(port)
-            
-            # safety assignment here as references seem to be getting disjointed.
-            self.camera_array.cameras[port] = self.intrinsic_stream_manager.cameras[port]
-            camera_data = self.camera_array.cameras[port]
-            self.config.save_camera(camera_data)
-            self.push_camera_data(port)
-        
-        self.calibrateCameraThread = QThread()
-        self.calibrateCameraThread.run = worker
-        self.calibrateCameraThread.start()
+            if self.intrinsic_stream_manager.calibrators[port].grid_count > 0:
+                self.enable_inputs.emit(port, False) 
+                self.camera_array.cameras[port].erase_calibration_data()
+                logger.info(f"Calibrating camera at port {port}")
+                self.intrinsic_stream_manager.calibrate_camera(port)
+
+                camera_data = self.camera_array.cameras[port]
+                self.config.save_camera(camera_data)
+                self.push_camera_data(port)
+                self.enable_inputs.emit(port, True) 
+            else:
+                logger.warn("Not enough grids available to calibrate")
+
+        self.calibrate_camera_threads[port] = QThread()
+        self.calibrate_camera_threads[port].run = worker
+        self.calibrate_camera_threads[port].start()
 
     def push_camera_data(self, port):
         logger.info(f"Pushing camera data for port {port}")
@@ -271,7 +281,6 @@ class Controller(QObject):
         self.intrinsic_stream_manager.apply_distortion(camera, undistort)
 
     def rotate_camera(self, port, change):
-
         camera_data = self.camera_array.cameras[port]
         count = camera_data.rotation_count
         count += change
@@ -282,8 +291,10 @@ class Controller(QObject):
             camera_data.rotation_count = count
 
         # note that extrinsic streams not altered.... just reload an replay
-        self.intrinsic_stream_manager.set_stream_rotation(port,camera_data.rotation_count)
-        
+        self.intrinsic_stream_manager.set_stream_rotation(
+            port, camera_data.rotation_count
+        )
+
         self.push_camera_data(port)
         self.config.save_camera(camera_data)
 
@@ -320,20 +331,26 @@ class Controller(QObject):
         """
 
         def worker():
-            output_path = Path(self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv")
+            output_path = Path(
+                self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv"
+            )
             if output_path.exists():
-                output_path.unlink() # make sure this doesn't exist to begin with.
+                output_path.unlink()  # make sure this doesn't exist to begin with.
 
             self.load_extrinsic_stream_manager()
             self.extrinsic_stream_manager.process_streams(fps_target=100)
 
-            logger.info(f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}")
+            logger.info(
+                f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
+            )
 
             while not output_path.exists():
-                sleep(.5)
+                sleep(0.5)
                 # moderate the frequency with which logging statements get made
-                if round(time())%3==0:
-                    logger.info( f"Waiting for 2D tracked points to populate at {output_path}")
+                if round(time()) % 3 == 0:
+                    logger.info(
+                        f"Waiting for 2D tracked points to populate at {output_path}"
+                    )
 
             # note that this processing will wait until it is complete
             self.process_extrinsic_streams(fps_target=100)
@@ -380,15 +397,18 @@ class Controller(QObject):
         )
         self.calibrate_capture_volume_thread.start()
 
-    def process_recordings(self, recording_path:Path, tracker_enum:TrackerEnum):
+    def process_recordings(self, recording_path: Path, tracker_enum: TrackerEnum):
         """
         Initiates worker thread to begin post processing.
         TrackerEnum passed in so that access is given to both the tracker and the name because the name is needed for file/folder naming
         """
+
         def worker():
             logger.info(f"Beginning to process video files at {recording_path}")
             logger.info(f"Creating post processor for {recording_path}")
-            self.post_processor = PostProcessor(self.camera_array, recording_path, tracker_enum)
+            self.post_processor = PostProcessor(
+                self.camera_array, recording_path, tracker_enum
+            )
             self.post_processor.create_xy()
             self.post_processor.create_xyz()
 
@@ -397,8 +417,7 @@ class Controller(QObject):
         self.process_recordings_thread.finished.connect(self.post_processing_complete)
         self.process_recordings_thread.start()
 
-        
-    def rotate_capture_volume(self,direction:str):
+    def rotate_capture_volume(self, direction: str):
         transformations = {
             "x+": np.array(
                 [[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]], dtype=float
@@ -422,24 +441,47 @@ class Controller(QObject):
 
         self.capture_volume.shift_origin(transformations[direction])
         self.capture_volume_shifted.emit()
+
         # don't hold up the rest of the processing just to save the capture volume
         def worker():
             self.config.save_capture_volume(self.capture_volume)
-        
+
         self.rotate_capture_volume_thread = QThread()
         self.rotate_capture_volume_thread.run = worker
         self.rotate_capture_volume_thread.start()
-        
 
     def set_capture_volume_origin_to_board(self, origin_index):
-        self.capture_volume.set_origin_to_board(
-            origin_index, self.charuco
-        )
+        self.capture_volume.set_origin_to_board(origin_index, self.charuco)
         self.capture_volume_shifted.emit()
+
         def worker():
             self.config.save_capture_volume(self.capture_volume)
 
         self.set_origin_thread = QThread()
         self.set_origin_thread.run = worker
         self.set_origin_thread.start()
-        
+
+    def autocalibrate(self, port, grid_count, board_threshold):
+        def worker():
+            self.enable_inputs.emit(port, False) 
+            self.camera_array.cameras[port].erase_calibration_data()
+            self.config.save_camera(self.camera_array.cameras[port])
+            self.push_camera_data(port)
+            logger.info(f"Initiate autocalibration of grids for port {port}")
+            self.intrinsic_stream_manager.autocalibrate(
+                port, grid_count, board_threshold
+            )
+
+            while self.camera_array.cameras[port].matrix is None:
+                logger.info(f"Waiting for calibration to complete at port {port}")
+                sleep(2)
+            
+            self.config.save_camera(self.camera_array.cameras[port])
+            self.push_camera_data(port)
+            self.intrinsic_stream_manager.stream_jump_to(port, 0)
+            self.enable_inputs.emit(port, True) 
+
+        self.autocalibrate_threads[port] = QThread()
+        self.autocalibrate_threads[port].run = worker
+        self.autocalibrate_threads[port].start()
+            

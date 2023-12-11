@@ -109,7 +109,7 @@ class IntrinsicStreamManager:
         self.unpause_stream(port)
 
     def add_calibration_grid(self, port: int, frame_index: int):
-        self.calibrators[port].add_calibration_frame_indices(frame_index)
+        self.calibrators[port].add_calibration_frame_index(frame_index)
 
     def clear_calibration_data(self, port: int):
         self.calibrators[port].clear_calibration_data()
@@ -135,6 +135,7 @@ class IntrinsicStreamManager:
         board_corners = self.tracker.charuco.board.getChessboardCorners()
         total_corner_count = board_corners.shape[0]
         threshold_corner_count = total_corner_count * pct_board_threshold
+        threshold_corner_count = max(threshold_corner_count,6)   # additional requirement that I believe is part of the alogrithm
 
         logger.info(f"Corners for charuco are {board_corners}")
 

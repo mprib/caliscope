@@ -118,6 +118,15 @@ class CameraData:
 
         return camera_display_dict
 
+
+    def erase_calibration_data(self):
+        self.error = None
+        self.matrix = None
+        self.distortions = None
+        self.grid_count = None
+        self.translation = None
+        self.rotation = None
+        
 @dataclass
 class CameraArray:
     """The plan is that this will expand to become an interface for setting the origin.

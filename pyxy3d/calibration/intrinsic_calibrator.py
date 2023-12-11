@@ -106,7 +106,7 @@ class IntrinsicCalibrator:
                 else:
                     corner_count = frame_packet.points.point_id.shape[0]
                 logger.debug(f"Corner count is {corner_count} and frame wait is {self.auto_pop_frame_wait}")
-                if self.auto_pop_frame_wait == 0 and corner_count > self.threshold_corner_count:
+                if self.auto_pop_frame_wait == 0 and corner_count >= self.threshold_corner_count:
                     # add frame to calibration data and reset the wait time
                     self.add_calibration_frame_index(index)
                     self.auto_pop_frame_wait = self.wait_between 
@@ -129,7 +129,7 @@ class IntrinsicCalibrator:
         new_potential_frames = []
         for frame_index, ids in self.all_ids.items():
             if frame_index not in self.calibration_frame_indices:
-                if len(ids) > 3: # just a quick check for minimal data in the frame
+                if len(ids) > 6: # believe this may be a requirement of the calibration algorithm
                     new_potential_frames.append(frame_index)
             
         sample_size = self.target_grid_count-actual_grid_count
@@ -175,8 +175,8 @@ class IntrinsicCalibrator:
         self.wait_between = wait_between
         self.threshold_corner_count = threshold_corner_count        
         self.target_grid_count = target_grid_count
-        self.auto_store_data.set()
         self.initialize_point_history()
+        self.auto_store_data.set()
 
     def set_calibration_inputs(self):
         """

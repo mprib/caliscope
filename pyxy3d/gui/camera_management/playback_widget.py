@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QApplication,
     QSpinBox,
+    QDoubleSpinBox,
     QMainWindow,
     QCheckBox,
     QWidget,
@@ -103,14 +104,23 @@ class IntrinsicCalibrationWidget(QWidget):
         self.ccw_rotation_btn = QPushButton(QIcon(str(CAM_ROTATE_LEFT_PATH)), "")
         self.ccw_rotation_btn.setMaximumSize(35, 35)
 
-        self.autopopulate_grids_btn = QPushButton("Autopopulate Grids")
+        self.autocalibrate_btn = QPushButton("Autocalibrate")
+        self.target_grid_count_spin = QSpinBox(self)
+        self.target_grid_count_spin.setRange(0, 100)
+        self.target_grid_count_spin.setValue(40)
+        self.target_grid_count_spin.setSingleStep(1)
+
+        self.board_threshold_spin = QDoubleSpinBox(self)
+        self.board_threshold_spin.setRange(0, 1)
+        self.board_threshold_spin.setValue(.7)
+        self.board_threshold_spin.setSingleStep(.1)
 
         # Create the spinbox
         self.spin_box_label = QLabel("Undistorted Image Scale")
-        self.scaling_spinBox = QSpinBox(self)
-        self.scaling_spinBox.setRange(50, 150)
-        self.scaling_spinBox.setValue(100)
-        self.scaling_spinBox.setSingleStep(5)
+        self.scaling_spin = QSpinBox(self)
+        self.scaling_spin.setRange(50, 150)
+        self.scaling_spin.setValue(100)
+        self.scaling_spin.setSingleStep(5)
 
         self.is_playing = False
 
@@ -131,27 +141,34 @@ class IntrinsicCalibrationWidget(QWidget):
         self.rotate_span.addWidget(self.ccw_rotation_btn)
         self.right_panel.addLayout(self.rotate_span)
 
+        self.auto_control_span = QHBoxLayout()
+        self.auto_control_span.addWidget(QLabel("Target Grid Count"))
+        self.auto_control_span.addWidget(self.target_grid_count_spin)
+        self.auto_control_span.addWidget(QLabel("Board Threshold"))
+        self.auto_control_span.addWidget(self.board_threshold_spin)
+        self.auto_control_span.addWidget(self.autocalibrate_btn)
+        self.right_panel.addLayout(self.auto_control_span)
+        
         self.play_span = QHBoxLayout()
         self.play_span.addWidget(self.play_button)
         self.play_button.setMaximumWidth(35)
         self.play_span.addWidget(self.slider)
         self.right_panel.addLayout(self.play_span)
         
-        self.calibration_control_span = QHBoxLayout()
-        self.calibration_control_span.addWidget(self.add_grid_btn)
-        self.calibration_control_span.addWidget(self.calibrate_btn)
-        self.calibration_control_span.addWidget(self.clear_calibration_data_btn)
-        self.right_panel.addLayout(self.calibration_control_span)
+        self.manual_control_span = QHBoxLayout()
+        self.manual_control_span.addWidget(self.add_grid_btn)
+        self.manual_control_span.addWidget(self.calibrate_btn)
+        self.manual_control_span.addWidget(self.clear_calibration_data_btn)
+        self.right_panel.addLayout(self.manual_control_span)
 
         self.distortion_control_span = QHBoxLayout()
         self.distortion_control_span.addWidget(self.frame_index_label)
         self.distortion_control_span.addWidget(self.toggle_distortion)
-        self.distortion_control_span.addWidget(self.scaling_spinBox)
+        self.distortion_control_span.addWidget(self.scaling_spin)
         self.distortion_control_span.addWidget(self.spin_box_label)
         self.right_panel.addLayout(self.distortion_control_span)
         self.layout.addLayout(self.right_panel)
 
-        self.right_panel.addWidget(self.autopopulate_grids_btn)
 
     def connect_widgets(self):
         self.play_button.clicked.connect(self.play_video)
@@ -163,9 +180,9 @@ class IntrinsicCalibrationWidget(QWidget):
         self.toggle_distortion.stateChanged.connect(self.toggle_distortion_changed)
         self.ccw_rotation_btn.clicked.connect(self.rotate_ccw)
         self.cw_rotation_btn.clicked.connect(self.rotate_cw)
-        self.autopopulate_grids_btn.clicked.connect(self.autopopulate_grids) 
+        self.autocalibrate_btn.clicked.connect(self.autocalibrate) 
        
-        self.scaling_spinBox.valueChanged.connect(self.on_scale_change)
+        self.scaling_spin.valueChanged.connect(self.on_scale_change)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].ImageBroadcast.connect(self.update_image)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].FrameIndexBroadcast.connect(self.update_index)
 
@@ -269,9 +286,9 @@ class IntrinsicCalibrationWidget(QWidget):
         self.controller.stream_jump_to(self.port, self.index)
 
 
-    def autopopulate_grids(self):
-        grid_count = 40
-        board_threshold = .7
+    def autocalibrate(self):
+        grid_count = self.target_grid_count_spin.value()
+        board_threshold = self.board_threshold_spin.value()
         self.controller.intrinsic_stream_manager.autopopulate_grids(self.port,grid_count, board_threshold)
         
 if __name__ == "__main__":

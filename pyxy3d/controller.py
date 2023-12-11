@@ -251,7 +251,7 @@ class Controller(QObject):
             self.intrinsic_stream_manager.calibrate_camera(port)
             
             # safety assignment here as references seem to be getting disjointed.
-            self.camera_array.cameras[port] = self.intrinsic_stream_manager.cameras[port]
+            # self.camera_array.cameras[port] = self.intrinsic_stream_manager.cameras[port]
             camera_data = self.camera_array.cameras[port]
             self.config.save_camera(camera_data)
             self.push_camera_data(port)

@@ -15,13 +15,12 @@ logger = pyxy3d.logger.get(__name__)
 
 
 class IntrinsicStreamManager:
-    
     def __init__(
         self,
         recording_dir: Path,
         cameras: dict[CameraData],
-        tracker: Tracker = None, 
-        ) -> None:
+        tracker: Tracker = None,
+    ) -> None:
         self.recording_dir = recording_dir
         self.cameras = cameras
         self.tracker = tracker
@@ -31,7 +30,7 @@ class IntrinsicStreamManager:
         self.streams = {}
         self.calibrators = {}
         self.frame_emitters = {}
-        
+
         for camera in self.cameras.values():
             logger.info(f"Loading stream tools associated with camera {camera.port}")
             stream = RecordedStream(
@@ -43,34 +42,38 @@ class IntrinsicStreamManager:
             )
 
             self.streams[camera.port] = stream
-            self.frame_emitters[camera.port] = PlaybackFrameEmitter(stream)
+
+            # note: must create calibrator first so that grid history q can
+            # then be passed to the frame_emitter
+            self.calibrators[camera.port] = IntrinsicCalibrator(camera, stream)
+            self.frame_emitters[camera.port] = PlaybackFrameEmitter(
+                stream, grid_history_q=self.calibrators[camera.port].grid_history_q
+            )
             self.frame_emitters[camera.port].start()
-            self.calibrators[camera.port] = IntrinsicCalibrator(camera,stream)
-   
-   
+
     def close_stream_tools(self):
         for port, emitter in self.frame_emitters.items():
             logger.info(f"Beginning to shut down frame emitter for port {port}")
             emitter.stop()
 
-            logger.info(f"Waiting on camera {port} emitter to wrap up...")         
+            logger.info(f"Waiting on camera {port} emitter to wrap up...")
             emitter.wait()
-            logger.info(f"Finished waiting for camera {port} emitter to wrap up")         
-        
+            logger.info(f"Finished waiting for camera {port} emitter to wrap up")
+
         for port, calibrator in self.calibrators.items():
             logger.info("stopping calibrator")
             calibrator.stop()
-            
+
         for port, stream in self.streams.items():
             stream.stop_event.set()
             stream.unpause()
             logger.info(f"About to wait for camera {port} to close")
             # stream.jump_to(0)
-            stream.thread.join() 
+            stream.thread.join()
 
-        logger.info("Finished closing stream tools") 
-             
-    def get_frame_count(self,port):
+        logger.info("Finished closing stream tools")
+
+    def get_frame_count(self, port):
         """
         Note that if frame_index may not start at 0 if frame_history is from a real-time capture
         """
@@ -78,15 +81,15 @@ class IntrinsicStreamManager:
         last_frame_index = self.streams[port].last_frame_index
 
         return last_frame_index - start_frame_index + 1
-    
-    def update_charuco(self,charuco_tracker:CharucoTracker):
+
+    def update_charuco(self, charuco_tracker: CharucoTracker):
         for stream in self.streams.values():
             stream.tracker = charuco_tracker
-        
+
         for emitter in self.frame_emitters.values():
             emitter.initialize_grid_capture_history()
-     
-    def play_stream(self,port):
+
+    def play_stream(self, port):
         logger.info(f"Begin playing stream at port {port}")
         self.streams[port].play_video()
 
@@ -100,31 +103,56 @@ class IntrinsicStreamManager:
 
     def stream_jump_to(self, port, frame):
         self.streams[port].jump_to(frame)
-        
+
     def end_stream(self, port):
         self.streams[port].stop_event.set()
         self.unpause_stream(port)
-        
+
     def add_calibration_grid(self, port: int, frame_index: int):
         self.calibrators[port].add_calibration_frame_indices(frame_index)
-        new_ids = self.calibrators[port].all_ids[frame_index]
-        new_img_loc = self.calibrators[port].all_img_loc[frame_index]
-        self.frame_emitters[port].add_to_grid_history(new_ids, new_img_loc)
 
     def clear_calibration_data(self, port: int):
         self.calibrators[port].clear_calibration_data()
         self.frame_emitters[port].initialize_grid_capture_history()
 
-    def calibrate_camera(self,port:int):
+    def calibrate_camera(self, port: int):
         logger.info(f"Calibrating camera at port {port}")
         self.calibrators[port].calibrate_camera()
 
-    def apply_distortion(self, camera:CameraData, undistort: bool):
+    def apply_distortion(self, camera: CameraData, undistort: bool):
         self.frame_emitters[camera.port].update_distortion_params(
-            undistort=undistort, 
-            matrix = camera.matrix, 
-            distortions = camera.distortions
+            undistort=undistort, matrix=camera.matrix, distortions=camera.distortions
         )
 
     def set_stream_rotation(self, port, rotation_count):
         self.streams[port].rotation_count = rotation_count
+
+    def autopopulate_grids(self, port, grid_count, pct_board_threshold):
+        stream = self.streams[port]
+        intrinsic_calibrator = self.calibrators[port]
+        frame_emitter = self.frame_emitters[port]
+
+        board_corners = self.tracker.charuco.board.getChessboardCorners()
+        total_corner_count = board_corners.shape[0]
+        threshold_corner_count = (total_corner_count*pct_board_threshold)
+        
+        logger.info(f"Corners for charuco are {board_corners}") 
+
+        start_frame_index = stream.start_frame_index
+        last_frame_index = stream.last_frame_index
+
+        total_frames = last_frame_index - start_frame_index + 1
+        wait_between = int(total_frames / grid_count)
+
+        last_grid_index = -wait_between
+        original_fps = stream.fps
+        stream.set_fps_target(100)  # speed through the stream
+
+        # jump to first frame, play videos and cycle quickly through frames
+        stream.jump_to(0)
+        frame_emitter.initialize_grid_capture_history()
+        intrinsic_calibrator.initiate_auto_pop(
+            wait_between=wait_between, threshold_corner_count=threshold_corner_count
+        )
+
+        stream.unpause()

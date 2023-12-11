@@ -28,18 +28,25 @@ class IntrinsicCalibrator:
 
         self.frame_packet_q = Queue()
         self.stream.subscribe(self.frame_packet_q)
-        self.harvest_frames()
 
+        # The following group of parameters relate to the autopopulation of the calibrator
+        self.grid_history_q = Queue()  # for passing ids, img_loc used in calibration 
+        self.auto_store_data = Event()
+        self.auto_store_data.clear()
+        self.auto_pop_frame_wait = 0  # how many frames will you hold ofF checking if the board can be added to the calibration pile.
+
+        self.harvest_frames()
+         
     def harvest_frames(self):
         self.stop_event = Event()
         self.stop_event.clear()
-
+        
         def harvest_worker():
             while True:
                 frame_packet = self.frame_packet_q.get()
                 if self.stop_event.is_set():
-                    
                     break
+
                 self.add_frame_packet(frame_packet)
 
             logger.info(f"Harvest frames successfully ended in calibrator for port {self.stream.port}")
@@ -49,12 +56,8 @@ class IntrinsicCalibrator:
     def stop(self):
         logger.info("Beginning to stop intrinsic calibrator")
         self.stop_event.set()
-    
         self.stream.unsubscribe(self.frame_packet_q)
-        
         self.frame_packet_q.put(-1)
-        # logger.info(f"Waiting for harvest thread to stop at port {self.port}")
-        # self.harvest_thread.join()
 
     @property
     def grid_count(self):
@@ -91,21 +94,62 @@ class IntrinsicCalibrator:
             self.all_obj_loc[index] = frame_packet.points.obj_loc
 
             self.active_frame_index = index
+        
+            if self.auto_store_data.is_set():
+                point_id = frame_packet.points.point_id
+                
+                if point_id.size == 0:
+                    corner_count = 0
+                else:
+                    corner_count = frame_packet.points.point_id.shape[0]
+                logger.info(f"Corner count is {corner_count} and frame wait is {self.auto_pop_frame_wait}")
+                if self.auto_pop_frame_wait == 0 and corner_count > self.threshold_corner_count:
+                    # add frame to calibration data and reset the wait time
+                    self.add_calibration_frame_indices(index)
+                    self.auto_pop_frame_wait = self.wait_between 
+                else:
+                    # count down to the next frame to consider autopopulating
+                    self.auto_pop_frame_wait = max(self.auto_pop_frame_wait-1,0)       
+                
+        else:  # end of stream, so stop auto pop
+            self.auto_store_data.clear()    
 
     def add_calibration_frame_indices(self, frame_index: int):
+        """
+        A "side effect" of this method is that the corner id and img_loc
+        data is placed on a q. This q is consumed by the frame_emitter
+        which will update the grid capture history based with those grids
+
+        This allows the GUI element (frame emitter) to stay in sync with the 
+        calibrator. 
+        """
+        logger.info(f"Adding frame data to calibration inputs for frame index {frame_index}")
         self.calibration_frame_indices.append(frame_index)
+        
+        # Backchannel communication to frame_emitter to keep things aligned
+        ids = self.all_ids[frame_index]
+        img_loc = self.all_img_loc[frame_index]
+        self.grid_history_q.put((ids,img_loc))
+        
 
     def clear_calibration_data(self):
+        logger.info("Clearing calibration data..")
         self.calibration_frame_indices = []
         self.set_calibration_inputs()
         
-        
+    def initiate_auto_pop(self, wait_between,threshold_corner_count):
+        logger.info(f"Initiating autopopulation of corner data in port {self.camera.port}")
+        self.clear_calibration_data()
+        self.wait_between = wait_between
+        self.threshold_corner_count = threshold_corner_count        
+        self.auto_store_data.set()
+        self.initialize_point_history()
 
     def set_calibration_inputs(self):
         self.calibration_point_ids = []
         self.calibration_img_loc = []
         self.calibration_obj_loc = []
-
+        logger.info(f"Blank calibration inputs initialized at port {self.camera.port }")
         for index in self.calibration_frame_indices:
             id_count = len(self.all_ids[index])
             if id_count > 3:  # I believe this is a requirement of opencv
@@ -114,7 +158,7 @@ class IntrinsicCalibrator:
                 self.calibration_obj_loc.append(self.all_obj_loc[index])
             else:
                 logger.info(f"Note that empty data stored in frame index {index}. This is not being used in the calibration")
-
+        logger.info(f"Total size of inputs is {len(self.calibration_point_ids)}")
 
     def calibrate_camera(self):
         """

@@ -103,6 +103,7 @@ class IntrinsicCalibrationWidget(QWidget):
         self.ccw_rotation_btn = QPushButton(QIcon(str(CAM_ROTATE_LEFT_PATH)), "")
         self.ccw_rotation_btn.setMaximumSize(35, 35)
 
+        self.autopopulate_grids_btn = QPushButton("Autopopulate Grids")
 
         # Create the spinbox
         self.spin_box_label = QLabel("Undistorted Image Scale")
@@ -150,6 +151,8 @@ class IntrinsicCalibrationWidget(QWidget):
         self.right_panel.addLayout(self.distortion_control_span)
         self.layout.addLayout(self.right_panel)
 
+        self.right_panel.addWidget(self.autopopulate_grids_btn)
+
     def connect_widgets(self):
         self.play_button.clicked.connect(self.play_video)
         self.slider.sliderMoved.connect(self.slider_moved)
@@ -160,9 +163,9 @@ class IntrinsicCalibrationWidget(QWidget):
         self.toggle_distortion.stateChanged.connect(self.toggle_distortion_changed)
         self.ccw_rotation_btn.clicked.connect(self.rotate_ccw)
         self.cw_rotation_btn.clicked.connect(self.rotate_cw)
+        self.autopopulate_grids_btn.clicked.connect(self.autopopulate_grids) 
        
         self.scaling_spinBox.valueChanged.connect(self.on_scale_change)
-        
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].ImageBroadcast.connect(self.update_image)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].FrameIndexBroadcast.connect(self.update_index)
 
@@ -217,7 +220,7 @@ class IntrinsicCalibrationWidget(QWidget):
                     self.play_button.setIcon(self.play_icon)
 
     def update_image(self, port, pixmap):
-        logger.info(f"Running `update_image` in playback widget for port {self.port}")
+        logger.debug(f"Running `update_image` in playback widget for port {self.port}")
         if port == self.port:
             self.frame_image.setPixmap(pixmap)
 
@@ -265,6 +268,12 @@ class IntrinsicCalibrationWidget(QWidget):
         self.controller.rotate_camera(self.port, -1)
         self.controller.stream_jump_to(self.port, self.index)
 
+
+    def autopopulate_grids(self):
+        grid_count = 40
+        board_threshold = .7
+        self.controller.intrinsic_stream_manager.autopopulate_grids(self.port,grid_count, board_threshold)
+        
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     from pyxy3d import __root__

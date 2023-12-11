@@ -20,7 +20,7 @@ class PlaybackFrameEmitter(QThread):
     GridCountBroadcast = Signal(int)
     FrameIndexBroadcast = Signal(int, int)
 
-    def __init__(self, recorded_stream: RecordedStream, pixmap_edge_length=500):
+    def __init__(self, recorded_stream: RecordedStream,grid_history_q:Queue,  pixmap_edge_length=500): 
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(PlaybackFrameEmitter, self).__init__()
@@ -32,6 +32,8 @@ class PlaybackFrameEmitter(QThread):
         self.scaling_factor = 1
 
         self.frame_packet_q = Queue()
+        self.grid_history_q = grid_history_q  # received a tuple of ids, img_loc
+
         self.stream.subscribe(self.frame_packet_q)
         self.pixmap_edge_length = pixmap_edge_length
         self.undistort = False
@@ -39,6 +41,14 @@ class PlaybackFrameEmitter(QThread):
         self.initialize_grid_capture_history()
 
     def initialize_grid_capture_history(self):
+        """
+        The grid capture history is only used as a GUI element to display to the user
+        the corners that have been collected and are being used in the calibration.
+        
+        It is not otherwise used in any calculations and needs to be re-initialized by 
+        the intrinsic stream manager whenever the intrinsic calibrators data is also
+        re-initialized.
+        """
         self.connected_points = self.stream.tracker.get_connected_points()
         width = self.stream.size[0]
         height = self.stream.size[1]
@@ -53,6 +63,11 @@ class PlaybackFrameEmitter(QThread):
             # self.monocalibrator.grid_frame_ready_q.get()
             logger.debug("Getting frame packet from queue")
             frame_packet = self.frame_packet_q.get()
+            
+            while self.grid_history_q.qsize() > 0:
+                ids,img_loc = self.grid_history_q.get()
+                self.add_to_grid_history(ids, img_loc)
+
             if not self.keep_collecting.is_set():
                 break
 
@@ -81,6 +96,8 @@ class PlaybackFrameEmitter(QThread):
                     )
                 self.ImageBroadcast.emit(self.port, pixmap)
                 self.FrameIndexBroadcast.emit(self.port, frame_packet.frame_index)
+            
+
 
         logger.info(
             f"Thread loop within frame emitter at port {self.stream.port} successfully ended"

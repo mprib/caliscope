@@ -106,17 +106,18 @@ class IntrinsicCalibrationWidget(QWidget):
 
         self.autocalibrate_btn = QPushButton("Autocalibrate")
         self.target_grid_count_spin = QSpinBox(self)
+        self.target_grid_count_spin.setMaximumWidth(40)
         self.target_grid_count_spin.setRange(0, 100)
         self.target_grid_count_spin.setValue(40)
         self.target_grid_count_spin.setSingleStep(1)
 
         self.board_threshold_spin = QDoubleSpinBox(self)
+        self.board_threshold_spin.setMaximumWidth(50)
         self.board_threshold_spin.setRange(0, 1)
         self.board_threshold_spin.setValue(.7)
         self.board_threshold_spin.setSingleStep(.1)
 
         # Create the spinbox
-        self.spin_box_label = QLabel("Undistorted Image Scale")
         self.scaling_spin = QSpinBox(self)
         self.scaling_spin.setRange(50, 150)
         self.scaling_spin.setValue(100)
@@ -142,10 +143,10 @@ class IntrinsicCalibrationWidget(QWidget):
         self.right_panel.addLayout(self.rotate_span)
 
         self.auto_control_span = QHBoxLayout()
-        self.auto_control_span.addWidget(QLabel("Target Grid Count"))
-        self.auto_control_span.addWidget(self.target_grid_count_spin)
-        self.auto_control_span.addWidget(QLabel("Board Threshold"))
-        self.auto_control_span.addWidget(self.board_threshold_spin)
+        self.auto_control_span.addWidget(QLabel("Target Grid Count:"), alignment=Qt.AlignmentFlag.AlignRight)
+        self.auto_control_span.addWidget(self.target_grid_count_spin, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.auto_control_span.addWidget(QLabel("Board Threshold:"), alignment=Qt.AlignmentFlag.AlignRight)
+        self.auto_control_span.addWidget(self.board_threshold_spin, alignment=Qt.AlignmentFlag.AlignLeft)
         self.auto_control_span.addWidget(self.autocalibrate_btn)
         self.right_panel.addLayout(self.auto_control_span)
         
@@ -162,10 +163,10 @@ class IntrinsicCalibrationWidget(QWidget):
         self.right_panel.addLayout(self.manual_control_span)
 
         self.distortion_control_span = QHBoxLayout()
+        self.distortion_control_span.addWidget(self.toggle_distortion, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.distortion_control_span.addWidget(QLabel("Zoom:"), alignment=Qt.AlignmentFlag.AlignRight)
+        self.distortion_control_span.addWidget(self.scaling_spin, alignment=Qt.AlignmentFlag.AlignLeft)
         self.distortion_control_span.addWidget(self.frame_index_label)
-        self.distortion_control_span.addWidget(self.toggle_distortion)
-        self.distortion_control_span.addWidget(self.scaling_spin)
-        self.distortion_control_span.addWidget(self.spin_box_label)
         self.right_panel.addLayout(self.distortion_control_span)
         self.layout.addLayout(self.right_panel)
 

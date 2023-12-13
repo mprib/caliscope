@@ -1,5 +1,4 @@
 import pyxy3d.logger
-import pyqtgraph
 from pathlib import Path
 from enum import Enum
 import os
@@ -16,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 import rtoml
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtCore import Qt, QThread
+from PySide6.QtCore import Qt
 from pyxy3d import __root__, __settings_path__
 from pyxy3d.gui.log_widget import LogWidget
 from pyxy3d.gui.charuco_widget import CharucoWidget

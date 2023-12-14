@@ -1,7 +1,6 @@
 <div align="center"><img src = "images/pyxy3d_logo.svg" width = "150"></div>
 
 
-
 # Welcome
 
 Pyxy3D (*pixie-3d*) is an open-source **Py**thon package for converting 2D **(x,y)** point data to **3D** estimates. It is intended to serve as the calibration and triangulation workhorse of a low-cost DIY motion capture studio. It's core functionality includes: 

@@ -31,11 +31,12 @@ theme:
 
 nav:
   - FAQ: faq.md
-  - User Guide:
-      - Requirements: requirements.md
-      - Installation: installation.md
-      - Calibration: calibration.md
-      - Data Capture: data_capture.md
+  - Requirements: requirements.md
+  - Installation: installation.md
+ - Workspace Setup: workspace_setup.md
+  - Best Practices:
+    - Calibration: intrinsic_calibration.md
+    - Motion Capture: extrinsic_calibration.md 
 
 plugins:
   - search

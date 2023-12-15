@@ -1,16 +1,9 @@
 # Installation
 
----
-
-## Highlights
-
 - Pyxy3D is installable via pip and the GUI can be launched from the command line. 
 - It is **strongly** advised that you do so within a virtual environment. 
-- The package requires [Python 3.10](https://www.python.org/downloads/release/python-3100/)  or higher. 
-- Because the Mediapipe implementation only works on Windows currently, these steps assume you are installing on Windows 10.
-
+- The package requires [Python 3.10](https://www.python.org/downloads/release/python-3100/)  or [3.11](https://www.python.org/downloads/release/python-3110/).
 ---
-
 
 ## 1. Create a virtual environment
 

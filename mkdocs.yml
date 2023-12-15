@@ -35,7 +35,8 @@ nav:
   - Installation: installation.md
   - Workspace Setup: workspace_setup.md
   - Best Practices:
-    - Calibration: intrinsic_calibration.md
+    - Intrinsic Calibration: intrinsic_calibration.md
+    - Extrinsic Calibration: extrinsic_calibration.md
     - Motion Capture: extrinsic_calibration.md 
 
 plugins:

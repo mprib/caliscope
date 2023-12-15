@@ -14,7 +14,9 @@ The following shows the layout of a 3 camera project file with 1 recording where
 Project/
 ├── calibration
 ├── config.toml
-└── recording_1
+└── 
+
+recording_1
     ├── frame_time_history.csv
     ├── port_0.mp4
     ├── port_1.mp4

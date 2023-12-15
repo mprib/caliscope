@@ -2,7 +2,7 @@
 
 - **Python version**: [Python 3.10](https://www.python.org/downloads/release/python-3100/) or later.
 
-- **Hardware**: At least two webcams are needed, though tracking accuracy improves with the use of more webcams. A reasonably mid-tier PC is necessary. Low-powered machines, such as laptops or low-end desktop PCs, may struggle with frame reading and image processing tasks.
+- **Hardware**: At least two cameras are needed, though tracking accuracy improves with the use of more cameras. A reasonably mid-tier PC is necessary. Low-powered machines, such as laptops or low-end desktop PCs, may struggle with frame reading and image processing tasks.
 
 - **Operating System**: While the core calibration and GUI are cross-platform, Google's [MediaPipe](https://github.com/google/mediapipe/blob/master/docs/solutions/holistic.md), implemented only on CPU and only for Windows, is used for the sample tracking algorithm. It has only been tested on Windows 10.
 

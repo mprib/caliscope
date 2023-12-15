@@ -33,8 +33,10 @@ nav:
   - FAQ: faq.md
   - Requirements: requirements.md
   - Installation: installation.md
-  - Calibration: calibration.md
-  - Data Capture: data_capture.md
+ - Workspace Setup: workspace_setup.md
+  - Best Practices:
+    - Calibration: intrinsic_calibration.md
+    - Motion Capture: extrinsic_calibration.md 
 
 plugins:
   - search

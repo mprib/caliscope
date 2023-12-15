@@ -1,7 +1,6 @@
 <div align="center"><img src = "images/pyxy3d_logo.svg" width = "150"></div>
 
 
-
 # Welcome
 
 Pyxy3d (*pixie-3d*) is a **py**thon package for multicamera calibration  that integrates with 2D (**x,y**) landmark tracking to triangulate **3D** landmark positions. It is GUI-based, permissively licensed under the LGPLv3, and intended to serve as the processing hub of a low-cost DIY motion capture studio. It's core functionality includes: 

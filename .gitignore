@@ -22,3 +22,4 @@ dev/sample_sessions*
 *.xlsx
 pyxy3d/_version.py
 pyxy3d.code-workspace
+site/*

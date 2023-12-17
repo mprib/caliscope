@@ -1,74 +1,92 @@
 # Installation
 
----
+Pyxy3D is a powerful tool that can be installed easily using pip and launched from the command line. To ensure the best experience and compatibility, we strongly advise installing it within a virtual environment. This approach helps in maintaining a clean workspace and avoids conflicts with other packages. Pyxy3D is compatible with Python versions [3.10](https://www.python.org/downloads/release/python-3100/) and [3.11](https://www.python.org/downloads/release/python-3110/).
 
-## Highlights
+To avoid complications, we recommend you use the full file path to your Python executable. Here's how to do it for different operating systems:
 
-- Pyxy3D is installable via pip and the GUI can be launched from the command line. 
-- It is **strongly** advised that you do so within a virtual environment. 
-- The package requires [Python 3.10](https://www.python.org/downloads/release/python-3100/)  or higher. 
-- Because the Mediapipe implementation only works on Windows currently, these steps assume you are installing on Windows 10.
+=== "Windows"
 
----
+    ```bash
+    # Open Command Prompt and navigate to your project directory
+    cd path\to\your\project
 
+    # Create a virtual environment named 'env' using Python 3.10
+    "C:\Path\To\Python3.10\python.exe" -m venv .venv
 
-## 1. Create a virtual environment
+    # Activate the virtual environment
+    .\env\Scripts\activate
 
-Find the path to your python.exe file. You can install Python 3.10 from [here](https://www.python.org/downloads/release/python-3100/). For me the path is `C:\Python310\python.exe`
+    # Your virtual environment is now active.
+    # You can install dependencies using pip
+    ```
 
-Create a folder where you would like the virtual environment to live. This can be different from the folder where your motion capture calibration and recording data is stored.
-   
-Launch a terminal (on Windows, search 'powershell' in the start menu and launch that).
-Run the following at the command prompt, substituting in the path to `python.exe` that is true for your machine
-```
-C:\Python310\python.exe -m venv .venv
-```
+=== "macOS"
 
-This will create a fresh version of python within that folder which you will use to manage your project. Activate the environment using the following command (if this exact command doesn't work, then [some other variation will](https://docs.python.org/3/library/venv.html#how-venvs-work))
-```
-.\.venv\Scripts\activate
-```
+    ```bash
+    # Open Terminal and navigate to your project directory
+    cd path/to/your/project
 
-The terminal should now show the environment is activated with something like this green parenthetical:
+    # Create a virtual environment named 'venv' using Python 3.10
+    /path/to/python3.10 -m venv .venv
 
-![Pasted image 20230608095719](https://github.com/mprib/pyxy3d/assets/31831778/10a91524-9a81-41d1-b27b-0b6ba723cb27)
+    # Activate the virtual environment
+    source .venv/bin/activate
 
-You can confirm that your python path is set by running
+    # Your virtual environment is now active.
+    # You can install dependencies using pip
+    ```
 
-```
-python -c "import sys; print(sys.executable)"
-```
-which should point to the file in the virtual environment you created:
+=== "Linux"
 
-![Pasted image 20230608100059](https://github.com/mprib/pyxy3d/assets/31831778/e214ebae-692c-4b50-b6f4-f34dcb44df43)
+    ```bash
+    # Open Terminal and navigate to your project directory
+    cd path/to/your/project
 
----
+    # Create a virtual environment named 'env' using Python 3.10
+    /path/to/python3.10 -m venv .venv
+
+    # Activate the virtual environment
+    source .venv/bin/activate
+
+    # Your virtual environment is now active.
+    # You can install dependencies using pip
+    ```
 
 ## 2. Install pyxy3D via pip
 
-You are now ready to install pyxy3D from the Python Package Index (PyPI) via pip:
+With your virtual environment ready, the next step is to install Pyxy3D itself. This is a straightforward process that can be done using pip, Python's package installer. Follow the instructions specific to your operating system below:
 
-```
-pip install pyxy3d
-```
 
-Installation may take a moment...
+=== "Windows"
 
----
+    ``` bash
+    # Install Pyxy3D via pip
+    pip install pyxy3d
+    ```
+
+=== "macOS"
+
+    ``` bash
+    # Install Pyxy3D via pip
+    pip3 install pyxy3d
+    ```
+
+=== "Linux"
+
+    ``` bash
+    # Install Pyxy3D via pip
+    pip3 install pyxy3d
+    ```
+
+Remember, installation may take a moment as some dependencies, like OpenCV and MediaPipe, are quite large. But don't worry, this is a one-time process, and you'll soon be ready to dive in.
+
 
 ## 3. Launch from the command line
-With the package installed and the virtual environment activated, the main GUI can be launched by running the following command to launch the tool:
 
-```
+With the package installed and the virtual environment activated, the main GUI can be launched by running the following command:
+
+``` bash
 pyxy3d
 ```
 
-If you experience crashes after initializing the session folder, then you can launch the individual interface components one at a time as needed. **NAVIGATE TO THE FOLDER OF THE SESSION YOU WANT TO LAUNCH** and run one of the following as needed: `charuco`, `cameras`, `calibrate`, `record`, `process`
-
-For example, if you are getting crashes when trying to record, within the terminal navigate to the session folder you previously created and run:
-
-```
-pyxy3d record
-```
-
-A recording widget will open up that should be more efficient and stable than the complete GUI.
+*Note on First Launch*: The first time you launch Pyxy3D after installation, you might experience a longer than usual startup time. This is normal and expected as the application performs initial setup tasks like compiling components. Rest assured, these processes are one-time events, and subsequent launches of the GUI will be significantly faster.

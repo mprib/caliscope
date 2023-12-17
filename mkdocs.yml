@@ -31,11 +31,13 @@ theme:
 
 nav:
   - FAQ: faq.md
-  - User Guide:
-      - Requirements: requirements.md
-      - Installation: installation.md
-      - Calibration: calibration.md
-      - Data Capture: data_capture.md
+  - Requirements: requirements.md
+  - Installation: installation.md
+  - Workspace Setup: workspace_setup.md
+  - Best Practices:
+    - Intrinsic Calibration: intrinsic_calibration.md
+    - Extrinsic Calibration: extrinsic_calibration.md
+    - Motion Capture: extrinsic_calibration.md 
 
 plugins:
   - search
@@ -45,7 +47,6 @@ markdown_extensions:
   - toc:
       permalink: true
   - admonition
-  - pymdownx.superfences
   - pymdownx.details
   - pymdownx.inlinehilite
   - pymdownx.caret
@@ -53,10 +54,11 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+
+
 copyright: |
   &copy; 2023 <a href="https://github.com/mprib"  target="_blank" rel="noopener">Mac Prible</a>

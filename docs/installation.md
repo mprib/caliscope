@@ -1,8 +1,10 @@
 # Installation
 
-Pyxy3D is a powerful tool that can be installed easily using pip and launched from the command line. To ensure the best experience and compatibility, we strongly advise installing it within a virtual environment. This approach helps in maintaining a clean workspace and avoids conflicts with other packages. Pyxy3D is compatible with Python versions [3.10](https://www.python.org/downloads/release/python-3100/) and [3.11](https://www.python.org/downloads/release/python-3110/).
+Pyxy3D can be installed easily using pip and launched from the command line.
 
-To avoid complications, we recommend you use the full file path to your Python executable. Here's how to do it for different operating systems:
+## 1. Create a virtual environment
+
+We strongly advise installing within a virtual environment. This approach helps in maintaining a clean workspace and avoids conflicts with other packages. Pyxy3D is compatible with Python versions [3.10](https://www.python.org/downloads/release/python-3100/) and [3.11](https://www.python.org/downloads/release/python-3110/). To avoid complications, we recommend you use the full file path to your Python executable. Here's how to do it for different operating systems:
 
 === "Windows"
 
@@ -54,7 +56,7 @@ To avoid complications, we recommend you use the full file path to your Python e
 
 ## 2. Install pyxy3D via pip
 
-With your virtual environment ready, the next step is to install Pyxy3D itself. This is a straightforward process that can be done using pip, Python's package installer. Follow the instructions specific to your operating system below:
+With your virtual environment activated, the next step is to install pyxy3D itself. This is a straightforward process that can be done using pip, Python's package installer. Follow the instructions specific to your operating system below:
 
 
 === "Windows"
@@ -89,4 +91,4 @@ With the package installed and the virtual environment activated, the main GUI c
 pyxy3d
 ```
 
-*Note on First Launch*: The first time you launch Pyxy3D after installation, you might experience a longer than usual startup time. This is normal and expected as the application performs initial setup tasks like compiling components. Rest assured, these processes are one-time events, and subsequent launches of the GUI will be significantly faster.
+*Note on First Launch*: The first time you launch after installation, you might experience a longer than usual startup time. This is normal and expected as the application performs initial setup tasks like compiling components. Rest assured, these processes are one-time events, and subsequent launches of the GUI will be significantly faster.

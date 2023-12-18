@@ -16,13 +16,14 @@ ProjectDirectory/
 └── recordings/    # Empty by default prior to user populating data
 ```
 
-## Stage 1: Intrinsic Calibration
+## Stage 1: Intrinsic Calibrationa
 
-The first files to put in place are for the intrinsic calibration. These must follow the naming convention `port_1.mp4`, `port_2.mp4`, etc. They do not need to be synchronized. See [Best Practices](best_practice_calibration.md) for getting a good recording for intrinsic calibration. A project with 3 cameras would therefore look something like this going into the intrinsic camera calibration. 
+Place video files for the intrinsic camera calibration in the `intrinsic` folder. 
 
-As the intrinsic properties of the camera are calculated, parameters are stored in `config.toml` at the project root.
+These must follow the naming convention `port_1.mp4`, `port_2.mp4`, etc. They do not need to be synchronized. See [Best Practices](best_practice_calibration.md) for getting a good recording for intrinsic calibration. 
 
-With these files in place and the intrinsic calibration done, the folder structure will then looks like this
+A project with 3 cameras would therefore look something like this going into the intrinsic camera calibration. 
+
 ```
 ProjectDirectory/
 ├── config.toml          # following intrinsic calibration, this file will also have the camera matrix and distortion for each source camera
@@ -35,11 +36,12 @@ ProjectDirectory/
 └── recordings/
 ```
 
+As the intrinsic properties of the camera are calculated, parameters are stored in `config.toml` at the project root.
 
 
 ## Stage 2: Extrinsic Calibration
 
-Extrinsic calibration footage must be synchronized. This can be done in one of two ways:
+Place sychronized video files in the `extrinsic` folder. Synchronization can be accomplished in one of two ways:
 
 1. Record all video footage with a common external trigger such that each frame is at the same point in time as the corresponding frames from the other files. In other words: all mp4 files should start and stop at the same moment in time and have the same number of frames.
 
@@ -92,6 +94,9 @@ ProjectDirectory/
 
 
 ## Stage 3: Processing Motion Capture Trial
+
+For each motion capture trial, create a subfolder within `recordings` and populate it with synchronized footage as was done with the extrinsic calibration. After post-processing of the video footage has occurred, output will be created as shown in the following example:
+
 ```
 ProjectDirectory/
 ├── config.toml                             # File unchanged from above

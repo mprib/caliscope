@@ -13,10 +13,7 @@ NOTE (12/06/2023): I've published to PyPI a version of pyxy3D that works with pr
 
 https://github.com/mprib/pyxy3d/assets/31831778/96413cf8-52d7-4054-ab13-a5f8daa4cbf9
 
-The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames (720p @ 24 fps), landmark detection, and point triangulation. 
-
-
-<div align="center"><img src = "https://github.com/mprib/pyxy3d/assets/31831778/2f235ecd-0f1d-4bb8-9935-2ed21517cd0e" width = "50%"></div>
+The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames (720p @ 24 fps), landmark detection, and point triangulation. Animated rig creation was done using an early stage Blender add-on project called [Rigmarole](https://github.com/mprib/rigmarole)
 
 ---
 ## About

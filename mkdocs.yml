@@ -31,13 +31,14 @@ theme:
 
 nav:
   - FAQ: faq.md
-  - Requirements: requirements.md
   - Installation: installation.md
-  - Workspace Setup: workspace_setup.md
-  - Best Practices:
+  - Project Setup: project_setup.md
+  - GUI Workflow: gui_workflow.md
+  - Workflow:
+    - ChArUco Board: calibration_board.md
     - Intrinsic Calibration: intrinsic_calibration.md
     - Extrinsic Calibration: extrinsic_calibration.md
-    - Motion Capture: extrinsic_calibration.md 
+    - Processing Footage: post_processing.md 
 
 plugins:
   - search

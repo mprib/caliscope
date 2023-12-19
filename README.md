@@ -1,7 +1,5 @@
 
-NOTE (12/06/2023): I've published to PyPI a version of pyxy3D that works with pre-recorded footage. This remains a work-in-progress but does exhibit the core calibration/triangulation functionality. In advance of writing out full documentation of the new process I have put some videos out on youtube that illustrate the [basic folder structure](https://youtu.be/dvosFrFVDsU) that a project needs as well as how to proceed through [the calibration/triangulation workflow](https://www.youtube.com/watch?v=XDfuQ_7m1oQ).
-
-
+NOTE (12/19/2023): The core [docs](mprib.github.io/pyxy3d/) have recently been revised to align with the new pre-recorded footage workflow. I will be expanding documentation and demonstration videos in the coming week. If you have any interest in this project, please consider poking around and providing any feedback you may have. I (mprib) am at a point where I really need feedback from early stage users to know how to best prioritize the time that I can dedicate to this project.
 
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 
@@ -21,141 +19,19 @@ The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$
 ---
 ## About
 
-Pyxy3D (*pixie-3d*) is an open-source motion capture tool that can operate with only a typical computer (Windows or macOS currently - *note there is a recent report of Mediapipe failing to load on macOS 14*) and 2 or more webcams. In other words, it is a **Py**thon package for converting 2D **(x,y)** point data to **3D** estimates. It's core functionality includes: 
+Pyxy3d (*pixie-3d*) is a **py**thon package that integrates:
 
-- the estimation of intrinsic (focal length/optical center/distortion) and extrinsic (rotation and translation) camera parameters via a GUI
-- API for slotting various tracking solutions into the data pipeline (currently works with Google's Mediapipe)
-- triangulation of tracked points
+- multicamera calibration
+- 2D (**x,y**) landmark tracking
+- **3D** landmark triangulation. 
 
+It is GUI-based, permissively licensed under the LGPLv3, and intended to serve as the processing hub of a low-cost DIY motion capture studio.
 
-## Key Features
+The packages comes included with a sample tracker using Google's Mediapipe which illustrates how to use the tracker API. 
 
-The project leans heavily upon OpenCV, SciPy, PySide6 and Google's Mediapipe to provide the following **key features**:
+The workflow currently requires you to provide your own synchronized frames or to provide [a file](project_setup.md#frame_time_historycsv) that specifies the time at which each frame was read so that pyxy3d can perform the synchronization itself, though there are plans to manage this synchronization automatically through audio files.
 
-[Charuco Board Creation](#charuco-board-creation)
-
-
-[Camera Configuration](#camera-configuration)
-
-
-[Intrinsic Camera Calibration](#intrinsic-camera-calibration)
-
-
-[Multicamera Calibration](#multicamera-calibration)
-
-
-[Recording of Synchronized Frames](#record-synchronized-frames)
-
-
-[Post-Processing](#post-processing)
-
----
-
-### Charuco Board Creation
-
-A .png file of the configured board can be saved out for ease of printing. The colors can be inverted to save on in (during charuco search, the frames will be converted to grayscale and inverted, allowing the alternate board image). A mirror image board can also be used to improve multicamera data collection for cameras that may not have an easy view of a single plane of the board.
-
-https://github.com/mprib/pyxy3d/assets/31831778/b8b4736f-c7d7-4ba4-a92a-6817ba9cbf61
-
----
-
-### Camera Configuration
-Connect to available webcams, set exposure, resolution, and adjust for any rotation in the camera.
-
-https://github.com/mprib/pyxy3d/assets/31831778/2fe0181d-eaf0-4b76-84db-98bedfc9dbee
-
----
-
-### Intrinsic Camera Calibration
-
-Visual feedback is provided to enable easy assessment of how well the calibration board is being picked up by the camera. Intrinsic camera characteristics (camera matrix and distortion) can be quickly estimated. In addition to displaying RMSE, the distortion model can be applied to the live video feed to assess reasonability. 
-
-Once good estimates of these parameters are made for a given camera, they don't need to be estimated again, allowing quick multicamera recalibration as the recording setup changes. All camera parameters are stored in a `.toml` config file for ease of storage and inspection.
-
-https://github.com/mprib/pyxy3d/assets/31831778/b975546f-8ba1-481e-8fd1-29be5e565572
-
----
-
-### Multicamera Calibration
-
-Visual feedback, target board counts, and real-time checks on the collected data ensure that the bundle adjustment optimization quickly converges to a solution given good intrinisic camera parameter estimates and sensible initialization of 6DoF estimates based on daisy-chained stereopairs.
-
-https://github.com/mprib/pyxy3d/assets/31831778/2a02b10f-b7a8-4dba-ac15-965605f42f6f
-
----
-
-### Record Synchronized Frames
-
-Frames are synchronized in real-time meaning that frame drops can be assessed and the target frame rate can be adjusted as need be. In the example below, port 1 drops 1-2% of frames at 30fps, but this resolves with a minor tweak to the frame rate.
-
-https://github.com/mprib/pyxy3d/assets/31831778/08656444-e846-4dbc-b278-51f0ab8d76db
-
----
-
-### Post-Processing
-
-https://github.com/mprib/pyxy3d/assets/31831778/25bdf3a1-2bd0-48e4-a4d8-2815867c94ff
-
-Recordings can be processed with built in landmark trackers which are currently based around Google's Mediapipe. The post-processing pipeline goes through several stages:
-
-1. landmark identification across all recordings
-2. small 2D gap-filling (<3 frames)
-3. point triangulation
-4. small 3d gap-filling (<3 frames)
-5. trajectory smoothing (bidirectional butterworth at 6Hz)
-
-Results are visualized in the pyqtgraph window for checking quality of results. Labelled (x,y,z) coordinates are saved in a `.csv` file accessible from the recording directory (can be opened from the post-processing tab). When  full body data is tracked (I'm at my desk in this walk-through so not applicable) a configuration file can be generated that specificies mean distances between landmarks. This configuration was used to auto-scale the metarig animation shown in the ballet video at the top.
-
----
-
-## Quick Start
-
-This package has only been successfully tested on Windows 10 and MacOS 12 Ventura. 
-
-From a terminal (the code below is using Powershell), do the following:
-
-1. Create a new project folder
-```powershell
-mkdir pyxy3d_demo
-```
-2. Navigate into that directory
-```powershell
-cd pyxy3d_demo
-```
-3. Create a virtual environment with [Python 3.10](https://www.python.org/downloads/release/python-3100/) or later:
-```powershell
-C:\Python310\python.exe -m venv .venv
-```
-4. Activate the environment
-```powershell
-.\.venv\Scripts\activate
-```
-
-5. Install Pyxy3D
-```powershell
-pip install pyxy3d
-```
-Note that this will also install dependencies into the virtual environment, some of which are large (OpenCV, SciPy, Numpy and Mediapipe are among the core dependencies). Complete download and installation may take several minutes. 
-
-6. Launch Pyxy3D    
-```powershell
-pyxy3d
-```
-
-
-At this point, an application window will launch, though be aware that it may take several seconds for this to load particularly on the first launch on your machine. 
-Refer to the [Quick Start Video Walkthrough](https://youtu.be/QHQKkLCE0e4) to see how to calibrate, record and process data
-
-
-
-## Limitations
-
-Please note that the system currently has the following **limitations**:
-- It does not support anything other than standard webcams at the moment (a pipeline for processing pre-recorded videos is in the works).
-- The frame capture backend presents a primary bottleneck that will limit the number of cameras/resolution/frame rates that can be used, which ultimately limits the size and precision of the capture volume.
-- Data export is currently limited to .csv, and .trc files. Use in 3D animation tools like Blender, which require character rigging, will require additional processing.
-
-
+Please see our [docs](mprib.github.io/pyxy3d/) for details about installation, project setup, and general workflow.
 
 ## Reporting Issues and Requesting Features
 

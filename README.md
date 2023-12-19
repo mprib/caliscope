@@ -1,5 +1,5 @@
 
-NOTE (12/19/2023): The core [docs](mprib.github.io/pyxy3d/) have recently been revised to align with the new pre-recorded footage workflow. I will be expanding documentation and demonstration videos in the coming week. If you have any interest in this project, please consider poking around and providing any feedback you may have. I (mprib) am at a point where I really need feedback from early stage users to know how to best prioritize the time that I can dedicate to this project.
+NOTE (12/19/2023): The core [docs](https://mprib.github.io/pyxy3d/) have recently been revised to align with the new pre-recorded footage workflow. I will be expanding documentation and demonstration videos in the coming week. If you have any interest in this project, please consider poking around and providing any feedback you may have. I (mprib) am at a point where I really need feedback from early stage users to know how to best prioritize the time that I can dedicate to this project.
 
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 

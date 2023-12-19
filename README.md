@@ -6,11 +6,6 @@ NOTE (12/19/2023): The core [docs](https://mprib.github.io/pyxy3d/) have recentl
 <div align="center">
 </div>
 
-
-https://github.com/mprib/pyxy3d/assets/31831778/96413cf8-52d7-4054-ab13-a5f8daa4cbf9
-
-The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames (720p @ 24 fps), landmark detection, and point triangulation. Animated rig creation was done using an early stage Blender add-on project called [Rigmarole](https://github.com/mprib/rigmarole)
-
 ---
 ## About
 
@@ -21,6 +16,13 @@ Pyxy3d (*pixie-3d*) is a **py**thon package that integrates:
 - **3D** landmark triangulation. 
 
 It is GUI-based, permissively licensed under the LGPLv3, and intended to serve as the processing hub of a low-cost DIY motion capture studio.
+
+Uploading ballet_demo.mp4…
+
+
+The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames (720p @ 24 fps), landmark detection, and point triangulation. Animated rig creation was done using an early stage Blender add-on project called [Rigmarole](https://github.com/mprib/rigmarole)
+
+
 
 The packages comes included with a sample tracker using Google's Mediapipe which illustrates how to use the tracker API. 
 

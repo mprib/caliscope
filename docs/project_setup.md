@@ -16,11 +16,11 @@ ProjectDirectory/
 └── recordings/    # Empty by default prior to user populating data
 ```
 
-## Stage 1: Intrinsic Calibrationa
+## Stage 1: Intrinsic Calibration
 
 Place video files for the intrinsic camera calibration in the `intrinsic` folder. 
 
-These must follow the naming convention `port_1.mp4`, `port_2.mp4`, etc. They do not need to be synchronized. See [Best Practices](best_practice_calibration.md) for getting a good recording for intrinsic calibration. 
+These must follow the naming convention `port_1.mp4`, `port_2.mp4`, etc. They do not need to be synchronized. 
 
 A project with 3 cameras would therefore look something like this going into the intrinsic camera calibration. 
 

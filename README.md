@@ -29,7 +29,7 @@ The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$
 
 The packages comes included with a sample tracker using Google's Mediapipe which illustrates how to use the tracker API. 
 
-Please see our [docs](mprib.github.io/pyxy3d/) for details about installation, project setup, and general workflow.
+Please see our [docs](https://mprib.github.io/pyxy3d/) for details about installation, project setup, and general workflow.
 
 ## Limitations
 

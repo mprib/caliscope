@@ -30,15 +30,14 @@ theme:
 
 
 nav:
-  - FAQ: faq.md
   - Installation: installation.md
   - Project Setup: project_setup.md
-  - GUI Workflow: gui_workflow.md
   - Workflow:
     - ChArUco Board: calibration_board.md
     - Intrinsic Calibration: intrinsic_calibration.md
     - Extrinsic Calibration: extrinsic_calibration.md
     - Processing Footage: post_processing.md 
+  - FAQ: faq.md
 
 plugins:
   - search

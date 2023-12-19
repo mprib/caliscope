@@ -17,7 +17,10 @@ Pyxy3d (*pixie-3d*) is a **py**thon package that integrates:
 
 It is GUI-based, permissively licensed under the LGPLv3, and intended to serve as the processing hub of a low-cost DIY motion capture studio.
 
-Uploading ballet_demo.mp4…
+
+
+https://github.com/mprib/pyxy3d/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
+
 
 
 The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames (720p @ 24 fps), landmark detection, and point triangulation. Animated rig creation was done using an early stage Blender add-on project called [Rigmarole](https://github.com/mprib/rigmarole)
@@ -26,9 +29,16 @@ The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$
 
 The packages comes included with a sample tracker using Google's Mediapipe which illustrates how to use the tracker API. 
 
-The workflow currently requires you to provide your own synchronized frames or to provide [a file](project_setup.md#frame_time_historycsv) that specifies the time at which each frame was read so that pyxy3d can perform the synchronization itself, though there are plans to manage this synchronization automatically through audio files.
-
 Please see our [docs](mprib.github.io/pyxy3d/) for details about installation, project setup, and general workflow.
+
+## Limitations
+
+### Requires Frame Sync
+The workflow currently requires you to provide your own synchronized frames or to provide [a file](project_setup.md#frame_time_historycsv) that specifies the time at which each frame was read so that pyxy3d can perform the synchronization itself. There are plans to manage this synchronization automatically through audio files, though that has not yet been implemented.
+
+### Currently only using Mediapipe
+
+Google's Mediapipe provides a relatively easy and efficient method for human subject tracking, though for many uses it is limiting. Pyxy3D has a general Tracker base class that is implemented in a few versions (Pose/Hands/Holistic). This has provided a proof of concept implementation of markerless tracking, though for more robust use the roadmap calls for integration with more powerful tools such as [MMPose](https://github.com/open-mmlab/mmpose) and [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut).
 
 ## Reporting Issues and Requesting Features
 

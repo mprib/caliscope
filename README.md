@@ -23,6 +23,8 @@ It is GUI-based, permissively licensed under the LGPLv3, and intended to serve a
 Currently is uses Google's Mediapipe for markerless tracking, though is built on a Tracker API that can be used to integrate alternate landmark tracking tools.
 
 Please see our [docs](https://mprib.github.io/pyxy3d/) for details about installation, project setup, and general workflow.
+
+### Demo Output
 ---
 https://github.com/mprib/pyxy3d/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
 

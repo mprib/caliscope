@@ -29,6 +29,7 @@ Please see our [docs](https://mprib.github.io/pyxy3d/) for details about install
 https://github.com/mprib/pyxy3d/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
 
 *The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames (720p @ 24 fps), landmark detection, and point triangulation. Animated rig creation was done using an early stage Blender add-on project called [Rigmarole](https://github.com/mprib/rigmarole)*
+
 ---
 
 ## Quick Start
@@ -77,17 +78,36 @@ pyxy3d
 
 ## Key Features
 
+### Calibration board creation
 - Easy creation of `png` files for ChArUco calibration boards 
+- board definition can be changed across intrinsic and extrinsic calibration allowing greater flexibiltiy
+
+### Intrinsic Camera Calibration
 - Automated calculation of camera intrinsic properties from input video
   - Optical Center
   - Focal Length
   - Lens Distortion
+
 - Visualization of distortion model to ensure reasonableness
+
+### Extrinsic Camera Calibration
 - Automated bundle adjustment to estimate 6 DoF relative position of cameras
 - Visualizer to inspect the estimates from the bundle adjustment
 - Setting of the World Origin within the visualizer to simplify data processing
-- Automated 2D landmark tracking of synchronized videos
 
+
+### 3D Tracking
+- Tracker API for integrating alternate tracking methods
+  - 3 sample implementations with Google Mediapipe (Hands/Pose/Holistic)
+- Automated application of landmark tracking to synchronized videos
+- Triangulation of 3D landmark position based on calibrated cameras
+- Gap-filling and butterworth filtering to smooth trajectory estimates
+
+### Trajectory Output
+
+- output to `.trc` file format for use in biomechanical modelling
+- output to tidy `.csv` format with well-labelled headers for straightforward integration with other workflows
+- companion project [Rigmarole](https://github.com/mprib/rigmarole) in development to facilitate creation of animated rigs in Blender
 
 ## Limitations
 

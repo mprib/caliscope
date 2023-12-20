@@ -7,7 +7,7 @@ NOTE (12/19/2023): The core [docs](https://mprib.github.io/pyxy3d/) have recentl
 
 </div>
 
-
+![PyPI version](https://img.shields.io/pypi/v/pyxy3d.svg)
 
 
 ## About

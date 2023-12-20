@@ -24,19 +24,78 @@ Currently is uses Google's Mediapipe for markerless tracking, though is built on
 
 Please see our [docs](https://mprib.github.io/pyxy3d/) for details about installation, project setup, and general workflow.
 
-### Demo Output
 ---
+### Demo Output
 https://github.com/mprib/pyxy3d/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
 
 *The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames (720p @ 24 fps), landmark detection, and point triangulation. Animated rig creation was done using an early stage Blender add-on project called [Rigmarole](https://github.com/mprib/rigmarole)*
-
 ---
 
 ## Quick Start
 
 
+=== "Windows"
+
+    ```bash
+    # Open Command Prompt and navigate to directory that will hold venv
+    # this does not need to be the same as where your project workspace is held
+    cd path\to\your\project
+
+    # Create a virtual environment named 'env' using Python 3.10
+    "C:\Path\To\Python3.10\python.exe" -m venv .venv
+
+    # Activate the virtual environment
+    .\env\Scripts\activate
+
+    # Your virtual environment is now active.
+    # You can install dependencies using pip
+    ```
+
+=== "macOS"
+
+    ```bash
+    # Open Command Prompt and navigate to directory that will hold venv
+    # this does not need to be the same as where your project workspace is held
+    cd path/to/your/project
+
+    # Create a virtual environment named 'venv' using Python 3.10
+    /path/to/python3.10 -m venv .venv
+
+    # Activate the virtual environment
+    source .venv/bin/activate
+
+    # Your virtual environment is now active.
+    # You can install dependencies using pip
+    ```
+
+=== "Linux"
+
+    ```bash
+    # Open Command Prompt and navigate to directory that will hold venv
+    # this does not need to be the same as where your project workspace is held
+    cd path/to/your/project
+
+    # Create a virtual environment named 'env' using Python 3.10
+    /path/to/python3.10 -m venv .venv
+
+    # Activate the virtual environment
+    source .venv/bin/activate
+
+    # Your virtual environment is now active.
+    # You can install dependencies using pip
+    ```
 ## Key Features
 
+- Easy creation of `png` files for ChArUco calibration boards 
+- Automated calculation of camera intrinsic properties from input video
+  - Optical Center
+  - Focal Length
+  - Lens Distortion
+- Visualization of distortion model to ensure reasonableness
+- Automated bundle adjustment to estimate 6 DoF relative position of cameras
+- Visualizer to inspect the estimates from the bundle adjustment
+- Setting of the World Origin within the visualizer to simplify data processing
+- Automated 2D landmark tracking of synchronized videos
 
 
 ## Limitations

@@ -9,7 +9,8 @@ We strongly advise installing within a virtual environment. This approach helps 
 === "Windows"
 
     ```bash
-    # Open Command Prompt and navigate to your project directory
+    # Open Command Prompt and navigate to directory that will hold venv
+    # this does not need to be the same as where your project workspace is held
     cd path\to\your\project
 
     # Create a virtual environment named 'env' using Python 3.10
@@ -25,7 +26,8 @@ We strongly advise installing within a virtual environment. This approach helps 
 === "macOS"
 
     ```bash
-    # Open Terminal and navigate to your project directory
+    # Open Command Prompt and navigate to directory that will hold venv
+    # this does not need to be the same as where your project workspace is held
     cd path/to/your/project
 
     # Create a virtual environment named 'venv' using Python 3.10
@@ -41,7 +43,8 @@ We strongly advise installing within a virtual environment. This approach helps 
 === "Linux"
 
     ```bash
-    # Open Terminal and navigate to your project directory
+    # Open Command Prompt and navigate to directory that will hold venv
+    # this does not need to be the same as where your project workspace is held
     cd path/to/your/project
 
     # Create a virtual environment named 'env' using Python 3.10

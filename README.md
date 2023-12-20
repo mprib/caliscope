@@ -4,7 +4,7 @@ NOTE (12/19/2023): The core [docs](https://mprib.github.io/pyxy3d/) have recentl
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 
 <div align="center">
-  
+
 </div>
 
 

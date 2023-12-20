@@ -4,12 +4,12 @@
 ## Initial Project Structure
 When a new project is created, the workspace will automatically populate the necessary folder structure if it does not already exist. There are 2 primary folders: `calibration` and `recordings`. Within `calibration` there must be subfolders for `intrinsic` and `extrinsic`. All motion capture trials must be stored separately within subfolders of `recordings` by the user.
 
-An configuration file called `config.toml` will be automatically created when a new project is created. Initially this will only be storing the default ChAruco board definition. 
+An configuration file called `config.toml` will be automatically created when a new project is created. Initially this will only be storing the default charuco board definition. 
 
 An example initial project folder structure would therefore look like this:
 ```
 ProjectDirectory/
-├── config.toml    # Only contains default ChAruco board definition
+├── config.toml    # Only contains default charuco board definition
 ├── calibration/
 │   ├── intrinsic/
 │   └── extrinsic/
@@ -78,7 +78,7 @@ Following the extrinsic calibration, an additional file called `point_estimates.
 ```
 ProjectDirectory/
 ├── config.toml          # Now contains rotation and translation parameters for each camera in addition to the distortion and camera matrix
-├── point_estimates.toml # Contains ChAruco data used to estimate the relative camera positions
+├── point_estimates.toml # Contains charuco data used to estimate the relative camera positions
 ├── calibration/
 │   ├── intrinsic/       # directory unchanged from above
 │   │   ├── port_1.mp4   

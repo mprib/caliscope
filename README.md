@@ -34,56 +34,47 @@ https://github.com/mprib/pyxy3d/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b3
 ## Quick Start
 
 
-=== "Windows"
+### Windows
 
-    ```bash
-    # Open Command Prompt and navigate to directory that will hold venv
-    # this does not need to be the same as where your project workspace is held
-    cd path\to\your\project
+```bash
+# Open Command Prompt and navigate to directory that will hold venv
+# this does not need to be the same as where your project workspace is held
+cd path\to\your\project
 
-    # Create a virtual environment named 'env' using Python 3.10
-    "C:\Path\To\Python3.10\python.exe" -m venv .venv
+# Create a virtual environment named 'env' using Python 3.10
+"C:\Path\To\Python3.10\python.exe" -m venv .venv
 
-    # Activate the virtual environment
-    .\env\Scripts\activate
+# Activate the virtual environment
+.\env\Scripts\activate
 
-    # Your virtual environment is now active.
-    # You can install dependencies using pip
-    ```
+# Your virtual environment is now active.
+# You can install using pip
+pip install pyxy3d
 
-=== "macOS"
+# Launch from the command line
+pyxy3d
+```
 
-    ```bash
-    # Open Command Prompt and navigate to directory that will hold venv
-    # this does not need to be the same as where your project workspace is held
-    cd path/to/your/project
+### MacOS/Linux
+```bash
+# Open Command Prompt and navigate to directory that will hold venv
+# this does not need to be the same as where your project workspace is held
+cd path/to/your/project
 
-    # Create a virtual environment named 'venv' using Python 3.10
-    /path/to/python3.10 -m venv .venv
+# Create a virtual environment named 'venv' using Python 3.10
+/path/to/python3.10 -m venv .venv
 
-    # Activate the virtual environment
-    source .venv/bin/activate
+# Activate the virtual environment
+source .venv/bin/activate
 
-    # Your virtual environment is now active.
-    # You can install dependencies using pip
-    ```
+# Your virtual environment is now active.
+# You can install using pip
+pip3 install pyxy3d
 
-=== "Linux"
+# Launch from the command line
+pyxy3d
+```
 
-    ```bash
-    # Open Command Prompt and navigate to directory that will hold venv
-    # this does not need to be the same as where your project workspace is held
-    cd path/to/your/project
-
-    # Create a virtual environment named 'env' using Python 3.10
-    /path/to/python3.10 -m venv .venv
-
-    # Activate the virtual environment
-    source .venv/bin/activate
-
-    # Your virtual environment is now active.
-    # You can install dependencies using pip
-    ```
 ## Key Features
 
 - Easy creation of `png` files for ChArUco calibration boards 

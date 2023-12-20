@@ -20,7 +20,7 @@ Pyxy3d (*pixie-3d*) is a **py**thon package that integrates:
 
 It is GUI-based, permissively licensed under the LGPLv3, and intended to serve as the processing hub of a low-cost DIY motion capture studio.
 
-Currently is uses Google's Mediapipe for markerless tracking, though is built on a Tracker API that can be used to integrate alternate landmark tracking tools.
+Currently it uses Google's Mediapipe for markerless tracking, though is built on a Tracker API that can be used to integrate alternate landmark tracking tools.
 
 Please see our [docs](https://mprib.github.io/pyxy3d/) for details about installation, project setup, and general workflow.
 

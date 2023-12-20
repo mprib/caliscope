@@ -34,6 +34,7 @@ https://github.com/mprib/pyxy3d/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b3
 
 ## Quick Start
 
+Please note that given the size of some core dependencies (OpenCV, Mediapipe, and PySide6 are among them) installation and initial launch can take a while. 
 
 ### Windows
 

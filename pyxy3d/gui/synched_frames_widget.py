@@ -2,12 +2,13 @@ import pyxy3d.logger
 from time import sleep
 import math
 
-from PySide6.QtCore import Slot
+from PySide6.QtCore import Slot, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QGridLayout,
     QMainWindow,
     QWidget,
+    QScrollArea,
     QLineEdit,
     QHBoxLayout,
     QLabel,
@@ -22,7 +23,7 @@ from pyxy3d.controller import Controller
 logger = pyxy3d.logger.get(__name__)
 
 
-class SynchedFramesDisplay(QWidget):
+class SynchedFramesDisplay(QMainWindow):
     """
     This widget is not intended to have any interactive functionality at all and to only 
     provide a window to the user of the current landmark tracking
@@ -33,6 +34,8 @@ class SynchedFramesDisplay(QWidget):
 
     def __init__(self, sync_stream_manager: SynchronizedStreamManager):
         super(SynchedFramesDisplay, self).__init__()
+
+        self.setWindowTitle("Tracking Landmarks....")
         self.sync_stream_manager = sync_stream_manager 
         self.synchronizer = self.sync_stream_manager.synchronizer
         self.ports = self.synchronizer.ports
@@ -47,8 +50,6 @@ class SynchedFramesDisplay(QWidget):
         )
         self.frame_dictionary_emitter.start()
 
-        self.dropped_fps_label = QLabel()
-
         # all video output routed to qlabels stored in a dictionariy
         # make it as square as you can get it
         self.recording_displays = {str(port): QLabel() for port in self.ports}
@@ -59,23 +60,16 @@ class SynchedFramesDisplay(QWidget):
         logger.info("Recording widget init complete")
 
     def place_widgets(self):
-        self.setLayout(QVBoxLayout())
+        self.scroll_area = QScrollArea()
+        grid_widget = QWidget()
+        grid_widget.setLayout(QGridLayout())
 
-        dropped_fps_layout = QHBoxLayout()
-        dropped_fps_layout.addStretch(1)
-        dropped_fps_layout.addWidget(self.dropped_fps_label)
-        dropped_fps_layout.addStretch(1)
-
-        # self.layout().addLayout(dropped_fps_layout)
-
-        # set teh layout for the frames to be mostly square
-        frame_grid = QGridLayout()
         camera_count = len(self.ports)
         grid_columns = int(math.ceil(camera_count**0.5))
         row = 0
         column = 0
         for port in sorted(self.ports):
-            frame_grid.addWidget(self.recording_displays[str(port)], row, column)
+            grid_widget.layout().addWidget(self.recording_displays[str(port)], row, column)
 
             # update row and column for next iteration
             if column >= grid_columns - 1:
@@ -85,12 +79,22 @@ class SynchedFramesDisplay(QWidget):
             else:
                 column += 1
 
-        frame_display_layout = QHBoxLayout()
-        frame_display_layout.addStretch(1)
-        frame_display_layout.addLayout(frame_grid)
-        frame_display_layout.addStretch(1)
-        self.layout().addLayout(frame_display_layout)
+        grid_widget.setLayout(grid_widget.layout())
+        padded_grid_layout = QHBoxLayout()
+        padded_grid_layout.addStretch(1)
+        padded_grid_layout.addWidget(grid_widget)
+        padded_grid_layout.addStretch(1)
 
+        scroll_viewport = QWidget()
+        scroll_viewport.setLayout(padded_grid_layout)
+
+        #Scroll Area Properties
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setWidget(scroll_viewport)
+        self.setCentralWidget(self.scroll_area)
+    
     def connect_widgets(self):
         self.frame_dictionary_emitter.FramesBroadcast.connect(self.ImageUpdateSlot)
         self.frame_dictionary_emitter.dropped_fps.connect(self.update_dropped_fps)

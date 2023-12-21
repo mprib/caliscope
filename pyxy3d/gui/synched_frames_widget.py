@@ -6,6 +6,7 @@ from PySide6.QtCore import Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QGridLayout,
+    QMainWindow,
     QWidget,
     QLineEdit,
     QHBoxLayout,
@@ -15,18 +16,25 @@ from PySide6.QtWidgets import (
 
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.gui.frame_emitters.frame_dictionary_emitter import FrameDictionaryEmitter
+from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
 from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)
 
 
-class SynchedFramesWidget(QWidget):
-    def __init__(self, controller: Controller):
-        super(SynchedFramesWidget, self).__init__()
-        self.controller = controller
-        self.synchronizer: Synchronizer = (
-            self.controller.extrinsic_stream_manager.synchronizer
-        )
+class SynchedFramesDisplay(QWidget):
+    """
+    This widget is not intended to have any interactive functionality at all and to only 
+    provide a window to the user of the current landmark tracking
+    
+    This is why the primary input is the sync stream manager directly and not the controller 
+    Apologies to Future Mac who is reading this and regretting my decisions.
+    """
+
+    def __init__(self, sync_stream_manager: SynchronizedStreamManager):
+        super(SynchedFramesDisplay, self).__init__()
+        self.sync_stream_manager = sync_stream_manager 
+        self.synchronizer = self.sync_stream_manager.synchronizer
         self.ports = self.synchronizer.ports
 
         # need to let synchronizer spin up before able to display frames
@@ -35,7 +43,7 @@ class SynchedFramesWidget(QWidget):
 
         # create tools to build and emit the displayed frame
         self.frame_dictionary_emitter = FrameDictionaryEmitter(
-            self.synchronizer, self.controller.camera_array.cameras
+            self.synchronizer, self.sync_stream_manager.all_camera_data
         )
         self.frame_dictionary_emitter.start()
 

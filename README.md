@@ -2,11 +2,11 @@
 
 <div align="center">
 
-[![GitHub stars](https://img.shields.io/github/stars/mprib/pyxy3d.svg?style=social&label=Star)](https://github.com/mprib/pyxy3d/stargazers)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
 [![PyPI - License](https://img.shields.io/pypi/l/pyxy3d?color=blue)](https://www.gnu.org/licenses/lgpl-3.0.en.html)
 [![PyPI - Version](https://img.shields.io/pypi/v/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
 [![GitHub last commit](https://img.shields.io/github/last-commit/mprib/pyxy3d.svg)](https://github.com/mprib/pyxy3d/commits)
+[![GitHub stars](https://img.shields.io/github/stars/mprib/pyxy3d.svg?style=social&label=Star)](https://github.com/mprib/pyxy3d/stargazers)
 
 </div>
 

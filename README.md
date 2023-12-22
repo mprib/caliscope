@@ -1,10 +1,10 @@
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 
 <div align="center">
-  
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d?color=blue)]()
-[![PyPI - License](https://img.shields.io/pypi/l/pyxy3d?color=blue)]()
-[![PyPI - Version](https://img.shields.io/pypi/v/pyxy3d?color=blue)]()
+
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
+[![PyPI - License](https://img.shields.io/pypi/l/pyxy3d?color=blue)](https://www.gnu.org/licenses/lgpl-3.0.en.html)
+[![PyPI - Version](https://img.shields.io/pypi/v/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
 
 </div>
 

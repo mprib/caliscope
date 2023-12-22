@@ -5,6 +5,9 @@
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
 [![PyPI - License](https://img.shields.io/pypi/l/pyxy3d?color=blue)](https://www.gnu.org/licenses/lgpl-3.0.en.html)
 [![PyPI - Version](https://img.shields.io/pypi/v/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
+[![GitHub last commit](https://img.shields.io/github/last-commit/mprib/pyxy3d.svg)](https://github.com/mprib/pyxy3d/commits)
+[![Code Quality](https://img.shields.io/lgtm/grade/python/g/mprib/pyxy3d.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/mprib/pyxy3d/context:python)
+
 
 </div>
 

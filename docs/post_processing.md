@@ -1,5 +1,7 @@
-*demonstration video coming soon...*
+# Post-Processing: Landmark Triangulation from Motion Capture
 
+
+*demonstration video coming soon...*
 
 
 ## Processing steps

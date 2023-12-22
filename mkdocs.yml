@@ -33,10 +33,11 @@ nav:
   - Installation: installation.md
   - Project Setup: project_setup.md
   - Workflow:
-    - ChArUco Board: calibration_board.md
-    - Intrinsic Calibration: intrinsic_calibration.md
-    - Extrinsic Calibration: extrinsic_calibration.md
-    - Processing Footage: post_processing.md 
+    - Workspace: workspace.md
+    - Charuco Board: calibration_board.md
+    - Cameras: intrinsic_calibration.md
+    - Capture Volume: extrinsic_calibration.md
+    - Post-Processing: post_processing.md 
   - FAQ: faq.md
 
 plugins:

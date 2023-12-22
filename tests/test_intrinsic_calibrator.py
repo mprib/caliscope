@@ -167,5 +167,5 @@ def test_autopopulate_data():
 
 if __name__ == "__main__":
 
-    # test_intrinsic_calibrator()
+    test_intrinsic_calibrator()
     test_autopopulate_data()

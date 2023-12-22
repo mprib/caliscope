@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 from PySide6.QtGui import QImage
 import pyxy3d.logger
 
@@ -13,7 +14,7 @@ def resize_to_square(frame):
     height_pad = int((padded_size - height) / 2)
     width_pad = int((padded_size - width) / 2)
     pad_color = [0, 0, 0]
-    pad_color = [100, 100, 100]
+    # pad_color = [100, 100, 100]
 
     frame = cv2.copyMakeBorder(
         frame,

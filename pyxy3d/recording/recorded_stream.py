@@ -236,7 +236,7 @@ class RecordedStream(Stream):
             # self.out_q.put(frame_packet)
             self.frame_index += 1
 
-            if self.frame_index >= self.last_frame_index and self.break_on_last:
+            if self.frame_index > self.last_frame_index and self.break_on_last:
                 logger.info(f"Ending recorded playback at port {self.port}")
                 # time of -1 indicates end of stream
                 frame_packet = FramePacket(

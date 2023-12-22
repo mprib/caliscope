@@ -55,7 +55,8 @@ class Controller(QObject):
     capture_volume_shifted = Signal()
     enable_inputs = Signal(int, bool)  # port, enable
     post_processing_complete = Signal()
-
+    show_synched_frames = Signal()
+    
     def __init__(self, workspace_dir: Path):
         super().__init__()
         self.workspace = workspace_dir
@@ -156,24 +157,24 @@ class Controller(QObject):
             tracker=self.charuco_tracker,
         )
 
-    def process_extrinsic_streams(self, fps_target=None):
-        def worker():
-            output_path = Path(
-                self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv"
-            )
-            output_path.unlink()  # make sure this doesn't exist to begin with.
+    # def process_extrinsic_streams(self, fps_target=None):
+    #     def worker():
+    #         output_path = Path(
+    #             self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv"
+    #         )
+    #         output_path.unlink()  # make sure this doesn't exist to begin with.
 
-            self.load_extrinsic_stream_manager()
-            self.extrinsic_stream_manager.process_streams(fps_target=fps_target)
+    #         self.load_extrinsic_stream_manager()
+    #         self.extrinsic_stream_manager.process_streams(fps_target=fps_target)
 
-            logger.info(
-                f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
-            )
-            while not output_path.exists():
-                sleep(0.5)
-                logger.info(
-                    f"Waiting for 2D tracked points to populate at {output_path}"
-                )
+    #         logger.info(
+    #             f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
+    #         )
+    #         while not output_path.exists():
+    #             sleep(0.5)
+    #             logger.info(
+    #                 f"Waiting for 2D tracked points to populate at {output_path}"
+    #             )
 
     def load_intrinsic_stream_manager(self):
         self.intrinsic_stream_manager = IntrinsicStreamManager(
@@ -339,11 +340,13 @@ class Controller(QObject):
 
             self.load_extrinsic_stream_manager()
             self.extrinsic_stream_manager.process_streams(fps_target=100)
-
             logger.info(
                 f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
             )
 
+            logger.info("About to signal that synched frames should be shown")
+            self.show_synched_frames.emit()
+            
             while not output_path.exists():
                 sleep(0.5)
                 # moderate the frequency with which logging statements get made
@@ -353,7 +356,7 @@ class Controller(QObject):
                     )
 
             # note that this processing will wait until it is complete
-            self.process_extrinsic_streams(fps_target=100)
+            # self.process_extrinsic_streams(fps_target=100)
             logger.info("Processing if extrinsic caliberation streams complete...")
 
             self.extrinsic_calibration_xy = Path(

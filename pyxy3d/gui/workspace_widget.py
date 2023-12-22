@@ -1,6 +1,9 @@
 import os
+from pyxy3d.gui.synched_frames_display import SynchedFramesDisplay
+from PySide6.QtCore import QThread
 import sys
 import subprocess
+import time
 from pathlib import Path
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QVBoxLayout, QPushButton, QSpinBox, QGridLayout, QTextBrowser
 from PySide6.QtCore import QFileSystemWatcher, Slot, Qt
@@ -50,7 +53,8 @@ class WorkspaceSummaryWidget(QWidget):
         self.open_workspace_folder_btn.clicked.connect(self.open_workspace)  
         self.calibrate_btn.clicked.connect(self.on_calibrate_btn_clicked)
         self.camera_count_spin.valueChanged.connect(self.set_camera_count)
-        
+        self.controller.show_synched_frames.connect(self.show_synched_frames)
+
     def on_calibrate_btn_clicked(self):
         logger.info("Calling controller to process extrinsic streams into 2D data")
         # Call the extrinsic calibration method in the controller
@@ -68,6 +72,10 @@ class WorkspaceSummaryWidget(QWidget):
         else:  # Linux and Unix-like systems
             subprocess.run(["xdg-open", self.controller.workspace])
 
-            
+    def show_synched_frames(self):
+        logger.info("About to launch synced Frames Display")
+        self.display_window = SynchedFramesDisplay(self.controller.extrinsic_stream_manager)
+        self.display_window.show()
+                
     def update_status(self):
         self.status_HTML.setHtml(self.controller.workspace_guide.get_html_summary())

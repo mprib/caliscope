@@ -1,3 +1,5 @@
+# Capture Volume: Extrinsic Calibration
+
 *demonstration video coming soon...*
 
 ## Processing steps

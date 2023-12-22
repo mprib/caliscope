@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 from PySide6.QtGui import QImage
 import pyxy3d.logger
 

@@ -55,7 +55,8 @@ class Controller(QObject):
     capture_volume_shifted = Signal()
     enable_inputs = Signal(int, bool)  # port, enable
     post_processing_complete = Signal()
-
+    show_synched_frames = Signal()
+    
     def __init__(self, workspace_dir: Path):
         super().__init__()
         self.workspace = workspace_dir
@@ -339,11 +340,13 @@ class Controller(QObject):
 
             self.load_extrinsic_stream_manager()
             self.extrinsic_stream_manager.process_streams(fps_target=100)
-
             logger.info(
                 f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
             )
 
+            logger.info("About to signal that synched frames should be shown")
+            self.show_synched_frames.emit()
+            
             while not output_path.exists():
                 sleep(0.5)
                 # moderate the frequency with which logging statements get made

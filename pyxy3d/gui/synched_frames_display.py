@@ -18,12 +18,11 @@ from PySide6.QtWidgets import (
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.gui.frame_emitters.frame_dictionary_emitter import FrameDictionaryEmitter
 from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
-from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)
 
 
-class SynchedFramesDisplay(QMainWindow):
+class SynchedFramesDisplay(QWidget):
     """
     This widget is not intended to have any interactive functionality at all and to only 
     provide a window to the user of the current landmark tracking
@@ -40,8 +39,9 @@ class SynchedFramesDisplay(QMainWindow):
         self.synchronizer = self.sync_stream_manager.synchronizer
         self.ports = self.synchronizer.ports
 
-        # need to let synchronizer spin up before able to display frames
-        while not hasattr(self.synchronizer, "current_sync_packet"):
+
+        while not hasattr(sync_stream_manager.synchronizer, "current_sync_packet"):
+            logger.info("Waiting for synchronizer to have sync packet")
             sleep(0.25)
 
         # create tools to build and emit the displayed frame
@@ -57,7 +57,7 @@ class SynchedFramesDisplay(QMainWindow):
         self.place_widgets()
         self.connect_widgets()
 
-        logger.info("Recording widget init complete")
+        logger.info("Synched Frames Display init complete")
 
     def place_widgets(self):
         self.scroll_area = QScrollArea()
@@ -93,19 +93,22 @@ class SynchedFramesDisplay(QMainWindow):
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(scroll_viewport)
-        self.setCentralWidget(self.scroll_area)
+        # self.setCentralWidget(self.scroll_area)
+        self.setLayout(QVBoxLayout())
+        self.layout().addWidget(self.scroll_area)
     
     def connect_widgets(self):
         self.frame_dictionary_emitter.FramesBroadcast.connect(self.ImageUpdateSlot)
-        self.frame_dictionary_emitter.dropped_fps.connect(self.update_dropped_fps)
+        # self.frame_dictionary_emitter.dropped_fps.connect(self.update_dropped_fps)
+        self.frame_dictionary_emitter.close_window.connect(self.close)
 
-    @Slot(dict)
-    def update_dropped_fps(self, dropped_fps: dict):
-        "Unravel dropped fps dictionary to a more readable string"
-        text = "Rate of Frame Dropping by Port:    "
-        for port, drop_rate in dropped_fps.items():
-            text += f"{port}: {drop_rate:.0%}        "
-        self.dropped_fps_label.setText(text)
+    # @Slot(dict)
+    # def update_dropped_fps(self, dropped_fps: dict):
+    #     "Unravel dropped fps dictionary to a more readable string"
+    #     text = "Rate of Frame Dropping by Port:    "
+    #     for port, drop_rate in dropped_fps.items():
+    #         text += f"{port}: {drop_rate:.0%}        "
+    #     self.dropped_fps_label.setText(text)
 
     @Slot(dict)
     def ImageUpdateSlot(self, qpixmaps: dict):
@@ -115,3 +118,5 @@ class SynchedFramesDisplay(QMainWindow):
             logger.debug("About to set qpixmap to display")
             self.recording_displays[str(port)].setPixmap(qpixmap)
             logger.debug("successfully set display")
+
+    

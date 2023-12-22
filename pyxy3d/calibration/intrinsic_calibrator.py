@@ -114,7 +114,7 @@ class IntrinsicCalibrator:
                     # count down to the next frame to consider autopopulating
                     self.auto_pop_frame_wait = max(self.auto_pop_frame_wait-1,0)       
                 
-                logger.info(f"Current index is {index}")
+                logger.debug(f"Current index is {index}")
                 if index == self.stream.last_frame_index:
                 # end of stream, so stop auto pop and backfill to hit grid target
                     logger.info("End of autopop detected...")

@@ -20,7 +20,8 @@ logger = pyxy3d.logger.get(__name__)
 class FrameDictionaryEmitter(QThread):
     # establish signals that will be displayed within the GUI
     FramesBroadcast = Signal(dict)
-    dropped_fps = Signal(dict)
+    # dropped_fps = Signal(dict)
+    close_window = Signal()
     # GridCountBroadcast = Signal(int)
     # FrameIndexBroadcast = Signal(int, int)
 
@@ -46,13 +47,22 @@ class FrameDictionaryEmitter(QThread):
         while self.keep_collecting.is_set():
             # Grab a frame from the queue and broadcast to displays
             # self.monocalibrator.grid_frame_ready_q.get()
-            logger.info("Getting sync packet from queue")
+            logger.debug("Getting sync packet from queue")
             sync_packet = self.sync_packet_q.get()
-            logger.info(f"Sync packet: {sync_packet}")
+            if sync_packet is None:
+                logger.info("End of playback signalled by synchronizer")
+                break
+
+            logger.debug(f"Sync packet: {sync_packet}")
             emitted_dict = {}
             for port, frame_packet in sync_packet.frame_packets.items():
+                if frame_packet is None:
+                    logger.info("plugging blank frame data")
+                    frame = np.zeros((self.pixmap_edge_length, self.pixmap_edge_length, 3), dtype=np.uint8)
+                else:
+                    frame = frame_packet.frame_with_points
+
                 rotation_count = self.streams[port].rotation_count
-                frame = frame_packet.frame_with_points
                 frame = resize_to_square(frame)
                 frame = apply_rotation(frame, rotation_count)
                 image = cv2_to_qlabel(frame)
@@ -64,13 +74,13 @@ class FrameDictionaryEmitter(QThread):
                         int(self.pixmap_edge_length),
                         Qt.AspectRatioMode.KeepAspectRatio,
                     )
+
                 emitted_dict[str(port)] = pixmap               
 
             logger.debug(f"About to emit q_image_dict: {emitted_dict}")
             self.FramesBroadcast.emit(emitted_dict) 
-            dropped_fps_dict = {str(port):dropped for port, dropped in self.synchronizer.dropped_fps.items()}
-            self.dropped_fps.emit(dropped_fps_dict)
 
+        self.close_window.emit()
         logger.info(
             f"Thread loop within frame emitter at port {self.synchronizer.port} successfully ended"
         )

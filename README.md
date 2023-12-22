@@ -3,9 +3,9 @@
 <div align="center">
 
 
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d)]()
-[![PyPI - License](https://img.shields.io/pypi/l/pyxy3d)]()
-[![PyPI - Version](https://img.shields.io/pypi/v/pyxy3d)]()
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d?color=blue)]()
+[![PyPI - License](https://img.shields.io/pypi/l/pyxy3d?color=blue)]()
+[![PyPI - Version](https://img.shields.io/pypi/v/pyxy3d?color=blue)]()
 
 </div>
 

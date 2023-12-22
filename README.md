@@ -1,13 +1,13 @@
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 
 <div align="center">
-</div>
+
 
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d)]()
 [![PyPI - License](https://img.shields.io/pypi/l/pyxy3d)]()
 [![PyPI - Version](https://img.shields.io/pypi/v/pyxy3d)]()
 
-
+</div>
 
 
 ## About

@@ -1,7 +1,6 @@
 *.log
 *.json
 *.pyc
-*.png
 .vscode*
 .idea*
 *.bz2

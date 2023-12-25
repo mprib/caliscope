@@ -1,10 +1,12 @@
 <div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
 
 <div align="center">
-  
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d?color=blue)]()
-[![PyPI - License](https://img.shields.io/pypi/l/pyxy3d?color=blue)]()
-[![PyPI - Version](https://img.shields.io/pypi/v/pyxy3d?color=blue)]()
+
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
+[![PyPI - License](https://img.shields.io/pypi/l/pyxy3d?color=blue)](https://www.gnu.org/licenses/lgpl-3.0.en.html)
+[![PyPI - Version](https://img.shields.io/pypi/v/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
+[![GitHub last commit](https://img.shields.io/github/last-commit/mprib/pyxy3d.svg)](https://github.com/mprib/pyxy3d/commits)
+[![GitHub stars](https://img.shields.io/github/stars/mprib/pyxy3d.svg?style=social&label=Star)](https://github.com/mprib/pyxy3d/stargazers)
 
 </div>
 
@@ -19,7 +21,7 @@ Pyxy3d (*pixie-3d*) is a **py**thon package that integrates:
 
 It is GUI-based, permissively licensed under the LGPLv3, and intended to serve as the processing hub of a low-cost DIY motion capture studio.
 
-Currently it uses Google's Mediapipe for markerless tracking, though is built on a Tracker API that can be used to integrate alternate landmark tracking tools.
+Landmark tracking is based on a Tracker abstract base class. Variations of Google's Mediapipe have been implemented to illustrate use of Tracker base class and how these calculations will flow automatically through the processing pipeline. Implementing alternate tracking tools (such as MMPose) is on the development roadmap.
 
 Please see our [docs](https://mprib.github.io/pyxy3d/) for details about installation, project setup, and general workflow.
 

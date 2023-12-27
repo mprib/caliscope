@@ -1,6 +1,9 @@
 # Capture Volume: Extrinsic Calibration
 
-*demonstration video coming soon...*
+<video  controls>
+  <source src="../videos/multicamera_calibration_demo.mp4" type="video/mp4">
+</video>
+
 
 ## Processing steps
 

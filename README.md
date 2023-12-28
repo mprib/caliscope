@@ -12,7 +12,7 @@
 
 
 ## About
-Pyxy3D (*pixie-3D*) is intended to serve as the core software of a low-cost DIY motion capture studio. It is **py**thon package that integrates:
+Pyxy3D (*pixie-3D*) is intended to serve as the core software component of a low-cost DIY motion capture studio. It is a **py**thon package that integrates:
 
 - multicamera calibration
 - 2D (**x,y**) landmark tracking

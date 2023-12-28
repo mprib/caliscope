@@ -3,15 +3,15 @@
 
 # Welcome
 
-Pyxy3d (*pixie-3d*) is a **py**thon package that integrates:
+Pyxy3D (*pixie-3D*) is intended to serve as the core software component of a low-cost DIY motion capture studio. It is **py**thon package that integrates:
 
 - multicamera calibration
 - 2D (**x,y**) landmark tracking
 - **3D** landmark triangulation. 
 
-It is GUI-based, permissively licensed under the LGPLv3, and intended to serve as the processing hub of a low-cost DIY motion capture studio.
+It is GUI-based and open-sourced under the LGPLv3.
 
-The packages comes included with a sample tracker using Google's Mediapipe which illustrates examples (hands/pose/holistic) how to implement the Tracker base class. The intention is to allow alternate tracking algorithms to be cleanly plugged into the pipeline.
+The packages includes sample markerless trackers using variations of Google's Mediapipe (hands/pose/holistic) which illustrate how to implement the underlying Tracker base class. The intention is to allow alternate tracking algorithms to be cleanly plugged into the pipeline.
 
 The workflow currently requires you to provide your own synchronized frames or to provide [a file](project_setup.md#frame_time_historycsv) that specifies the time at which each frame was read so that pyxy3d can perform the synchronization itself, though there are plans to manage this synchronization automatically through audio files.
 

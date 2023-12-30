@@ -20,7 +20,7 @@ Pyxy3D (*pixie-3D*) is intended to serve as the core software component of a low
 
 It is GUI-based and open-sourced under the LGPLv3.
 
-Landmark tracking is based on a Tracker abstract base class. Variations of Google's Mediapipe have been implemented to illustrate use of Tracker base class and how these calculations will flow automatically through the processing pipeline. Implementing alternate tracking tools (such as MMPose) is on the development roadmap.
+Landmark tracking is based on a Tracker abstract base class. Variations of Google's Mediapipe have been implemented to illustrate use of this base class and how these calculations will flow automatically through the processing pipeline. Implementing alternate tracking tools (such as MMPose) is on the development roadmap.
 
 Please see our [docs](https://mprib.github.io/pyxy3d/) for details about installation, project setup, and general workflow.
 

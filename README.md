@@ -8,8 +8,9 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/mprib/pyxy3d.svg)](https://github.com/mprib/pyxy3d/commits)
 [![GitHub stars](https://img.shields.io/github/stars/mprib/pyxy3d.svg?style=social&label=Star)](https://github.com/mprib/pyxy3d/stargazers)
 
-</div>
+**Open source DIY Motion Capture**
 
+</div>
 
 ## About
 Pyxy3D (*pixie-3D*) is intended to serve as the core software component of a low-cost DIY motion capture studio. It is a **py**thon package that integrates:

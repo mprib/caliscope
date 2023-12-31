@@ -1,8 +1,9 @@
-<div align="center"><img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
-
 <div align="center">
 
 # **Open source DIY Motion Capture**
+
+<img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150"></div>
+
 
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
 [![PyPI - License](https://img.shields.io/pypi/l/pyxy3d?color=blue)](https://www.gnu.org/licenses/lgpl-3.0.en.html)

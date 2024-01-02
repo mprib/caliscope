@@ -81,9 +81,15 @@ pyxy3d
 ### Basic Steps
 
 1. Once the GUI launches, navigate to File->New/Open Project and create a folder to hold your project
-  - A basic project structure will be created here
+  - A basic [project structure](https://mprib.github.io/pyxy3d/project_setup/) will be created here
 2. Define a Charuco calibration board via the Charuco tab and print it out, fixing it to something flat
-3. Record footage for the calibration according to the guidelines for the [intrinsic](https://mprib.github.io/pyxy3d/intrinsic_calibration/) and [extrinsic](https://mprib.github.io/pyxy3d/extrinsic_calibration/) calibrations. 
+3. Record footage for the calibration according to the guidelines for the [intrinsic](https://mprib.github.io/pyxy3d/intrinsic_calibration/) and [extrinsic](https://mprib.github.io/pyxy3d/extrinsic_calibration/) calibrations.
+4. Record synchronized motion capture trials
+5. Store video files within the project folder and reload the workspace
+6. Run autocalibration on all cameras within the Cameras tab
+7. Run "Calibration Capture Volume" from the Workspace Tab
+8. Set origin within the capture volume (optional but helpful)
+9. Run post-processing on individual recordings to generate 3D trajectory output
 
 ## Key Features
 

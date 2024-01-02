@@ -36,7 +36,8 @@ https://github.com/mprib/pyxy3d/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b3
 
 Please note that given the size of some core dependencies (OpenCV, Mediapipe, and PySide6 are among them) installation and initial launch can take a while. 
 
-### Windows
+### Basic Installation and Launch
+#### Windows
 
 ```bash
 # Open Command Prompt and navigate to directory that will hold venv
@@ -57,7 +58,7 @@ pip install pyxy3d
 pyxy3d
 ```
 
-### MacOS/Linux
+#### MacOS/Linux
 ```bash
 # Open Command Prompt and navigate to directory that will hold venv
 # this does not need to be the same as where your project workspace is held
@@ -76,6 +77,13 @@ pip3 install pyxy3d
 # Launch from the command line
 pyxy3d
 ```
+
+### Basic Steps
+
+1. Once the GUI launches, navigate to File->New/Open Project and create a folder to hold your project
+  - A basic project structure will be created here
+2. Define a Charuco calibration board via the Charuco tab and print it out, fixing it to something flat
+3. Record footage for the calibration according to the guidelines for the [intrinsic](https://mprib.github.io/pyxy3d/intrinsic_calibration/) and [extrinsic](https://mprib.github.io/pyxy3d/extrinsic_calibration/) calibrations. 
 
 ## Key Features
 

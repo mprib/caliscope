@@ -1,4 +1,3 @@
-*.lock
 *.log
 *.json
 *.pyc

@@ -9,7 +9,7 @@ Pyxy3D (*pixie-3D*) is intended to serve as the core software component of a low
 - 2D (**x,y**) landmark tracking
 - **3D** landmark triangulation. 
 
-It is GUI-based and open-sourced under the LGPLv3.
+It is GUI-based and permissively licensed under the BSD 2-Clause license.
 
 The packages includes sample markerless trackers using variations of Google's Mediapipe (hands/pose/holistic) which illustrate how to implement the underlying Tracker base class. The intention is to allow alternate tracking algorithms to be cleanly plugged into the pipeline.
 

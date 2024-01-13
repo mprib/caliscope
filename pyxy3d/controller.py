@@ -77,6 +77,7 @@ class Controller(QObject):
         self.workspace_guide.recording_dir.mkdir(exist_ok=True, parents=True)
 
         self.capture_volume = None
+
         # needs to exist before main widget can connect to its finished signal
         self.load_workspace_thread = QThread()
         self.calibrate_camera_threads = {}
@@ -93,10 +94,12 @@ class Controller(QObject):
                 self.cameras_loaded = False
 
             logger.info("Assess whether to load capture volume")
-            if self.camera_array.all_extrinsics_calibrated():
+            if self.all_extrinsics_estimated():
+                logger.info("All extrinsics calibrated...loading capture volume")
                 self.load_estimated_capture_volume()
                 self.capture_volume_loaded = True
             else:
+                logger.info("Not all extrinsics calibrated...not loading capture volume")
                 self.capture_volume_loaded = False
 
         self.load_workspace_thread.run = worker
@@ -128,8 +131,12 @@ class Controller(QObject):
         At this point, the capture volume tab should be available
         """
         cameras_good = self.camera_array.all_extrinsics_calibrated()
+        logger.info(f"All extrinsics calculated: {cameras_good}")
         point_estimates_good = self.config.point_estimates_toml_path.exists()
+        logger.info(f"Point estimates available: {point_estimates_good}")
         all_data_available = self.workspace_guide.all_extrinsic_mp4s_available()
+        logger.info(f"All underlying data available: {all_data_available}")
+        
         return cameras_good and point_estimates_good and all_data_available
 
     def recordings_available(self) -> bool:

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyxy3d"
-version = "0.3.10"
+version = "0.3.11"
 description = "GUI based multicamera calibration that integrates with 2D landmark tracking to triangulate 3D landmark positions"
 authors = ["Mac Prible <prible@gmail.com>"]
 license = "BSD-2-Clause"

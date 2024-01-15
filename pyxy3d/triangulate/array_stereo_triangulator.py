@@ -1,20 +1,14 @@
 import pyxy3d.logger
 
-from queue import Queue
-from threading import Thread, Event
-from dataclasses import dataclass
 import cv2
 import numpy as np
-import pandas as pd
 from pathlib import Path
 from itertools import combinations
 
-from pyxy3d.triangulate.stereo_points_builder import StereoPointsBuilder, StereoPointsPacket
-from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
-from pyxy3d.triangulate.stereo_points_builder import StereoPointsPacket, SynchedStereoPointsPacket
+from pyxy3d.triangulate.stereo_points_builder import StereoPointsBuilder, StereoPointsPacket, SynchedStereoPointsPacket
+from pyxy3d.triangulate.triangulation import undistort
 from pyxy3d.cameras.camera_array import CameraData, CameraArray
 logger = pyxy3d.logger.get(__name__)
-
 
 class ArrayStereoTriangulator:
     
@@ -59,38 +53,13 @@ class StereoPairTriangulator:
     def build_projection_matrices(self):
 
         # attempting to create something that integrates with the new set_cameras_refactor
-        # rot_A = np.linalg.inv(self.camera_A.rotation)
-        # trans_A = np.array(self.camera_A.translation) * -1
         rot_trans_A = np.column_stack([self.camera_A.rotation, self.camera_A.translation])
         mtx_A = self.camera_A.matrix
         self.proj_A = mtx_A @ rot_trans_A  # projection matrix for CamA
 
-        # rot_B = np.linalg.inv(self.camera_B.rotation)
-        # trans_B = np.array(self.camera_B.translation) * -1
         rot_trans_B = np.column_stack([self.camera_B.rotation, self.camera_B.translation])
         mtx_B = self.camera_B.matrix
         self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
-
-    # def build_projection_matrices_old(self):
-
-    #     # inversion/negation of R t here is legacy code that  
-    #     # was based on my understanding at the time of frames of reference.
-    #     # and it yields highly reasonable results. 
-    #     # see https://stackoverflow.com/questions/17210424/3d-camera-coordinates-to-world-coordinates-change-of-basis
-    #     # for a potential explanation. 
-    #     # I would expect this to be a more common topic for computer vision forums
-    #     # but I can't really find a reference to this and it bothers me
-    #     rot_A = np.linalg.inv(self.camera_A.rotation)
-    #     trans_A = np.array(self.camera_A.translation) * -1
-    #     rot_trans_A = np.column_stack([rot_A, trans_A])
-    #     mtx_A = self.camera_A.matrix
-    #     self.proj_A = mtx_A @ rot_trans_A  # projection matrix for CamA
-
-    #     rot_B = np.linalg.inv(self.camera_B.rotation)
-    #     trans_B = np.array(self.camera_B.translation) * -1
-    #     rot_trans_B = np.column_stack([rot_B, trans_B])
-    #     mtx_B = self.camera_B.matrix
-    #     self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
 
     def add_3D_points(self, paired_points:StereoPointsPacket):
             
@@ -100,8 +69,8 @@ class StereoPairTriangulator:
          
         if xy_A.shape[0] > 0:
 
-            points_A_undistorted = self.undistort(xy_A,self.camera_A)
-            points_B_undistorted = self.undistort(xy_B,self.camera_B)
+            points_A_undistorted = undistort(xy_A,self.camera_A)
+            points_B_undistorted = undistort(xy_B,self.camera_B)
 
             # triangulate points outputs data in 4D homogenous coordinate system
             # note that these are in a world frame of reference
@@ -119,89 +88,3 @@ class StereoPairTriangulator:
         paired_points.xyz = xyz
         
         
-    def undistort(self, points, camera: CameraData, iter_num=3):
-        # implementing a function described here: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html
-        # supposedly a better implementation than OpenCV
-        k1, k2, p1, p2, k3 = camera.distortions
-        fx, fy = camera.matrix[0, 0], camera.matrix[1, 1]
-        cx, cy = camera.matrix[:2, 2]
-        
-        # note I just made an edit to transpose these...I believe this is a consequence
-        # of the recent switch to the PointPacket in the processing pipeline
-        x, y = points.T[0], points.T[1]
-        # x, y = float(point[0]), float(point[1])
-
-        x = (x - cx) / fx
-        x0 = x
-        y = (y - cy) / fy
-        y0 = y
-
-        for _ in range(iter_num):
-            r2 = x**2 + y**2
-            k_inv = 1 / (1 + k1 * r2 + k2 * r2**2 + k3 * r2**3)
-            delta_x = 2 * p1 * x * y + p2 * (r2 + 2 * x**2)
-            delta_y = p1 * (r2 + 2 * y**2) + 2 * p2 * x * y
-            x = (x0 - delta_x) * k_inv
-            y = (y0 - delta_y) * k_inv
-        return np.array((x * fx + cx, y * fy + cy))
-
-
-
-
-if __name__ == "__main__":
-
-    from pyxy3d.recording.recorded_stream import RecordedStreamPool
-    from pyxy3d.cameras.synchronizer import Synchronizer
-    from pyxy3d.calibration.charuco import Charuco
-    from pyxy3d.trackers.charuco_tracker import CharucoTracker
-    from pyxy3d.cameras.camera_array import CameraArrayBuilder, CameraArray, CameraData
-
-    repo = Path(str(Path(__file__)).split("pyxy")[0],"pyxy")
-
-    config_path = Path(repo, "sessions", "iterative_adjustment", "config.toml")
-    camera_array = CameraArrayBuilder(config_path).get_camera_array()
-
-    # create playback streams to provide to synchronizer
-    recorded_data = Path(repo, "sessions", "iterative_adjustment", "recording")
-    ports = [0, 1]
-    recorded_stream_pool = RecordedStreamPool(ports, recorded_data)
-    syncr = Synchronizer(
-        recorded_stream_pool.streams, fps_target=None
-    )  # no fps target b/c not playing back for visual display
-    recorded_stream_pool.play_videos()
-
-    # create a corner tracker to locate board corners
-    tracker = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-    )
-    trackr = CharucoTracker(tracker)
-
-    # create a commmon point finder to grab charuco corners shared between the pair of ports
-    pairs = [(0, 1)]
-    point_stream = StereoPointsBuilder(
-        synchronizer=syncr,
-        pairs=pairs,
-        tracker=trackr,
-    )
-
-    camA, camB = camera_array.cameras[0], camera_array.cameras[2]
-    pair = (camA.port, camB.port)
-
-    # test_pair_out_q = Queue(-1)
-    triangulatr = StereoPairTriangulator(camA, camB)
-    frames_processed = 0
-
-    while True:
-        paired_points = point_stream.out_q.get()
-        if paired_points.pair == (0, 1):
-            triangulatr.in_q.put(paired_points)
-
-        # print(all_pairs_common_points)
-        # pair_points = all_pairs_common_points[pair]
-        # if pair_points is not None:
-        # triangulatr.in_q.put(paired_points)
-        packet_3d = triangulatr.out_q.get()
-        print(packet_3d.to_dict())
-        frames_processed += 1
-        # print(f"Frames Processed: {frames_processed}")
-        # print(f"Time: {packet_3d.time}")

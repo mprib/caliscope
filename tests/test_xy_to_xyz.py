@@ -23,17 +23,17 @@ def test_xy_to_xyz_postprocessing():
     recording_directory = Path(working_data, "recording_1")
     tracker_enum = TrackerEnum.HOLISTIC
 
-    # post_processor = PostProcessor(recording_directory, tracker_enum)
-
     xy_path = Path(recording_directory,tracker_enum.name, f"xy_{tracker_enum.name}.csv")
     xy_data = pd.read_csv(xy_path)
 
     start = time.time()
     logger.info(f"beginning triangulation at {time.time()}")
+
     # note: triangulate_xy  is a method used primarily internally by the PostProcessor
     # the method create_xyz uses it.
+    camera_array = config.get_camera_array()
 
-    xyz_history = triangulate_xy(xy_data,config.get_camera_array()) 
+    xyz_history = triangulate_xy(xy_data,camera_array) 
     logger.info(f"ending triangulation at {time.time()}")
     stop = time.time()
     logger.info(f"Elapsed time is {stop-start}. Note that on first iteration, @jit functions will take longer")

@@ -6,7 +6,7 @@ import cv2
 import pandas as pd
 
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.interface import SyncPacket
+from pyxy3d.packets import SyncPacket
 import pyxy3d.logger
 
 logger = pyxy3d.logger.get(__name__)

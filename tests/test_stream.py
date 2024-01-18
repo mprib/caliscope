@@ -4,11 +4,9 @@ from time import sleep
 
 import cv2
 from pyxy3d import __root__
-from pyxy3d.helper import copy_contents
 from pyxy3d.calibration.charuco import Charuco
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
 from pyxy3d.recording.recorded_stream import RecordedStream
-from pyxy3d.interface import FramePacket
 
 import pyxy3d.logger
 

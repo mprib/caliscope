@@ -20,10 +20,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.configurator import Configurator
-from pyxy3d.interface import FramePacket
+from pyxy3d.packets import FramePacket
 from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)

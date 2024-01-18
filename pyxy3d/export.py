@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import csv
 
-from pyxy3d.interface import Tracker
+from pyxy3d.packets import Tracker
 
 def xyz_to_wide_labelled(xyz:pd.DataFrame, tracker:Tracker)->pd.DataFrame:
     """

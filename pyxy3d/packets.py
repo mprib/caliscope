@@ -5,7 +5,6 @@ from queue import Queue
 from abc import ABC, abstractmethod
 import cv2
 
-
 @dataclass(frozen=True,slots=True)
 class PointPacket:
     """
@@ -44,6 +43,7 @@ class PointPacket:
 
         return [obj_loc_x,obj_loc_y]
 
+
 class Tracker(ABC):
     @property
     def name(self)->str:
@@ -78,11 +78,18 @@ class Tracker(ABC):
         Used for saving out data with sensible headers. 
         """
         pass
+    
 
+    @abstractmethod
+    def get_point_id(self,point_name:str) -> int:
+        """
+        Maps point name to point_id
+        """
+        pass
 
 
     @abstractmethod
-    def draw_instructions(self, point_id:int) ->dict:
+    def scatter_draw_instructions(self, point_id:int) ->dict:
         """
         Maps point_id to a dictionary of parameters used to draw circles on frames for visual feedback.
         
@@ -93,12 +100,12 @@ class Tracker(ABC):
         pass
 
 
-    def get_connected_points(self):
+    def get_connected_points(self) -> dict[str:tuple[int,int, tuple[int,int]]]:
         """
         OPTIONAL METHOD
         used for drawing purposes elsewhere. Specify which
         points (if any) should have a line connecting them
-        
+        {SegmentName:(pointNameA, pointNameB, )} 
         """
         pass
 
@@ -135,37 +142,8 @@ class Tracker(ABC):
         """
         raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
 
-    
-    
-    
-
-class Stream(ABC):
-    """
-    As much an exercise in better understanding ABC as it is anything...
-    """
-
-    @abstractmethod
-    def subscribe(self, queue: Queue):
-        pass
-
-    @abstractmethod
-    def unsubscribe(self, queue: Queue):
-        pass
-
-    # @abstractmethod
-    # def set_tracking_on(self, track: bool):
-    #     pass
-    
-    @abstractmethod
-    def set_fps_target(self, fps_target:int):
-        pass
-    
-    @abstractmethod
-    def _play_worker(self):
-        pass
 
 
-# @dataclass(slots=True)
 @dataclass(frozen=True, slots=True)
 class FramePacket:
     """

@@ -1,8 +1,8 @@
 <div align="center">
 
-# Open Source DIY Motion Capture
-
 <img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150">
+
+**Multicamera Calibration + Pose Estimation --> Open Source Motion Capture**
 
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
 [![PyPI - License](https://img.shields.io/pypi/l/pyxy3d?color=blue)](https://opensource.org/license/bsd-2-clause/)

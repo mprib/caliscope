@@ -1,22 +1,21 @@
-import pyxy3d.logger
-
-
-logger = pyxy3d.logger.get(__name__)
-from threading import Thread, Event
+from threading import Thread
 from queue import Queue
 
 import mediapipe as mp
 import numpy as np
 import cv2
 
-# cap = cv2.VideoCapture(0)
-from pyxy3d.interface import Tracker, PointPacket
+from pyxy3d.packets import PointPacket
+from pyxy3d.tracker import Tracker
 from pyxy3d.trackers.helper import apply_rotation, unrotate_points
+
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 MIN_DETECTION_CONFIDENCE = 0.5
 MIN_TRACKING_CONFIDENCE = 0.95
 
-# The following are from base Pose and can be ignored in favor of 
+# The following are from base Pose and can be ignored in favor of
 # better estimated Holistic points
 DRAW_IGNORE_LIST = [
     "nose",
@@ -116,54 +115,53 @@ POINT_NAMES = {
     218: "left_pinky_PIP",
     219: "left_pinky_DIP",
     220: "left_pinky_tip",
-
     # HOLISTIC FACE keypoints worth keeping...
     # this is for kinematic skull tracking, not animation.
-    500:"lip_top_mid",
-    504:"nose_tip",
-    633:"right_inner_eye",
-    699:"chin_tip",
-    746:"right_outer_eye",
-    862:"left_inner_eye",
-    966:"left_outer_eye",
+    500: "lip_top_mid",
+    504: "nose_tip",
+    633: "right_inner_eye",
+    699: "chin_tip",
+    746: "right_outer_eye",
+    862: "left_inner_eye",
+    966: "left_outer_eye",
 }
 
 
 METARIG_BILATERAL_MEAUSURES = {
-    "Hip_Shoulder_Distance":["hip", "shoulder"],
-    "Shoulder_Inner_Eye_Distance":["inner_eye", "shoulder"],
+    "Hip_Shoulder_Distance": ["hip", "shoulder"],
+    "Shoulder_Inner_Eye_Distance": ["inner_eye", "shoulder"],
     "Palm": ["index_finger_MCP", "pinky_MCP"],
-    "Foot":["heel", "foot_index"],  
-    "Upper_Arm":["shoulder","elbow"],
-    "Forearm":["elbow", "wrist"],
-    "Wrist_to_MCP1":["wrist", "thumb_MCP"],
-    "Wrist_to_MCP2":["wrist", "index_finger_MCP"],
-    "Wrist_to_MCP3":["wrist", "middle_finger_MCP"],
-    "Wrist_to_MCP4":["wrist", "ring_finger_MCP"],
-    "Wrist_to_MCP5":["wrist", "pinky_MCP"],
-    "Prox_Phalanx_1":["thumb_MCP", "thumb_IP"],
-    "Prox_Phalanx_2":["index_finger_MCP", "index_finger_PIP"],
-    "Prox_Phalanx_3":["middle_finger_MCP", "middle_finger_PIP"],
-    "Prox_Phalanx_4":["ring_finger_MCP", "ring_finger_PIP"],
-    "Prox_Phalanx_5":["pinky_MCP", "pinky_PIP"],
-    "Mid_Phalanx_2":["index_finger_PIP", "index_finger_DIP"],
-    "Mid_Phalanx_3":["middle_finger_PIP","middle_finger_DIP"],
-    "Mid_Phalanx_4":["ring_finger_PIP", "ring_finger_DIP"],
-    "Mid_Phalanx_5":["pinky_PIP", "pinky_DIP"],
-    "Dist_Phalanx_1":["thumb_IP", "thumb_tip"],
-    "Dist_Phalanx_2":["index_finger_DIP", "index_finger_tip"],
-    "Dist_Phalanx_3":["middle_finger_DIP","middle_finger_tip"],
-    "Dist_Phalanx_4":["ring_finger_DIP", "middle_finger_tip"],
-    "Dist_Phalanx_5":["pinky_DIP", "pinky_tip"],
-    "Thigh_Length":["hip","knee"],
-    "Shin_Length": ["knee", "ankle"]
+    "Foot": ["heel", "foot_index"],
+    "Upper_Arm": ["shoulder", "elbow"],
+    "Forearm": ["elbow", "wrist"],
+    "Wrist_to_MCP1": ["wrist", "thumb_MCP"],
+    "Wrist_to_MCP2": ["wrist", "index_finger_MCP"],
+    "Wrist_to_MCP3": ["wrist", "middle_finger_MCP"],
+    "Wrist_to_MCP4": ["wrist", "ring_finger_MCP"],
+    "Wrist_to_MCP5": ["wrist", "pinky_MCP"],
+    "Prox_Phalanx_1": ["thumb_MCP", "thumb_IP"],
+    "Prox_Phalanx_2": ["index_finger_MCP", "index_finger_PIP"],
+    "Prox_Phalanx_3": ["middle_finger_MCP", "middle_finger_PIP"],
+    "Prox_Phalanx_4": ["ring_finger_MCP", "ring_finger_PIP"],
+    "Prox_Phalanx_5": ["pinky_MCP", "pinky_PIP"],
+    "Mid_Phalanx_2": ["index_finger_PIP", "index_finger_DIP"],
+    "Mid_Phalanx_3": ["middle_finger_PIP", "middle_finger_DIP"],
+    "Mid_Phalanx_4": ["ring_finger_PIP", "ring_finger_DIP"],
+    "Mid_Phalanx_5": ["pinky_PIP", "pinky_DIP"],
+    "Dist_Phalanx_1": ["thumb_IP", "thumb_tip"],
+    "Dist_Phalanx_2": ["index_finger_DIP", "index_finger_tip"],
+    "Dist_Phalanx_3": ["middle_finger_DIP", "middle_finger_tip"],
+    "Dist_Phalanx_4": ["ring_finger_DIP", "middle_finger_tip"],
+    "Dist_Phalanx_5": ["pinky_DIP", "pinky_tip"],
+    "Thigh_Length": ["hip", "knee"],
+    "Shin_Length": ["knee", "ankle"],
 }
 
 
 METARIG_SYMMETRICAL_MEASURES = {
-    "Shoulder_Width":["left_shoulder", "right_shoulder"],
-    "Hip_Width":["left_hip", "right_hip"],
-    "Inner_Eye_Distance":["left_inner_eye", "right_inner_eye"]
+    "Shoulder_Width": ["left_shoulder", "right_shoulder"],
+    "Hip_Width": ["left_hip", "right_hip"],
+    "Inner_Eye_Distance": ["left_inner_eye", "right_inner_eye"],
 }
 
 
@@ -189,11 +187,11 @@ class HolisticOpenSimTracker(Tracker):
     @property
     def metarig_mapped(self):
         return True
-    
+
     @property
     def metarig_symmetrical_measures(self):
         return METARIG_SYMMETRICAL_MEASURES
-    
+
     @property
     def metarig_bilateral_measures(self):
         return METARIG_BILATERAL_MEAUSURES
@@ -201,7 +199,8 @@ class HolisticOpenSimTracker(Tracker):
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance
         with mp.solutions.holistic.Holistic(
-            min_detection_confidence=MIN_DETECTION_CONFIDENCE, min_tracking_confidence=MIN_TRACKING_CONFIDENCE
+            min_detection_confidence=MIN_DETECTION_CONFIDENCE,
+            min_tracking_confidence=MIN_TRACKING_CONFIDENCE,
         ) as holistic:
             while True:
                 frame = self.in_queues[port].get()
@@ -299,7 +298,7 @@ class HolisticOpenSimTracker(Tracker):
 
                 point_ids = np.array(point_ids)
                 landmark_xy = np.array(landmark_xy)
-                
+
                 # adjust for previous shift due to camera rotation count
                 landmark_xy = unrotate_points(
                     landmark_xy, rotation_count, width, height
@@ -314,9 +313,9 @@ class HolisticOpenSimTracker(Tracker):
         """
         This is the primary method exposed to the rest of the code.
         The tracker receives frames and basic camera data from the Stream,
-        then it places the frame/camera data on a queue that will hand it 
+        then it places the frame/camera data on a queue that will hand it
         off to a context manager set up to process that stream of data.
-        """        
+        """
 
         if port not in self.in_queues.keys():
             self.in_queues[port] = Queue(1)
@@ -343,7 +342,7 @@ class HolisticOpenSimTracker(Tracker):
         #     point_name = "face_" + str(point_id - FACE_OFFSET)
         return POINT_NAMES[point_id]
 
-    def draw_instructions(self, point_id: int) -> dict:
+    def scatter_draw_instructions(self, point_id: int) -> dict:
         point_name = self.get_point_name(point_id)
         if point_name in DRAW_IGNORE_LIST:
             rules = {"radius": 0, "color": (0, 0, 0), "thickness": 0}

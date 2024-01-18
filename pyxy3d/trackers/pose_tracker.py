@@ -1,7 +1,6 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
-from threading import Thread, Event
+from threading import Thread
 from queue import Queue
 
 import mediapipe as mp
@@ -9,8 +8,10 @@ import numpy as np
 import cv2
 
 # cap = cv2.VideoCapture(0)
-from pyxy3d.interface import Tracker, PointPacket
+from pyxy3d.packets import  PointPacket
+from pyxy3d.tracker import Tracker
 from pyxy3d.trackers.helper import apply_rotation, unrotate_points
+logger = pyxy3d.logger.get(__name__)
 
 POINT_NAMES = {
     0: "nose",
@@ -124,7 +125,7 @@ class PoseTracker(Tracker):
     def get_point_name(self, point_id) -> str:
         return POINT_NAMES[point_id]
 
-    def draw_instructions(self, point_id: int) -> dict:
+    def scatter_draw_instructions(self, point_id: int) -> dict:
         if self.get_point_name(point_id).startswith("left"):
             rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
         elif self.get_point_name(point_id).startswith("right"):

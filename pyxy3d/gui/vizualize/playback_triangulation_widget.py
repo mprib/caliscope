@@ -41,7 +41,7 @@ class PlaybackTriangulationWidget(QWidget):
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
 
-    def set_xyz(self, xyz: pd.DataFrame):
+    def set_xyz(self, xyz: pd.DataFrame, connected_points = None):
         # self.xyz_history = pd.read_csv(xyz_history)
         self.visualizer.set_xyz(xyz)
         if xyz is not None:
@@ -56,11 +56,6 @@ class PlaybackTriangulationWidget(QWidget):
 
 
 class TriangulationVisualizer:
-    """
-    Can except either a single camera array or a capture volume that includes
-    point_estimates. If a capture volume is supplied, point positions can
-    be played back.
-    """
 
     def __init__(self, camera_array: CameraArray):
         self.camera_array = camera_array
@@ -93,6 +88,10 @@ class TriangulationVisualizer:
             size=0.01,
             pxMode=False,
         )
+        
+            # will hold a list
+        self.segments = {}
+        
         self.scene.addItem(self.scatter)
         self.scatter.setData(pos=None)
 

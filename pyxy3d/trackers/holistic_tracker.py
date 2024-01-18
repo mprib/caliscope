@@ -1,7 +1,6 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
-from threading import Thread, Event
+from threading import Thread
 from queue import Queue
 
 import mediapipe as mp
@@ -9,8 +8,11 @@ import numpy as np
 import cv2
 
 # cap = cv2.VideoCapture(0)
-from pyxy3d.interface import Tracker, PointPacket
+from pyxy3d.packets import PointPacket
+from pyxy3d.tracker import Tracker
 from pyxy3d.trackers.helper import apply_rotation, unrotate_points
+
+logger = pyxy3d.logger.get(__name__)
 
 DRAW_IGNORE_LIST = [
     "nose",
@@ -131,8 +133,7 @@ class HolisticTracker(Tracker):
     @property
     def name(self):
         return "HOLISTIC"
-    
-          
+
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance
         with mp.solutions.holistic.Holistic(
@@ -260,7 +261,7 @@ class HolisticTracker(Tracker):
             point_name = "face_" + str(point_id - FACE_OFFSET)
         return point_name
 
-    def draw_instructions(self, point_id: int) -> dict:
+    def scatter_draw_instructions(self, point_id: int) -> dict:
         point_name = self.get_point_name(point_id)
         if point_name in DRAW_IGNORE_LIST:
             rules = {"radius": 0, "color": (0, 0, 0), "thickness": 0}
@@ -272,3 +273,6 @@ class HolisticTracker(Tracker):
             rules = {"radius": 1, "color": (220, 0, 220), "thickness": 1}
 
         return rules
+
+    def get_connected_points(self) -> set[tuple[int, int]]:
+        return super().get_connected_points()

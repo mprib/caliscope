@@ -45,12 +45,6 @@ class SyncPacketTriangulator:
         self.sync_packet_in_q = Queue(-1)
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
 
-        # assemble numba compatible dictionary
-        # self.projection_matrices = Dict()
-        # # self.projection_matrices = {}
-        # for port, cam in self.camera_array.cameras.items():
-        #     self.projection_matrices[port] = cam.projection_matrix
-
         self.projection_matrices = self.camera_array.projection_matrices
         
         self.subscribers = []
@@ -125,8 +119,9 @@ class SyncPacketTriangulator:
 
         if point_count > 0:
             self.xyz_history["sync_index"].extend([xyz_packet.sync_index] * point_count)
-            xyz_array = np.array(xyz_packet.point_xyz)
             self.xyz_history["point_id"].extend(xyz_packet.point_ids)
+
+            xyz_array = np.array(xyz_packet.point_xyz)
             self.xyz_history["x_coord"].extend(xyz_array[:, 0].tolist())
             self.xyz_history["y_coord"].extend(xyz_array[:, 1].tolist())
             self.xyz_history["z_coord"].extend(xyz_array[:, 2].tolist())

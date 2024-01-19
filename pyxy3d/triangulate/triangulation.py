@@ -101,7 +101,7 @@ def triangulate_xy(xy: pd.DataFrame, camera_array:CameraArray) -> pd.DataFrame:
     # assemble numba compatible dictionary
     projection_matrices = camera_array.projection_matrices
 
-    # Code here to undistort all image points i
+    # Code here to undistort all image points 
     undistorted_xy = undistort_batch(xy, camera_array)
     
     xyz = {

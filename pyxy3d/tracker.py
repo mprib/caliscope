@@ -1,9 +1,6 @@
 from dataclasses import dataclass
 import numpy as np
-from numba.typed import List
-from queue import Queue
 from abc import ABC, abstractmethod
-import cv2
 from pyxy3d.packets import PointPacket
 
 
@@ -63,12 +60,14 @@ class Tracker(ABC):
         pass
 
 
-    def get_connected_points(self) -> dict[str:tuple[int,int, tuple[int,int]]]:
+    def get_connected_points(self) -> set[tuple[int,int]]:
         """
         OPTIONAL METHOD
-        used for drawing purposes elsewhere. Specify which
+        used for 2d drawing purposes elsewhere. Specify which
         points (if any) should have a line connecting them
-        {SegmentName:(pointNameA, pointNameB, )} 
+        {(point_id_A, point_id_B),etc...} 
+
+        currently only implemented for charuco...
         """
         pass
 
@@ -105,3 +104,19 @@ class Tracker(ABC):
         """
         raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
 
+
+@dataclass
+class SegmentView:
+    name: str
+    color: str  # one of: r, g, b, c, m, y, k, w
+    point_A: str # name of landmark
+    point_B: str # name of landmakr
+    width: float = 1 # note that this does not scale with zoom level... should probably just stick with 1
+
+
+class SkeletonView:
+    segments: list[SegmentView]
+    point_names: dict[str:int]  # map landmark name to landmark id
+
+    
+    

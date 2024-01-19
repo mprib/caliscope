@@ -2,6 +2,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 
 from PySide6.QtCore import Qt
@@ -40,6 +41,7 @@ class PlaybackTriangulationWidget(QWidget):
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
+        self.slider.valueChanged.connect(self.visualizer.display_lines)
 
     def set_xyz(self, xyz: pd.DataFrame, connected_points = None):
         # self.xyz_history = pd.read_csv(xyz_history)
@@ -114,14 +116,25 @@ class TriangulationVisualizer:
             z_coord = self.xyz_history["z_coord"]
             self.xyz_coord = np.vstack([x_coord, y_coord, z_coord]).T
 
+            self.point_ids = self.xyz_history["point_id"]
+            self.segments = {
+                                "hips":(23,24)  # hips
+                            }
+            self.segment_lines = {} 
+            for segment in self.segments:
+                line = gl.GLLinePlotItem(color = pg.mkColor('r'), width= 1, mode="lines" )
+                self.scene.addItem(line)
+                self.segment_lines[segment] = line
         else:
             self.xyz_coord = None
             self.sync_index = 0
+            self.segments = None
+            self.segment_lines = None
             # self.scatter.setData(pos=None)
 
         self.display_points(self.sync_index)
 
-    def display_points(self, sync_index):
+    def display_points(self, sync_index:int):
         """
         sync_index is provided from the dialog and linked to the slider
         it is initially set to the minimum viable sync index
@@ -131,9 +144,26 @@ class TriangulationVisualizer:
             self.sync_index = sync_index
 
             current_sync_index_flag = self.sync_indices == self.sync_index
-            self.points = self.xyz_coord[current_sync_index_flag]
+            points = self.xyz_coord[current_sync_index_flag]
             logger.debug(f"Displaying xyz points for sync index {sync_index}")
-            self.scatter.setData(pos=self.points)
+            self.scatter.setData(pos=points)
 
         else:
             self.scatter.setData(pos=None)
+
+    def display_lines(self,sync_index:int):
+        if self.segment_lines is not None: 
+            self.sync_index = sync_index
+            current_sync_index_flag = self.sync_indices == self.sync_index
+            current_point_ids = self.point_ids[current_sync_index_flag]
+            current_point_xyz = self.xyz_coord[current_sync_index_flag]
+
+            for segment, line in self.segment_lines.items():
+                point_id_A = self.segments[segment][0]
+                point_id_B = self.segments[segment][1]
+                
+                xyz_A = current_point_xyz[current_point_ids==point_id_A]
+                xyz_B = current_point_xyz[current_point_ids==point_id_B]
+                segment_ends = np.vstack([xyz_A,xyz_B])
+                line.setData(pos = segment_ends)        
+        

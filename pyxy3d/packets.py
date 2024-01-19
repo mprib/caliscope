@@ -259,5 +259,5 @@ class SyncPacket:
 @dataclass
 class XYZPacket:
     sync_index: int
-    point_ids: List
-    point_xyz: List
+    point_ids: np.ndarray
+    point_xyz: np.ndarray

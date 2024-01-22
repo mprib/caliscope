@@ -266,3 +266,9 @@ class XYZPacket:
     point_ids: np.ndarray  # (n,1)
     point_xyz: np.ndarray  # (n,3)
         
+    def get_point_xyz(self, point_id:int)->np.ndarray:
+        return self.point_xyz[self.point_ids==point_id]
+
+    def get_segment_ends(self, point_id_A:int, point_id_B:int)->np.ndarray:
+        return np.vstack([self.get_point_xyz(point_id_A), self.get_point_xyz(point_id_B)])
+    

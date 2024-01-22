@@ -30,9 +30,6 @@ class PlaybackTriangulationWidget(QWidget):
 
         self.place_widgets()
         self.connect_widgets()
-        # going to build out a dictionary of XYZPackets that will be the motion trial
-        # TODO: make standalone function def get_motion_trial(xyz_history_path) --> MotionTrial
-        # where MotionTrial will be defined in the packets
         self.update_motion_trial(xyz_history_path)
 
     def place_widgets(self):
@@ -42,7 +39,7 @@ class PlaybackTriangulationWidget(QWidget):
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
-        self.slider.valueChanged.connect(self.visualizer.display_lines)
+        self.slider.valueChanged.connect(self.visualizer.update_segment_lines)
 
     def update_motion_trial(self, xyz_history_path):
         # self.xyz_history = pd.read_csv(xyz_history)
@@ -112,31 +109,15 @@ class TriangulationVisualizer:
 
     def update_motion_trial(self, motion_trial:MotionTrial):
         logger.info("Updating xyz history in playback widget")
-        self.motion_trial = motion_trial
+        self.motion_trial:MotionTrial = motion_trial
+        
+        if hasattr(self.motion_trial.tracker, "wireframe"):
+            for segment_line in self.motion_trial.tracker.wireframe.line_plots.values():
+                self.scene.addItem(segment_line)
 
-        if self.motion_trial.is_empty:
-            self.xyz_coord = None
-            self.sync_index = 0
-            self.segments = None
-            self.segment_lines = None
-        else:
-            self.sync_index = self.motion_trial.start_index
-
-            # x_coord = self.xyz_history["x_coord"]
-            # y_coord = self.xyz_history["y_coord"]
-            # z_coord = self.xyz_history["z_coord"]
-            # self.xyz_coord = np.vstack([x_coord, y_coord, z_coord]).T
-
-            # self.point_ids = self.xyz_history["point_id"]
-            # self.segment_lines = {} 
-
-            # for segment in self.segments:
-            #     line = gl.GLLinePlotItem(color = pg.mkColor('r'), width= 1, mode="lines" )
-            #     self.scene.addItem(line)
-            #     self.segment_lines[segment] = line
-            # self.scatter.setData(pos=None)
-
+        self.sync_index = self.motion_trial.start_index
         self.display_points(self.sync_index)
+
 
     def display_points(self, sync_index:int):
         """
@@ -153,19 +134,5 @@ class TriangulationVisualizer:
             self.scatter.setData(pos=xyz_coords)
 
 
-    def display_lines(self,sync_index:int):
-        if self.segment_lines is not None: 
-            self.sync_index = sync_index
-            current_sync_index_flag = self.sync_indices == self.sync_index
-            current_point_ids = self.point_ids[current_sync_index_flag]
-            current_point_xyz = self.xyz_coord[current_sync_index_flag]
-
-            for segment, line in self.segment_lines.items():
-                point_id_A = self.segments[segment][0]
-                point_id_B = self.segments[segment][1]
-                
-                xyz_A = current_point_xyz[current_point_ids==point_id_A]
-                xyz_B = current_point_xyz[current_point_ids==point_id_B]
-                segment_ends = np.vstack([xyz_A,xyz_B])
-                line.setData(pos = segment_ends)        
-        
+    def update_segment_lines(self,sync_index:int):
+        self.motion_trial.update_wireframe(sync_index)

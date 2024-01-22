@@ -10,6 +10,7 @@ class MotionTrial:
     """
     Motion trial loaded in from output csv
     """
+
     xyz_csv: Path    
     xyz_packets:  dict = field(default_factory=dict[int:XYZPacket])
     
@@ -19,6 +20,11 @@ class MotionTrial:
 
         tracker_name = self.xyz_csv.stem[4:]  # peel off "xyz_"
         self.tracker = TrackerEnum[tracker_name].value()
+
+        if hasattr(self.tracker, "wireframe"):
+            self.wireframe = self.tracker.wireframe
+        else:
+            self.wireframe = None
 
         self.xyz_df = pd.read_csv(self.xyz_csv, engine="pyarrow")
         sync_indices = self.xyz_df["sync_index"].unique()
@@ -48,3 +54,7 @@ class MotionTrial:
             self.xyz_packets[sync_index] = XYZPacket(sync_index=sync_index, point_ids=point_ids,point_xyz=xyz)
 
         return self.xyz_packets[sync_index]
+    
+    def update_wireframe(self, sync_index:int):
+        xyz_packet = self.get_xyz(sync_index)
+        self.wireframe.set_points(xyz_packet)

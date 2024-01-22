@@ -9,7 +9,7 @@ import cv2
 
 # cap = cv2.VideoCapture(0)
 from pyxy3d.packets import PointPacket
-from pyxy3d.tracker import Tracker, VisualSkeleton, SegmentLine
+from pyxy3d.tracker import Tracker, WireFrameView, Segment
 from pyxy3d.trackers.helper import apply_rotation, unrotate_points
 
 logger = pyxy3d.logger.get(__name__)
@@ -122,21 +122,60 @@ LEFT_HAND_OFFSET = 200
 FACE_OFFSET = 500
 
 ### Skeleton Draw Instructions
-
-pelvis = SegmentLine(name="pelvis", color="y", point_A="right_hip", point_B="left_hip")
-right_flank = SegmentLine(
+pelvis = Segment(name="pelvis", color="y", point_A="right_hip", point_B="left_hip")
+right_flank = Segment(
     name="right_flank", color="y", point_A="right_hip", point_B="right_shoulder"
 )
-left_flank = SegmentLine(
+left_flank = Segment(
     name="left_flank", color="y", point_A="left_hip", point_B="left_shoulder"
 )
-shoulders = SegmentLine(
+shoulders = Segment(
     name="shoulder", color="y", point_A="right_shoulder", point_B="left_shoulder"
 )
 
-HOLISTIC_SKELETON = VisualSkeleton(
-    segments=[pelvis, right_flank, left_flank, shoulders], point_names=POINT_NAMES
+right_thigh = Segment(
+    name="right_thigh", color="r", point_A="right_hip", point_B="right_knee"
 )
+left_thigh = Segment(
+    name="left_thigh", color="g", point_A="left_hip", point_B="left_knee"
+)
+right_shank = Segment(
+    name="right_shank", color="r", point_A="right_knee", point_B="right_ankle"
+)
+left_shank = Segment(
+    name="left_shank", color="g", point_A="left_knee", point_B="left_ankle"
+)
+right_arm = Segment(
+    name="right_arm", color="r", point_A="right_shoulder", point_B="right_elbow"
+)
+right_forearm = Segment(
+    name="right_forearm", color="r", point_A="right_elbow", point_B="right_wrist"
+)
+left_arm = Segment(
+    name="left_arm", color="g", point_A="left_shoulder", point_B="left_elbow"
+)
+left_forearm = Segment(
+    name="left_forearm", color="g", point_A="left_elbow", point_B="left_wrist"
+)
+
+HOLISTIC_SKELETON = WireFrameView(
+    segments=[
+        pelvis,
+        right_flank,
+        left_flank,
+        shoulders,
+        right_thigh,
+        left_thigh,
+        right_shank,
+        left_shank,
+        right_arm,
+        left_arm,
+        right_forearm,
+        left_forearm,
+    ],
+    point_names=POINT_NAMES,
+)
+
 
 ###
 class HolisticTracker(Tracker):
@@ -146,7 +185,7 @@ class HolisticTracker(Tracker):
         self.in_queues = {}
         self.out_queues = {}
         self.threads = {}
-        self.visual_skeleton = HOLISTIC_SKELETON
+        self.wireframe = HOLISTIC_SKELETON
 
     @property
     def name(self):
@@ -294,4 +333,3 @@ class HolisticTracker(Tracker):
 
     def get_connected_points(self) -> set[tuple[int, int]]:
         return super().get_connected_points()
-

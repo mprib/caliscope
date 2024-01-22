@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 import numpy as np
 from abc import ABC, abstractmethod
-from pyxy3d.packets import PointPacket
-
+from pyxy3d.packets import PointPacket, XYZPacket
+from pyqtgraph.opengl import GLLinePlotItem
+import pyqtgraph as pg
 
 class Tracker(ABC):
     @property
@@ -40,12 +41,12 @@ class Tracker(ABC):
         pass
     
 
-    @abstractmethod
-    def get_point_id(self,point_name:str) -> int:
-        """
-        Maps point name to point_id
-        """
-        pass
+    # @abstractmethod
+    # def get_point_id(self,point_name:str) -> int:
+    #     """
+    #     Maps point name to point_id
+    #     """
+    #     pass
 
 
     @abstractmethod
@@ -105,18 +106,29 @@ class Tracker(ABC):
         raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
 
 
-@dataclass
-class SegmentView:
+@dataclass(slots=True, frozen=True)
+class SegmentLine:
     name: str
     color: str  # one of: r, g, b, c, m, y, k, w
     point_A: str # name of landmark
-    point_B: str # name of landmakr
+    point_B: str # name of landmark
     width: float = 1 # note that this does not scale with zoom level... should probably just stick with 1
 
-
-class SkeletonView:
-    segments: list[SegmentView]
+@dataclass(slots=False, frozen=False)
+class VisualSkeleton:
+    segments: [SegmentLine]
     point_names: dict[str:int]  # map landmark name to landmark id
 
+    def __post_init__(self): 
+        self.segment_lines = {}
+        for segment in self.segments:
+            self.segment_lines[segment.name] = GLLinePlotItem(color=pg.mkColor(segment.color), width=segment.width, mode="lines")
+   
+    def set_points(self,xyz_packet:XYZPacket):
+        #TODO: make sure that triangulation function returns 
+        # xyz_packet to provide well documented interface
+        # convert dataframe to xyz_packet when reading in from 
+        pass   
     
+                                                         
     

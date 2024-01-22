@@ -79,7 +79,7 @@ class PostProcessingWidget(QWidget):
                     logger.info("No points tracked")
                     QMessageBox.warning(self, "Warning", f"The {self.active_tracker_enum.name} tracker did not identify any points to track in recordings stored in:\n{self.active_recording_path}.") # show a warning dialog
 
-        self.vis_widget.set_xyz(self.xyz)
+        self.vis_widget.update_motion_trial(self.xyz)
 
     def update_recording_folders(self):
         # this check here is an artifact of the way that the main widget handles refresh

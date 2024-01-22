@@ -9,7 +9,7 @@ import cv2
 
 # cap = cv2.VideoCapture(0)
 from pyxy3d.packets import PointPacket
-from pyxy3d.tracker import Tracker
+from pyxy3d.tracker import Tracker, VisualSkeleton, SegmentLine
 from pyxy3d.trackers.helper import apply_rotation, unrotate_points
 
 logger = pyxy3d.logger.get(__name__)
@@ -121,7 +121,24 @@ RIGHT_HAND_OFFSET = 100
 LEFT_HAND_OFFSET = 200
 FACE_OFFSET = 500
 
+### Skeleton Draw Instructions
 
+pelvis = SegmentLine(name="pelvis", color="y", point_A="right_hip", point_B="left_hip")
+right_flank = SegmentLine(
+    name="right_flank", color="y", point_A="right_hip", point_B="right_shoulder"
+)
+left_flank = SegmentLine(
+    name="left_flank", color="y", point_A="left_hip", point_B="left_shoulder"
+)
+shoulders = SegmentLine(
+    name="shoulder", color="y", point_A="right_shoulder", point_B="left_shoulder"
+)
+
+HOLISTIC_SKELETON = VisualSkeleton(
+    segments=[pelvis, right_flank, left_flank, shoulders], point_names=POINT_NAMES
+)
+
+###
 class HolisticTracker(Tracker):
     def __init__(self) -> None:
         # each port gets its own mediapipe context manager
@@ -129,6 +146,7 @@ class HolisticTracker(Tracker):
         self.in_queues = {}
         self.out_queues = {}
         self.threads = {}
+        self.visual_skeleton = HOLISTIC_SKELETON
 
     @property
     def name(self):
@@ -276,3 +294,4 @@ class HolisticTracker(Tracker):
 
     def get_connected_points(self) -> set[tuple[int, int]]:
         return super().get_connected_points()
+

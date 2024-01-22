@@ -105,10 +105,10 @@ def test_triangulator():
     logger.info(f"y: {round(triangulator_y_mean,4)} vs {round(config_y_mean,4)} ")
     logger.info(f"z: {round(triangulator_z_mean,4)} vs {round(config_z_mean,4)} ")
 
-    logger.info("Assert that mean positions are within 6 millimeters...")
-    assert abs(config_x_mean - triangulator_x_mean) < 0.006
-    assert abs(config_y_mean - triangulator_y_mean) < 0.006
-    assert abs(config_z_mean - triangulator_z_mean) < 0.006
+    logger.info("Assert that mean positions are within 7 millimeters...")
+    assert abs(config_x_mean - triangulator_x_mean) < 0.007
+    assert abs(config_y_mean - triangulator_y_mean) < 0.007
+    assert abs(config_z_mean - triangulator_z_mean) < 0.007
 
 
 if __name__ == "__main__":

@@ -1,7 +1,3 @@
-import pyxy3d.logger
-
-logger = pyxy3d.logger.get(__name__)
-from numba.typed import Dict
 import numpy as np
 import pandas as pd
 from pyxy3d.cameras.camera_array import CameraArray
@@ -9,9 +5,12 @@ from pyxy3d.cameras.synchronizer import Synchronizer, SyncPacket
 from queue import Queue
 from threading import Thread, Event
 from pathlib import Path
-from pyxy3d.interface import XYZPacket
+from pyxy3d.packets import XYZPacket
 
 from pyxy3d.triangulate.triangulation import triangulate_sync_index
+import pyxy3d.logger
+
+logger = pyxy3d.logger.get(__name__)
 
 class SyncPacketTriangulator:
     """
@@ -45,12 +44,6 @@ class SyncPacketTriangulator:
 
         self.sync_packet_in_q = Queue(-1)
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
-
-        # assemble numba compatible dictionary
-        # self.projection_matrices = Dict()
-        # # self.projection_matrices = {}
-        # for port, cam in self.camera_array.cameras.items():
-        #     self.projection_matrices[port] = cam.projection_matrix
 
         self.projection_matrices = self.camera_array.projection_matrices
         
@@ -126,8 +119,9 @@ class SyncPacketTriangulator:
 
         if point_count > 0:
             self.xyz_history["sync_index"].extend([xyz_packet.sync_index] * point_count)
-            xyz_array = np.array(xyz_packet.point_xyz)
             self.xyz_history["point_id"].extend(xyz_packet.point_ids)
+
+            xyz_array = np.array(xyz_packet.point_xyz)
             self.xyz_history["x_coord"].extend(xyz_array[:, 0].tolist())
             self.xyz_history["y_coord"].extend(xyz_array[:, 1].tolist())
             self.xyz_history["z_coord"].extend(xyz_array[:, 2].tolist())

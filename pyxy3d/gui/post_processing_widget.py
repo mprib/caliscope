@@ -59,18 +59,19 @@ class PostProcessingWidget(QWidget):
     def set_current_xyz(self):
 
         if self.xyz_processed_path.exists():
-            # confirm that there are some triangulated values to observe
-            xyz = pd.read_csv(self.xyz_processed_path)
-            if xyz.shape[0] != 0:
-                logger.info(f"Setting xyz display coordinates to those stored in {self.xyz_processed_path}")
-                self.xyz = xyz
-            else:
-                logger.info("Not enough data to triangulate points")
-                QMessageBox.warning(self, "Warning", f"The {self.active_tracker_enum.name} tracker did not identify sufficient points for triangulation to occur for recordings stored in:\n{self.active_recording_path}.") # show a warning dialog
-                self.xyz = None
+            self.vis_widget.update_motion_trial(self.xyz_processed_path)
+            # # confirm that there are some triangulated values to observe
+            # xyz = pd.read_csv(self.xyz_processed_path)
+            # if xyz.shape[0] != 0:
+            #     logger.info(f"Setting xyz display coordinates to those stored in {self.xyz_processed_path}")
+            #     self.xyz = xyz
+            # else:
+            #     logger.info("Not enough data to triangulate points")
+            #     QMessageBox.warning(self, "Warning", f"The {self.active_tracker_enum.name} tracker did not identify sufficient points for triangulation to occur for recordings stored in:\n{self.active_recording_path}.") # show a warning dialog
+            #     self.xyz = None
         else:
             logger.info(f"No points displayed; Nothing stored in {self.xyz_processed_path}")
-            self.xyz = None
+            # self.xyz = None
 
             # check if there aren't any points to track and warn about that
             if self.xy_base_path.exists():
@@ -79,7 +80,6 @@ class PostProcessingWidget(QWidget):
                     logger.info("No points tracked")
                     QMessageBox.warning(self, "Warning", f"The {self.active_tracker_enum.name} tracker did not identify any points to track in recordings stored in:\n{self.active_recording_path}.") # show a warning dialog
 
-        self.vis_widget.set_xyz(self.xyz)
 
     def update_recording_folders(self):
         # this check here is an artifact of the way that the main widget handles refresh

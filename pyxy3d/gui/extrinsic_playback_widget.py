@@ -1,7 +1,6 @@
 
 
 import pyxy3d.logger
-import sys
 from time import sleep
 import math
 from threading import Event
@@ -12,7 +11,6 @@ from PySide6.QtCore import Signal,Slot, QThread
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QGridLayout,
-    QApplication,
     QWidget,
     QGroupBox,
     QHBoxLayout,
@@ -20,10 +18,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from pyxy3d.session.session import LiveSession, SessionMode
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.configurator import Configurator
-from pyxy3d.interface import FramePacket
+from pyxy3d.packets import FramePacket
 from pyxy3d.controller import Controller
 
 logger = pyxy3d.logger.get(__name__)
@@ -265,16 +261,3 @@ def cv2_to_qimage(frame):
     )
 
     return qt_frame
-
-
-def launch_recording_widget(session_path):
-            config = Configurator(session_path)
-            session = LiveSession(config)
-            # session.load_stream_tools()
-            # session._adjust_resolutions()
-            session.set_mode(SessionMode.Recording)
-            App = QApplication(sys.argv)
-            recording_dialog = ExtrinsicPlaybackWidget(session)
-            recording_dialog.show()
-
-            sys.exit(App.exec())

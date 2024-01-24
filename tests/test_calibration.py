@@ -20,7 +20,7 @@ from pyxy3d.calibration.capture_volume.quality_controller import QualityControll
 from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
 
 
-from pyxy3d.session.session import FILTERED_FRACTION
+from pyxy3d.controller import FILTERED_FRACTION
 from pyxy3d.configurator import Configurator
 
 logger = pyxy3d.logger.get(__name__)

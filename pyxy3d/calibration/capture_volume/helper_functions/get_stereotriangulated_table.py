@@ -4,16 +4,12 @@
 # things into a PointHistory object that can be used to optimize the CaptureVolume
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
 
-from itertools import combinations
 import pandas as pd
 import numpy as np
 from pathlib import Path
-import time
 
-from pyxy3d import __root__
-from pyxy3d.interface import PointPacket, FramePacket, SyncPacket
+from pyxy3d.packets import PointPacket, FramePacket, SyncPacket
 from pyxy3d.cameras.camera_array import CameraArray
 from pyxy3d.triangulate.array_stereo_triangulator import ArrayStereoTriangulator
 
@@ -22,6 +18,7 @@ from pyxy3d.triangulate.stereo_points_builder import (
     StereoPointsPacket,
     SynchedStereoPointsPacket,
 )
+logger = pyxy3d.logger.get(__name__)
 
 
 def get_stereotriangulated_table(
@@ -45,7 +42,7 @@ def get_stereotriangulated_table(
     array_triangulator = ArrayStereoTriangulator(camera_array)
     stereotriangulated_table = None
 
-    logger.info(f"Begin reconstructing SyncPackets and SynchedStereoPairs... ")
+    logger.info("Begin reconstructing SyncPackets and SynchedStereoPairs... ")
     for sync_index in sync_indices:
         if sync_index % 25 == 0:
             logger.info(

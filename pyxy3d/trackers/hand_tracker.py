@@ -1,16 +1,6 @@
-"""
-This is a bit of an initial volley at point tracking just to have the 
-basics of something to throw at pyxy3d as a basic test of integrating a
-streamlined point tracking manager that could be expanded out further.
-
-Currently undergoing a re-write as I try to find a way to run multiple
-mediapipe processes, one for each port. Also realizing the need to fix
-the orientation of the frame.
-"""
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
-from threading import Thread, Event
+from threading import Thread
 from queue import Queue
 
 import mediapipe as mp
@@ -18,8 +8,10 @@ import numpy as np
 import cv2
 
 # cap = cv2.VideoCapture(0)
-from pyxy3d.interface import Tracker, PointPacket
+from pyxy3d.packets import PointPacket
+from pyxy3d.tracker import Tracker
 from pyxy3d.trackers.helper import apply_rotation, unrotate_points
+logger = pyxy3d.logger.get(__name__)
 
 class HandTracker(Tracker):
     # Initialize MediaPipe Hands and Drawing utility
@@ -118,7 +110,7 @@ class HandTracker(Tracker):
     def get_point_name(self, point_id: int) -> str:
         return str(point_id)
 
-    def draw_instructions(self, point_id: int) -> dict:
+    def scatter_draw_instructions(self, point_id: int) -> dict:
         if point_id < 100:
             rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
         else:

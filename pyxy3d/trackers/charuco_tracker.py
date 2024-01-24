@@ -7,7 +7,8 @@ import cv2
 import numpy as np
 import pyxy3d.calibration.draw_charuco
 from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.interface import PointPacket, Tracker
+from pyxy3d.packets import PointPacket
+from pyxy3d.tracker import Tracker
 
 logger = pyxy3d.logger.get(__name__)
 
@@ -48,8 +49,11 @@ class CharucoTracker(Tracker):
         
         return point_packet
     
-    def get_point_name(self) -> dict:
-        pass
+    def get_point_name(self, point_id:int) -> str:
+        return str(point_id)
+
+    def get_point_id(self, point_name:str) -> int:
+        return int(point_name)
 
     def get_connected_points(self):
         return self.charuco.get_connected_points()
@@ -107,41 +111,8 @@ class CharucoTracker(Tracker):
             return np.array([])
 
     # @property
-    def draw_instructions(self, point_id: int) ->dict:
+    def scatter_draw_instructions(self, point_id: int) ->dict:
         rules = {"radius":5,
                  "color":(0,0,220),
                  "thickness":3}
         return rules
-
-     
-if __name__ == "__main__":
-
-    from pyxy3d.cameras.camera import Camera
-    from pyxy3d.cameras.live_stream import LiveStream
-    from queue import Queue
-     
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-    )
-    cam = Camera(1)
-
-    print(f"Using Optimized Code?: {cv2.useOptimized()}")
-    trackr = CharucoTracker(charuco)
-    stream = LiveStream(cam,fps_target=10,tracker=trackr)
-    stream._show_fps = True
-
-    q = Queue()
-    stream.subscribe(q)
-    print("About to enter main loop")
-    while True:
-
-        frame_packet = q.get()
-
-        cv2.imshow("Press 'q' to quit", frame_packet.frame_with_points)
-        key = cv2.waitKey(1)
-
-        # end capture when enough grids collected
-        if key == ord("q"):
-            cam.capture.release()
-            cv2.destroyAllWindows()
-            break

@@ -1,3 +1,5 @@
+#%%
+
 # NOTE: Conversions are being made here between inches and cm because
 # this seems like a reasonable scale for discussing the board, but when
 # it is actually created in OpenCV, the board height is expressed
@@ -9,7 +11,6 @@ import pyxy3d.logger
 from collections import defaultdict
 from itertools import combinations
 import cv2
-import rtoml
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 logger = pyxy3d.logger.get(__name__)
@@ -220,31 +221,6 @@ ARUCO_DICTIONARIES = {
     "DICT_APRILTAG_36h11": cv2.aruco.DICT_APRILTAG_36h11,
 }
 
-def get_charuco(config_path)-> Charuco:
-    """
-    Helper function to load a pre-configured charuco from a config.toml
-    """
-
-    with open(config_path, "r") as f:
-        config = rtoml.load(config_path)
-
-    params = config["charuco"]
-
-    charuco = Charuco(
-        columns=params["columns"],
-        rows=params["rows"],
-        board_height=params["board_height"],
-        board_width=params["board_width"],
-        dictionary=params["dictionary"],
-        units=params["units"],
-        aruco_scale=params["aruco_scale"],
-        square_size_overide_cm=params["square_size_overide_cm"],
-        inverted=params["inverted"],
-    )
-    
-    return charuco
-
-########################## DEMO  ###########################################
 
 if __name__ == "__main__":
     charuco = Charuco(
@@ -257,10 +233,12 @@ if __name__ == "__main__":
     logger.info(corners)
 
     logger.info(f"Charuco dictionary: {charuco.__dict__}")
-    while True:
-        cv2.imshow("Charuco Board...'q' to quit", charuco.board_img)
-        #
-        key = cv2.waitKey(0)
-        if key == ord("q"):
-            cv2.destroyAllWindows()
-            break
+    # while True:
+    #     cv2.imshow("Charuco Board...'q' to quit", charuco.board_img)
+    #     #
+    #     key = cv2.waitKey(0)
+    #     if key == ord("q"):
+    #         cv2.destroyAllWindows()
+    #         break
+
+# %%

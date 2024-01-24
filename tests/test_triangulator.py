@@ -1,8 +1,11 @@
 """"
-The Place where I'm putting together the RealTimeTriangulator working stuff that should one day become a test
+NOTE: In addition to testing the real time triangulation, this code bases
+its final assertions on the values from the original bundle adjustment. 
+This allows a cross check for the triangulation function that is distinct from 
+the optimization in the bundle adjustmnent. 
 
-Hopefully I can keep things clean enough for that...
-
+After recent inclusion of distortion into the triangulation, the tolerance 
+of the final averaged triangulated position improved from 1.5 cm to 6 mm.
 """
 import pyxy3d.logger
 
@@ -27,7 +30,7 @@ logger = pyxy3d.logger.get(__name__)
 
 
 
-def test_real_time_triangulator():
+def test_triangulator():
     original_session = Path(__root__, "tests", "sessions", "post_optimization")
     test_session = Path(
         original_session.parent.parent,
@@ -102,13 +105,13 @@ def test_real_time_triangulator():
     logger.info(f"y: {round(triangulator_y_mean,4)} vs {round(config_y_mean,4)} ")
     logger.info(f"z: {round(triangulator_z_mean,4)} vs {round(config_z_mean,4)} ")
 
-    logger.info("Assert that mean positions are within 1.5 centimeters...")
-    assert abs(config_x_mean - triangulator_x_mean) < 0.015
-    assert abs(config_y_mean - triangulator_y_mean) < 0.015
-    assert abs(config_z_mean - triangulator_z_mean) < 0.015
+    logger.info("Assert that mean positions are within 7 millimeters...")
+    assert abs(config_x_mean - triangulator_x_mean) < 0.007
+    assert abs(config_y_mean - triangulator_y_mean) < 0.007
+    assert abs(config_z_mean - triangulator_z_mean) < 0.007
 
 
 if __name__ == "__main__":
 
-    test_real_time_triangulator()
+    test_triangulator()
 # %%

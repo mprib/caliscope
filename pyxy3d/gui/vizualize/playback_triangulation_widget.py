@@ -1,7 +1,6 @@
 from pathlib import Path
 import numpy as np
-import pandas as pd
-
+from time import time
 import pyqtgraph.opengl as gl
 
 from PySide6.QtCore import Qt
@@ -14,8 +13,10 @@ from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from pyxy3d.cameras.camera_array import CameraArray
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
+from pyxy3d.motion_trial import MotionTrial
 
+logger = pyxy3d.logger.get(__name__)
+# as part of development process I'm just going to import the skeleton in here
 
 class PlaybackTriangulationWidget(QWidget):
     def __init__(self, camera_array: CameraArray, xyz_history_path: Path = None):
@@ -30,8 +31,9 @@ class PlaybackTriangulationWidget(QWidget):
         self.place_widgets()
         self.connect_widgets()
         if xyz_history_path is not None:
-            xyz_history = pd.read_csv(xyz_history_path)
-            self.set_xyz(xyz_history)
+            self.update_motion_trial(xyz_history_path)
+        else:
+            self.motion_trial = None
 
     def place_widgets(self):
         self.setLayout(QVBoxLayout())
@@ -40,27 +42,31 @@ class PlaybackTriangulationWidget(QWidget):
 
     def connect_widgets(self):
         self.slider.valueChanged.connect(self.visualizer.display_points)
+        self.slider.valueChanged.connect(self.visualizer.update_segment_lines)
 
-    def set_xyz(self, xyz: pd.DataFrame):
+    def update_motion_trial(self, xyz_history_path):
         # self.xyz_history = pd.read_csv(xyz_history)
-        self.visualizer.set_xyz(xyz)
-        if xyz is not None:
-            self.slider.setMinimum(self.visualizer.min_sync_index)
-            self.slider.setMaximum(self.visualizer.max_sync_index)
-        else:
+        tic = time()
+        logger.info(f"Beginning to load in motion trial: {time()}")
+        self.motion_trial = MotionTrial(xyz_history_path)
+        logger.info(f"Motion trial loading complete: {time()} ")
+        toc = time()
+        logger.info(f"Elapsed time to load: {toc-tic}")
+
+        self.visualizer.update_motion_trial(self.motion_trial)
+
+        if self.motion_trial.is_empty:
             self.slider.setMinimum(0)
             self.slider.setMaximum(100)
+        else:
+            self.slider.setMinimum(self.motion_trial.start_index)
+            self.slider.setMaximum(self.motion_trial.end_index)
 
     def update_camera_array(self, camera_array: CameraArray):
         self.visualizer.update_camera_array(camera_array)
 
 
 class TriangulationVisualizer:
-    """
-    Can except either a single camera array or a capture volume that includes
-    point_estimates. If a capture volume is supplied, point positions can
-    be played back.
-    """
 
     def __init__(self, camera_array: CameraArray):
         self.camera_array = camera_array
@@ -93,6 +99,10 @@ class TriangulationVisualizer:
             size=0.01,
             pxMode=False,
         )
+        
+            # will hold a list
+        self.segments = {}
+        
         self.scene.addItem(self.scatter)
         self.scatter.setData(pos=None)
 
@@ -100,41 +110,32 @@ class TriangulationVisualizer:
         self.camera_array = camera_array
         self.build_scene()
 
-    def set_xyz(self, xyz_history: pd.DataFrame):
+    def update_motion_trial(self, motion_trial:MotionTrial):
         logger.info("Updating xyz history in playback widget")
-        self.xyz_history = xyz_history
+        self.motion_trial:MotionTrial = motion_trial
+        
+        if hasattr(self.motion_trial.tracker, "wireframe"):
+            for segment_line in self.motion_trial.tracker.wireframe.line_plots.values():
+                self.scene.addItem(segment_line)
 
-        if self.xyz_history is not None:
-            self.sync_indices = self.xyz_history["sync_index"]
-            self.min_sync_index = np.min(self.sync_indices)
-            self.max_sync_index = np.max(self.sync_indices)
-            self.sync_index = self.min_sync_index
-
-            x_coord = self.xyz_history["x_coord"]
-            y_coord = self.xyz_history["y_coord"]
-            z_coord = self.xyz_history["z_coord"]
-            self.xyz_coord = np.vstack([x_coord, y_coord, z_coord]).T
-
-        else:
-            self.xyz_coord = None
-            self.sync_index = 0
-            # self.scatter.setData(pos=None)
-
+        self.sync_index = self.motion_trial.start_index
         self.display_points(self.sync_index)
 
-    def display_points(self, sync_index):
+
+    def display_points(self, sync_index:int):
         """
         sync_index is provided from the dialog and linked to the slider
         it is initially set to the minimum viable sync index
         """
 
-        if self.xyz_coord is not None:
-            self.sync_index = sync_index
-
-            current_sync_index_flag = self.sync_indices == self.sync_index
-            self.points = self.xyz_coord[current_sync_index_flag]
-            logger.debug(f"Displaying xyz points for sync index {sync_index}")
-            self.scatter.setData(pos=self.points)
-
-        else:
+        if self.motion_trial.is_empty:
             self.scatter.setData(pos=None)
+        else:
+            self.sync_index = sync_index
+            logger.debug(f"Displaying xyz points for sync index {sync_index}")
+            xyz_coords = self.motion_trial.get_xyz(self.sync_index).point_xyz
+            self.scatter.setData(pos=xyz_coords)
+
+
+    def update_segment_lines(self,sync_index:int):
+        self.motion_trial.update_wireframe(sync_index)

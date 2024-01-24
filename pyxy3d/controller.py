@@ -5,7 +5,7 @@ from enum import Enum, auto
 from pathlib import Path
 from PySide6.QtGui import QPixmap
 from time import sleep, time
-from pyxy3d.interface import Tracker
+from pyxy3d.packets import Tracker
 from pyxy3d.trackers.tracker_enum import TrackerEnum
 from pyxy3d.post_processing.post_processor import PostProcessor
 from pyxy3d.calibration.charuco import Charuco

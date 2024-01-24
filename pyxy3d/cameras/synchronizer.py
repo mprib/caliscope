@@ -8,7 +8,7 @@ from queue import Queue
 from threading import Thread, Event
 
 import numpy as np
-from pyxy3d.interface import SyncPacket
+from pyxy3d.packets import SyncPacket
 
 logger = pyxy3d.logger.get(__name__)
 

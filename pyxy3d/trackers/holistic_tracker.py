@@ -1,7 +1,6 @@
 import pyxy3d.logger
 
-logger = pyxy3d.logger.get(__name__)
-from threading import Thread, Event
+from threading import Thread
 from queue import Queue
 
 import mediapipe as mp
@@ -9,8 +8,11 @@ import numpy as np
 import cv2
 
 # cap = cv2.VideoCapture(0)
-from pyxy3d.interface import Tracker, PointPacket
+from pyxy3d.packets import PointPacket
+from pyxy3d.tracker import Tracker, WireFrameView, Segment
 from pyxy3d.trackers.helper import apply_rotation, unrotate_points
+
+logger = pyxy3d.logger.get(__name__)
 
 DRAW_IGNORE_LIST = [
     "nose",
@@ -119,7 +121,114 @@ RIGHT_HAND_OFFSET = 100
 LEFT_HAND_OFFSET = 200
 FACE_OFFSET = 500
 
+### Skeleton Draw Instructions
+pelvis = Segment(name="pelvis", color="y", point_A="right_hip", point_B="left_hip")
+right_flank = Segment(
+    name="right_flank", color="y", point_A="right_hip", point_B="right_shoulder"
+)
+left_flank = Segment(
+    name="left_flank", color="y", point_A="left_hip", point_B="left_shoulder"
+)
+shoulders = Segment(
+    name="shoulder", color="y", point_A="right_shoulder", point_B="left_shoulder"
+)
 
+right_thigh = Segment(
+    name="right_thigh", color="r", point_A="right_hip", point_B="right_knee"
+)
+left_thigh = Segment(
+    name="left_thigh", color="g", point_A="left_hip", point_B="left_knee"
+)
+right_shank = Segment(
+    name="right_shank", color="r", point_A="right_knee", point_B="right_ankle"
+)
+left_shank = Segment(
+    name="left_shank", color="g", point_A="left_knee", point_B="left_ankle"
+)
+right_arm = Segment(
+    name="right_arm", color="r", point_A="right_shoulder", point_B="right_elbow"
+)
+right_forearm = Segment(
+    name="right_forearm", color="r", point_A="right_elbow", point_B="right_wrist"
+)
+left_arm = Segment(
+    name="left_arm", color="g", point_A="left_shoulder", point_B="left_elbow"
+)
+left_forearm = Segment(
+    name="left_forearm", color="g", point_A="left_elbow", point_B="left_wrist"
+)
+
+# Right Hand Segments
+right_thumb = Segment(
+    name="right_thumb", color="r", point_A="right_wrist", point_B="right_thumb_CMC"
+)
+right_thumb_proximal = Segment(
+    name="right_thumb_proximal", color="r", point_A="right_thumb_CMC", point_B="right_thumb_MCP"
+)
+right_thumb_intermediate = Segment(
+    name="right_thumb_intermediate", color="r", point_A="right_thumb_MCP", point_B="right_thumb_IP"
+)
+right_thumb_distal = Segment(
+    name="right_thumb_distal", color="r", point_A="right_thumb_IP", point_B="right_thumb_tip"
+)
+
+# ... Similar segments for other fingers of the right hand ...
+
+# Left Hand Segments
+left_thumb = Segment(
+    name="left_thumb", color="g", point_A="left_wrist", point_B="left_thumb_CMC"
+)
+left_thumb_proximal = Segment(
+    name="left_thumb_proximal", color="g", point_A="left_thumb_CMC", point_B="left_thumb_MCP"
+)
+left_thumb_intermediate = Segment(
+    name="left_thumb_intermediate", color="g", point_A="left_thumb_MCP", point_B="left_thumb_IP"
+)
+left_thumb_distal = Segment(
+    name="left_thumb_distal", color="g", point_A="left_thumb_IP", point_B="left_thumb_tip"
+)
+
+# ... Similar segments for other fingers of the left hand ...
+
+# Feet Segments
+right_foot = Segment(
+    name="right_foot", color="r", point_A="right_ankle", point_B="right_heel"
+)
+right_toe = Segment(
+    name="right_toe", color="r", point_A="right_heel", point_B="right_foot_index"
+)
+
+left_foot = Segment(
+    name="left_foot", color="g", point_A="left_ankle", point_B="left_heel"
+)
+left_toe = Segment(
+    name="left_toe", color="g", point_A="left_heel", point_B="left_foot_index"
+)
+
+
+HOLISTIC_SKELETON = WireFrameView(
+    segments=[
+        pelvis,
+        right_flank,
+        left_flank,
+        shoulders,
+        right_thigh,
+        left_thigh,
+        right_shank,
+        left_shank,
+        right_arm,
+        left_arm,
+        right_forearm,
+        left_forearm,
+    right_thumb, right_thumb_proximal, right_thumb_intermediate, right_thumb_distal,
+    left_thumb, left_thumb_proximal, left_thumb_intermediate, left_thumb_distal,
+    right_foot, right_toe, left_foot, left_toe
+    ],
+    point_names=POINT_NAMES,
+)
+
+
+###
 class HolisticTracker(Tracker):
     def __init__(self) -> None:
         # each port gets its own mediapipe context manager
@@ -127,12 +236,12 @@ class HolisticTracker(Tracker):
         self.in_queues = {}
         self.out_queues = {}
         self.threads = {}
+        self.wireframe = HOLISTIC_SKELETON
 
     @property
     def name(self):
         return "HOLISTIC"
-    
-          
+
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance
         with mp.solutions.holistic.Holistic(
@@ -260,7 +369,7 @@ class HolisticTracker(Tracker):
             point_name = "face_" + str(point_id - FACE_OFFSET)
         return point_name
 
-    def draw_instructions(self, point_id: int) -> dict:
+    def scatter_draw_instructions(self, point_id: int) -> dict:
         point_name = self.get_point_name(point_id)
         if point_name in DRAW_IGNORE_LIST:
             rules = {"radius": 0, "color": (0, 0, 0), "thickness": 0}
@@ -272,3 +381,6 @@ class HolisticTracker(Tracker):
             rules = {"radius": 1, "color": (220, 0, 220), "thickness": 1}
 
         return rules
+
+    def get_connected_points(self) -> set[tuple[int, int]]:
+        return super().get_connected_points()

@@ -1,9 +1,3 @@
-import logging
-import pyxy3d.logger
-
-logger = pyxy3d.logger.get(__name__)
-if __name__ == "__main__":
-    logger.setLevel(logging.DEBUG)
 
 from queue import Queue
 from threading import Thread, Event
@@ -16,7 +10,12 @@ from dataclasses import dataclass
 from itertools import combinations
 from pyxy3d.cameras.synchronizer import Synchronizer
 from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.interface import SyncPacket
+from pyxy3d.packets import SyncPacket
+
+import logging
+import pyxy3d.logger
+
+logger = pyxy3d.logger.get(__name__)
 
 
 class StereoPointsBuilder:

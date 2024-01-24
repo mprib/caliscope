@@ -1,13 +1,8 @@
-
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
-
-
 import pandas as pd
 import numpy as np
 
-from pathlib import Path
-from pyxy3d.trackers.tracker_enum import TrackerEnum
+import pyxy3d.logger
+logger = pyxy3d.logger.get(__name__)
 
 
 def gap_fill_xy(xy_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
@@ -73,7 +68,7 @@ def gap_fill_xy(xy_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
         # Append to the overall DataFrame
         xy_filled = pd.concat([xy_filled, merged])
 
-    logger.info(f"(x,y) gap filling complete")
+    logger.info("(x,y) gap filling complete")
     return xy_filled
 
     

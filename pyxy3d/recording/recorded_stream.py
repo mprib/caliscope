@@ -12,7 +12,7 @@ from time import perf_counter, sleep
 import pandas as pd
 import numpy as np
 
-from pyxy3d.interface import FramePacket, Tracker, Stream
+from pyxy3d.packets import FramePacket, Tracker
 from pyxy3d.cameras.camera_array import CameraData
 from pyxy3d.configurator import Configurator
 
@@ -20,7 +20,7 @@ logger = pyxy3d.logger.get(__name__)
 logger.setLevel(logging.INFO)
 
 
-class RecordedStream(Stream):
+class RecordedStream:
     """
     Analogous to the live stream, this will place frames on a queue
     These can then be harvested and synchronized by a Synchronizer
@@ -212,7 +212,7 @@ class RecordedStream(Stream):
                 self.point_data = self.tracker.get_points(
                     self.frame, self.port, self.rotation_count
                 )
-                draw_instructions = self.tracker.draw_instructions
+                draw_instructions = self.tracker.scatter_draw_instructions
             else:
                 self.point_data = None
                 draw_instructions = None

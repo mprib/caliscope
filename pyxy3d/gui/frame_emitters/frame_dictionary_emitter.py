@@ -4,13 +4,9 @@ import numpy as np
 from threading import Event
 from queue import Queue
 
-import cv2
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QImage, QPixmap
-import pyxy3d.calibration.draw_charuco as draw_charuco
-from pyxy3d.recording.recorded_stream import RecordedStream
+from PySide6.QtGui import QPixmap
 from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.interface import FramePacket, SyncPacket
 from pyxy3d.cameras.camera_array import CameraData
 from pyxy3d.gui.frame_emitters.tools import resize_to_square, apply_rotation, cv2_to_qlabel
 

@@ -30,7 +30,10 @@ class PlaybackTriangulationWidget(QWidget):
 
         self.place_widgets()
         self.connect_widgets()
-        self.update_motion_trial(xyz_history_path)
+        if xyz_history_path is not None:
+            self.update_motion_trial(xyz_history_path)
+        else:
+            self.motion_trial = None
 
     def place_widgets(self):
         self.setLayout(QVBoxLayout())

@@ -158,6 +158,54 @@ left_forearm = Segment(
     name="left_forearm", color="g", point_A="left_elbow", point_B="left_wrist"
 )
 
+# Right Hand Segments
+right_thumb = Segment(
+    name="right_thumb", color="b", point_A="right_wrist", point_B="right_thumb_CMC"
+)
+right_thumb_proximal = Segment(
+    name="right_thumb_proximal", color="b", point_A="right_thumb_CMC", point_B="right_thumb_MCP"
+)
+right_thumb_intermediate = Segment(
+    name="right_thumb_intermediate", color="b", point_A="right_thumb_MCP", point_B="right_thumb_IP"
+)
+right_thumb_distal = Segment(
+    name="right_thumb_distal", color="b", point_A="right_thumb_IP", point_B="right_thumb_tip"
+)
+
+# ... Similar segments for other fingers of the right hand ...
+
+# Left Hand Segments
+left_thumb = Segment(
+    name="left_thumb", color="b", point_A="left_wrist", point_B="left_thumb_CMC"
+)
+left_thumb_proximal = Segment(
+    name="left_thumb_proximal", color="b", point_A="left_thumb_CMC", point_B="left_thumb_MCP"
+)
+left_thumb_intermediate = Segment(
+    name="left_thumb_intermediate", color="b", point_A="left_thumb_MCP", point_B="left_thumb_IP"
+)
+left_thumb_distal = Segment(
+    name="left_thumb_distal", color="b", point_A="left_thumb_IP", point_B="left_thumb_tip"
+)
+
+# ... Similar segments for other fingers of the left hand ...
+
+# Feet Segments
+right_foot = Segment(
+    name="right_foot", color="b", point_A="right_ankle", point_B="right_heel"
+)
+right_toe = Segment(
+    name="right_toe", color="b", point_A="right_heel", point_B="right_foot_index"
+)
+
+left_foot = Segment(
+    name="left_foot", color="b", point_A="left_ankle", point_B="left_heel"
+)
+left_toe = Segment(
+    name="left_toe", color="b", point_A="left_heel", point_B="left_foot_index"
+)
+
+
 HOLISTIC_SKELETON = WireFrameView(
     segments=[
         pelvis,
@@ -172,6 +220,9 @@ HOLISTIC_SKELETON = WireFrameView(
         left_arm,
         right_forearm,
         left_forearm,
+    right_thumb, right_thumb_proximal, right_thumb_intermediate, right_thumb_distal,
+    left_thumb, left_thumb_proximal, left_thumb_intermediate, left_thumb_distal,
+    right_foot, right_toe, left_foot, left_toe
     ],
     point_names=POINT_NAMES,
 )

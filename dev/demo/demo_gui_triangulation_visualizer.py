@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 from pyxy3d.controller import Controller
 from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
-from pyxy3d.trackers.holistic_tracker import HolisticTracker
+from pyxy3d.trackers.holistic.holistic_tracker import HolisticTracker
 
 app = QApplication(sys.argv)
 workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive - The University of Texas at Austin\research\pyxy3d\example_project")

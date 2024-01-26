@@ -1,6 +1,6 @@
 # %%
 
-from pyxy3d.trackers.holistic_tracker import HolisticTracker
+from pyxy3d.trackers.holistic.holistic_tracker import HolisticTracker
 from pathlib import Path
 from pyxy3d import __root__
 from pyxy3d.helper import copy_contents

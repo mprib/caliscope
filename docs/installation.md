@@ -57,9 +57,9 @@ We strongly advise installing within a virtual environment. This approach helps 
     # You can install dependencies using pip
     ```
 
-## 2. Install pyxy3D via pip
+## 2. Install Caliscope via pip
 
-With your virtual environment activated, the next step is to install pyxy3D itself. This is a straightforward process that can be done using pip, Python's package installer. Follow the instructions specific to your operating system below:
+With your virtual environment activated, the next step is to install Caliscope itself. This is a straightforward process that can be done using pip, Python's package installer. Follow the instructions specific to your operating system below:
 
 
 === "Windows"

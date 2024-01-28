@@ -1,18 +1,18 @@
 
-import pyxy3d.logger
+import caliscope.logger
 
 import sys
-from pyxy3d.configurator import Configurator
+from caliscope.configurator import Configurator
 from pathlib import Path
-from pyxy3d import __root__
+from caliscope import __root__
 import pandas as pd
 
 # specify a source directory (with recordings)
-from pyxy3d.helper import copy_contents
-from pyxy3d.post_processing.post_processor import PostProcessor
-from pyxy3d.trackers.tracker_enum import TrackerEnum
+from caliscope.helper import copy_contents
+from caliscope.post_processing.post_processor import PostProcessor
+from caliscope.trackers.tracker_enum import TrackerEnum
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 def test_xy_point_creation():

@@ -1,21 +1,21 @@
-import pyxy3d.logger
+import caliscope.logger
 
 import pandas as pd
-from pyxy3d import __root__
+from caliscope import __root__
 import shutil
 from pathlib import Path
 import time
-from pyxy3d.configurator import Configurator
-from pyxy3d.helper import copy_contents
-from pyxy3d.cameras.camera_array import CameraArray, CameraData
-from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.calibration.charuco import Charuco
+from caliscope.configurator import Configurator
+from caliscope.helper import copy_contents
+from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.calibration.charuco import Charuco
 import shutil
 import pandas as pd
 import numpy as np
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 def assert_almost_equal(val1, val2, delta, msg):

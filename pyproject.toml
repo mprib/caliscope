@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "pyxy3d"
-version = "0.3.12"
+name = "caliscope"
+version = "0.4.0"
 description = "GUI based multicamera calibration that integrates with 2D landmark tracking to triangulate 3D landmark positions"
 authors = ["Mac Prible <prible@gmail.com>"]
 license = "BSD-2-Clause"
@@ -33,10 +33,10 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.urls]
-repository = "https://github.com/mprib/pyxy3d"
+repository = "https://github.com/mprib/caliscope"
 
 [tool.poetry.scripts]
-pyxy3d = "pyxy3d.__main__:CLI_parser"
+caliscope = "caliscope.__main__:CLI_parser"
 
 [tool.setuptools_scm]
-write_to = "pyxy3d/_version.py"
+write_to = "caliscope/_version.py"

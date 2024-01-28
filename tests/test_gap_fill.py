@@ -1,17 +1,17 @@
 
 #%%
-import pyxy3d.logger
+import caliscope.logger
 
 
 import pandas as pd
 import numpy as np
 
 from pathlib import Path
-from pyxy3d.trackers.tracker_enum import TrackerEnum
-from pyxy3d.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
-from pyxy3d import __root__
-from pyxy3d.helper import copy_contents
-logger = pyxy3d.logger.get(__name__)
+from caliscope.trackers.tracker_enum import TrackerEnum
+from caliscope.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
+from caliscope import __root__
+from caliscope.helper import copy_contents
+logger = caliscope.logger.get(__name__)
 
 original_recording_directory = Path(__root__, "tests", "reference", "base_data")
 tracker_enum = TrackerEnum.HOLISTIC_OPENSIM

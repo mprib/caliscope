@@ -20,6 +20,6 @@ dev/sample_sessions*
 *.csv
 *config.toml
 *.xlsx
-pyxy3d/_version.py
-pyxy3d.code-workspace
+caliscope/_version.py
+caliscope.code-workspace
 site/*

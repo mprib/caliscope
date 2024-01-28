@@ -4,14 +4,14 @@ from pathlib import Path
 from time import sleep
 from PySide6.QtWidgets import QApplication
 
-from pyxy3d import __root__
-from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.helper import copy_contents
-from pyxy3d.controller import Controller, read_video_properties
-import pyxy3d.logger
+from caliscope import __root__
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.helper import copy_contents
+from caliscope.controller import Controller, read_video_properties
+import caliscope.logger
 
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 def test_controller_load_camera_and_stream():
     """
     Note that in this test the copied workspace config does not have camera data 

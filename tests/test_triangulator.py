@@ -7,26 +7,26 @@ the optimization in the bundle adjustmnent.
 After recent inclusion of distortion into the triangulation, the tolerance 
 of the final averaged triangulated position improved from 1.5 cm to 6 mm.
 """
-import pyxy3d.logger
+import caliscope.logger
 
 from time import sleep
 
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.recording.recorded_stream import RecordedStream
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.configurator import Configurator
-from pyxy3d.helper import copy_contents
+from caliscope.cameras.synchronizer import Synchronizer
+from caliscope.triangulate.sync_packet_triangulator import SyncPacketTriangulator
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.calibration.charuco import Charuco
+from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.configurator import Configurator
+from caliscope.helper import copy_contents
 
 import shutil
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from pyxy3d import __root__
+from caliscope import __root__
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 

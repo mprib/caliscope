@@ -1,23 +1,23 @@
 
-import pyxy3d.logger
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 import sys
-from pyxy3d.configurator import Configurator
+from caliscope.configurator import Configurator
 from pathlib import Path
-from pyxy3d import __root__
+from caliscope import __root__
 import pandas as pd
 import numpy as np
 from scipy.stats import pearsonr
 
 # specify a source directory (with recordings)
-from pyxy3d.helper import copy_contents
+from caliscope.helper import copy_contents
 import rtoml
 from PySide6.QtWidgets import QApplication
-from pyxy3d.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
-from pyxy3d.post_processing.smoothing import _smooth_xy, smooth_xyz
-from pyxy3d import __root__
+from caliscope.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
+from caliscope.post_processing.smoothing import _smooth_xy, smooth_xyz
+from caliscope import __root__
 
 original_base_data_directory = Path(__root__, "tests", "reference", "base_data")
 base_data_directory = Path(original_base_data_directory.parent.parent, "reference_delete", "base_data")

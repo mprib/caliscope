@@ -23,3 +23,4 @@ dev/sample_sessions*
 pyxy3d/_version.py
 pyxy3d.code-workspace
 site/*
+caliscope/_version.py

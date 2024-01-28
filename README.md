@@ -1,4 +1,4 @@
-January 23, 2024: Note that this repository's name has changed from `caliscope` to `caliscope`. In the coming week I'll be making changes on PyPI to cement the change. I've recently been doing some major refactors that enabled to pre-recorded workflow, split out the sychronized webcam recording into its own project [(multiwebcam)](https://github.com/mprib/multiwebcam), and have started the ball rolling on a submission for the [Journal of Open Source Software](https://joss.theoj.org/). I'd been wanting to change the name for awhile, and with all this transition it seems like the right time.
+January 28, 2024: The package has now been renamed `caliscope` (previously `pyxy3d`). I've recently completed some major refactors that enabled to pre-recorded workflow, split out the sychronized webcam recording into its own project ([multiwebcam](https://github.com/mprib/multiwebcam)), and have started the ball rolling on a submission for the [Journal of Open Source Software](https://joss.theoj.org/). I'd been wanting to change the name for awhile, and with all this transition it seems like the right time.
 
 <div align="center">
 

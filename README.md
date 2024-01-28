@@ -2,7 +2,7 @@ January 28, 2024: If you are reading this, then I am actively (like *right now*)
 
 <div align="center">
 
-<img src = "caliscope/gui/icons/pyxy_logo.svg" width = "150">
+# Caliscope
 
 *Multicamera Calibration + Pose Estimation --> Open Source Motion Capture*
 

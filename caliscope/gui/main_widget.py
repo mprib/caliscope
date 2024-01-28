@@ -245,6 +245,7 @@ class MainWindow(QMainWindow):
             self.add_to_recent_project(folder_path)
 
     def update_app_settings(self):
+        logger.info(f"Saving out app settings to {__settings_path__}")
         with open(__settings_path__, "w") as f:
             rtoml.dump(self.app_settings, f)
 

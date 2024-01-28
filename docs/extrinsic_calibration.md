@@ -8,7 +8,7 @@
 ## Processing steps
 
 1. Save videos to `project_root/calibration/extrinsic/` according to the naming convention outlined in [Project Setup](project_setup.md#stage-2-extrinsic-calibration)
-2. Ensure that videos were synchronized when recording, or provide a [`frame_time_history.csv`](project_setup.md#frame_time_historycsv) file so that pyxy3d can perform the synchronization during processing.
+2. Ensure that videos were synchronized when recording, or provide a [`frame_time_history.csv`](project_setup.md#frame_time_historycsv) file so that caliscope can perform the synchronization during processing.
 3. You may need to reload the workspace for the `Calibrate Capture Volume` button to become enabled
 4. Pressing `Calibrate Capture Volume` will initiate the calibration. The final log statement at complete will indicate that `point_esimates.toml` has been saved. at this point you can reload the workspace and the `Capture Volume` tab will become enabled.
 5. On the `Capture Volume` tab you can visually inspect the relative position of the cameras according to the calibration

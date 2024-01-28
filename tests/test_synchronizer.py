@@ -1,15 +1,15 @@
-import pyxy3d.logger
+import caliscope.logger
 
 import pandas as pd
-from pyxy3d import __root__
+from caliscope import __root__
 import shutil
 from pathlib import Path
 import time
-from pyxy3d.configurator import Configurator
-from pyxy3d.helper import copy_contents
-from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.configurator import Configurator
+from caliscope.helper import copy_contents
+from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 def test_synchronizer():
     original_session_path = Path(__root__, "tests", "sessions", "4_cam_recording")

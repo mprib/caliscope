@@ -2,14 +2,14 @@
 #%%
 import json
 
-from pyxy3d import __root__
+from caliscope import __root__
 from pathlib import Path
 
-from pyxy3d.trackers.tracker_enum import TrackerEnum
-from pyxy3d.post_processing.blender_tools import generate_metarig_config
+from caliscope.trackers.tracker_enum import TrackerEnum
+from caliscope.post_processing.blender_tools import generate_metarig_config
 
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 def test_metarig_config_generation():
     xyz_csv_path = Path(__root__,"tests", "reference", "auto_rig_config_data", "xyz_HOLISTIC_OPENSIM_labelled.csv")
     tracker_enum = TrackerEnum.HOLISTIC_OPENSIM

@@ -23,7 +23,7 @@ This is the target size that the final printed board will have. This can minimiz
 
 ### 3. Board Inversion
 
-To save on printer ink, you can select to invert the board image so that white and black regions are swapped. If this is done, then pyxy3d will invert a grayscale image prior to running ChArUco recognition so that things will still work out.
+To save on printer ink, you can select to invert the board image so that white and black regions are swapped. If this is done, then caliscope will invert a grayscale image prior to running ChArUco recognition so that things will still work out.
 
 ### 4. Save Calibration Board `.png`
 

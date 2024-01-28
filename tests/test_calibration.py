@@ -1,29 +1,29 @@
-import pyxy3d.logger
+import caliscope.logger
 
 from time import sleep
 import shutil
 from pathlib import Path
-from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d import __root__
-from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
-from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
-from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
+from caliscope.cameras.camera_array import CameraArray
+from caliscope import __root__
+from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
 import pytest
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
+from caliscope.trackers.charuco_tracker import CharucoTracker
 
-from pyxy3d.calibration.stereocalibrator import StereoCalibrator
-from pyxy3d.calibration.capture_volume.quality_controller import QualityController
+from caliscope.calibration.stereocalibrator import StereoCalibrator
+from caliscope.calibration.capture_volume.quality_controller import QualityController
 
-from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 
 
-from pyxy3d.controller import FILTERED_FRACTION
-from pyxy3d.configurator import Configurator
+from caliscope.controller import FILTERED_FRACTION
+from caliscope.configurator import Configurator
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 TEST_SESSIONS = ["mediapipe_calibration"]
 

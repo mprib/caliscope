@@ -1,20 +1,20 @@
 # more attributes could certainly be tested in here,but at least this gives some basic sense of if things
 # are working....
-import pyxy3d.logger
+import caliscope.logger
 
 from pathlib import Path
 import numpy as np
 import os
 import shutil
 
-from pyxy3d import __root__
-from pyxy3d.configurator import Configurator
-from pyxy3d.helper import copy_contents
-from pyxy3d.cameras.camera_array import CameraArray, CameraData
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope import __root__
+from caliscope.configurator import Configurator
+from caliscope.helper import copy_contents
+from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.calibration.charuco import Charuco
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 def point_estimates_are_equal(pe1: PointEstimates, pe2: PointEstimates) -> bool:
     return (

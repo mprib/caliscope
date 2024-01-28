@@ -6,7 +6,7 @@ from PySide6 import QtCore
 import sys
 import os
 from pathlib import Path
-from pyxy3d import __log_dir__
+from caliscope import __log_dir__
 
 
 # only one file handler accross package so all messages logged to one file
@@ -26,7 +26,7 @@ console_log_format =" %(levelname)8s| %(name)30s| %(lineno)3d|  %(message)s"
 console_formatter = logging.Formatter(console_log_format)
 console_handler.setFormatter(console_formatter)
 
-# log_level_overides = {"pyxy3d.cameras.live_stream": logging.INFO}
+# log_level_overides = {"caliscope.cameras.live_stream": logging.INFO}
 
 
 class QtHandler(logging.Handler):

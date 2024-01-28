@@ -16,15 +16,15 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 from PySide6.QtCore import Qt, Slot, Signal, QSize
-from pyxy3d.gui.camera_management.camera_display_widget import (
+from caliscope.gui.camera_management.camera_display_widget import (
     CameraDataDisplayWidget,
 )
 from PySide6.QtSvg import QSvgRenderer
-from pyxy3d.controller import Controller
-from pyxy3d import __root__
+from caliscope.controller import Controller
+from caliscope import __root__
 
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 
 
 def svg_to_pixmap(svg_path: Path, size):
@@ -73,8 +73,8 @@ class CustomSlider(QSlider):
             self.arrowKeyPressed.emit(value)  # Emit the custom signal
 
 # icons from https://iconoir.com
-CAM_ROTATE_RIGHT_PATH = Path(__root__, "pyxy3d", "gui", "icons", "rotate-camera-right.svg")
-CAM_ROTATE_LEFT_PATH = Path(__root__, "pyxy3d", "gui", "icons", "rotate-camera-left.svg")
+CAM_ROTATE_RIGHT_PATH = Path(__root__, "caliscope", "gui", "icons", "rotate-camera-right.svg")
+CAM_ROTATE_LEFT_PATH = Path(__root__, "caliscope", "gui", "icons", "rotate-camera-left.svg")
 
 class IntrinsicCalibrationWidget(QWidget):
     def __init__(self, controller: Controller, port: int, parent=None):
@@ -314,10 +314,10 @@ class IntrinsicCalibrationWidget(QWidget):
         
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    from pyxy3d import __root__
-    from pyxy3d.helper import copy_contents
-    from pyxy3d.trackers.charuco_tracker import CharucoTracker
-    from pyxy3d.calibration.charuco import Charuco
+    from caliscope import __root__
+    from caliscope.helper import copy_contents
+    from caliscope.trackers.charuco_tracker import CharucoTracker
+    from caliscope.calibration.charuco import Charuco
 
     # Define the input file path here.
     original_workspace_dir = Path(
@@ -328,7 +328,7 @@ if __name__ == "__main__":
     # )
 
     # copy_contents(original_workspace_dir, workspace_dir)
-    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
+    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\caliscope\prerecorded_workflow")
     controller = Controller(workspace_dir)
     charuco = Charuco(
         4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True

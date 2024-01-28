@@ -1,14 +1,14 @@
-import pyxy3d.logger
+import caliscope.logger
 from queue import Queue
 from threading import Thread, Event
 import random
 import cv2
 
-from pyxy3d.packets import FramePacket
-from pyxy3d.recording.recorded_stream import RecordedStream
-from pyxy3d.cameras.camera_array import CameraData
+from caliscope.packets import FramePacket
+from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.cameras.camera_array import CameraData
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class IntrinsicCalibrator:

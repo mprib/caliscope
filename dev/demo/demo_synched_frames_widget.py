@@ -1,17 +1,17 @@
 from PySide6.QtWidgets import QApplication
 import sys
 
-from pyxy3d.gui.synched_frames_display import SynchedFramesDisplay
-from pyxy3d.controller import Controller
+from caliscope.gui.synched_frames_display import SynchedFramesDisplay
+from caliscope.controller import Controller
 
 from pathlib import Path
 
-from pyxy3d import __root__
-from pyxy3d.helper import copy_contents
-import pyxy3d.logger
+from caliscope import __root__
+from caliscope.helper import copy_contents
+import caliscope.logger
 from time import sleep
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 app = QApplication(sys.argv)
 # Define the input file path here.
 original_workspace_dir = Path(__root__, "tests", "sessions", "mediapipe_calibration")

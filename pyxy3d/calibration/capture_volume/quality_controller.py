@@ -1,7 +1,7 @@
 #%%
-import pyxy3d.logger
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 from pathlib import Path
 import pickle
@@ -10,13 +10,13 @@ from scipy import stats
 import numpy as np
 import pandas as pd
 import rtoml
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.calibration.capture_volume.capture_volume import (
+from caliscope.calibration.charuco import Charuco
+from caliscope.calibration.capture_volume.capture_volume import (
     CaptureVolume,
     xy_reprojection_error,
 )
 
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 
 class QualityController:
     def __init__(self, capture_volume:CaptureVolume, charuco:Charuco = None):
@@ -350,8 +350,8 @@ def cartesian_product(*arrays):
 
 if __name__ == "__main__":
 # if True:
-    from pyxy3d.session.session import LiveSession
-    from pyxy3d import __root__
+    from caliscope.session.session import LiveSession
+    from caliscope import __root__
 
     session_directory = Path(__root__, "tests", "217")
     # config_path = Path(session_directory, "config.toml")  

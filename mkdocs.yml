@@ -1,8 +1,8 @@
 site_name: Pyxy3D
 site_description: A brief description of your project
-site_url: https://mprib.github.io/pyxy3d/
-repo_url: https://github.com/mprib/pyxy3d
-repo_name: pyxy3d
+site_url: https://mprib.github.io/caliscope/
+repo_url: https://github.com/mprib/caliscope
+repo_name: caliscope
 
 theme:
   logo: images/pyxy3d_logo.svg

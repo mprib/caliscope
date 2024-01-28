@@ -1,6 +1,6 @@
 # %%
 
-import pyxy3d.logger
+import caliscope.logger
 
 import numpy as np
 from dataclasses import dataclass
@@ -8,7 +8,7 @@ import cv2
 from enum import Enum, auto
 from numba.typed import Dict
 from collections import OrderedDict
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 CAMERA_PARAM_COUNT = 6
 
 @dataclass

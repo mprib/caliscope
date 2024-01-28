@@ -1,4 +1,4 @@
-import pyxy3d.logger
+import caliscope.logger
 from pathlib import Path
 
 
@@ -15,20 +15,20 @@ from PySide6.QtWidgets import (
 import rtoml
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt
-from pyxy3d import __root__, __settings_path__
-from pyxy3d.session.session import LiveSession, SessionMode
-from pyxy3d.gui.log_widget import LogWidget
-from pyxy3d.configurator import Configurator
-from pyxy3d.gui.charuco_widget import CharucoWidget
-from pyxy3d.gui.live_camera_config.intrinsic_calibration_widget import (
+from caliscope import __root__, __settings_path__
+from caliscope.session.session import LiveSession, SessionMode
+from caliscope.gui.log_widget import LogWidget
+from caliscope.configurator import Configurator
+from caliscope.gui.charuco_widget import CharucoWidget
+from caliscope.gui.live_camera_config.intrinsic_calibration_widget import (
     IntrinsicCalibrationWidget,
 )
-from pyxy3d.gui.recording_widget import RecordingWidget
-from pyxy3d.gui.post_processing_widget import PostProcessingWidget
-from pyxy3d.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
-from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
+from caliscope.gui.recording_widget import RecordingWidget
+from caliscope.gui.post_processing_widget import PostProcessingWidget
+from caliscope.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
+from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
         self.app_settings = rtoml.load(__settings_path__)
 
         self.setWindowTitle("Pyxy3D")
-        self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/pyxy_logo.svg"))))
+        self.setWindowIcon(QIcon(str(Path(__root__, "caliscope/gui/icons/pyxy_logo.svg"))))
         self.setMinimumSize(500, 500)
 
         # File Menu

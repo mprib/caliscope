@@ -1,9 +1,9 @@
 from pathlib import Path
-import pyxy3d.logger
-from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.configurator import Configurator
+import caliscope.logger
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.configurator import Configurator
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 class WorkspaceGuide:
     
@@ -130,7 +130,7 @@ class WorkspaceGuide:
 
         
 if __name__=="__main__":
-    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\4_cam_prerecorded_practice_working")
+    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\caliscope\4_cam_prerecorded_practice_working")
     camera_count = 4
     workflow_guide = WorkspaceGuide(workspace_dir, camera_count)
 

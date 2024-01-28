@@ -1,6 +1,6 @@
 #%%
 
-import pyxy3d.logger
+import caliscope.logger
 
 
 from pathlib import Path
@@ -10,14 +10,14 @@ import numpy as np
 import cv2
 from scipy.optimize import least_squares
 
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.calibration.capture_volume.set_origin_functions import (
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.calibration.charuco import Charuco
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.calibration.capture_volume.set_origin_functions import (
     get_board_origin_transform,
 )
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 CAMERA_PARAM_COUNT = 6
 

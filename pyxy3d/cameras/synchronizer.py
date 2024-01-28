@@ -1,4 +1,4 @@
-import pyxy3d.logger
+import caliscope.logger
 
 
 # logger.setLevel(logging.DEBUG)
@@ -8,9 +8,9 @@ from queue import Queue
 from threading import Thread, Event
 
 import numpy as np
-from pyxy3d.packets import SyncPacket
+from caliscope.packets import SyncPacket
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 DROPPED_FRAME_TRACK_WINDOW = 100 # trailing frames tracked for reporting purposes
 

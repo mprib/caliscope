@@ -2,15 +2,15 @@
 # detector and the corner drawer...like, there will need to be something that
 # accumulates a frame of corners to be drawn onto the displayed frame.
 
-import pyxy3d.logger
+import caliscope.logger
 import cv2
 import numpy as np
-import pyxy3d.calibration.draw_charuco
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.packets import PointPacket
-from pyxy3d.tracker import Tracker
+import caliscope.calibration.draw_charuco
+from caliscope.calibration.charuco import Charuco
+from caliscope.packets import PointPacket
+from caliscope.tracker import Tracker
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 class CharucoTracker(Tracker):
     def __init__(self, charuco):

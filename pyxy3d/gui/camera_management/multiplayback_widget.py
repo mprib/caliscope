@@ -6,13 +6,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from pathlib import Path
-from pyxy3d.gui.camera_management.playback_widget import (
+from caliscope.gui.camera_management.playback_widget import (
     IntrinsicCalibrationWidget,
 )
-from pyxy3d.controller import Controller
-import pyxy3d.logger
+from caliscope.controller import Controller
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class MultiIntrinsicPlaybackWidget(QWidget):
@@ -44,7 +44,7 @@ class MultiIntrinsicPlaybackWidget(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
+    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\caliscope\prerecorded_workflow")
     controller = Controller(workspace_dir)
     controller.load_camera_array()
     controller.load_intrinsic_stream_manager()

@@ -1,6 +1,6 @@
 
 
-import pyxy3d.logger
+import caliscope.logger
 from time import sleep
 import math
 from threading import Event
@@ -18,11 +18,11 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.packets import FramePacket
-from pyxy3d.controller import Controller
+from caliscope.cameras.synchronizer import Synchronizer
+from caliscope.packets import FramePacket
+from caliscope.controller import Controller
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
  
 class ExtrinsicPlaybackWidget(QWidget):
      

@@ -1,4 +1,4 @@
-import pyxy3d.logger
+import caliscope.logger
 import numpy as np
 
 from threading import Event
@@ -7,11 +7,11 @@ from queue import Queue
 import cv2
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QImage, QPixmap
-import pyxy3d.calibration.draw_charuco as draw_charuco
-from pyxy3d.recording.recorded_stream import RecordedStream
-from pyxy3d.gui.frame_emitters.tools import resize_to_square, apply_rotation, cv2_to_qlabel
+import caliscope.calibration.draw_charuco as draw_charuco
+from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.gui.frame_emitters.tools import resize_to_square, apply_rotation, cv2_to_qlabel
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class PlaybackFrameEmitter(QThread):

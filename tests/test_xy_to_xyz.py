@@ -1,16 +1,16 @@
-import pyxy3d.logger
+import caliscope.logger
 
 import time
 import pandas as pd
 from pathlib import Path
-from pyxy3d import __root__
-from pyxy3d.configurator import Configurator
-# from pyxy3d.post_processing.post_processor import PostProcessor
-from pyxy3d.triangulate.triangulation import triangulate_xy
+from caliscope import __root__
+from caliscope.configurator import Configurator
+# from caliscope.post_processing.post_processor import PostProcessor
+from caliscope.triangulate.triangulation import triangulate_xy
 
-from pyxy3d.helper import copy_contents
-from pyxy3d.trackers.tracker_enum import TrackerEnum
-logger = pyxy3d.logger.get(__name__)
+from caliscope.helper import copy_contents
+from caliscope.trackers.tracker_enum import TrackerEnum
+logger = caliscope.logger.get(__name__)
 
 def test_xy_to_xyz_postprocessing():
     # load in file of xy point data

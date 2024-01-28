@@ -1,4 +1,4 @@
-import pyxy3d.logger
+import caliscope.logger
 import numpy as np
 
 from threading import Event
@@ -6,11 +6,11 @@ from queue import Queue
 
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.cameras.camera_array import CameraData
-from pyxy3d.gui.frame_emitters.tools import resize_to_square, apply_rotation, cv2_to_qlabel
+from caliscope.cameras.synchronizer import Synchronizer
+from caliscope.cameras.camera_array import CameraData
+from caliscope.gui.frame_emitters.tools import resize_to_square, apply_rotation, cv2_to_qlabel
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class FrameDictionaryEmitter(QThread):

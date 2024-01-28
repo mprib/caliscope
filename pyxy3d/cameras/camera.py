@@ -21,8 +21,8 @@ import time
 import os
 
 import cv2
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 
 TEST_FRAME_COUNT = 10
 MIN_RESOLUTION_CHECK = 200

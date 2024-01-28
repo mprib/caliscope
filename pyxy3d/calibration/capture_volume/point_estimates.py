@@ -3,8 +3,8 @@
 # though this workflow may be useful into the future. Save out milestone calculations
 # along the way that allow for blocks of dataprocessing
 #%%
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 
 from pathlib import Path
 
@@ -13,7 +13,7 @@ from scipy.sparse import lil_matrix
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass
-from pyxy3d.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
+from caliscope.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
 
 CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrinsic
 

@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
 from PySide6.QtGui import QImage
-import pyxy3d.logger
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 def resize_to_square(frame):
     height = frame.shape[0]

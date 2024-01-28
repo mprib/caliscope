@@ -1,4 +1,4 @@
-import pyxy3d.logger
+import caliscope.logger
 from pathlib import Path
 from enum import Enum
 import os
@@ -16,21 +16,21 @@ from PySide6.QtWidgets import (
 import rtoml
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt
-from pyxy3d import __root__, __settings_path__
-from pyxy3d.gui.log_widget import LogWidget
-from pyxy3d.gui.charuco_widget import CharucoWidget
-from pyxy3d.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
-from pyxy3d.gui.workspace_widget import WorkspaceSummaryWidget
-from pyxy3d.gui.camera_management.multiplayback_widget import (
+from caliscope import __root__, __settings_path__
+from caliscope.gui.log_widget import LogWidget
+from caliscope.gui.charuco_widget import CharucoWidget
+from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
+from caliscope.gui.workspace_widget import WorkspaceSummaryWidget
+from caliscope.gui.camera_management.multiplayback_widget import (
     MultiIntrinsicPlaybackWidget,
 )
-from pyxy3d.gui.post_processing_widget import PostProcessingWidget
-from pyxy3d.controller import Controller
-from pyxy3d import __log_dir__
-from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
-from pyxy3d.cameras.camera_array import CameraArray
+from caliscope.gui.post_processing_widget import PostProcessingWidget
+from caliscope.controller import Controller
+from caliscope import __log_dir__
+from caliscope.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
+from caliscope.cameras.camera_array import CameraArray
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class TabTypes(Enum):
@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
         self.app_settings = rtoml.load(__settings_path__)
 
         self.setWindowTitle("Pyxy3D")
-        self.setWindowIcon(QIcon(str(Path(__root__, "pyxy3d/gui/icons/pyxy_logo.svg"))))
+        self.setWindowIcon(QIcon(str(Path(__root__, "caliscope/gui/icons/pyxy_logo.svg"))))
         self.setMinimumSize(500, 500)
         self.central_tab = QWidget(self)
         self.setCentralWidget(self.central_tab)

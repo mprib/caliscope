@@ -1,10 +1,10 @@
 import sys
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem
-from pyxy3d.controller import Controller
-import pyxy3d.logger
+from caliscope.controller import Controller
+import caliscope.logger
 from collections import OrderedDict
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 class CameraDataDisplayWidget(QWidget):
     """
@@ -79,7 +79,7 @@ class CameraDataDisplayWidget(QWidget):
 
 
 if __name__ == '__main__':
-    from pyxy3d import __root__
+    from caliscope import __root__
     from pathlib import Path
     
     app = QApplication(sys.argv)

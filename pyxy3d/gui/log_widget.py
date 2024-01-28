@@ -1,4 +1,4 @@
-from pyxy3d.logger import get, XStream
+from caliscope.logger import get, XStream
 
 from PySide6.QtCore import Slot, Qt
 from PySide6.QtWidgets import (

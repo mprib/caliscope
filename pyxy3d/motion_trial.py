@@ -1,9 +1,9 @@
 from pathlib import Path
 import pandas as pd
 from dataclasses import dataclass, field
-from pyxy3d.packets import XYZPacket
+from caliscope.packets import XYZPacket
 import numpy as np
-from pyxy3d.trackers.tracker_enum import TrackerEnum
+from caliscope.trackers.tracker_enum import TrackerEnum
 
 @dataclass
 class MotionTrial:

@@ -1,16 +1,16 @@
-January 23, 2024: Note that this repository's name has changed from `pyxy3d` to `caliscope`. In the coming week I'll be making changes on PyPI to cement the change. I've recently been doing some major refactors that enabled to pre-recorded workflow, split out the sychronized webcam recording into its own project [(multiwebcam)](https://github.com/mprib/multiwebcam), and have started the ball rolling on a submission for the [Journal of Open Source Software](https://joss.theoj.org/). I'd been wanting to change the name for awhile, and with all this transition it seems like the right time.
+January 23, 2024: Note that this repository's name has changed from `caliscope` to `caliscope`. In the coming week I'll be making changes on PyPI to cement the change. I've recently been doing some major refactors that enabled to pre-recorded workflow, split out the sychronized webcam recording into its own project [(multiwebcam)](https://github.com/mprib/multiwebcam), and have started the ball rolling on a submission for the [Journal of Open Source Software](https://joss.theoj.org/). I'd been wanting to change the name for awhile, and with all this transition it seems like the right time.
 
 <div align="center">
 
-<img src = "pyxy3d/gui/icons/pyxy_logo.svg" width = "150">
+<img src = "caliscope/gui/icons/pyxy_logo.svg" width = "150">
 
 *Multicamera Calibration + Pose Estimation --> Open Source Motion Capture*
 
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
-[![PyPI - License](https://img.shields.io/pypi/l/pyxy3d?color=blue)](https://opensource.org/license/bsd-2-clause/)
-[![PyPI - Version](https://img.shields.io/pypi/v/pyxy3d?color=blue)](https://pypi.org/project/pyxy3d/)
-[![GitHub last commit](https://img.shields.io/github/last-commit/mprib/pyxy3d.svg)](https://github.com/mprib/pyxy3d/commits)
-[![GitHub stars](https://img.shields.io/github/stars/mprib/pyxy3d.svg?style=social&label=Star)](https://github.com/mprib/pyxy3d/stargazers)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/caliscope?color=blue)](https://pypi.org/project/caliscope/)
+[![PyPI - License](https://img.shields.io/pypi/l/caliscope?color=blue)](https://opensource.org/license/bsd-2-clause/)
+[![PyPI - Version](https://img.shields.io/pypi/v/caliscope?color=blue)](https://pypi.org/project/caliscope/)
+[![GitHub last commit](https://img.shields.io/github/last-commit/mprib/caliscope.svg)](https://github.com/mprib/caliscope/commits)
+[![GitHub stars](https://img.shields.io/github/stars/mprib/caliscope.svg?style=social&label=Star)](https://github.com/mprib/caliscope/stargazers)
 </div>
 
 ## About
@@ -24,11 +24,11 @@ It is GUI-based and permissively licensed under the BSD 2-clause.
 
 Landmark tracking is based on a Tracker abstract base class. Variations of Google's Mediapipe have been implemented to illustrate use of this base class and how these calculations will flow automatically through the processing pipeline. Implementing alternate tracking tools (such as MMPose) is on the development roadmap.
 
-Please see our [docs](https://mprib.github.io/pyxy3d/) for details about installation, project setup, and general workflow.
+Please see our [docs](https://mprib.github.io/caliscope/) for details about installation, project setup, and general workflow.
 
 ---
 ### Demo Output
-https://github.com/mprib/pyxy3d/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
+https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
 
 *The above was created using Pyxy3D, a 7 year old t440p laptop, and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames (720p @ 24 fps), landmark detection, and point triangulation. Note that the webcam recording functionality is not in the current version, though will be restored in the future. Animated rig creation was done using an early stage Blender add-on project called [Rigmarole](https://github.com/mprib/rigmarole)*
 
@@ -54,10 +54,10 @@ cd path\to\your\project
 
 # Your virtual environment is now active.
 # You can install using pip
-pip install pyxy3d
+pip install caliscope
 
 # Launch from the command line
-pyxy3d
+caliscope
 ```
 
 #### MacOS/Linux
@@ -74,18 +74,18 @@ source .venv/bin/activate
 
 # Your virtual environment is now active.
 # You can install using pip
-pip3 install pyxy3d
+pip3 install caliscope
 
 # Launch from the command line
-pyxy3d
+caliscope
 ```
 
 ### Basic Steps
 
 1. Once the GUI launches, navigate to File->New/Open Project and create a folder to hold your project
-  - A basic [project structure](https://mprib.github.io/pyxy3d/project_setup/) will be created here
+  - A basic [project structure](https://mprib.github.io/caliscope/project_setup/) will be created here
 2. Define a Charuco calibration board via the Charuco tab and print it out, fixing it to something flat
-3. Record footage for the calibration according to the guidelines for the [intrinsic](https://mprib.github.io/pyxy3d/intrinsic_calibration/) and [extrinsic](https://mprib.github.io/pyxy3d/extrinsic_calibration/) calibrations.
+3. Record footage for the calibration according to the guidelines for the [intrinsic](https://mprib.github.io/caliscope/intrinsic_calibration/) and [extrinsic](https://mprib.github.io/caliscope/extrinsic_calibration/) calibrations.
 4. Record synchronized motion capture trials
 5. Store video files within the project folder and reload the workspace
 6. Run autocalibration on all cameras within the Cameras tab
@@ -129,7 +129,7 @@ pyxy3d
 ## Limitations
 
 ### Requires Frame Sync
-The workflow currently requires you to provide your own synchronized frames or to provide [a file](project_setup.md#frame_time_historycsv) that specifies the time at which each frame was read so that pyxy3d can perform the synchronization itself. There are plans to manage this synchronization automatically through audio files, though that has not yet been implemented.
+The workflow currently requires you to provide your own synchronized frames or to provide [a file](project_setup.md#frame_time_historycsv) that specifies the time at which each frame was read so that caliscope can perform the synchronization itself. There are plans to manage this synchronization automatically through audio files, though that has not yet been implemented.
 
 ### Currently only using Mediapipe
 
@@ -137,11 +137,11 @@ Google's Mediapipe provides a relatively easy and efficient method for human sub
 
 ## Reporting Issues and Requesting Features
 
-To report a bug or request a feature, please [open an issue](https://github.com/mprib/pyxy3d/issues). Please keep in mind that this is an open-source project supported by volunteer effort, so your patience is appreciated.
+To report a bug or request a feature, please [open an issue](https://github.com/mprib/caliscope/issues). Please keep in mind that this is an open-source project supported by volunteer effort, so your patience is appreciated.
 
 ## General Questions and Conversation
 
-Post any questions in the [Discussions](https://github.com/mprib/pyxy3d/discussions) section of the repo. 
+Post any questions in the [Discussions](https://github.com/mprib/caliscope/discussions) section of the repo. 
 
 
 ## Acknowledgments

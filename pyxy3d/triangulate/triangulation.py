@@ -1,13 +1,13 @@
 
 
-import pyxy3d.logger
+import caliscope.logger
 import pandas as pd
 from time import time
 from numba import jit
 from numba.typed import Dict, List
-from pyxy3d.cameras.camera_array import CameraArray, CameraData
+from caliscope.cameras.camera_array import CameraArray, CameraData
 import numpy as np
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
 @jit(nopython=True, cache=True)

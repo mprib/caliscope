@@ -5,11 +5,11 @@ from threading import Thread, Event
 import cv2
 import pandas as pd
 
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.packets import SyncPacket
-import pyxy3d.logger
+from caliscope.cameras.synchronizer import Synchronizer
+from caliscope.packets import SyncPacket
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class VideoRecorder:

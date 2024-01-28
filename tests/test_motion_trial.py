@@ -1,10 +1,10 @@
 from pathlib import Path
-from pyxy3d import __root__
-from pyxy3d.motion_trial import MotionTrial
-from pyxy3d.packets import XYZPacket
-import pyxy3d.logger
+from caliscope import __root__
+from caliscope.motion_trial import MotionTrial
+from caliscope.packets import XYZPacket
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 def test_motion_trial():
     

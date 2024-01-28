@@ -1,18 +1,18 @@
 from pathlib import Path
-from pyxy3d.trackers.wireframe_builder import get_wireframe
-from pyxy3d import __root__
+from caliscope.trackers.wireframe_builder import get_wireframe
+from caliscope import __root__
 
-import pyxy3d.logger
-from pyxy3d.tracker import WireFrameView, Segment
-from pyxy3d.trackers.holistic.holistic_tracker import POINT_NAMES, HolisticTracker
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+from caliscope.tracker import WireFrameView, Segment
+from caliscope.trackers.holistic.holistic_tracker import POINT_NAMES, HolisticTracker
+logger = caliscope.logger.get(__name__)
 
 def test_wireframe_builder():
     """
     Simple test to aid with development of integrating the wireframe
     """
 
-    test_path = Path(__root__,r"pyxy3d\trackers\holistic\holistic_wireframe.toml")
+    test_path = Path(__root__,r"caliscope\trackers\holistic\holistic_wireframe.toml")
     logger.info(f"Testing wireframe build of {test_path}")
     wireframe = get_wireframe(test_path, point_names=POINT_NAMES)
     

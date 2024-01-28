@@ -9,13 +9,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
-from pyxy3d.cameras.camera_array import CameraArray
-import pyxy3d.logger
+from caliscope.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
+from caliscope.cameras.camera_array import CameraArray
+import caliscope.logger
 
-from pyxy3d.motion_trial import MotionTrial
+from caliscope.motion_trial import MotionTrial
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 # as part of development process I'm just going to import the skeleton in here
 
 class PlaybackTriangulationWidget(QWidget):

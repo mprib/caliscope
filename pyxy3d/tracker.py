@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import numpy as np
 from abc import ABC, abstractmethod
-from pyxy3d.packets import PointPacket, XYZPacket
+from caliscope.packets import PointPacket, XYZPacket
 from pyqtgraph.opengl import GLLinePlotItem
 import pyqtgraph as pg
 
@@ -28,7 +28,7 @@ class Tracker(ABC):
         rotation count: used to indicate the orientation of the image (e.g. rotateed 90 degrees left or right)
                         Some tracking algorithms expect images to be "upright", so this can be used to align the image
 
-                        The function `apply_rotation` from `pyxy3d.trackers.helper` can correctly orient the image
+                        The function `apply_rotation` from `caliscope.trackers.helper` can correctly orient the image
                         The function `unrotate_points` from the same module can convert any tracked points back into
                         the original orientation
         """

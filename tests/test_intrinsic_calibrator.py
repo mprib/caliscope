@@ -3,17 +3,17 @@ import random
 from queue import Queue
 from time import sleep
 import numpy as np
-from pyxy3d import __root__
-from pyxy3d.helper import copy_contents
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.recording.recorded_stream import RecordedStream
-from pyxy3d.cameras.camera_array import CameraData
-import pyxy3d.logger
+from caliscope import __root__
+from caliscope.helper import copy_contents
+from caliscope.calibration.charuco import Charuco
+from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.cameras.camera_array import CameraData
+import caliscope.logger
 
-from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
+from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 def test_intrinsic_calibrator():

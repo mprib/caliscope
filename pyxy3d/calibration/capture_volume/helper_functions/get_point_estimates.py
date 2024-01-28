@@ -1,12 +1,12 @@
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 
 import pandas as pd
 import numpy as np
-from pyxy3d.cameras.camera_array import CameraArray
+from caliscope.cameras.camera_array import CameraArray
 
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
-from pyxy3d.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
 from pathlib import Path
 
 def get_points_2d_df(stereotriangulated_table:pd.DataFrame):

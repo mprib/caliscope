@@ -3,14 +3,14 @@ from queue import Queue
 from time import sleep
 
 import cv2
-from pyxy3d import __root__
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.recording.recorded_stream import RecordedStream
+from caliscope import __root__
+from caliscope.calibration.charuco import Charuco
+from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.recording.recorded_stream import RecordedStream
 
-import pyxy3d.logger
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 def test_stream():
     
     recording_directory = Path(

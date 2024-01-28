@@ -1,4 +1,4 @@
-import pyxy3d.logger
+import caliscope.logger
 
 from threading import Thread
 from queue import Queue
@@ -8,10 +8,10 @@ import numpy as np
 import cv2
 
 # cap = cv2.VideoCapture(0)
-from pyxy3d.packets import PointPacket
-from pyxy3d.tracker import Tracker
-from pyxy3d.trackers.helper import apply_rotation, unrotate_points
-logger = pyxy3d.logger.get(__name__)
+from caliscope.packets import PointPacket
+from caliscope.tracker import Tracker
+from caliscope.trackers.helper import apply_rotation, unrotate_points
+logger = caliscope.logger.get(__name__)
 
 class HandTracker(Tracker):
     # Initialize MediaPipe Hands and Drawing utility

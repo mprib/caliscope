@@ -1,9 +1,9 @@
-import pyxy3d.logger
+import caliscope.logger
 
 
 from pathlib import Path
 import pandas as pd
-from pyxy3d.trackers.tracker_enum import TrackerEnum
+from caliscope.trackers.tracker_enum import TrackerEnum
 
 from PySide6.QtCore import Signal, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -17,13 +17,13 @@ from PySide6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
-from pyxy3d.post_processing.blender_tools import generate_metarig_config
-from pyxy3d.controller import Controller
-from pyxy3d.configurator import Configurator
-from pyxy3d.gui.vizualize.playback_triangulation_widget import (
+from caliscope.post_processing.blender_tools import generate_metarig_config
+from caliscope.controller import Controller
+from caliscope.configurator import Configurator
+from caliscope.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
 )
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 class PostProcessingWidget(QWidget):
     processing_complete = Signal()

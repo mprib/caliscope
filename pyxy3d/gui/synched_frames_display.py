@@ -1,4 +1,4 @@
-import pyxy3d.logger
+import caliscope.logger
 from time import sleep
 import math
 
@@ -15,11 +15,11 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.gui.frame_emitters.frame_dictionary_emitter import FrameDictionaryEmitter
-from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.cameras.synchronizer import Synchronizer
+from caliscope.gui.frame_emitters.frame_dictionary_emitter import FrameDictionaryEmitter
+from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class SynchedFramesDisplay(QWidget):

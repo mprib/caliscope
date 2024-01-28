@@ -8,14 +8,14 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 from itertools import combinations
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.packets import SyncPacket
+from caliscope.cameras.synchronizer import Synchronizer
+from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.packets import SyncPacket
 
 import logging
-import pyxy3d.logger
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class StereoPointsBuilder:
@@ -149,11 +149,11 @@ class SynchedStereoPointsPacket:
 
 
 if __name__ == "__main__":
-    from pyxy3d.recording.recorded_stream import RecordedStreamPool
-    from pyxy3d.calibration.charuco import Charuco
+    from caliscope.recording.recorded_stream import RecordedStreamPool
+    from caliscope.calibration.charuco import Charuco
 
     logger.setLevel(logging.DEBUG)
-    from pyxy3d import __root__
+    from caliscope import __root__
 
     session_directory = Path(__root__, "tests", "5_cameras", "recording")
     csv_output = Path(session_directory, "paired_point_data.csv")

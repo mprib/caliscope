@@ -2,20 +2,20 @@
 
 
 from pathlib import Path
-from pyxy3d.cameras.camera_array import CameraData, CameraArray
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
-from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
-from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
+from caliscope.cameras.camera_array import CameraData, CameraArray
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
 
 from itertools import permutations
-from pyxy3d import __root__
+from caliscope import __root__
 import numpy as np
 from dataclasses import dataclass, asdict
 import rtoml
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 
 
 @dataclass

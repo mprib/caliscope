@@ -5,12 +5,12 @@ import mediapipe as mp
 import numpy as np
 import cv2
 
-from pyxy3d.packets import PointPacket
-from pyxy3d.tracker import Tracker
-from pyxy3d.trackers.helper import apply_rotation, unrotate_points
+from caliscope.packets import PointPacket
+from caliscope.tracker import Tracker
+from caliscope.trackers.helper import apply_rotation, unrotate_points
 
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 
 MIN_DETECTION_CONFIDENCE = 0.5
 MIN_TRACKING_CONFIDENCE = 0.95

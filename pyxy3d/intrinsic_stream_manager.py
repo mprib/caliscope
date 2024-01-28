@@ -1,14 +1,14 @@
-import pyxy3d.logger
+import caliscope.logger
 from time import sleep
 from pathlib import Path
-from pyxy3d.recording.recorded_stream import RecordedStream
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.cameras.camera_array import CameraData
-from pyxy3d.packets import Tracker
-from pyxy3d.gui.frame_emitters.playback_frame_emitter import PlaybackFrameEmitter
-from pyxy3d.calibration.intrinsic_calibrator import IntrinsicCalibrator
+from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.cameras.camera_array import CameraData
+from caliscope.packets import Tracker
+from caliscope.gui.frame_emitters.playback_frame_emitter import PlaybackFrameEmitter
+from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class IntrinsicStreamManager:

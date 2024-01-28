@@ -1,10 +1,10 @@
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 from pathlib import Path
 import pandas as pd
 import csv
 
-from pyxy3d.packets import Tracker
+from caliscope.packets import Tracker
 
 def xyz_to_wide_labelled(xyz:pd.DataFrame, tracker:Tracker)->pd.DataFrame:
     """

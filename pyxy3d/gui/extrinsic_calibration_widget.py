@@ -1,6 +1,6 @@
 
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 
 import sys
 from pathlib import Path
@@ -30,11 +30,11 @@ from PySide6.QtWidgets import (
 )
 
 # Append main repo to top of path to allow import of backend
-from pyxy3d.session.session import LiveSession
-from pyxy3d.gui.frame_builders.paired_frame_builder import PairedFrameBuilder
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d import __root__
-from pyxy3d.gui.navigation_bars import NavigationBarNext
+from caliscope.session.session import LiveSession
+from caliscope.gui.frame_builders.paired_frame_builder import PairedFrameBuilder
+from caliscope.cameras.synchronizer import Synchronizer
+from caliscope import __root__
+from caliscope.gui.navigation_bars import NavigationBarNext
 
 # the boards needed before a pair could be used to bridge pairs without common corners
 MIN_THRESHOLD_FOR_EARLY_CALIBRATE = 5
@@ -281,8 +281,8 @@ def cv2_to_qlabel(frame):
 
     
 if __name__ == "__main__":
-        from pyxy3d.configurator import Configurator
-        from pyxy3d.trackers.charuco_tracker import CharucoTracker
+        from caliscope.configurator import Configurator
+        from caliscope.trackers.charuco_tracker import CharucoTracker
 
         App = QApplication(sys.argv)
 

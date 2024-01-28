@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 
 
 def gap_fill_xy(xy_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:

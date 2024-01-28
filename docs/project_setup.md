@@ -45,7 +45,7 @@ Place sychronized video files in the `extrinsic` folder. Synchronization can be 
 
 1. Record all video footage with a common external trigger such that each frame is at the same point in time as the corresponding frames from the other files. In other words: all mp4 files should start and stop at the same moment in time and have the same number of frames.
 
-2. Provide a file called `frame_time_history.csv` within the folder of recorded video. This must provide the time at which each frame was read so that pyxy3d can synchronize the footage during processing. 
+2. Provide a file called `frame_time_history.csv` within the folder of recorded video. This must provide the time at which each frame was read so that caliscope can synchronize the footage during processing. 
    
    
 ### `frame_time_history.csv`

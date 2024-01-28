@@ -1,13 +1,13 @@
 from pathlib import Path
-import pyxy3d.logger
+import caliscope.logger
 import cv2
 import pandas as pd
-from pyxy3d import __root__
+from caliscope import __root__
 import numpy as np
 import rtoml
 from itertools import combinations
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class StereoCalibrator:

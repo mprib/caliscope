@@ -1,5 +1,5 @@
 import os
-from pyxy3d.gui.synched_frames_display import SynchedFramesDisplay
+from caliscope.gui.synched_frames_display import SynchedFramesDisplay
 from PySide6.QtCore import QThread
 import sys
 import subprocess
@@ -7,9 +7,9 @@ import time
 from pathlib import Path
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QVBoxLayout, QPushButton, QSpinBox, QGridLayout, QTextBrowser
 from PySide6.QtCore import QFileSystemWatcher, Slot, Qt
-from pyxy3d.controller import Controller
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+from caliscope.controller import Controller
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 
 class WorkspaceSummaryWidget(QWidget):
     def __init__(self, controller:Controller):

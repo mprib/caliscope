@@ -2,23 +2,23 @@
 # all of the data is ultimately embedded in the initial camera array configuration
 # and the calibration point data. These functions transform those two
 # things into a PointHistory object that can be used to optimize the CaptureVolume
-import pyxy3d.logger
+import caliscope.logger
 
 
 import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from pyxy3d.packets import PointPacket, FramePacket, SyncPacket
-from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.triangulate.array_stereo_triangulator import ArrayStereoTriangulator
+from caliscope.packets import PointPacket, FramePacket, SyncPacket
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.triangulate.array_stereo_triangulator import ArrayStereoTriangulator
 
-from pyxy3d.triangulate.stereo_points_builder import (
+from caliscope.triangulate.stereo_points_builder import (
     StereoPointsBuilder,
     StereoPointsPacket,
     SynchedStereoPointsPacket,
 )
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 def get_stereotriangulated_table(

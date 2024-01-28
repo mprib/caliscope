@@ -1,5 +1,5 @@
 
-import pyxy3d.logger
+import caliscope.logger
 import logging
 
 from pathlib import Path
@@ -12,11 +12,11 @@ from time import perf_counter, sleep
 import pandas as pd
 import numpy as np
 
-from pyxy3d.packets import FramePacket, Tracker
-from pyxy3d.cameras.camera_array import CameraData
-from pyxy3d.configurator import Configurator
+from caliscope.packets import FramePacket, Tracker
+from caliscope.cameras.camera_array import CameraData
+from caliscope.configurator import Configurator
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 logger.setLevel(logging.INFO)
 
 

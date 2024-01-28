@@ -1,21 +1,21 @@
-import pyxy3d.logger
+import caliscope.logger
 import shutil
 
 from time import sleep
 
 from pathlib import Path
 import pandas as pd
-from pyxy3d.triangulate.triangulation import triangulate_xy
-from pyxy3d.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.triangulate.triangulation import triangulate_xy
+from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 
-from pyxy3d.trackers.tracker_enum import TrackerEnum
-from pyxy3d.cameras.camera_array import CameraArray
+from caliscope.trackers.tracker_enum import TrackerEnum
+from caliscope.cameras.camera_array import CameraArray
 
-from pyxy3d.export import xyz_to_trc, xyz_to_wide_labelled
-from pyxy3d.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
-from pyxy3d.post_processing.smoothing import smooth_xyz
+from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
+from caliscope.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
+from caliscope.post_processing.smoothing import smooth_xyz
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class PostProcessor:
@@ -135,10 +135,10 @@ class PostProcessor:
 
 
 if __name__ == "__main__":
-    from pyxy3d.controller import Controller
+    from caliscope.controller import Controller
 
     workspace_dir = Path(
-        r"C:\Users\Mac Prible\OneDrive\pyxy3d\4_cam_prerecorded_practice_working"
+        r"C:\Users\Mac Prible\OneDrive\caliscope\4_cam_prerecorded_practice_working"
     )
     controller = Controller(workspace_dir)
     controller.load_camera_array()

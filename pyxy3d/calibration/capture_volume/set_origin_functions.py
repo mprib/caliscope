@@ -1,20 +1,20 @@
 # %%
-import pyxy3d.logger
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 from pathlib import Path
 import numpy as np
 import sys
 import scipy
 from PySide6.QtWidgets import QApplication
-from pyxy3d import __root__
-from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
+from caliscope import __root__
+from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.cameras.camera_array import CameraData, CameraArray
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.calibration.charuco import Charuco
+from caliscope.cameras.camera_array import CameraData, CameraArray
 import cv2
 import pickle
 
@@ -236,13 +236,13 @@ def get_board_origin_transform(
 
 if __name__ == "__main__":
     #
-    from pyxy3d.session.session import LiveSession
-    from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
-    from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
-    from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import (
+    from caliscope.session.session import LiveSession
+    from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
+    from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+    from caliscope.gui.vizualize.calibration.capture_volume_visualizer import (
         CaptureVolumeVisualizer,
     )
-    from pyxy3d.gui.vizualize.calibration.capture_volume_widget import (
+    from caliscope.gui.vizualize.calibration.capture_volume_widget import (
         CaptureVolumeWidget,
     )
 

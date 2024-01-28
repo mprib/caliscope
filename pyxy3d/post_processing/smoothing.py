@@ -1,9 +1,9 @@
 
-import pyxy3d.logger
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
-from pyxy3d import __root__
+from caliscope import __root__
 import pandas as pd
 import numpy as np
 from scipy.signal import butter, filtfilt

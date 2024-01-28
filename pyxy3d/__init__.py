@@ -4,7 +4,7 @@ from pathlib import Path
 import rtoml
 import platform
 
-__package_name__ = "pyxy3d"
+__package_name__ = "caliscope"
 __version__ = "v0.2.4"
 
 __author__ = """Mac Prible"""

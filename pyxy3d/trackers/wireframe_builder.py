@@ -1,8 +1,8 @@
 import rtoml
 from pathlib import Path
-import pyxy3d.logger
-from pyxy3d.tracker import WireFrameView, Segment
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+from caliscope.tracker import WireFrameView, Segment
+logger = caliscope.logger.get(__name__)
 
 def get_wireframe(toml_spec_path: Path, point_names: dict)-> WireFrameView:
     

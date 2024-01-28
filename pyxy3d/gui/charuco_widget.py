@@ -17,11 +17,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.controller import Controller
-import pyxy3d.logger
+from caliscope.calibration.charuco import Charuco
+from caliscope.controller import Controller
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 class CharucoWidget(QWidget):
     def __init__(self, controller:Controller):
         super().__init__()
@@ -247,8 +247,8 @@ if __name__ == "__main__":
 
 
     app = QApplication(sys.argv)
-    from pyxy3d import __root__
-    from pyxy3d.calibration.charuco import Charuco
+    from caliscope import __root__
+    from caliscope.calibration.charuco import Charuco
 
     # Define the input file path here.
     original_workspace_dir = Path(
@@ -259,7 +259,7 @@ if __name__ == "__main__":
     # )
 
     # copy_contents(original_workspace_dir, workspace_dir)
-    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\pyxy3d\prerecorded_workflow")
+    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\caliscope\prerecorded_workflow")
     controller = Controller(workspace_dir)
     charuco_page = CharucoWidget(controller)
 

@@ -1,10 +1,10 @@
 # a set of helper functions meant to provide visual feedback
 # regarding the capture history and corner identification of
 # the charuco board
-import pyxy3d.logger
+import caliscope.logger
 from itertools import combinations
 import cv2
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 def grid_history(frame, ids, img_locs, connected_corners):
     """

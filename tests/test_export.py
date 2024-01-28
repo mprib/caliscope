@@ -1,10 +1,10 @@
 # %%
 
-from pyxy3d.trackers.holistic.holistic_tracker import HolisticTracker
+from caliscope.trackers.holistic.holistic_tracker import HolisticTracker
 from pathlib import Path
-from pyxy3d import __root__
-from pyxy3d.helper import copy_contents
-from pyxy3d.export import xyz_to_wide_labelled, xyz_to_trc
+from caliscope import __root__
+from caliscope.helper import copy_contents
+from caliscope.export import xyz_to_wide_labelled, xyz_to_trc
 
 import csv
 import pandas as pd

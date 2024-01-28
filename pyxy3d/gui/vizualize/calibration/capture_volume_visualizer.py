@@ -1,15 +1,15 @@
-import pyxy3d.logger
+import caliscope.logger
 
 
 import numpy as np
 import pyqtgraph.opengl as gl
 
 
-from pyxy3d.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
-from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 class CaptureVolumeVisualizer:
     """

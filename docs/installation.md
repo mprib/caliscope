@@ -66,21 +66,21 @@ With your virtual environment activated, the next step is to install pyxy3D itse
 
     ``` bash
     # Install Pyxy3D via pip
-    pip install pyxy3d
+    pip install caliscope
     ```
 
 === "macOS"
 
     ``` bash
     # Install Pyxy3D via pip
-    pip3 install pyxy3d
+    pip3 install caliscope
     ```
 
 === "Linux"
 
     ``` bash
     # Install Pyxy3D via pip
-    pip3 install pyxy3d
+    pip3 install caliscope
     ```
 
 Remember, installation may take a moment as some dependencies, like OpenCV and MediaPipe, are quite large. But don't worry, this is a one-time process, and you'll soon be ready to dive in.
@@ -91,7 +91,7 @@ Remember, installation may take a moment as some dependencies, like OpenCV and M
 With the package installed and the virtual environment activated, the main GUI can be launched by running the following command:
 
 ``` bash
-pyxy3d
+caliscope
 ```
 
 *Note on First Launch*: The first time you launch after installation, you might experience a longer than usual startup time. This is normal and expected as the application performs initial setup tasks like compiling components. Rest assured, these processes are one-time events, and subsequent launches of the GUI will be significantly faster.

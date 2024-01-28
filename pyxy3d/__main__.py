@@ -1,9 +1,9 @@
 import sys
 
-from pyxy3d.gui.main_widget import launch_main
-import pyxy3d.logger
+from caliscope.gui.main_widget import launch_main
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 def CLI_parser():

@@ -1,16 +1,16 @@
 import numpy as np
 import pandas as pd
-from pyxy3d.cameras.camera_array import CameraArray
-from pyxy3d.cameras.synchronizer import Synchronizer, SyncPacket
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.cameras.synchronizer import Synchronizer, SyncPacket
 from queue import Queue
 from threading import Thread, Event
 from pathlib import Path
-from pyxy3d.packets import XYZPacket
+from caliscope.packets import XYZPacket
 
-from pyxy3d.triangulate.triangulation import triangulate_sync_index
-import pyxy3d.logger
+from caliscope.triangulate.triangulation import triangulate_sync_index
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 class SyncPacketTriangulator:
     """

@@ -8,13 +8,13 @@ import numpy as np
 import cv2
 
 # cap = cv2.VideoCapture(0)
-from pyxy3d.packets import PointPacket
-from pyxy3d.tracker import Tracker, WireFrameView, Segment
-from pyxy3d.trackers.helper import apply_rotation, unrotate_points
-from pyxy3d.trackers.wireframe_builder import get_wireframe
+from caliscope.packets import PointPacket
+from caliscope.tracker import Tracker, WireFrameView, Segment
+from caliscope.trackers.helper import apply_rotation, unrotate_points
+from caliscope.trackers.wireframe_builder import get_wireframe
 
-import pyxy3d.logger
-logger = pyxy3d.logger.get(__name__)
+import caliscope.logger
+logger = caliscope.logger.get(__name__)
 
 DRAW_IGNORE_LIST = [
     "nose",

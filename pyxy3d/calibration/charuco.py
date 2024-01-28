@@ -6,14 +6,14 @@
 # in meters as a standard convention of science, and to improve
 # readability of 3D positional output downstream
 
-import pyxy3d.logger
+import caliscope.logger
 
 from collections import defaultdict
 from itertools import combinations
 import cv2
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 INCHES_PER_CM = 0.393701
 class Charuco:

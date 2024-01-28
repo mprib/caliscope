@@ -1,14 +1,14 @@
-import pyxy3d.logger
+import caliscope.logger
 import statistics
 import cv2
 from pathlib import Path
-from pyxy3d.cameras.synchronizer import Synchronizer
-from pyxy3d.recording.recorded_stream import RecordedStream
-from pyxy3d.cameras.camera_array import CameraData
-from pyxy3d.packets import Tracker
-from pyxy3d.recording.video_recorder import VideoRecorder
+from caliscope.cameras.synchronizer import Synchronizer
+from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.cameras.camera_array import CameraData
+from caliscope.packets import Tracker
+from caliscope.recording.video_recorder import VideoRecorder
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class SynchronizedStreamManager:

@@ -1,14 +1,14 @@
-import pyxy3d.logger
+import caliscope.logger
 
 import cv2
 import numpy as np
 from pathlib import Path
 from itertools import combinations
 
-from pyxy3d.triangulate.stereo_points_builder import StereoPointsBuilder, StereoPointsPacket, SynchedStereoPointsPacket
-from pyxy3d.triangulate.triangulation import undistort
-from pyxy3d.cameras.camera_array import CameraData, CameraArray
-logger = pyxy3d.logger.get(__name__)
+from caliscope.triangulate.stereo_points_builder import StereoPointsBuilder, StereoPointsPacket, SynchedStereoPointsPacket
+from caliscope.triangulate.triangulation import undistort
+from caliscope.cameras.camera_array import CameraData, CameraArray
+logger = caliscope.logger.get(__name__)
 
 class ArrayStereoTriangulator:
     

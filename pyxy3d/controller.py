@@ -5,32 +5,32 @@ from enum import Enum, auto
 from pathlib import Path
 from PySide6.QtGui import QPixmap
 from time import sleep, time
-from pyxy3d.packets import Tracker
-from pyxy3d.trackers.tracker_enum import TrackerEnum
-from pyxy3d.post_processing.post_processor import PostProcessor
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.intrinsic_stream_manager import IntrinsicStreamManager
-from pyxy3d.configurator import Configurator
-from pyxy3d.trackers.charuco_tracker import CharucoTracker
-from pyxy3d.calibration.stereocalibrator import StereoCalibrator
-from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
-from pyxy3d.cameras.camera_array import CameraArray, CameraData
-from pyxy3d.cameras.camera_array_initializer import CameraArrayInitializer
-from pyxy3d.calibration.capture_volume.quality_controller import QualityController
-from pyxy3d.calibration.capture_volume.helper_functions.get_point_estimates import (
+from caliscope.packets import Tracker
+from caliscope.trackers.tracker_enum import TrackerEnum
+from caliscope.post_processing.post_processor import PostProcessor
+from caliscope.calibration.charuco import Charuco
+from caliscope.intrinsic_stream_manager import IntrinsicStreamManager
+from caliscope.configurator import Configurator
+from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.calibration.stereocalibrator import StereoCalibrator
+from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
+from caliscope.calibration.capture_volume.quality_controller import QualityController
+from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
-from pyxy3d.synchronized_stream_manager import (
+from caliscope.synchronized_stream_manager import (
     SynchronizedStreamManager,
     read_video_properties,
 )
-from pyxy3d.workspace_guide import WorkspaceGuide
+from caliscope.workspace_guide import WorkspaceGuide
 from collections import OrderedDict
 
-import pyxy3d.logger
+import caliscope.logger
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 FILTERED_FRACTION = 0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration

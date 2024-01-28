@@ -1,13 +1,13 @@
 
-import pyxy3d.logger
+import caliscope.logger
 import json
 
 from pathlib import Path
 import pandas as pd
 import numpy as np
 
-from pyxy3d.trackers.tracker_enum import TrackerEnum
-logger = pyxy3d.logger.get(__name__)
+from caliscope.trackers.tracker_enum import TrackerEnum
+logger = caliscope.logger.get(__name__)
 
 def calculate_distance(xyz_trajectory_data:pd.DataFrame, point1:str, point2:str):
     """

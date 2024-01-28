@@ -1,7 +1,7 @@
 
 #%%
 from plotnine import *
-# from pyxy3d.logger import get
+# from caliscope.logger import get
 # logger = get(__name__)
 import cv2
 from threading import Thread
@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 recording_directory = Path(
-    r"C:\Users\Mac Prible\OneDrive\pyxy3d\test_record\recording_1"
+    r"C:\Users\Mac Prible\OneDrive\caliscope\test_record\recording_1"
 )
 
 data = pl.read_csv(Path(recording_directory,"combined_gap_filled_alt.csv"))

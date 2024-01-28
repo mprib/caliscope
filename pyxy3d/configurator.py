@@ -1,6 +1,6 @@
 # %%
 
-import pyxy3d.logger
+import caliscope.logger
 
 from pathlib import Path
 from datetime import datetime
@@ -10,14 +10,14 @@ import rtoml
 from dataclasses import asdict
 import cv2
 
-from pyxy3d.calibration.charuco import Charuco
-from pyxy3d.cameras.camera import Camera
-from pyxy3d.cameras.camera_array import CameraArray, CameraData
-from pyxy3d.calibration.capture_volume.point_estimates import PointEstimates
-from pyxy3d.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.calibration.charuco import Charuco
+from caliscope.cameras.camera import Camera
+from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from concurrent.futures import ThreadPoolExecutor
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class Configurator:
@@ -324,7 +324,7 @@ class Configurator:
 
 if __name__ == "__main__":
     import rtoml
-    from pyxy3d import __app_dir__
+    from caliscope import __app_dir__
 
     app_settings = rtoml.load(Path(__app_dir__, "settings.toml"))
     recent_projects: list = app_settings["recent_projects"]

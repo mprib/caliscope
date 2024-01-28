@@ -1,13 +1,13 @@
 
-import pyxy3d.logger
+import caliscope.logger
 
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 import math
 
-from pyxy3d.cameras.camera_array import CameraData
+from caliscope.cameras.camera_array import CameraData
 import numpy as np
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 class CameraMesh:
     """Build a camera mesh object that is looking up from the origin"""

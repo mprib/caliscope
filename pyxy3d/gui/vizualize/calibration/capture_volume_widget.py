@@ -1,4 +1,4 @@
-import pyxy3d.logger
+import caliscope.logger
 
 import numpy as np
 
@@ -14,12 +14,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from pyxy3d.controller import Controller
-from pyxy3d.gui.vizualize.calibration.capture_volume_visualizer import (
+from caliscope.controller import Controller
+from caliscope.gui.vizualize.calibration.capture_volume_visualizer import (
     CaptureVolumeVisualizer,
 )
 
-logger = pyxy3d.logger.get(__name__)
+logger = caliscope.logger.get(__name__)
 
 
 class CaptureVolumeWidget(QWidget):

@@ -79,6 +79,7 @@ caliscope
 2. Define a Charuco calibration board via the Charuco tab and print it out, fixing it to something flat
 3. Record footage for the calibration according to the guidelines for the [intrinsic](https://mprib.github.io/caliscope/intrinsic_calibration/) and [extrinsic](https://mprib.github.io/caliscope/extrinsic_calibration/) calibrations.
 4. Record synchronized motion capture trials
+  - A companion project ([multiwebcam](https://github.com/mprib/multiwebcam)) has been set up to facilitate this though is still in early stages
 5. Store video files within the project folder and reload the workspace
 6. Run autocalibration on all cameras within the Cameras tab
 7. Run "Calibration Capture Volume" from the Workspace Tab

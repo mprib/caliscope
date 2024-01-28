@@ -14,15 +14,7 @@ January 23, 2024: Note that this repository's name has changed from `caliscope` 
 </div>
 
 ## About
-Caliscope (*pixie-3D*) is intended to serve as the core software component of a low-cost DIY motion capture studio. It is a **py**thon package that integrates:
-
-- multicamera calibration
-- 2D (**x,y**) landmark tracking
-- **3D** landmark triangulation. 
-
-It is GUI-based and permissively licensed under the BSD 2-clause.
-
-Landmark tracking is based on a Tracker abstract base class. Variations of Google's Mediapipe have been implemented to illustrate use of this base class and how these calculations will flow automatically through the processing pipeline. Implementing alternate tracking tools (such as MMPose) is on the development roadmap.
+`Caliscope` is a GUI-based multicamera calibration package that integrates with 2D landmark tracking tools to produce low-cost, open-source motion capture.
 
 Please see our [docs](https://mprib.github.io/caliscope/) for details about installation, project setup, and general workflow.
 

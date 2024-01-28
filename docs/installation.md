@@ -1,10 +1,10 @@
 # Installation
 
-Pyxy3D can be installed easily using pip and launched from the command line.
+Caliscope can be installed easily using pip and launched from the command line.
 
 ## 1. Create a virtual environment
 
-We strongly advise installing within a virtual environment. This approach helps in maintaining a clean workspace and avoids conflicts with other packages. Pyxy3D is compatible with Python versions [3.10](https://www.python.org/downloads/release/python-3100/) and [3.11](https://www.python.org/downloads/release/python-3110/). To avoid complications, we recommend you use the full file path to your Python executable. Here's how to do it for different operating systems:
+We strongly advise installing within a virtual environment. This approach helps in maintaining a clean workspace and avoids conflicts with other packages. Caliscope is compatible with Python versions [3.10](https://www.python.org/downloads/release/python-3100/) and [3.11](https://www.python.org/downloads/release/python-3110/). To avoid complications, we recommend you use the full file path to your Python executable. Here's how to do it for different operating systems:
 
 === "Windows"
 
@@ -65,21 +65,21 @@ With your virtual environment activated, the next step is to install pyxy3D itse
 === "Windows"
 
     ``` bash
-    # Install Pyxy3D via pip
+    # Install Caliscope via pip
     pip install caliscope
     ```
 
 === "macOS"
 
     ``` bash
-    # Install Pyxy3D via pip
+    # Install Caliscope via pip
     pip3 install caliscope
     ```
 
 === "Linux"
 
     ``` bash
-    # Install Pyxy3D via pip
+    # Install Caliscope via pip
     pip3 install caliscope
     ```
 

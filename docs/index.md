@@ -3,7 +3,7 @@
 
 # Welcome
 
-Pyxy3D (*pixie-3D*) is intended to serve as the core software component of a low-cost DIY motion capture studio. It is **py**thon package that integrates:
+Caliscope (*pixie-3D*) is intended to serve as the core software component of a low-cost DIY motion capture studio. It is **py**thon package that integrates:
 
 - multicamera calibration
 - 2D (**x,y**) landmark tracking

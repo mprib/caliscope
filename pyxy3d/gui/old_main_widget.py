@@ -37,7 +37,7 @@ class MainWindow(QMainWindow):
 
         self.app_settings = rtoml.load(__settings_path__)
 
-        self.setWindowTitle("Pyxy3D")
+        self.setWindowTitle("Caliscope")
         self.setWindowIcon(QIcon(str(Path(__root__, "caliscope/gui/icons/pyxy_logo.svg"))))
         self.setMinimumSize(500, 500)
 

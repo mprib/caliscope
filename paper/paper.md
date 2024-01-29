@@ -8,9 +8,6 @@ authors:
   - name: Donald Prible, PT
     orcid: 0000-0001-9243-468X
     affiliation: 1
-  - name: Hao-Yuan Hsiao, PhD
-    corresponding: true 
-    affiliation: 1
 affiliations:
  - name: The University of Texas at Austin, United States
    index: 1

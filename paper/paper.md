@@ -42,6 +42,6 @@ FreeMocap [@cherianFreeMoCapFreeOpen2024] is another notable open-source motion 
 
 # Acknowledgements
 
-I am grateful to Lili Karushcheck, PhD whose project Anipose provided the initial inspiration for Caliscope. I would also like to extend gratitude to Jon Matthis, PhD who is the lead developer of FreeMocap and who provided valuable early-stage guidance related to general code considerations and open-source project management. Additionally, I would like to thank Ryan Govostes for coding contributions and feedback related to the intrinsic calibration GUI development.
+The author would like to extend gratitude to Lili Karushcheck, PhD whose project Anipose provided the initial inspiration for Caliscope as well as to Jon Matthis, PhD who is the lead developer of FreeMocap. Dr. Matthis provided valuable early-stage guidance related to general code considerations and open-source project management. Additional thanks are due to Ryan Govostes for coding contributions and feedback related to the intrinsic calibration GUI development.
 
 # References

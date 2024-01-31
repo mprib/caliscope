@@ -5,7 +5,7 @@ tags:
   - camera calibration
   - motion capture
 authors:
-  - name: Donald Prible, PT
+  - name: Donald Prible
     orcid: 0000-0001-9243-468X
     affiliation: 1
 affiliations:

@@ -18,7 +18,7 @@ bibliography: paper.bib
 
 # Summary
 
-3D motion capture is an indispensable tool employed in multiple research domains such as rehabilitation, sports science, and robotics.  This technique necessitates a thorough calibration of each camera's intrinsic properties, the alignment of all cameras in a shared spatial context and accurate 2D point tracking. With these calculations, it is possible to triangulate landmark locations and reconstruct movement dynamics. Historically, this process has relied on costly proprietary tools. However, the emergence of open-source pose estimation tools and the availability of high-quality consumer-grade cameras have paved the way for innovative approaches.
+3D motion capture is an indispensable tool employed in multiple research domains such as rehabilitation, sports science, and robotics.  This technique necessitates a thorough calibration of each camera's intrinsic properties, the alignment of all cameras in a shared spatial context and accurate 2D point tracking. With these calculations, it is possible to triangulate landmark locations and reconstruct movement dynamics. Historically, this process has relied on costly proprietary tools, though the emergence of open-source pose estimation tools and the availability of high-quality consumer-grade cameras have paved the way for innovative approaches.
 
 Caliscope is a Python package designed to automate the process of camera calibration and landmark triangulation using pre-recorded video, enabling a range of camera hardware setups and tracking solutions to be employed. User interaction with the software is facilitated through a graphical user interface (GUI), which provides visual feedback to assist in troubleshooting and quality control. 
 

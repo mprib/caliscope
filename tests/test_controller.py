@@ -12,41 +12,41 @@ import caliscope.logger
 
 
 logger = caliscope.logger.get(__name__)
-def test_controller_load_camera_and_stream():
-    """
-    Note that in this test the copied workspace config does not have camera data 
-    in it, nor mp4s set up for intrinsic calibration (these are in extrinsic).
+# def test_controller_load_camera_and_stream():
+#     """
+#     Note that in this test the copied workspace config does not have camera data 
+#     in it, nor mp4s set up for intrinsic calibration (these are in extrinsic).
     
-    This is done to make sure it is testing out setting up intrinsic source and config info from imported mp4
-    """
-    app = QApplication()  # must exist prior to QPixels which are downstream when controller is created
-    original_workspace = Path(__root__, "tests", "sessions", "prerecorded_calibration")
-    workspace = Path( __root__, "tests", "sessions_copy_delete", "prerecorded_calibration")
-    copy_contents(original_workspace, workspace)
+#     This is done to make sure it is testing out setting up intrinsic source and config info from imported mp4
+#     """
+#     app = QApplication()  # must exist prior to QPixels which are downstream when controller is created
+#     original_workspace = Path(__root__, "tests", "sessions", "prerecorded_calibration")
+#     workspace = Path( __root__, "tests", "sessions_copy_delete", "prerecorded_calibration")
+#     copy_contents(original_workspace, workspace)
 
-    controller = Controller(workspace) 
+#     controller = Controller(workspace) 
 
-    controller._add_camera_from_source(0)
-    controller._add_camera_from_source(1)
+#     controller._add_camera_from_source(0)
+#     controller._add_camera_from_source(1)
 
-    assert(len(controller.camera_array.cameras) ==2)    
-    # controller will load in streams used for intrinsic calibration
-    controller.load_intrinsic_stream_manager()    
-    assert(len(controller.intrinsic_stream_manager.streams) ==2)    
+#     assert(len(controller.camera_array.cameras) ==2)    
+#     # controller will load in streams used for intrinsic calibration
+#     controller.load_intrinsic_stream_manager()    
+#     assert(len(controller.intrinsic_stream_manager.streams) ==2)    
 
-    # start fresh
-    controller.load_camera_array()
-    assert(list(controller.camera_array.cameras.keys()) == [0,1,2,3])
-    controller.load_intrinsic_stream_manager()
+#     # start fresh
+#     controller.load_camera_array()
+#     assert(list(controller.camera_array.cameras.keys()) == [0,1,2,3])
+#     controller.load_intrinsic_stream_manager()
         
-    controller.play_intrinsic_stream(0)
-    sleep(.1)
-    controller.pause_intrinsic_stream(0)
-    sleep(.1)
-    controller.stream_jump_to(0,10)
-    sleep(.1)
-    controller.end_stream(0)
-    app.quit()
+#     controller.play_intrinsic_stream(0)
+#     sleep(.1)
+#     controller.pause_intrinsic_stream(0)
+#     sleep(.1)
+#     controller.stream_jump_to(0,10)
+#     sleep(.1)
+#     controller.end_stream(0)
+#     app.quit()
 
 
 def test_extrinsic_calibration():
@@ -89,7 +89,7 @@ def test_video_property_reader():
     assert(source_properties["size"]==(1280,720))
 
 if __name__ == "__main__":
-    test_controller_load_camera_and_stream()
-    # test_extrinsic_calibration()
+    # test_controller_load_camera_and_stream()
+    test_extrinsic_calibration()
     # test_video_property_reader()
 

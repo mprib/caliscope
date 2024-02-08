@@ -28,6 +28,10 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
+    # note this install is likely relevant for all ubuntu users...
+    - name: Install system dependencies
+      run: sudo apt-get update && sudo apt-get install -y libegl1-mesa
+
     - name: Install Poetry
       run: |
         curl -sSL https://install.python-poetry.org | python3 -

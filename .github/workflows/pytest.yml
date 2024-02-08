@@ -36,6 +36,11 @@ jobs:
     - name: Install packages
       run: sudo apt-get install --fix-missing libgl1-mesa-dev
 
+    - name: Install xvfb 
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xvfb x11-apps
+
 
     - name: Install Poetry
       run: |
@@ -51,3 +56,6 @@ jobs:
 
     - name: Run tests
       run: poetry run pytest -vv
+
+    - name: Run tests with xvfb
+      run: xvfb-run --auto-servernum --server-args='-screen 0, 1024x768x24' poetry run pytest

@@ -8,7 +8,7 @@ logger = caliscope.logger.get(__name__)
 
 def test_motion_trial():
     
-    test_csv = Path(__root__, r"tests\sessions\4_cam_recording\recording_1\HOLISTIC_OPENSIM\xyz_HOLISTIC_OPENSIM.csv")
+    test_csv = Path(__root__, "tests", "sessions", "4_cam_recording", "recording_1", "HOLISTIC_OPENSIM", "xyz_HOLISTIC_OPENSIM.csv")
     motion_trial = MotionTrial(test_csv)
 
     # able to read in xyz packet

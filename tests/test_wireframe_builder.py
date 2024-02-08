@@ -12,7 +12,7 @@ def test_wireframe_builder():
     Simple test to aid with development of integrating the wireframe
     """
 
-    test_path = Path(__root__,r"caliscope\trackers\holistic\holistic_wireframe.toml")
+    test_path = Path(__root__,"caliscope","trackers","holistic","holistic_wireframe.toml")
     logger.info(f"Testing wireframe build of {test_path}")
     wireframe = get_wireframe(test_path, point_names=POINT_NAMES)
     

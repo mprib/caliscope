@@ -36,12 +36,11 @@ jobs:
     - name: Install packages
       run: sudo apt-get install --fix-missing libgl1-mesa-dev
 
-    - name: Install xvfb 
+    - name: Install X11 and xcb dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y xvfb x11-apps
-
-
+        sudo apt-get install -y xvfb libxcb1 x11-apps
+      
     - name: Install Poetry
       run: |
         curl -sSL https://install.python-poetry.org | python3 -

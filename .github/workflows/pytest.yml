@@ -33,13 +33,13 @@ jobs:
     - name: Update packages
       run: sudo apt-get update
 
-    - name: Install packages
-      run: sudo apt-get install --fix-missing libgl1-mesa-dev
+    # - name: Install packages
+    #   run: sudo apt-get install --fix-missing libgl1-mesa-dev
 
-    - name: Install X11 and xcb dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y xvfb libxcb1 x11-apps
+    # - name: Install X11 and xcb dependencies
+    #   run: |
+    #     sudo apt-get update
+    #     sudo apt-get install -y xvfb libxcb1 x11-apps
       
     - name: Install Poetry
       run: |
@@ -53,5 +53,8 @@ jobs:
     - name: Install dependencies
       run: poetry install
 
-    - name: Run tests with xvfb
-      run: xvfb-run --auto-servernum --server-args='-screen 0, 1024x768x24' poetry run pytest
+    # - name: Run tests with xvfb
+    #   run: xvfb-run --auto-servernum --server-args='-screen 0, 1024x768x24' poetry run pytest
+
+    - name: Run tests 
+      run: poetry run pytest

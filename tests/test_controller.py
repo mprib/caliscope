@@ -37,7 +37,6 @@ def test_controller_load_camera_and_stream():
     controller.load_camera_array()
     assert(list(controller.camera_array.cameras.keys()) == [0,1,2,3])
     controller.load_intrinsic_stream_manager()
-    assert(False)        
 
 
 def test_extrinsic_calibration():

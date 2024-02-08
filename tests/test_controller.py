@@ -35,7 +35,9 @@ def test_controller_load_camera_and_stream():
 
     # start fresh
     controller.load_camera_array()
-    assert(list(controller.camera_array.cameras.keys()) == [0,1,2,3])
+    sorted_keys =list(controller.camera_array.cameras.keys())
+    sorted_keys.sort() 
+    assert(sorted_keys == [0,1,2,3])
     controller.load_intrinsic_stream_manager()
 
 

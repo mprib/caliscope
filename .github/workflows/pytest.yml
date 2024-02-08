@@ -49,5 +49,5 @@ jobs:
     - name: Install dependencies
       run: poetry install
 
-    - name: Run pytest
-      run: poetry run pytest  
+    - name: Run tests
+      run: poetry run pytest -vv

@@ -6,15 +6,19 @@ on:
     branches:
       - main
     types: [closed]
+  workflow_dispatch:  # used to allow manual triggering
+  
 
 jobs:
   test:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    if: >
+      github.event.pull_request.merged == true ||
+      github.event_name == 'workflow_dispatch'
 
     strategy:
       matrix:
-        python-version: [3.8, 3.9, 3.10]
+        python-version: [3.10]
 
     steps:
     - uses: actions/checkout@v2

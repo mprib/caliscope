@@ -33,8 +33,8 @@ jobs:
     - name: Update packages
       run: sudo apt-get update
 
-    # - name: Install packages
-    #   run: sudo apt-get install --fix-missing libgl1-mesa-dev
+    - name: Install packages
+      run: sudo apt-get install --fix-missing libgl1-mesa-dev
 
     # - name: Install X11 and xcb dependencies
     #   run: |

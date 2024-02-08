@@ -29,12 +29,13 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     # note this install is likely relevant for all ubuntu users...
-    - name: Install system dependencies
-      run: sudo apt-get update && sudo apt-get install -y libegl1-mesa
-    # https://github.com/marketplace/actions/setup-opengl
-    - name: Setup OpenGL
-      uses: openrndr/setup-opengl@v1.1
-             
+    # taken from https://www.reddit.com/r/github/comments/10aenmk/help_linux_action_cant_find_opengl_all_of_a_sudden/
+    - name: Update packages
+      run: sudo apt-get update
+
+    - name: Install packages
+      run: sudo apt-get install --fix-missing libgl1-mesa-dev
+
 
     - name: Install Poetry
       run: |

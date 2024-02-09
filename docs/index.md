@@ -1,19 +1,13 @@
-<div align="center"><img src = "images/pyxy3d_logo.svg" width = "150"></div>
+<div align="center"><img src = "images/caliscope_img.png" width = "150"></div>
 
 
 # Welcome
 
-Caliscope (*pixie-3D*) is intended to serve as the core software component of a low-cost DIY motion capture studio. It is **py**thon package that integrates:
-
-- multicamera calibration
-- 2D (**x,y**) landmark tracking
-- **3D** landmark triangulation. 
-
-It is GUI-based and permissively licensed under the BSD 2-Clause license.
+Caliscope is a GUI-based and permissively licensed multicamera calibration package that integrates with 2D landmark tracking tools to produce low-cost, open-source motion capture.
 
 The packages includes sample markerless trackers using variations of Google's Mediapipe (hands/pose/holistic) which illustrate how to implement the underlying Tracker base class. The intention is to allow alternate tracking algorithms to be cleanly plugged into the pipeline.
 
-The workflow currently requires you to provide your own synchronized frames or to provide [a file](project_setup.md#frame_time_historycsv) that specifies the time at which each frame was read so that caliscope can perform the synchronization itself, though there are plans to manage this synchronization automatically through audio files.
+The workflow currently requires you to provide your own synchronized frames or to provide [a file](project_setup.md#frame_time_historycsv) that specifies the time at which each frame was read so that caliscope can perform the synchronization itself. A companion project is currently in development ([multiwebcam](https://github.com/mprib/multiwebcam)) that can peform synchronized recording with USB webcams connected to a PC. 
 
 The [installation](installation.md) guide will walk you through the process of installing the package on your system. [Project Setup](project_setup.md) will show you the format for saving files so that they can be used. The workflow guides to the left will provide details about how to create a ChArUco board, calibrate the cameras (both intrinsic and extrinsic) and perform 3D landmark tracking from motion capture trials.
 

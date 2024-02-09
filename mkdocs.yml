@@ -5,8 +5,8 @@ repo_url: https://github.com/mprib/caliscope
 repo_name: caliscope
 
 theme:
-  logo: images/pyxy3d_logo.svg
-  favicon: images/pyxy3d_logo.svg
+  logo: images/box3d-center.svg
+  favicon: images/box3d-center.svg
   name: material
   font:
     text: 'Roboto'

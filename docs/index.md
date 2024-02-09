@@ -1,5 +1,3 @@
-<div align="center"><img src = "images/caliscope_img.png" width = "250"></div>
-
 
 # Welcome
 

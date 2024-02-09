@@ -1,11 +1,11 @@
-<div align="center"><img src = "images/caliscope_img.png" width = "150"></div>
+<div align="center"><img src = "images/caliscope_img.png" width = "250"></div>
 
 
 # Welcome
 
 Caliscope is a GUI-based and permissively licensed multicamera calibration package that integrates with 2D landmark tracking tools to produce low-cost, open-source motion capture.
 
-The packages includes sample markerless trackers using variations of Google's Mediapipe (hands/pose/holistic) which illustrate how to implement the underlying Tracker base class. The intention is to allow alternate tracking algorithms to be cleanly plugged into the pipeline.
+The package includes sample markerless trackers using variations of Google's Mediapipe (hands/pose/holistic) which illustrate how to implement the underlying Tracker base class. The intention is to allow alternate tracking algorithms to be cleanly plugged into the pipeline.
 
 The workflow currently requires you to provide your own synchronized frames or to provide [a file](project_setup.md#frame_time_historycsv) that specifies the time at which each frame was read so that caliscope can perform the synchronization itself. A companion project is currently in development ([multiwebcam](https://github.com/mprib/multiwebcam)) that can peform synchronized recording with USB webcams connected to a PC. 
 

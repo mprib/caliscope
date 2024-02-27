@@ -11,7 +11,9 @@ January 28, 2024: The package has now been renamed `caliscope` (previously `pyxy
 [![PyPI - Version](https://img.shields.io/pypi/v/caliscope?color=blue)](https://pypi.org/project/caliscope/)
 [![GitHub last commit](https://img.shields.io/github/last-commit/mprib/caliscope.svg)](https://github.com/mprib/caliscope/commits)
 [![GitHub stars](https://img.shields.io/github/stars/mprib/caliscope.svg?style=social&label=Star)](https://github.com/mprib/caliscope/stargazers)
+![pytest](https://github.com/mprib/caliscope/actions/workflows/pytest.yml/badge.svg)
 </div>
+
 
 ## About
 `Caliscope` is a GUI-based multicamera calibration package that integrates with 2D landmark tracking tools to produce low-cost, open-source motion capture.

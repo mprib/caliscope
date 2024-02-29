@@ -15,7 +15,7 @@
 
 
 ## About
-`Caliscope` is a GUI-based multicamera calibration package. When the intrinsic (focal length, optical center, and distortion) as well as extrinsic (relative rotation and translation) properties of a set of cameras are known, synchronized frames from those cameras can be used to triangulate landmarks indentified across their multiple points of view. With more cameras, this 3D tracking becomes more robust to occlusion and the inevitable errors in 2D landmark tracking and estimated camera properties.
+`Caliscope` is a GUI-based multicamera calibration package. When the intrinsic (focal length, optical center, and distortion) as well as extrinsic (relative rotation and translation) properties of a set of cameras are known, synchronized frames from those cameras can be used to triangulate landmarks indentified across their multiple points of view. With more cameras, this 3D tracking becomes more robust to occlusion and the inevitable errors in 2D landmark tracking and camera property estimates.
 
 Unfortunately, while OpenCV provides straightforward functions for the estimation of single camera intrinsic properties as well as estimates of the extrinsic properties of two cameras, there is no straightforward way to estimate extrinsic properties for more than two cameras. Performing this requires [bundle adjustment](https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html), which demands an extensive series of computational steps and intermediate data tracking.
 

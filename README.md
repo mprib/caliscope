@@ -1,4 +1,3 @@
-January 28, 2024: The package has now been renamed `caliscope` (previously `pyxy3d`). I've recently completed some major refactors that enable a pre-recorded workflow, split out the sychronized webcam recording into its own project ([multiwebcam](https://github.com/mprib/multiwebcam)), and have started the ball rolling on a submission for the [Journal of Open Source Software](https://joss.theoj.org/). I'd been wanting to change the name for awhile, and with all this transition it seems like the right time. In the coming days I will do a final update to PyPI for pyxy3d which will cause it to just pass through the caliscope package as this seems like the most robust way to part ways with that legacy package.
 
 <div align="center">
 
@@ -11,7 +10,9 @@ January 28, 2024: The package has now been renamed `caliscope` (previously `pyxy
 [![PyPI - Version](https://img.shields.io/pypi/v/caliscope?color=blue)](https://pypi.org/project/caliscope/)
 [![GitHub last commit](https://img.shields.io/github/last-commit/mprib/caliscope.svg)](https://github.com/mprib/caliscope/commits)
 [![GitHub stars](https://img.shields.io/github/stars/mprib/caliscope.svg?style=social&label=Star)](https://github.com/mprib/caliscope/stargazers)
+![pytest](https://github.com/mprib/caliscope/actions/workflows/pytest.yml/badge.svg)
 </div>
+
 
 ## About
 `Caliscope` is a GUI-based multicamera calibration package that integrates with 2D landmark tracking tools to produce low-cost, open-source motion capture.
@@ -20,6 +21,7 @@ Please see our [docs](https://mprib.github.io/caliscope/) for details about inst
 
 ---
 ### Demo Output
+
 https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
 
 *The above was created using Caliscope, a 7 year old t440p laptop, and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames (720p @ 24 fps), landmark detection, and point triangulation. Note that the webcam recording functionality is not in the current version, though will be restored in the future. Animated rig creation was done using an early stage Blender add-on project called [Rigmarole](https://github.com/mprib/rigmarole)*

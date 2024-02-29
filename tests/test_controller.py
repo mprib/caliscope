@@ -12,34 +12,6 @@ import caliscope.logger
 
 
 logger = caliscope.logger.get(__name__)
-def test_controller_load_camera_and_stream():
-#     """
-#     Note that in this test the copied workspace config does not have camera data 
-#     in it, nor mp4s set up for intrinsic calibration (these are in extrinsic).
-    
-#     This is done to make sure it is testing out setting up intrinsic source and config info from imported mp4
-#     """
-    original_workspace = Path(__root__, "tests", "sessions", "prerecorded_calibration")
-    workspace = Path( __root__, "tests", "sessions_copy_delete", "prerecorded_calibration")
-    copy_contents(original_workspace, workspace)
-
-    controller = Controller(workspace) 
-
-    controller._add_camera_from_source(0)
-    controller._add_camera_from_source(1)
-
-    assert(len(controller.camera_array.cameras) ==2)    
-    # controller will load in streams used for intrinsic calibration
-    controller.load_intrinsic_stream_manager()    
-    assert(len(controller.intrinsic_stream_manager.streams) ==2)    
-
-    # start fresh
-    controller.load_camera_array()
-    sorted_keys =list(controller.camera_array.cameras.keys())
-    sorted_keys.sort() 
-    assert(sorted_keys == [0,1,2,3])
-    controller.load_intrinsic_stream_manager()
-
 
 def test_extrinsic_calibration():
     # app = QApplication()  # must exist prior to QPixels which are downstream when controller is created

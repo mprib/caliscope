@@ -1,16 +1,21 @@
 
 import caliscope.logger
 
-logger = caliscope.logger.get(__name__)
 
 from caliscope import __root__
 import pandas as pd
 import numpy as np
 from scipy.signal import butter, filtfilt
+logger = caliscope.logger.get(__name__)
 
 
 # Define Butterworth filter functions
 def butter_lowpass(cutoff, fs, order=2):
+    # cutoff frequency must be less than half the frame rate
+    if cutoff<fs/2:
+        logger.warn("Low pass filter failing due to excessively low fps / excessively high filter cutoff.")
+
+
     nyq = 0.5 * fs  # Nyquist Frequency
     normal_cutoff = cutoff / nyq
     b, a = butter(order, normal_cutoff, btype="low", analog=False)

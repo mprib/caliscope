@@ -1,10 +1,10 @@
 import caliscope.logger
-logger = caliscope.logger.get(__name__)
 from pathlib import Path
 import pandas as pd
 import csv
 
 from caliscope.packets import Tracker
+logger = caliscope.logger.get(__name__)
 
 def xyz_to_wide_labelled(xyz:pd.DataFrame, tracker:Tracker)->pd.DataFrame:
     """

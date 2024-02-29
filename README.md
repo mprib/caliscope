@@ -19,7 +19,7 @@
 
 While OpenCV provides straightforward functions for the estimation of single camera intrinsic properties as well as estimates of the extrinsic properties of two cameras, there is no straightforward way to estimate extrinsic properties for more than two cameras. Performing this requires [bundle adjustment](https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html), which demands an extensive series of computational steps and intermediate data tracking.
 
-Caliscope is intended to automate this more complex calibration function along with providing visual feedback regarding parameter estimates at each stage of processing. Additionally, there are sample implementations of a Tracker class using Google's Mediapipe that demonstrate the capacity to integrate the full calibration results with landmark tracking tools to achieve 3D pose estimation. While Mediapipe pose estimation has limitations regarding accuracy and precision, it demonstrates a data processing pipeline that can easily integrate more powerful tracking tools as they emerge.
+Caliscope automates this more complex calibration function along with providing visual feedback regarding parameter estimates at each stage of processing. Additionally, there are sample implementations of a Tracker class using Google's Mediapipe that demonstrate the capacity to integrate the full calibration results with landmark tracking tools to achieve 3D pose estimation. While Mediapipe pose estimation has limitations regarding accuracy and precision, it demonstrates a data processing pipeline that can easily integrate more powerful tracking tools as they emerge.
 
 Please see our [docs](https://mprib.github.io/caliscope/) for details about installation, project setup, and general workflow.
 

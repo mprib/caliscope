@@ -17,6 +17,8 @@ from caliscope.post_processing.smoothing import smooth_xyz
 
 logger = caliscope.logger.get(__name__)
 
+# gap filling and filtering is outside the current scope of the project so I'm toggling this off for now
+APPLY_EXPERIMENTAL_POST_PROCESSING = False
 
 class PostProcessor:
     """
@@ -93,7 +95,7 @@ class PostProcessor:
         xy = pd.read_csv(xy_csv_path)
         if xy.shape[0] > 0:
             logger.info("Filling small gaps in (x,y) data")
-            xy = gap_fill_xy(xy)
+            xy = gap_fill_xy(xy, max_gap_size=xy_gap_fill)
             logger.info("Beginning data triangulation")
             xyz = triangulate_xy(xy, self.camera_array)
         else:
@@ -101,14 +103,17 @@ class PostProcessor:
             return
 
         if xyz.shape[0] > 0:
-            logger.info("Filling small gaps in (x,y,z) data")
-            xyz = gap_fill_xyz(xyz)
-            logger.info(
-                "Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz"
-            )
-            xyz = smooth_xyz(
-                xyz, order=2, fps=self.sync_stream_manager.mean_fps, cutoff=cutoff_freq
-            )
+            if APPLY_EXPERIMENTAL_POST_PROCESSING:
+                logger.info("Filling small gaps in (x,y,z) data")
+                xyz = gap_fill_xyz(xyz, max_gap_size=xyz_gap_fill)
+                logger.info(
+                    "Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz"
+                )
+                xyz = smooth_xyz(
+                    xyz, order=2, fps=self.sync_stream_manager.mean_fps, cutoff=cutoff_freq
+                )
+
+
             logger.info("Saving (x,y,z) to csv file")
             xyz_csv_path = Path(tracker_output_path, f"xyz_{self.tracker_name}.csv")
             xyz.to_csv(xyz_csv_path)
@@ -138,13 +143,13 @@ if __name__ == "__main__":
     from caliscope.controller import Controller
 
     workspace_dir = Path(
-        r"C:\Users\Mac Prible\OneDrive\caliscope\4_cam_prerecorded_practice_working"
+        r"C:\Users\Mac Prible\OneDrive - The University of Texas at Austin\research\caliscope\demo"
     )
     controller = Controller(workspace_dir)
     controller.load_camera_array()
 
     camera_aray = controller.camera_array
-    recording_dir = Path(workspace_dir, "recordings", "recording_1")
+    recording_dir = Path(workspace_dir, "recordings", "STS")
 
     post_processor = PostProcessor(
         camera_array=camera_aray,

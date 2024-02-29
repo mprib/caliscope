@@ -50,6 +50,7 @@ else:
 __log_dir__ = Path(__app_dir__, "logs")
 __log_dir__.mkdir(exist_ok=True, parents=True)
 
+
 # a helpful reference
 __root__ = Path(__file__).parent.parent
 
@@ -69,5 +70,5 @@ _______________________________/\\\\\\__________________________________________
 print(f"This is printing from: {__file__}")
 print(f"Source code for this package is available at: {__repo_url__}")
 print(
-    f"Log file associated with {__package_name__} is stored in {__app_dir__}"
+    f"Log file associated with {__package_name__} is stored in {__log_dir__}"
 )

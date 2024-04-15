@@ -78,6 +78,18 @@ pip3 install caliscope
 caliscope
 ```
 
+### MacOS Note: Must adjust some environment variables
+
+Thank you to @calcoloergosum for raising an issue regarding a bug in numpy on MacOS that was causing a crash (https://github.com/mprib/caliscope/issues/622).
+
+It is advised to set the following environment variables on MacOS. If anyone has any additional details related to this or notices that the bug has been fixed, please let me know and I'll take this down.
+
+```
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+```
+
 ### Basic Steps
 
 1. Once the GUI launches, navigate to File->New/Open Project and create a folder to hold your project

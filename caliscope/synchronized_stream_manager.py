@@ -61,7 +61,7 @@ class SynchronizedStreamManager:
         self.synchronizer = Synchronizer(self.streams)
         self.recorder = VideoRecorder(self.synchronizer, suffix=self.subfolder_name)
 
-    def process_streams(self, fps_target=None):
+    def process_streams(self, fps_target=None, include_video=True):
         """
         Output file will be created in a subfolder named `tracker.name`
         This will include mp4 files with visualized landmarks as well as the file `xy.csv`
@@ -71,7 +71,7 @@ class SynchronizedStreamManager:
         logger.info(f"beginning to create recording for files saved to {self.output_dir}")
         self.recorder.start_recording(
             self.output_dir,
-            include_video=True,
+            include_video=include_video,
             show_points=True,
             store_point_history=True,
         )

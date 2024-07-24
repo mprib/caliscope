@@ -18,7 +18,7 @@ from caliscope.calibration.stereocalibrator import StereoCalibrator
 from caliscope.calibration.capture_volume.quality_controller import QualityController
 
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
-
+from caliscope.helper import copy_contents
 
 from caliscope.controller import FILTERED_FRACTION
 from caliscope.configurator import Configurator
@@ -28,30 +28,30 @@ logger = caliscope.logger.get(__name__)
 TEST_SESSIONS = ["mediapipe_calibration"]
 
 
-def copy_contents(src_folder, dst_folder):
-    """
-    Helper function to port a test case data folder over to a temp directory
-    used for testing purposes so that the test case data doesn't get overwritten
-    """
-    src_path = Path(src_folder)
-    dst_path = Path(dst_folder)
+# def copy_contents(src_folder, dst_folder):
+#     """
+#     Helper function to port a test case data folder over to a temp directory
+#     used for testing purposes so that the test case data doesn't get overwritten
+#     """
+#     src_path = Path(src_folder)
+#     dst_path = Path(dst_folder)
 
-    # Create the destination folder if it doesn't exist
-    dst_path.mkdir(parents=True, exist_ok=True)
+#     # Create the destination folder if it doesn't exist
+#     dst_path.mkdir(parents=True, exist_ok=True)
 
-    for item in src_path.iterdir():
-        # Construct the source and destination paths
-        src_item = src_path / item
-        dst_item = dst_path / item.name
+#     for item in src_path.iterdir():
+#         # Construct the source and destination paths
+#         src_item = src_path / item
+#         dst_item = dst_path / item.name
 
-        # Copy file or directory
-        if src_item.is_file():
-            logger.info(f"Copying file at {src_item} to {dst_item}")
-            shutil.copy2(src_item, dst_item)  # Copy file preserving metadata
+#         # Copy file or directory
+#         if src_item.is_file():
+#             logger.info(f"Copying file at {src_item} to {dst_item}")
+#             shutil.copy2(src_item, dst_item)  # Copy file preserving metadata
 
-        elif src_item.is_dir():
-            logger.info(f"Copying directory at {src_item} to {dst_item}")
-            shutil.copytree(src_item, dst_item)
+#         elif src_item.is_dir():
+#             logger.info(f"Copying directory at {src_item} to {dst_item}")
+#             shutil.copytree(src_item, dst_item)
 
 
 @pytest.fixture(params=TEST_SESSIONS)

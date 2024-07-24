@@ -47,6 +47,7 @@ class Configurator:
             self.dict = rtoml.loads("")
             self.dict["CreationDate"] = datetime.now()
             self.dict["camera_count"] = 0
+            self.dict["Save_Tracked_Point_Video"] = True
             self.update_config_toml()
 
             # default values enforced below
@@ -319,7 +320,6 @@ class Configurator:
 
         with open(self.point_estimates_toml_path, "w") as f:
             rtoml.dump(self.dict["point_estimates"], f)
-        # self.update_config_toml()
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ import numpy as np
 import rtoml
 from dataclasses import asdict
 import cv2
+from enum import Enum, auto
 
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera import Camera
@@ -19,6 +20,17 @@ from concurrent.futures import ThreadPoolExecutor
 
 logger = caliscope.logger.get(__name__)
 
+class ConfigSettings(Enum):
+    """
+    Control settings used to manage the processing of data
+    """
+    creation_date = "creation_date"
+    camera_count = "camera_count"
+    save_tracked_points_video = "save_tracked_points_video"
+    fps_sync_stream_processing = "fps_sync_stream_processing"
+
+    
+#%%
 
 class Configurator:
     """
@@ -43,42 +55,39 @@ class Configurator:
             logger.info(
                 "No existing config.toml found; creating starter file with charuco"
             )
-
             self.dict = rtoml.loads("")
-            self.dict["CreationDate"] = datetime.now()
-            self.dict["camera_count"] = 0
+            self.dict[ConfigSettings.creation_date.value] = datetime.now()
+            self.dict[ConfigSettings.camera_count.value] = 0
+            self.dict[ConfigSettings.save_tracked_points_video.value] = True
+            self.dict[ConfigSettings.fps_sync_stream_processing.value] = 100
             self.update_config_toml()
 
             # default values enforced below
             charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
             self.save_charuco(charuco)
 
-        # if exists(self.point_estimates_toml_path):
-        # self.refresh_point_estimates_from_toml()
-
     def save_camera_count(self, count):
         self.camera_count = count
-        self.dict["camera_count"] = count
+        self.dict[ConfigSettings.camera_count.value] = count
         self.update_config_toml()
 
     def get_camera_count(self):
-        return self.dict["camera_count"]
+        return self.dict[ConfigSettings.camera_count.value]
 
-    def get_intrinsic_wait_time(self):
-        return self.dict["intrinsic_wait_time"]
 
-    def get_extrinsic_wait_time(self):
-        return self.dict["extrinsic_wait_time"]
-
-    def get_fps_recording(self):
-        return self.dict["fps_recording"]
-
-    def get_fps_extrinsic_calibration(self):
-        return self.dict["fps_extrinsic_calibration"]
-
-    def get_fps_intrinsic_calibration(self):
-        return self.dict["fps_intrinsic_calibration"]
-
+    def get_save_tracked_points(self):
+        if ConfigSettings.save_tracked_points_video.value not in self.dict.keys():
+            return True
+        else:
+            return self.dict[ConfigSettings.save_tracked_points_video.value]
+    
+    def get_fps_sync_stream_processing(self):
+        if ConfigSettings.fps_sync_stream_processing.value not in self.dict.keys():
+            return 100 
+        else:
+            return self.dict[ConfigSettings.fps_sync_stream_processing.value]
+        
+        
     def refresh_config_from_toml(self):
         logger.info("Populating config dictionary with config.toml data")
         # with open(self.config_toml_path, "r") as f:
@@ -319,7 +328,6 @@ class Configurator:
 
         with open(self.point_estimates_toml_path, "w") as f:
             rtoml.dump(self.dict["point_estimates"], f)
-        # self.update_config_toml()
 
 
 if __name__ == "__main__":

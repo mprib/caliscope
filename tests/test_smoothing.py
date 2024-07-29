@@ -30,7 +30,8 @@ def test_smoothing_xyz():
 
     # Define your filter parameters
     order = 2
-    fs = config.get_fps_recording()  # sample rate, Hz
+    # fs = config.get_fps_recording()  # sample rate, Hz
+    fs = 15 # the value originally stored in the config file
     # note that the cutoff must be < 0.5*(sampling rate, a.k.a. nyquist frequency)
     cutoff = 6  # desired cutoff frequency, Hz
 

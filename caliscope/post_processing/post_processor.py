@@ -52,12 +52,14 @@ class PostProcessor:
             self.recording_path, self.camera_array.cameras, self.tracker
         )
 
-    def create_xy(self):
+    def create_xy(self, fps_target=100, include_video=True):
         """
         Reads through all .mp4  files in the recording path and applies the tracker to them
         The xy_TrackerName.csv file is saved out to the same directory by the VideoRecorder
+
+        Note that high fps target and including video will increase processing overhead
         """
-        self.sync_stream_manager.process_streams(fps_target=100)
+        self.sync_stream_manager.process_streams(include_video=include_video, fps_target=fps_target)
 
         while self.sync_stream_manager.recorder.recording:
             sleep(1)

@@ -36,12 +36,12 @@ logger = caliscope.logger.get(__name__)
 FILTERED_FRACTION = 0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
 
 
-class CalibrationStage(Enum):
-    NO_INTRINSIC_VIDEO = auto()
-    INTRINSIC_VIDEO_NO_INTRINSIC_CAL = auto()
-    PARTIAL_INTRINSICS = auto()
-    FULL_INTRINSICS_NO_EXTRINSICS = auto()
-    FULLY_CALIBRATED = auto()
+# class CalibrationStage(Enum):
+#     NO_INTRINSIC_VIDEO = auto()
+#     INTRINSIC_VIDEO_NO_INTRINSIC_CAL = auto()
+#     PARTIAL_INTRINSICS = auto()
+#     FULL_INTRINSICS_NO_EXTRINSICS = auto()
+#     FULLY_CALIBRATED = auto()
 
 
 class Controller(QObject):
@@ -346,7 +346,12 @@ class Controller(QObject):
                 output_path.unlink()  # make sure this doesn't exist to begin with.
 
             self.load_extrinsic_stream_manager()
-            self.extrinsic_stream_manager.process_streams(fps_target=100)
+
+            # config settings that help to throttle processing rate to manage resource demands            
+            include_video = self.config.get_save_tracked_points()
+            fps_target = self.config.get_fps_sync_stream_processing()
+            
+            self.extrinsic_stream_manager.process_streams(fps_target=fps_target, include_video=include_video)
             logger.info(
                 f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
             )
@@ -419,7 +424,12 @@ class Controller(QObject):
             self.post_processor = PostProcessor(
                 self.camera_array, recording_path, tracker_enum
             )
-            self.post_processor.create_xy()
+
+            # config settings that help to throttle processing rate to manage resource demands            
+            include_video = self.config.get_save_tracked_points()
+            fps_target = self.config.get_fps_sync_stream_processing()
+
+            self.post_processor.create_xy(include_video=include_video,fps_target=fps_target)
             self.post_processor.create_xyz()
 
         self.process_recordings_thread = QThread()

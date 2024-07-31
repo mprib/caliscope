@@ -31,7 +31,7 @@ The emergence of machine learning tools for automated 2D landmark tracking has f
 DeepLabCut [@mathisDeepLabCutMarkerlessPose2018], for example, allows for the rapid training of custom pose estimation models, applicable to a range of animal subjects, including humans. It offers 3D stereotriangulation using two cameras. 
 
 Expanding beyond two cameras enhances landmark localization and mitigates landmark occlusion but adds significant complexity to the calibration process.
-While OpenCV [@bradskyOpenCVLibrary2000] enables straightforward single and stereocamera calibration, calibrating more than two cameras requires the use of bundle adjustment [@triggsBundleAdjustmentModern2000], leveraging optimization tools such as ScipPy [@mayorovLargescaleBundleAdjustment, @virtanenSciPyFundamentalAlgorithms2020].
+While OpenCV [@bradskyOpenCVLibrary2000] enables straightforward single and stereocamera calibration, calibrating more than two cameras requires the use of bundle adjustment [@triggsBundleAdjustmentModern2000], leveraging optimization tools such as ScipPy [@mayorovLargescaleBundleAdjustment;@virtanenSciPyFundamentalAlgorithms2020].
 
 Anipose [@karashchukAniposeToolkitRobust2021], which integrates with DeepLabCut, automates the bundle adjustment processs for multicamera calibration and the triangulation of 3D landmark positions from more than 2 views. 
 To facilitate the calibration process, Anipose makes simplifying assumptions about the underlying camera intrinsic parameters, using 1 parameter for the pinhole camera and 1 parameter for the distortion. A process of iterative bundle adjustment is used to remove the impact of outlier results in the calibration.

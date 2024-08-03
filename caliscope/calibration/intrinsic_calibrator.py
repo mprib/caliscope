@@ -121,11 +121,12 @@ class IntrinsicCalibrator:
     def backfill_calibration_frames(self):
         logger.info(f"Initiating backfill of frames to hit target grid count of {self.target_grid_count}...currently at {self.grid_count}")
         actual_grid_count = len(self.calibration_frame_indices)
+        logger.info(f"Actual Grid Count: {actual_grid_count}")
         # build new frame list
         new_potential_frames = []
         for frame_index, ids in self.all_ids.items():
             if frame_index not in self.calibration_frame_indices:
-                if len(ids) > 6: # believe this may be a requirement of the calibration algorithm
+                if len(ids) >= 6: # believe this may be a requirement of the calibration algorithm
                     new_potential_frames.append(frame_index)
             
         sample_size = self.target_grid_count-actual_grid_count

@@ -144,22 +144,6 @@ def test_autopopulate_data():
         
         sleep(.5)
 
-    # actual_grid_count = len(intrinsic_calibrator.calibration_frame_indices)
-    # # build new frame list
-    # new_potential_frames = []
-    # for frame_index, ids in intrinsic_calibrator.all_ids.items():
-    #     if frame_index not in intrinsic_calibrator.calibration_frame_indices:
-    #         if len(ids) > 3: # just a quick check for minimal data in the frame
-    #             new_potential_frames.append(frame_index)
-            
-    # sample_size = target_grid_count-actual_grid_count
-    # sample_size = min(sample_size, len(new_potential_frames))
-    # sample_size = max(sample_size,0)
-
-    # random_frames = random.sample(new_potential_frames,sample_size)
-    # for frame in random_frames:
-    #     intrinsic_calibrator.add_calibration_frame_index(frame)
-
     intrinsic_calibrator.backfill_calibration_frames()
     intrinsic_calibrator.calibrate_camera()
     assert(camera.grid_count ==target_grid_count)

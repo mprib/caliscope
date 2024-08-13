@@ -48,7 +48,7 @@ cd path\to\your\project
 "C:\Path\To\Python3.10\python.exe" -m venv .venv
 
 # Activate the virtual environment
-.\env\Scripts\activate
+.\.venv\Scripts\activate
 
 # Your virtual environment is now active.
 # You can install using pip

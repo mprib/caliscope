@@ -31,7 +31,9 @@ theme:
 
 nav:
   - Installation: installation.md
-  - Project Setup: project_setup.md
+  - Project Setup: 
+    - Overview: project_setup.md
+    - Example Project: sample_data.md
   - Workflow:
     - Workspace: workspace.md
     - Charuco Board: calibration_board.md
@@ -39,7 +41,6 @@ nav:
     - Capture Volume: extrinsic_calibration.md
     - Post-Processing: post_processing.md 
   - Roadmap: roadmap.md
-  - FAQ: faq.md
 
 
 plugins:

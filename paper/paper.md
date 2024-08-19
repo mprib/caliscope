@@ -1,5 +1,5 @@
 ---
-title: 'Caliscope: GUI based multicamera calibration and motion tracking'
+title: 'Caliscope: GUI Based Multicamera Calibration and Motion Tracking'
 tags:
   - Python
   - camera calibration

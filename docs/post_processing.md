@@ -13,10 +13,6 @@
 5. Click the `Process` button to begin the landmark tracking and triangulation.
 6. 3D landmark positions will be visualized and you can open the subfolder to inspect the landmark tracking on the recordings or to access the trajectory output files
 
-## Metarig Generation
-
-For the Holistic OpenSim tracker you can generate a metarig configuration file. This will provide a set of parameters that can scale segments of a skeletal model based on the average distances between various landmarks throughout the motion capture. With a more accurately scaled skeletal model, inverse kinematics can more successfully approximate the true movement.
-
 ## Practical Recording Guidelines
 
 

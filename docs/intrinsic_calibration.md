@@ -13,6 +13,11 @@
 
 **NOTE: Intrinsic calibration only needs to be performed once per camera. Previously determined values can be carried over to a new project's `config.toml` file when using the same cameras in a new setup.** 
 
+
+## MultiWebCam
+
+While conventionally synchronized video data with specialized cama 
+
 ## Practical Recording Guidelines
 1. Feel free to move the camera *or* the board
     - it can be easier to collect good data when directly monitoring the view of the camera

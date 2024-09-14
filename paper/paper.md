@@ -43,6 +43,13 @@ Caliscope carries forward the triangulation code of Anipose, but provides dedica
 
 FreeMocap [@cherianFreeMoCapFreeOpen2024] is another notable open-source motion capture project. It uses the original calibration process developed by Anipose. Unlike Anipose, FreeMocap uses Google's Mediapipe [@lugaresiMediaPipeFrameworkBuilding2019] for pose tracking, which avoids the more complicated setup required by DeepLabCut. Caliscope also uses this approach for ease of execution, though defines the `Tracker` as an abstract base class that is implemented with multiple versions of Mediapipe tracking (i.e. pose, hands, and holistic). This flexible framework is intendeded to facilitate the integration of additional landmark tracking tools in the future, such as MMPose [@mmposecontributorsOpenMMLabPoseEstimation2020].
 
+Pose2Sim [@pagnonPose2SimOpensourcePython2022] is another tool that merges both camera calibration and markerless pose estimation.
+Similar to Caliscope, Pose2Sim employs a camera model composed of 4 pinhole camera parameters and 5 distortion parameters.
+Additionally, both projects export output to the `.trc` file format to facilitate integration with the biomechanical modelling software OpenSim. 
+While Pose2Sim does not perform bundle adjustment to refine the extrinsic camera estimates, it does provide a number of features that are valuable components of a motion tracking workflow which are not present in Caliscope and would be useful in future motion tracking tools.
+These include the ability to calibrate camera extrinsics based on scene elements, the capacity to distinguish between multiple subjects in view at once, and more sophisticate triangulation methods that can incorporate the confidence of a model's prediction of a pose landmark.
+
+
 # Acknowledgements
 
 The author would like to extend gratitude to Lili Karushcheck, PhD whose project Anipose provided the initial inspiration for Caliscope as well as to Jon Matthis, PhD who is the lead developer of FreeMocap. Dr. Matthis provided valuable early-stage guidance related to general code considerations and open-source project management. Additional thanks are due to Ryan Govostes for coding contributions and feedback related to the intrinsic calibration GUI development.

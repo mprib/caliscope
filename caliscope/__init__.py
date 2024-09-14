@@ -37,7 +37,7 @@ __user_dir__ = Path(os.path.expanduser("~"))
 if __settings_path__.exists():
     USER_SETTINGS = rtoml.load(__settings_path__)
 else:
-    # default to storing pyxy projects in user/__package_name__
+    # default to storing projects in user/__package_name__
     USER_SETTINGS = {"recent_projects":[],
                      "last_project_parent":str(__user_dir__) # default initially to home...this will be where the 'New' folder dialog starts
                      } 
@@ -59,3 +59,18 @@ print(f"Source code for this package is available at: {__repo_url__}")
 print(
     f"Log file associated with {__package_name__} is stored in {__log_dir__}"
 )
+
+
+if __name__=="__main__":
+    import os
+    path = r'C:\Users\Mac Prible\AppData\Local\caliscope'
+    test_file = os.path.join(path, 'test.txt')
+    with open(test_file, 'w') as f:
+        f.write('Test')
+    print(f"Test file created at: {test_file}")
+    
+    
+    import os
+    parent = r'C:\Users\Mac Prible\AppData\Local'
+    print(os.path.exists(parent))
+    print(os.listdir(parent))

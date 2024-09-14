@@ -108,13 +108,13 @@ class IntrinsicCalibrationWidget(QWidget):
         self.target_grid_count_spin = QSpinBox(self)
         self.target_grid_count_spin.setMaximumWidth(40)
         self.target_grid_count_spin.setRange(0, 100)
-        self.target_grid_count_spin.setValue(40)
+        self.target_grid_count_spin.setValue(20)
         self.target_grid_count_spin.setSingleStep(1)
 
         self.board_threshold_spin = QDoubleSpinBox(self)
         self.board_threshold_spin.setMaximumWidth(50)
         self.board_threshold_spin.setRange(0, 1)
-        self.board_threshold_spin.setValue(.7)
+        self.board_threshold_spin.setValue(.5)
         self.board_threshold_spin.setSingleStep(.1)
 
         # Create the spinbox

@@ -21,7 +21,7 @@ While OpenCV provides straightforward functions for the estimation of single cam
 
 Caliscope automates this more complex calibration function along with providing visual feedback regarding parameter estimates at each stage of processing. Additionally, there are sample implementations of a Tracker class using Google's Mediapipe that demonstrate the capacity to integrate the full calibration results with landmark tracking tools to achieve 3D pose estimation. While Mediapipe pose estimation has limitations regarding accuracy and precision, it demonstrates a data processing pipeline that can easily integrate more powerful tracking tools as they emerge.
 
-Please see our [docs](https://mprib.github.io/caliscope/) for details about installation, project setup, and general workflow.
+This README provides a general overview and quick guide to install `Calicope` on your system. For a more detailed description of the calibration process and workflow, please see our [docs](https://mprib.github.io/caliscope/).
 
 ---
 ### Demo Output

@@ -46,13 +46,13 @@ jobs:
       if: runner.os == 'Linux'
       run: sudo apt-get install --fix-missing libgl1-mesa-dev
     
-    # macOS-specific steps (if needed)
-    - name: Update Homebrew (macOS)
+    # macOS-specific steps
+    - name: Set environment variables (macOS)
       if: runner.os == 'macOS'
-      run: brew update
-    - name: Install OpenBLAS (macOS)
-      if: runner.os == 'macOS'
-      run: brew install openblas
+      run: |
+        echo "MKL_NUM_THREADS=1" >> $GITHUB_ENV
+        echo "NUMEXPR_NUM_THREADS=1" >> $GITHUB_ENV
+        echo "OMP_NUM_THREADS=1" >> $GITHUB_ENV
 
     - name: Install dependencies
       run: |

@@ -50,6 +50,9 @@ jobs:
     - name: Update Homebrew (macOS)
       if: runner.os == 'macOS'
       run: brew update
+    - name: Install OpenBLAS (macOS)
+      if: runner.os == 'macOS'
+      run: brew install openblas
 
     - name: Install dependencies
       run: |

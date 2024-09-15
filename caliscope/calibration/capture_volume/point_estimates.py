@@ -1,19 +1,12 @@
-# import saved point data and initial array configuration data
-# currently this is for the convenience of not having to rerun everything
-# though this workflow may be useful into the future. Save out milestone calculations
-# along the way that allow for blocks of dataprocessing
-# %%
 import caliscope.logger
-
-logger = caliscope.logger.get(__name__)
-
-
 from scipy.sparse import lil_matrix
 
 import numpy as np
 from dataclasses import dataclass
 
-CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrinsic
+logger = caliscope.logger.get(__name__)
+
+CAMERA_PARAM_COUNT = 6
 
 
 @dataclass

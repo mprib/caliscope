@@ -225,7 +225,8 @@ class HolisticOpenSimTracker(Tracker):
                             pass
                         else:
                             mapped_point_id = landmark_id + POSE_OFFSET
-                            # some of the pose values are too noisy to bother with including considering that holistic face and hand tracking is so good
+                            # some of the pose values are too noisy to bother with including considering that
+                            # holistic face and hand tracking is so good
                             # ignore those points that aren't in the POINT_NAMES list
                             if mapped_point_id in POINT_NAMES:
                                 point_ids.append(landmark_id + POSE_OFFSET)

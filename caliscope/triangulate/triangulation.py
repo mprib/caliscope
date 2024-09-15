@@ -161,7 +161,7 @@ def triangulate_xy(xy: pd.DataFrame, camera_array: CameraArray) -> pd.DataFrame:
 def undistort(points, camera: CameraData, iter_num=3) -> np.ndarray:
     """
     points: (n,2) dimensional np.ndarray
-    returns: (2,n) dimensional np.ndarray... definitely not happy with this but not going to start refactoring this at this moment
+    returns: (2,n) dimensional np.ndarray
     """
 
     # implementing a function described here: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html

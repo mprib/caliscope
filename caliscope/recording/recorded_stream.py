@@ -36,7 +36,10 @@ class RecordedStream:
         self.directory = directory
         self.port = port
         self.rotation_count = rotation_count
-        self.break_on_last = break_on_last  # stop while loop if end reached. Preferred behavior for automated file processing, not interactive frame selection
+
+        # stop while loop if end reached.
+        # Preferred behavior for automated file processing, not interactive frame selection
+        self.break_on_last = break_on_last
 
         self.tracker = tracker
 
@@ -77,7 +80,8 @@ class RecordedStream:
             }
             self.port_history = pd.DataFrame(mocked_port_history)
 
-        # note that this is not simply 0 and frame count because the syncronized recording might start recording many frames into pulling from a camera
+        # note that this is not simply 0 and frame count because the syncronized recording might start recording many
+        # frames into pulling from a camera
         # this is one of those unhappy artifacts that may be a good candidate for simplification in a future refactor
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()

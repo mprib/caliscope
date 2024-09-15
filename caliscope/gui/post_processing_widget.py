@@ -58,15 +58,6 @@ class PostProcessingWidget(QWidget):
     def set_current_xyz(self):
         if self.xyz_processed_path.exists():
             self.vis_widget.update_motion_trial(self.xyz_processed_path)
-            # # confirm that there are some triangulated values to observe
-            # xyz = pd.read_csv(self.xyz_processed_path)
-            # if xyz.shape[0] != 0:
-            #     logger.info(f"Setting xyz display coordinates to those stored in {self.xyz_processed_path}")
-            #     self.xyz = xyz
-            # else:
-            #     logger.info("Not enough data to triangulate points")
-            #     QMessageBox.warning(self, "Warning", f"The {self.active_tracker_enum.name} tracker did not identify sufficient points for triangulation to occur for recordings stored in:\n{self.active_recording_path}.") # show a warning dialog
-            #     self.xyz = None
         else:
             logger.info(f"No points displayed; Nothing stored in {self.xyz_processed_path}")
             # self.xyz = None
@@ -79,7 +70,7 @@ class PostProcessingWidget(QWidget):
                     QMessageBox.warning(
                         self,
                         "Warning",
-                        f"The {self.active_tracker_enum.name} tracker did not identify any points to track in recordings stored in:\n{self.active_recording_path}.",
+                        f"The {self.active_tracker_enum.name} tracker did not identify any points to track in recordings stored in:\n{self.active_recording_path}.",  # noqa 501
                     )  # show a warning dialog
 
     def update_recording_folders(self):
@@ -155,7 +146,7 @@ class PostProcessingWidget(QWidget):
         else:
             suffix = "(no processed data)"
 
-        title = f"<div align='center'><b>{self.tracker_combo.currentData().name.title()} Tracker: {self.active_folder} {suffix} </b></div>"
+        title = f"<div align='center'><b>{self.tracker_combo.currentData().name.title()} Tracker: {self.active_folder} {suffix} </b></div>"  # noqa E501
 
         return title
 
@@ -274,7 +265,7 @@ class PostProcessingWidget(QWidget):
             self.generate_metarig_config_btn.setToolTip("Tracker is not set up to scale to a metarig")
         elif self.metarig_config_path.exists():
             self.generate_metarig_config_btn.setToolTip(
-                "The Metarig configuration json file has already been created.Check the tracker subfolder in the recording directory."
+                "The Metarig configuration json file has already been created. Check the tracker subfolder in the recording directory."  # noqa E501
             )
         elif not self.xyz_processed_path.exists():
             self.generate_metarig_config_btn.setToolTip(

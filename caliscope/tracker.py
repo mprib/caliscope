@@ -93,7 +93,8 @@ class Tracker(ABC):
         OPTIONAL PROPERTY
 
         a dictionary of key: value in the form Measure_Name:[side_pointA, side_pointB]
-        when processed, mean distance (excluding outliers) between the two points will be calculated and stored as the measure
+        when processed, mean distance (excluding outliers) between the two points
+        will be calculated and stored as the measure
         """
         raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
 

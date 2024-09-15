@@ -44,10 +44,7 @@ class CaptureVolumeWidget(QWidget):
         self.rotate_z_plus_btn = QPushButton("Z+")
         self.rotate_z_minus_btn = QPushButton("Z-")
 
-        # self.distance_error_summary = QLabel(self.session.quality_controller.distance_error_summary.to_string(index=False))
         self.rmse_summary = QLabel(self.controller.capture_volume.get_rmse_summary())
-
-        # self.recalibrate_btn = QPushButton("Recalibrate")
 
         self.place_widgets()
         self.connect_widgets()

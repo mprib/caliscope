@@ -98,7 +98,7 @@ class SyncPacketTriangulator:
 
                         xyz_packet = XYZPacket(sync_packet.sync_index, point_id_xyz, points_xyz)
                         logger.info(
-                            f"Placing xyz pacKet for index {sync_packet.sync_index} with {len(xyz_packet.point_ids)} points"
+                            f"Placing xyz pacKet for index {sync_packet.sync_index} with {len(xyz_packet.point_ids)} points"  # noqa E501
                         )
                         for q in self.subscribers:
                             q.put(xyz_packet)

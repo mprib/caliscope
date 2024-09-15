@@ -191,7 +191,7 @@ class PostProcessingWidget(QWidget):
             url = QUrl.fromLocalFile(str(folder_path))
             QDesktopServices.openUrl(url)
         else:
-            logger.warn("No folder selected")
+            logger.warning("No folder selected")
 
     def process_current(self):
         """

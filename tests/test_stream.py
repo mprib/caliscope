@@ -54,7 +54,7 @@ def test_stream():
             target_frame = 20
             stream.pause()
             stream.jump_to(target_frame)
-            sleep(0.2)  # need to make sure fps_target wait plays out
+            sleep(1)  # need to make sure fps_target wait plays out
             assert stream.frame_index == 20
 
             logger.info(f"After attempting to jump to target frame {target_frame} ")

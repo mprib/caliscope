@@ -10,7 +10,7 @@ logger = caliscope.logger.get(__name__)
 def butter_lowpass(cutoff, fs, order=2):
     # cutoff frequency must be less than half the frame rate
     if cutoff < fs / 2:
-        logger.warn("Low pass filter failing due to excessively low fps / excessively high filter cutoff.")
+        logger.warning("Low pass filter failing due to excessively low fps / excessively high filter cutoff.")
 
     nyq = 0.5 * fs  # Nyquist Frequency
     normal_cutoff = cutoff / nyq

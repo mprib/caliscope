@@ -266,7 +266,7 @@ class Controller(QObject):
                 self.push_camera_data(port)
                 self.enable_inputs.emit(port, True)
             else:
-                logger.warn("Not enough grids available to calibrate")
+                logger.warning("Not enough grids available to calibrate")
 
         self.calibrate_camera_threads[port] = QThread()
         self.calibrate_camera_threads[port].run = worker

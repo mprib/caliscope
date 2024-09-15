@@ -88,7 +88,7 @@ class PostProcessor:
             logger.info("Beginning data triangulation")
             xyz = triangulate_xy(xy, self.camera_array)
         else:
-            logger.warn("No points tracked. Terminating post-processing early.")
+            logger.warning("No points tracked. Terminating post-processing early.")
             return
 
         if xyz.shape[0] > 0:
@@ -106,7 +106,7 @@ class PostProcessor:
             xyz_labelled.to_csv(xyz_wide_csv_path)
 
         else:
-            logger.warn("No points triangulated. Terminating post-processing early.")
+            logger.warning("No points triangulated. Terminating post-processing early.")
             return
 
         # only include trc if wanted and only if there is actually good data to export

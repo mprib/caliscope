@@ -105,7 +105,7 @@ class RecordedStream:
             self.subscribers.append(queue)
             logger.info(f"...now {len(self.subscribers)} subscriber(s) at {self.port}")
         else:
-            logger.warn(f"Attempted to subscribe to recorded stream at port {self.port} twice")
+            logger.warning(f"Attempted to subscribe to recorded stream at port {self.port} twice")
 
     def unsubscribe(self, queue: Queue):
         if queue in self.subscribers:
@@ -113,7 +113,7 @@ class RecordedStream:
             self.subscribers.remove(queue)
             logger.info(f"{len(self.subscribers)} subscriber(s) remain at recorded stream {self.port}")
         else:
-            logger.warn(
+            logger.warning(
                 f"Attempted to unsubscribe to recorded stream that was not subscribed to\
                 at port {self.port} twice"
             )

@@ -135,7 +135,7 @@ class StereoCalibrator:
         self.all_point_data["in_pair"] = self.all_point_data.apply(in_pair, axis=1, args=(pair,))
 
         # group points into boards and get the total count for sample weighting below
-        pair_points = self.all_point_data[self.all_point_data["in_pair"] is True]
+        pair_points = self.all_point_data[self.all_point_data["in_pair"]]
         pair_boards = (
             pair_points.filter(["sync_index", "port", "point_id"])
             .groupby(["sync_index", "port"])

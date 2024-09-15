@@ -38,6 +38,15 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
+    # note this install is likely relevant for all ubuntu users...
+    # taken from https://www.reddit.com/r/github/comments/10aenmk/help_linux_action_cant_find_opengl_all_of_a_sudden/
+    - name: Update packages
+      run: sudo apt-get update
+
+    - name: Install packages
+      run: sudo apt-get install --fix-missing libgl1-mesa-dev
+    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip

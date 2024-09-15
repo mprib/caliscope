@@ -79,7 +79,7 @@ def test_configurator():
 
     # create new point estimates with newly saved data
     point_estimates_reloaded = config.get_point_estimates()
-    assert isinstance(point_estimates_reloaded,PointEstimates)
+    assert isinstance(point_estimates_reloaded, PointEstimates)
 
     assert point_estimates_are_equal(point_estimates, point_estimates_reloaded)
 

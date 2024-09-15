@@ -82,8 +82,8 @@ class CharucoTracker(Tracker):
                     (-1, -1),
                     self.criteria,
                 )
-            except:
-                logger.debug("Sub pixel detection failed")
+            except Exception as e:
+                logger.debug(f"Sub pixel detection failed: {e}")
 
             if success:
                 # assign to tracker

@@ -1,30 +1,31 @@
-from PySide6.QtCore import QObject, Signal, QThread
-import numpy as np
+from collections import OrderedDict
 from pathlib import Path
 from time import sleep, time
-from caliscope.trackers.tracker_enum import TrackerEnum
-from caliscope.post_processing.post_processor import PostProcessor
-from caliscope.calibration.charuco import Charuco
-from caliscope.intrinsic_stream_manager import IntrinsicStreamManager
-from caliscope.configurator import Configurator
-from caliscope.trackers.charuco_tracker import CharucoTracker
-from caliscope.calibration.stereocalibrator import StereoCalibrator
+
+import numpy as np
+from PySide6.QtCore import QObject, QThread, Signal
+
+import caliscope.logger
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
-from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
-from caliscope.calibration.capture_volume.quality_controller import QualityController
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.calibration.capture_volume.quality_controller import QualityController
+from caliscope.calibration.charuco import Charuco
+from caliscope.calibration.stereocalibrator import StereoCalibrator
+from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
+from caliscope.configurator import Configurator
+from caliscope.intrinsic_stream_manager import IntrinsicStreamManager
+from caliscope.post_processing.post_processor import PostProcessor
 from caliscope.synchronized_stream_manager import (
     SynchronizedStreamManager,
     read_video_properties,
 )
+from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide
-from collections import OrderedDict
-
-import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 

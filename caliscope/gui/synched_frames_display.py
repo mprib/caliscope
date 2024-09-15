@@ -1,17 +1,17 @@
-import caliscope.logger
-from time import sleep
 import math
+from time import sleep
 
-from PySide6.QtCore import Slot, Qt
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
     QGridLayout,
-    QWidget,
-    QScrollArea,
     QHBoxLayout,
     QLabel,
+    QScrollArea,
     QVBoxLayout,
+    QWidget,
 )
 
+import caliscope.logger
 from caliscope.gui.frame_emitters.frame_dictionary_emitter import FrameDictionaryEmitter
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 

@@ -1,11 +1,13 @@
-import caliscope.logger
 import statistics
-import cv2
 from pathlib import Path
-from caliscope.cameras.synchronizer import Synchronizer
-from caliscope.recording.recorded_stream import RecordedStream
+
+import cv2
+
+import caliscope.logger
 from caliscope.cameras.camera_array import CameraData
+from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.packets import Tracker
+from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.recording.video_recorder import VideoRecorder
 
 logger = caliscope.logger.get(__name__)

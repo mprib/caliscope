@@ -1,10 +1,12 @@
 # %%
 
 from pathlib import Path
-import pandas as pd
-from caliscope import __root__
-import seaborn as sns
+
 import numpy as np
+import pandas as pd
+import seaborn as sns
+
+from caliscope import __root__
 
 session_directory = Path(__root__, "tests", "demo")
 

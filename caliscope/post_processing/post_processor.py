@@ -1,19 +1,17 @@
-import caliscope.logger
 import shutil
-
+from pathlib import Path
 from time import sleep
 
-from pathlib import Path
 import pandas as pd
-from caliscope.triangulate.triangulation import triangulate_xy
-from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 
-from caliscope.trackers.tracker_enum import TrackerEnum
+import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray
-
 from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
 from caliscope.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
 from caliscope.post_processing.smoothing import smooth_xyz
+from caliscope.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.trackers.tracker_enum import TrackerEnum
+from caliscope.triangulate.triangulation import triangulate_xy
 
 logger = caliscope.logger.get(__name__)
 

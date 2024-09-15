@@ -8,24 +8,23 @@ After recent inclusion of distortion into the triangulation, the tolerance
 of the final averaged triangulated position improved from 1.5 cm to 6 mm.
 """
 
-import caliscope.logger
-
-from time import sleep
-
-from caliscope.cameras.synchronizer import Synchronizer
-from caliscope.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from caliscope.cameras.camera_array import CameraArray
-from caliscope.recording.recorded_stream import RecordedStream
-from caliscope.calibration.charuco import Charuco
-from caliscope.trackers.charuco_tracker import CharucoTracker
-from caliscope.configurator import Configurator
-from caliscope.helper import copy_contents
-
 import shutil
 from pathlib import Path
+from time import sleep
+
 import numpy as np
 import pandas as pd
+
+import caliscope.logger
 from caliscope import __root__
+from caliscope.calibration.charuco import Charuco
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.cameras.synchronizer import Synchronizer
+from caliscope.configurator import Configurator
+from caliscope.helper import copy_contents
+from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.triangulate.sync_packet_triangulator import SyncPacketTriangulator
 
 logger = caliscope.logger.get(__name__)
 

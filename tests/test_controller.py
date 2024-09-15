@@ -2,11 +2,10 @@
 from pathlib import Path
 from time import sleep
 
-from caliscope import __root__
-from caliscope.helper import copy_contents
-from caliscope.controller import Controller, read_video_properties
 import caliscope.logger
-
+from caliscope import __root__
+from caliscope.controller import Controller, read_video_properties
+from caliscope.helper import copy_contents
 
 logger = caliscope.logger.get(__name__)
 

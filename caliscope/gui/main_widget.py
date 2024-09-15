@@ -1,34 +1,35 @@
-import caliscope.logger
-from pathlib import Path
-from enum import Enum
 import os
-import sys
 import subprocess
+import sys
+from enum import Enum
+from pathlib import Path
+
+import rtoml
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication,
+    QDockWidget,
     QFileDialog,
     QMainWindow,
-    QWidget,
-    QTabWidget,
-    QDockWidget,
     QMenu,
+    QTabWidget,
+    QWidget,
 )
-import rtoml
-from PySide6.QtGui import QIcon, QAction
-from PySide6.QtCore import Qt
-from caliscope import __root__, __settings_path__
-from caliscope.gui.log_widget import LogWidget
-from caliscope.gui.charuco_widget import CharucoWidget
-from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
-from caliscope.gui.workspace_widget import WorkspaceSummaryWidget
+
+import caliscope.logger
+from caliscope import __log_dir__, __root__, __settings_path__
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.controller import Controller
 from caliscope.gui.camera_management.multiplayback_widget import (
     MultiIntrinsicPlaybackWidget,
 )
+from caliscope.gui.charuco_widget import CharucoWidget
+from caliscope.gui.log_widget import LogWidget
 from caliscope.gui.post_processing_widget import PostProcessingWidget
-from caliscope.controller import Controller
-from caliscope import __log_dir__
 from caliscope.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
-from caliscope.cameras.camera_array import CameraArray
+from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
+from caliscope.gui.workspace_widget import WorkspaceSummaryWidget
 
 logger = caliscope.logger.get(__name__)
 

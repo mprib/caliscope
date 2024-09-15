@@ -1,11 +1,11 @@
-import caliscope.logger
-
-import pyqtgraph as pg
-import pyqtgraph.opengl as gl
 import math
 
-from caliscope.cameras.camera_array import CameraData
 import numpy as np
+import pyqtgraph as pg
+import pyqtgraph.opengl as gl
+
+import caliscope.logger
+from caliscope.cameras.camera_array import CameraData
 
 logger = caliscope.logger.get(__name__)
 
@@ -140,8 +140,9 @@ def rotationMatrixToEulerAngles(R):
 
 
 if __name__ == "__main__":
-    import rtoml
     from pathlib import Path
+
+    import rtoml
 
     app = pg.mkQApp("GLMeshItem Example")
 

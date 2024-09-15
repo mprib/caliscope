@@ -1,11 +1,13 @@
-from pathlib import Path
-import caliscope.logger
-import cv2
-import pandas as pd
-from caliscope import __root__
-import numpy as np
-import rtoml
 from itertools import combinations
+from pathlib import Path
+
+import cv2
+import numpy as np
+import pandas as pd
+import rtoml
+
+import caliscope.logger
+from caliscope import __root__
 
 logger = caliscope.logger.get(__name__)
 

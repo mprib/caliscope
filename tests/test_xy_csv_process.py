@@ -1,9 +1,10 @@
-import caliscope.logger
-
-from caliscope.configurator import Configurator
 from pathlib import Path
-from caliscope import __root__
+
 import pandas as pd
+
+import caliscope.logger
+from caliscope import __root__
+from caliscope.configurator import Configurator
 
 # specify a source directory (with recordings)
 from caliscope.helper import copy_contents

@@ -1,11 +1,11 @@
-import caliscope.logger
-
-from threading import Thread
 from queue import Queue
+from threading import Thread
 
+import cv2
 import mediapipe as mp
 import numpy as np
-import cv2
+
+import caliscope.logger
 
 # cap = cv2.VideoCapture(0)
 from caliscope.packets import PointPacket

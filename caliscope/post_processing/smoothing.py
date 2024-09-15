@@ -1,8 +1,7 @@
-import caliscope.logger
-
-
 import pandas as pd
 from scipy.signal import butter, filtfilt
+
+import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 

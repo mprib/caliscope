@@ -1,10 +1,12 @@
-import caliscope.logger
-import pandas as pd
 from time import time
+
+import numpy as np
+import pandas as pd
 from numba import jit
 from numba.typed import Dict, List
+
+import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray, CameraData
-import numpy as np
 
 logger = caliscope.logger.get(__name__)
 

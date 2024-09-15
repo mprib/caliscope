@@ -1,13 +1,11 @@
 # %%
 import json
-
-from caliscope import __root__
 from pathlib import Path
 
-from caliscope.trackers.tracker_enum import TrackerEnum
-from caliscope.post_processing.blender_tools import generate_metarig_config
-
 import caliscope.logger
+from caliscope import __root__
+from caliscope.post_processing.blender_tools import generate_metarig_config
+from caliscope.trackers.tracker_enum import TrackerEnum
 
 logger = caliscope.logger.get(__name__)
 

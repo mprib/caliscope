@@ -1,21 +1,20 @@
 # %%
 
-import caliscope.logger
-
-
-from pathlib import Path
 import pickle
 from dataclasses import dataclass
-import numpy as np
+from pathlib import Path
+
 import cv2
+import numpy as np
 from scipy.optimize import least_squares
 
+import caliscope.logger
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
-from caliscope.calibration.charuco import Charuco
-from caliscope.cameras.camera_array import CameraArray
 from caliscope.calibration.capture_volume.set_origin_functions import (
     get_board_origin_transform,
 )
+from caliscope.calibration.charuco import Charuco
+from caliscope.cameras.camera_array import CameraArray
 
 logger = caliscope.logger.get(__name__)
 

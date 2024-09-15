@@ -1,17 +1,17 @@
-import caliscope.logger
-
-
 import sys
-from caliscope.configurator import Configurator
 from pathlib import Path
-from caliscope import __root__
+
 import pandas as pd
+from PySide6.QtWidgets import QApplication
 from scipy.stats import pearsonr
+
+import caliscope.logger
+from caliscope import __root__
+from caliscope.configurator import Configurator
+from caliscope.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 
 # specify a source directory (with recordings)
 from caliscope.helper import copy_contents
-from PySide6.QtWidgets import QApplication
-from caliscope.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 from caliscope.post_processing.smoothing import smooth_xyz
 
 logger = caliscope.logger.get(__name__)

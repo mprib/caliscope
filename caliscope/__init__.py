@@ -1,9 +1,10 @@
 """Top-level package for basic_template_repo."""
 
 import os
-from pathlib import Path
-import rtoml
 import platform
+from pathlib import Path
+
+import rtoml
 
 __package_name__ = "caliscope"
 __version__ = "v0.2.4"

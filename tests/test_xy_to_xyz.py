@@ -1,16 +1,16 @@
-import caliscope.logger
-
 import time
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
+import caliscope.logger
 from caliscope import __root__
 from caliscope.configurator import Configurator
+from caliscope.helper import copy_contents
+from caliscope.trackers.tracker_enum import TrackerEnum
 
 # from caliscope.post_processing.post_processor import PostProcessor
 from caliscope.triangulate.triangulation import triangulate_xy
-
-from caliscope.helper import copy_contents
-from caliscope.trackers.tracker_enum import TrackerEnum
 
 logger = caliscope.logger.get(__name__)
 

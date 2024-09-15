@@ -1,7 +1,7 @@
 import sys
 
-from caliscope.gui.main_widget import launch_main
 import caliscope.logger
+from caliscope.gui.main_widget import launch_main
 
 logger = caliscope.logger.get(__name__)
 

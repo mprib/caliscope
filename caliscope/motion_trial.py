@@ -1,8 +1,10 @@
-from pathlib import Path
-import pandas as pd
 from dataclasses import dataclass, field
-from caliscope.packets import XYZPacket
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
+
+from caliscope.packets import XYZPacket
 from caliscope.trackers.tracker_enum import TrackerEnum
 
 

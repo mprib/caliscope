@@ -1,12 +1,13 @@
-import caliscope.logger
-from queue import Queue
-from threading import Thread, Event
 import random
+from queue import Queue
+from threading import Event, Thread
+
 import cv2
 
+import caliscope.logger
+from caliscope.cameras.camera_array import CameraData
 from caliscope.packets import FramePacket
 from caliscope.recording.recorded_stream import RecordedStream
-from caliscope.cameras.camera_array import CameraData
 
 logger = caliscope.logger.get(__name__)
 

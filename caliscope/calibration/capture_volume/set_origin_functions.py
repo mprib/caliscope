@@ -1,20 +1,22 @@
 # %%
 
-import caliscope.logger
-from pathlib import Path
-import numpy as np
+import pickle
 import sys
+from pathlib import Path
+
+import cv2
+import numpy as np
 import scipy
 from PySide6.QtWidgets import QApplication
+
+import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
-from caliscope.cameras.camera_array import CameraData, CameraArray
-import cv2
-import pickle
+from caliscope.cameras.camera_array import CameraArray, CameraData
 
 logger = caliscope.logger.get(__name__)
 
@@ -220,15 +222,15 @@ def get_board_origin_transform(
 
 if __name__ == "__main__":
     #
-    from caliscope.session.session import LiveSession
-    from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
     from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+    from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
     from caliscope.gui.vizualize.calibration.capture_volume_visualizer import (
         CaptureVolumeVisualizer,
     )
     from caliscope.gui.vizualize.calibration.capture_volume_widget import (
         CaptureVolumeWidget,
     )
+    from caliscope.session.session import LiveSession
 
     # test_scenario = "4_cameras_nonoverlap"
     # test_scenario = "3_cameras_middle"

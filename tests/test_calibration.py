@@ -1,27 +1,25 @@
-import caliscope.logger
-
-from time import sleep
 import shutil
 from pathlib import Path
-from caliscope.cameras.camera_array import CameraArray
+from time import sleep
+
+import pytest
+
+import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
-import pytest
-from caliscope.trackers.charuco_tracker import CharucoTracker
-
-from caliscope.calibration.stereocalibrator import StereoCalibrator
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-
-from caliscope.synchronized_stream_manager import SynchronizedStreamManager
-from caliscope.helper import copy_contents
-
-from caliscope.controller import FILTERED_FRACTION
+from caliscope.calibration.stereocalibrator import StereoCalibrator
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
+from caliscope.controller import FILTERED_FRACTION
+from caliscope.helper import copy_contents
+from caliscope.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = caliscope.logger.get(__name__)
 

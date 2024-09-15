@@ -1,14 +1,15 @@
+from pathlib import Path
+from queue import Queue
+from threading import Event, Thread
+
 import numpy as np
 import pandas as pd
+
+import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.synchronizer import Synchronizer, SyncPacket
-from queue import Queue
-from threading import Thread, Event
-from pathlib import Path
 from caliscope.packets import XYZPacket
-
 from caliscope.triangulate.triangulation import triangulate_sync_index
-import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 

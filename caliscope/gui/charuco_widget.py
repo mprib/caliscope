@@ -17,9 +17,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import caliscope.logger
 from caliscope.calibration.charuco import Charuco
 from caliscope.controller import Controller
-import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 

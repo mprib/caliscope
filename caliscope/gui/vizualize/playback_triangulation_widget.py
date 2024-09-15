@@ -1,18 +1,18 @@
 from pathlib import Path
-import numpy as np
 from time import time
-import pyqtgraph.opengl as gl
 
+import numpy as np
+import pyqtgraph.opengl as gl
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QSlider,
     QVBoxLayout,
     QWidget,
 )
-from caliscope.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
-from caliscope.cameras.camera_array import CameraArray
-import caliscope.logger
 
+import caliscope.logger
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from caliscope.motion_trial import MotionTrial
 
 logger = caliscope.logger.get(__name__)

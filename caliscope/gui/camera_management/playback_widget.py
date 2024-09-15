@@ -1,28 +1,29 @@
 import sys
-from PySide6.QtWidgets import QStyle
-from PySide6.QtGui import QIcon, QPixmap, QPainter
 from pathlib import Path
+
+from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtGui import QIcon, QPainter, QPixmap
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QApplication,
-    QSpinBox,
-    QDoubleSpinBox,
     QCheckBox,
-    QWidget,
+    QDoubleSpinBox,
+    QHBoxLayout,
+    QLabel,
     QPushButton,
     QSlider,
-    QLabel,
-    QHBoxLayout,
+    QSpinBox,
+    QStyle,
     QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Slot, Signal
+
+import caliscope.logger
+from caliscope import __root__
+from caliscope.controller import Controller
 from caliscope.gui.camera_management.camera_display_widget import (
     CameraDataDisplayWidget,
 )
-from PySide6.QtSvg import QSvgRenderer
-from caliscope.controller import Controller
-from caliscope import __root__
-
-import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 
@@ -314,8 +315,8 @@ class IntrinsicCalibrationWidget(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     from caliscope import __root__
-    from caliscope.trackers.charuco_tracker import CharucoTracker
     from caliscope.calibration.charuco import Charuco
+    from caliscope.trackers.charuco_tracker import CharucoTracker
 
     # Define the input file path here.
     original_workspace_dir = Path(__root__, "tests", "sessions", "prerecorded_calibration")

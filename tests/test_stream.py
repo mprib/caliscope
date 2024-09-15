@@ -3,12 +3,12 @@ from queue import Queue
 from time import sleep
 
 import cv2
-from caliscope import __root__
-from caliscope.calibration.charuco import Charuco
-from caliscope.trackers.charuco_tracker import CharucoTracker
-from caliscope.recording.recorded_stream import RecordedStream
 
 import caliscope.logger
+from caliscope import __root__
+from caliscope.calibration.charuco import Charuco
+from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = caliscope.logger.get(__name__)
 

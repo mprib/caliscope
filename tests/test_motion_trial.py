@@ -1,8 +1,9 @@
 from pathlib import Path
+
+import caliscope.logger
 from caliscope import __root__
 from caliscope.motion_trial import MotionTrial
 from caliscope.packets import XYZPacket
-import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 

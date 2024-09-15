@@ -16,11 +16,12 @@
 # New camera configurations
 # %%
 
+import os
 import platform
 import time
-import os
 
 import cv2
+
 import caliscope.logger
 
 logger = caliscope.logger.get(__name__)

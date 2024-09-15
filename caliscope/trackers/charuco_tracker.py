@@ -2,10 +2,11 @@
 # detector and the corner drawer...like, there will need to be something that
 # accumulates a frame of corners to be drawn onto the displayed frame.
 
-import caliscope.logger
 import cv2
 import numpy as np
+
 import caliscope.calibration.draw_charuco
+import caliscope.logger
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
 

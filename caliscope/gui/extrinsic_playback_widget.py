@@ -1,24 +1,24 @@
-import caliscope.logger
-from time import sleep
 import math
 from threading import Event
-import numpy as np
+from time import sleep
 
 import cv2
-from PySide6.QtCore import Signal, Slot, QThread
+import numpy as np
+from PySide6.QtCore import QThread, Signal, Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QGridLayout,
-    QWidget,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QVBoxLayout,
+    QWidget,
 )
 
+import caliscope.logger
 from caliscope.cameras.synchronizer import Synchronizer
-from caliscope.packets import FramePacket
 from caliscope.controller import Controller
+from caliscope.packets import FramePacket
 
 logger = caliscope.logger.get(__name__)
 

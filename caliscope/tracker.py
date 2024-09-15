@@ -1,9 +1,11 @@
-from dataclasses import dataclass
-import numpy as np
 from abc import ABC, abstractmethod
-from caliscope.packets import PointPacket, XYZPacket
-from pyqtgraph.opengl import GLLinePlotItem
+from dataclasses import dataclass
+
+import numpy as np
 import pyqtgraph as pg
+from pyqtgraph.opengl import GLLinePlotItem
+
+from caliscope.packets import PointPacket, XYZPacket
 
 
 class Tracker(ABC):

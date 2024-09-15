@@ -1,15 +1,14 @@
-import caliscope.logger
 import logging
-
 from pathlib import Path
 from queue import Queue
-from threading import Thread, Event
+from threading import Event, Thread
+from time import perf_counter, sleep
 
 import cv2
-from time import perf_counter, sleep
-import pandas as pd
 import numpy as np
+import pandas as pd
 
+import caliscope.logger
 from caliscope.packets import FramePacket, Tracker
 
 logger = caliscope.logger.get(__name__)

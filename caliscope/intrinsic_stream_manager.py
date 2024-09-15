@@ -1,12 +1,13 @@
-import caliscope.logger
-from time import sleep
 from pathlib import Path
+from time import sleep
+
+import caliscope.logger
+from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
+from caliscope.cameras.camera_array import CameraData
+from caliscope.gui.frame_emitters.playback_frame_emitter import PlaybackFrameEmitter
+from caliscope.packets import Tracker
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.trackers.charuco_tracker import CharucoTracker
-from caliscope.cameras.camera_array import CameraData
-from caliscope.packets import Tracker
-from caliscope.gui.frame_emitters.playback_frame_emitter import PlaybackFrameEmitter
-from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
 
 logger = caliscope.logger.get(__name__)
 

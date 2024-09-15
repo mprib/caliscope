@@ -1,10 +1,7 @@
-import caliscope.logger
-
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QGroupBox,
     QGridLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -13,6 +10,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import caliscope.logger
 from caliscope.controller import Controller
 from caliscope.gui.vizualize.calibration.capture_volume_visualizer import (
     CaptureVolumeVisualizer,

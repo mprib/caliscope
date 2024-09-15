@@ -1,10 +1,11 @@
-import caliscope.logger
+import shutil
+import time
+from pathlib import Path
 
 import pandas as pd
+
+import caliscope.logger
 from caliscope import __root__
-import shutil
-from pathlib import Path
-import time
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager

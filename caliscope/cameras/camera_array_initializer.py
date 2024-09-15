@@ -1,20 +1,21 @@
 # %%
 
 
+from dataclasses import dataclass
+from itertools import permutations
 from pathlib import Path
-from caliscope.cameras.camera_array import CameraData, CameraArray
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+
+import numpy as np
+import rtoml
+
+import caliscope.logger
+from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
-
-from itertools import permutations
-from caliscope import __root__
-import numpy as np
-from dataclasses import dataclass
-import rtoml
-import caliscope.logger
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.cameras.camera_array import CameraArray, CameraData
 
 logger = caliscope.logger.get(__name__)
 

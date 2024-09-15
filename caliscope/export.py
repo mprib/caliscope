@@ -1,8 +1,9 @@
-import caliscope.logger
-from pathlib import Path
-import pandas as pd
 import csv
+from pathlib import Path
 
+import pandas as pd
+
+import caliscope.logger
 from caliscope.packets import Tracker
 
 logger = caliscope.logger.get(__name__)

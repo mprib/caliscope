@@ -1,16 +1,18 @@
 import sys
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QApplication,
-    QVBoxLayout,
     QTabWidget,
+    QVBoxLayout,
     QWidget,
 )
-from pathlib import Path
+
+import caliscope.logger
+from caliscope.controller import Controller
 from caliscope.gui.camera_management.playback_widget import (
     IntrinsicCalibrationWidget,
 )
-from caliscope.controller import Controller
-import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 

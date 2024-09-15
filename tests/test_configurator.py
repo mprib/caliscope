@@ -1,17 +1,17 @@
 # more attributes could certainly be tested in here,but at least this gives some basic sense of if things
 # are working....
-import caliscope.logger
-
-from pathlib import Path
-import numpy as np
 import shutil
+from pathlib import Path
 
+import numpy as np
+
+import caliscope.logger
 from caliscope import __root__
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.calibration.charuco import Charuco
+from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
-from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.calibration.charuco import Charuco
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 
 logger = caliscope.logger.get(__name__)
 

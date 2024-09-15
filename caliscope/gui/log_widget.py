@@ -1,15 +1,15 @@
-from caliscope.logger import get, XStream
+from time import time
 
-from PySide6.QtCore import Slot, Qt
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
-    QWidget,
     QApplication,
-    QTextBrowser,
     QPushButton,
+    QTextBrowser,
     QVBoxLayout,
+    QWidget,
 )
 
-from time import time
+from caliscope.logger import XStream, get
 
 logger = get(__name__)
 

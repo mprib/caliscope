@@ -1,31 +1,32 @@
-import caliscope.logger
-from pathlib import Path
-
-
-from PySide6.QtWidgets import QMainWindow, QFileDialog
-from threading import Thread
 import sys
+from pathlib import Path
+from threading import Thread
+
+import rtoml
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication,
-    QWidget,
     QDockWidget,
+    QFileDialog,
+    QMainWindow,
     QMenu,
+    QWidget,
 )
-import rtoml
-from PySide6.QtGui import QIcon, QAction
-from PySide6.QtCore import Qt
+
+import caliscope.logger
 from caliscope import __root__, __settings_path__
-from caliscope.session.session import LiveSession, SessionMode
-from caliscope.gui.log_widget import LogWidget
 from caliscope.configurator import Configurator
 from caliscope.gui.charuco_widget import CharucoWidget
+from caliscope.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
 from caliscope.gui.live_camera_config.intrinsic_calibration_widget import (
     IntrinsicCalibrationWidget,
 )
-from caliscope.gui.recording_widget import RecordingWidget
+from caliscope.gui.log_widget import LogWidget
 from caliscope.gui.post_processing_widget import PostProcessingWidget
-from caliscope.gui.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
+from caliscope.gui.recording_widget import RecordingWidget
 from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
+from caliscope.session.session import LiveSession, SessionMode
 
 logger = caliscope.logger.get(__name__)
 

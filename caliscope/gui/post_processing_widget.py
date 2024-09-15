@@ -1,28 +1,27 @@
-import caliscope.logger
-
-
 from pathlib import Path
-import pandas as pd
-from caliscope.trackers.tracker_enum import TrackerEnum
 
-from PySide6.QtCore import Signal, QUrl
+import pandas as pd
+from PySide6.QtCore import QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
-    QMessageBox,
-    QWidget,
     QComboBox,
-    QListWidget,
     QHBoxLayout,
     QLabel,
+    QListWidget,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
+    QWidget,
 )
-from caliscope.post_processing.blender_tools import generate_metarig_config
-from caliscope.controller import Controller
+
+import caliscope.logger
 from caliscope.configurator import Configurator
+from caliscope.controller import Controller
 from caliscope.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
 )
+from caliscope.post_processing.blender_tools import generate_metarig_config
+from caliscope.trackers.tracker_enum import TrackerEnum
 
 logger = caliscope.logger.get(__name__)
 

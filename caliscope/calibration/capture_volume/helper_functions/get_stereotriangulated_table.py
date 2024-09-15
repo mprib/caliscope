@@ -2,17 +2,15 @@
 # all of the data is ultimately embedded in the initial camera array configuration
 # and the calibration point data. These functions transform those two
 # things into a PointHistory object that can be used to optimize the CaptureVolume
-import caliscope.logger
-
-
-import pandas as pd
-import numpy as np
 from pathlib import Path
 
-from caliscope.packets import PointPacket, FramePacket, SyncPacket
-from caliscope.cameras.camera_array import CameraArray
-from caliscope.triangulate.array_stereo_triangulator import ArrayStereoTriangulator
+import numpy as np
+import pandas as pd
 
+import caliscope.logger
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.packets import FramePacket, PointPacket, SyncPacket
+from caliscope.triangulate.array_stereo_triangulator import ArrayStereoTriangulator
 from caliscope.triangulate.stereo_points_builder import (
     StereoPointsBuilder,
     StereoPointsPacket,

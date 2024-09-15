@@ -2,12 +2,13 @@
 # Detail will be logged to a single file with INFO logged to the console
 
 import logging
-from PySide6 import QtCore
-import sys
 import os
+import sys
 from pathlib import Path
-from caliscope import __log_dir__
 
+from PySide6 import QtCore
+
+from caliscope import __log_dir__
 
 # only one file handler accross package so all messages logged to one file
 

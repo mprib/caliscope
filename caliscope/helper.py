@@ -1,7 +1,7 @@
-import caliscope.logger
-
-from pathlib import Path
 import shutil
+from pathlib import Path
+
+import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 

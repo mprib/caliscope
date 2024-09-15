@@ -1,10 +1,10 @@
 from pathlib import Path
-from caliscope.trackers.wireframe_builder import get_wireframe
-from caliscope import __root__
 
 import caliscope.logger
-from caliscope.tracker import WireFrameView, Segment
+from caliscope import __root__
+from caliscope.tracker import Segment, WireFrameView
 from caliscope.trackers.holistic.holistic_tracker import POINT_NAMES, HolisticTracker
+from caliscope.trackers.wireframe_builder import get_wireframe
 
 logger = caliscope.logger.get(__name__)
 

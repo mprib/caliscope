@@ -1,15 +1,15 @@
-import caliscope.logger
-import numpy as np
-
-from threading import Event
 from queue import Queue
+from threading import Event
 
 import cv2
+import numpy as np
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
+
 import caliscope.calibration.draw_charuco as draw_charuco
+import caliscope.logger
+from caliscope.gui.frame_emitters.tools import apply_rotation, cv2_to_qlabel, resize_to_square
 from caliscope.recording.recorded_stream import RecordedStream
-from caliscope.gui.frame_emitters.tools import resize_to_square, apply_rotation, cv2_to_qlabel
 
 logger = caliscope.logger.get(__name__)
 

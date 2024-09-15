@@ -1,16 +1,17 @@
 from pathlib import Path
 from queue import Queue
 from time import sleep
-import numpy as np
-from caliscope import __root__
-from caliscope.helper import copy_contents
-from caliscope.calibration.charuco import Charuco
-from caliscope.trackers.charuco_tracker import CharucoTracker
-from caliscope.recording.recorded_stream import RecordedStream
-from caliscope.cameras.camera_array import CameraData
-import caliscope.logger
 
+import numpy as np
+
+import caliscope.logger
+from caliscope import __root__
+from caliscope.calibration.charuco import Charuco
 from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
+from caliscope.cameras.camera_array import CameraData
+from caliscope.helper import copy_contents
+from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = caliscope.logger.get(__name__)
 

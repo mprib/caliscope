@@ -1,12 +1,13 @@
-from pathlib import Path
-import numpy as np
+import logging
 from dataclasses import dataclass
 from itertools import combinations
+from pathlib import Path
+
+import numpy as np
+
+import caliscope.logger
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.packets import SyncPacket
-
-import logging
-import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 
@@ -128,8 +129,8 @@ class SynchedStereoPointsPacket:
 
 
 if __name__ == "__main__":
-    from caliscope.recording.recorded_stream import RecordedStreamPool
     from caliscope.calibration.charuco import Charuco
+    from caliscope.recording.recorded_stream import RecordedStreamPool
 
     logger.setLevel(logging.DEBUG)
     from caliscope import __root__

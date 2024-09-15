@@ -8,11 +8,9 @@ import rtoml
 from scipy import stats
 
 import caliscope.logger
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.calibration.capture_volume.capture_volume import xy_reprojection_error
+from caliscope.calibration.capture_volume.capture_volume import CaptureVolume, xy_reprojection_error
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
-
 
 logger = caliscope.logger.get(__name__)
 

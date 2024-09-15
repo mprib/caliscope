@@ -1,8 +1,10 @@
 import sys
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem
-from caliscope.controller import Controller
-import caliscope.logger
 from collections import OrderedDict
+
+from PySide6.QtWidgets import QApplication, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
+
+import caliscope.logger
+from caliscope.controller import Controller
 
 logger = caliscope.logger.get(__name__)
 
@@ -78,8 +80,9 @@ class CameraDataDisplayWidget(QWidget):
 
 
 if __name__ == "__main__":
-    from caliscope import __root__
     from pathlib import Path
+
+    from caliscope import __root__
 
     app = QApplication(sys.argv)
 

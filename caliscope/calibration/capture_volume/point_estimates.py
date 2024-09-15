@@ -1,8 +1,9 @@
-import caliscope.logger
-from scipy.sparse import lil_matrix
+from dataclasses import dataclass
 
 import numpy as np
-from dataclasses import dataclass
+from scipy.sparse import lil_matrix
+
+import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 

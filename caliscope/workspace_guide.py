@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import caliscope.logger
 from caliscope.configurator import Configurator
 

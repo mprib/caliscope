@@ -1,5 +1,6 @@
 import cv2
 from PySide6.QtGui import QImage
+
 import caliscope.logger
 
 logger = caliscope.logger.get(__name__)

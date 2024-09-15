@@ -1,13 +1,14 @@
-import caliscope.logger
-import pandas as pd
-import numpy as np
-from caliscope.cameras.camera_array import CameraArray
+from pathlib import Path
 
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+import numpy as np
+import pandas as pd
+
+import caliscope.logger
 from caliscope.calibration.capture_volume.helper_functions.get_stereotriangulated_table import (
     get_stereotriangulated_table,
 )
-from pathlib import Path
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.cameras.camera_array import CameraArray
 
 logger = caliscope.logger.get(__name__)
 

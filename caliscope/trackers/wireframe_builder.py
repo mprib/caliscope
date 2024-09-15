@@ -1,7 +1,9 @@
-import rtoml
 from pathlib import Path
+
+import rtoml
+
 import caliscope.logger
-from caliscope.tracker import WireFrameView, Segment
+from caliscope.tracker import Segment, WireFrameView
 
 logger = caliscope.logger.get(__name__)
 

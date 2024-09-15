@@ -1,8 +1,9 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+
+import cv2
 import numpy as np
 from numba.typed import List
-from abc import ABC, abstractmethod
-import cv2
 
 
 @dataclass(frozen=True, slots=True)

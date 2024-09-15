@@ -1,10 +1,10 @@
-import caliscope.logger
 import json
-
 from pathlib import Path
-import pandas as pd
-import numpy as np
 
+import numpy as np
+import pandas as pd
+
+import caliscope.logger
 from caliscope.trackers.tracker_enum import TrackerEnum
 
 logger = caliscope.logger.get(__name__)

@@ -1,21 +1,21 @@
 # %%
 
-import caliscope.logger
-
-from pathlib import Path
+from dataclasses import asdict
 from datetime import datetime
+from enum import Enum
 from os.path import exists
+from pathlib import Path
+
+import cv2
 import numpy as np
 import rtoml
-from dataclasses import asdict
-import cv2
-from enum import Enum
 
+import caliscope.logger
+from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera import Camera
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 
 logger = caliscope.logger.get(__name__)
 
@@ -322,6 +322,7 @@ class Configurator:
 
 if __name__ == "__main__":
     import rtoml
+
     from caliscope import __app_dir__
 
     app_settings = rtoml.load(Path(__app_dir__, "settings.toml"))

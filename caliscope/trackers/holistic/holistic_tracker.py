@@ -1,18 +1,18 @@
-from threading import Thread
-from queue import Queue
 from pathlib import Path
+from queue import Queue
+from threading import Thread
 
+import cv2
 import mediapipe as mp
 import numpy as np
-import cv2
+
+import caliscope.logger
 
 # cap = cv2.VideoCapture(0)
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
 from caliscope.trackers.helper import apply_rotation, unrotate_points
 from caliscope.trackers.wireframe_builder import get_wireframe
-
-import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 

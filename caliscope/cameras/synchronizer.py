@@ -1,13 +1,11 @@
-import caliscope.logger
-
-
 # logger.setLevel(logging.DEBUG)
-
 import time
 from queue import Queue
-from threading import Thread, Event
+from threading import Event, Thread
 
 import numpy as np
+
+import caliscope.logger
 from caliscope.packets import SyncPacket
 
 logger = caliscope.logger.get(__name__)

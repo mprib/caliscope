@@ -43,12 +43,13 @@ write_to = "caliscope/_version.py"
 
 
 [tool.ruff]
-# Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
 lint.select = ["E", "F", "W"]
 lint.ignore = []
 
+
 # Allow autofix for all enabled rules (when `--fix`) is provided.
-lint.fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"]
+lint.fixable = ["E", "F", "W"]
+# lint.fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"]
 lint.unfixable = []
 
 # Exclude a variety of commonly ignored directories.
@@ -73,6 +74,7 @@ exclude = [
     "dist",
     "node_modules",
     "venv",
+    "dev",
 ]
 
 line-length = 120

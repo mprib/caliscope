@@ -119,7 +119,7 @@ class WorkspaceGuide:
                     <p>    valid directories: {self.valid_recording_dir_text()}</p>
                     <p>
                 </body>
-            </html> 
+            </html>
             """
 
         return html

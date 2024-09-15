@@ -107,7 +107,7 @@ def test_autopopulate_data():
     stream.play_video()
     stream.pause()
 
-    packet = frame_q.get()  # pull off frame 0 to clear queue
+    _ = frame_q.get()  # pull off frame 0 to clear queue
 
     target_grid_count = 25
     wait_between = 3

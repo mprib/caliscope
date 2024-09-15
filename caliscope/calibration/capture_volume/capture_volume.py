@@ -85,7 +85,7 @@ class CaptureVolume:
         initial_param_estimate = self.get_vectorized_params()
 
         # get a snapshot of where things are at the start
-        initial_xy_error = xy_reprojection_error(initial_param_estimate, self)
+        # initial_xy_error = xy_reprojection_error(initial_param_estimate, self)
 
         # logger.info(
         #     f"Prior to bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"

@@ -1,7 +1,4 @@
 import caliscope.logger
-
-logger = caliscope.logger.get(__name__)
-
 import pandas as pd
 import numpy as np
 from caliscope.cameras.camera_array import CameraArray
@@ -11,6 +8,8 @@ from caliscope.calibration.capture_volume.helper_functions.get_stereotriangulate
     get_stereotriangulated_table,
 )
 from pathlib import Path
+
+logger = caliscope.logger.get(__name__)
 
 
 def get_points_2d_df(stereotriangulated_table: pd.DataFrame):

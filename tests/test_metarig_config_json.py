@@ -33,11 +33,11 @@ def test_metarig_config_generation():
     # make sure all measures are accounted for and sensible
     for measure, points in tracker.metarig_symmetrical_measures.items():
         assert measure in check_autorig_config.keys()
-        assert type(check_autorig_config[measure]) == float
+        assert isinstance(check_autorig_config[measure],float)
 
     for measure, points in tracker.metarig_bilateral_measures.items():
         assert measure in check_autorig_config.keys()
-        assert type(check_autorig_config[measure]) == float
+        assert isinstance(check_autorig_config[measure], float)
 
 
 if __name__ == "__main__":

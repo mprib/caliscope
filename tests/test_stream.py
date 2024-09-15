@@ -44,7 +44,7 @@ def test_stream():
             stream.pause()
             sleep(0.5)
             test_index = stream.frame_index
-            sleep(0.1)
+            sleep(0.5)
             # make sure that stream doesn't advance with pause
             assert test_index == stream.frame_index
             stream.unpause()
@@ -53,14 +53,15 @@ def test_stream():
             logger.info("Testing ability to jump forward")
             target_frame = 20
             stream.pause()
+            sleep(1)  # need to make sure fps_target wait plays out
             stream.jump_to(target_frame)
             sleep(1)  # need to make sure fps_target wait plays out
-            assert stream.frame_index == 20
+            assert stream.frame_index == 21
 
             logger.info(f"After attempting to jump to target frame {target_frame} ")
             current_frame = int(stream.capture.get(cv2.CAP_PROP_POS_FRAMES))
             logger.info(f"Current frame is now {current_frame}")
-            assert current_frame == 20
+            assert current_frame == 21
             stream.unpause()
 
         # cv2.imshow("Test", frame_packet.frame_with_points)

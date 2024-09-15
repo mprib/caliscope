@@ -188,7 +188,7 @@ class RecordedStream:
 
             if self.milestones is not None:
                 sleep(self.wait_to_next_frame())
-            logger.debug(f"about to read frame {self.frame_index} from capture at port {self.port}")
+            logger.info(f"about to read frame {self.frame_index} from capture at port {self.port}")
             success, self.frame = self.capture.read()
 
             if not success:
@@ -217,7 +217,7 @@ class RecordedStream:
             for q in self.subscribers:
                 q.put(frame_packet)
 
-            # self.out_q.put(frame_packet)
+            logger.debug(f"Incrementing frame index from {self.frame_index} to {self.frame_index+1}")
             self.frame_index += 1
 
             if self.frame_index > self.last_frame_index and self.break_on_last:
@@ -253,8 +253,7 @@ class RecordedStream:
                     break
 
                 sleep(0.1)
-
-            ############
+            #######################################################
             if not self._jump_q.empty():
                 self.frame_index = self._jump_q.get()
                 logger.info(f"Setting port {self.port} capture object to frame index {self.frame_index}")

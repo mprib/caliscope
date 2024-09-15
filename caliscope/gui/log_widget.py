@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from time import time
+
 logger = get(__name__)
 
 
@@ -40,6 +41,7 @@ class LogWidget(QWidget):
 def test():
     logger.info(f"This is a test; It is {time()}")
 
+
 class LogMessageViewer(QTextBrowser):
     def __init__(self, parent=None):
         super(LogMessageViewer, self).__init__(parent)
@@ -63,11 +65,10 @@ class LogMessageViewer(QTextBrowser):
         #     self.insertPlainText(msg)
         #     horScrollBar.setValue(0)  # scroll to the left
 
+
 if __name__ == "__main__":
     app = QApplication([])
     dlg = LogWidget("This is only a test")
     dlg.show()
-
-
 
     app.exec()

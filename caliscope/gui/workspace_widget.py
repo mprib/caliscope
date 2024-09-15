@@ -6,10 +6,12 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QPushButton, QSpinBo
 from PySide6.QtCore import QFileSystemWatcher, Qt
 from caliscope.controller import Controller
 import caliscope.logger
+
 logger = caliscope.logger.get(__name__)
 
+
 class WorkspaceSummaryWidget(QWidget):
-    def __init__(self, controller:Controller):
+    def __init__(self, controller: Controller):
         super().__init__()
 
         self.controller = controller
@@ -31,20 +33,23 @@ class WorkspaceSummaryWidget(QWidget):
 
         self.update_status()
 
-
     def place_widgets(self):
         # Layout
         self.layout = QGridLayout()
         self.setLayout(self.layout)
-        self.layout.addWidget(self.status_HTML,0,0,1,4)
+        self.layout.addWidget(self.status_HTML, 0, 0, 1, 4)
 
         camera_spin_layout = QHBoxLayout()
         camera_spin_layout.addWidget(QLabel("Cameras:"), alignment=Qt.AlignmentFlag.AlignRight)
         camera_spin_layout.addWidget(self.camera_count_spin, alignment=Qt.AlignmentFlag.AlignLeft)
-        self.layout.addLayout(camera_spin_layout,1,0,)
-        self.layout.addWidget(self.reload_workspace_btn, 1,1)
-        self.layout.addWidget(self.open_workspace_folder_btn, 1,2)
-        self.layout.addWidget(self.calibrate_btn,1,3)
+        self.layout.addLayout(
+            camera_spin_layout,
+            1,
+            0,
+        )
+        self.layout.addWidget(self.reload_workspace_btn, 1, 1)
+        self.layout.addWidget(self.open_workspace_folder_btn, 1, 2)
+        self.layout.addWidget(self.calibrate_btn, 1, 3)
 
     def connect_widgets(self):
         self.open_workspace_folder_btn.clicked.connect(self.open_workspace)
@@ -62,9 +67,9 @@ class WorkspaceSummaryWidget(QWidget):
 
     def open_workspace(self):
         logger.info(f"Opening workspace within File Explorer...  located at {self.controller.workspace}")
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             os.startfile(self.controller.workspace)
-        elif sys.platform == 'darwin':
+        elif sys.platform == "darwin":
             subprocess.run(["open", self.controller.workspace])
         else:  # Linux and Unix-like systems
             subprocess.run(["xdg-open", self.controller.workspace])

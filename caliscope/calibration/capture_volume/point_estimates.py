@@ -2,8 +2,9 @@
 # currently this is for the convenience of not having to rerun everything
 # though this workflow may be useful into the future. Save out milestone calculations
 # along the way that allow for blocks of dataprocessing
-#%%
+# %%
 import caliscope.logger
+
 logger = caliscope.logger.get(__name__)
 
 
@@ -25,12 +26,11 @@ class PointEstimates:
 
     sync_indices: np.ndarray  # the sync_index from when the image was taken
     camera_indices: np.ndarray  # camera id associated with the img point
-    point_id: np.ndarray # point id (i.e. charuco corner currently)
+    point_id: np.ndarray  # point id (i.e. charuco corner currently)
     img: np.ndarray  # x,y coords of point
-    obj_indices: np.ndarray # mapping of x,y img points to their respective list of estimated x,y,z obj points
+    obj_indices: np.ndarray  # mapping of x,y img points to their respective list of estimated x,y,z obj points
     obj: np.ndarray  # x,y,z estimates of object points
     # obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point; is this necessary?
-
 
     def __post_init__(self):
         self.sync_indices = self.sync_indices.astype(np.int32)
@@ -88,9 +88,7 @@ class PointEstimates:
         self.obj = xyz
 
 
-
-
-def load_point_estimates(config:dict)->PointEstimates:
+def load_point_estimates(config: dict) -> PointEstimates:
     point_estimates_dict = config["point_estimates"]
 
     for key, value in point_estimates_dict.items():
@@ -98,4 +96,3 @@ def load_point_estimates(config:dict)->PointEstimates:
 
     point_estimates = PointEstimates(**point_estimates_dict)
     return point_estimates
-

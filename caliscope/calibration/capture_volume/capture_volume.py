@@ -1,4 +1,4 @@
-#%%
+# %%
 
 import caliscope.logger
 
@@ -36,10 +36,7 @@ class CaptureVolume:
         if descriptor is None:
             pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"
         else:
-
-            pkl_name = (
-                "capture_volume_stage_" + str(self.stage) + "_" + descriptor + ".pkl"
-            )
+            pkl_name = "capture_volume_stage_" + str(self.stage) + "_" + descriptor + ".pkl"
         logger.info(f"Saving stage {str(self.stage)} capture volume to {directory}")
         with open(Path(directory, pkl_name), "wb") as file:
             pickle.dump(self, file)
@@ -56,28 +53,23 @@ class CaptureVolume:
 
     @property
     def rmse(self):
-
         if hasattr(self, "least_sq_result"):
-            rmse = rms_reproj_error(
-                self.least_sq_result.fun, self.point_estimates.camera_indices
-            )
+            rmse = rms_reproj_error(self.least_sq_result.fun, self.point_estimates.camera_indices)
         else:
             param_estimates = self.get_vectorized_params()
             xy_reproj_error = xy_reprojection_error(param_estimates, self)
-            rmse = rms_reproj_error(
-                xy_reproj_error, self.point_estimates.camera_indices
-            )
+            rmse = rms_reproj_error(xy_reproj_error, self.point_estimates.camera_indices)
 
         return rmse
 
     def get_rmse_summary(self):
         rmse_string = f"RMSE of Reprojection Overall: {round(self.rmse['overall'],2)}\n"
-        rmse_string+= "    by camera:\n"
+        rmse_string += "    by camera:\n"
         for key, value in self.rmse.items():
             if key == "overall":
                 pass
             else:
-                rmse_string+=f"    {key: >9}: {round(float(value),2)}\n"
+                rmse_string += f"    {key: >9}: {round(float(value),2)}\n"
 
         return rmse_string
 
@@ -116,9 +108,7 @@ class CaptureVolume:
         self.point_estimates.update_obj_xyz(self.least_sq_result.x)
         self.stage += 1
 
-        logger.info(
-            f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse['overall']}"
-        )
+        logger.info(f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse['overall']}")
 
     def get_xyz_points(self):
         """Get 3d positions arrived at by bundle adjustment"""
@@ -129,7 +119,6 @@ class CaptureVolume:
         return xyz
 
     def shift_origin(self, origin_shift_transform: np.ndarray):
-
         # update 3d point estimates
         xyz = self.point_estimates.obj
         scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
@@ -140,9 +129,7 @@ class CaptureVolume:
 
         # update camera array
         for port, camera_data in self.camera_array.cameras.items():
-            camera_data.transformation = np.matmul(
-                camera_data.transformation, origin_shift_transform
-            )
+            camera_data.transformation = np.matmul(camera_data.transformation, origin_shift_transform)
 
     def set_origin_to_board(self, sync_index, charuco: Charuco):
         """
@@ -153,9 +140,7 @@ class CaptureVolume:
 
         logger.info(f"Capture volume origin set to board position at sync index {sync_index}")
 
-        origin_transform = get_board_origin_transform(
-            self.camera_array, self.point_estimates, sync_index, charuco
-        )
+        origin_transform = get_board_origin_transform(self.camera_array, self.point_estimates, sync_index, charuco)
         self.shift_origin(origin_transform)
 
 
@@ -169,14 +154,14 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     """
     # Create one combined array primarily to make sure all calculations line up
     ## unpack the working estimates of the camera parameters (could be extr. or intr.)
-    camera_params = current_param_estimates[
-        : capture_volume.point_estimates.n_cameras * CAMERA_PARAM_COUNT
-    ].reshape((capture_volume.point_estimates.n_cameras, CAMERA_PARAM_COUNT))
+    camera_params = current_param_estimates[: capture_volume.point_estimates.n_cameras * CAMERA_PARAM_COUNT].reshape(
+        (capture_volume.point_estimates.n_cameras, CAMERA_PARAM_COUNT)
+    )
 
     ## similarly unpack the 3d point location estimates
-    points_3d = current_param_estimates[
-        capture_volume.point_estimates.n_cameras * CAMERA_PARAM_COUNT :
-    ].reshape((capture_volume.point_estimates.n_obj_points, 3))
+    points_3d = current_param_estimates[capture_volume.point_estimates.n_cameras * CAMERA_PARAM_COUNT :].reshape(
+        (capture_volume.point_estimates.n_obj_points, 3)
+    )
 
     ## create zero columns as placeholders for the reprojected 2d points
     rows = capture_volume.point_estimates.camera_indices.shape[0]
@@ -209,9 +194,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
         distortions = cam.distortions
 
         # get the projection of the 2d points on the image plane; ignore the jacobian
-        cam_proj_points, _jac = cv2.projectPoints(
-            object_points.astype(np.float64), rvec, tvec, cam_matrix, distortions
-        )
+        cam_proj_points, _jac = cv2.projectPoints(object_points.astype(np.float64), rvec, tvec, cam_matrix, distortions)
 
         points_3d_and_2d[cam_points, 6:8] = cam_proj_points[:, 0, :]
 
@@ -244,6 +227,7 @@ def rms_reproj_error(xy_reproj_error, camera_indices):
     # logger.info(f"Optimization run with {xy_reproj_error.shape[0]} image points")
     # logger.info(f"RMSE of reprojection is {rmse}")
     return rmse
+
 
 # def load_capture_volume(session_path:Path):
 #     config = get_config(session_directory)

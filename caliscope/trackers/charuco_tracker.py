@@ -11,9 +11,9 @@ from caliscope.tracker import Tracker
 
 logger = caliscope.logger.get(__name__)
 
+
 class CharucoTracker(Tracker):
     def __init__(self, charuco):
-
         # need camera to know resolution and to assign calibration parameters
         # to camera
         self.charuco = charuco
@@ -28,8 +28,8 @@ class CharucoTracker(Tracker):
     def name(self):
         return "CHARUCO"
 
-    def get_points(self, frame:np.ndarray, port:int, rotation_count:int)->PointPacket:
-        """Will check for charuco corners in the frame, if it doesn't find any, 
+    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
+        """Will check for charuco corners in the frame, if it doesn't find any,
         then it will look for corners in the mirror image of the frame"""
 
         # invert the frame for detection if needed
@@ -48,30 +48,29 @@ class CharucoTracker(Tracker):
 
         return point_packet
 
-    def get_point_name(self, point_id:int) -> str:
+    def get_point_name(self, point_id: int) -> str:
         return str(point_id)
 
-    def get_point_id(self, point_name:str) -> int:
+    def get_point_id(self, point_name: str) -> int:
         return int(point_name)
 
     def get_connected_points(self):
         return self.charuco.get_connected_points()
 
-    def find_corners_single_frame(self,gray_frame, mirror):
-
+    def find_corners_single_frame(self, gray_frame, mirror):
         ids = np.array([])
         img_loc = np.array([])
 
         # detect if aruco markers are present
-        aruco_corners, aruco_ids, rejected = cv2.aruco.detectMarkers(
-            gray_frame, self.dictionary_object
-        )
+        aruco_corners, aruco_ids, rejected = cv2.aruco.detectMarkers(gray_frame, self.dictionary_object)
 
         # if so, then interpolate to the Charuco Corners and return what you found
-        if len(aruco_corners) >3:
-            (success, _img_loc, _ids,) = cv2.aruco.interpolateCornersCharuco(
-                aruco_corners, aruco_ids, gray_frame, self.board
-            )
+        if len(aruco_corners) > 3:
+            (
+                success,
+                _img_loc,
+                _ids,
+            ) = cv2.aruco.interpolateCornersCharuco(aruco_corners, aruco_ids, gray_frame, self.board)
 
             # This occasionally errors out...
             # only offers possible refinement so if it fails, just move along
@@ -88,30 +87,26 @@ class CharucoTracker(Tracker):
 
             if success:
                 # assign to tracker
-                ids = _ids[:,0]
-                img_loc = _img_loc[:,0]
+                ids = _ids[:, 0]
+                img_loc = _img_loc[:, 0]
 
                 # flip coordinates if mirrored image fed in
                 frame_width = gray_frame.shape[1]  # used for flipping mirrored corners back
                 if mirror:
                     img_loc[:, 0] = frame_width - img_loc[:, 0]
 
-
-
         return ids, img_loc
 
-    def get_obj_loc(self, ids:np.ndarray):
+    def get_obj_loc(self, ids: np.ndarray):
         """Objective position of charuco corners in a board frame of reference"""
         # if self.ids == np.array([0]):
-            # print("wait")
+        # print("wait")
         if len(ids) > 0:
             return self.board.getChessboardCorners()[ids, :]
         else:
             return np.array([])
 
     # @property
-    def scatter_draw_instructions(self, point_id: int) ->dict:
-        rules = {"radius":5,
-                 "color":(0,0,220),
-                 "thickness":3}
+    def scatter_draw_instructions(self, point_id: int) -> dict:
+        rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
         return rules

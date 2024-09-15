@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from caliscope.session.session import LiveSession, SessionMode
+
 # from caliscope.gui.qt_logger import QtLogger
 from caliscope.gui.extrinsic_calibration_widget import (
     ExtrinsicCalibrationWidget,
@@ -15,14 +16,16 @@ from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVol
 
 logger = caliscope.logger.get(__name__)
 
+
 class CalibrateCaptureVolumeWidget(QStackedWidget):
     """
     A combination of the Extrinsic Calibration Widget and the Capture Volume Widget
     Allows the user to move back and forth between the two functions.
     """
+
     cameras_connected = Signal()
 
-    def __init__(self, session:LiveSession):
+    def __init__(self, session: LiveSession):
         super().__init__()
         self.CAMS_IN_PROCESS = False
 
@@ -55,9 +58,7 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
 
         # self.session.unpause_synchronizer()
 
-
     def activate_capture_volume_widget(self):
-
         logger.info(f"Setting session mode to {SessionMode.CaptureVolumeOrigin} from within subwidget")
         self.session.set_mode(SessionMode.CaptureVolumeOrigin)
 
@@ -72,12 +73,8 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.addWidget(self.capture_volume_widget)
         self.setCurrentWidget(self.capture_volume_widget)
 
-        self.capture_volume_widget.recalibrate_btn.clicked.connect(
-            self.activate_extrinsic_calibration_widget
-        )
+        self.capture_volume_widget.recalibrate_btn.clicked.connect(self.activate_extrinsic_calibration_widget)
 
         # this will be managed elsewhere. StreamTools may or may not
         # be loaded ...
         # self.session.pause_synchronizer()
-
-

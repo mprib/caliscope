@@ -14,7 +14,7 @@
 #   - distortion parameters
 #
 # New camera configurations
-#%%
+# %%
 
 import platform
 import time
@@ -22,6 +22,7 @@ import os
 
 import cv2
 import caliscope.logger
+
 logger = caliscope.logger.get(__name__)
 
 TEST_FRAME_COUNT = 10
@@ -30,23 +31,21 @@ MAX_RESOLUTION_CHECK = 10000
 
 
 class Camera:
-
     # https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
     # see above for constants used to access properties
-    def __init__(self, port, verified_resolutions = None, connect_API = None):
-
+    def __init__(self, port, verified_resolutions=None, connect_API=None):
         if connect_API is not None:
             self.connect_API = connect_API
         else:
-            if os.name == 'nt': #windows
+            if os.name == "nt":  # windows
                 self.connect_API = cv2.CAP_DSHOW
-            else: # UNIX variant
+            else:  # UNIX variant
                 self.connect_API = cv2.CAP_ANY
 
         # check if source has a data feed before proceeding...if not it is
         # either in use or fake
         logger.info(f"Attempting to connect video capture at port {port}")
-        test_capture = cv2.VideoCapture(port,self.connect_API)
+        test_capture = cv2.VideoCapture(port, self.connect_API)
         for _ in range(0, TEST_FRAME_COUNT):
             good_read, frame = test_capture.read()
 
@@ -61,7 +60,7 @@ class Camera:
                 cv2.CAP_PROP_BUFFERSIZE, 1
             )  # from https://stackoverflow.com/questions/58293187/opencv-real-time-streaming-video-capture-is-slow-how-to-drop-frames-or-getanother thread signaled a change to mediapipe overley-sync
 
-            self.ignore = False # flag camera during single camera setup to be ignored in the future
+            self.ignore = False  # flag camera during single camera setup to be ignored in the future
 
             # sets orientation in the GUI, but otherwise does not affect the frame
             self.rotation_count = 0  # +1 for each 90 degree CW rotation, -1 for CCW
@@ -77,7 +76,7 @@ class Camera:
             raise Exception(f"Not reading at port {port}...likely in use")
 
         # Test to see if camera is virtual
-        spoof_resolution = (599,599)
+        spoof_resolution = (599, 599)
         self.size = spoof_resolution
         if self.size == spoof_resolution:
             self.virtual_camera = True
@@ -113,7 +112,7 @@ class Camera:
         """Note that OpenCV appears to change the exposure value, but
         this is not read back accurately through the getter, so just
         track it manually after updating"""
-        if platform.system()=="Windows":
+        if platform.system() == "Windows":
             self.capture.set(cv2.CAP_PROP_EXPOSURE, value)
 
         else:
@@ -179,7 +178,6 @@ class Camera:
             if resolution == self.size:
                 self.verified_resolutions.append(resolution)
 
-
     def rotate_CW(self):
         if self.rotation_count == 3:
             self.rotation_count = 0
@@ -207,16 +205,9 @@ class Camera:
         if self.error and self.error != "NA":
             error_text = f"Error:\t{round(self.error,3)} "
             cam_matrix_text = "Camera Matrix:\n" + (
-                "\n".join(
-                    [
-                        "\t".join([str(round(float(cell), 1)) for cell in row])
-                        for row in self.matrix
-                    ]
-                )
+                "\n".join(["\t".join([str(round(float(cell), 1)) for cell in row]) for row in self.matrix])
             )
-            distortion_text = "Distortion:\t" + ",".join(
-                [str(round(float(cell), 2)) for cell in self.distortions]
-            )
+            distortion_text = "Distortion:\t" + ",".join([str(round(float(cell), 2)) for cell in self.distortions])
 
             # print(self.camera_matrix)
             summary = (
@@ -233,6 +224,7 @@ class Camera:
             return summary
         else:
             return "No Calibration Stored"
+
 
 # common possibilities taken from https://en.wikipedia.org/wiki/List_of_common_resolutions
 RESOLUTIONS_TO_CHECK = [
@@ -263,8 +255,7 @@ RESOLUTIONS_TO_CHECK = [
 
 ######################### TEST FUNCTIONALITY OF CAMERAS ########################
 if __name__ == "__main__":
-
-    cam = Camera(4, verified_resolutions=[(640,480), (1280,720)])
+    cam = Camera(4, verified_resolutions=[(640, 480), (1280, 720)])
     logger.info(f"Camera {cam.port} has possible resolutions: {cam.verified_resolutions}")
 
     for res in cam.verified_resolutions:
@@ -296,12 +287,12 @@ if __name__ == "__main__":
 
     while True:
         success, frame = cam.capture.read()
-        elapsed_seconds = int(time.perf_counter()-start_time)
+        elapsed_seconds = int(time.perf_counter() - start_time)
         logger.debug(f"{elapsed_seconds} seconds have elapsed since loop began")
 
         cv2.imshow("Exposure Test", frame)
 
-        cam.exposure = -10+elapsed_seconds
+        cam.exposure = -10 + elapsed_seconds
 
         if cv2.waitKey(1) == ord("q"):
             cam.disconnect()

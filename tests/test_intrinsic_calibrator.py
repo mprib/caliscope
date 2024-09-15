@@ -18,24 +18,16 @@ logger = caliscope.logger.get(__name__)
 def test_intrinsic_calibrator():
     # use a general video file with a charuco for convenience
     original_data_path = Path(__root__, "tests", "sessions", "4_cam_recording")
-    destination_path = Path(
-        __root__, "tests", "sessions_copy_delete", "4_cam_recording"
-    )
+    destination_path = Path(__root__, "tests", "sessions_copy_delete", "4_cam_recording")
     copy_contents(original_data_path, destination_path)
 
-    recording_directory = Path(
-        __root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic"
-    )
+    recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
 
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-    )
+    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True)
 
     charuco_tracker = CharucoTracker(charuco)
 
-    stream = RecordedStream(
-        recording_directory, port=1, rotation_count=0, tracker=charuco_tracker
-    )
+    stream = RecordedStream(recording_directory, port=1, rotation_count=0, tracker=charuco_tracker)
 
     camera = CameraData(port=0, size=stream.size)
 
@@ -88,24 +80,16 @@ def test_intrinsic_calibrator():
 def test_autopopulate_data():
     # use a general video file with a charuco for convenience
     original_data_path = Path(__root__, "tests", "sessions", "4_cam_recording")
-    destination_path = Path(
-        __root__, "tests", "sessions_copy_delete", "4_cam_recording"
-    )
+    destination_path = Path(__root__, "tests", "sessions_copy_delete", "4_cam_recording")
     copy_contents(original_data_path, destination_path)
 
-    recording_directory = Path(
-        __root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic"
-    )
+    recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
 
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-    )
+    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True)
 
     charuco_tracker = CharucoTracker(charuco)
 
-    stream = RecordedStream(
-        recording_directory, port=1, rotation_count=0, tracker=charuco_tracker
-    )
+    stream = RecordedStream(recording_directory, port=1, rotation_count=0, tracker=charuco_tracker)
 
     camera = CameraData(port=0, size=stream.size)
 
@@ -141,14 +125,14 @@ def test_autopopulate_data():
         actual_grid_count = len(intrinsic_calibrator.calibration_frame_indices)
         logger.info(f"waiting for data to populate...currently {actual_grid_count}")
 
-        sleep(.5)
+        sleep(0.5)
 
     intrinsic_calibrator.backfill_calibration_frames()
     intrinsic_calibrator.calibrate_camera()
-    assert(camera.grid_count ==target_grid_count)
+    assert camera.grid_count == target_grid_count
     logger.info(f"Calibration complete: {camera}")
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     test_intrinsic_calibrator()
     test_autopopulate_data()

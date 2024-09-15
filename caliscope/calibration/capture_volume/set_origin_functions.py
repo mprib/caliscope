@@ -23,9 +23,7 @@ import pickle
 # so use capture_volume here which may just become self later on.
 
 
-def get_world_corners_xyz(
-    point_estimates: PointEstimates, sync_index: int
-) -> np.ndarray:
+def get_world_corners_xyz(point_estimates: PointEstimates, sync_index: int) -> np.ndarray:
     """
     returns the estimated x,y,z position of the board corners at the given sync index
     note that the array is ordered according to the charuco id
@@ -44,16 +42,12 @@ def get_world_corners_xyz(
 
     sorter = np.argsort(charuco_ids)
     # need to get charuco ids associated with the 3 point positions
-    unique_charuco_xyz_index = sorter[
-        np.searchsorted(charuco_ids, unique_charuco_id, sorter=sorter)
-    ]
+    unique_charuco_xyz_index = sorter[np.searchsorted(charuco_ids, unique_charuco_id, sorter=sorter)]
     world_corners_xyz = obj_xyz[unique_charuco_xyz_index]
     return world_corners_xyz
 
 
-def get_board_corners_xyz(
-    point_estimates: PointEstimates, sync_index: int, charuco: Charuco
-) -> np.ndarray:
+def get_board_corners_xyz(point_estimates: PointEstimates, sync_index: int, charuco: Charuco) -> np.ndarray:
     """
     Returns corner positions in board world (x,y,0) for the corners with estimated point
     coordinates at the give sync_index
@@ -68,9 +62,7 @@ def get_board_corners_xyz(
     return board_corners_xyz
 
 
-def get_anchor_cameras(
-    camera_array: CameraArray, point_estimates: PointEstimates, sync_index: int
-) -> list:
+def get_anchor_cameras(camera_array: CameraArray, point_estimates: PointEstimates, sync_index: int) -> list:
     """
     Returns the camera data objects that have an actual view of the board
     at the sync index and therefore can be used to estimate the pose from pnp
@@ -110,9 +102,7 @@ def get_rvec_tvec_from_board_pose(
             rvec=camera.rotation,
             tvec=camera.translation,
             cameraMatrix=camera.matrix,
-            distCoeffs=np.array(
-                [0, 0, 0, 0, 0], dtype=np.float32
-            ),  # because points are via bundle adj., no distortion
+            distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),  # because points are via bundle adj., no distortion
         )
 
         # use solvepnp to estimate the pose of the camera relative to the board
@@ -129,9 +119,7 @@ def get_rvec_tvec_from_board_pose(
         # back into the shift in the world change of origin implied by the
         # pose of the camera relative to the board given its previous
         # pose in the old frame of reference
-        origin_shift_transform = np.matmul(
-            np.linalg.inv(camera.transformation), anchor_board_transform
-        )
+        origin_shift_transform = np.matmul(np.linalg.inv(camera.transformation), anchor_board_transform)
 
         rvec, tvec = transform_to_rvec_tvec(origin_shift_transform)
 
@@ -182,17 +170,13 @@ def rvec_tvec_to_transform(rvec: np.ndarray, tvec: np.ndarray) -> np.ndarray:
     return transform
 
 
-def world_board_distance(
-    tvec_xyz: np.ndarray, good_rvec: np.ndarray, raw_world_xyz, board_corners_xyz
-):
+def world_board_distance(tvec_xyz: np.ndarray, good_rvec: np.ndarray, raw_world_xyz, board_corners_xyz):
     scale = np.expand_dims(np.ones(raw_world_xyz.shape[0]), 1)
     raw_world_xyzh = np.hstack([raw_world_xyz, scale])
 
     origin_shift_transform = rvec_tvec_to_transform(good_rvec, tvec_xyz)
 
-    new_origin_xyzh = np.matmul(
-        np.linalg.inv(origin_shift_transform), raw_world_xyzh.T
-    ).T
+    new_origin_xyzh = np.matmul(np.linalg.inv(origin_shift_transform), raw_world_xyzh.T).T
     new_origin_xyz = new_origin_xyzh[:, 0:3]
 
     delta_xyz = new_origin_xyz - board_corners_xyz

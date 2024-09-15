@@ -15,42 +15,43 @@ from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 
 logger = caliscope.logger.get(__name__)
 
+
 def point_estimates_are_equal(pe1: PointEstimates, pe2: PointEstimates) -> bool:
     return (
-        np.array_equal(pe1.sync_indices, pe2.sync_indices) and
-        np.array_equal(pe1.camera_indices, pe2.camera_indices) and
-        np.array_equal(pe1.point_id, pe2.point_id) and
-        np.array_equal(pe1.img, pe2.img) and
-        np.array_equal(pe1.obj_indices, pe2.obj_indices) and
-        np.array_equal(pe1.obj, pe2.obj)
+        np.array_equal(pe1.sync_indices, pe2.sync_indices)
+        and np.array_equal(pe1.camera_indices, pe2.camera_indices)
+        and np.array_equal(pe1.point_id, pe2.point_id)
+        and np.array_equal(pe1.img, pe2.img)
+        and np.array_equal(pe1.obj_indices, pe2.obj_indices)
+        and np.array_equal(pe1.obj, pe2.obj)
     )
+
 
 def test_configurator():
     # provided with a path, load toml or create a default toml.
     dev_toml_path = Path(__root__, "tests", "sessions", "post_optimization")
     test_delete_path = Path(__root__, "tests", "sessions_copy_delete", "post_optimization")
 
-    copy_contents(dev_toml_path,test_delete_path)
+    copy_contents(dev_toml_path, test_delete_path)
 
     config = Configurator(test_delete_path)
 
     # load camera array
     camera_array = config.get_camera_array()
-    assert(isinstance(camera_array, CameraArray))
+    assert isinstance(camera_array, CameraArray)
 
     config.save_camera_array(camera_array)
 
     config2 = Configurator(test_delete_path)
     camera_array2 = config2.get_camera_array()
 
-
     # make sure that the rodrigues conversion isn't messing with anything...
-    np.testing.assert_array_almost_equal(camera_array.cameras[0].rotation,camera_array2.cameras[0].rotation, decimal=9)
+    np.testing.assert_array_almost_equal(camera_array.cameras[0].rotation, camera_array2.cameras[0].rotation, decimal=9)
 
     # load charuco
     charuco = config.get_charuco()
-    assert(isinstance(charuco, Charuco))
-    assert(charuco.columns==4)
+    assert isinstance(charuco, Charuco)
+    assert charuco.columns == 4
 
     # make a change to charuco and save it
     charuco.columns = 12
@@ -58,13 +59,12 @@ def test_configurator():
 
     # confirm change gets reflected when reloaded
     new_charuco = config.get_charuco()
-    assert(new_charuco.columns==12)
-
+    assert new_charuco.columns == 12
 
     # load point estimates
     logger.info("Getting point estimates from config...")
     point_estimates = config.get_point_estimates()
-    assert(type(point_estimates)==PointEstimates)
+    assert type(point_estimates) == PointEstimates
 
     # delete point estimates data
     config.point_estimates_toml_path.unlink()
@@ -79,9 +79,10 @@ def test_configurator():
 
     # create new point estimates with newly saved data
     point_estimates_reloaded = config.get_point_estimates()
-    assert(type(point_estimates_reloaded)==PointEstimates)
+    assert type(point_estimates_reloaded) == PointEstimates
 
     assert point_estimates_are_equal(point_estimates, point_estimates_reloaded)
+
 
 def remove_all_files_and_folders(directory_path):
     for item in directory_path.iterdir():
@@ -94,10 +95,10 @@ def remove_all_files_and_folders(directory_path):
 def test_new_cameras():
     """
     With the switch from toml to rtoml, differences in saving `None` values is resulting
-    in an inability to load new partially calibrated cameras. 
-    
+    in an inability to load new partially calibrated cameras.
+
     This test ensures that newly created cameras can be stored and reloaded via config
-    and will remain the same.   
+    and will remain the same.
     """
 
     blank_workspace = Path(__root__, "tests", "sessions_copy_delete", "blank_workspace")
@@ -109,10 +110,10 @@ def test_new_cameras():
 
     # note that it appears rtoml will store tuples as lists,
     # so just keep everything a list for comparison purposes
-    cam_1 = CameraData(port=1, size=[1280,720])
-    cam_2 = CameraData(port=2, size=[1280,720])
+    cam_1 = CameraData(port=1, size=[1280, 720])
+    cam_2 = CameraData(port=2, size=[1280, 720])
 
-    cameras = {1:cam_1, 2:cam_2}
+    cameras = {1: cam_1, 2: cam_2}
     camera_array = CameraArray(cameras)
     config.save_camera_array(camera_array)
     print(camera_array.cameras)
@@ -124,10 +125,10 @@ def test_new_cameras():
     camera_array_copy = config_copy.get_camera_array()
     print(camera_array_copy.cameras)
 
-    assert(camera_array.cameras[1] == camera_array_copy.cameras[1])
-    assert(camera_array.cameras[2] == camera_array_copy.cameras[2])
+    assert camera_array.cameras[1] == camera_array_copy.cameras[1]
+    assert camera_array.cameras[2] == camera_array_copy.cameras[2]
+
 
 if __name__ == "__main__":
     # test_configurator()
     test_new_cameras()
-

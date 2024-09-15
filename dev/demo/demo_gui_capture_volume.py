@@ -15,4 +15,3 @@ window = CaptureVolumeWidget(controller)
 window.show()
 
 app.exec()
-

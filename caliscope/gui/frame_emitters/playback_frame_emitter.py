@@ -20,7 +20,7 @@ class PlaybackFrameEmitter(QThread):
     GridCountBroadcast = Signal(int)
     FrameIndexBroadcast = Signal(int, int)
 
-    def __init__(self, recorded_stream: RecordedStream,grid_history_q:Queue,  pixmap_edge_length=500):
+    def __init__(self, recorded_stream: RecordedStream, grid_history_q: Queue, pixmap_edge_length=500):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(PlaybackFrameEmitter, self).__init__()
@@ -44,8 +44,8 @@ class PlaybackFrameEmitter(QThread):
         """
         The grid capture history is only used as a GUI element to display to the user
         the corners that have been collected and are being used in the calibration.
-        
-        It is not otherwise used in any calculations and needs to be re-initialized by 
+
+        It is not otherwise used in any calculations and needs to be re-initialized by
         the intrinsic stream manager whenever the intrinsic calibrators data is also
         re-initialized.
         """
@@ -65,7 +65,7 @@ class PlaybackFrameEmitter(QThread):
             frame_packet = self.frame_packet_q.get()
 
             while self.grid_history_q.qsize() > 0:
-                ids,img_loc = self.grid_history_q.get()
+                ids, img_loc = self.grid_history_q.get()
                 self.add_to_grid_history(ids, img_loc)
 
             if not self.keep_collecting.is_set():
@@ -75,9 +75,7 @@ class PlaybackFrameEmitter(QThread):
                 self.frame = frame_packet.frame_with_points
 
                 logger.debug(f"Frame size is {self.frame.shape}")
-                logger.debug(
-                    f"Grid Capture History size is {self.grid_capture_history.shape}"
-                )
+                logger.debug(f"Grid Capture History size is {self.grid_capture_history.shape}")
                 self.frame = cv2.addWeighted(self.frame, 1, self.grid_capture_history, 1, 0)
 
                 self._apply_undistortion()
@@ -97,11 +95,7 @@ class PlaybackFrameEmitter(QThread):
                 self.ImageBroadcast.emit(self.port, pixmap)
                 self.FrameIndexBroadcast.emit(self.port, frame_packet.frame_index)
 
-
-
-        logger.info(
-            f"Thread loop within frame emitter at port {self.stream.port} successfully ended"
-        )
+        logger.info(f"Thread loop within frame emitter at port {self.stream.port} successfully ended")
 
     def stop(self):
         logger.info(f"Beginning to shut down frame emitter at port {self.port}")
@@ -114,15 +108,13 @@ class PlaybackFrameEmitter(QThread):
         self.scaling_factor = scaling_factor
 
         if hasattr(self, "matrix") and hasattr(self, "distortions"):
-            self.update_distortion_params(self.undistort,self.matrix, self.distortions)
+            self.update_distortion_params(self.undistort, self.matrix, self.distortions)
 
     def update_distortion_params(self, undistort=None, matrix=None, distortions=None):
         if matrix is None:
             logger.info(f"No camera matrix calculated yet at port {self.port}")
         else:
-            logger.info(
-                f"Updating camera matrix and distortion parameters for frame emitter at port {self.port}"
-            )
+            logger.info(f"Updating camera matrix and distortion parameters for frame emitter at port {self.port}")
 
             self.undistort = undistort
             self.matrix = matrix
@@ -130,15 +122,13 @@ class PlaybackFrameEmitter(QThread):
 
             h, w = self.stream.size
             # h, w = original_image_size
-            initial_new_matrix, valid_roi = cv2.getOptimalNewCameraMatrix(
-                self.matrix, self.distortions, (w, h), 1
-            )
+            initial_new_matrix, valid_roi = cv2.getOptimalNewCameraMatrix(self.matrix, self.distortions, (w, h), 1)
 
             logger.info(f"Valid ROI is {valid_roi}")
 
             # Find extreme points and midpoints in the original image
             corners = np.array([[0, 0], [0, h], [w, 0], [w, h]], dtype=np.float32)
-            midpoints = np.array([[w/2, 0], [w/2, h], [0, h/2], [w, h/2]], dtype=np.float32)
+            midpoints = np.array([[w / 2, 0], [w / 2, h], [0, h / 2], [w, h / 2]], dtype=np.float32)
             extreme_points = np.vstack((corners, midpoints))
 
             # Undistort these points
@@ -181,9 +171,7 @@ class PlaybackFrameEmitter(QThread):
         if self.undistort and self.matrix is not None:
             # Compute the optimal new camera matrix
             # Undistort the image
-            self.frame = cv2.undistort(
-                self.frame, self.matrix, self.distortions, None, self.new_matrix
-            )
+            self.frame = cv2.undistort(self.frame, self.matrix, self.distortions, None, self.new_matrix)
 
     def add_to_grid_history(self, ids, img_loc):
         """
@@ -202,5 +190,3 @@ class PlaybackFrameEmitter(QThread):
             )
         else:
             logger.info("Not enough points....grid not added...")
-
-

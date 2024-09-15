@@ -23,6 +23,7 @@ from caliscope.controller import Controller
 from caliscope import __root__
 
 import caliscope.logger
+
 logger = caliscope.logger.get(__name__)
 
 
@@ -71,9 +72,11 @@ class CustomSlider(QSlider):
         if self.isUsingArrowKeys():
             self.arrowKeyPressed.emit(value)  # Emit the custom signal
 
+
 # icons from https://iconoir.com
 CAM_ROTATE_RIGHT_PATH = Path(__root__, "caliscope", "gui", "icons", "rotate-camera-right.svg")
 CAM_ROTATE_LEFT_PATH = Path(__root__, "caliscope", "gui", "icons", "rotate-camera-left.svg")
+
 
 class IntrinsicCalibrationWidget(QWidget):
     def __init__(self, controller: Controller, port: int, parent=None):
@@ -113,8 +116,8 @@ class IntrinsicCalibrationWidget(QWidget):
         self.board_threshold_spin = QDoubleSpinBox(self)
         self.board_threshold_spin.setMaximumWidth(50)
         self.board_threshold_spin.setRange(0, 1)
-        self.board_threshold_spin.setValue(.5)
-        self.board_threshold_spin.setSingleStep(.1)
+        self.board_threshold_spin.setValue(0.5)
+        self.board_threshold_spin.setSingleStep(0.1)
 
         # Create the spinbox
         self.scaling_spin = QSpinBox(self)
@@ -132,9 +135,7 @@ class IntrinsicCalibrationWidget(QWidget):
         self.setLayout(self.layout)
         self.layout.addWidget(self.camera_data_display)
         self.right_panel = QVBoxLayout()
-        self.right_panel.addWidget(
-            self.frame_image, alignment=Qt.AlignmentFlag.AlignCenter
-        )
+        self.right_panel.addWidget(self.frame_image, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.rotate_span = QHBoxLayout()
         self.rotate_span.addWidget(self.cw_rotation_btn)
@@ -169,7 +170,6 @@ class IntrinsicCalibrationWidget(QWidget):
         self.right_panel.addLayout(self.distortion_control_span)
         self.layout.addLayout(self.right_panel)
 
-
     def connect_widgets(self):
         self.play_button.clicked.connect(self.play_video)
         self.slider.sliderMoved.connect(self.slider_moved)
@@ -184,7 +184,9 @@ class IntrinsicCalibrationWidget(QWidget):
 
         self.scaling_spin.valueChanged.connect(self.on_scale_change)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].ImageBroadcast.connect(self.update_image)
-        self.controller.intrinsic_stream_manager.frame_emitters[self.port].FrameIndexBroadcast.connect(self.update_index)
+        self.controller.intrinsic_stream_manager.frame_emitters[self.port].FrameIndexBroadcast.connect(
+            self.update_index
+        )
         self.controller.enable_inputs.connect(self.update_enable_all_inputs)
 
         # initialize stream to push first frame to widget then hold
@@ -194,7 +196,6 @@ class IntrinsicCalibrationWidget(QWidget):
         # self.play_started = True
         self.controller.pause_intrinsic_stream(self.port)
         self.controller.stream_jump_to(self.port, 0)
-
 
     def play_video(self):
         # if self.play_started:
@@ -251,13 +252,12 @@ class IntrinsicCalibrationWidget(QWidget):
         """
         Way too much starting to happen here, but there we are...
         """
-        new_scale = value/100
+        new_scale = value / 100
         logger.info(f"Changing frame_emitter scale factor to {new_scale}")
         self.controller.scale_intrinsic_stream(self.port, new_scale)
         self.controller.stream_jump_to(self.port, self.index)
 
     def calibrate(self):
-
         self.controller.calibrate_camera(self.port)
 
     def clear_calibration_data(self):
@@ -287,8 +287,7 @@ class IntrinsicCalibrationWidget(QWidget):
         self.controller.rotate_camera(self.port, -1)
         self.controller.stream_jump_to(self.port, self.index)
 
-
-    def update_enable_all_inputs(self, port, enable:bool):
+    def update_enable_all_inputs(self, port, enable: bool):
         # Control widget accessibilty from controller signal to all ports
         if port == self.port:
             self.play_button.setEnabled(enable)
@@ -309,7 +308,8 @@ class IntrinsicCalibrationWidget(QWidget):
         grid_count = self.target_grid_count_spin.value()
         board_threshold = self.board_threshold_spin.value()
         self.update_enable_all_inputs(self.port, False)
-        self.controller.autocalibrate(self.port,grid_count, board_threshold)
+        self.controller.autocalibrate(self.port, grid_count, board_threshold)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -318,9 +318,7 @@ if __name__ == "__main__":
     from caliscope.calibration.charuco import Charuco
 
     # Define the input file path here.
-    original_workspace_dir = Path(
-        __root__, "tests", "sessions", "prerecorded_calibration"
-    )
+    original_workspace_dir = Path(__root__, "tests", "sessions", "prerecorded_calibration")
     # workspace_dir = Path(
     #     __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
     # )
@@ -328,9 +326,7 @@ if __name__ == "__main__":
     # copy_contents(original_workspace_dir, workspace_dir)
     workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\caliscope\prerecorded_workflow")
     controller = Controller(workspace_dir)
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-    )
+    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True)
     charuco_tracker = CharucoTracker(charuco)
     controller.charuco_tracker = charuco_tracker
 

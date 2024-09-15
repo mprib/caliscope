@@ -132,7 +132,9 @@ class IntrinsicStreamManager:
         board_corners = self.tracker.charuco.board.getChessboardCorners()
         total_corner_count = board_corners.shape[0]
         threshold_corner_count = total_corner_count * pct_board_threshold
-        threshold_corner_count = max(threshold_corner_count,6)   # additional requirement that I believe is part of the alogrithm
+        threshold_corner_count = max(
+            threshold_corner_count, 6
+        )  # additional requirement that I believe is part of the alogrithm
 
         logger.info(f"Corners for charuco are {board_corners}")
 

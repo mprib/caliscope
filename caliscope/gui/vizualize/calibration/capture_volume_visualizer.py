@@ -11,6 +11,7 @@ from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 
 logger = caliscope.logger.get(__name__)
 
+
 class CaptureVolumeVisualizer:
     """
     Can except either a single camera array or a capture volume that includes
@@ -18,10 +19,7 @@ class CaptureVolumeVisualizer:
     be played back.
     """
 
-    def __init__(
-        self, capture_volume: CaptureVolume = None, camera_array: CameraArray = None
-    ):
-
+    def __init__(self, capture_volume: CaptureVolume = None, camera_array: CameraArray = None):
         if camera_array is not None and capture_volume is None:
             self.camera_array = camera_array
             self.point_estimates = None
@@ -49,7 +47,7 @@ class CaptureVolumeVisualizer:
         for port, cam in self.camera_array.cameras.items():
             print(port)
             print(cam)
-            mesh:CameraMesh = mesh_from_camera(cam)
+            mesh: CameraMesh = mesh_from_camera(cam)
             self.meshes[port] = mesh
             self.scene.addItem(mesh)
 
@@ -80,18 +78,13 @@ class CaptureVolumeVisualizer:
         """
         self.sync_index = sync_index
         current_sync_index_flag = self.point_estimates.sync_indices == sync_index
-        single_board_indices = np.unique(
-            self.point_estimates.obj_indices[current_sync_index_flag]
-        )
-
+        single_board_indices = np.unique(self.point_estimates.obj_indices[current_sync_index_flag])
 
         self.single_board_points = self.point_estimates.obj[single_board_indices]
-        self.mean_board_position = np.mean(self.single_board_points,axis=0)
+        self.mean_board_position = np.mean(self.single_board_points, axis=0)
         logger.debug(f"Mean Board Position at sync index {sync_index}: {self.mean_board_position}")
 
         self.scatter.setData(pos=self.single_board_points)
-
-
 
 
 # %%

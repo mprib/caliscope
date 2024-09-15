@@ -23,12 +23,14 @@ from caliscope.configurator import Configurator
 from caliscope.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
 )
+
 logger = caliscope.logger.get(__name__)
+
 
 class PostProcessingWidget(QWidget):
     processing_complete = Signal()
 
-    def __init__(self, controller:Controller):
+    def __init__(self, controller: Controller):
         super(PostProcessingWidget, self).__init__()
         self.controller = controller
         self.config = self.controller.config
@@ -47,17 +49,14 @@ class PostProcessingWidget(QWidget):
             if tracker.name != "CHARUCO":
                 self.tracker_combo.addItem(tracker.name, tracker)
 
-
         self.open_folder_btn = QPushButton("&Open Folder")
         self.process_current_btn = QPushButton("&Process")
         self.generate_metarig_config_btn = QPushButton("Generate Metarig Config")
-        self.refresh_visualizer() # must happen before placement to create vis_widget and vizualizer_title
+        self.refresh_visualizer()  # must happen before placement to create vis_widget and vizualizer_title
         self.place_widgets()
         self.connect_widgets()
 
-
     def set_current_xyz(self):
-
         if self.xyz_processed_path.exists():
             self.vis_widget.update_motion_trial(self.xyz_processed_path)
             # # confirm that there are some triangulated values to observe
@@ -78,8 +77,11 @@ class PostProcessingWidget(QWidget):
                 xy = pd.read_csv(self.xy_base_path)
                 if xy.shape[0] == 0:
                     logger.info("No points tracked")
-                    QMessageBox.warning(self, "Warning", f"The {self.active_tracker_enum.name} tracker did not identify any points to track in recordings stored in:\n{self.active_recording_path}.") # show a warning dialog
-
+                    QMessageBox.warning(
+                        self,
+                        "Warning",
+                        f"The {self.active_tracker_enum.name} tracker did not identify any points to track in recordings stored in:\n{self.active_recording_path}.",
+                    )  # show a warning dialog
 
     def update_recording_folders(self):
         # this check here is an artifact of the way that the main widget handles refresh
@@ -91,7 +93,7 @@ class PostProcessingWidget(QWidget):
         for folder in dir_list:
             self.recording_folders.addItem(folder)
 
-        if len(dir_list)>0:
+        if len(dir_list) > 0:
             self.recording_folders.setCurrentRow(0)
 
     @property
@@ -113,7 +115,6 @@ class PostProcessingWidget(QWidget):
     def archived_config_path(self):
         return Path(self.processed_subfolder, "config.toml")
 
-
     @property
     def xy_base_path(self):
         file_name = f"xy_{self.tracker_combo.currentData().name}.csv"
@@ -130,7 +131,6 @@ class PostProcessingWidget(QWidget):
         result = Path(self.processed_subfolder, file_name)
         return result
 
-
     @property
     def active_folder(self):
         if self.recording_folders.count() == 0:
@@ -144,7 +144,7 @@ class PostProcessingWidget(QWidget):
         return active_folder
 
     @property
-    def active_recording_path(self)-> Path:
+    def active_recording_path(self) -> Path:
         p = Path(self.controller.workspace_guide.recording_dir, self.active_folder)
         logger.info(f"Active recording path is {p}")
         return p
@@ -205,36 +205,37 @@ class PostProcessingWidget(QWidget):
 
     def process_current(self):
         """
-        
+
         This needs to get pushed into the controller layer
         """
         recording_path = Path(self.controller.workspace_guide.recording_dir, self.active_folder)
         logger.info(f"Beginning processing of recordings at {recording_path}")
         tracker_enum = self.tracker_combo.currentData()
         logger.info(f"(x,y) tracking will be applied using {tracker_enum.name}")
-        recording_config_toml  = Path(recording_path,"config.toml")
+        recording_config_toml = Path(recording_path, "config.toml")
         logger.info(f"Camera data based on config file saved to {recording_config_toml}")
 
         self.controller.process_recordings(recording_path, tracker_enum)
 
     def active_tracker_config_path(self):
         """
-        This will exist of the tracker has been processed. It should have a camera array within it 
-        that can be displayed to the user and will align 
+        This will exist of the tracker has been processed. It should have a camera array within it
+        that can be displayed to the user and will align
         """
-        return Path(self.active_recording_path,self.active_tracker_enum.name, "config.toml")
+        return Path(self.active_recording_path, self.active_tracker_enum.name, "config.toml")
 
     def refresh_visualizer(self):
         logger.info("Refreshing vizualizer within post_processing widget")
 
-        if self.archived_config_path.exists():  # processing has been done and their is a camera array that can be loaded
+        if (
+            self.archived_config_path.exists()
+        ):  # processing has been done and their is a camera array that can be loaded
             stored_config = Configurator(self.archived_config_path.parent)
             presented_camera_array = stored_config.get_camera_array()
         else:
             presented_camera_array = self.controller.camera_array
 
         self.vis_widget.update_camera_array(presented_camera_array)
-
 
         self.set_current_xyz()
         self.vizualizer_title.setText(self.viz_title_html)
@@ -264,7 +265,7 @@ class PostProcessingWidget(QWidget):
         logger.info("Checking if metarig config can be created...")
         tracker = self.tracker_combo.currentData().value()
         logger.info(tracker)
-        if (tracker.metarig_mapped and self.xyz_processed_path.exists() and not self.metarig_config_path.exists()):
+        if tracker.metarig_mapped and self.xyz_processed_path.exists() and not self.metarig_config_path.exists():
             self.generate_metarig_config_btn.setEnabled(True)
             self.generate_metarig_config_btn.setToolTip("Creation of metarig configuration file is now available")
         else:
@@ -273,11 +274,17 @@ class PostProcessingWidget(QWidget):
         if not tracker.metarig_mapped:
             self.generate_metarig_config_btn.setToolTip("Tracker is not set up to scale to a metarig")
         elif self.metarig_config_path.exists():
-            self.generate_metarig_config_btn.setToolTip("The Metarig configuration json file has already been created.Check the tracker subfolder in the recording directory.")
+            self.generate_metarig_config_btn.setToolTip(
+                "The Metarig configuration json file has already been created.Check the tracker subfolder in the recording directory."
+            )
         elif not self.xyz_processed_path.exists():
-            self.generate_metarig_config_btn.setToolTip("Must process recording to create xyz estimates for metarig configuration")
+            self.generate_metarig_config_btn.setToolTip(
+                "Must process recording to create xyz estimates for metarig configuration"
+            )
         else:
-            self.generate_metarig_config_btn.setToolTip("Click to create a file in the tracker subfolder that can be used to scale a Blender metarig")
+            self.generate_metarig_config_btn.setToolTip(
+                "Click to create a file in the tracker subfolder that can be used to scale a Blender metarig"
+            )
         # set availability of Proecssing and slider
         if self.xyz_processed_path.exists():
             self.process_current_btn.setEnabled(False)
@@ -300,11 +307,9 @@ class PostProcessingWidget(QWidget):
         else:
             pass
 
-
     def create_metarig_config(self):
         logger.info(f"Beginning metarig_config creation in {self.processed_subfolder}")
         tracker_enum = self.tracker_combo.currentData()
         xyz_csv_path = Path(self.processed_subfolder, f"xyz_{tracker_enum.name}_labelled.csv")
         generate_metarig_config(tracker_enum, xyz_csv_path)
         self.update_enabled_disabled()
-

@@ -1,4 +1,3 @@
-
 from threading import Thread
 from queue import Queue
 from pathlib import Path
@@ -14,6 +13,7 @@ from caliscope.trackers.helper import apply_rotation, unrotate_points
 from caliscope.trackers.wireframe_builder import get_wireframe
 
 import caliscope.logger
+
 logger = caliscope.logger.get(__name__)
 
 DRAW_IGNORE_LIST = [
@@ -132,7 +132,7 @@ class HolisticTracker(Tracker):
         self.in_queues = {}
         self.out_queues = {}
         self.threads = {}
-        wireframe_spec_path = Path(Path(__file__).parent,"holistic_wireframe.toml")
+        wireframe_spec_path = Path(Path(__file__).parent, "holistic_wireframe.toml")
         self.wireframe = get_wireframe(wireframe_spec_path, POINT_NAMES)
 
     @property
@@ -141,9 +141,7 @@ class HolisticTracker(Tracker):
 
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance
-        with mp.solutions.holistic.Holistic(
-            min_detection_confidence=0.8, min_tracking_confidence=0.8
-        ) as holistic:
+        with mp.solutions.holistic.Holistic(min_detection_confidence=0.8, min_tracking_confidence=0.8) as holistic:
             while True:
                 frame = self.in_queues[port].get()
                 # apply rotation as needed
@@ -159,17 +157,10 @@ class HolisticTracker(Tracker):
                 landmark_xy = []
 
                 if results.pose_landmarks:
-                    for landmark_id, landmark in enumerate(
-                        results.pose_landmarks.landmark
-                    ):
+                    for landmark_id, landmark in enumerate(results.pose_landmarks.landmark):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel position
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if (
-                            landmark.x < 0
-                            or landmark.x > 1
-                            or landmark.y < 0
-                            or landmark.y > 1
-                        ):
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
                             # ignore
                             pass
                         else:
@@ -177,17 +168,10 @@ class HolisticTracker(Tracker):
                             landmark_xy.append((x, y))
 
                 if results.right_hand_landmarks:
-                    for landmark_id, landmark in enumerate(
-                        results.right_hand_landmarks.landmark
-                    ):
+                    for landmark_id, landmark in enumerate(results.right_hand_landmarks.landmark):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel position
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if (
-                            landmark.x < 0
-                            or landmark.x > 1
-                            or landmark.y < 0
-                            or landmark.y > 1
-                        ):
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
                             # ignore
                             pass
                         else:
@@ -195,17 +179,10 @@ class HolisticTracker(Tracker):
                             landmark_xy.append((x, y))
 
                 if results.left_hand_landmarks:
-                    for landmark_id, landmark in enumerate(
-                        results.left_hand_landmarks.landmark
-                    ):
+                    for landmark_id, landmark in enumerate(results.left_hand_landmarks.landmark):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel positionND_OFFSET
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if (
-                            landmark.x < 0
-                            or landmark.x > 1
-                            or landmark.y < 0
-                            or landmark.y > 1
-                        ):
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
                             # ignore
                             pass
                         else:
@@ -213,17 +190,10 @@ class HolisticTracker(Tracker):
                             landmark_xy.append((x, y))
 
                 if results.face_landmarks:
-                    for landmark_id, landmark in enumerate(
-                        results.face_landmarks.landmark
-                    ):
+                    for landmark_id, landmark in enumerate(results.face_landmarks.landmark):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel positionFSET
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if (
-                            landmark.x < 0
-                            or landmark.x > 1
-                            or landmark.y < 0
-                            or landmark.y > 1
-                        ):
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
                             # ignore
                             pass
                         else:
@@ -232,16 +202,12 @@ class HolisticTracker(Tracker):
 
                 point_ids = np.array(point_ids)
                 landmark_xy = np.array(landmark_xy)
-                landmark_xy = unrotate_points(
-                    landmark_xy, rotation_count, width, height
-                )
+                landmark_xy = unrotate_points(landmark_xy, rotation_count, width, height)
                 point_packet = PointPacket(point_ids, landmark_xy)
 
                 self.out_queues[port].put(point_packet)
 
-    def get_points(
-        self, frame: np.ndarray, port: int, rotation_count: int
-    ) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
         if port not in self.in_queues.keys():
             self.in_queues[port] = Queue(1)
             self.out_queues[port] = Queue(1)

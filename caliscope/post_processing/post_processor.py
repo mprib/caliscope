@@ -20,6 +20,7 @@ logger = caliscope.logger.get(__name__)
 # gap filling and filtering is outside the current scope of the project so I'm toggling this off for now
 APPLY_EXPERIMENTAL_POST_PROCESSING = False
 
+
 class PostProcessor:
     """
     The post processer operates independently of the session. It does not need to worry about camera management.
@@ -27,13 +28,11 @@ class PostProcessor:
     - config.toml
     - frame_time.csv
     - .mp4 files
-    
+
     The post processor will archive the active config.toml file into the subdirectory
     """
 
-    def __init__(
-        self, camera_array: CameraArray, recording_path: Path, tracker_enum: TrackerEnum
-    ):
+    def __init__(self, camera_array: CameraArray, recording_path: Path, tracker_enum: TrackerEnum):
         self.camera_array = camera_array
         self.recording_path = recording_path
         self.tracker_enum = tracker_enum
@@ -42,12 +41,10 @@ class PostProcessor:
 
         # save out current camera array to output folder
         tracker_subdirectory = Path(self.recording_path, self.tracker_name)
-        tracker_subdirectory.mkdir(exist_ok=True,parents=True)
-        shutil.copy(Path(self.recording_path.parent.parent,"config.toml"), Path(tracker_subdirectory, "config.toml"))
+        tracker_subdirectory.mkdir(exist_ok=True, parents=True)
+        shutil.copy(Path(self.recording_path.parent.parent, "config.toml"), Path(tracker_subdirectory, "config.toml"))
 
-        logger.info(
-            f"Creating sync stream manager for videos stored in {self.recording_path}"
-        )
+        logger.info(f"Creating sync stream manager for videos stored in {self.recording_path}")
         self.sync_stream_manager = SynchronizedStreamManager(
             self.recording_path, self.camera_array.cameras, self.tracker
         )
@@ -64,19 +61,11 @@ class PostProcessor:
         while self.sync_stream_manager.recorder.recording:
             sleep(1)
             percent_complete = int(
-                (
-                    self.sync_stream_manager.recorder.sync_index
-                    / self.sync_stream_manager.mean_frame_count
-                )
-                * 100
+                (self.sync_stream_manager.recorder.sync_index / self.sync_stream_manager.mean_frame_count) * 100
             )
-            logger.info(
-                f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection"
-            )
+            logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
 
-    def create_xyz(
-        self, xy_gap_fill=3, xyz_gap_fill=3, cutoff_freq=6, include_trc=True
-    ) -> None:
+    def create_xyz(self, xy_gap_fill=3, xyz_gap_fill=3, cutoff_freq=6, include_trc=True) -> None:
         """
         creates xyz_{tracker name}.csv file within the recording_path directory
 
@@ -108,20 +97,13 @@ class PostProcessor:
             if APPLY_EXPERIMENTAL_POST_PROCESSING:
                 logger.info("Filling small gaps in (x,y,z) data")
                 xyz = gap_fill_xyz(xyz, max_gap_size=xyz_gap_fill)
-                logger.info(
-                    "Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz"
-                )
-                xyz = smooth_xyz(
-                    xyz, order=2, fps=self.sync_stream_manager.mean_fps, cutoff=cutoff_freq
-                )
-
+                logger.info("Smoothing (x,y,z) using butterworth filter with cutoff frequency of 6hz")
+                xyz = smooth_xyz(xyz, order=2, fps=self.sync_stream_manager.mean_fps, cutoff=cutoff_freq)
 
             logger.info("Saving (x,y,z) to csv file")
             xyz_csv_path = Path(tracker_output_path, f"xyz_{self.tracker_name}.csv")
             xyz.to_csv(xyz_csv_path)
-            xyz_wide_csv_path = Path(
-                tracker_output_path, f"xyz_{self.tracker_name}_labelled.csv"
-            )
+            xyz_wide_csv_path = Path(tracker_output_path, f"xyz_{self.tracker_name}_labelled.csv")
             xyz_labelled = xyz_to_wide_labelled(xyz, self.tracker_enum.value())
             xyz_labelled.to_csv(xyz_wide_csv_path)
 
@@ -144,9 +126,7 @@ class PostProcessor:
 if __name__ == "__main__":
     from caliscope.controller import Controller
 
-    workspace_dir = Path(
-        r"C:\Users\Mac Prible\OneDrive - The University of Texas at Austin\research\caliscope\demo"
-    )
+    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive - The University of Texas at Austin\research\caliscope\demo")
     controller = Controller(workspace_dir)
     controller.load_camera_array()
 

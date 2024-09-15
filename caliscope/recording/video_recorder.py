@@ -47,15 +47,11 @@ class VideoRecorder:
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
             frame_size = stream.size
-            logger.info(
-                f"Creating video writer with fps of {stream.original_fps} and frame size of {frame_size}"
-            )
+            logger.info(f"Creating video writer with fps of {stream.original_fps} and frame size of {frame_size}")
             writer = cv2.VideoWriter(path, fourcc, stream.original_fps, frame_size)
             self.video_writers[port] = writer
 
-    def save_data_worker(
-        self, include_video: bool, show_points: bool, store_point_history: bool
-    ):
+    def save_data_worker(self, include_video: bool, show_points: bool, store_point_history: bool):
         # connect video recorder to synchronizer via an "in" queue
         if include_video:
             self.build_video_writers()
@@ -92,9 +88,7 @@ class VideoRecorder:
             logger.debug("Getting size of sync packet q")
             backlog = self.sync_packet_in_q.qsize()
             if backlog % 25 == 0 and backlog != 0:
-                logger.info(
-                    f"Size of unsaved frames on the recording queue is {self.sync_packet_in_q.qsize()}"
-                )
+                logger.info(f"Size of unsaved frames on the recording queue is {self.sync_packet_in_q.qsize()}")
 
             if sync_packet is None:
                 # relenvant when
@@ -118,9 +112,7 @@ class VideoRecorder:
                     if include_video:
                         # store the frame
                         if self.sync_index % 50 == 0:
-                            logger.debug(
-                                f"Writing frame for port {port} and sync index {self.sync_index}"
-                            )
+                            logger.debug(f"Writing frame for port {port} and sync index {self.sync_index}")
                             logger.debug(f"frame size  {frame.shape}")
 
                         self.video_writers[port].write(frame)

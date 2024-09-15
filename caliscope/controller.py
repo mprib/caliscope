@@ -29,7 +29,9 @@ import caliscope.logger
 logger = caliscope.logger.get(__name__)
 
 
-FILTERED_FRACTION = 0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
+FILTERED_FRACTION = (
+    0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
+)
 
 
 # class CalibrationStage(Enum):
@@ -151,9 +153,7 @@ class Controller(QObject):
             self.intrinsic_stream_manager.update_charuco(self.charuco_tracker)
 
     def load_extrinsic_stream_manager(self):
-        logger.info(
-            f"Loading manager for streams saved to {self.workspace_guide.extrinsic_dir}"
-        )
+        logger.info(f"Loading manager for streams saved to {self.workspace_guide.extrinsic_dir}")
         self.extrinsic_stream_manager = SynchronizedStreamManager(
             recording_dir=self.workspace_guide.extrinsic_dir,
             all_camera_data=self.camera_array.cameras,
@@ -199,9 +199,7 @@ class Controller(QObject):
         self.camera_array = CameraArray(preconfigured_cameras)
 
         # double check that no new camera associated files have been placed in the intrinsic calibration folder
-        all_ports = self.workspace_guide.get_ports_in_dir(
-            self.workspace_guide.intrinsic_dir
-        )
+        all_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.intrinsic_dir)
 
         for port in all_ports:
             if port not in self.camera_array.cameras:
@@ -295,9 +293,7 @@ class Controller(QObject):
             camera_data.rotation_count = count
 
         # note that extrinsic streams not altered.... just reload an replay
-        self.intrinsic_stream_manager.set_stream_rotation(
-            port, camera_data.rotation_count
-        )
+        self.intrinsic_stream_manager.set_stream_rotation(port, camera_data.rotation_count)
 
         self.push_camera_data(port)
         self.config.save_camera(camera_data)
@@ -317,15 +313,11 @@ class Controller(QObject):
 
         self.capture_volume.stage = self.config.dict["capture_volume"]["stage"]
         if "origin_sync_index" in self.config.dict["capture_volume"].keys():
-            self.capture_volume.origin_sync_index = self.config.dict["capture_volume"][
-                "origin_sync_index"
-            ]
+            self.capture_volume.origin_sync_index = self.config.dict["capture_volume"]["origin_sync_index"]
 
         # QC needed to get the corner distance accuracy within the GUI
         # Note that the corner distance accuracy calcs need validation...I'm not relying on them now...
-        self.quality_controller = QualityController(
-            self.capture_volume, charuco=self.charuco
-        )
+        self.quality_controller = QualityController(self.capture_volume, charuco=self.charuco)
 
     def calibrate_capture_volume(self):
         """
@@ -335,9 +327,7 @@ class Controller(QObject):
         """
 
         def worker():
-            output_path = Path(
-                self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv"
-            )
+            output_path = Path(self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv")
             if output_path.exists():
                 output_path.unlink()  # make sure this doesn't exist to begin with.
 
@@ -348,9 +338,7 @@ class Controller(QObject):
             fps_target = self.config.get_fps_sync_stream_processing()
 
             self.extrinsic_stream_manager.process_streams(fps_target=fps_target, include_video=include_video)
-            logger.info(
-                f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
-            )
+            logger.info(f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}")
 
             logger.info("About to signal that synched frames should be shown")
             self.show_synched_frames.emit()
@@ -359,9 +347,7 @@ class Controller(QObject):
                 sleep(0.5)
                 # moderate the frequency with which logging statements get made
                 if round(time()) % 3 == 0:
-                    logger.info(
-                        f"Waiting for 2D tracked points to populate at {output_path}"
-                    )
+                    logger.info(f"Waiting for 2D tracked points to populate at {output_path}")
 
             # note that this processing will wait until it is complete
             # self.process_extrinsic_streams(fps_target=100)
@@ -371,9 +357,7 @@ class Controller(QObject):
                 self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
             )
 
-            stereocalibrator = StereoCalibrator(
-                self.config.config_toml_path, self.extrinsic_calibration_xy
-            )
+            stereocalibrator = StereoCalibrator(self.config.config_toml_path, self.extrinsic_calibration_xy)
             stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
             # refreshing camera array from config file
@@ -381,20 +365,14 @@ class Controller(QObject):
                 self.config.config_toml_path
             ).get_best_camera_array()
 
-            self.point_estimates: PointEstimates = get_point_estimates(
-                self.camera_array, self.extrinsic_calibration_xy
-            )
+            self.point_estimates: PointEstimates = get_point_estimates(self.camera_array, self.extrinsic_calibration_xy)
 
             self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
             self.capture_volume.optimize()
 
-            self.quality_controller = QualityController(
-                self.capture_volume, self.charuco
-            )
+            self.quality_controller = QualityController(self.capture_volume, self.charuco)
 
-            logger.info(
-                f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model"
-            )
+            logger.info(f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model")
             self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
             self.capture_volume.optimize()
 
@@ -403,9 +381,7 @@ class Controller(QObject):
 
         self.calibrate_capture_volume_thread = QThread()
         self.calibrate_capture_volume_thread.run = worker
-        self.calibrate_capture_volume_thread.finished.connect(
-            self.capture_volume_calibrated.emit
-        )
+        self.calibrate_capture_volume_thread.finished.connect(self.capture_volume_calibrated.emit)
         self.calibrate_capture_volume_thread.start()
 
     def process_recordings(self, recording_path: Path, tracker_enum: TrackerEnum):
@@ -417,15 +393,13 @@ class Controller(QObject):
         def worker():
             logger.info(f"Beginning to process video files at {recording_path}")
             logger.info(f"Creating post processor for {recording_path}")
-            self.post_processor = PostProcessor(
-                self.camera_array, recording_path, tracker_enum
-            )
+            self.post_processor = PostProcessor(self.camera_array, recording_path, tracker_enum)
 
             # config settings that help to throttle processing rate to manage resource demands
             include_video = self.config.get_save_tracked_points()
             fps_target = self.config.get_fps_sync_stream_processing()
 
-            self.post_processor.create_xy(include_video=include_video,fps_target=fps_target)
+            self.post_processor.create_xy(include_video=include_video, fps_target=fps_target)
             self.post_processor.create_xyz()
 
         self.process_recordings_thread = QThread()
@@ -435,24 +409,12 @@ class Controller(QObject):
 
     def rotate_capture_volume(self, direction: str):
         transformations = {
-            "x+": np.array(
-                [[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]], dtype=float
-            ),
-            "x-": np.array(
-                [[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=float
-            ),
-            "y+": np.array(
-                [[0, 0, -1, 0], [0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1]], dtype=float
-            ),
-            "y-": np.array(
-                [[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]], dtype=float
-            ),
-            "z+": np.array(
-                [[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float
-            ),
-            "z-": np.array(
-                [[0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float
-            ),
+            "x+": np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]], dtype=float),
+            "x-": np.array([[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=float),
+            "y+": np.array([[0, 0, -1, 0], [0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1]], dtype=float),
+            "y-": np.array([[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]], dtype=float),
+            "z+": np.array([[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float),
+            "z-": np.array([[0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float),
         }
 
         self.capture_volume.shift_origin(transformations[direction])
@@ -484,9 +446,7 @@ class Controller(QObject):
             self.config.save_camera(self.camera_array.cameras[port])
             self.push_camera_data(port)
             logger.info(f"Initiate autocalibration of grids for port {port}")
-            self.intrinsic_stream_manager.autocalibrate(
-                port, grid_count, board_threshold
-            )
+            self.intrinsic_stream_manager.autocalibrate(port, grid_count, board_threshold)
 
             while self.camera_array.cameras[port].matrix is None:
                 logger.info(f"Waiting for calibration to complete at port {port}")

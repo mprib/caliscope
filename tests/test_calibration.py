@@ -81,11 +81,11 @@ def test_post_monocalibration(session_path):
     logger.info("Creating RecordedStreamPool")
 
     recording_path = Path(session_path, "calibration", "extrinsic")
-    point_data_path = Path(recording_path,"CHARUCO", "xy_CHARUCO.csv")
+    point_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
 
     camera_array = config.get_camera_array()
     sync_stream_manager = SynchronizedStreamManager(
-        recording_dir=recording_path, all_camera_data= camera_array.cameras, tracker=charuco_tracker
+        recording_dir=recording_path, all_camera_data=camera_array.cameras, tracker=charuco_tracker
     )
     sync_stream_manager.process_streams(fps_target=100)
 
@@ -98,9 +98,7 @@ def test_post_monocalibration(session_path):
     stereocalibrator = StereoCalibrator(config.config_toml_path, point_data_path)
     stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
-    camera_array: CameraArray = CameraArrayInitializer(
-        config.config_toml_path
-    ).get_best_camera_array()
+    camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
 
     point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
 

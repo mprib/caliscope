@@ -7,8 +7,10 @@ from dataclasses import dataclass
 import cv2
 from numba.typed import Dict
 from collections import OrderedDict
+
 logger = caliscope.logger.get(__name__)
 CAMERA_PARAM_COUNT = 6
+
 
 @dataclass
 class CameraData:
@@ -20,36 +22,36 @@ class CameraData:
 
     port: int
     size: tuple
-    rotation_count: int=0
-    error: float=None  # the RMSE of reprojection associated with the intrinsic calibration
-    matrix: np.ndarray=None
-    distortions: np.ndarray=None  #
-    exposure: int=None
-    grid_count: int=None
-    ignore: bool=False
-    verified_resolutions: np.ndarray=None
-    translation: np.ndarray =None # camera relative to world
-    rotation: np.ndarray = None# camera relative to world
+    rotation_count: int = 0
+    error: float = None  # the RMSE of reprojection associated with the intrinsic calibration
+    matrix: np.ndarray = None
+    distortions: np.ndarray = None  #
+    exposure: int = None
+    grid_count: int = None
+    ignore: bool = False
+    verified_resolutions: np.ndarray = None
+    translation: np.ndarray = None  # camera relative to world
+    rotation: np.ndarray = None  # camera relative to world
 
     @property
     def transformation(self):
-        """"
-        Rotation and transformation combined to allow 
+        """ "
+        Rotation and transformation combined to allow
         """
 
         t = np.hstack([self.rotation, np.expand_dims(self.translation, 1)])
-        t = np.vstack([t, np.array([0,0,0,1], np.float32)])
+        t = np.vstack([t, np.array([0, 0, 0, 1], np.float32)])
         return t
 
     @transformation.setter
     def transformation(self, t: np.ndarray):
-        self.rotation = t[0:3,0:3]
-        self.translation = t[0:3,3]
+        self.rotation = t[0:3, 0:3]
+        self.translation = t[0:3, 3]
         logger.info(f"Rotation and Translation being updated to {self.rotation} and {self.translation}")
 
     @property
     def projection_matrix(self):
-        return self.matrix @ self.transformation[0:3,:]
+        return self.matrix @ self.transformation[0:3, :]
 
     def extrinsics_to_vector(self):
         """
@@ -70,8 +72,7 @@ class CameraData:
         self.rotation = cv2.Rodrigues(row[0:3])[0]
         self.translation = np.array([row[3:6]], dtype=np.float64)[0]
 
-    def get_display_data(self)-> OrderedDict:
-
+    def get_display_data(self) -> OrderedDict:
         # Extracting camera matrix parameters
         # self.matrix = None
         if self.matrix is not None:
@@ -81,42 +82,52 @@ class CameraData:
             fx, fy = None, None
             cx, cy = None, None
 
-
         # Extracting distortion coefficients
         if self.distortions is not None:
             k1, k2, p1, p2, k3 = self.distortions.ravel()[:5]
         else:
             k1, k2, p1, p2, k3 = None, None, None, None, None
 
-        def round_or_none(value,places):
+        def round_or_none(value, places):
             if value is None:
                 return None
             else:
-                return round(value,places)
+                return round(value, places)
 
         # Creating the dictionary with OrderedDict
-        camera_display_dict = OrderedDict([
-            ("size", self.size),
-            ("RMSE", self.error),
-            ("Grid_Count", self.grid_count),
-            ("rotation_count", self.rotation_count),
-            ("intrinsic_parameters", OrderedDict([
-                ("focal_length_x", round_or_none(fx,2)),
-                ("focal_length_y", round_or_none(fy,2)),
-                ("optical_center_x", round_or_none(cx,2)),
-                ("optical_center_y", round_or_none(cy,2))
-            ])),
-            ("distortion_coefficients", OrderedDict([
-                ("radial_k1", round_or_none(k1,2)),
-                ("radial_k2", round_or_none(k2,2)),
-                ("radial_k3", round_or_none(k3,2)),
-                ("tangential_p1", round_or_none(p1,2)),
-                ("tangential_p2", round_or_none(p2,2))
-            ]))
-        ])
+        camera_display_dict = OrderedDict(
+            [
+                ("size", self.size),
+                ("RMSE", self.error),
+                ("Grid_Count", self.grid_count),
+                ("rotation_count", self.rotation_count),
+                (
+                    "intrinsic_parameters",
+                    OrderedDict(
+                        [
+                            ("focal_length_x", round_or_none(fx, 2)),
+                            ("focal_length_y", round_or_none(fy, 2)),
+                            ("optical_center_x", round_or_none(cx, 2)),
+                            ("optical_center_y", round_or_none(cy, 2)),
+                        ]
+                    ),
+                ),
+                (
+                    "distortion_coefficients",
+                    OrderedDict(
+                        [
+                            ("radial_k1", round_or_none(k1, 2)),
+                            ("radial_k2", round_or_none(k2, 2)),
+                            ("radial_k3", round_or_none(k3, 2)),
+                            ("tangential_p1", round_or_none(p1, 2)),
+                            ("tangential_p2", round_or_none(p2, 2)),
+                        ]
+                    ),
+                ),
+            ]
+        )
 
         return camera_display_dict
-
 
     def erase_calibration_data(self):
         self.error = None
@@ -125,6 +136,7 @@ class CameraData:
         self.grid_count = None
         self.translation = None
         self.rotation = None
+
 
 @dataclass
 class CameraArray:
@@ -137,14 +149,14 @@ class CameraArray:
     def port_index(self):
         """
         Provides a dictionary mapping the camera port to an index. Generally,this
-        will match the camera ports 1:1, but will be different when a camera 
+        will match the camera ports 1:1, but will be different when a camera
         is being ignored. Used to manage reference to camera parameters in xy_reprojection_error
-        used within the least_squares optimization of the capture volume. 
+        used within the least_squares optimization of the capture volume.
         """
         not_ignored_ports = [port for port, cam in self.cameras.items() if not cam.ignore]
         not_ignored_ports.sort()
         not_ignored_indices = [i for i in range(len(not_ignored_ports))]
-        port_indices = {port:i for port, i in zip(not_ignored_ports,not_ignored_indices)}
+        port_indices = {port: i for port, i in zip(not_ignored_ports, not_ignored_indices)}
 
         return port_indices
 
@@ -174,8 +186,7 @@ class CameraArray:
 
         return camera_params
 
-    def update_extrinsic_params(self, least_sq_result_x:np.array):
-
+    def update_extrinsic_params(self, least_sq_result_x: np.array):
         n_cameras = len(self.port_index)
         n_cam_param = 6  # 6 DoF
         flat_camera_params = least_sq_result_x[0 : n_cameras * n_cam_param]
@@ -187,7 +198,7 @@ class CameraArray:
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
-    def all_extrinsics_calibrated(self)->bool:
+    def all_extrinsics_calibrated(self) -> bool:
         # assume extrinsics calibrated and provide otherwise
         full_extrinsics = True
         for port, cam in self.cameras.items():
@@ -195,7 +206,7 @@ class CameraArray:
                 full_extrinsics = False
         return full_extrinsics
 
-    def all_intrinsics_calibrated(self)->bool:
+    def all_intrinsics_calibrated(self) -> bool:
         # assume true and prove false
         full_intrinsics = True
         for port, cam in self.cameras.items():
@@ -211,4 +222,3 @@ class CameraArray:
             proj_mat[port] = cam.projection_matrix
 
         return proj_mat
-

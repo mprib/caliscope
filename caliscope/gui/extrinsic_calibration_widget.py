@@ -1,5 +1,5 @@
-
 import caliscope.logger
+
 logger = caliscope.logger.get(__name__)
 
 import sys
@@ -38,21 +38,21 @@ class PossibleActions(Enum):
     Terminate = "Terminate"
     Calibrate = "Calibrate"
 
+
 class ExtrinsicCalibrationWidget(QWidget):
     calibration_complete = Signal()
     calibration_initiated = Signal()
     terminate = Signal()
 
-    def __init__(self,session:LiveSession):
-
+    def __init__(self, session: LiveSession):
         super(ExtrinsicCalibrationWidget, self).__init__()
         self.session = session
-        self.synchronizer:Synchronizer = self.session.synchronizer
+        self.synchronizer: Synchronizer = self.session.synchronizer
 
         logger.info("about to check if synchronizer has a sync packet")
         while not hasattr(self.session.synchronizer, "current_sync_packet"):
             logger.info("waiting for synchronizer to create first sync packet")
-            sleep(.5)
+            sleep(0.5)
 
         self.paired_frame_builder = PairedFrameBuilder(self.synchronizer, board_count_target=30)
         self.paired_frame_emitter = PairedFrameEmitter(self.paired_frame_builder)
@@ -90,7 +90,6 @@ class ExtrinsicCalibrationWidget(QWidget):
         else:
             self.calibrate_collect_btn.setEnabled(False)
 
-
     def place_widgets(self):
         self.setLayout(QVBoxLayout())
 
@@ -115,10 +114,7 @@ class ExtrinsicCalibrationWidget(QWidget):
 
         self.layout().addWidget(self.calibrate_collect_btn)
 
-
-
     def connect_widgets(self):
-
         self.calibrate_collect_btn.clicked.connect(self.on_calibrate_collect_click)
         self.paired_frame_emitter.ImageBroadcast.connect(self.ImageUpdateSlot)
         self.paired_frame_emitter.possible_to_initialize_array.connect(self.enable_calibration)
@@ -135,7 +131,7 @@ class ExtrinsicCalibrationWidget(QWidget):
             # by default, data saved to session folder
             self.paired_frame_builder.store_points.set()
             extrinsic_calibration_path = Path(self.session.path, "calibration", "extrinsic")
-            self.session.start_recording(extrinsic_calibration_path,store_point_history=True)
+            self.session.start_recording(extrinsic_calibration_path, store_point_history=True)
             self.possible_action = PossibleActions.Terminate
             self.calibrate_collect_btn.setText(self.possible_action.value)
             self.calibrate_collect_btn.setEnabled(True)
@@ -152,21 +148,16 @@ class ExtrinsicCalibrationWidget(QWidget):
             self.paired_frame_builder.store_points.clear()
             self.initiate_calibration()
 
-
-
     def enable_calibration(self):
         self.possible_action = PossibleActions.Calibrate
         self.calibrate_collect_btn.setText(self.possible_action.value)
         self.calibrate_collect_btn.setEnabled(True)
-
 
     def ImageUpdateSlot(self, q_image):
         self.stereo_frame_display.resize(self.stereo_frame_display.sizeHint())
 
         qpixmap = QPixmap.fromImage(q_image)
         self.stereo_frame_display.setPixmap(qpixmap)
-
-
 
     def initiate_calibration(self):
         def worker():
@@ -189,17 +180,17 @@ class ExtrinsicCalibrationWidget(QWidget):
             self.calibration_complete.emit()
             logger.info("Calibration Complete signal sent...")
 
-        self.init_calibration_thread = Thread(target=worker,args=(), daemon=True)
+        self.init_calibration_thread = Thread(target=worker, args=(), daemon=True)
         self.init_calibration_thread.start()
+
 
 class PairedFrameEmitter(QThread):
     ImageBroadcast = Signal(QImage)
     calibration_data_collected = Signal()
     possible_to_initialize_array = Signal()
 
-    def __init__(self, paired_frame_builder:PairedFrameBuilder):
-
-        super(PairedFrameEmitter,self).__init__()
+    def __init__(self, paired_frame_builder: PairedFrameBuilder):
+        super(PairedFrameEmitter, self).__init__()
         self.paired_frame_builder = paired_frame_builder
         logger.info("Initiated frame emitter")
         self.keep_collecting = Event()
@@ -216,21 +207,19 @@ class PairedFrameEmitter(QThread):
         future_wait_times = all_wait_times[all_wait_times > 0]
 
         if len(future_wait_times) == 0:
-            wait =  1 - fractional_time
+            wait = 1 - fractional_time
         else:
-            wait =  future_wait_times[0]
+            wait = future_wait_times[0]
 
         sleep(wait)
 
     def run(self):
-
         self.keep_collecting.set()
         self.collection_complete = False
 
         possible_to_initialize = False
 
         while self.keep_collecting.is_set():
-
             # that that it is important to make sure that this signal is sent only once
             # to avoid multiple calibration attempts
             if len(self.paired_frame_builder.stereo_list) == 0 and not self.collection_complete:
@@ -255,10 +244,7 @@ class PairedFrameEmitter(QThread):
         logger.info("Stereoframe emitter run thread ended...")
 
     # def stop(self):
-        # self.keep_collecting.clear()
-
-
-
+    # self.keep_collecting.clear()
 
 
 def cv2_to_qlabel(frame):
@@ -274,21 +260,20 @@ def cv2_to_qlabel(frame):
 
 
 if __name__ == "__main__":
-        from caliscope.configurator import Configurator
-        from caliscope.trackers.charuco_tracker import CharucoTracker
+    from caliscope.configurator import Configurator
+    from caliscope.trackers.charuco_tracker import CharucoTracker
 
-        App = QApplication(sys.argv)
+    App = QApplication(sys.argv)
 
-        session_path = Path(__root__, "dev","sample_sessions", "257")
-        configurator = Configurator(session_path)
+    session_path = Path(__root__, "dev", "sample_sessions", "257")
+    configurator = Configurator(session_path)
 
-        session = LiveSession(configurator)
-        # session.load_cameras()
-        tracker = CharucoTracker(session.charuco)
-        session.load_stream_tools(tracker=tracker)
+    session = LiveSession(configurator)
+    # session.load_cameras()
+    tracker = CharucoTracker(session.charuco)
+    session.load_stream_tools(tracker=tracker)
 
+    stereo_dialog = ExtrinsicCalibrationWidget(session)
+    stereo_dialog.show()
 
-        stereo_dialog = ExtrinsicCalibrationWidget(session)
-        stereo_dialog.show()
-
-        sys.exit(App.exec())
+    sys.exit(App.exec())

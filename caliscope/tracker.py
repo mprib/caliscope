@@ -17,9 +17,7 @@ class Tracker(ABC):
         pass
 
     @abstractmethod
-    def get_points(
-        self, frame: np.ndarray, port: int, rotation_count: int
-    ) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
         """
         frame: np.ndarray from reading an OpenCV capture object
 
@@ -85,9 +83,7 @@ class Tracker(ABC):
         left_pointA,left_pointB and right_pointA, right_pointB will be calculated.
         The mean of the two sides will be taken
         """
-        raise NotImplementedError(
-            f"Tracker {self.name} has not provided its measures for configuring a metarig"
-        )
+        raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
 
     @property
     def metarig_bilateral_measures(self):
@@ -97,9 +93,7 @@ class Tracker(ABC):
         a dictionary of key: value in the form Measure_Name:[side_pointA, side_pointB]
         when processed, mean distance (excluding outliers) between the two points will be calculated and stored as the measure
         """
-        raise NotImplementedError(
-            f"Tracker {self.name} has not provided its measures for configuring a metarig"
-        )
+        raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
 
 
 @dataclass(slots=True, frozen=True)
@@ -123,10 +117,10 @@ class WireFrameView:
                 color=pg.mkColor(segment.color), width=segment.width, mode="lines"
             )
 
-        self.point_ids = {value:key for key,value in self.point_names.items()}
+        self.point_ids = {value: key for key, value in self.point_names.items()}
+
     def set_points(self, xyz_packet: XYZPacket):
         for segment in self.segments:
             A_id = self.point_ids[segment.point_A]
             B_id = self.point_ids[segment.point_B]
-            self.line_plots[segment.name].setData(
-                pos=xyz_packet.get_segment_ends(A_id,B_id))
+            self.line_plots[segment.name].setData(pos=xyz_packet.get_segment_ends(A_id, B_id))

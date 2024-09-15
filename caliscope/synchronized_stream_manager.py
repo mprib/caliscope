@@ -81,14 +81,13 @@ class SynchronizedStreamManager:
 
         logger.info(f"About to start playing video streams to be processed. Streams: {self.streams}")
         for port, stream in self.streams.items():
-
             if fps_target is not None:
                 stream.set_fps_target(fps_target)
 
             stream.play_video()
 
     def load_video_properties(self):
-        fps   = []
+        fps = []
         frame_count = []
         logger.info(f"About to load video properties for files stored in {self.recording_dir}")
         logger.info(f"Current camera data is: {self.all_camera_data}")

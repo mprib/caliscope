@@ -21,7 +21,7 @@ class FrameDictionaryEmitter(QThread):
     # GridCountBroadcast = Signal(int)
     # FrameIndexBroadcast = Signal(int, int)
 
-    def __init__(self, synchronizer: Synchronizer,all_camera_data:dict[CameraData], pixmap_edge_length=500):
+    def __init__(self, synchronizer: Synchronizer, all_camera_data: dict[CameraData], pixmap_edge_length=500):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(FrameDictionaryEmitter, self).__init__()
@@ -77,9 +77,7 @@ class FrameDictionaryEmitter(QThread):
             self.FramesBroadcast.emit(emitted_dict)
 
         self.close_window.emit()
-        logger.info(
-            f"Thread loop within frame emitter at port {self.synchronizer.port} successfully ended"
-        )
+        logger.info(f"Thread loop within frame emitter at port {self.synchronizer.port} successfully ended")
 
     def stop(self):
         self.keep_collecting = False

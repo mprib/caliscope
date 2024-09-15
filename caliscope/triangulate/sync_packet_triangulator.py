@@ -12,6 +12,7 @@ import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 
+
 class SyncPacketTriangulator:
     """
     Will place 3d packets on subscribed queues and save consolidated data in csv
@@ -23,7 +24,7 @@ class SyncPacketTriangulator:
         camera_array: CameraArray,
         synchronizer: Synchronizer,
         recording_directory: Path = None,
-        tracker_name:str = None,  # used only for getting the point names and tracker name
+        tracker_name: str = None,  # used only for getting the point names and tracker name
     ):
         self.camera_array = camera_array
         self.synchronizer = synchronizer
@@ -69,9 +70,7 @@ class SyncPacketTriangulator:
             if sync_packet is None:
                 # No more sync packets after this... wind down
                 self.stop_thread.set()
-                logger.info(
-                    "End processing of incoming sync packets...end signaled with `None` packet"
-                )
+                logger.info("End processing of incoming sync packets...end signaled with `None` packet")
             else:
                 logger.debug(
                     f"Sync Packet {sync_packet.sync_index} acquired with {sync_packet.frame_packet_count} frames"
@@ -96,9 +95,7 @@ class SyncPacketTriangulator:
                             f"Synch Packet {sync_packet.sync_index} | Point ID: {point_id_xyz} | xyz: {points_xyz}"
                         )
 
-                        xyz_packet = XYZPacket(
-                            sync_packet.sync_index, point_id_xyz, points_xyz
-                        )
+                        xyz_packet = XYZPacket(sync_packet.sync_index, point_id_xyz, points_xyz)
                         logger.info(
                             f"Placing xyz pacKet for index {sync_packet.sync_index} with {len(xyz_packet.point_ids)} points"
                         )
@@ -126,9 +123,7 @@ class SyncPacketTriangulator:
             self.xyz_history["y_coord"].extend(xyz_array[:, 1].tolist())
             self.xyz_history["z_coord"].extend(xyz_array[:, 2].tolist())
 
-
-
-    def save_history(self)->None:
+    def save_history(self) -> None:
         """
         If a recording directory is provided, then save the xyz directory into it
         If a tracker name is provided, then base name on the tracker name
@@ -140,5 +135,4 @@ class SyncPacketTriangulator:
                 filename = "xyz.csv"
             else:
                 filename = f"xyz_{self.tracker_name}.csv"
-                df_xyz.to_csv(Path(self.recording_directory,filename))
-
+                df_xyz.to_csv(Path(self.recording_directory, filename))

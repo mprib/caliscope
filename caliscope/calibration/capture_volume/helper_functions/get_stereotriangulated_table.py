@@ -18,15 +18,12 @@ from caliscope.triangulate.stereo_points_builder import (
     StereoPointsPacket,
     SynchedStereoPointsPacket,
 )
+
 logger = caliscope.logger.get(__name__)
 
 
-def get_stereotriangulated_table(
-    camera_array: CameraArray, point_data_path: Path
-) -> pd.DataFrame:
-    logger.info(
-        f"Beginning to create stereotriangulated points from data stored at {point_data_path}"
-    )
+def get_stereotriangulated_table(camera_array: CameraArray, point_data_path: Path) -> pd.DataFrame:
+    logger.info(f"Beginning to create stereotriangulated points from data stored at {point_data_path}")
     point_data = pd.read_csv(point_data_path)
 
     xy_sync_indices = point_data["sync_index"].to_numpy()
@@ -45,9 +42,7 @@ def get_stereotriangulated_table(
     logger.info("Begin reconstructing SyncPackets and SynchedStereoPairs... ")
     for sync_index in sync_indices:
         if sync_index % 25 == 0:
-            logger.info(
-                f"Processing stereotriangulation estimates...currently at sync index {sync_index}"
-            )
+            logger.info(f"Processing stereotriangulation estimates...currently at sync index {sync_index}")
         # pull in the data that shares the same sync index
         port_points = point_data.query(f"sync_index == {sync_index}")
 
@@ -88,16 +83,12 @@ def get_stereotriangulated_table(
         sync_packet = SyncPacket(sync_index, frame_packets)
 
         # get the paired point packets for all port pairs at this sync index
-        synched_stereo_points: SynchedStereoPointsPacket = (
-            paired_point_builder.get_synched_paired_points(sync_packet)
-        )
+        synched_stereo_points: SynchedStereoPointsPacket = paired_point_builder.get_synched_paired_points(sync_packet)
         # print(synched_paired_points)
         array_triangulator.triangulate_synched_points(synched_stereo_points)
 
         for pair in synched_stereo_points.pairs:
-            triangulated_pair: StereoPointsPacket = (
-                synched_stereo_points.stereo_points_packets[pair]
-            )
+            triangulated_pair: StereoPointsPacket = synched_stereo_points.stereo_points_packets[pair]
             if triangulated_pair is not None:
                 if stereotriangulated_table is None:
                     stereotriangulated_table = triangulated_pair.to_table()
@@ -106,13 +97,9 @@ def get_stereotriangulated_table(
                     for key, value in new_table.items():
                         stereotriangulated_table[key].extend(value)
 
-    logger.info(
-        f"Saving stereotriangulated_points.csv to {point_data_path.parent} for inspection"
-    )
+    logger.info(f"Saving stereotriangulated_points.csv to {point_data_path.parent} for inspection")
     stereotriangulated_table = pd.DataFrame(stereotriangulated_table)
-    stereotriangulated_table.to_csv(
-        Path(point_data_path.parent, "stereotriangulated_points.csv")
-    )
+    stereotriangulated_table.to_csv(Path(point_data_path.parent, "stereotriangulated_points.csv"))
 
     logger.info("Returning dataframe of stereotriangulated points to caller")
 

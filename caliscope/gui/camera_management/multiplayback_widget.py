@@ -34,9 +34,7 @@ class MultiIntrinsicPlaybackWidget(QWidget):
         logger.info("Beginning to load individual tabs")
         for camera in self.controller.camera_array.cameras.values():
             logger.info(f"About to create calibration widget for camera {camera.port}")
-            tab = IntrinsicCalibrationWidget(
-                controller=self.controller, port=camera.port
-            )
+            tab = IntrinsicCalibrationWidget(controller=self.controller, port=camera.port)
             logger.info(f"Calibration widget for camera {camera.port} successfully created")
             self.tabWidget.addTab(tab, f"Cam {camera.port}")
 

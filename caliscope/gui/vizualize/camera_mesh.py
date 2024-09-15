@@ -1,4 +1,3 @@
-
 import caliscope.logger
 
 import pyqtgraph as pg
@@ -7,73 +6,77 @@ import math
 
 from caliscope.cameras.camera_array import CameraData
 import numpy as np
+
 logger = caliscope.logger.get(__name__)
+
 
 class CameraMesh:
     """Build a camera mesh object that is looking up from the origin"""
-    def __init__(self, res, cam_matrix, scale_factor=5000):
 
+    def __init__(self, res, cam_matrix, scale_factor=5000):
         # self.scene = scene
 
-        self.width = res[0]/scale_factor
-        self.height = res[1]/scale_factor
-        self.fx = cam_matrix[0][0]/scale_factor
-        self.fy = cam_matrix[1][1]/scale_factor
-        self.cx = cam_matrix[0][2]/scale_factor
-        self.cy = cam_matrix[1][2]/scale_factor
+        self.width = res[0] / scale_factor
+        self.height = res[1] / scale_factor
+        self.fx = cam_matrix[0][0] / scale_factor
+        self.fy = cam_matrix[1][1] / scale_factor
+        self.cx = cam_matrix[0][2] / scale_factor
+        self.cy = cam_matrix[1][2] / scale_factor
 
-        self.f_mean = (self.fx+self.fy)/2 # mean focal length...height of inverted pyramid
+        self.f_mean = (self.fx + self.fy) / 2  # mean focal length...height of inverted pyramid
 
         self.build_verts()
         self.build_faces()
         self.build_colors()
 
-        self.mesh = gl.GLMeshItem(vertexes=self.verts,
-                                  faces=self.faces,
-                                  faceColors=self.colors,
-                                  smooth=False,
-                                  drawEdges=True,
-                                  edgeColor=(0,0,1,1))
-        self.mesh.setGLOptions('additive')
+        self.mesh = gl.GLMeshItem(
+            vertexes=self.verts,
+            faces=self.faces,
+            faceColors=self.colors,
+            smooth=False,
+            drawEdges=True,
+            edgeColor=(0, 0, 1, 1),
+        )
+        self.mesh.setGLOptions("additive")
 
         logger.debug(self.verts)
         logger.debug(self.faces)
         logger.debug(self.colors)
 
     def build_verts(self):
-        right_side_border = self.width-self.cx
+        right_side_border = self.width - self.cx
         left_side_border = -self.cx
-        top_side_border = self.height-self.cy
+        top_side_border = self.height - self.cy
         bottom_side_border = -self.cy
         pyramid_height = self.f_mean
 
-        self.verts = [[0,    0,     0],   #0: focal point at origin
-                      [right_side_border,top_side_border,pyramid_height],         #1: top right of image
-                      [right_side_border,bottom_side_border,pyramid_height],         #2: bottom right of image
-                      [left_side_border,bottom_side_border,pyramid_height],         #3: bottom left of image
-                      [left_side_border,top_side_border,pyramid_height]]         #4: top left of image
+        self.verts = [
+            [0, 0, 0],  # 0: focal point at origin
+            [right_side_border, top_side_border, pyramid_height],  # 1: top right of image
+            [right_side_border, bottom_side_border, pyramid_height],  # 2: bottom right of image
+            [left_side_border, bottom_side_border, pyramid_height],  # 3: bottom left of image
+            [left_side_border, top_side_border, pyramid_height],
+        ]  # 4: top left of image
 
         self.verts = np.array(self.verts)
 
     def build_faces(self):
-        self.faces = [[0,1,2],
-                      [0,2,3],
-                      [0,3,4],
-                      [0,4,1],
-                      [1,2,3],
-                      [3,4,1]]
+        self.faces = [[0, 1, 2], [0, 2, 3], [0, 3, 4], [0, 4, 1], [1, 2, 3], [3, 4, 1]]
 
         self.faces = np.array(self.faces)
 
     def build_colors(self):
-        self.colors = [[.5,1,0,.2],
-                       [.5,1,0,.2],
-                       [.5,1,0,.2],
-                       [.5,1,0,.2],
-                       [0,0,0,.9],
-                       [0,0,0,.9]]
+        self.colors = [
+            [0.5, 1, 0, 0.2],
+            [0.5, 1, 0, 0.2],
+            [0.5, 1, 0, 0.2],
+            [0.5, 1, 0, 0.2],
+            [0, 0, 0, 0.9],
+            [0, 0, 0, 0.9],
+        ]
 
         self.colors = np.array(self.colors)
+
 
 def rotation_to_float(rotation_matrix):
     new_matrix = []
@@ -120,7 +123,6 @@ def mesh_from_camera(camera_data: CameraData):
 
 
 def rotationMatrixToEulerAngles(R):
-
     sy = math.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
 
     singular = sy < 1e-6
@@ -136,7 +138,8 @@ def rotationMatrixToEulerAngles(R):
 
     return np.array([x, y, z])
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import rtoml
     from pathlib import Path
 
@@ -144,7 +147,7 @@ if __name__ == '__main__':
 
     scene = gl.GLViewWidget()
     scene.show()
-    scene.setWindowTitle('Camera Calibration')
+    scene.setWindowTitle("Camera Calibration")
     scene.setCameraPosition(distance=4)
 
     # grid = gl.GLGridItem()
@@ -153,8 +156,7 @@ if __name__ == '__main__':
     axis = gl.GLAxisItem()
     scene.addItem(axis)
 
-
-    repo = Path(str(Path(__file__)).split("pyxy")[0],"pyxy")
+    repo = Path(str(Path(__file__)).split("pyxy")[0], "pyxy")
     # config_path = r"config 2.toml"
     config = rtoml.load(Path(repo, "sessions", "iterative_adjustment", "config.toml"))
     cams = {}
@@ -163,7 +165,6 @@ if __name__ == '__main__':
     # build cameras
     for key, params in config.items():
         if "cam" in key:
-
             res = params["resolution"]
             cam_matrix = params["camera_matrix"]
             port = params["port"]
@@ -182,9 +183,8 @@ if __name__ == '__main__':
     # must be able ot iterate over each frame of reference
     # place cameras
 
-
     origin_port = 0
-    cams[origin_port].mesh.setGLOptions('additive')
+    cams[origin_port].mesh.setGLOptions("additive")
     scene.addItem(cams[origin_port].mesh)
 
     for key, params in config.items():
@@ -205,31 +205,31 @@ if __name__ == '__main__':
                         else:
                             other_port = pair[1]
 
-                        x,y,z = [t/translation_scale for t in translation]
-                        cams[other_port].mesh.translate(x,y,z)
+                        x, y, z = [t / translation_scale for t in translation]
+                        cams[other_port].mesh.translate(x, y, z)
                         logger.info(f"Translation: x: {x}, y: {y}, z: {z}")
                         # cams[other_port].mesh.setGLOptions('additive')
 
                         scene.addItem(cams[other_port].mesh)
                     if "rotation" in param_key:
-                        rotation_count = rotation_to_float(value) # feeding in 3x3 rotation matrix  from config file
-                        rotation_count = rotationMatrixToEulerAngles(rotation_count) # convert to angles
+                        rotation_count = rotation_to_float(value)  # feeding in 3x3 rotation matrix  from config file
+                        rotation_count = rotationMatrixToEulerAngles(rotation_count)  # convert to angles
                         if origin_port == pair[1]:
                             rotation_count = -rotation_count
                             other_port = pair[0]
                         else:
                             other_port = pair[1]
 
-                        rot_deg = [x*(180/math.pi) for x in rotation_count] # convert to degrees
+                        rot_deg = [x * (180 / math.pi) for x in rotation_count]  # convert to degrees
                         print(f"Rotation (deg) for port {other_port}: {rot_deg}")
                         x = rot_deg[0]
                         y = rot_deg[1]
                         z = rot_deg[2]
 
                         logger.info(f"ROTATION: x: {x}, y: {y}, z: {z}")
-                        cams[other_port].mesh.rotate(x,1,0,0, local=True)
-                        cams[other_port].mesh.rotate(y,0,1,0, local=True)
-                        cams[other_port].mesh.rotate(z,0,0,1, local=True)
+                        cams[other_port].mesh.rotate(x, 1, 0, 0, local=True)
+                        cams[other_port].mesh.rotate(y, 0, 1, 0, local=True)
+                        cams[other_port].mesh.rotate(z, 0, 0, 1, local=True)
                         # cams[other_port].mesh.setGLOptions('additive')
 
                         scene.addItem(cams[other_port].mesh)

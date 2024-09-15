@@ -18,6 +18,7 @@ from caliscope.motion_trial import MotionTrial
 logger = caliscope.logger.get(__name__)
 # as part of development process I'm just going to import the skeleton in here
 
+
 class PlaybackTriangulationWidget(QWidget):
     def __init__(self, camera_array: CameraArray, xyz_history_path: Path = None):
         super(PlaybackTriangulationWidget, self).__init__()
@@ -67,7 +68,6 @@ class PlaybackTriangulationWidget(QWidget):
 
 
 class TriangulationVisualizer:
-
     def __init__(self, camera_array: CameraArray):
         self.camera_array = camera_array
         self.build_scene()
@@ -82,7 +82,7 @@ class TriangulationVisualizer:
             self.scene = gl.GLViewWidget()
 
             # the scene camera, not a real Camera
-            self.scene.setCameraPosition( distance=4)
+            self.scene.setCameraPosition(distance=4)
         axis = gl.GLAxisItem()
         self.scene.addItem(axis)
 
@@ -100,7 +100,7 @@ class TriangulationVisualizer:
             pxMode=False,
         )
 
-            # will hold a list
+        # will hold a list
         self.segments = {}
 
         self.scene.addItem(self.scatter)
@@ -110,9 +110,9 @@ class TriangulationVisualizer:
         self.camera_array = camera_array
         self.build_scene()
 
-    def update_motion_trial(self, motion_trial:MotionTrial):
+    def update_motion_trial(self, motion_trial: MotionTrial):
         logger.info("Updating xyz history in playback widget")
-        self.motion_trial:MotionTrial = motion_trial
+        self.motion_trial: MotionTrial = motion_trial
 
         if hasattr(self.motion_trial.tracker, "wireframe"):
             for segment_line in self.motion_trial.tracker.wireframe.line_plots.values():
@@ -121,8 +121,7 @@ class TriangulationVisualizer:
         self.sync_index = self.motion_trial.start_index
         self.display_points(self.sync_index)
 
-
-    def display_points(self, sync_index:int):
+    def display_points(self, sync_index: int):
         """
         sync_index is provided from the dialog and linked to the slider
         it is initially set to the minimum viable sync index
@@ -136,6 +135,5 @@ class TriangulationVisualizer:
             xyz_coords = self.motion_trial.get_xyz(self.sync_index).point_xyz
             self.scatter.setData(pos=xyz_coords)
 
-
-    def update_segment_lines(self,sync_index:int):
+    def update_segment_lines(self, sync_index: int):
         self.motion_trial.update_wireframe(sync_index)

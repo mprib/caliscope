@@ -5,17 +5,22 @@ import pandas as pd
 from pathlib import Path
 from caliscope import __root__
 from caliscope.configurator import Configurator
+
 # from caliscope.post_processing.post_processor import PostProcessor
 from caliscope.triangulate.triangulation import triangulate_xy
 
 from caliscope.helper import copy_contents
 from caliscope.trackers.tracker_enum import TrackerEnum
+
 logger = caliscope.logger.get(__name__)
+
 
 def test_xy_to_xyz_postprocessing():
     # load in file of xy point data
     origin_data = Path(__root__, "tests", "sessions", "4_cam_recording")
-    working_data = Path(__root__,"tests", "sessions_copy_delete", "4_cam_recording_2") # create alternate test directory because running into permission errors when invoking pytest
+    working_data = Path(
+        __root__, "tests", "sessions_copy_delete", "4_cam_recording_2"
+    )  # create alternate test directory because running into permission errors when invoking pytest
 
     copy_contents(origin_data, working_data)
 
@@ -23,7 +28,7 @@ def test_xy_to_xyz_postprocessing():
     recording_directory = Path(working_data, "recording_1")
     tracker_enum = TrackerEnum.HOLISTIC
 
-    xy_path = Path(recording_directory,tracker_enum.name, f"xy_{tracker_enum.name}.csv")
+    xy_path = Path(recording_directory, tracker_enum.name, f"xy_{tracker_enum.name}.csv")
     xy_data = pd.read_csv(xy_path)
 
     start = time.time()
@@ -33,7 +38,7 @@ def test_xy_to_xyz_postprocessing():
     # the method create_xyz uses it.
     camera_array = config.get_camera_array()
 
-    xyz_history = triangulate_xy(xy_data,camera_array)
+    xyz_history = triangulate_xy(xy_data, camera_array)
     logger.info(f"ending triangulation at {time.time()}")
     stop = time.time()
     logger.info(f"Elapsed time is {stop-start}. Note that on first iteration, @jit functions will take longer")
@@ -59,10 +64,10 @@ def test_xy_to_xyz_postprocessing():
         assert min_y <= y <= max_y
         assert min_z <= z <= max_z
 
-
     output_path = Path(recording_directory, "xyz.csv")
     xyz_history = pd.DataFrame(xyz_history)
     xyz_history.to_csv(output_path)
+
 
 if __name__ == "__main__":
     test_xy_to_xyz_postprocessing()

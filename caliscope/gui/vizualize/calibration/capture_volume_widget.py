@@ -90,17 +90,11 @@ class CaptureVolumeWidget(QWidget):
         self.slider.valueChanged.connect(self.visualizer.display_points)
         self.set_origin_btn.clicked.connect(self.set_origin_to_board)
         self.rotate_x_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("x+"))
-        self.rotate_x_minus_btn.clicked.connect(
-            lambda: self.rotate_capture_volume("x-")
-        )
+        self.rotate_x_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("x-"))
         self.rotate_y_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("y+"))
-        self.rotate_y_minus_btn.clicked.connect(
-            lambda: self.rotate_capture_volume("y-")
-        )
+        self.rotate_y_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("y-"))
         self.rotate_z_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("z+"))
-        self.rotate_z_minus_btn.clicked.connect(
-            lambda: self.rotate_capture_volume("z-")
-        )
+        self.rotate_z_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("z-"))
 
     def set_origin_to_board(self):
         logger.info("Setting origin to board...")

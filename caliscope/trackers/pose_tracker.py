@@ -8,9 +8,10 @@ import numpy as np
 import cv2
 
 # cap = cv2.VideoCapture(0)
-from caliscope.packets import  PointPacket
+from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
 from caliscope.trackers.helper import apply_rotation, unrotate_points
+
 logger = caliscope.logger.get(__name__)
 
 POINT_NAMES = {
@@ -85,7 +86,6 @@ class PoseTracker(Tracker):
                 landmark_xy = []
 
                 if results.pose_landmarks:
-
                     for landmark_id, landmark in enumerate(results.pose_landmarks.landmark):
                         point_ids.append(landmark_id)
 
@@ -93,18 +93,14 @@ class PoseTracker(Tracker):
                         x, y = int(landmark.x * width), int(landmark.y * height)
                         landmark_xy.append((x, y))
 
-
                 point_ids = np.array(point_ids)
                 landmark_xy = np.array(landmark_xy)
-                landmark_xy = unrotate_points(landmark_xy, rotation_count, width,height)
+                landmark_xy = unrotate_points(landmark_xy, rotation_count, width, height)
                 point_packet = PointPacket(point_ids, landmark_xy)
 
                 self.out_queues[port].put(point_packet)
 
-
-    def get_points(
-        self, frame: np.ndarray, port: int, rotation_count: int
-    ) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
         if port not in self.in_queues.keys():
             self.in_queues[port] = Queue(1)
             self.out_queues[port] = Queue(1)
@@ -134,4 +130,3 @@ class PoseTracker(Tracker):
             rules = {"radius": 5, "color": (220, 0, 220), "thickness": 3}
 
         return rules
-

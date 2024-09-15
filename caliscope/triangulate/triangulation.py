@@ -1,5 +1,3 @@
-
-
 import caliscope.logger
 import pandas as pd
 from time import time
@@ -7,7 +5,9 @@ from numba import jit
 from numba.typed import Dict, List
 from caliscope.cameras.camera_array import CameraArray, CameraData
 import numpy as np
+
 logger = caliscope.logger.get(__name__)
+
 
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit
 @jit(nopython=True, cache=True)
@@ -25,6 +25,7 @@ def unique_with_counts(arr):
 
     return np.array(unique_values), np.array(counts)
 
+
 #####################################################################################
 # The following code is adapted from the `Anipose` project,
 # in particular the `triangulate_simple` function of `aniposelib`
@@ -41,11 +42,11 @@ def unique_with_counts(arr):
 # modification, are permitted provided that the following conditions are met:
 
 # 1. Redistributions of source code must retain the above copyright notice, this
-   # list of conditions and the following disclaimer.
+# list of conditions and the following disclaimer.
 
 # 2. Redistributions in binary form must reproduce the above copyright notice,
-   # this list of conditions and the following disclaimer in the documentation
-   # and/or other materials provided with the distribution.
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
 
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -58,9 +59,10 @@ def unique_with_counts(arr):
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
 @jit(nopython=True, parallel=True, cache=True)
 def triangulate_sync_index(
-    projection_matrices:Dict, current_camera_indices:np.ndarray, current_point_id:np.ndarray, current_img:np.ndarray
+    projection_matrices: Dict, current_camera_indices: np.ndarray, current_point_id: np.ndarray, current_img: np.ndarray
 ):
     # sync_indices_xyz = List()
     point_indices_xyz = List()
@@ -89,11 +91,13 @@ def triangulate_sync_index(
             obj_xyz.append(point_xyz)
 
     return point_indices_xyz, obj_xyz
+
+
 # End of adapted code
 ##################################################################################
 
 
-def triangulate_xy(xy: pd.DataFrame, camera_array:CameraArray) -> pd.DataFrame:
+def triangulate_xy(xy: pd.DataFrame, camera_array: CameraArray) -> pd.DataFrame:
     """
     xy data comes in as viewed by the camera and it is undistorted as
     part of the triangulation process
@@ -129,9 +133,7 @@ def triangulate_xy(xy: pd.DataFrame, camera_array:CameraArray) -> pd.DataFrame:
         raw_xy = np.vstack([img_loc_x, img_loc_y]).T
 
         # the fancy part
-        point_id_xyz, points_xyz = triangulate_sync_index(
-            projection_matrices, port, point_ids, raw_xy
-        )
+        point_id_xyz, points_xyz = triangulate_sync_index(projection_matrices, port, point_ids, raw_xy)
 
         if len(point_id_xyz) > 0:
             # there are points to store so store them...
@@ -145,10 +147,8 @@ def triangulate_xy(xy: pd.DataFrame, camera_array:CameraArray) -> pd.DataFrame:
 
         # only log percent complete each second
         if int(time()) - last_log_update >= 1:
-            percent_complete = int(100*(index/sync_index_max))
-            logger.info(
-                f"(Stage 2 of 2): Triangulation of (x,y) point estimates is {percent_complete}% complete"
-            )
+            percent_complete = int(100 * (index / sync_index_max))
+            logger.info(f"(Stage 2 of 2): Triangulation of (x,y) point estimates is {percent_complete}% complete")
             last_log_update = int(time())
 
     # convert to dataframe prior to returning
@@ -156,10 +156,9 @@ def triangulate_xy(xy: pd.DataFrame, camera_array:CameraArray) -> pd.DataFrame:
     return xyz
 
 
-
 def undistort(points, camera: CameraData, iter_num=3) -> np.ndarray:
     """
-    points: (n,2) dimensional np.ndarray 
+    points: (n,2) dimensional np.ndarray
     returns: (2,n) dimensional np.ndarray... definitely not happy with this but not going to start refactoring this at this moment
     """
 
@@ -186,14 +185,13 @@ def undistort(points, camera: CameraData, iter_num=3) -> np.ndarray:
     return np.array((x * fx + cx, y * fy + cy))
 
 
-def undistort_batch(xy_df:pd.DataFrame, camera_array:CameraArray)->pd.DataFrame:
-
+def undistort_batch(xy_df: pd.DataFrame, camera_array: CameraArray) -> pd.DataFrame:
     undistorted_points = []
     for port, camera in camera_array.cameras.items():
         logger.info(f"Processing points from camera {port}")
         subset_xy = xy_df.query(f"port == {port}").copy()
-        points = np.vstack([subset_xy["img_loc_x"],subset_xy["img_loc_y"]]).T
-        x,y = undistort(points, camera)
+        points = np.vstack([subset_xy["img_loc_x"], subset_xy["img_loc_y"]]).T
+        x, y = undistort(points, camera)
         subset_xy["img_loc_undistort_x"] = x
         subset_xy["img_loc_undistort_y"] = y
         undistorted_points.append(subset_xy)

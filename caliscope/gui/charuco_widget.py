@@ -22,8 +22,10 @@ from caliscope.controller import Controller
 import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
+
+
 class CharucoWidget(QWidget):
-    def __init__(self, controller:Controller):
+    def __init__(self, controller: Controller):
         super().__init__()
 
         logger.info("Charuco Wizard initializing")
@@ -55,13 +57,12 @@ class CharucoWidget(QWidget):
         self.layout().addWidget(self.charuco_config)
         self.layout().setAlignment(self.charuco_config, Qt.AlignmentFlag.AlignHCenter)
         self.layout().addWidget(QLabel("<i>Top left corner is point (0,0,0) when setting capture volume origin</i>"))
-        self.layout().addWidget(self.charuco_display,2)
+        self.layout().addWidget(self.charuco_display, 2)
         self.layout().addSpacing(10)
         self.layout().addLayout(self.save_png_hbox)
         self.layout().addSpacing(10)
         self.layout().addLayout(self.true_up_hbox)
         self.layout().addWidget(QLabel("<i>Printed square size will set the scale of the capture volume</i>"))
-
 
     def build_save_png_group(self):
         # basic png save button
@@ -118,13 +119,9 @@ class CharucoWidget(QWidget):
         self.printed_edge_length.setValue(overide)
 
         def update_charuco():
-            self.charuco.square_size_overide_cm = round(
-                self.printed_edge_length.value(), 2
-            )
+            self.charuco.square_size_overide_cm = round(self.printed_edge_length.value(), 2)
 
-            logger.info(
-                f"Updated Square Size Overide to {self.printed_edge_length.value}"
-            )
+            logger.info(f"Updated Square Size Overide to {self.printed_edge_length.value}")
             self.controller.charuco = self.charuco
             self.controller.config.save_charuco(self.charuco)
 
@@ -177,7 +174,7 @@ class CharucoWidget(QWidget):
 
 
 class CharucoConfigGroup(QWidget):
-    def __init__(self, controller:Controller):
+    def __init__(self, controller: Controller):
         super().__init__()
         self.controller = controller
         self.params = self.controller.config.dict["charuco"]
@@ -242,18 +239,14 @@ class CharucoConfigGroup(QWidget):
         ############################# INVERT ####################################
         self.config_options.addWidget(self.invert_checkbox)
 
+
 if __name__ == "__main__":
-
-
-
     app = QApplication(sys.argv)
     from caliscope import __root__
     from caliscope.calibration.charuco import Charuco
 
     # Define the input file path here.
-    original_workspace_dir = Path(
-        __root__, "tests", "sessions", "prerecorded_calibration"
-    )
+    original_workspace_dir = Path(__root__, "tests", "sessions", "prerecorded_calibration")
     # workspace_dir = Path(
     #     __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
     # )

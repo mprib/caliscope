@@ -1,4 +1,3 @@
-
 import caliscope.logger
 
 
@@ -23,18 +22,17 @@ copy_contents(original_base_data_directory, base_data_directory)
 xyz_path = Path(base_data_directory, "HOLISTIC_OPENSIM", "xyz_HOLISTIC_OPENSIM.csv")
 config = Configurator(base_data_directory)
 
-def test_smoothing_xyz():
 
+def test_smoothing_xyz():
     # Define your filter parameters
     order = 2
     # fs = config.get_fps_recording()  # sample rate, Hz
-    fs = 15 # the value originally stored in the config file
+    fs = 15  # the value originally stored in the config file
     # note that the cutoff must be < 0.5*(sampling rate, a.k.a. nyquist frequency)
     cutoff = 6  # desired cutoff frequency, Hz
 
-
     xyz = pd.read_csv(xyz_path)
-    xyz_smoothed = smooth_xyz(xyz, order,fs, cutoff)
+    xyz_smoothed = smooth_xyz(xyz, order, fs, cutoff)
 
     # save out the filterd data
     destination_path = Path(xyz_path.parent, xyz_path.stem + "_filtered.csv")
@@ -43,13 +41,18 @@ def test_smoothing_xyz():
 
     # Assertion 3: Value range (we'll check this for each of the coordinate columns)
     for coord in ["x_coord", "y_coord", "z_coord"]:
-        assert xyz_smoothed[coord].std() <= xyz[coord].std(), f"The standard deviation of the smoothed {coord} data should be less than the original data."
+        assert (
+            xyz_smoothed[coord].std() <= xyz[coord].std()
+        ), f"The standard deviation of the smoothed {coord} data should be less than the original data."
 
     # Assertion 4: Preservation of trends (again, we'll check for each coordinate)
     for coord in ["x_coord", "y_coord", "z_coord"]:
         correlation, _ = pearsonr(xyz[coord], xyz_smoothed[coord])
         logger.info(f"The correlation for {coord} is {correlation}")
-        assert correlation > 0.9, f"The correlation between the original and smoothed {coord} data should be close to 1."
+        assert (
+            correlation > 0.9
+        ), f"The correlation between the original and smoothed {coord} data should be close to 1."
+
 
 if __name__ == "__main__":
     test_smoothing_xyz()
@@ -58,7 +61,7 @@ if __name__ == "__main__":
 
     # load in the data for the playback
     camera_array = config.get_camera_array()
-    filtered_data_path =Path(base_data_directory, "HOLISTIC_OPENSIM", "xyz_HOLISTIC_OPENSIM_filtered.csv")
+    filtered_data_path = Path(base_data_directory, "HOLISTIC_OPENSIM", "xyz_HOLISTIC_OPENSIM_filtered.csv")
     filtered_data = pd.read_csv(filtered_data_path)
 
     # create and show the playback widget

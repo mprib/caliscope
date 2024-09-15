@@ -1,12 +1,13 @@
-""""
+""" "
 NOTE: In addition to testing the real time triangulation, this code bases
-its final assertions on the values from the original bundle adjustment. 
-This allows a cross check for the triangulation function that is distinct from 
-the optimization in the bundle adjustmnent. 
+its final assertions on the values from the original bundle adjustment.
+This allows a cross check for the triangulation function that is distinct from
+the optimization in the bundle adjustmnent.
 
-After recent inclusion of distortion into the triangulation, the tolerance 
+After recent inclusion of distortion into the triangulation, the tolerance
 of the final averaged triangulated position improved from 1.5 cm to 6 mm.
 """
+
 import caliscope.logger
 
 from time import sleep
@@ -27,7 +28,6 @@ import pandas as pd
 from caliscope import __root__
 
 logger = caliscope.logger.get(__name__)
-
 
 
 def test_triangulator():
@@ -53,7 +53,6 @@ def test_triangulator():
 
     camera_array: CameraArray = config.get_camera_array()
 
-
     logger.info("Creating RecordedStreamPool based on calibration recordings")
     recording_directory = Path(test_session, "calibration", "extrinsic")
 
@@ -61,11 +60,7 @@ def test_triangulator():
     for port, camera in camera_array.cameras.items():
         rotation_count = camera.rotation_count
         streams[port] = RecordedStream(
-            recording_directory,
-            port,
-            rotation_count,
-            fps_target=100,
-            tracker=charuco_tracker
+            recording_directory, port, rotation_count, fps_target=100, tracker=charuco_tracker
         )
 
     logger.info("Creating Synchronizer")
@@ -112,6 +107,5 @@ def test_triangulator():
 
 
 if __name__ == "__main__":
-
     test_triangulator()
 # %%

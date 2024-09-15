@@ -1,4 +1,3 @@
-
 from pathlib import Path
 import numpy as np
 from dataclasses import dataclass
@@ -14,12 +13,10 @@ logger = caliscope.logger.get(__name__)
 
 class StereoPointsBuilder:
     def __init__(self, ports: list):
-
         self.ports = ports
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
     def get_stereo_points_packet(self, sync_index, port_A, points_A, port_B, points_B):
-
         # get ids in common
         if len(points_A.point_id) > 0 and len(points_B.point_id) > 0:
             common_ids = np.intersect1d(points_A.point_id, points_B.point_id)
@@ -32,15 +29,11 @@ class StereoPointsBuilder:
             # common_ids = common_ids[:,0]
             # for both ports, get the indices of the common ids
             sorter_A = np.argsort(points_A.point_id)
-            shared_indices_A = sorter_A[
-                np.searchsorted(points_A.point_id, common_ids, sorter=sorter_A)
-            ]
+            shared_indices_A = sorter_A[np.searchsorted(points_A.point_id, common_ids, sorter=sorter_A)]
             shared_indices_A
 
             sorter_B = np.argsort(points_B.point_id)
-            shared_indices_B = sorter_B[
-                np.searchsorted(points_B.point_id, common_ids, sorter=sorter_B)
-            ]
+            shared_indices_B = sorter_B[np.searchsorted(points_B.point_id, common_ids, sorter=sorter_B)]
             shared_indices_B
 
             packet = StereoPointsPacket(
@@ -52,14 +45,11 @@ class StereoPointsBuilder:
                 img_loc_B=points_B.img_loc[shared_indices_B],
             )
 
-            logger.debug(
-                f"Points in common for ports ({port_A}, {port_B}): {common_ids}"
-            )
+            logger.debug(f"Points in common for ports ({port_A}, {port_B}): {common_ids}")
 
         return packet
 
     def get_synched_paired_points(self, sync_packet: SyncPacket):
-
         # will be populated with dataframes of:
         # id | img_x | img_y | board_x | board_y
         sync_index = sync_packet.sync_index
@@ -69,11 +59,7 @@ class StereoPointsBuilder:
             port_A = pair[0]
             port_B = pair[1]
 
-            if (
-                sync_packet.frame_packets[port_A] is not None
-                and sync_packet.frame_packets[port_B] is not None
-            ):
-
+            if sync_packet.frame_packets[port_A] is not None and sync_packet.frame_packets[port_B] is not None:
                 points_A = sync_packet.frame_packets[port_A].points
                 points_B = sync_packet.frame_packets[port_B].points
 
@@ -133,7 +119,6 @@ class SynchedStereoPointsPacket:
     sync_index: int
     stereo_points_packets: dict
 
-
     @property
     def pairs(self):
         return list(self.stereo_points_packets.keys())
@@ -154,9 +139,7 @@ if __name__ == "__main__":
 
     ports = [0, 1, 2, 3, 4]
 
-    tracker = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-    )
+    tracker = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True)
 
     recorded_stream_pool = RecordedStreamPool(ports, session_directory, charuco=tracker)
     syncr = Synchronizer(recorded_stream_pool.streams, fps_target=200)

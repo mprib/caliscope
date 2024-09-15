@@ -1,4 +1,4 @@
-#%%
+# %%
 import pickle
 from pathlib import Path
 
@@ -16,8 +16,9 @@ from caliscope.calibration.charuco import Charuco
 
 logger = caliscope.logger.get(__name__)
 
+
 class QualityController:
-    def __init__(self, capture_volume:CaptureVolume, charuco:Charuco = None):
+    def __init__(self, capture_volume: CaptureVolume, charuco: Charuco = None):
         self.charuco = charuco
         self.capture_volume = capture_volume
 
@@ -45,7 +46,8 @@ class QualityController:
         corresponding 3d point estimates (meaning the 3d point data is duplicated)
         """
         capture_volume_xy_error = xy_reprojection_error(
-            self.capture_volume.get_vectorized_params(), self.capture_volume,
+            self.capture_volume.get_vectorized_params(),
+            self.capture_volume,
         ).reshape(-1, 2)
         # build out error as singular distanc
 
@@ -55,7 +57,7 @@ class QualityController:
         row_count = euclidean_distance_error.shape[0]
 
         array_data_dict = {
-            "stage": [self.capture_volume.stage]*row_count,
+            "stage": [self.capture_volume.stage] * row_count,
             "camera": self.capture_volume.point_estimates.camera_indices.tolist(),
             "sync_index": self.capture_volume.point_estimates.sync_indices.astype(
                 int,
@@ -69,13 +71,16 @@ class QualityController:
             "reproj_error_sq": (euclidean_distance_error**2).tolist(),
             "obj_id": self.capture_volume.point_estimates.obj_indices.tolist(),
             "obj_x": xyz[self.capture_volume.point_estimates.obj_indices][
-                :, 0,
+                :,
+                0,
             ].tolist(),
             "obj_y": xyz[self.capture_volume.point_estimates.obj_indices][
-                :, 1,
+                :,
+                1,
             ].tolist(),
             "obj_z": xyz[self.capture_volume.point_estimates.obj_indices][
-                :, 2,
+                :,
+                2,
             ].tolist(),
         }
 
@@ -84,7 +89,8 @@ class QualityController:
         )
 
         summarized_data["reproj_error_percentile"] = stats.percentileofscore(
-            summarized_data["reproj_error"], summarized_data["reproj_error"],
+            summarized_data["reproj_error"],
+            summarized_data["reproj_error"],
         )
 
         return summarized_data
@@ -95,9 +101,7 @@ class QualityController:
         estimates. These will have a number of duplicates so drop them.
         """
         corners_3d = (
-            self.data_2d[
-                ["sync_index", "charuco_id", "obj_id", "obj_x", "obj_y", "obj_z"]
-            ]
+            self.data_2d[["sync_index", "charuco_id", "obj_id", "obj_x", "obj_y", "obj_z"]]
             .astype({"sync_index": "int32", "charuco_id": "int32", "obj_id": "int32"})
             .drop_duplicates()
             .sort_values(by=["obj_id"])
@@ -120,9 +124,7 @@ class QualityController:
         # for a given sync index (i.e. one board snapshot) get all pairs of object ids
         paired_obj_indices = None
         for x in unique_sync_indices:
-            sync_obj = obj_id[
-                sync_indices == x
-            ]  # 3d objects (corners) at a specific sync_index
+            sync_obj = obj_id[sync_indices == x]  # 3d objects (corners) at a specific sync_index
             all_pairs = cartesian_product(sync_obj, sync_obj)
             if paired_obj_indices is None:
                 paired_obj_indices = all_pairs
@@ -132,16 +134,20 @@ class QualityController:
         # paired_corner_indices will contain duplicates (i.e. [0,1] and [1,0]) as well as self-pairs ([0,0], [1,1])
         # this need to get filtered out
         reformatted_paired_obj_indices = np.zeros(
-            paired_obj_indices.shape, dtype=np.int32,
+            paired_obj_indices.shape,
+            dtype=np.int32,
         )
         reformatted_paired_obj_indices[:, 0] = np.min(
-            paired_obj_indices, axis=1,
+            paired_obj_indices,
+            axis=1,
         )  # smaller on left
         reformatted_paired_obj_indices[:, 1] = np.max(
-            paired_obj_indices, axis=1,
+            paired_obj_indices,
+            axis=1,
         )  # larger on right
         reformatted_paired_obj_indices = np.unique(
-            reformatted_paired_obj_indices, axis=0,
+            reformatted_paired_obj_indices,
+            axis=0,
         )
         reformatted_paired_obj_indices = reformatted_paired_obj_indices[
             reformatted_paired_obj_indices[:, 0] != reformatted_paired_obj_indices[:, 1]
@@ -161,9 +167,7 @@ class QualityController:
         logger.info("Beginning to calculate distance error")
 
         # temp numpy frame for working calculations
-        corners_world_xyz = self.corners_world_xyz[
-            ["obj_x", "obj_y", "obj_z"]
-        ].to_numpy()
+        corners_world_xyz = self.corners_world_xyz[["obj_x", "obj_y", "obj_z"]].to_numpy()
         corners_board_xyz = self.corners_board_xyz
 
         # get the xyz positions for all pairs of corners
@@ -193,12 +197,12 @@ class QualityController:
             distance_error["Distance_Error_mm"],
         )
 
-        distance_error["corner_A"] = self.paired_obj_indices[:,0]
-        distance_error["corner_B"] = self.paired_obj_indices[:,1]
+        distance_error["corner_A"] = self.paired_obj_indices[:, 0]
+        distance_error["corner_B"] = self.paired_obj_indices[:, 1]
 
         distance_error["world_distance"] = distance_world_A_B
         distance_error["board_distance"] = distance_board_A_B
-        distance_error["percent_match"] = distance_world_A_B/distance_board_A_B
+        distance_error["percent_match"] = distance_world_A_B / distance_board_A_B
         distance_error["stage"] = self.capture_volume.stage
 
         logger.info("returning distance error")
@@ -209,26 +213,33 @@ class QualityController:
     def distance_error_summary(self):
         logger.info("returning summary of distance error statistics")
 
-        summary = self.distance_error.groupby("board_distance").agg({
-            "Distance_Error_mm_abs": ["mean", "std"],
-            "Distance_Error_mm": ["mean", "std"],
-        }).reset_index()
+        summary = (
+            self.distance_error.groupby("board_distance")
+            .agg(
+                {
+                    "Distance_Error_mm_abs": ["mean", "std"],
+                    "Distance_Error_mm": ["mean", "std"],
+                }
+            )
+            .reset_index()
+        )
 
         # flatten the multi-level column index
         summary.columns = ["_".join(col).strip() for col in summary.columns.values]
         # rename the "Distance_error_mm_abs" column to "Distance_Error_mm"
-        summary["board_distance_"]   = summary["board_distance_"]*1000
+        summary["board_distance_"] = summary["board_distance_"] * 1000
 
         summary = summary.round(2)
         summary = summary.astype(str)
 
-        summary["|Distance Error|"] = summary["Distance_Error_mm_abs_mean"] +" (" + summary["Distance_Error_mm_abs_std"] + ")"
-        summary["Distance Error"] = summary["Distance_Error_mm_mean"] +" (" + summary["Distance_Error_mm_std"] + ")"
+        summary["|Distance Error|"] = (
+            summary["Distance_Error_mm_abs_mean"] + " (" + summary["Distance_Error_mm_abs_std"] + ")"
+        )
+        summary["Distance Error"] = summary["Distance_Error_mm_mean"] + " (" + summary["Distance_Error_mm_std"] + ")"
 
-        summary = summary.rename(columns={"board_distance_":"Board Distance"})
+        summary = summary.rename(columns={"board_distance_": "Board Distance"})
         summary = summary[["Board Distance", "Distance Error", "|Distance Error|"]]
         return summary
-
 
     def get_filtered_data_2d(self, percentile_cutoff: float):
         """Provided a cutoff percentile value, returns a filtered_data_2d dataframe
@@ -272,7 +283,7 @@ class QualityController:
             .reset_index()
             .drop("index", axis=1)
             .reset_index()
-            .rename(columns={"index":"filtered_obj_id"})
+            .rename(columns={"index": "filtered_obj_id"})
         )
 
         old_new_mapping = objects_3d.filter(["filtered_obj_id", "original_obj_id"])
@@ -307,6 +318,7 @@ def get_capture_volume(capture_volume_pkl_path: Path) -> CaptureVolume:
         logger.info("file loaded...")
     return capture_volume
 
+
 def get_charuco(config_path) -> Charuco:
     config = rtoml.load(config_path)
 
@@ -325,6 +337,7 @@ def get_charuco(config_path) -> Charuco:
 
     return charuco
 
+
 def cartesian_product(*arrays):
     """
     Helper function for creating all possible pairs of points within a given sync_index
@@ -339,7 +352,7 @@ def cartesian_product(*arrays):
 
 
 if __name__ == "__main__":
-# if True:
+    # if True:
     from caliscope import __root__
     from caliscope.session.session import LiveSession
 
@@ -356,10 +369,9 @@ if __name__ == "__main__":
     session.load_estimated_capture_volume()
     quality_controller = QualityController(session.capture_volume)
 
-
     logger.info(quality_controller.capture_volume.stage)
 
     for _ in range(5):
         logger.info("Filtering out worst fitting point estimates")
-        quality_controller.filter_point_estimates(.95)
+        quality_controller.filter_point_estimates(0.95)
         quality_controller.capture_volume.optimize()

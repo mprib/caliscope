@@ -205,21 +205,15 @@ class MainWindow(QMainWindow):
         self.update_enable_disable()
 
     def pause_all_frame_reading(self):
-        logger.info(
-            "Pausing all frame reading at load of stream tools; should be on charuco tab right now"
-        )
+        logger.info("Pausing all frame reading at load of stream tools; should be on charuco tab right now")
         self.session.pause_all_monocalibrators()
         self.session.pause_synchronizer()
 
     def load_stream_tools(self):
         self.connect_cameras_action.setEnabled(False)
         self.disconnect_cameras_action.setEnabled(True)
-        self.session.qt_signaler.stream_tools_loaded_signal.connect(
-            self.pause_all_frame_reading
-        )
-        self.thread = Thread(
-            target=self.session.load_stream_tools, args=(), daemon=True
-        )
+        self.session.qt_signaler.stream_tools_loaded_signal.connect(self.pause_all_frame_reading)
+        self.thread = Thread(target=self.session.load_stream_tools, args=(), daemon=True)
         self.thread.start()
 
     def launch_session(self, path_to_folder: str):
@@ -247,22 +241,12 @@ class MainWindow(QMainWindow):
         After launching a session, connect signals and slots.
         Much of these will be from the GUI to the session and vice-versa
         """
-        self.session.qt_signaler.unlock_postprocessing.connect(
-            self.update_enable_disable
-        )
-        self.session.qt_signaler.mode_change_success.connect(
-            self.update_central_widget_mode
-        )
-        self.session.qt_signaler.stream_tools_loaded_signal.connect(
-            self.update_enable_disable
-        )
-        self.session.qt_signaler.stream_tools_disconnected_signal.connect(
-            self.update_enable_disable
-        )
+        self.session.qt_signaler.unlock_postprocessing.connect(self.update_enable_disable)
+        self.session.qt_signaler.mode_change_success.connect(self.update_central_widget_mode)
+        self.session.qt_signaler.stream_tools_loaded_signal.connect(self.update_enable_disable)
+        self.session.qt_signaler.stream_tools_disconnected_signal.connect(self.update_enable_disable)
         self.session.qt_signaler.mode_change_success.connect(self.update_enable_disable)
-        self.session.qt_signaler.extrinsic_calibration_complete.connect(
-            self.switch_to_capture_volume
-        )
+        self.session.qt_signaler.extrinsic_calibration_complete.connect(self.switch_to_capture_volume)
 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)

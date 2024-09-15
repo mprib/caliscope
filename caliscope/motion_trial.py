@@ -5,6 +5,7 @@ from caliscope.packets import XYZPacket
 import numpy as np
 from caliscope.trackers.tracker_enum import TrackerEnum
 
+
 @dataclass
 class MotionTrial:
     """
@@ -12,7 +13,7 @@ class MotionTrial:
     """
 
     xyz_csv: Path
-    xyz_packets:  dict = field(default_factory=dict[int:XYZPacket])
+    xyz_packets: dict = field(default_factory=dict[int:XYZPacket])
 
     def __post_init__(self):
         # assert(isinstance(self.xyz_csv,Path))
@@ -33,12 +34,12 @@ class MotionTrial:
         self.end_index = sync_indices.max()
         self.xyz_packets = {}
 
-        if len(sync_indices) ==0:
+        if len(sync_indices) == 0:
             self.is_empty = True
         else:
             self.is_empty = False
 
-    def get_xyz(self,sync_index:int)->XYZPacket:
+    def get_xyz(self, sync_index: int) -> XYZPacket:
         """
         Cache packets as they are initially read off
         """
@@ -50,11 +51,11 @@ class MotionTrial:
             y = self.xyz_df["y_coord"][current_sync_index]
             z = self.xyz_df["z_coord"][current_sync_index]
 
-            xyz = np.column_stack([x,y,z])
-            self.xyz_packets[sync_index] = XYZPacket(sync_index=sync_index, point_ids=point_ids,point_xyz=xyz)
+            xyz = np.column_stack([x, y, z])
+            self.xyz_packets[sync_index] = XYZPacket(sync_index=sync_index, point_ids=point_ids, point_xyz=xyz)
 
         return self.xyz_packets[sync_index]
 
-    def update_wireframe(self, sync_index:int):
+    def update_wireframe(self, sync_index: int):
         xyz_packet = self.get_xyz(sync_index)
         self.wireframe.set_points(xyz_packet)

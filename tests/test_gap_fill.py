@@ -1,5 +1,4 @@
-
-#%%
+# %%
 import caliscope.logger
 
 
@@ -10,6 +9,7 @@ from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
 from caliscope import __root__
 from caliscope.helper import copy_contents
+
 logger = caliscope.logger.get(__name__)
 
 original_recording_directory = Path(__root__, "tests", "reference", "base_data")
@@ -18,10 +18,10 @@ tracker_enum = TrackerEnum.HOLISTIC_OPENSIM
 recording_directory = Path(original_recording_directory.parent.parent, "reference_delete", "base_data")
 copy_contents(original_recording_directory, recording_directory)
 
-def test_gap_fill_xy():
 
+def test_gap_fill_xy():
     # Load the data
-    xy_all_base_path = Path(recording_directory,tracker_enum.name, f"xy_{tracker_enum.name}.csv")
+    xy_all_base_path = Path(recording_directory, tracker_enum.name, f"xy_{tracker_enum.name}.csv")
     logger.info(f"Reading in raw xy data located at {xy_all_base_path}")
     xy_all_base = pd.read_csv(xy_all_base_path)
     base_length = xy_all_base.shape[0]
@@ -35,10 +35,10 @@ def test_gap_fill_xy():
     assert base_length < filled_length
     assert xy_all_filled["gap_size"].max() > 0
 
-def test_gap_fill_xyz():
 
+def test_gap_fill_xyz():
     # Load the data
-    xyz_all_base_path = Path(recording_directory,tracker_enum.name, f"xyz_{tracker_enum.name}.csv")
+    xyz_all_base_path = Path(recording_directory, tracker_enum.name, f"xyz_{tracker_enum.name}.csv")
     logger.info(f"Reading in raw xy data located at {xyz_all_base_path}")
     xyz_all_base = pd.read_csv(xyz_all_base_path)
     base_length = xyz_all_base.shape[0]
@@ -52,7 +52,7 @@ def test_gap_fill_xyz():
     assert base_length < filled_length
     assert xyz_all_filled["gap_size"].max() > 0
 
+
 if __name__ == "__main__":
     test_gap_fill_xy()
     test_gap_fill_xyz()
-

@@ -4,6 +4,7 @@ import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 
+
 def resize_to_square(frame):
     height = frame.shape[0]
     width = frame.shape[1]
@@ -27,7 +28,8 @@ def resize_to_square(frame):
 
     return frame
 
-def apply_rotation(frame, rotation_count:int):
+
+def apply_rotation(frame, rotation_count: int):
     if rotation_count == 0:
         pass
     elif rotation_count in [1, -3]:
@@ -51,4 +53,3 @@ def cv2_to_qlabel(frame):
         QImage.Format.Format_RGB888,
     )
     return qt_frame
-

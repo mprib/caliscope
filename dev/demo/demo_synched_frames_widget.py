@@ -35,5 +35,3 @@ window.show()
 window.resize(800, 600)
 logger.info("About to show window")
 sys.exit(app.exec())
-
-

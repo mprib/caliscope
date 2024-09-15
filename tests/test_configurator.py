@@ -4,7 +4,6 @@ import caliscope.logger
 
 from pathlib import Path
 import numpy as np
-import os
 import shutil
 
 from caliscope import __root__
@@ -61,7 +60,7 @@ def test_configurator():
     new_charuco = config.get_charuco()
     assert(new_charuco.columns==12)
 
-    
+
     # load point estimates
     logger.info("Getting point estimates from config...")
     point_estimates = config.get_point_estimates()
@@ -70,14 +69,14 @@ def test_configurator():
     # delete point estimates data
     config.point_estimates_toml_path.unlink()
     assert not config.point_estimates_toml_path.exists()
-     
-    # save point estimates stored in memory 
+
+    # save point estimates stored in memory
     config.save_point_estimates(point_estimates)
-    
-    # confirm it exists 
+
+    # confirm it exists
     assert config.point_estimates_toml_path.exists()
     config.refresh_point_estimates_from_toml()
-    
+
     # create new point estimates with newly saved data
     point_estimates_reloaded = config.get_point_estimates()
     assert(type(point_estimates_reloaded)==PointEstimates)
@@ -100,35 +99,35 @@ def test_new_cameras():
     This test ensures that newly created cameras can be stored and reloaded via config
     and will remain the same.   
     """
-    
+
     blank_workspace = Path(__root__, "tests", "sessions_copy_delete", "blank_workspace")
     if blank_workspace.exists():
         shutil.rmtree(blank_workspace)
     blank_workspace.mkdir(exist_ok=False)
-    
+
     config = Configurator(blank_workspace)
 
     # note that it appears rtoml will store tuples as lists,
     # so just keep everything a list for comparison purposes
     cam_1 = CameraData(port=1, size=[1280,720])
     cam_2 = CameraData(port=2, size=[1280,720])
-                                     
-    cameras = {1:cam_1, 2:cam_2}     
+
+    cameras = {1:cam_1, 2:cam_2}
     camera_array = CameraArray(cameras)
     config.save_camera_array(camera_array)
     print(camera_array.cameras)
-   
-    # with camera array saved by configurator, there are now many "null" values 
+
+    # with camera array saved by configurator, there are now many "null" values
     # populated in the toml file. Need to make sure that these are loaded correctly
-    
+
     config_copy = Configurator(blank_workspace)
     camera_array_copy = config_copy.get_camera_array()
     print(camera_array_copy.cameras)
-    
-    assert(camera_array.cameras[1] == camera_array_copy.cameras[1])    
-    assert(camera_array.cameras[2] == camera_array_copy.cameras[2])    
-    
+
+    assert(camera_array.cameras[1] == camera_array_copy.cameras[1])
+    assert(camera_array.cameras[2] == camera_array_copy.cameras[2])
+
 if __name__ == "__main__":
     # test_configurator()
     test_new_cameras()
-    
+

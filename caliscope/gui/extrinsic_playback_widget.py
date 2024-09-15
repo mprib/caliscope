@@ -23,9 +23,9 @@ from caliscope.packets import FramePacket
 from caliscope.controller import Controller
 
 logger = caliscope.logger.get(__name__)
- 
+
 class ExtrinsicPlaybackWidget(QWidget):
-     
+
     def __init__(self,controller:Controller):
 
         super(ExtrinsicPlaybackWidget, self).__init__()
@@ -41,22 +41,22 @@ class ExtrinsicPlaybackWidget(QWidget):
         self.thumbnail_emitter = FrameDictionaryEmitter(self.synchronizer)
         self.thumbnail_emitter.start()
 
-        # all video output routed to qlabels stored in a dictionariy 
+        # all video output routed to qlabels stored in a dictionariy
         # make it as square as you can get it
         self.playback_displays = {str(port):QLabel() for port in self.ports}
         # self.recording_frame_display = QLabel()
-        
+
         self.place_widgets()
-        self.connect_widgets()        
-    
-        
+        self.connect_widgets()
+
+
 
     def place_widgets(self):
         self.setLayout(QVBoxLayout())
         self.settings_group = QGroupBox("Settings")
         self.settings_group.setLayout(QHBoxLayout())
         self.settings_group.layout().addWidget(QLabel("Frame Rate:"))
-        self.settings_group.layout().addWidget(self.frame_rate_spin)       
+        self.settings_group.layout().addWidget(self.frame_rate_spin)
         self.layout().addWidget(self.settings_group)
 
         self.record_controls = QGroupBox()
@@ -80,10 +80,10 @@ class ExtrinsicPlaybackWidget(QWidget):
 
         frame_grid = QGridLayout()
         row = 0
-        column = 0        
+        column = 0
         for port in sorted(self.ports):
             frame_grid.addWidget(self.playback_displays[str(port)], row,column)
-            
+
             # update row and column for next iteration
             if column >= grid_columns-1:
                 # start fresh on next row
@@ -91,7 +91,7 @@ class ExtrinsicPlaybackWidget(QWidget):
                 row += 1
             else:
                 column += 1
-            
+
         frame_display_layout = QHBoxLayout()
         frame_display_layout.addStretch(1)
         frame_display_layout.addLayout(frame_grid)
@@ -100,15 +100,15 @@ class ExtrinsicPlaybackWidget(QWidget):
 
 
     def connect_widgets(self):
-    
+
         self.thumbnail_emitter.ThumbnailImagesBroadcast.connect(self.ImageUpdateSlot)
         self.frame_rate_spin.valueChanged.connect(self.controller.set_active_mode_fps)
         self.thumbnail_emitter.dropped_fps.connect(self.update_dropped_fps)
         self.start_stop.clicked.connect(self.toggle_start_stop)
         self.controller.qt_signaler.recording_complete_signal.connect(self.on_recording_complete)
-        
-         
-    @Slot(dict) 
+
+
+    @Slot(dict)
     def ImageUpdateSlot(self, q_image_dict:dict):
         logger.debug("About to get qpixmap from qimage")
         for port, thumbnail in q_image_dict.items():
@@ -116,49 +116,49 @@ class ExtrinsicPlaybackWidget(QWidget):
             logger.debug("About to set qpixmap to display")
             self.playback_displays[port].setPixmap(qpixmap)
             logger.debug("successfully set display")
-        
+
 
 class FrameDictionaryEmitter(QThread):
     ThumbnailImagesBroadcast = Signal(dict)
     dropped_fps = Signal(dict)
-    
+
     def __init__(self, synchronizer: Synchronizer, single_frame_height=300):
-        
+
         super(FrameDictionaryEmitter,self).__init__()
         self.single_frame_height = single_frame_height
         self.synchronizer = synchronizer
-        logger.info("Initiated recording frame emitter")        
-        self.keep_collecting = Event() 
-       
+        logger.info("Initiated recording frame emitter")
+        self.keep_collecting = Event()
+
     def run(self):
 
         self.keep_collecting.set()
-        
+
         while self.keep_collecting.is_set():
             logger.debug("About to get next recording frame")
             # recording_frame = self.unpaired_frame_builder.get_recording_frame()
-            
+
             logger.debug("Referencing current sync packet in synchronizer")
             self.current_sync_packet = self.synchronizer.current_sync_packet
-        
-            thumbnail_qimage = {} 
+
+            thumbnail_qimage = {}
             for port in self.synchronizer.ports:
                 frame_packet = self.current_sync_packet.frame_packets[port]
                 rotation_count = self.synchronizer.streams[port].camera.rotation_count
 
-                text_frame = frame_packet_2_thumbnail(frame_packet, rotation_count, self.single_frame_height, port) 
+                text_frame = frame_packet_2_thumbnail(frame_packet, rotation_count, self.single_frame_height, port)
                 q_image = cv2_to_qimage(text_frame)
                 thumbnail_qimage[str(port)] = q_image
-            
+
             self.ThumbnailImagesBroadcast.emit(thumbnail_qimage)
-            
+
             dropped_fps_dict = {str(port):dropped for port, dropped in self.synchronizer.dropped_fps.items()}
             self.dropped_fps.emit(dropped_fps_dict)
-        logger.info("Recording thumbnail emitter run thread ended...") 
-    
+        logger.info("Recording thumbnail emitter run thread ended...")
+
 def frame_packet_2_thumbnail(frame_packet:FramePacket, rotation_count:int, edge_length:int, port:int):
     raw_frame = get_frame_or_blank(frame_packet, edge_length)
-    # port = frame_packet.port        
+    # port = frame_packet.port
 
     # raw_frame = self.get_frame_or_blank(None)
     square_frame = resize_to_square(raw_frame, edge_length)
@@ -175,7 +175,7 @@ def frame_packet_2_thumbnail(frame_packet:FramePacket, rotation_count:int, edge_
                         thickness=2,
                     )
 
-    return text_frame        
+    return text_frame
 
 
 def get_frame_or_blank(frame_packet: FramePacket, edge_length):
@@ -237,7 +237,7 @@ def apply_rotation(frame, rotation_count):
 
     return frame
 
-     
+
 def prep_img_for_qpixmap(image:np.ndarray):
     """
     qpixmap needs dimensions divisible by 4 and without that weird things happen.
@@ -252,7 +252,7 @@ def prep_img_for_qpixmap(image:np.ndarray):
 
 def cv2_to_qimage(frame):
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    
+
     qt_frame = QImage(
         image.data,
         image.shape[1],

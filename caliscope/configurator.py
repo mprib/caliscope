@@ -9,14 +9,13 @@ import numpy as np
 import rtoml
 from dataclasses import asdict
 import cv2
-from enum import Enum, auto
+from enum import Enum
 
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera import Camera
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from concurrent.futures import ThreadPoolExecutor
 
 logger = caliscope.logger.get(__name__)
 
@@ -29,7 +28,7 @@ class ConfigSettings(Enum):
     save_tracked_points_video = "save_tracked_points_video"
     fps_sync_stream_processing = "fps_sync_stream_processing"
 
-    
+
 #%%
 
 class Configurator:
@@ -80,14 +79,14 @@ class Configurator:
             return True
         else:
             return self.dict[ConfigSettings.save_tracked_points_video.value]
-    
+
     def get_fps_sync_stream_processing(self):
         if ConfigSettings.fps_sync_stream_processing.value not in self.dict.keys():
-            return 100 
+            return 100
         else:
             return self.dict[ConfigSettings.fps_sync_stream_processing.value]
-        
-        
+
+
     def refresh_config_from_toml(self):
         logger.info("Populating config dictionary with config.toml data")
         # with open(self.config_toml_path, "r") as f:

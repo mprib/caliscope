@@ -3,19 +3,15 @@ from time import sleep
 import math
 
 from PySide6.QtCore import Slot, Qt
-from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QGridLayout,
-    QMainWindow,
     QWidget,
     QScrollArea,
-    QLineEdit,
     QHBoxLayout,
     QLabel,
     QVBoxLayout,
 )
 
-from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.gui.frame_emitters.frame_dictionary_emitter import FrameDictionaryEmitter
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 
@@ -35,7 +31,7 @@ class SynchedFramesDisplay(QWidget):
         super(SynchedFramesDisplay, self).__init__()
 
         self.setWindowTitle("Tracking Landmarks....")
-        self.sync_stream_manager = sync_stream_manager 
+        self.sync_stream_manager = sync_stream_manager
         self.synchronizer = self.sync_stream_manager.synchronizer
         self.ports = self.synchronizer.ports
 
@@ -96,7 +92,7 @@ class SynchedFramesDisplay(QWidget):
         # self.setCentralWidget(self.scroll_area)
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.scroll_area)
-    
+
     def connect_widgets(self):
         self.frame_dictionary_emitter.FramesBroadcast.connect(self.ImageUpdateSlot)
         # self.frame_dictionary_emitter.dropped_fps.connect(self.update_dropped_fps)
@@ -119,4 +115,3 @@ class SynchedFramesDisplay(QWidget):
             self.recording_displays[str(port)].setPixmap(qpixmap)
             logger.debug("successfully set display")
 
-    

@@ -42,10 +42,10 @@ def gap_fill_xy(xy_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
             logger.info(f"Gap filling for (x,y) data from port {port}. Filling gaps that are {max_gap_size} frames or less...")
         last_port = port
         ### End Conditional Logging
-        
+
         # Sort by frame_index to ensure the data is in order
         group = group.sort_values(index_key)
-    
+
         # Create a new DataFrame with all frame_index values in the range
         all_frames = pd.DataFrame({index_key: np.arange(group[index_key].min(), group[index_key].max() + 1)})
         all_frames['port'] = port
@@ -71,7 +71,7 @@ def gap_fill_xy(xy_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
     logger.info("(x,y) gap filling complete")
     return xy_filled
 
-    
+
 
 def gap_fill_xyz(xyz_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
     """
@@ -89,7 +89,7 @@ def gap_fill_xyz(xyz_base:pd.DataFrame, max_gap_size=3) -> pd.DataFrame:
     for point_id, group in xyz_base.groupby('point_id'):
         # Sort by frame_index to ensure the data is in order
         group = group.sort_values("sync_index")
-    
+
         # Create a new DataFrame with all frame_index values in the range
         all_frames = pd.DataFrame({"sync_index": np.arange(group["sync_index"].min(), group["sync_index"].max() + 1)})
         all_frames['point_id'] = point_id

@@ -136,7 +136,7 @@ class IntrinsicStreamManager:
 
         logger.info(f"Corners for charuco are {board_corners}")
 
-        # calculate basic wait time between board collections 
+        # calculate basic wait time between board collections
         # if many frames have incomplete data, this will fail to reach the target board count
         start_frame_index = stream.start_frame_index
         last_frame_index = stream.last_frame_index
@@ -159,5 +159,5 @@ class IntrinsicStreamManager:
         while intrinsic_calibrator.grid_count < grid_count:
             logger.info(f"Waiting for sufficient calibration boards to become populated at port {port}")
             sleep(2)
-        
+
         intrinsic_calibrator.calibrate_camera()

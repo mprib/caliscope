@@ -43,7 +43,7 @@ def test_triangulator():
         shutil.rmtree(test_session)
 
     copy_contents(original_session, test_session)
-    
+
     config = Configurator(test_session)
     config.refresh_point_estimates_from_toml()
     # origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
@@ -56,7 +56,7 @@ def test_triangulator():
 
     logger.info("Creating RecordedStreamPool based on calibration recordings")
     recording_directory = Path(test_session, "calibration", "extrinsic")
-    
+
     streams = {}
     for port, camera in camera_array.cameras.items():
         rotation_count = camera.rotation_count
@@ -67,7 +67,7 @@ def test_triangulator():
             fps_target=100,
             tracker=charuco_tracker
         )
-    
+
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(streams)
 
@@ -79,7 +79,7 @@ def test_triangulator():
         recording_directory=recording_directory,
         tracker_name=charuco_tracker.name,
     )
-    
+
     for port, stream in streams.items():
         stream.play_video()
 

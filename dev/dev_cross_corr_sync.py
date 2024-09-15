@@ -3,11 +3,7 @@
 from plotnine import *
 # from caliscope.logger import get
 # logger = get(__name__)
-import cv2
-from threading import Thread
-import time
 import polars as pl
-import numpy as np
 from pathlib import Path
 
 
@@ -27,7 +23,7 @@ def assign_tracked_group(df:pl.DataFrame):
 def normalize_y_displacement(df: pl.DataFrame) -> pl.DataFrame:
     mean_y = df['img_loc_y'].mean()
     std_y = df['img_loc_y'].std()
-    
+
     mean_x = df['img_loc_x'].mean()
     std_x = df['img_loc_x'].std()
 
@@ -38,7 +34,7 @@ def normalize_y_displacement(df: pl.DataFrame) -> pl.DataFrame:
 
 def assign_tracked_group_size(df:pl.DataFrame):
     counts = df.groupby("track_id").agg(c("port").count().alias("track_group_size"))
-    return df.join(counts, on="track_id") 
+    return df.join(counts, on="track_id")
 
 # Applying the function in the pipeline
 df_sync = (data

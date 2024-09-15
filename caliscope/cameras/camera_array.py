@@ -5,7 +5,6 @@ import caliscope.logger
 import numpy as np
 from dataclasses import dataclass
 import cv2
-from enum import Enum, auto
 from numba.typed import Dict
 from collections import OrderedDict
 logger = caliscope.logger.get(__name__)
@@ -37,21 +36,21 @@ class CameraData:
         """"
         Rotation and transformation combined to allow 
         """
-        
+
         t = np.hstack([self.rotation, np.expand_dims(self.translation, 1)])
         t = np.vstack([t, np.array([0,0,0,1], np.float32)])
-        return t 
-   
-    @transformation.setter 
+        return t
+
+    @transformation.setter
     def transformation(self, t: np.ndarray):
         self.rotation = t[0:3,0:3]
         self.translation = t[0:3,3]
         logger.info(f"Rotation and Translation being updated to {self.rotation} and {self.translation}")
-    
-    @property  
+
+    @property
     def projection_matrix(self):
         return self.matrix @ self.transformation[0:3,:]
-         
+
     def extrinsics_to_vector(self):
         """
         Converts camera parameters to a numpy vector for use with bundle adjustment.
@@ -72,7 +71,7 @@ class CameraData:
         self.translation = np.array([row[3:6]], dtype=np.float64)[0]
 
     def get_display_data(self)-> OrderedDict:
-        
+
         # Extracting camera matrix parameters
         # self.matrix = None
         if self.matrix is not None:
@@ -81,7 +80,7 @@ class CameraData:
         else:
             fx, fy = None, None
             cx, cy = None, None
-            
+
 
         # Extracting distortion coefficients
         if self.distortions is not None:
@@ -94,7 +93,7 @@ class CameraData:
                 return None
             else:
                 return round(value,places)
-            
+
         # Creating the dictionary with OrderedDict
         camera_display_dict = OrderedDict([
             ("size", self.size),
@@ -126,7 +125,7 @@ class CameraData:
         self.grid_count = None
         self.translation = None
         self.rotation = None
-        
+
 @dataclass
 class CameraArray:
     """The plan is that this will expand to become an interface for setting the origin.
@@ -145,14 +144,14 @@ class CameraArray:
         not_ignored_ports = [port for port, cam in self.cameras.items() if not cam.ignore]
         not_ignored_ports.sort()
         not_ignored_indices = [i for i in range(len(not_ignored_ports))]
-        port_indices = {port:i for port, i in zip(not_ignored_ports,not_ignored_indices)}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
-        
+        port_indices = {port:i for port, i in zip(not_ignored_ports,not_ignored_indices)}
+
         return port_indices
-   
-    @property 
+
+    @property
     def index_port(self):
         return {value: key for key, value in self.port_index.items()}
-    
+
     def get_extrinsic_params(self):
         """for each camera build the CAMERA_PARAM_COUNT element parameter index
         camera_params with shape (n_cameras, CAMERA_PARAM_COUNT)
@@ -187,15 +186,15 @@ class CameraArray:
             port = self.index_port[index]  # correct in case ignoring a camera
             cam_vec = new_camera_params[index, :]
             self.cameras[port].extrinsics_from_vector(cam_vec)
-        
+
     def all_extrinsics_calibrated(self)->bool:
         # assume extrinsics calibrated and provide otherwise
-        full_extrinsics = True 
+        full_extrinsics = True
         for port, cam in self.cameras.items():
             if cam.rotation is None or cam.translation is None:
                 full_extrinsics = False
         return full_extrinsics
-   
+
     def all_intrinsics_calibrated(self)->bool:
         # assume true and prove false
         full_intrinsics = True
@@ -203,13 +202,13 @@ class CameraArray:
             if cam.matrix is None or cam.distortions is None:
                 full_intrinsics = False
         return full_intrinsics
-    
+
     @property
-    def projection_matrices(self) -> Dict: 
+    def projection_matrices(self) -> Dict:
         logger.info("Creating camera array projection matrices")
         proj_mat = Dict()
         for port, cam in self.cameras.items():
             proj_mat[port] = cam.projection_matrix
-        
+
         return proj_mat
-            
+

@@ -1,4 +1,4 @@
-# Construct a single logger that will be used throughout 
+# Construct a single logger that will be used throughout
 # Detail will be logged to a single file with INFO logged to the console
 
 import logging
@@ -80,16 +80,16 @@ class XStream(QtCore.QObject):
 def get(name): # as in __name__
     logger = logging.getLogger(name)
 
-    logger.setLevel(logging.INFO) 
-    
+    logger.setLevel(logging.INFO)
+
     logger.addHandler(app_dir_file_handler)
     logger.addHandler(console_handler)
- 
-    # avoid stepping through XStream object if in debug 
+
+    # avoid stepping through XStream object if in debug
     if os.getenv("DEBUG") != '1':
         qt_handler = QtHandler()
         logger.addHandler(qt_handler)
-    
+
     # qt_handler = QtHandler()
     # logger.addHandler(qt_handler)
 

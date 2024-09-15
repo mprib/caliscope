@@ -1,36 +1,17 @@
 import caliscope.logger
 
 
-import os
-import sys
-import shutil
-import time
-from pathlib import Path
-from threading import Thread
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QIcon, QAction
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget,
-    QApplication,
-    QVBoxLayout,
-    QHBoxLayout,
-    QDockWidget,
-    QFileDialog,
     QStackedWidget,
 )
 
 from caliscope.session.session import LiveSession, SessionMode
-from caliscope.gui.charuco_widget import CharucoWidget
-from caliscope.gui.live_camera_config.intrinsic_calibration_widget import IntrinsicCalibrationWidget
-from caliscope import __root__, __app_dir__
-from caliscope.trackers.charuco_tracker import CharucoTracker
 # from caliscope.gui.qt_logger import QtLogger
 from caliscope.gui.extrinsic_calibration_widget import (
     ExtrinsicCalibrationWidget,
-    MIN_THRESHOLD_FOR_EARLY_CALIBRATE,
 )
 from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
-from caliscope.configurator import Configurator
 
 logger = caliscope.logger.get(__name__)
 
@@ -71,9 +52,9 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.setCurrentWidget(self.extrinsic_calibration_widget)
         # self.extrinsic_calibration_widget.calibration_complete.connect(self.activate_capture_volume_widget)
         self.extrinsic_calibration_widget.update_btn_eligibility()
-        
+
         # self.session.unpause_synchronizer()
-        
+
 
     def activate_capture_volume_widget(self):
 
@@ -83,7 +64,7 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         if hasattr(self, "capture_volume_widget"):
             logger.info("Set current index to capture volume widget")
             self.capture_volume_widget.deleteLater()
-            self.capture_volume_widget = None            
+            self.capture_volume_widget = None
 
         logger.info("Creating Capture Volume widget")
         self.capture_volume_widget = CaptureVolumeWidget(self.session)
@@ -94,9 +75,9 @@ class CalibrateCaptureVolumeWidget(QStackedWidget):
         self.capture_volume_widget.recalibrate_btn.clicked.connect(
             self.activate_extrinsic_calibration_widget
         )
-        
-        # this will be managed elsewhere. StreamTools may or may not 
+
+        # this will be managed elsewhere. StreamTools may or may not
         # be loaded ...
         # self.session.pause_synchronizer()
-            
+
 

@@ -9,7 +9,7 @@ import cv2
 
 # cap = cv2.VideoCapture(0)
 from caliscope.packets import PointPacket
-from caliscope.tracker import Tracker, WireFrameView, Segment
+from caliscope.tracker import Tracker
 from caliscope.trackers.helper import apply_rotation, unrotate_points
 from caliscope.trackers.wireframe_builder import get_wireframe
 

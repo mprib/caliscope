@@ -40,9 +40,9 @@ else:
     # default to storing projects in user/__package_name__
     USER_SETTINGS = {"recent_projects":[],
                      "last_project_parent":str(__user_dir__) # default initially to home...this will be where the 'New' folder dialog starts
-                     } 
+                     }
 
-    
+
     with open(__settings_path__, "a") as f:
         rtoml.dump(USER_SETTINGS, f)
 
@@ -68,8 +68,8 @@ if __name__=="__main__":
     with open(test_file, 'w') as f:
         f.write('Test')
     print(f"Test file created at: {test_file}")
-    
-    
+
+
     import os
     parent = r'C:\Users\Mac Prible\AppData\Local'
     print(os.path.exists(parent))

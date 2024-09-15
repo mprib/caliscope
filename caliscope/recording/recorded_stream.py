@@ -5,7 +5,6 @@ import logging
 from pathlib import Path
 from queue import Queue
 from threading import Thread, Event
-import rtoml
 
 import cv2
 from time import perf_counter, sleep
@@ -13,8 +12,6 @@ import pandas as pd
 import numpy as np
 
 from caliscope.packets import FramePacket, Tracker
-from caliscope.cameras.camera_array import CameraData
-from caliscope.configurator import Configurator
 
 logger = caliscope.logger.get(__name__)
 logger.setLevel(logging.INFO)
@@ -99,7 +96,7 @@ class RecordedStream:
     # def set_tracking_on(self, track: bool):
     #     if track:
     #         logger.info(f"Turning tracking on for recorded stream {self.port}")
-    #         self.track_points = 
+    #         self.track_points =
     #     else:
     #         logger.info(f"Turning tracking off for recorded stream {self.port}")
     #         self.track_points.clear()

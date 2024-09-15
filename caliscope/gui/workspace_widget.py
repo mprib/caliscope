@@ -1,12 +1,9 @@
 import os
 from caliscope.gui.synched_frames_display import SynchedFramesDisplay
-from PySide6.QtCore import QThread
 import sys
 import subprocess
-import time
-from pathlib import Path
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QVBoxLayout, QPushButton, QSpinBox, QGridLayout, QTextBrowser
-from PySide6.QtCore import QFileSystemWatcher, Slot, Qt
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget, QPushButton, QSpinBox, QGridLayout, QTextBrowser
+from PySide6.QtCore import QFileSystemWatcher, Qt
 from caliscope.controller import Controller
 import caliscope.logger
 logger = caliscope.logger.get(__name__)
@@ -33,8 +30,8 @@ class WorkspaceSummaryWidget(QWidget):
         self.connect_widgets()
 
         self.update_status()
-        
-        
+
+
     def place_widgets(self):
         # Layout
         self.layout = QGridLayout()
@@ -48,9 +45,9 @@ class WorkspaceSummaryWidget(QWidget):
         self.layout.addWidget(self.reload_workspace_btn, 1,1)
         self.layout.addWidget(self.open_workspace_folder_btn, 1,2)
         self.layout.addWidget(self.calibrate_btn,1,3)
-        
+
     def connect_widgets(self):
-        self.open_workspace_folder_btn.clicked.connect(self.open_workspace)  
+        self.open_workspace_folder_btn.clicked.connect(self.open_workspace)
         self.calibrate_btn.clicked.connect(self.on_calibrate_btn_clicked)
         self.camera_count_spin.valueChanged.connect(self.set_camera_count)
         self.controller.show_synched_frames.connect(self.show_synched_frames)
@@ -62,7 +59,7 @@ class WorkspaceSummaryWidget(QWidget):
 
     def set_camera_count(self, value):
         self.controller.set_camera_count(value)
-        
+
     def open_workspace(self):
         logger.info(f"Opening workspace within File Explorer...  located at {self.controller.workspace}")
         if sys.platform == 'win32':
@@ -76,6 +73,6 @@ class WorkspaceSummaryWidget(QWidget):
         logger.info("About to launch synced Frames Display")
         self.display_window = SynchedFramesDisplay(self.controller.extrinsic_stream_manager)
         self.display_window.show()
-                
+
     def update_status(self):
         self.status_HTML.setHtml(self.controller.workspace_guide.get_html_summary())

@@ -16,7 +16,7 @@ def test_xy_to_xyz_postprocessing():
     # load in file of xy point data
     origin_data = Path(__root__, "tests", "sessions", "4_cam_recording")
     working_data = Path(__root__,"tests", "sessions_copy_delete", "4_cam_recording_2") # create alternate test directory because running into permission errors when invoking pytest
-    
+
     copy_contents(origin_data, working_data)
 
     config = Configurator(working_data)
@@ -33,7 +33,7 @@ def test_xy_to_xyz_postprocessing():
     # the method create_xyz uses it.
     camera_array = config.get_camera_array()
 
-    xyz_history = triangulate_xy(xy_data,camera_array) 
+    xyz_history = triangulate_xy(xy_data,camera_array)
     logger.info(f"ending triangulation at {time.time()}")
     stop = time.time()
     logger.info(f"Elapsed time is {stop-start}. Note that on first iteration, @jit functions will take longer")
@@ -51,9 +51,9 @@ def test_xy_to_xyz_postprocessing():
     )
 
     # Assert that coordinates are within expected bounds around the origin
-    min_x, max_x = -2, 2    
-    min_y, max_y = -2, 2    
-    min_z, max_z = -2, 4    
+    min_x, max_x = -2, 2
+    min_y, max_y = -2, 2
+    min_z, max_z = -2, 4
     for x, y, z in zip(xyz_history["x_coord"], xyz_history["y_coord"], xyz_history["z_coord"]):
         assert min_x <= x <= max_x
         assert min_y <= y <= max_y

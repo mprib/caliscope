@@ -1,15 +1,9 @@
 
-from queue import Queue
-from threading import Thread, Event
-import cv2
-import sys
 from pathlib import Path
-import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 from itertools import combinations
 from caliscope.cameras.synchronizer import Synchronizer
-from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.packets import SyncPacket
 
 import logging

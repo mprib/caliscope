@@ -6,7 +6,6 @@ from caliscope import __root__
 from caliscope.helper import copy_contents
 from caliscope.export import xyz_to_wide_labelled, xyz_to_trc
 
-import csv
 import pandas as pd
 
 
@@ -40,5 +39,5 @@ def test_export():
     # %%
 
 if __name__ == "__main__":
-    
+
     test_export()

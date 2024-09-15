@@ -10,7 +10,7 @@ def grid_history(frame, ids, img_locs, connected_corners):
     """
     add the history of captured boards so that the user can see which ares of the camera FOV may not have data
     """
-    
+
     possible_pairs = {pair for pair in combinations(ids, 2)}
     connected_pairs = connected_corners.intersection(possible_pairs)
 

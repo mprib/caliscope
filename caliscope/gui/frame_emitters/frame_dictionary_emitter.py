@@ -71,10 +71,10 @@ class FrameDictionaryEmitter(QThread):
                         Qt.AspectRatioMode.KeepAspectRatio,
                     )
 
-                emitted_dict[str(port)] = pixmap               
+                emitted_dict[str(port)] = pixmap
 
             logger.debug(f"About to emit q_image_dict: {emitted_dict}")
-            self.FramesBroadcast.emit(emitted_dict) 
+            self.FramesBroadcast.emit(emitted_dict)
 
         self.close_window.emit()
         logger.info(

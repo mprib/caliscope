@@ -51,8 +51,8 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(500, 500)
         self.central_tab = QWidget(self)
         self.setCentralWidget(self.central_tab)
-        
-        
+
+
         self.build_menus()
         self.connect_menu_actions()
         self.build_docked_logger()
@@ -197,7 +197,7 @@ class MainWindow(QMainWindow):
         self.controller = Controller(workspace_dir=workspace)
         self.controller.load_workspace()
         self.controller.load_workspace_thread.finished.connect(self.build_central_tabs)
-        
+
 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)
@@ -219,7 +219,7 @@ class MainWindow(QMainWindow):
         else:  # Linux and Unix-like systems
             subprocess.run(["xdg-open", __log_dir__])
         pass
-        
+
     def create_new_project_folder(self):
         default_folder = Path(self.app_settings["last_project_parent"])
         dialog = QFileDialog()

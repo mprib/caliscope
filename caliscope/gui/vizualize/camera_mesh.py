@@ -12,7 +12,7 @@ logger = caliscope.logger.get(__name__)
 class CameraMesh:
     """Build a camera mesh object that is looking up from the origin"""
     def __init__(self, res, cam_matrix, scale_factor=5000):
-        
+
         # self.scene = scene
 
         self.width = res[0]/scale_factor
@@ -28,11 +28,11 @@ class CameraMesh:
         self.build_faces()
         self.build_colors()
 
-        self.mesh = gl.GLMeshItem(vertexes=self.verts, 
-                                  faces=self.faces, 
-                                  faceColors=self.colors, 
-                                  smooth=False, 
-                                  drawEdges=True, 
+        self.mesh = gl.GLMeshItem(vertexes=self.verts,
+                                  faces=self.faces,
+                                  faceColors=self.colors,
+                                  smooth=False,
+                                  drawEdges=True,
                                   edgeColor=(0,0,1,1))
         self.mesh.setGLOptions('additive')
 
@@ -53,7 +53,7 @@ class CameraMesh:
                       [left_side_border,bottom_side_border,pyramid_height],         #3: bottom left of image
                       [left_side_border,top_side_border,pyramid_height]]         #4: top left of image
 
-        self.verts = np.array(self.verts)      
+        self.verts = np.array(self.verts)
 
     def build_faces(self):
         self.faces = [[0,1,2],
@@ -73,7 +73,7 @@ class CameraMesh:
                        [0,0,0,.9],
                        [0,0,0,.9]]
 
-        self.colors = np.array(self.colors)        
+        self.colors = np.array(self.colors)
 
 def rotation_to_float(rotation_matrix):
     new_matrix = []
@@ -139,7 +139,7 @@ def rotationMatrixToEulerAngles(R):
 if __name__ == '__main__':
     import rtoml
     from pathlib import Path
-    
+
     app = pg.mkQApp("GLMeshItem Example")
 
     scene = gl.GLViewWidget()
@@ -157,7 +157,7 @@ if __name__ == '__main__':
     repo = Path(str(Path(__file__)).split("pyxy")[0],"pyxy")
     # config_path = r"config 2.toml"
     config = rtoml.load(Path(repo, "sessions", "iterative_adjustment", "config.toml"))
-    cams = {}    
+    cams = {}
     ports = []
 
     # build cameras
@@ -177,7 +177,7 @@ if __name__ == '__main__':
 
             print(key)
             print(params)
-    
+
     # need to track frame of reference for each camera posiiton
     # must be able ot iterate over each frame of reference
     # place cameras
@@ -185,15 +185,15 @@ if __name__ == '__main__':
 
     origin_port = 0
     cams[origin_port].mesh.setGLOptions('additive')
-    scene.addItem(cams[origin_port].mesh)    
+    scene.addItem(cams[origin_port].mesh)
 
     for key, params in config.items():
         if "stereo" in key:
             pair = key.split("_")[1:3]
             pair = [int(p) for p in pair]
-            
+
             if origin_port in pair:
-                for param_key, value in params.items(): 
+                for param_key, value in params.items():
                     if "translation" in param_key:
                         translation = [float(x[0]) for x in value]
                         translation_scale = 1

@@ -12,7 +12,7 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
 from itertools import permutations
 from caliscope import __root__
 import numpy as np
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 import rtoml
 import caliscope.logger
 logger = caliscope.logger.get(__name__)
@@ -92,7 +92,7 @@ def get_bridged_stereopair(
         translation=bridged_translation,
         rotation=bridged_rotation,
     )
-        
+
     return stereo_A_C
 
 
@@ -119,21 +119,21 @@ class CameraArrayInitializer:
 
         # fill with dummy value to get the loop running
         missing_count_last_cycle = -1
-        
+
         while len(self._get_missing_stereopairs()) != missing_count_last_cycle:
-            
+
             # prep the variable. if it doesn't go down, terminate
             missing_count_last_cycle = len(self._get_missing_stereopairs())
 
             for pair in self._get_missing_stereopairs():
-             
+
                 port_A = pair[0]
                 port_C = pair[1]
-    
+
                 # get lists of all the estimiated stereopairs that might bridge across test_missing
                 all_pairs_A_X = [pair for pair in self.estimated_stereopairs.keys() if pair[0]==port_A]
                 all_pairs_X_C = [pair for pair in self.estimated_stereopairs.keys() if pair[1]==port_C]
-   
+
                 stereopair_A_C = None
 
                 for pair_A_X in all_pairs_A_X:
@@ -164,7 +164,7 @@ class CameraArrayInitializer:
         missing_stereopairs = [pair for pair in possible_stereopairs if pair not in self.estimated_stereopairs.keys()]
 
         return missing_stereopairs
-        
+
     def _get_ports(self) -> list:
         ports = []
         for key, params in self.config.items():
@@ -230,7 +230,7 @@ class CameraArrayInitializer:
         total_error_score = 0
 
         for key, data in self.config.items():
-            # NOTE: commenting out second conditional check below. If you come back to this in a month and 
+            # NOTE: commenting out second conditional check below. If you come back to this in a month and
             # things haven't been breaking, then just delete all these comments.
             if key.startswith("cam_"): # and not self.config[key]["ignore"]:
                 port = data["port"]
@@ -303,7 +303,7 @@ class CameraArrayInitializer:
         self.estimated_stereopairs[stereopair.pair] = stereopair
         inverted_stereopair = get_inverted_stereopair(stereopair)
         self.estimated_stereopairs[inverted_stereopair.pair] = inverted_stereopair
-        
+
 
 # def get_anchored_pairs(anchor: int, all_stereopairs:dict)->dict:
 
@@ -315,8 +315,8 @@ if __name__ == "__main__":
     config_path = Path(session_directory, "config.toml")
 
     initializer = CameraArrayInitializer(config_path)
-        
-    
+
+
     camera_array = initializer.get_best_camera_array()
 
     extrinsic_calibration_xy = Path(session_directory, "point_data.csv")

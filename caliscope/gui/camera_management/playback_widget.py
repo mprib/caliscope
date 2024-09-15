@@ -6,7 +6,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QSpinBox,
     QDoubleSpinBox,
-    QMainWindow,
     QCheckBox,
     QWidget,
     QPushButton,
@@ -15,7 +14,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
 )
-from PySide6.QtCore import Qt, Slot, Signal, QSize
+from PySide6.QtCore import Qt, Slot, Signal
 from caliscope.gui.camera_management.camera_display_widget import (
     CameraDataDisplayWidget,
 )
@@ -149,13 +148,13 @@ class IntrinsicCalibrationWidget(QWidget):
         self.auto_control_span.addWidget(self.board_threshold_spin, alignment=Qt.AlignmentFlag.AlignLeft)
         self.auto_control_span.addWidget(self.autocalibrate_btn)
         self.right_panel.addLayout(self.auto_control_span)
-        
+
         self.play_span = QHBoxLayout()
         self.play_span.addWidget(self.play_button)
         self.play_button.setMaximumWidth(35)
         self.play_span.addWidget(self.slider)
         self.right_panel.addLayout(self.play_span)
-        
+
         self.manual_control_span = QHBoxLayout()
         self.manual_control_span.addWidget(self.add_grid_btn)
         self.manual_control_span.addWidget(self.calibrate_btn)
@@ -181,8 +180,8 @@ class IntrinsicCalibrationWidget(QWidget):
         self.toggle_distortion.stateChanged.connect(self.toggle_distortion_changed)
         self.ccw_rotation_btn.clicked.connect(self.rotate_ccw)
         self.cw_rotation_btn.clicked.connect(self.rotate_cw)
-        self.autocalibrate_btn.clicked.connect(self.autocalibrate) 
-       
+        self.autocalibrate_btn.clicked.connect(self.autocalibrate)
+
         self.scaling_spin.valueChanged.connect(self.on_scale_change)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].ImageBroadcast.connect(self.update_image)
         self.controller.intrinsic_stream_manager.frame_emitters[self.port].FrameIndexBroadcast.connect(self.update_index)
@@ -254,11 +253,11 @@ class IntrinsicCalibrationWidget(QWidget):
         """
         new_scale = value/100
         logger.info(f"Changing frame_emitter scale factor to {new_scale}")
-        self.controller.scale_intrinsic_stream(self.port, new_scale) 
+        self.controller.scale_intrinsic_stream(self.port, new_scale)
         self.controller.stream_jump_to(self.port, self.index)
 
     def calibrate(self):
-        
+
         self.controller.calibrate_camera(self.port)
 
     def clear_calibration_data(self):
@@ -305,17 +304,16 @@ class IntrinsicCalibrationWidget(QWidget):
             self.target_grid_count_spin.setEnabled(enable)
             self.board_threshold_spin.setEnabled(enable)
             self.scaling_spin.setEnabled(enable)
-        
+
     def autocalibrate(self):
         grid_count = self.target_grid_count_spin.value()
         board_threshold = self.board_threshold_spin.value()
         self.update_enable_all_inputs(self.port, False)
         self.controller.autocalibrate(self.port,grid_count, board_threshold)
-        
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     from caliscope import __root__
-    from caliscope.helper import copy_contents
     from caliscope.trackers.charuco_tracker import CharucoTracker
     from caliscope.calibration.charuco import Charuco
 

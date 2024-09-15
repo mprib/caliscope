@@ -281,7 +281,7 @@ if __name__ == "__main__":
         camera_array = array_initializer.get_best_camera_array()
         point_estimates = get_point_estimates(camera_array, point_data_csv_path)
 
-        print(f"Optimizing initial camera array configuration ")
+        print("Optimizing initial camera array configuration ")
 
         capture_volume = CaptureVolume(camera_array, point_estimates)
         capture_volume._save(session_directory, "initial")

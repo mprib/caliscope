@@ -2,9 +2,7 @@
 import caliscope.logger
 
 
-from caliscope import __root__
 import pandas as pd
-import numpy as np
 from scipy.signal import butter, filtfilt
 logger = caliscope.logger.get(__name__)
 
@@ -50,10 +48,10 @@ def _smooth(landmark_data:pd.DataFrame, order, fps, cutoff, coord_names, index_n
         landmark_data[coord] = landmark_data.groupby(["smooth_group_index"])[
             coord
         ].transform(butter_lowpass_filter, cutoff, fps, order)
-    
+
     landmark_data = landmark_data.sort_values([index_name, "point_id"])
-    
-    return landmark_data   
+
+    return landmark_data
 
 
 
@@ -67,13 +65,13 @@ def _smooth_xy(xy: pd.DataFrame, order, fps, cutoff)->pd.DataFrame:
     
     """
     # note that in future refactors, the xy coordinates my only have a frame_index and not a sync_index
-    index_name = "sync_index" 
+    index_name = "sync_index"
     coord_names = ["img_loc_x","img_loc_y"]
-    
+
     return _smooth(xy, order, fps, cutoff, coord_names,index_name)
 
 def smooth_xyz(xyz: pd.DataFrame, order, fps, cutoff)->pd.DataFrame:
     index_name = "sync_index"
     coord_names = ["x_coord", "y_coord", "z_coord"]
-    
+
     return _smooth(xyz, order, fps, cutoff, coord_names,index_name)

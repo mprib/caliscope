@@ -40,32 +40,32 @@ class Synchronizer:
         # note that self.fps target is set in set_stream_fps
         # self.set_stream_fps(fps_target)
         # self.fps_mean = fps_target
-        
+
         # place to store a recent history of dropped frames
-        self.dropped_frame_history = {port:[] for port in sorted(self.ports)} 
-        
+        self.dropped_frame_history = {port:[] for port in sorted(self.ports)}
+
         self.initialize_ledgers()
         self.start()
 
     def set_tracking_on_streams(self, track:bool):
         for port, stream in self.streams.items():
             stream.set_tracking_on(track)
-    
+
     def update_dropped_frame_history(self):
-        current_dropped:dict = self.current_sync_packet.dropped    
-        
+        current_dropped:dict = self.current_sync_packet.dropped
+
         for port, dropped in current_dropped.items():
             self.dropped_frame_history[port].append(dropped)
             self.dropped_frame_history[port] = self.dropped_frame_history[port][-DROPPED_FRAME_TRACK_WINDOW:]
 
-    @property 
+    @property
     def dropped_fps(self):
         """
         Averages dropped frame count across the observed history
         """
-        return {port:np.mean(drop_history) for port,drop_history in self.dropped_frame_history.items()}        
+        return {port:np.mean(drop_history) for port,drop_history in self.dropped_frame_history.items()}
 
-        
+
     # def set_stream_fps(self, fps_target):
     #     self.fps_target = fps_target
     #     logger.info(f"Attempting to change target fps in streams to {fps_target}")
@@ -158,14 +158,14 @@ class Synchronizer:
                     if int(time.time()) % 10 ==0:
                         logger.info("Synchronizer not subscribed to any streams and busy waiting...")
                     time.sleep(1)
-                    
+
             next_frame_time = self.all_frame_packets[frame_data_key].frame_time
 
             if next_frame_time == -1:
                 logger.info(
                     f"End of frames at port {p} detected; ending synchronization"
                 )
-                
+
                 self.frames_complete = True
                 self.stop_event.set()
 
@@ -266,9 +266,9 @@ class Synchronizer:
 
             logger.debug(f"Updating sync packet for sync_index {sync_index}")
             self.current_sync_packet = SyncPacket(sync_index, current_frame_packets)
-            
+
             self.update_dropped_frame_history()
-            
+
             sync_index += 1
 
             if self.stop_event.is_set():
@@ -280,7 +280,7 @@ class Synchronizer:
                 if self.current_sync_packet is not None:
                     logger.debug(f"Placing new synched frames packet on queue with {self.current_sync_packet.frame_packet_count} frames")
                     logger.debug(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
-                    
+
                     # provide infrequent notice of synchronizer activity
                     if self.current_sync_packet.sync_index % 100 == 0:
                         logger.info(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
@@ -288,7 +288,7 @@ class Synchronizer:
                     logger.info("signaling end of frames with `None` packet on subscriber queue.")
                     for port, q in self.frame_packet_queues.items():
                         logger.info(f"Currently {q.qsize()} frame packets unprocessed for port {port}")
-                    
+
             self.fps_mean = self.average_fps()
 
         logger.info("Frame synch worker successfully ended")

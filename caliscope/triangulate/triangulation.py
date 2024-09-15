@@ -26,7 +26,7 @@ def unique_with_counts(arr):
     return np.array(unique_values), np.array(counts)
 
 #####################################################################################
-# The following code is adapted from the `Anipose` project, 
+# The following code is adapted from the `Anipose` project,
 # in particular the `triangulate_simple` function of `aniposelib`
 # Original author:  Lili Karashchuk
 # Project: https://github.com/lambdaloop/aniposelib/
@@ -97,13 +97,13 @@ def triangulate_xy(xy: pd.DataFrame, camera_array:CameraArray) -> pd.DataFrame:
     """
     xy data comes in as viewed by the camera and it is undistorted as
     part of the triangulation process
-    """    
+    """
     # assemble numba compatible dictionary
     projection_matrices = camera_array.projection_matrices
 
-    # Code here to undistort all image points 
+    # Code here to undistort all image points
     undistorted_xy = undistort_batch(xy, camera_array)
-    
+
     xyz = {
         "sync_index": [],
         "point_id": [],
@@ -157,7 +157,7 @@ def triangulate_xy(xy: pd.DataFrame, camera_array:CameraArray) -> pd.DataFrame:
 
 
 
-def undistort(points, camera: CameraData, iter_num=3) -> np.ndarray: 
+def undistort(points, camera: CameraData, iter_num=3) -> np.ndarray:
     """
     points: (n,2) dimensional np.ndarray 
     returns: (2,n) dimensional np.ndarray... definitely not happy with this but not going to start refactoring this at this moment
@@ -168,7 +168,7 @@ def undistort(points, camera: CameraData, iter_num=3) -> np.ndarray:
     k1, k2, p1, p2, k3 = camera.distortions
     fx, fy = camera.matrix[0, 0], camera.matrix[1, 1]
     cx, cy = camera.matrix[:2, 2]
-        
+
     x, y = points.T[0], points.T[1]
 
     x = (x - cx) / fx
@@ -187,7 +187,7 @@ def undistort(points, camera: CameraData, iter_num=3) -> np.ndarray:
 
 
 def undistort_batch(xy_df:pd.DataFrame, camera_array:CameraArray)->pd.DataFrame:
-    
+
     undistorted_points = []
     for port, camera in camera_array.cameras.items():
         logger.info(f"Processing points from camera {port}")
@@ -197,9 +197,8 @@ def undistort_batch(xy_df:pd.DataFrame, camera_array:CameraArray)->pd.DataFrame:
         subset_xy["img_loc_undistort_x"] = x
         subset_xy["img_loc_undistort_y"] = y
         undistorted_points.append(subset_xy)
-        
+
     logger.info("Assembling undistorted dataframe")
 
     xy_undistorted_df = pd.concat(undistorted_points)
     return xy_undistorted_df
-    

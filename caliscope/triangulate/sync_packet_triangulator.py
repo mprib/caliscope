@@ -46,7 +46,7 @@ class SyncPacketTriangulator:
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)
 
         self.projection_matrices = self.camera_array.projection_matrices
-        
+
         self.subscribers = []
         self.running = True
         self.thread = Thread(target=self.process_incoming, args=(), daemon=True)
@@ -125,8 +125,8 @@ class SyncPacketTriangulator:
             self.xyz_history["x_coord"].extend(xyz_array[:, 0].tolist())
             self.xyz_history["y_coord"].extend(xyz_array[:, 1].tolist())
             self.xyz_history["z_coord"].extend(xyz_array[:, 2].tolist())
-            
-    
+
+
 
     def save_history(self)->None:
         """
@@ -134,8 +134,8 @@ class SyncPacketTriangulator:
         If a tracker name is provided, then base name on the tracker name
         """
         df_xyz: pd.DataFrame = pd.DataFrame(self.xyz_history)
-       
-        if self.recording_directory is not None: 
+
+        if self.recording_directory is not None:
             if self.tracker_name is None:
                 filename = "xyz.csv"
             else:

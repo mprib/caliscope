@@ -1,5 +1,4 @@
 from pathlib import Path
-import random    
 from queue import Queue
 from time import sleep
 import numpy as np
@@ -137,11 +136,11 @@ def test_autopopulate_data():
 
     stream.jump_to(0)
     stream.unpause()
-    
+
     while intrinsic_calibrator.auto_store_data.is_set():
         actual_grid_count = len(intrinsic_calibrator.calibration_frame_indices)
         logger.info(f"waiting for data to populate...currently {actual_grid_count}")
-        
+
         sleep(.5)
 
     intrinsic_calibrator.backfill_calibration_frames()

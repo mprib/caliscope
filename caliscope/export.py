@@ -42,7 +42,7 @@ def xyz_to_trc(xyz:pd.DataFrame, tracker:Tracker, time_history_path:Path, target
     """
     Will save a .trc file in the same folder as the long xyz data
     relies on xyz_to_wide_csv for input data
-    """  
+    """
     # create xyz_labelled file to provide input for trc creation
     xyz_labelled = xyz_to_wide_labelled(xyz, tracker)
 
@@ -64,7 +64,7 @@ def xyz_to_trc(xyz:pd.DataFrame, tracker:Tracker, time_history_path:Path, target
     xyz_labelled.sort_values(by="mean_frame_time", inplace=True)
     xyz_labelled["time_diff"] = xyz_labelled["mean_frame_time"].diff()
 
-        
+
 
     # Calculate frame rate for each pair of frames (avoid division by zero)
     xyz_labelled["frame_rate"] = xyz_labelled["time_diff"].apply(
@@ -73,7 +73,7 @@ def xyz_to_trc(xyz:pd.DataFrame, tracker:Tracker, time_history_path:Path, target
 
     # Calculate mean frame rate (drop the first value which is NaN due to the diff operation)
     mean_frame_rate = xyz_labelled["frame_rate"].dropna().mean()
-    
+
     # Rename 'sync_index' to 'Frame' and 'mean_frame_time' to 'Time'
     xyz_labelled = xyz_labelled.reset_index() # need sync_index to be just a regular column
     xyz_labelled.rename(columns={'sync_index': 'Frame', 'mean_frame_time': 'Time'}, inplace=True)
@@ -92,7 +92,7 @@ def xyz_to_trc(xyz:pd.DataFrame, tracker:Tracker, time_history_path:Path, target
 
     # trying a fix...
     xyz_labelled["Frame"] = xyz_labelled["Frame"].astype(int)
-    
+
     # Get column names from dataframe
     columns = xyz_labelled.columns
 
@@ -117,24 +117,24 @@ def xyz_to_trc(xyz:pd.DataFrame, tracker:Tracker, time_history_path:Path, target
     with open(trc_path, 'wt', newline='', encoding='utf-8') as out_file:
         tsv_writer = csv.writer(out_file, delimiter='\t')
         tsv_writer.writerow(["PathFileType",
-                            "4", 
-                            "(X/Y/Z)",	
+                            "4",
+                            "(X/Y/Z)",
                             trc_filename])
         tsv_writer.writerow(["DataRate",
                             "CameraRate",
                             "NumFrames",
-                            "NumMarkers", 
+                            "NumMarkers",
                             "Units",
                             "OrigDataRate",
                             "OrigDataStartFrame",
                             "OrigNumFrames"])
-        tsv_writer.writerow([data_rate, 
+        tsv_writer.writerow([data_rate,
                             int(mean_frame_rate),
-                            num_frames, 
-                            num_markers, 
-                            units, 
-                            int(mean_frame_rate), 
-                            orig_data_start_frame, 
+                            num_frames,
+                            num_markers,
+                            units,
+                            int(mean_frame_rate),
+                            orig_data_start_frame,
                             num_frames])
 
         # create names of trajectories, skipping two columns (top of table)
@@ -142,7 +142,7 @@ def xyz_to_trc(xyz:pd.DataFrame, tracker:Tracker, time_history_path:Path, target
         for trajectory in tracked_points:
             header_names.append(trajectory)
             header_names.append("")
-            header_names.append("")    
+            header_names.append("")
 
         tsv_writer.writerow(header_names)
 
@@ -167,7 +167,7 @@ def xyz_to_trc(xyz:pd.DataFrame, tracker:Tracker, time_history_path:Path, target
         # and finally actually write the trajectories
         for row in range(0, len(xyz_labelled)):
             row_data = xyz_labelled.iloc[row].tolist()
-    
+
             # Convert the 'Frame' column value to int to satisfy trc format requirements
             frame_index = xyz_labelled.columns.get_loc('Frame')
             row_data[frame_index] = int(row_data[frame_index])

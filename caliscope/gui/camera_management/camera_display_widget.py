@@ -23,7 +23,7 @@ class CameraDataDisplayWidget(QWidget):
         self.controller.push_camera_data(self.port)
 
     def place_widgets(self):
-        
+
         layout = QVBoxLayout()
         self.setLayout(layout)
         layout.addWidget(self.tree)
@@ -32,8 +32,8 @@ class CameraDataDisplayWidget(QWidget):
 
     def connect_widgets(self):
         self.controller.new_camera_data.connect(self.update_tree)
-        
-    
+
+
     def update_tree(self, port, camera_display_dict):
         # logger.info(f"Updating display tree for port {port} with camera data {camera_display_dict}")
         # port, camera_display_dict = port_camera_display_dict
@@ -44,7 +44,7 @@ class CameraDataDisplayWidget(QWidget):
             self.add_items(None, self.tree, camera_display_dict)
             # Expand all items
             self.expand_all_items(self.tree)
-        
+
     def add_items(self, parent, tree, data_dict):
         if parent is None:
             parent = tree
@@ -81,7 +81,7 @@ class CameraDataDisplayWidget(QWidget):
 if __name__ == '__main__':
     from caliscope import __root__
     from pathlib import Path
-    
+
     app = QApplication(sys.argv)
 
 

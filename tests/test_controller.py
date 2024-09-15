@@ -1,11 +1,9 @@
 
-#%% 
+#%%
 from pathlib import Path
 from time import sleep
-from PySide6.QtWidgets import QApplication
 
 from caliscope import __root__
-from caliscope.cameras.camera_array import CameraArray
 from caliscope.helper import copy_contents
 from caliscope.controller import Controller, read_video_properties
 import caliscope.logger
@@ -20,8 +18,8 @@ def test_extrinsic_calibration():
     copy_contents(original_workspace, workspace)
 
     controller = Controller(workspace_dir=workspace)
-    
-    # calibration requires a capture volume object which is composed of both a camera array, 
+
+    # calibration requires a capture volume object which is composed of both a camera array,
     # and a set of point estimates
     controller.load_camera_array()
 
@@ -48,8 +46,8 @@ def test_video_property_reader():
     logger.info(f"Testing with source file: {test_source}")
     assert(test_source.exists())
     source_properties = read_video_properties(source_path=test_source)
-    assert(source_properties["frame_count"]==48)    
-    assert(source_properties["fps"]==6.0)    
+    assert(source_properties["frame_count"]==48)
+    assert(source_properties["fps"]==6.0)
     assert(source_properties["size"]==(1280,720))
 
 # if __name__ == "__main__":

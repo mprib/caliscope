@@ -20,7 +20,7 @@ class FaceTracker(Tracker):
         self.out_queue = Queue(-1)
 
         # each port gets its own mediapipe context manager
-        # use a dictionary of queues for passing 
+        # use a dictionary of queues for passing
         self.in_queues = {}
         self.out_queues = {}
         self.threads = {}

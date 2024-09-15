@@ -6,14 +6,11 @@
 import caliscope.logger
 logger = caliscope.logger.get(__name__)
 
-from pathlib import Path
 
 from scipy.sparse import lil_matrix
 
-import pandas as pd
 import numpy as np
 from dataclasses import dataclass
-from caliscope.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
 
 CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrinsic
 
@@ -24,7 +21,7 @@ class PointEstimates:
     Initialized from triangulated_points.csv to provide the formatting of data required for bundle adjustment
     "full" is used here because there is currently a method to filter the data based on reprojection error
     Not sure if it will be used going forward, but it remains here if so.
-    """ 
+    """
 
     sync_indices: np.ndarray  # the sync_index from when the image was taken
     camera_indices: np.ndarray  # camera id associated with the img point
@@ -41,7 +38,7 @@ class PointEstimates:
         self.point_id = self.point_id.astype(np.uint16)
         self.img = self.img.astype(np.float64)
         self.obj_indices = self.obj_indices.astype(np.int32)
-        self.obj = self.obj.astype(np.float64)    
+        self.obj = self.obj.astype(np.float64)
 
     @property
     def n_cameras(self):
@@ -84,15 +81,15 @@ class PointEstimates:
         Provided with the least_squares estimate of the best fit of model parameters (including camera 6DoF)
         parse out the x,y,z object positions and update self.obj
         """
-        
+
         xyz = least_sq_result_x[self.n_cameras * CAMERA_PARAM_COUNT :]
         xyz = xyz.reshape(-1, 3)
 
         self.obj = xyz
-        
-        
-        
- 
+
+
+
+
 def load_point_estimates(config:dict)->PointEstimates:
     point_estimates_dict = config["point_estimates"]
 

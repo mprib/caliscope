@@ -78,7 +78,7 @@ class SynchronizedStreamManager:
 
         if fps_target is None:
             fps_target = self.mean_fps
-        
+
         logger.info(f"About to start playing video streams to be processed. Streams: {self.streams}")
         for port, stream in self.streams.items():
 
@@ -86,7 +86,7 @@ class SynchronizedStreamManager:
                 stream.set_fps_target(fps_target)
 
             stream.play_video()
-            
+
     def load_video_properties(self):
         fps   = []
         frame_count = []
@@ -102,8 +102,8 @@ class SynchronizedStreamManager:
 
         self.mean_fps = statistics.mean(fps)
         self.mean_frame_count = statistics.mean(frame_count)
-        
-        
+
+
 def read_video_properties(source_path: Path) -> dict:
     # Dictionary to hold video properties
     properties = {}

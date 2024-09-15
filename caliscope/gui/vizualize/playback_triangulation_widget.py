@@ -82,7 +82,7 @@ class TriangulationVisualizer:
             self.scene = gl.GLViewWidget()
 
             # the scene camera, not a real Camera
-            self.scene.setCameraPosition( distance=4)  
+            self.scene.setCameraPosition( distance=4)
         axis = gl.GLAxisItem()
         self.scene.addItem(axis)
 
@@ -99,10 +99,10 @@ class TriangulationVisualizer:
             size=0.01,
             pxMode=False,
         )
-        
+
             # will hold a list
         self.segments = {}
-        
+
         self.scene.addItem(self.scatter)
         self.scatter.setData(pos=None)
 
@@ -113,7 +113,7 @@ class TriangulationVisualizer:
     def update_motion_trial(self, motion_trial:MotionTrial):
         logger.info("Updating xyz history in playback widget")
         self.motion_trial:MotionTrial = motion_trial
-        
+
         if hasattr(self.motion_trial.tracker, "wireframe"):
             for segment_line in self.motion_trial.tracker.wireframe.line_plots.values():
                 self.scene.addItem(segment_line)

@@ -2,18 +2,12 @@ import caliscope.logger
 
 import pandas as pd
 from caliscope import __root__
-import shutil
 from pathlib import Path
 import time
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
-from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
-from caliscope.calibration.charuco import Charuco
-import shutil
-import pandas as pd
-import numpy as np
 
 logger = caliscope.logger.get(__name__)
 
@@ -39,7 +33,7 @@ def test_sync_stream_manager():
     # delete frame time history to assess success of imputed frame time method
     frame_history = Path(recording_dir, "frame_time_history.csv")
     frame_history.unlink()
-        
+
     sync_stream_manager = SynchronizedStreamManager(
         recording_dir=recording_dir,
         all_camera_data=camera_array.cameras,
@@ -58,7 +52,7 @@ def test_sync_stream_manager():
         # wait for the tracked points to be created to compare
         logger.info("Waiting for ")
         time.sleep(1)
-    
+
     test_df = pd.read_csv(test_data_path)
     # Adjust sync_index in gold_standard_df to start at 1
     gold_standard_df['sync_index'] -= (gold_standard_df['sync_index'].min() - 1)
@@ -81,6 +75,6 @@ def test_sync_stream_manager():
     logger.info(f"Mean y difference is {mean_y_diff} pixels")
 
 
-    
+
 if __name__ == "__main__":
     test_sync_stream_manager()

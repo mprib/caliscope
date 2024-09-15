@@ -27,7 +27,7 @@ class CharucoWidget(QWidget):
         super().__init__()
 
         logger.info("Charuco Wizard initializing")
-        self.controller = controller 
+        self.controller = controller
         self.params = self.controller.get_charuco_params()
 
         # add group to do initial configuration of the charuco board

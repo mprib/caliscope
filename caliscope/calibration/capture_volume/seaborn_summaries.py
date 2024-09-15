@@ -45,8 +45,8 @@ rmse_by_camera["rmse"]=np.sqrt(rmse_by_camera["mean_sq_error"])
 
 #%%
 
-sns.boxplot(data = distance_error, 
-            x="board_distance", 
+sns.boxplot(data = distance_error,
+            x="board_distance",
             y= "Distance_Error_mm_abs",
             showfliers = False
 

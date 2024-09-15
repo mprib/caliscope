@@ -7,7 +7,6 @@ from threading import Thread
 import sys
 from PySide6.QtWidgets import (
     QApplication,
-    QMainWindow,
     QWidget,
     QDockWidget,
     QMenu,

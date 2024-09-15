@@ -68,7 +68,7 @@ class Camera:
 
             self.set_exposure()
             self.set_default_resolution()
-        else: 
+        else:
             # probably busy
             logger.info(f"Camera at port {port} appears to be busy")
             self.port = port
@@ -115,7 +115,7 @@ class Camera:
         track it manually after updating"""
         if platform.system()=="Windows":
             self.capture.set(cv2.CAP_PROP_EXPOSURE, value)
-        
+
         else:
             self.capture.set(cv2.CAP_PROP_IOS_DEVICE_EXPOSURE, value)
 
@@ -174,11 +174,11 @@ class Camera:
             # attempt to set the camera to the given resolution
             logger.info(f"Checking resolution of {resolution} at port {self.port}")
             self.size = resolution
-            
+
             # if it sticks, then that resolution is verified
             if resolution == self.size:
                 self.verified_resolutions.append(resolution)
-                
+
 
     def rotate_CW(self):
         if self.rotation_count == 3:
@@ -276,7 +276,7 @@ if __name__ == "__main__":
         logger.info(f"Setting camera size to {res}")
         cam.size = res
         logger.info("Resolution successfully updated...")
-            
+
         while True:
             success, frame = cam.capture.read()
             cv2.imshow(f"Resolution: {res}; press 'q' to move to next resolution", frame)
@@ -291,26 +291,26 @@ if __name__ == "__main__":
     #     time.sleep(.01)
 
     exposure_test_started = False
-    
+
     start_time = time.perf_counter()
-    
+
     while True:
         success, frame = cam.capture.read()
         elapsed_seconds = int(time.perf_counter()-start_time)
         logger.debug(f"{elapsed_seconds} seconds have elapsed since loop began")
 
         cv2.imshow("Exposure Test", frame)
-       
-        cam.exposure = -10+elapsed_seconds 
-         
+
+        cam.exposure = -10+elapsed_seconds
+
         if cv2.waitKey(1) == ord("q"):
             cam.disconnect()
             cv2.destroyAllWindows()
-            break     
-        
+            break
+
         if elapsed_seconds > 10:
             cam.disconnect()
             cv2.destroyAllWindows()
-            break 
+            break
 
 # %%

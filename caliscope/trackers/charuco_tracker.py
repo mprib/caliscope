@@ -6,7 +6,6 @@ import caliscope.logger
 import cv2
 import numpy as np
 import caliscope.calibration.draw_charuco
-from caliscope.calibration.charuco import Charuco
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
 
@@ -43,12 +42,12 @@ class CharucoTracker(Tracker):
         if not ids.any():
             gray = cv2.flip(gray, 1)
             ids, img_loc = self.find_corners_single_frame(gray, mirror=True)
-        
-        obj_loc = self.get_obj_loc(ids) 
+
+        obj_loc = self.get_obj_loc(ids)
         point_packet = PointPacket(ids, img_loc, obj_loc)
-        
+
         return point_packet
-    
+
     def get_point_name(self, point_id:int) -> str:
         return str(point_id)
 
@@ -96,9 +95,9 @@ class CharucoTracker(Tracker):
                 frame_width = gray_frame.shape[1]  # used for flipping mirrored corners back
                 if mirror:
                     img_loc[:, 0] = frame_width - img_loc[:, 0]
-                
 
-                
+
+
         return ids, img_loc
 
     def get_obj_loc(self, ids:np.ndarray):

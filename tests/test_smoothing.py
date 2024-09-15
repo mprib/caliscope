@@ -1,24 +1,21 @@
 
 import caliscope.logger
 
-logger = caliscope.logger.get(__name__)
 
 import sys
 from caliscope.configurator import Configurator
 from pathlib import Path
 from caliscope import __root__
 import pandas as pd
-import numpy as np
 from scipy.stats import pearsonr
 
 # specify a source directory (with recordings)
 from caliscope.helper import copy_contents
-import rtoml
 from PySide6.QtWidgets import QApplication
 from caliscope.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
-from caliscope.post_processing.smoothing import _smooth_xy, smooth_xyz
-from caliscope import __root__
+from caliscope.post_processing.smoothing import smooth_xyz
 
+logger = caliscope.logger.get(__name__)
 original_base_data_directory = Path(__root__, "tests", "reference", "base_data")
 base_data_directory = Path(original_base_data_directory.parent.parent, "reference_delete", "base_data")
 copy_contents(original_base_data_directory, base_data_directory)
@@ -56,12 +53,12 @@ def test_smoothing_xyz():
 
 if __name__ == "__main__":
     test_smoothing_xyz()
-    
+
     app = QApplication(sys.argv)
 
     # load in the data for the playback
     camera_array = config.get_camera_array()
-    filtered_data_path =Path(base_data_directory, "HOLISTIC_OPENSIM", "xyz_HOLISTIC_OPENSIM_filtered.csv") 
+    filtered_data_path =Path(base_data_directory, "HOLISTIC_OPENSIM", "xyz_HOLISTIC_OPENSIM_filtered.csv")
     filtered_data = pd.read_csv(filtered_data_path)
 
     # create and show the playback widget

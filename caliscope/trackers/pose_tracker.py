@@ -53,7 +53,7 @@ POINT_NAMES = {
 class PoseTracker(Tracker):
     def __init__(self) -> None:
         # each port gets its own mediapipe context manager
-        # use a dictionary of queues for passing 
+        # use a dictionary of queues for passing
         self.in_queues = {}
         self.out_queues = {}
         self.threads = {}
@@ -130,7 +130,7 @@ class PoseTracker(Tracker):
             rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
         elif self.get_point_name(point_id).startswith("right"):
             rules = {"radius": 5, "color": (220, 0, 0), "thickness": 3}
-        else: 
+        else:
             rules = {"radius": 5, "color": (220, 0, 220), "thickness": 3}
 
         return rules

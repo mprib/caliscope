@@ -15,20 +15,20 @@ def test_wireframe_builder():
     test_path = Path(__root__,"caliscope","trackers","holistic","holistic_wireframe.toml")
     logger.info(f"Testing wireframe build of {test_path}")
     wireframe = get_wireframe(test_path, point_names=POINT_NAMES)
-    
+
     assert(isinstance(wireframe,WireFrameView))
 
     for segment in wireframe.segments:
         assert(isinstance(segment,Segment))
 
     logger.info(wireframe)
- 
+
 def test_holistic_wireframe():
     """
     making sure the integration with the tracker is working...
     at least not throwing an error
     """
-    
+
     tracker = HolisticTracker()
     wireframe = tracker.wireframe
 
@@ -40,6 +40,6 @@ def test_holistic_wireframe():
     logger.info(wireframe)
 
 if __name__ == "__main__":
-    
+
     # test_wireframe_builder()
     test_holistic_wireframe()

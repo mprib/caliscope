@@ -31,7 +31,7 @@ class CaptureVolume:
 
     def __post__init__():
         logger.info("Creating capture volume from estimated camera array and stereotriangulated points...")
-        
+
     def _save(self, directory: Path, descriptor: str = None):
         if descriptor is None:
             pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"
@@ -80,7 +80,7 @@ class CaptureVolume:
                 rmse_string+=f"    {key: >9}: {round(float(value),2)}\n"
 
         return rmse_string
-        
+
     def get_xy_reprojection_error(self):
         vectorized_params = self.get_vectorized_params()
         error = xy_reprojection_error(vectorized_params, self)
@@ -195,7 +195,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     # iterate across cameras...while this injects a loop in the residual function
     # it should scale linearly with the number of cameras...a tradeoff for stable
     # and explicit calculations...
-    
+
     for port, cam in capture_volume.camera_array.cameras.items():
         cam_points = np.where(capture_volume.point_estimates.camera_indices == port)
         object_points = points_3d_and_2d[cam_points][:, 1:4]
@@ -250,8 +250,8 @@ def rms_reproj_error(xy_reproj_error, camera_indices):
 
 #     camera_array = get_camera_array(config)
 #     point_estimates = load_point_estimates(config)
-    
-#     capture_volume = CaptureVolume(camera_array, point_estimates)    
+
+#     capture_volume = CaptureVolume(camera_array, point_estimates)
 #     capture_volume.stage = config["capture_volume"]["stage"]
 #     # capture_volume.origin_sync_index = config["capture_volume"]["origin_sync_index"]
 

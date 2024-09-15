@@ -26,18 +26,18 @@ class IntrinsicCalibrator:
         self.stream.subscribe(self.frame_packet_q)
 
         # The following group of parameters relate to the autopopulation of the calibrator
-        self.grid_history_q = Queue()  # for passing ids, img_loc used in calibration 
+        self.grid_history_q = Queue()  # for passing ids, img_loc used in calibration
         self.auto_store_data = Event()
         self.auto_store_data.clear()
         self.auto_pop_frame_wait = 0  # how many frames will you hold ofF checking if the board can be added to the calibration pile.
         self.target_grid_count = 0
 
         self.harvest_frames()
-         
+
     def harvest_frames(self):
         self.stop_event = Event()
         self.stop_event.clear()
-        
+
         def harvest_worker():
             while True:
                 frame_packet = self.frame_packet_q.get()
@@ -91,12 +91,12 @@ class IntrinsicCalibrator:
             self.all_obj_loc[index] = frame_packet.points.obj_loc
 
             self.active_frame_index = index
-        
+
             # when auto store data is set, the stream should be pushing out all
             # frames consecutively from the beginning
             if self.auto_store_data.is_set():
                 point_id = frame_packet.points.point_id
-                
+
                 if point_id.size == 0:
                     corner_count = 0
                 else:
@@ -105,11 +105,11 @@ class IntrinsicCalibrator:
                 if self.auto_pop_frame_wait == 0 and corner_count >= self.threshold_corner_count:
                     # add frame to calibration data and reset the wait time
                     self.add_calibration_frame_index(index)
-                    self.auto_pop_frame_wait = self.wait_between 
+                    self.auto_pop_frame_wait = self.wait_between
                 else:
                     # count down to the next frame to consider autopopulating
-                    self.auto_pop_frame_wait = max(self.auto_pop_frame_wait-1,0)       
-                
+                    self.auto_pop_frame_wait = max(self.auto_pop_frame_wait-1,0)
+
                 logger.debug(f"Current index is {index}")
                 if index == self.stream.last_frame_index:
                 # end of stream, so stop auto pop and backfill to hit grid target
@@ -128,7 +128,7 @@ class IntrinsicCalibrator:
             if frame_index not in self.calibration_frame_indices:
                 if len(ids) >= 6: # believe this may be a requirement of the calibration algorithm
                     new_potential_frames.append(frame_index)
-            
+
         sample_size = self.target_grid_count-actual_grid_count
         sample_size = min(sample_size, len(new_potential_frames))
         sample_size = max(sample_size,0)
@@ -136,7 +136,7 @@ class IntrinsicCalibrator:
         random_frames = random.sample(new_potential_frames,sample_size)
         for frame in random_frames:
             self.add_calibration_frame_index(frame)
-        
+
     def add_calibration_frame_index(self, frame_index: int):
         """
         A "side effect" of this method is that the corner id and img_loc
@@ -148,18 +148,18 @@ class IntrinsicCalibrator:
         """
         logger.info(f"Adding frame data to calibration inputs for frame index {frame_index}")
         self.calibration_frame_indices.append(frame_index)
-        
+
         # Backchannel communication to frame_emitter to keep things aligned
         ids = self.all_ids[frame_index]
         img_loc = self.all_img_loc[frame_index]
         self.grid_history_q.put((ids,img_loc))
-        
+
 
     def clear_calibration_data(self):
         logger.info("Clearing calibration data..")
         self.calibration_frame_indices = []
         self.set_calibration_inputs()
-        
+
     def initiate_auto_pop(self, wait_between,threshold_corner_count, target_grid_count):
         """
         This will enable actions within self.add_frame_packet
@@ -170,7 +170,7 @@ class IntrinsicCalibrator:
         logger.info(f"Initiating autopopulation of corner data in port {self.camera.port}")
         self.clear_calibration_data()
         self.wait_between = wait_between
-        self.threshold_corner_count = threshold_corner_count        
+        self.threshold_corner_count = threshold_corner_count
         self.target_grid_count = target_grid_count
         self.initialize_point_history()
         self.auto_store_data.set()

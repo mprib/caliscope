@@ -1,11 +1,7 @@
 from PySide6.QtCore import QObject, Signal, QThread
 import numpy as np
-import cv2
-from enum import Enum, auto
 from pathlib import Path
-from PySide6.QtGui import QPixmap
 from time import sleep, time
-from caliscope.packets import Tracker
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.post_processing.post_processor import PostProcessor
 from caliscope.calibration.charuco import Charuco
@@ -56,7 +52,7 @@ class Controller(QObject):
     enable_inputs = Signal(int, bool)  # port, enable
     post_processing_complete = Signal()
     show_synched_frames = Signal()
-    
+
     def __init__(self, workspace_dir: Path):
         super().__init__()
         self.workspace = workspace_dir
@@ -82,7 +78,7 @@ class Controller(QObject):
         self.load_workspace_thread = QThread()
         self.calibrate_camera_threads = {}
         self.autocalibrate_threads = {}
-        
+
     def load_workspace(self):
         def worker():
             logger.info("Assess whether to load cameras")
@@ -136,7 +132,7 @@ class Controller(QObject):
         logger.info(f"Point estimates available: {point_estimates_good}")
         all_data_available = self.workspace_guide.all_extrinsic_mp4s_available()
         logger.info(f"All underlying data available: {all_data_available}")
-        
+
         return cameras_good and point_estimates_good and all_data_available
 
     def recordings_available(self) -> bool:
@@ -262,7 +258,7 @@ class Controller(QObject):
     def calibrate_camera(self, port):
         def worker():
             if self.intrinsic_stream_manager.calibrators[port].grid_count > 0:
-                self.enable_inputs.emit(port, False) 
+                self.enable_inputs.emit(port, False)
                 self.camera_array.cameras[port].erase_calibration_data()
                 logger.info(f"Calibrating camera at port {port}")
                 self.intrinsic_stream_manager.calibrate_camera(port)
@@ -270,7 +266,7 @@ class Controller(QObject):
                 camera_data = self.camera_array.cameras[port]
                 self.config.save_camera(camera_data)
                 self.push_camera_data(port)
-                self.enable_inputs.emit(port, True) 
+                self.enable_inputs.emit(port, True)
             else:
                 logger.warn("Not enough grids available to calibrate")
 
@@ -347,10 +343,10 @@ class Controller(QObject):
 
             self.load_extrinsic_stream_manager()
 
-            # config settings that help to throttle processing rate to manage resource demands            
+            # config settings that help to throttle processing rate to manage resource demands
             include_video = self.config.get_save_tracked_points()
             fps_target = self.config.get_fps_sync_stream_processing()
-            
+
             self.extrinsic_stream_manager.process_streams(fps_target=fps_target, include_video=include_video)
             logger.info(
                 f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
@@ -358,7 +354,7 @@ class Controller(QObject):
 
             logger.info("About to signal that synched frames should be shown")
             self.show_synched_frames.emit()
-            
+
             while not output_path.exists():
                 sleep(0.5)
                 # moderate the frequency with which logging statements get made
@@ -425,7 +421,7 @@ class Controller(QObject):
                 self.camera_array, recording_path, tracker_enum
             )
 
-            # config settings that help to throttle processing rate to manage resource demands            
+            # config settings that help to throttle processing rate to manage resource demands
             include_video = self.config.get_save_tracked_points()
             fps_target = self.config.get_fps_sync_stream_processing()
 
@@ -483,7 +479,7 @@ class Controller(QObject):
 
     def autocalibrate(self, port, grid_count, board_threshold):
         def worker():
-            self.enable_inputs.emit(port, False) 
+            self.enable_inputs.emit(port, False)
             self.camera_array.cameras[port].erase_calibration_data()
             self.config.save_camera(self.camera_array.cameras[port])
             self.push_camera_data(port)
@@ -495,13 +491,12 @@ class Controller(QObject):
             while self.camera_array.cameras[port].matrix is None:
                 logger.info(f"Waiting for calibration to complete at port {port}")
                 sleep(2)
-            
+
             self.config.save_camera(self.camera_array.cameras[port])
             self.push_camera_data(port)
             self.intrinsic_stream_manager.stream_jump_to(port, 0)
-            self.enable_inputs.emit(port, True) 
+            self.enable_inputs.emit(port, True)
 
         self.autocalibrate_threads[port] = QThread()
         self.autocalibrate_threads[port].run = worker
         self.autocalibrate_threads[port].start()
-            

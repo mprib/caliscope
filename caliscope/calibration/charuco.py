@@ -82,7 +82,7 @@ class Charuco:
         else:
             board_height_m = self.board_height_cm / 100
             board_width_m = self.board_width_cm / 100
-            
+
             square_length = min(
                 [board_height_m / self.rows, board_width_m / self.columns]
             )
@@ -191,7 +191,7 @@ class Charuco:
             + f"Board Size: {self.board_width} x {self.board_height} {self.units}\n"
         )
         text = text + f"Inverted:  {self.inverted}\n"
-        text = text + f"\n"
+        text = text + "\n"
         text = text + f"Square Edge Length: {self.square_size_overide_cm} cm"
         return text
 
@@ -228,7 +228,7 @@ if __name__ == "__main__":
     charuco.save_image("test_charuco.png")
     width, height = charuco.board_img.shape
     logger.info(f"Board width is {width}\nBoard height is {height}")
-    
+
     corners = charuco.board.getChessboardCorners()
     logger.info(corners)
 

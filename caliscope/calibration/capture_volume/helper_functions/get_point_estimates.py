@@ -84,11 +84,11 @@ def get_point_estimates(camera_array:CameraArray, point_data_path: Path) -> Poin
     data structured in a way that is amenable to bundle adjustment
     """
 
-    
+
     logger.info("Creating point history object based on camera_array and stereotriangulated_table")
     stereotriangulated_points = get_stereotriangulated_table(camera_array, point_data_path)
-    
-    
+
+
     points_3d_df = get_points_3d_df(stereotriangulated_points)
     merged_point_data = get_merged_2d_3d(stereotriangulated_points)
 

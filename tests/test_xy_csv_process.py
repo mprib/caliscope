@@ -1,7 +1,6 @@
 
 import caliscope.logger
 
-import sys
 from caliscope.configurator import Configurator
 from pathlib import Path
 from caliscope import __root__

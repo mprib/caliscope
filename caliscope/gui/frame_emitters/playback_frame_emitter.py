@@ -6,7 +6,7 @@ from queue import Queue
 
 import cv2
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtGui import QPixmap
 import caliscope.calibration.draw_charuco as draw_charuco
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.gui.frame_emitters.tools import resize_to_square, apply_rotation, cv2_to_qlabel
@@ -20,13 +20,13 @@ class PlaybackFrameEmitter(QThread):
     GridCountBroadcast = Signal(int)
     FrameIndexBroadcast = Signal(int, int)
 
-    def __init__(self, recorded_stream: RecordedStream,grid_history_q:Queue,  pixmap_edge_length=500): 
+    def __init__(self, recorded_stream: RecordedStream,grid_history_q:Queue,  pixmap_edge_length=500):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(PlaybackFrameEmitter, self).__init__()
         self.stream = recorded_stream
         self.port = self.stream.port
-        
+
         # Apply a safety margin to the scaling factors (e.g., 5%)
         # used only when applying the undistortion
         self.scaling_factor = 1
@@ -63,7 +63,7 @@ class PlaybackFrameEmitter(QThread):
             # self.monocalibrator.grid_frame_ready_q.get()
             logger.debug("Getting frame packet from queue")
             frame_packet = self.frame_packet_q.get()
-            
+
             while self.grid_history_q.qsize() > 0:
                 ids,img_loc = self.grid_history_q.get()
                 self.add_to_grid_history(ids, img_loc)
@@ -96,7 +96,7 @@ class PlaybackFrameEmitter(QThread):
                     )
                 self.ImageBroadcast.emit(self.port, pixmap)
                 self.FrameIndexBroadcast.emit(self.port, frame_packet.frame_index)
-            
+
 
 
         logger.info(
@@ -109,7 +109,7 @@ class PlaybackFrameEmitter(QThread):
         self.keep_collecting.clear()
         self.frame_packet_q.put(-1)
         self.quit()
-        
+
     def set_scale_factor(self, scaling_factor):
         self.scaling_factor = scaling_factor
 
@@ -123,7 +123,7 @@ class PlaybackFrameEmitter(QThread):
             logger.info(
                 f"Updating camera matrix and distortion parameters for frame emitter at port {self.port}"
             )
-            
+
             self.undistort = undistort
             self.matrix = matrix
             self.distortions = distortions

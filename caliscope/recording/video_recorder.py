@@ -1,13 +1,14 @@
 # from PySide6.QtCore import QObject, Signal
 from pathlib import Path
 from queue import Queue
-from threading import Thread, Event
+from threading import Event, Thread
+
 import cv2
 import pandas as pd
 
+import caliscope.logger
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.packets import SyncPacket
-import caliscope.logger
 
 logger = caliscope.logger.get(__name__)
 
@@ -47,15 +48,11 @@ class VideoRecorder:
             logger.info(f"Building video writer for port {port}; recording to {path}")
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")
             frame_size = stream.size
-            logger.info(
-                f"Creating video writer with fps of {stream.original_fps} and frame size of {frame_size}"
-            )
+            logger.info(f"Creating video writer with fps of {stream.original_fps} and frame size of {frame_size}")
             writer = cv2.VideoWriter(path, fourcc, stream.original_fps, frame_size)
             self.video_writers[port] = writer
 
-    def save_data_worker(
-        self, include_video: bool, show_points: bool, store_point_history: bool
-    ):
+    def save_data_worker(self, include_video: bool, show_points: bool, store_point_history: bool):
         # connect video recorder to synchronizer via an "in" queue
         if include_video:
             self.build_video_writers()
@@ -92,9 +89,7 @@ class VideoRecorder:
             logger.debug("Getting size of sync packet q")
             backlog = self.sync_packet_in_q.qsize()
             if backlog % 25 == 0 and backlog != 0:
-                logger.info(
-                    f"Size of unsaved frames on the recording queue is {self.sync_packet_in_q.qsize()}"
-                )
+                logger.info(f"Size of unsaved frames on the recording queue is {self.sync_packet_in_q.qsize()}")
 
             if sync_packet is None:
                 # relenvant when
@@ -118,9 +113,7 @@ class VideoRecorder:
                     if include_video:
                         # store the frame
                         if self.sync_index % 50 == 0:
-                            logger.debug(
-                                f"Writing frame for port {port} and sync index {self.sync_index}"
-                            )
+                            logger.debug(f"Writing frame for port {port} and sync index {self.sync_index}")
                             logger.debug(f"frame size  {frame.shape}")
 
                         self.video_writers[port].write(frame)
@@ -199,19 +192,6 @@ class VideoRecorder:
         self.destination_folder = destination_folder
         # create the folder if it doesn't already exist
         self.destination_folder.mkdir(exist_ok=True, parents=True)
-
-        # # Because calibration files are nested in a calibration directory, need to go
-        # # to parent.parent to get the config.toml file
-        # if self.destination_folder.parent.stem == "calibration":
-        #     source_config_path = Path(self.destination_folder.parent.parent, "config.toml")
-        # else:   # just a regular recording
-        #     source_config_path = Path(self.destination_folder.parent, "config.toml")
-
-        # No longer storing config file with recordings....can't know when they were done relative to calibration so will only complicate things..
-        # source_config_path = find_config_file(self.destination_folder)
-        # duplicate_config_path = Path(self.destination_folder,"config.toml")
-        # shutil.copy2(source_config_path,duplicate_config_path)
-
         self.recording = True
         self.recording_thread = Thread(
             target=self.save_data_worker,

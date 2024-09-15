@@ -1,31 +1,31 @@
 # %%
-import caliscope.logger
 
-logger = caliscope.logger.get(__name__)
-
-from pathlib import Path
-import numpy as np
+import pickle
 import sys
+from pathlib import Path
+
+import cv2
+import numpy as np
 import scipy
 from PySide6.QtWidgets import QApplication
+
+import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
-from caliscope.cameras.camera_array import CameraData, CameraArray
-import cv2
-import pickle
+from caliscope.cameras.camera_array import CameraArray, CameraData
+
+logger = caliscope.logger.get(__name__)
 
 
 # Proceeding with basic idea that these functions will go into CaptureVolume.
 # so use capture_volume here which may just become self later on.
 
 
-def get_world_corners_xyz(
-    point_estimates: PointEstimates, sync_index: int
-) -> np.ndarray:
+def get_world_corners_xyz(point_estimates: PointEstimates, sync_index: int) -> np.ndarray:
     """
     returns the estimated x,y,z position of the board corners at the given sync index
     note that the array is ordered according to the charuco id
@@ -44,16 +44,12 @@ def get_world_corners_xyz(
 
     sorter = np.argsort(charuco_ids)
     # need to get charuco ids associated with the 3 point positions
-    unique_charuco_xyz_index = sorter[
-        np.searchsorted(charuco_ids, unique_charuco_id, sorter=sorter)
-    ]
+    unique_charuco_xyz_index = sorter[np.searchsorted(charuco_ids, unique_charuco_id, sorter=sorter)]
     world_corners_xyz = obj_xyz[unique_charuco_xyz_index]
     return world_corners_xyz
 
 
-def get_board_corners_xyz(
-    point_estimates: PointEstimates, sync_index: int, charuco: Charuco
-) -> np.ndarray:
+def get_board_corners_xyz(point_estimates: PointEstimates, sync_index: int, charuco: Charuco) -> np.ndarray:
     """
     Returns corner positions in board world (x,y,0) for the corners with estimated point
     coordinates at the give sync_index
@@ -68,9 +64,7 @@ def get_board_corners_xyz(
     return board_corners_xyz
 
 
-def get_anchor_cameras(
-    camera_array: CameraArray, point_estimates: PointEstimates, sync_index: int
-) -> list:
+def get_anchor_cameras(camera_array: CameraArray, point_estimates: PointEstimates, sync_index: int) -> list:
     """
     Returns the camera data objects that have an actual view of the board
     at the sync index and therefore can be used to estimate the pose from pnp
@@ -110,9 +104,7 @@ def get_rvec_tvec_from_board_pose(
             rvec=camera.rotation,
             tvec=camera.translation,
             cameraMatrix=camera.matrix,
-            distCoeffs=np.array(
-                [0, 0, 0, 0, 0], dtype=np.float32
-            ),  # because points are via bundle adj., no distortion
+            distCoeffs=np.array([0, 0, 0, 0, 0], dtype=np.float32),  # because points are via bundle adj., no distortion
         )
 
         # use solvepnp to estimate the pose of the camera relative to the board
@@ -129,9 +121,7 @@ def get_rvec_tvec_from_board_pose(
         # back into the shift in the world change of origin implied by the
         # pose of the camera relative to the board given its previous
         # pose in the old frame of reference
-        origin_shift_transform = np.matmul(
-            np.linalg.inv(camera.transformation), anchor_board_transform
-        )
+        origin_shift_transform = np.matmul(np.linalg.inv(camera.transformation), anchor_board_transform)
 
         rvec, tvec = transform_to_rvec_tvec(origin_shift_transform)
 
@@ -182,17 +172,13 @@ def rvec_tvec_to_transform(rvec: np.ndarray, tvec: np.ndarray) -> np.ndarray:
     return transform
 
 
-def world_board_distance(
-    tvec_xyz: np.ndarray, good_rvec: np.ndarray, raw_world_xyz, board_corners_xyz
-):
+def world_board_distance(tvec_xyz: np.ndarray, good_rvec: np.ndarray, raw_world_xyz, board_corners_xyz):
     scale = np.expand_dims(np.ones(raw_world_xyz.shape[0]), 1)
     raw_world_xyzh = np.hstack([raw_world_xyz, scale])
 
     origin_shift_transform = rvec_tvec_to_transform(good_rvec, tvec_xyz)
 
-    new_origin_xyzh = np.matmul(
-        np.linalg.inv(origin_shift_transform), raw_world_xyzh.T
-    ).T
+    new_origin_xyzh = np.matmul(np.linalg.inv(origin_shift_transform), raw_world_xyzh.T).T
     new_origin_xyz = new_origin_xyzh[:, 0:3]
 
     delta_xyz = new_origin_xyz - board_corners_xyz
@@ -236,15 +222,15 @@ def get_board_origin_transform(
 
 if __name__ == "__main__":
     #
-    from caliscope.session.session import LiveSession
-    from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
     from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+    from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
     from caliscope.gui.vizualize.calibration.capture_volume_visualizer import (
         CaptureVolumeVisualizer,
     )
     from caliscope.gui.vizualize.calibration.capture_volume_widget import (
         CaptureVolumeWidget,
     )
+    from caliscope.session.session import LiveSession
 
     # test_scenario = "4_cameras_nonoverlap"
     # test_scenario = "3_cameras_middle"
@@ -281,7 +267,7 @@ if __name__ == "__main__":
         camera_array = array_initializer.get_best_camera_array()
         point_estimates = get_point_estimates(camera_array, point_data_csv_path)
 
-        print(f"Optimizing initial camera array configuration ")
+        print("Optimizing initial camera array configuration ")
 
         capture_volume = CaptureVolume(camera_array, point_estimates)
         capture_volume._save(session_directory, "initial")

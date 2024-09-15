@@ -1,20 +1,22 @@
 # %%
 
 
+from dataclasses import dataclass
+from itertools import permutations
 from pathlib import Path
-from caliscope.cameras.camera_array import CameraData, CameraArray
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+
+import numpy as np
+import rtoml
+
+import caliscope.logger
+from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.cameras.camera_array import CameraArray, CameraData
 
-from itertools import permutations
-from caliscope import __root__
-import numpy as np
-from dataclasses import dataclass, asdict
-import rtoml
-import caliscope.logger
 logger = caliscope.logger.get(__name__)
 
 
@@ -42,7 +44,6 @@ class StereoPair:
 
     @property
     def transformation(self):
-
         R_stack = np.vstack([self.rotation, np.array([0, 0, 0])])
         t_stack = np.vstack([self.translation, np.array([1])])
         Tranformation = np.hstack([R_stack, t_stack])
@@ -67,9 +68,8 @@ def get_inverted_stereopair(stereo_pair: StereoPair) -> StereoPair:
     )
     return inverted_stereopair
 
-def get_bridged_stereopair(
-    pair_A_B: StereoPair, pair_B_C: StereoPair
-) -> StereoPair:
+
+def get_bridged_stereopair(pair_A_B: StereoPair, pair_B_C: StereoPair) -> StereoPair:
     port_A = pair_A_B.primary_port
     port_C = pair_B_C.secondary_port
 
@@ -79,9 +79,7 @@ def get_bridged_stereopair(
 
     # new transformations are added on the left
     # https://youtube.com/watch?v=q0mRtuiKSKg&feature=shares&t=66
-    bridged_transformation = np.matmul(
-        pair_B_C.transformation, pair_A_B.transformation
-    )
+    bridged_transformation = np.matmul(pair_B_C.transformation, pair_A_B.transformation)
     bridged_rotation = bridged_transformation[0:3, 0:3]
     bridged_translation = bridged_transformation[None, 0:3, 3].T
 
@@ -92,13 +90,12 @@ def get_bridged_stereopair(
         translation=bridged_translation,
         rotation=bridged_rotation,
     )
-        
+
     return stereo_A_C
 
 
 class CameraArrayInitializer:
     def __init__(self, config_path: Path):
-
         logger.info("Creating initial estimate of camera array based on stereopairs...")
 
         self.config = rtoml.load(config_path)
@@ -112,28 +109,26 @@ class CameraArrayInitializer:
         Loop across missing pairs and create bridged stereopairs when possible.
         It may be that one iteration is not sufficient to fill all missing pairs,
         so iterate until no more missing pairs...
-        
+
         The code below uses a naming convention to describe the relationship between
         two stereo pairs (A,X) and (X,C) that can be used to build a bridge stereopair (A,C)
         """
 
         # fill with dummy value to get the loop running
         missing_count_last_cycle = -1
-        
+
         while len(self._get_missing_stereopairs()) != missing_count_last_cycle:
-            
             # prep the variable. if it doesn't go down, terminate
             missing_count_last_cycle = len(self._get_missing_stereopairs())
 
             for pair in self._get_missing_stereopairs():
-             
                 port_A = pair[0]
                 port_C = pair[1]
-    
+
                 # get lists of all the estimiated stereopairs that might bridge across test_missing
-                all_pairs_A_X = [pair for pair in self.estimated_stereopairs.keys() if pair[0]==port_A]
-                all_pairs_X_C = [pair for pair in self.estimated_stereopairs.keys() if pair[1]==port_C]
-   
+                all_pairs_A_X = [pair for pair in self.estimated_stereopairs.keys() if pair[0] == port_A]
+                all_pairs_X_C = [pair for pair in self.estimated_stereopairs.keys() if pair[1] == port_C]
+
                 stereopair_A_C = None
 
                 for pair_A_X in all_pairs_A_X:
@@ -159,12 +154,11 @@ class CameraArrayInitializer:
             raise ValueError("Insufficient stereopairs to allow array to be estimated")
 
     def _get_missing_stereopairs(self):
-
-        possible_stereopairs = [pair for pair in permutations(self.ports,2)]
+        possible_stereopairs = [pair for pair in permutations(self.ports, 2)]
         missing_stereopairs = [pair for pair in possible_stereopairs if pair not in self.estimated_stereopairs.keys()]
 
         return missing_stereopairs
-        
+
     def _get_ports(self) -> list:
         ports = []
         for key, params in self.config.items():
@@ -179,7 +173,6 @@ class CameraArrayInitializer:
         return ports
 
     def _get_captured_stereopairs(self) -> dict:
-
         stereopairs = {}
 
         # Create StereoPair objects for each saved stereocalibration output in config
@@ -230,9 +223,9 @@ class CameraArrayInitializer:
         total_error_score = 0
 
         for key, data in self.config.items():
-            # NOTE: commenting out second conditional check below. If you come back to this in a month and 
+            # NOTE: commenting out second conditional check below. If you come back to this in a month and
             # things haven't been breaking, then just delete all these comments.
-            if key.startswith("cam_"): # and not self.config[key]["ignore"]:
+            if key.startswith("cam_"):  # and not self.config[key]["ignore"]:
                 port = data["port"]
                 size = data["size"]
                 rotation_count = data["rotation_count"]
@@ -247,9 +240,7 @@ class CameraArrayInitializer:
                 # update with extrinsics, though place anchor camera at origin
                 if port == anchor_port:
                     translation = np.array([0, 0, 0], dtype=np.float64).T
-                    rotation = np.array(
-                        [[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64
-                    )
+                    rotation = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
                 else:
                     anchored_stereopair = self.estimated_stereopairs[(anchor_port, port)]
                     translation = anchored_stereopair.translation[:, 0]
@@ -299,24 +290,22 @@ class CameraArrayInitializer:
 
         return best_initial_array
 
-    def add_stereopair(self, stereopair:StereoPair):
+    def add_stereopair(self, stereopair: StereoPair):
         self.estimated_stereopairs[stereopair.pair] = stereopair
         inverted_stereopair = get_inverted_stereopair(stereopair)
         self.estimated_stereopairs[inverted_stereopair.pair] = inverted_stereopair
-        
+
 
 # def get_anchored_pairs(anchor: int, all_stereopairs:dict)->dict:
 
 
 if __name__ == "__main__":
-
     session_directory = Path(__root__, "tests", "sessions", "217")
 
     config_path = Path(session_directory, "config.toml")
 
     initializer = CameraArrayInitializer(config_path)
-        
-    
+
     camera_array = initializer.get_best_camera_array()
 
     extrinsic_calibration_xy = Path(session_directory, "point_data.csv")
@@ -332,7 +321,6 @@ if __name__ == "__main__":
     logger.info(bridged_pair)
 
     # capture_volume.optimize()
-
 
 
 # %%

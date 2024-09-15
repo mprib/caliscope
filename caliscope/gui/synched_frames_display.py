@@ -1,21 +1,17 @@
-import caliscope.logger
-from time import sleep
 import math
+from time import sleep
 
-from PySide6.QtCore import Slot, Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
     QGridLayout,
-    QMainWindow,
-    QWidget,
-    QScrollArea,
-    QLineEdit,
     QHBoxLayout,
     QLabel,
+    QScrollArea,
     QVBoxLayout,
+    QWidget,
 )
 
-from caliscope.cameras.synchronizer import Synchronizer
+import caliscope.logger
 from caliscope.gui.frame_emitters.frame_dictionary_emitter import FrameDictionaryEmitter
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 
@@ -24,10 +20,10 @@ logger = caliscope.logger.get(__name__)
 
 class SynchedFramesDisplay(QWidget):
     """
-    This widget is not intended to have any interactive functionality at all and to only 
+    This widget is not intended to have any interactive functionality at all and to only
     provide a window to the user of the current landmark tracking
-    
-    This is why the primary input is the sync stream manager directly and not the controller 
+
+    This is why the primary input is the sync stream manager directly and not the controller
     Apologies to Future Mac who is reading this and regretting my decisions.
     """
 
@@ -35,10 +31,9 @@ class SynchedFramesDisplay(QWidget):
         super(SynchedFramesDisplay, self).__init__()
 
         self.setWindowTitle("Tracking Landmarks....")
-        self.sync_stream_manager = sync_stream_manager 
+        self.sync_stream_manager = sync_stream_manager
         self.synchronizer = self.sync_stream_manager.synchronizer
         self.ports = self.synchronizer.ports
-
 
         while not hasattr(sync_stream_manager.synchronizer, "current_sync_packet"):
             logger.info("Waiting for synchronizer to have sync packet")
@@ -88,7 +83,7 @@ class SynchedFramesDisplay(QWidget):
         scroll_viewport = QWidget()
         scroll_viewport.setLayout(padded_grid_layout)
 
-        #Scroll Area Properties
+        # Scroll Area Properties
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scroll_area.setWidgetResizable(True)
@@ -96,7 +91,7 @@ class SynchedFramesDisplay(QWidget):
         # self.setCentralWidget(self.scroll_area)
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.scroll_area)
-    
+
     def connect_widgets(self):
         self.frame_dictionary_emitter.FramesBroadcast.connect(self.ImageUpdateSlot)
         # self.frame_dictionary_emitter.dropped_fps.connect(self.update_dropped_fps)
@@ -118,5 +113,3 @@ class SynchedFramesDisplay(QWidget):
             logger.debug("About to set qpixmap to display")
             self.recording_displays[str(port)].setPixmap(qpixmap)
             logger.debug("successfully set display")
-
-    

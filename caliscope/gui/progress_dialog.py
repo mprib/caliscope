@@ -1,12 +1,12 @@
-from PySide6.QtWidgets import QLabel, QDialog, QProgressBar, QVBoxLayout
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QDialog, QLabel, QProgressBar, QVBoxLayout
 
 
 class ProgressDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle('Landmark Tracking and Triangulation')
+        self.setWindowTitle("Landmark Tracking and Triangulation")
 
         self.display_text = QLabel()
         self.progress_bar = QProgressBar(self)
@@ -19,11 +19,9 @@ class ProgressDialog(QDialog):
         layout.addWidget(self.display_text)
         layout.addWidget(self.progress_bar)
 
-    def update(self, data:dict):
+    def update(self, data: dict):
         if "close" in data.keys():
             self.hide()
         else:
             self.display_text.setText(data["stage"])
             self.progress_bar.setValue(data["percent"])
-
-

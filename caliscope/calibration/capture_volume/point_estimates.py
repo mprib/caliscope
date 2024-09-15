@@ -1,21 +1,13 @@
-# import saved point data and initial array configuration data
-# currently this is for the convenience of not having to rerun everything
-# though this workflow may be useful into the future. Save out milestone calculations
-# along the way that allow for blocks of dataprocessing
-#%%
-import caliscope.logger
-logger = caliscope.logger.get(__name__)
+from dataclasses import dataclass
 
-from pathlib import Path
-
+import numpy as np
 from scipy.sparse import lil_matrix
 
-import pandas as pd
-import numpy as np
-from dataclasses import dataclass
-from caliscope.calibration.capture_volume.helper_functions.get_stereotriangulated_table import get_stereotriangulated_table
+import caliscope.logger
 
-CAMERA_PARAM_COUNT = 6  # this will evolve when moving from extrinsic to intrinsic
+logger = caliscope.logger.get(__name__)
+
+CAMERA_PARAM_COUNT = 6
 
 
 @dataclass
@@ -24,16 +16,15 @@ class PointEstimates:
     Initialized from triangulated_points.csv to provide the formatting of data required for bundle adjustment
     "full" is used here because there is currently a method to filter the data based on reprojection error
     Not sure if it will be used going forward, but it remains here if so.
-    """ 
+    """
 
     sync_indices: np.ndarray  # the sync_index from when the image was taken
     camera_indices: np.ndarray  # camera id associated with the img point
-    point_id: np.ndarray # point id (i.e. charuco corner currently)
+    point_id: np.ndarray  # point id (i.e. charuco corner currently)
     img: np.ndarray  # x,y coords of point
-    obj_indices: np.ndarray # mapping of x,y img points to their respective list of estimated x,y,z obj points
+    obj_indices: np.ndarray  # mapping of x,y img points to their respective list of estimated x,y,z obj points
     obj: np.ndarray  # x,y,z estimates of object points
     # obj_corner_id: np.ndarray # the charuco corner ID of the xyz object point; is this necessary?
-
 
     def __post_init__(self):
         self.sync_indices = self.sync_indices.astype(np.int32)
@@ -41,7 +32,7 @@ class PointEstimates:
         self.point_id = self.point_id.astype(np.uint16)
         self.img = self.img.astype(np.float64)
         self.obj_indices = self.obj_indices.astype(np.int32)
-        self.obj = self.obj.astype(np.float64)    
+        self.obj = self.obj.astype(np.float64)
 
     @property
     def n_cameras(self):
@@ -56,8 +47,11 @@ class PointEstimates:
         return self.img.shape[0]
 
     def get_sparsity_pattern(self):
-        """provide the sparsity structure for the Jacobian (elements that are not zero)
-        n_points: number of unique 3d points; these will each have at least one but potentially more associated 2d points
+        """
+        provide the sparsity structure for the Jacobian (elements that are not zero)
+        n_points: number of unique 3d points
+            these will each have at least one but potentially more associated 2d points
+
         point_indices: a vector that maps the 2d points to their associated 3d point
         """
 
@@ -84,16 +78,14 @@ class PointEstimates:
         Provided with the least_squares estimate of the best fit of model parameters (including camera 6DoF)
         parse out the x,y,z object positions and update self.obj
         """
-        
+
         xyz = least_sq_result_x[self.n_cameras * CAMERA_PARAM_COUNT :]
         xyz = xyz.reshape(-1, 3)
 
         self.obj = xyz
-        
-        
-        
- 
-def load_point_estimates(config:dict)->PointEstimates:
+
+
+def load_point_estimates(config: dict) -> PointEstimates:
     point_estimates_dict = config["point_estimates"]
 
     for key, value in point_estimates_dict.items():
@@ -101,4 +93,3 @@ def load_point_estimates(config:dict)->PointEstimates:
 
     point_estimates = PointEstimates(**point_estimates_dict)
     return point_estimates
-

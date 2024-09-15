@@ -1,11 +1,7 @@
-import caliscope.logger
-
-import numpy as np
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QGroupBox,
     QGridLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -14,6 +10,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import caliscope.logger
 from caliscope.controller import Controller
 from caliscope.gui.vizualize.calibration.capture_volume_visualizer import (
     CaptureVolumeVisualizer,
@@ -47,10 +44,7 @@ class CaptureVolumeWidget(QWidget):
         self.rotate_z_plus_btn = QPushButton("Z+")
         self.rotate_z_minus_btn = QPushButton("Z-")
 
-        # self.distance_error_summary = QLabel(self.session.quality_controller.distance_error_summary.to_string(index=False))
         self.rmse_summary = QLabel(self.controller.capture_volume.get_rmse_summary())
-
-        # self.recalibrate_btn = QPushButton("Recalibrate")
 
         self.place_widgets()
         self.connect_widgets()
@@ -91,17 +85,11 @@ class CaptureVolumeWidget(QWidget):
         self.slider.valueChanged.connect(self.visualizer.display_points)
         self.set_origin_btn.clicked.connect(self.set_origin_to_board)
         self.rotate_x_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("x+"))
-        self.rotate_x_minus_btn.clicked.connect(
-            lambda: self.rotate_capture_volume("x-")
-        )
+        self.rotate_x_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("x-"))
         self.rotate_y_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("y+"))
-        self.rotate_y_minus_btn.clicked.connect(
-            lambda: self.rotate_capture_volume("y-")
-        )
+        self.rotate_y_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("y-"))
         self.rotate_z_plus_btn.clicked.connect(lambda: self.rotate_capture_volume("z+"))
-        self.rotate_z_minus_btn.clicked.connect(
-            lambda: self.rotate_capture_volume("z-")
-        )
+        self.rotate_z_minus_btn.clicked.connect(lambda: self.rotate_capture_volume("z-"))
 
     def set_origin_to_board(self):
         logger.info("Setting origin to board...")

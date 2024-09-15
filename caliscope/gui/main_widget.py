@@ -1,34 +1,35 @@
-import caliscope.logger
-from pathlib import Path
-from enum import Enum
 import os
-import sys
 import subprocess
+import sys
+from enum import Enum
+from pathlib import Path
+
+import rtoml
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication,
+    QDockWidget,
     QFileDialog,
     QMainWindow,
-    QWidget,
-    QTabWidget,
-    QDockWidget,
     QMenu,
+    QTabWidget,
+    QWidget,
 )
-import rtoml
-from PySide6.QtGui import QIcon, QAction
-from PySide6.QtCore import Qt
-from caliscope import __root__, __settings_path__
-from caliscope.gui.log_widget import LogWidget
-from caliscope.gui.charuco_widget import CharucoWidget
-from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
-from caliscope.gui.workspace_widget import WorkspaceSummaryWidget
+
+import caliscope.logger
+from caliscope import __log_dir__, __root__, __settings_path__
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.controller import Controller
 from caliscope.gui.camera_management.multiplayback_widget import (
     MultiIntrinsicPlaybackWidget,
 )
+from caliscope.gui.charuco_widget import CharucoWidget
+from caliscope.gui.log_widget import LogWidget
 from caliscope.gui.post_processing_widget import PostProcessingWidget
-from caliscope.controller import Controller
-from caliscope import __log_dir__
 from caliscope.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
-from caliscope.cameras.camera_array import CameraArray
+from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
+from caliscope.gui.workspace_widget import WorkspaceSummaryWidget
 
 logger = caliscope.logger.get(__name__)
 
@@ -51,12 +52,10 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(500, 500)
         self.central_tab = QWidget(self)
         self.setCentralWidget(self.central_tab)
-        
-        
+
         self.build_menus()
         self.connect_menu_actions()
         self.build_docked_logger()
-
 
     def connect_menu_actions(self):
         self.open_project_action.triggered.connect(self.create_new_project_folder)
@@ -97,10 +96,7 @@ class MainWindow(QMainWindow):
         self.workspace_summary.reload_workspace_btn.clicked.connect(self.reload_workspace)
         self.central_tab.addTab(self.workspace_summary, "Workspace")
 
-        if (
-            self.controller.all_extrinsic_mp4s_available()
-            and self.controller.camera_array.all_intrinsics_calibrated()
-        ):
+        if self.controller.all_extrinsic_mp4s_available() and self.controller.camera_array.all_intrinsics_calibrated():
             self.workspace_summary.calibrate_btn.setEnabled(True)
         else:
             self.workspace_summary.calibrate_btn.setEnabled(False)
@@ -119,9 +115,7 @@ class MainWindow(QMainWindow):
 
         logger.info("finished loading camera tab")
         self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras")
-        self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Cameras"), self.controller.cameras_loaded
-        )
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"), self.controller.cameras_loaded)
         logger.info("Camera tab enabled")
 
         logger.info("About to load capture volume tab")
@@ -147,9 +141,7 @@ class MainWindow(QMainWindow):
             self.post_processing_widget = QWidget()
             post_processing_enabled = False
         self.central_tab.addTab(self.post_processing_widget, "Post Processing")
-        self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Post Processing"), post_processing_enabled
-        )
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Post Processing"), post_processing_enabled)
 
     def build_docked_logger(self):
         # create log window which is fixed below main window
@@ -170,7 +162,6 @@ class MainWindow(QMainWindow):
 
         self.open_project_action.setEnabled(False)
         self.open_recent_project_submenu.setEnabled(False)
-
 
     def find_tab_index_by_title(self, title):
         # Iterate through tabs to find the index of the tab with the given title
@@ -197,7 +188,6 @@ class MainWindow(QMainWindow):
         self.controller = Controller(workspace_dir=workspace)
         self.controller.load_workspace()
         self.controller.load_workspace_thread.finished.connect(self.build_central_tabs)
-        
 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)
@@ -212,14 +202,14 @@ class MainWindow(QMainWindow):
 
     def open_log_dir(self):
         logger.info(f"Opening logging directory within File Explorer...  located at {__log_dir__}")
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             os.startfile(__log_dir__)
-        elif sys.platform == 'darwin':
+        elif sys.platform == "darwin":
             subprocess.run(["open", __log_dir__])
         else:  # Linux and Unix-like systems
             subprocess.run(["xdg-open", __log_dir__])
         pass
-        
+
     def create_new_project_folder(self):
         default_folder = Path(self.app_settings["last_project_parent"])
         dialog = QFileDialog()
@@ -254,7 +244,7 @@ def launch_main():
     import qdarktheme
 
     app = QApplication(sys.argv)
-    dummy_widget = CaptureVolumeVisualizer(camera_array=CameraArray({})) #  try to force "blinking to initial main"
+    dummy_widget = CaptureVolumeVisualizer(camera_array=CameraArray({}))  #  try to force "blinking to initial main"
     del dummy_widget
     qdarktheme.setup_theme("auto")
     window = MainWindow()

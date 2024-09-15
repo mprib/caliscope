@@ -1,4 +1,4 @@
-#%%
+# %%
 
 # NOTE: Conversions are being made here between inches and cm because
 # this seems like a reasonable scale for discussing the board, but when
@@ -6,16 +6,20 @@
 # in meters as a standard convention of science, and to improve
 # readability of 3D positional output downstream
 
-import caliscope.logger
-
 from collections import defaultdict
 from itertools import combinations
+
 import cv2
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
+
+import caliscope.logger
+
 logger = caliscope.logger.get(__name__)
 
 INCHES_PER_CM = 0.393701
+
+
 class Charuco:
     """
     create a charuco board that can be printed out and used for camera
@@ -34,7 +38,6 @@ class Charuco:
         square_size_overide_cm=None,
         inverted=False,
     ):  # after printing, measure actual and return to overide
-
         """
         Create board based on shape and dimensions
         square_size_overide_cm: correct for the actual printed size of the board
@@ -78,14 +81,12 @@ class Charuco:
     @property
     def board(self):
         if self.square_size_overide_cm:
-            square_length = self.square_size_overide_cm/100 # note: in cm within GUI
+            square_length = self.square_size_overide_cm / 100  # note: in cm within GUI
         else:
             board_height_m = self.board_height_cm / 100
             board_width_m = self.board_width_cm / 100
-            
-            square_length = min(
-                [board_height_m / self.rows, board_width_m / self.columns]
-            )
+
+            square_length = min([board_height_m / self.rows, board_width_m / self.columns])
         logger.info(f"Creating charuco with square length of {round(square_length,4)}")
 
         aruco_length = square_length * self.aruco_scale
@@ -119,9 +120,7 @@ class Charuco:
         rgb_image = cv2.cvtColor(self.board_img, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
-        charuco_QImage = QImage(
-            rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888
-        )
+        charuco_QImage = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
         p = charuco_QImage.scaled(
             width,
             height,
@@ -183,15 +182,11 @@ class Charuco:
         return self.board.chessboardCorners()[corner_ids, :]
 
     def summary(self):
-
         text = f"Columns: {self.columns}\n"
         text = text + f"Rows: {self.rows}\n"
-        text = (
-            text
-            + f"Board Size: {self.board_width} x {self.board_height} {self.units}\n"
-        )
+        text = text + f"Board Size: {self.board_width} x {self.board_height} {self.units}\n"
         text = text + f"Inverted:  {self.inverted}\n"
-        text = text + f"\n"
+        text = text + "\n"
         text = text + f"Square Edge Length: {self.square_size_overide_cm} cm"
         return text
 
@@ -223,12 +218,11 @@ ARUCO_DICTIONARIES = {
 
 
 if __name__ == "__main__":
-    charuco = Charuco(
-        4, 5, 4, 8.5, aruco_scale=0.75, units="inch",inverted=True, square_size_overide_cm=5.25)
+    charuco = Charuco(4, 5, 4, 8.5, aruco_scale=0.75, units="inch", inverted=True, square_size_overide_cm=5.25)
     charuco.save_image("test_charuco.png")
     width, height = charuco.board_img.shape
     logger.info(f"Board width is {width}\nBoard height is {height}")
-    
+
     corners = charuco.board.getChessboardCorners()
     logger.info(corners)
 

@@ -1,11 +1,13 @@
-from pathlib import Path
-import caliscope.logger
-import cv2
-import pandas as pd
-from caliscope import __root__
-import numpy as np
-import rtoml
 from itertools import combinations
+from pathlib import Path
+
+import cv2
+import numpy as np
+import pandas as pd
+import rtoml
+
+import caliscope.logger
+from caliscope import __root__
 
 logger = caliscope.logger.get(__name__)
 
@@ -23,8 +25,6 @@ class StereoCalibrator:
         # set ports keeping in mind that something may be flagged for ignore
         for key, value in self.config.items():
             if key[0:4] == "cam_":
-                # NOTE: Commenting out this line as "ignore" was only a property needed when managing webcams but does not make sense here
-                # if not self.config[key]["ignore"]:
                 self.ports.append(int(key[4:]))
 
         # import point data, adding coverage regions to each port
@@ -68,12 +68,8 @@ class StereoCalibrator:
             get_coverage_region, axis=1, args=(self.ports,)
         )
 
-        points_w_pivoted_ports = points_w_pivoted_ports.filter(
-            ["sync_index", "point_id", "coverage_region"]
-        )
-        points_w_regions = point_data.merge(
-            points_w_pivoted_ports, "left", ["sync_index", "point_id"]
-        )
+        points_w_pivoted_ports = points_w_pivoted_ports.filter(["sync_index", "point_id", "coverage_region"])
+        points_w_regions = point_data.merge(points_w_pivoted_ports, "left", ["sync_index", "point_id"])
 
         return points_w_regions
 
@@ -95,9 +91,7 @@ class StereoCalibrator:
 
         # find the primary region each board is in, then merge in total counts
         all_boards = (
-            self.all_point_data.filter(
-                ["port", "sync_index", "point_id", "coverage_region"]
-            )
+            self.all_point_data.filter(["port", "sync_index", "point_id", "coverage_region"])
             .groupby(["port", "sync_index", "coverage_region"])
             .agg({"point_id": "count"})
             .reset_index()
@@ -115,16 +109,12 @@ class StereoCalibrator:
             .reset_index()
             .rename(columns={"coverage_region": "primary_coverage_region"})
             .drop("point_count", axis=1)  # no longer means anthing
-            .merge(
-                board_points, "left", ["port", "sync_index"]
-            )  # merge in a point_count that means something
+            .merge(board_points, "left", ["port", "sync_index"])  # merge in a point_count that means something
         )
 
         return all_boards
 
-    def get_stereopair_data(
-        self, pair: tuple, boards_sampled: int, random_state=1
-    ) -> pd.DataFrame or None:
+    def get_stereopair_data(self, pair: tuple, boards_sampled: int, random_state=1) -> pd.DataFrame or None:
         # convenience function to get the points that are in the overlap regions of the pairs
         def in_pair(row: int, pair: tuple):
             """
@@ -136,18 +126,14 @@ class StereoCalibrator:
 
             a, b = str(a), str(b)
 
-            region_check = ("_" + a + "_") in row.coverage_region and (
-                "_" + b + "_"
-            ) in row.coverage_region
+            region_check = ("_" + a + "_") in row.coverage_region and ("_" + b + "_") in row.coverage_region
             return region_check and port_check
 
         # flag the points that belong to the pair overlap regions
-        self.all_point_data["in_pair"] = self.all_point_data.apply(
-            in_pair, axis=1, args=(pair,)
-        )
+        self.all_point_data["in_pair"] = self.all_point_data.apply(in_pair, axis=1, args=(pair,))
 
         # group points into boards and get the total count for sample weighting below
-        pair_points = self.all_point_data[self.all_point_data["in_pair"] == True]
+        pair_points = self.all_point_data[self.all_point_data["in_pair"]]
         pair_boards = (
             pair_points.filter(["sync_index", "port", "point_id"])
             .groupby(["sync_index", "port"])
@@ -169,13 +155,9 @@ class StereoCalibrator:
             sample_weight = pair_boards["point_count"] ** 2
 
             # get the randomly selected subset
-            selected_boards = pair_boards.sample(
-                n=sample_size, weights=sample_weight, random_state=random_state
-            )
+            selected_boards = pair_boards.sample(n=sample_size, weights=sample_weight, random_state=random_state)
 
-            selected_pair_points = pair_points.merge(
-                selected_boards, "right", "sync_index"
-            )
+            selected_pair_points = pair_points.merge(selected_boards, "right", "sync_index")
         else:
             logger.info(f"For pair {pair} there are no shared boards")
             selected_pair_points = None
@@ -210,9 +192,7 @@ class StereoCalibrator:
                 self.config[config_key]["translation"] = translation
                 self.config[config_key]["RMSE"] = error
 
-        logger.info(
-            "Direct stereocalibration complete for all pairs for which data is available"
-        )
+        logger.info("Direct stereocalibration complete for all pairs for which data is available")
         logger.info(f"Saving stereo-pair extrinsic data to {self.config_path}")
         with open(self.config_path, "w") as f:
             rtoml.dump(self.config, f)
@@ -224,12 +204,8 @@ class StereoCalibrator:
         paired_point_data = self.get_stereopair_data(pair, boards_sampled)
 
         if paired_point_data is not None:
-            img_locs_A, obj_locs_A = self.get_stereocal_inputs(
-                pair[0], paired_point_data
-            )
-            img_locs_B, obj_locs_B = self.get_stereocal_inputs(
-                pair[1], paired_point_data
-            )
+            img_locs_A, obj_locs_A = self.get_stereocal_inputs(pair[0], paired_point_data)
+            img_locs_B, obj_locs_B = self.get_stereocal_inputs(pair[1], paired_point_data)
 
             camera_matrix_A = self.config["cam_" + str(pair[0])]["matrix"]
             camera_matrix_B = self.config["cam_" + str(pair[1])]["matrix"]
@@ -259,7 +235,9 @@ class StereoCalibrator:
                 distortion_A,
                 camera_matrix_B,
                 distortion_B,
-                imageSize=None,  # this does not matter. from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
+                # imageSize does not matter.
+                # from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
+                imageSize=None,
                 criteria=criteria,
                 flags=stereocalibration_flags,
             )

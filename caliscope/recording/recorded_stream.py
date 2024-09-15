@@ -1,20 +1,15 @@
-
-import caliscope.logger
 import logging
-
 from pathlib import Path
 from queue import Queue
-from threading import Thread, Event
-import rtoml
+from threading import Event, Thread
+from time import perf_counter, sleep
 
 import cv2
-from time import perf_counter, sleep
-import pandas as pd
 import numpy as np
+import pandas as pd
 
+import caliscope.logger
 from caliscope.packets import FramePacket, Tracker
-from caliscope.cameras.camera_array import CameraData
-from caliscope.configurator import Configurator
 
 logger = caliscope.logger.get(__name__)
 logger.setLevel(logging.INFO)
@@ -41,7 +36,10 @@ class RecordedStream:
         self.directory = directory
         self.port = port
         self.rotation_count = rotation_count
-        self.break_on_last = break_on_last  # stop while loop if end reached. Preferred behavior for automated file processing, not interactive frame selection
+
+        # stop while loop if end reached.
+        # Preferred behavior for automated file processing, not interactive frame selection
+        self.break_on_last = break_on_last
 
         self.tracker = tracker
 
@@ -53,9 +51,9 @@ class RecordedStream:
         if fps_target is None:
             fps_target = self.original_fps
 
-        width =  int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        self.size = (width,height)
+        self.size = (width, height)
 
         self.stop_event = Event()
         self._jump_q = Queue(maxsize=1)
@@ -69,13 +67,9 @@ class RecordedStream:
         if synched_frames_history_path.exists():
             synched_frames_history = pd.read_csv(synched_frames_history_path)
 
-            self.port_history = synched_frames_history[
-                synched_frames_history["port"] == self.port
-            ]
+            self.port_history = synched_frames_history[synched_frames_history["port"] == self.port]
 
-            self.port_history["frame_index"] = (
-                self.port_history["frame_time"].rank(method="min").astype(int) - 1
-            )
+            self.port_history["frame_index"] = self.port_history["frame_time"].rank(method="min").astype(int) - 1
 
         ########### INFER TIME STAMP IF NOT AVAILABLE ####################################
         else:
@@ -86,7 +80,8 @@ class RecordedStream:
             }
             self.port_history = pd.DataFrame(mocked_port_history)
 
-        # note that this is not simply 0 and frame count because the syncronized recording might start recording many frames into pulling from a camera
+        # note that this is not simply 0 and frame count because the syncronized recording might start recording many
+        # frames into pulling from a camera
         # this is one of those unhappy artifacts that may be a good candidate for simplification in a future refactor
         self.start_frame_index = self.port_history["frame_index"].min()
         self.last_frame_index = self.port_history["frame_index"].max()
@@ -99,7 +94,7 @@ class RecordedStream:
     # def set_tracking_on(self, track: bool):
     #     if track:
     #         logger.info(f"Turning tracking on for recorded stream {self.port}")
-    #         self.track_points = 
+    #         self.track_points =
     #     else:
     #         logger.info(f"Turning tracking off for recorded stream {self.port}")
     #         self.track_points.clear()
@@ -110,21 +105,15 @@ class RecordedStream:
             self.subscribers.append(queue)
             logger.info(f"...now {len(self.subscribers)} subscriber(s) at {self.port}")
         else:
-            logger.warn(
-                f"Attempted to subscribe to recorded stream at port {self.port} twice"
-            )
+            logger.warning(f"Attempted to subscribe to recorded stream at port {self.port} twice")
 
     def unsubscribe(self, queue: Queue):
         if queue in self.subscribers:
-            logger.info(
-                f"Removing subscriber from queue at recorded stream {self.port}"
-            )
+            logger.info(f"Removing subscriber from queue at recorded stream {self.port}")
             self.subscribers.remove(queue)
-            logger.info(
-                f"{len(self.subscribers)} subscriber(s) remain at recorded stream {self.port}"
-            )
+            logger.info(f"{len(self.subscribers)} subscriber(s) remain at recorded stream {self.port}")
         else:
-            logger.warn(
+            logger.warning(
                 f"Attempted to unsubscribe to recorded stream that was not subscribed to\
                 at port {self.port} twice"
             )
@@ -199,19 +188,14 @@ class RecordedStream:
 
             if self.milestones is not None:
                 sleep(self.wait_to_next_frame())
-            logger.debug(
-                f"about to read frame {self.frame_index} from capture at port {self.port}"
-            )
+            logger.info(f"about to read frame {self.frame_index} from capture at port {self.port}")
             success, self.frame = self.capture.read()
 
             if not success:
                 break
 
-
             if self.tracker is not None:
-                self.point_data = self.tracker.get_points(
-                    self.frame, self.port, self.rotation_count
-                )
+                self.point_data = self.tracker.get_points(self.frame, self.port, self.rotation_count)
                 draw_instructions = self.tracker.scatter_draw_instructions
             else:
                 self.point_data = None
@@ -233,7 +217,7 @@ class RecordedStream:
             for q in self.subscribers:
                 q.put(frame_packet)
 
-            # self.out_q.put(frame_packet)
+            logger.debug(f"Incrementing frame index from {self.frame_index} to {self.frame_index+1}")
             self.frame_index += 1
 
             if self.frame_index > self.last_frame_index and self.break_on_last:
@@ -269,12 +253,8 @@ class RecordedStream:
                     break
 
                 sleep(0.1)
-
-            ############
+            #######################################################
             if not self._jump_q.empty():
                 self.frame_index = self._jump_q.get()
-                logger.info(
-                    f"Setting port {self.port} capture object to frame index {self.frame_index}"
-                )
+                logger.info(f"Setting port {self.port} capture object to frame index {self.frame_index}")
                 self.capture.set(cv2.CAP_PROP_POS_FRAMES, self.frame_index)
-

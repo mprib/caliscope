@@ -1,16 +1,17 @@
-import caliscope.logger
-
-from threading import Thread
 from queue import Queue
+from threading import Thread
 
+import cv2
 import mediapipe as mp
 import numpy as np
-import cv2
+
+import caliscope.logger
 
 # cap = cv2.VideoCapture(0)
-from caliscope.packets import  PointPacket
+from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
 from caliscope.trackers.helper import apply_rotation, unrotate_points
+
 logger = caliscope.logger.get(__name__)
 
 POINT_NAMES = {
@@ -53,7 +54,7 @@ POINT_NAMES = {
 class PoseTracker(Tracker):
     def __init__(self) -> None:
         # each port gets its own mediapipe context manager
-        # use a dictionary of queues for passing 
+        # use a dictionary of queues for passing
         self.in_queues = {}
         self.out_queues = {}
         self.threads = {}
@@ -85,7 +86,6 @@ class PoseTracker(Tracker):
                 landmark_xy = []
 
                 if results.pose_landmarks:
-
                     for landmark_id, landmark in enumerate(results.pose_landmarks.landmark):
                         point_ids.append(landmark_id)
 
@@ -93,18 +93,14 @@ class PoseTracker(Tracker):
                         x, y = int(landmark.x * width), int(landmark.y * height)
                         landmark_xy.append((x, y))
 
-
                 point_ids = np.array(point_ids)
                 landmark_xy = np.array(landmark_xy)
-                landmark_xy = unrotate_points(landmark_xy, rotation_count, width,height)
+                landmark_xy = unrotate_points(landmark_xy, rotation_count, width, height)
                 point_packet = PointPacket(point_ids, landmark_xy)
 
                 self.out_queues[port].put(point_packet)
 
-
-    def get_points(
-        self, frame: np.ndarray, port: int, rotation_count: int
-    ) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
         if port not in self.in_queues.keys():
             self.in_queues[port] = Queue(1)
             self.out_queues[port] = Queue(1)
@@ -130,8 +126,7 @@ class PoseTracker(Tracker):
             rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
         elif self.get_point_name(point_id).startswith("right"):
             rules = {"radius": 5, "color": (220, 0, 0), "thickness": 3}
-        else: 
+        else:
             rules = {"radius": 5, "color": (220, 0, 220), "thickness": 3}
 
         return rules
-

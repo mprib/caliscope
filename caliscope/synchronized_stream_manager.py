@@ -1,11 +1,13 @@
-import caliscope.logger
 import statistics
-import cv2
 from pathlib import Path
-from caliscope.cameras.synchronizer import Synchronizer
-from caliscope.recording.recorded_stream import RecordedStream
+
+import cv2
+
+import caliscope.logger
 from caliscope.cameras.camera_array import CameraData
+from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.packets import Tracker
+from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.recording.video_recorder import VideoRecorder
 
 logger = caliscope.logger.get(__name__)
@@ -78,17 +80,16 @@ class SynchronizedStreamManager:
 
         if fps_target is None:
             fps_target = self.mean_fps
-        
+
         logger.info(f"About to start playing video streams to be processed. Streams: {self.streams}")
         for port, stream in self.streams.items():
-
             if fps_target is not None:
                 stream.set_fps_target(fps_target)
 
             stream.play_video()
-            
+
     def load_video_properties(self):
-        fps   = []
+        fps = []
         frame_count = []
         logger.info(f"About to load video properties for files stored in {self.recording_dir}")
         logger.info(f"Current camera data is: {self.all_camera_data}")
@@ -102,8 +103,8 @@ class SynchronizedStreamManager:
 
         self.mean_fps = statistics.mean(fps)
         self.mean_frame_count = statistics.mean(frame_count)
-        
-        
+
+
 def read_video_properties(source_path: Path) -> dict:
     # Dictionary to hold video properties
     properties = {}

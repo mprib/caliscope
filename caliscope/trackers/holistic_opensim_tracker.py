@@ -1,15 +1,15 @@
-from threading import Thread
 from queue import Queue
+from threading import Thread
 
+import cv2
 import mediapipe as mp
 import numpy as np
-import cv2
 
+import caliscope.logger
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
 from caliscope.trackers.helper import apply_rotation, unrotate_points
 
-import caliscope.logger
 logger = caliscope.logger.get(__name__)
 
 MIN_DETECTION_CONFIDENCE = 0.5
@@ -217,39 +217,26 @@ class HolisticOpenSimTracker(Tracker):
                 landmark_xy = []
 
                 if results.pose_landmarks:
-                    for landmark_id, landmark in enumerate(
-                        results.pose_landmarks.landmark
-                    ):
+                    for landmark_id, landmark in enumerate(results.pose_landmarks.landmark):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel position
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if (
-                            landmark.x < 0
-                            or landmark.x > 1
-                            or landmark.y < 0
-                            or landmark.y > 1
-                        ):
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
                             # ignore
                             pass
                         else:
                             mapped_point_id = landmark_id + POSE_OFFSET
-                            # some of the pose values are too noisy to bother with including considering that holistic face and hand tracking is so good
+                            # some of the pose values are too noisy to bother with including considering that
+                            # holistic face and hand tracking is so good
                             # ignore those points that aren't in the POINT_NAMES list
                             if mapped_point_id in POINT_NAMES:
                                 point_ids.append(landmark_id + POSE_OFFSET)
                                 landmark_xy.append((x, y))
 
                 if results.right_hand_landmarks:
-                    for landmark_id, landmark in enumerate(
-                        results.right_hand_landmarks.landmark
-                    ):
+                    for landmark_id, landmark in enumerate(results.right_hand_landmarks.landmark):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel position
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if (
-                            landmark.x < 0
-                            or landmark.x > 1
-                            or landmark.y < 0
-                            or landmark.y > 1
-                        ):
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
                             # ignore
                             pass
                         else:
@@ -257,17 +244,10 @@ class HolisticOpenSimTracker(Tracker):
                             landmark_xy.append((x, y))
 
                 if results.left_hand_landmarks:
-                    for landmark_id, landmark in enumerate(
-                        results.left_hand_landmarks.landmark
-                    ):
+                    for landmark_id, landmark in enumerate(results.left_hand_landmarks.landmark):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel positionND_OFFSET
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if (
-                            landmark.x < 0
-                            or landmark.x > 1
-                            or landmark.y < 0
-                            or landmark.y > 1
-                        ):
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
                             # ignore
                             pass
                         else:
@@ -275,17 +255,10 @@ class HolisticOpenSimTracker(Tracker):
                             landmark_xy.append((x, y))
 
                 if results.face_landmarks:
-                    for landmark_id, landmark in enumerate(
-                        results.face_landmarks.landmark
-                    ):
+                    for landmark_id, landmark in enumerate(results.face_landmarks.landmark):
                         # mediapipe expresses in terms of percent of frame, so must map to pixel positionFSET
                         x, y = int(landmark.x * width), int(landmark.y * height)
-                        if (
-                            landmark.x < 0
-                            or landmark.x > 1
-                            or landmark.y < 0
-                            or landmark.y > 1
-                        ):
+                        if landmark.x < 0 or landmark.x > 1 or landmark.y < 0 or landmark.y > 1:
                             # ignore
                             pass
                         else:
@@ -300,16 +273,12 @@ class HolisticOpenSimTracker(Tracker):
                 landmark_xy = np.array(landmark_xy)
 
                 # adjust for previous shift due to camera rotation count
-                landmark_xy = unrotate_points(
-                    landmark_xy, rotation_count, width, height
-                )
+                landmark_xy = unrotate_points(landmark_xy, rotation_count, width, height)
                 point_packet = PointPacket(point_ids, landmark_xy)
 
                 self.out_queues[port].put(point_packet)
 
-    def get_points(
-        self, frame: np.ndarray, port: int, rotation_count: int
-    ) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
         """
         This is the primary method exposed to the rest of the code.
         The tracker receives frames and basic camera data from the Stream,

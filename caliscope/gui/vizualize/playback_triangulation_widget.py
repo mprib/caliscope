@@ -1,22 +1,23 @@
 from pathlib import Path
-import numpy as np
 from time import time
-import pyqtgraph.opengl as gl
 
+import numpy as np
+import pyqtgraph.opengl as gl
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QSlider,
     QVBoxLayout,
     QWidget,
 )
-from caliscope.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
-from caliscope.cameras.camera_array import CameraArray
-import caliscope.logger
 
+import caliscope.logger
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from caliscope.motion_trial import MotionTrial
 
 logger = caliscope.logger.get(__name__)
 # as part of development process I'm just going to import the skeleton in here
+
 
 class PlaybackTriangulationWidget(QWidget):
     def __init__(self, camera_array: CameraArray, xyz_history_path: Path = None):
@@ -67,7 +68,6 @@ class PlaybackTriangulationWidget(QWidget):
 
 
 class TriangulationVisualizer:
-
     def __init__(self, camera_array: CameraArray):
         self.camera_array = camera_array
         self.build_scene()
@@ -82,7 +82,7 @@ class TriangulationVisualizer:
             self.scene = gl.GLViewWidget()
 
             # the scene camera, not a real Camera
-            self.scene.setCameraPosition( distance=4)  
+            self.scene.setCameraPosition(distance=4)
         axis = gl.GLAxisItem()
         self.scene.addItem(axis)
 
@@ -99,10 +99,10 @@ class TriangulationVisualizer:
             size=0.01,
             pxMode=False,
         )
-        
-            # will hold a list
+
+        # will hold a list
         self.segments = {}
-        
+
         self.scene.addItem(self.scatter)
         self.scatter.setData(pos=None)
 
@@ -110,10 +110,10 @@ class TriangulationVisualizer:
         self.camera_array = camera_array
         self.build_scene()
 
-    def update_motion_trial(self, motion_trial:MotionTrial):
+    def update_motion_trial(self, motion_trial: MotionTrial):
         logger.info("Updating xyz history in playback widget")
-        self.motion_trial:MotionTrial = motion_trial
-        
+        self.motion_trial: MotionTrial = motion_trial
+
         if hasattr(self.motion_trial.tracker, "wireframe"):
             for segment_line in self.motion_trial.tracker.wireframe.line_plots.values():
                 self.scene.addItem(segment_line)
@@ -121,8 +121,7 @@ class TriangulationVisualizer:
         self.sync_index = self.motion_trial.start_index
         self.display_points(self.sync_index)
 
-
-    def display_points(self, sync_index:int):
+    def display_points(self, sync_index: int):
         """
         sync_index is provided from the dialog and linked to the slider
         it is initially set to the minimum viable sync index
@@ -136,6 +135,5 @@ class TriangulationVisualizer:
             xyz_coords = self.motion_trial.get_xyz(self.sync_index).point_xyz
             self.scatter.setData(pos=xyz_coords)
 
-
-    def update_segment_lines(self,sync_index:int):
+    def update_segment_lines(self, sync_index: int):
         self.motion_trial.update_wireframe(sync_index)

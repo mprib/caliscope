@@ -1,15 +1,16 @@
-from caliscope.logger import get, XStream
+from time import time
 
-from PySide6.QtCore import Slot, Qt
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
-    QWidget,
     QApplication,
-    QTextBrowser,
     QPushButton,
+    QTextBrowser,
     QVBoxLayout,
+    QWidget,
 )
 
-from time import time
+from caliscope.logger import XStream, get
+
 logger = get(__name__)
 
 
@@ -40,6 +41,7 @@ class LogWidget(QWidget):
 def test():
     logger.info(f"This is a test; It is {time()}")
 
+
 class LogMessageViewer(QTextBrowser):
     def __init__(self, parent=None):
         super(LogMessageViewer, self).__init__(parent)
@@ -55,19 +57,18 @@ class LogMessageViewer(QTextBrowser):
         # scrollIsAtEnd = verScrollBar.maximum() - verScrollBar.value() <= 10
 
         verScrollBar.setValue(verScrollBar.maximum())  # Scrolls to the bottom
-        horScrollBar.setValue(0)  # scroll to the left  
+        horScrollBar.setValue(0)  # scroll to the left
         self.insertPlainText(msg)
 
         # if scrollIsAtEnd:
         #     verScrollBar.setValue(verScrollBar.maximum())  # Scrolls to the bottom
         #     self.insertPlainText(msg)
-        #     horScrollBar.setValue(0)  # scroll to the left  
+        #     horScrollBar.setValue(0)  # scroll to the left
+
 
 if __name__ == "__main__":
     app = QApplication([])
     dlg = LogWidget("This is only a test")
     dlg.show()
-
-    
 
     app.exec()

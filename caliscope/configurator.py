@@ -1,36 +1,38 @@
 # %%
 
-import caliscope.logger
-
-from pathlib import Path
+from dataclasses import asdict
 from datetime import datetime
+from enum import Enum
 from os.path import exists
+from pathlib import Path
+
+import cv2
 import numpy as np
 import rtoml
-from dataclasses import asdict
-import cv2
-from enum import Enum, auto
 
+import caliscope.logger
+from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera import Camera
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from concurrent.futures import ThreadPoolExecutor
 
 logger = caliscope.logger.get(__name__)
+
 
 class ConfigSettings(Enum):
     """
     Control settings used to manage the processing of data
     """
+
     creation_date = "creation_date"
     camera_count = "camera_count"
     save_tracked_points_video = "save_tracked_points_video"
     fps_sync_stream_processing = "fps_sync_stream_processing"
 
-    
-#%%
+
+# %%
+
 
 class Configurator:
     """
@@ -41,9 +43,7 @@ class Configurator:
     def __init__(self, workspace_path: Path) -> None:
         self.workspace_path = workspace_path
         self.config_toml_path = Path(self.workspace_path, "config.toml")
-        self.point_estimates_toml_path = Path(
-            self.workspace_path, "point_estimates.toml"
-        )
+        self.point_estimates_toml_path = Path(self.workspace_path, "point_estimates.toml")
 
         if exists(self.config_toml_path):
             self.refresh_config_from_toml()
@@ -52,9 +52,7 @@ class Configurator:
             if "camera_count" not in self.dict.keys():
                 self.dict["camera_count"] = 0
         else:
-            logger.info(
-                "No existing config.toml found; creating starter file with charuco"
-            )
+            logger.info("No existing config.toml found; creating starter file with charuco")
             self.dict = rtoml.loads("")
             self.dict[ConfigSettings.creation_date.value] = datetime.now()
             self.dict[ConfigSettings.camera_count.value] = 0
@@ -74,20 +72,18 @@ class Configurator:
     def get_camera_count(self):
         return self.dict[ConfigSettings.camera_count.value]
 
-
     def get_save_tracked_points(self):
         if ConfigSettings.save_tracked_points_video.value not in self.dict.keys():
             return True
         else:
             return self.dict[ConfigSettings.save_tracked_points_video.value]
-    
+
     def get_fps_sync_stream_processing(self):
         if ConfigSettings.fps_sync_stream_processing.value not in self.dict.keys():
-            return 100 
+            return 100
         else:
             return self.dict[ConfigSettings.fps_sync_stream_processing.value]
-        
-        
+
     def refresh_config_from_toml(self):
         logger.info("Populating config dictionary with config.toml data")
         # with open(self.config_toml_path, "r") as f:
@@ -103,9 +99,7 @@ class Configurator:
         sorted_dict = {key: value for key, value in sorted(self.dict.items())}
         self.dict = sorted_dict
 
-        dict_wo_point_estimates = {
-            key: value for key, value in self.dict.items() if key != "point_estimates"
-        }
+        dict_wo_point_estimates = {key: value for key, value in self.dict.items() if key != "point_estimates"}
         with open(self.config_toml_path, "w") as f:
             rtoml.dump(dict_wo_point_estimates, f)
 
@@ -118,9 +112,7 @@ class Configurator:
         self.dict["capture_volume"] = {}
         # self["capture_volume"]["RMSE_summary"] = self.capture_volume.rmse
         self.dict["capture_volume"]["stage"] = capture_volume.stage
-        self.dict["capture_volume"][
-            "origin_sync_index"
-        ] = capture_volume.origin_sync_index
+        self.dict["capture_volume"]["origin_sync_index"] = capture_volume.origin_sync_index
         self.update_config_toml()
 
     def get_configured_camera_data(self) -> dict[CameraData]:
@@ -130,9 +122,7 @@ class Configurator:
                 port = params["port"]
 
                 if (
-                    "error" in params.keys()
-                    and params["error"] is not None
-                    and params["error"] != "null"
+                    "error" in params.keys() and params["error"] is not None and params["error"] != "null"
                 ):  # intrinsics have been calculated
                     error = params["error"]
                     matrix = np.array(params["matrix"])
@@ -332,6 +322,7 @@ class Configurator:
 
 if __name__ == "__main__":
     import rtoml
+
     from caliscope import __app_dir__
 
     app_settings = rtoml.load(Path(__app_dir__, "settings.toml"))

@@ -1,17 +1,17 @@
 from pathlib import Path
-import random    
 from queue import Queue
 from time import sleep
-import numpy as np
-from caliscope import __root__
-from caliscope.helper import copy_contents
-from caliscope.calibration.charuco import Charuco
-from caliscope.trackers.charuco_tracker import CharucoTracker
-from caliscope.recording.recorded_stream import RecordedStream
-from caliscope.cameras.camera_array import CameraData
-import caliscope.logger
 
+import numpy as np
+
+import caliscope.logger
+from caliscope import __root__
+from caliscope.calibration.charuco import Charuco
 from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
+from caliscope.cameras.camera_array import CameraData
+from caliscope.helper import copy_contents
+from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = caliscope.logger.get(__name__)
 
@@ -19,24 +19,16 @@ logger = caliscope.logger.get(__name__)
 def test_intrinsic_calibrator():
     # use a general video file with a charuco for convenience
     original_data_path = Path(__root__, "tests", "sessions", "4_cam_recording")
-    destination_path = Path(
-        __root__, "tests", "sessions_copy_delete", "4_cam_recording"
-    )
+    destination_path = Path(__root__, "tests", "sessions_copy_delete", "4_cam_recording")
     copy_contents(original_data_path, destination_path)
 
-    recording_directory = Path(
-        __root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic"
-    )
+    recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
 
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-    )
+    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True)
 
     charuco_tracker = CharucoTracker(charuco)
 
-    stream = RecordedStream(
-        recording_directory, port=1, rotation_count=0, tracker=charuco_tracker
-    )
+    stream = RecordedStream(recording_directory, port=1, rotation_count=0, tracker=charuco_tracker)
 
     camera = CameraData(port=0, size=stream.size)
 
@@ -89,24 +81,16 @@ def test_intrinsic_calibrator():
 def test_autopopulate_data():
     # use a general video file with a charuco for convenience
     original_data_path = Path(__root__, "tests", "sessions", "4_cam_recording")
-    destination_path = Path(
-        __root__, "tests", "sessions_copy_delete", "4_cam_recording"
-    )
+    destination_path = Path(__root__, "tests", "sessions_copy_delete", "4_cam_recording")
     copy_contents(original_data_path, destination_path)
 
-    recording_directory = Path(
-        __root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic"
-    )
+    recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
 
-    charuco = Charuco(
-        4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True
-    )
+    charuco = Charuco(4, 5, 11, 8.5, aruco_scale=0.75, square_size_overide_cm=5.25, inverted=True)
 
     charuco_tracker = CharucoTracker(charuco)
 
-    stream = RecordedStream(
-        recording_directory, port=1, rotation_count=0, tracker=charuco_tracker
-    )
+    stream = RecordedStream(recording_directory, port=1, rotation_count=0, tracker=charuco_tracker)
 
     camera = CameraData(port=0, size=stream.size)
 
@@ -124,7 +108,7 @@ def test_autopopulate_data():
     stream.play_video()
     stream.pause()
 
-    packet = frame_q.get()  # pull off frame 0 to clear queue
+    _ = frame_q.get()  # pull off frame 0 to clear queue
 
     target_grid_count = 25
     wait_between = 3
@@ -137,19 +121,19 @@ def test_autopopulate_data():
 
     stream.jump_to(0)
     stream.unpause()
-    
+
     while intrinsic_calibrator.auto_store_data.is_set():
         actual_grid_count = len(intrinsic_calibrator.calibration_frame_indices)
         logger.info(f"waiting for data to populate...currently {actual_grid_count}")
-        
-        sleep(.5)
+
+        sleep(0.5)
 
     intrinsic_calibrator.backfill_calibration_frames()
     intrinsic_calibrator.calibrate_camera()
-    assert(camera.grid_count ==target_grid_count)
+    assert camera.grid_count == target_grid_count
     logger.info(f"Calibration complete: {camera}")
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     test_intrinsic_calibrator()
     test_autopopulate_data()

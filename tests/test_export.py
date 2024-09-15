@@ -1,17 +1,17 @@
 # %%
 
-from caliscope.trackers.holistic.holistic_tracker import HolisticTracker
 from pathlib import Path
-from caliscope import __root__
-from caliscope.helper import copy_contents
-from caliscope.export import xyz_to_wide_labelled, xyz_to_trc
 
-import csv
 import pandas as pd
 
+from caliscope import __root__
+from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
+from caliscope.helper import copy_contents
+from caliscope.trackers.holistic.holistic_tracker import HolisticTracker
 
-original_data_path = Path( __root__, "tests", "sessions","4_cam_recording","recording_1", "HOLISTIC")
-working_data_path = Path( __root__, "tests", "sessions_copy_delete","4_cam_recording","recording_1", "HOLISTIC")
+original_data_path = Path(__root__, "tests", "sessions", "4_cam_recording", "recording_1", "HOLISTIC")
+working_data_path = Path(__root__, "tests", "sessions_copy_delete", "4_cam_recording", "recording_1", "HOLISTIC")
+
 
 def test_export():
     copy_contents(original_data_path, working_data_path)
@@ -35,10 +35,10 @@ def test_export():
     trc_path = Path(xyz_csv_path.parent, f"{xyz_csv_path.stem}.trc")
     assert not trc_path.exists()
 
-    xyz_to_trc(xyz,tracker,time_history_path, target_path=trc_path)
+    xyz_to_trc(xyz, tracker, time_history_path, target_path=trc_path)
     assert trc_path.exists()
     # %%
 
+
 if __name__ == "__main__":
-    
     test_export()

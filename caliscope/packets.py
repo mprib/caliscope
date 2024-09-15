@@ -1,8 +1,9 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+
+import cv2
 import numpy as np
 from numba.typed import List
-from abc import ABC, abstractmethod
-import cv2
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,13 +16,9 @@ class PointPacket:
     It has actual values when using the Charuco tracker as these are used in the calibration.
     """
 
-    point_id: np.ndarray = (
-        None  # unique point id that aligns with Tracker.get_point_names()
-    )
+    point_id: np.ndarray = None  # unique point id that aligns with Tracker.get_point_names()
     img_loc: np.ndarray = None  # x,y position of tracked point
-    obj_loc: np.ndarray = (
-        None  # x,y,z in object frame of reference; primarily for calibration
-    )
+    obj_loc: np.ndarray = None  # x,y,z in object frame of reference; primarily for calibration
     confidence: np.ndarray = None  # may be available in some trackers..include for potentnial downstream calculations
 
     @property
@@ -53,9 +50,7 @@ class Tracker(ABC):
         pass
 
     @abstractmethod
-    def get_points(
-        self, frame: np.ndarray, port: int, rotation_count: int
-    ) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
         """
         frame: np.ndarray from reading an OpenCV capture object
 
@@ -126,9 +121,7 @@ class Tracker(ABC):
         left_pointA,left_pointB and right_pointA, right_pointB will be calculated.
         The mean of the two sides will be taken
         """
-        raise NotImplementedError(
-            f"Tracker {self.name} has not provided its measures for configuring a metarig"
-        )
+        raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
 
     @property
     def metarig_bilateral_measures(self):
@@ -136,11 +129,10 @@ class Tracker(ABC):
         OPTIONAL PROPERTY
 
         a dictionary of key: value in the form Measure_Name:[side_pointA, side_pointB]
-        when processed, mean distance (excluding outliers) between the two points will be calculated and stored as the measure
+        when processed, mean distance (excluding outliers)
+        between the two points will be calculated and stored as the measure
         """
-        raise NotImplementedError(
-            f"Tracker {self.name} has not provided its measures for configuring a metarig"
-        )
+        raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,15 +252,14 @@ class SyncPacket:
         return count
 
 
-@dataclass(slots=True,frozen=True)
+@dataclass(slots=True, frozen=True)
 class XYZPacket:
     sync_index: int
     point_ids: np.ndarray  # (n,1)
     point_xyz: np.ndarray  # (n,3)
-        
-    def get_point_xyz(self, point_id:int)->np.ndarray:
-        return self.point_xyz[self.point_ids==point_id]
 
-    def get_segment_ends(self, point_id_A:int, point_id_B:int)->np.ndarray:
+    def get_point_xyz(self, point_id: int) -> np.ndarray:
+        return self.point_xyz[self.point_ids == point_id]
+
+    def get_segment_ends(self, point_id_A: int, point_id_B: int) -> np.ndarray:
         return np.vstack([self.get_point_xyz(point_id_A), self.get_point_xyz(point_id_B)])
-    

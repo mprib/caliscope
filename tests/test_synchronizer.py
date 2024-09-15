@@ -1,15 +1,17 @@
-import caliscope.logger
+import shutil
+import time
+from pathlib import Path
 
 import pandas as pd
+
+import caliscope.logger
 from caliscope import __root__
-import shutil
-from pathlib import Path
-import time
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 
 logger = caliscope.logger.get(__name__)
+
 
 def test_synchronizer():
     original_session_path = Path(__root__, "tests", "sessions", "4_cam_recording")
@@ -24,9 +26,7 @@ def test_synchronizer():
         logger.info(f"Removing previously copied sessions at {session_path}")
         shutil.rmtree(session_path)
 
-    logger.info(
-        f"Copying over files from {original_session_path} to {session_path} for testing purposes"
-    )
+    logger.info(f"Copying over files from {original_session_path} to {session_path} for testing purposes")
     copy_contents(original_session_path, session_path)
 
     config = Configurator(session_path)
@@ -35,15 +35,11 @@ def test_synchronizer():
     recording_directory = Path(session_path, "recording_1")
 
     camera_array = config.get_camera_array()
-    stream_manager = SynchronizedStreamManager(
-        recording_dir=recording_directory, all_camera_data=camera_array.cameras
-    )
+    stream_manager = SynchronizedStreamManager(recording_dir=recording_directory, all_camera_data=camera_array.cameras)
 
     logger.info("Creating Synchronizer")
     stream_manager.process_streams(fps_target=100)
-    target_frame_time_path = Path(
-        recording_directory, "processed", "frame_time_history.csv"
-    )
+    target_frame_time_path = Path(recording_directory, "processed", "frame_time_history.csv")
 
     while not target_frame_time_path.exists():
         # recorder hasn't finished yet

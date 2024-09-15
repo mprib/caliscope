@@ -2,7 +2,6 @@ from PySide6.QtWidgets import QApplication
 import sys
 from pathlib import Path
 from caliscope.controller import Controller
-from caliscope.gui.post_processing_widget import PostProcessingWidget
 from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 
 app = QApplication(sys.argv)
@@ -16,4 +15,3 @@ window = CaptureVolumeWidget(controller)
 window.show()
 
 app.exec()
-

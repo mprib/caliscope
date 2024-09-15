@@ -1,11 +1,10 @@
+from pathlib import Path
+
+import pandas as pd
 
 import caliscope.logger
-
-import sys
-from caliscope.configurator import Configurator
-from pathlib import Path
 from caliscope import __root__
-import pandas as pd
+from caliscope.configurator import Configurator
 
 # specify a source directory (with recordings)
 from caliscope.helper import copy_contents
@@ -18,9 +17,7 @@ logger = caliscope.logger.get(__name__)
 def test_xy_point_creation():
     # create a clean directory to start from
     session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration_2_cam")
-    copy_session_path = Path(
-        __root__, "tests", "sessions_copy_delete", "mediapipe_calibration_2_cam"
-    )
+    copy_session_path = Path(__root__, "tests", "sessions_copy_delete", "mediapipe_calibration_2_cam")
     copy_contents(session_path, copy_session_path)
 
     # create inputs to processing pipeline function
@@ -61,9 +58,7 @@ def test_xy_point_creation():
 
     frame_times = pd.read_csv(Path(recording_path, "frame_time_history.csv"))
     sync_index_count = len(frame_times["sync_index"].unique())
-    logger.info(
-        f"Sync index count in frame history: {sync_index_count} in frame history"
-    )
+    logger.info(f"Sync index count in frame history: {sync_index_count} in frame history")
     logger.info(f"Max sync index: {xy_data['sync_index'].max()} in xy.csv")
 
     LEEWAY = 2  # sync indices that might not get copied over due to not enough frames

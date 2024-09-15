@@ -1,12 +1,13 @@
-import caliscope.logger
-from time import sleep
 from pathlib import Path
+from time import sleep
+
+import caliscope.logger
+from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
+from caliscope.cameras.camera_array import CameraData
+from caliscope.gui.frame_emitters.playback_frame_emitter import PlaybackFrameEmitter
+from caliscope.packets import Tracker
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.trackers.charuco_tracker import CharucoTracker
-from caliscope.cameras.camera_array import CameraData
-from caliscope.packets import Tracker
-from caliscope.gui.frame_emitters.playback_frame_emitter import PlaybackFrameEmitter
-from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
 
 logger = caliscope.logger.get(__name__)
 
@@ -132,11 +133,13 @@ class IntrinsicStreamManager:
         board_corners = self.tracker.charuco.board.getChessboardCorners()
         total_corner_count = board_corners.shape[0]
         threshold_corner_count = total_corner_count * pct_board_threshold
-        threshold_corner_count = max(threshold_corner_count,6)   # additional requirement that I believe is part of the alogrithm
+        threshold_corner_count = max(
+            threshold_corner_count, 6
+        )  # additional requirement that I believe is part of the alogrithm
 
         logger.info(f"Corners for charuco are {board_corners}")
 
-        # calculate basic wait time between board collections 
+        # calculate basic wait time between board collections
         # if many frames have incomplete data, this will fail to reach the target board count
         start_frame_index = stream.start_frame_index
         last_frame_index = stream.last_frame_index
@@ -159,5 +162,5 @@ class IntrinsicStreamManager:
         while intrinsic_calibrator.grid_count < grid_count:
             logger.info(f"Waiting for sufficient calibration boards to become populated at port {port}")
             sleep(2)
-        
+
         intrinsic_calibrator.calibrate_camera()

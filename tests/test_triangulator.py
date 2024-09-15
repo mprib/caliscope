@@ -1,33 +1,32 @@
-""""
+""" "
 NOTE: In addition to testing the real time triangulation, this code bases
-its final assertions on the values from the original bundle adjustment. 
-This allows a cross check for the triangulation function that is distinct from 
-the optimization in the bundle adjustmnent. 
+its final assertions on the values from the original bundle adjustment.
+This allows a cross check for the triangulation function that is distinct from
+the optimization in the bundle adjustmnent.
 
-After recent inclusion of distortion into the triangulation, the tolerance 
+After recent inclusion of distortion into the triangulation, the tolerance
 of the final averaged triangulated position improved from 1.5 cm to 6 mm.
 """
-import caliscope.logger
-
-from time import sleep
-
-from caliscope.cameras.synchronizer import Synchronizer
-from caliscope.triangulate.sync_packet_triangulator import SyncPacketTriangulator
-from caliscope.cameras.camera_array import CameraArray
-from caliscope.recording.recorded_stream import RecordedStream
-from caliscope.calibration.charuco import Charuco
-from caliscope.trackers.charuco_tracker import CharucoTracker
-from caliscope.configurator import Configurator
-from caliscope.helper import copy_contents
 
 import shutil
 from pathlib import Path
+from time import sleep
+
 import numpy as np
 import pandas as pd
+
+import caliscope.logger
 from caliscope import __root__
+from caliscope.calibration.charuco import Charuco
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.cameras.synchronizer import Synchronizer
+from caliscope.configurator import Configurator
+from caliscope.helper import copy_contents
+from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.triangulate.sync_packet_triangulator import SyncPacketTriangulator
 
 logger = caliscope.logger.get(__name__)
-
 
 
 def test_triangulator():
@@ -43,7 +42,7 @@ def test_triangulator():
         shutil.rmtree(test_session)
 
     copy_contents(original_session, test_session)
-    
+
     config = Configurator(test_session)
     config.refresh_point_estimates_from_toml()
     # origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
@@ -53,21 +52,16 @@ def test_triangulator():
 
     camera_array: CameraArray = config.get_camera_array()
 
-
     logger.info("Creating RecordedStreamPool based on calibration recordings")
     recording_directory = Path(test_session, "calibration", "extrinsic")
-    
+
     streams = {}
     for port, camera in camera_array.cameras.items():
         rotation_count = camera.rotation_count
         streams[port] = RecordedStream(
-            recording_directory,
-            port,
-            rotation_count,
-            fps_target=100,
-            tracker=charuco_tracker
+            recording_directory, port, rotation_count, fps_target=100, tracker=charuco_tracker
         )
-    
+
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(streams)
 
@@ -79,7 +73,7 @@ def test_triangulator():
         recording_directory=recording_directory,
         tracker_name=charuco_tracker.name,
     )
-    
+
     for port, stream in streams.items():
         stream.play_video()
 
@@ -112,6 +106,5 @@ def test_triangulator():
 
 
 if __name__ == "__main__":
-
     test_triangulator()
 # %%

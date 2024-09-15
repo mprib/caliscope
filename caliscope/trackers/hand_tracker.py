@@ -1,17 +1,19 @@
-import caliscope.logger
-
-from threading import Thread
 from queue import Queue
+from threading import Thread
 
+import cv2
 import mediapipe as mp
 import numpy as np
-import cv2
+
+import caliscope.logger
 
 # cap = cv2.VideoCapture(0)
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
 from caliscope.trackers.helper import apply_rotation, unrotate_points
+
 logger = caliscope.logger.get(__name__)
+
 
 class HandTracker(Tracker):
     # Initialize MediaPipe Hands and Drawing utility
@@ -20,11 +22,10 @@ class HandTracker(Tracker):
         self.out_queue = Queue(-1)
 
         # each port gets its own mediapipe context manager
-        # use a dictionary of queues for passing 
+        # use a dictionary of queues for passing
         self.in_queues = {}
         self.out_queues = {}
         self.threads = {}
-
 
     @property
     def name(self):
@@ -80,16 +81,13 @@ class HandTracker(Tracker):
 
                 point_ids = np.array(point_ids)
                 landmark_xy = np.array(landmark_xy)
-                landmark_xy = unrotate_points(landmark_xy, rotation_count, width,height)
+                landmark_xy = unrotate_points(landmark_xy, rotation_count, width, height)
 
                 point_packet = PointPacket(point_ids, landmark_xy)
 
                 self.out_queues[port].put(point_packet)
 
-
-    def get_points(
-        self, frame: np.ndarray, port: int, rotation_count: int
-    ) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
         if port not in self.in_queues.keys():
             self.in_queues[port] = Queue(1)
             self.out_queues[port] = Queue(1)
@@ -100,7 +98,6 @@ class HandTracker(Tracker):
                 daemon=True,
             )
             self.threads[port].start()
-
 
         self.in_queues[port].put(frame)
         point_packet = self.out_queues[port].get()
@@ -116,4 +113,3 @@ class HandTracker(Tracker):
         else:
             rules = {"radius": 5, "color": (220, 0, 0), "thickness": 3}
         return rules
-

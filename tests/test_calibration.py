@@ -1,27 +1,25 @@
-import caliscope.logger
-
-from time import sleep
 import shutil
 from pathlib import Path
-from caliscope.cameras.camera_array import CameraArray
+from time import sleep
+
+import pytest
+
+import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     get_point_estimates,
 )
-import pytest
-from caliscope.trackers.charuco_tracker import CharucoTracker
-
-from caliscope.calibration.stereocalibrator import StereoCalibrator
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-
-from caliscope.synchronized_stream_manager import SynchronizedStreamManager
-from caliscope.helper import copy_contents
-
-from caliscope.controller import FILTERED_FRACTION
+from caliscope.calibration.stereocalibrator import StereoCalibrator
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
+from caliscope.controller import FILTERED_FRACTION
+from caliscope.helper import copy_contents
+from caliscope.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = caliscope.logger.get(__name__)
 
@@ -81,11 +79,11 @@ def test_post_monocalibration(session_path):
     logger.info("Creating RecordedStreamPool")
 
     recording_path = Path(session_path, "calibration", "extrinsic")
-    point_data_path = Path(recording_path,"CHARUCO", "xy_CHARUCO.csv")
+    point_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
 
     camera_array = config.get_camera_array()
     sync_stream_manager = SynchronizedStreamManager(
-        recording_dir=recording_path, all_camera_data= camera_array.cameras, tracker=charuco_tracker
+        recording_dir=recording_path, all_camera_data=camera_array.cameras, tracker=charuco_tracker
     )
     sync_stream_manager.process_streams(fps_target=100)
 
@@ -98,9 +96,7 @@ def test_post_monocalibration(session_path):
     stereocalibrator = StereoCalibrator(config.config_toml_path, point_data_path)
     stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
-    camera_array: CameraArray = CameraArrayInitializer(
-        config.config_toml_path
-    ).get_best_camera_array()
+    camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
 
     point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
 

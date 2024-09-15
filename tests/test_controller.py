@@ -52,6 +52,6 @@ def test_video_property_reader():
     assert source_properties["size"] == (1280, 720)
 
 
-# if __name__ == "__main__":
-# test_extrinsic_calibration()
-# test_video_property_reader()
+if __name__ == "__main__":
+    test_extrinsic_calibration()
+    test_video_property_reader()

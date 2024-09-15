@@ -47,8 +47,11 @@ class PointEstimates:
         return self.img.shape[0]
 
     def get_sparsity_pattern(self):
-        """provide the sparsity structure for the Jacobian (elements that are not zero)
-        n_points: number of unique 3d points; these will each have at least one but potentially more associated 2d points
+        """
+        provide the sparsity structure for the Jacobian (elements that are not zero)
+        n_points: number of unique 3d points
+            these will each have at least one but potentially more associated 2d points
+
         point_indices: a vector that maps the 2d points to their associated 3d point
         """
 

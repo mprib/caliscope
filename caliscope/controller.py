@@ -67,7 +67,6 @@ class Controller(QObject):
         logger.info("Retrieving charuco from config")
         self.charuco = self.config.get_charuco()
         self.charuco_tracker = CharucoTracker(self.charuco)
-        # self.camera_count = self.config.get_camera_count()  # reference to ensure that files are in place to meet user intent
 
         logger.info("Building workpace guide")
         self.workspace_guide = WorkspaceGuide(self.workspace, self.camera_count)
@@ -388,7 +387,8 @@ class Controller(QObject):
     def process_recordings(self, recording_path: Path, tracker_enum: TrackerEnum):
         """
         Initiates worker thread to begin post processing.
-        TrackerEnum passed in so that access is given to both the tracker and the name because the name is needed for file/folder naming
+        TrackerEnum passed in so that access is given to both the tracker and the name
+        The name is needed for file/folder naming
         """
 
         def worker():

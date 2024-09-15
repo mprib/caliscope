@@ -25,8 +25,6 @@ class StereoCalibrator:
         # set ports keeping in mind that something may be flagged for ignore
         for key, value in self.config.items():
             if key[0:4] == "cam_":
-                # NOTE: Commenting out this line as "ignore" was only a property needed when managing webcams but does not make sense here
-                # if not self.config[key]["ignore"]:
                 self.ports.append(int(key[4:]))
 
         # import point data, adding coverage regions to each port
@@ -237,7 +235,9 @@ class StereoCalibrator:
                 distortion_A,
                 camera_matrix_B,
                 distortion_B,
-                imageSize=None,  # this does not matter. from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
+                # imageSize does not matter.
+                # from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
+                imageSize=None,
                 criteria=criteria,
                 flags=stereocalibration_flags,
             )

@@ -122,7 +122,7 @@ class IntrinsicCalibrator:
 
     def backfill_calibration_frames(self):
         logger.info(
-            f"Initiating backfill of frames to hit target grid count of {self.target_grid_count}...currently at {self.grid_count}"
+            f"Initiating backfill of frames to hit target grid count of {self.target_grid_count}...currently at {self.grid_count}"  # noqa: E501
         )
         actual_grid_count = len(self.calibration_frame_indices)
         logger.info(f"Actual Grid Count: {actual_grid_count}")

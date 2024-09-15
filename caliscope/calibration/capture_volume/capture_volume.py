@@ -145,7 +145,8 @@ class CaptureVolume:
 
 def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume):
     """
-    current_param_estimates: the current iteration of the vector that was originally initialized for the x0 input of least squares
+    current_param_estimates:
+        the current iteration of the vector that was originally initialized for the x0 input of least squares
 
     This function exists outside of the CaptureVolume class because the first argument must be the vector of parameters
     that is being adjusted by the least_squares optimization.

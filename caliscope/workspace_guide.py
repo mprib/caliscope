@@ -100,7 +100,7 @@ class WorkspaceGuide:
                 <head>
                     <style>
                         p {{
-                            text-indent: 30px; 
+                            text-indent: 30px;
                         }}
                     </style>
                 </head>

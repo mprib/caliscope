@@ -29,7 +29,7 @@ def get_stereotriangulated_table(camera_array: CameraArray, point_data_path: Pat
     xy_sync_indices = point_data["sync_index"].to_numpy()
     sync_indices = np.unique(xy_sync_indices)
 
-    xy_camera_indices = point_data["port"].to_numpy()
+    # xy_camera_indices = point_data["port"].to_numpy()
     # ports = np.unique(xy_camera_indices)
     ports = [key for key in camera_array.port_index.keys()]
 

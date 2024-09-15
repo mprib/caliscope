@@ -100,7 +100,7 @@ def xyz_to_trc(xyz: pd.DataFrame, tracker: Tracker, time_history_path: Path, tar
     num_markers = len(tracked_points)
     data_rate = int(mean_frame_rate)
     units = "m"
-    original_data_rate = int(mean_frame_rate)
+    # original_data_rate = int(mean_frame_rate)
     orig_data_start_frame = 0
     num_frames = len(xyz_labelled) - 1
 

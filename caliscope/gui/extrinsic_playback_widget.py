@@ -71,7 +71,7 @@ class ExtrinsicPlaybackWidget(QWidget):
 
         camera_count = len(self.ports)
         grid_columns = int(math.ceil(camera_count**0.5))
-        grid_rows = int(math.ceil(camera_count / grid_columns))
+        # grid_rows = int(math.ceil(camera_count / grid_columns))
 
         frame_grid = QGridLayout()
         row = 0

@@ -45,7 +45,7 @@ write_to = "caliscope/_version.py"
 [tool.ruff]
 lint.select = ["E", "F", "W"]
 lint.ignore = []
-
+unsafe-fixes = true
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 lint.fixable = ["E", "F", "W"]

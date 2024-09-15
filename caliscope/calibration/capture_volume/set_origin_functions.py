@@ -1,8 +1,5 @@
 # %%
 import caliscope.logger
-
-logger = caliscope.logger.get(__name__)
-
 from pathlib import Path
 import numpy as np
 import sys
@@ -17,6 +14,8 @@ from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera_array import CameraData, CameraArray
 import cv2
 import pickle
+
+logger = caliscope.logger.get(__name__)
 
 
 # Proceeding with basic idea that these functions will go into CaptureVolume.

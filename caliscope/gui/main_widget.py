@@ -241,12 +241,12 @@ class MainWindow(QMainWindow):
 
 
 def launch_main():
-    import qdarktheme
+    # import qdarktheme
 
     app = QApplication(sys.argv)
     dummy_widget = CaptureVolumeVisualizer(camera_array=CameraArray({}))  #  try to force "blinking to initial main"
     del dummy_widget
-    qdarktheme.setup_theme("auto")
+    # qdarktheme.setup_theme("auto")
     window = MainWindow()
     window.show()
     app.exec()

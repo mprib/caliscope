@@ -172,7 +172,7 @@ LEFT_HAND_OFFSET = 200
 FACE_OFFSET = 500
 
 
-class HolisticOpenSimTracker(Tracker):
+class SimpleHolisticTracker(Tracker):
     def __init__(self) -> None:
         # each port gets its own mediapipe context manager
         # use a dictionary of queues for passing
@@ -182,7 +182,7 @@ class HolisticOpenSimTracker(Tracker):
 
     @property
     def name(self):
-        return "HOLISTIC_OPENSIM"
+        return "SIMPLE_HOLISTIC"
 
     @property
     def metarig_mapped(self):

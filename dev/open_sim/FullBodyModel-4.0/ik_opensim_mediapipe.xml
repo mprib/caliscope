@@ -132,7 +132,7 @@
 			<groups />
 		</IKTaskSet>
 		<!--TRC file (.trc) containing the time history of observations of marker positions obtained during a motion capture experiment. Markers in this file that have a corresponding task and model marker are included.-->
-		<marker_file>../../../../../OneDrive/caliscope/4_cam/recording_4/HOLISTIC_OPENSIM/xyz_HOLISTIC_OPENSIM.trc</marker_file>
+		<marker_file>../../../../../OneDrive/caliscope/4_cam/recording_4/SIMPLE_HOLISTIC/xyz_SIMPLE_HOLISTIC.trc</marker_file>
 		<!--The name of the storage (.sto or .mot) file containing the time history of coordinate observations. Coordinate values from this file are included if there is a corresponding model coordinate and task. -->
 		<coordinate_file>Unassigned</coordinate_file>
 	</InverseKinematicsTool>

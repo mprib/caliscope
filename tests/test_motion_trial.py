@@ -10,7 +10,7 @@ logger = caliscope.logger.get(__name__)
 
 def test_motion_trial():
     test_csv = Path(
-        __root__, "tests", "sessions", "4_cam_recording", "recording_1", "HOLISTIC_OPENSIM", "xyz_HOLISTIC_OPENSIM.csv"
+        __root__, "tests", "sessions", "4_cam_recording", "recording_1", "SIMPLE_HOLISTIC", "xyz_SIMPLE_HOLISTIC.csv"
     )
     motion_trial = MotionTrial(test_csv)
 
@@ -20,7 +20,7 @@ def test_motion_trial():
     assert xyz_packet_0.point_xyz.shape[1] == 3
 
     # able to read in tracker information
-    assert motion_trial.tracker.name == "HOLISTIC_OPENSIM"
+    assert motion_trial.tracker.name == "SIMPLE_HOLISTIC"
     assert xyz_packet_0.point_ids.shape[0] == xyz_packet_0.point_xyz.shape[0]
 
     logger.info(motion_trial)

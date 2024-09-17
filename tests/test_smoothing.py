@@ -19,7 +19,7 @@ original_base_data_directory = Path(__root__, "tests", "reference", "base_data")
 base_data_directory = Path(original_base_data_directory.parent.parent, "reference_delete", "base_data")
 copy_contents(original_base_data_directory, base_data_directory)
 
-xyz_path = Path(base_data_directory, "HOLISTIC_OPENSIM", "xyz_HOLISTIC_OPENSIM.csv")
+xyz_path = Path(base_data_directory, "SIMPLE_HOLISTIC", "xyz_SIMPLE_HOLISTIC.csv")
 config = Configurator(base_data_directory)
 
 
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     # load in the data for the playback
     camera_array = config.get_camera_array()
-    filtered_data_path = Path(base_data_directory, "HOLISTIC_OPENSIM", "xyz_HOLISTIC_OPENSIM_filtered.csv")
+    filtered_data_path = Path(base_data_directory, "SIMPLE_HOLISTIC", "xyz_SIMPLE_HOLISTIC_filtered.csv")
     filtered_data = pd.read_csv(filtered_data_path)
 
     # create and show the playback widget

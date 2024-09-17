@@ -12,4 +12,4 @@ xyz_gapfilled
 xyz_smoothed
 
 
-The HOLISTIC_OPENSIM folder is here ot align with the general structure of a session layout
+The SIMPLE_HOLISTIC folder is here ot align with the general structure of a session layout

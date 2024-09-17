@@ -11,8 +11,8 @@ logger = caliscope.logger.get(__name__)
 
 
 def test_metarig_config_generation():
-    xyz_csv_path = Path(__root__, "tests", "reference", "auto_rig_config_data", "xyz_HOLISTIC_OPENSIM_labelled.csv")
-    tracker_enum = TrackerEnum.HOLISTIC_OPENSIM
+    xyz_csv_path = Path(__root__, "tests", "reference", "auto_rig_config_data", "xyz_SIMPLE_HOLISTIC_labelled.csv")
+    tracker_enum = TrackerEnum.SIMPLE_HOLISTIC
 
     ######## code block for testing purposes  ######
     tracker = tracker_enum.value()

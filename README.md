@@ -25,12 +25,14 @@ This README provides a general overview and quick guide to install `Calicope` on
 A [sample project](https://mprib.github.io/caliscope/sample_project/) is provided to allow a quick assessment of `caliscope`'s functionality.
 
 ---
-### Demo Output
+
+### Demo Animation
 
 https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
 
-*The above was created using Caliscope, a 7 year old t440p laptop, and 4 webcams (~$25 each). This includes camera calibration, recording of synchronized frames (720p @ 24 fps), landmark detection, and point triangulation. Note that the webcam recording functionality is not in the current version, though will be restored in the future. Animated rig creation was done using an early stage Blender add-on project called [Rigmarole](https://github.com/mprib/rigmarole)*
-
+*`Caliscope` was used to calibrate the cameras used in the above recordings (both intrinsic and extrinsic estimates), run 2D landmark estimation across all the videos using Holistic Mediapipe pose estimation, then triangulate the 3D landmark positions.
+The animation was created in Blender based on these 3D landmark estimates using a companion project called [Rigmarole](https://github.com/mprib/rigmarole).
+The concurrent video was recorded with a 7 year old t440p laptop, 4 webcams (~$25 each) and another project called [MultiWebCam](https://github.com/mprib/multiwebcam).*
 ---
 
 ## Quick Start

@@ -12,7 +12,7 @@ from caliscope.trackers.tracker_enum import TrackerEnum
 logger = caliscope.logger.get(__name__)
 
 original_recording_directory = Path(__root__, "tests", "reference", "base_data")
-tracker_enum = TrackerEnum.HOLISTIC_OPENSIM
+tracker_enum = TrackerEnum.SIMPLE_HOLISTIC
 
 recording_directory = Path(original_recording_directory.parent.parent, "reference_delete", "base_data")
 copy_contents(original_recording_directory, recording_directory)

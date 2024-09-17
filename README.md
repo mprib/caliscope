@@ -30,7 +30,7 @@ A [sample project](https://mprib.github.io/caliscope/sample_project/) is provide
 
 https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
 
-*`Caliscope` was used to calibrate the cameras used in the above recordings (both intrinsic and extrinsic parameters), run 2D landmark estimation across all the videos using Holistic Mediapipe pose estimation, then triangulate the 3D landmark positions.
+*`Caliscope` was used to calibrate the cameras used in the above recordings (both intrinsic and extrinsic parameters), run 2D landmark estimation across all the videos using Holistic Mediapipe pose estimation, then triangulate the 3D landmark positions based on the camera system calibration.
 The animation was created in Blender based on these 3D landmark estimates using a companion project called [Rigmarole](https://github.com/mprib/rigmarole).
 The concurrent video was recorded with a 7 year old t440p laptop, 4 webcams (~$25 each) and another project called [MultiWebCam](https://github.com/mprib/multiwebcam).*
 

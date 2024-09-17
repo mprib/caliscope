@@ -18,12 +18,14 @@
 Current options for the tracker outputs are built on Google's [Mediapipe]() and include pipelines for general [Pose](), [Hands](), and [Face]().
 The [Holistic]() tracker combines all three outputs.
 While the Holistic tracker offers improved tracking of the face and hands compared to the Pose model, the number of points it supplies can quickly become unweildy (several hundred for the face).
-The Holistic OpenSim model filters out many of these points that may be extraneous to users primarily interested in gross skeletal movement. 
+The Simple Holistic model filters out many of these points that may be extraneous to users primarily interested in gross skeletal movement. 
 
 
 ## Metarig Generation
 
-For the Holistic OpenSim tracker you can generate a metarig configuration file. This will provide a set of parameters that can scale segments of a skeletal model based on the average distances between various landmarks throughout the motion capture. With a more accurately scaled skeletal model, inverse kinematics can more successfully approximate the true movement.
+For the Simple Holistic tracker you can generate a metarig configuration file. This will provide a set of parameters that can scale segments of a skeletal model based on the average distances between various landmarks throughout a dynamic calibration motion trial where the subject flexes and extends their joints with minimal camera occlusion.
+
+With a more accurately scaled skeletal model, inverse kinematics can more successfully approximate the true movement.
 
 ## Practical Recording Guidelines
 

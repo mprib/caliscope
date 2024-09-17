@@ -47,7 +47,7 @@ Pose2Sim [@pagnonPose2SimOpensourcePython2022] is another tool that merges both 
 Similar to Caliscope, Pose2Sim employs a camera model composed of 4 pinhole camera parameters and 5 distortion parameters.
 Additionally, both projects export output to the `.trc` file format to facilitate integration with the biomechanical modelling software OpenSim. 
 While Pose2Sim does not perform bundle adjustment to refine the extrinsic camera estimates, it does provide a number of features that are valuable components of a motion tracking workflow which are not present in Caliscope and would be useful in future motion tracking tools.
-These include the ability to calibrate camera extrinsics based on scene elements, the capacity to distinguish between multiple subjects in view at once, and more sophisticate triangulation methods that can incorporate the confidence of a model's prediction of a pose landmark.
+These include the ability to calibrate camera extrinsics based on scene elements, the capacity to distinguish between multiple subjects in view at once, and more sophisticated triangulation methods that can incorporate the confidence of a model's prediction of a pose landmark.
 
 
 # Acknowledgements

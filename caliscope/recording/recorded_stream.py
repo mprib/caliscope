@@ -188,7 +188,7 @@ class RecordedStream:
 
             if self.milestones is not None:
                 sleep(self.wait_to_next_frame())
-            logger.info(f"about to read frame {self.frame_index} from capture at port {self.port}")
+            # logger.info(f"about to read frame {self.frame_index} from capture at port {self.port}")
             success, self.frame = self.capture.read()
 
             if not success:

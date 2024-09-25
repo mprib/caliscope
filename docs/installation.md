@@ -25,7 +25,16 @@ We strongly advise installing within a virtual environment. This approach helps 
 
 === "macOS"
 
+
     ```bash
+
+    # Note that there are some environment variables that must be set on MacOS
+    # to ensure everything works:
+
+    export MKL_NUM_THREADS=1
+    export NUMEXPR_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
+    
     # Open Command Prompt and navigate to directory that will hold venv
     # this does not need to be the same as where your project workspace is held
     cd path/to/your/project
@@ -43,6 +52,15 @@ We strongly advise installing within a virtual environment. This approach helps 
 === "Linux"
 
     ```bash
+
+    # potentially some minor updates to keep things running smoothly
+
+    # Update packages (Ubuntu)
+    sudo apt-get update
+
+    # Install packages (Ubuntu)
+    sudo apt-get install --fix-missing libgl1-mesa-dev
+
     # Open Command Prompt and navigate to directory that will hold venv
     # this does not need to be the same as where your project workspace is held
     cd path/to/your/project

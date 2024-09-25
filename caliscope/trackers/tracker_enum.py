@@ -14,7 +14,7 @@ class TrackerEnum(Enum):
     SIMPLE_HOLISTIC = SimpleHolisticTracker
     HOLISTIC = HolisticTracker
     CHARUCO = CharucoTracker
-    FACE = FaceTracker
+    # FACE = FaceTracker
 
 
 if __name__ == "__main__":

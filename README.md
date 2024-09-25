@@ -24,6 +24,7 @@ Caliscope automates this more complex calibration function along with providing 
 This README provides a general overview and quick guide to install `Calicope` on your system. For a more detailed description of the calibration process and workflow, please see our [docs](https://mprib.github.io/caliscope/).
 
 **For a quick sense of how the calibration process works, check out the [video walk through](https://www.youtube.com/watch?v=voE3IKYtuIQ) of the [sample project](https://mprib.github.io/caliscope/sample_project/).**
+
 ---
 
 ### Demo Animation

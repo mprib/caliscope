@@ -35,7 +35,7 @@ We strongly advise installing within a virtual environment. This approach helps 
     export NUMEXPR_NUM_THREADS=1
     export OMP_NUM_THREADS=1
     
-    # Open Command Prompt and navigate to directory that will hold venv
+    # Navigate to directory that will hold venv
     # this does not need to be the same as where your project workspace is held
     cd path/to/your/project
 
@@ -61,7 +61,7 @@ We strongly advise installing within a virtual environment. This approach helps 
     # Install packages (Ubuntu)
     sudo apt-get install --fix-missing libgl1-mesa-dev
 
-    # Open Command Prompt and navigate to directory that will hold venv
+    # Navigate to directory that will hold venv
     # this does not need to be the same as where your project workspace is held
     cd path/to/your/project
 

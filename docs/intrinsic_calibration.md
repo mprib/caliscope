@@ -12,10 +12,10 @@
 4. Confirm by scrolling through the video that the calibration board corners are being recognized (red dots placed on them)
 5. (Option 1) Manual Board Selection
    1. Scroll through the calibration footage and select `Add Grid` to include the frame in your calibration data. Grid images should accumulate for all grids included in the intrinisc calibration. 
-   2. When you have chosen the frames you like, click `Calibrate` to begin the calibration process.
+   2. When you have chosen the frames you like, click `Calibrate` to begin the calibration process. 
 6. (Option 2) Autocalibrate
    1. Select the target number of boards for your calibration (~20 works well) 
-   2. Select the percent of the board that must be identified for it to be included in the calibration data
+   2. Select the percent of the board that must be identified for it to be included in the calibration data (the "Board Threshold")
    3. click `Autocalibrate`
    5. The video will play and calibration data will be periodically stored. At the conclusion of the video the calibration will be performed and the updated camera parameters will be displayed in the GUI (and stored in the `config.toml` file at the project root).
 

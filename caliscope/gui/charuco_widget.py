@@ -258,8 +258,8 @@ class CharucoConfigGroup(QWidget):
 
 if __name__ == "__main__":
     from caliscope import __root__
-    from caliscope.helper import copy_contents
     from caliscope.calibration.charuco import Charuco
+    from caliscope.helper import copy_contents
     app = QApplication(sys.argv)
 
     # Define the input file path here.

@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -167,10 +168,28 @@ class CharucoWidget(QWidget):
             charuco_height = int(charuco_width * (board_height / board_width))
 
         logger.info("Building charuco thumbnail...")
-        charuco_img = self.charuco.board_pixmap(charuco_width, charuco_height)
-        self.charuco_display.setPixmap(charuco_img)
+        try:
+            charuco_img = self.charuco.board_pixmap(charuco_width, charuco_height)
+            self.charuco_display.setPixmap(charuco_img)
+            # Clear any previous error message
+            self.charuco_display.setStyleSheet("")
+            self.charuco_display.setToolTip("")
+            self.controller.update_charuco(self.charuco)
+        except Exception as e:
+            logger.error(f"Failed to create charuco board: {str(e)}")
+            error_msg = """Unable to create board with current dimensions.\n
+                        The default dictionary may by too small (can be configured in config.toml file).
+                        Alternatively, the aspect ratio may be too extreme.
+                        """
+            self.charuco_display.setPixmap(QPixmap())  # Clear the pixmap
+            self.charuco_display.setText(error_msg)
+            # Optional: Add some styling to make the error message stand out
+            self.charuco_display.setStyleSheet("QLabel { color: red; }")
+            self.charuco_display.setToolTip("Try adjusting the width and height to have a less extreme ratio")
 
-        self.controller.update_charuco(self.charuco)
+            charuco_img = self.charuco.board_pixmap(charuco_width, charuco_height)
+            self.charuco_display.setPixmap(charuco_img)
+
 
 
 class CharucoConfigGroup(QWidget):
@@ -182,27 +201,24 @@ class CharucoConfigGroup(QWidget):
         self.column_spin = QSpinBox()
         self.column_spin.setMinimum(3)
         self.column_spin.setValue(self.params["columns"])
-        # self.column_spin.setMaximumWidth(50)
 
         self.row_spin = QSpinBox()
         self.row_spin.setMinimum(4)
         self.row_spin.setValue(self.params["rows"])
-        # self.row_spin.setMaximumWidth(50)
 
         self.width_spin = QDoubleSpinBox()
         self.width_spin.setMinimum(1)
+        self.width_spin.setMaximum(10000)
         self.width_spin.setValue(self.params["board_width"])
-        self.width_spin.setMaximumWidth(50)
 
         self.length_spin = QDoubleSpinBox()
+        self.length_spin.setMaximum(10000)
         self.length_spin.setMinimum(1)
         self.length_spin.setValue(self.params["board_height"])
-        self.length_spin.setMaximumWidth(50)
 
         self.units = QComboBox()
         self.units.addItems(["cm", "inch"])
         self.units.setCurrentText(self.params["units"])
-        self.units.setMaximumWidth(100)
 
         self.invert_checkbox = QCheckBox("&Invert")
         self.invert_checkbox.setChecked(self.params["inverted"])
@@ -241,18 +257,16 @@ class CharucoConfigGroup(QWidget):
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
     from caliscope import __root__
+    from caliscope.helper import copy_contents
     from caliscope.calibration.charuco import Charuco
+    app = QApplication(sys.argv)
 
     # Define the input file path here.
     original_workspace_dir = Path(__root__, "tests", "sessions", "prerecorded_calibration")
-    # workspace_dir = Path(
-    #     __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
-    # )
 
-    # copy_contents(original_workspace_dir, workspace_dir)
     workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\caliscope\prerecorded_workflow")
+    copy_contents(original_workspace_dir, workspace_dir)
     controller = Controller(workspace_dir)
     charuco_page = CharucoWidget(controller)
 

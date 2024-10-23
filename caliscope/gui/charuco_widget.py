@@ -174,9 +174,13 @@ class CharucoWidget(QWidget):
             # Clear any previous error message
             self.charuco_display.setStyleSheet("")
             self.charuco_display.setToolTip("")
+            self.controller.update_charuco(self.charuco)
         except Exception as e:
             logger.error(f"Failed to create charuco board: {str(e)}")
-            error_msg = "Unable to create board with current dimensions.\nThe aspect ratio may be too extreme."
+            error_msg = """Unable to create board with current dimensions.\n
+                        The default dictionary may by too small (can be configured in config.toml file).
+                        Alternatively, the aspect ratio may be too extreme.
+                        """
             self.charuco_display.setPixmap(QPixmap())  # Clear the pixmap
             self.charuco_display.setText(error_msg)
             # Optional: Add some styling to make the error message stand out
@@ -186,7 +190,6 @@ class CharucoWidget(QWidget):
             charuco_img = self.charuco.board_pixmap(charuco_width, charuco_height)
             self.charuco_display.setPixmap(charuco_img)
 
-            self.controller.update_charuco(self.charuco)
 
 
 class CharucoConfigGroup(QWidget):

@@ -19,7 +19,6 @@ logger = caliscope.logger.get(__name__)
 
 INCHES_PER_CM = 0.393701
 
-
 class Charuco:
     """
     create a charuco board that can be printed out and used for camera
@@ -72,6 +71,21 @@ class Charuco:
         else:
             return self.board_width
 
+    def board_height_scaled(self, pixmap_scale):
+        if self.board_height_cm > self.board_width_cm:
+            scaled_height = int(pixmap_scale)
+        else:
+            scaled_height = int(pixmap_scale * (self.board_height_cm/self.board_width_cm))
+        return scaled_height
+
+    def board_width_scaled(self, pixmap_scale):
+        if self.board_height_cm > self.board_width_cm:
+            scaled_width = int(pixmap_scale * (self.board_width_cm/self.board_height_cm))
+        else:
+            scaled_width = int(pixmap_scale)
+
+        return scaled_width
+
     @property
     def dictionary_object(self):
         # grab the dictionary from the reference info at the foot of the module
@@ -99,25 +113,26 @@ class Charuco:
             self.dictionary_object,
         )
 
-    @property
-    def board_img(self):
-        """A cv2 image (numpy array) of the board printing at 300 dpi.
-        Conversion to inches is strange, but done due to
-        ubiquity of inch measurement for familiar printing standard"""
 
-        width_inch = self.board_width_cm * INCHES_PER_CM
-        height_inch = self.board_height_cm * INCHES_PER_CM
-
-        img = self.board.generateImage((int(width_inch * 300), int(height_inch * 300)))
+    def board_img(self, pixmap_scale=1000):
+        """
+        returns a cv2 image (numpy array) of the board
+        smaller scale image by default for display to GUI
+        provide larger max_edge_length to get printer-ready png
+        """
+        img = self.board.generateImage((self.board_width_scaled(pixmap_scale=pixmap_scale),
+                                        self.board_height_scaled(pixmap_scale=pixmap_scale)))
         if self.inverted:
             img = ~img
 
         return img
 
     def board_pixmap(self, width, height):
-        """Convert from an opencv image to QPixmap..this can be used for
-        creating thumbnail images"""
-        rgb_image = cv2.cvtColor(self.board_img, cv2.COLOR_BGR2RGB)
+        """
+        Convert from an opencv image to QPixmap
+        this can be used for creating thumbnail images
+        """
+        rgb_image = cv2.cvtColor(self.board_img(), cv2.COLOR_BGR2RGB)
         h, w, ch = rgb_image.shape
         bytes_per_line = ch * w
         charuco_QImage = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
@@ -130,10 +145,16 @@ class Charuco:
         return QPixmap.fromImage(p)
 
     def save_image(self, path):
-        cv2.imwrite(path, self.board_img)
+        """
+        Saving image at 10x higher resolution than used for GUI
+        """
+        cv2.imwrite(path, self.board_img(pixmap_scale=10000))
 
     def save_mirror_image(self, path):
-        mirror = cv2.flip(self.board_img, 1)
+        """
+        Saving image at 10x higher resolution than used for GUI
+        """
+        mirror = cv2.flip(self.board_img(pixmap_scale=10000), 1)
         cv2.imwrite(path, mirror)
 
     def get_connected_points(self):
@@ -220,7 +241,7 @@ ARUCO_DICTIONARIES = {
 if __name__ == "__main__":
     charuco = Charuco(4, 5, 4, 8.5, aruco_scale=0.75, units="inch", inverted=True, square_size_overide_cm=5.25)
     charuco.save_image("test_charuco.png")
-    width, height = charuco.board_img.shape
+    width, height = charuco.board_img().shape
     logger.info(f"Board width is {width}\nBoard height is {height}")
 
     corners = charuco.board.getChessboardCorners()

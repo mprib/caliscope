@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 import caliscope.logger
 from caliscope.calibration.charuco import Charuco
 from caliscope.controller import Controller
+from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 
 logger = caliscope.logger.get(__name__)
 
@@ -135,7 +136,7 @@ class CharucoWidget(QWidget):
         rows = self.charuco_config.row_spin.value()
         board_height = self.charuco_config.length_spin.value()
         board_width = self.charuco_config.width_spin.value()
-        aruco_scale = 0.75
+        aruco_scale = self.params["aruco_scale"]
         units = self.charuco_config.units.currentText()
         square_edge_length = self.printed_edge_length.value()
         # a
@@ -199,22 +200,34 @@ class CharucoConfigGroup(QWidget):
         self.params = self.controller.config.dict["charuco"]
 
         self.column_spin = QSpinBox()
-        self.column_spin.setMinimum(3)
+        setup_spinbox_sizing(self.column_spin, min_value=3,max_value=999, padding=10)
         self.column_spin.setValue(self.params["columns"])
+        # self.column_spin.setMinimum(3)
+        # self.column_spin.setMinimumWidth(50)
+        # self.column_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
 
         self.row_spin = QSpinBox()
-        self.row_spin.setMinimum(4)
         self.row_spin.setValue(self.params["rows"])
+        setup_spinbox_sizing(self.row_spin, min_value=4,max_value=999, padding=10)
+        # self.row_spin.setMinimum(4)
+        # self.row_spin.setMinimumWidth(50)
+        # self.row_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.width_spin = QDoubleSpinBox()
-        self.width_spin.setMinimum(1)
-        self.width_spin.setMaximum(10000)
         self.width_spin.setValue(self.params["board_width"])
+        setup_spinbox_sizing(self.width_spin,min_value=1, max_value=10000,padding=10)
+        # self.width_spin.setMinimum(1)
+        # self.width_spin.setMaximum(10000)
+        # self.width_spin.setMinimumWidth(70)
+        # self.width_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
 
         self.length_spin = QDoubleSpinBox()
-        self.length_spin.setMaximum(10000)
-        self.length_spin.setMinimum(1)
         self.length_spin.setValue(self.params["board_height"])
+        setup_spinbox_sizing(self.length_spin,min_value=1, max_value=10000,padding=10)
+        # self.length_spin.setMinimumWidth(70)
+        # self.length_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.units = QComboBox()
         self.units.addItems(["cm", "inch"])

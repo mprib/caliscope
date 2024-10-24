@@ -142,6 +142,7 @@ class CharucoWidget(QWidget):
         # a
         inverted = self.charuco_config.invert_checkbox.isChecked()
         dictionary_str = self.params["dictionary"]
+        legacy_pattern = self.params["legacy_pattern"]
 
         self.charuco = Charuco(
             columns,
@@ -153,6 +154,7 @@ class CharucoWidget(QWidget):
             aruco_scale=aruco_scale,
             square_size_overide_cm=square_edge_length,
             inverted=inverted,
+            legacy_pattern=legacy_pattern
         )
 
         if not self.charuco_added:

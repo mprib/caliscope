@@ -36,6 +36,7 @@ class Charuco:
         aruco_scale=0.75,
         square_size_overide_cm=None,
         inverted=False,
+        legacy_pattern=False
     ):  # after printing, measure actual and return to overide
         """
         Create board based on shape and dimensions
@@ -54,6 +55,7 @@ class Charuco:
         # to maximize size of squares
         self.square_size_overide_cm = square_size_overide_cm
         self.inverted = inverted
+        self.legacy_pattern = legacy_pattern
 
     @property
     def board_height_cm(self):
@@ -105,12 +107,15 @@ class Charuco:
 
         aruco_length = square_length * self.aruco_scale
         # create the board
-        return cv2.aruco.CharucoBoard(size=(self.columns, self.rows),
+        board = cv2.aruco.CharucoBoard(size=(self.columns, self.rows),
                                       squareLength= square_length,
                                       markerLength= aruco_length,
                                       dictionary= self.dictionary_object,
         )
 
+        logger.info(f"Setting legacy pattern of board to {self.legacy_pattern}")
+        board.setLegacyPattern(self.legacy_pattern)
+        return board
 
     def board_img(self, pixmap_scale=1000):
         """

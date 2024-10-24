@@ -200,6 +200,12 @@ class Configurator:
         logger.info("Loading charuco from config")
         params = self.dict["charuco"]
 
+        # the below is intended to catch people using older configs without this info
+        # if you come across this in mid 2025 or later, these may be safe to delete
+        logger.info(f"charuco param are: {params}:")
+        if "legacy_pattern" not in params.keys():
+            params["legacy_pattern"]=False
+
         charuco = Charuco(
             columns=params["columns"],
             rows=params["rows"],
@@ -210,6 +216,7 @@ class Configurator:
             aruco_scale=params["aruco_scale"],
             square_size_overide_cm=params["square_size_overide_cm"],
             inverted=params["inverted"],
+            legacy_pattern=params["legacy_pattern"]
         )
 
         return charuco

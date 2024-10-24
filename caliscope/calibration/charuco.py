@@ -105,12 +105,10 @@ class Charuco:
 
         aruco_length = square_length * self.aruco_scale
         # create the board
-        return cv2.aruco.CharucoBoard(
-            (self.columns, self.rows),
-            square_length,
-            aruco_length,
-            # property based on dictionary text
-            self.dictionary_object,
+        return cv2.aruco.CharucoBoard(size=(self.columns, self.rows),
+                                      squareLength= square_length,
+                                      markerLength= aruco_length,
+                                      dictionary= self.dictionary_object,
         )
 
 

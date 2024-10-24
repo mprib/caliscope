@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QSp
 import caliscope.logger
 from caliscope.controller import Controller
 from caliscope.gui.synched_frames_display import SynchedFramesDisplay
+from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 
 logger = caliscope.logger.get(__name__)
 
@@ -26,6 +27,7 @@ class WorkspaceSummaryWidget(QWidget):
 
         self.camera_count_spin = QSpinBox()
         self.camera_count_spin.setValue(self.controller.get_camera_count())
+        setup_spinbox_sizing(self.camera_count_spin,min_value=1,max_value=100,padding=30)
         self.camera_count_spin.setMaximumWidth(40)
 
         self.status_HTML = QTextBrowser()

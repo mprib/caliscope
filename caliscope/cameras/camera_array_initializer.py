@@ -223,8 +223,6 @@ class CameraArrayInitializer:
         total_error_score = 0
 
         for key, data in self.config.items():
-            # NOTE: commenting out second conditional check below. If you come back to this in a month and
-            # things haven't been breaking, then just delete all these comments.
             if key.startswith("cam_"):  # and not self.config[key]["ignore"]:
                 port = data["port"]
                 size = data["size"]

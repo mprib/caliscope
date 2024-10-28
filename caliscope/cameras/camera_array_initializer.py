@@ -232,10 +232,7 @@ class CameraArrayInitializer:
                 error = data["error"]
                 matrix = np.array(data["matrix"], dtype=np.float64)
                 distortions = np.array(data["distortions"], dtype=np.float64)
-                # exposure = data["exposure"]
                 grid_count = data["grid_count"]
-                # ignore = data["ignore"]
-                # verified_resolutions = data["verified_resolutions"]
 
                 # update with extrinsics, though place anchor camera at origin
                 if port == anchor_port:

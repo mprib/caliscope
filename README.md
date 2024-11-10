@@ -44,13 +44,13 @@ Basic installation instructions can be found [here](https://mprib.github.io/cali
 
 For a basic overview of the entire workflow, please see the [sample project](https://mprib.github.io/caliscope/sample_project/) for an example dataset and a video demonstration of the complete workflow.
 
-## Key Features
+# Key Features
 
-### Calibration board creation
+## Calibration board creation
 - Easy creation of `png` files for ChArUco calibration boards 
 - board definition can be changed across intrinsic and extrinsic calibration allowing greater flexibiltiy
 
-### Intrinsic Camera Calibration
+## Intrinsic Camera Calibration
 - Automated calculation of camera intrinsic properties from input video
   - Optical Center
   - Focal Length
@@ -58,27 +58,27 @@ For a basic overview of the entire workflow, please see the [sample project](htt
 
 - Visualization of distortion model to ensure reasonableness
 
-### Extrinsic Camera Calibration
+## Extrinsic Camera Calibration
 - Automated bundle adjustment to estimate 6 DoF relative position of cameras
 - Visualizer to inspect the estimates from the bundle adjustment
 - Setting of the World Origin within the visualizer to simplify data processing
 
 
-### 3D Tracking
+## 3D Tracking
 - Tracker API for integrating alternate tracking methods
   - 3 sample implementations with Google Mediapipe (Hands/Pose/Holistic)
 - Automated application of landmark tracking to synchronized videos
 - Triangulation of 3D landmark position based on calibrated cameras
 - Gap-filling and butterworth filtering to smooth trajectory estimates
 
-### Trajectory Output
+## Trajectory Output
 
 - output to `.trc` file format for use in biomechanical modelling
 - output to tidy `.csv` format with well-labelled headers for straightforward integration with other workflows
 - companion project [Rigmarole](https://github.com/mprib/rigmarole) in development to facilitate creation of animated rigs in Blender
 
 
-### NOTE: Currently only using Mediapipe
+## NOTE: Currently only using Mediapipe
 
 Google's Mediapipe provides a relatively easy and efficient method for human subject tracking, though for many uses it is limiting. Caliscope has a general Tracker base class that is implemented in a few versions (Pose/Hands/Holistic). This has provided a proof of concept implementation of markerless tracking, though for more robust use the roadmap calls for integration with more powerful tools such as [MMPose](https://github.com/open-mmlab/mmpose) and [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut).
 
@@ -86,15 +86,15 @@ Google's Mediapipe provides a relatively easy and efficient method for human sub
 
 To report a bug or request a feature, please [open an issue](https://github.com/mprib/caliscope/issues). Please keep in mind that this is an open-source project supported by volunteer effort, so your patience is appreciated.
 
-## General Questions and Conversation
+# General Questions and Conversation
 
 Post any questions in the [Discussions](https://github.com/mprib/caliscope/discussions) section of the repo. 
 
 
-## Acknowledgments
+# Acknowledgments
 
 This project was inspired by [FreeMoCap](https://github.com/freemocap/freemocap) (FMC), which is spearheaded by [Jon Matthis, PhD](https://jonmatthis.com/) of the HuMoN Research Lab. The FMC calibration and triangulation system is built upon [Anipose](https://github.com/lambdaloop/anipose), created by Lili Karushchek, PhD. Caliscope was originally envisioned as an alternative calibration tool to Anipose that would allow more granular estimation of intrinsics as well as visual feedback during the calibration process. Several lines of of the original Anipose triangulation code are used in this code base, though otherwise it was written from the ground up. I'm grateful to Dr. Matthis for his time developing FreeMoCap, discussing it with me, pointing out important code considerations, and providing a great deal of information regarding open-source project management.
 
-## License
+# License
 
 Caliscope is licensed under the permissive [BSD 2-Clause license](https://opensource.org/license/bsd-2-clause/). The triangulation function was adapted from the [Anipose](https://github.com/lambdaloop/anipose) code base which is also licensed under the BSD-2 Clause. A primary dependency of this project is PySide6 which provides the GUI front end. PySide6 is licensed under the [LGPLv3](https://www.gnu.org/licenses/lgpl-3.0.html). Caliscope does not modify the underlying source code of PySide6 which is available via [PyPI](https://pypi.org/project/PySide6/).

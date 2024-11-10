@@ -37,77 +37,12 @@ The concurrent video was recorded with a 7 year old t440p laptop, 4 webcams (~$2
 
 ---
 
-## Quick Start
+# Quick Start
 
-Please note that given the size of some core dependencies (OpenCV, Mediapipe, and PySide6 are among them) installation and initial launch can take a while. 
+Basic installation instructions can be found [here](https://mprib.github.io/caliscope/installation/). Please note that given the size of some core dependencies (OpenCV, Mediapipe, and PySide6 are among them) installation and initial launch can take a while. 
 
-### Basic Installation and Launch
-#### Windows
 
-```bash
-# Open Command Prompt and navigate to directory that will hold venv
-# this does not need to be the same as where your project workspace is held
-cd path\to\your\project
-
-# Create a virtual environment named 'env' using Python 3.10
-"C:\Path\To\Python3.10\python.exe" -m venv .venv
-
-# Activate the virtual environment
-.\.venv\Scripts\activate
-
-# Your virtual environment is now active.
-# You can install using pip
-pip install caliscope
-
-# Launch from the command line
-caliscope
-```
-
-#### MacOS/Linux
-```bash
-# Open Command Prompt and navigate to directory that will hold venv
-# this does not need to be the same as where your project workspace is held
-cd path/to/your/project
-
-# Create a virtual environment named 'venv' using Python 3.10
-/path/to/python3.10 -m venv .venv
-
-# Activate the virtual environment
-source .venv/bin/activate
-
-# Your virtual environment is now active.
-# You can install using pip
-pip3 install caliscope
-
-# Launch from the command line
-caliscope
-```
-
-### MacOS Note: Must adjust some environment variables
-
-Thank you to @calcoloergosum for raising an issue regarding a bug in numpy on MacOS that was causing a crash (https://github.com/mprib/caliscope/issues/622).
-
-It is advised to set the following environment variables on MacOS. If anyone has any additional details related to this or notices that the bug has been fixed, please let me know and I'll take this down.
-
-```
-export MKL_NUM_THREADS=1
-export NUMEXPR_NUM_THREADS=1
-export OMP_NUM_THREADS=1
-```
-
-### Basic Steps
-
-1. Once the GUI launches, navigate to File->New/Open Project and create a folder to hold your project
-  - A basic [project structure](https://mprib.github.io/caliscope/project_setup/) will be created here
-2. Define a Charuco calibration board via the Charuco tab and print it out, fixing it to something flat
-3. Record footage for the calibration according to the guidelines for the [intrinsic](https://mprib.github.io/caliscope/intrinsic_calibration/) and [extrinsic](https://mprib.github.io/caliscope/extrinsic_calibration/) calibrations.
-4. Record synchronized motion capture trials
-  - A companion project ([multiwebcam](https://github.com/mprib/multiwebcam)) has been set up to facilitate this though is still in early stages
-5. Store video files within the project folder and reload the workspace
-6. Run autocalibration on all cameras within the Cameras tab
-7. Run "Calibration Capture Volume" from the Workspace Tab
-8. Set origin within the capture volume (optional but helpful)
-9. Run post-processing on individual recordings to generate 3D trajectory output
+For a basic overview of the entire workflow, please see the [sample project](https://mprib.github.io/caliscope/sample_project/) for an example dataset and a video demonstration of the complete workflow.
 
 ## Key Features
 
@@ -142,12 +77,8 @@ export OMP_NUM_THREADS=1
 - output to tidy `.csv` format with well-labelled headers for straightforward integration with other workflows
 - companion project [Rigmarole](https://github.com/mprib/rigmarole) in development to facilitate creation of animated rigs in Blender
 
-## Limitations
 
-### Requires Frame Sync
-The workflow currently requires you to provide your own synchronized frames or to provide [a file](project_setup.md#frame_time_historycsv) that specifies the time at which each frame was read so that caliscope can perform the synchronization itself. There are plans to manage this synchronization automatically through audio files, though that has not yet been implemented.
-
-### Currently only using Mediapipe
+### NOTE: Currently only using Mediapipe
 
 Google's Mediapipe provides a relatively easy and efficient method for human subject tracking, though for many uses it is limiting. Caliscope has a general Tracker base class that is implemented in a few versions (Pose/Hands/Holistic). This has provided a proof of concept implementation of markerless tracking, though for more robust use the roadmap calls for integration with more powerful tools such as [MMPose](https://github.com/open-mmlab/mmpose) and [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut).
 

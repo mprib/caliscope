@@ -33,7 +33,7 @@ nav:
   - Installation: installation.md
   - Project Setup: 
     - Overview: project_setup.md
-    - Example Project: sample_project.md
+    - Sample Project: sample_project.md
   - Project Setup:  project_setup.md
   - Workflow:
     - Video Capture: video_capture.md

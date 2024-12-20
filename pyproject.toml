@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "caliscope"
-version = "0.5.3"
+version = "0.5.4"
 description = "GUI based multicamera calibration that integrates with 2D landmark tracking to triangulate 3D landmark positions"
 authors = ["Mac Prible <prible@gmail.com>"]
 license = "BSD-2-Clause"
@@ -13,7 +13,7 @@ scipy = "^1.10.1"
 pyqtgraph = "^0.13.2"
 PyOpenGL = "^3.1.6"
 numba = "^0.57.0"
-mediapipe = "0.10.1"
+mediapipe = "0.10.20"
 pyside6 = "^6.5.2"
 opencv-contrib-python = "^4.8.0.74"
 rtoml = "^0.9.0"

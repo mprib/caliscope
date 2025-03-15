@@ -52,7 +52,7 @@ def test_post_monocalibration(session_path):
 
     logger.info("Waiting for video recorder to finish processing stream...")
     stereocalibrator = StereoCalibrator(config.config_toml_path, point_data_path)
-    stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+    stereocalibrator.stereo_calibrate_all(boards_sampled=5)
 
     camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
 
@@ -63,12 +63,12 @@ def test_post_monocalibration(session_path):
     logger.info(f"Prior to bundle adjustment, RMSE error is {initial_rmse}")
     capture_volume.optimize()
 
-    quality_controller = QualityController(capture_volume, charuco)
+    # quality_controller = QualityController(capture_volume, charuco)
     # Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model
-    logger.info(f"Filtering out worse fitting {FILTERED_FRACTION*100} % of points")
-    quality_controller.filter_point_estimates(FILTERED_FRACTION)
-    logger.info("Re-optimizing with filtered data set")
-    capture_volume.optimize()
+    # logger.info(f"Filtering out worse fitting {FILTERED_FRACTION*100} % of points")
+    # quality_controller.filter_point_estimates(FILTERED_FRACTION)
+    # logger.info("Re-optimizing with filtered data set")
+    # capture_volume.optimize()
     optimized_filtered_rmse = capture_volume.rmse
 
     # save out results of optimization for later assessment with F5 test walkthroughs

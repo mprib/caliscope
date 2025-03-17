@@ -7,7 +7,6 @@ import pandas as pd
 import rtoml
 
 import caliscope.logger
-from caliscope import __root__
 
 logger = caliscope.logger.get(__name__)
 
@@ -134,55 +133,107 @@ class StereoCalibrator:
 
         return all_boards
 
-    def get_stereopair_data(self, pair: tuple, boards_sampled: int, random_state=1) -> pd.DataFrame or None:
-        # convenience function to get the points that are in the overlap regions of the pairs
-        def in_pair(row: int, pair: tuple):
-            """
-            Uses the coverage_region string generated previously to flag points that are in
-            a shared region of the pair
-            """
-            a, b = pair
-            port_check = row.port == a or row.port == b
+    def get_stereopair_data(self, pair: tuple, boards_sampled: int, random_state=1):
+        """
+        Efficiently extract data for a stereo pair.
+        """
+        a, b = pair
+        a_str, b_str = str(a), str(b)
 
-            a, b = str(a), str(b)
+        # Create vectorized masks for filtering
+        in_region_a = self.all_point_data['coverage_region'].str.contains(f'_{a_str}_')
+        in_region_b = self.all_point_data['coverage_region'].str.contains(f'_{b_str}_')
+        in_port_pair = self.all_point_data['port'].isin([a, b])
 
-            region_check = ("_" + a + "_") in row.coverage_region and ("_" + b + "_") in row.coverage_region
-            return region_check and port_check
+        # Filter points that are in the shared region and in one of the cameras
+        pair_points = self.all_point_data[in_region_a & in_region_b & in_port_pair].copy()
 
-        # flag the points that belong to the pair overlap regions
-        self.all_point_data["in_pair"] = self.all_point_data.apply(in_pair, axis=1, args=(pair,))
+        if pair_points.empty:
+            logger.info(f"For pair {pair} there are no shared points")
+            return None
 
-        # group points into boards and get the total count for sample weighting below
-        pair_points = self.all_point_data[self.all_point_data["in_pair"]]
-        pair_boards = (
-            pair_points.filter(["sync_index", "port", "point_id"])
-            .groupby(["sync_index", "port"])
-            .agg("count")
-            .rename({"point_id": "point_count"}, axis=1)
-            .query("point_count >=6")  # a requirement of the stereocalibration function
-            .reset_index()
-            .query(f"port == {pair[0]}")  # will be the same..only need one copy
-            .drop("port", axis=1)
-        )
+        # Count points per board and filter to boards with enough points
+        board_counts = pair_points.groupby(['sync_index', 'port']).size().reset_index(name='point_count')
+        valid_boards = board_counts[board_counts['point_count'] >= 6]
 
-        # configure random sampling. If you have too few boards, then only take what you have
-        board_count = pair_boards.shape[0]
-        sample_size = min(board_count, boards_sampled)
+        # Filter to port a only (to avoid duplicates)
+        valid_boards_a = valid_boards[valid_boards['port'] == a][['sync_index', 'point_count']]
+
+        if valid_boards_a.empty:
+            logger.info(f"For pair {pair} there are no boards with sufficient points")
+            return None
+
+        # Sample boards
+        sample_size = min(len(valid_boards_a), boards_sampled)
 
         if sample_size > 0:
             logger.info(f"Assembling {sample_size} shared boards for pair {pair}")
-            # bias toward selecting boards with more overlapping points
-            sample_weight = pair_boards["point_count"] ** 2
 
-            # get the randomly selected subset
-            selected_boards = pair_boards.sample(n=sample_size, weights=sample_weight, random_state=random_state)
+            # Sample boards with weighting
+            weights = valid_boards_a['point_count'] ** 2
+            selected_boards = valid_boards_a.sample(
+                n=sample_size,
+                weights=weights,
+                random_state=random_state
+            )
 
-            selected_pair_points = pair_points.merge(selected_boards, "right", "sync_index")
+            # Filter points to selected boards
+            selected_points = pair_points[pair_points['sync_index'].isin(selected_boards['sync_index'])]
+            return selected_points
         else:
             logger.info(f"For pair {pair} there are no shared boards")
-            selected_pair_points = None
+            return None
 
-        return selected_pair_points
+
+    # def get_stereopair_data(self, pair: tuple, boards_sampled: int, random_state=1) -> pd.DataFrame or None:
+    #     # convenience function to get the points that are in the overlap regions of the pairs
+    #     def in_pair(row: int, pair: tuple):
+    #         """
+    #         Uses the coverage_region string generated previously to flag points that are in
+    #         a shared region of the pair
+    #         """
+    #         a, b = pair
+    #         port_check = row.port == a or row.port == b
+
+    #         a, b = str(a), str(b)
+
+    #         region_check = ("_" + a + "_") in row.coverage_region and ("_" + b + "_") in row.coverage_region
+    #         return region_check and port_check
+
+    #     # flag the points that belong to the pair overlap regions
+    #     self.all_point_data["in_pair"] = self.all_point_data.apply(in_pair, axis=1, args=(pair,))
+
+    #     # group points into boards and get the total count for sample weighting below
+    #     pair_points = self.all_point_data[self.all_point_data["in_pair"]]
+    #     pair_boards = (
+    #         pair_points.filter(["sync_index", "port", "point_id"])
+    #         .groupby(["sync_index", "port"])
+    #         .agg("count")
+    #         .rename({"point_id": "point_count"}, axis=1)
+    #         .query("point_count >=6")  # a requirement of the stereocalibration function
+    #         .reset_index()
+    #         .query(f"port == {pair[0]}")  # will be the same..only need one copy
+    #         .drop("port", axis=1)
+    #     )
+
+    #     # configure random sampling. If you have too few boards, then only take what you have
+    #     board_count = pair_boards.shape[0]
+    #     sample_size = min(board_count, boards_sampled)
+
+    #     if sample_size > 0:
+    #         logger.info(f"Assembling {sample_size} shared boards for pair {pair}")
+    #         # bias toward selecting boards with more overlapping points
+    #         sample_weight = pair_boards["point_count"] ** 2
+
+    #         # get the randomly selected subset
+    #         selected_boards = pair_boards.sample(n=sample_size, weights=sample_weight, random_state=random_state)
+
+    #         selected_pair_points = pair_points.merge(selected_boards, "right", "sync_index")
+    #     else:
+    #         logger.info(f"For pair {pair} there are no shared boards")
+    #         selected_pair_points = None
+
+    #     return selected_pair_points
 
     def stereo_calibrate_all(self, boards_sampled=10):
         """Iterates across all camera pairs. Intrinsic parameters are pulled

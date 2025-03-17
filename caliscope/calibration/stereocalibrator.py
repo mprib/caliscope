@@ -37,41 +37,61 @@ class StereoCalibrator:
 
     def points_with_coverage_region(self, point_data: pd.DataFrame):
         """
-        Pivot the port columns and assemble a new string field that will show all of the cameras that
-        observed a given corner at a single sync index.
+        Efficiently create coverage region strings for points.
         """
+        # Extract unique combinations of sync_index, point_id, and port
+        point_ports = point_data[['sync_index', 'point_id', 'port']].drop_duplicates()
 
-        points_w_pivoted_ports = (
-            point_data.filter(["sync_index", "point_id", "port"])
-            .pivot(index=["sync_index", "point_id"], columns="port", values="port")
-            .reset_index()
-            .fillna("")
-        )
+        # Convert port to strings for easier handling
+        point_ports['port_str'] = point_ports['port'].astype(str)
 
-        def get_coverage_region(row, ports):
-            """
-            returns a string of the format "_0_1_2" for points which were captured
-            by cameras 0,1 and 2, etc...
-            """
-            text = ""
-            for port in ports:
-                label = row[port]
-                if label != "":
-                    label = str(int(label))
-                    text = text + "_" + label
+        # Group by sync_index and point_id to collect ports
+        grouped = point_ports.groupby(['sync_index', 'point_id'])['port_str'].apply(
+            lambda x: '_' + '_'.join(sorted(x)) + '_'
+        ).reset_index(name='coverage_region')
 
-            text = text + "_"
+        # Merge back with original data
+        result = point_data.merge(grouped, on=['sync_index', 'point_id'], how='left')
 
-            return text
+        return result
 
-        points_w_pivoted_ports["coverage_region"] = points_w_pivoted_ports.apply(
-            get_coverage_region, axis=1, args=(self.ports,)
-        )
+    # def points_with_coverage_region(self, point_data: pd.DataFrame):
+    #     """
+    #     Pivot the port columns and assemble a new string field that will show all of the cameras that
+    #     observed a given corner at a single sync index.
+    #     """
 
-        points_w_pivoted_ports = points_w_pivoted_ports.filter(["sync_index", "point_id", "coverage_region"])
-        points_w_regions = point_data.merge(points_w_pivoted_ports, "left", ["sync_index", "point_id"])
+    #     points_w_pivoted_ports = (
+    #         point_data.filter(["sync_index", "point_id", "port"])
+    #         .pivot(index=["sync_index", "point_id"], columns="port", values="port")
+    #         .reset_index()
+    #         .fillna("")
+    #     )
 
-        return points_w_regions
+    #     def get_coverage_region(row, ports):
+    #         """
+    #         returns a string of the format "_0_1_2" for points which were captured
+    #         by cameras 0,1 and 2, etc...
+    #         """
+    #         text = ""
+    #         for port in ports:
+    #             label = row[port]
+    #             if label != "":
+    #                 label = str(int(label))
+    #                 text = text + "_" + label
+
+    #         text = text + "_"
+
+    #         return text
+
+    #     points_w_pivoted_ports["coverage_region"] = points_w_pivoted_ports.apply(
+    #         get_coverage_region, axis=1, args=(self.ports,)
+    #     )
+
+    #     points_w_pivoted_ports = points_w_pivoted_ports.filter(["sync_index", "point_id", "coverage_region"])
+    #     points_w_regions = point_data.merge(points_w_pivoted_ports, "left", ["sync_index", "point_id"])
+
+    #     return points_w_regions
 
     def get_boards_with_coverage(self):
         """
@@ -199,7 +219,7 @@ class StereoCalibrator:
 
     def stereo_calibrate(self, pair, boards_sampled=10):
         stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
-        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 40, 0.000001)
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 40, 0.001)
 
         paired_point_data = self.get_stereopair_data(pair, boards_sampled)
 
@@ -275,24 +295,3 @@ class StereoCalibrator:
             obj_locs.append(board_x_y_z[same_frame])
 
         return img_locs, obj_locs
-
-
-if __name__ == "__main__":
-    # if True:
-    from pathlib import Path
-
-    # set inputs
-    # session_path = Path(__root__, "tests", "4_cameras_nonoverlap")
-    session_path = Path(__root__, "dev", "sample_sessions", "257")
-
-    config_path = Path(session_path, "config.toml")
-    point_data_path = Path(session_path, "calibration", "extrinsic", "xy.csv")
-
-    stereocal = StereoCalibrator(
-        config_path,
-        point_data_path,
-    )
-
-    # %%
-
-    stereocal.stereo_calibrate_all(boards_sampled=15)

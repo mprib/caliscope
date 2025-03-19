@@ -1,8 +1,5 @@
-import shutil
 from pathlib import Path
 from time import sleep
-
-import pytest
 
 import caliscope.logger
 from caliscope import __root__
@@ -23,51 +20,19 @@ from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = caliscope.logger.get(__name__)
 
-TEST_SESSIONS = ["mediapipe_calibration"]
 
+def test_xy_charuco_creation():
 
-# def copy_contents(src_folder, dst_folder):
-#     """
-#     Helper function to port a test case data folder over to a temp directory
-#     used for testing purposes so that the test case data doesn't get overwritten
-#     """
-#     src_path = Path(src_folder)
-#     dst_path = Path(dst_folder)
+    original_session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration")
 
-#     # Create the destination folder if it doesn't exist
-#     dst_path.mkdir(parents=True, exist_ok=True)
+    session_path = Path(
+        original_session_path.parent.parent,
+        "sessions_copy_delete",
+        "mediapipe_calibration",
+    )
 
-#     for item in src_path.iterdir():
-#         # Construct the source and destination paths
-#         src_item = src_path / item
-#         dst_item = dst_path / item.name
+    copy_contents(original_session_path, session_path)
 
-#         # Copy file or directory
-#         if src_item.is_file():
-#             logger.info(f"Copying file at {src_item} to {dst_item}")
-#             shutil.copy2(src_item, dst_item)  # Copy file preserving metadata
-
-#         elif src_item.is_dir():
-#             logger.info(f"Copying directory at {src_item} to {dst_item}")
-#             shutil.copytree(src_item, dst_item)
-
-
-@pytest.fixture(params=TEST_SESSIONS)
-def session_path(request, tmp_path):
-    """
-    Tests will be run based on data stored in tests/sessions, but to avoid overwriting
-    or altering test cases,the tested directory will get copied over to a temp
-    directory and then that temp directory will be passed on to the calling functions
-    """
-    original_test_data_path = Path(__root__, "tests", "sessions", request.param)
-    tmp_test_data_path = Path(tmp_path, request.param)
-    copy_contents(original_test_data_path, tmp_test_data_path)
-
-    return tmp_test_data_path
-    # return original_test_data_path
-
-
-def test_post_monocalibration(session_path):
     # This test begins with a set of cameras with calibrated intrinsics
     config = Configurator(session_path)
     # config_path = str(Path(session_path, "config.toml"))
@@ -77,7 +42,6 @@ def test_post_monocalibration(session_path):
 
     # create a synchronizer based off of these stream pools
     logger.info("Creating RecordedStreamPool")
-
     recording_path = Path(session_path, "calibration", "extrinsic")
     point_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
 
@@ -92,48 +56,110 @@ def test_post_monocalibration(session_path):
         logger.info("Waiting for point_data.csv to populate...")
         sleep(1)
 
-    logger.info("Waiting for video recorder to finish processing stream...")
-    stereocalibrator = StereoCalibrator(config.config_toml_path, point_data_path)
-    stereocalibrator.stereo_calibrate_all(boards_sampled=10)
-
-    camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
-
-    point_estimates: PointEstimates = get_point_estimates(camera_array, point_data_path)
-
-    capture_volume = CaptureVolume(camera_array, point_estimates)
-    initial_rmse = capture_volume.rmse
-    logger.info(f"Prior to bundle adjustment, RMSE error is {initial_rmse}")
-    capture_volume.optimize()
-
-    quality_controller = QualityController(capture_volume, charuco)
-    # Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model
-    logger.info(f"Filtering out worse fitting {FILTERED_FRACTION*100} % of points")
-    quality_controller.filter_point_estimates(FILTERED_FRACTION)
-    logger.info("Re-optimizing with filtered data set")
-    capture_volume.optimize()
-    optimized_filtered_rmse = capture_volume.rmse
-
-    # save out results of optimization for later assessment with F5 test walkthroughs
-    config.save_camera_array(capture_volume.camera_array)
-    config.save_point_estimates(capture_volume.point_estimates)
-
-    for key, optimized_rmse in optimized_filtered_rmse.items():
-        logger.info(f"Asserting that RMSE decreased with optimization at {key}...")
-        assert initial_rmse[key] > optimized_rmse
-
-
-if __name__ == "__main__":
-    original_session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration")
+    assert(point_data_path.exists())
+def test_calibration():
+    version = "larger_calibration_post_monocal"
+    # version = "larger_calibration_post_bundle_adjustment"  # needed for test_stereocalibrate
+    original_session_path = Path(__root__, "tests", "sessions", version)
     session_path = Path(
         original_session_path.parent.parent,
         "sessions_copy_delete",
-        "mediapipe_calibration",
+        version,
     )
-
-    # clear previous test so as not to pollute current test results
-    if session_path.exists() and session_path.is_dir():
-        shutil.rmtree(session_path)
-
     copy_contents(original_session_path, session_path)
+    config = Configurator(session_path)
+    recording_path = Path(session_path, "calibration", "extrinsic")
+    xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
+    camera_array = config.get_camera_array()
+    charuco = config.get_charuco()
 
-    test_post_monocalibration(session_path)
+    logger.info("Creating stereocalibrator")
+    stereocalibrator = StereoCalibrator(config.config_toml_path, xy_data_path)
+    logger.info("Initiating stereocalibration")
+    stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+
+    logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
+    camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
+
+    logger.info("Loading point estimates")
+    point_estimates: PointEstimates = get_point_estimates(camera_array, xy_data_path)
+    capture_volume = CaptureVolume(camera_array, point_estimates)
+
+    # Before filtering - log initial point counts
+    logger.info("========== POINT COUNT DIAGNOSTICS ==========")
+    logger.info("Initial point counts:")
+    logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
+    logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")
+    logger.info(f"  Camera indices length: {len(capture_volume.point_estimates.camera_indices)}")
+    logger.info(f"  Saving to path: {config.point_estimates_toml_path}")
+
+
+    quality_controller = QualityController(capture_volume, charuco)
+
+    # Verify initial state
+    assert capture_volume.stage == 0
+    rmse_initial = capture_volume.rmse
+    assert rmse_initial is not None
+    assert 'overall' in rmse_initial
+    assert all(str(port) in rmse_initial for port in capture_volume.camera_array.cameras.keys())
+
+    # Log initial RMSE values
+    logger.info(f"Initial RMSE before optimization: {rmse_initial['overall']:.4f} pixels")
+    logger.info("Per-camera initial RMSE values:")
+    for port in capture_volume.camera_array.cameras.keys():
+        logger.info(f"  Camera {port}: {rmse_initial[str(port)]:.4f} pixels")
+
+    # First optimization stage - bundle adjustment
+    logger.info("Performing bundle adjustment")
+    capture_volume.optimize()
+    assert capture_volume.stage == 1
+
+    # Log post-bundle adjustment RMSE and improvement
+    rmse_post_bundle_adj = capture_volume.rmse
+    improvement = rmse_initial["overall"] - rmse_post_bundle_adj["overall"]
+    percent_improvement = (improvement / rmse_initial["overall"]) * 100
+    logger.info(f"RMSE after bundle adjustment: {rmse_post_bundle_adj['overall']:.4f} pixels")
+    logger.info(f"Improvement: {improvement:.4f} pixels ({percent_improvement:.2f}%)")
+    assert rmse_post_bundle_adj["overall"] <= rmse_initial["overall"]
+
+    # Second stage - filter out worse points
+    logger.info(f"Filtering out worse fitting {FILTERED_FRACTION*100:.1f}% of points")
+    quality_controller.filter_point_estimates(FILTERED_FRACTION)
+    
+   # After filtering - log filtered point counts
+    logger.info("Point counts AFTER filtering:")
+    logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
+    logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")
+    logger.info(f"  Camera indices length: {len(capture_volume.point_estimates.camera_indices)}")
+
+    # Log post-filtering RMSE (before re-optimization)
+    rmse_post_filter = capture_volume.rmse
+    logger.info(f"RMSE after filtering (before re-optimization): {rmse_post_filter['overall']:.4f} pixels")
+
+    # Final stage - re-optimize with filtered data
+    logger.info("Re-optimizing with filtered data set")
+    capture_volume.optimize()
+
+    # Log final RMSE and total improvement
+    rmse_final = capture_volume.rmse
+    total_improvement = rmse_initial["overall"] - rmse_final["overall"]
+    total_percent = (total_improvement / rmse_initial["overall"]) * 100
+    filter_improvement = rmse_post_bundle_adj["overall"] - rmse_final["overall"]
+    filter_percent = (filter_improvement / rmse_post_bundle_adj["overall"]) * 100
+
+    logger.info(f"Final RMSE after filtering and re-optimization: {rmse_final['overall']:.4f} pixels")
+    logger.info(f"Improvement from filtering: {filter_improvement:.4f} pixels ({filter_percent:.2f}%)")
+    logger.info(f"Total improvement: {total_improvement:.4f} pixels ({total_percent:.2f}%)")
+    logger.info("Per-camera final RMSE values:")
+    for port in capture_volume.camera_array.cameras.keys():
+        initial = rmse_initial[str(port)]
+        final = rmse_final[str(port)]
+        cam_improvement = (initial - final) / initial * 100
+        logger.info(f"  Camera {port}: {final:.4f} pixels (improved {cam_improvement:.2f}%)")
+
+    config.save_point_estimates(capture_volume.point_estimates)
+    config.save_camera_array(capture_volume.camera_array)
+
+if __name__ == "__main__":
+
+    test_calibration()

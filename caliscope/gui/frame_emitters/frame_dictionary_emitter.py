@@ -77,7 +77,7 @@ class FrameDictionaryEmitter(QThread):
             self.FramesBroadcast.emit(emitted_dict)
 
         self.close_window.emit()
-        logger.info(f"Thread loop within frame emitter at port {self.synchronizer.ports} successfully ended")
+        logger.info("Thread loop within dictionary frame emitter successfully ended")
 
     def stop(self):
         self.keep_collecting = False

@@ -17,7 +17,7 @@ class StereoPointsBuilder:
         self.ports = ports
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
-    def get_stereo_points_packet(self, sync_index, port_A, points_A, port_B, points_B):
+    def _get_stereo_points_packet(self, sync_index, port_A, points_A, port_B, points_B):
         # get ids in common
         if len(points_A.point_id) > 0 and len(points_B.point_id) > 0:
             common_ids = np.intersect1d(points_A.point_id, points_B.point_id)
@@ -64,7 +64,7 @@ class StereoPointsBuilder:
                 points_A = sync_packet.frame_packets[port_A].points
                 points_B = sync_packet.frame_packets[port_B].points
 
-                paired_points: StereoPointsPacket = self.get_stereo_points_packet(
+                paired_points: StereoPointsPacket = self._get_stereo_points_packet(
                     sync_index, port_A, points_A, port_B, points_B
                 )
 

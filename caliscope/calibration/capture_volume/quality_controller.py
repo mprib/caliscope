@@ -5,7 +5,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import rtoml
-from scipy import stats
 
 import caliscope.logger
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume, xy_reprojection_error
@@ -20,22 +19,6 @@ class QualityController:
         self.charuco = charuco
         self.capture_volume = capture_volume
 
-    # not sure if the below is getting used anymore as distance_error appears to hold everything
-    # maybe I was envisioning the distance error across all stages? I think so. I also don't know
-    # if I care about that right now...
-
-    # def store_data(self):
-    #     if self.all_data_2d is None:
-    #         self.all_data_2d = self.data_2d
-    #     else:
-    #         self.all_data_2d = pd.concat([self.all_data_2d, self.data_2d])
-
-    #     # only create this data if the charuco was provided
-    #     if self.charuco is not None:
-    #         if self.all_distance_error is None:
-    #             self.all_distance_error = self.distance_error
-    #         else:
-    #             self.all_distance_error = pd.concat([self.all_distance_error, self.distance_error])
 
     @property
     def data_2d(self) -> pd.DataFrame:
@@ -86,10 +69,12 @@ class QualityController:
             {"sync_index": "int32", "charuco_id": "int32", "obj_id": "int32"},
         )
 
-        summarized_data["reproj_error_percentile"] = stats.percentileofscore(
-            summarized_data["reproj_error"],
-            summarized_data["reproj_error"],
-        )
+        reproj_errors = summarized_data["reproj_error"].values
+        sorted_indices = np.argsort(reproj_errors)
+        ranks = np.empty_like(sorted_indices)
+        ranks[sorted_indices] = np.linspace(0, 100, len(reproj_errors))
+        summarized_data["reproj_error_percentile"] = ranks
+
 
         return summarized_data
 
@@ -307,6 +292,11 @@ class QualityController:
 
         self.capture_volume.point_estimates = filtered_point_estimates
 
+        # Clear previous optimization results since they no longer correspond to the filtered point set.
+        # This ensures that the next call to rmse property will recalculate the error from the current points
+        # rather than using cached results that would cause dimension mismatches or inconsistent calculations.
+        if hasattr(self.capture_volume, "least_sq_result"):
+            delattr(self.capture_volume, "least_sq_result")
 
 def get_capture_volume(capture_volume_pkl_path: Path) -> CaptureVolume:
     logger.info(f"loading capture volume from {capture_volume_pkl_path}")

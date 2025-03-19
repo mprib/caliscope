@@ -76,7 +76,8 @@ def get_merged_2d_3d(stereotriangulated_table):
 
 def get_point_estimates(camera_array: CameraArray, point_data_path: Path) -> PointEstimates:
     """
-    formats the triangulated_points.csv file into a PointEstimateData that has the
+    Stereotriangulates data from xy_charuco to generate initial x,y,z estimates
+    formats the data into a PointEstimates object that has the
     data structured in a way that is amenable to bundle adjustment
     """
 

@@ -125,7 +125,7 @@ def test_calibration():
     # Second stage - filter out worse points
     logger.info(f"Filtering out worse fitting {FILTERED_FRACTION*100:.1f}% of points")
     quality_controller.filter_point_estimates(FILTERED_FRACTION)
-    
+
    # After filtering - log filtered point counts
     logger.info("Point counts AFTER filtering:")
     logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")

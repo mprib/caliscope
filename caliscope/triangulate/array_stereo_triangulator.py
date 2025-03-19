@@ -63,6 +63,7 @@ class StereoPairTriangulator:
             xy_B = paired_points.img_loc_B
 
         if xy_A.shape[0] > 0:
+            logger.info(f"Triangulating points in common between ports {self.camera_A.port} and {self.camera_B.port}")
             points_A_undistorted = undistort(xy_A, self.camera_A)
             points_B_undistorted = undistort(xy_B, self.camera_B)
 

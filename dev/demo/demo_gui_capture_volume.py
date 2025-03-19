@@ -5,7 +5,7 @@ from caliscope.controller import Controller
 from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 
 app = QApplication(sys.argv)
-workspace_dir = Path(r"C:\Users\Mac Prible\repos\caliscope\dev\key_error_11")
+workspace_dir = Path(r"C:\Users\Mac Prible\repos\caliscope\tests\sessions_copy_delete\issue_672")
                      
 
 controller = Controller(workspace_dir)

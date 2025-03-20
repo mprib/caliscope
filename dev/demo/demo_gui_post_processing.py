@@ -6,7 +6,8 @@ from caliscope.gui.post_processing_widget import PostProcessingWidget
 
 app = QApplication(sys.argv)
 workspace_dir = Path(
-    r"C:\Users\Mac Prible\OneDrive - The University of Texas at Austin\research\caliscope\example_project"
+    r"C:\Users\Mac Prible\repos\caliscope\tests\sessions\4_cam_recording"
+    # r"C:\Users\Mac Prible\OneDrive - The University of Texas at Austin\research\caliscope\example_project"
 )
 
 controller = Controller(workspace_dir)

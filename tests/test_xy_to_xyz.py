@@ -5,7 +5,6 @@ import pandas as pd
 
 import caliscope.logger
 from caliscope import __root__
-from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 from caliscope.trackers.tracker_enum import TrackerEnum
 
@@ -49,31 +48,31 @@ def test_xy_to_xyz_postprocessing():
     # Filter both datasets to only include face points, which have point_ids >= 500
     # other points moved in and out of view causing more jitter that was smoothed
     # with downstream filtering in the original triangulation process.
-    original_xyz_face_only = original_xyz[original_xyz['point_id'] >= 500]
-    xyz_recalculated_face_only = xyz_recalculated[xyz_recalculated['point_id'] >= 500]
+    original_xyz_face = original_xyz[original_xyz['point_id'] >= 500]
+    xyz_recalculated_face = xyz_recalculated[xyz_recalculated['point_id'] >= 500]
 
     # Reset indices after filtering
-    original_xyz_face_only = original_xyz_face_only.reset_index(drop=True)
-    xyz_recalculated_face_only = xyz_recalculated_face_only.reset_index(drop=True)
+    original_xyz_face = original_xyz_face.reset_index(drop=True)
+    xyz_recalculated_face = xyz_recalculated_face.reset_index(drop=True)
 
     # Remove index column if it exists
-    original_xyz_face_only = original_xyz_face_only.drop('Unnamed: 0', axis=1, errors='ignore')
+    original_xyz_face = original_xyz_face.drop('Unnamed: 0', axis=1, errors='ignore')
 
     # Make sure both filtered dataframes have the same shape
-    assert original_xyz_face_only.shape == xyz_recalculated_face_only.shape, (
-        f"Shape mismatch: original {original_xyz_face_only.shape}, recalculated {xyz_recalculated_face_only.shape}")
+    assert original_xyz_face.shape == xyz_recalculated_face.shape, (
+        f"Shape mismatch: original {original_xyz_face.shape}, recalculated {xyz_recalculated_face.shape}")
 
     # Sort both dataframes by sync_index and point_id to ensure they're aligned
-    original_xyz_face_only = original_xyz_face_only.sort_values(['sync_index', 'point_id']).reset_index(drop=True)
-    xyz_recalculated_face_only = xyz_recalculated_face_only.sort_values(['sync_index', 'point_id']).reset_index(drop=True)
+    original_xyz_face = original_xyz_face.sort_values(['sync_index', 'point_id']).reset_index(drop=True)
+    xyz_recalculated_face = xyz_recalculated_face.sort_values(['sync_index', 'point_id']).reset_index(drop=True)
 
     # Define acceptable tolerance for floating point comparisons
     tolerance = 0.015  # Note that the original data has been filtered and smoothed...this is just raw triangulated data
 
     # Compare coordinates with tolerance
-    coord_diff_x = abs(original_xyz_face_only['x_coord'] - xyz_recalculated_face_only['x_coord'])
-    coord_diff_y = abs(original_xyz_face_only['y_coord'] - xyz_recalculated_face_only['y_coord'])
-    coord_diff_z = abs(original_xyz_face_only['z_coord'] - xyz_recalculated_face_only['z_coord'])
+    coord_diff_x = abs(original_xyz_face['x_coord'] - xyz_recalculated_face['x_coord'])
+    coord_diff_y = abs(original_xyz_face['y_coord'] - xyz_recalculated_face['y_coord'])
+    coord_diff_z = abs(original_xyz_face['z_coord'] - xyz_recalculated_face['z_coord'])
 
     # Assert maximum differences are within tolerance
     assert coord_diff_x.max() < tolerance, (

@@ -42,11 +42,6 @@ To ensure that the scale of the world is accurate in your final triangulated poi
 ---
 ## Implementation Details
 
-
-### Taping together a board from multiple printed sheets
-
-Rather than paying for a professionally printed board, it is possible to print a board on multiple standard sheets of paper, trim them as appropriate, then tape them together. Undoubtedly, this will lead to larger errors in calibration, though I have been pleasantly surprised by the quality of the tracked landmark data. 
-
 ### Flatness Matters Particularly for Intrinsics
 
 Having a truly flat board is crucial for a good intrinsic camera calibration. At the core of the calibration algorithm is the fact that all points exist on a common plane. Loosely taped pieces of paper or warped cardboard backings will undermine the calibration quality. 

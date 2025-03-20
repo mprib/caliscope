@@ -32,7 +32,7 @@ def test_synchronizer():
     config = Configurator(session_path)
 
     logger.info("Creating RecordedStreamPool")
-    recording_directory = Path(session_path, "recording_1")
+    recording_directory = Path(session_path, "recordings", "recording_1")
 
     camera_array = config.get_camera_array()
     stream_manager = SynchronizedStreamManager(recording_dir=recording_directory, all_camera_data=camera_array.cameras)

@@ -10,7 +10,8 @@ logger = caliscope.logger.get(__name__)
 
 def test_motion_trial():
     test_csv = Path(
-        __root__, "tests", "sessions", "4_cam_recording", "recording_1", "SIMPLE_HOLISTIC", "xyz_SIMPLE_HOLISTIC.csv"
+        __root__, "tests", "sessions", "4_cam_recording", "recordings",
+        "recording_1", "SIMPLE_HOLISTIC", "xyz_SIMPLE_HOLISTIC.csv"
     )
     motion_trial = MotionTrial(test_csv)
 

@@ -10,7 +10,7 @@ from caliscope.helper import copy_contents
 from caliscope.trackers.tracker_enum import TrackerEnum
 
 # from caliscope.post_processing.post_processor import PostProcessor
-from caliscope.triangulate.triangulation import triangulate_xy
+from caliscope.triangulate.triangulation import triangulate_from_files
 
 logger = caliscope.logger.get(__name__)
 
@@ -24,21 +24,18 @@ def test_xy_to_xyz_postprocessing():
 
     copy_contents(origin_data, working_data)
 
-    config = Configurator(working_data)
+
+    config_path = Path(working_data,"config.toml")
     recording_directory = Path(working_data, "recordings", "recording_1")
     tracker_enum = TrackerEnum.HOLISTIC
 
     xy_path = Path(recording_directory, tracker_enum.name, f"xy_{tracker_enum.name}.csv")
-    xy_data = pd.read_csv(xy_path)
 
     start = time.time()
     logger.info(f"beginning triangulation at {time.time()}")
 
-    # note: triangulate_xy  is a method used primarily internally by the PostProcessor
-    # the method create_xyz uses it.
-    camera_array = config.get_camera_array()
+    xyz_recalculated = triangulate_from_files(config_path,xy_path)
 
-    xyz_recalculated = triangulate_xy(xy_data, camera_array)
     logger.info(f"ending triangulation at {time.time()}")
     stop = time.time()
     logger.info(f"Elapsed time is {stop-start}. Note that on first iteration, @jit functions will take longer")
@@ -52,31 +49,31 @@ def test_xy_to_xyz_postprocessing():
     # Filter both datasets to only include face points, which have point_ids >= 500
     # other points moved in and out of view causing more jitter that was smoothed
     # with downstream filtering in the original triangulation process.
-    original_xyz_filtered = original_xyz[original_xyz['point_id'] >= 500]
-    xyz_recalculated_filtered = xyz_recalculated[xyz_recalculated['point_id'] >= 500]
+    original_xyz_face_only = original_xyz[original_xyz['point_id'] >= 500]
+    xyz_recalculated_face_only = xyz_recalculated[xyz_recalculated['point_id'] >= 500]
 
     # Reset indices after filtering
-    original_xyz_filtered = original_xyz_filtered.reset_index(drop=True)
-    xyz_recalculated_filtered = xyz_recalculated_filtered.reset_index(drop=True)
+    original_xyz_face_only = original_xyz_face_only.reset_index(drop=True)
+    xyz_recalculated_face_only = xyz_recalculated_face_only.reset_index(drop=True)
 
     # Remove index column if it exists
-    original_xyz_filtered = original_xyz_filtered.drop('Unnamed: 0', axis=1, errors='ignore')
+    original_xyz_face_only = original_xyz_face_only.drop('Unnamed: 0', axis=1, errors='ignore')
 
     # Make sure both filtered dataframes have the same shape
-    assert original_xyz_filtered.shape == xyz_recalculated_filtered.shape, (
-        f"Shape mismatch: original {original_xyz_filtered.shape}, recalculated {xyz_recalculated_filtered.shape}")
+    assert original_xyz_face_only.shape == xyz_recalculated_face_only.shape, (
+        f"Shape mismatch: original {original_xyz_face_only.shape}, recalculated {xyz_recalculated_face_only.shape}")
 
     # Sort both dataframes by sync_index and point_id to ensure they're aligned
-    original_xyz_filtered = original_xyz_filtered.sort_values(['sync_index', 'point_id']).reset_index(drop=True)
-    xyz_recalculated_filtered = xyz_recalculated_filtered.sort_values(['sync_index', 'point_id']).reset_index(drop=True)
+    original_xyz_face_only = original_xyz_face_only.sort_values(['sync_index', 'point_id']).reset_index(drop=True)
+    xyz_recalculated_face_only = xyz_recalculated_face_only.sort_values(['sync_index', 'point_id']).reset_index(drop=True)
 
     # Define acceptable tolerance for floating point comparisons
     tolerance = 0.015  # Note that the original data has been filtered and smoothed...this is just raw triangulated data
 
     # Compare coordinates with tolerance
-    coord_diff_x = abs(original_xyz_filtered['x_coord'] - xyz_recalculated_filtered['x_coord'])
-    coord_diff_y = abs(original_xyz_filtered['y_coord'] - xyz_recalculated_filtered['y_coord'])
-    coord_diff_z = abs(original_xyz_filtered['z_coord'] - xyz_recalculated_filtered['z_coord'])
+    coord_diff_x = abs(original_xyz_face_only['x_coord'] - xyz_recalculated_face_only['x_coord'])
+    coord_diff_y = abs(original_xyz_face_only['y_coord'] - xyz_recalculated_face_only['y_coord'])
+    coord_diff_z = abs(original_xyz_face_only['z_coord'] - xyz_recalculated_face_only['z_coord'])
 
     # Assert maximum differences are within tolerance
     assert coord_diff_x.max() < tolerance, (

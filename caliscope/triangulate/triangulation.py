@@ -8,7 +8,6 @@ from numba.typed import Dict, List
 
 import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.configurator import Configurator
 
 logger = caliscope.logger.get(__name__)
 
@@ -255,6 +254,10 @@ def triangulate_from_files(
     >>> # Save results
     >>> xyz_data.to_csv("project/sample1/xyz_DLC.csv", index=False)
     """
+
+    # Import inside function to avoid circular dependency
+    from caliscope.configurator import Configurator
+
     logger.info(f"Loading configuration from {config_path}")
     config = Configurator(config_path.parent)
 

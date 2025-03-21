@@ -29,7 +29,7 @@ print(f"Triangulated {len(xyz_data)} points")
 
 ### Inputs  
 
-`config_path` : Path to config.toml containing camera calibration parameters. This file should be located in the root of the project workspace and contains essential camera parameters like intrinsics, extrinsics, and distortion coefficients.
+`config_path` : Path to `config.toml` containing camera calibration parameters. You can find this file in the root of the project workspace. 
 
 `xy_path` : Path to CSV file with 2D point data. The CSV must contain these columns:
 
@@ -43,9 +43,9 @@ Each row represents a single 2D point observed by a specific camera at a specifi
 
 `output_path`(optional): Path where triangulated 3D points will be saved as a CSV file.  If not provided, results are returned but not saved to disk. The function will create parent directories if they don't exist.
 
-### Returned Value 
+### Returned Value
 
-DataFrame containing triangulated 3D points with columns:
+Pandas dataframe containing triangulated 3D points with columns:
 
 - sync_index: Integer identifying the synchronized frame number
 - point_id: Integer identifying which landmark/point was triangulated
@@ -61,3 +61,4 @@ Each row represents a single 3D point at a specific time.  The coordinates are i
   two cameras at the same sync_index.
 - Points that cannot be triangulated (due to insufficient camera views)
   will not appear in the output DataFrame.
+- The pipeline is fairly "raw" and would benefit from 2D gap filling prior to triangulation and subsequent gap filling and smoothing.

@@ -1,6 +1,6 @@
 # Sample Project
 
-A complete walkthrough of the calibration and post-processing workflow is shown below. To determine how `caliscope` runs on your hardware, you can download the sample dataset used in this video [here](https://utexas-my.sharepoint.com/:f:/g/personal/priblede_my_utexas_edu/EpJRde1NTPNHpTGrVmPLZA0B_kWTm08KI2QuDjZNY8BV3A?e=tGSwk3).
+A complete walkthrough of the calibration and post-processing workflow is shown below. To determine how `caliscope` runs on your hardware, you can download the sample dataset used in this video [here](https://utexas-my.sharepoint.com/:f:/g/personal/priblede_eid_utexas_edu/EpJRde1NTPNHpTGrVmPLZA0B_kWTm08KI2QuDjZNY8BV3A).
 
 Please note that this demo project is meant to illustrate the workflow as simply as possible.There are a variety of improvements that could be made to improve the final results, including:
 

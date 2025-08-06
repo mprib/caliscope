@@ -5,7 +5,8 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
-from numba.typed import Dict
+from numba.typed import Dict as NumbaDict
+from numpy.typing import NDArray
 
 import caliscope.logger
 
@@ -24,21 +25,23 @@ class CameraData:
     port: int
     size: tuple
     rotation_count: int = 0
-    error: float = None  # the RMSE of reprojection associated with the intrinsic calibration
-    matrix: np.ndarray = None
-    distortions: np.ndarray = None  #
-    exposure: int = None
-    grid_count: int = None
+    error: float | None = None  # the RMSE of reprojection associated with the intrinsic calibration
+    matrix: np.ndarray | None = None
+    distortions: np.ndarray | None = None  #
+    exposure: int | None = None
+    grid_count: int | None = None
     ignore: bool = False
-    verified_resolutions: np.ndarray = None
-    translation: np.ndarray = None  # camera relative to world
-    rotation: np.ndarray = None  # camera relative to world
+    verified_resolutions: np.ndarray | None = None
+    translation: np.ndarray | None = None  # camera relative to world
+    rotation: np.ndarray | None = None  # camera relative to world
+
 
     @property
     def transformation(self):
         """ "
         Rotation and transformation combined to allow
         """
+        assert self.rotation is not None and self.translation is not None
 
         t = np.hstack([self.rotation, np.expand_dims(self.translation, 1)])
         t = np.vstack([t, np.array([0, 0, 0, 1], np.float32)])
@@ -52,6 +55,7 @@ class CameraData:
 
     @property
     def projection_matrix(self):
+        assert self.matrix is not None and self.transformation is not None
         return self.matrix @ self.transformation[0:3, :]
 
     def extrinsics_to_vector(self):
@@ -59,6 +63,7 @@ class CameraData:
         Converts camera parameters to a numpy vector for use with bundle adjustment.
         """
         # rotation of the camera relative to the world
+        assert self.rotation is not None and self.translation is not None
         rotation_rodrigues = cv2.Rodrigues(self.rotation)[0]  # elements 0,1,2
         port_param = np.hstack([rotation_rodrigues[:, 0], self.translation])
 
@@ -187,7 +192,7 @@ class CameraArray:
 
         return camera_params
 
-    def update_extrinsic_params(self, least_sq_result_x: np.array):
+    def update_extrinsic_params(self, least_sq_result_x: NDArray):
         n_cameras = len(self.port_index)
         n_cam_param = 6  # 6 DoF
         flat_camera_params = least_sq_result_x[0 : n_cameras * n_cam_param]
@@ -216,9 +221,9 @@ class CameraArray:
         return full_intrinsics
 
     @property
-    def projection_matrices(self) -> Dict:
+    def projection_matrices(self):  # -> NumbaDict:
         logger.info("Creating camera array projection matrices")
-        proj_mat = Dict()
+        proj_mat = NumbaDict()  # type: ignore
         for port, cam in self.cameras.items():
             proj_mat[port] = cam.projection_matrix
 

@@ -24,3 +24,6 @@ caliscope/_version.py
 caliscope.code-workspace
 site/*
 _version.py
+caliscope.egg-info
+build/lib/caliscope
+.swp

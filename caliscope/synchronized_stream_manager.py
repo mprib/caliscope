@@ -9,6 +9,7 @@ from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.packets import Tracker
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.recording.video_recorder import VideoRecorder
+from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = caliscope.logger.get(__name__)
 
@@ -32,7 +33,7 @@ class SynchronizedStreamManager:
         self,
         recording_dir: Path,
         all_camera_data: dict[CameraData],
-        tracker: Tracker = None,
+        tracker: Tracker | CharucoTracker | None = None,
     ) -> None:
         self.recording_dir = recording_dir
         self.all_camera_data = all_camera_data

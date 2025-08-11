@@ -1,57 +1,62 @@
-[tool.poetry]
+[project]
 name = "caliscope"
-version = "0.6.1"
+version = "0.6.4"
 description = "GUI based multicamera calibration that integrates with 2D landmark tracking to triangulate 3D landmark positions"
-authors = ["Mac Prible <prible@gmail.com>"]
+authors = [{name = "Mac Prible", email = "prible@gmail.com"}]
 license = "BSD-2-Clause"
 readme = "README.md"
+requires-python = ">=3.10,<3.12"  # Note: excluding 3.12 to avoid numba issues
+dependencies = [
+    "pandas>=1.5.0",
+    "scipy>=1.10.1", 
+    "pyqtgraph>=0.13.2",
+    "PyOpenGL>=3.1.6",
+    "numba>=0.57.0",
+    "mediapipe==0.10.20",
+    "pyside6>=6.5.2",
+    "opencv-contrib-python>=4.8.0.74",
+    "rtoml>=0.9.0",
+    "pyarrow>=15.0.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10, <3.13"
-pandas = "^1.5.0"
-scipy = "^1.10.1"
-pyqtgraph = "^0.13.2"
-PyOpenGL = "^3.1.6"
-numba = "^0.57.0"
-mediapipe = "0.10.20"
-pyside6 = "^6.5.2"
-opencv-contrib-python = "^4.8.0.74"
-rtoml = "^0.9.0"
-pyarrow = "^15.0.0"
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.3.0",
+    "ipykernel>=6.22.0", 
+    "pymdown-extensions>=9.11,<11.0",
+    "mkdocs-material>=9.1.6",
+    "mkdocs-git-revision-date-localized-plugin>=1.2.0",
+    "ruff>=0.6.5",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.3.0"
-ipykernel = "^6.22.0"
-pymdown-extensions = ">=9.11,<11.0"
-mkdocs-material = "^9.1.6"
-mkdocs-git-revision-date-localized-plugin = "^1.2.0"
-ruff = "^0.6.5"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.urls]
+[project.urls]
 repository = "https://github.com/mprib/caliscope"
 
-[tool.poetry.scripts]
+[project.scripts]
 caliscope = "caliscope.__main__:CLI_parser"
 
-[tool.setuptools_scm]
-write_to = "caliscope/_version.py"
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["dev*", "tests*"]
 
 [tool.ruff]
 lint.select = ["E", "F", "W","I"]
 lint.ignore = []
-unsafe-fixes = true
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 lint.fixable = ["E", "F", "W","I"]
-# lint.fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"]
 lint.unfixable = []
 
-# Exclude a variety of commonly ignored directories.
+# Allow unused variables when underscore-prefixed.
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+unsafe-fixes = true
+
 exclude = [
     ".bzr",
     ".direnv",
@@ -78,15 +83,10 @@ exclude = [
 
 line-length = 120
 
-# Allow unused variables when underscore-prefixed.
-lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-# Assume Python 3.10.
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.format]
-
-
+# empty
 
 [tool.ruff.lint.mccabe]
 # Unlike Flake8, default to a complexity level of 10.

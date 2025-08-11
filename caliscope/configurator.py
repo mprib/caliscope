@@ -115,7 +115,7 @@ class Configurator:
         self.dict["capture_volume"]["origin_sync_index"] = capture_volume.origin_sync_index
         self.update_config_toml()
 
-    def get_configured_camera_data(self) -> dict[CameraData]:
+    def get_configured_camera_data(self) -> dict[int, CameraData]:
         all_camera_data = {}
         for key, params in self.dict.items():
             if key.startswith("cam_"):
@@ -230,12 +230,12 @@ class Configurator:
         def none_or_list(value):
             # required to make sensible numeric format
             # otherwise toml formats as text
-            if value is None or value == "null":
+            if value is None or not value.any():
                 return None
             else:
                 return value.tolist()
 
-        if camera.rotation is not None and camera.rotation != "null":
+        if camera.rotation is not None and camera.rotation.any():
             # store rotation as 3 parameter rodrigues
             rotation_for_config = cv2.Rodrigues(camera.rotation)[0][:, 0]
             rotation_for_config = rotation_for_config.tolist()

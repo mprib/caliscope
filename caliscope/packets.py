@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Callable, cast
 
 import cv2
 import numpy as np
-from numba.typed import List
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,13 +16,13 @@ class PointPacket:
     It has actual values when using the Charuco tracker as these are used in the calibration.
     """
 
-    point_id: np.ndarray = None  # unique point id that aligns with Tracker.get_point_names()
-    img_loc: np.ndarray = None  # x,y position of tracked point
-    obj_loc: np.ndarray = None  # x,y,z in object frame of reference; primarily for calibration
-    confidence: np.ndarray = None  # may be available in some trackers..include for potentnial downstream calculations
+    point_id: np.ndarray | None = None  # unique point id that aligns with Tracker.get_point_names()
+    img_loc: np.ndarray | None = None  # x,y position of tracked point
+    obj_loc: np.ndarray | None = None  # x,y,z in object frame of reference; primarily for calibration
+    confidence: np.ndarray | None = None  # may be available in some trackers..include for future
 
     @property
-    def obj_loc_list(self) -> List[List]:
+    def obj_loc_list(self) -> list[list[float | None]]:
         """
         if obj loc is none, printing data to a table format will be undermined
         this creates a list of length len(point_id) that is empty so that a pd.dataframe
@@ -32,11 +32,11 @@ class PointPacket:
             obj_loc_x = self.obj_loc[:, 0].tolist()
             obj_loc_y = self.obj_loc[:, 1].tolist()
         else:
-            length = len(self.point_id)
+            length = len(self.point_id) if  self.point_id is not None else 0
             obj_loc_x = [None] * length
             obj_loc_y = [None] * length
 
-        return [obj_loc_x, obj_loc_y]
+        return cast(list[list[float | None]], [obj_loc_x, obj_loc_y])
 
 
 class Tracker(ABC):
@@ -47,7 +47,7 @@ class Tracker(ABC):
         This name should align with the label used by TrackerEnum
         Used for file naming creation
         """
-        pass
+        return "Name Me"
 
     @abstractmethod
     def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
@@ -91,14 +91,14 @@ class Tracker(ABC):
         """
         pass
 
-    def get_connected_points(self) -> dict[str : tuple[int, int, tuple[int, int]]]:
+    def get_connected_points(self) -> dict[str, tuple[int, int, tuple[int, int]]]:
         """
         OPTIONAL METHOD
         used for drawing purposes elsewhere. Specify which
         points (if any) should have a line connecting them
         {SegmentName:(pointNameA, pointNameB, )}
         """
-        pass
+        return {}
 
     @property
     def metarig_mapped(self):
@@ -146,10 +146,10 @@ class FramePacket:
     frame_index: int
     frame_time: float
     frame: np.ndarray
-    points: PointPacket = None
-    draw_instructions: callable = None
+    points: PointPacket | None = None
+    draw_instructions: Callable | None = None
 
-    def to_tidy_table(self, sync_index) -> dict:
+    def to_tidy_table(self, sync_index) -> dict | None:
         """
         Returns a dictionary of lists where each list is as long as the
         number of points identified on the frame;

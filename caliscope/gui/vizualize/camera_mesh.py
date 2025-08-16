@@ -88,7 +88,7 @@ def rotation_to_float(rotation_matrix):
 
 
 # helper functions to assist with scene creation
-def mesh_from_camera(camera_data: CameraData):
+def mesh_from_camera(camera_data: CameraData) -> CameraMesh:
     """ "
     Mesh is placed at origin by default. Note that it appears rotations
     are in the mesh frame of reference and translations are in

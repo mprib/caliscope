@@ -50,6 +50,7 @@ def test_calibration():
 
     logger.info("Loading point estimates")
     point_estimates: PointEstimates = get_point_estimates(camera_array, xy_data_path)
+
     capture_volume = CaptureVolume(camera_array, point_estimates)
 
     # Before filtering - log initial point counts
@@ -125,6 +126,7 @@ def test_calibration():
 
     config.save_point_estimates(capture_volume.point_estimates)
     config.save_camera_array(capture_volume.camera_array)
+    config.save_capture_volume(capture_volume)
 
 
 if __name__ == "__main__":

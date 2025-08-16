@@ -8,8 +8,9 @@ import caliscope.logger
 logger = caliscope.logger.get(__name__)
 
 app = QApplication(sys.argv)
-workspace_dir = Path(r"C:\Users\Mac Prible\repos\caliscope\tests\sessions_copy_delete\larger_calibration_post_monocal")
-                     
+root = Path(__file__).parent.parent.parent
+
+workspace_dir = Path(root, "tests", "sessions_copy_delete","no_shared_points_688")
 
 controller = Controller(workspace_dir)
 controller.load_camera_array()

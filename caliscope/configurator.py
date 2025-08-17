@@ -227,8 +227,6 @@ class Configurator:
         self.update_config_toml()
 
     def save_camera(self, camera: Camera | CameraData):
-        ## TODO: the function below is (I believe) causing the translation [0,0,0] to be converted to None which is causing a problem
-        ## not sure why this previously did not present an s issue.
         def none_or_list(value):
             # required to make sensible numeric format
             # otherwise toml formats as text

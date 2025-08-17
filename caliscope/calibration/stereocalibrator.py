@@ -39,18 +39,20 @@ class StereoCalibrator:
         Efficiently create coverage region strings for points.
         """
         # Extract unique combinations of sync_index, point_id, and port
-        point_ports = point_data[['sync_index', 'point_id', 'port']].drop_duplicates()
+        point_ports = point_data[["sync_index", "point_id", "port"]].drop_duplicates()
 
         # Convert port to strings for easier handling
-        point_ports['port_str'] = point_ports['port'].astype(str)
+        point_ports["port_str"] = point_ports["port"].astype(str)
 
         # Group by sync_index and point_id to collect ports
-        grouped = point_ports.groupby(['sync_index', 'point_id'])['port_str'].apply(
-            lambda x: '_' + '_'.join(sorted(x)) + '_'
-        ).reset_index(name='coverage_region')
+        grouped = (
+            point_ports.groupby(["sync_index", "point_id"])["port_str"]
+            .apply(lambda x: "_" + "_".join(sorted(x)) + "_")
+            .reset_index(name="coverage_region")
+        )
 
         # Merge back with original data
-        result = point_data.merge(grouped, on=['sync_index', 'point_id'], how='left')
+        result = point_data.merge(grouped, on=["sync_index", "point_id"], how="left")
 
         return result
 
@@ -141,9 +143,9 @@ class StereoCalibrator:
         a_str, b_str = str(a), str(b)
 
         # Create vectorized masks for filtering
-        in_region_a = self.all_point_data['coverage_region'].str.contains(f'_{a_str}_')
-        in_region_b = self.all_point_data['coverage_region'].str.contains(f'_{b_str}_')
-        in_port_pair = self.all_point_data['port'].isin([a, b])
+        in_region_a = self.all_point_data["coverage_region"].str.contains(f"_{a_str}_")
+        in_region_b = self.all_point_data["coverage_region"].str.contains(f"_{b_str}_")
+        in_port_pair = self.all_point_data["port"].isin([a, b])
 
         # Filter points that are in the shared region and in one of the cameras
         pair_points = self.all_point_data[in_region_a & in_region_b & in_port_pair].copy()
@@ -153,11 +155,11 @@ class StereoCalibrator:
             return None
 
         # Count points per board and filter to boards with enough points
-        board_counts = pair_points.groupby(['sync_index', 'port']).size().reset_index(name='point_count')
-        valid_boards = board_counts[board_counts['point_count'] >= 6]
+        board_counts = pair_points.groupby(["sync_index", "port"]).size().reset_index(name="point_count")
+        valid_boards = board_counts[board_counts["point_count"] >= 6]
 
         # Filter to port a only (to avoid duplicates)
-        valid_boards_a = valid_boards[valid_boards['port'] == a][['sync_index', 'point_count']]
+        valid_boards_a = valid_boards[valid_boards["port"] == a][["sync_index", "point_count"]]
 
         if valid_boards_a.empty:
             logger.info(f"For pair {pair} there are no boards with sufficient points")
@@ -170,20 +172,15 @@ class StereoCalibrator:
             logger.info(f"Assembling {sample_size} shared boards for pair {pair}")
 
             # Sample boards with weighting
-            weights = valid_boards_a['point_count'] ** 2
-            selected_boards = valid_boards_a.sample(
-                n=sample_size,
-                weights=weights,
-                random_state=random_state
-            )
+            weights = valid_boards_a["point_count"] ** 2
+            selected_boards = valid_boards_a.sample(n=sample_size, weights=weights, random_state=random_state)
 
             # Filter points to selected boards
-            selected_points = pair_points[pair_points['sync_index'].isin(selected_boards['sync_index'])]
+            selected_points = pair_points[pair_points["sync_index"].isin(selected_boards["sync_index"])]
             return selected_points
         else:
             logger.info(f"For pair {pair} there are no shared boards")
             return None
-
 
     # def get_stereopair_data(self, pair: tuple, boards_sampled: int, random_state=1) -> pd.DataFrame or None:
     #     # convenience function to get the points that are in the overlap regions of the pairs
@@ -306,8 +303,6 @@ class StereoCalibrator:
                 distortion_A,
                 camera_matrix_B,
                 distortion_B,
-                # imageSize does not matter.
-                # from OpenCV: "Size of the image used only to initialize the camera intrinsic matrices."
                 imageSize=None,
                 criteria=criteria,
                 flags=stereocalibration_flags,

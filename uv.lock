@@ -68,7 +68,7 @@ wheels = [
 
 [[package]]
 name = "caliscope"
-version = "0.6.4"
+version = "0.6.5"
 source = { editable = "." }
 dependencies = [
     { name = "mediapipe" },

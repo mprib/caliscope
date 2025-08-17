@@ -204,7 +204,7 @@ class Configurator:
         # if you come across this in mid 2025 or later, these may be safe to delete
         logger.info(f"charuco param are: {params}:")
         if "legacy_pattern" not in params.keys():
-            params["legacy_pattern"]=False
+            params["legacy_pattern"] = False
 
         charuco = Charuco(
             columns=params["columns"],
@@ -216,7 +216,7 @@ class Configurator:
             aruco_scale=params["aruco_scale"],
             square_size_overide_cm=params["square_size_overide_cm"],
             inverted=params["inverted"],
-            legacy_pattern=params["legacy_pattern"]
+            legacy_pattern=params["legacy_pattern"],
         )
 
         return charuco
@@ -227,10 +227,12 @@ class Configurator:
         self.update_config_toml()
 
     def save_camera(self, camera: Camera | CameraData):
+        ## TODO: the function below is (I believe) causing the translation [0,0,0] to be converted to None which is causing a problem
+        ## not sure why this previously did not present an s issue.
         def none_or_list(value):
             # required to make sensible numeric format
             # otherwise toml formats as text
-            if value is None or not value.any():
+            if value is None:
                 return None
             else:
                 return value.tolist()
@@ -253,8 +255,6 @@ class Configurator:
             "rotation": rotation_for_config,
             "exposure": camera.exposure,
             "grid_count": camera.grid_count,
-            # "ignore": camera.ignore,
-            # "verified_resolutions": camera.verified_resolutions,
         }
 
         self.dict["cam_" + str(camera.port)] = params
@@ -264,54 +264,6 @@ class Configurator:
         logger.info("Saving camera array....")
         for port, camera_data in camera_array.cameras.items():
             self.save_camera(camera_data)
-
-    # Mac: leave this reference code in here for a potential splitting out of the recording functionality.
-    # def get_cameras(self) -> dict[Camera]:
-    #     cameras = {}
-
-    #     def add_preconfigured_cam(params):
-    #         # try:
-    #         port = params["port"]
-    #         logger.info(f"Attempting to add pre-configured camera at port {port}")
-
-    #         if params["ignore"]:
-    #             logger.info(f"Ignoring camera at port {port}")
-    #             pass  # don't load it in
-    #         else:
-    #             if "verified_resolutions" in params.keys():
-    #                 verified_resolutions = params["verified_resolutions"]
-    #                 cameras[port] = Camera(port, verified_resolutions)
-    #             else:
-    #                 cameras[port] = Camera(port)
-
-    #             camera = cameras[port]  # just for ease of reference
-    #             camera.rotation_count = params["rotation_count"]
-    #             camera.exposure = params["exposure"]
-
-    #             if "error" in params.keys():  # then intrinsic params available
-    #                 # if calibration done, then populate those as well
-    #                 logger.info(
-    #                     f"Adding in preconfigured intrinsic params at port {port}"
-    #                 )
-    #                 logger.info(f"Camera RMSE error for port {port}: {params['error']}")
-    #                 camera.error = params["error"]
-    #                 camera.matrix = np.array(params["matrix"]).astype(float)
-    #                 camera.distortions = np.array(params["distortions"]).astype(float)
-    #                 camera.grid_count = params["grid_count"]
-
-    #             if "rotation" in params.keys():  # then extrinsic params available
-    #                 logger.info(
-    #                     f"Adding in preconfigured extrinsic params at port {port}"
-    #                 )
-    #                 camera.rotation = cv2.Rodrigues(np.array(params["rotation"]))[0]
-    #                 camera.translation = np.array(params["translation"])
-
-    #     with ThreadPoolExecutor() as executor:
-    #         for key, params in self.dict.items():
-    #             if key.startswith("cam"):
-    #                 logger.info(f"Beginning to load {key} with params {params}")
-    #                 executor.submit(add_preconfigured_cam, params)
-    #     return cameras
 
     def save_point_estimates(self, point_estimates: PointEstimates):
         logger.info("Saving point estimates to toml...")

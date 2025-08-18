@@ -32,7 +32,7 @@ class PointPacket:
             obj_loc_x = self.obj_loc[:, 0].tolist()
             obj_loc_y = self.obj_loc[:, 1].tolist()
         else:
-            length = len(self.point_id) if  self.point_id is not None else 0
+            length = len(self.point_id) if self.point_id is not None else 0
             obj_loc_x = [None] * length
             obj_loc_y = [None] * length
 

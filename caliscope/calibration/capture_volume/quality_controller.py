@@ -19,7 +19,6 @@ class QualityController:
         self.charuco = charuco
         self.capture_volume = capture_volume
 
-
     @property
     def data_2d(self) -> pd.DataFrame:
         """Unpack the Array Diagnostic data into a pandas dataframe format that can be
@@ -74,7 +73,6 @@ class QualityController:
         ranks = np.empty_like(sorted_indices)
         ranks[sorted_indices] = np.linspace(0, 100, len(reproj_errors))
         summarized_data["reproj_error_percentile"] = ranks
-
 
         return summarized_data
 
@@ -235,7 +233,7 @@ class QualityController:
         """
         # filter data based on reprojection error
         filtered_data_2d = self.data_2d.query(
-            f"reproj_error_percentile <{percentile_cutoff*100!s}",
+            f"reproj_error_percentile <{percentile_cutoff * 100!s}",
         )
 
         # get the count of obj_ids to understand how many times
@@ -297,6 +295,7 @@ class QualityController:
         # rather than using cached results that would cause dimension mismatches or inconsistent calculations.
         if hasattr(self.capture_volume, "least_sq_result"):
             delattr(self.capture_volume, "least_sq_result")
+
 
 def get_capture_volume(capture_volume_pkl_path: Path) -> CaptureVolume:
     logger.info(f"loading capture volume from {capture_volume_pkl_path}")

@@ -95,9 +95,9 @@ def test_triangulator():
     config_y_mean = xyz_config[:, 1].mean()
     config_z_mean = xyz_config[:, 2].mean()
 
-    logger.info(f"x: {round(triangulator_x_mean,4)} vs {round(config_x_mean,4)} ")
-    logger.info(f"y: {round(triangulator_y_mean,4)} vs {round(config_y_mean,4)} ")
-    logger.info(f"z: {round(triangulator_z_mean,4)} vs {round(config_z_mean,4)} ")
+    logger.info(f"x: {round(triangulator_x_mean, 4)} vs {round(config_x_mean, 4)} ")
+    logger.info(f"y: {round(triangulator_y_mean, 4)} vs {round(config_y_mean, 4)} ")
+    logger.info(f"z: {round(triangulator_z_mean, 4)} vs {round(config_z_mean, 4)} ")
 
     logger.info("Assert that mean positions are within 7 millimeters...")
     assert abs(config_x_mean - triangulator_x_mean) < 0.007

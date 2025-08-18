@@ -372,7 +372,7 @@ class Controller(QObject):
 
             self.quality_controller = QualityController(self.capture_volume, self.charuco)
 
-            logger.info(f"Removing the worst fitting {FILTERED_FRACTION*100} percent of points from the model")
+            logger.info(f"Removing the worst fitting {FILTERED_FRACTION * 100} percent of points from the model")
             self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
             self.capture_volume.optimize()
 

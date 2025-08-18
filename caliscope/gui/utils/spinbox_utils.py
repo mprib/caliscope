@@ -28,8 +28,7 @@ def calculate_spinbox_width(spin_box, min_width=None, padding=None):
         min_str = str(spin_box.maximum())
 
     # Get width of the longest possible string
-    max_width = max(fm.horizontalAdvance(max_str),
-                   fm.horizontalAdvance(min_str))
+    max_width = max(fm.horizontalAdvance(max_str), fm.horizontalAdvance(min_str))
 
     # Add space for spin arrows and frame
     if padding is None:
@@ -42,6 +41,7 @@ def calculate_spinbox_width(spin_box, min_width=None, padding=None):
         width = max(width, min_width)
 
     return width
+
 
 def setup_spinbox_sizing(spin_box, centered=True, min_value=None, max_value=None, min_width=None, padding=None):
     """

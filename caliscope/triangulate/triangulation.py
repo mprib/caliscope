@@ -205,11 +205,7 @@ def undistort_batch(xy_df: pd.DataFrame, camera_array: CameraArray) -> pd.DataFr
     return xy_undistorted_df
 
 
-def triangulate_from_files(
-    config_path: Path,
-    xy_path: Path,
-    output_path: Path = None
-) -> pd.DataFrame:
+def triangulate_from_files(config_path: Path, xy_path: Path, output_path: Path = None) -> pd.DataFrame:
     """
     Triangulate 2D points to 3D using camera calibration from config.toml
 

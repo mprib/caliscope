@@ -7,6 +7,8 @@ to build out a more robust functionality.
 
 from pathlib import Path
 
+import numpy as np
+
 import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
@@ -20,9 +22,12 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.controller import FILTERED_FRACTION
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents, view_df
 
 logger = caliscope.logger.get(__name__)
+
+# don't want ruff dropping the reference which I use in repl
+hold = view_df
 
 
 def test_calibration():
@@ -129,5 +134,97 @@ def test_calibration():
     config.save_capture_volume(capture_volume)
 
 
+def test_stereocalibrate_diverse_points():
+    version = "not_sufficient_stereopairs"
+    original_session_path = Path(__root__, "tests", "sessions", version)
+    session_path = Path(
+        original_session_path.parent.parent,
+        "sessions_copy_delete",
+        version,
+    )
+    copy_contents(original_session_path, session_path)
+
+    config = Configurator(session_path)
+    xy_data_path = Path(session_path, "xy_CHARUCO.csv")
+    camera_array = config.get_camera_array()
+    charuco = config.get_charuco()
+
+    logger.info("Creating stereocalibrator")
+    stereocalibrator = StereoCalibrator(config.config_toml_path, xy_data_path)
+    logger.info("Initiating stereocalibration")
+    stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+    logger.info("Check model params")
+
+
+def test_deterministic_consistency():
+    """
+    Test that running the same calibration multiple times produces identical results.
+    This ensures our deterministic implementation is truly deterministic.
+    """
+    version = "not_sufficient_stereopairs"
+
+    results_run1 = {}
+    results_run2 = {}
+
+    for run_num, results_dict in enumerate([results_run1, results_run2], 1):
+        # Fresh copy for each run
+        original_session_path = Path(__root__, "tests", "sessions", version)
+        session_path = Path(
+            original_session_path.parent.parent,
+            "sessions_copy_delete",
+            f"{version}_run_{run_num}",
+        )
+        copy_contents(original_session_path, session_path)
+
+        config = Configurator(session_path)
+        xy_data_path = Path(session_path, "xy_CHARUCO.csv")
+
+        # Run stereocalibration
+        stereocalibrator = StereoCalibrator(config.config_toml_path, xy_data_path)
+        stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+
+        # Store results
+        config_reloaded = Configurator(session_path)
+        for key, value in config_reloaded.dict.items():
+            if key.startswith("stereo_"):
+                results_dict[key] = value
+
+    # Compare results between runs
+    assert set(results_run1.keys()) == set(results_run2.keys()), "Different stereo pairs found between runs"
+
+    for stereo_key in results_run1.keys():
+        # Compare RMSE
+        np.testing.assert_allclose(
+            results_run1[stereo_key]["RMSE"],
+            results_run2[stereo_key]["RMSE"],
+            rtol=1e-15,
+            atol=1e-15,
+            err_msg=f"RMSE differs between runs for {stereo_key}",
+        )
+
+        # Compare rotation
+        np.testing.assert_allclose(
+            results_run1[stereo_key]["rotation"],
+            results_run2[stereo_key]["rotation"],
+            rtol=1e-15,
+            atol=1e-15,
+            err_msg=f"Rotation differs between runs for {stereo_key}",
+        )
+
+        # Compare translation
+        np.testing.assert_allclose(
+            results_run1[stereo_key]["translation"],
+            results_run2[stereo_key]["translation"],
+            rtol=1e-15,
+            atol=1e-15,
+            err_msg=f"Translation differs between runs for {stereo_key}",
+        )
+
+    logger.info("✅ Deterministic consistency verified across multiple runs!")
+    logger.info("Successful check")
+
+
 if __name__ == "__main__":
-    test_calibration()
+    # test_calibration()
+    # test_stereocalibrate_diverse_points()
+    test_deterministic_consistency()

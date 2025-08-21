@@ -22,11 +22,13 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.3.0",
-    "ipykernel>=6.22.0", 
+    "ipykernel>=6.22.0",
     "pymdown-extensions>=9.11,<11.0",
     "mkdocs-material>=9.1.6",
     "mkdocs-git-revision-date-localized-plugin>=1.2.0",
     "ruff>=0.6.5",
+    "openpyxl",
+    "pywinctl",
 ]
 
 
@@ -86,7 +88,7 @@ line-length = 120
 target-version = "py311"
 
 [tool.ruff.format]
-# empty
+
 
 [tool.ruff.lint.mccabe]
 # Unlike Flake8, default to a complexity level of 10.

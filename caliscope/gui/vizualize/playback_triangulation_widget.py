@@ -52,7 +52,7 @@ class PlaybackTriangulationWidget(QWidget):
         self.motion_trial = MotionTrial(xyz_history_path)
         logger.info(f"Motion trial loading complete: {time()} ")
         toc = time()
-        logger.info(f"Elapsed time to load: {toc-tic}")
+        logger.info(f"Elapsed time to load: {toc - tic}")
 
         self.visualizer.update_motion_trial(self.motion_trial)
 

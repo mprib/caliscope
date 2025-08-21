@@ -35,7 +35,6 @@ class CameraData:
     translation: np.ndarray | None = None  # camera relative to world
     rotation: np.ndarray | None = None  # camera relative to world
 
-
     @property
     def transformation(self):
         """ "
@@ -192,7 +191,7 @@ class CameraArray:
 
         return camera_params
 
-    def update_extrinsic_params(self, least_sq_result_x: NDArray):
+    def update_extrinsic_params(self, least_sq_result_x: NDArray) -> None:
         n_cameras = len(self.port_index)
         n_cam_param = 6  # 6 DoF
         flat_camera_params = least_sq_result_x[0 : n_cameras * n_cam_param]

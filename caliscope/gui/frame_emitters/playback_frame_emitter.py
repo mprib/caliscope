@@ -160,7 +160,7 @@ class PlaybackFrameEmitter(QThread):
             adjusted_width = int(w * scale_x)
             adjusted_height = int(h * scale_y)
 
-            logger.info(f"New image size for undistorted frame: {(adjusted_width,adjusted_height)}")
+            logger.info(f"New image size for undistorted frame: {(adjusted_width, adjusted_height)}")
             # Now use new_width and new_height as your NewImageSize for undistortion
             # newImageSize = (new_width, new_height)
             self.new_matrix, valid_roi = cv2.getOptimalNewCameraMatrix(

@@ -154,7 +154,7 @@ class CharucoWidget(QWidget):
             aruco_scale=aruco_scale,
             square_size_overide_cm=square_edge_length,
             inverted=inverted,
-            legacy_pattern=legacy_pattern
+            legacy_pattern=legacy_pattern,
         )
 
         if not self.charuco_added:
@@ -194,7 +194,6 @@ class CharucoWidget(QWidget):
             self.charuco_display.setPixmap(charuco_img)
 
 
-
 class CharucoConfigGroup(QWidget):
     def __init__(self, controller: Controller):
         super().__init__()
@@ -202,32 +201,30 @@ class CharucoConfigGroup(QWidget):
         self.params = self.controller.config.dict["charuco"]
 
         self.column_spin = QSpinBox()
-        setup_spinbox_sizing(self.column_spin, min_value=3,max_value=999, padding=10)
+        setup_spinbox_sizing(self.column_spin, min_value=3, max_value=999, padding=10)
         self.column_spin.setValue(self.params["columns"])
         # self.column_spin.setMinimum(3)
         # self.column_spin.setMinimumWidth(50)
         # self.column_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-
         self.row_spin = QSpinBox()
         self.row_spin.setValue(self.params["rows"])
-        setup_spinbox_sizing(self.row_spin, min_value=4,max_value=999, padding=10)
+        setup_spinbox_sizing(self.row_spin, min_value=4, max_value=999, padding=10)
         # self.row_spin.setMinimum(4)
         # self.row_spin.setMinimumWidth(50)
         # self.row_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.width_spin = QDoubleSpinBox()
         self.width_spin.setValue(self.params["board_width"])
-        setup_spinbox_sizing(self.width_spin,min_value=1, max_value=10000,padding=10)
+        setup_spinbox_sizing(self.width_spin, min_value=1, max_value=10000, padding=10)
         # self.width_spin.setMinimum(1)
         # self.width_spin.setMaximum(10000)
         # self.width_spin.setMinimumWidth(70)
         # self.width_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-
         self.length_spin = QDoubleSpinBox()
         self.length_spin.setValue(self.params["board_height"])
-        setup_spinbox_sizing(self.length_spin,min_value=1, max_value=10000,padding=10)
+        setup_spinbox_sizing(self.length_spin, min_value=1, max_value=10000, padding=10)
         # self.length_spin.setMinimumWidth(70)
         # self.length_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -275,6 +272,7 @@ if __name__ == "__main__":
     from caliscope import __root__
     from caliscope.calibration.charuco import Charuco
     from caliscope.helper import copy_contents
+
     app = QApplication(sys.argv)
 
     # Define the input file path here.

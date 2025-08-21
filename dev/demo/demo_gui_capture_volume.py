@@ -10,7 +10,7 @@ logger = caliscope.logger.get(__name__)
 app = QApplication(sys.argv)
 root = Path(__file__).parent.parent.parent
 
-workspace_dir = Path(root, "tests", "sessions_copy_delete","no_shared_points_688")
+workspace_dir = Path(root, "tests", "sessions_copy_delete","not_sufficient_stereopairs")
 
 controller = Controller(workspace_dir)
 controller.load_camera_array()

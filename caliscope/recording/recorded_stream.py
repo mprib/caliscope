@@ -217,7 +217,7 @@ class RecordedStream:
             for q in self.subscribers:
                 q.put(frame_packet)
 
-            logger.debug(f"Incrementing frame index from {self.frame_index} to {self.frame_index+1}")
+            logger.debug(f"Incrementing frame index from {self.frame_index} to {self.frame_index + 1}")
             self.frame_index += 1
 
             if self.frame_index > self.last_frame_index and self.break_on_last:

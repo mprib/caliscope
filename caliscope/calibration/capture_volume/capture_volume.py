@@ -62,13 +62,13 @@ class CaptureVolume:
         return rmse
 
     def get_rmse_summary(self):
-        rmse_string = f"RMSE of Reprojection Overall: {round(self.rmse['overall'],2)}\n"
+        rmse_string = f"RMSE of Reprojection Overall: {round(self.rmse['overall'], 2)}\n"
         rmse_string += "    by camera:\n"
         for key, value in self.rmse.items():
             if key == "overall":
                 pass
             else:
-                rmse_string += f"    {key: >9}: {round(float(value),2)}\n"
+                rmse_string += f"    {key: >9}: {round(float(value), 2)}\n"
 
         return rmse_string
 
@@ -89,7 +89,7 @@ class CaptureVolume:
         # logger.info(
         #     f"Prior to bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
         # )
-        logger.info(f"Beginning bundle adjustment to calculated stage {self.stage+1}")
+        logger.info(f"Beginning bundle adjustment to calculated stage {self.stage + 1}")
         self.least_sq_result = least_squares(
             xy_reprojection_error,
             initial_param_estimate,

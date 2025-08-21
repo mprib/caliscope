@@ -160,6 +160,11 @@ class CameraArrayInitializer:
         return missing_stereopairs
 
     def _get_ports(self) -> list:
+        """
+        Note that only cameras that have stereopair information can be localized.
+        A given calibration data capture may leave "untethered" nodes that need to be ignored
+        for the daisy-chaining of stereopairs to proceed correctly
+        """
         ports = []
         for key, params in self.config.items():
             if key.split("_")[0] == "stereo":
@@ -210,14 +215,19 @@ class CameraArrayInitializer:
     def _get_scored_anchored_array(self, anchor_port: int) -> tuple:
         """
         Constructs a complete camera array based on the available stereopairs in
-        self.all_stereopairs
+        self.all_stereopairs.
 
-        two return values:
+        This function will raise a ValueError if a camera in the configuration
+        cannot be linked to the specified anchor_port.
+        Given the way that the stereopair estimates are made, if a camera cannot be linked to one camera
+        it will be unlinked to all other cameras.
+
+        Two return values:
 
             total_error_score: the sum of the error_scores of all stereopairs used in the
-                            construction of the array
+                            construction of the array.
 
-            camera_array: a CameraArray object anchored at the provided port
+            camera_array: a CameraArray object anchored at the provided port.
         """
         cameras = {}
         total_error_score = 0
@@ -225,22 +235,33 @@ class CameraArrayInitializer:
         for key, data in self.config.items():
             if key.startswith("cam_"):  # and not self.config[key]["ignore"]:
                 port = data["port"]
-                size = data["size"]
-                rotation_count = data["rotation_count"]
-                error = data["error"]
-                matrix = np.array(data["matrix"], dtype=np.float64)
-                distortions = np.array(data["distortions"], dtype=np.float64)
-                grid_count = data["grid_count"]
 
                 # update with extrinsics, though place anchor camera at origin
                 if port == anchor_port:
                     translation = np.array([0, 0, 0], dtype=np.float64).T
                     rotation = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
                 else:
-                    anchored_stereopair = self.estimated_stereopairs[(anchor_port, port)]
-                    translation = anchored_stereopair.translation[:, 0]
-                    rotation = anchored_stereopair.rotation
-                    total_error_score += anchored_stereopair.error_score
+                    # need to make sure that (anchor_port, port) is available in self.estimated_stereopairs.
+                    try:
+                        pair_key = (anchor_port, port)
+                        anchored_stereopair = self.estimated_stereopairs[pair_key]
+
+                        translation = anchored_stereopair.translation[:, 0]
+                        rotation = anchored_stereopair.rotation
+                        total_error_score += anchored_stereopair.error_score
+
+                    except KeyError:
+                        # A link doesn't exist. Warn the user and skip this camera.
+                        print("\n--- CONFIGURATION WARNING ---")
+                        print(f"Skipping camera '{port}': link from anchor '{anchor_port}' could not be found.")
+                        continue
+
+                size = data["size"]
+                rotation_count = data["rotation_count"]
+                error = data["error"]
+                matrix = np.array(data["matrix"], dtype=np.float64)
+                distortions = np.array(data["distortions"], dtype=np.float64)
+                grid_count = data["grid_count"]
 
                 cam_data = CameraData(
                     port=port,

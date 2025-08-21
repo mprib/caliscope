@@ -19,6 +19,7 @@ logger = caliscope.logger.get(__name__)
 
 INCHES_PER_CM = 0.393701
 
+
 class Charuco:
     """
     create a charuco board that can be printed out and used for camera
@@ -36,7 +37,7 @@ class Charuco:
         aruco_scale=0.75,
         square_size_overide_cm=None,
         inverted=False,
-        legacy_pattern=False
+        legacy_pattern=False,
     ):  # after printing, measure actual and return to overide
         """
         Create board based on shape and dimensions
@@ -77,12 +78,12 @@ class Charuco:
         if self.board_height_cm > self.board_width_cm:
             scaled_height = int(pixmap_scale)
         else:
-            scaled_height = int(pixmap_scale * (self.board_height_cm/self.board_width_cm))
+            scaled_height = int(pixmap_scale * (self.board_height_cm / self.board_width_cm))
         return scaled_height
 
     def board_width_scaled(self, pixmap_scale):
         if self.board_height_cm > self.board_width_cm:
-            scaled_width = int(pixmap_scale * (self.board_width_cm/self.board_height_cm))
+            scaled_width = int(pixmap_scale * (self.board_width_cm / self.board_height_cm))
         else:
             scaled_width = int(pixmap_scale)
 
@@ -103,14 +104,15 @@ class Charuco:
             board_width_m = self.board_width_cm / 100
 
             square_length = min([board_height_m / self.rows, board_width_m / self.columns])
-        logger.info(f"Creating charuco with square length of {round(square_length,4)}")
+        logger.info(f"Creating charuco with square length of {round(square_length, 4)}")
 
         aruco_length = square_length * self.aruco_scale
         # create the board
-        board = cv2.aruco.CharucoBoard(size=(self.columns, self.rows),
-                                      squareLength= square_length,
-                                      markerLength= aruco_length,
-                                      dictionary= self.dictionary_object,
+        board = cv2.aruco.CharucoBoard(
+            size=(self.columns, self.rows),
+            squareLength=square_length,
+            markerLength=aruco_length,
+            dictionary=self.dictionary_object,
         )
 
         logger.info(f"Setting legacy pattern of board to {self.legacy_pattern}")
@@ -123,8 +125,9 @@ class Charuco:
         smaller scale image by default for display to GUI
         provide larger max_edge_length to get printer-ready png
         """
-        img = self.board.generateImage((self.board_width_scaled(pixmap_scale=pixmap_scale),
-                                        self.board_height_scaled(pixmap_scale=pixmap_scale)))
+        img = self.board.generateImage(
+            (self.board_width_scaled(pixmap_scale=pixmap_scale), self.board_height_scaled(pixmap_scale=pixmap_scale))
+        )
         if self.inverted:
             img = ~img
 

@@ -188,7 +188,7 @@ class IntrinsicCalibrator:
         self.calibration_point_ids = []
         self.calibration_img_loc = []
         self.calibration_obj_loc = []
-        logger.info(f"Blank calibration inputs initialized at port {self.camera.port }")
+        logger.info(f"Blank calibration inputs initialized at port {self.camera.port}")
         for index in self.calibration_frame_indices:
             id_count = len(self.all_ids[index])
             if id_count > 3:  # I believe this is a requirement of opencv

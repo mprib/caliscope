@@ -44,6 +44,11 @@ class CaptureVolumeVisualizer:
         for port, cam in self.camera_array.cameras.items():
             print(port)
             print(cam)
+            # Guard clause to check for extrinsic calibration data
+            if cam.rotation is None or cam.translation is None:
+                logger.info(f"Skip mesh creation for camera on port {port}: missing rotation/translation.")
+                continue
+
             mesh: CameraMesh = mesh_from_camera(cam)
             self.meshes[port] = mesh
             self.scene.addItem(mesh)

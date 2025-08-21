@@ -28,13 +28,13 @@ class StereoCalibrator:
 
         # import point data, adding coverage regions to each port
         raw_point_data = pd.read_csv(point_data_path)
-        self.all_point_data = self.points_with_coverage_region(raw_point_data)
-        self.all_boards = self.get_boards_with_coverage()
+        self.all_point_data = self._points_with_coverage_region(raw_point_data)
+        self.all_boards = self._get_boards_with_coverage()
 
         # self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
-    def points_with_coverage_region(self, point_data: pd.DataFrame):
+    def _points_with_coverage_region(self, point_data: pd.DataFrame):
         """
         Efficiently create coverage region strings for points.
         """
@@ -56,45 +56,7 @@ class StereoCalibrator:
 
         return result
 
-    # def points_with_coverage_region(self, point_data: pd.DataFrame):
-    #     """
-    #     Pivot the port columns and assemble a new string field that will show all of the cameras that
-    #     observed a given corner at a single sync index.
-    #     """
-
-    #     points_w_pivoted_ports = (
-    #         point_data.filter(["sync_index", "point_id", "port"])
-    #         .pivot(index=["sync_index", "point_id"], columns="port", values="port")
-    #         .reset_index()
-    #         .fillna("")
-    #     )
-
-    #     def get_coverage_region(row, ports):
-    #         """
-    #         returns a string of the format "_0_1_2" for points which were captured
-    #         by cameras 0,1 and 2, etc...
-    #         """
-    #         text = ""
-    #         for port in ports:
-    #             label = row[port]
-    #             if label != "":
-    #                 label = str(int(label))
-    #                 text = text + "_" + label
-
-    #         text = text + "_"
-
-    #         return text
-
-    #     points_w_pivoted_ports["coverage_region"] = points_w_pivoted_ports.apply(
-    #         get_coverage_region, axis=1, args=(self.ports,)
-    #     )
-
-    #     points_w_pivoted_ports = points_w_pivoted_ports.filter(["sync_index", "point_id", "coverage_region"])
-    #     points_w_regions = point_data.merge(points_w_pivoted_ports, "left", ["sync_index", "point_id"])
-
-    #     return points_w_regions
-
-    def get_boards_with_coverage(self):
+    def _get_boards_with_coverage(self):
         """
         create a dataframe of all the boards, including the most prevalent
         coverage region for each board
@@ -135,9 +97,9 @@ class StereoCalibrator:
 
         return all_boards
 
-    def get_stereopair_data(self, pair: tuple, boards_sampled: int, random_state=1):
+    def get_stereopair_data(self, pair: tuple, boards_sampled: int):
         """
-        Efficiently extract data for a stereo pair.
+        Efficiently extract data for a stereo pair with deterministic board selection.
         """
         a, b = pair
         a_str, b_str = str(a), str(b)
@@ -165,15 +127,14 @@ class StereoCalibrator:
             logger.info(f"For pair {pair} there are no boards with sufficient points")
             return None
 
-        # Sample boards
+        # Sample boards deterministically
         sample_size = min(len(valid_boards_a), boards_sampled)
 
         if sample_size > 0:
             logger.info(f"Assembling {sample_size} shared boards for pair {pair}")
 
-            # Sample boards with weighting
-            weights = valid_boards_a["point_count"] ** 2
-            selected_boards = valid_boards_a.sample(n=sample_size, weights=weights, random_state=random_state)
+            # Deterministic selection with temporal and quality diversity
+            selected_boards = self._select_diverse_boards(valid_boards_a, sample_size)
 
             # Filter points to selected boards
             selected_points = pair_points[pair_points["sync_index"].isin(selected_boards["sync_index"])]
@@ -182,55 +143,59 @@ class StereoCalibrator:
             logger.info(f"For pair {pair} there are no shared boards")
             return None
 
-    # def get_stereopair_data(self, pair: tuple, boards_sampled: int, random_state=1) -> pd.DataFrame or None:
-    #     # convenience function to get the points that are in the overlap regions of the pairs
-    #     def in_pair(row: int, pair: tuple):
-    #         """
-    #         Uses the coverage_region string generated previously to flag points that are in
-    #         a shared region of the pair
-    #         """
-    #         a, b = pair
-    #         port_check = row.port == a or row.port == b
+    def _select_diverse_boards(self, valid_boards_a: pd.DataFrame, sample_size: int) -> pd.DataFrame:
+        """
+        Deterministically select boards with temporal and quality diversity.
 
-    #         a, b = str(a), str(b)
+        Strategy:
+        1. Sort boards by quality (point_count) descending
+        2. Apply temporal diversity by selecting boards spread across time
+        3. Ensure deterministic ordering by sorting by sync_index as tiebreaker
+        """
+        # Ensure deterministic ordering
+        boards_sorted = valid_boards_a.sort_values(["point_count", "sync_index"], ascending=[False, True]).reset_index(
+            drop=True
+        )
 
-    #         region_check = ("_" + a + "_") in row.coverage_region and ("_" + b + "_") in row.coverage_region
-    #         return region_check and port_check
+        if len(boards_sorted) <= sample_size:
+            return boards_sorted
 
-    #     # flag the points that belong to the pair overlap regions
-    #     self.all_point_data["in_pair"] = self.all_point_data.apply(in_pair, axis=1, args=(pair,))
+        # For temporal diversity, try to spread selection across the time range
+        # This gives us boards from different temporal periods
+        sync_indices = boards_sorted["sync_index"].values
+        min_sync, max_sync = sync_indices.min(), sync_indices.max()
 
-    #     # group points into boards and get the total count for sample weighting below
-    #     pair_points = self.all_point_data[self.all_point_data["in_pair"]]
-    #     pair_boards = (
-    #         pair_points.filter(["sync_index", "port", "point_id"])
-    #         .groupby(["sync_index", "port"])
-    #         .agg("count")
-    #         .rename({"point_id": "point_count"}, axis=1)
-    #         .query("point_count >=6")  # a requirement of the stereocalibration function
-    #         .reset_index()
-    #         .query(f"port == {pair[0]}")  # will be the same..only need one copy
-    #         .drop("port", axis=1)
-    #     )
+        # Create temporal bins and select best board from each bin
+        if sample_size > 1 and max_sync > min_sync:
+            # Create time-based selection with quality preference
+            selected_indices = []
 
-    #     # configure random sampling. If you have too few boards, then only take what you have
-    #     board_count = pair_boards.shape[0]
-    #     sample_size = min(board_count, boards_sampled)
+            # Divide the temporal range into bins
+            time_bins = np.linspace(min_sync, max_sync + 1, sample_size + 1)
 
-    #     if sample_size > 0:
-    #         logger.info(f"Assembling {sample_size} shared boards for pair {pair}")
-    #         # bias toward selecting boards with more overlapping points
-    #         sample_weight = pair_boards["point_count"] ** 2
+            for i in range(sample_size):
+                # Find boards in this temporal bin
+                bin_start, bin_end = time_bins[i], time_bins[i + 1]
+                bin_mask = (boards_sorted["sync_index"] >= bin_start) & (boards_sorted["sync_index"] < bin_end)
+                bin_boards = boards_sorted[bin_mask]
 
-    #         # get the randomly selected subset
-    #         selected_boards = pair_boards.sample(n=sample_size, weights=sample_weight, random_state=random_state)
+                if len(bin_boards) > 0:
+                    # Select the best quality board from this bin (already sorted by quality)
+                    selected_indices.append(bin_boards.index[0])
 
-    #         selected_pair_points = pair_points.merge(selected_boards, "right", "sync_index")
-    #     else:
-    #         logger.info(f"For pair {pair} there are no shared boards")
-    #         selected_pair_points = None
+            # If we didn't get enough boards from temporal binning, fill with remaining best quality boards
+            remaining_needed = sample_size - len(selected_indices)
+            if remaining_needed > 0:
+                available_indices = [idx for idx in boards_sorted.index if idx not in selected_indices]
+                selected_indices.extend(available_indices[:remaining_needed])
 
-    #     return selected_pair_points
+            # Ensure we have exactly sample_size boards
+            selected_indices = selected_indices[:sample_size]
+            return boards_sorted.loc[selected_indices]
+
+        else:
+            # Simple case: just take the best quality boards
+            return boards_sorted.head(sample_size)
 
     def stereo_calibrate_all(self, boards_sampled=10):
         """Iterates across all camera pairs. Intrinsic parameters are pulled

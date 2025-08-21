@@ -30,7 +30,7 @@ logger = caliscope.logger.get(__name__)
 hold = view_df
 
 
-def test_calibration():
+def calibration_workflow_reference():
     version = "not_sufficient_stereopairs"
     original_session_path = Path(__root__, "tests", "sessions", version)
     session_path = Path(
@@ -134,28 +134,6 @@ def test_calibration():
     config.save_capture_volume(capture_volume)
 
 
-def test_stereocalibrate_diverse_points():
-    version = "not_sufficient_stereopairs"
-    original_session_path = Path(__root__, "tests", "sessions", version)
-    session_path = Path(
-        original_session_path.parent.parent,
-        "sessions_copy_delete",
-        version,
-    )
-    copy_contents(original_session_path, session_path)
-
-    config = Configurator(session_path)
-    xy_data_path = Path(session_path, "xy_CHARUCO.csv")
-    camera_array = config.get_camera_array()
-    charuco = config.get_charuco()
-
-    logger.info("Creating stereocalibrator")
-    stereocalibrator = StereoCalibrator(config.config_toml_path, xy_data_path)
-    logger.info("Initiating stereocalibration")
-    stereocalibrator.stereo_calibrate_all(boards_sampled=10)
-    logger.info("Check model params")
-
-
 def test_deterministic_consistency():
     """
     Test that running the same calibration multiple times produces identical results.
@@ -225,6 +203,4 @@ def test_deterministic_consistency():
 
 
 if __name__ == "__main__":
-    # test_calibration()
-    # test_stereocalibrate_diverse_points()
     test_deterministic_consistency()

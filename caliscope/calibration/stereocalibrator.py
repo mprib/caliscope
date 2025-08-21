@@ -28,13 +28,13 @@ class StereoCalibrator:
 
         # import point data, adding coverage regions to each port
         raw_point_data = pd.read_csv(point_data_path)
-        self.all_point_data = self.points_with_coverage_region(raw_point_data)
-        self.all_boards = self.get_boards_with_coverage()
+        self.all_point_data = self._points_with_coverage_region(raw_point_data)
+        self.all_boards = self._get_boards_with_coverage()
 
         # self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
-    def points_with_coverage_region(self, point_data: pd.DataFrame):
+    def _points_with_coverage_region(self, point_data: pd.DataFrame):
         """
         Efficiently create coverage region strings for points.
         """
@@ -56,7 +56,7 @@ class StereoCalibrator:
 
         return result
 
-    def get_boards_with_coverage(self):
+    def _get_boards_with_coverage(self):
         """
         create a dataframe of all the boards, including the most prevalent
         coverage region for each board
@@ -97,9 +97,9 @@ class StereoCalibrator:
 
         return all_boards
 
-    def get_stereopair_data(self, pair: tuple, boards_sampled: int, random_state=1):
+    def get_stereopair_data(self, pair: tuple, boards_sampled: int):
         """
-        Efficiently extract data for a stereo pair.
+        Efficiently extract data for a stereo pair with deterministic board selection.
         """
         a, b = pair
         a_str, b_str = str(a), str(b)
@@ -127,15 +127,14 @@ class StereoCalibrator:
             logger.info(f"For pair {pair} there are no boards with sufficient points")
             return None
 
-        # Sample boards
+        # Sample boards deterministically
         sample_size = min(len(valid_boards_a), boards_sampled)
 
         if sample_size > 0:
             logger.info(f"Assembling {sample_size} shared boards for pair {pair}")
 
-            # Sample boards with weighting
-            weights = valid_boards_a["point_count"] ** 2
-            selected_boards = valid_boards_a.sample(n=sample_size, weights=weights, random_state=random_state)
+            # Deterministic selection with temporal and quality diversity
+            selected_boards = self._select_diverse_boards(valid_boards_a, sample_size)
 
             # Filter points to selected boards
             selected_points = pair_points[pair_points["sync_index"].isin(selected_boards["sync_index"])]
@@ -143,6 +142,60 @@ class StereoCalibrator:
         else:
             logger.info(f"For pair {pair} there are no shared boards")
             return None
+
+    def _select_diverse_boards(self, valid_boards_a: pd.DataFrame, sample_size: int) -> pd.DataFrame:
+        """
+        Deterministically select boards with temporal and quality diversity.
+
+        Strategy:
+        1. Sort boards by quality (point_count) descending
+        2. Apply temporal diversity by selecting boards spread across time
+        3. Ensure deterministic ordering by sorting by sync_index as tiebreaker
+        """
+        # Ensure deterministic ordering
+        boards_sorted = valid_boards_a.sort_values(["point_count", "sync_index"], ascending=[False, True]).reset_index(
+            drop=True
+        )
+
+        if len(boards_sorted) <= sample_size:
+            return boards_sorted
+
+        # For temporal diversity, try to spread selection across the time range
+        # This gives us boards from different temporal periods
+        sync_indices = boards_sorted["sync_index"].values
+        min_sync, max_sync = sync_indices.min(), sync_indices.max()
+
+        # Create temporal bins and select best board from each bin
+        if sample_size > 1 and max_sync > min_sync:
+            # Create time-based selection with quality preference
+            selected_indices = []
+
+            # Divide the temporal range into bins
+            time_bins = np.linspace(min_sync, max_sync + 1, sample_size + 1)
+
+            for i in range(sample_size):
+                # Find boards in this temporal bin
+                bin_start, bin_end = time_bins[i], time_bins[i + 1]
+                bin_mask = (boards_sorted["sync_index"] >= bin_start) & (boards_sorted["sync_index"] < bin_end)
+                bin_boards = boards_sorted[bin_mask]
+
+                if len(bin_boards) > 0:
+                    # Select the best quality board from this bin (already sorted by quality)
+                    selected_indices.append(bin_boards.index[0])
+
+            # If we didn't get enough boards from temporal binning, fill with remaining best quality boards
+            remaining_needed = sample_size - len(selected_indices)
+            if remaining_needed > 0:
+                available_indices = [idx for idx in boards_sorted.index if idx not in selected_indices]
+                selected_indices.extend(available_indices[:remaining_needed])
+
+            # Ensure we have exactly sample_size boards
+            selected_indices = selected_indices[:sample_size]
+            return boards_sorted.loc[selected_indices]
+
+        else:
+            # Simple case: just take the best quality boards
+            return boards_sorted.head(sample_size)
 
     def stereo_calibrate_all(self, boards_sampled=10):
         """Iterates across all camera pairs. Intrinsic parameters are pulled

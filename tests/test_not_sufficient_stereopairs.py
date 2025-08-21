@@ -22,12 +22,11 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.controller import FILTERED_FRACTION
-from caliscope.helper import copy_contents, view_df
+from caliscope.helper import copy_contents
 
 logger = caliscope.logger.get(__name__)
 
 # don't want ruff dropping the reference which I use in repl
-hold = view_df
 
 
 def calibration_workflow_reference():

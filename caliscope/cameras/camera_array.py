@@ -37,8 +37,8 @@ class CameraData:
 
     @property
     def transformation(self):
-        """ "
-        Rotation and transformation combined to allow
+        """
+        Rotation and translation combined
         """
         assert self.rotation is not None and self.translation is not None
 
@@ -79,7 +79,6 @@ class CameraData:
 
     def get_display_data(self) -> OrderedDict:
         # Extracting camera matrix parameters
-        # self.matrix = None
         if self.matrix is not None:
             fx, fy = self.matrix[0, 0], self.matrix[1, 1]
             cx, cy = self.matrix[0, 2], self.matrix[1, 2]
@@ -145,8 +144,9 @@ class CameraData:
 
 @dataclass
 class CameraArray:
-    """The plan is that this will expand to become an interface for setting the origin.
-    At the moment all it is doing is holding a dictionary of CameraData objects"""
+    """
+    A data structure to hold a dictionary of CameraData objects
+    """
 
     cameras: dict
 

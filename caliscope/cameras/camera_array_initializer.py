@@ -290,8 +290,8 @@ class CameraArrayInitializer:
         Note that total error score is just a sum of individual errors for tracking
         and comparison purposes and does not have any signifigence in the context
         of reprojection error
-
         """
+
         array_error_scores = {}
         camera_arrays = {}
         # get the score for the anchored_stereopairs

@@ -160,25 +160,6 @@ class Controller(QObject):
             tracker=self.charuco_tracker,
         )
 
-    # def process_extrinsic_streams(self, fps_target=None):
-    #     def worker():
-    #         output_path = Path(
-    #             self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv"
-    #         )
-    #         output_path.unlink()  # make sure this doesn't exist to begin with.
-
-    #         self.load_extrinsic_stream_manager()
-    #         self.extrinsic_stream_manager.process_streams(fps_target=fps_target)
-
-    #         logger.info(
-    #             f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
-    #         )
-    #         while not output_path.exists():
-    #             sleep(0.5)
-    #             logger.info(
-    #                 f"Waiting for 2D tracked points to populate at {output_path}"
-    #             )
-
     def load_intrinsic_stream_manager(self):
         self.intrinsic_stream_manager = IntrinsicStreamManager(
             recording_dir=self.workspace_guide.intrinsic_dir,
@@ -186,9 +167,6 @@ class Controller(QObject):
             tracker=self.charuco_tracker,
         )
         logger.info("Intrinsic stream manager has loaded")
-
-        # signal to main GUI that the Camera tab needs to be reloaded
-        # self.intrinsicStreamsLoaded.emit()
 
     def load_camera_array(self):
         """

@@ -83,12 +83,6 @@ class CaptureVolume:
 
         initial_param_estimate = self.get_vectorized_params()
 
-        # get a snapshot of where things are at the start
-        # initial_xy_error = xy_reprojection_error(initial_param_estimate, self)
-
-        # logger.info(
-        #     f"Prior to bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse}"
-        # )
         logger.info(f"Beginning bundle adjustment to calculated stage {self.stage + 1}")
         self.least_sq_result = least_squares(
             xy_reprojection_error,
@@ -201,13 +195,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_proj = points_3d_and_2d[:, 6:8]
 
     xy_reprojection_error = (points_proj - capture_volume.point_estimates.img).ravel()
-    # capture_volume.rmse = rms_reproj_error(xy_reprojection_error)
-    # if round(perf_counter(), 2) * 10 % 1 == 0: # log less frequently
-    #     logger.info(
-    #         f"Optimizing... RMSE of reprojection = {capture_volume.rmse}"
-    #     )
 
-    # reshape the x,y reprojection error to a single vector
     return xy_reprojection_error
 
 
@@ -223,20 +211,5 @@ def rms_reproj_error(xy_reproj_error, camera_indices):
     for port in np.unique(camera_indices):
         camera_errors = euclidean_distance_error[camera_indices == port]
         rmse[str(port)] = np.sqrt(np.mean(camera_errors**2))
-    # for port in camera_indices
-    # logger.info(f"Optimization run with {xy_reproj_error.shape[0]} image points")
-    # logger.info(f"RMSE of reprojection is {rmse}")
+
     return rmse
-
-
-# def load_capture_volume(session_path:Path):
-#     config = get_config(session_directory)
-
-#     camera_array = get_camera_array(config)
-#     point_estimates = load_point_estimates(config)
-
-#     capture_volume = CaptureVolume(camera_array, point_estimates)
-#     capture_volume.stage = config["capture_volume"]["stage"]
-#     # capture_volume.origin_sync_index = config["capture_volume"]["origin_sync_index"]
-
-#     return capture_volume

@@ -1,7 +1,7 @@
 # %%
 from collections import OrderedDict
-from dataclasses import dataclass, field
-from typing import Any, Dict
+from dataclasses import dataclass
+from typing import Dict
 
 import cv2
 import numpy as np

@@ -4,6 +4,7 @@
 from dataclasses import dataclass
 from itertools import permutations
 from pathlib import Path
+from typing import Dict, Tuple
 
 import numpy as np
 import rtoml
@@ -96,13 +97,26 @@ def get_bridged_stereopair(pair_A_B: StereoPair, pair_B_C: StereoPair) -> Stereo
 
 class CameraArrayInitializer:
     def __init__(self, config_path: Path):
-        logger.info("Creating initial estimate of camera array based on stereopairs...")
+        logger.info("Creating initial estimate of camera array based on stereopairs contained in config.toml...")
 
         self.config = rtoml.load(config_path)
         self.ports = self._get_ports()
         self.estimated_stereopairs = self._get_captured_stereopairs()
         self._fill_stereopair_gaps()
-        # self.best_camera_array = self.get_best_camera_array()
+
+    def _get_ports(self) -> list:
+        """
+        Gets all camera ports defined in the config file from the [cam_...] sections.
+        This ensures that every camera is accounted for, even if it has no
+        stereo relationships.
+        """
+        ports = []
+        for key, params in self.config.items():
+            if key.startswith("cam_"):
+                ports.append(params["port"])
+
+        ports.sort()  # ensure stable order
+        return ports
 
     def _fill_stereopair_gaps(self):
         """
@@ -119,9 +133,10 @@ class CameraArrayInitializer:
 
         while len(self._get_missing_stereopairs()) != missing_count_last_cycle:
             # prep the variable. if it doesn't go down, terminate
-            missing_count_last_cycle = len(self._get_missing_stereopairs())
+            missing_stereo_pairs = self._get_missing_stereopairs()
+            missing_count_last_cycle = len(missing_stereo_pairs)
 
-            for pair in self._get_missing_stereopairs():
+            for pair in missing_stereo_pairs:
                 port_A = pair[0]
                 port_C = pair[1]
 
@@ -129,7 +144,7 @@ class CameraArrayInitializer:
                 all_pairs_A_X = [pair for pair in self.estimated_stereopairs.keys() if pair[0] == port_A]
                 all_pairs_X_C = [pair for pair in self.estimated_stereopairs.keys() if pair[1] == port_C]
 
-                stereopair_A_C = None
+                best_bridge_pair = None
 
                 for pair_A_X in all_pairs_A_X:
                     for pair_X_C in all_pairs_X_C:
@@ -138,20 +153,17 @@ class CameraArrayInitializer:
                             stereopair_A_X = self.estimated_stereopairs[pair_A_X]
                             stereopair_X_C = self.estimated_stereopairs[pair_X_C]
                             possible_stereopair_A_C = get_bridged_stereopair(stereopair_A_X, stereopair_X_C)
-                            if stereopair_A_C is None:
-                                # current possibility is better than nothing
-                                stereopair_A_C = possible_stereopair_A_C
-                            else:
-                                # check if it's better than what you have already
-                                # if it is, then overwrite the old one
-                                if stereopair_A_C.error_score > possible_stereopair_A_C.error_score:
-                                    stereopair_A_C = possible_stereopair_A_C
+                            if (
+                                best_bridge_pair is None
+                                or best_bridge_pair.error_score > possible_stereopair_A_C.error_score
+                            ):
+                                best_bridge_pair = possible_stereopair_A_C
 
-                if stereopair_A_C is not None:
-                    self.add_stereopair(stereopair_A_C)
+                if best_bridge_pair is not None:
+                    self.add_stereopair(best_bridge_pair)
 
         if len(self._get_missing_stereopairs()) > 0:
-            raise ValueError("Insufficient stereopairs to allow array to be estimated")
+            logger.warning("Could not form a fully connected camera graph. Some cameras will be unposed.")
 
     def _get_missing_stereopairs(self):
         possible_stereopairs = [pair for pair in permutations(self.ports, 2)]
@@ -159,25 +171,7 @@ class CameraArrayInitializer:
 
         return missing_stereopairs
 
-    def _get_ports(self) -> list:
-        """
-        Note that only cameras that have stereopair information can be localized.
-        A given calibration data capture may leave "untethered" nodes that need to be ignored
-        for the daisy-chaining of stereopairs to proceed correctly
-        """
-        ports = []
-        for key, params in self.config.items():
-            if key.split("_")[0] == "stereo":
-                port_A = int(key.split("_")[1])
-                port_B = int(key.split("_")[2])
-                ports.append(port_A)
-                ports.append(port_B)
-
-        # convert to a unique list
-        ports = list(set(ports))
-        return ports
-
-    def _get_captured_stereopairs(self) -> dict:
+    def _get_captured_stereopairs(self) -> Dict[Tuple[int, int], StereoPair]:
         stereopairs = {}
 
         # Create StereoPair objects for each saved stereocalibration output in config
@@ -212,97 +206,82 @@ class CameraArrayInitializer:
         merged_stereopairs = {**stereopairs, **inverted_stereopairs}
         return merged_stereopairs
 
-    def _get_scored_anchored_array(self, anchor_port: int) -> tuple:
+    def _get_scored_anchored_array(self, anchor_port: int) -> Tuple[float, CameraArray]:
         """
-        Constructs a complete camera array based on the available stereopairs in
-        self.all_stereopairs.
+        Constructs a CameraArray anchored to a specific port.
 
-        This function will raise a ValueError if a camera in the configuration
-        cannot be linked to the specified anchor_port.
-        Given the way that the stereopair estimates are made, if a camera cannot be linked to one camera
-        it will be unlinked to all other cameras.
-
-        Two return values:
-
-            total_error_score: the sum of the error_scores of all stereopairs used in the
-                            construction of the array.
-
-            camera_array: a CameraArray object anchored at the provided port.
+        If a camera cannot be linked to the anchor, it is still included in the
+        array but its `rotation` and `translation` are set to None.
         """
         cameras = {}
         total_error_score = 0
 
-        for key, data in self.config.items():
-            if key.startswith("cam_"):  # and not self.config[key]["ignore"]:
-                port = data["port"]
+        for port in self.ports:
+            data = self.config[f"cam_{port}"]
 
-                # update with extrinsics, though place anchor camera at origin
-                if port == anchor_port:
-                    translation = np.array([0, 0, 0], dtype=np.float64).T
-                    rotation = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
-                else:
-                    # need to make sure that (anchor_port, port) is available in self.estimated_stereopairs.
-                    try:
-                        pair_key = (anchor_port, port)
-                        anchored_stereopair = self.estimated_stereopairs[pair_key]
+            translation = None
+            rotation = None
 
-                        translation = anchored_stereopair.translation[:, 0]
-                        rotation = anchored_stereopair.rotation
-                        total_error_score += anchored_stereopair.error_score
+            # update with extrinsics, though place anchor camera at origin
+            if port == anchor_port:
+                translation = np.array([0, 0, 0], dtype=np.float64).T
+                rotation = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
+            else:
+                pair_key = (anchor_port, port)
+                if pair_key in self.estimated_stereopairs:
+                    anchored_stereopair = self.estimated_stereopairs[pair_key]
+                    translation = anchored_stereopair.translation[:, 0]
+                    rotation = anchored_stereopair.rotation
+                    total_error_score += anchored_stereopair.error_score
 
-                    except KeyError:
-                        # A link doesn't exist. Warn the user and skip this camera.
-                        print("\n--- CONFIGURATION WARNING ---")
-                        print(f"Skipping camera '{port}': link from anchor '{anchor_port}' could not be found.")
-                        continue
-
-                size = data["size"]
-                rotation_count = data["rotation_count"]
-                error = data["error"]
-                matrix = np.array(data["matrix"], dtype=np.float64)
-                distortions = np.array(data["distortions"], dtype=np.float64)
-                grid_count = data["grid_count"]
-
-                cam_data = CameraData(
-                    port=port,
-                    size=size,
-                    rotation_count=rotation_count,
-                    error=error,
-                    matrix=matrix,
-                    distortions=distortions,
-                    # exposure,
-                    grid_count=grid_count,
-                    # ignore=ignore,
-                    # verified_resolutions,
-                    translation=translation,
-                    rotation=rotation,
-                )
-
-                cameras[port] = cam_data
+            # Create the CameraData object regardless of whether it's posed
+            cameras[port] = CameraData(
+                port=port,
+                size=data["size"],
+                rotation_count=data["rotation_count"],
+                error=data["error"],
+                matrix=np.array(data["matrix"], dtype=np.float64),
+                distortions=np.array(data["distortions"], dtype=np.float64),
+                grid_count=data["grid_count"],
+                translation=translation,  # Will be None for unposed cameras
+                rotation=rotation,  # Will be None for unposed cameras
+            )
 
         camera_array = CameraArray(cameras)
 
         return total_error_score, camera_array
 
-    def get_best_camera_array(self):
+    def get_best_camera_array(self) -> CameraArray:
         """
         returns the anchored camera array with the lowest total error score.
-        Note that total error score is just a sum of individual errors for tracking
-        and comparison purposes and does not have any signifigence in the context
-        of reprojection error
         """
-
         array_error_scores = {}
         camera_arrays = {}
-        # get the score for the anchored_stereopairs
-        for port in self.ports:
+
+        # Identify the ports that are part of the main connected component
+        # We can only anchor from a camera that can see other cameras.
+        connected_ports = []
+        if self.estimated_stereopairs:
+            # All ports involved in any stereo pair are potential anchors
+            all_paired_ports = set(p for pair in self.estimated_stereopairs.keys() for p in pair)
+            connected_ports = [p for p in self.ports if p in all_paired_ports]
+
+        # If there are no connections at all, return an all-unposed array
+        if not connected_ports:
+            logger.warning("No stereo pairs found. Returning an array with all cameras unposed.")
+            _, unposed_array = self._get_scored_anchored_array(anchor_port=-1)  # -1 is a dummy anchor
+            return unposed_array
+
+        # For each potential anchor, build a full array and score it
+        for port in connected_ports:
             array_error_score, camera_array = self._get_scored_anchored_array(port)
             array_error_scores[port] = array_error_score
             camera_arrays[port] = camera_array
 
         best_anchor = min(array_error_scores, key=array_error_scores.get)
-
         best_initial_array = camera_arrays[best_anchor]
+
+        logger.info(f"Selected camera {best_anchor} as the anchor, yielding lowest initial error score.")
 
         return best_initial_array
 
@@ -310,9 +289,6 @@ class CameraArrayInitializer:
         self.estimated_stereopairs[stereopair.pair] = stereopair
         inverted_stereopair = get_inverted_stereopair(stereopair)
         self.estimated_stereopairs[inverted_stereopair.pair] = inverted_stereopair
-
-
-# def get_anchored_pairs(anchor: int, all_stereopairs:dict)->dict:
 
 
 if __name__ == "__main__":

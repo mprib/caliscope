@@ -1,7 +1,7 @@
 # %%
-
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any, Dict
 
 import cv2
 import numpy as np
@@ -23,7 +23,7 @@ class CameraData:
     """
 
     port: int
-    size: tuple
+    size: list[int]
     rotation_count: int = 0
     error: float | None = None  # the RMSE of reprojection associated with the intrinsic calibration
     matrix: np.ndarray | None = None
@@ -145,85 +145,101 @@ class CameraData:
 @dataclass
 class CameraArray:
     """
-    A data structure to hold a dictionary of CameraData objects
+    A data structure to hold a dictionary of all CameraData objects,
+    providing views for accessing all, posed, or unposed cameras.
     """
 
-    cameras: dict
+    cameras: Dict[int, CameraData]
 
     @property
-    def port_index(self):
-        """
-        Provides a dictionary mapping the camera port to an index. Generally,this
-        will match the camera ports 1:1, but will be different when a camera
-        is being ignored. Used to manage reference to camera parameters in xy_reprojection_error
-        used within the least_squares optimization of the capture volume.
-        """
-        not_ignored_ports = [port for port, cam in self.cameras.items() if not cam.ignore]
-        not_ignored_ports.sort()
-        not_ignored_indices = [i for i in range(len(not_ignored_ports))]
-        port_indices = {port: i for port, i in zip(not_ignored_ports, not_ignored_indices)}
-
-        return port_indices
+    def posed_cameras(self) -> Dict[int, CameraData]:
+        """Returns a view of cameras that have extrinsic data (pose)."""
+        return {
+            port: cam for port, cam in self.cameras.items() if cam.rotation is not None and cam.translation is not None
+        }
 
     @property
-    def index_port(self):
+    def unposed_cameras(self) -> Dict[int, CameraData]:
+        """Returns a view of cameras that are missing extrinsic data (pose)."""
+        return {port: cam for port, cam in self.cameras.items() if cam.rotation is None or cam.translation is None}
+
+    @property
+    def port_index(self) -> Dict[int, int]:
+        """
+        Maps the port to an index for *posed and non-ignored* cameras.
+        This is used for ordering parameters for optimization routines.
+        The value is re-calculated on each access to ensure it is always fresh.
+        """
+        # CRITICAL: This operates on `posed_cameras` to get the set of cameras
+        # eligible for optimization.
+        eligible_ports = [port for port, cam in self.posed_cameras.items() if not cam.ignore]
+        eligible_ports.sort()  # Important for deterministic behavior
+        return {port: i for i, port in enumerate(eligible_ports)}
+
+    @property
+    def index_port(self) -> Dict[int, int]:
+        """
+        Maps an index back to a port for *posed and non-ignored* cameras.
+        The value is re-calculated on each access to ensure it is always fresh.
+        """
         return {value: key for key, value in self.port_index.items()}
 
-    def get_extrinsic_params(self):
-        """for each camera build the CAMERA_PARAM_COUNT element parameter index
-        camera_params with shape (n_cameras, CAMERA_PARAM_COUNT)
-        contains initial estimates of parameters for all cameras.
-        First 3 components in each row form a rotation vector (https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula),
-        next 3 components form a translation vector
+    def get_extrinsic_params(self) -> NDArray | None:
         """
+        Builds the extrinsic parameter vector for all *posed* cameras.
+        Returns None if no cameras are posed and not ignored.
+        """
+        # The index_port property already filters for posed and non-ignored cameras
+        ordered_ports = self.index_port.keys()
 
-        camera_params = None
-        # ensure that parameters are built up in order of the corresponding index
-        for index in sorted(self.index_port.keys()):
+        if not ordered_ports:
+            return None
+
+        # Build the params in the order defined by index_port
+        params_list = []
+        for index in sorted(ordered_ports):
             port = self.index_port[index]
             cam = self.cameras[port]
-            port_param = cam.extrinsics_to_vector()
+            params_list.append(cam.extrinsics_to_vector())
 
-            if camera_params is None:
-                camera_params = port_param
-            else:
-                camera_params = np.vstack([camera_params, port_param])
-
-        return camera_params
+        return np.vstack(params_list)
 
     def update_extrinsic_params(self, least_sq_result_x: NDArray) -> None:
-        n_cameras = len(self.port_index)
+        """Updates extrinsic parameters from an optimization result vector."""
+        indices_to_update = self.index_port
+        n_cameras = len(indices_to_update)
+
+        if n_cameras == 0:
+            logger.warning("Tried to update extrinsics, but no posed cameras were found to update.")
+            return
+
         n_cam_param = 6  # 6 DoF
         flat_camera_params = least_sq_result_x[0 : n_cameras * n_cam_param]
         new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
 
-        # update camera array with new positional data
-        for index in range(len(new_camera_params)):
-            port = self.index_port[index]  # correct in case ignoring a camera
-            cam_vec = new_camera_params[index, :]
+        for index, cam_vec in enumerate(new_camera_params):
+            port = indices_to_update[index]
+            # When updating, we modify the original camera object in self.cameras
             self.cameras[port].extrinsics_from_vector(cam_vec)
 
+    # Note: I've updated the docstrings on these to be more precise
     def all_extrinsics_calibrated(self) -> bool:
-        # assume extrinsics calibrated and provide otherwise
-        full_extrinsics = True
-        for port, cam in self.cameras.items():
-            if cam.rotation is None or cam.translation is None:
-                full_extrinsics = False
-        return full_extrinsics
+        """Checks if ALL cameras in the array have a pose."""
+        if not self.cameras:
+            return True
+        return not self.unposed_cameras
 
     def all_intrinsics_calibrated(self) -> bool:
-        # assume true and prove false
-        full_intrinsics = True
-        for port, cam in self.cameras.items():
-            if cam.matrix is None or cam.distortions is None:
-                full_intrinsics = False
-        return full_intrinsics
+        """Checks if ALL cameras in the array have intrinsic data."""
+        return all(cam.matrix is not None and cam.distortions is not None for cam in self.cameras.values())
 
     @property
-    def projection_matrices(self):  # -> NumbaDict:
-        logger.info("Creating camera array projection matrices")
+    def projection_matrices(self):
+        """Generates projection matrices for *posed and non-ignored* cameras only."""
+        logger.info("Creating projection matrices for posed and non-ignored cameras.")
+        # Note: This NumbaDict should only contain cameras used in optimization
         proj_mat = NumbaDict()  # type: ignore
-        for port, cam in self.cameras.items():
-            proj_mat[port] = cam.projection_matrix
+        for port in self.port_index.keys():  # port_index keys are posed and not ignored
+            proj_mat[port] = self.cameras[port].projection_matrix
 
         return proj_mat

@@ -108,8 +108,6 @@ def test_new_cameras():
 
     config = Configurator(blank_workspace)
 
-    # note that it appears rtoml will store tuples as lists,
-    # so just keep everything a list for comparison purposes
     cam_1 = CameraData(port=1, size=[1280, 720])
     cam_2 = CameraData(port=2, size=[1280, 720])
 
@@ -120,7 +118,6 @@ def test_new_cameras():
 
     # with camera array saved by configurator, there are now many "null" values
     # populated in the toml file. Need to make sure that these are loaded correctly
-
     config_copy = Configurator(blank_workspace)
     camera_array_copy = config_copy.get_camera_array()
     print(camera_array_copy.cameras)
@@ -130,5 +127,5 @@ def test_new_cameras():
 
 
 if __name__ == "__main__":
-    # test_configurator()
+    test_configurator()
     test_new_cameras()

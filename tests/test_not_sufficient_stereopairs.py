@@ -1,9 +1,4 @@
-"""
-Attempting to duplicate the error in Issue #690.
-The issue stems from camera 5 not having common board views with any of the other cameras.
-The test below runs no assertions and is just a starting point for future reference
-to build out a more robust functionality.
-"""
+""" """
 
 from pathlib import Path
 
@@ -202,4 +197,5 @@ def test_deterministic_consistency():
 
 
 if __name__ == "__main__":
-    test_deterministic_consistency()
+    calibration_workflow_reference()
+    # test_deterministic_consistency()

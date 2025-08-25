@@ -1,6 +1,7 @@
 # %%
 
 
+from collections import deque
 from dataclasses import dataclass
 from itertools import permutations
 from pathlib import Path
@@ -206,6 +207,43 @@ class CameraArrayInitializer:
         merged_stereopairs = {**stereopairs, **inverted_stereopairs}
         return merged_stereopairs
 
+    def _find_largest_connected_component(self) -> set:
+        """
+        Performs a graph traversal to find all connected components (islands)
+        of cameras and returns the one with the most members.
+        """
+        if not self.estimated_stereopairs:
+            return set()
+
+        # Build an adjacency list for the graph
+        adj = {port: [] for port in self.ports}
+        for port1, port2 in self.estimated_stereopairs.keys():
+            adj[port1].append(port2)
+            adj[port2].append(port1)
+
+        visited = set()
+        largest_component = set()
+
+        for port in self.ports:
+            if port not in visited:
+                # Start a new traversal (BFS) for a new component
+                current_component = set()
+                q = deque([port])
+                visited.add(port)
+
+                while q:
+                    u = q.popleft()
+                    current_component.add(u)
+                    for v in adj.get(u, []):
+                        if v not in visited:
+                            visited.add(v)
+                            q.append(v)
+
+                if len(current_component) > len(largest_component):
+                    largest_component = current_component
+
+        return largest_component
+
     def _get_scored_anchored_array(self, anchor_port: int) -> Tuple[float, CameraArray]:
         """
         Constructs a CameraArray anchored to a specific port.
@@ -251,37 +289,44 @@ class CameraArrayInitializer:
 
         return total_error_score, camera_array
 
-    def get_best_camera_array(self) -> CameraArray:
+    def get_best_camera_array(self):
         """
-        returns the anchored camera array with the lowest total error score.
+        Finds the largest connected group of cameras and returns the camera array
+        anchored from the node within that group that has the lowest cumulative error.
         """
+        # STEP 1: Find the largest connected component of cameras.
+        # this helps to ensure the largest "island" of cameras is linked if pairs exist with not bridge
+        main_group_ports = self._find_largest_connected_component()
+
+        if not main_group_ports:
+            logger.warning("No connected stereo pairs found. Returning an array with all cameras unposed.")
+            # Use a dummy anchor_port; it won't be used to pose anything.
+            _, unposed_array = self._get_scored_anchored_array(anchor_port=-1, all_ports=self.ports)
+            return unposed_array
+
+        logger.info(
+            f"Identified main camera group with {len(main_group_ports)} members: {sorted(list(main_group_ports))}"
+        )
+
+        # STEP 2: Find the best anchor *within the main group*.
         array_error_scores = {}
         camera_arrays = {}
 
-        # Identify the ports that are part of the main connected component
-        # We can only anchor from a camera that can see other cameras.
-        connected_ports = []
-        if self.estimated_stereopairs:
-            # All ports involved in any stereo pair are potential anchors
-            all_paired_ports = set(p for pair in self.estimated_stereopairs.keys() for p in pair)
-            connected_ports = [p for p in self.ports if p in all_paired_ports]
-
-        # If there are no connections at all, return an all-unposed array
-        if not connected_ports:
-            logger.warning("No stereo pairs found. Returning an array with all cameras unposed.")
-            _, unposed_array = self._get_scored_anchored_array(anchor_port=-1)  # -1 is a dummy anchor
-            return unposed_array
-
-        # For each potential anchor, build a full array and score it
-        for port in connected_ports:
+        for port in main_group_ports:
             array_error_score, camera_array = self._get_scored_anchored_array(port)
+            # The score is only non-zero if it can connect to others, which is guaranteed for this group.
             array_error_scores[port] = array_error_score
             camera_arrays[port] = camera_array
 
         best_anchor = min(array_error_scores, key=array_error_scores.get)
         best_initial_array = camera_arrays[best_anchor]
 
-        logger.info(f"Selected camera {best_anchor} as the anchor, yielding lowest initial error score.")
+        unposed_count = len(best_initial_array.unposed_cameras)
+        if unposed_count > 0:
+            unposed_ports = list(best_initial_array.unposed_cameras.keys())
+            logger.warning(f"{unposed_count} cameras are not in the main group and remain unposed: {unposed_ports}")
+
+        logger.info(f"Selected camera {best_anchor} as anchor, yielding lowest initial error.")
 
         return best_initial_array
 

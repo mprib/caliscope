@@ -83,13 +83,3 @@ class PointEstimates:
         xyz = xyz.reshape(-1, 3)
 
         self.obj = xyz
-
-
-def load_point_estimates(config: dict) -> PointEstimates:
-    point_estimates_dict = config["point_estimates"]
-
-    for key, value in point_estimates_dict.items():
-        point_estimates_dict[key] = np.array(value)
-
-    point_estimates = PointEstimates(**point_estimates_dict)
-    return point_estimates

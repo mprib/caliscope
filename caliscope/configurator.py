@@ -117,6 +117,7 @@ class Configurator:
 
     def get_configured_camera_data(self) -> dict[int, CameraData]:
         all_camera_data = {}
+
         for key, params in self.dict.items():
             if key.startswith("cam_"):
                 port = params["port"]
@@ -164,6 +165,7 @@ class Configurator:
 
                 all_camera_data[port] = cam_data
                 logger.info(f"Camera successfully added at port {port}")
+
         logger.info("Camera data loaded and being passed back to caller")
         return all_camera_data
 

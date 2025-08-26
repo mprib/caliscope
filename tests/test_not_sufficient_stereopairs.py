@@ -24,7 +24,7 @@ logger = caliscope.logger.get(__name__)
 # don't want ruff dropping the reference which I use in repl
 
 
-def calibration_workflow_reference():
+def test_calibration_workflow():
     version = "not_sufficient_stereopairs"
     original_session_path = Path(__root__, "tests", "sessions", version)
     session_path = Path(
@@ -36,7 +36,7 @@ def calibration_workflow_reference():
 
     config = Configurator(session_path)
     xy_data_path = Path(session_path, "xy_CHARUCO.csv")
-    camera_array = config.get_camera_array()
+    #    camera_array = config.get_camera_array()
     charuco = config.get_charuco()
 
     logger.info("Creating stereocalibrator")
@@ -67,12 +67,12 @@ def calibration_workflow_reference():
     rmse_initial = capture_volume.rmse
     assert rmse_initial is not None
     assert "overall" in rmse_initial
-    assert all(str(port) in rmse_initial for port in capture_volume.camera_array.cameras.keys())
+    assert all(str(port) in rmse_initial for port in capture_volume.camera_array.posed_cameras.keys())
 
     # Log initial RMSE values
     logger.info(f"Initial RMSE before optimization: {rmse_initial['overall']:.4f} pixels")
     logger.info("Per-camera initial RMSE values:")
-    for port in capture_volume.camera_array.cameras.keys():
+    for port in capture_volume.camera_array.posed_cameras.keys():
         logger.info(f"  Camera {port}: {rmse_initial[str(port)]:.4f} pixels")
 
     # First optimization stage - bundle adjustment
@@ -197,5 +197,6 @@ def test_deterministic_consistency():
 
 
 if __name__ == "__main__":
-    calibration_workflow_reference()
-    # test_deterministic_consistency()
+    test_calibration_workflow()
+    test_deterministic_consistency()
+    print("end")

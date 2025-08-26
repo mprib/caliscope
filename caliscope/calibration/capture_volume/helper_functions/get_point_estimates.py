@@ -71,14 +71,27 @@ def get_point_estimates(camera_array: CameraArray, point_data_path: Path) -> Poi
     points_3d_df = get_points_3d_df(stereotriangulated_points)
     merged_point_data = get_merged_2d_3d(stereotriangulated_points)
 
-    # Note: This is where the core issue remains.
-    # `camera_indices` contains raw port numbers, not zero-based array indices.
-    camera_indices = np.array(merged_point_data["camera"], dtype=np.int64)
+    # Get the dictionary that maps active port numbers to their zero-based index
+    port_to_index_map = camera_array.posed_port_to_index
+    posed_ports = list(port_to_index_map.keys())
 
-    img = np.array(merged_point_data[["x_2d", "y_2d"]])
-    point_id = np.array(merged_point_data["point_id"], dtype=np.int64)
-    obj_indices = np.array(merged_point_data["index_3d"], dtype=np.int64)
-    sync_index = np.array(merged_point_data["sync_index"], dtype=np.int64)
+    # Filter the merged data to only include observations from posed cameras.
+    # This removes any 2D points associated with the unlinked camera (e.g., port 5).
+    logger.info(f"Filtering point data to include only posed cameras: {posed_ports}")
+    filtered_merged_data = merged_point_data[merged_point_data["camera"].isin(posed_ports)]
+
+    # Map the camera port numbers (e.g., 1, 2, 3, 4, 6) to the correct
+    # zero-based indices for optimization (e.g., 0, 1, 2, 3, 4).
+    camera_indices = filtered_merged_data["camera"].map(port_to_index_map).to_numpy(dtype=np.int64)
+
+    # Extract remaining data from the correctly filtered dataframe
+    img = np.array(filtered_merged_data[["x_2d", "y_2d"]])
+    point_id = np.array(filtered_merged_data["point_id"], dtype=np.int64)
+    obj_indices = np.array(filtered_merged_data["index_3d"], dtype=np.int64)
+    sync_index = np.array(filtered_merged_data["sync_index"], dtype=np.int64)
+
+    # The 3D points dataframe does not need to be filtered, as obj_indices
+    # ensures we only reference points that have corresponding 2D observations.
     obj = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
 
     return PointEstimates(

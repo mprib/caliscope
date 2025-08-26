@@ -52,12 +52,15 @@ class CaptureVolume:
 
     @property
     def rmse(self):
+        # This map is needed to translate optimization indices back to port numbers
+        index_to_port = self.camera_array.posed_index_to_port
+
         if hasattr(self, "least_sq_result"):
-            rmse = rms_reproj_error(self.least_sq_result.fun, self.point_estimates.camera_indices)
+            rmse = rms_reproj_error(self.least_sq_result.fun, self.point_estimates.camera_indices, index_to_port)
         else:
             param_estimates = self.get_vectorized_params()
             xy_reproj_error = xy_reprojection_error(param_estimates, self)
-            rmse = rms_reproj_error(xy_reproj_error, self.point_estimates.camera_indices)
+            rmse = rms_reproj_error(xy_reproj_error, self.point_estimates.camera_indices, index_to_port)
 
         return rmse
 
@@ -139,77 +142,100 @@ class CaptureVolume:
 
 def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume):
     """
-    current_param_estimates:
-        the current iteration of the vector that was originally initialized for the x0 input of least squares
+    Calculates the reprojection error for the bundle adjustment optimization.
 
-    This function exists outside of the CaptureVolume class because the first argument must be the vector of parameters
-    that is being adjusted by the least_squares optimization.
+    This function compares the original 2D point detections with the 2D reprojections
+    of the estimated 3D points using the current camera parameter estimates.
 
+    Args:
+        current_param_estimates: A 1D numpy array containing the flattened camera
+                                 parameters and 3D point coordinates being optimized.
+        capture_volume: The CaptureVolume object containing the static camera
+                        and point data.
+
+    Returns:
+        A flattened 1D numpy array of residuals (the difference between observed
+        and reprojected 2D points).
     """
-    # Create one combined array primarily to make sure all calculations line up
-    ## unpack the working estimates of the camera parameters (could be extr. or intr.)
-    camera_params = current_param_estimates[: capture_volume.point_estimates.n_cameras * CAMERA_PARAM_COUNT].reshape(
-        (capture_volume.point_estimates.n_cameras, CAMERA_PARAM_COUNT)
-    )
+    # 1. Unpack the optimization vector into meaningful variables
+    n_cams = capture_volume.point_estimates.n_cameras
+    n_pts = capture_volume.point_estimates.n_obj_points
 
-    ## similarly unpack the 3d point location estimates
-    points_3d = current_param_estimates[capture_volume.point_estimates.n_cameras * CAMERA_PARAM_COUNT :].reshape(
-        (capture_volume.point_estimates.n_obj_points, 3)
-    )
+    # Unpack the camera extrinsics (R|T) being optimized
+    camera_params = current_param_estimates[: n_cams * CAMERA_PARAM_COUNT].reshape((n_cams, CAMERA_PARAM_COUNT))
 
-    ## create zero columns as placeholders for the reprojected 2d points
-    rows = capture_volume.point_estimates.camera_indices.shape[0]
-    blanks = np.zeros((rows, 2), dtype=np.float64)
+    # Unpack the 3D point coordinates being optimized
+    points_3d = current_param_estimates[n_cams * CAMERA_PARAM_COUNT :].reshape((n_pts, 3))
 
-    ## hstack all these arrays for ease of reference
-    points_3d_and_2d = np.hstack(
-        [
-            np.array([capture_volume.point_estimates.camera_indices]).T,
-            points_3d[capture_volume.point_estimates.obj_indices],
-            capture_volume.point_estimates.img,
-            blanks,
-        ]
-    )
+    # Select the 3D points corresponding to each 2D observation
+    object_points_to_project = points_3d[capture_volume.point_estimates.obj_indices]
 
-    # iterate across cameras...while this injects a loop in the residual function
-    # it should scale linearly with the number of cameras...a tradeoff for stable
-    # and explicit calculations...
+    # Initialize an array to store the new reprojected points
+    points_proj = np.zeros(capture_volume.point_estimates.img.shape)
 
-    for port, cam in capture_volume.camera_array.cameras.items():
-        cam_points = np.where(capture_volume.point_estimates.camera_indices == port)
-        object_points = points_3d_and_2d[cam_points][:, 1:4]
+    # 2. Iterate through only the POSED cameras to calculate reprojection
+    for port, cam in capture_volume.camera_array.posed_cameras.items():
+        # Get the correct zero-based index for this camera's parameters
+        camera_index = capture_volume.camera_array.posed_port_to_index[port]
 
-        # if a camera is being ignored, it will not show up on the parameter list
-        # so you must use the port index to make sure you read the correct params
-        port_index = capture_volume.camera_array.posed_port_to_index[port]
-        cam_matrix = cam.matrix
-        rvec = camera_params[port_index][0:3]
-        tvec = camera_params[port_index][3:6]
-        distortions = cam.distortions
+        # Find all observations that belong to the current camera
+        # This is the key fix: comparing index to index
+        obs_indices_for_cam = np.where(capture_volume.point_estimates.camera_indices == camera_index)[0]
 
-        # get the projection of the 2d points on the image plane; ignore the jacobian
-        cam_proj_points, _jac = cv2.projectPoints(object_points.astype(np.float64), rvec, tvec, cam_matrix, distortions)
+        # --- ROBUSTNESS GUARD ---
+        # If this camera has no points to project, skip it
+        if obs_indices_for_cam.size == 0:
+            continue
 
-        points_3d_and_2d[cam_points, 6:8] = cam_proj_points[:, 0, :]
+        # Get the 3D points corresponding to this camera's observations
+        object_points = object_points_to_project[obs_indices_for_cam]
 
-    points_proj = points_3d_and_2d[:, 6:8]
+        # Get the camera parameters for projection
+        rvec = camera_params[camera_index, 0:3]
+        tvec = camera_params[camera_index, 3:6]
 
-    xy_reprojection_error = (points_proj - capture_volume.point_estimates.img).ravel()
+        # Project the 3D points back into 2D for this camera
+        # Note: OpenCV's projectPoints can be slow; this is a known tradeoff.
+        reprojected_pts, _ = cv2.projectPoints(object_points, rvec, tvec, cam.matrix, cam.distortions)
 
-    return xy_reprojection_error
+        # Store the results in our output array
+        points_proj[obs_indices_for_cam] = reprojected_pts.reshape(-1, 2)
+
+    # 3. Calculate the final error
+    # The error is the difference between the original 2D detections and our new reprojections.
+    residual = (points_proj - capture_volume.point_estimates.img).ravel()
+    logger.info("Returning residual on one round of assessing reprojection error")
+
+    return residual
 
 
-def rms_reproj_error(xy_reproj_error, camera_indices):
+def rms_reproj_error(
+    xy_reproj_error: np.ndarray, camera_indices: np.ndarray, index_to_port: dict[int, int]
+) -> dict[str, float]:
     """
-    Returns a dictionary that shows the
+    Calculates the root-mean-square reprojection error, overall and per camera.
+
+    Args:
+        xy_reproj_error: A numpy array of shape (N, 2) or (N*2,) containing
+                         the x and y reprojection errors for N points.
+        camera_indices: A numpy array of shape (N,) mapping each error to a
+                        zero-based camera index.
+        index_to_port: A dictionary mapping the zero-based camera index to the
+                       human-readable camera port number.
+
+    Returns:
+        A dictionary with the "overall" RMSE and an entry for each camera port.
     """
     rmse = {}
     xy_reproj_error = xy_reproj_error.reshape(-1, 2)
     euclidean_distance_error = np.sqrt(np.sum(xy_reproj_error**2, axis=1))
-    rmse["overall"] = np.sqrt(np.mean(euclidean_distance_error**2))
+    rmse["overall"] = float(np.sqrt(np.mean(euclidean_distance_error**2)))
 
-    for port in np.unique(camera_indices):
-        camera_errors = euclidean_distance_error[camera_indices == port]
-        rmse[str(port)] = np.sqrt(np.mean(camera_errors**2))
+    # Iterate through unique camera indices present in the data
+    for index in np.unique(camera_indices):
+        camera_errors = euclidean_distance_error[camera_indices == index]
+        # Use the map to get the human-readable port number for the dictionary key
+        port = index_to_port[index]
+        rmse[str(port)] = float(np.sqrt(np.mean(camera_errors**2)))
 
     return rmse

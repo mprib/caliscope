@@ -54,7 +54,7 @@ def get_stereotriangulated_table(camera_array: CameraArray, point_data_path: Pat
     # Set all sync indices to 0 (treating all points as from the same virtual frame)
     point_data["sync_index"] = 0
 
-    ports = [key for key in camera_array.port_index.keys()]
+    ports = [key for key in camera_array.posed_port_to_index.keys()]
 
     # Process all cameras and points at once
     frame_packets = {}

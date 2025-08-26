@@ -83,11 +83,11 @@ def test_missing_extrinsics():
     assert extrinsic_params.shape == (5, 6), "Shape should be (5 posed cameras, 6 params)"
 
     # camera 5 should not be in the index used for optimization parameter mapping
-    assert 5 not in camera_array.port_index
+    assert 5 not in camera_array.posed_port_to_index
 
     # Verify that the order of cameras in the extrinsic_params array is correct
     logger.info("Verifying order of extrinsic parameters vector...")
-    for port, index in camera_array.port_index.items():
+    for port, index in camera_array.posed_port_to_index.items():
         expected_params = camera_array.cameras[port].extrinsics_to_vector()
         actual_params = extrinsic_params[index]
         np.testing.assert_array_equal(

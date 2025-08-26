@@ -181,7 +181,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
 
         # if a camera is being ignored, it will not show up on the parameter list
         # so you must use the port index to make sure you read the correct params
-        port_index = capture_volume.camera_array.port_index[port]
+        port_index = capture_volume.camera_array.posed_port_to_index[port]
         cam_matrix = cam.matrix
         rvec = camera_params[port_index][0:3]
         tvec = camera_params[port_index][3:6]

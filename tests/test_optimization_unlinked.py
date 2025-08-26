@@ -67,7 +67,7 @@ def test_bundle_adjust_with_unlinked_camera():
     # optimization parameter array.
     logger.info("Creating CaptureVolume and running optimization...")
     capture_volume = CaptureVolume(camera_array, point_estimates)
-
+    logger.info(f"Initial rmse: {capture_volume.get_rmse_summary()}")
     # The core of the test: can it optimize without crashing?
     capture_volume.optimize()
 

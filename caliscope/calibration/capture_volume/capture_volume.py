@@ -18,7 +18,8 @@ from caliscope.cameras.camera_array import CameraArray
 
 logger = caliscope.logger.get(__name__)
 
-CAMERA_PARAM_COUNT = 6
+CAMERA_PARAM_COUNT = 6  # rotation and translation parameters
+OPTIMIZATION_LOOPS = 0
 
 
 @dataclass
@@ -28,7 +29,7 @@ class CaptureVolume:
     stage: int = 0
     origin_sync_index: int = None
 
-    def __post__init__():
+    def __post__init__(self):
         logger.info("Creating capture volume from estimated camera array and stereotriangulated points...")
 
     def _save(self, directory: Path, descriptor: str = None):
@@ -85,6 +86,7 @@ class CaptureVolume:
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
         initial_param_estimate = self.get_vectorized_params()
+        OPTIMIZATION_LOOPS = 1
 
         logger.info(f"Beginning bundle adjustment to calculated stage {self.stage + 1}")
         self.least_sq_result = least_squares(
@@ -157,6 +159,9 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
         A flattened 1D numpy array of residuals (the difference between observed
         and reprojected 2D points).
     """
+
+    global OPTIMIZATION_LOOPS
+
     # 1. Unpack the optimization vector into meaningful variables
     n_cams = capture_volume.point_estimates.n_cameras
     n_pts = capture_volume.point_estimates.n_obj_points
@@ -201,10 +206,13 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
         # Store the results in our output array
         points_proj[obs_indices_for_cam] = reprojected_pts.reshape(-1, 2)
 
+    OPTIMIZATION_LOOPS += 1
+
     # 3. Calculate the final error
     # The error is the difference between the original 2D detections and our new reprojections.
     residual = (points_proj - capture_volume.point_estimates.img).ravel()
-    logger.info("Returning residual on one round of assessing reprojection error")
+
+    logger.info(f"OPTIMIZATION LOOPS: {OPTIMIZATION_LOOPS}")
 
     return residual
 

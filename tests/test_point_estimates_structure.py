@@ -18,8 +18,7 @@ logger = caliscope.logger.get(__name__)
 def test_point_estimates_structure_fully_linked():
     """
     Tests the structural integrity of PointEstimates from a fully-linked
-    calibration where all cameras are successfully posed. This test
-    serves as the "golden standard".
+    calibration where all cameras are successfully posed.
     """
 
     # Define source and a fresh destination for test data
@@ -83,8 +82,7 @@ def test_point_estimates_structure_fully_linked():
 def test_point_estimates_structure_unlinked():
     """
     Tests the structural integrity of PointEstimates when one camera is
-    unlinked. This test is expected to fail initially and will guide
-    the necessary fixes in get_point_estimates.
+    unlinked.
     """
 
     # Define source and a fresh destination for test data

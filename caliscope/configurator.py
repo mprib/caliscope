@@ -150,6 +150,11 @@ class Configurator:
                     translation = None
                     rotation = None
 
+                if "ignore" in params.keys():
+                    ignore = params["ignore"]
+                else:
+                    ignore = False
+
                 logger.info(f"Adding camera {port} to calibrated camera array...")
                 cam_data = CameraData(
                     port=port,
@@ -159,6 +164,7 @@ class Configurator:
                     matrix=matrix,
                     distortions=distortions,
                     grid_count=grid_count,
+                    ignore=ignore,
                     translation=translation,
                     rotation=rotation,
                 )

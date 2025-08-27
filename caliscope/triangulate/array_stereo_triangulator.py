@@ -17,7 +17,7 @@ class ArrayStereoTriangulator:
 
         # pull ports list from camera_array.port_index
         # to ensure only non-ignored cameras are processed
-        self.ports = list(camera_array.port_index.keys())
+        self.ports = list(camera_array.posed_port_to_index.keys())
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
         # create the triangulators for each pair of cameras

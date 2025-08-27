@@ -164,7 +164,7 @@ class CameraArray:
         return {port: cam for port, cam in self.cameras.items() if cam.rotation is None or cam.translation is None}
 
     @property
-    def port_index(self) -> Dict[int, int]:
+    def posed_port_to_index(self) -> Dict[int, int]:
         """
         Maps the port to an index for *posed and non-ignored* cameras.
         This is used for ordering parameters for optimization routines.
@@ -177,12 +177,12 @@ class CameraArray:
         return {port: i for i, port in enumerate(eligible_ports)}
 
     @property
-    def index_port(self) -> Dict[int, int]:
+    def posed_index_to_port(self) -> Dict[int, int]:
         """
         Maps an index back to a port for *posed and non-ignored* cameras.
         The value is re-calculated on each access to ensure it is always fresh.
         """
-        return {value: key for key, value in self.port_index.items()}
+        return {value: key for key, value in self.posed_port_to_index.items()}
 
     def get_extrinsic_params(self) -> NDArray | None:
         """
@@ -190,7 +190,7 @@ class CameraArray:
         Returns None if no cameras are posed and not ignored.
         """
         # The index_port property already filters for posed and non-ignored cameras
-        ordered_ports = self.index_port.keys()
+        ordered_ports = self.posed_index_to_port.keys()
 
         if not ordered_ports:
             return None
@@ -198,7 +198,7 @@ class CameraArray:
         # Build the params in the order defined by index_port
         params_list = []
         for index in sorted(ordered_ports):
-            port = self.index_port[index]
+            port = self.posed_index_to_port[index]
             cam = self.cameras[port]
             params_list.append(cam.extrinsics_to_vector())
 
@@ -206,7 +206,7 @@ class CameraArray:
 
     def update_extrinsic_params(self, least_sq_result_x: NDArray) -> None:
         """Updates extrinsic parameters from an optimization result vector."""
-        indices_to_update = self.index_port
+        indices_to_update = self.posed_index_to_port
         n_cameras = len(indices_to_update)
 
         if n_cameras == 0:
@@ -239,7 +239,7 @@ class CameraArray:
         logger.info("Creating projection matrices for posed and non-ignored cameras.")
         # Note: This NumbaDict should only contain cameras used in optimization
         proj_mat = NumbaDict()  # type: ignore
-        for port in self.port_index.keys():  # port_index keys are posed and not ignored
+        for port in self.posed_port_to_index.keys():  # port_index keys are posed and not ignored
             proj_mat[port] = self.cameras[port].projection_matrix
 
         return proj_mat

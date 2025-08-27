@@ -28,6 +28,7 @@ dev = [
     "mkdocs-material>=9.1.6",
     "mkdocs-git-revision-date-localized-plugin>=1.2.0",
     "ruff>=0.6.5",
+    "pre-commit",
     "openpyxl",
     "pywinctl",
 ]

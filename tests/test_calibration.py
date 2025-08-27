@@ -163,4 +163,3 @@ def test_calibration():
 
 if __name__ == "__main__":
     test_calibration()
-    print("end")

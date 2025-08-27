@@ -13,8 +13,6 @@ from caliscope.packets import FramePacket, PointPacket, SyncPacket
 from caliscope.triangulate.array_stereo_triangulator import ArrayStereoTriangulator
 from caliscope.triangulate.stereo_points_builder import (
     StereoPointsBuilder,
-    StereoPointsPacket,
-    SynchedStereoPointsPacket,
 )
 
 logger = caliscope.logger.get(__name__)

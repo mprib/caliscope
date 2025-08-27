@@ -86,7 +86,6 @@ class CaptureVolume:
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
         initial_param_estimate = self.get_vectorized_params()
-        OPTIMIZATION_LOOPS = 1
 
         logger.info(f"Beginning bundle adjustment to calculated stage {self.stage + 1}")
         self.least_sq_result = least_squares(

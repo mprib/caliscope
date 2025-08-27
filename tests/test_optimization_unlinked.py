@@ -51,9 +51,10 @@ def test_bundle_adjust_with_unlinked_camera():
 
     # 3. VERIFY SETUP
     # Confirm that we have the expected set of posed and unposed cameras
-    assert set(camera_array.posed_cameras.keys()) == {1, 2, 3, 4, 6}
-    assert list(camera_array.unposed_cameras.keys()) == [5]
-    assert len(camera_array.posed_port_to_index) == 5  # Critical: only 5 cameras are indexed for optimization
+    # (cam 5 no shared images and cam 4 actively ignored)
+    assert set(camera_array.posed_cameras.keys()) == {1, 2, 3, 6}
+    assert list(camera_array.unposed_cameras.keys()) == [4, 5]
+    assert len(camera_array.posed_port_to_index) == 4  # Critical: only 4 cameras are indexed for optimization
 
     # 4. GENERATE POINT ESTIMATES
     # This is the function we will modify. Currently, it will fail to correctly

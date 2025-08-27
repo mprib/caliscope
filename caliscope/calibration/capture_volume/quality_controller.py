@@ -36,6 +36,8 @@ class QualityController:
         euclidean_distance_error = np.sqrt(np.sum(capture_volume_xy_error**2, axis=1))
         row_count = euclidean_distance_error.shape[0]
 
+        # TODO: make sure the filtering mechanisms works even with unposed/ignored cameras
+        # Come back here for issue 707
         array_data_dict = {
             "stage": [self.capture_volume.stage] * row_count,
             "camera": self.capture_volume.point_estimates.camera_indices.tolist(),

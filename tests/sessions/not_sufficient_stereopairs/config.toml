@@ -46,6 +46,7 @@ error = 0.566
 translation = "null"
 rotation = "null"
 exposure = "null"
+ignore = true
 grid_count = 28
 size = [2376, 1080]
 matrix = [[6231.392084772885, 0.0, 1258.2636865390382], [0.0, 10908.638297711506, 646.1537061987659], [0.0, 0.0, 1.0]]

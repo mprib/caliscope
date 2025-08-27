@@ -24,11 +24,7 @@ class StereoCalibrator:
         # set ports keeping in mind that something may be flagged for ignore
         for key, value in self.config.items():
             if key[0:4] == "cam_":
-                if "ignore" not in value.keys():
-                    self.ports.append(int(key[4:]))
-                else:
-                    if not value["ignore"]:
-                        self.ports.append(int(key[4:]))
+                self.ports.append(int(key[4:]))
 
         # import point data, adding coverage regions to each port
         raw_point_data = pd.read_csv(point_data_path)

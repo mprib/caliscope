@@ -1,4 +1,5 @@
 name: Draft PDF
+on: [push]
 
 jobs:
   paper:

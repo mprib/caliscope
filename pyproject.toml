@@ -1,14 +1,15 @@
 [project]
 name = "caliscope"
-version = "0.6.5"
+version = "0.6.6"
 description = "GUI based multicamera calibration that integrates with 2D landmark tracking to triangulate 3D landmark positions"
 authors = [{name = "Mac Prible", email = "prible@gmail.com"}]
-license = "BSD-2-Clause"
+license = { text = "BSD-2-Clause" }
 readme = "README.md"
 requires-python = ">=3.10,<3.12"  # Note: excluding 3.12 to avoid numba issues
+
 dependencies = [
     "pandas>=1.5.0",
-    "scipy>=1.10.1", 
+    "scipy>=1.10.1",
     "pyqtgraph>=0.13.2",
     "PyOpenGL>=3.1.6",
     "numba>=0.57.0",
@@ -27,6 +28,7 @@ dev = [
     "mkdocs-material>=9.1.6",
     "mkdocs-git-revision-date-localized-plugin>=1.2.0",
     "ruff>=0.6.5",
+    "pre-commit",
     "openpyxl",
     "pywinctl",
 ]
@@ -39,26 +41,15 @@ repository = "https://github.com/mprib/caliscope"
 caliscope = "caliscope.__main__:CLI_parser"
 
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-
-[tool.setuptools.packages.find]
-where = ["."]
-exclude = ["dev*", "tests*"]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.ruff]
-lint.select = ["E", "F", "W","I"]
-lint.ignore = []
-
-# Allow autofix for all enabled rules (when `--fix`) is provided.
-lint.fixable = ["E", "F", "W","I"]
-lint.unfixable = []
-
-# Allow unused variables when underscore-prefixed.
-lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+line-length = 120
+target-version = "py311"
 unsafe-fixes = true
 
+# The 'exclude' key belongs directly under [tool.ruff]
 exclude = [
     ".bzr",
     ".direnv",
@@ -83,13 +74,16 @@ exclude = [
     "dev",
 ]
 
-line-length = 120
 
-target-version = "py311"
-
-[tool.ruff.format]
-
+[tool.ruff.lint]
+select = ["E", "F", "W","I"]
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.lint.mccabe]
 # Unlike Flake8, default to a complexity level of 10.
 max-complexity = 10
+
+[tool.ruff.format]
+# Options for the formatter can go here if needed
+# For example: quote-style = "double"

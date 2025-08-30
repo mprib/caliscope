@@ -7,10 +7,8 @@ from pathlib import Path
 import rtoml
 
 __package_name__ = "caliscope"
-__version__ = "v0.2.4"
-
 __author__ = """Mac Prible"""
-__email__ = "prible@gmail.com"
+__email__ = "prible@utexas.edu"
 __repo_owner_github_user_name__ = "mprib"
 __repo_url__ = f"https://github.com/{__repo_owner_github_user_name__}/{__package_name__}/"
 __repo_issues_url__ = f"{__repo_url__}issues"

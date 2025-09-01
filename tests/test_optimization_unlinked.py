@@ -7,6 +7,7 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
     get_point_estimates,
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.calibration.capture_volume.quality_controller import QualityController
 from caliscope.calibration.stereocalibrator import StereoCalibrator
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
@@ -72,11 +73,52 @@ def test_bundle_adjust_with_unlinked_camera():
     # The core of the test: can it optimize without crashing?
     capture_volume.optimize()
 
+    # saving to create a new test
+    config.save_capture_volume(capture_volume)
+    logger.info(f"saving capture volume to {config.config_toml_path.parent}")
+
     # 6. ASSERT SUCCESS
     # If optimize() completes, the test has passed.
     assert capture_volume.stage == 1
     logger.info("Optimization completed successfully with an unlinked camera present.")
 
 
+def test_capture_volume_filter():
+    # 1. SETUP: Use output of test_bundle_adjust_with_unlinked_camera  as starting point
+    version = "capture_volume_pre_quality_control"
+    original_session_path = Path(__root__, "tests", "sessions", version)
+    session_path = Path(
+        original_session_path.parent.parent,
+        "sessions_copy_delete",
+        version,
+    )
+    copy_contents(original_session_path, session_path)
+
+    config = Configurator(session_path)
+    camera_array: CameraArray = config.get_camera_array()
+    point_estimates: PointEstimates = config.get_point_estimates()
+
+    logger.info("Camera array and point estimates loaded... creating capture volume")
+    capture_volume = CaptureVolume(camera_array, point_estimates)
+    logger.info("CaptureVolume initialized")
+
+    logger.info("Point counts BEFORE filtering:")
+    logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
+    logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")
+    logger.info(f"  Camera indices length: {len(capture_volume.point_estimates.camera_indices)}")
+
+    filtered_fraction = 0.025
+    logger.info(f"Filtering out worse fitting {filtered_fraction * 100:.1f}% of points")
+    charuco = config.get_charuco()
+    quality_controller = QualityController(capture_volume, charuco)
+    quality_controller.filter_point_estimates(filtered_fraction)
+
+    logger.info("Point counts AFTER filtering:")
+    logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
+    logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")
+    logger.info(f"  Camera indices length: {len(capture_volume.point_estimates.camera_indices)}")
+
+
 if __name__ == "__main__":
-    test_bundle_adjust_with_unlinked_camera()
+    # test_bundle_adjust_with_unlinked_camera()
+    test_capture_volume_filter()

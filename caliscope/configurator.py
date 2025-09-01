@@ -14,7 +14,6 @@ import caliscope.logger
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
-from caliscope.cameras.camera import Camera
 from caliscope.cameras.camera_array import CameraArray, CameraData
 
 logger = caliscope.logger.get(__name__)
@@ -234,7 +233,7 @@ class Configurator:
         logger.info(f"Saving charuco with params {charuco.__dict__} to config")
         self.update_config_toml()
 
-    def save_camera(self, camera: Camera | CameraData):
+    def save_camera(self, camera: CameraData):
         def none_or_list(value):
             # required to make sensible numeric format
             # otherwise toml formats as text

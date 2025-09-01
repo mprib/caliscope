@@ -31,7 +31,6 @@ class CameraData:
     exposure: int | None = None
     grid_count: int | None = None
     ignore: bool = False
-    verified_resolutions: np.ndarray | None = None
     translation: np.ndarray | None = None  # camera relative to world
     rotation: np.ndarray | None = None  # camera relative to world
 

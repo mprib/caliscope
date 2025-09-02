@@ -60,7 +60,7 @@ def get_merged_2d_3d(stereotriangulated_table: pd.DataFrame) -> pd.DataFrame:
     return merged_point_data
 
 
-def get_point_estimates(camera_array: CameraArray, point_data_path: Path) -> PointEstimates:
+def create_point_estimates_from_stereopairs(camera_array: CameraArray, point_data_path: Path) -> PointEstimates:
     """
     Stereotriangulates data to generate initial x,y,z estimates and formats the
     data into a PointEstimates object suitable for bundle adjustment.
@@ -70,29 +70,63 @@ def get_point_estimates(camera_array: CameraArray, point_data_path: Path) -> Poi
 
     points_3d_df = get_points_3d_df(stereotriangulated_points)
     merged_point_data = get_merged_2d_3d(stereotriangulated_points)
+    logger.info(f"Initial data loaded: {len(merged_point_data)} 2D observations and {len(points_3d_df)} 3D points.")
 
     # Get the dictionary that maps active port numbers to their zero-based index
     port_to_index_map = camera_array.posed_port_to_index
     posed_ports = list(port_to_index_map.keys())
 
     # Filter the merged data to only include observations from posed cameras.
-    # This removes any 2D points associated with the unlinked camera (e.g., port 5).
+    # This removes any 2D points associated with the unlinked camera
     logger.info(f"Filtering point data to include only posed cameras: {posed_ports}")
     filtered_merged_data = merged_point_data[merged_point_data["camera"].isin(posed_ports)]
+    logger.info(f"Retained {len(filtered_merged_data)} 2D observations after filtering for posed cameras.")
 
-    # Map the camera port numbers (e.g., 1, 2, 3, 4, 6) to the correct
-    # zero-based indices for optimization (e.g., 0, 1, 2, 3, 4).
+    # Map the camera port numbers (e.g., 1, 2, 3, 6) to the correct
+    # zero-based indices for optimization (e.g., 0, 1, 2, 3).
     camera_indices = filtered_merged_data["camera"].map(port_to_index_map).to_numpy(dtype=np.int64)
 
-    # Extract remaining data from the correctly filtered dataframe
+    # After filtering 2D observations, some 3D points may no longer be referenced.
+    # We must prune the 3D points list and re-index obj_indices to ensure consistency.
+
+    # 1. Identify the unique 3D point indices that are still in use.
+    unique_obj_indices_original = filtered_merged_data["index_3d"].unique()
+    logger.info(
+        f"Identified {len(unique_obj_indices_original)} unique 3D points referenced by the remaining 2D observations."
+    )
+
+    # 2. Create a new, compact `obj` array containing only these referenced points.
+    points_3d_df_pruned = points_3d_df[points_3d_df["index_3d"].isin(unique_obj_indices_original)]
+    obj = np.array(points_3d_df_pruned[["x_3d", "y_3d", "z_3d"]])
+
+    pruned_count = len(points_3d_df) - len(points_3d_df_pruned)
+    if pruned_count > 0:
+        logger.info(f"Pruned {pruned_count} orphaned 3D points that are no longer referenced.")
+
+    # 3. Create a mapping from the original 'index_3d' to the new, dense index.
+    # This is crucial for creating the new obj_indices array.
+    old_to_new_map = {old_idx: new_idx for new_idx, old_idx in enumerate(points_3d_df_pruned["index_3d"])}
+
+    # 4. Apply the mapping to create the final, consistent obj_indices.
+    obj_indices = filtered_merged_data["index_3d"].map(old_to_new_map).to_numpy(dtype=np.int64)
+
+    # Extract remaining data from the correctly filtered and now consistent dataframe
     img = np.array(filtered_merged_data[["x_2d", "y_2d"]])
     point_id = np.array(filtered_merged_data["point_id"], dtype=np.int64)
-    obj_indices = np.array(filtered_merged_data["index_3d"], dtype=np.int64)
     sync_index = np.array(filtered_merged_data["sync_index"], dtype=np.int64)
 
-    # The 3D points dataframe does not need to be filtered, as obj_indices
-    # ensures we only reference points that have corresponding 2D observations.
-    obj = np.array(points_3d_df[["x_3d", "y_3d", "z_3d"]])
+    # --- Final Consistency Checks ---
+    assert len(camera_indices) == len(img) == len(obj_indices), "Mismatch in 2D data array lengths."
+    if len(obj_indices) > 0:
+        assert obj_indices.max() < obj.shape[0], "CRITICAL: obj_indices contains an out-of-bounds index."
+    if len(obj_indices) > 0:
+        assert (
+            np.unique(obj_indices).size == obj.shape[0]
+        ), "Mismatch between unique object indices and number of 3D points."
+
+    logger.info(
+        f"Successfully created consistent PointEstimates: {obj.shape[0]} 3D points and {img.shape[0]} 2D observations."
+    )
 
     return PointEstimates(
         sync_indices=sync_index,

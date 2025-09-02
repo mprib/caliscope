@@ -33,6 +33,9 @@ class CaptureVolume:
         logger.info("Creating capture volume from estimated camera array and stereotriangulated points...")
 
     def _save(self, directory: Path, descriptor: str = None):
+        """
+        Convenience function to facilitate visual checks through the stages of processing using the GUI
+        """
         if descriptor is None:
             pkl_name = "capture_volume_stage_" + str(self.stage) + ".pkl"
         else:
@@ -109,8 +112,10 @@ class CaptureVolume:
 
     def get_xyz_points(self):
         """Get 3d positions arrived at by bundle adjustment"""
-        n_cameras = len(self.camera_array.cameras)
-        xyz = self.get_vectorized_params()[n_cameras * CAMERA_PARAM_COUNT :]
+        n_posed_cameras = len(self.camera_array.posed_port_to_index)
+
+        camera_params_size = n_posed_cameras * CAMERA_PARAM_COUNT
+        xyz = self.get_vectorized_params()[camera_params_size:]
         xyz = xyz.reshape(-1, 3)
 
         return xyz
@@ -125,7 +130,7 @@ class CaptureVolume:
         self.point_estimates.obj = new_origin_xyzh[:, 0:3]
 
         # update camera array
-        for port, camera_data in self.camera_array.cameras.items():
+        for port, camera_data in self.camera_array.posed_cameras.items():
             camera_data.transformation = np.matmul(camera_data.transformation, origin_shift_transform)
 
     def set_origin_to_board(self, sync_index, charuco: Charuco):

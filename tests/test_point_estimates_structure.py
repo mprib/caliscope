@@ -5,7 +5,7 @@ import numpy as np
 import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
-    get_point_estimates,
+    create_point_estimates_from_stereopairs,
 )
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
@@ -35,7 +35,7 @@ def test_point_estimates_structure_fully_linked():
     camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
 
     # Generate the point estimates
-    point_estimates = get_point_estimates(camera_array, xy_data_path)
+    point_estimates = create_point_estimates_from_stereopairs(camera_array, xy_data_path)
 
     # --- Structural Integrity Assertions ---
     # 1. Check consistency between CameraArray and PointEstimates
@@ -100,7 +100,7 @@ def test_point_estimates_structure_unlinked():
     camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
 
     # Generate the point estimates
-    point_estimates = get_point_estimates(camera_array, xy_data_path)
+    point_estimates = create_point_estimates_from_stereopairs(camera_array, xy_data_path)
 
     # --- Structural Integrity Assertions ---
     # 1. Check consistency between CameraArray and PointEstimates

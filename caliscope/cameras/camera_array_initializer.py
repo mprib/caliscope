@@ -14,7 +14,7 @@ import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
-    get_point_estimates,
+    create_point_estimates_from_stereopairs,
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.cameras.camera_array import CameraArray, CameraData
@@ -347,7 +347,7 @@ if __name__ == "__main__":
 
     extrinsic_calibration_xy = Path(session_directory, "point_data.csv")
 
-    point_estimates: PointEstimates = get_point_estimates(camera_array, extrinsic_calibration_xy)
+    point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, extrinsic_calibration_xy)
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
 

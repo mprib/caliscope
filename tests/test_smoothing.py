@@ -41,17 +41,17 @@ def test_smoothing_xyz():
 
     # Assertion 3: Value range (we'll check this for each of the coordinate columns)
     for coord in ["x_coord", "y_coord", "z_coord"]:
-        assert xyz_smoothed[coord].std() <= xyz[coord].std(), (
-            f"The standard deviation of the smoothed {coord} data should be less than the original data."
-        )
+        assert (
+            xyz_smoothed[coord].std() <= xyz[coord].std()
+        ), f"The standard deviation of the smoothed {coord} data should be less than the original data."
 
     # Assertion 4: Preservation of trends (again, we'll check for each coordinate)
     for coord in ["x_coord", "y_coord", "z_coord"]:
         correlation, _ = pearsonr(xyz[coord], xyz_smoothed[coord])
         logger.info(f"The correlation for {coord} is {correlation}")
-        assert correlation > 0.9, (
-            f"The correlation between the original and smoothed {coord} data should be close to 1."
-        )
+        assert (
+            correlation > 0.9
+        ), f"The correlation between the original and smoothed {coord} data should be close to 1."
 
 
 if __name__ == "__main__":

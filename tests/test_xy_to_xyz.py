@@ -58,9 +58,9 @@ def test_xy_to_xyz_postprocessing():
     original_xyz_face = original_xyz_face.drop("Unnamed: 0", axis=1, errors="ignore")
 
     # Make sure both filtered dataframes have the same shape
-    assert original_xyz_face.shape == xyz_recalculated_face.shape, (
-        f"Shape mismatch: original {original_xyz_face.shape}, recalculated {xyz_recalculated_face.shape}"
-    )
+    assert (
+        original_xyz_face.shape == xyz_recalculated_face.shape
+    ), f"Shape mismatch: original {original_xyz_face.shape}, recalculated {xyz_recalculated_face.shape}"
 
     # Sort both dataframes by sync_index and point_id to ensure they're aligned
     original_xyz_face = original_xyz_face.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
@@ -75,17 +75,17 @@ def test_xy_to_xyz_postprocessing():
     coord_diff_z = abs(original_xyz_face["z_coord"] - xyz_recalculated_face["z_coord"])
 
     # Assert maximum differences are within tolerance
-    assert coord_diff_x.max() < tolerance, (
-        f"Maximum x coordinate difference {coord_diff_x.max()} exceeds tolerance {tolerance}"
-    )
+    assert (
+        coord_diff_x.max() < tolerance
+    ), f"Maximum x coordinate difference {coord_diff_x.max()} exceeds tolerance {tolerance}"
 
-    assert coord_diff_y.max() < tolerance, (
-        f"Maximum y coordinate difference {coord_diff_y.max()} exceeds tolerance {tolerance}"
-    )
+    assert (
+        coord_diff_y.max() < tolerance
+    ), f"Maximum y coordinate difference {coord_diff_y.max()} exceeds tolerance {tolerance}"
 
-    assert coord_diff_z.max() < tolerance, (
-        f"Maximum z coordinate difference {coord_diff_z.max()} exceeds tolerance {tolerance}"
-    )
+    assert (
+        coord_diff_z.max() < tolerance
+    ), f"Maximum z coordinate difference {coord_diff_z.max()} exceeds tolerance {tolerance}"
 
     # Additional test: Verify that at least 95% of points are very close (stricter tolerance)
     strict_tolerance = 0.005  # Stricter tolerance for most points

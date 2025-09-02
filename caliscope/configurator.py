@@ -185,7 +185,7 @@ class Configurator:
         logger.info("Camera array successfully created and being passed back to caller")
         return camera_array
 
-    def get_point_estimates(self) -> PointEstimates:
+    def load_point_estimates_from_toml(self) -> PointEstimates:
         # only load point estimates into dictionary if saved more recently than last loaded
 
         if "point_estimates" not in self.dict.keys():

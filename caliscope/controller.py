@@ -8,7 +8,7 @@ from PySide6.QtCore import QObject, QThread, Signal
 import caliscope.logger
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
-    get_point_estimates,
+    create_point_estimates_from_stereopairs,
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
@@ -284,7 +284,7 @@ class Controller(QObject):
 
         """
         logger.info("Beginning to load estimated capture volume")
-        self.point_estimates = self.config.get_point_estimates()
+        self.point_estimates = self.config.load_point_estimates_from_toml()
         # self.camera_array = self.config.get_camera_array()
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
         logger.info("Load of capture volume complete")
@@ -343,7 +343,9 @@ class Controller(QObject):
                 self.config.config_toml_path
             ).get_best_camera_array()
 
-            self.point_estimates: PointEstimates = get_point_estimates(self.camera_array, self.extrinsic_calibration_xy)
+            self.point_estimates: PointEstimates = create_point_estimates_from_stereopairs(
+                self.camera_array, self.extrinsic_calibration_xy
+            )
 
             self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
             self.capture_volume.optimize()

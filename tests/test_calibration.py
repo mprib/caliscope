@@ -5,7 +5,7 @@ import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
-    get_point_estimates,
+    create_point_estimates_from_stereopairs,
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
@@ -83,7 +83,7 @@ def test_calibration():
     camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
 
     logger.info("Loading point estimates")
-    point_estimates: PointEstimates = get_point_estimates(camera_array, xy_data_path)
+    point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, xy_data_path)
     capture_volume = CaptureVolume(camera_array, point_estimates)
 
     # Before filtering - log initial point counts

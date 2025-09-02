@@ -63,7 +63,7 @@ def test_configurator():
 
     # load point estimates
     logger.info("Getting point estimates from config...")
-    point_estimates = config.get_point_estimates()
+    point_estimates = config.load_point_estimates_from_toml()
     assert isinstance(point_estimates, PointEstimates)
 
     # delete point estimates data
@@ -78,7 +78,7 @@ def test_configurator():
     config.refresh_point_estimates_from_toml()
 
     # create new point estimates with newly saved data
-    point_estimates_reloaded = config.get_point_estimates()
+    point_estimates_reloaded = config.load_point_estimates_from_toml()
     assert isinstance(point_estimates_reloaded, PointEstimates)
 
     assert point_estimates_are_equal(point_estimates, point_estimates_reloaded)

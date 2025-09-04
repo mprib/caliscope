@@ -1,5 +1,3 @@
-# %%
-
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,8 +23,9 @@ OPTIMIZATION_LOOPS = 0
 @dataclass
 class CaptureVolume:
     camera_array: CameraArray
-    point_estimates: PointEstimates
+    _point_estimates: PointEstimates  # Internal storage for point data
     stage: int = 0
+    _normalized_points: np.ndarray | None = None
     origin_sync_index: int = None
 
     def __post__init__(self):
@@ -50,21 +49,62 @@ class CaptureVolume:
         This is the required data format of the least squares optimization
         """
         camera_params = self.camera_array.get_extrinsic_params()
-        combined = np.hstack((camera_params.ravel(), self.point_estimates.obj.ravel()))
+        combined = np.hstack((camera_params.ravel(), self._point_estimates.obj.ravel()))
 
         return combined
+
+    @property
+    def point_estimates(self) -> PointEstimates:
+        """Public accessor for the point estimates data."""
+        return self._point_estimates
+
+    @point_estimates.setter
+    def point_estimates(self, value: PointEstimates):
+        """
+        Setter for point estimates that automatically invalidates dependent caches.
+        This ensures that if points are filtered, the normalized points and
+        previous optimization results are cleared.
+        """
+        logger.info("PointEstimates have been updated. Invalidating dependent caches.")
+        self._point_estimates = value
+        self._normalized_points = None
+        if hasattr(self, "least_sq_result"):
+            delattr(self, "least_sq_result")
+
+    @property
+    def normalized_points(self) -> np.ndarray:
+        """
+        Lazily computes and caches the normalized (undistorted) image points.
+
+        This is a key optimization. The expensive undistortion for all points
+        is performed only once and the result is cached. The bundle adjustment's
+        hot loop can then work with this pre-computed data.
+        """
+        if self._normalized_points is None:
+            logger.info("Computing and caching normalized points for optimization...")
+            self._normalized_points = np.zeros_like(self._point_estimates.img)
+
+            # Iterate through each camera that has a pose and will be used in the optimization
+            for port, cam in self.camera_array.posed_cameras.items():
+                # Get the zero-based index for this camera
+                camera_index = self.camera_array.posed_port_to_index.get(port)
+                if camera_index is None:
+                    continue  # Skip if camera is not part of the optimization set
+
+                # Find all observations that belong to the current camera
+                obs_indices_for_cam = np.where(self._point_estimates.camera_indices == camera_index)[0]
+                if obs_indices_for_cam.size > 0:
+                    img_points_for_cam = self._point_estimates.img[obs_indices_for_cam]
+                    self._normalized_points[obs_indices_for_cam] = cam.undistort_points(img_points_for_cam)
+        return self._normalized_points
 
     @property
     def rmse(self):
         # This map is needed to translate optimization indices back to port numbers
         index_to_port = self.camera_array.posed_index_to_port
-
-        if hasattr(self, "least_sq_result"):
-            rmse = rms_reproj_error(self.least_sq_result.fun, self.point_estimates.camera_indices, index_to_port)
-        else:
-            param_estimates = self.get_vectorized_params()
-            xy_reproj_error = xy_reprojection_error(param_estimates, self)
-            rmse = rms_reproj_error(xy_reproj_error, self.point_estimates.camera_indices, index_to_port)
+        # Always calculate RMSE in pixels for an intuitive and consistent metric.
+        xy_pixel_error = self.get_xy_reprojection_error()
+        rmse = rms_reproj_error(xy_pixel_error, self._point_estimates.camera_indices, index_to_port)
 
         return rmse
 
@@ -80,8 +120,10 @@ class CaptureVolume:
         return rmse_string
 
     def get_xy_reprojection_error(self):
+        """Calculates reprojection error against original pixel coordinates."""
         vectorized_params = self.get_vectorized_params()
-        error = xy_reprojection_error(vectorized_params, self)
+        # Pass `use_normalized=False` to get error in pixels
+        error = xy_reprojection_error(vectorized_params, self, use_normalized=False)
 
         return error
 
@@ -91,24 +133,27 @@ class CaptureVolume:
         initial_param_estimate = self.get_vectorized_params()
 
         logger.info(f"Beginning bundle adjustment to calculated stage {self.stage + 1}")
+        # Ensure normalized points are computed before optimization
+        _ = self.normalized_points
+
         self.least_sq_result = least_squares(
-            xy_reprojection_error,
+            xy_reprojection_error,  # This will now use the optimized version
             initial_param_estimate,
-            jac_sparsity=self.point_estimates.get_sparsity_pattern(),
+            jac_sparsity=self._point_estimates.get_sparsity_pattern(),
             verbose=2,
             x_scale="jac",
             loss="linear",
             ftol=1e-8,
             method="trf",
-            # xy_reprojection error takes the vectorized param estimates as first arg and capture volume as second
+            # By default, xy_reprojection_error will use normalized points
             args=(self,),
         )
 
         self.camera_array.update_extrinsic_params(self.least_sq_result.x)
-        self.point_estimates.update_obj_xyz(self.least_sq_result.x)
+        self._point_estimates.update_obj_xyz(self.least_sq_result.x)
         self.stage += 1
 
-        logger.info(f"Following bundle adjustment (stage {str(self.stage)}), RMSE is: {self.rmse['overall']}")
+        logger.info(f"Following bundle adjustment (stage {str(self.stage)}), pixel RMSE is: {self.rmse['overall']:.4f}")
 
     def get_xyz_points(self):
         """Get 3d positions arrived at by bundle adjustment"""
@@ -122,12 +167,12 @@ class CaptureVolume:
 
     def shift_origin(self, origin_shift_transform: np.ndarray):
         # update 3d point estimates
-        xyz = self.point_estimates.obj
+        xyz = self._point_estimates.obj
         scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
         xyzh = np.hstack([xyz, scale])
 
         new_origin_xyzh = np.matmul(np.linalg.inv(origin_shift_transform), xyzh.T).T
-        self.point_estimates.obj = new_origin_xyzh[:, 0:3]
+        self._point_estimates.obj = new_origin_xyzh[:, 0:3]
 
         # update camera array
         for port, camera_data in self.camera_array.posed_cameras.items():
@@ -142,11 +187,11 @@ class CaptureVolume:
 
         logger.info(f"Capture volume origin set to board position at sync index {sync_index}")
 
-        origin_transform = get_board_origin_transform(self.camera_array, self.point_estimates, sync_index, charuco)
+        origin_transform = get_board_origin_transform(self.camera_array, self._point_estimates, sync_index, charuco)
         self.shift_origin(origin_transform)
 
 
-def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume):
+def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume, use_normalized: bool = True):
     """
     Calculates the reprojection error for the bundle adjustment optimization.
 
@@ -158,6 +203,9 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
                                  parameters and 3D point coordinates being optimized.
         capture_volume: The CaptureVolume object containing the static camera
                         and point data.
+        use_normalized: If True, compares against pre-computed normalized points
+                        and uses a perfect camera model (fast). If False, compares
+                        against original image points and uses the full camera model (slow).
 
     Returns:
         A flattened 1D numpy array of residuals (the difference between observed
@@ -166,9 +214,15 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
 
     global OPTIMIZATION_LOOPS
 
+    # --- Select the target 2D points and camera model based on the mode ---
+    if use_normalized:
+        target_image_points = capture_volume.normalized_points
+    else:
+        target_image_points = capture_volume._point_estimates.img
+
     # 1. Unpack the optimization vector into meaningful variables
-    n_cams = capture_volume.point_estimates.n_cameras
-    n_pts = capture_volume.point_estimates.n_obj_points
+    n_cams = capture_volume._point_estimates.n_cameras
+    n_pts = capture_volume._point_estimates.n_obj_points
 
     # Unpack the camera extrinsics (R|T) being optimized
     camera_params = current_param_estimates[: n_cams * CAMERA_PARAM_COUNT].reshape((n_cams, CAMERA_PARAM_COUNT))
@@ -177,10 +231,10 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     points_3d = current_param_estimates[n_cams * CAMERA_PARAM_COUNT :].reshape((n_pts, 3))
 
     # Select the 3D points corresponding to each 2D observation
-    object_points_to_project = points_3d[capture_volume.point_estimates.obj_indices]
+    object_points_to_project = points_3d[capture_volume._point_estimates.obj_indices]
 
     # Initialize an array to store the new reprojected points
-    points_proj = np.zeros(capture_volume.point_estimates.img.shape)
+    points_proj = np.zeros_like(target_image_points)
 
     # 2. Iterate through only the POSED cameras to calculate reprojection
     for port, cam in capture_volume.camera_array.posed_cameras.items():
@@ -189,7 +243,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
 
         # Find all observations that belong to the current camera
         # This is the key fix: comparing index to index
-        obs_indices_for_cam = np.where(capture_volume.point_estimates.camera_indices == camera_index)[0]
+        obs_indices_for_cam = np.where(capture_volume._point_estimates.camera_indices == camera_index)[0]
 
         # --- ROBUSTNESS GUARD ---
         # If this camera has no points to project, skip it
@@ -203,9 +257,17 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
         rvec = camera_params[camera_index, 0:3]
         tvec = camera_params[camera_index, 3:6]
 
-        # Project the 3D points back into 2D for this camera
-        # Note: OpenCV's projectPoints can be slow; this is a known tradeoff.
-        reprojected_pts, _ = cv2.projectPoints(object_points, rvec, tvec, cam.matrix, cam.distortions)
+        # --- Select camera intrinsics based on the mode ---
+        if use_normalized:
+            # OPTIMIZED PATH: Use the 'perfect' camera model. Much faster.
+            cam_matrix = np.identity(3)
+            dist_coeffs = None
+        else:
+            # SLOW PATH: Use the camera's true intrinsics. Needed for final pixel error.
+            cam_matrix = cam.matrix
+            dist_coeffs = cam.distortions
+
+        reprojected_pts, _ = cv2.projectPoints(object_points, rvec, tvec, cam_matrix, dist_coeffs)
 
         # Store the results in our output array
         points_proj[obs_indices_for_cam] = reprojected_pts.reshape(-1, 2)
@@ -214,7 +276,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
 
     # 3. Calculate the final error
     # The error is the difference between the original 2D detections and our new reprojections.
-    residual = (points_proj - capture_volume.point_estimates.img).ravel()
+    residual = (points_proj - target_image_points).ravel()
 
     logger.info(f"OPTIMIZATION LOOPS: {OPTIMIZATION_LOOPS}")
 

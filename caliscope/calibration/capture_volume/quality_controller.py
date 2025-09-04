@@ -7,7 +7,7 @@ import pandas as pd
 import rtoml
 
 import caliscope.logger
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume, xy_reprojection_error
+from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
 
@@ -25,10 +25,9 @@ class QualityController:
         plotted and summarized. This is all 2d data observations with their
         corresponding 3d point estimates (meaning the 3d point data is duplicated)
         """
-        capture_volume_xy_error = xy_reprojection_error(
-            self.capture_volume.get_vectorized_params(),
-            self.capture_volume,
-        ).reshape(-1, 2)
+        # Use the dedicated method on CaptureVolume to ensure we get pixel-based error
+        capture_volume_xy_error = self.capture_volume.get_xy_reprojection_error().reshape(-1, 2)
+
         # build out error as singular distanc
 
         xyz = self.capture_volume.get_xyz_points()
@@ -290,11 +289,9 @@ class QualityController:
 
         self.capture_volume.point_estimates = filtered_point_estimates
 
-        # Clear previous optimization results since they no longer correspond to the filtered point set.
-        # This ensures that the next call to rmse property will recalculate the error from the current points
-        # rather than using cached results that would cause dimension mismatches or inconsistent calculations.
-        if hasattr(self.capture_volume, "least_sq_result"):
-            delattr(self.capture_volume, "least_sq_result")
+        # NOTE: Assigning to `capture_volume.point_estimates` now automatically
+        # triggers the property setter in CaptureVolume, which clears the
+        # `_normalized_points` cache and any previous `least_sq_result`.
 
 
 def get_capture_volume(capture_volume_pkl_path: Path) -> CaptureVolume:

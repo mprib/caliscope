@@ -244,7 +244,7 @@ class StereoCalibrator:
                 criteria=criteria,
                 flags=stereocalibration_flags,
             )
-            logger.info(f"RMSE of reprojection for pair {pair} is {ret}")
+            logger.info(f"Stereocalibration successfuly for pair {pair}")
 
         else:
             logger.info(f"No stereocalibration produced for pair {pair}")

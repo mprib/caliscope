@@ -4,9 +4,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pandas as pd
-import rtoml
 
 import caliscope.logger
+from caliscope.cameras.camera_array import CameraArray, CameraData
 
 logger = caliscope.logger.get(__name__)
 
@@ -14,29 +14,17 @@ logger = caliscope.logger.get(__name__)
 class StereoCalibrator:
     def __init__(
         self,
-        config_path: Path,
+        camera_array: CameraArray,
         point_data_path: Path,
     ):
-        self.config_path = config_path
-        self.config = rtoml.load(config_path)
-
-        self.ports = []
-        # set ports keeping in mind that something may be flagged for ignore
-        for key, value in self.config.items():
-            if key[0:4] == "cam_":
-                if "ignore" not in value.keys():
-                    self.ports.append(int(key[4:]))
-                else:
-                    if not value["ignore"]:
-                        self.ports.append(int(key[4:]))
+        self.camera_array = camera_array
+        self.ports = [port for port, cam in self.camera_array.cameras.items() if not cam.ignore]
+        self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
         # import point data, adding coverage regions to each port
         raw_point_data = pd.read_csv(point_data_path)
         self.all_point_data = self._points_with_coverage_region(raw_point_data)
         self.all_boards = self._get_boards_with_coverage()
-
-        # self.ports = [int(key[4:]) for key in self.config.keys() if key[0:3] == "cam"]
-        self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
     def _points_with_coverage_region(self, point_data: pd.DataFrame):
         """
@@ -52,7 +40,7 @@ class StereoCalibrator:
         grouped = (
             point_ports.groupby(["sync_index", "point_id"])["port_str"]
             .apply(lambda x: "_" + "_".join(sorted(x)) + "_")
-            .reset_index(name="coverage_region")
+            .reset_index(name="coverage_region")  # type: ignore
         )
 
         # Merge back with original data
@@ -72,7 +60,7 @@ class StereoCalibrator:
             self.all_point_data.filter(["port", "sync_index", "point_id"])
             .groupby(["port", "sync_index"])
             .agg({"point_id": "count"})
-            .rename(columns={"point_id": "point_count"})
+            .rename(columns={"point_id": "point_count"})  # type: ignore
             .reset_index()
         )
 
@@ -201,38 +189,29 @@ class StereoCalibrator:
             # Simple case: just take the best quality boards
             return boards_sorted.head(sample_size)
 
-    def stereo_calibrate_all(self, boards_sampled=10):
-        """Iterates across all camera pairs. Intrinsic parameters are pulled
-        from camera and combined with obj and img points for each pair.
+    def stereo_calibrate_all(self, boards_sampled=10) -> dict[str, dict]:
         """
-        logger.info("Deleting previous stereocalibrations from config")
-        # clear out the previous stereocalibrations
-        for key in self.config.copy().keys():
-            if key[0:6] == "stereo":
-                del self.config[key]
+        Iterates across all camera pairs and performs stereocalibration.
+        """
+        all_results = {}
 
         logger.info(f"Beginning stereocalibration of pairs {self.pairs}")
         for pair in self.pairs:
             error, rotation, translation = self.stereo_calibrate(pair, boards_sampled)
 
+            # only store results if actual results
             if error is not None:
-                # only store data if there was sufficient stereopair coverage to get
-                # a good calibration
-
                 # toml dumps arrays as strings, so needs to be converted to list
                 rotation = rotation.tolist()
                 translation = translation.tolist()
 
+                result = {"rotation": rotation, "translation": translation, "RMSE": error}
                 config_key = "stereo_" + str(pair[0]) + "_" + str(pair[1])
-                self.config[config_key] = {}
-                self.config[config_key]["rotation"] = rotation
-                self.config[config_key]["translation"] = translation
-                self.config[config_key]["RMSE"] = error
 
-        logger.info("Direct stereocalibration complete for all pairs for which data is available")
-        logger.info(f"Saving stereo-pair extrinsic data to {self.config_path}")
-        with open(self.config_path, "w") as f:
-            rtoml.dump(self.config, f)
+                all_results[config_key] = result
+
+        logger.info("Direct stereocalibration complete for all available pairs")
+        return all_results
 
     def stereo_calibrate(self, pair, boards_sampled=10):
         stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
@@ -244,39 +223,27 @@ class StereoCalibrator:
             img_locs_A, obj_locs_A = self.get_stereocal_inputs(pair[0], paired_point_data)
             img_locs_B, obj_locs_B = self.get_stereocal_inputs(pair[1], paired_point_data)
 
-            camera_matrix_A = self.config["cam_" + str(pair[0])]["matrix"]
-            camera_matrix_B = self.config["cam_" + str(pair[1])]["matrix"]
-            camera_matrix_A = np.array(camera_matrix_A, dtype=float)
-            camera_matrix_B = np.array(camera_matrix_B, dtype=float)
+            cam_A: CameraData = self.camera_array.cameras[pair[0]]
+            cam_B: CameraData = self.camera_array.cameras[pair[1]]
 
-            distortion_A = self.config["cam_" + str(pair[0])]["distortions"]
-            distortion_B = self.config["cam_" + str(pair[1])]["distortions"]
-            distortion_A = np.array(distortion_A, dtype=float)
-            distortion_B = np.array(distortion_B, dtype=float)
+            norm_locs_A = [cam_A.undistort_points(pts) for pts in img_locs_A]
+            norm_locs_B = [cam_B.undistort_points(pts) for pts in img_locs_B]
 
-            (
-                ret,
-                camera_matrix_1,
-                distortion_1,
-                camera_matrix_2,
-                distortion_2,
-                rotation,
-                translation,
-                essential,
-                fundamental,
-            ) = cv2.stereoCalibrate(
+            K_perfect = np.identity(3)
+            D_perfect = np.zeros(5)
+
+            (ret, _, _, _, _, rotation, translation, _, _) = cv2.stereoCalibrate(
                 obj_locs_A,
-                img_locs_A,
-                img_locs_B,
-                camera_matrix_A,
-                distortion_A,
-                camera_matrix_B,
-                distortion_B,
-                imageSize=None,
+                norm_locs_A,
+                norm_locs_B,
+                K_perfect,
+                D_perfect,
+                K_perfect,
+                D_perfect,
+                imageSize=None,  # type: ignore
                 criteria=criteria,
                 flags=stereocalibration_flags,
             )
-
             logger.info(f"RMSE of reprojection for pair {pair} is {ret}")
 
         else:

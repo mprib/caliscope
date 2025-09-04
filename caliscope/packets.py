@@ -16,9 +16,9 @@ class PointPacket:
     It has actual values when using the Charuco tracker as these are used in the calibration.
     """
 
-    point_id: np.ndarray | None = None  # unique point id that aligns with Tracker.get_point_names()
-    img_loc: np.ndarray | None = None  # x,y position of tracked point
-    obj_loc: np.ndarray | None = None  # x,y,z in object frame of reference; primarily for calibration
+    point_id: np.ndarray  # unique point id that aligns with Tracker.get_point_names()
+    img_loc: np.ndarray  # x,y position of tracked point
+    obj_loc: np.ndarray | None = None  # x,y,z in object frame of reference; primarily for intrinsic calibration
     confidence: np.ndarray | None = None  # may be available in some trackers..include for future
 
     @property
@@ -177,7 +177,7 @@ class FramePacket:
 
     @property
     def frame_with_points(self):
-        if self.points is not None:
+        if self.points is not None and self.draw_instructions is not None:
             drawn_frame = self.frame.copy()
             ids = self.points.point_id
             locs = self.points.img_loc

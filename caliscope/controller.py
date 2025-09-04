@@ -335,13 +335,12 @@ class Controller(QObject):
                 self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
             )
 
-            stereocalibrator = StereoCalibrator(self.config.config_toml_path, self.extrinsic_calibration_xy)
-            stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+            stereocalibrator = StereoCalibrator(self.camera_array, self.extrinsic_calibration_xy)
+            stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
             # refreshing camera array from config file
-            self.camera_array: CameraArray = CameraArrayInitializer(
-                self.config.config_toml_path
-            ).get_best_camera_array()
+            initializer = CameraArrayInitializer(self.camera_array, stereo_results)
+            self.camera_array: CameraArray = initializer.get_best_camera_array()
 
             self.point_estimates: PointEstimates = create_point_estimates_from_stereopairs(
                 self.camera_array, self.extrinsic_calibration_xy

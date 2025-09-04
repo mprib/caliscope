@@ -12,12 +12,67 @@ from caliscope.packets import SyncPacket
 logger = caliscope.logger.get(__name__)
 
 
+@dataclass
+class StereoPointsPacket:
+    """The points shared by two FramePointsPackets"""
+
+    sync_index: int
+
+    port_A: int
+    port_B: int
+
+    common_ids: np.ndarray
+    img_loc_A: np.ndarray
+    img_loc_B: np.ndarray
+
+    # a place to hold the pairwise triangulated value down the line
+    xyz: np.ndarray | None = None
+
+    @property
+    def pair(self):
+        return (self.port_A, self.port_B)
+
+    def to_table(self):
+        # table will be in the form of a dictionary of lists of equal length
+        table = {}
+        if self.xyz is not None:
+            point_count = len(self.common_ids)
+
+            table["pair"] = [self.pair] * point_count
+            table["port_A"] = [self.port_A] * point_count
+            table["port_B"] = [self.port_B] * point_count
+            table["sync_index"] = [self.sync_index] * point_count
+            table["point_id"] = list(self.common_ids)
+            table["x_pos"] = list(self.xyz[:, 0])
+            table["y_pos"] = list(self.xyz[:, 1])
+            table["z_pos"] = list(self.xyz[:, 2])
+            table["x_A"] = list(self.img_loc_A[:, 0])
+            table["y_A"] = list(self.img_loc_A[:, 1])
+            table["x_B"] = list(self.img_loc_B[:, 0])
+            table["y_B"] = list(self.img_loc_B[:, 1])
+
+        return table
+
+
+@dataclass
+class SynchedStereoPointsPacket:
+    sync_index: int
+    stereo_points_packets: dict
+
+    @property
+    def pairs(self):
+        return list(self.stereo_points_packets.keys())
+
+    def to_table(self):
+        pass
+
+
 class StereoPointsBuilder:
     def __init__(self, ports: list):
         self.ports = ports
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
-    def _get_stereo_points_packet(self, sync_index, port_A, points_A, port_B, points_B):
+    def _get_stereo_points_packet(self, sync_index, port_A, points_A, port_B, points_B) -> StereoPointsPacket:
         # get ids in common
         if len(points_A.point_id) > 0 and len(points_B.point_id) > 0:
             common_ids = np.intersect1d(points_A.point_id, points_B.point_id)
@@ -31,11 +86,9 @@ class StereoPointsBuilder:
             # for both ports, get the indices of the common ids
             sorter_A = np.argsort(points_A.point_id)
             shared_indices_A = sorter_A[np.searchsorted(points_A.point_id, common_ids, sorter=sorter_A)]
-            shared_indices_A
 
             sorter_B = np.argsort(points_B.point_id)
             shared_indices_B = sorter_B[np.searchsorted(points_B.point_id, common_ids, sorter=sorter_B)]
-            shared_indices_B
 
             packet = StereoPointsPacket(
                 sync_index=sync_index,
@@ -50,7 +103,7 @@ class StereoPointsBuilder:
 
         return packet
 
-    def get_synched_paired_points(self, sync_packet: SyncPacket):
+    def get_synched_paired_points(self, sync_packet: SyncPacket) -> SynchedStereoPointsPacket:
         # will be populated with dataframes of:
         # id | img_x | img_y | board_x | board_y
         sync_index = sync_packet.sync_index
@@ -71,61 +124,6 @@ class StereoPointsBuilder:
                 paired_points_packets[pair] = paired_points
 
         return SynchedStereoPointsPacket(sync_index, paired_points_packets)
-
-
-@dataclass
-class StereoPointsPacket:
-    """The points shared by two FramePointsPackets"""
-
-    sync_index: int
-
-    port_A: int
-    port_B: int
-
-    common_ids: np.ndarray
-    img_loc_A: np.ndarray
-    img_loc_B: np.ndarray
-
-    # a place to hold the pairwise triangulated value down the line
-    xyz: np.ndarray = None
-
-    @property
-    def pair(self):
-        return (self.port_A, self.port_B)
-
-    def to_table(self):
-        # table will be in the form of a dictionary of lists of equal length
-        table = {}
-
-        point_count = len(self.common_ids)
-
-        table["pair"] = [self.pair] * point_count
-        table["port_A"] = [self.port_A] * point_count
-        table["port_B"] = [self.port_B] * point_count
-        table["sync_index"] = [self.sync_index] * point_count
-        table["point_id"] = list(self.common_ids)
-        table["x_pos"] = list(self.xyz[:, 0])
-        table["y_pos"] = list(self.xyz[:, 1])
-        table["z_pos"] = list(self.xyz[:, 2])
-        table["x_A"] = list(self.img_loc_A[:, 0])
-        table["y_A"] = list(self.img_loc_A[:, 1])
-        table["x_B"] = list(self.img_loc_B[:, 0])
-        table["y_B"] = list(self.img_loc_B[:, 1])
-
-        return table
-
-
-@dataclass
-class SynchedStereoPointsPacket:
-    sync_index: int
-    stereo_points_packets: dict
-
-    @property
-    def pairs(self):
-        return list(self.stereo_points_packets.keys())
-
-    def to_table(self):
-        pass
 
 
 if __name__ == "__main__":

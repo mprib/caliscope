@@ -38,17 +38,20 @@ def test_bundle_adjust_with_unlinked_camera():
     # The xy_CHARUCO.csv is at the root of the session for this test case
     xy_data_path = Path(session_path, "xy_CHARUCO.csv")
 
-    config.get_camera_array()
+    camera_array = config.get_camera_array()
     config.get_charuco()
 
     logger.info("Creating stereocalibrator")
-    stereocalibrator = StereoCalibrator(config.config_toml_path, xy_data_path)
-    logger.info("Initiating stereocalibration")
+    stereocalibrator = StereoCalibrator(camera_array, xy_data_path)
 
-    stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+    logger.info("Initiating stereocalibration")
+    stereo_results = stereocalibrator.stereo_calibrate_all()
+
     # 2. INITIALIZE CAMERA_ARRAY
     # This will result in camera 5 being unposed
-    camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
+    initializer = CameraArrayInitializer(camera_array, stereo_results)
+
+    camera_array: CameraArray = initializer.get_best_camera_array()
 
     # 3. VERIFY SETUP
     # Confirm that we have the expected set of posed and unposed cameras
@@ -128,6 +131,6 @@ def test_capture_volume_filter():
 
 
 if __name__ == "__main__":
-    # test_bundle_adjust_with_unlinked_camera()
-    test_capture_volume_filter()
+    test_bundle_adjust_with_unlinked_camera()
+    # test_capture_volume_filter()
     logger.info("test debug complete")

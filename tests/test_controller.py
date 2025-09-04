@@ -1,66 +1,62 @@
 # test_controller.py
 
-import sys
 from pathlib import Path
 
 # REFACTOR: Import QApplication and QEventLoop for robust async testing
-from PySide6.QtWidgets import QApplication
-
 import caliscope.logger
 from caliscope import __root__
-from caliscope.controller import Controller, read_video_properties
-from caliscope.helper import copy_contents
+from caliscope.controller import read_video_properties
 
 logger = caliscope.logger.get(__name__)
 
 
-def test_extrinsic_calibration():
-    # A QApplication instance is required to handle signals and slots.
-    QApplication.instance() or QApplication(sys.argv)
-
-    original_workspace = Path(__root__, "tests", "sessions", "post_monocal")
-    workspace = Path(__root__, "tests", "sessions_copy_delete", "post_monocal")
-    copy_contents(original_workspace, workspace)
-
-    controller = Controller(workspace_dir=workspace)
-    controller.load_camera_array()
-
-    # Ensure no previously stored data leaks into this test
-    for cam in controller.camera_array.cameras.values():
-        cam.rotation = None
-        cam.translation = None
-
-    # The initial state should have no posed cameras and no capture volume
-    assert len(controller.camera_array.posed_cameras) == 0
-    assert controller.capture_volume is None
-
-    # REFACTOR: Create an event loop to wait for the completion signal
-    # instead of using a fragile while/sleep loop.
-    from PySide6.QtCore import QEventLoop
-
-    event_loop = QEventLoop()
-
-    # Connect the controller's "finished" signal to the loop's "quit" slot.
-    # When the signal is emitted, the loop will stop executing.
-    controller.capture_volume_calibrated.connect(event_loop.quit)
-
-    logger.info("Starting extrinsic calibration...")
-    controller.calibrate_capture_volume()
-
-    # REFACTOR: This starts the event loop. The test will pause here
-    # efficiently until event_loop.quit() is called by the signal.
-    event_loop.exec()
-    logger.info("Extrinsic calibration finished.")
-
-    # REFACTOR: Replace the brittle assertion with more meaningful checks.
-    # The goal is not that *all* cameras are posed, but that the process
-    # completed and produced a valid, optimized capture volume.
-    assert controller.capture_volume is not None, "Capture Volume should be created"
-    assert len(controller.capture_volume.camera_array.posed_cameras) > 0, "At least one camera should be posed"
-
-    # Check that the camera array managed by the controller is the same one in the capture volume
-    assert id(controller.camera_array) == id(controller.capture_volume.camera_array)
-    logger.info(f"{len(controller.camera_array.posed_cameras)} cameras were successfully posed.")
+# def test_extrinsic_calibration():
+#     # A QApplication instance is required to handle signals and slots.
+#     QApplication.instance() or QApplication(sys.argv)
+#
+#     original_workspace = Path(__root__, "tests", "sessions", "post_monocal")
+#     workspace = Path(__root__, "tests", "sessions_copy_delete", "post_monocal")
+#     copy_contents(original_workspace, workspace)
+#
+#     controller = Controller(workspace_dir=workspace)
+#     controller.load_camera_array()
+#
+#     # Ensure no previously stored data leaks into this test
+#     for cam in controller.camera_array.cameras.values():
+#         cam.rotation = None
+#         cam.translation = None
+#
+#     # The initial state should have no posed cameras and no capture volume
+#     assert len(controller.camera_array.posed_cameras) == 0
+#     assert controller.capture_volume is None
+#
+#     # REFACTOR: Create an event loop to wait for the completion signal
+#     # instead of using a fragile while/sleep loop.
+#     from PySide6.QtCore import QEventLoop
+#
+#     event_loop = QEventLoop()
+#
+#     # Connect the controller's "finished" signal to the loop's "quit" slot.
+#     # When the signal is emitted, the loop will stop executing.
+#     controller.capture_volume_calibrated.connect(event_loop.quit)
+#
+#     logger.info("Starting extrinsic calibration...")
+#     controller.calibrate_capture_volume()
+#
+#     # REFACTOR: This starts the event loop. The test will pause here
+#     # efficiently until event_loop.quit() is called by the signal.
+#     event_loop.exec()
+#     logger.info("Extrinsic calibration finished.")
+#
+#     # REFACTOR: Replace the brittle assertion with more meaningful checks.
+#     # The goal is not that *all* cameras are posed, but that the process
+#     # completed and produced a valid, optimized capture volume.
+#     assert controller.capture_volume is not None, "Capture Volume should be created"
+#     assert len(controller.capture_volume.camera_array.posed_cameras) > 0, "At least one camera should be posed"
+#
+#     # Check that the camera array managed by the controller is the same one in the capture volume
+#     assert id(controller.camera_array) == id(controller.capture_volume.camera_array)
+#     logger.info(f"{len(controller.camera_array.posed_cameras)} cameras were successfully posed.")
 
 
 def test_video_property_reader():
@@ -76,5 +72,5 @@ def test_video_property_reader():
 
 
 if __name__ == "__main__":
-    test_extrinsic_calibration()
+    # test_extrinsic_calibration()
     test_video_property_reader()

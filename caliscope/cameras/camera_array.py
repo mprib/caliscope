@@ -16,10 +16,12 @@ CAMERA_PARAM_COUNT = 6
 
 @dataclass
 class CameraData:
-    """
-    A place to hold the calibration data associated with a camera that has been populated from a config file.
-    For use with final setting of the array and triangulation, but no actual camera management.
-    Not loving the way this is implemented as an adjunct to the Camera object, but here we are
+    """Holds the complete intrinsic and extrinsic calibration state for a single camera.
+
+    This class serves as the abstraction layer for the camera's lens model.
+    It provides a unified interface (`undistort_points`) that allows the rest of
+    the application to work with universal, normalized coordinates, regardless of
+    whether the source camera is standard or fisheye.
     """
 
     port: int
@@ -33,6 +35,7 @@ class CameraData:
     ignore: bool = False
     translation: np.ndarray | None = None  # camera relative to world
     rotation: np.ndarray | None = None  # camera relative to world
+    fisheye: bool = False  # default to standard camera model
 
     @property
     def transformation(self):
@@ -76,6 +79,42 @@ class CameraData:
         self.rotation = cv2.Rodrigues(row[0:3])[0]
         self.translation = np.array([row[3:6]], dtype=np.float64)[0]
 
+    def undistort_points(self, points: NDArray) -> NDArray:
+        """
+        Normalizes 2D image points by removing lens distortion and mapping
+        them to the ideal normalized image plane.
+
+        This is the core of our camera model abstraction. The output of this
+        function is in a universal coordinate system, independent of the
+        original camera's lens, sensor, or resolution.
+
+        Args:
+            points: An (N, 2) array of distorted 2D points in pixel coordinates.
+
+        Returns:
+            An (N, 2) array of normalized 2D points.
+        """
+        if self.matrix is None or self.distortions is None:
+            raise ValueError(f"Camera {self.port} lacks intrinsic calibration; cannot undistort points.")
+
+        # OpenCV functions require points in shape (N, 1, 2) and float32 type
+        points_reshaped = np.ascontiguousarray(points, dtype=np.float32).reshape(-1, 1, 2)
+
+        # The "perfect" camera matrix for the normalized image plane is the identity matrix.
+        # This maps the principal point to (0,0) and focal length to 1.
+        k_perfect = np.identity(3)
+
+        if self.fisheye:
+            # Use the fisheye model for undistortion
+            undistorted_points = cv2.fisheye.undistortPoints(
+                points_reshaped, self.matrix, self.distortions, P=k_perfect
+            )
+        else:
+            # Use the standard Brown-Conrady model
+            undistorted_points = cv2.undistortPoints(points_reshaped, self.matrix, self.distortions, P=k_perfect)
+
+        return undistorted_points.reshape(-1, 2)
+
     def get_display_data(self) -> OrderedDict:
         # Extracting camera matrix parameters
         if self.matrix is not None:
@@ -87,7 +126,9 @@ class CameraData:
 
         # Extracting distortion coefficients
         if self.distortions is not None:
-            k1, k2, p1, p2, k3 = self.distortions.ravel()[:5]
+            # Fisheye has 4, standard has 5. We show up to 5.
+            coeffs = self.distortions.ravel().tolist() + [None] * 5
+            k1, k2, p1, p2, k3 = coeffs[:5]
         else:
             k1, k2, p1, p2, k3 = None, None, None, None, None
 
@@ -104,6 +145,7 @@ class CameraData:
                 ("RMSE", self.error),
                 ("Grid_Count", self.grid_count),
                 ("rotation_count", self.rotation_count),
+                ("fisheye", self.fisheye),
                 (
                     "intrinsic_parameters",
                     OrderedDict(

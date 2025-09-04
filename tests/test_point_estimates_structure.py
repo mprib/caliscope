@@ -7,6 +7,7 @@ from caliscope import __root__
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     create_point_estimates_from_stereopairs,
 )
+from caliscope.calibration.stereocalibrator import StereoCalibrator
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
@@ -30,9 +31,11 @@ def test_point_estimates_structure_fully_linked():
 
     config = Configurator(session_path)
     xy_data_path = Path(session_path, "xy_CHARUCO.csv")
-
+    camera_array = config.get_camera_array()
+    stereo_results = StereoCalibrator(camera_array, xy_data_path).stereo_calibrate_all()
+    initializer = CameraArrayInitializer(camera_array, stereo_results)
     # This initialization should result in all cameras being posed
-    camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
+    camera_array: CameraArray = initializer.get_best_camera_array()
 
     # Generate the point estimates
     point_estimates = create_point_estimates_from_stereopairs(camera_array, xy_data_path)
@@ -97,7 +100,11 @@ def test_point_estimates_structure_unlinked():
     xy_data_path = Path(session_path, "xy_CHARUCO.csv")
 
     # This initialization will result in one camera being unposed
-    camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
+    camera_array = config.get_camera_array()
+    stereo_results = StereoCalibrator(camera_array, xy_data_path).stereo_calibrate_all()
+    initializer = CameraArrayInitializer(camera_array, stereo_results)
+    # This initialization should result in all cameras being posed
+    camera_array: CameraArray = initializer.get_best_camera_array()
 
     # Generate the point estimates
     point_estimates = create_point_estimates_from_stereopairs(camera_array, xy_data_path)
@@ -145,6 +152,6 @@ def test_point_estimates_structure_unlinked():
 
 
 if __name__ == "__main__":
-    test_point_estimates_structure_fully_linked()
+    # test_point_estimates_structure_fully_linked()
     test_point_estimates_structure_unlinked()
     logger.info("End ad hoc test")

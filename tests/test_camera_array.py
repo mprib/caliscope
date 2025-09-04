@@ -27,15 +27,16 @@ def test_missing_extrinsics():
 
     config = Configurator(session_path)
     xy_data_path = Path(session_path, "xy_CHARUCO.csv")
-
+    camera_array = config.get_camera_array()
     logger.info("Creating stereocalibrator")
-    stereocalibrator = StereoCalibrator(config.config_toml_path, xy_data_path)
+    stereocalibrator = StereoCalibrator(camera_array, xy_data_path)
     logger.info("Initiating stereocalibration")
-    stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+    stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
     logger.info("stereocalibration complete")
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
-    camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
+    initializer = CameraArrayInitializer(camera_array, stereo_results)
+    camera_array: CameraArray = initializer.get_best_camera_array()
     logger.info("Camera Poses estimated from stereocalibration")
 
     # should have posed all ports but 4 and 5

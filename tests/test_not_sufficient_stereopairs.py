@@ -37,14 +37,15 @@ def test_calibration_workflow():
     xy_data_path = Path(session_path, "xy_CHARUCO.csv")
     #    camera_array = config.get_camera_array()
     charuco = config.get_charuco()
-
+    camera_array = config.get_camera_array()
     logger.info("Creating stereocalibrator")
-    stereocalibrator = StereoCalibrator(config.config_toml_path, xy_data_path)
+    stereocalibrator = StereoCalibrator(camera_array, xy_data_path)
     logger.info("Initiating stereocalibration")
-    stereocalibrator.stereo_calibrate_all(boards_sampled=100)
+    stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=100)
 
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
-    camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
+    initializer = CameraArrayInitializer(camera_array, stereo_results)
+    camera_array: CameraArray = initializer.get_best_camera_array()
 
     logger.info("Loading point estimates")
     point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, xy_data_path)
@@ -71,8 +72,6 @@ def test_calibration_workflow():
     # Log initial RMSE values
     logger.info(f"Initial RMSE before optimization: {rmse_initial['overall']:.4f} pixels")
     logger.info("Per-camera initial RMSE values:")
-    for port in capture_volume.camera_array.posed_cameras.keys():
-        logger.info(f"  Camera {port}: {rmse_initial[str(port)]:.4f} pixels")
 
     # First optimization stage - bundle adjustment
     logger.info("Performing bundle adjustment")
@@ -150,15 +149,15 @@ def test_deterministic_consistency():
         config = Configurator(session_path)
         xy_data_path = Path(session_path, "xy_CHARUCO.csv")
 
-        # Run stereocalibration
-        stereocalibrator = StereoCalibrator(config.config_toml_path, xy_data_path)
-        stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+        camera_array = config.get_camera_array()
+        logger.info("Creating stereocalibrator")
+        stereocalibrator = StereoCalibrator(camera_array, xy_data_path)
+        logger.info("Initiating stereocalibration")
+        stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=100)
 
         # Store results
-        config_reloaded = Configurator(session_path)
-        for key, value in config_reloaded.dict.items():
-            if key.startswith("stereo_"):
-                results_dict[key] = value
+        for key, value in stereo_results.items():
+            results_dict[key] = value
 
     # Compare results between runs
     assert set(results_run1.keys()) == set(results_run2.keys()), "Different stereo pairs found between runs"
@@ -197,5 +196,5 @@ def test_deterministic_consistency():
 
 if __name__ == "__main__":
     test_calibration_workflow()
-    test_deterministic_consistency()
+    # test_deterministic_consistency()
     print("end")

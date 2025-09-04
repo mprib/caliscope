@@ -114,6 +114,31 @@ class Configurator:
         self.dict["capture_volume"]["origin_sync_index"] = capture_volume.origin_sync_index
         self.update_config_toml()
 
+    def save_stereo_results(self, stereo_results: dict):
+        """
+        Saves the results of a stereo calibration process to the config file.
+
+        This method will first clear any existing stereo calibration data
+        before writing the new results.
+
+        Args:
+            stereo_results (dict): A dictionary where keys are 'stereo_1_2'
+                                   and values are dicts containing
+                                   'rotation', 'translation', and 'RMSE'.
+        """
+        logger.info("Clearing previous stereocalibrations from config...")
+        for key in self.dict.copy().keys():
+            if key.startswith("stereo_"):
+                del self.dict[key]
+
+        logger.info("Saving new stereo-pair extrinsic data to config...")
+        for pair, result_data in stereo_results.items():
+            config_key = f"stereo_{pair[0]}_{pair[1]}"
+            self.dict[config_key] = result_data  # The result_data is already a dict in the correct format
+
+        self.update_config_toml()
+        logger.info("Successfully saved stereo calibration results.")
+
     def get_configured_camera_data(self) -> dict[int, CameraData]:
         all_camera_data = {}
 
@@ -166,6 +191,7 @@ class Configurator:
                     ignore=ignore,
                     translation=translation,
                     rotation=rotation,
+                    fisheye=params.get("fisheye", False),
                 )
 
                 all_camera_data[port] = cam_data

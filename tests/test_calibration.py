@@ -75,12 +75,13 @@ def test_calibration():
     charuco = config.get_charuco()
 
     logger.info("Creating stereocalibrator")
-    stereocalibrator = StereoCalibrator(config.config_toml_path, xy_data_path)
+    stereocalibrator = StereoCalibrator(camera_array, xy_data_path)
     logger.info("Initiating stereocalibration")
-    stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+    stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
-    camera_array: CameraArray = CameraArrayInitializer(config.config_toml_path).get_best_camera_array()
+    initializer = CameraArrayInitializer(camera_array, stereo_results)
+    camera_array: CameraArray = initializer.get_best_camera_array()
 
     logger.info("Loading point estimates")
     point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, xy_data_path)

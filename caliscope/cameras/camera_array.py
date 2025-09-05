@@ -55,9 +55,9 @@ class CameraData:
         logger.info(f"Rotation and Translation being updated to {self.rotation} and {self.translation}")
 
     @property
-    def projection_matrix(self):
+    def normalized_projection_matrix(self):
         assert self.matrix is not None and self.transformation is not None
-        return self.matrix @ self.transformation[0:3, :]
+        return self.transformation[0:3, :]
 
     def extrinsics_to_vector(self):
         """
@@ -275,12 +275,12 @@ class CameraArray:
         return all(cam.matrix is not None and cam.distortions is not None for cam in self.cameras.values())
 
     @property
-    def projection_matrices(self):
-        """Generates projection matrices for *posed and non-ignored* cameras only."""
-        logger.info("Creating projection matrices for posed and non-ignored cameras.")
+    def normalized_projection_matrices(self):
+        """Generates normalized projection matrices for *posed and non-ignored* cameras only."""
+        logger.info("Creating normalized projection matrices for posed and non-ignored cameras.")
         # Note: This NumbaDict should only contain cameras used in optimization
         proj_mat = NumbaDict()  # type: ignore
         for port in self.posed_port_to_index.keys():  # port_index keys are posed and not ignored
-            proj_mat[port] = self.cameras[port].projection_matrix
+            proj_mat[port] = self.cameras[port].normalized_projection_matrix
 
         return proj_mat

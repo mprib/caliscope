@@ -18,7 +18,7 @@ from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 logger = caliscope.logger.get(__name__)
 
 
-class SynchedFramesDisplay(QWidget):
+class SyncedFramesDisplay(QWidget):
     """
     This widget is not intended to have any interactive functionality at all and to only
     provide a window to the user of the current landmark tracking
@@ -28,7 +28,7 @@ class SynchedFramesDisplay(QWidget):
     """
 
     def __init__(self, sync_stream_manager: SynchronizedStreamManager):
-        super(SynchedFramesDisplay, self).__init__()
+        super(SyncedFramesDisplay, self).__init__()
 
         self.setWindowTitle("Tracking Landmarks....")
         self.sync_stream_manager = sync_stream_manager

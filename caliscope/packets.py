@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable, cast
+from typing import Callable, Dict, cast
 
 import cv2
 import numpy as np
@@ -207,7 +207,7 @@ class SyncPacket:
     """
 
     sync_index: int
-    frame_packets: dict
+    frame_packets: Dict[int, FramePacket]  # port: frame_packet
 
     @property
     def triangulation_inputs(self):

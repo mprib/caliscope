@@ -5,13 +5,12 @@ import numpy as np
 
 import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.triangulate.stereo_points_builder import StereoPointsPacket, SynchedStereoPointsPacket
-from caliscope.triangulate.triangulation import undistort
+from caliscope.triangulate.stereo_points_builder import StereoPointsPacket, SyncedStereoPointsPacket
 
 logger = caliscope.logger.get(__name__)
 
 
-class ArrayStereoTriangulator:
+class StereoTriangulator:
     def __init__(self, camera_array: CameraArray):
         self.camera_array = camera_array
 
@@ -31,7 +30,7 @@ class ArrayStereoTriangulator:
 
             self.triangulators[pair] = StereoPairTriangulator(camera_A, camera_B)
 
-    def triangulate_synched_points(self, synced_paired_points: SynchedStereoPointsPacket):
+    def triangulate_synced_points(self, synced_paired_points: SyncedStereoPointsPacket):
         for pair, paired_point_packet in synced_paired_points.stereo_points_packets.items():
             if paired_point_packet is not None:
                 self.triangulators[pair].add_3D_points(paired_point_packet)
@@ -45,18 +44,6 @@ class StereoPairTriangulator:
         self.portB = camera_B.port
         self.pair = (self.portA, self.portB)
 
-        self.build_projection_matrices()
-
-    def build_projection_matrices(self):
-        # attempting to create something that integrates with the new set_cameras_refactor
-        rot_trans_A = np.column_stack([self.camera_A.rotation, self.camera_A.translation])
-        mtx_A = self.camera_A.matrix
-        self.proj_A = mtx_A @ rot_trans_A  # projection matrix for CamA
-
-        rot_trans_B = np.column_stack([self.camera_B.rotation, self.camera_B.translation])
-        mtx_B = self.camera_B.matrix
-        self.proj_B = mtx_B @ rot_trans_B  # projection matrix for CamB
-
     def add_3D_points(self, paired_points: StereoPointsPacket):
         if len(paired_points.common_ids) > 0:
             xy_A = paired_points.img_loc_A
@@ -64,12 +51,17 @@ class StereoPairTriangulator:
 
         if xy_A.shape[0] > 0:
             logger.info(f"Triangulating points in common between ports {self.camera_A.port} and {self.camera_B.port}")
-            points_A_undistorted = undistort(xy_A, self.camera_A)
-            points_B_undistorted = undistort(xy_B, self.camera_B)
+            points_A_undistorted = self.camera_A.undistort_points(xy_A).T
+            points_B_undistorted = self.camera_B.undistort_points(xy_B).T
 
-            # triangulate points outputs data in 4D homogenous coordinate system
+            # triangulate joints outputs data in 4D homogenous coordinate system
             # note that these are in a world frame of reference
-            xyzw_h = cv2.triangulatePoints(self.proj_A, self.proj_B, points_A_undistorted, points_B_undistorted)
+            xyzw_h = cv2.triangulatePoints(
+                self.camera_A.normalized_projection_matrix,
+                self.camera_B.normalized_projection_matrix,
+                points_A_undistorted,
+                points_B_undistorted,
+            )
 
             xyz_h = xyzw_h.T[:, :3]
             w = xyzw_h[3, :]

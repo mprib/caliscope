@@ -55,7 +55,7 @@ class StereoPointsPacket:
 
 
 @dataclass
-class SynchedStereoPointsPacket:
+class SyncedStereoPointsPacket:
     sync_index: int
     stereo_points_packets: dict
 
@@ -103,7 +103,7 @@ class StereoPointsBuilder:
 
         return packet
 
-    def get_synched_paired_points(self, sync_packet: SyncPacket) -> SynchedStereoPointsPacket:
+    def get_synched_paired_points(self, sync_packet: SyncPacket) -> SyncedStereoPointsPacket:
         # will be populated with dataframes of:
         # id | img_x | img_y | board_x | board_y
         sync_index = sync_packet.sync_index
@@ -123,7 +123,7 @@ class StereoPointsBuilder:
 
                 paired_points_packets[pair] = paired_points
 
-        return SynchedStereoPointsPacket(sync_index, paired_points_packets)
+        return SyncedStereoPointsPacket(sync_index, paired_points_packets)
 
 
 if __name__ == "__main__":

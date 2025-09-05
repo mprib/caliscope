@@ -127,7 +127,7 @@ class CaptureVolume:
 
         return error
 
-    def optimize(self):
+    def optimize(self, ftol=1e-8):
         # Original example taken from https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html
 
         initial_param_estimate = self.get_vectorized_params()
@@ -143,7 +143,7 @@ class CaptureVolume:
             verbose=2,
             x_scale="jac",
             loss="linear",
-            ftol=1e-8,
+            ftol=ftol,
             method="trf",
             # By default, xy_reprojection_error will use normalized points
             args=(self,),
@@ -278,7 +278,7 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
     # The error is the difference between the original 2D detections and our new reprojections.
     residual = (points_proj - target_image_points).ravel()
 
-    logger.info(f"OPTIMIZATION LOOPS: {OPTIMIZATION_LOOPS}")
+    logger.debug(f"OPTIMIZATION LOOPS: {OPTIMIZATION_LOOPS}")
 
     return residual
 

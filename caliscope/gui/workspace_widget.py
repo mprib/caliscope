@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QSp
 
 import caliscope.logger
 from caliscope.controller import Controller
-from caliscope.gui.synched_frames_display import SynchedFramesDisplay
+from caliscope.gui.synched_frames_display import SyncedFramesDisplay
 from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 
 logger = caliscope.logger.get(__name__)
@@ -80,7 +80,7 @@ class WorkspaceSummaryWidget(QWidget):
 
     def show_synched_frames(self):
         logger.info("About to launch synced Frames Display")
-        self.display_window = SynchedFramesDisplay(self.controller.extrinsic_stream_manager)
+        self.display_window = SyncedFramesDisplay(self.controller.extrinsic_stream_manager)
         self.display_window.show()
 
     def update_status(self):

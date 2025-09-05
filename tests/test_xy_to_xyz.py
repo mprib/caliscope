@@ -108,3 +108,4 @@ def test_xy_to_xyz_postprocessing():
 
 if __name__ == "__main__":
     test_xy_to_xyz_postprocessing()
+    print("end")

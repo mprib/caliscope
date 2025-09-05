@@ -107,4 +107,5 @@ def test_triangulator():
 
 if __name__ == "__main__":
     test_triangulator()
+    print("test end")
 # %%

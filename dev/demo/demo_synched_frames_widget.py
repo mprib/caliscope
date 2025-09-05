@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QApplication
 import sys
 
-from caliscope.gui.synched_frames_display import SynchedFramesDisplay
+from caliscope.gui.synched_frames_display import SyncedFramesDisplay
 from caliscope.controller import Controller
 
 from pathlib import Path
@@ -24,7 +24,7 @@ controller.load_camera_array()
 controller.load_extrinsic_stream_manager()
 
 controller.extrinsic_stream_manager.process_streams(fps_target=100)
-window = SynchedFramesDisplay(controller.extrinsic_stream_manager)
+window = SyncedFramesDisplay(controller.extrinsic_stream_manager)
 # need to let synchronizer spin up before able to display frames
 # need to let synchronizer spin up before able to display frames
 

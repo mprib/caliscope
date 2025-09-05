@@ -131,6 +131,6 @@ def test_capture_volume_filter():
 
 
 if __name__ == "__main__":
-    test_bundle_adjust_with_unlinked_camera()
-    # test_capture_volume_filter()
+    # test_bundle_adjust_with_unlinked_camera()
+    test_capture_volume_filter()
     logger.info("test debug complete")

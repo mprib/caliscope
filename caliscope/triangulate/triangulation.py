@@ -7,7 +7,7 @@ from numba import jit
 from numba.typed import Dict, List
 
 import caliscope.logger
-from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.cameras.camera_array import CameraArray
 
 logger = caliscope.logger.get(__name__)
 
@@ -70,7 +70,7 @@ def triangulate_sync_index(
     # sync_indices_xyz = List()
     point_indices_xyz = List()
     obj_xyz = List()
-
+    P = np.identity(3)
     unique_points, point_counts = unique_with_counts(current_point_id)
     for index in range(len(point_counts)):
         if point_counts[index] > 1:
@@ -106,7 +106,7 @@ def triangulate_xy(xy: pd.DataFrame, camera_array: CameraArray) -> pd.DataFrame:
     part of the triangulation process
     """
     # assemble numba compatible dictionary
-    projection_matrices = camera_array.projection_matrices
+    normalized_projection_matrices = camera_array.normalized_projection_matrices
 
     # Code here to undistort all image points
     undistorted_xy = undistort_batch(xy, camera_array)
@@ -136,7 +136,7 @@ def triangulate_xy(xy: pd.DataFrame, camera_array: CameraArray) -> pd.DataFrame:
         raw_xy = np.vstack([img_loc_x, img_loc_y]).T
 
         # the fancy part
-        point_id_xyz, points_xyz = triangulate_sync_index(projection_matrices, port, point_ids, raw_xy)
+        point_id_xyz, points_xyz = triangulate_sync_index(normalized_projection_matrices, port, point_ids, raw_xy)
 
         if len(point_id_xyz) > 0:
             # there are points to store so store them...
@@ -159,44 +159,16 @@ def triangulate_xy(xy: pd.DataFrame, camera_array: CameraArray) -> pd.DataFrame:
     return xyz
 
 
-def undistort(points, camera: CameraData, iter_num=3) -> np.ndarray:
-    """
-    points: (n,2) dimensional np.ndarray
-    returns: (2,n) dimensional np.ndarray
-    """
-
-    # implementing a function described here: https://yangyushi.github.io/code/2020/03/04/opencv-undistort.html
-    # supposedly a better implementation than OpenCV
-    k1, k2, p1, p2, k3 = camera.distortions
-    fx, fy = camera.matrix[0, 0], camera.matrix[1, 1]
-    cx, cy = camera.matrix[:2, 2]
-
-    x, y = points.T[0], points.T[1]
-
-    x = (x - cx) / fx
-    x0 = x
-    y = (y - cy) / fy
-    y0 = y
-
-    for _ in range(iter_num):
-        r2 = x**2 + y**2
-        k_inv = 1 / (1 + k1 * r2 + k2 * r2**2 + k3 * r2**3)
-        delta_x = 2 * p1 * x * y + p2 * (r2 + 2 * x**2)
-        delta_y = p1 * (r2 + 2 * y**2) + 2 * p2 * x * y
-        x = (x0 - delta_x) * k_inv
-        y = (y0 - delta_y) * k_inv
-    return np.array((x * fx + cx, y * fy + cy))
-
-
 def undistort_batch(xy_df: pd.DataFrame, camera_array: CameraArray) -> pd.DataFrame:
     undistorted_points = []
     for port, camera in camera_array.cameras.items():
         logger.info(f"Processing points from camera {port}")
         subset_xy = xy_df.query(f"port == {port}").copy()
         points = np.vstack([subset_xy["img_loc_x"], subset_xy["img_loc_y"]]).T
-        x, y = undistort(points, camera)
-        subset_xy["img_loc_undistort_x"] = x
-        subset_xy["img_loc_undistort_y"] = y
+        undistorted_xy = camera.undistort_points(points)
+
+        subset_xy["img_loc_undistort_x"] = undistorted_xy[:, 0]
+        subset_xy["img_loc_undistort_y"] = undistorted_xy[:, 1]
         undistorted_points.append(subset_xy)
 
     logger.info("Assembling undistorted dataframe")

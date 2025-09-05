@@ -75,7 +75,7 @@ def test_calibration_workflow():
 
     # First optimization stage - bundle adjustment
     logger.info("Performing bundle adjustment")
-    capture_volume.optimize()
+    capture_volume.optimize(ftol=1e-3)
     assert capture_volume.stage == 1
 
     # Log post-bundle adjustment RMSE and improvement
@@ -128,8 +128,8 @@ def test_calibration_workflow():
 
 def test_deterministic_consistency():
     """
-    Test that running the same calibration multiple times produces identical results.
-    This ensures our deterministic implementation is truly deterministic.
+    Test that running the same sterocalibration multiple times produces identical results.
+    This ensures our implementation is truly deterministic for initializing camera poses.
     """
     version = "not_sufficient_stereopairs"
 

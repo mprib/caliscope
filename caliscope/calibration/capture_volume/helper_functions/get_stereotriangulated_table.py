@@ -10,7 +10,7 @@ import pandas as pd
 import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.packets import FramePacket, PointPacket, SyncPacket
-from caliscope.triangulate.array_stereo_triangulator import ArrayStereoTriangulator
+from caliscope.triangulate.array_stereo_triangulator import StereoTriangulator
 from caliscope.triangulate.stereo_points_builder import (
     StereoPointsBuilder,
 )
@@ -88,15 +88,15 @@ def get_stereotriangulated_table(camera_array: CameraArray, point_data_path: Pat
     # Single triangulation pass for all points
     sync_packet = SyncPacket(0, frame_packets)
     paired_point_builder = StereoPointsBuilder(ports)
-    array_triangulator = ArrayStereoTriangulator(camera_array)
+    array_triangulator = StereoTriangulator(camera_array)
 
-    synched_stereo_points = paired_point_builder.get_synched_paired_points(sync_packet)
-    array_triangulator.triangulate_synched_points(synched_stereo_points)
+    synced_stereo_points = paired_point_builder.get_synched_paired_points(sync_packet)
+    array_triangulator.triangulate_synced_points(synced_stereo_points)
 
     # Collect and process results
     stereotriangulated_table = None
-    for pair in synched_stereo_points.pairs:
-        triangulated_pair = synched_stereo_points.stereo_points_packets[pair]
+    for pair in synced_stereo_points.pairs:
+        triangulated_pair = synced_stereo_points.stereo_points_packets[pair]
         if triangulated_pair is not None:
             if stereotriangulated_table is None:
                 stereotriangulated_table = triangulated_pair.to_table()

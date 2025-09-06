@@ -182,10 +182,14 @@ class Synchronizer:
         return min(slack)
 
     def average_fps(self):
+        if len(self.mean_frame_times) < 2:
+            return 0.0  # can't get fps if only one frame
+
         if len(self.mean_frame_times) > 10:  # only looking at the most recent layers
             self.mean_frame_times = self.mean_frame_times[-10:]
 
         delta_t = np.diff(self.mean_frame_times)
+
         mean_delta_t = np.mean(delta_t)
 
         return 1 / mean_delta_t
@@ -242,7 +246,12 @@ class Synchronizer:
 
             logger.debug(f"Unassigned Frames: {len(self.all_frame_packets)}")
 
-            self.mean_frame_times.append(np.mean(layer_frame_times))
+            # only calculate mean and FPS if frames were actually synched this layer
+            if layer_frame_times:
+                self.mean_frame_times.append(np.mean(layer_frame_times))
+                self.fps_mean = self.average_fps()
+            else:
+                logger.warning("No frames were synchronized this cycle; skipping FPS update")
 
             logger.debug(f"Updating sync packet for sync_index {sync_index}")
             self.current_sync_packet = SyncPacket(sync_index, current_frame_packets)
@@ -270,7 +279,5 @@ class Synchronizer:
                     logger.info("signaling end of frames with `None` packet on subscriber queue.")
                     for port, q in self.frame_packet_queues.items():
                         logger.info(f"Currently {q.qsize()} frame packets unprocessed for port {port}")
-
-            self.fps_mean = self.average_fps()
 
         logger.info("Frame synch worker successfully ended")

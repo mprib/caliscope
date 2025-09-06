@@ -67,8 +67,8 @@ class RecordedStream:
         if synched_frames_history_path.exists():
             synched_frames_history = pd.read_csv(synched_frames_history_path)
 
-            self.port_history = synched_frames_history[synched_frames_history["port"] == self.port]
-
+            # Explicitly create a copy to avoid SettingWithCopyWarning
+            self.port_history = synched_frames_history[synched_frames_history["port"] == self.port].copy()
             self.port_history["frame_index"] = self.port_history["frame_time"].rank(method="min").astype(int) - 1
 
         ########### INFER TIME STAMP IF NOT AVAILABLE ####################################
@@ -173,7 +173,7 @@ class RecordedStream:
         while not self.stop_event.is_set():
             current_frame = self.port_history["frame_index"] == self.frame_index
             self.frame_time = self.port_history[current_frame]["frame_time"]
-            self.frame_time = float(self.frame_time)
+            self.frame_time = float(self.frame_time.iloc[0])
 
             ########## BEGIN NO SUBSCRIBERS SPINLOCK ##################
             spinlock_looped = False

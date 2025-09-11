@@ -333,29 +333,3 @@ def cartesian_product(*arrays):
     for i, a in enumerate(np.ix_(*arrays)):
         arr[..., i] = a
     return arr.reshape(-1, la)
-
-
-if __name__ == "__main__":
-    # if True:
-    from caliscope import __root__
-    from caliscope.session.session import LiveSession
-
-    session_directory = Path(__root__, "tests", "217")
-    # config_path = Path(session_directory, "config.toml")
-    # capture_volume_name = "capture_volume_stage_0.pkl"
-
-    # get the inputs for quality control (CaptureVolume and Charuco)
-    # capture_volume = get_capture_volume(Path(session_directory,capture_volume_name))
-    # charuco = get_charuco(config_path)
-
-    # create QualityControl
-    session = LiveSession(session_directory)
-    session.load_estimated_capture_volume()
-    quality_controller = QualityController(session.capture_volume)
-
-    logger.info(quality_controller.capture_volume.stage)
-
-    for _ in range(5):
-        logger.info("Filtering out worst fitting point estimates")
-        quality_controller.filter_point_estimates(0.95)
-        quality_controller.capture_volume.optimize()

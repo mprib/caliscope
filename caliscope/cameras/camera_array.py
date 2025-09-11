@@ -117,6 +117,10 @@ class CameraData:
 
     def get_display_data(self) -> OrderedDict:
         # Extracting camera matrix parameters
+        logger.info("Extracting camera parameters... ")
+        logger.info(f"Matrix: {self.matrix}")
+        logger.info(f"Distortion = {self.distortions}")
+
         if self.matrix is not None:
             fx, fy = self.matrix[0, 0], self.matrix[1, 1]
             cx, cy = self.matrix[0, 2], self.matrix[1, 2]
@@ -124,21 +128,51 @@ class CameraData:
             fx, fy = None, None
             cx, cy = None, None
 
-        # Extracting distortion coefficients
-        if self.distortions is not None:
-            # Fisheye has 4, standard has 5. We show up to 5.
-            coeffs = self.distortions.ravel().tolist() + [None] * 5
-            k1, k2, p1, p2, k3 = coeffs[:5]
-        else:
-            k1, k2, p1, p2, k3 = None, None, None, None, None
-
         def round_or_none(value, places):
             if value is None:
                 return None
             else:
                 return round(value, places)
 
-        # Creating the dictionary with OrderedDict
+        # Conditionally create the distortion dictionary based on camera model
+        distortion_coeffs_dict = OrderedDict()
+        if self.distortions is not None:
+            coeffs = self.distortions.ravel().tolist()
+            logger.info(f"Unpacking distortion coefficients: {coeffs}")
+            if self.fisheye:
+                # Fisheye model uses 4 coefficients: k1, k2, k3, k4
+                k1, k2, k3, k4 = coeffs
+                distortion_coeffs_dict["radial_k1"] = round_or_none(k1, 2)
+                distortion_coeffs_dict["radial_k2"] = round_or_none(k2, 2)
+                distortion_coeffs_dict["radial_k3"] = round_or_none(k3, 2)
+                distortion_coeffs_dict["radial_k4"] = round_or_none(k4, 2)
+            else:
+                # Standard model uses 5 coefficients: k1, k2, p1, p2, k3
+                k1, k2, p1, p2, k3 = coeffs
+                distortion_coeffs_dict["radial_k1"] = round_or_none(k1, 2)
+                distortion_coeffs_dict["radial_k2"] = round_or_none(k2, 2)
+                distortion_coeffs_dict["radial_k3"] = round_or_none(k3, 2)
+                distortion_coeffs_dict["tangential_p1"] = round_or_none(p1, 2)
+                distortion_coeffs_dict["tangential_p2"] = round_or_none(p2, 2)
+        else:
+            # If distortions are None, populate the dictionary with Nones
+            # to maintain a consistent structure for the UI.
+            if self.fisheye:
+                distortion_coeffs_dict = OrderedDict(
+                    [("radial_k1", None), ("radial_k2", None), ("radial_k3", None), ("radial_k4", None)]
+                )
+            else:
+                distortion_coeffs_dict = OrderedDict(
+                    [
+                        ("radial_k1", None),
+                        ("radial_k2", None),
+                        ("radial_k3", None),
+                        ("tangential_p1", None),
+                        ("tangential_p2", None),
+                    ]
+                )
+
+        # Creating the main dictionary with the correctly structured distortion info
         camera_display_dict = OrderedDict(
             [
                 ("size", self.size),
@@ -157,18 +191,7 @@ class CameraData:
                         ]
                     ),
                 ),
-                (
-                    "distortion_coefficients",
-                    OrderedDict(
-                        [
-                            ("radial_k1", round_or_none(k1, 2)),
-                            ("radial_k2", round_or_none(k2, 2)),
-                            ("radial_k3", round_or_none(k3, 2)),
-                            ("tangential_p1", round_or_none(p1, 2)),
-                            ("tangential_p2", round_or_none(p2, 2)),
-                        ]
-                    ),
-                ),
+                ("distortion_coefficients", distortion_coeffs_dict),
             ]
         )
 

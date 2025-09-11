@@ -286,6 +286,7 @@ class Configurator:
             "rotation": rotation_for_config,
             "exposure": camera.exposure,
             "grid_count": camera.grid_count,
+            "fisheye": camera.fisheye,
         }
 
         self.dict["cam_" + str(camera.port)] = params

@@ -3,6 +3,7 @@ from queue import Queue
 from threading import Event, Thread
 
 import cv2
+import numpy as np
 
 import caliscope.logger
 from caliscope.cameras.camera_array import CameraData
@@ -214,16 +215,65 @@ class IntrinsicCalibrator:
         width = self.stream.size[0]
         height = self.stream.size[1]
 
-        self.error, self.mtx, self.dist, self.rvecs, self.tvecs = cv2.calibrateCamera(
-            self.calibration_obj_loc,
-            self.calibration_img_loc,
-            (width, height),
-            None,
-            None,
-        )
+        if self.camera.fisheye:
+            # Convert to float32 and RESHAPE to add the required channel dimension
+            # The resulting shapes will be (N, 1, 3) and (N, 1, 2)
 
-        # fix extra dimension in return value of cv2.calibrateCamera
-        self.dist = self.dist[0]
+            obj_points_float32 = [p.reshape(-1, 1, 3).astype(np.float32) for p in self.calibration_obj_loc]
+            img_points_float32 = [p.reshape(-1, 1, 2).astype(np.float32) for p in self.calibration_img_loc]
+
+            # 2. Pre-initialize the output matrices
+            camera_matrix = np.zeros((3, 3))
+            dist_coeffs = np.zeros((1, 4))  # Fisheye model has 4 distortion coefficients
+            # # --- START: QUICK AND DIRTY DEBUG DUMP ---
+            # try:
+            #     # Get the directory of the current script
+            #     current_dir = os.path.dirname(os.path.abspath(__file__))
+            #     output_path = os.path.join(current_dir, f"debug_camera_{self.camera.port}_inputs.toml")
+            #
+            #     logger.info(f"Saving calibration inputs for debugging to {output_path}")
+            #
+            #     # Convert numpy arrays to lists for TOML serialization
+            #     obj_points_list = [p.tolist() for p in obj_points_float32]
+            #     img_points_list = [p.tolist() for p in img_points_float32]
+            #
+            #     debug_data = {
+            #         "description": "Debug data for cv2.fisheye.calibrate",
+            #         "camera_port": self.camera.port,
+            #         "image_size": [width, height],
+            #         "object_points": obj_points_list,
+            #         "image_points": img_points_list,
+            #     }
+            #
+            #     with open(output_path, "w") as f:
+            #         rtoml.dump(debug_data, f)
+            #
+            # except Exception as e:
+            #     logger.error(f"Failed to write debug TOML file: {e}")
+            # # --- END: QUICK AND DIRTY DEBUG DUMP ---
+            # 3. Call the function with all arguments correctly typed and initialized
+            self.error, self.mtx, self.dist, self.rvecs, self.tvecs = cv2.fisheye.calibrate(
+                obj_points_float32,
+                img_points_float32,
+                (width, height),
+                camera_matrix,  # Pass the initialized matrix
+                dist_coeffs,  # Pass the initialized coefficients
+            )
+
+        else:
+            # 2. Pre-initialize the output matrices
+            camera_matrix = np.zeros((3, 3))
+            dist_coeffs = np.zeros((1, 5))
+            self.error, self.mtx, self.dist, self.rvecs, self.tvecs = cv2.calibrateCamera(
+                self.calibration_obj_loc,
+                self.calibration_img_loc,
+                (width, height),
+                camera_matrix,
+                dist_coeffs,
+            )
+
+            # fix extra dimension in return value of cv2.calibrateCamera
+            self.dist = self.dist[0]
 
         self.update_camera()
         self.is_calibrated = True

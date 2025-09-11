@@ -16,12 +16,12 @@ class IntrinsicStreamManager:
     def __init__(
         self,
         recording_dir: Path,
-        cameras: dict[CameraData],
+        cameras: dict[int, CameraData],
         tracker: Tracker = None,
     ) -> None:
         self.recording_dir = recording_dir
         self.cameras = cameras
-        self.tracker = tracker
+        self.tracker: Tracker = tracker
         self.load_stream_tools()
 
     def load_stream_tools(self):
@@ -127,7 +127,7 @@ class IntrinsicStreamManager:
 
     def autocalibrate(self, port, grid_count, pct_board_threshold):
         stream = self.streams[port]
-        intrinsic_calibrator = self.calibrators[port]
+        intrinsic_calibrator: IntrinsicCalibrator = self.calibrators[port]
         frame_emitter = self.frame_emitters[port]
 
         board_corners = self.tracker.charuco.board.getChessboardCorners()

@@ -132,6 +132,7 @@ class PlaybackFrameEmitter(QThread):
             extreme_points = np.vstack((corners, midpoints))
 
             # Undistort these points
+            # TODO: link function call to camera undistort method
             undistorted_points = cv2.undistortPoints(
                 np.expand_dims(extreme_points, axis=1),
                 self.matrix,

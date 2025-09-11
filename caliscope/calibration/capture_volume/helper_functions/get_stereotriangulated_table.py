@@ -117,7 +117,7 @@ def get_stereotriangulated_table(camera_array: CameraArray, point_data_path: Pat
     stereotriangulated_table["point_id"] = stereotriangulated_table["original_point_id"]
     stereotriangulated_table.drop(["original_sync_index", "original_point_id"], axis=1, inplace=True)
 
-    logger.info(f"Saving stereotriangulated_points.csv to {point_data_path.parent}")
-    stereotriangulated_table.to_csv(Path(point_data_path.parent, "stereotriangulated_points.csv"))
+    # logger.info(f"Saving stereotriangulated_points.csv to {point_data_path.parent}")
+    # stereotriangulated_table.to_csv(Path(point_data_path.parent, "stereotriangulated_points.csv"))
 
     return stereotriangulated_table

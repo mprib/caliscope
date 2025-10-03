@@ -70,7 +70,6 @@ It provides visual feedback at each stage, helping you verify the parameter esti
 
 - Output to the `.trc` file format for use in biomechanical modeling.
 - Output to a tidy `.csv` format for integration with other analysis workflows.
-- A companion project, [Rigmarole](https://github.com/mprib/rigmarole), to facilitate creating animated rigs in Blender.
 
 ## Roadmap & Integrations
 

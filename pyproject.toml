@@ -48,8 +48,6 @@ build-backend = "hatchling.build"
 line-length = 120
 target-version = "py311"
 unsafe-fixes = true
-
-# The 'exclude' key belongs directly under [tool.ruff]
 exclude = [
     ".bzr",
     ".direnv",

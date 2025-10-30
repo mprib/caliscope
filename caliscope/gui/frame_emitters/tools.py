@@ -1,9 +1,9 @@
+import logging
+
 import cv2
 from PySide6.QtGui import QImage
 
-import caliscope.logger
-
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def resize_to_square(frame):

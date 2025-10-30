@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import sys
@@ -5,12 +6,11 @@ import sys
 from PySide6.QtCore import QFileSystemWatcher, Qt
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QSpinBox, QTextBrowser, QWidget
 
-import caliscope.logger
 from caliscope.controller import Controller
 from caliscope.gui.synched_frames_display import SyncedFramesDisplay
 from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class WorkspaceSummaryWidget(QWidget):

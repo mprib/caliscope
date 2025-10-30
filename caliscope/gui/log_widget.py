@@ -1,3 +1,4 @@
+import logging
 from time import time
 
 from PySide6.QtCore import Qt, Slot
@@ -9,9 +10,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from caliscope.logger import XStream, get
+from caliscope.logger import XStream
 
-logger = get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class LogWidget(QWidget):

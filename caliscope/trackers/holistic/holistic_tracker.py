@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from queue import Queue
 from threading import Thread
@@ -6,15 +7,13 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-import caliscope.logger
-
 # cap = cv2.VideoCapture(0)
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
 from caliscope.trackers.helper import apply_rotation, unrotate_points
 from caliscope.trackers.wireframe_builder import get_wireframe
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 DRAW_IGNORE_LIST = [
     "nose",

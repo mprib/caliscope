@@ -8,10 +8,9 @@ import cv2
 import numpy as np
 import pandas as pd
 
-import caliscope.logger
 from caliscope.packets import FramePacket, Tracker
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 

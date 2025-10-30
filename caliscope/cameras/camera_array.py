@@ -1,4 +1,5 @@
 # %%
+import logging
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Dict
@@ -8,9 +9,7 @@ import numpy as np
 from numba.typed import Dict as NumbaDict
 from numpy.typing import NDArray
 
-import caliscope.logger
-
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 CAMERA_PARAM_COUNT = 6
 
 

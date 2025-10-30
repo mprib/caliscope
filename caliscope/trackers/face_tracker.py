@@ -1,3 +1,4 @@
+import logging
 from queue import Queue
 from threading import Thread
 
@@ -5,14 +6,12 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-import caliscope.logger
-
 # cap = cv2.VideoCapture(0)
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
 from caliscope.trackers.helper import apply_rotation, unrotate_points
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class FaceTracker(Tracker):

@@ -1,57 +1,27 @@
-# Construct a single logger that will be used throughout
-# Detail will be logged to a single file with INFO logged to the console
-
 import logging
+import logging.handlers
 import os
 import sys
-from pathlib import Path
 
 from PySide6 import QtCore
 
-from caliscope import __log_dir__
-
-# only one file handler accross package so all messages logged to one file
-
-app_dir_file_handler = logging.FileHandler(Path(__log_dir__, "calibration.log"), "w+")
-app_dir_file_handler.setLevel(logging.INFO)
-
-file_log_format = " %(levelname)8s| %(name)30s| %(lineno)3d|  %(message)s"
-file_formatter = logging.Formatter(file_log_format)
-app_dir_file_handler.setFormatter(file_formatter)
-
-
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-
-console_log_format = " %(levelname)8s| %(name)30s| %(lineno)3d|  %(message)s"
-console_formatter = logging.Formatter(console_log_format)
-console_handler.setFormatter(console_formatter)
-
-# log_level_overides = {"caliscope.cameras.live_stream": logging.INFO}
+from caliscope import LOG_DIR
 
 
 class QtHandler(logging.Handler):
     """
-    Adapted from discussion here: https://stackoverflow.com/questions/24469662/how-to-redirect-logger-output-into-pyqt-text-widget
-    This handler will allow a QDialog box to pick up the logger output which may be useful for a
-    splash screen to show users that something is happening during big processing moments like:
-    - loading/finding cameras
-
-    - building / unbuilding synchronizer
-    - performing stereocalibration
+    Emits log records to a Qt signal, allowing them to be displayed in a GUI widget.
     """
 
     def __init__(self):
-        logging.Handler.__init__(self)
-        # qt_log_format =" %(levelname)s| %(name)s |%(message)s"
-        qt_log_format = " %(name)s|%(message)s"
-        qt_formatter = logging.Formatter(qt_log_format)
-        self.setFormatter(qt_formatter)
+        super().__init__()
+        qt_log_format = "%(name)s|%(message)s"
+        self.setFormatter(logging.Formatter(qt_log_format))
 
     def emit(self, record):
-        record = self.format(record)
-        if record:
-            XStream.stdout().write(f"{record} \n")
+        message = self.format(record)
+        if message:
+            XStream.stdout().write(f"{message}\n")
 
 
 class XStream(QtCore.QObject):
@@ -84,20 +54,48 @@ class XStream(QtCore.QObject):
         return XStream._stderr
 
 
-def get(name):  # as in __name__
-    logger = logging.getLogger(name)
+def setup_logging():
+    """
+    Configures the root logger for the entire application.
+    This should be called only ONCE at the start of the application.
+    """
+    # Get the root logger
+    root_logger = logging.getLogger()
 
-    logger.setLevel(logging.INFO)
+    # Prevent adding handlers multiple times
+    if root_logger.hasHandlers():
+        return
 
-    logger.addHandler(app_dir_file_handler)
-    logger.addHandler(console_handler)
+    root_logger.setLevel(logging.INFO)
+    log_format = "%(asctime)s | %(levelname)8s| %(name)3s| %(lineno)4d|  %(message)s"
+    formatter = logging.Formatter(log_format, datefmt="%Y-%m-%d %H:%M:%S")
 
-    # avoid stepping through XStream object if in debug
+    # 1. Add a rotating file handler
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_file = LOG_DIR / "caliscope.log"
+    log_file.touch(exist_ok=True)
+
+    file_handler = logging.handlers.RotatingFileHandler(
+        filename=log_file,
+        maxBytes=5 * 1024 * 1024,  # 5 MB
+        backupCount=5,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.INFO)
+    root_logger.addHandler(file_handler)
+
+    # 2. Add a console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.INFO)
+    root_logger.addHandler(console_handler)
+
+    # 3. Add the Qt handler
+    # skip in debug mode so you don't have to step through it
     if os.getenv("DEBUG") != "1":
         qt_handler = QtHandler()
-        logger.addHandler(qt_handler)
+        qt_handler.setLevel(logging.INFO)
+        root_logger.addHandler(qt_handler)
 
-    # qt_handler = QtHandler()
-    # logger.addHandler(qt_handler)
-
-    return logger
+    root_logger.info("Logging configured.")

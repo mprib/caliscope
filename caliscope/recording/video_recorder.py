@@ -1,4 +1,5 @@
 # from PySide6.QtCore import QObject, Signal
+import logging
 from pathlib import Path
 from queue import Queue
 from threading import Event, Thread
@@ -6,11 +7,10 @@ from threading import Event, Thread
 import cv2
 import pandas as pd
 
-import caliscope.logger
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.packets import SyncPacket
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class VideoRecorder:

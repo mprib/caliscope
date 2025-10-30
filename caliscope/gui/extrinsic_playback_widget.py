@@ -1,3 +1,4 @@
+import logging
 import math
 from threading import Event
 from time import sleep
@@ -15,12 +16,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import caliscope.logger
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.controller import Controller
 from caliscope.packets import FramePacket
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class ExtrinsicPlaybackWidget(QWidget):

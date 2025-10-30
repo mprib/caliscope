@@ -1,9 +1,9 @@
+import logging
 from pathlib import Path
 
-import caliscope.logger
 from caliscope.configurator import Configurator
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class WorkspaceGuide:

@@ -1,16 +1,16 @@
+import logging
 import time
 from pathlib import Path
 
 import pandas as pd
 
-import caliscope.logger
 from caliscope import __root__
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def assert_almost_equal(val1, val2, delta, msg):

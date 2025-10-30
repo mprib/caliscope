@@ -1,11 +1,11 @@
 # more attributes could certainly be tested in here,but at least this gives some basic sense of if things
 # are working....
+import logging
 import shutil
 from pathlib import Path
 
 import numpy as np
 
-import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
@@ -13,7 +13,7 @@ from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def point_estimates_are_equal(pe1: PointEstimates, pe2: PointEstimates) -> bool:

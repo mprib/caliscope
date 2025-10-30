@@ -1,13 +1,13 @@
 # test_controller.py
 
+# REFACTOR: Import QApplication and QEventLoop for robust async testing
+import logging
 from pathlib import Path
 
-# REFACTOR: Import QApplication and QEventLoop for robust async testing
-import caliscope.logger
 from caliscope import __root__
 from caliscope.controller import read_video_properties
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 # def test_extrinsic_calibration():

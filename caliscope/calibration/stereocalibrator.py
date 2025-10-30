@@ -1,3 +1,4 @@
+import logging
 from itertools import combinations
 from pathlib import Path
 
@@ -5,10 +6,9 @@ import cv2
 import numpy as np
 import pandas as pd
 
-import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray, CameraData
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class StereoCalibrator:

@@ -1,8 +1,8 @@
+import logging
 from pathlib import Path
 
 import numpy as np
 
-import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     create_point_estimates_from_stereopairs,
@@ -13,7 +13,7 @@ from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def test_point_estimates_structure_fully_linked():

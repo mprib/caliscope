@@ -1,13 +1,13 @@
 import json
+import logging
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-import caliscope.logger
 from caliscope.trackers.tracker_enum import TrackerEnum
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def calculate_distance(xyz_trajectory_data: pd.DataFrame, point1: str, point2: str):

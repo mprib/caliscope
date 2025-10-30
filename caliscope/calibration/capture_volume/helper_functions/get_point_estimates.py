@@ -1,16 +1,16 @@
+import logging
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-import caliscope.logger
 from caliscope.calibration.capture_volume.helper_functions.get_stereotriangulated_table import (
     get_stereotriangulated_table,
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.cameras.camera_array import CameraArray
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_points_2d_df(stereotriangulated_table: pd.DataFrame) -> pd.DataFrame:

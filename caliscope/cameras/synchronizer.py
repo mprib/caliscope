@@ -1,14 +1,14 @@
 # logger.setLevel(logging.DEBUG)
+import logging
 import time
 from queue import Queue
 from threading import Event, Thread
 
 import numpy as np
 
-import caliscope.logger
 from caliscope.packets import SyncPacket
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 DROPPED_FRAME_TRACK_WINDOW = 100  # trailing frames tracked for reporting purposes
 

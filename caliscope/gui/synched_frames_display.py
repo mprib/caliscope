@@ -1,3 +1,4 @@
+import logging
 import math
 from time import sleep
 
@@ -11,11 +12,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import caliscope.logger
 from caliscope.gui.frame_emitters.frame_dictionary_emitter import FrameDictionaryEmitter
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class SyncedFramesDisplay(QWidget):

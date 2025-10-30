@@ -1,3 +1,4 @@
+import logging
 import sys
 from pathlib import Path
 
@@ -5,7 +6,6 @@ import pandas as pd
 from PySide6.QtWidgets import QApplication
 from scipy.stats import pearsonr
 
-import caliscope.logger
 from caliscope import __root__
 from caliscope.configurator import Configurator
 from caliscope.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
@@ -14,7 +14,7 @@ from caliscope.gui.vizualize.playback_triangulation_widget import PlaybackTriang
 from caliscope.helper import copy_contents
 from caliscope.post_processing.smoothing import smooth_xyz
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 original_base_data_directory = Path(__root__, "tests", "reference", "base_data")
 base_data_directory = Path(original_base_data_directory.parent.parent, "reference_delete", "base_data")
 copy_contents(original_base_data_directory, base_data_directory)

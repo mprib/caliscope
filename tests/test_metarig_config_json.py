@@ -1,13 +1,13 @@
 # %%
 import json
+import logging
 from pathlib import Path
 
-import caliscope.logger
 from caliscope import __root__
 from caliscope.post_processing.blender_tools import generate_metarig_config
 from caliscope.trackers.tracker_enum import TrackerEnum
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def test_metarig_config_generation():

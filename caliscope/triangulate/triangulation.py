@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from time import time
 
@@ -6,10 +7,9 @@ import pandas as pd
 from numba import jit
 from numba.typed import Dict, List
 
-import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 # helper function to avoid use of np.unique(return_counts=True) which doesn't work with jit

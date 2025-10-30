@@ -1,10 +1,10 @@
+import logging
 from pathlib import Path
 from queue import Queue
 from time import sleep
 
 import numpy as np
 
-import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.charuco import Charuco
 from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
@@ -13,7 +13,7 @@ from caliscope.helper import copy_contents
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def test_intrinsic_calibrator():

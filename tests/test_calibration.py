@@ -1,7 +1,7 @@
+import logging
 from pathlib import Path
 from time import sleep
 
-import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
@@ -18,7 +18,7 @@ from caliscope.helper import copy_contents
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def test_xy_charuco_creation():

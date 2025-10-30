@@ -1,10 +1,10 @@
+import logging
 import shutil
 from pathlib import Path
 from time import sleep
 
 import pandas as pd
 
-import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
 from caliscope.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
@@ -13,7 +13,7 @@ from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.triangulate.triangulation import triangulate_xy
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 # gap filling and filtering is outside the current scope of the project so I'm toggling this off for now
 APPLY_EXPERIMENTAL_POST_PROCESSING = False

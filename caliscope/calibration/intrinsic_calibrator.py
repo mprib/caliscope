@@ -1,3 +1,4 @@
+import logging
 import random
 from queue import Queue
 from threading import Event, Thread
@@ -5,12 +6,11 @@ from threading import Event, Thread
 import cv2
 import numpy as np
 
-import caliscope.logger
 from caliscope.cameras.camera_array import CameraData
 from caliscope.packets import FramePacket
 from caliscope.recording.recorded_stream import RecordedStream
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class IntrinsicCalibrator:

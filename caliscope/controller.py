@@ -1,3 +1,4 @@
+import logging
 from collections import OrderedDict
 from pathlib import Path
 from time import sleep, time
@@ -5,7 +6,6 @@ from time import sleep, time
 import numpy as np
 from PySide6.QtCore import QObject, QThread, Signal
 
-import caliscope.logger
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     create_point_estimates_from_stereopairs,
@@ -27,7 +27,7 @@ from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 FILTERED_FRACTION = (

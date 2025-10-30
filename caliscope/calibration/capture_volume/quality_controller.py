@@ -1,4 +1,5 @@
 # %%
+import logging
 import pickle
 from pathlib import Path
 
@@ -6,12 +7,11 @@ import numpy as np
 import pandas as pd
 import rtoml
 
-import caliscope.logger
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class QualityController:

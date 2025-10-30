@@ -1,12 +1,12 @@
+import logging
 import sys
 from collections import OrderedDict
 
 from PySide6.QtWidgets import QApplication, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
-import caliscope.logger
 from caliscope.controller import Controller
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class CameraDataDisplayWidget(QWidget):

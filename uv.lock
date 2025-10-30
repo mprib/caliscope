@@ -111,7 +111,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.22.0" },
-    { name = "mediapipe", specifier = ">=0.10.21" },
+    { name = "mediapipe", specifier = ">=0.10.20" },
     { name = "mkdocs-git-revision-date-localized-plugin", marker = "extra == 'dev'", specifier = ">=1.2.0" },
     { name = "mkdocs-material", marker = "extra == 'dev'", specifier = ">=9.1.6" },
     { name = "numba", specifier = ">=0.57.0" },

@@ -13,7 +13,7 @@ dependencies = [
     "pyqtgraph>=0.13.2",
     "PyOpenGL>=3.1.6",
     "numba>=0.57.0",
-    "mediapipe==0.10.20",
+    "mediapipe>=0.10.20",
     "pyside6>=6.5.2",
     "opencv-contrib-python>=4.8.0.74",
     "rtoml>=0.9.0",

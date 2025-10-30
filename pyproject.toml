@@ -5,7 +5,7 @@ description = "GUI based multicamera calibration that integrates with 2D landmar
 authors = [{name = "Mac Prible", email = "prible@gmail.com"}]
 license = { text = "BSD-2-Clause" }
 readme = "README.md"
-requires-python = ">=3.10,<3.12"  # Note: excluding 3.12 to avoid numba issues
+requires-python = ">=3.10,<3.13" # note that mediapipe will not currently run on macOS for python >= 3.13
 
 dependencies = [
     "pandas>=1.5.0",
@@ -13,12 +13,13 @@ dependencies = [
     "pyqtgraph>=0.13.2",
     "PyOpenGL>=3.1.6",
     "numba>=0.57.0",
-    "mediapipe==0.10.20",
     "pyside6>=6.5.2",
     "opencv-contrib-python>=4.8.0.74",
     "rtoml>=0.9.0",
     "pyarrow>=15.0.0",
     "platformdirs>=4.3.8",
+    "mediapipe>=0.10.20",
+    "pre-commit>=4.3.0",
 ]
 
 [project.optional-dependencies]

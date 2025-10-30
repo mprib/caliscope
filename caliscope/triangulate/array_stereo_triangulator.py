@@ -1,13 +1,13 @@
+import logging
 from itertools import combinations
 
 import cv2
 import numpy as np
 
-import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.triangulate.stereo_points_builder import StereoPointsPacket, SyncedStereoPointsPacket
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class StereoTriangulator:

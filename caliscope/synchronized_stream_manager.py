@@ -1,9 +1,9 @@
+import logging
 import statistics
 from pathlib import Path
 
 import cv2
 
-import caliscope.logger
 from caliscope.cameras.camera_array import CameraData
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.packets import Tracker
@@ -11,7 +11,7 @@ from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.recording.video_recorder import VideoRecorder
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class SynchronizedStreamManager:

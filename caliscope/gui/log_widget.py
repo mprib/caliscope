@@ -1,17 +1,16 @@
-from time import time
+import logging
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
-    QApplication,
-    QPushButton,
     QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
 
-from caliscope.logger import XStream, get
+# Import the global handler instance directly
+from caliscope.logger import qt_handler_instance
 
-logger = get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class LogWidget(QWidget):
@@ -23,52 +22,28 @@ class LogWidget(QWidget):
         self.setWindowFlags(Qt.WindowType.WindowTitleHint)
 
         layout = QVBoxLayout()
-
         layout.addWidget(self._console)
 
-        ## Verify widget working with a button to send a message
-        if __name__ == "__main__":
-            self._button = QPushButton(self)
-            self._button.setText("Test Me")
-            layout.addWidget(self._button)
-            self._button.clicked.connect(test)
-
         self.setLayout(layout)
-        XStream.stdout().messageWritten.connect(self._console.appendLogMessage)
-        XStream.stderr().messageWritten.connect(self._console.appendLogMessage)
 
-
-def test():
-    logger.info(f"This is a test; It is {time()}")
+        qt_handler_instance.emitter.message_written.connect(self._console.appendLogMessage)
 
 
 class LogMessageViewer(QTextBrowser):
     def __init__(self, parent=None):
         super(LogMessageViewer, self).__init__(parent)
         self.setReadOnly(True)
-        # self.setLineWrapMode(QtGui.QTextEdit.NoWrap)
         self.setEnabled(True)
         self.verticalScrollBar().setVisible(True)
 
     @Slot(str)
-    def appendLogMessage(self, msg):
-        horScrollBar = self.horizontalScrollBar()
+    def appendLogMessage(self, msg: str):
+        """Appends a message to the text browser and scrolls to the bottom."""
+        # Ensure we scroll to the bottom to see the latest message
         verScrollBar = self.verticalScrollBar()
-        # scrollIsAtEnd = verScrollBar.maximum() - verScrollBar.value() <= 10
+        scrollIsAtEnd = verScrollBar.value() >= (verScrollBar.maximum() - 10)
 
-        verScrollBar.setValue(verScrollBar.maximum())  # Scrolls to the bottom
-        horScrollBar.setValue(0)  # scroll to the left
         self.insertPlainText(msg)
 
-        # if scrollIsAtEnd:
-        #     verScrollBar.setValue(verScrollBar.maximum())  # Scrolls to the bottom
-        #     self.insertPlainText(msg)
-        #     horScrollBar.setValue(0)  # scroll to the left
-
-
-if __name__ == "__main__":
-    app = QApplication([])
-    dlg = LogWidget("This is only a test")
-    dlg.show()
-
-    app.exec()
+        if scrollIsAtEnd:
+            verScrollBar.setValue(verScrollBar.maximum())

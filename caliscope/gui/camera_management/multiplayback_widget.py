@@ -1,3 +1,4 @@
+import logging
 import sys
 from pathlib import Path
 
@@ -8,13 +9,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import caliscope.logger
 from caliscope.controller import Controller
 from caliscope.gui.camera_management.playback_widget import (
     IntrinsicCalibrationWidget,
 )
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class MultiIntrinsicPlaybackWidget(QWidget):

@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -14,7 +15,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import caliscope.logger
 from caliscope.configurator import Configurator
 from caliscope.controller import Controller
 from caliscope.gui.vizualize.playback_triangulation_widget import (
@@ -23,7 +23,7 @@ from caliscope.gui.vizualize.playback_triangulation_widget import (
 from caliscope.post_processing.blender_tools import generate_metarig_config
 from caliscope.trackers.tracker_enum import TrackerEnum
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class PostProcessingWidget(QWidget):

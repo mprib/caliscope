@@ -1,16 +1,17 @@
 # %%
 
 
+import logging
+
 import cv2
 import numpy as np
 import scipy
 
-import caliscope.logger
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 # Proceeding with basic idea that these functions will go into CaptureVolume.

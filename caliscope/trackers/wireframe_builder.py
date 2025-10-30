@@ -1,11 +1,11 @@
+import logging
 from pathlib import Path
 
 import rtoml
 
-import caliscope.logger
 from caliscope.tracker import Segment, WireFrameView
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_wireframe(toml_spec_path: Path, point_names: dict) -> WireFrameView:

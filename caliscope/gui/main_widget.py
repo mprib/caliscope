@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import sys
@@ -17,8 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import caliscope.logger
-from caliscope import __log_dir__, __root__, __settings_path__
+from caliscope import APP_SETTINGS_PATH, LOG_DIR, __root__
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.controller import Controller
 from caliscope.gui.camera_management.multiplayback_widget import (
@@ -31,7 +31,7 @@ from caliscope.gui.vizualize.calibration.capture_volume_visualizer import Captur
 from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from caliscope.gui.workspace_widget import WorkspaceSummaryWidget
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class TabTypes(Enum):
@@ -45,7 +45,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        self.app_settings = rtoml.load(__settings_path__)
+        self.app_settings = rtoml.load(APP_SETTINGS_PATH)
 
         self.setWindowTitle("Caliscope")
         self.setWindowIcon(QIcon(str(Path(__root__, "caliscope/gui/icons/box3d-center.svg"))))
@@ -201,13 +201,13 @@ class MainWindow(QMainWindow):
         self.launch_workspace(project_path)
 
     def open_log_dir(self):
-        logger.info(f"Opening logging directory within File Explorer...  located at {__log_dir__}")
+        logger.info(f"Opening logging directory within File Explorer...  located at {LOG_DIR}")
         if sys.platform == "win32":
-            os.startfile(__log_dir__)
+            os.startfile(LOG_DIR)
         elif sys.platform == "darwin":
-            subprocess.run(["open", __log_dir__])
+            subprocess.run(["open", LOG_DIR])
         else:  # Linux and Unix-like systems
-            subprocess.run(["xdg-open", __log_dir__])
+            subprocess.run(["xdg-open", LOG_DIR])
         pass
 
     def create_new_project_folder(self):
@@ -235,8 +235,8 @@ class MainWindow(QMainWindow):
             self.add_to_recent_project(folder_path)
 
     def update_app_settings(self):
-        logger.info(f"Saving out app settings to {__settings_path__}")
-        with open(__settings_path__, "w") as f:
+        logger.info(f"Saving out app settings to {APP_SETTINGS_PATH}")
+        with open(APP_SETTINGS_PATH, "w") as f:
             rtoml.dump(self.app_settings, f)
 
 

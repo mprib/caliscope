@@ -1,12 +1,13 @@
+import logging
+
 import numpy as np
 import pyqtgraph.opengl as gl
 
-import caliscope.logger
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class CaptureVolumeVisualizer:

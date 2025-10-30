@@ -1,5 +1,6 @@
 # %%
 
+import logging
 from dataclasses import asdict
 from datetime import datetime
 from enum import Enum
@@ -10,13 +11,12 @@ import cv2
 import numpy as np
 import rtoml
 
-import caliscope.logger
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class ConfigSettings(Enum):

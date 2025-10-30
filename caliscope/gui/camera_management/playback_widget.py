@@ -1,3 +1,4 @@
+import logging
 import sys
 from pathlib import Path
 
@@ -18,14 +19,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import caliscope.logger
 from caliscope import __root__
 from caliscope.controller import Controller
 from caliscope.gui.camera_management.camera_display_widget import (
     CameraDataDisplayWidget,
 )
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def svg_to_pixmap(svg_path: Path, size):

@@ -1,3 +1,4 @@
+import logging
 from queue import Queue
 from threading import Event
 
@@ -5,12 +6,11 @@ import numpy as np
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
 
-import caliscope.logger
 from caliscope.cameras.camera_array import CameraData
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.gui.frame_emitters.tools import apply_rotation, cv2_to_qlabel, resize_to_square
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class FrameDictionaryEmitter(QThread):

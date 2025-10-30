@@ -1,9 +1,9 @@
+import logging
+
 import numpy as np
 import pandas as pd
 
-import caliscope.logger
-
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def gap_fill_xy(xy_base: pd.DataFrame, max_gap_size=3) -> pd.DataFrame:

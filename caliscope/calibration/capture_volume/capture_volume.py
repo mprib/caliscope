@@ -1,3 +1,4 @@
+import logging
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
@@ -6,7 +7,6 @@ import cv2
 import numpy as np
 from scipy.optimize import least_squares
 
-import caliscope.logger
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.set_origin_functions import (
     get_board_origin_transform,
@@ -14,7 +14,7 @@ from caliscope.calibration.capture_volume.set_origin_functions import (
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 CAMERA_PARAM_COUNT = 6  # rotation and translation parameters
 OPTIMIZATION_LOOPS = 0

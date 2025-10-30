@@ -1,3 +1,5 @@
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGridLayout,
@@ -10,13 +12,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import caliscope.logger
 from caliscope.controller import Controller
 from caliscope.gui.vizualize.calibration.capture_volume_visualizer import (
     CaptureVolumeVisualizer,
 )
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class CaptureVolumeWidget(QWidget):

@@ -1,10 +1,10 @@
 """ """
 
+import logging
 from pathlib import Path
 
 import numpy as np
 
-import caliscope.logger
 from caliscope import __root__
 from caliscope.calibration.stereocalibrator import StereoCalibrator
 from caliscope.cameras.camera_array import CameraArray
@@ -12,7 +12,7 @@ from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def test_missing_extrinsics():

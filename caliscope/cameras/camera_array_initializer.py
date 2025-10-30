@@ -1,5 +1,6 @@
 # caliscope/cameras/camera_array_initializer.py
 
+import logging
 from collections import deque
 from dataclasses import dataclass
 from itertools import permutations
@@ -7,10 +8,9 @@ from typing import Dict, Tuple
 
 import numpy as np
 
-import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray, CameraData
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass

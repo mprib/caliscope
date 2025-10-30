@@ -1,9 +1,13 @@
+import logging
 import sys
 
-import caliscope.logger
 from caliscope.gui.main_widget import launch_main
+from caliscope.logger import setup_logging
+from caliscope.startup import initialize_app
 
-logger = caliscope.logger.get(__name__)
+setup_logging()
+initialize_app()
+logger = logging.getLogger(__name__)
 
 
 def CLI_parser():
@@ -11,11 +15,4 @@ def CLI_parser():
         launch_main()
 
     if len(sys.argv) == 2:
-        launch_widget = sys.argv[1]
-
-        # if launch_widget in ["calibrate", "cal", "-c"]:
-        #     launch_extrinsic_calibration_widget(session_path)
-
-        if launch_widget in ["record", "rec", "-r"]:
-            pass
-            # launch_recording_widget(session_path)
+        sys.argv[1]

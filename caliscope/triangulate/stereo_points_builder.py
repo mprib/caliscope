@@ -5,11 +5,10 @@ from pathlib import Path
 
 import numpy as np
 
-import caliscope.logger
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.packets import SyncPacket
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 @dataclass

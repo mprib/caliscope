@@ -1,3 +1,4 @@
+import logging
 from queue import Queue
 from threading import Event
 
@@ -7,11 +8,10 @@ from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
 
 import caliscope.calibration.draw_charuco as draw_charuco
-import caliscope.logger
 from caliscope.gui.frame_emitters.tools import apply_rotation, cv2_to_qlabel, resize_to_square
 from caliscope.recording.recorded_stream import RecordedStream
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class PlaybackFrameEmitter(QThread):

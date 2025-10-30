@@ -1,11 +1,10 @@
+import logging
 from dataclasses import dataclass
 
 import numpy as np
 from scipy.sparse import lil_matrix
 
-import caliscope.logger
-
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 CAMERA_PARAM_COUNT = 6
 

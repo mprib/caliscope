@@ -1,11 +1,11 @@
+import logging
 from pathlib import Path
 
-import caliscope.logger
 from caliscope import __root__
 from caliscope.motion_trial import MotionTrial
 from caliscope.packets import XYZPacket
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def test_motion_trial():

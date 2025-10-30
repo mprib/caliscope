@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from time import time
 
@@ -10,12 +11,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-import caliscope.logger
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 from caliscope.motion_trial import MotionTrial
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 # as part of development process I'm just going to import the skeleton in here
 
 

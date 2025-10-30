@@ -1,13 +1,13 @@
+import logging
 import math
 
 import numpy as np
 import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 
-import caliscope.logger
 from caliscope.cameras.camera_array import CameraData
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 class CameraMesh:

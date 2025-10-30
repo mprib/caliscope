@@ -1,15 +1,15 @@
 # %%
+import logging
 from pathlib import Path
 
 import pandas as pd
 
-import caliscope.logger
 from caliscope import __root__
 from caliscope.helper import copy_contents
 from caliscope.post_processing.gap_filling import gap_fill_xy, gap_fill_xyz
 from caliscope.trackers.tracker_enum import TrackerEnum
 
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 original_recording_directory = Path(__root__, "tests", "reference", "base_data")
 tracker_enum = TrackerEnum.SIMPLE_HOLISTIC

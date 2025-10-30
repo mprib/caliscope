@@ -1,9 +1,8 @@
+import logging
 import shutil
 from pathlib import Path
 
-import caliscope.logger
-
-logger = caliscope.logger.get(__name__)
+logger = logging.getLogger(__name__)
 
 
 def copy_contents(src_folder, dst_folder):

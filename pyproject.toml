@@ -5,7 +5,7 @@ description = "GUI based multicamera calibration that integrates with 2D landmar
 authors = [{name = "Mac Prible", email = "prible@gmail.com"}]
 license = { text = "BSD-2-Clause" }
 readme = "README.md"
-requires-python = ">=3.10,<=3.12" # note that mediapipe will not currently run on macOS for python >= 3.13
+requires-python = ">=3.10,<3.13" # note that mediapipe will not currently run on macOS for python >= 3.13
 
 dependencies = [
     "pandas>=1.5.0",

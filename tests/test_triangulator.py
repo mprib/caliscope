@@ -1,4 +1,4 @@
-""" "
+"""
 NOTE: In addition to testing the real time triangulation, this code bases
 its final assertions on the values from the original bundle adjustment.
 This allows a cross check for the triangulation function that is distinct from
@@ -50,7 +50,6 @@ def test_triangulator():
     assert not target_xyz_path.exists()
 
     config = Configurator(test_session)
-    config.refresh_point_estimates_from_toml()
 
     charuco: Charuco = config.get_charuco()
     charuco_tracker = CharucoTracker(charuco)
@@ -84,29 +83,59 @@ def test_triangulator():
     while real_time_triangulator.running:
         sleep(1)
 
-    # need to compare the output of the triangulator to the point_estimats
-    # this is nice because it's two totally different processing pipelines
-    # but sync indices will be different, so just compare mean positions
-    # which should be quite close
-
+    # 1. LOAD DATA
+    # Load the newly created xyz data from the triangulation pipeline
     xyz_history = pd.read_csv(target_xyz_path)
-    xyz_config = np.array(config.dict["point_estimates"]["obj"])
-    triangulator_x_mean = xyz_history["x_coord"].mean()
-    triangulator_y_mean = xyz_history["y_coord"].mean()
-    triangulator_z_mean = xyz_history["z_coord"].mean()
 
-    config_x_mean = xyz_config[:, 0].mean()
-    config_y_mean = xyz_config[:, 1].mean()
-    config_z_mean = xyz_config[:, 2].mean()
+    # Load the ground truth data from the bundle adjustment (PointEstimates)
+    point_estimates = config.load_point_estimates_from_toml()
 
-    logger.info(f"x: {round(triangulator_x_mean, 4)} vs {round(config_x_mean, 4)} ")
-    logger.info(f"y: {round(triangulator_y_mean, 4)} vs {round(config_y_mean, 4)} ")
-    logger.info(f"z: {round(triangulator_z_mean, 4)} vs {round(config_z_mean, 4)} ")
+    # 2. CONSTRUCT GROUND TRUTH DATAFRAME
+    # Create a DataFrame from the bundle adjustment results for easier comparison.
+    # This structure is what a future XYZBatch class would encapsulate.
+    xyz_config_coords = point_estimates.obj
+    df_ground_truth = pd.DataFrame(
+        {
+            "sync_index": point_estimates.sync_indices,
+            "point_id": point_estimates.obj_indices,
+            "x_coord": xyz_config_coords[point_estimates.obj_indices, 0],
+            "y_coord": xyz_config_coords[point_estimates.obj_indices, 1],
+            "z_coord": xyz_config_coords[point_estimates.obj_indices, 2],
+        }
+    )
 
-    logger.info("Assert that mean positions are within 7 millimeters...")
-    assert abs(config_x_mean - triangulator_x_mean) < 0.007
-    assert abs(config_y_mean - triangulator_y_mean) < 0.007
-    assert abs(config_z_mean - triangulator_z_mean) < 0.007
+    # 3. VALIDATE AND NORMALIZE SYNC INDICES
+    # Assert that both pipelines processed the same number of frames
+    ground_truth_range = df_ground_truth["sync_index"].max() - df_ground_truth["sync_index"].min()
+    history_range = xyz_history["sync_index"].max() - xyz_history["sync_index"].min()
+    logger.info(f"Ground truth sync index range: {ground_truth_range}. Triangulation history range: {history_range}")
+    assert abs(ground_truth_range - history_range) <= 1, "Sync index ranges differ by more than one frame."
+    # Normalize the ground truth sync_index to be zero-based, matching the
+    # real-time triangulation output, which does not preserve the original frame index.
+    min_sync_index = df_ground_truth["sync_index"].min()
+    logger.info(f"Normalizing ground truth sync_index by subtracting offset of {min_sync_index}")
+    df_ground_truth["sync_index"] = df_ground_truth["sync_index"] - min_sync_index
+
+    # 4. MERGE FOR ALIGNMENT
+    # Perform an inner merge to align points that appear in BOTH datasets for each frame.
+    # This is the key step for a robust, frame-by-frame comparison.
+    df_merged = pd.merge(
+        df_ground_truth, xyz_history, on=["sync_index", "point_id"], suffixes=("_truth", "_triangulated")
+    )
+
+    # 5. CALCULATE PER-POINT ERROR
+    xyz_truth = df_merged[["x_coord_truth", "y_coord_truth", "z_coord_truth"]].values
+    xyz_triangulated = df_merged[["x_coord_triangulated", "y_coord_triangulated", "z_coord_triangulated"]].values
+    errors_m = np.linalg.norm(xyz_truth - xyz_triangulated, axis=1)
+
+    # 6. ENHANCED ASSERTIONS
+    mean_error_mm = np.mean(errors_m) * 1000
+    max_error_mm = np.max(errors_m) * 1000
+    logger.info(f"Mean per-point error: {mean_error_mm:.2f} mm")
+    logger.info(f"Max per-point error:  {max_error_mm:.2f} mm")
+
+    assert mean_error_mm < 7  # Assert mean error is less than 7mm
+    assert max_error_mm < 15  # Assert no single point deviates by more than 1.5cm
 
 
 if __name__ == "__main__":
@@ -114,4 +143,5 @@ if __name__ == "__main__":
 
     caliscope.logger.setup_logging()
     test_triangulator()
-# %%
+
+# %%```

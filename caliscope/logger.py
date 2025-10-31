@@ -56,7 +56,7 @@ class QtHandler(logging.Handler):
 
     def __init__(self):
         super().__init__()
-        # Create an instance of our signal emitter
+        # need in instance of qt emitter to wire up to GUI
         self.emitter = LogEmitter()
 
     def emit(self, record):
@@ -66,7 +66,6 @@ class QtHandler(logging.Handler):
         """
         message = self.format(record)
         if message:
-            # Emit the signal from our dedicated emitter instance
             self.emitter.message_written.emit(message + "\n")
 
 
@@ -103,6 +102,7 @@ def setup_logging():
     root_logger.addHandler(console_handler)
 
     # 3. Qt Handler
+    # Don't step through if you are just debugging
     if os.getenv("DEBUG") != "1":
         qt_handler_instance.setLevel(logging.INFO)
         qt_format = "%(name)s: %(message)s"

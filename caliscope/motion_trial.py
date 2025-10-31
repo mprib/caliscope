@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -6,6 +7,8 @@ import pandas as pd
 
 from caliscope.packets import XYZPacket
 from caliscope.trackers.tracker_enum import TrackerEnum
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -22,11 +25,13 @@ class MotionTrial:
         # assert(self.xyz_csv.exists())
 
         tracker_name = self.xyz_csv.stem[4:]  # peel off "xyz_"
-        self.tracker = TrackerEnum[tracker_name].value()
+        try:
+            self.tracker = TrackerEnum[tracker_name].value()
 
-        if hasattr(self.tracker, "wireframe"):
-            self.wireframe = self.tracker.wireframe
-        else:
+            if hasattr(self.tracker, "wireframe"):
+                self.wireframe = self.tracker.wireframe
+        except Exception as e:
+            logger.exception(f"{e}: Using tracker of type {tracker_name}, but unable to create")
             self.wireframe = None
 
         self.xyz_df = pd.read_csv(self.xyz_csv, engine="pyarrow")

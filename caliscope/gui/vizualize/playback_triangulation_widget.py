@@ -114,9 +114,12 @@ class TriangulationVisualizer:
         logger.info("Updating xyz history in playback widget")
         self.motion_trial: MotionTrial = motion_trial
 
-        if hasattr(self.motion_trial.tracker, "wireframe"):
-            for segment_line in self.motion_trial.tracker.wireframe.line_plots.values():
-                self.scene.addItem(segment_line)
+        try:
+            if hasattr(self.motion_trial.tracker, "wireframe"):
+                for segment_line in self.motion_trial.tracker.wireframe.line_plots.values():
+                    self.scene.addItem(segment_line)
+        except Exception as e:
+            logger.exception(f"{e}: unable to acccess tracker to get wireframe")
 
         self.sync_index = self.motion_trial.start_index
         self.display_points(self.sync_index)

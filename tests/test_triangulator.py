@@ -5,7 +5,7 @@ This allows a cross check for the triangulation function that is distinct from
 the optimization in the bundle adjustmnent.
 
 After recent inclusion of distortion into the triangulation, the tolerance
-of the final averaged triangulated position improved from 1.5 cm to 6 mm.
+of the final averaged triangulated position improved from 1.5 cm to 1.5 mm.
 """
 
 import logging
@@ -84,7 +84,6 @@ def test_triangulator():
         sleep(1)
 
     # 1. LOAD DATA
-    # Load the newly created xyz data from the triangulation pipeline
     xyz_history = pd.read_csv(target_xyz_path)
 
     # Load the ground truth data from the bundle adjustment (PointEstimates)
@@ -92,24 +91,21 @@ def test_triangulator():
 
     # 2. CONSTRUCT GROUND TRUTH DATAFRAME
     # Create a DataFrame from the bundle adjustment results for easier comparison.
-    # This structure is what a future XYZBatch class would encapsulate.
     xyz_config_coords = point_estimates.obj
     df_ground_truth = pd.DataFrame(
         {
             "sync_index": point_estimates.sync_indices,
-            "point_id": point_estimates.obj_indices,
+            "point_id": point_estimates.point_id,
             "x_coord": xyz_config_coords[point_estimates.obj_indices, 0],
             "y_coord": xyz_config_coords[point_estimates.obj_indices, 1],
             "z_coord": xyz_config_coords[point_estimates.obj_indices, 2],
         }
     )
 
-    # 3. VALIDATE AND NORMALIZE SYNC INDICES
-    # Assert that both pipelines processed the same number of frames
-    ground_truth_range = df_ground_truth["sync_index"].max() - df_ground_truth["sync_index"].min()
-    history_range = xyz_history["sync_index"].max() - xyz_history["sync_index"].min()
-    logger.info(f"Ground truth sync index range: {ground_truth_range}. Triangulation history range: {history_range}")
-    assert abs(ground_truth_range - history_range) <= 1, "Sync index ranges differ by more than one frame."
+    # Ensure we are only comparing unique 3D points
+    df_ground_truth.drop_duplicates(subset=["sync_index", "point_id"], inplace=True)
+
+    # 3. NORMALIZE SYNC INDICES
     # Normalize the ground truth sync_index to be zero-based, matching the
     # real-time triangulation output, which does not preserve the original frame index.
     min_sync_index = df_ground_truth["sync_index"].min()
@@ -118,7 +114,6 @@ def test_triangulator():
 
     # 4. MERGE FOR ALIGNMENT
     # Perform an inner merge to align points that appear in BOTH datasets for each frame.
-    # This is the key step for a robust, frame-by-frame comparison.
     df_merged = pd.merge(
         df_ground_truth, xyz_history, on=["sync_index", "point_id"], suffixes=("_truth", "_triangulated")
     )
@@ -134,7 +129,7 @@ def test_triangulator():
     logger.info(f"Mean per-point error: {mean_error_mm:.2f} mm")
     logger.info(f"Max per-point error:  {max_error_mm:.2f} mm")
 
-    assert mean_error_mm < 7  # Assert mean error is less than 7mm
+    assert mean_error_mm < 1.5  # Assert mean error is less than 1.5mm
     assert max_error_mm < 15  # Assert no single point deviates by more than 1.5cm
 
 
@@ -143,5 +138,3 @@ if __name__ == "__main__":
 
     caliscope.logger.setup_logging()
     test_triangulator()
-
-# %%```

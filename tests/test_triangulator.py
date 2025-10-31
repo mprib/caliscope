@@ -43,9 +43,14 @@ def test_triangulator():
 
     copy_contents(original_session, test_session)
 
+    recording_directory = Path(test_session, "calibration", "extrinsic")
+    target_xyz_path = recording_directory / "xyz_CHARUCO.csv"
+
+    # there should be nothing here... this is what we are going to create
+    assert not target_xyz_path.exists()
+
     config = Configurator(test_session)
     config.refresh_point_estimates_from_toml()
-    # origin_sync_index = config.dict["capture_volume"]["origin_sync_index"]
 
     charuco: Charuco = config.get_charuco()
     charuco_tracker = CharucoTracker(charuco)
@@ -53,7 +58,6 @@ def test_triangulator():
     camera_array: CameraArray = config.get_camera_array()
 
     logger.info("Creating RecordedStreamPool based on calibration recordings")
-    recording_directory = Path(test_session, "calibration", "extrinsic")
 
     streams = {}
     for port, camera in camera_array.cameras.items():
@@ -85,7 +89,7 @@ def test_triangulator():
     # but sync indices will be different, so just compare mean positions
     # which should be quite close
 
-    xyz_history = pd.read_csv(Path(recording_directory, "xyz_CHARUCO.csv"))
+    xyz_history = pd.read_csv(target_xyz_path)
     xyz_config = np.array(config.dict["point_estimates"]["obj"])
     triangulator_x_mean = xyz_history["x_coord"].mean()
     triangulator_y_mean = xyz_history["y_coord"].mean()
@@ -106,6 +110,8 @@ def test_triangulator():
 
 
 if __name__ == "__main__":
+    import caliscope.logger
+
+    caliscope.logger.setup_logging()
     test_triangulator()
-    print("test end")
 # %%

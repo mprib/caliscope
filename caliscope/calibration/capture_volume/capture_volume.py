@@ -165,18 +165,18 @@ class CaptureVolume:
 
         return xyz
 
-    def shift_origin(self, origin_shift_transform: np.ndarray):
+    def apply_transform(self, transform_matrix: np.ndarray):
         # update 3d point estimates
         xyz = self._point_estimates.obj
         scale = np.expand_dims(np.ones(xyz.shape[0]), 1)
         xyzh = np.hstack([xyz, scale])
 
-        new_origin_xyzh = np.matmul(np.linalg.inv(origin_shift_transform), xyzh.T).T
+        new_origin_xyzh = np.matmul(np.linalg.inv(transform_matrix), xyzh.T).T
         self._point_estimates.obj = new_origin_xyzh[:, 0:3]
 
         # update camera array
         for port, camera_data in self.camera_array.posed_cameras.items():
-            camera_data.transformation = np.matmul(camera_data.transformation, origin_shift_transform)
+            camera_data.transformation = np.matmul(camera_data.transformation, transform_matrix)
 
     def set_origin_to_board(self, sync_index, charuco: Charuco):
         """
@@ -188,7 +188,19 @@ class CaptureVolume:
         logger.info(f"Capture volume origin set to board position at sync index {sync_index}")
 
         origin_transform = get_board_origin_transform(self.camera_array, self._point_estimates, sync_index, charuco)
-        self.shift_origin(origin_transform)
+        self.apply_transform(origin_transform)
+
+    def rotate(self, direction: str):
+        """Applies a 90-degree rotation around the specified axis."""
+        transformations = {
+            "x+": np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]], dtype=float),
+            "x-": np.array([[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=float),
+            "y+": np.array([[0, 0, -1, 0], [0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1]], dtype=float),
+            "y-": np.array([[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]], dtype=float),
+            "z+": np.array([[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float),
+            "z-": np.array([[0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float),
+        }
+        self.apply_transform(transformations[direction])
 
 
 def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume, use_normalized: bool = True):

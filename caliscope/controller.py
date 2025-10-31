@@ -3,7 +3,6 @@ from collections import OrderedDict
 from pathlib import Path
 from time import sleep, time
 
-import numpy as np
 from PySide6.QtCore import QObject, QThread, Signal
 
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
@@ -388,16 +387,7 @@ class Controller(QObject):
         self.process_recordings_thread.start()
 
     def rotate_capture_volume(self, direction: str):
-        transformations = {
-            "x+": np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]], dtype=float),
-            "x-": np.array([[1, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=float),
-            "y+": np.array([[0, 0, -1, 0], [0, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 1]], dtype=float),
-            "y-": np.array([[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]], dtype=float),
-            "z+": np.array([[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float),
-            "z-": np.array([[0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=float),
-        }
-
-        self.capture_volume.shift_origin(transformations[direction])
+        self.capture_volume.rotate(direction)
         self.capture_volume_shifted.emit()
 
         # don't hold up the rest of the processing just to save the capture volume

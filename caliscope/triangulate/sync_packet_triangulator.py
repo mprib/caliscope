@@ -1,3 +1,9 @@
+"""
+NOTE: this is not currently being used anywhere other than a couple of tests...
+It had been part of the original plan for a workflow where real-time triangulation was
+central. Still not a bad idea to keep this around, but not currently being used.
+"""
+
 import logging
 from pathlib import Path
 from queue import Queue

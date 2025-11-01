@@ -54,7 +54,7 @@ class StereoPairTriangulator:
             points_A_undistorted = self.camera_A.undistort_points(xy_A).T
             points_B_undistorted = self.camera_B.undistort_points(xy_B).T
 
-            # triangulate joints outputs data in 4D homogenous coordinate system
+            # triangulate points outputs data in 4D homogenous coordinate system
             # note that these are in a world frame of reference
             xyzw_h = cv2.triangulatePoints(
                 self.camera_A.normalized_projection_matrix,

@@ -20,6 +20,7 @@ dependencies = [
     "platformdirs>=4.3.8",
     "mediapipe>=0.10.20",
     "pre-commit>=4.3.0",
+    "pandera>=0.26.1",
 ]
 
 [project.optional-dependencies]

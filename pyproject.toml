@@ -20,6 +20,7 @@ dependencies = [
     "platformdirs>=4.3.8",
     "mediapipe>=0.10.20",
     "pre-commit>=4.3.0",
+    "pandera>=0.26.1",
 ]
 
 [project.optional-dependencies]
@@ -76,7 +77,7 @@ exclude = [
 
 
 [tool.ruff.lint]
-select = ["E", "F", "W","I"]
+select = ["E", "F", "W"]
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 

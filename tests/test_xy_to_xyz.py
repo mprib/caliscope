@@ -36,7 +36,11 @@ def test_xy_to_xyz_postprocessing():
 
     logger.info(f"ending triangulation at {time.time()}")
     stop = time.time()
-    logger.info(f"Elapsed time is {stop - start}. Note that on first iteration, @jit functions will take longer")
+
+    # NOTE: currently processing in ~ 14.4 seconds prior to any optimizations in triangulation
+    logger.info(
+        f"Elapsed time is {stop - start:.1f} seconds. Note that on first iteration, @jit functions will take longer"
+    )
 
     # load in previously triangulated data
     original_xyz_path = Path(xy_path.parent, f"xyz_{tracker_enum.name}.csv")
@@ -67,7 +71,7 @@ def test_xy_to_xyz_postprocessing():
     xyz_recalculated_face = xyz_recalculated_face.sort_values(["sync_index", "point_id"]).reset_index(drop=True)
 
     # Define acceptable tolerance for floating point comparisons
-    tolerance = 0.015  # Note that the original data has been filtered and smoothed...this is just raw triangulated data
+    MAX_DEVIATION_METERS = 0.015
 
     # Compare coordinates with tolerance
     coord_diff_x = abs(original_xyz_face["x_coord"] - xyz_recalculated_face["x_coord"])
@@ -76,22 +80,22 @@ def test_xy_to_xyz_postprocessing():
 
     # Assert maximum differences are within tolerance
     assert (
-        coord_diff_x.max() < tolerance
-    ), f"Maximum x coordinate difference {coord_diff_x.max()} exceeds tolerance {tolerance}"
+        coord_diff_x.max() < MAX_DEVIATION_METERS
+    ), f"Maximum x coordinate difference {coord_diff_x.max()} exceeds tolerance {MAX_DEVIATION_METERS}"
 
     assert (
-        coord_diff_y.max() < tolerance
-    ), f"Maximum y coordinate difference {coord_diff_y.max()} exceeds tolerance {tolerance}"
+        coord_diff_y.max() < MAX_DEVIATION_METERS
+    ), f"Maximum y coordinate difference {coord_diff_y.max()} exceeds tolerance {MAX_DEVIATION_METERS}"
 
     assert (
-        coord_diff_z.max() < tolerance
-    ), f"Maximum z coordinate difference {coord_diff_z.max()} exceeds tolerance {tolerance}"
+        coord_diff_z.max() < MAX_DEVIATION_METERS
+    ), f"Maximum z coordinate difference {coord_diff_z.max()} exceeds tolerance {MAX_DEVIATION_METERS}"
 
     # Additional test: Verify that at least 95% of points are very close (stricter tolerance)
-    strict_tolerance = 0.005  # Stricter tolerance for most points
-    pct_close_x = (coord_diff_x < strict_tolerance).mean() * 100
-    pct_close_y = (coord_diff_y < strict_tolerance).mean() * 100
-    pct_close_z = (coord_diff_z < strict_tolerance).mean() * 100
+    STRICT_DEVIATION_METERS = 0.0025  # Stricter tolerance for most points
+    pct_close_x = (coord_diff_x < STRICT_DEVIATION_METERS).mean() * 100
+    pct_close_y = (coord_diff_y < STRICT_DEVIATION_METERS).mean() * 100
+    pct_close_z = (coord_diff_z < STRICT_DEVIATION_METERS).mean() * 100
 
     assert pct_close_x >= 95, f"Only {pct_close_x:.1f}% of x coordinates are within strict tolerance"
     assert pct_close_y >= 95, f"Only {pct_close_y:.1f}% of y coordinates are within strict tolerance"
@@ -101,11 +105,19 @@ def test_xy_to_xyz_postprocessing():
     logger.info(
         f"Maximum coordinate differences - X: {coord_diff_x.max()}, Y: {coord_diff_y.max()}, Z: {coord_diff_z.max()}"
     )
+
+    logger.info(f"{pct_close_x:.1f}% of x coordinates are within strict tolerance")
+    logger.info(f"{pct_close_y:.1f}% of y coordinates are within strict tolerance")
+    logger.info(f"{pct_close_x:.1f}% of z coordinates are within strict tolerance")
+
     output_path = Path(recording_directory, "xyz.csv")
     xyz_recalculated = pd.DataFrame(xyz_recalculated)
     xyz_recalculated.to_csv(output_path)
 
 
 if __name__ == "__main__":
+    import caliscope.logger
+
+    caliscope.logger.setup_logging()
     test_xy_to_xyz_postprocessing()
     print("end")

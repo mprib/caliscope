@@ -66,4 +66,8 @@ def test_xy_point_creation():
 
 
 if __name__ == "__main__":
+    import caliscope.logger
+
+    caliscope.logger.setup_logging()
+
     test_xy_point_creation()

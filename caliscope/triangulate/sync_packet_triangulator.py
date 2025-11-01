@@ -1,3 +1,9 @@
+"""
+NOTE: this is not currently being used anywhere other than a couple of tests...
+It had been part of the original plan for a workflow where real-time triangulation was
+central. Still not a bad idea to keep this around, but not currently being used.
+"""
+
 import logging
 from pathlib import Path
 from queue import Queue
@@ -9,7 +15,7 @@ import pandas as pd
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.synchronizer import Synchronizer, SyncPacket
 from caliscope.packets import XYZPacket
-from caliscope.triangulate.triangulation import triangulate_sync_index
+from caliscope.post_processing.point_data import triangulate_sync_index
 
 logger = logging.getLogger(__name__)
 

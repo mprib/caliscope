@@ -9,7 +9,7 @@ from typing import Type
 
 import numpy as np
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 from numba import jit
 from numba.typed import Dict, List
 from pandera.typing import Series

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Type
 
+import numpy as np
 import pandas as pd
 import pandera as pa
-
-# DataFrameModel is the correct base class for this style of schema
 from pandera.typing import Series
+from scipy.signal import butter, filtfilt
+
+logger = logging.getLogger(__name__)
 
 # Forward-declare this type for use in method signatures
 CameraArray = Type["CameraArray"]
@@ -24,9 +27,7 @@ class XYSchema(pa.DataFrameModel):
     img_loc_x: Series[float] = pa.Field(coerce=True)
     img_loc_y: Series[float] = pa.Field(coerce=True)
 
-    # Config class must inherit from the parent's Config
     class Config(pa.DataFrameModel.Config):
-        # Allow other columns to pass through
         strict = False
         coerce = True
 
@@ -40,63 +41,33 @@ class XYZSchema(pa.DataFrameModel):
     y_coord: Series[float] = pa.Field(coerce=True)
     z_coord: Series[float] = pa.Field(coerce=True)
 
-    # Config class must inherit from the parent's Config
     class Config(pa.DataFrameModel.Config):
-        # Allow other columns to pass through
         strict = False
         coerce = True
 
 
 class XYData:
-    """
-    A validated, immutable container for 2D (x,y) point data.
-
-    This class ensures that the data it holds conforms to a predefined schema,
-    preventing invalid or malformed data from propagating through the
-    post-processing pipeline.
-
-    Instances are created either from an existing DataFrame or directly
-    from a CSV file. Once created, the internal DataFrame is read-only.
-    """
+    """A validated, immutable container for 2D (x,y) point data."""
 
     _df: pd.DataFrame
 
     def __init__(self, df: pd.DataFrame):
-        """
-        Initializes the XYData object by validating the input DataFrame.
-
-        Args:
-            df: A pandas DataFrame containing 2D point data.
-
-        Raises:
-            pa.errors.SchemaError: If the DataFrame fails validation.
-        """
         self._df = XYSchema.validate(df)
 
     @property
     def df(self) -> pd.DataFrame:
-        """Provides read-only access to the validated DataFrame."""
         return self._df.copy()
 
     @classmethod
     def from_csv(cls, path: str | Path) -> XYData:
-        """
-        Creates an XYData instance from a CSV file.
-
-        Args:
-            path: The path to the CSV file.
-
-        Returns:
-            A new instance of XYData.
-        """
         df = pd.read_csv(path)
         return cls(df)
 
-    def fill_gaps(self, max_gap_size: int) -> XYData:
+    def fill_gaps(self, max_gap_size: int = 3) -> XYData:
         """
-        Fills missing data points up to a specified gap size.
+        Fills missing data points up to a specified gap size via linear interpolation.
 
-        This method will contain the gap-filling logic. Currently a placeholder.
+        This method operates on each point from each camera independently.
 
         Args:
             max_gap_size: The maximum number of consecutive missing frames to fill.
@@ -104,71 +75,70 @@ class XYData:
         Returns:
             A new XYData instance with gaps filled.
         """
-        # To be implemented in Step 3
-        raise NotImplementedError("Gap filling logic will be implemented here.")
+        xy_filled = pd.DataFrame()
+        index_key = "sync_index"
+        last_port = -1
+
+        base_df = self.df  # Use the validated, copied dataframe
+        for (port, point_id), group in base_df.groupby(["port", "point_id"]):
+            if last_port != port:
+                logger.info(
+                    f"Gap filling for (x,y) data from port {port}. "
+                    f"Filling gaps that are {max_gap_size} frames or less..."
+                )
+            last_port = port
+
+            group = group.sort_values(index_key)
+            all_frames = pd.DataFrame({index_key: np.arange(group[index_key].min(), group[index_key].max() + 1)})
+            all_frames["port"] = port
+            all_frames["point_id"] = point_id
+
+            merged = pd.merge(all_frames, group, on=["port", "point_id", index_key], how="left")
+            merged["gap_size"] = (
+                merged["img_loc_x"].isnull().astype(int).groupby((merged["img_loc_x"].notnull()).cumsum()).cumsum()
+            )
+            merged = merged[merged["gap_size"] <= max_gap_size]
+
+            # Interpolate values. Other columns like frame_time will also be interpolated if present.
+            for col in ["img_loc_x", "img_loc_y", "frame_time"]:
+                if col in merged.columns:
+                    merged[col] = merged[col].interpolate(method="linear", limit=max_gap_size)
+
+            xy_filled = pd.concat([xy_filled, merged])
+
+        logger.info("(x,y) gap filling complete")
+        return XYData(xy_filled.dropna(subset=["img_loc_x"]))
 
     def triangulate(self, camera_array: CameraArray) -> XYZData:
         """
         Triangulates 2D points to create 3D points.
-
         This method will contain the triangulation logic. Currently a placeholder.
-
-        Args:
-            camera_array: A CameraArray object containing calibration info.
-
-        Returns:
-            A new XYZData instance containing the 3D point data.
         """
-        # To be implemented in Step 3
         raise NotImplementedError("Triangulation logic will be implemented here.")
 
 
 class XYZData:
-    """
-    A validated, immutable container for 3D (x,y,z) point data.
-
-    This class ensures that the data it holds conforms to a predefined schema.
-    It follows the same principles of validation and immutability as XYData.
-    """
+    """A validated, immutable container for 3D (x,y,z) point data."""
 
     _df: pd.DataFrame
 
     def __init__(self, df: pd.DataFrame):
-        """
-        Initializes the XYZData object by validating the input DataFrame.
-
-        Args:
-            df: A pandas DataFrame containing 3D point data.
-
-        Raises:
-            pa.errors.SchemaError: If the DataFrame fails validation.
-        """
         self._df = XYZSchema.validate(df)
 
     @property
     def df(self) -> pd.DataFrame:
-        """Provides read-only access to the validated DataFrame."""
         return self._df.copy()
 
     @classmethod
     def from_csv(cls, path: str | Path) -> XYZData:
-        """
-        Creates an XYZData instance from a CSV file.
-
-        Args:
-            path: The path to the CSV file.
-
-        Returns:
-            A new instance of XYZData.
-        """
         df = pd.read_csv(path)
         return cls(df)
 
-    def fill_gaps(self, max_gap_size: int) -> XYZData:
+    def fill_gaps(self, max_gap_size: int = 3) -> XYZData:
         """
-        Fills missing data points up to a specified gap size.
+        Fills missing 3D data points up to a specified gap size via linear interpolation.
 
-        This method will contain the gap-filling logic. Currently a placeholder.
+        This method operates on each 3D point independently.
 
         Args:
             max_gap_size: The maximum number of consecutive missing frames to fill.
@@ -176,20 +146,52 @@ class XYZData:
         Returns:
             A new XYZData instance with gaps filled.
         """
-        # To be implemented in Step 3
-        raise NotImplementedError("Gap filling logic will be implemented here.")
+        xyz_filled = pd.DataFrame()
+        base_df = self.df  # Use the validated, copied dataframe
 
-    def smooth(self, cutoff_freq: int) -> XYZData:
+        for point_id, group in base_df.groupby("point_id"):
+            group = group.sort_values("sync_index")
+            all_frames = pd.DataFrame(
+                {"sync_index": np.arange(group["sync_index"].min(), group["sync_index"].max() + 1)}
+            )
+            all_frames["point_id"] = point_id
+
+            merged = pd.merge(all_frames, group, on=["point_id", "sync_index"], how="left")
+            merged["gap_size"] = (
+                merged["x_coord"].isnull().astype(int).groupby((merged["x_coord"].notnull()).cumsum()).cumsum()
+            )
+            merged = merged[merged["gap_size"] <= max_gap_size]
+
+            for col in ["x_coord", "y_coord", "z_coord"]:
+                if col in merged.columns:
+                    merged[col] = merged[col].interpolate(method="linear", limit=max_gap_size)
+
+            xyz_filled = pd.concat([xyz_filled, merged])
+
+        return XYZData(xyz_filled.dropna(subset=["x_coord"]))
+
+    def smooth(self, fps: float, cutoff_freq: float, order: int = 2) -> XYZData:
         """
-        Applies a smoothing filter to the 3D data.
-
-        This method will contain the smoothing logic. Currently a placeholder.
+        Applies a zero-phase Butterworth filter to the 3D data.
 
         Args:
-            cutoff_freq: The cutoff frequency for the smoothing filter.
+            fps: The framerate of the data capture.
+            cutoff_freq: The cutoff frequency for the low-pass filter.
+            order: The order of the Butterworth filter. Defaults to 2.
 
         Returns:
             A new XYZData instance with smoothed data.
         """
-        # To be implemented in Step 3
-        raise NotImplementedError("Smoothing logic will be implemented here.")
+        b, a = butter(order, cutoff_freq, btype="low", fs=fps)
+
+        base_df = self.df
+        xyz_filtered = base_df.copy()
+
+        for point_id, group in base_df.groupby("point_id"):
+            # Skip smoothing if there aren't enough data points to apply the filter
+            if group.shape[0] > 3 * order:
+                xyz_filtered.loc[group.index, "x_coord"] = filtfilt(b, a, group["x_coord"])
+                xyz_filtered.loc[group.index, "y_coord"] = filtfilt(b, a, group["y_coord"])
+                xyz_filtered.loc[group.index, "z_coord"] = filtfilt(b, a, group["z_coord"])
+
+        return XYZData(xyz_filtered)

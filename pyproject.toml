@@ -86,5 +86,14 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 max-complexity = 10
 
 [tool.ruff.format]
-# Options for the formatter can go here if needed
-# For example: quote-style = "double"
+# Use double quotes for strings.
+quote-style = "double"
+
+# Use spaces for indentation.
+indent-style = "space"
+
+# Respect the magic trailing comma.
+skip-magic-trailing-comma = false
+
+# Normalize line endings to LF for consistency across operating systems.
+line-ending = "lf"

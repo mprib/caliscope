@@ -5,7 +5,7 @@ from pathlib import Path
 
 import rtoml
 
-from caliscope import APP_DIR, APP_SETTINGS_PATH, LOG_DIR, __package_name__, __repo_url__
+from caliscope import APP_SETTINGS_PATH, LOG_FILE_PATH, __package_name__, __repo_url__
 
 logger = logging.getLogger(__name__)
 
@@ -17,13 +17,13 @@ def initialize_app():
     Returns the loaded user settings.
     """
 
-    log_startup_info()
+    """Logs essential application information on startup."""
+    logger.info(f"--- Launching {__package_name__} ---")
+    logger.info(f"Source code available at: {__repo_url__}")
+    logger.info(f"Logs saved to: {LOG_FILE_PATH}")
+    logger.info("-------------------------------------------")
 
     try:
-        # Create the app directory if it doesn't exist
-        APP_DIR.mkdir(exist_ok=True, parents=True)
-        LOG_DIR.mkdir(exist_ok=True, parents=True)
-
         # If the settings file doesn't exist, create it with defaults
         if not APP_SETTINGS_PATH.exists():
             logger.info(f"Settings file not found. Creating a new one at {APP_SETTINGS_PATH}")
@@ -43,11 +43,3 @@ def initialize_app():
         logger.error(f"Failed to initialize application directories or settings: {e}")
         # Depending on how critical this is, you might want to exit or return default settings
         return {}
-
-
-def log_startup_info():
-    """Logs essential application information on startup."""
-    logger.info(f"--- Launching {__package_name__} ---")
-    logger.info(f"Source code available at: {__repo_url__}")
-    logger.info(f"Log files are stored in: {LOG_DIR}")
-    logger.info("-------------------------------------------")

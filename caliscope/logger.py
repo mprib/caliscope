@@ -2,14 +2,9 @@ import logging
 import logging.handlers
 import os
 import sys
-from pathlib import Path
 
 from PySide6 import QtCore
-
-# Assuming LOG_DIR is defined in your project's __init__.py or config
-# from caliscope import LOG_DIR
-# Using a placeholder for this example:
-LOG_DIR = Path("./logs")
+from caliscope import LOG_FILE_PATH, LOG_DIR
 
 
 class StderrLogger:
@@ -87,9 +82,12 @@ def setup_logging():
 
     # 1. File Handler
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    log_file = LOG_DIR / "caliscope.log"
+
+    with LOG_FILE_PATH.open("a") as f:
+        f.write("Rotating Log File Handler Setting Up....")
+
     file_handler = logging.handlers.RotatingFileHandler(
-        filename=log_file, maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"
+        filename=LOG_FILE_PATH, maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"
     )
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.INFO)

@@ -72,34 +72,77 @@ def unique_with_counts(arr):
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-@jit(nopython=True, parallel=True, cache=True)
+@jit(nopython=True, cache=True)
 def triangulate_sync_index(
     projection_matrices: Dict, current_camera_indices: np.ndarray, current_point_id: np.ndarray, current_img: np.ndarray
 ):
-    """Numba-optimized function to triangulate points for a single sync_index."""
+    """A more optimized Numba function to triangulate points for a single sync_index."""
     point_indices_xyz = List()
     obj_xyz = List()
-    unique_points, point_counts = unique_with_counts(current_point_id)
-    for index in range(len(point_counts)):
-        if point_counts[index] > 1:
-            point = unique_points[index]
-            points_xy = current_img[current_point_id == point]
-            camera_ids = current_camera_indices[current_point_id == point]
-            num_cams = len(camera_ids)
-            A = np.zeros((num_cams * 2, 4))
-            for i in range(num_cams):
-                x, y = points_xy[i]
-                P = projection_matrices[camera_ids[i]]
-                A[(i * 2) : (i * 2 + 1)] = x * P[2] - P[0]
-                A[(i * 2 + 1) : (i * 2 + 2)] = y * P[2] - P[1]
-            u, s, vh = np.linalg.svd(A, full_matrices=True)
-            point_xyzw = vh[-1]
-            point_xyz = point_xyzw[:3] / point_xyzw[3]
-            point_indices_xyz.append(point)
-            obj_xyz.append(point_xyz)
+
+    # Exit early if there's not enough data to form a pair
+    if len(current_point_id) < 2:
+        return point_indices_xyz, obj_xyz
+
+    # Sort by point_id to group all observations of the same point together
+    sort_indices = np.argsort(current_point_id)
+    sorted_points = current_point_id[sort_indices]
+    sorted_cams = current_camera_indices[sort_indices]
+    sorted_img = current_img[sort_indices]
+
+    group_start = 0
+    # Iterate through the sorted arrays to find groups of points
+    for i in range(1, len(sorted_points)):
+        # A new group starts when the point_id changes
+        if sorted_points[i] != sorted_points[group_start]:
+            # Process the previous group if it has enough views
+            if i - group_start > 1:
+                point = sorted_points[group_start]
+                points_xy = sorted_img[group_start:i]
+                camera_ids = sorted_cams[group_start:i]
+                num_cams = len(camera_ids)
+
+                A = np.zeros((num_cams * 2, 4))
+                for j in range(num_cams):
+                    x, y = points_xy[j]
+                    P = projection_matrices[camera_ids[j]]
+                    A[(j * 2) : (j * 2 + 1)] = x * P[2] - P[0]
+                    A[(j * 2 + 1) : (j * 2 + 2)] = y * P[2] - P[1]
+
+                u, s, vh = np.linalg.svd(A, full_matrices=True)
+                point_xyzw = vh[-1]
+                point_xyz = point_xyzw[:3] / point_xyzw[3]
+                point_indices_xyz.append(point)
+                obj_xyz.append(point_xyz)
+
+            # Start the new group
+            group_start = i
+
+    # Process the final group after the loop finishes
+    if len(sorted_points) - group_start > 1:
+        point = sorted_points[group_start]
+        # Slicing to the end is implicit
+        points_xy = sorted_img[group_start:]
+        camera_ids = sorted_cams[group_start:]
+        # ... (SVD logic repeated for the last group - could be refactored)
+        num_cams = len(camera_ids)
+        A = np.zeros((num_cams * 2, 4))
+        for j in range(num_cams):
+            x, y = points_xy[j]
+            P = projection_matrices[camera_ids[j]]
+            A[(j * 2) : (j * 2 + 1)] = x * P[2] - P[0]
+            A[(j * 2 + 1) : (j * 2 + 2)] = y * P[2] - P[1]
+
+        u, s, vh = np.linalg.svd(A, full_matrices=True)
+        point_xyzw = vh[-1]
+        point_xyz = point_xyzw[:3] / point_xyzw[3]
+        point_indices_xyz.append(point)
+        obj_xyz.append(point_xyz)
+
     return point_indices_xyz, obj_xyz
 
 
+############################################################################################
 def _undistort_batch(xy_df: pd.DataFrame, camera_array: CameraArray) -> pd.DataFrame:
     """Module-private helper to undistort all points in a DataFrame."""
     undistorted_points = []

@@ -22,6 +22,7 @@ APP_DIR = Path(user_data_dir(appname=__package_name__))
 # - macOS:   ~/Library/Logs/caliscope
 # - Linux:   ~/.config/caliscope/logs  (or ~/.local/state/... depending on XDG spec)
 LOG_DIR = APP_DIR / "logs"
+LOG_FILE_PATH = LOG_DIR / "caliscope.log"
 
 # Define the path to the settings file
 APP_SETTINGS_PATH = APP_DIR / "settings.toml"

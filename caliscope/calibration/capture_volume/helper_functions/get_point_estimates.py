@@ -120,9 +120,9 @@ def create_point_estimates_from_stereopairs(camera_array: CameraArray, point_dat
     if len(obj_indices) > 0:
         assert obj_indices.max() < obj.shape[0], "CRITICAL: obj_indices contains an out-of-bounds index."
     if len(obj_indices) > 0:
-        assert (
-            np.unique(obj_indices).size == obj.shape[0]
-        ), "Mismatch between unique object indices and number of 3D points."
+        assert np.unique(obj_indices).size == obj.shape[0], (
+            "Mismatch between unique object indices and number of 3D points."
+        )
 
     logger.info(
         f"Successfully created consistent PointEstimates: {obj.shape[0]} 3D points and {img.shape[0]} 2D observations."

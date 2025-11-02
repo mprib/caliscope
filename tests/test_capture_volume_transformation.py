@@ -53,28 +53,28 @@ def test_rotation_invariance(direction: str):
         # After 1, 2, or 3 rotations (90, 180, 270 deg)
         if i < 4:
             # Assert that the points have changed
-            assert not np.allclose(
-                initial_points, current_points
-            ), f"Points should not be the same after {i * 90} degrees"
+            assert not np.allclose(initial_points, current_points), (
+                f"Points should not be the same after {i * 90} degrees"
+            )
 
             # Assert that camera transforms have changed
             for port in initial_transforms:
-                assert not np.allclose(
-                    initial_transforms[port], current_transforms[port]
-                ), f"Transform for camera {port} should not be the same after {i * 90} degrees"
+                assert not np.allclose(initial_transforms[port], current_transforms[port]), (
+                    f"Transform for camera {port} should not be the same after {i * 90} degrees"
+                )
 
         # After 4 rotations (360 deg)
         else:
             # Assert that the points have returned to the original state
-            assert np.allclose(
-                initial_points, current_points, atol=1e-6
-            ), "Points should return to original state after 360 degrees"
+            assert np.allclose(initial_points, current_points, atol=1e-6), (
+                "Points should return to original state after 360 degrees"
+            )
 
             # Assert that camera transforms have returned to the original state
             for port in initial_transforms:
-                assert np.allclose(
-                    initial_transforms[port], current_transforms[port], atol=1e-6
-                ), f"Transform for camera {port} should return to original after 360 degrees"
+                assert np.allclose(initial_transforms[port], current_transforms[port], atol=1e-6), (
+                    f"Transform for camera {port} should return to original after 360 degrees"
+                )
 
     logger.info(f"Rotation test passed for direction '{direction}'.")
 

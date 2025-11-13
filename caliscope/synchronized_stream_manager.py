@@ -32,7 +32,7 @@ class SynchronizedStreamManager:
     def __init__(
         self,
         recording_dir: Path,
-        all_camera_data: dict[CameraData],
+        all_camera_data: dict[int, CameraData],
         tracker: Tracker | CharucoTracker | None = None,
     ) -> None:
         self.recording_dir = recording_dir

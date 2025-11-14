@@ -1,3 +1,4 @@
+*context.txt
 *.png
 llm/*
 *.log
@@ -14,8 +15,9 @@ dist/*
 *.epgz
 *.pdf
 tests/sessions_copy_delete/*
-dev/sessions_copy_delete/*
-dev/sample_sessions*
+scripts/sessions_copy_delete/*
+scripts/sample_sessions*
+scripts/fixtures/*
 *.nbi
 *.nbc
 *.csv
@@ -29,4 +31,3 @@ caliscope.egg-info
 build/lib/caliscope
 .swp
 branch_notes.md
-

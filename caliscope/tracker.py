@@ -16,7 +16,7 @@ class Tracker(ABC):
         This name should align with the label used by TrackerEnum
         Used for file naming creation
         """
-        pass
+        return "Name Me"
 
     @abstractmethod
     def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:

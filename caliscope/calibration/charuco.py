@@ -162,7 +162,7 @@ class Charuco:
         mirror = cv2.flip(self.board_img(pixmap_scale=10000), 1)
         cv2.imwrite(path, mirror)
 
-    def get_connected_points(self):
+    def get_connected_points(self) -> set[tuple[int, int]]:
         """
         For a given board, returns a set of corner id pairs that will connect to form
         a grid pattern. This will provide the "object points" used by the calibration

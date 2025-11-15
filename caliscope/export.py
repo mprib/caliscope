@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from caliscope.packets import Tracker
+from caliscope.tracker import Tracker
 
 logger = logging.getLogger(__name__)
 

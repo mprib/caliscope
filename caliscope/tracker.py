@@ -16,7 +16,7 @@ class Tracker(ABC):
         This name should align with the label used by TrackerEnum
         Used for file naming creation
         """
-        pass
+        return "Name Me"
 
     @abstractmethod
     def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
@@ -39,6 +39,13 @@ class Tracker(ABC):
         """
         Maps point_id to a name
         Used for saving out data with sensible headers.
+        """
+        pass
+
+    @abstractmethod
+    def get_point_id(self, point_name: str) -> int:
+        """
+        Maps point name to point_id
         """
         pass
 

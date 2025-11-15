@@ -7,8 +7,8 @@ from time import perf_counter, sleep
 import cv2
 import numpy as np
 import pandas as pd
-
-from caliscope.packets import FramePacket, Tracker
+from caliscope.tracker import Tracker
+from caliscope.packets import FramePacket
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

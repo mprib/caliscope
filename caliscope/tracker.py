@@ -43,13 +43,6 @@ class Tracker(ABC):
         pass
 
     @abstractmethod
-    def get_point_id(self, point_name: str) -> int:
-        """
-        Maps point name to point_id
-        """
-        pass
-
-    @abstractmethod
     def scatter_draw_instructions(self, point_id: int) -> dict:
         """
         Maps point_id to a dictionary of parameters used to draw circles on frames for visual feedback.

@@ -52,9 +52,6 @@ class CharucoTracker(Tracker):
     def get_point_name(self, point_id: int) -> str:
         return str(point_id)
 
-    def get_point_id(self, point_name: str) -> int:
-        return int(point_name)
-
     def get_connected_points(self):
         return self.charuco.get_connected_points()
 

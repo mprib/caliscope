@@ -6,7 +6,7 @@ import cv2
 
 from caliscope.cameras.camera_array import CameraData
 from caliscope.cameras.synchronizer import Synchronizer
-from caliscope.packets import Tracker
+from caliscope.tracker import Tracker
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.recording.video_recorder import VideoRecorder
 from caliscope.trackers.charuco_tracker import CharucoTracker

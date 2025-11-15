@@ -1,3 +1,9 @@
+"""
+Ths script provides a sample implementation to use the synchronized
+stream manager and a tracker to produce the 2D data that will be the
+basis of the stereocalibration.
+"""
+
 import logging
 import time
 from caliscope import __root__
@@ -11,7 +17,6 @@ setup_logging()
 
 logger = logging.getLogger(__name__)
 
-version = "post_optimization"
 test_data_dir = __root__ / "tests/sessions/post_optimization"
 recording_dir = test_data_dir / "calibration/extrinsic"
 

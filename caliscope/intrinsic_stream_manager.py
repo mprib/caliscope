@@ -5,7 +5,7 @@ from time import sleep
 from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
 from caliscope.cameras.camera_array import CameraData
 from caliscope.gui.frame_emitters.playback_frame_emitter import PlaybackFrameEmitter
-from caliscope.packets import Tracker
+from caliscope.tracker import Tracker
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.trackers.charuco_tracker import CharucoTracker
 

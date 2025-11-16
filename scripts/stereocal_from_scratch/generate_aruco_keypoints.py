@@ -47,14 +47,14 @@ def generate_aruco_keypoints():
 
     logger.info(f"Processing calibration videos with {aruco_tracker.name} tracker...")
 
+    raw_video_dir = fixture_dir / "calibration/extrinsic"
     # Create synchronized stream manager
     sync_stream_manager = SynchronizedStreamManager(
-        recording_dir=calibration_video_dir, all_camera_data=camera_array.cameras, tracker=aruco_tracker
+        recording_dir=raw_video_dir, all_camera_data=camera_array.cameras, tracker=aruco_tracker
     )
 
     # Process streams (ArUco detection is fast, so high fps_target is fine)
     sync_stream_manager.process_streams(fps_target=100, include_video=True)
-
     # Wait for output file to be created
     target_output_file = fixture_dir / f"calibration/extrinsic/{aruco_tracker.name}/xy_{aruco_tracker.name}.csv"
 

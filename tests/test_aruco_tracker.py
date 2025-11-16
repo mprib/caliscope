@@ -20,7 +20,7 @@ def test_aruco_tracker_instantiation():
 def test_aruco_tracker_detection():
     """Test marker detection on a sample frame from test fixture."""
     # Load test video frame
-    fixture_dir = __root__ / "scripts/fixtures/extrinsic_cal_sample"
+    fixture_dir = __root__ / "tests/sessions/post_optimization"
     sample_video_path = fixture_dir / "calibration/extrinsic/port_0.mp4"
 
     capture = cv2.VideoCapture(str(sample_video_path))

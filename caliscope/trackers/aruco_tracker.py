@@ -17,7 +17,6 @@ import numpy as np
 
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
-from caliscope.trackers.helper import apply_rotation
 
 logger = logging.getLogger(__name__)
 
@@ -32,22 +31,30 @@ class ArucoTracker(Tracker):
     """
     Tracker for ArUco markers. Detects markers and returns their corner positions.
 
+    WARNING: The mirror_flag_search parameter should ONLY be used when tracking a
+    SINGLE double-sided ArUco marker (an "ArUco flag"). Some markers have rotational
+    symmetry that can cause ambiguity. When using this feature:
+    1. Use exactly ONE marker ID in your dictionary
+    2. Print the marker normally on one side
+    3. Print the mirrored version on the back side
+    4. Ensure cameras on opposite sides can both see the marker
+
     Note on inversion: The default is False. The test fixture data uses inverted
     markers due to a historical quirk. In production, physical markers should be
     printed normally and used with inverted=False. We may remove this toggle
     once legacy test data is updated.
     """
 
-    def __init__(self, dictionary=cv2.aruco.DICT_4X4_100, inverted=False, mirror_search=True):
+    def __init__(self, dictionary=cv2.aruco.DICT_4X4_100, inverted=False, mirror_flag_search=False):
         """
         Args:
             dictionary: OpenCV ArUco dictionary to use for detection
             inverted: Whether to invert the image before detection (for legacy test data)
-            mirror_search: If True, attempt detection on mirrored image when no markers found
+            mirror_search: If True, adds detections of mirror images; only use if a single "aruco flag" is employed
         """
         self.dictionary = dictionary
         self.inverted = inverted
-        self.mirror_search = mirror_search
+        self.mirror_flag_search = mirror_flag_search  # use with aruco "flag"
 
         # Create detector instance
         self.dictionary_object = cv2.aruco.getPredefinedDictionary(dictionary)
@@ -87,24 +94,20 @@ class ArucoTracker(Tracker):
 
         return None, None
 
-    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
+    def get_points(self, frame: np.ndarray) -> PointPacket:
         """
         Detect ArUco markers in frame and return corner points.
 
         Process:
-        1. Apply rotation if needed (using rotation_count)
-        2. Convert to grayscale
-        3. Invert if configured (for legacy test data)
-        4. Detect markers with cv2.aruco.ArucoDetector
-        5. If no markers found and mirror_search=True, try mirrored image
-        6. Flatten corners and generate point IDs
-        7. Return PointPacket with img_loc only (obj_loc=None)
+        Invert if configured (for legacy test data)
+        Detect markers with cv2.aruco.ArucoDetector
+        If no markers found and mirror_search=True, try mirrored image
+        Flatten corners and generate point IDs
+        Return PointPacket with img_loc only (obj_loc=None)
         """
-        # Apply rotation if needed
-        rotated_frame = apply_rotation(frame, rotation_count)
 
         # Convert to grayscale
-        gray_frame = cv2.cvtColor(rotated_frame, cv2.COLOR_BGR2GRAY)
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Invert if needed (for legacy test data)
         if self.inverted:
@@ -114,18 +117,17 @@ class ArucoTracker(Tracker):
         point_ids, all_corners = self._detect_markers(gray_frame)
 
         # If no markers found and mirror search enabled, try flipped image
-        if point_ids is None and self.mirror_search:
+        if point_ids is None and self.mirror_flag_search:
             logger.debug("No markers found in original orientation, trying mirrored image")
             mirrored_frame = cv2.flip(gray_frame, 1)  # Horizontal flip
             point_ids, all_corners = self._detect_markers(mirrored_frame)
 
-            # If markers found in mirror, adjust x-coordinates back to original frame
+            # If markers found in mirror, adjust x-coordinates back to original frame and send packet
             if point_ids is not None:
                 frame_width = gray_frame.shape[1]
                 all_corners[:, 0] = frame_width - all_corners[:, 0]
                 logger.debug(f"Detected {len(np.unique(point_ids // 10))} markers in mirrored image")
 
-        # Return PointPacket with results or empty if no markers found
         if point_ids is not None:
             return PointPacket(point_id=point_ids, img_loc=all_corners, obj_loc=None)
 

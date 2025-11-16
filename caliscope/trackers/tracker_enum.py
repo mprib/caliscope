@@ -1,18 +1,24 @@
 from enum import Enum
 
+from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.trackers.hand_tracker import HandTracker
+from caliscope.trackers.holistic.holistic_tracker import HolisticTracker
+from caliscope.trackers.pose_tracker import PoseTracker
+from caliscope.trackers.aruco_tracker import ArucoTracker
+from caliscope.trackers.simple_holistic_tracker import SimpleHolisticTracker
 
-class TrackerEnum(str, Enum):
-    """
-    Enum of available tracker implementations.
-    Used for selecting trackers in GUI and CLI.
-    """
+# Temporarily removed face tracker because crashing sample project
+# from caliscope.trackers.face_tracker import FaceTracker
 
-    CHARUCO = "CHARUCO"
-    HAND = "HAND"
-    POSE = "POSE"
-    HOLISTIC = "HOLISTIC"
-    SIMPLE_HOLISTIC = "SIMPLE_HOLISTIC"
-    ARUCO = "ARUCO"
+
+class TrackerEnum(Enum):
+    HAND = HandTracker
+    POSE = PoseTracker
+    SIMPLE_HOLISTIC = SimpleHolisticTracker
+    HOLISTIC = HolisticTracker
+    CHARUCO = CharucoTracker
+    ARUCO = ArucoTracker
+    # FACE = FaceTracker
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ Design decisions:
 - obj_loc is always None (no board reference)
 - Default dictionary: cv2.aruco.DICT_4X4_100
 - Default inversion: False (True only for legacy test data)
+- Mirror search: Attempts detection on flipped image if no markers found
 """
 
 import logging
@@ -16,8 +17,15 @@ import numpy as np
 
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
+from caliscope.trackers.helper import apply_rotation
 
 logger = logging.getLogger(__name__)
+
+# Corner index constants for clarity
+CORNER_TL = 1  # Top-left
+CORNER_TR = 2  # Top-right
+CORNER_BR = 3  # Bottom-right
+CORNER_BL = 4  # Bottom-left
 
 
 class ArucoTracker(Tracker):
@@ -30,14 +38,16 @@ class ArucoTracker(Tracker):
     once legacy test data is updated.
     """
 
-    def __init__(self, dictionary=cv2.aruco.DICT_4X4_100, inverted=False):
+    def __init__(self, dictionary=cv2.aruco.DICT_4X4_100, inverted=False, mirror_search=True):
         """
         Args:
             dictionary: OpenCV ArUco dictionary to use for detection
             inverted: Whether to invert the image before detection (for legacy test data)
+            mirror_search: If True, attempt detection on mirrored image when no markers found
         """
         self.dictionary = dictionary
         self.inverted = inverted
+        self.mirror_search = mirror_search
 
         # Create detector instance
         self.dictionary_object = cv2.aruco.getPredefinedDictionary(dictionary)
@@ -48,6 +58,35 @@ class ArucoTracker(Tracker):
         """Return tracker name for file naming."""
         return "ARUCO"
 
+    def _detect_markers(self, gray_frame):
+        """
+        Internal helper to detect markers and format results.
+        Returns (point_ids, all_corners) or (None, None) if no markers.
+        """
+        corners, ids, rejected = self.detector.detectMarkers(gray_frame)
+
+        if ids is not None and len(ids) > 0:
+            # Flatten corners: each marker has 4 corners in shape (1, 4, 2)
+            # We want shape (n_markers * 4, 2)
+            all_corners = np.vstack(corners).reshape(-1, 2)
+
+            # Generate point IDs: marker_id * 10 + corner_index (1-4)
+            point_ids = []
+            for marker_id in ids.flatten():
+                base_id = marker_id * 10
+                # Add corner indices 1-4 for each marker
+                point_ids.extend([base_id + j for j in range(CORNER_TL, CORNER_BL + 1)])
+
+            point_ids = np.array(point_ids, dtype=np.int32)
+
+            # Validate shapes match
+            assert len(point_ids) == len(all_corners), "Point ID count must match corner count"
+
+            logger.debug(f"Detected {len(ids)} markers, {len(point_ids)} corners")
+            return point_ids, all_corners
+
+        return None, None
+
     def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
         """
         Detect ArUco markers in frame and return corner points.
@@ -57,12 +96,11 @@ class ArucoTracker(Tracker):
         2. Convert to grayscale
         3. Invert if configured (for legacy test data)
         4. Detect markers with cv2.aruco.ArucoDetector
-        5. Flatten corners and generate point IDs
-        6. Return PointPacket with img_loc only (obj_loc=None)
+        5. If no markers found and mirror_search=True, try mirrored image
+        6. Flatten corners and generate point IDs
+        7. Return PointPacket with img_loc only (obj_loc=None)
         """
         # Apply rotation if needed
-        from caliscope.trackers.helper import apply_rotation
-
         rotated_frame = apply_rotation(frame, rotation_count)
 
         # Convert to grayscale
@@ -72,29 +110,23 @@ class ArucoTracker(Tracker):
         if self.inverted:
             gray_frame = cv2.bitwise_not(gray_frame)
 
-        # Detect markers
-        corners, ids, rejected = self.detector.detectMarkers(gray_frame)
+        # Attempt detection on original orientation
+        point_ids, all_corners = self._detect_markers(gray_frame)
 
-        # Process detections into PointPacket format
-        if ids is not None and len(ids) > 0:
-            # Flatten corners: each marker has 4 corners in shape (1, 4, 2)
-            # We want shape (n_markers * 4, 2)
-            all_corners = np.vstack(corners).reshape(-1, 2)
+        # If no markers found and mirror search enabled, try flipped image
+        if point_ids is None and self.mirror_search:
+            logger.debug("No markers found in original orientation, trying mirrored image")
+            mirrored_frame = cv2.flip(gray_frame, 1)  # Horizontal flip
+            point_ids, all_corners = self._detect_markers(mirrored_frame)
 
-            # Generate point IDs: marker_id * 10 + corner_index (1-4)
-            point_ids = []
-            for i, marker_id in enumerate(ids.flatten()):
-                base_id = marker_id * 10
-                # Add corner indices 1-4 for each marker
-                point_ids.extend([base_id + j for j in range(1, 5)])
+            # If markers found in mirror, adjust x-coordinates back to original frame
+            if point_ids is not None:
+                frame_width = gray_frame.shape[1]
+                all_corners[:, 0] = frame_width - all_corners[:, 0]
+                logger.debug(f"Detected {len(np.unique(point_ids // 10))} markers in mirrored image")
 
-            point_ids = np.array(point_ids, dtype=np.int32)
-
-            # Validate shapes match
-            assert len(point_ids) == len(all_corners), "Point ID count must match corner count"
-
-            logger.debug(f"Detected {len(ids)} markers, {len(point_ids)} corners")
-
+        # Return PointPacket with results or empty if no markers found
+        if point_ids is not None:
             return PointPacket(point_id=point_ids, img_loc=all_corners, obj_loc=None)
 
         # Return empty PointPacket if no markers detected
@@ -109,7 +141,7 @@ class ArucoTracker(Tracker):
     def scatter_draw_instructions(self, point_id: int) -> dict:
         """
         Return drawing parameters for visualizing ArUco corners.
-        Green circles
+        Green circles to distinguish from CharucoTracker's blue.
         """
         return {
             "radius": 4,

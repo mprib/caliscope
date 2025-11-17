@@ -34,6 +34,8 @@ logger.addHandler(console_handler)
 
 
 def document_aruco_detector():
+    TEST_FLIP = True
+
     """Process a frame and document detector return signature with center comparison."""
     logger.info("=" * 80)
     logger.info("ArUco Detector Documentation with Center Comparison")
@@ -56,6 +58,14 @@ def document_aruco_detector():
     if not success:
         logger.error("Failed to read frame")
         return
+
+    # test mirror image search
+    if TEST_FLIP:
+        frame = cv2.flip(frame, 1)
+        # Save visualization
+        viz_path = "aruco_detection_comparison_flipped.png"
+    else:
+        viz_path = "aruco_detection_comparison.png"
 
     # Preprocess: Convert to grayscale then back to BGR for color drawing
     gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -134,15 +144,27 @@ def document_aruco_detector():
             # Demonstrate point ID mapping for corners
             for corner_idx, corner_pos in enumerate(marker_corners, start=1):
                 point_id = marker_id * 10 + corner_idx
+                corner_x, corner_y = int(corner_pos[0]), int(corner_pos[1])
                 logger.info(f"    Corner {corner_idx} -> Point ID {point_id} at {corner_pos}")
+
+                # draw yellow point at corner
+                cv2.circle(viz_frame, (corner_x, corner_y), radius=4, color=(0, 255, 255), thickness=-1)
+
+                cv2.putText(
+                    viz_frame,
+                    str(corner_idx),
+                    (corner_x + 5, corner_y - 5),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 255),
+                    1,
+                )
 
     # Draw rejected markers in red
     if rejected:
         cv2.aruco.drawDetectedMarkers(viz_frame, rejected, borderColor=(0, 0, 255))
         logger.info(f"\nDrew {len(rejected)} rejected candidates in red")
 
-    # Save visualization
-    viz_path = script_dir / "aruco_detection_comparison.png"
     cv2.imwrite(str(viz_path), viz_frame)
     logger.info(f"\nSaved visualization: {viz_path}")
 

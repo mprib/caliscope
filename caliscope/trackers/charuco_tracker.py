@@ -52,7 +52,7 @@ class CharucoTracker(Tracker):
     def get_point_name(self, point_id: int) -> str:
         return str(point_id)
 
-    def get_connected_points(self):
+    def get_connected_points(self) -> set[tuple[int, int]]:
         return self.charuco.get_connected_points()
 
     def find_corners_single_frame(self, gray_frame, mirror):

@@ -261,11 +261,17 @@ def compute_relative_poses(poses: dict, camera_array: CameraArray) -> dict:
             R_a, t_a, _ = poses[(port_a, sync_index)]
             R_b, t_b, _ = poses[(port_b, sync_index)]
 
-            # Compute relative pose: T_ab = T_a^{-1} * T_b
-            # R_ab = R_a^T * R_b
-            # t_ab = R_a^T * (t_b - t_a)
-            R_rel = R_a.T @ R_b
-            t_rel = R_a.T @ (t_b - t_a)
+            # We want to find the transform from camera A to camera B (T_ba)
+            # T_ba = T_b_obj * inv(T_a_obj)
+            # R_ba = R_b * R_a.T
+            # t_ba = t_b - R_b * R_a.T * t_a
+
+            R_a_inv = R_a.T
+            t_a_inv = -R_a_inv @ t_a
+
+            # Now compose the transformations: T_b_obj * T_obj_a
+            R_rel = R_b @ R_a_inv
+            t_rel = R_b @ t_a_inv + t_b
 
             relative_poses[(pair, sync_index)] = (R_rel, t_rel)
 

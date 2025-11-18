@@ -89,7 +89,7 @@ class StereoCalibrator:
 
         return all_boards
 
-    def get_stereopair_data(self, pair: tuple, boards_sampled: int):
+    def _get_stereopair_data(self, pair: tuple, boards_sampled: int):
         """
         Efficiently extract data for a stereo pair with deterministic board selection.
         """
@@ -197,7 +197,7 @@ class StereoCalibrator:
 
         logger.info(f"Beginning stereocalibration of pairs {self.pairs}")
         for pair in self.pairs:
-            error, rotation, translation = self.stereo_calibrate(pair, boards_sampled)
+            error, rotation, translation = self._stereo_calibrate(pair, boards_sampled)
 
             # only store results if actual results
             if error is not None:
@@ -213,15 +213,15 @@ class StereoCalibrator:
         logger.info("Direct stereocalibration complete for all available pairs")
         return all_results
 
-    def stereo_calibrate(self, pair, boards_sampled=10):
+    def _stereo_calibrate(self, pair, boards_sampled=10):
         stereocalibration_flags = cv2.CALIB_FIX_INTRINSIC
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 40, 0.001)
 
-        paired_point_data = self.get_stereopair_data(pair, boards_sampled)
+        paired_point_data = self._get_stereopair_data(pair, boards_sampled)
 
         if paired_point_data is not None:
-            img_locs_A, obj_locs_A = self.get_stereocal_inputs(pair[0], paired_point_data)
-            img_locs_B, obj_locs_B = self.get_stereocal_inputs(pair[1], paired_point_data)
+            img_locs_A, obj_locs_A = self._get_stereocal_inputs(pair[0], paired_point_data)
+            img_locs_B, obj_locs_B = self._get_stereocal_inputs(pair[1], paired_point_data)
 
             cam_A: CameraData = self.camera_array.cameras[pair[0]]
             cam_B: CameraData = self.camera_array.cameras[pair[1]]
@@ -254,7 +254,7 @@ class StereoCalibrator:
 
         return ret, rotation, translation
 
-    def get_stereocal_inputs(self, port, point_data):
+    def _get_stereocal_inputs(self, port, point_data):
         port_point_data = point_data.query(f"port == {port}")
 
         sync_indices = port_point_data["sync_index"].to_numpy().round().astype(int)

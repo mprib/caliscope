@@ -7,6 +7,7 @@ Design Decisions:
 - Applies IQR-based outlier rejection to both rotation and translation
 - Uses quaternion averaging for robust rotation aggregation
 - Compares against gold standard using rotation angle and translation errors
+- Calculates Stereo RMSE via triangulation/reprojection on the normalized plane
 """
 
 import json
@@ -14,6 +15,7 @@ import logging
 import time
 from itertools import combinations
 from pathlib import Path
+from typing import Tuple
 
 import cv2
 import numpy as np
@@ -59,7 +61,7 @@ def quaternion_average(quaternions: np.ndarray) -> np.ndarray:
     # of the quaternion covariance matrix
     Q = quaternions.T
     M = Q @ Q.T
-    eigenvals, eigenvecs = np.linalg.eigh(M)
+    _, eigenvecs = np.linalg.eigh(M)
 
     # The average quaternion is the eigenvector with largest eigenvalue
     avg_quat = eigenvecs[:, -1]
@@ -123,15 +125,15 @@ def translation_error(t1: np.ndarray, t2: np.ndarray) -> dict:
     return {"magnitude_error_pct": magnitude_error, "direction_error_deg": direction_error}
 
 
-def load_charuco_data(point_data_path: Path) -> pd.DataFrame:
+def load_point_data(point_data_path: Path) -> pd.DataFrame:
     """
-    Load Charuco point data and add coverage regions.
+    Load generic point data (e.g., Charuco or Keypoints) and add coverage regions.
 
     Returns:
         DataFrame with columns: sync_index, port, point_id, img_loc_x, img_loc_y,
         obj_loc_x, obj_loc_y, coverage_region
     """
-    logger.info(f"Loading Charuco data from {point_data_path}")
+    logger.info(f"Loading point data from {point_data_path}")
 
     raw_data = pd.read_csv(point_data_path)
 
@@ -142,7 +144,8 @@ def load_charuco_data(point_data_path: Path) -> pd.DataFrame:
     grouped = (
         point_ports.groupby(["sync_index", "point_id"])["port_str"]
         .apply(lambda x: "_" + "_".join(sorted(x)) + "_")
-        .reset_index(name="coverage_region")
+        .rename("coverage_region")
+        .reset_index()
     )
 
     result = raw_data.merge(grouped, on=["sync_index", "point_id"], how="left")
@@ -151,7 +154,7 @@ def load_charuco_data(point_data_path: Path) -> pd.DataFrame:
     return result
 
 
-def compute_camera_poses_pnp(charuco_data: pd.DataFrame, camera_array: CameraArray) -> dict:
+def compute_camera_poses_pnp(point_data: pd.DataFrame, camera_array: CameraArray) -> dict:
     """
     Compute per-camera poses using PnP for each sync_index.
 
@@ -165,11 +168,14 @@ def compute_camera_poses_pnp(charuco_data: pd.DataFrame, camera_array: CameraArr
     failure_count = 0
 
     # Group by port and sync_index
-    grouped = charuco_data.groupby(["port", "sync_index"])
+    grouped = point_data.groupby(["port", "sync_index"])
 
     start_time = time.time()
 
-    for (port, sync_index), group in grouped:
+    for key, group in grouped:
+        # Type checker safe unpacking
+        port, sync_index = key  # type: ignore
+
         # Check minimum point count
         if len(group) < MIN_PNP_POINTS:
             failure_count += 1
@@ -406,6 +412,95 @@ def aggregate_poses(filtered_poses: dict) -> dict:
     return aggregated
 
 
+def calculate_stereo_rmse(
+    pair: Tuple[int, int], R: np.ndarray, t: np.ndarray, camera_array: CameraArray, point_data: pd.DataFrame
+) -> float | None:
+    """
+    Calculate the RMSE for a stereo pair given a fixed relative pose (R, t).
+    mimics cv2.stereoCalibrate internal error calculation:
+    1. Undistort points to normalized plane
+    2. Triangulate using the provided pose
+    3. Project back to both cameras
+    4. Calculate RMS error of residuals
+
+    Args:
+        pair: tuple of (port_A, port_B)
+        R: Rotation matrix from A to B
+        t: Translation vector from A to B
+        camera_array: CameraArray object with intrinsics
+        point_data: DataFrame with columns [port, sync_index, point_id, img_loc_x, img_loc_y]
+
+    Returns:
+        RMSE value (float) or None if insufficient data
+    """
+    port_A, port_B = pair
+    cam_A = camera_array.cameras[port_A]
+    cam_B = camera_array.cameras[port_B]
+
+    # Filter data for this pair
+    data_A = point_data[point_data["port"] == port_A]
+    data_B = point_data[point_data["port"] == port_B]
+
+    # Merge to find common points
+    common = pd.merge(
+        data_A,
+        data_B,
+        on=["sync_index", "point_id"],
+        suffixes=("_A", "_B"),
+    )
+
+    if len(common) < MIN_PNP_POINTS:
+        logger.warning(f"Insufficient common points for RMSE calc on pair {pair}")
+        return None
+
+    # Extract points
+    pts_A = common[["img_loc_x_A", "img_loc_y_A"]].to_numpy(dtype=np.float32)
+    pts_B = common[["img_loc_x_B", "img_loc_y_B"]].to_numpy(dtype=np.float32)
+
+    # 1. Undistort points to normalized plane (Camera Matrix = I, Dist = 0)
+    norm_A = cam_A.undistort_points(pts_A)
+    norm_B = cam_B.undistort_points(pts_B)
+
+    # 2. Triangulate
+    # Projection matrix for A (Origin): [I | 0]
+    P1 = np.eye(3, 4)
+    # Projection matrix for B (Relative): [R | t]
+    P2 = np.hstack((R, t.reshape(3, 1)))
+
+    # OpenCV triangulatePoints requires 2xN arrays
+    points_4d = cv2.triangulatePoints(P1, P2, norm_A.T, norm_B.T)
+    points_3d = points_4d[:3] / points_4d[3]  # Convert homogeneous to Euclidean (3xN)
+
+    # 3. Project back
+    # We project the triangulated 3D points back to the NORMALIZED image plane
+    # So we use K=Identity, D=Zero.
+
+    # Project to Camera A (Identity pose)
+    # note: need to better explain and document "mystery params" here.
+    proj_A, _ = cv2.projectPoints(points_3d.T, np.zeros(3), np.zeros(3), np.eye(3), np.zeros(5))
+    proj_A = proj_A.reshape(-1, 2)
+
+    # Project to Camera B (Relative pose)
+    # Note: projectPoints expects rvec, not rotation matrix
+    rvec, _ = cv2.Rodrigues(R)
+    proj_B, _ = cv2.projectPoints(points_3d.T, rvec, t, np.eye(3), np.zeros(5))
+    proj_B = proj_B.reshape(-1, 2)
+
+    # 4. Calculate RMSE
+    err_A = norm_A - proj_A
+    err_B = norm_B - proj_B
+
+    # Stack errors from both cameras
+    all_errors = np.vstack((err_A, err_B))
+
+    # RMSE = sqrt( sum(d^2) / N )
+    residuals_squared = np.sum(all_errors**2, axis=1)  # squared euclidean distance per point
+    mean_sq_error = np.mean(residuals_squared)
+    rmse = np.sqrt(mean_sq_error)
+
+    return float(rmse)
+
+
 def compare_to_gold_standard(aggregated_poses: dict, gold_standard: dict, output_dir: Path) -> pd.DataFrame:
     """
     Compare aggregated PnP poses to gold standard and generate comparison table.
@@ -479,7 +574,8 @@ def main():
     # test_data_dir = __root__ / "tests/sessions/post_optimization"
     project_fixture_dir = __root__ / "scripts/fixtures/aruco_pipeline"
     calibration_video_dir = project_fixture_dir / "calibration/extrinsic"
-    charuco_points_file = calibration_video_dir / "CHARUCO/xy_CHARUCO.csv"
+    # NOTE: keeping file name for compatibility, but treating as generic point data
+    point_data_file = calibration_video_dir / "CHARUCO/xy_CHARUCO.csv"
 
     # NOTE: project fixture dir created with the following
     # copy_contents(test_data_dir,project_fixture_dir)
@@ -491,12 +587,13 @@ def main():
     stages_to_run = [1, 2, 3]
     gold_standard = None  # Created in Step 1
     relative_poses = None  # Created in Step 2
+    point_data = None
 
     # Stage 1: get stereo poses based on cv2.stereocalibrate and ChAruco
     if 1 in stages_to_run:
         # Stage 1: Generate gold standard
         logger.info("=" * 20 + " STAGE 1: Gold Standard Generation " + "=" * 20)
-        stereocal = StereoCalibrator(camera_array=camera_array, point_data_path=charuco_points_file)
+        stereocal = StereoCalibrator(camera_array=camera_array, point_data_path=point_data_file)
         gold_standard = stereocal.stereo_calibrate_all(boards_sampled=GOLD_STANDARD_BOARDS)
 
         # Save gold standard
@@ -507,13 +604,13 @@ def main():
 
     # Stage 2: Compute relative poses
     if 2 in stages_to_run:
-        # Load Charuco data
+        # Load Point data
         logger.info("=" * 20 + " STAGE 2A: Data Loading " + "=" * 20)
-        charuco_data = load_charuco_data(charuco_points_file)
+        point_data = load_point_data(point_data_file)
 
         # Compute per-camera poses with PnP
         logger.info("=" * 20 + " STAGE 2B: Per-Frame PnP " + "=" * 20)
-        camera_poses = compute_camera_poses_pnp(charuco_data, camera_array)
+        camera_poses = compute_camera_poses_pnp(point_data, camera_array)
 
         # Compute relative poses
         logger.info("=" * 20 + " STAGE 2C: Relative Poses " + "=" * 20)
@@ -526,6 +623,12 @@ def main():
 
         if relative_poses is None:
             raise RuntimeError("need to run stage 2")
+
+        if point_data is None:
+            # fallback load if stage 2 didn't run but we want to run stage 3
+            # (in this script logic they are sequential, but good for safety)
+            point_data = load_point_data(point_data_file)
+
         # Stage 3: Outlier rejection
         logger.info("=" * 20 + " STAGE 3A: Outlier Rejection " + "=" * 20)
         filtered_poses = reject_outliers(relative_poses)
@@ -533,8 +636,27 @@ def main():
         logger.info("=" * 20 + " STAGE 3B: Pose Aggregation " + "=" * 20)
         aggregated_poses = aggregate_poses(filtered_poses)
 
+        # Stage 3C: RMSE Calculation and Export
+        logger.info("=" * 20 + " STAGE 3C: RMSE Calculation & Export " + "=" * 20)
+        pnp_estimates = {}
+        for pair, (R, t) in aggregated_poses.items():
+            rmse = calculate_stereo_rmse(pair, R, t, camera_array, point_data)
+
+            pair_key = f"stereo_{pair[0]}_{pair[1]}"
+            pnp_estimates[pair_key] = {
+                "rotation": R.tolist(),
+                "translation": t.tolist(),
+                "RMSE": rmse,
+            }
+            logger.info(f"Pair {pair}: RMSE = {rmse:.5f} (PnP)")
+
+        pnp_file = output_dir / "pnp_estimates.json"
+        with open(pnp_file, "w") as f:
+            json.dump(pnp_estimates, f, indent=2)
+        logger.info(f"PnP estimates with RMSE saved to {pnp_file}")
+
         # Stage 7: Comparison
-        logger.info("=" * 20 + " STAGE 3C: Gold Standard Comparison " + "=" * 20)
+        logger.info("=" * 20 + " STAGE 3D: Gold Standard Comparison " + "=" * 20)
         compare_to_gold_standard(aggregated_poses, gold_standard, output_dir)
 
         logger.info("=" * 20 + " VALIDATION COMPLETE " + "=" * 20)
@@ -542,4 +664,6 @@ def main():
 
 
 if __name__ == "__main__":
+    print("Start")
     main()
+    print("Stop")

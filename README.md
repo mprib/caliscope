@@ -47,8 +47,6 @@ https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e
 
 The animation above was generated using only `Caliscope` output and a handful of webcams. 
 
----
-
 
 ---
 

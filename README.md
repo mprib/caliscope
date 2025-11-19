@@ -15,6 +15,26 @@
 Caliscope is a GUI-based multicamera calibration package.
 It simplifies the process of determining camera properties to enable 3D motion capture.
 
+## Quick Start
+
+Basic installation instructions can be found in our [docs](https://mprib.github.io/caliscope/installation/).
+Please note that installation can take a while due to large dependencies like OpenCV and PySide6.
+
+For a complete overview of the entire workflow, please see the [sample project](https://mprib.github.io/caliscope/sample_project/).
+A [video walk through](https://www.youtube.com/watch?v=voE3IKYtuIQ) demonstrates the process with an example dataset.
+
+## Demo of Core Features
+
+### Calibration Board Creation and Camera Intrinsic Calibration
+
+
+### Estimate Multicamera Relative Pose and Set World Origin
+
+
+### Integrate with Tracking Tools To Triangulate Landmarks
+
+
+
 ### Demo Animation
 
 https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
@@ -24,13 +44,6 @@ https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e
 
 ---
 
-## Quick Start
-
-Basic installation instructions can be found in our [docs](https://mprib.github.io/caliscope/installation/).
-Please note that installation can take a while due to large dependencies like OpenCV and PySide6.
-
-For a complete overview of the entire workflow, please see the [sample project](https://mprib.github.io/caliscope/sample_project/).
-A [video walk through](https://www.youtube.com/watch?v=voE3IKYtuIQ) demonstrates the process with an example dataset.
 
 ---
 

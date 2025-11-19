@@ -27,8 +27,11 @@ A [video walk through](https://www.youtube.com/watch?v=voE3IKYtuIQ) demonstrates
 
 ### Calibration Board Creation and Camera Intrinsic Calibration
 
+https://github.com/user-attachments/assets/c2dd4119-772a-4076-90f7-4e6201f604ed
+
 
 ### Estimate Multicamera Relative Pose and Set World Origin
+
 
 
 ### Integrate with Tracking Tools To Triangulate Landmarks
@@ -72,6 +75,8 @@ It provides visual feedback at each stage, helping you verify the parameter esti
 - Tools to set the world origin within the visualizer to simplify data processing.
 
 #### 3D Tracking
+
+
 
 - A general Tracker interface for integrating alternate 2D tracking methods.
 - Three sample implementations using Google Mediapipe (Hands/Pose/Holistic).

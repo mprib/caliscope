@@ -45,8 +45,7 @@ https://github.com/user-attachments/assets/1a1b09ab-0938-48e1-aeb8-6c0bfc3492fc
 
 https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
 
-*`Caliscope` was used to calibrate the cameras (both intrinsic and extrinsic parameters) and triangulate the 3D landmark positions shown above.*
-*The 2D landmark estimation was run across all videos using Google's Holistic Mediapipe.*
+The animation above was generated using only `Caliscope` output and a handful of webcams. 
 
 ---
 

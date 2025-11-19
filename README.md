@@ -15,15 +15,6 @@
 Caliscope is a GUI-based multicamera calibration package.
 It simplifies the process of determining camera properties to enable 3D motion capture.
 
-### Demo Animation
-
-https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
-
-*`Caliscope` was used to calibrate the cameras (both intrinsic and extrinsic parameters) and triangulate the 3D landmark positions shown above.*
-*The 2D landmark estimation was run across all videos using Google's Holistic Mediapipe.*
-
----
-
 ## Quick Start
 
 Basic installation instructions can be found in our [docs](https://mprib.github.io/caliscope/installation/).
@@ -31,6 +22,31 @@ Please note that installation can take a while due to large dependencies like Op
 
 For a complete overview of the entire workflow, please see the [sample project](https://mprib.github.io/caliscope/sample_project/).
 A [video walk through](https://www.youtube.com/watch?v=voE3IKYtuIQ) demonstrates the process with an example dataset.
+
+## Demo of Core Features
+
+### Calibration Board Creation and Camera Intrinsic Calibration
+
+https://github.com/user-attachments/assets/c2dd4119-772a-4076-90f7-4e6201f604ed
+
+
+### Estimate Multicamera Relative Pose and Set World Origin
+
+
+https://github.com/user-attachments/assets/6e21c5bb-b8d1-4999-88f8-735bb5722570
+
+
+### Integrate with Tracking Tools To Triangulate Landmarks
+
+https://github.com/user-attachments/assets/1a1b09ab-0938-48e1-aeb8-6c0bfc3492fc
+
+
+### Demo Animation
+
+https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
+
+The animation above was generated using only `Caliscope` output and a handful of webcams. 
+
 
 ---
 
@@ -59,6 +75,8 @@ It provides visual feedback at each stage, helping you verify the parameter esti
 - Tools to set the world origin within the visualizer to simplify data processing.
 
 #### 3D Tracking
+
+
 
 - A general Tracker interface for integrating alternate 2D tracking methods.
 - Three sample implementations using Google Mediapipe (Hands/Pose/Holistic).

@@ -22,6 +22,7 @@ from caliscope.synchronized_stream_manager import (
     SynchronizedStreamManager,
     read_video_properties,
 )
+from caliscope.post_processing.point_data import ImagePoints
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide
@@ -334,7 +335,9 @@ class Controller(QObject):
                 self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
             )
 
-            stereocalibrator = StereoCalibrator(self.camera_array, self.extrinsic_calibration_xy)
+            image_points = ImagePoints.from_csv(self.extrinsic_calibration_xy)
+
+            stereocalibrator = StereoCalibrator(self.camera_array, image_points)
             stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
             # refreshing camera array from config file
@@ -342,7 +345,7 @@ class Controller(QObject):
             self.camera_array: CameraArray = initializer.get_best_camera_array()
 
             self.point_estimates: PointEstimates = create_point_estimates_from_stereopairs(
-                self.camera_array, self.extrinsic_calibration_xy
+                self.camera_array, image_points
             )
 
             self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)

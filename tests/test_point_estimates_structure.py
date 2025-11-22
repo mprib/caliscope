@@ -12,6 +12,7 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
+from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +33,16 @@ def test_point_estimates_structure_fully_linked():
     config = Configurator(session_path)
     xy_data_path = Path(session_path, "xy_CHARUCO.csv")
     camera_array = config.get_camera_array()
-    stereo_results = StereoCalibrator(camera_array, xy_data_path).stereo_calibrate_all()
+
+    image_points = ImagePoints.from_csv(xy_data_path)
+    stereocalibrator = StereoCalibrator(camera_array, image_points)
+    stereo_results = stereocalibrator.stereo_calibrate_all()
     initializer = CameraArrayInitializer(camera_array, stereo_results)
     # This initialization should result in all cameras being posed
     camera_array: CameraArray = initializer.get_best_camera_array()
 
     # Generate the point estimates
-    point_estimates = create_point_estimates_from_stereopairs(camera_array, xy_data_path)
+    point_estimates = create_point_estimates_from_stereopairs(camera_array, image_points)
 
     # --- Structural Integrity Assertions ---
     # 1. Check consistency between CameraArray and PointEstimates
@@ -101,13 +105,17 @@ def test_point_estimates_structure_unlinked():
 
     # This initialization will result in one camera being unposed
     camera_array = config.get_camera_array()
-    stereo_results = StereoCalibrator(camera_array, xy_data_path).stereo_calibrate_all()
+
+    image_points = ImagePoints.from_csv(xy_data_path)
+    stereocalibrator = StereoCalibrator(camera_array, image_points)
+
+    stereo_results = stereocalibrator.stereo_calibrate_all()
     initializer = CameraArrayInitializer(camera_array, stereo_results)
     # This initialization should result in all cameras being posed
     camera_array: CameraArray = initializer.get_best_camera_array()
 
     # Generate the point estimates
-    point_estimates = create_point_estimates_from_stereopairs(camera_array, xy_data_path)
+    point_estimates = create_point_estimates_from_stereopairs(camera_array, image_points)
 
     # --- Structural Integrity Assertions ---
     # 1. Check consistency between CameraArray and PointEstimates

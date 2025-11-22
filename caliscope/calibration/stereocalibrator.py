@@ -1,12 +1,12 @@
 import logging
 from itertools import combinations
-from pathlib import Path
 
 import cv2
 import numpy as np
 import pandas as pd
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
 
@@ -15,21 +15,23 @@ class StereoCalibrator:
     def __init__(
         self,
         camera_array: CameraArray,
-        point_data_path: Path,
+        image_points: ImagePoints,
+        # point_data_path: Path,
     ):
         self.camera_array = camera_array
         self.ports = [port for port, cam in self.camera_array.cameras.items() if not cam.ignore]
         self.pairs = [(i, j) for i, j in combinations(self.ports, 2) if i < j]
 
         # import point data, adding coverage regions to each port
-        raw_point_data = pd.read_csv(point_data_path)
-        self.all_point_data = self._points_with_coverage_region(raw_point_data)
+        # raw_point_data = pd.read_csv(point_data_path)
+        self.all_point_data = self._points_with_coverage_region(image_points.df)
         self.all_boards = self._get_boards_with_coverage()
 
     def _points_with_coverage_region(self, point_data: pd.DataFrame):
         """
         Efficiently create coverage region strings for points.
         """
+
         # Extract unique combinations of sync_index, point_id, and port
         point_ports = point_data[["sync_index", "point_id", "port"]].drop_duplicates()
 

@@ -162,7 +162,7 @@ def _undistort_batch(xy_df: pd.DataFrame, camera_array: CameraArray) -> pd.DataF
     return xy_undistorted_df
 
 
-class XYSchema(pa.DataFrameModel):
+class ImagePointSchema(pa.DataFrameModel):
     """Pandera schema for validating 2D (x,y) point data."""
 
     sync_index: Series[int] = pa.Field(coerce=True)
@@ -176,7 +176,7 @@ class XYSchema(pa.DataFrameModel):
         coerce = True
 
 
-class XYZSchema(pa.DataFrameModel):
+class WorldPointSchema(pa.DataFrameModel):
     """Pandera schema for validating 3D (x,y,z) point data."""
 
     sync_index: Series[int] = pa.Field(coerce=True)
@@ -190,24 +190,25 @@ class XYZSchema(pa.DataFrameModel):
         coerce = True
 
 
-class XYData:
+class ImagePoints:
     """A validated, immutable container for 2D (x,y) point data."""
 
     _df: pd.DataFrame
 
     def __init__(self, df: pd.DataFrame):
-        self._df = XYSchema.validate(df)
+        self._df = ImagePointSchema.validate(df)
 
     @property
     def df(self) -> pd.DataFrame:
         return self._df.copy()
 
     @classmethod
-    def from_csv(cls, path: str | Path) -> XYData:
+    def from_csv(cls, path: str | Path) -> ImagePoints:
         df = pd.read_csv(path)
-        return cls(df)
 
-    def fill_gaps(self, max_gap_size: int = 3) -> XYData:
+        return cls(ImagePointSchema.validate(df))
+
+    def fill_gaps(self, max_gap_size: int = 3) -> ImagePoints:
         xy_filled = pd.DataFrame()
         index_key = "sync_index"
         last_port = -1
@@ -233,7 +234,7 @@ class XYData:
                     merged[col] = merged[col].interpolate(method="linear", limit=max_gap_size)
             xy_filled = pd.concat([xy_filled, merged])
         logger.info("(x,y) gap filling complete")
-        return XYData(xy_filled.dropna(subset=["img_loc_x"]))
+        return ImagePoints(xy_filled.dropna(subset=["img_loc_x"]))
 
     def triangulate(self, camera_array: CameraArray) -> XYZData:
         """
@@ -248,7 +249,7 @@ class XYData:
         """
         xy_df = self.df
         if xy_df.empty:
-            return XYZData(pd.DataFrame(columns=XYZSchema.to_schema().columns.keys()))
+            return XYZData(pd.DataFrame(columns=WorldPointSchema.to_schema().columns.keys()))
 
         # Assemble numba compatible dictionary for projection matrices
         normalized_projection_matrices = camera_array.normalized_projection_matrices
@@ -302,7 +303,7 @@ class XYZData:
     _df: pd.DataFrame
 
     def __init__(self, df: pd.DataFrame):
-        self._df = XYZSchema.validate(df)
+        self._df = WorldPointSchema.validate(df)
 
     @property
     def df(self) -> pd.DataFrame:

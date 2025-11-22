@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -9,6 +8,7 @@ from caliscope.calibration.capture_volume.helper_functions.get_stereotriangulate
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.cameras.camera_array import CameraArray
+from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +60,13 @@ def get_merged_2d_3d(stereotriangulated_table: pd.DataFrame) -> pd.DataFrame:
     return merged_point_data
 
 
-def create_point_estimates_from_stereopairs(camera_array: CameraArray, point_data_path: Path) -> PointEstimates:
+def create_point_estimates_from_stereopairs(camera_array: CameraArray, image_points: ImagePoints) -> PointEstimates:
     """
     Stereotriangulates data to generate initial x,y,z estimates and formats the
     data into a PointEstimates object suitable for bundle adjustment.
     """
     logger.info("Creating point estimates based on camera_array and stereotriangulated_table")
-    stereotriangulated_points = get_stereotriangulated_table(camera_array, point_data_path)
+    stereotriangulated_points = get_stereotriangulated_table(camera_array, image_points)
 
     points_3d_df = get_points_3d_df(stereotriangulated_points)
     merged_point_data = get_merged_2d_3d(stereotriangulated_points)

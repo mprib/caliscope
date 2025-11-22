@@ -119,5 +119,9 @@ if __name__ == "__main__":
     import caliscope.logger
 
     caliscope.logger.setup_logging()
-    test_xy_to_xyz_postprocessing()
+    # test_xy_to_xyz_postprocessing()
     print("end")
+
+    import pytest
+
+    pytest.main([__file__])

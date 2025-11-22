@@ -31,13 +31,24 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # Ubuntu-specific steps
-      - name: Update packages (Ubuntu)
+      - name: Install system dependencies (Ubuntu)
         if: runner.os == 'Linux'
-        run: sudo apt-get update
-      - name: Install packages (Ubuntu)
-        if: runner.os == 'Linux'
-        run: sudo apt-get install --fix-missing libgl1-mesa-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-dev \
+            xvfb \
+            x11-utils \
+            libxkbcommon-x11-0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-xinerama0 \
+            libxcb-xfixes0 \
+            libxcb-shape0 \
+            libxcb-cursor0
 
       # macOS-specific steps
       - name: Set environment variables (macOS)
@@ -55,5 +66,11 @@ jobs:
 
       - name: Lint with Ruff
         run: ruff check .
-      - name: Test with pytest
+
+      - name: Test with pytest (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum pytest
+
+      - name: Test with pytest (Windows/macOS)
+        if: runner.os != 'Linux'
         run: pytest

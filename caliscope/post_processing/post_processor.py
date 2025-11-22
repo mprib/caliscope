@@ -7,7 +7,7 @@ from time import sleep
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
-from caliscope.post_processing.point_data import XYData
+from caliscope.post_processing.point_data import ImagePoints
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.tracker_enum import TrackerEnum
 
@@ -66,7 +66,7 @@ class PostProcessor:
         Creates xyz_{tracker name}.csv file within the recording_path directory.
 
         This method orchestrates the post-processing pipeline using validated
-        data objects (XYData, XYZData) for a clear and robust workflow.
+        data objects (ImagePoints, WorldPoints) for a clear and robust workflow.
         """
         tracker_output_path = Path(self.recording_path, self.tracker_name)
         xy_csv_path = Path(tracker_output_path, f"xy_{self.tracker_name}.csv")
@@ -77,7 +77,7 @@ class PostProcessor:
 
         logger.info(f"Loading (x,y) data from {xy_csv_path}...")
         try:
-            xy_data = XYData.from_csv(xy_csv_path)
+            xy_data = ImagePoints.from_csv(xy_csv_path)
         except Exception as e:
             logger.error(f"Could not load or validate data from {xy_csv_path}. Error: {e}")
             return

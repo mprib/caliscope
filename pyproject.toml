@@ -1,6 +1,6 @@
 [project]
 name = "caliscope"
-version = "0.6.8"
+version = "0.6.9"
 description = "GUI based multicamera calibration that integrates with 2D landmark tracking to triangulate 3D landmark positions"
 authors = [{name = "Mac Prible", email = "prible@gmail.com"}]
 license = { text = "BSD-2-Clause" }

@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from time import sleep
 
+
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
@@ -15,8 +16,10 @@ from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.controller import FILTERED_FRACTION
 from caliscope.helper import copy_contents
+from caliscope.post_processing.point_data import ImagePoints
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
+
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +78,8 @@ def test_calibration():
     charuco = config.get_charuco()
 
     logger.info("Creating stereocalibrator")
-    stereocalibrator = StereoCalibrator(camera_array, xy_data_path)
+    image_points = ImagePoints.from_csv(xy_data_path)
+    stereocalibrator = StereoCalibrator(camera_array, image_points)
     logger.info("Initiating stereocalibration")
     stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
@@ -84,7 +88,8 @@ def test_calibration():
     camera_array: CameraArray = initializer.get_best_camera_array()
 
     logger.info("Loading point estimates")
-    point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, xy_data_path)
+    image_points = ImagePoints.from_csv(xy_data_path)
+    point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, image_points)
     capture_volume = CaptureVolume(camera_array, point_estimates)
 
     # Before filtering - log initial point counts
@@ -165,3 +170,6 @@ def test_calibration():
 if __name__ == "__main__":
     test_calibration()
     print("end")
+    # import pytest
+    #
+    # pytest.main([__file__])

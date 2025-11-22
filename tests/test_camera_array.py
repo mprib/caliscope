@@ -11,6 +11,7 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
+from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,9 @@ def test_missing_extrinsics():
     xy_data_path = Path(session_path, "xy_CHARUCO.csv")
     camera_array = config.get_camera_array()
     logger.info("Creating stereocalibrator")
-    stereocalibrator = StereoCalibrator(camera_array, xy_data_path)
+
+    image_points = ImagePoints.from_csv(xy_data_path)
+    stereocalibrator = StereoCalibrator(camera_array, image_points)
     logger.info("Initiating stereocalibration")
     stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 

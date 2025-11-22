@@ -3,7 +3,6 @@
 # and the calibration point data. These functions transform those two
 # things into a PointHistory object that can be used to optimize the CaptureVolume
 import logging
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -14,11 +13,12 @@ from caliscope.triangulate.array_stereo_triangulator import StereoTriangulator
 from caliscope.triangulate.stereo_points_builder import (
     StereoPointsBuilder,
 )
+from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
 
 
-def get_stereotriangulated_table(camera_array: CameraArray, point_data_path: Path) -> pd.DataFrame:
+def get_stereotriangulated_table(camera_array: CameraArray, image_point: ImagePoints) -> pd.DataFrame:
     """
     Creates a table of stereotriangulated points from 2D point data stored in a CSV file.
     - processing all sync indices at once.
@@ -36,8 +36,9 @@ def get_stereotriangulated_table(camera_array: CameraArray, point_data_path: Pat
     Returns:
         pd.DataFrame: Table containing triangulated 3D points
     """
-    logger.info(f"Beginning to create stereotriangulated points from data stored at {point_data_path}")
-    point_data = pd.read_csv(point_data_path)
+    logger.info("Beginning to create stereotriangulated table ")
+    point_data = image_point.df
+    # pd.read_csv(point_data_path)
 
     # Store original values
     point_data["original_sync_index"] = point_data["sync_index"]

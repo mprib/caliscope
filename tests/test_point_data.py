@@ -8,7 +8,7 @@ import pandas as pd
 import pandera.pandas as pa
 import pytest
 
-from caliscope.post_processing.point_data import XYData, XYZData
+from caliscope.post_processing.point_data import ImagePoints, XYZData
 
 
 # --- Helper functions for data generation ---
@@ -67,8 +67,8 @@ def valid_xyz_df() -> pd.DataFrame:
 # --- Test Functions ---
 def test_xydata_creation_success(valid_xy_df):
     try:
-        xy_data = XYData(valid_xy_df)
-        assert isinstance(xy_data, XYData)
+        xy_data = ImagePoints(valid_xy_df)
+        assert isinstance(xy_data, ImagePoints)
         assert not xy_data.df.empty
     except Exception as e:
         pytest.fail(f"XYData creation failed unexpectedly: {e}")
@@ -76,20 +76,20 @@ def test_xydata_creation_success(valid_xy_df):
 
 def test_xydata_creation_failure(invalid_xy_df):
     with pytest.raises(pa.errors.SchemaError) as excinfo:
-        XYData(invalid_xy_df)
+        ImagePoints(invalid_xy_df)
     assert "column 'point_id' not in dataframe" in str(excinfo.value)
 
 
 def test_xydata_from_csv(valid_xy_df, tmp_path: Path):
     csv_path = tmp_path / "test_xy.csv"
     valid_xy_df.to_csv(csv_path, index=False)
-    xy_data = XYData.from_csv(csv_path)
-    assert isinstance(xy_data, XYData)
+    xy_data = ImagePoints.from_csv(csv_path)
+    assert isinstance(xy_data, ImagePoints)
     pd.testing.assert_frame_equal(valid_xy_df, xy_data.df)
 
 
 def test_xydata_immutability(valid_xy_df):
-    xy_data = XYData(valid_xy_df)
+    xy_data = ImagePoints(valid_xy_df)
     original_df = xy_data.df
     retrieved_df = xy_data.df
     retrieved_df.iloc[0, 0] = 9999
@@ -106,7 +106,7 @@ def test_xydata_fill_gaps():
             "img_loc_y": [20, 40, 200, 400],
         }
     )
-    xy_gappy = XYData(gappy_data)
+    xy_gappy = ImagePoints(gappy_data)
     xy_filled = xy_gappy.fill_gaps(max_gap_size=3)
 
     expected_data = (
@@ -146,7 +146,6 @@ def test_xyzdata_immutability(valid_xyz_df):
     pd.testing.assert_frame_equal(original_df, xyz_data.df)
 
 
-# --- Debugging Entry Point (no changes needed here) ---
 if __name__ == "__main__":
     import tempfile
 

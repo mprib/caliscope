@@ -1,3 +1,10 @@
+import matplotlib
+
+# Force non-interactive backend to prevent the debugger
+# from trying to hook into the Qt GUI event loop.
+matplotlib.use("Agg")
+
+
 import logging
 from pathlib import Path
 from time import sleep
@@ -10,9 +17,11 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.stereocalibrator import StereoCalibrator
-from caliscope.cameras.camera_array import CameraArray
-from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
+
+from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
+from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
+
+# from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.controller import FILTERED_FRACTION
 from caliscope.helper import copy_contents
@@ -79,13 +88,13 @@ def test_calibration():
 
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = StereoCalibrator(camera_array, image_points)
+    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
+
     logger.info("Initiating stereocalibration")
-    stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+    stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
-    initializer = CameraArrayInitializer(camera_array, stereo_results)
-    camera_array: CameraArray = initializer.get_best_camera_array()
+    stereo_graph.apply_to(camera_array)
 
     logger.info("Loading point estimates")
     image_points = ImagePoints.from_csv(xy_data_path)
@@ -168,8 +177,12 @@ def test_calibration():
 
 
 if __name__ == "__main__":
+    from caliscope.logger import setup_logging
+
+    setup_logging()
+
+    # print("start")
     test_calibration()
-    print("end")
+    # print("end")
     # import pytest
-    #
     # pytest.main([__file__])

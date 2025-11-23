@@ -7,9 +7,8 @@ from caliscope import __root__
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     create_point_estimates_from_stereopairs,
 )
-from caliscope.calibration.stereocalibrator import StereoCalibrator
-from caliscope.cameras.camera_array import CameraArray
-from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
+from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
+
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 from caliscope.post_processing.point_data import ImagePoints
@@ -35,11 +34,10 @@ def test_point_estimates_structure_fully_linked():
     camera_array = config.get_camera_array()
 
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = StereoCalibrator(camera_array, image_points)
-    stereo_results = stereocalibrator.stereo_calibrate_all()
-    initializer = CameraArrayInitializer(camera_array, stereo_results)
+    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
+    stereopair_graph = stereocalibrator.stereo_calibrate_all()
+    stereopair_graph.apply_to(camera_array)
     # This initialization should result in all cameras being posed
-    camera_array: CameraArray = initializer.get_best_camera_array()
 
     # Generate the point estimates
     point_estimates = create_point_estimates_from_stereopairs(camera_array, image_points)
@@ -107,12 +105,11 @@ def test_point_estimates_structure_unlinked():
     camera_array = config.get_camera_array()
 
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = StereoCalibrator(camera_array, image_points)
+    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
 
-    stereo_results = stereocalibrator.stereo_calibrate_all()
-    initializer = CameraArrayInitializer(camera_array, stereo_results)
+    stereopair_graph = stereocalibrator.stereo_calibrate_all()
+    stereopair_graph.apply_to(camera_array)
     # This initialization should result in all cameras being posed
-    camera_array: CameraArray = initializer.get_best_camera_array()
 
     # Generate the point estimates
     point_estimates = create_point_estimates_from_stereopairs(camera_array, image_points)
@@ -160,6 +157,9 @@ def test_point_estimates_structure_unlinked():
 
 
 if __name__ == "__main__":
-    # test_point_estimates_structure_fully_linked()
+    from caliscope.logger import setup_logging
+
+    setup_logging()
+    test_point_estimates_structure_fully_linked()
     test_point_estimates_structure_unlinked()
     logger.info("End ad hoc test")

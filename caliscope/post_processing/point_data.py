@@ -240,18 +240,22 @@ class ImagePoints:
         """
         Triangulates 2D points to create 3D points using the provided CameraArray.
         The input 2D points are undistorted as part of this process.
-
-        Args:
-            camera_array: A CameraArray object containing calibration info.
-
-        Returns:
-            A new XYZData instance containing the 3D point data.
         """
         xy_df = self.df
         if xy_df.empty:
             return XYZData(pd.DataFrame(columns=WorldPointSchema.to_schema().columns.keys()))
 
+        # Only process cameras that are both in data AND posed
+        ports_in_data = xy_df["port"].unique()
+        posed_ports = list(camera_array.posed_port_to_index.keys())
+        valid_ports = [p for p in ports_in_data if p in posed_ports]
+
+        if not valid_ports:
+            logger.warning("No cameras in data have extrinsics for triangulation")
+            return XYZData(pd.DataFrame(columns=WorldPointSchema.to_schema().columns.keys()))
+
         # Assemble numba compatible dictionary for projection matrices
+        # This already filters to posed cameras
         normalized_projection_matrices = camera_array.normalized_projection_matrices
 
         # Undistort all image points before triangulation
@@ -270,12 +274,22 @@ class ImagePoints:
         last_log_update = int(start)
 
         logger.info("About to begin triangulation...due to jit, first round of calculations may take a moment.")
-        for index in undistorted_xy["sync_index"].unique():
+
+        # Only iterate over sync indices that have data from valid ports
+        valid_sync_indices = undistorted_xy[undistorted_xy["port"].isin(valid_ports)]["sync_index"].unique()
+
+        for index in valid_sync_indices:
             active_index = undistorted_xy["sync_index"] == index
-            port = undistorted_xy["port"][active_index].to_numpy()
-            point_ids = undistorted_xy["point_id"][active_index].to_numpy()
-            img_loc_x = undistorted_xy["img_loc_undistort_x"][active_index].to_numpy()
-            img_loc_y = undistorted_xy["img_loc_undistort_y"][active_index].to_numpy()
+            # Filter to valid ports for this sync index
+            index_data = undistorted_xy[active_index & undistorted_xy["port"].isin(valid_ports)]
+
+            if index_data.empty:
+                continue
+
+            port = index_data["port"].to_numpy()
+            point_ids = index_data["point_id"].to_numpy()
+            img_loc_x = index_data["img_loc_undistort_x"].to_numpy()
+            img_loc_y = index_data["img_loc_undistort_y"].to_numpy()
             raw_xy = np.vstack([img_loc_x, img_loc_y]).T
 
             point_id_xyz, points_xyz = triangulate_sync_index(normalized_projection_matrices, port, point_ids, raw_xy)

@@ -8,9 +8,9 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.stereocalibrator import StereoCalibrator
+from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
+from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 from caliscope.post_processing.point_data import ImagePoints
@@ -44,16 +44,11 @@ def test_bundle_adjust_with_unlinked_camera():
 
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = StereoCalibrator(camera_array, image_points)
+    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
 
     logger.info("Initiating stereocalibration")
-    stereo_results = stereocalibrator.stereo_calibrate_all()
-
-    # 2. INITIALIZE CAMERA_ARRAY
-    # This will result in camera 5 being unposed
-    initializer = CameraArrayInitializer(camera_array, stereo_results)
-
-    camera_array: CameraArray = initializer.get_best_camera_array()
+    stereopair_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all()
+    stereopair_graph.apply_to(camera_array)
 
     # 3. VERIFY SETUP
     # Confirm that we have the expected set of posed and unposed cameras
@@ -133,6 +128,10 @@ def test_capture_volume_filter():
 
 
 if __name__ == "__main__":
-    # test_bundle_adjust_with_unlinked_camera()
+    from caliscope.logger import setup_logging
+
+    setup_logging()
+
+    test_bundle_adjust_with_unlinked_camera()
     test_capture_volume_filter()
     logger.info("test debug complete")

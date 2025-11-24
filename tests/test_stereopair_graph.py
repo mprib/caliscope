@@ -159,18 +159,6 @@ def test_stereopair_graph_against_gold_standard():
     config = Configurator(session_path)
     camera_array: CameraArray = config.get_camera_array()
 
-    # Load test session data
-    version = "larger_calibration_post_monocal"
-    session_path = Path(__root__, "tests", "sessions", version)
-    config = Configurator(session_path)
-    camera_array: CameraArray = config.get_camera_array()
-
-    # Load test session data
-    version = "larger_calibration_post_monocal"
-    session_path = Path(__root__, "tests", "sessions", version)
-    config = Configurator(session_path)
-    camera_array: CameraArray = config.get_camera_array()
-
     # Store original camera count
     original_camera_count = len(camera_array.cameras)
 

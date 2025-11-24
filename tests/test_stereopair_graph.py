@@ -278,5 +278,7 @@ def test_stereopair_graph_against_gold_standard():
 
 
 if __name__ == "__main__":
-    # setup_logging()
+    from caliscope.logger import setup_logging
+
+    setup_logging()
     test_stereopair_graph_against_gold_standard()

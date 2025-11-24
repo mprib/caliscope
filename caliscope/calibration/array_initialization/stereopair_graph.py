@@ -1,9 +1,13 @@
+"""
+caliscope/calibration/array_initialization/stereopair_graph.py
+"""
+
 from __future__ import annotations
 
 import logging
 from collections import deque
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 import numpy as np
 
@@ -40,12 +44,16 @@ class StereoPairGraph:
         all_pairs = raw_pairs.copy()
 
         # Get all ports involved
-        ports = set()
+        ports_set = set()
         for a, b in all_pairs.keys():
-            ports.add(a)
-            ports.add(b)
+            ports_set.add(a)
+            ports_set.add(b)
 
-        logger.info(f"Discovered ports: {sorted(ports)}")
+        # Sort ports to ensure deterministic graph construction
+        # This matches the behavior of the legacy CameraArrayInitializer
+        ports = sorted(list(ports_set))
+
+        logger.info(f"Discovered ports: {ports}")
 
         # Add inverted pairs first (like old CameraArrayInitializer did)
         inverted_pairs = {cls._invert_pair(pair).pair: cls._invert_pair(pair) for pair in all_pairs.values()}
@@ -208,7 +216,7 @@ class StereoPairGraph:
         return total_error_score, configured_cameras
 
     @staticmethod
-    def _get_missing_pairs(pairs: Dict[Tuple[int, int], StereoPair], ports: set[int]) -> list[Tuple[int, int]]:
+    def _get_missing_pairs(pairs: Dict[Tuple[int, int], StereoPair], ports: List[int]) -> list[Tuple[int, int]]:
         """Find all missing directed pairs in the graph."""
         missing = []
         for a in ports:
@@ -300,11 +308,9 @@ class StereoPairGraph:
             )
             pairs[pair.pair] = pair
 
-        # Add inverted pairs for bidirectional graph
-        inverted_pairs = {cls._invert_pair(pair).pair: cls._invert_pair(pair) for pair in pairs.values()}
-        all_pairs = {**pairs, **inverted_pairs}
-
-        return cls(_pairs=all_pairs)
+        # We delegate to from_raw_estimates to ensure full graph construction (inverses + bridges)
+        # matching the behavior of the legacy CameraArrayInitializer
+        return cls.from_raw_estimates(pairs)
 
     def to_dict(self) -> Dict[str, Dict]:
         """Serialize to legacy dictionary format."""

@@ -119,6 +119,10 @@ def test_calibration():
     logger.info("Loading point estimates")
     image_points = ImagePoints.from_csv(xy_data_path)
     point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, image_points)
+
+    config.save_point_estimates(point_estimates)
+    config.save_camera_array(camera_array)
+
     capture_volume = CaptureVolume(camera_array, point_estimates)
 
     # Before filtering - log initial point counts

@@ -1,4 +1,5 @@
 import matplotlib
+import json
 
 # Force non-interactive backend to prevent the debugger
 # from trying to hook into the Qt GUI event loop.
@@ -93,8 +94,27 @@ def test_calibration():
     logger.info("Initiating stereocalibration")
     stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
+    # save new_raw_stereograph
+    new_raw_stereograph = {}
+    for key, pair in stereo_graph._pairs.items():
+        new_raw_stereograph[str(key)] = {"rotation": str(pair.rotation), "translation": str(pair.translation)}
+
+    new_raw_stereograph_path = __root__ / "tests/reference/stereograph_gold_standard/new_raw_stereograph.json"
+    with open(new_raw_stereograph_path, "w") as f:
+        json.dump(new_raw_stereograph, f, indent=4)
+
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     stereo_graph.apply_to(camera_array)
+
+    # save initial extrinsics
+    new_initial_camera_array = {}
+    for port, cam in camera_array.cameras.items():
+        new_initial_camera_array[port] = {"rotation": str(cam.rotation), "translation": str(cam.translation)}
+
+    new_initial_camera_array_path = __root__ / "tests/reference/stereograph_gold_standard/new_initial_camera_array.json"
+
+    with open(new_initial_camera_array_path, "w") as f:
+        json.dump(new_initial_camera_array, f, indent=4)
 
     logger.info("Loading point estimates")
     image_points = ImagePoints.from_csv(xy_data_path)

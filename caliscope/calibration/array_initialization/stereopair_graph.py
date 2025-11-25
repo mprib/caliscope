@@ -5,9 +5,9 @@ caliscope/calibration/array_initialization/stereopair_graph.py
 from __future__ import annotations
 
 import logging
-from collections import deque
 from dataclasses import dataclass
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple
+from itertools import permutations
 
 import numpy as np
 
@@ -23,25 +23,18 @@ class StereoPairGraph:
 
     _pairs: Dict[Tuple[int, int], StereoPair]
 
-    def __post_init__(self):
-        """Validate and fill gaps in the graph after initialization."""
-        # This is called automatically after __init__ for frozen dataclasses
-        # We can't modify self._pairs directly, so we need to do gap-filling
-        # in a classmethod constructor instead
-        pass
-
     @classmethod
     def from_raw_estimates(cls, raw_pairs: Dict[Tuple[int, int], StereoPair]) -> StereoPairGraph:
         """
         Create a StereoPairGraph from raw estimates and fill in missing pairs
         by bridging through intermediate cameras.
+        Matches the legacy CameraArrayInitializer logic exactly.
         """
-        logger.info(f"{'=' * 60}")
-        logger.info("from_raw_estimates: START")
-        logger.info(f"{'=' * 60}")
-        logger.info(f"Initial raw pairs: {len(raw_pairs)}")
-
+        # Initialize with raw pairs
+        # Legacy behavior: inverted pairs are added to the dictionary
         all_pairs = raw_pairs.copy()
+        inverted_pairs = {cls._invert_pair(pair).pair: cls._invert_pair(pair) for pair in all_pairs.values()}
+        all_pairs.update(inverted_pairs)
 
         # Get all ports involved
         ports_set = set()
@@ -50,91 +43,69 @@ class StereoPairGraph:
             ports_set.add(b)
 
         # Sort ports to ensure deterministic graph construction
-        # This matches the behavior of the legacy CameraArrayInitializer
+        # Legacy code used: sorted(list(self.camera_array.cameras.keys()))
         ports = sorted(list(ports_set))
 
-        logger.info(f"Discovered ports: {ports}")
-
-        # Add inverted pairs first (like old CameraArrayInitializer did)
-        inverted_pairs = {cls._invert_pair(pair).pair: cls._invert_pair(pair) for pair in all_pairs.values()}
-        all_pairs.update(inverted_pairs)
-        logger.info(f"After adding inverses: {len(all_pairs)} pairs")
-
-        # Iteratively fill gaps (using proven logic from old implementation)
+        # Iteratively fill gaps using legacy permutation logic
         missing_count_last_cycle = -1
-        iteration = 0
-        max_iterations = len(ports) * len(ports)  # Safety limit
 
-        while iteration < max_iterations:
-            missing_pairs = cls._get_missing_pairs(all_pairs, ports)
+        while True:
+            # Replicate _get_missing_stereopairs()
+            possible_pairs = list(permutations(ports, 2))
+            missing_pairs = [pair for pair in possible_pairs if pair not in all_pairs]
+
             current_missing = len(missing_pairs)
 
-            logger.info(f"Iteration {iteration}: {current_missing} missing pairs")
-
-            if current_missing == 0:
-                logger.info("✓ All pairs filled successfully!")
+            if current_missing == missing_count_last_cycle:
                 break
 
-            if current_missing == missing_count_last_cycle:
-                logger.warning(f"✗ No progress made, stopping early. Missing: {missing_pairs}")
+            if current_missing == 0:
                 break
 
             missing_count_last_cycle = current_missing
-            bridges_created = 0
 
-            # Try to bridge each missing pair
+            # Legacy logic: Iterate through missing pairs (A, C)
             for port_a, port_c in missing_pairs:
                 best_bridge = None
-                best_bridge_b = None
 
-                # Try all possible intermediate ports
-                for port_b in ports:
-                    pair_a_b = (port_a, port_b)
-                    pair_b_c = (port_b, port_c)
+                # Legacy logic: Iterate through potential bridges X in sorted order
+                for port_x in ports:
+                    pair_a_x_key = (port_a, port_x)
+                    pair_x_c_key = (port_x, port_c)
 
-                    if pair_a_b in all_pairs and pair_b_c in all_pairs:
-                        # Can bridge through port_b
-                        bridged = cls._bridge_pairs(all_pairs[pair_a_b], all_pairs[pair_b_c])
+                    if pair_a_x_key in all_pairs and pair_x_c_key in all_pairs:
+                        pair_a_x = all_pairs[pair_a_x_key]
+                        pair_x_c = all_pairs[pair_x_c_key]
 
-                        if best_bridge is None or bridged.error_score < best_bridge.error_score:
-                            best_bridge = bridged
-                            best_bridge_b = port_b
+                        possible_bridge = cls._bridge_pairs(pair_a_x, pair_x_c)
+
+                        # Legacy Comparison: if best is None or old > new (strictly greater)
+                        if best_bridge is None or best_bridge.error_score > possible_bridge.error_score:
+                            best_bridge = possible_bridge
 
                 if best_bridge is not None:
-                    # Add both directions
+                    # Add both directions immediately, matching legacy add_stereopair()
                     all_pairs[best_bridge.pair] = best_bridge
                     inverted = cls._invert_pair(best_bridge)
                     all_pairs[inverted.pair] = inverted
-                    bridges_created += 1
-                    logger.debug(
-                        f"  Bridged {port_a}->{port_c} via {best_bridge_b}: error={best_bridge.error_score:.4f}"
-                    )
-
-            logger.info(f"  → Created {bridges_created} bridges this iteration")
-            iteration += 1
-
-        if iteration >= max_iterations:
-            logger.error("✗ Hit maximum iterations, gap-filling incomplete")
-
-        logger.info(f"{'=' * 60}")
-        logger.info(f"Final graph: {len(all_pairs)} pairs")
-        logger.info(f"Sample pairs: {list(all_pairs.keys())[:10]}")
-        logger.info(f"{'=' * 60}")
 
         return cls(_pairs=all_pairs)
 
     def _build_anchored_config(
         self, camera_array: CameraArray, anchor_port: int
     ) -> tuple[float, Dict[int, CameraData]]:
-        """Builds a camera configuration anchored to the specified port."""
-        # logger.info(f"{'=' * 60}")
-        # logger.info(f"Building anchored config for anchor={anchor_port}")
-        # logger.info(f"{'=' * 60}")
-
+        """
+        Builds a camera configuration anchored to the specified port.
+        Uses direct lookup from the anchor node, relying on the gap-filling step
+        to have created the necessary edges.
+        """
         total_error_score = 0.0
         configured_cameras = {}
 
-        # Create new CameraData objects
+        # Get sorted ports to match legacy iteration order
+        ports = sorted(list(camera_array.cameras.keys()))
+
+        # Create new CameraData objects (legacy _get_scored_anchored_array behavior)
         for port, cam_data in camera_array.cameras.items():
             configured_cameras[port] = CameraData(
                 port=cam_data.port,
@@ -154,76 +125,26 @@ class StereoPairGraph:
         # Set anchor to origin
         configured_cameras[anchor_port].rotation = np.eye(3, dtype=np.float64)
         configured_cameras[anchor_port].translation = np.zeros(3, dtype=np.float64)
-        logger.info(f"✓ Anchor camera {anchor_port} set to origin")
 
-        # Pose other cameras using BFS traversal
-        visited = {anchor_port}
-        queue = deque([anchor_port])
-        traversal_steps = 0
+        # Pose other cameras using direct lookup
+        for port in ports:
+            if port == anchor_port:
+                continue
 
-        while queue:
-            current_port = queue.popleft()
-            current_cam = configured_cameras[current_port]
+            # Legacy: Direct lookup Anchor -> Port
+            pair_key = (anchor_port, port)
 
-            logger.debug(f"Traversing from camera {current_port}")
+            if pair_key in self._pairs:
+                anchored_stereopair = self._pairs[pair_key]
 
-            # Find all neighbors of current camera
-            for (src, dst), stereo_pair in self._pairs.items():
-                if src == current_port and dst not in visited:
-                    # Compose transformation: anchor->dst = anchor->src @ src->dst
-                    if current_cam.rotation is not None and current_cam.translation is not None:
-                        # Build 4x4 transformation matrix for current camera
-                        T_anchor_src = np.eye(4)
-                        T_anchor_src[0:3, 0:3] = current_cam.rotation
-                        T_anchor_src[0:3, 3] = current_cam.translation
+                # Apply transformation
+                configured_cameras[port].translation = anchored_stereopair.translation.flatten()
+                configured_cameras[port].rotation = anchored_stereopair.rotation
 
-                        # Get src->dst transformation from stereo pair
-                        T_src_dst = stereo_pair.transformation
-
-                        # Compose: T_anchor_dst = T_anchor_src @ T_src_dst
-                        T_anchor_dst = np.matmul(T_anchor_src, T_src_dst)
-
-                        # Update neighbor's pose
-                        configured_cameras[dst].rotation = T_anchor_dst[0:3, 0:3]
-                        configured_cameras[dst].translation = T_anchor_dst[0:3, 3]
-
-                        # Accumulate error
-                        total_error_score += stereo_pair.error_score
-
-                        # Mark as visited and add to queue
-                        visited.add(dst)
-                        queue.append(dst)
-                        traversal_steps += 1
-
-                        logger.debug(
-                            f"  ✓ Posed camera {dst} via {src}: "
-                            f"error={stereo_pair.error_score:.4f}, "
-                            f"visited={len(visited)}/{len(configured_cameras)}"
-                        )
-
-        logger.info(f"{'=' * 60}")
-        logger.info(f"Traversal complete: {traversal_steps} steps, {len(visited)} cameras posed")
-        logger.info(f"Total error score: {total_error_score:.4f}")
-
-        # Log unposed cameras
-        unposed = [p for p in configured_cameras.keys() if configured_cameras[p].rotation is None]
-        if unposed:
-            logger.warning(f"Unposed cameras: {unposed}")
-        else:
-            logger.info("✓ All cameras successfully posed")
-        logger.info(f"{'=' * 60}")
+                # Accumulate error
+                total_error_score += anchored_stereopair.error_score
 
         return total_error_score, configured_cameras
-
-    @staticmethod
-    def _get_missing_pairs(pairs: Dict[Tuple[int, int], StereoPair], ports: List[int]) -> list[Tuple[int, int]]:
-        """Find all missing directed pairs in the graph."""
-        missing = []
-        for a in ports:
-            for b in ports:
-                if a != b and (a, b) not in pairs:
-                    missing.append((a, b))
-        return missing
 
     @staticmethod
     def _bridge_pairs(pair_ab: StereoPair, pair_bc: StereoPair) -> StereoPair:
@@ -254,7 +175,7 @@ class StereoPairGraph:
 
         ports = sorted(camera_array.cameras.keys())
 
-        # Find largest connected component
+        # Find largest connected component (Legacy behavior used this to filter main group)
         main_group_ports = self._find_largest_connected_component(ports)
 
         if not main_group_ports:
@@ -309,8 +230,6 @@ class StereoPairGraph:
             )
             pairs[pair.pair] = pair
 
-        # We delegate to from_raw_estimates to ensure full graph construction (inverses + bridges)
-        # matching the behavior of the legacy CameraArrayInitializer
         return cls.from_raw_estimates(pairs)
 
     def to_dict(self) -> Dict[str, Dict]:
@@ -352,6 +271,9 @@ class StereoPairGraph:
         for port in ports:
             if port not in visited:
                 current_component = set()
+                # deque([port]) used in legacy
+                from collections import deque
+
                 q = deque([port])
                 visited.add(port)
                 while q:

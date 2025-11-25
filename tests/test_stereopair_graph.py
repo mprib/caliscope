@@ -179,8 +179,8 @@ def test_stereopair_graph_against_gold_standard():
     # 1. Load gold standard data
     reference_dir = Path(__root__, "tests", "reference", "stereograph_gold_standard")
 
-    with open(reference_dir / "main_initial_camera_array.json", "r") as f:
-        json.load(f)
+    # with open(reference_dir / "main_initial_camera_array.json", "r") as f:
+    #     json.load(f)
 
     with open(reference_dir / "main_stereocal_all_results.json", "r") as f:
         gold_stereocal_all_results = json.load(f)

@@ -245,10 +245,13 @@ def _prepare_stereocal_inputs(port: int, pair_points: pd.DataFrame):
     """
     Prepare image and object points for cv2.stereoCalibrate.
     """
-    port_data = pair_points[pair_points["port"] == port]
+    port_data = pair_points[pair_points["port"] == port].copy()
 
     if port_data.empty:
         return [], []
+
+    # ensure deterministic output with explicit sort
+    port_data.sort_values(by=["sync_index", "point_id"], inplace=True)
 
     sync_indices = port_data["sync_index"].to_numpy().round().astype(int)
     img_loc_x = port_data["img_loc_x"].to_numpy().astype(np.float32)

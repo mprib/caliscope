@@ -94,46 +94,14 @@ def test_calibration():
     logger.info("Initiating stereocalibration")
     stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
-    # Debug: Compare specific pairs
-    logger.info("=" * 60)
-    logger.info("STEREOPAIR DIAGNOSTIC")
-    logger.info("=" * 60)
-
-    # Test a forward pair (should be identical)
-    forward_pair = stereo_graph.get_pair(1, 2)
-    if forward_pair:
-        logger.info("Pair (1,2) - Forward:")
-        logger.info(f"  error_score: {forward_pair.error_score}")
-        logger.info(f"  translation: {forward_pair.translation.flatten()}")
-
-    # Test an inverted pair (this is where the difference likely is)
-    inverted_pair = stereo_graph.get_pair(2, 1)
-    if inverted_pair:
-        logger.info("Pair (2,1) - Inverted:")
-        logger.info(f"  error_score: {inverted_pair.error_score}")
-        logger.info(f"  translation: {inverted_pair.translation.flatten()}")
-
-    # Calculate what anchor 2's score SHOULD be using our pairs
-    anchor_2_expected = 0.0
-    for port in [1, 3, 4, 5, 6, 7, 8, 9, 10, 11]:
-        pair = stereo_graph.get_pair(2, port)
-        if pair:
-            anchor_2_expected += pair.error_score
-            logger.info(f"  Pair (2,{port}): error={pair.error_score:.10f}")
-        else:
-            logger.info(f"  Pair (2,{port}): MISSING!")
-
-    logger.info(f"Expected anchor 2 score: {anchor_2_expected}")
-    logger.info("=" * 60)
-
     # save new_raw_stereograph
-    # new_raw_stereograph = {}
-    # for key, pair in stereo_graph._pairs.items():
-    #     new_raw_stereograph[str(key)] = {"rotation": str(pair.rotation), "translation": str(pair.translation)}
-    #
-    # new_raw_stereograph_path = __root__ / "tests/reference/stereograph_gold_standard/new_raw_stereograph.json"
-    # with open(new_raw_stereograph_path, "w") as f:
-    #     json.dump(new_raw_stereograph, f, indent=4)
+    new_raw_stereograph = {}
+    for key, pair in stereo_graph._pairs.items():
+        new_raw_stereograph[str(key)] = {"rotation": str(pair.rotation), "translation": str(pair.translation)}
+
+    new_raw_stereograph_path = __root__ / "tests/reference/stereograph_gold_standard/new_raw_stereograph.json"
+    with open(new_raw_stereograph_path, "w") as f:
+        json.dump(new_raw_stereograph, f, indent=4)
 
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     stereo_graph.apply_to(camera_array)

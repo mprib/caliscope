@@ -4,7 +4,7 @@ import sys
 from caliscope import __root__
 
 # Paths
-GOLD_PATH = __root__ / "tests/reference/stereograph_gold_standard/initial_camera_array.json"
+GOLD_PATH = __root__ / "tests/reference/stereograph_gold_standard/main_initial_camera_array.json"
 NEW_PATH = __root__ / "tests/reference/stereograph_gold_standard/new_initial_camera_array.json"
 
 

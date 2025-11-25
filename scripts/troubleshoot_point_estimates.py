@@ -4,7 +4,7 @@ import pandas as pd
 from caliscope import __root__
 
 # Paths
-GOLD_PATH = __root__ / "tests/reference/stereograph_gold_standard/gold_point_estimates.toml"
+GOLD_PATH = __root__ / "tests/reference/stereograph_gold_standard/main_point_estimates.toml"
 NEW_PATH = __root__ / "tests/reference/stereograph_gold_standard/new_point_estimates.toml"
 # We need the camera array to map indices back to ports for a true comparison
 # Assuming standard port-to-index mapping (0->0, 1->1) if unavailable,

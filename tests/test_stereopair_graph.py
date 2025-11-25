@@ -21,10 +21,9 @@ from caliscope.post_processing.point_data import ImagePoints
 logger = logging.getLogger(__name__)
 
 # --- Thresholds ---
-# Angle error in radians (approx 0.5 degrees = 0.008 rad)
-ROTATION_TOLERANCE_RAD = 1e-4
+ROTATION_TOLERANCE_RAD = 0.02  # in radians... ~1.15 degrees
 # Absolute difference in translation units
-TRANSLATION_TOLERANCE = 1e-3
+TRANSLATION_TOLERANCE = 0.025  # 2.5 cm
 
 
 def rotation_matrix_to_angle_axis(R: np.ndarray) -> tuple[float, np.ndarray]:

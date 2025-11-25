@@ -125,6 +125,10 @@ def test_calibration():
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
 
+    logger.info("=========== INITIAL CAMERA ARRAY ==============")
+    for port, cam in capture_volume.camera_array.cameras.items():
+        logger.info(f" Cam {port}: rotation - {cam.rotation}, translation = {cam.translation}")
+
     # Before filtering - log initial point counts
     logger.info("========== POINT COUNT DIAGNOSTICS ==========")
     logger.info("Initial point counts:")

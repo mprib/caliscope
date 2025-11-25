@@ -6,14 +6,121 @@ from pathlib import Path
 import numpy as np
 
 from caliscope import __root__
-from caliscope.calibration.stereocalibrator import StereoCalibrator
+from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
+from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
+
+
+def analyze_true_connectivity(image_points: ImagePoints) -> dict:
+    """
+    Analyze the raw data to determine which camera pairs SHOULD be linked
+    based on actual shared observations.
+    """
+    df = image_points.df
+
+    print("\n" + "=" * 80)
+    print("TRUE CONNECTIVITY ANALYSIS")
+    print("=" * 80)
+
+    # 1. Points per camera
+    print("\n📊 OBSERVATIONS PER CAMERA:")
+    obs_per_cam = df.groupby("port").size().sort_index()
+    for port, count in obs_per_cam.items():
+        print(f"  Camera {port}: {count:,} observations")
+
+    # 2. Shared point analysis
+    print("\n🔍 SHARED POINTS ANALYSIS:")
+
+    # Group by sync_index + point_id to find which cameras see the same point
+    point_coverage = df.groupby(["sync_index", "point_id"])["port"].apply(lambda x: tuple(sorted(set(x))))
+
+    # Count coverage patterns
+    coverage_counts = point_coverage.value_counts()
+
+    print("\n  Coverage patterns (which cameras see same point):")
+    for pattern, count in coverage_counts.head(20).items():
+        print(f"    {pattern}: {count} points")
+
+    # 3. Direct pair connectivity
+    print("\n🔗 DIRECT PAIR CONNECTIVITY:")
+
+    # For each sync_index, find all camera pairs that see the same board
+    pair_counts = {}
+    for (sync_idx, point_id), group in df.groupby(["sync_index", "point_id"]):
+        ports_in_group = sorted(group["port"].unique())
+
+        # Count all pairs within this group
+        for i, port_a in enumerate(ports_in_group):
+            for port_b in ports_in_group[i + 1 :]:
+                pair = tuple(sorted((port_a, port_b)))
+                pair_counts[pair] = pair_counts.get(pair, 0) + 1
+
+    # Sort by count descending
+    sorted_pairs = sorted(pair_counts.items(), key=lambda x: x[1], reverse=True)
+
+    print("\n  Port pairs that share points (sorted by shared point count):")
+    for (port_a, port_b), count in sorted_pairs:
+        print(f"    {port_a}-{port_b}: {count:,} shared points")
+
+    # 4. Board-level connectivity
+    print("\n🎯 BOARD-LEVEL CONNECTIVITY:")
+
+    # For each port pair, count how many unique boards (sync_index) they share
+    board_counts = {}
+    for (sync_idx, point_id), group in df.groupby(["sync_index", "point_id"]):
+        ports_in_group = sorted(group["port"].unique())
+
+        for i, port_a in enumerate(ports_in_group):
+            for port_b in ports_in_group[i + 1 :]:
+                pair = tuple(sorted((port_a, port_b)))
+                if pair not in board_counts:
+                    board_counts[pair] = set()
+                board_counts[pair].add(sync_idx)
+
+    # Convert to counts
+    board_counts = {pair: len(boards) for pair, boards in board_counts.items()}
+    sorted_boards = sorted(board_counts.items(), key=lambda x: x[1], reverse=True)
+
+    print("\n  Port pairs that share boards (sorted by shared board count):")
+    for (port_a, port_b), count in sorted_boards:
+        print(f"    {port_a}-{port_b}: {count:,} shared boards")
+
+    # 5. Summary for test expectations
+    print("\n📋 SUMMARY FOR TEST EXPECTATIONS:")
+
+    # Which cameras have ANY connectivity
+    all_ports_with_data = set(df["port"].unique())
+    ports_with_pairs = set()
+    for a, b in pair_counts.keys():
+        ports_with_pairs.add(a)
+        ports_with_pairs.add(b)
+
+    print(f"\n  Cameras with observations: {sorted(all_ports_with_data)}")
+    print(f"  Cameras with direct pairs: {sorted(ports_with_pairs)}")
+
+    # Identify isolated cameras
+    isolated = all_ports_with_data - ports_with_pairs
+    if isolated:
+        print(f"  ⚠️  Isolated cameras (no direct pairs): {sorted(isolated)}")
+    else:
+        print("  ✓ No isolated cameras")
+
+    # 6. Return structured data for assertions
+    connectivity = {
+        "ports_with_data": sorted(all_ports_with_data),
+        "direct_pairs": {
+            pair: {"shared_points": count, "shared_boards": board_counts.get(pair, 0)} for pair, count in sorted_pairs
+        },
+        "isolated_ports": sorted(isolated),
+    }
+
+    print("\n" + "=" * 80)
+    return connectivity
 
 
 def test_missing_extrinsics():
@@ -28,21 +135,39 @@ def test_missing_extrinsics():
 
     config = Configurator(session_path)
     xy_data_path = Path(session_path, "xy_CHARUCO.csv")
-    camera_array = config.get_camera_array()
-    logger.info("Creating stereocalibrator")
+    camera_array: CameraArray = config.get_camera_array()
 
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = StereoCalibrator(camera_array, image_points)
-    logger.info("Initiating stereocalibration")
-    stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
-    logger.info("stereocalibration complete")
-    logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
-    initializer = CameraArrayInitializer(camera_array, stereo_results)
-    camera_array: CameraArray = initializer.get_best_camera_array()
+    # === RUN STEREO CALIBRATION WITH DEBUG LOGGING ===
+    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
+    stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+
+    # === INSPECT THE GRAPH STATE ===
+    print("\n" + "=" * 80)
+    print("POST-CALIBRATION GRAPH INSPECTION")
+    print("=" * 80)
+
+    print(f"\nGraph contains {len(stereo_graph._pairs)} pairs:")
+    for (src, dst), pair in sorted(stereo_graph._pairs.items()):
+        print(f"  {src}→{dst}: RMSE={pair.error_score:.4f}")
+
+    # Check for critical pairs
+    critical_pairs = [(3, 4), (2, 4), (4, 3), (4, 2)]
+    for src, dst in critical_pairs:
+        pair = stereo_graph.get_pair(src, dst)
+        if pair:
+            print(f"✓ Pair {src}→{dst} exists: RMSE={pair.error_score:.4f}")
+        else:
+            print(f"✗ Pair {src}→{dst} is MISSING")
+
+    print("=" * 80)
+
+    # === APPLY GRAPH AND LOG EVERY STEP ===
+    stereo_graph.apply_to(camera_array)
     logger.info("Camera Poses estimated from stereocalibration")
 
-    # should have posed all ports but 4 and 5
+    # should have posed all ports but 4 and 5 (4 is ignored)
     # Using set for posed_cameras to avoid order dependency
     assert set(camera_array.posed_cameras.keys()) == {1, 2, 3, 6}
     assert list(camera_array.unposed_cameras.keys()) == [4, 5]
@@ -50,6 +175,8 @@ def test_missing_extrinsics():
     # when creating extrinsic parameters shouldn't have camera 5.
     extrinsic_params = camera_array.get_extrinsic_params()
     assert extrinsic_params is not None, "Extrinsic parameters should not be None"
+
+    # Now the assertion that fails
     assert extrinsic_params.shape == (4, 6), "Shape should be (4 posed cameras, 6 params)"
 
     # camera 5 should not be in the index used for optimization parameter mapping
@@ -86,6 +213,10 @@ def test_missing_extrinsics():
 
 
 if __name__ == "__main__":
+    from caliscope.logger import setup_logging
+
+    setup_logging()
+
     test_missing_extrinsics()
     print("end")
     # test_deterministic_consistency()

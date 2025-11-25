@@ -9,12 +9,13 @@ from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     create_point_estimates_from_stereopairs,
 )
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
 from caliscope.calibration.charuco import Charuco
-from caliscope.calibration.stereocalibrator import StereoCalibrator
+from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
+from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
+
+# from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.intrinsic_stream_manager import IntrinsicStreamManager
 from caliscope.post_processing.post_processor import PostProcessor
@@ -337,16 +338,14 @@ class Controller(QObject):
 
             image_points = ImagePoints.from_csv(self.extrinsic_calibration_xy)
 
-            stereocalibrator = StereoCalibrator(self.camera_array, image_points)
-            stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+            stereocalibrator = LegacyStereoCalibrator(self.camera_array, image_points)
+            stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
             # refreshing camera array from config file
-            initializer = CameraArrayInitializer(self.camera_array, stereo_results)
-            self.camera_array: CameraArray = initializer.get_best_camera_array()
 
-            self.point_estimates: PointEstimates = create_point_estimates_from_stereopairs(
-                self.camera_array, image_points
-            )
+            stereo_graph.apply_to(self.camera_array)
+
+            self.point_estimates = create_point_estimates_from_stereopairs(self.camera_array, image_points)
 
             self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
             self.capture_volume.optimize()

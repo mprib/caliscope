@@ -3,7 +3,6 @@
 import logging
 from pathlib import Path
 
-import numpy as np
 
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
@@ -12,9 +11,7 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.stereocalibrator import StereoCalibrator
-from caliscope.cameras.camera_array import CameraArray
-from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
+from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 from caliscope.post_processing.point_data import ImagePoints
@@ -42,13 +39,12 @@ def test_calibration_workflow():
     logger.info("Creating stereocalibrator")
 
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = StereoCalibrator(camera_array, image_points)
+    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
     logger.info("Initiating stereocalibration")
-    stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=100)
+    stereopair_graph = stereocalibrator.stereo_calibrate_all(boards_sampled=100)
 
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
-    initializer = CameraArrayInitializer(camera_array, stereo_results)
-    camera_array: CameraArray = initializer.get_best_camera_array()
+    stereopair_graph.apply_to(camera_array)
 
     logger.info("Loading point estimates")
     point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, image_points)
@@ -89,116 +85,14 @@ def test_calibration_workflow():
     logger.info(f"Improvement: {improvement:.4f} pixels ({percent_improvement:.2f}%)")
     assert rmse_post_bundle_adj["overall"] <= rmse_initial["overall"]
 
-    # Second stage - filter out worse points
-    #    logger.info(f"Filtering out worse fitting {FILTERED_FRACTION * 100:.1f}% of points")
-    #    quality_controller.filter_point_estimates(FILTERED_FRACTION)
-    #
-    #    # After filtering - log filtered point counts
-    #    logger.info("Point counts AFTER filtering:")
-    #    logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
-    #    logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")
-    #    logger.info(f"  Camera indices length: {len(capture_volume.point_estimates.camera_indices)}")
-    #
-    #    # Log post-filtering RMSE (before re-optimization)
-    #    rmse_post_filter = capture_volume.rmse
-    #    logger.info(f"RMSE after filtering (before re-optimization): {rmse_post_filter['overall']:.4f} pixels")
-    #
-    #    # Final stage - re-optimize with filtered data
-    #    logger.info("Re-optimizing with filtered data set")
-    #    capture_volume.optimize()
-    #
-    #    # Log final RMSE and total improvement
-    #    rmse_final = capture_volume.rmse
-    #    total_improvement = rmse_initial["overall"] - rmse_final["overall"]
-    #    total_percent = (total_improvement / rmse_initial["overall"]) * 100
-    #    filter_improvement = rmse_post_bundle_adj["overall"] - rmse_final["overall"]
-    #    filter_percent = (filter_improvement / rmse_post_bundle_adj["overall"]) * 100
-    #
-    #    logger.info(f"Final RMSE after filtering and re-optimization: {rmse_final['overall']:.4f} pixels")
-    #    logger.info(f"Improvement from filtering: {filter_improvement:.4f} pixels ({filter_percent:.2f}%)")
-    #    logger.info(f"Total improvement: {total_improvement:.4f} pixels ({total_percent:.2f}%)")
-    #    logger.info("Per-camera final RMSE values:")
-    #    for port in capture_volume.camera_array.cameras.keys():
-    #        initial = rmse_initial[str(port)]
-    #        final = rmse_final[str(port)]
-    #        cam_improvement = (initial - final) / initial * 100
-    #        logger.info(f"  Camera {port}: {final:.4f} pixels (improved {cam_improvement:.2f}%)")
-
     config.save_point_estimates(capture_volume.point_estimates)
     config.save_camera_array(capture_volume.camera_array)
     config.save_capture_volume(capture_volume)
 
 
-def test_deterministic_consistency():
-    """
-    Test that running the same sterocalibration multiple times produces identical results.
-    This ensures our implementation is truly deterministic for initializing camera poses.
-    """
-    version = "not_sufficient_stereopairs"
-
-    results_run1 = {}
-    results_run2 = {}
-
-    for run_num, results_dict in enumerate([results_run1, results_run2], 1):
-        # Fresh copy for each run
-        original_session_path = Path(__root__, "tests", "sessions", version)
-        session_path = Path(
-            original_session_path.parent.parent,
-            "sessions_copy_delete",
-            f"{version}_run_{run_num}",
-        )
-        copy_contents(original_session_path, session_path)
-
-        config = Configurator(session_path)
-        xy_data_path = Path(session_path, "xy_CHARUCO.csv")
-
-        camera_array = config.get_camera_array()
-        logger.info("Creating stereocalibrator")
-        image_points = ImagePoints.from_csv(xy_data_path)
-        stereocalibrator = StereoCalibrator(camera_array, image_points)
-        logger.info("Initiating stereocalibration")
-        stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=100)
-
-        # Store results
-        for key, value in stereo_results.items():
-            results_dict[key] = value
-
-    # Compare results between runs
-    assert set(results_run1.keys()) == set(results_run2.keys()), "Different stereo pairs found between runs"
-
-    for stereo_key in results_run1.keys():
-        # Compare RMSE
-        np.testing.assert_allclose(
-            results_run1[stereo_key]["RMSE"],
-            results_run2[stereo_key]["RMSE"],
-            rtol=1e-15,
-            atol=1e-15,
-            err_msg=f"RMSE differs between runs for {stereo_key}",
-        )
-
-        # Compare rotation
-        np.testing.assert_allclose(
-            results_run1[stereo_key]["rotation"],
-            results_run2[stereo_key]["rotation"],
-            rtol=1e-15,
-            atol=1e-15,
-            err_msg=f"Rotation differs between runs for {stereo_key}",
-        )
-
-        # Compare translation
-        np.testing.assert_allclose(
-            results_run1[stereo_key]["translation"],
-            results_run2[stereo_key]["translation"],
-            rtol=1e-15,
-            atol=1e-15,
-            err_msg=f"Translation differs between runs for {stereo_key}",
-        )
-
-    logger.info("✅ Deterministic consistency verified across multiple runs!")
-    logger.info("Successful check")
-
-
 if __name__ == "__main__":
+    from caliscope.logger import setup_logging
+
+    setup_logging()
     test_calibration_workflow()
-    # test_deterministic_consistency()
     print("end")

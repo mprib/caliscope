@@ -1,3 +1,11 @@
+import matplotlib
+import json
+
+# Force non-interactive backend to prevent the debugger
+# from trying to hook into the Qt GUI event loop.
+matplotlib.use("Agg")
+
+
 import logging
 from pathlib import Path
 from time import sleep
@@ -10,9 +18,11 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.stereocalibrator import StereoCalibrator
-from caliscope.cameras.camera_array import CameraArray
-from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
+
+from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
+from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
+
+# from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.controller import FILTERED_FRACTION
 from caliscope.helper import copy_contents
@@ -79,18 +89,37 @@ def test_calibration():
 
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = StereoCalibrator(camera_array, image_points)
+    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
+
     logger.info("Initiating stereocalibration")
-    stereo_results = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+    stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+
+    # save new_raw_stereograph
+    new_raw_stereograph = {}
+    for key, pair in stereo_graph._pairs.items():
+        new_raw_stereograph[str(key)] = {"rotation": str(pair.rotation), "translation": str(pair.translation)}
+
+    new_raw_stereograph_path = __root__ / "tests/reference/stereograph_gold_standard/new_raw_stereograph.json"
+    with open(new_raw_stereograph_path, "w") as f:
+        json.dump(new_raw_stereograph, f, indent=4)
 
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
-    initializer = CameraArrayInitializer(camera_array, stereo_results)
-    camera_array: CameraArray = initializer.get_best_camera_array()
+    stereo_graph.apply_to(camera_array, anchor_cam=8)
+    # stereo_graph.apply_to(camera_array)
 
+    # save initial extrinsics
     logger.info("Loading point estimates")
     image_points = ImagePoints.from_csv(xy_data_path)
     point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, image_points)
+
+    config.save_point_estimates(point_estimates)
+    config.save_camera_array(camera_array)
+
     capture_volume = CaptureVolume(camera_array, point_estimates)
+
+    logger.info("=========== INITIAL CAMERA ARRAY ==============")
+    for port, cam in capture_volume.camera_array.cameras.items():
+        logger.info(f" Cam {port}: rotation - {cam.rotation}, translation = {cam.translation}")
 
     # Before filtering - log initial point counts
     logger.info("========== POINT COUNT DIAGNOSTICS ==========")
@@ -168,8 +197,12 @@ def test_calibration():
 
 
 if __name__ == "__main__":
+    from caliscope.logger import setup_logging
+
+    setup_logging()
+
+    # print("start")
     test_calibration()
-    print("end")
+    # print("end")
     # import pytest
-    #
     # pytest.main([__file__])

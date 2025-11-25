@@ -22,19 +22,6 @@ from caliscope.post_processing.point_data import ImagePoints
 logger = logging.getLogger(__name__)
 
 
-def load_gold_standard_data() -> tuple[dict, dict]:
-    """Load gold standard reference data from JSON files."""
-    reference_dir = Path(__root__, "tests", "reference", "stereograph_gold_standard")
-
-    with open(reference_dir / "raw_stereograph.json", "r") as f:
-        raw_stereograph = json.load(f)
-
-    with open(reference_dir / "initial_camera_array.json", "r") as f:
-        gold_standard_extrinsics = json.load(f)
-
-    return raw_stereograph, gold_standard_extrinsics
-
-
 def rotation_matrix_to_angle_axis(R: np.ndarray) -> tuple[float, np.ndarray]:
     """
     Convert rotation matrix to angle-axis representation for easier comparison.
@@ -152,34 +139,45 @@ def test_stereopair_graph_against_gold_standard():
     Test that StereoPairGraph produces gold-standard initial extrinsics.
     """
     # Load gold standard data
-    raw_stereograph, gold_standard_extrinsics = load_gold_standard_data()
+    reference_dir = Path(__root__, "tests", "reference", "stereograph_gold_standard")
+
+    with open(reference_dir / "main_initial_camera_array.json", "r") as f:
+        gold_standard_extrinsics = json.load(f)
+
+    with open(reference_dir / "main_stereograph.json", "r") as f:
+        gold_stereo_graph = json.load(f)
+
+    for port, dict in gold_standard_extrinsics.items():
+        dict["rotation"] = parse_array_string(dict["rotation"])
+
+        dict["translation"] = parse_array_string(dict["translation"])
 
     # Load test session data
     version = "larger_calibration_post_monocal"
     session_path = Path(__root__, "tests", "sessions", version)
     config = Configurator(session_path)
+    camera_array = config.get_camera_array()
+
+    # ensure camera_array has no extrinsics
+    for port, cam in camera_array.cameras.items():
+        cam.rotation = None
+        cam.translation = None
 
     # Build StereoPairGraph from gold standard raw data
-    logger.info("Building StereoPairGraph from gold standard raw data...")
-    gold_stereo_graph = StereoPairGraph.from_legacy_dict(raw_stereograph)
+    # logger.info("Building StereoPairGraph from gold standard raw data...")
+    # gold_stereo_graph = StereoPairGraph.from_legacy_dict(raw_stereograph)
 
     # build stereograph from calibration data
     recording_path = Path(session_path, "calibration", "extrinsic")
     xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
-    camera_array = config.get_camera_array()
-    config.get_charuco()
 
+    config.get_charuco()
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
     stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
-
     logger.info("Initiating stereocalibration")
     stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
-
-    logger.info("New Stereo Graph Calculated")
-
-    # TODO: Need to do comparisons with assertions here..
-    # ... (previous code in test_stereopair_graph_against_gold_standard) ...
+    # stereo_graph._build_anchored_config()
 
     logger.info("New Stereo Graph Calculated")
 

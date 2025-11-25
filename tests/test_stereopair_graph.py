@@ -15,8 +15,10 @@ import numpy as np
 
 from caliscope import __root__
 from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
+from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.configurator import Configurator
+from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
 
@@ -160,109 +162,103 @@ def test_stereopair_graph_against_gold_standard():
     camera_array: CameraArray = config.get_camera_array()
 
     # Store original camera count
-    original_camera_count = len(camera_array.cameras)
+    len(camera_array.cameras)
 
     # Build StereoPairGraph from gold standard raw data
     logger.info("Building StereoPairGraph from gold standard raw data...")
-    stereo_graph = StereoPairGraph.from_legacy_dict(raw_stereograph)
+    gold_stereo_graph = StereoPairGraph.from_legacy_dict(raw_stereograph)
 
-    logger.info(f"Graph contains {len(stereo_graph._pairs)} directed pairs")
+    recording_path = Path(session_path, "calibration", "extrinsic")
+    xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
+    camera_array = config.get_camera_array()
+    config.get_charuco()
 
-    # Apply graph to compute extrinsics
-    logger.info("Applying graph to compute camera extrinsics...")
-    stereo_graph.apply_to(camera_array)
+    logger.info("Creating stereocalibrator")
+    image_points = ImagePoints.from_csv(xy_data_path)
+    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
 
-    # Verify all cameras are posed (except possibly ignored ones)
-    posed_count = len(camera_array.posed_cameras)
-    logger.info(f"Cameras posed: {posed_count}/{original_camera_count}")
+    logger.info("Initiating stereocalibration")
+    stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
-    # Perform detailed comparison
-    print("\n" + "=" * 80)
-    print("STEREOPAIR GRAPH GOLD STANDARD COMPARISON")
-    print("=" * 80)
+    logger.info("New Stereo Graph Calculated")
 
-    rotation_results = []
-    translation_results = []
-    all_ports = sorted(camera_array.cameras.keys())
+    # TODO: Need to do comparisons with assertions here..
+    # ... (previous code in test_stereopair_graph_against_gold_standard) ...
 
-    for port in all_ports:
-        cam = camera_array.cameras[port]
-        if cam.rotation is None or cam.translation is None:
-            logger.warning(f"Camera {port} is not posed - skipping comparison")
-            continue
+    logger.info("New Stereo Graph Calculated")
 
-        if str(port) not in gold_standard_extrinsics:
-            logger.warning(f"Camera {port} not found in gold standard data - skipping")
-            continue
+    # ==============================================================================
+    # COMPARE CALCULATED GRAPH AGAINST GOLD STANDARD
+    # ==============================================================================
 
-        # Parse gold standard data using the new helper function
-        gold_data = gold_standard_extrinsics[str(port)]
-        R_gold = parse_array_string(gold_data["rotation"])
-        t_gold = parse_array_string(gold_data["translation"]).flatten()
+    # 1. Validate Structure (Keys)
+    calculated_keys = set(stereo_graph._pairs.keys())
+    gold_keys = set(gold_stereo_graph._pairs.keys())
 
-        # Compare rotations
-        rot_result = compare_rotations(cam.rotation, R_gold, port, "rotation")
-        rotation_results.append(rot_result)
+    missing_in_calculated = gold_keys - calculated_keys
+    extra_in_calculated = calculated_keys - gold_keys
 
-        # Compare translations
-        trans_result = compare_translations(cam.translation, t_gold, port, "translation")
-        translation_results.append(trans_result)
+    assert not missing_in_calculated, f"Missing pairs: {missing_in_calculated}"
+    assert not extra_in_calculated, f"Extra pairs: {extra_in_calculated}"
 
-    # Print summary
-    print("\n📊 ROTATION COMPARISON SUMMARY:")
-    print("-" * 80)
-    for result in rotation_results:
-        print(
-            f"Camera {result['port']:2d}: "
-            f"Angle Error = {result['angle_error_deg']:8.4f}°, "
-            f"Frobenius = {result['frobenius_error']:8.6f}, "
-            f"Max Element = {result['max_element_error']:8.6f}"
-        )
+    # 2. Validate Extrinsics
+    failures = []
 
-    print("\n📊 TRANSLATION COMPARISON SUMMARY:")
-    print("-" * 80)
-    for result in translation_results:
-        print(
-            f"Camera {result['port']:2d}: "
-            f"Euclidean = {result['euclidean_error']:8.6f}, "
-            f"Max Component = {result['max_component_error']:8.6f}, "
-            f"Relative = {result['relative_error_percent']:6.2f}%"
-        )
+    # TOLERANCES
+    # 0.052 rad is approx 3.0 degrees.
+    # This allows for drift in 'bridged' pairs while catching wrong orientations.
+    ROTATION_TOLERANCE_RAD = 0.052
 
-    # Compute aggregate statistics
-    rot_angles = [r["angle_error_deg"] for r in rotation_results]
-    trans_errors = [t["euclidean_error"] for t in translation_results]
+    # 0.1 units. Assuming standard calibration boards,
+    # being off by >10% of a unit is usually a failure.
+    TRANSLATION_TOLERANCE = 0.1
 
-    print("\n📈 AGGREGATE STATISTICS:")
-    print("-" * 80)
-    print(f"Rotation Angle Error: Mean = {np.mean(rot_angles):.4f}°, Max = {np.max(rot_angles):.4f}°")
-    print(f"Translation Error: Mean = {np.mean(trans_errors):.6f}, Max = {np.max(trans_errors):.6f}")
+    for pair_key in gold_keys:
+        port_a, port_b = pair_key
+        pair_label = f"{port_a}->{port_b}"
 
-    # Assertions with reasonable tolerances
-    # These should FAIL initially to expose the problem
-    print("\n🔍 ASSERTIONS (should initially FAIL):")
-    print("-" * 80)
+        gold_pair = gold_stereo_graph._pairs[pair_key]
+        calc_pair = stereo_graph._pairs[pair_key]
 
-    # Rotation tolerance: 1 degree average error, 5 degrees max
-    mean_rot_error = np.mean(rot_angles)
-    max_rot_error = np.max(rot_angles)
-    print(f"Mean rotation error: {mean_rot_error:.4f}° (threshold: 1.0°)")
-    print(f"Max rotation error: {max_rot_error:.4f}° (threshold: 5.0°)")
+        # --- Compare Rotation ---
+        rot_diag = compare_rotations(calc_pair.rotation, gold_pair.rotation, port_a, pair_label)
 
-    assert mean_rot_error < 1.0, f"Mean rotation error {mean_rot_error:.4f}° exceeds 1.0° threshold"
-    assert max_rot_error < 5.0, f"Max rotation error {max_rot_error:.4f}° exceeds 5.0° threshold"
+        # --- Compare Translation ---
+        trans_diag = compare_translations(calc_pair.translation, gold_pair.translation, port_a, pair_label)
 
-    # Translation tolerance: 0.05 average error, 0.1 max
-    mean_trans_error = np.mean(trans_errors)
-    max_trans_error = np.max(trans_errors)
-    print(f"Mean translation error: {mean_trans_error:.6f} (threshold: 0.05)")
-    print(f"Max translation error: {max_trans_error:.6f} (threshold: 0.1)")
+        # --- Assertions ---
+        pair_failed = False
+        failure_reasons = []
 
-    assert mean_trans_error < 0.05, f"Mean translation error {mean_trans_error:.6f} exceeds 0.05 threshold"
-    assert max_trans_error < 0.1, f"Max translation error {max_trans_error:.6f} exceeds 0.1 threshold"
+        if rot_diag["angle_error_rad"] > ROTATION_TOLERANCE_RAD:
+            pair_failed = True
+            failure_reasons.append(f"Rot Err: {np.degrees(rot_diag['angle_error_rad']):.2f} deg")
 
-    print("\n✅ All assertions passed! StereoPairGraph matches gold standard.")
-    print("=" * 80)
+        if trans_diag["euclidean_error"] > TRANSLATION_TOLERANCE:
+            pair_failed = True
+            failure_reasons.append(f"Trans Err: {trans_diag['euclidean_error']:.4f}")
+
+        if pair_failed:
+            failures.append(f"{pair_label}: " + ", ".join(failure_reasons))
+
+    # 3. Final Report
+    if failures:
+        # Sort failures to group related cameras
+        failures.sort()
+
+        logger.error(f"{'=' * 60}")
+        logger.error(f"REGRESSION TEST FAILED: {len(failures)} pairs exceed tolerance")
+        logger.error(f"Tolerances -> Rot: {np.degrees(ROTATION_TOLERANCE_RAD)} deg, Trans: {TRANSLATION_TOLERANCE}")
+        logger.error(f"{'=' * 60}")
+
+        for f in failures:
+            logger.error(f"  FAILED: {f}")
+
+        raise AssertionError(f"StereoPairGraph regression failed. {len(failures)} pairs mismatch. See logs.")
+
+    logger.info(
+        f"SUCCESS: Verified {len(gold_keys)} pairs within {np.degrees(ROTATION_TOLERANCE_RAD):.1f} deg tolerance."
+    )
 
 
 if __name__ == "__main__":

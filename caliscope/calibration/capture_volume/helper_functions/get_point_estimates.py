@@ -44,13 +44,14 @@ def _convert_xyz_to_point_estimates(
     xyz_df = xyz_data.df
     xy_df = image_points.df
 
-    # Create mapping from (sync_index, point_id) to xyz_index
-    xyz_df = xyz_df.reset_index().rename(columns={"index": "xyz_index"})
-    {(row["sync_index"], row["point_id"]): row["xyz_index"] for _, row in xyz_df.iterrows()}
+    # Create explicit mapping in the dataframe to track indices.
+    # We reset index to ensure we have a column "xyz_index" corresponding to the row number in xyz_df
+    xyz_df = xyz_df.reset_index(drop=True)
+    xyz_df["xyz_index"] = xyz_df.index
 
     # Merge 2D and 3D data
     merged = xy_df.merge(
-        xyz_df[["sync_index", "point_id", "xyz_index", "x_coord", "y_coord", "z_coord"]],
+        xyz_df[["sync_index", "point_id", "xyz_index"]],  # We don't strictly need coords here
         on=["sync_index", "point_id"],
         how="inner",
     )
@@ -70,6 +71,26 @@ def _convert_xyz_to_point_estimates(
             obj=np.array([], dtype=np.float32).reshape(0, 3),
         )
 
+    # =========================================================================
+    # Prune orphaned 3D points
+    # =========================================================================
+
+    # 1. Identify which xyz_indices are actually used after filtering cameras
+    used_xyz_indices = merged["xyz_index"].unique()
+    used_xyz_indices.sort()  # Ensure deterministic order
+
+    # 2. Extract ONLY the used 3D points from the master list
+    obj = xyz_df.loc[used_xyz_indices, ["x_coord", "y_coord", "z_coord"]].to_numpy(dtype=np.float32)
+
+    # 3. Create a map from the old (large) index to the new (compact) index
+    old_to_new_map = {old: new for new, old in enumerate(used_xyz_indices)}
+
+    # 4. Update the pointers in the merged dataframe to reflect the new compact array
+    merged["obj_index_pruned"] = merged["xyz_index"].map(old_to_new_map)
+    obj_indices = merged["obj_index_pruned"].to_numpy(dtype=np.int64)
+
+    # =========================================================================
+
     # Map ports to camera indices
     merged["camera_index"] = merged["port"].map(camera_array.posed_port_to_index)
 
@@ -78,15 +99,15 @@ def _convert_xyz_to_point_estimates(
     camera_indices = merged["camera_index"].to_numpy(dtype=np.int64)
     point_ids = merged["point_id"].to_numpy(dtype=np.int64)
     img = merged[["img_loc_x", "img_loc_y"]].to_numpy(dtype=np.float32)
-    obj_indices = merged["xyz_index"].to_numpy(dtype=np.int64)
-
-    # Get unique 3D points
-    obj = xyz_df[["x_coord", "y_coord", "z_coord"]].to_numpy(dtype=np.float32)
 
     # Validate consistency
     assert len(camera_indices) == len(img) == len(obj_indices), "Mismatch in 2D data array lengths"
     if len(obj_indices) > 0:
         assert obj_indices.max() < obj.shape[0], "CRITICAL: obj_indices contains an out-of-bounds index"
+        # The key check for the hang:
+        assert np.unique(obj_indices).size == obj.shape[0], (
+            "CRITICAL: Orphaned 3D points detected! Optimizer will hang."
+        )
 
     logger.info(f"Successfully created PointEstimates: {obj.shape[0]} 3D points and {img.shape[0]} 2D observations")
 

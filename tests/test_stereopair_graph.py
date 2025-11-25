@@ -86,10 +86,15 @@ def parse_array_string(array_str: str) -> np.ndarray:
 def verify_results(stereo_graph: StereoPairGraph, gold_results: dict):
     """
     Compares the calculated StereoPairGraph against the gold standard dict.
-    Collects all errors and raises an assertion at the end.
+    Logs the detailed error metrics for EVERY pair to the console.
     """
     failures = []
     checked_count = 0
+    missing_in_gold = []
+
+    print("\n" + "=" * 80)
+    print(f"{'PAIR':<15} | {'ROT ERR (deg)':<15} | {'TRANS ERR':<15} | {'STATUS':<10}")
+    print("-" * 80)
 
     # The gold standard uses keys like "stereo_1_10"
     # The new graph uses tuple keys like (1, 10)
@@ -101,15 +106,13 @@ def verify_results(stereo_graph: StereoPairGraph, gold_results: dict):
         gold_key = f"stereo_{port_a}_{port_b}"
 
         if gold_key not in gold_results:
-            # It's possible the new graph found connections the old one missed,
-            # or the gold standard didn't store the inverse direction.
-            # We skip validation for pairs not in gold standard.
+            missing_in_gold.append(gold_key)
             continue
 
         gold_data = gold_results[gold_key]
 
         # 1. Extract Data
-        # Gold data is a list of lists, need numpy array
+        # Gold data is list of lists, need numpy array
         R_gold = np.array(gold_data["rotation"], dtype=np.float64)
         t_gold = np.array(gold_data["translation"], dtype=np.float64)
 
@@ -124,31 +127,45 @@ def verify_results(stereo_graph: StereoPairGraph, gold_results: dict):
 
         # 3. Check Thresholds
         errors = []
-        if rot_stats["angle_error_rad"] > ROTATION_TOLERANCE_RAD:
-            errors.append(f"Rotation error {rot_stats['angle_error_rad']:.6f} rad > {ROTATION_TOLERANCE_RAD}")
+        is_rot_fail = rot_stats["angle_error_rad"] > ROTATION_TOLERANCE_RAD
+        is_trans_fail = trans_stats["euclidean_error"] > TRANSLATION_TOLERANCE
 
-        if trans_stats["euclidean_error"] > TRANSLATION_TOLERANCE:
-            errors.append(f"Translation error {trans_stats['euclidean_error']:.6f} > {TRANSLATION_TOLERANCE}")
+        status = "OK"
 
-        if errors:
+        if is_rot_fail:
+            errors.append(f"Rot Err {rot_stats['angle_error_rad']:.6f} rad")
+            status = "FAIL"
+
+        if is_trans_fail:
+            errors.append(f"Trans Err {trans_stats['euclidean_error']:.6f}")
+            status = "FAIL"
+
+        # 4. Log the details for this specific pair
+        # We use degrees for the log because it is easier for humans to read
+        log_line = (
+            f"{gold_key:<15} | "
+            f"{rot_stats['angle_error_deg']:<15.6f} | "
+            f"{trans_stats['euclidean_error']:<15.6f} | "
+            f"{status:<10}"
+        )
+        print(log_line)
+
+        if status == "FAIL":
             failures.append({"pair": gold_key, "errors": errors, "stats": {**rot_stats, **trans_stats}})
+
+    print("-" * 80)
+
+    # Report on pairs found in new graph but missing in gold standard
+    if missing_in_gold:
+        print(f"NOTICE: {len(missing_in_gold)} pairs found in New Graph but NOT in Gold Standard:")
+        print(f"  {', '.join(missing_in_gold)}")
+        print("-" * 80)
 
     # Final Assertion Logic
     if len(failures) > 0:
         error_msg = [f"\nFAILED: {len(failures)} pairs exceeded tolerance."]
         for f in failures:
             error_msg.append(f"  {f['pair']}: {'; '.join(f['errors'])}")
-
-        # Print full details for debugging
-        print("\n" + "=" * 60)
-        print("DETAILED FAILURE REPORT")
-        print("=" * 60)
-        for f in failures:
-            print(f"Pair: {f['pair']}")
-            print(f"  Errors: {f['errors']}")
-            print(f"  Angle Error (deg): {f['stats']['angle_error_deg']:.4f}")
-            print(f"  Trans Error:       {f['stats']['euclidean_error']:.6f}")
-            print("-" * 20)
 
         pytest.fail("\n".join(error_msg))
 

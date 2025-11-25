@@ -88,6 +88,14 @@ class StereoPairGraph:
                     all_pairs[best_bridge.pair] = best_bridge
                     inverted = cls._invert_pair(best_bridge)
                     all_pairs[inverted.pair] = inverted
+        # Before: return cls(_pairs=all_pairs)
+        # Add:
+        logger.info(f"StereoPairGraph created with {len(all_pairs)} pairs")
+        # Count bridged pairs (those with accumulated error > raw RMSE range)
+        raw_errors = [p.error_score for p in raw_pairs.values()]
+        max_raw = max(raw_errors) if raw_errors else 0
+        bridged_count = sum(1 for p in all_pairs.values() if p.error_score > max_raw * 1.5)
+        logger.info(f"  Estimated bridged pairs: {bridged_count}")
 
         return cls(_pairs=all_pairs)
 

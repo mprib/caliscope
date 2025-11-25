@@ -108,15 +108,6 @@ def test_calibration():
     # stereo_graph.apply_to(camera_array)
 
     # save initial extrinsics
-    new_initial_camera_array = {}
-    for port, cam in camera_array.cameras.items():
-        new_initial_camera_array[port] = {"rotation": str(cam.rotation), "translation": str(cam.translation)}
-
-    new_initial_camera_array_path = __root__ / "tests/reference/stereograph_gold_standard/new_initial_camera_array.json"
-
-    with open(new_initial_camera_array_path, "w") as f:
-        json.dump(new_initial_camera_array, f, indent=4)
-
     logger.info("Loading point estimates")
     image_points = ImagePoints.from_csv(xy_data_path)
     point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, image_points)

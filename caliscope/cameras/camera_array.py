@@ -247,17 +247,25 @@ class CameraArray:
         """
         return {value: key for key, value in self.posed_port_to_index.items()}
 
-    def get_extrinsic_params(self) -> np.ndarray | None:
-        logger.debug(f"get_extrinsic_params called. Posed cameras: {list(self.posed_cameras.keys())}")
+    def get_extrinsic_params(self) -> NDArray | None:
+        """
+        Builds the extrinsic parameter vector for all *posed* cameras.
+        Returns None if no cameras are posed and not ignored.
+        """
+        # The index_port property already filters for posed and non-ignored cameras
+        ordered_ports = self.posed_index_to_port.keys()
 
-        posed_cams = self.posed_cameras
-        if not posed_cams:
-            logger.warning("No posed cameras available")
+        if not ordered_ports:
             return None
 
-        params = np.array([cam.extrinsics_to_vector() for cam in posed_cams.values()])
-        logger.debug(f"Extrinsic params shape: {params.shape}")
-        return params
+        # Build the params in the order defined by index_port
+        params_list = []
+        for index in sorted(ordered_ports):
+            port = self.posed_index_to_port[index]
+            cam = self.cameras[port]
+            params_list.append(cam.extrinsics_to_vector())
+
+        return np.vstack(params_list)
 
     def update_extrinsic_params(self, least_sq_result_x: NDArray) -> None:
         """Updates extrinsic parameters from an optimization result vector."""
@@ -276,6 +284,36 @@ class CameraArray:
             port = indices_to_update[index]
             # When updating, we modify the original camera object in self.cameras
             self.cameras[port].extrinsics_from_vector(cam_vec)
+
+    # def get_extrinsic_params(self) -> np.ndarray | None:
+    #     logger.debug(f"get_extrinsic_params called. Posed cameras: {list(self.posed_cameras.keys())}")
+    #
+    #     posed_cams = self.posed_cameras
+    #     if not posed_cams:
+    #         logger.warning("No posed cameras available")
+    #         return None
+    #
+    #     params = np.array([cam.extrinsics_to_vector() for cam in posed_cams.values()])
+    #     logger.debug(f"Extrinsic params shape: {params.shape}")
+    #     return params
+    #
+    # def update_extrinsic_params(self, least_sq_result_x: NDArray) -> None:
+    #     """Updates extrinsic parameters from an optimization result vector."""
+    #     indices_to_update = self.posed_index_to_port
+    #     n_cameras = len(indices_to_update)
+    #
+    #     if n_cameras == 0:
+    #         logger.warning("Tried to update extrinsics, but no posed cameras were found to update.")
+    #         return
+    #
+    #     n_cam_param = 6  # 6 DoF
+    #     flat_camera_params = least_sq_result_x[0 : n_cameras * n_cam_param]
+    #     new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
+    #
+    #     for index, cam_vec in enumerate(new_camera_params):
+    #         port = indices_to_update[index]
+    #         # When updating, we modify the original camera object in self.cameras
+    #         self.cameras[port].extrinsics_from_vector(cam_vec)
 
     # Note: I've updated the docstrings on these to be more precise
     def all_extrinsics_calibrated(self) -> bool:

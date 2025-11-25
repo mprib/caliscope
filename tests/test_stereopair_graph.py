@@ -16,7 +16,6 @@ import numpy as np
 from caliscope import __root__
 from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
 from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
-from caliscope.cameras.camera_array import CameraArray
 from caliscope.configurator import Configurator
 from caliscope.post_processing.point_data import ImagePoints
 
@@ -159,15 +158,12 @@ def test_stereopair_graph_against_gold_standard():
     version = "larger_calibration_post_monocal"
     session_path = Path(__root__, "tests", "sessions", version)
     config = Configurator(session_path)
-    camera_array: CameraArray = config.get_camera_array()
-
-    # Store original camera count
-    len(camera_array.cameras)
 
     # Build StereoPairGraph from gold standard raw data
     logger.info("Building StereoPairGraph from gold standard raw data...")
     gold_stereo_graph = StereoPairGraph.from_legacy_dict(raw_stereograph)
 
+    # build stereograph from calibration data
     recording_path = Path(session_path, "calibration", "extrinsic")
     xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
     camera_array = config.get_camera_array()
@@ -209,8 +205,6 @@ def test_stereopair_graph_against_gold_standard():
     # This allows for drift in 'bridged' pairs while catching wrong orientations.
     ROTATION_TOLERANCE_RAD = 0.052
 
-    # 0.1 units. Assuming standard calibration boards,
-    # being off by >10% of a unit is usually a failure.
     TRANSLATION_TOLERANCE = 0.1
 
     for pair_key in gold_keys:

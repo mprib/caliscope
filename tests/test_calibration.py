@@ -95,13 +95,13 @@ def test_calibration():
     stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
     # save new_raw_stereograph
-    new_raw_stereograph = {}
-    for key, pair in stereo_graph._pairs.items():
-        new_raw_stereograph[str(key)] = {"rotation": str(pair.rotation), "translation": str(pair.translation)}
-
-    new_raw_stereograph_path = __root__ / "tests/reference/stereograph_gold_standard/new_raw_stereograph.json"
-    with open(new_raw_stereograph_path, "w") as f:
-        json.dump(new_raw_stereograph, f, indent=4)
+    # new_raw_stereograph = {}
+    # for key, pair in stereo_graph._pairs.items():
+    #     new_raw_stereograph[str(key)] = {"rotation": str(pair.rotation), "translation": str(pair.translation)}
+    #
+    # new_raw_stereograph_path = __root__ / "tests/reference/stereograph_gold_standard/new_raw_stereograph.json"
+    # with open(new_raw_stereograph_path, "w") as f:
+    #     json.dump(new_raw_stereograph, f, indent=4)
 
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     stereo_graph.apply_to(camera_array)

@@ -268,9 +268,10 @@ class StereoPairGraph:
         lowest_error = float("inf")
         best_cameras_config = None
 
+        logger.info("Assessing best port to anchor camera array")
         for port in main_group_ports:
             error_score, cameras_config = self._build_anchored_config(camera_array, port)
-
+            logger.info(f"    port {port} anchor_score = {error_score}")
             if error_score < lowest_error:
                 lowest_error = error_score
                 best_anchor = port

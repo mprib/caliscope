@@ -91,5 +91,8 @@ def test_calibration_workflow():
 
 
 if __name__ == "__main__":
+    from caliscope.logger import setup_logging
+
+    setup_logging()
     test_calibration_workflow()
     print("end")

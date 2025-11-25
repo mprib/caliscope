@@ -174,24 +174,9 @@ class StereoPairGraph:
         """Retrieve a stereo pair by port pair, returns None if not found."""
         return self._pairs.get((port_a, port_b))
 
-    def apply_to(self, camera_array: CameraArray) -> None:
-        """
-        Mutates camera_array in place by solving for globally consistent camera poses
-        from the stereo pair graph.
-        """
-        logger.info("Applying stereo pair graph to camera array...")
-
-        ports = sorted(camera_array.cameras.keys())
-
-        # Find largest connected component (Legacy behavior used this to filter main group)
-        main_group_ports = self._find_largest_connected_component(ports)
-
-        if not main_group_ports:
-            logger.warning("No connected stereo pairs found. No cameras will be posed.")
-            return
-
-        logger.info(f"Identified main camera group: {sorted(list(main_group_ports))}")
-
+    def get_best_anchored_camera_array(
+        self, main_group_ports, camera_array
+    ) -> tuple[int, Dict[int, CameraData]] | tuple[None, Dict[int, CameraData]]:
         # Find best anchor by trying each port in the main group
         best_anchor = -1
         lowest_error = float("inf")
@@ -206,9 +191,28 @@ class StereoPairGraph:
                 best_anchor = port
                 best_cameras_config = cameras_config
 
-        if best_cameras_config is None:
-            logger.error("Could not determine a best anchor. No cameras will be posed.")
-            return
+        if best_anchor == -1:
+            return None, camera_array.cameras
+        else:
+            return best_anchor, best_cameras_config
+
+    def apply_to(self, camera_array: CameraArray, anchor_cam: int | None = None) -> None:
+        """
+        Mutates camera_array in place by solving for globally consistent camera poses
+        from the stereo pair graph.
+        """
+
+        ports = sorted(camera_array.cameras.keys())
+        # Find largest connected component (Legacy behavior used this to filter main group)
+        main_group_ports = self._find_largest_connected_component(ports)
+
+        if anchor_cam:
+            error_score, best_cameras_config = self._build_anchored_config(camera_array, anchor_cam)
+        else:
+            anchor_cam, best_cameras_config = self.get_best_anchored_camera_array(main_group_ports, camera_array)
+            logger.info(f"Selected camera {anchor_cam} as anchor, yielding lowest initial error.")
+
+        logger.info("Applying stereo pair graph to camera array...")
 
         # Apply the best configuration to the original camera array
         for port, cam_data in best_cameras_config.items():
@@ -217,8 +221,6 @@ class StereoPairGraph:
         unposed_ports = [p for p in ports if p not in main_group_ports]
         if unposed_ports:
             logger.warning(f"Cameras not in the main group remain unposed: {unposed_ports}")
-
-        logger.info(f"Selected camera {best_anchor} as anchor, yielding lowest initial error.")
 
     @classmethod
     def from_legacy_dict(cls, data: Dict[str, Dict]) -> StereoPairGraph:

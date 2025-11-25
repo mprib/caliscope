@@ -104,7 +104,8 @@ def test_calibration():
         json.dump(new_raw_stereograph, f, indent=4)
 
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
-    stereo_graph.apply_to(camera_array)
+    stereo_graph.apply_to(camera_array, anchor_cam=8)
+    # stereo_graph.apply_to(camera_array)
 
     # save initial extrinsics
     new_initial_camera_array = {}

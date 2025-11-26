@@ -50,9 +50,12 @@ class CaptureVolumeVisualizer:
                 logger.info(f"Skip mesh creation for camera on port {port}: missing rotation/translation.")
                 continue
 
-            mesh: CameraMesh = mesh_from_camera(cam)
+            mesh: CameraMesh
+            text: gl.GLTextItem
+            mesh, text = mesh_from_camera(cam)
             self.meshes[port] = mesh
             self.scene.addItem(mesh)
+            self.scene.addItem(text)
 
         # self.scene.show()
 

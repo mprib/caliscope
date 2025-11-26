@@ -88,7 +88,7 @@ def rotation_to_float(rotation_matrix):
 
 
 # helper functions to assist with scene creation
-def mesh_from_camera(camera_data: CameraData) -> CameraMesh:
+def mesh_from_camera(camera_data: CameraData) -> tuple[CameraMesh, gl.GLTextItem]:
     """ "
     Mesh is placed at origin by default. Note that it appears rotations
     are in the mesh frame of reference and translations are in
@@ -119,7 +119,11 @@ def mesh_from_camera(camera_data: CameraData) -> CameraMesh:
     x, y, z = [p for p in camera_origin_world]
     mesh.translate(x, y, z)
 
-    return mesh
+    # add text label to distinguish multiple cameras and shift it slightly above the mesh
+    z += 0.05
+    tx = gl.GLTextItem(text=f"Cam {camera_data.port}", pos=(x, y, z), font=pg.QtGui.QFont("Helvetica", 10))
+
+    return mesh, tx
 
 
 def rotationMatrixToEulerAngles(R):

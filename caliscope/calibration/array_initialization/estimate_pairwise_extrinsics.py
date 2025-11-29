@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.calibration.array_initialization.stereopair_graph import PairedPoseNetwork
+from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
 from caliscope.calibration.array_initialization.stereopairs import StereoPair
 from caliscope.post_processing.point_data import ImagePoints
 

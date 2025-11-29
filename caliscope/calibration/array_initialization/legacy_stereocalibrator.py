@@ -6,7 +6,7 @@ import logging
 from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import (
     estimate_paired_pose_network,
 )
-from caliscope.calibration.array_initialization.stereopair_graph import PairedPoseNetwork
+from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.post_processing.point_data import ImagePoints
 

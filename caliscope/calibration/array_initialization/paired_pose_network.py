@@ -1,7 +1,3 @@
-"""
-caliscope/calibration/array_initialization/stereopair_graph.py
-"""
-
 from __future__ import annotations
 
 import logging

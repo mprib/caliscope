@@ -19,21 +19,7 @@ dependencies = [
     "pyarrow>=15.0.0",
     "platformdirs>=4.3.8",
     "mediapipe>=0.10.20",
-    "pre-commit>=4.3.0",
     "pandera>=0.26.1",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.3.0",
-    "ipykernel>=6.22.0",
-    "pymdown-extensions>=9.11,<11.0",
-    "mkdocs-material>=9.1.6",
-    "mkdocs-git-revision-date-localized-plugin>=1.2.0",
-    "ruff>=0.6.5",
-    "pre-commit",
-    "openpyxl",
-    "pywinctl",
 ]
 
 
@@ -102,3 +88,18 @@ skip-magic-trailing-comma = false
 
 # Normalize line endings to LF for consistency across operating systems.
 line-ending = "lf"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.3.0",
+    "pytest-xdist>=3.8.0",
+    "pre-commit>=4.3.0",
+    "ipykernel>=6.22.0",
+    "pymdown-extensions>=9.11,<11.0",
+    "mkdocs-material>=9.1.6",
+    "mkdocs-git-revision-date-localized-plugin>=1.2.0",
+    "ruff>=0.6.5",
+    "pre-commit",
+    "openpyxl",
+    "pywinctl",
+]

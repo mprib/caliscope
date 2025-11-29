@@ -17,22 +17,6 @@ from caliscope.cameras.camera_array import CameraArray
 logger = logging.getLogger(__name__)
 
 
-# Numba-optimized helper functions moved from triangulation.py
-@jit(nopython=True, cache=True)
-def unique_with_counts(arr):
-    """Helper function to get unique values and their counts, numba-compatible."""
-    sorted_arr = np.sort(arr)
-    unique_values = [sorted_arr[0]]
-    counts = [1]
-    for i in range(1, len(sorted_arr)):
-        if sorted_arr[i] != sorted_arr[i - 1]:
-            unique_values.append(sorted_arr[i])
-            counts.append(1)
-        else:
-            counts[-1] += 1
-    return np.array(unique_values), np.array(counts)
-
-
 #####################################################################################
 # The following code is adapted from the `Anipose` project,
 # in particular the `triangulate_simple` function of `aniposelib`

@@ -14,7 +14,7 @@ import pytest
 
 from caliscope import __root__
 from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
-from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
+from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
 from caliscope.configurator import Configurator
 from caliscope.post_processing.point_data import ImagePoints
 

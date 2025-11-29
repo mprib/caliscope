@@ -11,7 +11,7 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
+from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints

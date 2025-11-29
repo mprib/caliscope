@@ -1,7 +1,7 @@
 """
-Regression test for StereoPairGraph initialization against gold standard data.
+Regression test for PairedPoseNetwork initialization against gold standard data.
 
-This test validates that the refactored StereoPairGraph produces the same
+This test validates that the refactored PairedPoseNetwork produces the same
 initial camera extrinsics as the original implementation.
 """
 
@@ -14,7 +14,7 @@ import pytest
 
 from caliscope import __root__
 from caliscope.calibration.array_initialization.stereopair_graph import PairedPoseNetwork
-from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
+from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
 from caliscope.configurator import Configurator
 from caliscope.post_processing.point_data import ImagePoints
 
@@ -202,14 +202,15 @@ def test_stereopair_graph_against_gold_standard():
     config.get_charuco()
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
 
     logger.info("Initiating stereocalibration")
     # Using the same sampling as presumably used in gold standard
-    stereo_graph: PairedPoseNetwork = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+    paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
+    paired_pose_network.apply_to(camera_array)
 
     # 4. Execute Comparison
-    verify_results(stereo_graph, gold_stereocal_all_results)
+    verify_results(paired_pose_network, gold_stereocal_all_results)
 
 
 if __name__ == "__main__":

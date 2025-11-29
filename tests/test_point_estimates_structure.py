@@ -10,13 +10,13 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
 from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
 
 from caliscope.configurator import Configurator
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
 
 
-def test_point_estimates_structure_fully_linked():
+def test_point_estimates_structure_fully_linked(tmp_path: Path):
     """
     Tests the structural integrity of PointEstimates from a fully-linked
     calibration where all cameras are successfully posed.
@@ -24,13 +24,12 @@ def test_point_estimates_structure_fully_linked():
 
     # Define source and a fresh destination for test data
     original_session_path = Path(__root__, "tests", "sessions", "point_estimate_creation", "fully_linked")
-    session_path = Path(__root__, "tests", "sessions_copy_delete", "point_estimate_creation", "fully_linked")
 
     # Create a fresh copy of the data for the test
-    copy_contents(original_session_path, session_path)
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    config = Configurator(session_path)
-    xy_data_path = Path(session_path, "xy_CHARUCO.csv")
+    config = Configurator(tmp_path)
+    xy_data_path = Path(tmp_path, "xy_CHARUCO.csv")
     camera_array = config.get_camera_array()
 
     image_points = ImagePoints.from_csv(xy_data_path)
@@ -84,7 +83,7 @@ def test_point_estimates_structure_fully_linked():
     logger.info("OK: All 3D points are referenced by at least one 2D observation.")
 
 
-def test_point_estimates_structure_unlinked():
+def test_point_estimates_structure_unlinked(tmp_path: Path):
     """
     Tests the structural integrity of PointEstimates when one camera is
     unlinked.
@@ -92,14 +91,13 @@ def test_point_estimates_structure_unlinked():
 
     # Define source and a fresh destination for test data
     original_session_path = Path(__root__, "tests", "sessions", "point_estimate_creation", "unlinked_camera")
-    session_path = Path(__root__, "tests", "sessions_copy_delete", "point_estimate_creation", "unlinked_camera")
+    tmp_path = Path(__root__, "tests", "sessions_copy_delete", "point_estimate_creation", "unlinked_camera")
 
     # Create a fresh copy of the data for the test
-    copy_contents(original_session_path, session_path)
-    session_path = Path(__root__, "tests", "sessions", "point_estimate_creation", "unlinked_camera")
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    config = Configurator(session_path)
-    xy_data_path = Path(session_path, "xy_CHARUCO.csv")
+    config = Configurator(tmp_path)
+    xy_data_path = Path(tmp_path, "xy_CHARUCO.csv")
 
     # This initialization will result in one camera being unposed
     camera_array = config.get_camera_array()

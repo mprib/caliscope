@@ -11,13 +11,13 @@ from caliscope.calibration.capture_volume.quality_controller import QualityContr
 from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.configurator import Configurator
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
 
 
-def test_bundle_adjust_with_unlinked_camera():
+def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
     """
     Tests the full pipeline from initializing a CameraArray with a missing
     camera, through point estimate generation, to bundle adjustment.
@@ -27,16 +27,11 @@ def test_bundle_adjust_with_unlinked_camera():
     # 1. SETUP: Use test data that results in an unposed camera
     version = "not_sufficient_stereopairs"
     original_session_path = Path(__root__, "tests", "sessions", version)
-    session_path = Path(
-        original_session_path.parent.parent,
-        "sessions_copy_delete",
-        version,
-    )
-    copy_contents(original_session_path, session_path)
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    config = Configurator(session_path)
+    config = Configurator(tmp_path)
     # The xy_CHARUCO.csv is at the root of the session for this test case
-    xy_data_path = Path(session_path, "xy_CHARUCO.csv")
+    xy_data_path = Path(tmp_path, "xy_CHARUCO.csv")
 
     camera_array = config.get_camera_array()
     config.get_charuco()
@@ -81,18 +76,13 @@ def test_bundle_adjust_with_unlinked_camera():
     logger.info("Optimization completed successfully with an unlinked camera present.")
 
 
-def test_capture_volume_filter():
+def test_capture_volume_filter(tmp_path: Path):
     # 1. SETUP: Use output of test_bundle_adjust_with_unlinked_camera  as starting point
     version = "capture_volume_pre_quality_control"
     original_session_path = Path(__root__, "tests", "sessions", version)
-    session_path = Path(
-        original_session_path.parent.parent,
-        "sessions_copy_delete",
-        version,
-    )
-    copy_contents(original_session_path, session_path)
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    config = Configurator(session_path)
+    config = Configurator(tmp_path)
     camera_array: CameraArray = config.get_camera_array()
     point_estimates: PointEstimates = config.load_point_estimates_from_toml()
 
@@ -100,9 +90,9 @@ def test_capture_volume_filter():
     capture_volume = CaptureVolume(camera_array, point_estimates)
     logger.info("CaptureVolume initialized")
 
-    capture_volume._save(directory=session_path, descriptor="initial")
+    capture_volume._save(directory=tmp_path, descriptor="initial")
     capture_volume.optimize()
-    capture_volume._save(directory=session_path, descriptor="post_optimization")
+    capture_volume._save(directory=tmp_path, descriptor="post_optimization")
 
     logger.info("Point counts BEFORE filtering:")
     logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
@@ -114,7 +104,7 @@ def test_capture_volume_filter():
     charuco = config.get_charuco()
     quality_controller = QualityController(capture_volume, charuco)
     quality_controller.filter_point_estimates(filtered_fraction)
-    capture_volume._save(directory=session_path, descriptor="post_filtering")
+    capture_volume._save(directory=tmp_path, descriptor="post_filtering")
 
     logger.info("Point counts AFTER filtering:")
     logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
@@ -122,7 +112,7 @@ def test_capture_volume_filter():
     logger.info(f"  Camera indices length: {len(capture_volume.point_estimates.camera_indices)}")
 
     capture_volume.optimize()
-    capture_volume._save(directory=session_path, descriptor="post_filtering_then_optimizing")
+    capture_volume._save(directory=tmp_path, descriptor="post_filtering_then_optimizing")
 
 
 if __name__ == "__main__":

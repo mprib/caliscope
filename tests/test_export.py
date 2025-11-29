@@ -6,21 +6,17 @@ import pandas as pd
 
 from caliscope import __root__
 from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.trackers.holistic.holistic_tracker import HolisticTracker
 
 original_data_path = Path(__root__, "tests", "sessions", "4_cam_recording", "recordings", "recording_1", "HOLISTIC")
 
-working_data_path = Path(
-    __root__, "tests", "sessions_copy_delete", "4_cam_recording", "recordings", "recording_1", "HOLISTIC"
-)
 
-
-def test_export():
-    copy_contents(original_data_path, working_data_path)
+def test_export(tmp_path: Path):
+    copy_contents_to_clean_dest(original_data_path, tmp_path)
 
     tracker = HolisticTracker()
-    xyz_csv_path = Path(working_data_path, f"xyz_{tracker.name}.csv")
+    xyz_csv_path = Path(tmp_path, f"xyz_{tracker.name}.csv")
     xyz = pd.read_csv(xyz_csv_path)
 
     # this file should be created now
@@ -44,4 +40,5 @@ def test_export():
 
 
 if __name__ == "__main__":
-    test_export()
+    tmp_path = Path(__file__).parent / "debug"
+    test_export(tmp_path)

@@ -13,7 +13,7 @@ from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
 from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
 from caliscope.configurator import Configurator
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
@@ -21,18 +21,13 @@ logger = logging.getLogger(__name__)
 # don't want ruff dropping the reference which I use in repl
 
 
-def test_calibration_workflow():
+def test_calibration_workflow(tmp_path: Path):
     version = "not_sufficient_stereopairs"
     original_session_path = Path(__root__, "tests", "sessions", version)
-    session_path = Path(
-        original_session_path.parent.parent,
-        "sessions_copy_delete",
-        version,
-    )
-    copy_contents(original_session_path, session_path)
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    config = Configurator(session_path)
-    xy_data_path = Path(session_path, "xy_CHARUCO.csv")
+    config = Configurator(tmp_path)
+    xy_data_path = Path(tmp_path, "xy_CHARUCO.csv")
     #    camera_array = config.get_camera_array()
     charuco = config.get_charuco()
     camera_array = config.get_camera_array()

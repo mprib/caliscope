@@ -6,7 +6,7 @@ import pandas as pd
 
 from caliscope import __root__
 from caliscope.configurator import Configurator
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
@@ -17,19 +17,18 @@ def assert_almost_equal(val1, val2, delta, msg):
     assert abs(val1 - val2) <= delta, msg
 
 
-def test_sync_stream_manager():
+def test_sync_stream_manager(tmp_path: Path):
     original_workspace = Path(__root__, "tests", "sessions", "4_cam_recording")
-    test_workspace = Path(__root__, "tests", "sessions_copy_delete", "4_cam_recording")
 
-    copy_contents(original_workspace, test_workspace)
+    copy_contents_to_clean_dest(original_workspace, tmp_path)
 
-    config = Configurator(test_workspace)
+    config = Configurator(tmp_path)
     charuco = config.get_charuco()
     tracker = CharucoTracker(charuco)
     camera_array = config.get_camera_array()
     # tracker = None
     # all_camera_data = camera_array.cameras
-    recording_dir = Path(test_workspace, "calibration", "extrinsic")
+    recording_dir = Path(tmp_path, "calibration", "extrinsic")
 
     # delete frame time history to assess success of imputed frame time method
     frame_history = Path(recording_dir, "frame_time_history.csv")
@@ -46,7 +45,7 @@ def test_sync_stream_manager():
 
     # Load the gold standard and test CSV files
     gold_standard_df = pd.read_csv(Path(original_workspace, "calibration", "extrinsic", "xy.csv"))
-    test_data_path = Path(test_workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv")
+    test_data_path = Path(tmp_path, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv")
 
     while not test_data_path.exists():
         # wait for the tracked points to be created to compare

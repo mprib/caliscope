@@ -11,7 +11,7 @@ from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.configurator import Configurator
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +27,13 @@ def point_estimates_are_equal(pe1: PointEstimates, pe2: PointEstimates) -> bool:
     )
 
 
-def test_configurator():
+def test_configurator(tmp_path: Path):
     # provided with a path, load toml or create a default toml.
     dev_toml_path = Path(__root__, "tests", "sessions", "post_optimization")
-    test_delete_path = Path(__root__, "tests", "sessions_copy_delete", "post_optimization")
 
-    copy_contents(dev_toml_path, test_delete_path)
+    copy_contents_to_clean_dest(dev_toml_path, tmp_path)
 
-    config = Configurator(test_delete_path)
+    config = Configurator(tmp_path)
 
     # load camera array
     camera_array = config.get_camera_array()
@@ -42,7 +41,7 @@ def test_configurator():
 
     config.save_camera_array(camera_array)
 
-    config2 = Configurator(test_delete_path)
+    config2 = Configurator(tmp_path)
     camera_array2 = config2.get_camera_array()
 
     # make sure that the rodrigues conversion isn't messing with anything...

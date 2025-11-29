@@ -5,30 +5,35 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def copy_contents(src_folder, dst_folder):
+def copy_contents_to_clean_dest(src_folder: str | Path, dst_folder: str | Path) -> None:
     """
-    Helper function to port a test case data folder over to a temp directory
-    used for testing purposes so that the test case data doesn't get overwritten
+    **DESTRUCTIVE OPERATION**: Copies src_folder to dst_folder,
+    FIRST DELETING dst_folder if it exists.
+
+    Use this in tests with pytest's tmp_path fixture to ensure
+    parallel-safe test isolation.
+
+    Args:
+        src_folder: Source directory to copy from
+        dst_folder: Destination directory (will be deleted and recreated!)
     """
     src_path = Path(src_folder)
     dst_path = Path(dst_folder)
 
     if dst_path.exists():
+        logger.debug(f"Removing existing destination: {dst_path}")
         shutil.rmtree(dst_path)
 
-    # Create the destination folder if it doesn't exist
+    # Create the destination folder
     dst_path.mkdir(parents=True, exist_ok=False)
 
     for item in src_path.iterdir():
-        # Construct the source and destination paths
         src_item = src_path / item
         dst_item = dst_path / item.name
 
-        # Copy file or directory
         if src_item.is_file():
-            logger.info(f"Copying file at {src_item} to {dst_item}")
-            shutil.copy2(src_item, dst_item)  # Copy file preserving metadata
-
+            logger.debug(f"Copying file: {src_item} -> {dst_item}")
+            shutil.copy2(src_item, dst_item)
         elif src_item.is_dir():
-            logger.info(f"Copying directory at {src_item} to {dst_item}")
+            logger.debug(f"Copying directory: {src_item} -> {dst_item}")
             shutil.copytree(src_item, dst_item)

@@ -7,14 +7,14 @@ import pytest
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.configurator import Configurator
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 
 logger = logging.getLogger(__name__)
 
 
 # Define the test to be parameterized over rotation directions
 @pytest.mark.parametrize("direction", ["x+", "x-", "y+", "y-", "z+", "z-"])
-def test_rotation_invariance(direction: str):
+def test_rotation_invariance(direction: str, tmp_path):
     """
     Tests that applying four 90-degree rotations around an axis returns
     the capture volume to its original state. Also verifies that intermediate
@@ -23,10 +23,9 @@ def test_rotation_invariance(direction: str):
     # 1. SETUP
     # Use the clean, post-optimization data as a starting point.
     source_session_path = Path(__root__, "tests", "sessions", "post_optimization")
-    test_session_path = Path(__root__, "tests", "sessions_copy_delete", "rotation_test")
-    copy_contents(source_session_path, test_session_path)
+    copy_contents_to_clean_dest(source_session_path, tmp_path)
 
-    config = Configurator(test_session_path)
+    config = Configurator(tmp_path)
     camera_array = config.get_camera_array()
     point_estimates = config.load_point_estimates_from_toml()
 

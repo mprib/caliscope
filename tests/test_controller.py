@@ -6,20 +6,19 @@ import sys
 
 from caliscope import __root__
 from caliscope.controller import Controller, read_video_properties
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 
 logger = logging.getLogger(__name__)
 
 
-def test_extrinsic_calibration():
+def test_extrinsic_calibration(tmp_path: Path):
     # A QApplication instance is required to handle signals and slots.
     QApplication.instance() or QApplication(sys.argv)
 
     original_workspace = Path(__root__, "tests", "sessions", "post_monocal")
-    workspace = Path(__root__, "tests", "sessions_copy_delete", "post_monocal")
-    copy_contents(original_workspace, workspace)
+    copy_contents_to_clean_dest(original_workspace, tmp_path)
 
-    controller = Controller(workspace_dir=workspace)
+    controller = Controller(workspace_dir=tmp_path)
     controller.load_camera_array()
 
     # Ensure no previously stored data leaks into this test

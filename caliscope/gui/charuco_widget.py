@@ -271,7 +271,7 @@ class CharucoConfigGroup(QWidget):
 if __name__ == "__main__":
     from caliscope import __root__
     from caliscope.calibration.charuco import Charuco
-    from caliscope.helper import copy_contents
+    from caliscope.helper import copy_contents_to_clean_dest
 
     app = QApplication(sys.argv)
 
@@ -279,7 +279,7 @@ if __name__ == "__main__":
     original_workspace_dir = Path(__root__, "tests", "sessions", "prerecorded_calibration")
 
     workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\caliscope\prerecorded_workflow")
-    copy_contents(original_workspace_dir, workspace_dir)
+    copy_contents_to_clean_dest(original_workspace_dir, workspace_dir)
     controller = Controller(workspace_dir)
     charuco_page = CharucoWidget(controller)
 

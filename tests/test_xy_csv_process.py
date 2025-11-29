@@ -7,25 +7,21 @@ from caliscope import __root__
 from caliscope.configurator import Configurator
 
 # specify a source directory (with recordings)
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.post_processor import PostProcessor
 from caliscope.trackers.tracker_enum import TrackerEnum
 
 logger = logging.getLogger(__name__)
 
 
-def test_xy_point_creation():
+def test_xy_point_creation(tmp_path: Path):
     # create a clean directory to start from
     session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration_2_cam")
-    copy_session_path = Path(__root__, "tests", "sessions_copy_delete", "mediapipe_calibration_2_cam")
-    copy_contents(session_path, copy_session_path)
+    copy_contents_to_clean_dest(session_path, tmp_path)
 
-    # create inputs to processing pipeline function
-    # config = Configurator(copy_session_path)
-
-    config = Configurator(copy_session_path)
+    config = Configurator(tmp_path)
     camera_array = config.get_camera_array()
-    recording_path = Path(copy_session_path, "recordings", "recording_1")
+    recording_path = Path(tmp_path, "recordings", "recording_1")
     tracker_enum = TrackerEnum.HAND
     post_processor = PostProcessor(
         camera_array=camera_array,

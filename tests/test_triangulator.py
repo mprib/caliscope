@@ -9,7 +9,6 @@ of the final averaged triangulated position improved from 1.5 cm to 1.5 mm.
 """
 
 import logging
-import shutil
 from pathlib import Path
 from time import sleep
 
@@ -21,7 +20,7 @@ from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.configurator import Configurator
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.triangulate.sync_packet_triangulator import SyncPacketTriangulator
@@ -29,27 +28,18 @@ from caliscope.triangulate.sync_packet_triangulator import SyncPacketTriangulato
 logger = logging.getLogger(__name__)
 
 
-def test_triangulator():
+def test_triangulator(tmp_path: Path):
     original_session = Path(__root__, "tests", "sessions", "post_optimization")
-    test_session = Path(
-        original_session.parent.parent,
-        "sessions_copy_delete",
-        "post_optimization",
-    )
 
-    # clear previous test so as not to pollute current test results
-    if test_session.exists() and test_session.is_dir():
-        shutil.rmtree(test_session)
+    copy_contents_to_clean_dest(original_session, tmp_path)
 
-    copy_contents(original_session, test_session)
-
-    recording_directory = Path(test_session, "calibration", "extrinsic")
+    recording_directory = Path(tmp_path, "calibration", "extrinsic")
     target_xyz_path = recording_directory / "xyz_CHARUCO.csv"
 
     # there should be nothing here... this is what we are going to create
     assert not target_xyz_path.exists()
 
-    config = Configurator(test_session)
+    config = Configurator(tmp_path)
 
     charuco: Charuco = config.get_charuco()
     charuco_tracker = CharucoTracker(charuco)

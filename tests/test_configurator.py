@@ -11,7 +11,7 @@ from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.configurator import Configurator
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +27,13 @@ def point_estimates_are_equal(pe1: PointEstimates, pe2: PointEstimates) -> bool:
     )
 
 
-def test_configurator():
+def test_configurator(tmp_path: Path):
     # provided with a path, load toml or create a default toml.
     dev_toml_path = Path(__root__, "tests", "sessions", "post_optimization")
-    test_delete_path = Path(__root__, "tests", "sessions_copy_delete", "post_optimization")
 
-    copy_contents(dev_toml_path, test_delete_path)
+    copy_contents_to_clean_dest(dev_toml_path, tmp_path)
 
-    config = Configurator(test_delete_path)
+    config = Configurator(tmp_path)
 
     # load camera array
     camera_array = config.get_camera_array()
@@ -42,7 +41,7 @@ def test_configurator():
 
     config.save_camera_array(camera_array)
 
-    config2 = Configurator(test_delete_path)
+    config2 = Configurator(tmp_path)
     camera_array2 = config2.get_camera_array()
 
     # make sure that the rodrigues conversion isn't messing with anything...
@@ -84,15 +83,7 @@ def test_configurator():
     assert point_estimates_are_equal(point_estimates, point_estimates_reloaded)
 
 
-def remove_all_files_and_folders(directory_path):
-    for item in directory_path.iterdir():
-        if item.is_dir():
-            shutil.rmtree(item)
-        else:
-            item.unlink()
-
-
-def test_new_cameras():
+def test_new_cameras(tmp_path: Path):
     """
     With the switch from toml to rtoml, differences in saving `None` values is resulting
     in an inability to load new partially calibrated cameras.
@@ -101,12 +92,7 @@ def test_new_cameras():
     and will remain the same.
     """
 
-    blank_workspace = Path(__root__, "tests", "sessions_copy_delete", "blank_workspace")
-    if blank_workspace.exists():
-        shutil.rmtree(blank_workspace)
-    blank_workspace.mkdir(exist_ok=False)
-
-    config = Configurator(blank_workspace)
+    config = Configurator(tmp_path)
 
     cam_1 = CameraData(port=1, size=[1280, 720])
     cam_2 = CameraData(port=2, size=[1280, 720])
@@ -118,7 +104,7 @@ def test_new_cameras():
 
     # with camera array saved by configurator, there are now many "null" values
     # populated in the toml file. Need to make sure that these are loaded correctly
-    config_copy = Configurator(blank_workspace)
+    config_copy = Configurator(tmp_path)
     camera_array_copy = config_copy.get_camera_array()
     print(camera_array_copy.cameras)
 
@@ -127,5 +113,11 @@ def test_new_cameras():
 
 
 if __name__ == "__main__":
-    test_configurator()
-    test_new_cameras()
+    # test_configurator()
+    blank_workspace = Path(__file__).parent / "debug"
+
+    if blank_workspace.exists():
+        shutil.rmtree(blank_workspace)
+    blank_workspace.mkdir(exist_ok=False)
+
+    test_new_cameras(blank_workspace)

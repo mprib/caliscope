@@ -23,7 +23,7 @@ from caliscope.calibration.capture_volume.quality_controller import QualityContr
 # from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
 from caliscope.controller import FILTERED_FRACTION
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
@@ -32,19 +32,13 @@ from caliscope.trackers.charuco_tracker import CharucoTracker
 logger = logging.getLogger(__name__)
 
 
-def test_xy_charuco_creation():
+def test_xy_charuco_creation(tmp_path: Path):
     original_session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration")
 
-    session_path = Path(
-        original_session_path.parent.parent,
-        "sessions_copy_delete",
-        "mediapipe_calibration",
-    )
-
-    copy_contents(original_session_path, session_path)
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
 
     # This test begins with a set of cameras with calibrated intrinsics
-    config = Configurator(session_path)
+    config = Configurator(tmp_path)
     # config_path = str(Path(session_path, "config.toml"))
     logger.info(f"Getting charuco from config at {config.config_toml_path}")
     charuco = config.get_charuco()
@@ -52,7 +46,7 @@ def test_xy_charuco_creation():
 
     # create a synchronizer based off of these stream pools
     logger.info("Creating RecordedStreamPool")
-    recording_path = Path(session_path, "calibration", "extrinsic")
+    recording_path = Path(tmp_path, "calibration", "extrinsic")
     point_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
 
     camera_array = config.get_camera_array()
@@ -69,18 +63,14 @@ def test_xy_charuco_creation():
     assert point_data_path.exists()
 
 
-def test_calibration():
+def test_calibration(tmp_path: Path):
     version = "larger_calibration_post_monocal"
     # version = "larger_calibration_post_bundle_adjustment"  # needed for test_stereocalibrate
     original_session_path = Path(__root__, "tests", "sessions", version)
-    session_path = Path(
-        original_session_path.parent.parent,
-        "sessions_copy_delete",
-        version,
-    )
-    copy_contents(original_session_path, session_path)
-    config = Configurator(session_path)
-    recording_path = Path(session_path, "calibration", "extrinsic")
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
+
+    config = Configurator(tmp_path)
+    recording_path = Path(tmp_path, "calibration", "extrinsic")
     xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
     camera_array = config.get_camera_array()
     charuco = config.get_charuco()

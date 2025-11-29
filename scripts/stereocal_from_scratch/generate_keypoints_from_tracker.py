@@ -16,7 +16,7 @@ from caliscope.logger import setup_logging
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.tracker import Tracker
 from caliscope.trackers.aruco_tracker import ArucoTracker
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ def generate_aruco_xy():
 
     assert not fixture_project_dir.exists()
 
-    copy_contents(test_data_dir, fixture_project_dir)
+    copy_contents_to_clean_dest(test_data_dir, fixture_project_dir)
 
     tracker = ArucoTracker(inverted=True)
     generate_keypoints(fixture_project_dir, tracker)

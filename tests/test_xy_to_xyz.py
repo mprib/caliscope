@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from caliscope import __root__
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.trackers.tracker_enum import TrackerEnum
 
 # from caliscope.post_processing.post_processor import PostProcessor
@@ -14,17 +14,14 @@ from caliscope.triangulate.triangulation import triangulate_from_files
 logger = logging.getLogger(__name__)
 
 
-def test_xy_to_xyz_postprocessing():
+def test_xy_to_xyz_postprocessing(tmp_path: Path):
     # load in file of xy point data
     origin_data = Path(__root__, "tests", "sessions", "4_cam_recording")
-    working_data = Path(
-        __root__, "tests", "sessions_copy_delete", "4_cam_recording_2"
-    )  # create alternate test directory because running into permission errors when invoking pytest
 
-    copy_contents(origin_data, working_data)
+    copy_contents_to_clean_dest(origin_data, tmp_path)
 
-    config_path = Path(working_data, "config.toml")
-    recording_directory = Path(working_data, "recordings", "recording_1")
+    config_path = Path(tmp_path, "config.toml")
+    recording_directory = Path(tmp_path, "recordings", "recording_1")
     tracker_enum = TrackerEnum.HOLISTIC
 
     xy_path = Path(recording_directory, tracker_enum.name, f"xy_{tracker_enum.name}.csv")

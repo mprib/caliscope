@@ -9,18 +9,17 @@ from caliscope import __root__
 from caliscope.calibration.charuco import Charuco
 from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
 from caliscope.cameras.camera_array import CameraData
-from caliscope.helper import copy_contents
+from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = logging.getLogger(__name__)
 
 
-def test_intrinsic_calibrator():
+def test_intrinsic_calibrator(tmp_path: Path):
     # use a general video file with a charuco for convenience
     original_data_path = Path(__root__, "tests", "sessions", "4_cam_recording")
-    destination_path = Path(__root__, "tests", "sessions_copy_delete", "4_cam_recording")
-    copy_contents(original_data_path, destination_path)
+    copy_contents_to_clean_dest(original_data_path, tmp_path)
 
     recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
 
@@ -78,11 +77,10 @@ def test_intrinsic_calibrator():
     logger.info(camera.get_display_data())
 
 
-def test_autopopulate_data():
+def test_autopopulate_data(tmp_path: Path):
     # use a general video file with a charuco for convenience
     original_data_path = Path(__root__, "tests", "sessions", "4_cam_recording")
-    destination_path = Path(__root__, "tests", "sessions_copy_delete", "4_cam_recording")
-    copy_contents(original_data_path, destination_path)
+    copy_contents_to_clean_dest(original_data_path, tmp_path)
 
     recording_directory = Path(__root__, "tests", "sessions", "post_monocal", "calibration", "extrinsic")
 

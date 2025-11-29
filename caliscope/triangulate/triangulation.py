@@ -7,6 +7,7 @@ import pandas as pd
 
 from caliscope.configurator import Configurator
 from caliscope.post_processing.point_data import ImagePoints
+from caliscope.cameras.camera_array import CameraArray
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def triangulate_from_files(config_path: Path, xy_path: Path, output_path: Path =
     config = Configurator(config_path.parent)
 
     logger.info("Loading camera array")
-    camera_array = config.get_camera_array()
+    camera_array: CameraArray = config.get_camera_array()
 
     logger.info(f"Loading 2D points from {xy_path} into a validated XYData object")
     xy_data = ImagePoints.from_csv(xy_path)

@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from time import time
-from typing import Type
 
 import numpy as np
 import pandas as pd
@@ -14,12 +13,9 @@ from numba import jit
 from numba.typed import Dict, List
 from pandera.typing import Series
 from scipy.signal import butter, filtfilt
+from caliscope.cameras.camera_array import CameraArray
 
 logger = logging.getLogger(__name__)
-
-# Forward-declare this type for use in method signatures
-# This avoids a circular import with camera_array.py
-CameraArray = Type["CameraArray"]
 
 
 # Numba-optimized helper functions moved from triangulation.py

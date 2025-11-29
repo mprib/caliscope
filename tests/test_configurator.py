@@ -83,15 +83,7 @@ def test_configurator(tmp_path: Path):
     assert point_estimates_are_equal(point_estimates, point_estimates_reloaded)
 
 
-def remove_all_files_and_folders(directory_path):
-    for item in directory_path.iterdir():
-        if item.is_dir():
-            shutil.rmtree(item)
-        else:
-            item.unlink()
-
-
-def test_new_cameras():
+def test_new_cameras(tmp_path: Path):
     """
     With the switch from toml to rtoml, differences in saving `None` values is resulting
     in an inability to load new partially calibrated cameras.
@@ -100,12 +92,7 @@ def test_new_cameras():
     and will remain the same.
     """
 
-    blank_workspace = Path(__root__, "tests", "sessions_copy_delete", "blank_workspace")
-    if blank_workspace.exists():
-        shutil.rmtree(blank_workspace)
-    blank_workspace.mkdir(exist_ok=False)
-
-    config = Configurator(blank_workspace)
+    config = Configurator(tmp_path)
 
     cam_1 = CameraData(port=1, size=[1280, 720])
     cam_2 = CameraData(port=2, size=[1280, 720])
@@ -117,7 +104,7 @@ def test_new_cameras():
 
     # with camera array saved by configurator, there are now many "null" values
     # populated in the toml file. Need to make sure that these are loaded correctly
-    config_copy = Configurator(blank_workspace)
+    config_copy = Configurator(tmp_path)
     camera_array_copy = config_copy.get_camera_array()
     print(camera_array_copy.cameras)
 
@@ -126,5 +113,11 @@ def test_new_cameras():
 
 
 if __name__ == "__main__":
-    test_configurator()
-    test_new_cameras()
+    # test_configurator()
+    blank_workspace = Path(__file__).parent / "debug"
+
+    if blank_workspace.exists():
+        shutil.rmtree(blank_workspace)
+    blank_workspace.mkdir(exist_ok=False)
+
+    test_new_cameras(blank_workspace)

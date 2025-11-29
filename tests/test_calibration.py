@@ -15,10 +15,10 @@ from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     create_point_estimates_from_stereopairs,
 )
+from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
 
-from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
 
 # from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.configurator import Configurator
@@ -92,7 +92,6 @@ def test_calibration():
     paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array, anchor_cam=8)
-    # stereo_graph.apply_to(camera_array)
 
     # save initial extrinsics
     logger.info("Loading point estimates")

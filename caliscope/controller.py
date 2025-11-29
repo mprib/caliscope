@@ -10,7 +10,7 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
     create_point_estimates_from_stereopairs,
 )
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
+from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
 

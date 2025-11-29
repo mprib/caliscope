@@ -7,7 +7,7 @@ from caliscope import __root__
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     create_point_estimates_from_stereopairs,
 )
-from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
+from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
 
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest

@@ -11,7 +11,7 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
+from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
 from caliscope.post_processing.point_data import ImagePoints
@@ -39,12 +39,12 @@ def test_calibration_workflow():
     logger.info("Creating stereocalibrator")
 
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
+
     logger.info("Initiating stereocalibration")
-    stereopair_graph = stereocalibrator.stereo_calibrate_all(boards_sampled=100)
+    paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
 
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
-    stereopair_graph.apply_to(camera_array)
+    paired_pose_network.apply_to(camera_array)
 
     logger.info("Loading point estimates")
     point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, image_points)

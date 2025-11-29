@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class StereoPairGraph:
+class PairedPoseNetwork:
     """Immutable graph of stereo pair relationships between cameras."""
 
     _pairs: Dict[Tuple[int, int], StereoPair]
 
     @classmethod
-    def from_raw_estimates(cls, raw_pairs: Dict[Tuple[int, int], StereoPair]) -> StereoPairGraph:
+    def from_raw_estimates(cls, raw_pairs: Dict[Tuple[int, int], StereoPair]) -> PairedPoseNetwork:
         """
         Create a StereoPairGraph from raw estimates and fill in missing pairs
         by bridging through intermediate cameras.
@@ -223,7 +223,7 @@ class StereoPairGraph:
             logger.warning(f"Cameras not in the main group remain unposed: {unposed_ports}")
 
     @classmethod
-    def from_legacy_dict(cls, data: Dict[str, Dict]) -> StereoPairGraph:
+    def from_legacy_dict(cls, data: Dict[str, Dict]) -> PairedPoseNetwork:
         """Alternative constructor for backward compatibility with legacy dictionary format."""
         pairs = {}
         for key, params in data.items():

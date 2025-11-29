@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from caliscope import __root__
-from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
+from caliscope.calibration.array_initialization.stereopair_graph import PairedPoseNetwork
 from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
 from caliscope.configurator import Configurator
 from caliscope.post_processing.point_data import ImagePoints
@@ -82,7 +82,7 @@ def parse_array_string(array_str: str) -> np.ndarray:
         raise e
 
 
-def verify_results(stereo_graph: StereoPairGraph, gold_results: dict):
+def verify_results(stereo_graph: PairedPoseNetwork, gold_results: dict):
     """
     Compares the calculated StereoPairGraph against the gold standard dict.
     Logs the detailed error metrics for EVERY pair to the console.
@@ -206,7 +206,7 @@ def test_stereopair_graph_against_gold_standard():
 
     logger.info("Initiating stereocalibration")
     # Using the same sampling as presumably used in gold standard
-    stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+    stereo_graph: PairedPoseNetwork = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
 
     # 4. Execute Comparison
     verify_results(stereo_graph, gold_stereocal_all_results)

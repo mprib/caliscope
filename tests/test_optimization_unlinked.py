@@ -8,8 +8,7 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
 )
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
-from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
+from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
@@ -44,11 +43,10 @@ def test_bundle_adjust_with_unlinked_camera():
 
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
 
-    logger.info("Initiating stereocalibration")
-    stereopair_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all()
-    stereopair_graph.apply_to(camera_array)
+    paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
+    paired_pose_network.apply_to(camera_array)
 
     # 3. VERIFY SETUP
     # Confirm that we have the expected set of posed and unposed cameras

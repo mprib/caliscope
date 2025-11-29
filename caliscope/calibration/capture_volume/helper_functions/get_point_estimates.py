@@ -5,7 +5,7 @@ import numpy as np
 
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.post_processing.point_data import ImagePoints, XYZData
+from caliscope.post_processing.point_data import ImagePoints, WorldPoints
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ def create_point_estimates_from_stereopairs(camera_array: CameraArray, image_poi
     logger.info("Creating point estimates using ImagePoints.triangulate()")
 
     # Use the clean triangulation implementation
-    xyz_data: XYZData = image_points.triangulate(camera_array)
+    xyz_data: WorldPoints = image_points.triangulate(camera_array)
 
     if xyz_data.df.empty:
         logger.warning("No points triangulated")
@@ -36,7 +36,7 @@ def create_point_estimates_from_stereopairs(camera_array: CameraArray, image_poi
 
 
 def _convert_xyz_to_point_estimates(
-    xyz_data: XYZData, image_points: ImagePoints, camera_array: CameraArray
+    xyz_data: WorldPoints, image_points: ImagePoints, camera_array: CameraArray
 ) -> PointEstimates:
     """
     Convert XYZData + ImagePoints to PointEstimates format needed for bundle adjustment.

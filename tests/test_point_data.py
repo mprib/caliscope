@@ -8,7 +8,7 @@ import pandas as pd
 import pandera.pandas as pa
 import pytest
 
-from caliscope.post_processing.point_data import ImagePoints, XYZData
+from caliscope.post_processing.point_data import ImagePoints, WorldPoints
 
 
 # --- Helper functions for data generation ---
@@ -132,14 +132,14 @@ def test_xydata_fill_gaps():
 
 def test_xyzdata_creation_success(valid_xyz_df):
     try:
-        xyz_data = XYZData(valid_xyz_df)
-        assert isinstance(xyz_data, XYZData)
+        xyz_data = WorldPoints(valid_xyz_df)
+        assert isinstance(xyz_data, WorldPoints)
     except Exception as e:
         pytest.fail(f"XYZData creation failed unexpectedly: {e}")
 
 
 def test_xyzdata_immutability(valid_xyz_df):
-    xyz_data = XYZData(valid_xyz_df)
+    xyz_data = WorldPoints(valid_xyz_df)
     original_df = xyz_data.df
     retrieved_df = xyz_data.df
     retrieved_df.iloc[0, 0] = 9999

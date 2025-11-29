@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from time import time
-
 import numpy as np
 import pandas as pd
 import pandera.pandas as pa
@@ -232,14 +231,14 @@ class ImagePoints:
         logger.info("(x,y) gap filling complete")
         return ImagePoints(xy_filled.dropna(subset=["img_loc_x"]))
 
-    def triangulate(self, camera_array: CameraArray) -> XYZData:
+    def triangulate(self, camera_array: CameraArray) -> WorldPoints:
         """
         Triangulates 2D points to create 3D points using the provided CameraArray.
         The input 2D points are undistorted as part of this process.
         """
         xy_df = self.df
         if xy_df.empty:
-            return XYZData(pd.DataFrame(columns=WorldPointSchema.to_schema().columns.keys()))
+            return WorldPoints(pd.DataFrame(columns=WorldPointSchema.to_schema().columns.keys()))
 
         # Only process cameras that are both in data AND posed
         ports_in_data = xy_df["port"].unique()
@@ -248,7 +247,7 @@ class ImagePoints:
 
         if not valid_ports:
             logger.warning("No cameras in data have extrinsics for triangulation")
-            return XYZData(pd.DataFrame(columns=WorldPointSchema.to_schema().columns.keys()))
+            return WorldPoints(pd.DataFrame(columns=WorldPointSchema.to_schema().columns.keys()))
 
         # Assemble numba compatible dictionary for projection matrices
         # This already filters to posed cameras
@@ -304,10 +303,10 @@ class ImagePoints:
                 last_log_update = int(time())
 
         xyz_df = pd.DataFrame(xyz_data)
-        return XYZData(xyz_df)
+        return WorldPoints(xyz_df)
 
 
-class XYZData:
+class WorldPoints:
     """A validated, immutable container for 3D (x,y,z) point data."""
 
     _df: pd.DataFrame
@@ -320,11 +319,11 @@ class XYZData:
         return self._df.copy()
 
     @classmethod
-    def from_csv(cls, path: str | Path) -> XYZData:
+    def from_csv(cls, path: str | Path) -> WorldPoints:
         df = pd.read_csv(path)
         return cls(df)
 
-    def fill_gaps(self, max_gap_size: int = 3) -> XYZData:
+    def fill_gaps(self, max_gap_size: int = 3) -> WorldPoints:
         xyz_filled = pd.DataFrame()
         base_df = self.df
         for point_id, group in base_df.groupby("point_id"):
@@ -342,9 +341,9 @@ class XYZData:
                 if col in merged.columns:
                     merged[col] = merged[col].interpolate(method="linear", limit=max_gap_size)
             xyz_filled = pd.concat([xyz_filled, merged])
-        return XYZData(xyz_filled.dropna(subset=["x_coord"]))
+        return WorldPoints(xyz_filled.dropna(subset=["x_coord"]))
 
-    def smooth(self, fps: float, cutoff_freq: float, order: int = 2) -> XYZData:
+    def smooth(self, fps: float, cutoff_freq: float, order: int = 2) -> WorldPoints:
         b, a = butter(order, cutoff_freq, btype="low", fs=fps)
         base_df = self.df
         xyz_filtered = base_df.copy()
@@ -353,4 +352,4 @@ class XYZData:
                 xyz_filtered.loc[group.index, "x_coord"] = filtfilt(b, a, group["x_coord"])
                 xyz_filtered.loc[group.index, "y_coord"] = filtfilt(b, a, group["y_coord"])
                 xyz_filtered.loc[group.index, "z_coord"] = filtfilt(b, a, group["z_coord"])
-        return XYZData(xyz_filtered)
+        return WorldPoints(xyz_filtered)

@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 
 from caliscope import __root__
-from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
-from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
+from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
+from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
@@ -140,22 +140,22 @@ def test_missing_extrinsics():
     image_points = ImagePoints.from_csv(xy_data_path)
 
     # === RUN STEREO CALIBRATION WITH DEBUG LOGGING ===
-    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
-    stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
+
+    paired_pose_network: PairedPoseNetwork = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
 
     # === INSPECT THE GRAPH STATE ===
     print("\n" + "=" * 80)
     print("POST-CALIBRATION GRAPH INSPECTION")
     print("=" * 80)
 
-    print(f"\nGraph contains {len(stereo_graph._pairs)} pairs:")
-    for (src, dst), pair in sorted(stereo_graph._pairs.items()):
+    print(f"\nGraph contains {len(paired_pose_network._pairs)} pairs:")
+    for (src, dst), pair in sorted(paired_pose_network._pairs.items()):
         print(f"  {src}→{dst}: RMSE={pair.error_score:.4f}")
 
     # Check for critical pairs
     critical_pairs = [(3, 4), (2, 4), (4, 3), (4, 2)]
     for src, dst in critical_pairs:
-        pair = stereo_graph.get_pair(src, dst)
+        pair = paired_pose_network.get_pair(src, dst)
         if pair:
             print(f"✓ Pair {src}→{dst} exists: RMSE={pair.error_score:.4f}")
         else:
@@ -164,7 +164,7 @@ def test_missing_extrinsics():
     print("=" * 80)
 
     # === APPLY GRAPH AND LOG EVERY STEP ===
-    stereo_graph.apply_to(camera_array)
+    paired_pose_network.apply_to(camera_array)
     logger.info("Camera Poses estimated from stereocalibration")
 
     # should have posed all ports but 4 and 5 (4 is ignored)

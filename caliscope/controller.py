@@ -10,9 +10,8 @@ from caliscope.calibration.capture_volume.helper_functions.get_point_estimates i
     create_point_estimates_from_stereopairs,
 )
 from caliscope.calibration.capture_volume.quality_controller import QualityController
+from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
 from caliscope.calibration.charuco import Charuco
-from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
-from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
 from caliscope.cameras.camera_array import CameraArray, CameraData
 
 # from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
@@ -338,12 +337,9 @@ class Controller(QObject):
 
             image_points = ImagePoints.from_csv(self.extrinsic_calibration_xy)
 
-            stereocalibrator = LegacyStereoCalibrator(self.camera_array, image_points)
-            stereo_graph: StereoPairGraph = stereocalibrator.stereo_calibrate_all(boards_sampled=10)
-
+            paired_pose_network = estimate_paired_pose_network(image_points, self.camera_array, boards_sampled=10)
             # refreshing camera array from config file
-
-            stereo_graph.apply_to(self.camera_array)
+            paired_pose_network.apply_to(self.camera_array)
 
             self.point_estimates = create_point_estimates_from_stereopairs(self.camera_array, image_points)
 

@@ -9,18 +9,18 @@ import numpy as np
 import pandas as pd
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
+from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
 from caliscope.calibration.array_initialization.stereopairs import StereoPair
 from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
 
 
-def estimate_pairwise_extrinsics(
+def estimate_paired_pose_network(
     image_points: ImagePoints,
     camera_array: CameraArray,
     boards_sampled: int = 10,
-) -> StereoPairGraph:
+) -> PairedPoseNetwork:
     """
     Legacy stereo calibration algorithm that estimates pairwise extrinsics
     between all camera pairs in the array.
@@ -47,7 +47,7 @@ def estimate_pairwise_extrinsics(
 
     if len(ports) < 2:
         logger.error("Need at least 2 calibrated cameras for stereo estimation")
-        return StereoPairGraph(_pairs={})
+        return PairedPoseNetwork(_pairs={})
 
     # Pre-compute coverage regions ONCE for all pairs
     points_with_coverage = _add_coverage_regions(image_points.df)
@@ -72,7 +72,7 @@ def estimate_pairwise_extrinsics(
             logger.warning(f"Failed to estimate pair {port_a}-{port_b}")
 
     logger.info(f"Completed estimation for {len(pairs)} stereo pairs")
-    return StereoPairGraph.from_raw_estimates(pairs)
+    return PairedPoseNetwork.from_raw_estimates(pairs)
 
 
 def _add_coverage_regions(point_data: pd.DataFrame) -> pd.DataFrame:

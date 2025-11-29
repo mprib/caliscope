@@ -4,9 +4,9 @@ from __future__ import annotations
 import logging
 
 from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import (
-    estimate_pairwise_extrinsics,
+    estimate_paired_pose_network,
 )
-from caliscope.calibration.array_initialization.stereopair_graph import StereoPairGraph
+from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.post_processing.point_data import ImagePoints
 
@@ -33,7 +33,7 @@ class LegacyStereoCalibrator:
         self.camera_array = camera_array
         self.image_points = image_points
 
-    def stereo_calibrate_all(self, boards_sampled: int = 10) -> StereoPairGraph:
+    def stereo_calibrate_all(self, boards_sampled: int = 10) -> PairedPoseNetwork:
         """
         Estimate pairwise extrinsics for all camera pairs.
 
@@ -47,7 +47,7 @@ class LegacyStereoCalibrator:
         """
         logger.info("LegacyStereoCalibrator delegating to estimate_pairwise_extrinsics()")
 
-        return estimate_pairwise_extrinsics(
+        return estimate_paired_pose_network(
             image_points=self.image_points,
             camera_array=self.camera_array,
             boards_sampled=boards_sampled,

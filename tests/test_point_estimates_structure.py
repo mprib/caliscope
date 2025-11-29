@@ -7,7 +7,7 @@ from caliscope import __root__
 from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
     create_point_estimates_from_stereopairs,
 )
-from caliscope.calibration.array_initialization.legacy_stereocalibrator import LegacyStereoCalibrator
+from caliscope.calibration.array_initialization.estimate_pairwise_extrinsics import estimate_paired_pose_network
 
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents
@@ -34,9 +34,9 @@ def test_point_estimates_structure_fully_linked():
     camera_array = config.get_camera_array()
 
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
-    stereopair_graph = stereocalibrator.stereo_calibrate_all()
-    stereopair_graph.apply_to(camera_array)
+
+    paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network.apply_to(camera_array)
     # This initialization should result in all cameras being posed
 
     # Generate the point estimates
@@ -105,10 +105,9 @@ def test_point_estimates_structure_unlinked():
     camera_array = config.get_camera_array()
 
     image_points = ImagePoints.from_csv(xy_data_path)
-    stereocalibrator = LegacyStereoCalibrator(camera_array, image_points)
 
-    stereopair_graph = stereocalibrator.stereo_calibrate_all()
-    stereopair_graph.apply_to(camera_array)
+    paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network.apply_to(camera_array)
     # This initialization should result in all cameras being posed
 
     # Generate the point estimates

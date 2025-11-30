@@ -78,4 +78,5 @@ if __name__ == "__main__":
     # import pytest
     #
     # pytest.main([__file__])
-    test_extrinsic_calibration()
+    temp = Path(__file__).parent / "debug"
+    test_extrinsic_calibration(temp)

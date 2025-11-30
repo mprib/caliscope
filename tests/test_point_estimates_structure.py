@@ -4,11 +4,8 @@ from pathlib import Path
 import numpy as np
 
 from caliscope import __root__
-from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
-    create_point_estimates_from_stereopairs,
-)
 from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
-
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints
@@ -35,11 +32,9 @@ def test_point_estimates_structure_fully_linked(tmp_path: Path):
     image_points = ImagePoints.from_csv(xy_data_path)
 
     paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
-    paired_pose_network.apply_to(camera_array)
-    # This initialization should result in all cameras being posed
-
-    # Generate the point estimates
-    point_estimates = create_point_estimates_from_stereopairs(camera_array, image_points)
+    paired_pose_network.apply_to(camera_array)  # initialize camera extrinsics based on best guess from pairwise poses
+    world_points = image_points.triangulate(camera_array)  # estimate 3D points from initial guiess of position
+    point_estimates: PointEstimates = world_points.to_point_estimates()  # structure for bundle adjustment
 
     # --- Structural Integrity Assertions ---
     # 1. Check consistency between CameraArray and PointEstimates
@@ -106,10 +101,9 @@ def test_point_estimates_structure_unlinked(tmp_path: Path):
 
     paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
     paired_pose_network.apply_to(camera_array)
-    # This initialization should result in all cameras being posed
 
-    # Generate the point estimates
-    point_estimates = create_point_estimates_from_stereopairs(camera_array, image_points)
+    world_points = image_points.triangulate(camera_array)
+    point_estimates: PointEstimates = world_points.to_point_estimates()
 
     # --- Structural Integrity Assertions ---
     # 1. Check consistency between CameraArray and PointEstimates
@@ -157,6 +151,7 @@ if __name__ == "__main__":
     from caliscope.logger import setup_logging
 
     setup_logging()
-    test_point_estimates_structure_fully_linked()
-    test_point_estimates_structure_unlinked()
+    temp = Path(__file__).parent / "debug"
+    # test_point_estimates_structure_fully_linked(temp)
+    test_point_estimates_structure_unlinked(temp)
     logger.info("End ad hoc test")

@@ -12,9 +12,6 @@ from time import sleep
 
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
-    create_point_estimates_from_stereopairs,
-)
 from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
@@ -86,7 +83,8 @@ def test_calibration(tmp_path: Path):
     # save initial extrinsics
     logger.info("Loading point estimates")
     image_points = ImagePoints.from_csv(xy_data_path)
-    point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, image_points)
+    world_points = image_points.triangulate(camera_array)
+    point_estimates: PointEstimates = world_points.to_point_estimates()
 
     config.save_point_estimates(point_estimates)
     config.save_camera_array(camera_array)

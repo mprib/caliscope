@@ -2,10 +2,8 @@ import logging
 from pathlib import Path
 
 from caliscope import __root__
+from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
-    create_point_estimates_from_stereopairs,
-)
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
 from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
@@ -39,9 +37,12 @@ def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
 
-    paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network: PairedPoseNetwork = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array)
+
+    world_points = image_points.triangulate(camera_array)
+    point_estimates: PointEstimates = world_points.to_point_estimates()
 
     # 3. VERIFY SETUP
     # Confirm that we have the expected set of posed and unposed cameras
@@ -54,7 +55,6 @@ def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
     # This is the function we will modify. Currently, it will fail to correctly
     # filter and remap camera indices.
     logger.info("Generating point estimates from data with unlinked camera...")
-    point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, image_points)
 
     # 5. CREATE CAPTURE VOLUME AND OPTIMIZE
     # This step will fail with an IndexError before our changes, because
@@ -120,6 +120,7 @@ if __name__ == "__main__":
 
     setup_logging()
 
-    test_bundle_adjust_with_unlinked_camera()
-    test_capture_volume_filter()
+    temp = Path(__file__).parent / "debug"
+    test_bundle_adjust_with_unlinked_camera(temp)
+    test_capture_volume_filter(temp)
     logger.info("test debug complete")

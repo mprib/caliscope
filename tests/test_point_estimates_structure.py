@@ -8,7 +8,7 @@ from caliscope.calibration.array_initialization.estimate_paired_pose_network imp
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.post_processing.point_data import ImagePoints
+from caliscope.post_processing.point_data import ImagePoints, WorldPoints
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,9 @@ def test_point_estimates_structure_fully_linked(tmp_path: Path):
 
     paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
     paired_pose_network.apply_to(camera_array)  # initialize camera extrinsics based on best guess from pairwise poses
-    world_points = image_points.triangulate(camera_array)  # estimate 3D points from initial guiess of position
+
+    # estimate 3D points from initial guiess of position
+    world_points: WorldPoints = image_points.triangulate(camera_array)
     point_estimates: PointEstimates = world_points.to_point_estimates()  # structure for bundle adjustment
 
     # --- Structural Integrity Assertions ---
@@ -102,7 +104,7 @@ def test_point_estimates_structure_unlinked(tmp_path: Path):
     paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
     paired_pose_network.apply_to(camera_array)
 
-    world_points = image_points.triangulate(camera_array)
+    world_points: WorldPoints = image_points.triangulate(camera_array)
     point_estimates: PointEstimates = world_points.to_point_estimates()
 
     # --- Structural Integrity Assertions ---
@@ -152,6 +154,6 @@ if __name__ == "__main__":
 
     setup_logging()
     temp = Path(__file__).parent / "debug"
-    # test_point_estimates_structure_fully_linked(temp)
+    test_point_estimates_structure_fully_linked(temp)
     test_point_estimates_structure_unlinked(temp)
     logger.info("End ad hoc test")

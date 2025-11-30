@@ -1,7 +1,6 @@
 # caliscope/post_processing/point_data.py
 
 from __future__ import annotations
-
 import logging
 from pathlib import Path
 from time import time
@@ -13,6 +12,7 @@ from numba.typed import Dict, List
 from pandera.typing import Series
 from scipy.signal import butter, filtfilt
 from caliscope.cameras.camera_array import CameraArray
+from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +122,8 @@ def triangulate_sync_index(
 
 
 ############################################################################################
+
+
 def _undistort_batch(xy_df: pd.DataFrame, camera_array: CameraArray) -> pd.DataFrame:
     """Module-private helper to undistort all points in a DataFrame."""
     undistorted_points = []
@@ -222,7 +224,9 @@ class ImagePoints:
         """
         xy_df = self.df
         if xy_df.empty:
-            return WorldPoints(pd.DataFrame(columns=WorldPointSchema.to_schema().columns.keys()))
+            return WorldPoints(
+                pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())), self, camera_array
+            )
 
         # Only process cameras that are both in data AND posed
         ports_in_data = xy_df["port"].unique()
@@ -231,7 +235,9 @@ class ImagePoints:
 
         if not valid_ports:
             logger.warning("No cameras in data have extrinsics for triangulation")
-            return WorldPoints(pd.DataFrame(columns=WorldPointSchema.to_schema().columns.keys()))
+            return WorldPoints(
+                pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())), self, camera_array
+            )
 
         # Assemble numba compatible dictionary for projection matrices
         # This already filters to posed cameras
@@ -287,25 +293,113 @@ class ImagePoints:
                 last_log_update = int(time())
 
         xyz_df = pd.DataFrame(xyz_data)
-        return WorldPoints(xyz_df)
+        return WorldPoints(xyz_df, self, camera_array)
 
 
 class WorldPoints:
     """A validated, immutable container for 3D (x,y,z) point data."""
 
     _df: pd.DataFrame
+    _source_image_points: ImagePoints
+    _camera_array: CameraArray
 
-    def __init__(self, df: pd.DataFrame):
-        self._df = WorldPointSchema.validate(df)
+    def __init__(self, xyz_df: pd.DataFrame, source_image_points: ImagePoints, camera_array: CameraArray):
+        self._df = WorldPointSchema.validate(xyz_df)
+        self._source_image_points = source_image_points
+        self._camera_array = camera_array
 
     @property
     def df(self) -> pd.DataFrame:
         return self._df.copy()
 
-    @classmethod
-    def from_csv(cls, path: str | Path) -> WorldPoints:
-        df = pd.read_csv(path)
-        return cls(df)
+    @property
+    def source_image_points(self) -> ImagePoints:
+        return self._source_image_points
+
+    @property
+    def camera_array(self) -> CameraArray:
+        return self._camera_array
+
+    def to_point_estimates(self) -> PointEstimates:
+        xyz_df = self.df
+        xy_df = self.source_image_points.df
+        camera_array = self.camera_array
+
+        # Create explicit mapping in the dataframe to track indices.
+        # We reset index to ensure we have a column "xyz_index" corresponding to the row number in xyz_df
+        xyz_df = xyz_df.reset_index(drop=True)
+        xyz_df["xyz_index"] = xyz_df.index
+
+        # Merge 2D and 3D data
+        merged = xy_df.merge(
+            xyz_df[["sync_index", "point_id", "xyz_index"]],  # We don't strictly need coords here
+            on=["sync_index", "point_id"],
+            how="inner",
+        )
+
+        # Filter to posed cameras only
+        posed_ports = list(camera_array.posed_port_to_index.keys())
+        merged = merged[merged["port"].isin(posed_ports)]
+
+        if merged.empty:
+            logger.warning("No merged 2D-3D observations after filtering")
+            return PointEstimates(
+                sync_indices=np.array([], dtype=np.int64),
+                camera_indices=np.array([], dtype=np.int64),
+                point_id=np.array([], dtype=np.int64),
+                img=np.array([], dtype=np.float32).reshape(0, 2),
+                obj_indices=np.array([], dtype=np.int64),
+                obj=np.array([], dtype=np.float32).reshape(0, 3),
+            )
+
+        # =========================================================================
+        # Prune orphaned 3D points
+        # =========================================================================
+
+        # 1. Identify which xyz_indices are actually used after filtering cameras
+        used_xyz_indices = merged["xyz_index"].unique()
+        used_xyz_indices.sort()  # Ensure deterministic order
+
+        # 2. Extract ONLY the used 3D points from the master list
+        obj = xyz_df.loc[used_xyz_indices, ["x_coord", "y_coord", "z_coord"]].to_numpy(dtype=np.float32)
+
+        # 3. Create a map from the old (large) index to the new (compact) index
+        old_to_new_map = {old: new for new, old in enumerate(used_xyz_indices)}
+
+        # 4. Update the pointers in the merged dataframe to reflect the new compact array
+        merged["obj_index_pruned"] = merged["xyz_index"].map(old_to_new_map)
+        obj_indices = merged["obj_index_pruned"].to_numpy(dtype=np.int64)
+
+        # =========================================================================
+
+        # Map ports to camera indices
+        merged["camera_index"] = merged["port"].map(camera_array.posed_port_to_index)
+
+        # Extract arrays
+        sync_indices = merged["sync_index"].to_numpy(dtype=np.int64)
+        camera_indices = merged["camera_index"].to_numpy(dtype=np.int64)
+        point_ids = merged["point_id"].to_numpy(dtype=np.int64)
+        img = merged[["img_loc_x", "img_loc_y"]].to_numpy(dtype=np.float32)
+
+        # Validate consistency
+        assert len(camera_indices) == len(img) == len(obj_indices), "Mismatch in 2D data array lengths"
+        if len(obj_indices) > 0:
+            assert obj_indices.max() < obj.shape[0], "CRITICAL: obj_indices contains an out-of-bounds index"
+            # The key check for the hang:
+            assert np.unique(obj_indices).size == obj.shape[0], (
+                "CRITICAL: Orphaned 3D points detected! Optimizer will hang."
+            )
+
+        logger.info(f"Successfully created PointEstimates: {obj.shape[0]} 3D points and {img.shape[0]} 2D observations")
+
+        return PointEstimates(
+            sync_indices=sync_indices,
+            camera_indices=camera_indices,
+            point_id=point_ids,
+            img=img,
+            obj_indices=obj_indices,
+            obj=obj,
+        )
 
     def fill_gaps(self, max_gap_size: int = 3) -> WorldPoints:
         xyz_filled = pd.DataFrame()

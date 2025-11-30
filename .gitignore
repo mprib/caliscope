@@ -1,3 +1,4 @@
+tests/debug/*
 *context.txt
 *.png
 llm/*

@@ -12,9 +12,9 @@ CAMERA_PARAM_COUNT = 6
 @dataclass
 class PointEstimates:
     """
-    Initialized from triangulated_points.csv to provide the formatting of data required for bundle adjustment
-    "full" is used here because there is currently a method to filter the data based on reprojection error
-    Not sure if it will be used going forward, but it remains here if so.
+    Bundle adjustment observation structure linking 2D image points to 3D object points.
+    Represents the correspondences between synchronized 2D observations and their
+    triangulated 3D estimates, formatted for optimization.
     """
 
     sync_indices: np.ndarray  # the sync_index from when the image was taken

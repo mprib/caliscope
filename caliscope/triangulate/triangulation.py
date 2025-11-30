@@ -12,7 +12,7 @@ from caliscope.cameras.camera_array import CameraArray
 logger = logging.getLogger(__name__)
 
 
-def triangulate_from_files(config_path: Path, xy_path: Path, output_path: Path = None) -> pd.DataFrame:
+def triangulate_from_files(config_path: Path, image_point_path: Path, output_path: Path = None) -> pd.DataFrame:
     """
     Triangulate 2D points to 3D using camera calibration from config.toml
 
@@ -48,11 +48,11 @@ def triangulate_from_files(config_path: Path, xy_path: Path, output_path: Path =
     logger.info("Loading camera array")
     camera_array: CameraArray = config.get_camera_array()
 
-    logger.info(f"Loading 2D points from {xy_path} into a validated XYData object")
-    xy_data = ImagePoints.from_csv(xy_path)
+    logger.info(f"Loading 2D points from {image_point_path} into a validated XYData object")
+    image_points = ImagePoints.from_csv(image_point_path)
 
     logger.info("Beginning triangulation...")
-    xyz_data = xy_data.triangulate(camera_array)
+    xyz_data = image_points.triangulate(camera_array)
 
     if output_path:
         logger.info(f"Saving triangulated points to {output_path}")

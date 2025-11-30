@@ -35,8 +35,9 @@ class ConfigSettings(Enum):
 
 class Configurator:
     """
-    A factory to provide pre-configured objects and to save the configuration
-    of currently existing objects.
+    Central I/O interface for project state.
+    Loads/saves camera arrays, point data, and calibration results
+    from the project directory structure.
     """
 
     def __init__(self, workspace_path: Path) -> None:

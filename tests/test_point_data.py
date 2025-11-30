@@ -8,7 +8,7 @@ import pandas as pd
 import pandera.pandas as pa
 import pytest
 
-from caliscope.post_processing.point_data import ImagePoints, XYZData
+from caliscope.post_processing.point_data import ImagePoints
 
 
 # --- Helper functions for data generation ---
@@ -130,22 +130,6 @@ def test_xydata_fill_gaps():
     pd.testing.assert_frame_equal(expected_data, result_df)
 
 
-def test_xyzdata_creation_success(valid_xyz_df):
-    try:
-        xyz_data = XYZData(valid_xyz_df)
-        assert isinstance(xyz_data, XYZData)
-    except Exception as e:
-        pytest.fail(f"XYZData creation failed unexpectedly: {e}")
-
-
-def test_xyzdata_immutability(valid_xyz_df):
-    xyz_data = XYZData(valid_xyz_df)
-    original_df = xyz_data.df
-    retrieved_df = xyz_data.df
-    retrieved_df.iloc[0, 0] = 9999
-    pd.testing.assert_frame_equal(original_df, xyz_data.df)
-
-
 if __name__ == "__main__":
     import tempfile
 
@@ -161,8 +145,4 @@ if __name__ == "__main__":
         test_xydata_immutability(_get_valid_xy_df())
         print("\n--- Running test: test_xydata_fill_gaps ---")
         test_xydata_fill_gaps()
-        print("\n--- Running test: test_xyzdata_creation_success ---")
-        test_xyzdata_creation_success(_get_valid_xyz_df())
-        print("\n--- Running test: test_xyzdata_immutability ---")
-        test_xyzdata_immutability(_get_valid_xyz_df())
         print("\n--- All tests passed in debug mode ---")

@@ -213,8 +213,6 @@ class Configurator:
         return camera_array
 
     def load_point_estimates_from_toml(self) -> PointEstimates:
-        # only load point estimates into dictionary if saved more recently than last loaded
-
         if "point_estimates" not in self.dict.keys():
             self.refresh_point_estimates_from_toml()
 

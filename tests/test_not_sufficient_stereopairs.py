@@ -6,9 +6,6 @@ from pathlib import Path
 
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
-    create_point_estimates_from_stereopairs,
-)
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
 from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
@@ -42,7 +39,8 @@ def test_calibration_workflow(tmp_path: Path):
     paired_pose_network.apply_to(camera_array)
 
     logger.info("Loading point estimates")
-    point_estimates: PointEstimates = create_point_estimates_from_stereopairs(camera_array, image_points)
+    world_points = image_points.triangulate(camera_array)
+    point_estimates: PointEstimates = world_points.to_point_estimates()
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
 

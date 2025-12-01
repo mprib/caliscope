@@ -6,9 +6,6 @@ from time import sleep, time
 from PySide6.QtCore import QObject, QThread, Signal
 
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.calibration.capture_volume.helper_functions.get_point_estimates import (
-    create_point_estimates_from_stereopairs,
-)
 from caliscope.calibration.capture_volume.quality_controller import QualityController
 from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
 from caliscope.calibration.charuco import Charuco
@@ -337,11 +334,13 @@ class Controller(QObject):
 
             image_points = ImagePoints.from_csv(self.extrinsic_calibration_xy)
 
+            # initialize estimated extrinsics from paired poses
             paired_pose_network = estimate_paired_pose_network(image_points, self.camera_array, boards_sampled=10)
-            # refreshing camera array from config file
             paired_pose_network.apply_to(self.camera_array)
 
-            self.point_estimates = create_point_estimates_from_stereopairs(self.camera_array, image_points)
+            world_points = image_points.triangulate(self.camera_array)
+
+            self.point_estimates = world_points.to_point_estimates()
 
             self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
             self.capture_volume.optimize()

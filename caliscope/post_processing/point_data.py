@@ -254,7 +254,7 @@ class ImagePoints:
             "z_coord": [],
         }
 
-        sync_index_max = xy_df["sync_index"].max()
+        # sync_index_max = xy_df["sync_index"].max()
         start = time()
         last_log_update = int(start)
 
@@ -263,7 +263,11 @@ class ImagePoints:
         # Only iterate over sync indices that have data from valid ports
         valid_sync_indices = undistorted_xy[undistorted_xy["port"].isin(valid_ports)]["sync_index"].unique()
 
+        sync_index_counter = 0
+        total_sync_indices = len(valid_sync_indices)
+
         for index in valid_sync_indices:
+            sync_index_counter += 1  # used for tracking progress
             active_index = undistorted_xy["sync_index"] == index
             # Filter to valid ports for this sync index
             index_data = undistorted_xy[active_index & undistorted_xy["port"].isin(valid_ports)]
@@ -288,7 +292,7 @@ class ImagePoints:
                 xyz_data["z_coord"].extend(points_xyz_arr[:, 2].tolist())
 
             if int(time()) - last_log_update >= 1:
-                percent_complete = int(100 * (index / sync_index_max))
+                percent_complete = int(100 * (sync_index_counter / total_sync_indices))
                 logger.info(f"Triangulation of (x,y) point estimates is {percent_complete}% complete")
                 last_log_update = int(time())
 

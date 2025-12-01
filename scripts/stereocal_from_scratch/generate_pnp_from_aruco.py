@@ -572,7 +572,7 @@ def main():
     output_dir.mkdir(exist_ok=True)
 
     # test_data_dir = __root__ / "tests/sessions/post_optimization"
-    project_fixture_dir = __root__ / "scripts/fixtures/aruco_pipeline"
+    project_fixture_dir = __root__ / "scripts/stereocal_from_scratch/aruco_pipeline"
     calibration_video_dir = project_fixture_dir / "calibration/extrinsic"
     # NOTE: keeping file name for compatibility, but treating as generic point data
     point_data_file = calibration_video_dir / "CHARUCO/xy_CHARUCO.csv"
@@ -593,6 +593,7 @@ def main():
     if 1 in stages_to_run:
         # Stage 1: Generate gold standard
         logger.info("=" * 20 + " STAGE 1: Gold Standard Generation " + "=" * 20)
+
         stereocal = StereoCalibrator(camera_array=camera_array, point_data_path=point_data_file)
         gold_standard = stereocal.stereo_calibrate_all(boards_sampled=GOLD_STANDARD_BOARDS)
 

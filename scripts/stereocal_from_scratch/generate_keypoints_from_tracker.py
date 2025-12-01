@@ -7,7 +7,6 @@ ArUcoTracker is fully integrated into the main workflow.
 
 import logging
 import time
-import shutil
 from pathlib import Path
 
 from caliscope import __root__
@@ -25,6 +24,7 @@ logger = logging.getLogger(__name__)
 def generate_keypoints(project_dir: Path, tracker: Tracker):
     """Process calibration videos with ArUcoTracker to create xy_ARUCO.csv."""
 
+    # go to extrinsic calibration directory
     raw_video_dir = project_dir / "calibration/extrinsic"
 
     # Load camera array from config
@@ -60,40 +60,12 @@ def generate_keypoints(project_dir: Path, tracker: Tracker):
 def generate_aruco_xy():
     # where data will come from and go
     test_data_dir = __root__ / "tests/sessions/post_optimization"
-    fixture_project_dir = __root__ / "scripts/fixtures/aruco_pipeline"
-
-    # clear out old data to ensure no cross contamination
-    if fixture_project_dir.exists():
-        shutil.rmtree(fixture_project_dir)
-
-    assert not fixture_project_dir.exists()
+    fixture_project_dir = __root__ / "scripts/stereocal_from_scratch/aruco_pipeline"
 
     copy_contents_to_clean_dest(test_data_dir, fixture_project_dir)
 
     tracker = ArucoTracker(inverted=True)
     generate_keypoints(fixture_project_dir, tracker)
-
-
-# This duplicates the default data in the test directory.
-# But getting this working helped ensure the
-
-# def generate_charuco_xy():
-#     # where data will come from and go
-#     test_data_dir = __root__ / "tests/sessions/post_optimization"
-#     fixture_project_dir = __root__ / "scripts/fixtures/aruco_pipeline"
-#
-#     # clear out old data to ensure no cross contamination
-#     if fixture_project_dir.exists():
-#         shutil.rmtree(fixture_project_dir)
-#
-#     assert not fixture_project_dir.exists()
-#
-#     copy_contents(test_data_dir, fixture_project_dir)
-#
-#     config = Configurator(fixture_project_dir)
-#     charuco: Charuco = config.get_charuco()
-#     tracker = CharucoTracker(charuco=charuco)
-#     generate_keypoints(fixture_project_dir, tracker)
 
 
 if __name__ == "__main__":

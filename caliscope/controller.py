@@ -275,10 +275,10 @@ class Controller(QObject):
 
     def load_estimated_capture_volume(self):
         """
-        Following capture volume optimization via bundle adjustment, or alteration
-        via a transform of the origin, the entire capture volume can be reloaded
-        from the config data without needing to go through the steps
-
+        NOTE: This method has questionable design but is stable and only called from load_workspace().
+        Refactoring would touch multiple areas for purely aesthetic gain.
+        Revisit if this becomes a bottleneck or source of bugs, or
+        as part of a larger addressing of the configurator becoming a god object.
         """
         logger.info("Beginning to load estimated capture volume")
         self.point_estimates = self.config.load_point_estimates_from_toml()
@@ -296,9 +296,7 @@ class Controller(QObject):
 
     def calibrate_capture_volume(self):
         """
-        This is where the camera array 6 DoF is set. Many, many things are happening
-        here, but they are all necessary steps of the process so I didn't want to
-        try to encapsulate any further
+        This is where the camera array 6 DoF is set.
         """
 
         def worker():

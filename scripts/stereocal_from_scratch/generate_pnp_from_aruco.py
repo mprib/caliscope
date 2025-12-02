@@ -23,7 +23,9 @@ import pandas as pd
 from scipy.spatial.transform import Rotation
 
 from caliscope import __root__
-from caliscope.calibration.stereocalibrator import StereoCalibrator
+from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
+from caliscope.post_processing.point_data import ImagePoints
+
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.configurator import Configurator
 from caliscope.logger import setup_logging
@@ -568,46 +570,54 @@ def main():
 
     # Setup paths
     script_dir = Path(__file__).parent
-    output_dir = script_dir / "output"
+    output_dir = script_dir / "working_output"
     output_dir.mkdir(exist_ok=True)
 
     # test_data_dir = __root__ / "tests/sessions/post_optimization"
     project_fixture_dir = __root__ / "scripts/stereocal_from_scratch/aruco_pipeline"
     calibration_video_dir = project_fixture_dir / "calibration/extrinsic"
-    # NOTE: keeping file name for compatibility, but treating as generic point data
-    point_data_file = calibration_video_dir / "CHARUCO/xy_CHARUCO.csv"
-
-    # NOTE: project fixture dir created with the following
-    # copy_contents(test_data_dir,project_fixture_dir)
+    charuco_point_data_file = calibration_video_dir / "CHARUCO/xy_CHARUCO.csv"
 
     # Load config and camera array
     config = Configurator(project_fixture_dir)
-    camera_array: CameraArray = config.get_camera_array()
 
-    stages_to_run = [1, 2, 3]
+    stages_to_run = [1]
     gold_standard = None  # Created in Step 1
     relative_poses = None  # Created in Step 2
     point_data = None
 
-    # Stage 1: get stereo poses based on cv2.stereocalibrate and ChAruco
+    # Stage 1: generate pose network with current pipeline
     if 1 in stages_to_run:
+        camera_array: CameraArray = config.get_camera_array()
         # Stage 1: Generate gold standard
         logger.info("=" * 20 + " STAGE 1: Gold Standard Generation " + "=" * 20)
 
-        stereocal = StereoCalibrator(camera_array=camera_array, point_data_path=point_data_file)
-        gold_standard = stereocal.stereo_calibrate_all(boards_sampled=GOLD_STANDARD_BOARDS)
-
+        image_points = ImagePoints.from_csv(charuco_point_data_file)
+        paired_pose_network_stereocal = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+        gold_standard_stereocal = paired_pose_network_stereocal._pairs
         # Save gold standard
         gold_file = output_dir / "gold_standard.json"
+
+        json_to_save = {}
+        for pair_key, stereo_pair in gold_standard_stereocal.items():
+            json_to_save[f"stereo_{pair_key[0]}_{pair_key[1]}"] = {
+                "primary_port": int(stereo_pair.primary_port),
+                "secondary_port": int(stereo_pair.secondary_port),
+                "error_score": float(stereo_pair.error_score),
+                "rotation": stereo_pair.rotation.tolist(),
+                "translation": stereo_pair.translation.tolist(),
+            }
+
+        # need help serializing this to have something to store
         with open(gold_file, "w") as f:
-            json.dump(gold_standard, f, indent=2)
+            json.dump(json_to_save, f, indent=2)
         logger.info(f"Gold standard saved to {gold_file}")
 
     # Stage 2: Compute relative poses
     if 2 in stages_to_run:
         # Load Point data
         logger.info("=" * 20 + " STAGE 2A: Data Loading " + "=" * 20)
-        point_data = load_point_data(point_data_file)
+        point_data = load_point_data(charuco_point_data_file)
 
         # Compute per-camera poses with PnP
         logger.info("=" * 20 + " STAGE 2B: Per-Frame PnP " + "=" * 20)
@@ -628,7 +638,7 @@ def main():
         if point_data is None:
             # fallback load if stage 2 didn't run but we want to run stage 3
             # (in this script logic they are sequential, but good for safety)
-            point_data = load_point_data(point_data_file)
+            point_data = load_point_data(charuco_point_data_file)
 
         # Stage 3: Outlier rejection
         logger.info("=" * 20 + " STAGE 3A: Outlier Rejection " + "=" * 20)

@@ -121,7 +121,7 @@ def translation_error(t1: np.ndarray, t2: np.ndarray) -> dict[str, float]:
         dot_product = np.clip(np.dot(t1 / mag1, t2 / mag2), -1.0, 1.0)
         direction_error = np.degrees(np.arccos(dot_product))
 
-    return {"magnitude_error_pct": magnitude_error, "direction_error_deg": direction_error}
+    return {"magnitude_delta_pct": magnitude_error, "direction_delta_deg": direction_error}
 
 
 def load_point_data(point_data_path: Path) -> pd.DataFrame:
@@ -510,9 +510,9 @@ def compare_to_gold_standard(
                 "pair": f"stereo_{pair[0]}_{pair[1]}",
                 "port_a": pair[0],
                 "port_b": pair[1],
-                "rotation_error_deg": rot_err,
-                "translation_magnitude_error_pct": trans_err["magnitude_error_pct"],
-                "translation_direction_error_deg": trans_err["direction_error_deg"],
+                "rotation_delta_deg": rot_err,
+                "translation_magnitude_delta_pct": trans_err["magnitude_delta_pct"],
+                "translation_direction_delta_deg": trans_err["direction_delta_deg"],
                 "pnp_translation_norm": np.linalg.norm(pnp_pair.translation),
                 "gold_translation_norm": np.linalg.norm(gs_pair.translation),
                 "relative_translation_diff": np.linalg.norm(pnp_pair.translation - gs_pair.translation),
@@ -530,12 +530,12 @@ def compare_to_gold_standard(
     logger.info("=" * 50)
     logger.info("VALIDATION SUMMARY: COMPARISON WITH GOLD STANDARD")
     logger.info("=" * 50)
-    logger.info(f"Mean rotation error: {comparison_df['rotation_error_deg'].mean():.4f}°")
-    logger.info(f"Std rotation error: {comparison_df['rotation_error_deg'].std():.4f}°")
-    logger.info(f"Mean translation magnitude error: {comparison_df['translation_magnitude_error_pct'].mean():.2f}%")
-    logger.info(f"Mean translation direction error: {comparison_df['translation_direction_error_deg'].mean():.4f}°")
-    logger.info(f"Max rotation error: {comparison_df['rotation_error_deg'].max():.4f}°")
-    logger.info(f"Max translation magnitude error: {comparison_df['translation_magnitude_error_pct'].max():.2f}%")
+    logger.info(f"Mean rotation delta {comparison_df['rotation_delta_deg'].mean():.4f}°")
+    logger.info(f"Std rotation delta {comparison_df['rotation_delta_deg'].std():.4f}°")
+    logger.info(f"Mean translation magnitude delta {comparison_df['translation_magnitude_delta_pct'].mean():.2f}%")
+    logger.info(f"Mean translation direction delta {comparison_df['translation_direction_delta_deg'].mean():.4f}°")
+    logger.info(f"Max rotation delta {comparison_df['rotation_delta_deg'].max():.4f}°")
+    logger.info(f"Max translation magnitude delta {comparison_df['translation_magnitude_delta_pct'].max():.2f}%")
 
     return comparison_df
 

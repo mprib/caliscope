@@ -1,4 +1,5 @@
 CreationDate = 2023-05-06T11:12:27.631355
+fps_sync_stream_processing = 24
 
 [cam_0]
 port = 0
@@ -69,4 +70,3 @@ units = "inch"
 aruco_scale = 0.75
 square_size_overide_cm = 5.4
 inverted = true
-

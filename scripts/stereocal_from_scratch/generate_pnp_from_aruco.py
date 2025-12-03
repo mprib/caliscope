@@ -1,13 +1,18 @@
 """
-Validate PnP-based relative pose estimation against cv2.stereocalibrate ground truth.
+PnP-based Relative Pose Estimation for Camera Array Initialization.
+
+This script provides a clean, modular workflow for estimating camera pair extrinsics
+using 3D object keypoints and PnP, as an alternative to cv2.stereocalibrate. The
+resulting poses are packaged into a PairedPoseNetwork for compatibility with the
+existing calibration pipeline.
 
 Design Decisions:
-- Uses SOLVEPNP_IPPE for planar Charuco boards (optimal for planar targets)
-- Stores intermediate results in memory only (no pickling)
-- Applies IQR-based outlier rejection to both rotation and translation
-- Uses quaternion averaging for robust rotation aggregation
-- Compares against gold standard using rotation angle and translation errors
-- Calculates Stereo RMSE via triangulation/reprojection on the normalized plane
+- Uses SOLVEPNP_IPPE for planar targets (optimal) with iterative fallback
+- Undistorts points once at the PnP stage to work in normalized coordinates
+- Applies IQR-based outlier rejection to translation magnitude and rotation angle
+- Aggregates poses via quaternion averaging (robust to rotation space non-linearity)
+- Validates against gold standard using rotation angle and translation errors
+- Computes Stereo RMSE via triangulation/reprojection on the normalized plane
 """
 
 import json
@@ -15,7 +20,7 @@ import logging
 import time
 from itertools import combinations
 from pathlib import Path
-from typing import Tuple
+from typing import Dict, Tuple
 
 import cv2
 import numpy as np
@@ -23,52 +28,54 @@ import pandas as pd
 from scipy.spatial.transform import Rotation
 
 from caliscope import __root__
-from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
-from caliscope.post_processing.point_data import ImagePoints
-
+from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
+from caliscope.calibration.array_initialization.stereopairs import StereoPair
+from caliscope.calibration.array_initialization.estimate_paired_pose_network import (
+    estimate_paired_pose_network,
+)
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.configurator import Configurator
 from caliscope.logger import setup_logging
+from caliscope.post_processing.point_data import ImagePoints
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# Minimum points for PnP (4 is minimum for non-planar, 6 is safer for noisy data)
+# Minimum points for reliable PnP (4 is theoretical minimum, 6 is safer for noisy data)
 MIN_PNP_POINTS = 4
 
-# IQR multiplier for outlier rejection
+# IQR multiplier for outlier rejection (1.5 is standard for box plots)
 OUTLIER_THRESHOLD = 1.5
 
-# Number of boards to sample for gold standard (match stereocalibrator default)
+# Number of boards to sample for gold standard (matches stereocalibrator default)
 GOLD_STANDARD_BOARDS = 10
 
 
 def quaternion_average(quaternions: np.ndarray) -> np.ndarray:
     """
-    Compute the average quaternion from a set of quaternions.
+    Compute the robust average quaternion from a set of quaternions.
+
+    Uses the eigenvector method which is optimal for small dispersion. Handles
+    antipodal ambiguity by ensuring positive w component.
 
     Args:
-        quaternions: (N, 4) array of quaternions (w, x, y, z)
+        quaternions: (N, 4) array of quaternions in (w, x, y, z) format
 
     Returns:
         (4,) array representing the average quaternion (normalized)
     """
     if len(quaternions) == 0:
         raise ValueError("Cannot average empty quaternion array")
-
     if len(quaternions) == 1:
         return quaternions[0]
 
-    # Compute the eigenvector corresponding to the largest eigenvalue
-    # of the quaternion covariance matrix
+    # Compute eigenvector of covariance matrix for largest eigenvalue
     Q = quaternions.T
     M = Q @ Q.T
     _, eigenvecs = np.linalg.eigh(M)
 
-    # The average quaternion is the eigenvector with largest eigenvalue
     avg_quat = eigenvecs[:, -1]
-
-    # Normalize and ensure positive w component
+    # Ensure positive w for consistency
     if avg_quat[0] < 0:
         avg_quat = -avg_quat
 
@@ -77,7 +84,9 @@ def quaternion_average(quaternions: np.ndarray) -> np.ndarray:
 
 def rotation_error(R1: np.ndarray, R2: np.ndarray) -> float:
     """
-    Compute rotation error in degrees between two rotation matrices.
+    Compute geodesic rotation error in degrees between two rotation matrices.
+
+    This is the minimal rotation angle needed to align R1 with R2.
 
     Args:
         R1, R2: (3, 3) rotation matrices
@@ -85,19 +94,13 @@ def rotation_error(R1: np.ndarray, R2: np.ndarray) -> float:
     Returns:
         Error in degrees
     """
-    # Compute relative rotation
     R_rel = R1 @ R2.T
-
-    # Convert to angle
-    trace = np.trace(R_rel)
-    # Clamp to valid range for arccos
-    trace = np.clip(trace, -1.0, 3.0)
+    trace = np.clip(np.trace(R_rel), -1.0, 3.0)  # Clamp for numerical stability
     angle = np.arccos((trace - 1) / 2)
-
     return np.degrees(angle)
 
 
-def translation_error(t1: np.ndarray, t2: np.ndarray) -> dict:
+def translation_error(t1: np.ndarray, t2: np.ndarray) -> dict[str, float]:
     """
     Compute translation errors between two vectors.
 
@@ -107,39 +110,33 @@ def translation_error(t1: np.ndarray, t2: np.ndarray) -> dict:
     Returns:
         Dict with magnitude_error (%) and direction_error (degrees)
     """
-    # Magnitude error as percentage
-    mag1 = np.linalg.norm(t1)
-    mag2 = np.linalg.norm(t2)
+    mag1, mag2 = np.linalg.norm(t1), np.linalg.norm(t2)
 
+    # Handle near-zero magnitudes
     if mag1 < 1e-10 or mag2 < 1e-10:
         magnitude_error = 0.0 if abs(mag1 - mag2) < 1e-10 else float("inf")
-    else:
-        magnitude_error = abs(mag1 - mag2) / mag1 * 100
-
-    # Direction error in degrees
-    if mag1 < 1e-10 or mag2 < 1e-10:
         direction_error = 0.0
     else:
-        dot_product = np.dot(t1 / mag1, t2 / mag2)
-        dot_product = np.clip(dot_product, -1.0, 1.0)
+        magnitude_error = abs(mag1 - mag2) / mag1 * 100
+        dot_product = np.clip(np.dot(t1 / mag1, t2 / mag2), -1.0, 1.0)
         direction_error = np.degrees(np.arccos(dot_product))
 
-    return {"magnitude_error_pct": magnitude_error, "direction_error_deg": direction_error}
+    return {"magnitude_delta_pct": magnitude_error, "direction_delta_deg": direction_error}
 
 
 def load_point_data(point_data_path: Path) -> pd.DataFrame:
     """
-    Load generic point data (e.g., Charuco or Keypoints) and add coverage regions.
+    Load generic point data and pre-compute coverage regions.
+
+    Coverage regions (e.g., "_1_2_3_") indicate which cameras see each point
+    at each sync index, enabling efficient pair filtering.
 
     Returns:
-        DataFrame with columns: sync_index, port, point_id, img_loc_x, img_loc_y,
-        obj_loc_x, obj_loc_y, coverage_region
+        DataFrame with coverage_region column added
     """
     logger.info(f"Loading point data from {point_data_path}")
-
     raw_data = pd.read_csv(point_data_path)
 
-    # Add coverage regions (same logic as stereocalibrator)
     point_ports = raw_data[["sync_index", "point_id", "port"]].drop_duplicates()
     point_ports["port_str"] = point_ports["port"].astype(str)
 
@@ -152,529 +149,463 @@ def load_point_data(point_data_path: Path) -> pd.DataFrame:
 
     result = raw_data.merge(grouped, on=["sync_index", "point_id"], how="left")
     logger.info(f"Loaded {len(result)} points across {result['sync_index'].nunique()} sync indices")
-
     return result
 
 
-def compute_camera_poses_pnp(point_data: pd.DataFrame, camera_array: CameraArray) -> dict:
+def compute_camera_to_object_poses_pnp(
+    image_points: ImagePoints, camera_array: CameraArray
+) -> Dict[Tuple[int, int], Tuple[np.ndarray, np.ndarray, float]]:
     """
-    Compute per-camera poses using PnP for each sync_index.
+    Compute per-camera poses relative to the object coordinate frame for each sync_index.
+
+    Uses PnP with undistorted points in the normalized image plane. SOLVEPNP_IPPE
+    is preferred for planar targets but falls back to iterative if needed.
 
     Returns:
         Dict mapping (port, sync_index) -> (R, t, reprojection_error)
     """
     logger.info("Computing per-frame camera poses with PnP...")
-
-    poses = {}  # (port, sync_index) -> (R, t, rmse)
+    poses = {}
     success_count = 0
     failure_count = 0
 
-    # Group by port and sync_index
-    grouped = point_data.groupby(["port", "sync_index"])
+    grouped = image_points.df.groupby(["port", "sync_index"])
 
     start_time = time.time()
-
-    for key, group in grouped:
-        # Type checker safe unpacking
-        port, sync_index = key  # type: ignore
-
-        # Check minimum point count
+    for (port, sync_index), group in grouped:
         if len(group) < MIN_PNP_POINTS:
             failure_count += 1
             continue
 
-        # Extract 2D and 3D points
-        img_points = group[["img_loc_x", "img_loc_y"]].to_numpy().astype(np.float32)
+        # Extract 2D and 3D correspondences
+        img_points = group[["img_loc_x", "img_loc_y"]].to_numpy(dtype=np.float32)
         obj_points = group[["obj_loc_x", "obj_loc_y"]].to_numpy()
         obj_points = np.hstack([obj_points, np.zeros((len(obj_points), 1))]).astype(np.float32)
 
-        # Get camera intrinsics
-        cam = camera_array.cameras[port]
-        if cam.matrix is None:
+        camera = camera_array.cameras[port]
+        if camera.matrix is None:
             logger.warning(f"Camera {port} missing intrinsics, skipping")
             failure_count += 1
             continue
 
-        # Undistort points (match stereocalibrator behavior)
-        undistorted = cam.undistort_points(img_points)
-
+        # Work in normalized coordinates after undistortion
+        undistorted = camera.undistort_points(img_points)
         K_perfect = np.identity(3)
         D_perfect = np.zeros(5)
 
-        # Run PnP
-        # Use IPPE for planar targets, fallback to iterative if needed
-        try:
+        # PnP with IPPE for planar targets, fallback to iterative
+        success, rvec, tvec = cv2.solvePnP(
+            obj_points,
+            undistorted,
+            cameraMatrix=K_perfect,
+            distCoeffs=D_perfect,
+            flags=cv2.SOLVEPNP_IPPE,
+        )
+
+        if not success:
             success, rvec, tvec = cv2.solvePnP(
                 obj_points,
                 undistorted,
-                cameraMatrix=K_perfect,  # undistortion puts image points in "perfect" camera frame of reference.
-                distCoeffs=D_perfect,  # distCoeffs already applied via undistort_points
-                flags=cv2.SOLVEPNP_IPPE,
+                cameraMatrix=K_perfect,
+                distCoeffs=D_perfect,
+                flags=cv2.SOLVEPNP_ITERATIVE,
             )
 
-            if not success:
-                # Fallback to iterative method
-                success, rvec, tvec = cv2.solvePnP(
-                    obj_points, undistorted, cameraMatrix=K_perfect, distCoeffs=D_perfect, flags=cv2.SOLVEPNP_ITERATIVE
-                )
+        if success:
+            R, _ = cv2.Rodrigues(rvec)
+            t = tvec.flatten()
 
-            if success:
-                R, _ = cv2.Rodrigues(rvec)
-                t = tvec.flatten()
+            # Compute reprojection error in normalized space
+            projected, _ = cv2.projectPoints(obj_points, rvec, tvec, K_perfect, D_perfect)
+            rmse = np.sqrt(np.mean(np.sum((undistorted - projected.reshape(-1, 2)) ** 2, axis=1)))
 
-                # Compute reprojection error
-                projected, _ = cv2.projectPoints(obj_points, rvec, tvec, K_perfect, D_perfect, None)
-                projected = projected.reshape(-1, 2)
-                rmse = np.sqrt(np.mean(np.sum((undistorted - projected) ** 2, axis=1)))
-
-                poses[(port, sync_index)] = (R, t, rmse)
-                success_count += 1
-            else:
-                failure_count += 1
-
-        except Exception as e:
-            logger.debug(f"PnP failed for port {port}, sync {sync_index}: {e}")
+            poses[(port, sync_index)] = (R, t, rmse)
+            success_count += 1
+        else:
             failure_count += 1
 
     elapsed = time.time() - start_time
-    logger.info(f"PnP complete: {success_count} successes, {failure_count} failures in {elapsed:.2f}s")
-    logger.info(f"Average time per pose: {elapsed / max(success_count, 1) * 1000:.2f}ms")
-
+    logger.info(
+        f"PnP complete: {success_count} successes, {failure_count} failures "
+        f"in {elapsed:.2f}s ({elapsed / max(success_count, 1) * 1000:.2f}ms avg)"
+    )
     return poses
 
 
-def compute_relative_poses(poses: dict, camera_array: CameraArray) -> dict:
+def compute_relative_poses(
+    camera_to_object_poses: Dict[Tuple[int, int], Tuple[np.ndarray, np.ndarray, float]],
+    camera_array: CameraArray,
+) -> Dict[Tuple[Tuple[int, int], int], StereoPair]:
     """
     Compute relative poses between camera pairs at each sync_index.
 
+    For cameras A and B observing the same object at a sync index:
+    T_B_A = T_B_obj @ T_obj_A = T_B_obj @ inv(T_A_obj)
+
     Returns:
-        Dict mapping (pair, sync_index) -> (R_rel, t_rel)
+        Dict mapping (pair, sync_index) -> StereoPair with relative pose
     """
     logger.info("Computing relative poses between camera pairs...")
-
     relative_poses = {}
-    ports = [p for p in camera_array.cameras.keys() if not camera_array.cameras[p].ignore]
+
+    ports = [p for p, cam in camera_array.cameras.items() if not cam.ignore]
     pairs = [(i, j) for i, j in combinations(ports, 2) if i < j]
 
-    # Find common sync indices for each pair
-    for pair in pairs:
-        port_a, port_b = pair
-
-        # Get sync indices where both cameras have poses
-        sync_a = {s for p, s in poses.keys() if p == port_a}
-        sync_b = {s for p, s in poses.keys() if p == port_b}
+    for port_a, port_b in pairs:
+        # Find sync indices where both cameras have poses
+        sync_a = {s for p, s in camera_to_object_poses.keys() if p == port_a}
+        sync_b = {s for p, s in camera_to_object_poses.keys() if p == port_b}
         common_sync = sync_a.intersection(sync_b)
 
         for sync_index in common_sync:
-            R_a, t_a, _ = poses[(port_a, sync_index)]
-            R_b, t_b, _ = poses[(port_b, sync_index)]
+            R_a, t_a, _ = camera_to_object_poses[(port_a, sync_index)]
+            R_b, t_b, _ = camera_to_object_poses[(port_b, sync_index)]
 
-            # We want to find the transform from camera A to camera B (T_ba)
-            # T_ba = T_b_obj * inv(T_a_obj)
-            # R_ba = R_b * R_a.T
-            # t_ba = t_b - R_b * R_a.T * t_a
-
+            # Compute relative transformation: T_B_A = T_B_obj @ inv(T_A_obj)
             R_a_inv = R_a.T
             t_a_inv = -R_a_inv @ t_a
-
-            # Now compose the transformations: T_b_obj * T_obj_a
             R_rel = R_b @ R_a_inv
             t_rel = R_b @ t_a_inv + t_b
 
-            relative_poses[(pair, sync_index)] = (R_rel, t_rel)
+            # Store as StereoPair (error_score will be computed after aggregation)
+            pair_key = (port_a, port_b)
+            relative_poses[(pair_key, sync_index)] = StereoPair(
+                primary_port=port_a,
+                secondary_port=port_b,
+                error_score=None,  # Will be filled after RMSE calculation
+                translation=t_rel,
+                rotation=R_rel,
+            )
 
     logger.info(f"Computed {len(relative_poses)} relative poses across {len(pairs)} pairs")
     return relative_poses
 
 
-def reject_outliers(relative_poses: dict) -> dict:
+def reject_outliers(
+    relative_poses: Dict[Tuple[Tuple[int, int], int], StereoPair],
+) -> Dict[Tuple[int, int], list[StereoPair]]:
     """
-    Apply IQR-based outlier rejection to relative poses.
+    Apply IQR-based outlier rejection to relative poses for each camera pair.
+
+    Rejects poses based on translation magnitude and rotation angle from the
+    median pose. Operates independently per pair to handle varying baselines.
 
     Returns:
-        Dict mapping pair -> list of (R, t) that are not outliers
+        Dict mapping pair -> list of StereoPair that passed outlier rejection
     """
     logger.info("Applying outlier rejection...")
 
-    # Group by pair
-    poses_by_pair = {}
-    for (pair, sync_index), (R, t) in relative_poses.items():
-        if pair not in poses_by_pair:
-            poses_by_pair[pair] = []
-        poses_by_pair[pair].append((R, t, sync_index))
+    # Group poses by pair
+    poses_by_pair: Dict[Tuple[int, int], list[StereoPair]] = {}
+    for (pair, _sync_index), stereo_pair in relative_poses.items():
+        poses_by_pair.setdefault(pair, []).append(stereo_pair)
 
     filtered_poses = {}
-
-    for pair, poses_list in poses_by_pair.items():
-        valid_poses = [
-            (R, t, sync_index) for R, t, sync_index in poses_list if not (np.any(np.isnan(R)) or np.any(np.isnan(t)))
+    for pair, stereo_pairs in poses_by_pair.items():
+        # Filter NaN poses (shouldn't happen but safer to check)
+        valid_pairs = [
+            sp for sp in stereo_pairs if not (np.any(np.isnan(sp.rotation)) or np.any(np.isnan(sp.translation)))
         ]
 
-        poses_list = valid_poses
-
-        if len(poses_list) < 5:
-            # Too few samples for reliable outlier detection
-            logger.warning(f"Pair {pair} has only {len(poses_list)} samples, skipping outlier rejection")
-            filtered_poses[pair] = [(R, t) for R, t, _ in poses_list]
+        if len(valid_pairs) < 5:
+            logger.warning(f"Pair {pair} has only {len(valid_pairs)} samples, skipping outlier rejection")
+            filtered_poses[pair] = valid_pairs
             continue
 
-        # Convert to arrays for analysis
+        # Extract arrays for statistical analysis
         quats = []
         t_mags = []
-
-        for R, t, _ in poses_list:
-            # Convert rotation to quaternion
-            quat = Rotation.from_matrix(R).as_quat()  # Returns (x, y, z, w)
-            quat = np.roll(quat, 1)  # Convert to (w, x, y, z) for our averaging function
-            quats.append(quat)
-            t_mags.append(np.linalg.norm(t))
+        for sp in valid_pairs:
+            quat = Rotation.from_matrix(sp.rotation).as_quat()  # (x, y, z, w)
+            quats.append(np.roll(quat, 1))  # Convert to (w, x, y, z)
+            t_mags.append(np.linalg.norm(sp.translation))
 
         quats = np.array(quats)
         t_mags = np.array(t_mags)
 
-        # IQR-based outlier detection for translation magnitude
+        # Translation magnitude IQR filter
         t_q1, t_q3 = np.percentile(t_mags, [25, 75])
         t_iqr = t_q3 - t_q1
-        t_lower = t_q1 - OUTLIER_THRESHOLD * t_iqr
-        t_upper = t_q3 + OUTLIER_THRESHOLD * t_iqr
+        t_lower, t_upper = t_q1 - OUTLIER_THRESHOLD * t_iqr, t_q3 + OUTLIER_THRESHOLD * t_iqr
 
-        # For rotation, use quaternion distance from median
+        # Rotation angle IQR filter (angle from median quaternion)
         median_quat = quaternion_average(quats)
-        # Compute angular distance from median
         R_median = Rotation.from_quat(np.roll(median_quat, -1)).as_matrix()
-        rot_angles = [rotation_error(R, R_median) for R, _, _ in poses_list]
-        rot_angles = np.array(rot_angles)
+        rot_angles = np.array([rotation_error(sp.rotation, R_median) for sp in valid_pairs])
 
         rot_q1, rot_q3 = np.percentile(rot_angles, [25, 75])
         rot_iqr = rot_q3 - rot_q1
         rot_upper = rot_q3 + OUTLIER_THRESHOLD * rot_iqr
 
-        # Filter outliers
+        # Apply filters
         filtered = []
         outlier_count = 0
-
-        for i, (R, t, sync_index) in enumerate(poses_list):
+        for i, stereo_pair in enumerate(valid_pairs):
             is_t_outlier = t_mags[i] < t_lower or t_mags[i] > t_upper
             is_rot_outlier = rot_angles[i] > rot_upper
 
             if not (is_t_outlier or is_rot_outlier):
-                filtered.append((R, t))
+                filtered.append(stereo_pair)
             else:
                 outlier_count += 1
-                logger.debug(f"Outlier detected for pair {pair}, sync {sync_index}")
 
-        logger.info(f"Pair {pair}: {outlier_count}/{len(poses_list)} outliers rejected")
+        logger.info(f"Pair {pair}: {outlier_count}/{len(valid_pairs)} outliers rejected")
         filtered_poses[pair] = filtered
 
     return filtered_poses
 
 
-def aggregate_poses(filtered_poses: dict) -> dict:
+def aggregate_poses(filtered_poses: Dict[Tuple[int, int], list[StereoPair]]) -> Dict[Tuple[int, int], StereoPair]:
     """
-    Average poses after outlier rejection.
+    Aggregate per-sync-index poses into a single robust estimate per pair.
+
+    Uses quaternion averaging for rotations and simple averaging for translations
+    after outlier rejection.
 
     Returns:
-        Dict mapping pair -> (R_avg, t_avg)
+        Dict mapping pair -> aggregated StereoPair
     """
     logger.info("Aggregating poses...")
 
     aggregated = {}
-
-    for pair, poses_list in filtered_poses.items():
-        if not poses_list:
+    for pair, stereo_pairs in filtered_poses.items():
+        if not stereo_pairs:
             logger.warning(f"No valid poses for pair {pair} after outlier rejection")
             continue
 
-        if len(poses_list) == 1:
-            aggregated[pair] = poses_list[0]
+        if len(stereo_pairs) == 1:
+            aggregated[pair] = stereo_pairs[0]
             continue
 
-        # Convert rotations to quaternions
-        quats = []
-        translations = []
-
-        for R, t in poses_list:
-            quat = Rotation.from_matrix(R).as_quat()
-            quat = np.roll(quat, 1)  # Convert to (w, x, y, z)
-            quats.append(quat)
-            translations.append(t)
-
-        # Average quaternions
+        # Extract and average rotations (via quaternion space)
+        quats = [np.roll(Rotation.from_matrix(sp.rotation).as_quat(), 1) for sp in stereo_pairs]
         avg_quat = quaternion_average(np.array(quats))
-
-        # Average translations
-        avg_translation = np.mean(translations, axis=0)
-
-        # Convert back to rotation matrix
         avg_R = Rotation.from_quat(np.roll(avg_quat, -1)).as_matrix()
 
-        aggregated[pair] = (avg_R, avg_translation)
+        # Average translations
+        translations = [sp.translation for sp in stereo_pairs]
+        avg_t = np.mean(translations, axis=0)
+
+        aggregated[pair] = StereoPair(
+            primary_port=pair[0],
+            secondary_port=pair[1],
+            error_score=None,  # Will be filled by RMSE calculation
+            rotation=avg_R,
+            translation=avg_t,
+        )
 
     logger.info(f"Aggregated poses for {len(aggregated)} pairs")
     return aggregated
 
 
-def calculate_stereo_rmse(
-    pair: Tuple[int, int], R: np.ndarray, t: np.ndarray, camera_array: CameraArray, point_data: pd.DataFrame
+def calculate_stereo_rmse_for_pair(
+    stereo_pair: StereoPair, camera_array: CameraArray, point_data: pd.DataFrame
 ) -> float | None:
     """
-    Calculate the RMSE for a stereo pair given a fixed relative pose (R, t).
-    mimics cv2.stereoCalibrate internal error calculation:
+    Calculate Stereo RMSE for a pair using triangulation/reprojection error.
+
+    Mimics cv2.stereoCalibrate's internal error calculation:
     1. Undistort points to normalized plane
     2. Triangulate using the provided pose
     3. Project back to both cameras
     4. Calculate RMS error of residuals
 
-    Args:
-        pair: tuple of (port_A, port_B)
-        R: Rotation matrix from A to B
-        t: Translation vector from A to B
-        camera_array: CameraArray object with intrinsics
-        point_data: DataFrame with columns [port, sync_index, point_id, img_loc_x, img_loc_y]
-
     Returns:
-        RMSE value (float) or None if insufficient data
+        RMSE value or None if insufficient data
     """
-    port_A, port_B = pair
-    cam_A = camera_array.cameras[port_A]
-    cam_B = camera_array.cameras[port_B]
+    port_a, port_b = stereo_pair.pair
+    cam_a, cam_b = camera_array.cameras[port_a], camera_array.cameras[port_b]
 
-    # Filter data for this pair
-    data_A = point_data[point_data["port"] == port_A]
-    data_B = point_data[point_data["port"] == port_B]
+    # Find common observations
+    data_a = point_data[point_data["port"] == port_a]
+    data_b = point_data[point_data["port"] == port_b]
 
-    # Merge to find common points
-    common = pd.merge(
-        data_A,
-        data_B,
-        on=["sync_index", "point_id"],
-        suffixes=("_A", "_B"),
-    )
-
+    common = pd.merge(data_a, data_b, on=["sync_index", "point_id"], suffixes=("_a", "_b"))
     if len(common) < MIN_PNP_POINTS:
-        logger.warning(f"Insufficient common points for RMSE calc on pair {pair}")
+        logger.warning(f"Insufficient common points for RMSE calc on pair {stereo_pair}")
         return None
 
-    # Extract points
-    pts_A = common[["img_loc_x_A", "img_loc_y_A"]].to_numpy(dtype=np.float32)
-    pts_B = common[["img_loc_x_B", "img_loc_y_B"]].to_numpy(dtype=np.float32)
+    # Extract and undistort points
+    pts_a = common[["img_loc_x_a", "img_loc_y_a"]].to_numpy(dtype=np.float32)
+    pts_b = common[["img_loc_x_b", "img_loc_y_b"]].to_numpy(dtype=np.float32)
+    norm_a = cam_a.undistort_points(pts_a)
+    norm_b = cam_b.undistort_points(pts_b)
 
-    # 1. Undistort points to normalized plane (Camera Matrix = I, Dist = 0)
-    norm_A = cam_A.undistort_points(pts_A)
-    norm_B = cam_B.undistort_points(pts_B)
+    # Triangulate using the stereo pair pose
+    P1 = np.eye(3, 4)  # Camera A at origin
+    P2 = np.hstack((stereo_pair.rotation, stereo_pair.translation.reshape(3, 1)))  # Camera B relative to A
 
-    # 2. Triangulate
-    # Projection matrix for A (Origin): [I | 0]
-    P1 = np.eye(3, 4)
-    # Projection matrix for B (Relative): [R | t]
-    P2 = np.hstack((R, t.reshape(3, 1)))
+    points_4d = cv2.triangulatePoints(P1, P2, norm_a.T, norm_b.T)
+    points_3d = points_4d[:3] / points_4d[3]
 
-    # OpenCV triangulatePoints requires 2xN arrays
-    points_4d = cv2.triangulatePoints(P1, P2, norm_A.T, norm_B.T)
-    points_3d = points_4d[:3] / points_4d[3]  # Convert homogeneous to Euclidean (3xN)
+    # Project back to normalized plane and compute residuals
+    proj_a, _ = cv2.projectPoints(points_3d.T, np.zeros(3), np.zeros(3), np.eye(3), np.zeros(5))
+    proj_b, _ = cv2.projectPoints(
+        points_3d.T, cv2.Rodrigues(stereo_pair.rotation)[0], stereo_pair.translation, np.eye(3), np.zeros(5)
+    )
 
-    # 3. Project back
-    # We project the triangulated 3D points back to the NORMALIZED image plane
-    # So we use K=Identity, D=Zero.
-
-    # Project to Camera A (Identity pose)
-    # note: need to better explain and document "mystery params" here.
-    proj_A, _ = cv2.projectPoints(points_3d.T, np.zeros(3), np.zeros(3), np.eye(3), np.zeros(5))
-    proj_A = proj_A.reshape(-1, 2)
-
-    # Project to Camera B (Relative pose)
-    # Note: projectPoints expects rvec, not rotation matrix
-    rvec, _ = cv2.Rodrigues(R)
-    proj_B, _ = cv2.projectPoints(points_3d.T, rvec, t, np.eye(3), np.zeros(5))
-    proj_B = proj_B.reshape(-1, 2)
-
-    # 4. Calculate RMSE
-    err_A = norm_A - proj_A
-    err_B = norm_B - proj_B
-
-    # Stack errors from both cameras
-    all_errors = np.vstack((err_A, err_B))
-
-    # RMSE = sqrt( sum(d^2) / N )
-    residuals_squared = np.sum(all_errors**2, axis=1)  # squared euclidean distance per point
-    mean_sq_error = np.mean(residuals_squared)
-    rmse = np.sqrt(mean_sq_error)
+    errors = np.vstack([norm_a - proj_a.reshape(-1, 2), norm_b - proj_b.reshape(-1, 2)])
+    rmse = np.sqrt(np.mean(np.sum(errors**2, axis=1)))
 
     return float(rmse)
 
 
-def compare_to_gold_standard(aggregated_poses: dict, gold_standard: dict, output_dir: Path) -> pd.DataFrame:
+def estimate_pnp_paired_pose_network(
+    aggregated_poses: Dict[Tuple[int, int], StereoPair], camera_array: CameraArray, point_data: pd.DataFrame
+) -> PairedPoseNetwork:
     """
-    Compare aggregated PnP poses to gold standard and generate comparison table.
+    Create a PairedPoseNetwork from aggregated stereo pairs with RMSE scores.
+
+    Calculates the Stereo RMSE for each pair and populates the error_score field.
 
     Returns:
-        DataFrame with comparison metrics
+        PairedPoseNetwork ready for use in camera array initialization
+    """
+    logger.info("Creating PairedPoseNetwork...")
+
+    pairs_with_rmse = {}
+    for pair, stereo_pair in aggregated_poses.items():
+        rmse = calculate_stereo_rmse_for_pair(stereo_pair, camera_array, point_data)
+        if rmse is None:
+            logger.warning(f"Could not compute RMSE for pair {pair}, skipping")
+            continue
+
+        # Create new StereoPair with RMSE populated
+        pairs_with_rmse[pair] = StereoPair(
+            primary_port=stereo_pair.primary_port,
+            secondary_port=stereo_pair.secondary_port,
+            error_score=rmse,
+            rotation=stereo_pair.rotation,
+            translation=stereo_pair.translation,
+        )
+        logger.info(f"Pair {pair}: RMSE = {rmse:.6f}")
+
+    return PairedPoseNetwork.from_raw_estimates(pairs_with_rmse)
+
+
+def compare_to_gold_standard(
+    pnp_network: PairedPoseNetwork, gold_standard_network: PairedPoseNetwork, output_dir: Path
+) -> pd.DataFrame:
+    """
+    Compare PnP-based PairedPoseNetwork to gold standard and generate metrics.
+
+    Returns:
+        DataFrame with comparison metrics for each pair
     """
     logger.info("Comparing to gold standard...")
 
     comparison_rows = []
-
-    for pair, (R_pnp, t_pnp) in aggregated_poses.items():
-        pair_key = f"stereo_{pair[0]}_{pair[1]}"
-
-        if pair_key not in gold_standard:
-            logger.warning(f"Gold standard not found for {pair_key}")
+    for pair, pnp_pair in pnp_network._pairs.items():
+        if pair not in gold_standard_network._pairs:
+            logger.warning(f"Gold standard not found for pair {pair}")
             continue
 
-        gs_data = gold_standard[pair_key]
-        R_gs = np.array(gs_data["rotation"])
-        t_gs = np.array(gs_data["translation"]).flatten()
+        gs_pair = gold_standard_network._pairs[pair]
 
-        # Compute errors
-        rot_err = rotation_error(R_pnp, R_gs)
-        trans_err = translation_error(t_pnp, t_gs)
+        rot_err = rotation_error(pnp_pair.rotation, gs_pair.rotation)
+        trans_err = translation_error(pnp_pair.translation, gs_pair.translation)
 
         comparison_rows.append(
             {
-                "pair": pair_key,
+                "pair": f"stereo_{pair[0]}_{pair[1]}",
                 "port_a": pair[0],
                 "port_b": pair[1],
-                "rotation_error_deg": rot_err,
-                "translation_magnitude_error_pct": trans_err["magnitude_error_pct"],
-                "translation_direction_error_deg": trans_err["direction_error_deg"],
-                "pnp_translation_norm": np.linalg.norm(t_pnp),
-                "gold_translation_norm": np.linalg.norm(t_gs),
-                "relative_translation_diff": np.linalg.norm(t_pnp - t_gs),
+                "rotation_delta_deg": rot_err,
+                "translation_magnitude_delta_pct": trans_err["magnitude_delta_pct"],
+                "translation_direction_delta_deg": trans_err["direction_delta_deg"],
+                "pnp_translation_norm": np.linalg.norm(pnp_pair.translation),
+                "gold_translation_norm": np.linalg.norm(gs_pair.translation),
+                "relative_translation_diff": np.linalg.norm(pnp_pair.translation - gs_pair.translation),
+                "pnp_rmse": pnp_pair.error_score,
+                "gold_rmse": gs_pair.error_score,
             }
         )
 
     comparison_df = pd.DataFrame(comparison_rows)
-
-    # Save to CSV
     output_file = output_dir / "comparison_table.csv"
     comparison_df.to_csv(output_file, index=False)
     logger.info(f"Comparison table saved to {output_file}")
 
     # Log summary statistics
     logger.info("=" * 50)
-    logger.info("VALIDATION SUMMARY")
+    logger.info("VALIDATION SUMMARY: COMPARISON WITH GOLD STANDARD")
     logger.info("=" * 50)
-    logger.info(f"Mean rotation error: {comparison_df['rotation_error_deg'].mean():.4f}°")
-    logger.info(f"Std rotation error: {comparison_df['rotation_error_deg'].std():.4f}°")
-    logger.info(f"Mean translation magnitude error: {comparison_df['translation_magnitude_error_pct'].mean():.2f}%")
-    logger.info(f"Mean translation direction error: {comparison_df['translation_direction_error_deg'].mean():.4f}°")
-    logger.info(f"Max rotation error: {comparison_df['rotation_error_deg'].max():.4f}°")
-    logger.info(f"Max translation magnitude error: {comparison_df['translation_magnitude_error_pct'].max():.2f}%")
+    logger.info(f"Mean rotation delta {comparison_df['rotation_delta_deg'].mean():.4f}°")
+    logger.info(f"Std rotation delta {comparison_df['rotation_delta_deg'].std():.4f}°")
+    logger.info(f"Mean translation magnitude delta {comparison_df['translation_magnitude_delta_pct'].mean():.2f}%")
+    logger.info(f"Mean translation direction delta {comparison_df['translation_direction_delta_deg'].mean():.4f}°")
+    logger.info(f"Max rotation delta {comparison_df['rotation_delta_deg'].max():.4f}°")
+    logger.info(f"Max translation magnitude delta {comparison_df['translation_magnitude_delta_pct'].max():.2f}%")
 
     return comparison_df
 
 
+def save_network_to_json(network: PairedPoseNetwork, output_path: Path) -> None:
+    """Serialize a PairedPoseNetwork to JSON for inspection/debugging."""
+    data = {}
+    for pair, stereo_pair in network._pairs.items():
+        data[f"stereo_{pair[0]}_{pair[1]}"] = {
+            "primary_port": stereo_pair.primary_port,
+            "secondary_port": stereo_pair.secondary_port,
+            "error_score": stereo_pair.error_score,
+            "rotation": stereo_pair.rotation.tolist(),
+            "translation": stereo_pair.translation.tolist(),
+        }
+
+    with open(output_path, "w") as f:
+        json.dump(data, f, indent=2)
+    logger.info(f"Network saved to {output_path}")
+
+
 def main():
-    """Main validation pipeline."""
+    """Main validation pipeline comparing PnP to stereocalibrate gold standard."""
     logger.info("Starting PnP validation pipeline...")
 
-    # Setup paths
     script_dir = Path(__file__).parent
     output_dir = script_dir / "working_output"
     output_dir.mkdir(exist_ok=True)
 
-    # test_data_dir = __root__ / "tests/sessions/post_optimization"
     project_fixture_dir = __root__ / "scripts/stereocal_from_scratch/aruco_pipeline"
     calibration_video_dir = project_fixture_dir / "calibration/extrinsic"
     charuco_point_data_file = calibration_video_dir / "CHARUCO/xy_CHARUCO.csv"
 
-    # Load config and camera array
     config = Configurator(project_fixture_dir)
+    camera_array = config.get_camera_array()
+    image_points = ImagePoints.from_csv(charuco_point_data_file)
 
-    stages_to_run = [1]
-    gold_standard = None  # Created in Step 1
-    relative_poses = None  # Created in Step 2
-    point_data = None
+    # Stage 1: Generate gold standard using legacy stereocalibrate
+    logger.info("=" * 20 + " STAGE 1: Gold Standard Generation " + "=" * 20)
+    gold_standard_network = estimate_paired_pose_network(
+        image_points, camera_array, boards_sampled=GOLD_STANDARD_BOARDS
+    )
+    save_network_to_json(gold_standard_network, output_dir / "gold_standard.json")
 
-    # Stage 1: generate pose network with current pipeline
-    if 1 in stages_to_run:
-        camera_array: CameraArray = config.get_camera_array()
-        # Stage 1: Generate gold standard
-        logger.info("=" * 20 + " STAGE 1: Gold Standard Generation " + "=" * 20)
+    # Stage 2: Generate PnP-based pose network
+    logger.info("=" * 20 + " STAGE 2: PnP Pose Network Generation " + "=" * 20)
 
-        image_points = ImagePoints.from_csv(charuco_point_data_file)
-        paired_pose_network_stereocal = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
-        gold_standard_stereocal = paired_pose_network_stereocal._pairs
-        # Save gold standard
-        gold_file = output_dir / "gold_standard.json"
+    # Compute per-camera poses relative to object
+    camera_to_object_poses = compute_camera_to_object_poses_pnp(image_points, camera_array)
 
-        json_to_save = {}
-        for pair_key, stereo_pair in gold_standard_stereocal.items():
-            json_to_save[f"stereo_{pair_key[0]}_{pair_key[1]}"] = {
-                "primary_port": int(stereo_pair.primary_port),
-                "secondary_port": int(stereo_pair.secondary_port),
-                "error_score": float(stereo_pair.error_score),
-                "rotation": stereo_pair.rotation.tolist(),
-                "translation": stereo_pair.translation.tolist(),
-            }
+    # Compute relative poses between camera pairs
+    relative_poses = compute_relative_poses(camera_to_object_poses, camera_array)
 
-        # need help serializing this to have something to store
-        with open(gold_file, "w") as f:
-            json.dump(json_to_save, f, indent=2)
-        logger.info(f"Gold standard saved to {gold_file}")
+    # Reject outliers per pair
+    filtered_poses = reject_outliers(relative_poses)
 
-    # Stage 2: Compute relative poses
-    if 2 in stages_to_run:
-        # Load Point data
-        logger.info("=" * 20 + " STAGE 2A: Data Loading " + "=" * 20)
-        point_data = load_point_data(charuco_point_data_file)
+    # Aggregate remaining poses
+    aggregated_poses = aggregate_poses(filtered_poses)
 
-        # Compute per-camera poses with PnP
-        logger.info("=" * 20 + " STAGE 2B: Per-Frame PnP " + "=" * 20)
-        camera_poses = compute_camera_poses_pnp(point_data, camera_array)
+    # Create PairedPoseNetwork with RMSE scores
+    pnp_network = estimate_pnp_paired_pose_network(aggregated_poses, camera_array, image_points.df)
+    save_network_to_json(pnp_network, output_dir / "pnp_estimates.json")
 
-        # Compute relative poses
-        logger.info("=" * 20 + " STAGE 2C: Relative Poses " + "=" * 20)
-        relative_poses = compute_relative_poses(camera_poses, camera_array)
+    # Stage 3: Validate against gold standard
+    logger.info("=" * 20 + " STAGE 3: Gold Standard Comparison " + "=" * 20)
+    compare_to_gold_standard(pnp_network, gold_standard_network, output_dir)
 
-    # Stage 3: compare gold standard and PnP results
-    if 3 in stages_to_run:
-        if gold_standard is None:
-            raise RuntimeError("need to run stage 1")
-
-        if relative_poses is None:
-            raise RuntimeError("need to run stage 2")
-
-        if point_data is None:
-            # fallback load if stage 2 didn't run but we want to run stage 3
-            # (in this script logic they are sequential, but good for safety)
-            point_data = load_point_data(charuco_point_data_file)
-
-        # Stage 3: Outlier rejection
-        logger.info("=" * 20 + " STAGE 3A: Outlier Rejection " + "=" * 20)
-        filtered_poses = reject_outliers(relative_poses)
-
-        logger.info("=" * 20 + " STAGE 3B: Pose Aggregation " + "=" * 20)
-        aggregated_poses = aggregate_poses(filtered_poses)
-
-        # Stage 3C: RMSE Calculation and Export
-        logger.info("=" * 20 + " STAGE 3C: RMSE Calculation & Export " + "=" * 20)
-        pnp_estimates = {}
-        for pair, (R, t) in aggregated_poses.items():
-            rmse = calculate_stereo_rmse(pair, R, t, camera_array, point_data)
-
-            pair_key = f"stereo_{pair[0]}_{pair[1]}"
-            pnp_estimates[pair_key] = {
-                "rotation": R.tolist(),
-                "translation": t.tolist(),
-                "RMSE": rmse,
-            }
-            logger.info(f"Pair {pair}: RMSE = {rmse:.5f} (PnP)")
-
-        pnp_file = output_dir / "pnp_estimates.json"
-        with open(pnp_file, "w") as f:
-            json.dump(pnp_estimates, f, indent=2)
-        logger.info(f"PnP estimates with RMSE saved to {pnp_file}")
-
-        # Stage 7: Comparison
-        logger.info("=" * 20 + " STAGE 3D: Gold Standard Comparison " + "=" * 20)
-        compare_to_gold_standard(aggregated_poses, gold_standard, output_dir)
-
-        logger.info("=" * 20 + " VALIDATION COMPLETE " + "=" * 20)
-        logger.info(f"Results saved to {output_dir}")
+    logger.info("=" * 20 + " VALIDATION COMPLETE " + "=" * 20)
+    logger.info(f"Results saved to {output_dir}")
 
 
 if __name__ == "__main__":
-    print("Start")
     main()
-    print("Stop")

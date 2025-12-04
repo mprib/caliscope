@@ -6,7 +6,7 @@ from caliscope.calibration.array_initialization.paired_pose_network import Paire
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.array_initialization.estimate_paired_pose_network import build_paired_pose_network
+from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest

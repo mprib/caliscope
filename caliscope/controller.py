@@ -7,7 +7,7 @@ from PySide6.QtCore import QObject, QThread, Signal
 
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.array_initialization.estimate_paired_pose_network import build_paired_pose_network
+from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
 

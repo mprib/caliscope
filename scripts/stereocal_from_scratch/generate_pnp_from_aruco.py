@@ -30,7 +30,7 @@ from caliscope.calibration.array_initialization.pose_network_builder import (
     rotation_error,
     translation_error,
 )
-from caliscope.calibration.array_initialization.estimate_paired_pose_network import (
+from caliscope.calibration.array_initialization.build_paired_pose_network import (
     build_paired_pose_network,
 )
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume

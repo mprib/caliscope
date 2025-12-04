@@ -135,7 +135,7 @@ def main():
     # Stage 1: Generate gold standard using legacy stereocalibrate
     logger.info("=" * 20 + " STAGE 1: Gold Standard Generation " + "=" * 20)
     image_points = ImagePoints(point_data)
-    gold_standard_network = build_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    gold_standard_network = build_paired_pose_network(image_points, camera_array)
     save_network_to_json(gold_standard_network, output_dir / "gold_standard.json")
 
     # Stage 2: Generate PnP-based pose network using NEW BUILDER API

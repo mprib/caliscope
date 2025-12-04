@@ -136,7 +136,7 @@ def test_missing_extrinsics(tmp_path: Path):
 
     # === RUN STEREO CALIBRATION WITH DEBUG LOGGING ===
 
-    paired_pose_network: PairedPoseNetwork = build_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network: PairedPoseNetwork = build_paired_pose_network(image_points, camera_array)
 
     # === INSPECT THE GRAPH STATE ===
     print("\n" + "=" * 80)

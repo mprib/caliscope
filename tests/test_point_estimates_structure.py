@@ -31,7 +31,7 @@ def test_point_estimates_structure_fully_linked(tmp_path: Path):
 
     image_points = ImagePoints.from_csv(xy_data_path)
 
-    paired_pose_network = build_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network = build_paired_pose_network(image_points, camera_array)
     paired_pose_network.apply_to(camera_array)  # initialize camera extrinsics based on best guess from pairwise poses
 
     # estimate 3D points from initial guiess of position
@@ -101,7 +101,7 @@ def test_point_estimates_structure_unlinked(tmp_path: Path):
 
     image_points = ImagePoints.from_csv(xy_data_path)
 
-    paired_pose_network = build_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network = build_paired_pose_network(image_points, camera_array)
     paired_pose_network.apply_to(camera_array)
 
     world_points: WorldPoints = image_points.triangulate(camera_array)

@@ -37,7 +37,7 @@ def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
 
-    paired_pose_network: PairedPoseNetwork = build_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network: PairedPoseNetwork = build_paired_pose_network(image_points, camera_array)
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array)
 

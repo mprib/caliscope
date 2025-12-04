@@ -206,7 +206,7 @@ def test_stereopair_graph_against_gold_standard():
 
     logger.info("Initiating stereocalibration")
     # Using the same sampling as presumably used in gold standard
-    paired_pose_network = build_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network = build_paired_pose_network(image_points, camera_array)
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array)
 

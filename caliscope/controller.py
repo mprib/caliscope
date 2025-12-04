@@ -333,7 +333,7 @@ class Controller(QObject):
             image_points = ImagePoints.from_csv(self.extrinsic_calibration_xy)
 
             # initialize estimated extrinsics from paired poses
-            paired_pose_network = build_paired_pose_network(image_points, self.camera_array, boards_sampled=10)
+            paired_pose_network = build_paired_pose_network(image_points, self.camera_array)
             paired_pose_network.apply_to(self.camera_array)
 
             world_points = image_points.triangulate(self.camera_array)

@@ -1,13 +1,13 @@
 # caliscope/calibration/array_initialization/pose_network_builder.py
 
 from itertools import combinations
+from numpy.typing import NDArray
 import cv2
 import time
 import numpy as np
 import pandas as pd
 import logging
 from scipy.spatial.transform import Rotation
-from typing import Dict, Optional, Tuple
 from typing_extensions import Self
 
 from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
@@ -55,18 +55,20 @@ class PoseNetworkBuilder:
                        Required columns: sync_index, port, point_id,
                                        img_loc_x, img_loc_y, obj_loc_x, obj_loc_y
         """
-        self.camera_array = camera_array
-        self._image_points = image_points
+        self.camera_array: CameraArray = camera_array
+        self._image_points: ImagePoints = image_points
 
         # Pipeline state
-        self._camera_to_object_poses: Optional[Dict] = None
-        self._relative_poses: Optional[Dict] = None
-        self._filtered_poses: Optional[Dict] = None
-        self._aggregated_poses: Optional[Dict] = None
-        self._pnp_network: Optional[PairedPoseNetwork] = None
+        self._camera_to_object_poses: (
+            dict[tuple[int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]] | None
+        ) = None
+        self._relative_poses: dict[tuple[tuple[int, int], int], StereoPair] | None = None
+        self._filtered_poses: dict[tuple[int, int], list[StereoPair]] | None = None
+        self._aggregated_poses: dict[tuple[int, int], StereoPair] | None = None
+        self._pnp_network: PairedPoseNetwork | None = None
 
         # Simple state tracking, no error accumulation
-        self._state = "initialized"
+        self._state: str = "initialized"
 
     @property
     def state(self) -> str:
@@ -140,8 +142,8 @@ class PoseNetworkBuilder:
     def filter_outliers(
         self,
         threshold: float = DEFAULT_OUTLIER_THRESHOLD,
-        rotation_threshold_multiplier: Optional[float] = None,
-        translation_threshold_multiplier: Optional[float] = None,
+        rotation_threshold_multiplier: float | None = None,
+        translation_threshold_multiplier: float | None = None,
     ) -> Self:
         """
         Step 2: Apply IQR-based outlier rejection to relative poses.
@@ -208,7 +210,7 @@ def compute_camera_to_object_poses_pnp(
     min_points: int = DEFAULT_MIN_PNP_POINTS,
     pnp_flags: int = cv2.SOLVEPNP_IPPE,
     fallback_flags: int = cv2.SOLVEPNP_ITERATIVE,
-) -> Dict[Tuple[int, int], Tuple[np.ndarray, np.ndarray, float]]:
+) -> dict[tuple[int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]]:
     """
     Compute per-camera poses relative to the object coordinate frame for each sync_index.
 
@@ -220,7 +222,7 @@ def compute_camera_to_object_poses_pnp(
         fallback_flags: Fallback algorithm if primary fails (default: SOLVEPNP_ITERATIVE)
 
     Returns:
-        Dict mapping (port, sync_index) -> (R, t, reprojection_error)
+        dict mapping (port, sync_index) -> (R, t, reprojection_error)
     """
     logger.info(f"Computing per-frame camera poses with PnP (min_points={min_points})...")
 
@@ -297,22 +299,22 @@ def compute_camera_to_object_poses_pnp(
 
 
 def reject_outliers(
-    relative_poses: Dict[Tuple[Tuple[int, int], int], StereoPair],
+    relative_poses: dict[tuple[tuple[int, int], int], StereoPair],
     threshold: float = DEFAULT_OUTLIER_THRESHOLD,
-    rotation_threshold_multiplier: Optional[float] = None,
-    translation_threshold_multiplier: Optional[float] = None,
-) -> Dict[Tuple[int, int], list[StereoPair]]:
+    rotation_threshold_multiplier: float | None = None,
+    translation_threshold_multiplier: float | None = None,
+) -> dict[tuple[int, int], list[StereoPair]]:
     """
     Apply IQR-based outlier rejection to relative poses for each camera pair.
 
     Args:
-        relative_poses: Dict of relative poses per sync index
+        relative_poses: dict of relative poses per sync index
         threshold: IQR multiplier for outlier detection (default: 1.5)
         rotation_threshold_multiplier: Optional separate IQR multiplier for rotation outliers
         translation_threshold_multiplier: Optional separate IQR multiplier for translation outliers
 
     Returns:
-        Dict mapping pair -> list of StereoPair that passed outlier rejection
+        dict mapping pair -> list of StereoPair that passed outlier rejection
     """
     logger.info(f"Applying outlier rejection (threshold={threshold})...")
 
@@ -321,7 +323,7 @@ def reject_outliers(
     trans_multiplier = translation_threshold_multiplier if translation_threshold_multiplier is not None else threshold
 
     # Group poses by pair
-    poses_by_pair: Dict[Tuple[int, int], list[StereoPair]] = {}
+    poses_by_pair: dict[tuple[int, int], list[StereoPair]] = {}
     for (pair, _sync_index), stereo_pair in relative_poses.items():
         poses_by_pair.setdefault(pair, []).append(stereo_pair)
 
@@ -380,7 +382,7 @@ def reject_outliers(
     return filtered_poses
 
 
-def quaternion_average(quaternions: np.ndarray) -> np.ndarray:
+def quaternion_average(quaternions: NDArray[np.float64]) -> np.ndarray:
     if len(quaternions) == 0:
         raise ValueError("Cannot average empty quaternion array")
     if len(quaternions) == 1:
@@ -405,7 +407,7 @@ def quaternion_average(quaternions: np.ndarray) -> np.ndarray:
 
 
 # NOTE: used for data inspection, could be removed in future
-def rotation_error(R1: np.ndarray, R2: np.ndarray) -> float:
+def rotation_error(R1: NDArray[np.float64], R2: NDArray[np.float64]) -> float:
     """
     Compute geodesic rotation error in degrees between two rotation matrices.
 
@@ -424,7 +426,7 @@ def rotation_error(R1: np.ndarray, R2: np.ndarray) -> float:
 
 
 # NOTE: used for data inspection, could be removed in future
-def translation_error(t1: np.ndarray, t2: np.ndarray) -> dict[str, float]:
+def translation_error(t1: NDArray[np.float64], t2: NDArray[np.float64]) -> dict[str, float]:
     """
     Compute translation errors between two vectors.
 
@@ -432,7 +434,7 @@ def translation_error(t1: np.ndarray, t2: np.ndarray) -> dict[str, float]:
         t1, t2: (3,) translation vectors
 
     Returns:
-        Dict with magnitude_error (%) and direction_error (degrees)
+        dict with magnitude_error (%) and direction_error (degrees)
     """
     mag1, mag2 = np.linalg.norm(t1), np.linalg.norm(t2)
 
@@ -449,9 +451,9 @@ def translation_error(t1: np.ndarray, t2: np.ndarray) -> dict[str, float]:
 
 
 def compute_relative_poses(
-    camera_to_object_poses: Dict[Tuple[int, int], Tuple[np.ndarray, np.ndarray, float]],
+    camera_to_object_poses: dict[tuple[int, int], tuple[NDArray[np.float64], NDArray[np.float64], float]],
     camera_array: CameraArray,
-) -> Dict[Tuple[Tuple[int, int], int], StereoPair]:
+) -> dict[tuple[tuple[int, int], int], StereoPair]:
     """
     Compute relative poses between camera pairs at each sync_index.
 
@@ -459,10 +461,10 @@ def compute_relative_poses(
     T_B_A = T_B_obj @ T_obj_A = T_B_obj @ inv(T_A_obj)
 
     Returns:
-        Dict mapping (pair, sync_index) -> StereoPair with relative pose
+        dict mapping (pair, sync_index) -> StereoPair with relative pose
     """
     logger.info("Computing relative poses between camera pairs...")
-    relative_poses = {}
+    relative_poses: dict[tuple[tuple[int, int], int], StereoPair] = {}
 
     ports = [p for p, cam in camera_array.cameras.items() if not cam.ignore]
     pairs = [(i, j) for i, j in combinations(ports, 2) if i < j]
@@ -497,7 +499,7 @@ def compute_relative_poses(
     return relative_poses
 
 
-def aggregate_poses(filtered_poses: Dict[Tuple[int, int], list[StereoPair]]) -> Dict[Tuple[int, int], StereoPair]:
+def aggregate_poses(filtered_poses: dict[tuple[int, int], list[StereoPair]]) -> dict[tuple[int, int], StereoPair]:
     """
     Aggregate per-sync-index poses into a single robust estimate per pair.
 
@@ -505,7 +507,7 @@ def aggregate_poses(filtered_poses: Dict[Tuple[int, int], list[StereoPair]]) -> 
     after outlier rejection.
 
     Returns:
-        Dict mapping pair -> aggregated StereoPair
+        dict mapping pair -> aggregated StereoPair
     """
     logger.info("Aggregating poses...")
 
@@ -541,7 +543,7 @@ def aggregate_poses(filtered_poses: Dict[Tuple[int, int], list[StereoPair]]) -> 
 
 
 def estimate_pnp_paired_pose_network(
-    aggregated_pairs_wo_rmse: Dict[Tuple[int, int], StereoPair], camera_array: CameraArray, image_points: ImagePoints
+    aggregated_pairs_wo_rmse: dict[tuple[int, int], StereoPair], camera_array: CameraArray, image_points: ImagePoints
 ) -> PairedPoseNetwork:
     """
     Create a PairedPoseNetwork from aggregated stereo pairs with RMSE scores.
@@ -578,12 +580,12 @@ def estimate_pnp_paired_pose_network(
 
 def _precompute_common_observations(
     image_points: ImagePoints, camera_array: CameraArray
-) -> Dict[Tuple[int, int], pd.DataFrame]:
+) -> dict[tuple[int, int], pd.DataFrame]:
     """
     Pre-compute common observations for all camera pairs to avoid repeated merges.
 
     Returns:
-        Dict mapping (port_a, port_b) -> DataFrame with common observations
+        dict mapping (port_a, port_b) -> DataFrame with common observations
     """
     df = image_points.df
     ports = [p for p, cam in camera_array.cameras.items() if not cam.ignore]
@@ -603,7 +605,7 @@ def _precompute_common_observations(
 
 
 def calculate_stereo_rmse_for_pair(
-    stereo_pair: StereoPair, camera_array: CameraArray, common_observations: Dict[Tuple[int, int], pd.DataFrame]
+    stereo_pair: StereoPair, camera_array: CameraArray, common_observations: dict[tuple[int, int], pd.DataFrame]
 ) -> float | None:
     """
     Calculate Stereo RMSE for a pair using triangulation/reprojection error.

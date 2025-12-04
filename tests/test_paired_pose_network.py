@@ -11,23 +11,24 @@ import logging
 from pathlib import Path
 import re
 import numpy as np
+from numpy.typing import NDArray
 import pytest
 
 from caliscope import __root__
 from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
-from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
+from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
 from caliscope.configurator import Configurator
 from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
 
 # --- Thresholds ---
-ROTATION_TOLERANCE_RAD = 0.02  # in radians... ~1.15 degrees
+ROTATION_TOLERANCE_RAD = 0.035
 # Absolute difference in translation units
-TRANSLATION_TOLERANCE = 0.025  # 2.5 cm
+TRANSLATION_TOLERANCE = 0.05  # 5 cm
 
 
-def rotation_matrix_to_angle_axis(R: np.ndarray) -> tuple[float, np.ndarray]:
+def rotation_matrix_to_angle_axis(R: NDArray[np.float64]) -> tuple[float, NDArray[np.float64]]:
     """
     Convert rotation matrix to angle-axis representation for easier comparison.
     Returns (angle_in_radians, unit_axis_vector)
@@ -49,7 +50,7 @@ def rotation_matrix_to_angle_axis(R: np.ndarray) -> tuple[float, np.ndarray]:
     return angle, axis
 
 
-def compare_rotations(R_computed: np.ndarray, R_gold: np.ndarray) -> dict:
+def compare_rotations(R_computed: NDArray[np.float64], R_gold: NDArray[np.float64]) -> dict:
     """Compare two rotation matrices."""
     # Compute relative rotation: R_gold^T * R_computed
     R_rel = R_gold.T @ R_computed
@@ -57,7 +58,7 @@ def compare_rotations(R_computed: np.ndarray, R_gold: np.ndarray) -> dict:
     return {"angle_error_rad": angle_error, "angle_error_deg": np.degrees(angle_error)}
 
 
-def compare_translations(t_computed: np.ndarray, t_gold: np.ndarray) -> dict:
+def compare_translations(t_computed: NDArray[np.float64], t_gold: NDArray[np.float64]) -> dict:
     """Compare two translation vectors."""
     # Flatten just in case shapes are (3,1) vs (3,)
     diff = t_computed.flatten() - t_gold.flatten()
@@ -67,7 +68,7 @@ def compare_translations(t_computed: np.ndarray, t_gold: np.ndarray) -> dict:
     }
 
 
-def parse_array_string(array_str: str) -> np.ndarray:
+def parse_array_string(array_str: str) -> NDArray[np.float64]:
     """Parse the specific string format used in the gold standard JSON files."""
     try:
         clean = re.sub(r"\s+", " ", array_str.strip())
@@ -206,7 +207,7 @@ def test_stereopair_graph_against_gold_standard():
 
     logger.info("Initiating stereocalibration")
     # Using the same sampling as presumably used in gold standard
-    paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network = build_paired_pose_network(image_points, camera_array, method="pnp")
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array)
 

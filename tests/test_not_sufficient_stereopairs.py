@@ -8,7 +8,7 @@ from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
+from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints
@@ -33,7 +33,7 @@ def test_calibration_workflow(tmp_path: Path):
     image_points = ImagePoints.from_csv(xy_data_path)
 
     logger.info("Initiating stereocalibration")
-    paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network = build_paired_pose_network(image_points, camera_array)
 
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array)

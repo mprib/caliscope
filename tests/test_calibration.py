@@ -12,7 +12,7 @@ from time import sleep
 
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
+from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
 
@@ -76,7 +76,7 @@ def test_calibration(tmp_path: Path):
 
     logger.info("Creating paired pose network")
 
-    paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network = build_paired_pose_network(image_points, camera_array)
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array, anchor_cam=8)
 

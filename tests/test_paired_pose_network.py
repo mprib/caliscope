@@ -1,3 +1,4 @@
+# tests/test_paired_pose_network.py
 """
 Regression test for PairedPoseNetwork initialization against gold standard data.
 

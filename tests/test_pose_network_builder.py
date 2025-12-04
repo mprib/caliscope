@@ -25,7 +25,7 @@ def test_pose_network_builder_end_to_end(tmp_path: Path):
     Full pipeline test: copy prototyping data, build network, apply to array.
     """
     # Copy the exact data from the prototyping script
-    source_dir = Path(__root__, "tests", "sessions", "post_optimization")
+    source_dir = Path(__root__, "tests/sessions/post_optimization")
     copy_contents_to_clean_dest(source_dir, tmp_path)
 
     # Load data the same way the prototyping script does
@@ -74,7 +74,7 @@ def test_builder_parameter_propagation(tmp_path: Path):
     Verify that custom parameters actually affect the pipeline.
     Compare lenient vs strict configurations.
     """
-    source_dir = Path(__root__, "scripts", "stereocal_from_scratch", "aruco_pipeline")
+    source_dir = Path(__root__, "tests/sessions/post_optimization")
     copy_contents_to_clean_dest(source_dir, tmp_path)
 
     config = Configurator(tmp_path)
@@ -107,7 +107,7 @@ def test_builder_enforces_execution_order(tmp_path: Path):
     """
     Verify that builder methods must be called in correct sequence.
     """
-    source_dir = Path(__root__, "scripts", "stereocal_from_scratch", "aruco_pipeline")
+    source_dir = Path(__root__, "tests/sessions/post_optimization")
     copy_contents_to_clean_dest(source_dir, tmp_path)
 
     config = Configurator(tmp_path)
@@ -135,7 +135,7 @@ def test_apply_to_with_disconnected_camera(tmp_path: Path):
     """
     Test behavior when pose graph doesn't connect all cameras.
     """
-    source_dir = Path(__root__, "scripts", "stereocal_from_scratch", "aruco_pipeline")
+    source_dir = Path(__root__, "tests/sessions/post_optimization")
     copy_contents_to_clean_dest(source_dir, tmp_path)
 
     config = Configurator(tmp_path)

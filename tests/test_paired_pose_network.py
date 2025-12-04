@@ -15,7 +15,7 @@ import pytest
 
 from caliscope import __root__
 from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
-from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
+from caliscope.calibration.array_initialization.estimate_paired_pose_network import build_paired_pose_network
 from caliscope.configurator import Configurator
 from caliscope.post_processing.point_data import ImagePoints
 
@@ -206,7 +206,7 @@ def test_stereopair_graph_against_gold_standard():
 
     logger.info("Initiating stereocalibration")
     # Using the same sampling as presumably used in gold standard
-    paired_pose_network = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network = build_paired_pose_network(image_points, camera_array, boards_sampled=10)
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array)
 

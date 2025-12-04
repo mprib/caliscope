@@ -16,7 +16,7 @@ from caliscope.post_processing.point_data import ImagePoints
 logger = logging.getLogger(__name__)
 
 
-def estimate_paired_pose_network(
+def build_paired_pose_network(
     image_points: ImagePoints,
     camera_array: CameraArray,
     boards_sampled: int = 10,

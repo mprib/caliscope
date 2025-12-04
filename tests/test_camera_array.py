@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from caliscope import __root__
-from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
+from caliscope.calibration.array_initialization.estimate_paired_pose_network import build_paired_pose_network
 from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.configurator import Configurator
@@ -136,7 +136,7 @@ def test_missing_extrinsics(tmp_path: Path):
 
     # === RUN STEREO CALIBRATION WITH DEBUG LOGGING ===
 
-    paired_pose_network: PairedPoseNetwork = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network: PairedPoseNetwork = build_paired_pose_network(image_points, camera_array, boards_sampled=10)
 
     # === INSPECT THE GRAPH STATE ===
     print("\n" + "=" * 80)

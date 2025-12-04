@@ -6,7 +6,7 @@ from caliscope.calibration.array_initialization.paired_pose_network import Paire
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.array_initialization.estimate_paired_pose_network import estimate_paired_pose_network
+from caliscope.calibration.array_initialization.estimate_paired_pose_network import build_paired_pose_network
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest
@@ -37,7 +37,7 @@ def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
 
-    paired_pose_network: PairedPoseNetwork = estimate_paired_pose_network(image_points, camera_array, boards_sampled=10)
+    paired_pose_network: PairedPoseNetwork = build_paired_pose_network(image_points, camera_array, boards_sampled=10)
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array)
 

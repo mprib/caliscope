@@ -11,6 +11,8 @@ from pathlib import Path
 
 from caliscope import __root__
 from caliscope.configurator import Configurator
+from caliscope.trackers.holistic.holistic_tracker import HolisticTracker
+from caliscope.trackers.skull_tracker.skull_tracker import SkullTracker
 from caliscope.logger import setup_logging
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.tracker import Tracker
@@ -21,8 +23,8 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
-def generate_keypoints(project_dir: Path, tracker: Tracker):
-    """Process calibration videos with ArUcoTracker to create xy_ARUCO.csv."""
+def generate_keypoints(project_dir: Path, raw_video_dir: Path, tracker: Tracker):
+    """Process calibration videos with Tracker to create xy_TRACKER.csv."""
 
     # go to extrinsic calibration directory
     raw_video_dir = project_dir / "calibration/extrinsic"
@@ -68,6 +70,20 @@ def generate_aruco_xy():
     generate_keypoints(fixture_project_dir, tracker)
 
 
+def generate_tracker_xy():
+    project_dir = Path(__file__).parent / "sample_project"
+    raw_video_dir = project_dir / "calibration/extrinsic"
+
+    # config = Configurator(project_dir)
+    # charuco = config.get_charuco()
+    # tracker = CharucoTracker(charuco)
+
+    # tracker = FaceTracker()
+    tracker = HolisticTracker()
+    tracker = SkullTracker()
+    generate_keypoints(project_dir, raw_video_dir, tracker)
+
+
 if __name__ == "__main__":
     # Create ArUcoTracker with inverted=True for current test fixture
-    generate_aruco_xy()
+    generate_tracker_xy()

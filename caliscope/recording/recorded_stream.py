@@ -72,12 +72,15 @@ class RecordedStream:
 
         ########### INFER TIME STAMP IF NOT AVAILABLE ####################################
         else:
+            logger.info("Infering time stamps for frames based on capture data")
             frame_count = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
             mocked_port_history = {
                 "frame_index": [i for i in range(0, frame_count)],
                 "frame_time": [i / self.original_fps for i in range(0, frame_count)],
             }
             self.port_history = pd.DataFrame(mocked_port_history)
+            logger.info(f"frame_count: {frame_count}")
+            logger.info(f"fps: {self.original_fps}")
 
         # note that this is not simply 0 and frame count because the syncronized recording might start recording many
         # frames into pulling from a camera

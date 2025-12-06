@@ -8,30 +8,28 @@ ArUcoTracker is fully integrated into the main workflow.
 import logging
 import time
 from pathlib import Path
+from PySide6.QtWidgets import QApplication
+import sys
 
-from caliscope import __root__
+from caliscope.cameras.camera_array import CameraArray
+from caliscope.controller import Controller
 from caliscope.configurator import Configurator
-from caliscope.trackers.holistic.holistic_tracker import HolisticTracker
 from caliscope.trackers.skull_tracker.skull_tracker import SkullTracker
 from caliscope.logger import setup_logging
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
 from caliscope.tracker import Tracker
-from caliscope.trackers.aruco_tracker import ArucoTracker
+from caliscope.post_processing.point_data import ImagePoints
+from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from caliscope.helper import copy_contents_to_clean_dest
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
-def generate_keypoints(project_dir: Path, raw_video_dir: Path, tracker: Tracker):
+def generate_keypoints(camera_array: CameraArray, raw_video_dir: Path, tracker: Tracker):
     """Process calibration videos with Tracker to create xy_TRACKER.csv."""
-
-    # go to extrinsic calibration directory
-    raw_video_dir = project_dir / "calibration/extrinsic"
-
-    # Load camera array from config
-    config = Configurator(project_dir)
-    camera_array = config.get_camera_array()
 
     logger.info(f"Processing calibration videos with {tracker.name} tracker...")
 
@@ -43,15 +41,11 @@ def generate_keypoints(project_dir: Path, raw_video_dir: Path, tracker: Tracker)
     # Process streams (ArUco detection is fast, so high fps_target is fine)
     sync_stream_manager.process_streams(fps_target=100, include_video=True)
     # Wait for output file to be created
-    target_output_file = project_dir / f"calibration/extrinsic/{tracker.name}/xy_{tracker.name}.csv"
+    target_output_file = raw_video_dir / f"{tracker.name}/xy_{tracker.name}.csv"
 
-    timeout = 30  # seconds
-    start_time = time.time()
+    time.time()
     while not target_output_file.exists():
-        if time.time() - start_time > timeout:
-            logger.error(f"Timeout waiting for output file: {target_output_file}")
-            return
-        time.sleep(0.5)
+        time.sleep(2)
         logger.info(f"Waiting for {target_output_file}")
 
     assert target_output_file.exists(), "Tracker output creation failed"
@@ -59,31 +53,61 @@ def generate_keypoints(project_dir: Path, raw_video_dir: Path, tracker: Tracker)
     logger.info(f"Successfully created: {target_output_file}")
 
 
-def generate_aruco_xy():
-    # where data will come from and go
-    test_data_dir = __root__ / "tests/sessions/post_optimization"
-    fixture_project_dir = __root__ / "scripts/stereocal_from_scratch/aruco_pipeline"
-
-    copy_contents_to_clean_dest(test_data_dir, fixture_project_dir)
-
-    tracker = ArucoTracker(inverted=True)
-    generate_keypoints(fixture_project_dir, tracker)
-
-
-def generate_tracker_xy():
-    project_dir = Path(__file__).parent / "sample_project"
-    raw_video_dir = project_dir / "calibration/extrinsic"
-
-    # config = Configurator(project_dir)
-    # charuco = config.get_charuco()
-    # tracker = CharucoTracker(charuco)
-
-    # tracker = FaceTracker()
-    tracker = HolisticTracker()
-    tracker = SkullTracker()
-    generate_keypoints(project_dir, raw_video_dir, tracker)
-
-
 if __name__ == "__main__":
-    # Create ArUcoTracker with inverted=True for current test fixture
-    generate_tracker_xy()
+    RERUN_KEYPOINT_GENERATION = False  # toggle during dev
+
+    # get clean data to start
+    # origin_project_dir = __root__ / "tests/sessions/post_optimization"
+    origin_project_dir = Path("/home/mprib/caliscope_projects/markerless_calibration_data/caliscope_version")
+    working_project_dir = Path(__file__).parent / "sample_project"
+    raw_video_dir = working_project_dir / "calibration/extrinsic"
+    tracker = SkullTracker()
+
+    if RERUN_KEYPOINT_GENERATION:
+        # create key points from clean project
+        copy_contents_to_clean_dest(origin_project_dir, working_project_dir)
+
+        # Load camera array from working project config
+        config = Configurator(working_project_dir)
+        camera_array = config.get_camera_array()
+        # generate keypoints from tracker that yields object x,y,z points
+        generate_keypoints(camera_array, raw_video_dir, tracker)
+    else:
+        # Load camera array from working project config
+        config = Configurator(working_project_dir)
+        camera_array = config.get_camera_array()
+
+    tracker_xy_path = raw_video_dir / f"{tracker.name}/xy_{tracker.name}.csv"
+    image_points = ImagePoints.from_csv(tracker_xy_path)
+    pose_network = build_paired_pose_network(image_points, camera_array)
+
+    pose_network.apply_to(camera_array)
+    initial_world_points = image_points.triangulate(camera_array)
+    capture_volume = CaptureVolume(camera_array, initial_world_points.to_point_estimates())
+    capture_volume.optimize()
+
+    optimized_camera_array = capture_volume.camera_array
+    final_world_points = image_points.triangulate(optimized_camera_array)
+
+    # Save data to load into controller layer for visualization
+    config.save_camera_array(optimized_camera_array)
+    config.save_point_estimates(capture_volume.point_estimates)
+
+    ##### VISUALIZE CAPTURE VOLUME ############
+    app = QApplication(sys.argv)
+
+    controller = Controller(working_project_dir)
+    controller.load_camera_array()
+    controller.load_estimated_capture_volume()
+
+    window = CaptureVolumeWidget(controller)
+    # After filtering - log filtered point counts
+
+    logger.info("Point counts loaded into Capture Volume Widget:")
+    logger.info(f"  3D points (obj.shape[0]): {controller.capture_volume.point_estimates.obj.shape[0]}")
+    logger.info(f"  2D observations (img.shape[0]): {controller.capture_volume.point_estimates.img.shape[0]}")
+    logger.info(f"  Camera indices length: {len(controller.capture_volume.point_estimates.camera_indices)}")
+
+    window.show()
+
+    app.exec()

@@ -1,0 +1,7 @@
+The following files in caliscope/trackers/skull_tracker/ are derived from MediaPipe and
+are licensed under Apache License 2.0 (see caliscope/trackers/skull_tracker/LICENSE):
+
+
+canonical_face_model.obj
+canonical_face_model_uv_visualization.png
+geometry_pipeline_metadata_landmarks.pbtxt

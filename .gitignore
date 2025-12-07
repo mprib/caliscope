@@ -1,4 +1,4 @@
-scripts/stereocal_from_scratch/aruco_pipeline/*
+scripts/keypoints_from_face/sample_project/*
 tests/debug/*
 *context.txt
 *.png

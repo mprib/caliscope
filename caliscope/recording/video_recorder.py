@@ -75,6 +75,7 @@ class VideoRecorder:
             "img_loc_y": [],
             "obj_loc_x": [],
             "obj_loc_y": [],
+            "obj_loc_z": [],
         }
 
         self.synchronizer.subscribe_to_sync_packets(self.sync_packet_in_q)

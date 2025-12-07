@@ -152,8 +152,8 @@ class HolisticTracker(Tracker):
                 results = holistic.process(frame)
 
                 # initialize variables so none will be created if no points detected
-                point_ids = []
-                landmark_xy = []
+                point_ids: list[int] = []
+                landmark_xy: list[tuple[float, float]] = []
 
                 if results.pose_landmarks:
                     for landmark_id, landmark in enumerate(results.pose_landmarks.landmark):

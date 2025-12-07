@@ -5,10 +5,8 @@ from caliscope.controller import Controller
 from caliscope.gui.post_processing_widget import PostProcessingWidget
 
 app = QApplication(sys.argv)
-workspace_dir = Path(
-    r"C:\Users\Mac Prible\repos\caliscope\tests\sessions\4_cam_recording"
-    # r"C:\Users\Mac Prible\OneDrive - The University of Texas at Austin\research\caliscope\example_project"
-)
+
+workspace_dir = Path("/home/mprib/caliscope_projects/markerless_calibration_data/caliscope_version")
 
 controller = Controller(workspace_dir)
 controller.load_camera_array()

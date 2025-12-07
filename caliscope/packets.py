@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Callable, Dict, cast
+from numpy.typing import NDArray
+from typing import Callable, cast
 
 import cv2
 import numpy as np
@@ -15,10 +16,12 @@ class PointPacket:
     It has actual values when using the Charuco tracker as these are used in the calibration.
     """
 
-    point_id: np.ndarray  # unique point id that aligns with Tracker.get_point_names()
-    img_loc: np.ndarray  # x,y position of tracked point
-    obj_loc: np.ndarray | None = None  # x,y,z in object frame of reference; primarily for intrinsic calibration
-    confidence: np.ndarray | None = None  # may be available in some trackers..include for future
+    point_id: NDArray[np.float64]  # unique point id that aligns with Tracker.get_point_names()
+    img_loc: NDArray[np.float64]  # x,y position of tracked point
+    obj_loc: NDArray[np.float64] | None = (
+        None  # x,y,z in object frame of reference; primarily for intrinsic calibration
+    )
+    confidence: NDArray[np.float64] | None = None  # may be available in some trackers..include for future
 
     @property
     def obj_loc_list(self) -> list[list[float | None]]:
@@ -30,12 +33,14 @@ class PointPacket:
         if self.obj_loc is not None:
             obj_loc_x = self.obj_loc[:, 0].tolist()
             obj_loc_y = self.obj_loc[:, 1].tolist()
+            obj_loc_z = self.obj_loc[:, 2].tolist()
         else:
             length = len(self.point_id) if self.point_id is not None else 0
             obj_loc_x = [None] * length
             obj_loc_y = [None] * length
+            obj_loc_z = [None] * length
 
-        return cast(list[list[float | None]], [obj_loc_x, obj_loc_y])
+        return cast(list[list[float | None]], [obj_loc_x, obj_loc_y, obj_loc_z])
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +53,7 @@ class FramePacket:
     port: int
     frame_index: int
     frame_time: float
-    frame: np.ndarray
+    frame: NDArray[np.float64]
     points: PointPacket | None = None
     draw_instructions: Callable | None = None
 
@@ -71,6 +76,7 @@ class FramePacket:
                     "img_loc_y": self.points.img_loc[:, 1].tolist(),
                     "obj_loc_x": self.points.obj_loc_list[0],
                     "obj_loc_y": self.points.obj_loc_list[1],
+                    "obj_loc_z": self.points.obj_loc_list[2],
                 }
             else:
                 table = None
@@ -110,7 +116,7 @@ class SyncPacket:
     """
 
     sync_index: int
-    frame_packets: Dict[int, FramePacket]  # port: frame_packet
+    frame_packets: dict[int, FramePacket | None]  # port: frame_packet
 
     @property
     def triangulation_inputs(self):
@@ -158,8 +164,8 @@ class SyncPacket:
 @dataclass(slots=True, frozen=True)
 class XYZPacket:
     sync_index: int
-    point_ids: np.ndarray  # (n,1)
-    point_xyz: np.ndarray  # (n,3)
+    point_ids: NDArray[np.float64]  # (n,1)
+    point_xyz: NDArray[np.float64]  # (n,3)
 
     def get_point_xyz(self, point_id: int) -> np.ndarray:
         return self.point_xyz[self.point_ids == point_id]

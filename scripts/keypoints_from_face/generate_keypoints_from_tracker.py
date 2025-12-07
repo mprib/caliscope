@@ -56,12 +56,27 @@ def generate_keypoints(camera_array: CameraArray, raw_video_dir: Path, tracker: 
 if __name__ == "__main__":
     RERUN_KEYPOINT_GENERATION = False  # toggle during dev
 
-    # get clean data to start
-    # origin_project_dir = __root__ / "tests/sessions/post_optimization"
+    # This is Meero's config.toml and video files in the caliscope project structure
+    # project root
+    #   ├── config.toml
+    #   ├── calibration
+    #   │   ├── extrinsic
+    #   │   │   └── port_1.mp4, port_2.mp4, port_3.mp4
+    #   │   └── intrinsic
+    #   └── recordings
+    #       └── treadmill
+    #           └── port_1.mp4, port_2.mp4, port_3.mp4
     origin_project_dir = Path("/home/mprib/caliscope_projects/markerless_calibration_data/caliscope_version")
+
+    # destination to copy over origin clean project just for ease of reference and avoidance of pollution across runs
     working_project_dir = Path(__file__).parent / "sample_project"
+
     raw_video_dir = working_project_dir / "calibration/extrinsic"
+
+    # this will create x,y image points along with x,y,z object points for pnp
     tracker = SkullTracker()
+
+    keypoint_generation_time = None
 
     if RERUN_KEYPOINT_GENERATION:
         # create key points from clean project
@@ -70,30 +85,62 @@ if __name__ == "__main__":
         # Load camera array from working project config
         config = Configurator(working_project_dir)
         camera_array = config.get_camera_array()
+
         # generate keypoints from tracker that yields object x,y,z points
+        tic = time.time()
         generate_keypoints(camera_array, raw_video_dir, tracker)
+        toc = time.time()
+
+        keypoint_generation_time = round(toc - tic, 3)
     else:
         # Load camera array from working project config
         config = Configurator(working_project_dir)
         camera_array = config.get_camera_array()
 
+    tic = time.time()
+
+    # keypoint data now exists. It looks like this:
+
+    # sync_index,port,frame_index,frame_time,point_id,img_loc_x,img_loc_y,obj_loc_x,obj_loc_y,obj_loc_z
+    # 0,1,0,0.0,4,309.9118995666504,77.12911128997803,0.0,-0.009594880365291056,0.0068349506412931586
+    # 0,1,0,0.0,6,310.7944679260254,66.80278778076172,0.0,-0.023732237777556297,0.06543170253856367
+    # 0,1,0,0.0,10,315.24370193481445,45.60556888580322,0.0,-0.07927442258111275,0.1532273162740576
+    # and on and on...
+
     tracker_xy_path = raw_video_dir / f"{tracker.name}/xy_{tracker.name}.csv"
+
+    # load in 2d data
     image_points = ImagePoints.from_csv(tracker_xy_path)
+
+    # construct best guess of paired poses between all cameras
     pose_network = build_paired_pose_network(image_points, camera_array)
 
+    # initialize camera extrinsics based on best guess stereopairs
     pose_network.apply_to(camera_array)
+
+    # triangulate 2D points using initialize extrinsics
     initial_world_points = image_points.triangulate(camera_array)
+
+    # run the bundle adjustment with these initialized values to dial in extrinsics
     capture_volume = CaptureVolume(camera_array, initial_world_points.to_point_estimates())
     capture_volume.optimize()
 
     optimized_camera_array = capture_volume.camera_array
+
+    # create final 3D point estimates
     final_world_points = image_points.triangulate(optimized_camera_array)
+    toc = time.time()
+
+    calibration_time = round(toc - tic, 3)
 
     # Save data to load into controller layer for visualization
     config.save_camera_array(optimized_camera_array)
     config.save_point_estimates(capture_volume.point_estimates)
 
+    logger.info(f"keypoint generation: {keypoint_generation_time} \ncalibration time: {calibration_time}")
+
     ##### VISUALIZE CAPTURE VOLUME ############
+
     app = QApplication(sys.argv)
 
     controller = Controller(working_project_dir)

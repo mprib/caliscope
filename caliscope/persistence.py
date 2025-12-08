@@ -51,6 +51,16 @@ CSV_FLOAT_PRECISION = "%.6f"  # 6 decimal places = micron precision at meter sca
 # ============================================================================
 
 
+def _clean_scalar(value: Any) -> Any:
+    """
+    Helper to handle TOML 'null' string artifacts or actual None values.
+    Returns None if value is None or the string 'null'.
+    """
+    if value is None or value == "null":
+        return None
+    return value
+
+
 def _array_to_list(arr: np.ndarray | None) -> list | None:
     """
     Convert numpy array to list for TOML serialization.
@@ -155,15 +165,14 @@ def load_camera_array(path: Path) -> CameraArray:
             translation = _list_to_array(camera_data.get("translation"))
 
             # Handle rotation: may be 3x3 matrix (legacy) or 3x1 Rodrigues (new)
+            # (Includes the fix from the previous step)
             rotation_raw = _list_to_array(camera_data.get("rotation"))
             if rotation_raw is not None:
                 rotation_array = rotation_raw
                 if rotation_array.shape == (3, 3):
-                    # Legacy format: 3x3 matrix, convert to Rodrigues
-                    rotation = cv2.Rodrigues(rotation_array)[0][:, 0]
+                    rotation = rotation_array
                 elif rotation_array.shape in [(3,), (3, 1)]:
-                    # New format: already Rodrigues vector
-                    rotation = rotation_array.flatten()
+                    rotation = cv2.Rodrigues(rotation_array)[0]
                 else:
                     raise ValueError(f"Invalid rotation shape: {rotation_array.shape}")
             else:
@@ -173,11 +182,12 @@ def load_camera_array(path: Path) -> CameraArray:
                 port=port,
                 size=camera_data["size"],
                 rotation_count=camera_data.get("rotation_count", 0),
-                error=camera_data.get("error"),
+                # WRAP SCALARS IN _clean_scalar
+                error=_clean_scalar(camera_data.get("error")),
                 matrix=matrix,
                 distortions=distortions,
-                exposure=camera_data.get("exposure"),
-                grid_count=camera_data.get("grid_count"),
+                exposure=_clean_scalar(camera_data.get("exposure")),
+                grid_count=_clean_scalar(camera_data.get("grid_count")),
                 ignore=camera_data.get("ignore", False),
                 translation=translation,
                 rotation=rotation,
@@ -194,16 +204,6 @@ def load_camera_array(path: Path) -> CameraArray:
 def save_camera_array(camera_array: CameraArray, path: Path) -> None:
     """
     Save CameraArray to TOML file.
-
-    Serializes all CameraData objects to TOML format. Numpy arrays are converted
-    to lists for compatibility. Rotation is stored as 3x1 Rodrigues vector.
-
-    Args:
-        camera_array: CameraArray to serialize
-        path: Target file path (parent directories must exist)
-
-    Raises:
-        PersistenceError: If serialization fails or file cannot be written
     """
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -228,7 +228,12 @@ def save_camera_array(camera_array: CameraArray, path: Path) -> None:
                 "grid_count": camera.grid_count,
                 "fisheye": camera.fisheye,
             }
-            cameras_data[str(port)] = camera_dict
+
+            # In TOML, a missing key is the correct way to represent "None/Null".
+            # This prevents rtoml from writing "null" strings.
+            clean_camera_dict = {k: v for k, v in camera_dict.items() if v is not None}
+
+            cameras_data[str(port)] = clean_camera_dict
 
         data = {"cameras": cameras_data}
         _write_toml(data, path)

@@ -93,14 +93,14 @@ def test_capture_volume_filter(tmp_path: Path):
     capture_volume = CaptureVolume(camera_array, point_estimates)
     logger.info("CaptureVolume initialized")
 
-    capture_volume._save(directory=tmp_path, descriptor="initial")
-    capture_volume.optimize()
-    capture_volume._save(directory=tmp_path, descriptor="post_optimization")
-
     logger.info("Point counts BEFORE filtering:")
     logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
     logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")
     logger.info(f"  Camera indices length: {len(capture_volume.point_estimates.camera_indices)}")
+
+    capture_volume._save(directory=tmp_path, descriptor="initial")
+    capture_volume.optimize()
+    capture_volume._save(directory=tmp_path, descriptor="post_optimization")
 
     filtered_fraction = 0.5
     logger.info(f"Filtering out worse fitting {filtered_fraction * 100:.1f}% of points")
@@ -124,6 +124,6 @@ if __name__ == "__main__":
     setup_logging()
 
     temp = Path(__file__).parent / "debug"
-    test_bundle_adjust_with_unlinked_camera(temp)
-    # test_capture_volume_filter(temp)
+    # test_bundle_adjust_with_unlinked_camera(temp)
+    test_capture_volume_filter(temp)
     logger.info("test debug complete")

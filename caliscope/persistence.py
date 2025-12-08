@@ -20,7 +20,9 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
+import rtoml
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.calibration.charuco import Charuco
@@ -34,6 +36,63 @@ class PersistenceError(Exception):
     """Raised when file I/O or data validation fails."""
 
     pass
+
+
+# ============================================================================
+# Module Constants
+# ============================================================================
+
+CSV_FLOAT_PRECISION = "%.6f"  # 6 decimal places = micron precision at meter scale
+
+
+# ============================================================================
+# Private Helper Functions
+# ============================================================================
+
+
+def _array_to_list(arr: np.ndarray | None) -> list | None:
+    """
+    Convert numpy array to list for TOML serialization.
+
+    Args:
+        arr: Numpy array or None
+
+    Returns:
+        List representation or None
+    """
+    return arr.tolist() if arr is not None else None
+
+
+def _list_to_array(lst: list | None, dtype=np.float64) -> np.ndarray | None:
+    """
+    Convert list back to numpy array from TOML deserialization.
+
+    Args:
+        lst: List representation or None
+        dtype: Numpy dtype for array reconstruction
+
+    Returns:
+        Numpy array or None
+    """
+    return np.array(lst, dtype=dtype) if lst is not None else None
+
+
+def _write_toml(data: dict, path: Path) -> None:
+    """
+    Write TOML file directly with error handling.
+
+    Args:
+        data: Dictionary to serialize
+        path: Target file path
+
+    Raises:
+        PersistenceError: If write fails
+    """
+    try:
+        with open(path, "w") as f:
+            rtoml.dump(data, f)
+    except Exception as e:
+        raise PersistenceError(f"Failed to write {path}: {e}") from e
 
 
 # ============================================================================
@@ -93,7 +152,14 @@ def load_charuco(path: Path) -> Charuco:
     Raises:
         PersistenceError: If file doesn't exist or contains invalid board parameters
     """
-    raise NotImplementedError("load_charuco not yet implemented")
+    if not path.exists():
+        raise PersistenceError(f"Charuco file not found: {path}")
+
+    try:
+        data = rtoml.load(path)
+        return Charuco(**data)
+    except Exception as e:
+        raise PersistenceError(f"Failed to load Charuco from {path}: {e}") from e
 
 
 def save_charuco(charuco: Charuco, path: Path) -> None:
@@ -107,7 +173,10 @@ def save_charuco(charuco: Charuco, path: Path) -> None:
     Raises:
         PersistenceError: If serialization or write fails
     """
-    raise NotImplementedError("save_charuco not yet implemented")
+    try:
+        _write_toml(charuco.__dict__, path)
+    except Exception as e:
+        raise PersistenceError(f"Failed to save Charuco to {path}: {e}") from e
 
 
 def load_point_estimates(path: Path) -> PointEstimates:
@@ -221,15 +290,15 @@ def save_capture_volume_metadata(metadata: dict[str, Any], path: Path) -> None:
     raise NotImplementedError("save_capture_volume_metadata not yet implemented")
 
 
-def load_app_settings(path: Path) -> dict[str, Any]:
+def load_project_settings(path: Path) -> dict[str, Any]:
     """
-    Load application settings from TOML file.
+    Load project settings from TOML file.
 
     Settings include: fps_sync_stream_processing, save_tracked_points_video,
-    camera_count, and other application configuration.
+    camera_count, creation_date, and other project configuration.
 
     Args:
-        path: Path to app_settings.toml
+        path: Path to project_settings.toml
 
     Returns:
         Dictionary of settings
@@ -237,12 +306,12 @@ def load_app_settings(path: Path) -> dict[str, Any]:
     Raises:
         PersistenceError: If file doesn't exist or format is invalid
     """
-    raise NotImplementedError("load_app_settings not yet implemented")
+    raise NotImplementedError("load_project_settings not yet implemented")
 
 
-def save_app_settings(settings: dict[str, Any], path: Path) -> None:
+def save_project_settings(settings: dict[str, Any], path: Path) -> None:
     """
-    Save application settings to TOML file.
+    Save project settings to TOML file.
 
     Args:
         settings: Settings dictionary
@@ -251,7 +320,7 @@ def save_app_settings(settings: dict[str, Any], path: Path) -> None:
     Raises:
         PersistenceError: If serialization or write fails
     """
-    raise NotImplementedError("save_app_settings not yet implemented")
+    raise NotImplementedError("save_project_settings not yet implemented")
 
 
 # ============================================================================
@@ -340,7 +409,7 @@ def migrate_legacy_config(legacy_config_path: Path, target_dir: Path) -> None:
     - point_estimates.toml (if present)
     - stereo_pairs.toml (if stereo pairs present)
     - capture_volume.toml (if capture volume metadata present)
-    - app_settings.toml
+    - project_settings.toml
 
     Target directory must exist. Existing files will be overwritten.
 

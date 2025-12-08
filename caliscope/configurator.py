@@ -15,6 +15,7 @@ from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope import persistence
 
 logger = logging.getLogger(__name__)
 
@@ -228,35 +229,17 @@ class Configurator:
         """
         Charuco will always be available as it is created when initializing the config
         """
-
-        logger.info("Loading charuco from config")
-        params = self.dict["charuco"]
-
-        # the below is intended to catch people using older configs without this info
-        # if you come across this in mid 2025 or later, these may be safe to delete
-        logger.info(f"charuco param are: {params}:")
-        if "legacy_pattern" not in params.keys():
-            params["legacy_pattern"] = False
-
-        charuco = Charuco(
-            columns=params["columns"],
-            rows=params["rows"],
-            board_height=params["board_height"],
-            board_width=params["board_width"],
-            dictionary=params["dictionary"],
-            units=params["units"],
-            aruco_scale=params["aruco_scale"],
-            square_size_overide_cm=params["square_size_overide_cm"],
-            inverted=params["inverted"],
-            legacy_pattern=params["legacy_pattern"],
-        )
-
-        return charuco
+        charuco_path = self.workspace_path / "charuco.toml"
+        return persistence.load_charuco(charuco_path)
 
     def save_charuco(self, charuco: Charuco):
-        self.dict["charuco"] = charuco.__dict__
-        logger.info(f"Saving charuco with params {charuco.__dict__} to config")
-        self.update_config_toml()
+        charuco_path = self.workspace_path / "charuco.toml"
+        try:
+            persistence.save_charuco(charuco, charuco_path)
+            logger.info(f"Charuco saved to {charuco_path}")
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to save charuco: {e}")
+            raise
 
     def save_camera(self, camera: CameraData):
         def none_or_list(value):

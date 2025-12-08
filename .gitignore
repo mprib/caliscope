@@ -1,4 +1,4 @@
-scripts/keypoints_from_face/sample_project/*
+scripts/*
 tests/debug/*
 *context.txt
 *.png

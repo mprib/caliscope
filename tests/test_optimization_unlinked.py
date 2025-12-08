@@ -37,7 +37,10 @@ def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
 
-    paired_pose_network: PairedPoseNetwork = build_paired_pose_network(image_points, camera_array)
+    # note: using stereocalibrate to attempt to improve speed of calibration
+    paired_pose_network: PairedPoseNetwork = build_paired_pose_network(
+        image_points, camera_array, method="stereocalibrate"
+    )
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array)
 
@@ -122,5 +125,5 @@ if __name__ == "__main__":
 
     temp = Path(__file__).parent / "debug"
     test_bundle_adjust_with_unlinked_camera(temp)
-    test_capture_volume_filter(temp)
+    # test_capture_volume_filter(temp)
     logger.info("test debug complete")

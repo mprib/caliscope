@@ -1,5 +1,3 @@
-# %%
-
 import logging
 from dataclasses import asdict
 from datetime import datetime
@@ -7,7 +5,6 @@ from enum import Enum
 from os.path import exists
 from pathlib import Path
 
-import cv2
 import numpy as np
 import rtoml
 
@@ -45,6 +42,7 @@ class Configurator:
         self.workspace_path = workspace_path
         self.config_toml_path = Path(self.workspace_path, "config.toml")
         self.point_estimates_toml_path = Path(self.workspace_path, "point_estimates.toml")
+        self.camera_array_path = Path(self.workspace_path, "camera_array.toml")
 
         if exists(self.config_toml_path):
             self.refresh_config_from_toml()
@@ -64,6 +62,10 @@ class Configurator:
             # default values enforced below
             charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
             self.save_charuco(charuco)
+
+            # Create empty camera array for new projects
+            empty_array = CameraArray({})
+            self.save_camera_array(empty_array)
 
     def save_camera_count(self, count):
         self.camera_count = count
@@ -142,76 +144,25 @@ class Configurator:
         logger.info("Successfully saved stereo calibration results.")
 
     def get_configured_camera_data(self) -> dict[int, CameraData]:
-        all_camera_data = {}
-
-        for key, params in self.dict.items():
-            if key.startswith("cam_"):
-                port = params["port"]
-
-                if (
-                    "error" in params.keys() and params["error"] is not None and params["error"] != "null"
-                ):  # intrinsics have been calculated
-                    error = params["error"]
-                    matrix = np.array(params["matrix"])
-                    distortions = np.array(params["distortions"])
-                    grid_count = params["grid_count"]
-                else:
-                    error = None
-                    matrix = None
-                    distortions = None
-                    grid_count = None
-
-                if (
-                    "translation" in params.keys()
-                    and params["translation"] is not None
-                    and params["translation"] != "null"
-                ):  # Extrinsics have been calculated
-                    translation = np.array(params["translation"])
-                    rotation = np.array(params["rotation"])
-
-                    if rotation.shape == (3,):  # camera rotation is stored as a matrix
-                        rotation = cv2.Rodrigues(rotation)[0]
-
-                else:
-                    translation = None
-                    rotation = None
-
-                if "ignore" in params.keys():
-                    ignore = params["ignore"]
-                else:
-                    ignore = False
-
-                logger.info(f"Adding camera {port} to calibrated camera array...")
-                cam_data = CameraData(
-                    port=port,
-                    size=params["size"],
-                    rotation_count=params["rotation_count"],
-                    error=error,
-                    matrix=matrix,
-                    distortions=distortions,
-                    grid_count=grid_count,
-                    ignore=ignore,
-                    translation=translation,
-                    rotation=rotation,
-                    fisheye=params.get("fisheye", False),
-                )
-
-                all_camera_data[port] = cam_data
-                logger.info(f"Camera successfully added at port {port}")
-
-        logger.info("Camera data loaded and being passed back to caller")
-        return all_camera_data
+        """
+        Load camera data from dedicated camera_array.toml file.
+        """
+        try:
+            camera_array = persistence.load_camera_array(self.camera_array_path)
+            return camera_array.cameras
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to load camera array: {e}")
+            raise
 
     def get_camera_array(self) -> CameraArray:
         """
-        Load camera array directly from config file. The results of capture volume
-        optimization and origin transformation will be reflected in this array
-        which can then be the basis for future 3d point estimation
+        Load camera array directly from camera_array.toml file.
         """
-        all_camera_data = self.get_configured_camera_data()
-        camera_array = CameraArray(all_camera_data)
-        logger.info("Camera array successfully created and being passed back to caller")
-        return camera_array
+        try:
+            return persistence.load_camera_array(self.camera_array_path)
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to load camera array: {e}")
+            raise
 
     def load_point_estimates_from_toml(self) -> PointEstimates:
         if "point_estimates" not in self.dict.keys():
@@ -227,7 +178,8 @@ class Configurator:
 
     def get_charuco(self) -> Charuco:
         """
-        Charuco will always be available as it is created when initializing the config
+        Load Charuco from dedicated charuco.toml file.
+        File must exist and be valid - no fallback to legacy config.toml.
         """
         charuco_path = self.workspace_path / "charuco.toml"
         return persistence.load_charuco(charuco_path)
@@ -242,42 +194,34 @@ class Configurator:
             raise
 
     def save_camera(self, camera: CameraData):
-        def none_or_list(value):
-            # required to make sensible numeric format
-            # otherwise toml formats as text
-            if value is None:
-                return None
-            else:
-                return value.tolist()
+        """
+        Save a single camera by loading the full array, updating it, and saving back.
+        Inefficient but maintains API compatibility during transition.
+        """
+        try:
+            # Load existing array (or empty if new project)
+            camera_array = persistence.load_camera_array(self.camera_array_path)
 
-        if camera.rotation is not None and camera.rotation.any():
-            # store rotation as 3 parameter rodrigues
-            rotation_for_config = cv2.Rodrigues(camera.rotation)[0][:, 0]
-            rotation_for_config = rotation_for_config.tolist()
-        else:
-            rotation_for_config = None
+            # Update the specific camera
+            camera_array.cameras[camera.port] = camera
 
-        params = {
-            "port": camera.port,
-            "size": camera.size,
-            "rotation_count": camera.rotation_count,
-            "error": camera.error,
-            "matrix": none_or_list(camera.matrix),
-            "distortions": none_or_list(camera.distortions),
-            "translation": none_or_list(camera.translation),
-            "rotation": rotation_for_config,
-            "exposure": camera.exposure,
-            "grid_count": camera.grid_count,
-            "fisheye": camera.fisheye,
-        }
-
-        self.dict["cam_" + str(camera.port)] = params
-        self.update_config_toml()
+            # Save back
+            persistence.save_camera_array(camera_array, self.camera_array_path)
+            logger.info(f"Camera {camera.port} saved to {self.camera_array_path}")
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to save camera {camera.port}: {e}")
+            raise
 
     def save_camera_array(self, camera_array: CameraArray):
-        logger.info("Saving camera array....")
-        for port, camera_data in camera_array.cameras.items():
-            self.save_camera(camera_data)
+        """
+        Save entire camera array to dedicated file.
+        """
+        try:
+            persistence.save_camera_array(camera_array, self.camera_array_path)
+            logger.info(f"Camera array saved to {self.camera_array_path}")
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to save camera array: {e}")
+            raise
 
     def save_point_estimates(self, point_estimates: PointEstimates):
         logger.info("Saving point estimates to toml...")

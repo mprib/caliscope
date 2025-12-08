@@ -19,12 +19,13 @@ I/O or validation failures.
 import logging
 from pathlib import Path
 from typing import Any
+import cv2
 
 import numpy as np
 import pandas as pd
 import rtoml
 
-from caliscope.cameras.camera_array import CameraArray
+from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.calibration.charuco import Charuco
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
@@ -63,18 +64,27 @@ def _array_to_list(arr: np.ndarray | None) -> list | None:
     return arr.tolist() if arr is not None else None
 
 
-def _list_to_array(lst: list | None, dtype=np.float64) -> np.ndarray | None:
+def _list_to_array(lst: Any, dtype=np.float64) -> np.ndarray | None:
     """
     Convert list back to numpy array from TOML deserialization.
 
+    Handles both proper TOML null (None) and string literal "null".
+
     Args:
-        lst: List representation or None
+        lst: List representation, None, "null" string, or other value from TOML
         dtype: Numpy dtype for array reconstruction
 
     Returns:
         Numpy array or None
+
+    Raises:
+        ValueError: If lst is not None, "null", or a valid list
     """
-    return np.array(lst, dtype=dtype) if lst is not None else None
+    if lst is None or lst == "null":
+        return None
+    if not isinstance(lst, list):
+        raise ValueError(f"Expected list or None, got {type(lst).__name__}: {lst}")
+    return np.array(lst, dtype=dtype)
 
 
 def _write_toml(data: dict, path: Path) -> None:
@@ -108,6 +118,9 @@ def load_camera_array(path: Path) -> CameraArray:
     entry containing intrinsics (matrix, distortions), extrinsics (rotation,
     translation), and metadata (error, grid_count, etc.).
 
+    Rotation is stored as a 3x1 Rodrigues vector in TOML, but may be 3x3 matrix
+    in legacy-migrated data. This function handles both formats.
+
     Args:
         path: Path to camera_array.toml
 
@@ -118,7 +131,64 @@ def load_camera_array(path: Path) -> CameraArray:
         PersistenceError: If file doesn't exist, is invalid TOML, missing required
                          fields, or contains malformed numpy array data
     """
-    raise NotImplementedError("load_camera_array not yet implemented")
+    if not path.exists():
+        raise PersistenceError(f"CameraArray file not found: {path}")
+
+    try:
+        data = rtoml.load(path)
+    except Exception as e:
+        raise PersistenceError(f"Failed to load CameraArray from {path}: {e}") from e
+
+    # Handle empty camera array file
+    if not data or "cameras" not in data:
+        return CameraArray({})
+
+    cameras_dict = {}
+    for port_str, camera_data in data["cameras"].items():
+        logger.info(f"Loading Port {port_str}: {camera_data}")
+        try:
+            port = int(port_str)
+
+            # Convert numpy arrays from lists
+            matrix = _list_to_array(camera_data.get("matrix"))
+            distortions = _list_to_array(camera_data.get("distortions"))
+            translation = _list_to_array(camera_data.get("translation"))
+
+            # Handle rotation: may be 3x3 matrix (legacy) or 3x1 Rodrigues (new)
+            rotation_raw = _list_to_array(camera_data.get("rotation"))
+            if rotation_raw is not None:
+                rotation_array = rotation_raw
+                if rotation_array.shape == (3, 3):
+                    # Legacy format: 3x3 matrix, convert to Rodrigues
+                    rotation = cv2.Rodrigues(rotation_array)[0][:, 0]
+                elif rotation_array.shape in [(3,), (3, 1)]:
+                    # New format: already Rodrigues vector
+                    rotation = rotation_array.flatten()
+                else:
+                    raise ValueError(f"Invalid rotation shape: {rotation_array.shape}")
+            else:
+                rotation = None
+
+            camera = CameraData(
+                port=port,
+                size=camera_data["size"],
+                rotation_count=camera_data.get("rotation_count", 0),
+                error=camera_data.get("error"),
+                matrix=matrix,
+                distortions=distortions,
+                exposure=camera_data.get("exposure"),
+                grid_count=camera_data.get("grid_count"),
+                ignore=camera_data.get("ignore", False),
+                translation=translation,
+                rotation=rotation,
+                fisheye=camera_data.get("fisheye", False),
+            )
+            cameras_dict[port] = camera
+
+        except Exception as e:
+            raise PersistenceError(f"Failed to parse camera {port_str}: {e}") from e
+
+    return CameraArray(cameras_dict)
 
 
 def save_camera_array(camera_array: CameraArray, path: Path) -> None:
@@ -126,8 +196,7 @@ def save_camera_array(camera_array: CameraArray, path: Path) -> None:
     Save CameraArray to TOML file.
 
     Serializes all CameraData objects to TOML format. Numpy arrays are converted
-    to lists for compatibility. The write is performed atomically by first
-    writing to a temporary file then renaming it to the target path.
+    to lists for compatibility. Rotation is stored as 3x1 Rodrigues vector.
 
     Args:
         camera_array: CameraArray to serialize
@@ -136,7 +205,36 @@ def save_camera_array(camera_array: CameraArray, path: Path) -> None:
     Raises:
         PersistenceError: If serialization fails or file cannot be written
     """
-    raise NotImplementedError("save_camera_array not yet implemented")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        cameras_data = {}
+        for port, camera in camera_array.cameras.items():
+            # Convert rotation from 3x3 matrix to 3x1 Rodrigues vector for storage
+            rotation_for_config = None
+            if camera.rotation is not None and camera.rotation.any():
+                rotation_for_config = cv2.Rodrigues(camera.rotation)[0][:, 0].tolist()
+
+            camera_dict = {
+                "port": camera.port,
+                "size": camera.size,
+                "rotation_count": camera.rotation_count,
+                "error": camera.error,
+                "matrix": _array_to_list(camera.matrix),
+                "distortions": _array_to_list(camera.distortions),
+                "translation": _array_to_list(camera.translation),
+                "rotation": rotation_for_config,
+                "exposure": camera.exposure,
+                "grid_count": camera.grid_count,
+                "fisheye": camera.fisheye,
+            }
+            cameras_data[str(port)] = camera_dict
+
+        data = {"cameras": cameras_data}
+        _write_toml(data, path)
+
+    except Exception as e:
+        raise PersistenceError(f"Failed to save CameraArray to {path}: {e}") from e
 
 
 def load_charuco(path: Path) -> Charuco:

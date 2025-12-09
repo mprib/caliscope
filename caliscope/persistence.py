@@ -26,9 +26,11 @@ import pandas as pd
 import rtoml
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.post_processing.point_data import ImagePointSchema, ImagePoints, WorldPoints
 from caliscope.calibration.charuco import Charuco
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
+from caliscope.calibration.array_initialization.stereopairs import StereoPair
 
 logger = logging.getLogger(__name__)
 
@@ -300,7 +302,54 @@ def load_point_estimates(path: Path) -> PointEstimates:
         PersistenceError: If file doesn't exist or numpy arrays cannot be
                          reconstructed from stored lists
     """
-    raise NotImplementedError("load_point_estimates not yet implemented")
+    if not path.exists():
+        raise PersistenceError(f"Point estimates file not found: {path}")
+
+    try:
+        data = rtoml.load(path)
+        if not data:
+            raise PersistenceError(f"Point estimates file is empty: {path}")
+
+        # Convert all list fields back to numpy arrays
+        # Use explicit dtype matching to avoid type issues
+        sync_indices = _list_to_array(data.get("sync_indices"), dtype=np.int64)
+        camera_indices = _list_to_array(data.get("camera_indices"), dtype=np.int64)
+        point_id = _list_to_array(data.get("point_id"), dtype=np.int64)
+        img = _list_to_array(data.get("img"), dtype=np.float32)
+        obj_indices = _list_to_array(data.get("obj_indices"), dtype=np.int64)
+        obj = _list_to_array(data.get("obj"), dtype=np.float32)
+
+        # Validate that we have all required fields
+        required_fields = ["sync_indices", "camera_indices", "point_id", "img", "obj_indices", "obj"]
+        for field in required_fields:
+            if locals()[field] is None:
+                raise PersistenceError(f"Missing required field '{field}' in point estimates")
+
+        # Validate array shapes and consistency
+        if img.ndim != 2 or img.shape[1] != 2:
+            raise PersistenceError(f"Invalid img shape: {img.shape}, expected (N, 2)")
+
+        if obj.ndim != 2 or obj.shape[1] != 3:
+            raise PersistenceError(f"Invalid obj shape: {obj.shape}, expected (N, 3)")
+
+        n_observations = len(sync_indices)
+        if not all(len(arr) == n_observations for arr in [camera_indices, point_id, obj_indices]):
+            raise PersistenceError("Inconsistent array lengths in point estimates")
+
+        if len(img) != n_observations:
+            raise PersistenceError(f"img array length {len(img)} doesn't match sync_indices length {n_observations}")
+
+        return PointEstimates(
+            sync_indices=sync_indices,
+            camera_indices=camera_indices,
+            point_id=point_id,
+            img=img,
+            obj_indices=obj_indices,
+            obj=obj,
+        )
+
+    except Exception as e:
+        raise PersistenceError(f"Failed to load point estimates from {path}: {e}") from e
 
 
 def save_point_estimates(point_estimates: PointEstimates, path: Path) -> None:
@@ -316,7 +365,20 @@ def save_point_estimates(point_estimates: PointEstimates, path: Path) -> None:
     Raises:
         PersistenceError: If serialization or write fails
     """
-    raise NotImplementedError("save_point_estimates not yet implemented")
+    try:
+        # Convert all numpy arrays to lists
+        data = {
+            "sync_indices": point_estimates.sync_indices.tolist(),
+            "camera_indices": point_estimates.camera_indices.tolist(),
+            "point_id": point_estimates.point_id.tolist(),
+            "img": point_estimates.img.tolist(),
+            "obj_indices": point_estimates.obj_indices.tolist(),
+            "obj": point_estimates.obj.tolist(),
+        }
+
+        _write_toml(data, path)
+    except Exception as e:
+        raise PersistenceError(f"Failed to save point estimates to {path}: {e}") from e
 
 
 def load_stereo_pairs(path: Path) -> PairedPoseNetwork:
@@ -324,7 +386,10 @@ def load_stereo_pairs(path: Path) -> PairedPoseNetwork:
     Load PairedPoseNetwork from TOML file.
 
     The file stores only directly calibrated stereo pairs (primary_port <
-    secondary_port). Bridged pairs are reconstructed in-memory during load.
+    secondary_port) with Rodrigues rotation vectors. On load, we:
+    1. Convert Rodrigues vectors back to 3x3 rotation matrices
+    2. Reconstruct the full graph by adding inverted pairs
+    3. Build bridged connections for missing pairs
 
     Args:
         path: Path to stereo_pairs.toml
@@ -335,7 +400,64 @@ def load_stereo_pairs(path: Path) -> PairedPoseNetwork:
     Raises:
         PersistenceError: If file doesn't exist or format is invalid
     """
-    raise NotImplementedError("load_stereo_pairs not yet implemented")
+    if not path.exists():
+        raise PersistenceError(f"Stereo pairs file not found: {path}")
+
+    try:
+        data = rtoml.load(path)
+        if not data:
+            # Empty file - return empty network
+            return PairedPoseNetwork({})
+
+        raw_pairs = {}
+        for key, pair_data in data.items():
+            # Parse key format: "stereo_1_2"
+            try:
+                _, port_a_str, port_b_str = key.split("_")
+                port_a, port_b = int(port_a_str), int(port_b_str)
+            except (ValueError, AttributeError):
+                logger.warning(f"Skipping invalid stereo pair key: {key}")
+                continue
+
+            # Convert Rodrigues vector to 3x3 rotation matrix
+            rotation_rodrigues = _list_to_array(pair_data.get("rotation"))
+            if rotation_rodrigues is None:
+                logger.warning(f"Missing rotation for pair {key}, skipping")
+                continue
+
+            if rotation_rodrigues.shape != (3,):
+                logger.warning(f"Invalid rotation shape for pair {key}: {rotation_rodrigues.shape}, expected (3,)")
+                continue
+
+            rotation_matrix = cv2.Rodrigues(rotation_rodrigues)[0]
+
+            translation = _list_to_array(pair_data.get("translation"))
+            if translation is None:
+                logger.warning(f"Missing translation for pair {key}, skipping")
+                continue
+
+            if translation.shape != (3, 1) and translation.shape != (3,):
+                logger.warning(f"Invalid translation shape for pair {key}: {translation.shape}, expected (3,1) or (3,)")
+                continue
+
+            # Ensure translation is column vector
+            if translation.shape == (3,):
+                translation = translation.reshape(3, 1)
+
+            pair = StereoPair(
+                primary_port=port_a,
+                secondary_port=port_b,
+                error_score=float(pair_data.get("RMSE", 0.0)),
+                rotation=rotation_matrix,
+                translation=translation,
+            )
+            raw_pairs[pair.pair] = pair
+
+        # Use PairedPoseNetwork's built-in graph reconstruction
+        return PairedPoseNetwork.from_raw_estimates(raw_pairs)
+
+    except Exception as e:
+        raise PersistenceError(f"Failed to load stereo pairs from {path}: {e}") from e
 
 
 def save_stereo_pairs(paired_pose_network: PairedPoseNetwork, path: Path) -> None:
@@ -343,7 +465,8 @@ def save_stereo_pairs(paired_pose_network: PairedPoseNetwork, path: Path) -> Non
     Save PairedPoseNetwork to TOML file.
 
     Only stores raw calibrated pairs (primary_port < secondary_port) to avoid
-    duplication. The full graph can be reconstructed on load.
+    duplication. Converts 3x3 rotation matrices to 3x1 Rodrigues vectors for
+    storage efficiency.
 
     Args:
         paired_pose_network: PairedPoseNetwork to serialize
@@ -352,7 +475,39 @@ def save_stereo_pairs(paired_pose_network: PairedPoseNetwork, path: Path) -> Non
     Raises:
         PersistenceError: If serialization or write fails
     """
-    raise NotImplementedError("save_stereo_pairs not yet implemented")
+    try:
+        # Get only forward pairs (a < b) to avoid duplication
+        stereo_data = {}
+        for (a, b), pair in paired_pose_network._pairs.items():
+            if a >= b:  # Skip inverted pairs
+                continue
+
+            # Convert 3x3 rotation matrix to 3x1 Rodrigues vector
+            rotation_rodrigues = None
+            if pair.rotation is not None:
+                rodrigues, _ = cv2.Rodrigues(pair.rotation)
+                rotation_rodrigues = rodrigues.flatten().tolist()
+
+            # Ensure translation is list format
+            translation_list = None
+            if pair.translation is not None:
+                # Flatten to list, handling both (3,) and (3,1) shapes
+                translation_list = pair.translation.flatten().tolist()
+
+            pair_dict = {
+                "RMSE": pair.error_score,
+                "rotation": rotation_rodrigues,
+                "translation": translation_list,
+            }
+
+            # Filter out None values
+            pair_dict = {k: v for k, v in pair_dict.items() if v is not None}
+
+            stereo_data[f"stereo_{a}_{b}"] = pair_dict
+
+        _write_toml(stereo_data, path)
+    except Exception as e:
+        raise PersistenceError(f"Failed to save stereo pairs to {path}: {e}") from e
 
 
 # ============================================================================
@@ -376,7 +531,18 @@ def load_capture_volume_metadata(path: Path) -> dict[str, Any]:
     Raises:
         PersistenceError: If file doesn't exist or format is invalid
     """
-    raise NotImplementedError("load_capture_volume_metadata not yet implemented")
+    if not path.exists():
+        raise PersistenceError(f"Capture volume metadata file not found: {path}")
+
+    try:
+        data = rtoml.load(path)
+        # Handle missing keys gracefully - return None if not present
+        return {
+            "stage": data.get("stage"),
+            "origin_sync_index": data.get("origin_sync_index"),
+        }
+    except Exception as e:
+        raise PersistenceError(f"Failed to load capture volume metadata from {path}: {e}") from e
 
 
 def save_capture_volume_metadata(metadata: dict[str, Any], path: Path) -> None:
@@ -384,13 +550,18 @@ def save_capture_volume_metadata(metadata: dict[str, Any], path: Path) -> None:
     Save capture volume metadata to TOML file.
 
     Args:
-        metadata: Metadata dictionary
+        metadata: Metadata dictionary with keys: stage, origin_sync_index
         path: Target file path
 
     Raises:
         PersistenceError: If serialization or write fails
     """
-    raise NotImplementedError("save_capture_volume_metadata not yet implemented")
+    try:
+        # Filter out None values - TOML doesn't have null type
+        data_to_save = {k: v for k, v in metadata.items() if v is not None}
+        _write_toml(data_to_save, path)
+    except Exception as e:
+        raise PersistenceError(f"Failed to save capture volume metadata to {path}: {e}") from e
 
 
 def load_project_settings(path: Path) -> dict[str, Any]:
@@ -404,12 +575,21 @@ def load_project_settings(path: Path) -> dict[str, Any]:
         path: Path to project_settings.toml
 
     Returns:
-        Dictionary of settings
+        Dictionary of settings. Returns empty dict if file doesn't exist
+        (for backward compatibility with new projects).
 
     Raises:
-        PersistenceError: If file doesn't exist or format is invalid
+        PersistenceError: If file exists but format is invalid
     """
-    raise NotImplementedError("load_project_settings not yet implemented")
+    if not path.exists():
+        # Return empty dict for new projects - Configurator will use defaults
+        return {}
+
+    try:
+        data = rtoml.load(path)
+        return data
+    except Exception as e:
+        raise PersistenceError(f"Failed to load project settings from {path}: {e}") from e
 
 
 def save_project_settings(settings: dict[str, Any], path: Path) -> None:
@@ -423,7 +603,12 @@ def save_project_settings(settings: dict[str, Any], path: Path) -> None:
     Raises:
         PersistenceError: If serialization or write fails
     """
-    raise NotImplementedError("save_project_settings not yet implemented")
+    try:
+        # Filter out None values
+        data_to_save = {k: v for k, v in settings.items() if v is not None}
+        _write_toml(data_to_save, path)
+    except Exception as e:
+        raise PersistenceError(f"Failed to save project settings to {path}: {e}") from e
 
 
 # ============================================================================
@@ -431,7 +616,7 @@ def save_project_settings(settings: dict[str, Any], path: Path) -> None:
 # ============================================================================
 
 
-def load_image_points_csv(path: Path) -> pd.DataFrame:
+def load_image_points_csv(path: Path) -> ImagePoints:
     """
     Load 2D image points from CSV file.
 
@@ -447,10 +632,19 @@ def load_image_points_csv(path: Path) -> pd.DataFrame:
         PersistenceError: If file doesn't exist, CSV is malformed, or data fails
                          validation against ImagePointSchema
     """
-    raise NotImplementedError("load_image_points_csv not yet implemented")
+    if not path.exists():
+        raise PersistenceError(f"Image points CSV file not found: {path}")
+
+    try:
+        df = pd.read_csv(path)
+        # Validate with Pandera schema
+        validated_df = ImagePointSchema.validate(df)
+        return ImagePoints(validated_df)
+    except Exception as e:
+        raise PersistenceError(f"Failed to load image points from {path}: {e}") from e
 
 
-def save_image_points_csv(df: pd.DataFrame, path: Path) -> None:
+def save_image_points_csv(image_points: ImagePoints, path: Path) -> None:
     """
     Save 2D image points to CSV file.
 
@@ -461,10 +655,17 @@ def save_image_points_csv(df: pd.DataFrame, path: Path) -> None:
     Raises:
         PersistenceError: If validation fails or file cannot be written
     """
-    raise NotImplementedError("save_image_points_csv not yet implemented")
+    try:
+        # Validate before saving
+        validated_df: pd.DataFrame = ImagePointSchema.validate(image_points.df)
+        # Ensure parent directory exists
+        path.parent.mkdir(parents=True, exist_ok=True)
+        validated_df.to_csv(path, index=False, float_format=CSV_FLOAT_PRECISION)
+    except Exception as e:
+        raise PersistenceError(f"Failed to save image points to {path}: {e}") from e
 
 
-def load_world_points_csv(path: Path) -> pd.DataFrame:
+def load_world_points_csv(path: Path) -> WorldPoints:
     """
     Load 3D world points from CSV file.
 
@@ -480,10 +681,20 @@ def load_world_points_csv(path: Path) -> pd.DataFrame:
         PersistenceError: If file doesn't exist, CSV is malformed, or data fails
                          validation against WorldPointSchema
     """
+    # if not path.exists():
+    #     raise PersistenceError(f"World points CSV file not found: {path}")
+    #
+    # try:
+    #     df = pd.read_csv(path)
+    #     # Validate with Pandera schema
+    #     validated_df = WorldPointSchema.validate(df)
+    #     return WorldPoints(validated_df)
+    # except Exception as e:
+    #     raise PersistenceError(f"Failed to load image points from {path}: {e}") from e
     raise NotImplementedError("load_world_points_csv not yet implemented")
 
 
-def save_world_points_csv(df: pd.DataFrame, path: Path) -> None:
+def save_world_points_csv(world_points: WorldPoints, path: Path) -> None:
     """
     Save 3D world points to CSV file.
 
@@ -495,32 +706,3 @@ def save_world_points_csv(df: pd.DataFrame, path: Path) -> None:
         PersistenceError: If validation fails or file cannot be written
     """
     raise NotImplementedError("save_world_points_csv not yet implemented")
-
-
-# ============================================================================
-# Legacy Migration
-# ============================================================================
-
-
-def migrate_legacy_config(legacy_config_path: Path, target_dir: Path) -> None:
-    """
-    Migrate monolithic config.toml to per-object files.
-
-    Reads a legacy config.toml and splits it into separate files:
-    - camera_array.toml
-    - charuco.toml
-    - point_estimates.toml (if present)
-    - stereo_pairs.toml (if stereo pairs present)
-    - capture_volume.toml (if capture volume metadata present)
-    - project_settings.toml
-
-    Target directory must exist. Existing files will be overwritten.
-
-    Args:
-        legacy_config_path: Path to old config.toml
-        target_dir: Workspace directory for new files
-
-    Raises:
-        PersistenceError: If migration fails at any step
-    """
-    raise NotImplementedError("migrate_legacy_config not yet implemented")

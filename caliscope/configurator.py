@@ -1,25 +1,21 @@
-# %%
-
 import logging
-from dataclasses import asdict
 from datetime import datetime
 from enum import Enum
 from os.path import exists
 from pathlib import Path
 
-import cv2
-import numpy as np
 import rtoml
 
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope import persistence
 
 logger = logging.getLogger(__name__)
 
 
-class ConfigSettings(Enum):
+class ProjectSettings(Enum):
     """
     Control settings used to manage the processing of data
     """
@@ -44,6 +40,7 @@ class Configurator:
         self.workspace_path = workspace_path
         self.config_toml_path = Path(self.workspace_path, "config.toml")
         self.point_estimates_toml_path = Path(self.workspace_path, "point_estimates.toml")
+        self.camera_array_path = Path(self.workspace_path, "camera_array.toml")
 
         if exists(self.config_toml_path):
             self.refresh_config_from_toml()
@@ -54,40 +51,50 @@ class Configurator:
         else:
             logger.info("No existing config.toml found; creating starter file with charuco")
             self.dict = rtoml.loads("")
-            self.dict[ConfigSettings.creation_date.value] = datetime.now()
-            self.dict[ConfigSettings.camera_count.value] = 0
-            self.dict[ConfigSettings.save_tracked_points_video.value] = True
-            self.dict[ConfigSettings.fps_sync_stream_processing.value] = 100
+            self.dict[ProjectSettings.creation_date.value] = datetime.now()
+            self.dict[ProjectSettings.camera_count.value] = 0
+            self.dict[ProjectSettings.save_tracked_points_video.value] = True
+            self.dict[ProjectSettings.fps_sync_stream_processing.value] = 100
             self.update_config_toml()
 
             # default values enforced below
             charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
             self.save_charuco(charuco)
 
+            # Create empty camera array for new projects
+            empty_array = CameraArray({})
+            self.save_camera_array(empty_array)
+
     def save_camera_count(self, count):
         self.camera_count = count
-        self.dict[ConfigSettings.camera_count.value] = count
+        self.dict[ProjectSettings.camera_count.value] = count
         self.update_config_toml()
 
     def get_camera_count(self):
-        return self.dict[ConfigSettings.camera_count.value]
+        return self.dict[ProjectSettings.camera_count.value]
 
     def get_save_tracked_points(self):
-        if ConfigSettings.save_tracked_points_video.value not in self.dict.keys():
+        if ProjectSettings.save_tracked_points_video.value not in self.dict.keys():
             return True
         else:
-            return self.dict[ConfigSettings.save_tracked_points_video.value]
+            return self.dict[ProjectSettings.save_tracked_points_video.value]
 
     def get_fps_sync_stream_processing(self):
-        if ConfigSettings.fps_sync_stream_processing.value not in self.dict.keys():
+        if ProjectSettings.fps_sync_stream_processing.value not in self.dict.keys():
             return 100
         else:
-            return self.dict[ConfigSettings.fps_sync_stream_processing.value]
+            return self.dict[ProjectSettings.fps_sync_stream_processing.value]
 
     def refresh_config_from_toml(self):
-        logger.info("Populating config dictionary with config.toml data")
-        # with open(self.config_toml_path, "r") as f:
-        self.dict = rtoml.load(self.config_toml_path)
+        """Load project settings from dedicated file."""
+        logger.info("Loading project settings from project_settings.toml")
+        settings_path = self.workspace_path / "project_settings.toml"
+        try:
+            self.dict = persistence.load_project_settings(settings_path)
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to load project settings: {e}")
+            # Initialize with empty dict for new projects
+            self.dict = {}
 
     def refresh_point_estimates_from_toml(self):
         logger.info("Populating config dictionary with point_estimates.toml data")
@@ -95,219 +102,122 @@ class Configurator:
         self.dict["point_estimates"] = rtoml.load(self.point_estimates_toml_path)
 
     def update_config_toml(self):
-        # alphabetize by key to maintain standardized layout
-        sorted_dict = {key: value for key, value in sorted(self.dict.items())}
-        self.dict = sorted_dict
+        """Save project settings to dedicated file."""
+        # Filter out point_estimates if it's in dict (legacy compatibility)
+        dict_wo_point_estimates = {k: v for k, v in self.dict.items() if k != "point_estimates"}
 
-        dict_wo_point_estimates = {key: value for key, value in self.dict.items() if key != "point_estimates"}
-        with open(self.config_toml_path, "w") as f:
-            rtoml.dump(dict_wo_point_estimates, f)
+        settings_path = self.workspace_path / "project_settings.toml"
+        try:
+            persistence.save_project_settings(dict_wo_point_estimates, settings_path)
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to save project settings: {e}")
+            raise
 
     def save_capture_volume(self, capture_volume: CaptureVolume):
-        # self.point_estimates = self.capture_volume.point_estimates
-        # self.camera_array = self.capture_volume.camera_array
+        """Delegate to persistence layer for both camera array and metadata."""
+        # Save camera array
         self.save_camera_array(capture_volume.camera_array)
+
+        # Save point estimates
         self.save_point_estimates(capture_volume.point_estimates)
 
-        self.dict["capture_volume"] = {}
-        # self["capture_volume"]["RMSE_summary"] = self.capture_volume.rmse
-        self.dict["capture_volume"]["stage"] = capture_volume.stage
-        self.dict["capture_volume"]["origin_sync_index"] = capture_volume.origin_sync_index
-        self.update_config_toml()
-
-    def save_stereo_results(self, stereo_results: dict):
-        """
-        Saves the results of a stereo calibration process to the config file.
-
-        This method will first clear any existing stereo calibration data
-        before writing the new results.
-
-        Args:
-            stereo_results (dict): A dictionary where keys are 'stereo_1_2'
-                                   and values are dicts containing
-                                   'rotation', 'translation', and 'RMSE'.
-        """
-        logger.info("Clearing previous stereocalibrations from config...")
-        for key in self.dict.copy().keys():
-            if key.startswith("stereo_"):
-                del self.dict[key]
-
-        logger.info("Saving new stereo-pair extrinsic data to config...")
-        for pair, result_data in stereo_results.items():
-            config_key = f"stereo_{pair[0]}_{pair[1]}"
-            self.dict[config_key] = result_data  # The result_data is already a dict in the correct format
-
-        self.update_config_toml()
-        logger.info("Successfully saved stereo calibration results.")
+        # Save capture volume metadata
+        metadata = {
+            "stage": capture_volume.stage,
+            "origin_sync_index": capture_volume.origin_sync_index,
+        }
+        metadata_path = self.workspace_path / "capture_volume.toml"
+        try:
+            persistence.save_capture_volume_metadata(metadata, metadata_path)
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to save capture volume metadata: {e}")
+            raise
 
     def get_configured_camera_data(self) -> dict[int, CameraData]:
-        all_camera_data = {}
-
-        for key, params in self.dict.items():
-            if key.startswith("cam_"):
-                port = params["port"]
-
-                if (
-                    "error" in params.keys() and params["error"] is not None and params["error"] != "null"
-                ):  # intrinsics have been calculated
-                    error = params["error"]
-                    matrix = np.array(params["matrix"])
-                    distortions = np.array(params["distortions"])
-                    grid_count = params["grid_count"]
-                else:
-                    error = None
-                    matrix = None
-                    distortions = None
-                    grid_count = None
-
-                if (
-                    "translation" in params.keys()
-                    and params["translation"] is not None
-                    and params["translation"] != "null"
-                ):  # Extrinsics have been calculated
-                    translation = np.array(params["translation"])
-                    rotation = np.array(params["rotation"])
-
-                    if rotation.shape == (3,):  # camera rotation is stored as a matrix
-                        rotation = cv2.Rodrigues(rotation)[0]
-
-                else:
-                    translation = None
-                    rotation = None
-
-                if "ignore" in params.keys():
-                    ignore = params["ignore"]
-                else:
-                    ignore = False
-
-                logger.info(f"Adding camera {port} to calibrated camera array...")
-                cam_data = CameraData(
-                    port=port,
-                    size=params["size"],
-                    rotation_count=params["rotation_count"],
-                    error=error,
-                    matrix=matrix,
-                    distortions=distortions,
-                    grid_count=grid_count,
-                    ignore=ignore,
-                    translation=translation,
-                    rotation=rotation,
-                    fisheye=params.get("fisheye", False),
-                )
-
-                all_camera_data[port] = cam_data
-                logger.info(f"Camera successfully added at port {port}")
-
-        logger.info("Camera data loaded and being passed back to caller")
-        return all_camera_data
+        """
+        Load camera data from dedicated camera_array.toml file.
+        """
+        try:
+            camera_array = persistence.load_camera_array(self.camera_array_path)
+            return camera_array.cameras
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to load camera array: {e}")
+            raise
 
     def get_camera_array(self) -> CameraArray:
         """
-        Load camera array directly from config file. The results of capture volume
-        optimization and origin transformation will be reflected in this array
-        which can then be the basis for future 3d point estimation
+        Load camera array directly from camera_array.toml file.
         """
-        all_camera_data = self.get_configured_camera_data()
-        camera_array = CameraArray(all_camera_data)
-        logger.info("Camera array successfully created and being passed back to caller")
-        return camera_array
+        try:
+            return persistence.load_camera_array(self.camera_array_path)
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to load camera array: {e}")
+            raise
 
     def load_point_estimates_from_toml(self) -> PointEstimates:
-        if "point_estimates" not in self.dict.keys():
-            self.refresh_point_estimates_from_toml()
-
-        temp_data = self.dict["point_estimates"].copy()
-        for key, value in temp_data.items():
-            temp_data[key] = np.array(value)
-
-        point_estimates = PointEstimates(**temp_data)
-
-        return point_estimates
+        """Load point estimates from dedicated file."""
+        path = self.workspace_path / "point_estimates.toml"
+        try:
+            return persistence.load_point_estimates(path)
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to load point estimates: {e}")
+            raise
 
     def get_charuco(self) -> Charuco:
         """
-        Charuco will always be available as it is created when initializing the config
+        Load Charuco from dedicated charuco.toml file.
+        File must exist and be valid - no fallback to legacy config.toml.
         """
-
-        logger.info("Loading charuco from config")
-        params = self.dict["charuco"]
-
-        # the below is intended to catch people using older configs without this info
-        # if you come across this in mid 2025 or later, these may be safe to delete
-        logger.info(f"charuco param are: {params}:")
-        if "legacy_pattern" not in params.keys():
-            params["legacy_pattern"] = False
-
-        charuco = Charuco(
-            columns=params["columns"],
-            rows=params["rows"],
-            board_height=params["board_height"],
-            board_width=params["board_width"],
-            dictionary=params["dictionary"],
-            units=params["units"],
-            aruco_scale=params["aruco_scale"],
-            square_size_overide_cm=params["square_size_overide_cm"],
-            inverted=params["inverted"],
-            legacy_pattern=params["legacy_pattern"],
-        )
-
-        return charuco
+        charuco_path = self.workspace_path / "charuco.toml"
+        return persistence.load_charuco(charuco_path)
 
     def save_charuco(self, charuco: Charuco):
-        self.dict["charuco"] = charuco.__dict__
-        logger.info(f"Saving charuco with params {charuco.__dict__} to config")
-        self.update_config_toml()
+        charuco_path = self.workspace_path / "charuco.toml"
+        try:
+            persistence.save_charuco(charuco, charuco_path)
+            logger.info(f"Charuco saved to {charuco_path}")
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to save charuco: {e}")
+            raise
 
     def save_camera(self, camera: CameraData):
-        def none_or_list(value):
-            # required to make sensible numeric format
-            # otherwise toml formats as text
-            if value is None:
-                return None
-            else:
-                return value.tolist()
+        """
+        Save a single camera by loading the full array, updating it, and saving back.
+        Inefficient but maintains API compatibility during transition.
+        """
+        try:
+            # Load existing array (or empty if new project)
+            camera_array = persistence.load_camera_array(self.camera_array_path)
 
-        if camera.rotation is not None and camera.rotation.any():
-            # store rotation as 3 parameter rodrigues
-            rotation_for_config = cv2.Rodrigues(camera.rotation)[0][:, 0]
-            rotation_for_config = rotation_for_config.tolist()
-        else:
-            rotation_for_config = None
+            # Update the specific camera
+            camera_array.cameras[camera.port] = camera
 
-        params = {
-            "port": camera.port,
-            "size": camera.size,
-            "rotation_count": camera.rotation_count,
-            "error": camera.error,
-            "matrix": none_or_list(camera.matrix),
-            "distortions": none_or_list(camera.distortions),
-            "translation": none_or_list(camera.translation),
-            "rotation": rotation_for_config,
-            "exposure": camera.exposure,
-            "grid_count": camera.grid_count,
-            "fisheye": camera.fisheye,
-        }
-
-        self.dict["cam_" + str(camera.port)] = params
-        self.update_config_toml()
+            # Save back
+            persistence.save_camera_array(camera_array, self.camera_array_path)
+            logger.info(f"Camera {camera.port} saved to {self.camera_array_path}")
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to save camera {camera.port}: {e}")
+            raise
 
     def save_camera_array(self, camera_array: CameraArray):
-        logger.info("Saving camera array....")
-        for port, camera_data in camera_array.cameras.items():
-            self.save_camera(camera_data)
+        """
+        Save entire camera array to dedicated file.
+        """
+        try:
+            persistence.save_camera_array(camera_array, self.camera_array_path)
+            logger.info(f"Camera array saved to {self.camera_array_path}")
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to save camera array: {e}")
+            raise
 
     def save_point_estimates(self, point_estimates: PointEstimates):
-        logger.info("Saving point estimates to toml...")
-
-        temp_data = asdict(point_estimates)
-
-        for key, params in temp_data.items():
-            temp_data[key] = params.tolist()
-
-        self.dict["point_estimates"] = temp_data
-
-        with open(self.point_estimates_toml_path, "w") as f:
-            rtoml.dump(self.dict["point_estimates"], f)
+        """Save point estimates to dedicated file."""
+        path = self.point_estimates_toml_path
+        try:
+            persistence.save_point_estimates(point_estimates, path)
+        except persistence.PersistenceError as e:
+            logger.error(f"Failed to save point estimates: {e}")
+            raise
 
 
 if __name__ == "__main__":

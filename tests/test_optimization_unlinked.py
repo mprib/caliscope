@@ -37,7 +37,10 @@ def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
 
-    paired_pose_network: PairedPoseNetwork = build_paired_pose_network(image_points, camera_array)
+    # note: using stereocalibrate to attempt to improve speed of calibration
+    paired_pose_network: PairedPoseNetwork = build_paired_pose_network(
+        image_points, camera_array, method="stereocalibrate"
+    )
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array)
 
@@ -90,14 +93,14 @@ def test_capture_volume_filter(tmp_path: Path):
     capture_volume = CaptureVolume(camera_array, point_estimates)
     logger.info("CaptureVolume initialized")
 
-    capture_volume._save(directory=tmp_path, descriptor="initial")
-    capture_volume.optimize()
-    capture_volume._save(directory=tmp_path, descriptor="post_optimization")
-
     logger.info("Point counts BEFORE filtering:")
     logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
     logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")
     logger.info(f"  Camera indices length: {len(capture_volume.point_estimates.camera_indices)}")
+
+    capture_volume._save(directory=tmp_path, descriptor="initial")
+    capture_volume.optimize()
+    capture_volume._save(directory=tmp_path, descriptor="post_optimization")
 
     filtered_fraction = 0.5
     logger.info(f"Filtering out worse fitting {filtered_fraction * 100:.1f}% of points")
@@ -121,6 +124,6 @@ if __name__ == "__main__":
     setup_logging()
 
     temp = Path(__file__).parent / "debug"
-    test_bundle_adjust_with_unlinked_camera(temp)
+    # test_bundle_adjust_with_unlinked_camera(temp)
     test_capture_volume_filter(temp)
     logger.info("test debug complete")

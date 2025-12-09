@@ -97,8 +97,6 @@ if __name__ == "__main__":
         config = Configurator(working_project_dir)
         camera_array = config.get_camera_array()
 
-    tic = time.time()
-
     # keypoint data now exists. It looks like this:
 
     # sync_index,port,frame_index,frame_time,point_id,img_loc_x,img_loc_y,obj_loc_x,obj_loc_y,obj_loc_z
@@ -113,31 +111,44 @@ if __name__ == "__main__":
     image_points = ImagePoints.from_csv(tracker_xy_path)
 
     # construct best guess of paired poses between all cameras
+    tic = time.time()
     pose_network = build_paired_pose_network(image_points, camera_array)
 
     # initialize camera extrinsics based on best guess stereopairs
     pose_network.apply_to(camera_array)
+    toc = time.time()
+
+    pose_network_initialization_time = toc - tic
 
     # triangulate 2D points using initialize extrinsics
     initial_world_points = image_points.triangulate(camera_array)
 
     # run the bundle adjustment with these initialized values to dial in extrinsics
+
+    tic = time.time()
     capture_volume = CaptureVolume(camera_array, initial_world_points.to_point_estimates())
     capture_volume.optimize()
+    toc = time.time()
+    bundle_adjustment_time = round(toc - tic, 3)
 
     optimized_camera_array = capture_volume.camera_array
 
     # create final 3D point estimates
+    tic = time.time()
     final_world_points = image_points.triangulate(optimized_camera_array)
     toc = time.time()
-
-    calibration_time = round(toc - tic, 3)
+    triangulation_time = toc - tic
 
     # Save data to load into controller layer for visualization
     config.save_camera_array(optimized_camera_array)
     config.save_point_estimates(capture_volume.point_estimates)
 
-    logger.info(f"keypoint generation: {keypoint_generation_time} \ncalibration time: {calibration_time}")
+    logger.info(
+        f"""
+        \nkeypoint generation: {keypoint_generation_time}\npose initialization time:{pose_network_initialization_time}
+        \nbundle adj. time: {bundle_adjustment_time}\ntriangulation time {triangulation_time}
+        """
+    )
 
     ##### VISUALIZE CAPTURE VOLUME ############
 

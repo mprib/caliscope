@@ -12,6 +12,8 @@
 ![pytest](https://github.com/mprib/caliscope/actions/workflows/pytest.yml/badge.svg)
 </div>
 
+NOTE: While all backend tests are passing, the GUI on `main` is currently not functional. Some old technical debt is getting repaid to lay the foundation for future improvements. The package on PyPI is an earlier version with a functional GUI - mprib 12/9/2025
+
 Caliscope is a GUI-based multicamera calibration package.
 It simplifies the process of determining camera properties to enable 3D motion capture.
 
@@ -45,7 +47,7 @@ https://github.com/user-attachments/assets/1a1b09ab-0938-48e1-aeb8-6c0bfc3492fc
 
 https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
 
-The animation above was generated using only `Caliscope` output and a handful of webcams. 
+The animation above was generated using only `Caliscope` output and a handful of webcams.
 
 
 ---

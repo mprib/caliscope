@@ -17,7 +17,7 @@ import pytest
 from caliscope import __root__
 from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
 from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
-from caliscope.configurator import Configurator
+from caliscope import persistence
 from caliscope.post_processing.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
@@ -189,8 +189,7 @@ def test_stereopair_graph_against_gold_standard():
     # 2. Load test session data
     version = "larger_calibration_post_monocal"
     session_path = Path(__root__, "tests", "sessions", version)
-    config = Configurator(session_path)
-    camera_array = config.get_camera_array()
+    camera_array = persistence.load_camera_array(session_path / "camera_array.toml")
 
     # ensure camera_array has no extrinsics
     for port, cam in camera_array.cameras.items():
@@ -201,7 +200,6 @@ def test_stereopair_graph_against_gold_standard():
     recording_path = Path(session_path, "calibration", "extrinsic")
     xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
 
-    config.get_charuco()
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
 

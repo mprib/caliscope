@@ -5,10 +5,10 @@ from pathlib import Path
 import pandas as pd
 
 from caliscope import __root__
-from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope import persistence
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +22,10 @@ def test_sync_stream_manager(tmp_path: Path):
 
     copy_contents_to_clean_dest(original_workspace, tmp_path)
 
-    config = Configurator(tmp_path)
-    charuco = config.get_charuco()
+    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
     tracker = CharucoTracker(charuco)
-    camera_array = config.get_camera_array()
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+
     # tracker = None
     # all_camera_data = camera_array.cameras
     recording_dir = Path(tmp_path, "calibration", "extrinsic")
@@ -75,4 +75,9 @@ def test_sync_stream_manager(tmp_path: Path):
 
 
 if __name__ == "__main__":
-    test_sync_stream_manager()
+    import caliscope.logger
+
+    caliscope.logger.setup_logging()
+    temp_path = Path(__file__).parent / "debug"
+
+    test_sync_stream_manager(temp_path)

@@ -8,11 +8,12 @@ from caliscope.post_processing.point_data import ImagePoints, WorldPoints
 from caliscope import __root__
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.trackers.tracker_enum import TrackerEnum
-from caliscope.configurator import Configurator
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope import persistence
 
 # from caliscope.post_processing.post_processor import PostProcessor
 from caliscope.triangulate.triangulation import triangulate_from_files
+
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,6 @@ def test_image_points_to_world_points(tmp_path: Path):
     origin_data = Path(__root__, "tests", "sessions", "4_cam_recording")
 
     copy_contents_to_clean_dest(origin_data, tmp_path)
-
-    config = Configurator(tmp_path)
 
     recording_directory = Path(tmp_path, "recordings", "recording_1")
     tracker_enum = TrackerEnum.HOLISTIC
@@ -35,7 +34,7 @@ def test_image_points_to_world_points(tmp_path: Path):
     original_xyz = pd.read_csv(original_xyz_path)
 
     image_points = ImagePoints.from_csv(xy_path)
-    camera_array: CameraArray = config.get_camera_array()
+    camera_array: CameraArray = persistence.load_camera_array(tmp_path / "camera_array.toml")
 
     start = time.time()
     logger.info(f"beginning triangulation at {time.time()}")
@@ -132,7 +131,6 @@ def test_triangulate_from_files(tmp_path: Path):
 
     copy_contents_to_clean_dest(origin_data, tmp_path)
 
-    config_path = Path(tmp_path, "config.toml")
     recording_directory = Path(tmp_path, "recordings", "recording_1")
     tracker_enum = TrackerEnum.HOLISTIC
 
@@ -141,7 +139,9 @@ def test_triangulate_from_files(tmp_path: Path):
     start = time.time()
     logger.info(f"beginning triangulation at {time.time()}")
 
-    xyz_recalculated = triangulate_from_files(config_path, xy_path)
+    xyz_recalculated = triangulate_from_files(
+        camera_array_path=(tmp_path / "camera_array.toml"), image_point_path=xy_path
+    )
 
     logger.info(f"ending triangulation at {time.time()}")
     stop = time.time()
@@ -227,6 +227,6 @@ if __name__ == "__main__":
     import caliscope.logger
 
     caliscope.logger.setup_logging()
-    # test_xy_to_xyz_postprocessing()
     temp = Path(__file__).parent / "debug"
+    test_image_points_to_world_points(temp)
     test_image_points_to_world_points(temp)

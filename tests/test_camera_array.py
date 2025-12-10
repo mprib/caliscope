@@ -8,10 +8,9 @@ import numpy as np
 from caliscope import __root__
 from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
 from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
-from caliscope.cameras.camera_array import CameraArray
-from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints
+from caliscope import persistence
 
 logger = logging.getLogger(__name__)
 
@@ -128,9 +127,8 @@ def test_missing_extrinsics(tmp_path: Path):
     original_session_path = Path(__root__, "tests", "sessions", version)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    config = Configurator(tmp_path)
     xy_data_path = Path(tmp_path, "xy_CHARUCO.csv")
-    camera_array: CameraArray = config.get_camera_array()
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
 
     image_points = ImagePoints.from_csv(xy_data_path)
 
@@ -212,6 +210,7 @@ if __name__ == "__main__":
 
     setup_logging()
 
-    test_missing_extrinsics()
+    temp_path = Path(__file__).parent / "debug"
+    test_missing_extrinsics(temp_path)
     print("end")
     # test_deterministic_consistency()

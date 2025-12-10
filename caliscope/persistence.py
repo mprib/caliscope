@@ -1,6 +1,19 @@
 # --- File: caliscope/persistence.py ---
 
 """
+from caliscope import persistence
+
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
+
+    point_estimates = persistence.load_point_estimates(tmp_path/"point_estimates.toml")
+
+if __name__ == "__main__":
+    import caliscope.logger
+
+    caliscope.logger.setup_logging()
+    temp_path = Path(__file__).parent / "debug"
+
 Persistence layer for Caliscope project state.
 
 This module provides all file I/O operations for domain objects, using a
@@ -582,7 +595,7 @@ def load_project_settings(path: Path) -> dict[str, Any]:
         PersistenceError: If file exists but format is invalid
     """
     if not path.exists():
-        # Return empty dict for new projects - Configurator will use defaults
+        # Return empty dict for new projects
         return {}
 
     try:

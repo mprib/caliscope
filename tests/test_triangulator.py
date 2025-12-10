@@ -16,14 +16,12 @@ import numpy as np
 import pandas as pd
 
 from caliscope import __root__
-from caliscope.calibration.charuco import Charuco
-from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.synchronizer import Synchronizer
-from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.triangulate.sync_packet_triangulator import SyncPacketTriangulator
+from caliscope import persistence
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +37,9 @@ def test_triangulator(tmp_path: Path):
     # there should be nothing here... this is what we are going to create
     assert not target_xyz_path.exists()
 
-    config = Configurator(tmp_path)
-
-    charuco: Charuco = config.get_charuco()
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
     charuco_tracker = CharucoTracker(charuco)
-
-    camera_array: CameraArray = config.get_camera_array()
 
     logger.info("Creating RecordedStreamPool based on calibration recordings")
 
@@ -77,7 +72,7 @@ def test_triangulator(tmp_path: Path):
     xyz_history = pd.read_csv(target_xyz_path)
 
     # Load the ground truth data from the bundle adjustment (PointEstimates)
-    point_estimates = config.load_point_estimates_from_toml()
+    point_estimates = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
 
     # 2. CONSTRUCT GROUND TRUTH DATAFRAME
     # Create a DataFrame from the bundle adjustment results for easier comparison.
@@ -127,4 +122,5 @@ if __name__ == "__main__":
     import caliscope.logger
 
     caliscope.logger.setup_logging()
-    test_triangulator()
+    temp_path = Path(__file__).parent / "debug"
+    test_triangulator(temp_path)

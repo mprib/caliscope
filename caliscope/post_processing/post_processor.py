@@ -38,7 +38,10 @@ class PostProcessor:
         # save out current camera array to output folder
         tracker_subdirectory = Path(self.recording_path, self.tracker_name)
         tracker_subdirectory.mkdir(exist_ok=True, parents=True)
-        shutil.copy(Path(self.recording_path.parent.parent, "config.toml"), Path(tracker_subdirectory, "config.toml"))
+        shutil.copy(
+            Path(self.recording_path.parent.parent, "camera_array.toml"),
+            Path(tracker_subdirectory, "camera_array.toml"),
+        )
 
         logger.info(f"Creating sync stream manager for videos stored in {self.recording_path}")
         self.sync_stream_manager = SynchronizedStreamManager(

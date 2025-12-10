@@ -1,11 +1,9 @@
 import logging
-import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -117,7 +115,7 @@ class CharucoWidget(QWidget):
         self.printed_edge_length.setSingleStep(0.01)
         self.printed_edge_length.setMaximumWidth(100)
         # self.set_true_edge_length()
-        overide = self.controller.config.dict["charuco"]["square_size_overide_cm"]
+        overide = self.controller.charuco.square_size_overide_cm
         self.printed_edge_length.setValue(overide)
 
         def update_charuco():
@@ -198,7 +196,7 @@ class CharucoConfigGroup(QWidget):
     def __init__(self, controller: Controller):
         super().__init__()
         self.controller = controller
-        self.params = self.controller.config.dict["charuco"]
+        self.params = self.controller.charuco.__dict__
 
         self.column_spin = QSpinBox()
         setup_spinbox_sizing(self.column_spin, min_value=3, max_value=999, padding=10)
@@ -269,23 +267,4 @@ class CharucoConfigGroup(QWidget):
 
 
 if __name__ == "__main__":
-    from caliscope import __root__
     from caliscope.calibration.charuco import Charuco
-    from caliscope.helper import copy_contents_to_clean_dest
-
-    app = QApplication(sys.argv)
-
-    # Define the input file path here.
-    original_workspace_dir = Path(__root__, "tests", "sessions", "prerecorded_calibration")
-
-    workspace_dir = Path(r"C:\Users\Mac Prible\OneDrive\caliscope\prerecorded_workflow")
-    copy_contents_to_clean_dest(original_workspace_dir, workspace_dir)
-    controller = Controller(workspace_dir)
-    charuco_page = CharucoWidget(controller)
-
-    controller.load_intrinsic_stream_manager()
-    window = CharucoWidget(controller=controller)
-    window.resize(800, 600)
-    logger.info("About to show window")
-    window.show()
-    sys.exit(app.exec())

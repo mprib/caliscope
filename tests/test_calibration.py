@@ -18,12 +18,12 @@ from caliscope.calibration.capture_volume.quality_controller import QualityContr
 
 
 # from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
-from caliscope.configurator import Configurator
 from caliscope.controller import FILTERED_FRACTION
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope import persistence
 
 
 logger = logging.getLogger(__name__)
@@ -35,10 +35,8 @@ def test_xy_charuco_creation(tmp_path: Path):
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
     # This test begins with a set of cameras with calibrated intrinsics
-    config = Configurator(tmp_path)
-    # config_path = str(Path(session_path, "config.toml"))
-    logger.info(f"Getting charuco from config at {config.config_toml_path}")
-    charuco = config.get_charuco()
+    logger.info(f"Getting charuco from {tmp_path}")
+    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
     charuco_tracker = CharucoTracker(charuco)
 
     # create a synchronizer based off of these stream pools
@@ -46,7 +44,7 @@ def test_xy_charuco_creation(tmp_path: Path):
     recording_path = Path(tmp_path, "calibration", "extrinsic")
     point_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
 
-    camera_array = config.get_camera_array()
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
     sync_stream_manager = SynchronizedStreamManager(
         recording_dir=recording_path, all_camera_data=camera_array.cameras, tracker=charuco_tracker
     )
@@ -66,11 +64,11 @@ def test_calibration(tmp_path: Path):
     original_session_path = Path(__root__, "tests", "sessions", version)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    config = Configurator(tmp_path)
     recording_path = Path(tmp_path, "calibration", "extrinsic")
     xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
-    camera_array = config.get_camera_array()
-    charuco = config.get_charuco()
+
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
 
     image_points = ImagePoints.from_csv(xy_data_path)
 
@@ -86,9 +84,6 @@ def test_calibration(tmp_path: Path):
     world_points = image_points.triangulate(camera_array)
     point_estimates: PointEstimates = world_points.to_point_estimates()
 
-    config.save_point_estimates(point_estimates)
-    config.save_camera_array(camera_array)
-
     capture_volume = CaptureVolume(camera_array, point_estimates)
 
     logger.info("=========== INITIAL CAMERA ARRAY ==============")
@@ -101,7 +96,6 @@ def test_calibration(tmp_path: Path):
     logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
     logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")
     logger.info(f"  Camera indices length: {len(capture_volume.point_estimates.camera_indices)}")
-    logger.info(f"  Saving to path: {config.point_estimates_toml_path}")
 
     quality_controller = QualityController(capture_volume, charuco)
 
@@ -166,9 +160,6 @@ def test_calibration(tmp_path: Path):
         cam_improvement = (initial - final) / initial * 100
         logger.info(f"  Camera {port}: {final:.4f} pixels (improved {cam_improvement:.2f}%)")
 
-    config.save_point_estimates(capture_volume.point_estimates)
-    config.save_camera_array(capture_volume.camera_array)
-
 
 if __name__ == "__main__":
     from caliscope.logger import setup_logging
@@ -176,7 +167,6 @@ if __name__ == "__main__":
     setup_logging()
 
     # print("start")
-    test_calibration()
-    # print("end")
-    # import pytest
-    # pytest.main([__file__])
+    temp_path = Path(__file__).parent / "debug"
+    test_calibration(temp_path)
+    # test_xy_charuco_creation(temp_path)

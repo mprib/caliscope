@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from caliscope.configurator import Configurator
+from caliscope import persistence
 from caliscope.controller import Controller
 from caliscope.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
@@ -32,7 +32,6 @@ class PostProcessingWidget(QWidget):
     def __init__(self, controller: Controller):
         super(PostProcessingWidget, self).__init__()
         self.controller = controller
-        self.config = self.controller.config
 
         self.sync_index_cursors = {}  # track where the slider is for each playback...
         self.recording_folders = QListWidget()
@@ -102,8 +101,8 @@ class PostProcessingWidget(QWidget):
         return result
 
     @property
-    def archived_config_path(self):
-        return Path(self.processed_subfolder, "config.toml")
+    def archived_camera_array_path(self):
+        return Path(self.processed_subfolder, "camera_array.toml")
 
     @property
     def xy_base_path(self):
@@ -218,10 +217,9 @@ class PostProcessingWidget(QWidget):
         logger.info("Refreshing vizualizer within post_processing widget")
 
         if (
-            self.archived_config_path.exists()
+            self.archived_camera_array_path.exists()
         ):  # processing has been done and their is a camera array that can be loaded
-            stored_config = Configurator(self.archived_config_path.parent)
-            presented_camera_array = stored_config.get_camera_array()
+            presented_camera_array = persistence.load_camera_array(self.archived_camera_array_path)
         else:
             presented_camera_array = self.controller.camera_array
 

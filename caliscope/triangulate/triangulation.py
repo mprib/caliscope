@@ -5,21 +5,21 @@ from pathlib import Path
 
 import pandas as pd
 
-from caliscope.configurator import Configurator
+from caliscope import persistence
 from caliscope.post_processing.point_data import ImagePoints
 from caliscope.cameras.camera_array import CameraArray
 
 logger = logging.getLogger(__name__)
 
 
-def triangulate_from_files(config_path: Path, image_point_path: Path, output_path: Path = None) -> pd.DataFrame:
+def triangulate_from_files(camera_array_path: Path, image_point_path: Path, output_path: Path = None) -> pd.DataFrame:
     """
     Triangulate 2D points to 3D using camera calibration from config.toml
 
     Parameters
     ----------
-    config_path : Path
-        Path to config.toml containing camera calibration
+    camera_array_path : Path
+        Path to camera_array.toml containing camera calibration
     xy_path : Path
         Path to CSV file with 2D point data:
         - sync_index: Temporal index for synchronization
@@ -42,11 +42,10 @@ def triangulate_from_files(config_path: Path, image_point_path: Path, output_pat
         - y_coord: Y-coordinate in 3D space
         - z_coord: Z-coordinate in 3D space
     """
-    logger.info(f"Loading configuration from {config_path}")
-    config = Configurator(config_path.parent)
+    logger.info(f"Loading configuration from {camera_array_path}")
 
     logger.info("Loading camera array")
-    camera_array: CameraArray = config.get_camera_array()
+    camera_array: CameraArray = persistence.load_camera_array(camera_array_path)
 
     logger.info(f"Loading 2D points from {image_point_path} into a validated XYData object")
     image_points = ImagePoints.from_csv(image_point_path)

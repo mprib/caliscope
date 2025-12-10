@@ -2,6 +2,7 @@ import logging
 from collections import OrderedDict
 from pathlib import Path
 from time import sleep, time
+from datetime import datetime
 
 from PySide6.QtCore import QObject, QThread, Signal
 
@@ -63,6 +64,9 @@ class Controller(QObject):
         self.charuco_manager = CharucoManager(workspace_dir / "charuco.toml")
         self.capture_volume_manager = CaptureVolumeDataManager(workspace_dir)
 
+        # Initialize project files if they don't exist
+        self._initialize_project_files()
+
         self.camera_count = self.settings_manager.get_camera_count()
 
         # streams will be used to play back recorded video with tracked markers to select frames
@@ -73,24 +77,54 @@ class Controller(QObject):
         self.charuco_tracker = CharucoTracker(self.charuco)
 
         logger.info("Building workspace guide")
-        self.workspace_guide = WorkspaceGuide(self.workspace, self.camera_count)
+        self.workspace_guide = WorkspaceGuide(self.workspace)
         self.workspace_guide.intrinsic_dir.mkdir(exist_ok=True, parents=True)
         self.workspace_guide.extrinsic_dir.mkdir(exist_ok=True, parents=True)
         self.workspace_guide.recording_dir.mkdir(exist_ok=True, parents=True)
 
         self.capture_volume = None
+        self.cameras_loaded = False
+        self.capture_volume_loaded = False
 
         # needs to exist before main widget can connect to its finished signal
         self.load_workspace_thread = QThread()
         self.calibrate_camera_threads = {}
         self.autocalibrate_threads = {}
 
+    def _initialize_project_files(self):
+        """Create default project files if they don't exist."""
+        logger.info("Checking for existing project files...")
+
+        # Project settings (always create/update to ensure required fields exist)
+        if not self.settings_manager.path.exists():
+            logger.info("Creating default project settings")
+            self.settings_manager.save(
+                {
+                    "creation_date": datetime.now().isoformat(),
+                    "camera_count": 0,
+                    "save_tracked_points_video": True,
+                    "fps_sync_stream_processing": 100,
+                }
+            )
+
+        # Charuco board (create default if missing)
+        if not self.charuco_manager.path.exists():
+            logger.info("Creating default charuco board")
+            default_charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
+            self.charuco_manager.save(default_charuco)
+
+        # Camera array (create empty if missing)
+        if not self.camera_manager.path.exists():
+            logger.info("Creating empty camera array")
+            empty_array = CameraArray({})
+            self.camera_manager.save(empty_array)
+
     def load_workspace(self):
         """Asynchronously load workspace state on startup."""
 
         def worker():
             logger.info("Assessing whether to load cameras")
-            if self.workspace_guide.all_instrinsic_mp4s_available():
+            if self.workspace_guide.all_instrinsic_mp4s_available(self.camera_count):
                 self.load_camera_array()
                 self.load_intrinsic_stream_manager()
                 self.cameras_loaded = True
@@ -122,11 +156,11 @@ class Controller(QObject):
 
     def all_instrinsic_mp4s_available(self) -> bool:
         """Check if all intrinsic calibration videos are present."""
-        return self.workspace_guide.all_instrinsic_mp4s_available()
+        return self.workspace_guide.all_instrinsic_mp4s_available(self.camera_count)
 
     def all_extrinsic_mp4s_available(self) -> bool:
         """Check if all extrinsic calibration videos are present."""
-        return self.workspace_guide.all_extrinsic_mp4s_available()
+        return self.workspace_guide.all_extrinsic_mp4s_available(self.camera_count)
 
     def all_intrinsics_estimated(self) -> bool:
         """
@@ -148,7 +182,7 @@ class Controller(QObject):
         point_estimates_good = self.capture_volume_manager.point_estimates_path.exists()
         logger.info(f"Point estimates available: {point_estimates_good}")
 
-        all_data_available = self.workspace_guide.all_extrinsic_mp4s_available()
+        all_data_available = self.workspace_guide.all_extrinsic_mp4s_available(self.camera_count)
         logger.info(f"All underlying data available: {all_data_available}")
 
         return cameras_good and point_estimates_good and all_data_available
@@ -389,8 +423,10 @@ class Controller(QObject):
             logger.info(f"Removing the worst fitting {FILTERED_FRACTION * 100} percent of points from the model")
             self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
             self.capture_volume.optimize()
+            self.capture_volume_loaded = True
 
             # Save complete capture volume state
+            self.camera_manager.save(self.camera_array)
             self.capture_volume_manager.save_capture_volume(self.capture_volume)
 
         self.calibrate_capture_volume_thread = QThread()
@@ -430,6 +466,7 @@ class Controller(QObject):
         self.capture_volume_shifted.emit()
 
         def worker():
+            self.camera_manager.save(self.camera_array)
             self.capture_volume_manager.save_capture_volume(self.capture_volume)
 
         self.rotate_capture_volume_thread = QThread()
@@ -442,6 +479,7 @@ class Controller(QObject):
         self.capture_volume_shifted.emit()
 
         def worker():
+            self.camera_manager.save(self.camera_array)
             self.capture_volume_manager.save_capture_volume(self.capture_volume)
 
         self.set_origin_thread = QThread()

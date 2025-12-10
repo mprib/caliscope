@@ -4,12 +4,12 @@ from pathlib import Path
 import pandas as pd
 
 from caliscope import __root__
-from caliscope.configurator import Configurator
 
 # specify a source directory (with recordings)
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.post_processor import PostProcessor
 from caliscope.trackers.tracker_enum import TrackerEnum
+from caliscope import persistence
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +19,8 @@ def test_xy_point_creation(tmp_path: Path):
     session_path = Path(__root__, "tests", "sessions", "mediapipe_calibration_2_cam")
     copy_contents_to_clean_dest(session_path, tmp_path)
 
-    config = Configurator(tmp_path)
-    camera_array = config.get_camera_array()
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+
     recording_path = Path(tmp_path, "recordings", "recording_1")
     tracker_enum = TrackerEnum.HAND
     post_processor = PostProcessor(
@@ -42,7 +42,6 @@ def test_xy_point_creation(tmp_path: Path):
         assert not file.exists()
 
     post_processor.create_xy()
-    # create_xy(config, recording_directory,tracker_enum=tracker_enum)
 
     for file in produced_files:
         logger.info(f"Asserting that the following file exists: {file}")
@@ -66,4 +65,5 @@ if __name__ == "__main__":
 
     caliscope.logger.setup_logging()
 
-    test_xy_point_creation()
+    temp_path = Path(__file__).parent / "debug"
+    test_xy_point_creation(temp_path)

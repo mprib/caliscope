@@ -8,9 +8,9 @@ from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.capture_volume.quality_controller import QualityController
 from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints
+from caliscope import persistence
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +27,10 @@ def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
     original_session_path = Path(__root__, "tests", "sessions", version)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    config = Configurator(tmp_path)
     # The xy_CHARUCO.csv is at the root of the session for this test case
     xy_data_path = Path(tmp_path, "xy_CHARUCO.csv")
 
-    camera_array = config.get_camera_array()
-    config.get_charuco()
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
 
     logger.info("Creating stereocalibrator")
     image_points = ImagePoints.from_csv(xy_data_path)
@@ -69,10 +67,6 @@ def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
     # The core of the test: can it optimize without crashing?
     capture_volume.optimize()
 
-    # saving to create a new test
-    config.save_capture_volume(capture_volume)
-    logger.info(f"saving capture volume to {config.config_toml_path.parent}")
-
     # 6. ASSERT SUCCESS
     # If optimize() completes, the test has passed.
     assert capture_volume.stage == 1
@@ -85,9 +79,8 @@ def test_capture_volume_filter(tmp_path: Path):
     original_session_path = Path(__root__, "tests", "sessions", version)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    config = Configurator(tmp_path)
-    camera_array: CameraArray = config.get_camera_array()
-    point_estimates: PointEstimates = config.load_point_estimates_from_toml()
+    camera_array: CameraArray = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    point_estimates: PointEstimates = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
 
     logger.info("Camera array and point estimates loaded... creating capture volume")
     capture_volume = CaptureVolume(camera_array, point_estimates)
@@ -104,7 +97,7 @@ def test_capture_volume_filter(tmp_path: Path):
 
     filtered_fraction = 0.5
     logger.info(f"Filtering out worse fitting {filtered_fraction * 100:.1f}% of points")
-    charuco = config.get_charuco()
+    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
     quality_controller = QualityController(capture_volume, charuco)
     quality_controller.filter_point_estimates(filtered_fraction)
     capture_volume._save(directory=tmp_path, descriptor="post_filtering")
@@ -124,6 +117,6 @@ if __name__ == "__main__":
     setup_logging()
 
     temp = Path(__file__).parent / "debug"
-    # test_bundle_adjust_with_unlinked_camera(temp)
-    test_capture_volume_filter(temp)
+    test_bundle_adjust_with_unlinked_camera(temp)
+    # test_capture_volume_filter(temp)
     logger.info("test debug complete")

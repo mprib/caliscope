@@ -6,9 +6,10 @@ from pathlib import Path
 import pandas as pd
 
 from caliscope import __root__
-from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope import persistence
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +25,10 @@ def test_synchronizer(tmp_path: Path):
     logger.info(f"Copying over files from {original_session_path} to {tmp_path} for testing purposes")
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    config = Configurator(tmp_path)
-
     logger.info("Creating RecordedStreamPool")
     recording_directory = Path(tmp_path, "recordings", "recording_1")
 
-    camera_array = config.get_camera_array()
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
     stream_manager = SynchronizedStreamManager(recording_dir=recording_directory, all_camera_data=camera_array.cameras)
 
     logger.info("Creating Synchronizer")
@@ -53,4 +52,9 @@ def test_synchronizer(tmp_path: Path):
 
 
 if __name__ == "__main__":
-    test_synchronizer()
+    import caliscope.logger
+
+    caliscope.logger.setup_logging()
+    temp_path = Path(__file__).parent / "debug"
+
+    test_synchronizer(temp_path)

@@ -6,8 +6,8 @@ import pytest
 
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.configurator import Configurator
 from caliscope.helper import copy_contents_to_clean_dest
+from caliscope import persistence
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +25,8 @@ def test_rotation_invariance(direction: str, tmp_path):
     source_session_path = Path(__root__, "tests", "sessions", "post_optimization")
     copy_contents_to_clean_dest(source_session_path, tmp_path)
 
-    config = Configurator(tmp_path)
-    camera_array = config.get_camera_array()
-    point_estimates = config.load_point_estimates_from_toml()
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    point_estimates = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
 
@@ -79,4 +78,9 @@ def test_rotation_invariance(direction: str, tmp_path):
 
 
 if __name__ == "__main__":
-    test_rotation_invariance("x-")
+    import caliscope.logger
+
+    caliscope.logger.setup_logging()
+    temp_path = Path(__file__).parent / "debug"
+
+    test_rotation_invariance("x-", temp_path)

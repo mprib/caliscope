@@ -228,9 +228,7 @@ class ImagePoints:
         """
         xy_df = self.df
         if xy_df.empty:
-            return WorldPoints(
-                pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())), self, camera_array
-            )
+            return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
 
         # Only process cameras that are both in data AND posed
         ports_in_data = xy_df["port"].unique()
@@ -239,9 +237,7 @@ class ImagePoints:
 
         if not valid_ports:
             logger.warning("No cameras in data have extrinsics for triangulation")
-            return WorldPoints(
-                pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())), self, camera_array
-            )
+            return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
 
         # Assemble numba compatible dictionary for projection matrices
         # This already filters to posed cameras
@@ -301,7 +297,7 @@ class ImagePoints:
                 last_log_update = int(time())
 
         xyz_df = pd.DataFrame(xyz_data)
-        return WorldPoints(xyz_df, self, camera_array)
+        return WorldPoints(xyz_df)
 
 
 @dataclass(frozen=True)
@@ -309,8 +305,6 @@ class WorldPoints:
     """A validated, immutable container for 3D (x,y,z) point data."""
 
     _df: pd.DataFrame
-    _source_image_points: Optional[ImagePoints] = None
-    _camera_array: Optional[CameraArray] = None
 
     def __post_init__(self):
         # Validate schema
@@ -335,10 +329,9 @@ class WorldPoints:
     def camera_array(self) -> Optional[CameraArray]:
         return self._camera_array
 
-    def to_point_estimates(self) -> PointEstimates:
+    def to_point_estimates(self, image_points: ImagePoints, camera_array: CameraArray) -> PointEstimates:
         xyz_df = self.df
-        xy_df = self.source_image_points.df
-        camera_array = self.camera_array
+        xy_df = image_points.df
 
         # Create explicit mapping in the dataframe to track indices.
         # We reset index to ensure we have a column "xyz_index" corresponding to the row number in xyz_df

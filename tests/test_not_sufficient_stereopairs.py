@@ -39,7 +39,7 @@ def test_calibration_workflow(tmp_path: Path):
 
     logger.info("Loading point estimates")
     world_points = image_points.triangulate(camera_array)
-    point_estimates: PointEstimates = world_points.to_point_estimates()
+    point_estimates: PointEstimates = world_points.to_point_estimates(image_points, camera_array)
 
     capture_volume = CaptureVolume(camera_array, point_estimates)
 

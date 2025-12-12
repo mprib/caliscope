@@ -52,7 +52,7 @@ def test_image_points_to_world_points(tmp_path: Path):
     assert world_points._camera_array is camera_array, "CameraArray not tracked"
 
     # Verify conversion method exists and works
-    point_estimates = world_points.to_point_estimates()
+    point_estimates = world_points.to_point_estimates(image_points, camera_array)
     assert isinstance(point_estimates, PointEstimates), "to_point_estimates() should return PointEstimates"
 
     xyz_recalculated = world_points.df

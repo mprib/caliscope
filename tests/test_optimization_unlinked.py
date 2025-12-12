@@ -43,7 +43,7 @@ def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
     paired_pose_network.apply_to(camera_array)
 
     world_points = image_points.triangulate(camera_array)
-    point_estimates: PointEstimates = world_points.to_point_estimates()
+    point_estimates: PointEstimates = world_points.to_point_estimates(image_points, camera_array)
 
     # 3. VERIFY SETUP
     # Confirm that we have the expected set of posed and unposed cameras

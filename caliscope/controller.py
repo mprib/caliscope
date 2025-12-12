@@ -4,6 +4,7 @@ from pathlib import Path
 from time import sleep, time
 from datetime import datetime
 
+
 from PySide6.QtCore import QObject, QThread, Signal
 
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
@@ -413,7 +414,7 @@ class Controller(QObject):
 
             world_points = image_points.triangulate(self.camera_array)
 
-            self.point_estimates = world_points.to_point_estimates()
+            self.point_estimates = world_points.to_point_estimates(image_points, self.camera_array)
 
             self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
             self.capture_volume.optimize()

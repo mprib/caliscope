@@ -126,7 +126,7 @@ if __name__ == "__main__":
     # run the bundle adjustment with these initialized values to dial in extrinsics
 
     tic = time.time()
-    capture_volume = CaptureVolume(camera_array, initial_world_points.to_point_estimates())
+    capture_volume = CaptureVolume(camera_array, initial_world_points.to_point_estimates(image_points, camera_array))
     capture_volume.optimize()
     toc = time.time()
     bundle_adjustment_time = round(toc - tic, 3)

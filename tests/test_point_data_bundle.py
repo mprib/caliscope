@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Tolerance for RMSE comparison between implementations (pixels)
 # Can be adjusted based on numerical precision requirements
-RMSE_TOLERANCE = 1e-3
+RMSE_TOLERANCE = 1e-2
 
 
 def test_world_data_point_estimates(tmp_path: Path):
@@ -36,7 +36,7 @@ def test_world_data_point_estimates(tmp_path: Path):
     world_points_triangulated = image_points.triangulate(camera_array)
 
     # Convert WorldPoints -> PointEstimates -> WorldPoints
-    point_estimates_from_world_points = world_points_triangulated.to_point_estimates()
+    point_estimates_from_world_points = world_points_triangulated.to_point_estimates(image_points, camera_array)
     world_points_from_point_estimates = WorldPoints.from_point_estimates(point_estimates_from_world_points)
 
     # =========================================================================

@@ -94,8 +94,11 @@ class PointDataBundle:
         if valid_indices.size > 0 and valid_indices.max() >= n_world:
             raise ValueError(f"obj_indices contains out-of-bounds index: {valid_indices.max()} >= {n_world}")
 
-    def calculate_reprojection_error(self, normalized: bool = False) -> float:
+    def rmse(self, normalized: bool = False) -> float:
         """Calculate RMSE using only matched observations."""
+        # TODO: refactor to return various RMSE splits (overall, by camera,...).
+        # Rely on same reprojection used for filtering and optimization (both of which are to-be-incorporated)
+
         # Filter to matched observations at use time
         matched_mask = self.obj_indices >= 0
         if not matched_mask.any():
@@ -141,6 +144,17 @@ class PointDataBundle:
             total_observations += n_obs
 
         return np.sqrt(total_squared_error / total_observations)
+
+    def get_vectorized_params(self):
+        """
+        Convert the parameters of the camera array and the point estimates into one long array.
+        This is the required data format of the least squares optimization
+        """
+        # TODO: refactor to avoid intermediate point_estimates reference, which is opaque
+        camera_params = self.camera_array.get_extrinsic_params()
+        combined = np.hstack((camera_params.ravel(), self.point_estimates.obj.ravel()))
+
+        return combined
 
     @property
     def point_estimates(self) -> PointEstimates:

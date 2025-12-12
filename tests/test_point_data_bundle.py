@@ -203,7 +203,7 @@ def test_point_data_bundle(tmp_path: Path):
     logger.info("=" * 50)
     logger.info("TEST 1: RMSE Calculation")
     logger.info("=" * 50)
-    bundle_rmse = bundle.calculate_reprojection_error(normalized=False)
+    bundle_rmse = bundle.rmse(normalized=False)
 
     # Load existing point_estimates for CaptureVolume comparison
     capture_volume = CaptureVolume(camera_array, point_estimates)
@@ -286,7 +286,7 @@ def test_point_data_bundle(tmp_path: Path):
     logger.info("\n" + "=" * 50)
     logger.info("TEST 4: Filter Worst Fraction")
     logger.info("=" * 50)
-    original_rmse = bundle.calculate_reprojection_error()
+    original_rmse = bundle.rmse()
     logger.info(f"Original RMSE: {original_rmse:.6f} pixels")
     logger.info(f"Original observations: {len(bundle.image_points.df)}")
 
@@ -338,7 +338,7 @@ def test_point_data_bundle(tmp_path: Path):
     assert len(loaded_bundle.world_points.df) == len(bundle.world_points.df), "World point count mismatch after load"
 
     # Verify RMSE preserved
-    loaded_rmse = loaded_bundle.calculate_reprojection_error()
+    loaded_rmse = loaded_bundle.rmse()
     logger.info(f"Original RMSE: {bundle_rmse:.6f}")
     logger.info(f"Loaded RMSE: {loaded_rmse:.6f}")
     assert abs(loaded_rmse - bundle_rmse) < RMSE_TOLERANCE, (
@@ -357,6 +357,127 @@ def test_point_data_bundle(tmp_path: Path):
     logger.info("=" * 50)
 
 
+def test_point_estimates_roundtrip(tmp_path: Path):
+    """Validate that PointEstimates -> Bundle -> PointEstimates is lossless."""
+    version = "post_optimization"
+    original_session_path = Path(__root__, "tests", "sessions", version)
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
+
+    # Load original legacy data
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    original_pe = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
+
+    logger.info("=" * 50)
+    logger.info("ROUND-TRIP VALIDATION: PointEstimates -> Bundle -> PointEstimates")
+    logger.info("=" * 50)
+    logger.info(
+        f"Original PointEstimates: {original_pe.n_img_points} observations, {original_pe.n_obj_points} 3D points"
+    )
+
+    # Forward transformation: PointEstimates -> Bundle
+    image_points = ImagePoints.from_point_estimates(original_pe, camera_array)
+    world_points = WorldPoints.from_point_estimates(original_pe)
+
+    metadata = BundleMetadata(
+        created_at=pd.Timestamp.now().isoformat(),
+        generation_method="bundle_adjustment",
+        generation_params={"source_fixture": version},
+        camera_array_path=Path("camera_array.toml"),
+    )
+
+    bundle = PointDataBundle(
+        camera_array=camera_array,
+        image_points=image_points,
+        world_points=world_points,
+        metadata=metadata,
+    )
+
+    # Reverse transformation: Bundle -> PointEstimates
+    reconstructed_pe = bundle.point_estimates
+
+    logger.info(
+        f"""
+        Reconstructed PointEstimates: {reconstructed_pe.n_img_points}
+        observations, {reconstructed_pe.n_obj_points} 3D points
+        """
+    )
+
+    # =========================================================================
+    # VALIDATION CHECKS
+    # =========================================================================
+
+    # Check 1: Structural integrity (no orphaned points)
+    unique_obj_indices = np.unique(reconstructed_pe.obj_indices)
+    assert unique_obj_indices.size == reconstructed_pe.obj.shape[0], (
+        "CRITICAL: Orphaned 3D points detected in reconstructed PointEstimates!"
+    )
+    logger.info("✓ No orphaned 3D points in reconstructed structure")
+
+    # Check 2: Observation counts match
+    assert original_pe.n_img_points == reconstructed_pe.n_img_points, (
+        f"Observation count mismatch: {original_pe.n_img_points} vs {reconstructed_pe.n_img_points}"
+    )
+    logger.info(f"✓ Observation counts match: {original_pe.n_img_points}")
+
+    # Check 3: Unique 3D point counts match
+    assert original_pe.n_obj_points == reconstructed_pe.n_obj_points, (
+        f"3D point count mismatch: {original_pe.n_obj_points} vs {reconstructed_pe.n_obj_points}"
+    )
+    logger.info(f"✓ 3D point counts match: {original_pe.n_obj_points}")
+
+    # Check 4: RMSE calculations match exactly
+    original_cv = CaptureVolume(camera_array, original_pe)
+    reconstructed_cv = CaptureVolume(camera_array, reconstructed_pe)
+
+    original_rmse = original_cv.rmse["overall"]
+    reconstructed_rmse = reconstructed_cv.rmse["overall"]
+
+    logger.info(f"Original RMSE: {original_rmse:.6f} pixels")
+    logger.info(f"Reconstructed RMSE: {reconstructed_rmse:.6f} pixels")
+    logger.info(f"RMSE difference: {abs(original_rmse - reconstructed_rmse):.6e} pixels")
+
+    assert abs(original_rmse - reconstructed_rmse) < 1e-6, (
+        f"RMSE mismatch after round-trip: {original_rmse} vs {reconstructed_rmse}"
+    )
+    logger.info("✓ RMSE calculations are identical")
+
+    # Check 5: Per-camera RMSE matches
+    for port in camera_array.posed_cameras.keys():
+        orig_cam_rmse = original_cv.rmse[str(port)]
+        recon_cam_rmse = reconstructed_cv.rmse[str(port)]
+        assert abs(orig_cam_rmse - recon_cam_rmse) < 1e-6, (
+            f"Per-camera RMSE mismatch for port {port}: {orig_cam_rmse} vs {recon_cam_rmse}"
+        )
+    logger.info("✓ Per-camera RMSE calculations are identical")
+
+    # Check 6: Camera indices mapping is preserved
+    # The actual index values might differ if camera ordering changed, but the
+    # mapping from observations to cameras should be functionally equivalent
+    original_ports = [camera_array.posed_index_to_port[idx] for idx in original_pe.camera_indices]
+    reconstructed_ports = [camera_array.posed_index_to_port[idx] for idx in reconstructed_pe.camera_indices]
+
+    assert original_ports == reconstructed_ports, "Camera assignment for observations changed!"
+    logger.info("✓ Camera assignments preserved for all observations")
+
+    # Check 7: Point IDs are preserved
+    assert np.array_equal(original_pe.point_id, reconstructed_pe.point_id), (
+        "Point IDs do not match after reconstruction"
+    )
+    logger.info("✓ Point IDs preserved for all observations")
+
+    # Check 8: 2D image coordinates are preserved (within numerical precision)
+    # Use allclose for floating point comparison
+    assert np.allclose(original_pe.img, reconstructed_pe.img, rtol=1e-7, atol=1e-8), (
+        "2D image coordinates changed during reconstruction"
+    )
+    logger.info("✓ 2D image coordinates preserved")
+
+    logger.info("=" * 50)
+    logger.info("ALL ROUND-TRIP VALIDATION CHECKS PASSED!")
+    logger.info("PointEstimates -> Bundle -> PointEstimates is lossless.")
+    logger.info("=" * 50)
+
+
 if __name__ == "__main__":
     from caliscope.logger import setup_logging
 
@@ -368,4 +489,5 @@ if __name__ == "__main__":
 
     # Run test
     test_point_data_bundle(debug_dir)
+    # test_point_estimates_roundtrip(debug_dir)
     # test_world_data_point_estimates(debug_dir)

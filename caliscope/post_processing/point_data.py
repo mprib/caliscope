@@ -16,7 +16,6 @@ from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 
 # Add to existing imports at top of file
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -346,15 +345,6 @@ class WorldPoints:
     def points(self) -> np.ndarray:
         """Return Nx3 numpy array of coordinates."""
         return self._df[["x_coord", "y_coord", "z_coord"]].values
-
-    # Keep existing methods for backward compatibility
-    @property
-    def source_image_points(self) -> Optional[ImagePoints]:
-        return self._source_image_points
-
-    @property
-    def camera_array(self) -> Optional[CameraArray]:
-        return self._camera_array
 
     def to_point_estimates(self, image_points: ImagePoints, camera_array: CameraArray) -> PointEstimates:
         xyz_df = self.df

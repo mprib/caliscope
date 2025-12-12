@@ -1,34 +1,3 @@
-# --- File: caliscope/persistence.py ---
-
-"""
-from caliscope import persistence
-
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
-    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
-
-    point_estimates = persistence.load_point_estimates(tmp_path/"point_estimates.toml")
-
-if __name__ == "__main__":
-    import caliscope.logger
-
-    caliscope.logger.setup_logging()
-    temp_path = Path(__file__).parent / "debug"
-
-Persistence layer for Caliscope project state.
-
-This module provides all file I/O operations for domain objects, using a
-file-per-object approach. Each domain object (CameraArray, Charuco, etc.)
-has its own TOML file in the workspace root for atomic updates and clear
-separation of concerns.
-
-Supported formats:
-- TOML: For structured domain objects (CameraArray, Charuco, PointEstimates, etc.)
-- CSV: For tabular point data (image points, world points)
-
-All functions accept pathlib.Path objects and raise PersistenceError for any
-I/O or validation failures.
-"""
-
 import logging
 from pathlib import Path
 from typing import Any
@@ -39,7 +8,7 @@ import pandas as pd
 import rtoml
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.post_processing.point_data import ImagePointSchema, ImagePoints, WorldPoints
+from caliscope.post_processing.point_data import ImagePointSchema, ImagePoints, WorldPoints, WorldPointSchema
 from caliscope.calibration.charuco import Charuco
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
@@ -54,16 +23,7 @@ class PersistenceError(Exception):
     pass
 
 
-# ============================================================================
-# Module Constants
-# ============================================================================
-
 CSV_FLOAT_PRECISION = "%.6f"  # 6 decimal places = micron precision at meter scale
-
-
-# ============================================================================
-# Private Helper Functions
-# ============================================================================
 
 
 def _clean_scalar(value: Any) -> Any:
@@ -128,11 +88,6 @@ def _write_toml(data: dict, path: Path) -> None:
             rtoml.dump(data, f)
     except Exception as e:
         raise PersistenceError(f"Failed to write {path}: {e}") from e
-
-
-# ============================================================================
-# Core Domain Objects
-# ============================================================================
 
 
 def load_camera_array(path: Path) -> CameraArray:
@@ -523,11 +478,6 @@ def save_stereo_pairs(paired_pose_network: PairedPoseNetwork, path: Path) -> Non
         raise PersistenceError(f"Failed to save stereo pairs to {path}: {e}") from e
 
 
-# ============================================================================
-# Metadata Objects
-# ============================================================================
-
-
 def load_capture_volume_metadata(path: Path) -> dict[str, Any]:
     """
     Load capture volume metadata from TOML file.
@@ -624,11 +574,6 @@ def save_project_settings(settings: dict[str, Any], path: Path) -> None:
         raise PersistenceError(f"Failed to save project settings to {path}: {e}") from e
 
 
-# ============================================================================
-# CSV I/O
-# ============================================================================
-
-
 def load_image_points_csv(path: Path) -> ImagePoints:
     """
     Load 2D image points from CSV file.
@@ -688,23 +633,22 @@ def load_world_points_csv(path: Path) -> WorldPoints:
         path: Path to CSV file
 
     Returns:
-        DataFrame with validated world point data
+        WorldPoints instance with validated data
 
     Raises:
         PersistenceError: If file doesn't exist, CSV is malformed, or data fails
                          validation against WorldPointSchema
     """
-    # if not path.exists():
-    #     raise PersistenceError(f"World points CSV file not found: {path}")
-    #
-    # try:
-    #     df = pd.read_csv(path)
-    #     # Validate with Pandera schema
-    #     validated_df = WorldPointSchema.validate(df)
-    #     return WorldPoints(validated_df)
-    # except Exception as e:
-    #     raise PersistenceError(f"Failed to load image points from {path}: {e}") from e
-    raise NotImplementedError("load_world_points_csv not yet implemented")
+    if not path.exists():
+        raise PersistenceError(f"World points CSV file not found: {path}")
+
+    try:
+        df = pd.read_csv(path)
+        # Validate with Pandera schema to ensure data integrity
+        validated_df = WorldPointSchema.validate(df)
+        return WorldPoints(validated_df)
+    except Exception as e:
+        raise PersistenceError(f"Failed to load world points from {path}: {e}") from e
 
 
 def save_world_points_csv(world_points: WorldPoints, path: Path) -> None:
@@ -712,10 +656,18 @@ def save_world_points_csv(world_points: WorldPoints, path: Path) -> None:
     Save 3D world points to CSV file.
 
     Args:
-        df: DataFrame with world point data (must match WorldPointSchema)
+        world_points: WorldPoints instance to save
         path: Target CSV file path
 
     Raises:
         PersistenceError: If validation fails or file cannot be written
     """
-    raise NotImplementedError("save_world_points_csv not yet implemented")
+    try:
+        # Validate before saving to ensure data consistency
+        validated_df: pd.DataFrame = WorldPointSchema.validate(world_points.df)
+        # Ensure parent directory exists (atomic file operations)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # Use consistent float precision for reproducibility
+        validated_df.to_csv(path, index=False, float_format=CSV_FLOAT_PRECISION)
+    except Exception as e:
+        raise PersistenceError(f"Failed to save world points to {path}: {e}") from e

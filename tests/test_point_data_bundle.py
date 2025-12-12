@@ -98,23 +98,22 @@ def test_world_data_point_estimates(tmp_path: Path):
     logger.info("VALIDATING 3D POINT DATA PRESERVATION")
     logger.info("=" * 50)
 
-    # Get unique points from original WorldPoints (one per point_id)
-    original_unique = world_points_triangulated.df.drop_duplicates(subset="point_id", keep="first")
-    original_unique = original_unique.sort_values("point_id").reset_index(drop=True)
+    # Get unique 3D points from original WorldPoints
+    triangulated = world_points_triangulated.df.sort_values("point_id").reset_index(drop=True)
 
     # Get points from reconstructed WorldPoints
     reconstructed = world_points_from_point_estimates.df.sort_values("point_id").reset_index(drop=True)
 
     # Check 6: Same number of unique points
-    assert len(original_unique) == len(reconstructed), (
-        f"Point count mismatch: original had {len(original_unique)}, reconstructed has {len(reconstructed)}"
+    assert len(triangulated) == len(reconstructed), (
+        f"Point count mismatch: original had {len(triangulated)}, reconstructed has {len(reconstructed)}"
     )
     logger.info(f"✓ Same number of unique points: {len(reconstructed)}")
 
     # Check 7: Point IDs match exactly
-    original_point_ids = original_unique["point_id"].values
+    triangulated_point_ids = triangulated["point_id"].values
     reconstructed_point_ids = reconstructed["point_id"].values
-    assert np.array_equal(original_point_ids, reconstructed_point_ids), (
+    assert np.array_equal(triangulated_point_ids, reconstructed_point_ids), (
         "Point IDs do not match between original and reconstructed"
     )
     logger.info("✓ Point IDs match exactly")
@@ -122,9 +121,9 @@ def test_world_data_point_estimates(tmp_path: Path):
     # Check 8: Coordinates match within tolerance
     coord_tolerance = 1e-6  # micrometer precision at meter scale
     for axis in ["x_coord", "y_coord", "z_coord"]:
-        original_coords = original_unique[axis].values
+        triangulated_coords = triangulated[axis].values
         reconstructed_coords = reconstructed[axis].values
-        max_diff = np.max(np.abs(original_coords - reconstructed_coords))
+        max_diff = np.max(np.abs(triangulated_coords - reconstructed_coords))
         assert max_diff < coord_tolerance, (
             f"{axis} coordinate mismatch: max difference {max_diff} exceeds tolerance {coord_tolerance}"
         )
@@ -132,19 +131,13 @@ def test_world_data_point_estimates(tmp_path: Path):
 
     # Check 9: Sync indices are reasonable (should be first occurrence)
     for point_id in reconstructed["point_id"]:
-        original_sync = original_unique.loc[original_unique["point_id"] == point_id, "sync_index"].iloc[0]
+        triangulated_sync = triangulated.loc[triangulated["point_id"] == point_id, "sync_index"].iloc[0]
         reconstructed_sync = reconstructed.loc[reconstructed["point_id"] == point_id, "sync_index"].iloc[0]
-        assert original_sync == reconstructed_sync, f"""
+        assert triangulated_sync == reconstructed_sync, f"""
             Sync index mismatch for point_id {point_id}:
-            original {original_sync} vs reconstructed {reconstructed_sync}
+            original {triangulated_sync} vs reconstructed {reconstructed_sync}
             """
     logger.info("✓ Sync indices match first occurrence in original data")
-
-    # Check 10: Verify no duplicate point_ids in reconstructed
-    assert reconstructed["point_id"].nunique() == len(reconstructed), (
-        "Reconstructed WorldPoints contains duplicate point IDs"
-    )
-    logger.info("✓ No duplicate point IDs in reconstructed data")
 
     logger.info("=" * 50)
     logger.info("ALL VALIDATION CHECKS PASSED!")

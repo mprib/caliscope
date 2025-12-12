@@ -64,7 +64,7 @@ def test_pose_network_builder_end_to_end(tmp_path: Path):
 
     # assure that capture volume can be created from array and points
     world_points = image_points.triangulate(test_array)
-    capture_volume = CaptureVolume(test_array, world_points.to_point_estimates(image_points, camera_array))
+    capture_volume = CaptureVolume(test_array, world_points.to_point_estimates(image_points, test_array))
     capture_volume.optimize()
 
 

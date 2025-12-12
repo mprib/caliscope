@@ -35,7 +35,9 @@ def test_point_estimates_structure_fully_linked(tmp_path: Path):
 
     # estimate 3D points from initial guiess of position
     world_points: WorldPoints = image_points.triangulate(camera_array)
-    point_estimates: PointEstimates = world_points.to_point_estimates()  # structure for bundle adjustment
+    point_estimates: PointEstimates = world_points.to_point_estimates(
+        image_points, camera_array
+    )  # structure for bundle adjustment
 
     # --- Structural Integrity Assertions ---
     # 1. Check consistency between CameraArray and PointEstimates
@@ -103,7 +105,7 @@ def test_point_estimates_structure_unlinked(tmp_path: Path):
     paired_pose_network.apply_to(camera_array)
 
     world_points: WorldPoints = image_points.triangulate(camera_array)
-    point_estimates: PointEstimates = world_points.to_point_estimates()
+    point_estimates: PointEstimates = world_points.to_point_estimates(image_points, camera_array)
 
     # --- Structural Integrity Assertions ---
     # 1. Check consistency between CameraArray and PointEstimates

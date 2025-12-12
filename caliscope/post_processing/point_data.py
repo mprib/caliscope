@@ -14,6 +14,9 @@ from scipy.signal import butter, filtfilt
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 
+# Add to existing imports at top of file
+from dataclasses import dataclass
+
 logger = logging.getLogger(__name__)
 
 
@@ -189,6 +192,33 @@ class ImagePoints:
 
         return cls(ImagePointSchema.validate(df))
 
+    @classmethod
+    def from_point_estimates(cls, point_estimates: PointEstimates, camera_array: CameraArray) -> ImagePoints:
+        """
+        Reconstruct ImagePoints from optimized PointEstimates.
+
+        This is used for legacy data compatibility where only the optimized
+        PointEstimates are saved. It recreates the 2D observations that were
+        used to generate the optimized 3D points.
+
+        Note: Only core columns (sync_index, port, point_id, img_loc_x, img_loc_y)
+        are reconstructed. Additional metadata columns (frame_index, frame_time, etc.)
+        are not available in PointEstimates and will be missing.
+        """
+        # Map camera indices back to ports
+        index_to_port = camera_array.posed_index_to_port
+
+        image_data = {
+            "sync_index": point_estimates.sync_indices,
+            "port": [index_to_port[idx] for idx in point_estimates.camera_indices],
+            "point_id": point_estimates.point_id,
+            "img_loc_x": point_estimates.img[:, 0],
+            "img_loc_y": point_estimates.img[:, 1],
+        }
+
+        image_df = pd.DataFrame(image_data)
+        return cls(image_df)
+
     def fill_gaps(self, max_gap_size: int = 3) -> ImagePoints:
         xy_filled = pd.DataFrame()
         index_key = "sync_index"
@@ -224,9 +254,7 @@ class ImagePoints:
         """
         xy_df = self.df
         if xy_df.empty:
-            return WorldPoints(
-                pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())), self, camera_array
-            )
+            return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
 
         # Only process cameras that are both in data AND posed
         ports_in_data = xy_df["port"].unique()
@@ -235,9 +263,7 @@ class ImagePoints:
 
         if not valid_ports:
             logger.warning("No cameras in data have extrinsics for triangulation")
-            return WorldPoints(
-                pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())), self, camera_array
-            )
+            return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
 
         # Assemble numba compatible dictionary for projection matrices
         # This already filters to posed cameras
@@ -297,37 +323,32 @@ class ImagePoints:
                 last_log_update = int(time())
 
         xyz_df = pd.DataFrame(xyz_data)
-        return WorldPoints(xyz_df, self, camera_array)
+        return WorldPoints(xyz_df)
 
 
+@dataclass(frozen=True)
 class WorldPoints:
     """A validated, immutable container for 3D (x,y,z) point data."""
 
     _df: pd.DataFrame
-    _source_image_points: ImagePoints
-    _camera_array: CameraArray
 
-    def __init__(self, xyz_df: pd.DataFrame, source_image_points: ImagePoints, camera_array: CameraArray):
-        self._df = WorldPointSchema.validate(xyz_df)
-        self._source_image_points = source_image_points
-        self._camera_array = camera_array
+    def __post_init__(self):
+        # Validate schema
+        object.__setattr__(self, "_df", WorldPointSchema.validate(self._df))
 
     @property
     def df(self) -> pd.DataFrame:
+        """Return a copy of the underlying DataFrame to maintain immutability."""
         return self._df.copy()
 
     @property
-    def source_image_points(self) -> ImagePoints:
-        return self._source_image_points
+    def points(self) -> np.ndarray:
+        """Return Nx3 numpy array of coordinates."""
+        return self._df[["x_coord", "y_coord", "z_coord"]].values
 
-    @property
-    def camera_array(self) -> CameraArray:
-        return self._camera_array
-
-    def to_point_estimates(self) -> PointEstimates:
+    def to_point_estimates(self, image_points: ImagePoints, camera_array: CameraArray) -> PointEstimates:
         xyz_df = self.df
-        xy_df = self.source_image_points.df
-        camera_array = self.camera_array
+        xy_df = image_points.df
 
         # Create explicit mapping in the dataframe to track indices.
         # We reset index to ensure we have a column "xyz_index" corresponding to the row number in xyz_df
@@ -406,8 +427,10 @@ class WorldPoints:
         )
 
     def fill_gaps(self, max_gap_size: int = 3) -> WorldPoints:
+        """Fill gaps in 3D point trajectories."""
         xyz_filled = pd.DataFrame()
         base_df = self.df
+
         for point_id, group in base_df.groupby("point_id"):
             group = group.sort_values("sync_index")
             all_frames = pd.DataFrame(
@@ -415,23 +438,72 @@ class WorldPoints:
             )
             all_frames["point_id"] = point_id
             merged = pd.merge(all_frames, group, on=["point_id", "sync_index"], how="left")
+
+            # Calculate gap size
             merged["gap_size"] = (
                 merged["x_coord"].isnull().astype(int).groupby((merged["x_coord"].notnull()).cumsum()).cumsum()
             )
             merged = merged[merged["gap_size"] <= max_gap_size]
+
+            # Interpolate coordinates
             for col in ["x_coord", "y_coord", "z_coord"]:
                 if col in merged.columns:
                     merged[col] = merged[col].interpolate(method="linear", limit=max_gap_size)
+
             xyz_filled = pd.concat([xyz_filled, merged])
+
+        # Return new WorldPoints instance (immutable pattern)
         return WorldPoints(xyz_filled.dropna(subset=["x_coord"]))
 
     def smooth(self, fps: float, cutoff_freq: float, order: int = 2) -> WorldPoints:
+        """Apply Butterworth filter to smooth 3D trajectories."""
         b, a = butter(order, cutoff_freq, btype="low", fs=fps)
         base_df = self.df
         xyz_filtered = base_df.copy()
+
         for point_id, group in base_df.groupby("point_id"):
             if group.shape[0] > 3 * order:
                 xyz_filtered.loc[group.index, "x_coord"] = filtfilt(b, a, group["x_coord"])
                 xyz_filtered.loc[group.index, "y_coord"] = filtfilt(b, a, group["y_coord"])
                 xyz_filtered.loc[group.index, "z_coord"] = filtfilt(b, a, group["z_coord"])
+
+        # Return new WorldPoints instance (immutable pattern)
         return WorldPoints(xyz_filtered)
+
+    @classmethod
+    def from_point_estimates(cls, point_estimates: PointEstimates) -> WorldPoints:
+        """
+        Reconstruct WorldPoints from optimized PointEstimates.
+
+        Creates WorldPoints by extracting unique 3D points and their identifiers
+        from the optimized PointEstimates structure. This is used when loading
+        previously optimized calibration data where only the filtered subset
+        of observations is available.
+        """
+        # Get unique object indices and their first occurrence
+        unique_obj_indices = np.unique(point_estimates.obj_indices)
+
+        # For each unique 3D point, find its first observation to get identifiers
+        world_data = {
+            "sync_index": [],
+            "point_id": [],
+            "x_coord": [],
+            "y_coord": [],
+            "z_coord": [],
+        }
+
+        for obj_idx in unique_obj_indices:
+            # Find first observation of this 3D point
+            first_obs_idx = np.where(point_estimates.obj_indices == obj_idx)[0][0]
+
+            world_data["sync_index"].append(point_estimates.sync_indices[first_obs_idx])
+            world_data["point_id"].append(point_estimates.point_id[first_obs_idx])
+
+            # Get 3D coordinates
+            coords = point_estimates.obj[obj_idx]
+            world_data["x_coord"].append(coords[0])
+            world_data["y_coord"].append(coords[1])
+            world_data["z_coord"].append(coords[2])
+
+        world_df = pd.DataFrame(world_data)
+        return cls(world_df)

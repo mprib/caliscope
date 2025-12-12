@@ -408,5 +408,5 @@ if __name__ == "__main__":
     debug_dir.mkdir(exist_ok=True)
 
     # Run test
-    test_point_data_bundle(debug_dir)
-    # test_world_data_point_estimates(debug_dir)
+    # test_point_data_bundle(debug_dir)
+    test_world_data_point_estimates(debug_dir)

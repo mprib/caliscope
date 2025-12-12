@@ -193,6 +193,33 @@ class ImagePoints:
 
         return cls(ImagePointSchema.validate(df))
 
+    @classmethod
+    def from_point_estimates(cls, point_estimates: PointEstimates, camera_array: CameraArray) -> ImagePoints:
+        """
+        Reconstruct ImagePoints from optimized PointEstimates.
+
+        This is used for legacy data compatibility where only the optimized
+        PointEstimates are saved. It recreates the 2D observations that were
+        used to generate the optimized 3D points.
+
+        Note: Only core columns (sync_index, port, point_id, img_loc_x, img_loc_y)
+        are reconstructed. Additional metadata columns (frame_index, frame_time, etc.)
+        are not available in PointEstimates and will be missing.
+        """
+        # Map camera indices back to ports
+        index_to_port = camera_array.posed_index_to_port
+
+        image_data = {
+            "sync_index": point_estimates.sync_indices,
+            "port": [index_to_port[idx] for idx in point_estimates.camera_indices],
+            "point_id": point_estimates.point_id,
+            "img_loc_x": point_estimates.img[:, 0],
+            "img_loc_y": point_estimates.img[:, 1],
+        }
+
+        image_df = pd.DataFrame(image_data)
+        return cls(image_df)
+
     def fill_gaps(self, max_gap_size: int = 3) -> ImagePoints:
         xy_filled = pd.DataFrame()
         index_key = "sync_index"

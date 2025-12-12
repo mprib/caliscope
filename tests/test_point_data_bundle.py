@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Tolerance for RMSE comparison between implementations (pixels)
 # Can be adjusted based on numerical precision requirements
-RMSE_TOLERANCE = 1e-2
+RMSE_TOLERANCE = 1e-6
 
 
 def test_world_data_point_estimates(tmp_path: Path):
@@ -159,23 +159,33 @@ def test_point_data_bundle(tmp_path: Path):
     # Load existing OPTIMIZED point estimates (from bundle adjustment)
     point_estimates = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
 
-    recording_path = Path(tmp_path, "calibration", "extrinsic")
-    xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
-    image_points = ImagePoints.from_csv(xy_data_path)
+    # Reconstruct BOTH from PointEstimates for perfect consistency
+    image_points = ImagePoints.from_point_estimates(point_estimates, camera_array)
+    world_points = WorldPoints.from_point_estimates(point_estimates)
 
-    logger.info(f"Loaded {len(image_points.df)} image observations from {len(camera_array.cameras)} cameras")
+    # Should have 100% overlap now
+    img_keys = set(zip(image_points.df["sync_index"], image_points.df["point_id"]))
+    world_keys = set(zip(world_points.df["sync_index"], world_points.df["point_id"]))
+    assert img_keys == world_keys, "Image and World points should have identical identifiers"
 
-    # Triangulate to create world points
-    logger.info("Triangulating image points...")
-    # world_points = WorldPoints.from_point_estimates(point_estimates)
-    world_points = image_points.triangulate(camera_array)
+    logger.info(f"Reconstructed {len(image_points.df)} image observations from PointEstimates")
+    logger.info(f"Reconstructed {len(world_points.df)} world points from PointEstimates")
 
-    logger.info(f"Created {len(world_points.df)} world points")
+    # Validate perfect alignment
+    assert len(image_points.df) == len(point_estimates.sync_indices)
+    assert len(world_points.df) == len(point_estimates.obj)
 
-    # Create bundle metadata (sparse)
+    # All identifiers should match perfectly
+    img_keys = set(zip(image_points.df["sync_index"], image_points.df["point_id"]))
+    world_keys = set(zip(world_points.df["sync_index"], world_points.df["point_id"]))
+    assert img_keys == world_keys, (
+        f"Image and World points have mismatched identifiers! Only {len(img_keys & world_keys)} overlap."
+    )
+
+    # Create bundle metadata
     metadata = BundleMetadata(
         created_at=pd.Timestamp.now().isoformat(),
-        generation_method="triangulation",
+        generation_method="bundle_adjustment",
         generation_params={"source_fixture": version, "charuco": str(charuco)},
         camera_array_path=Path("camera_array.toml"),
     )
@@ -189,49 +199,6 @@ def test_point_data_bundle(tmp_path: Path):
         metadata=metadata,
     )
 
-    # Add this debug block
-    logger.info("=" * 50)
-    logger.info("DEBUG: Data Structure Analysis")
-    logger.info("=" * 50)
-    logger.info(f"Image points columns: {list(image_points.df.columns)}")
-    logger.info(f"World points columns: {list(world_points.df.columns)}")
-    logger.info("PointEstimates structure:")
-    logger.info(f"  - sync_indices: {point_estimates.sync_indices.shape}")
-    logger.info(f"  - camera_indices: {point_estimates.camera_indices.shape}")
-    logger.info(f"  - point_id: {point_estimates.point_id.shape}")
-    logger.info(f"  - obj_indices: {point_estimates.obj_indices.shape}")
-    logger.info(f"  - obj: {point_estimates.obj.shape}")
-
-    # Check for mismatched identifiers
-    logger.info("\nIdentifier Overlap Analysis:")
-    img_keys = set(zip(image_points.df["sync_index"], image_points.df["point_id"]))
-    world_keys = set(zip(world_points.df["sync_index"], world_points.df["point_id"]))
-    pe_keys = set(zip(point_estimates.sync_indices, point_estimates.point_id))
-
-    logger.info(f"Image points unique keys: {len(img_keys)}")
-    logger.info(f"World points unique keys: {len(world_keys)}")
-    logger.info(f"PointEstimates unique keys: {len(pe_keys)}")
-    logger.info(f"World vs Image overlap: {len(world_keys & img_keys)}")
-    logger.info(f"World vs PE overlap: {len(world_keys & pe_keys)}")
-
-    # Sample data comparison
-    logger.info("\nSample data (first 5 rows):")
-    logger.info(f"Image points:\n{image_points.df[['sync_index', 'point_id', 'port']].head()}")
-    logger.info(f"World points:\n{world_points.df[['sync_index', 'point_id']].head()}")
-    logger.info(
-        f"""
-        PointEstimates:\n{
-            pd.DataFrame(
-                {
-                    "sync_index": point_estimates.sync_indices[:5],
-                    "point_id": point_estimates.point_id[:5],
-                    "obj_idx": point_estimates.obj_indices[:5],
-                }
-            )
-        }
-        """
-    )
-
     # Test 1: RMSE calculation matches CaptureVolume
     logger.info("=" * 50)
     logger.info("TEST 1: RMSE Calculation")
@@ -239,7 +206,6 @@ def test_point_data_bundle(tmp_path: Path):
     bundle_rmse = bundle.calculate_reprojection_error(normalized=False)
 
     # Load existing point_estimates for CaptureVolume comparison
-    point_estimates = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
     capture_volume = CaptureVolume(camera_array, point_estimates)
     cv_rmse = capture_volume.rmse["overall"]
 
@@ -401,5 +367,5 @@ if __name__ == "__main__":
     debug_dir.mkdir(exist_ok=True)
 
     # Run test
-    # test_point_data_bundle(debug_dir)
-    test_world_data_point_estimates(debug_dir)
+    test_point_data_bundle(debug_dir)
+    # test_world_data_point_estimates(debug_dir)

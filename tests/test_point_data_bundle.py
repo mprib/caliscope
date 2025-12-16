@@ -203,7 +203,8 @@ def test_point_data_bundle(tmp_path: Path):
     logger.info("=" * 50)
     logger.info("TEST 1: RMSE Calculation")
     logger.info("=" * 50)
-    bundle_rmse = bundle.rmse(normalized=False)
+    error_report = bundle.get_reprojection_report()
+    bundle_rmse = error_report.overall_rmse
 
     # Load existing point_estimates for CaptureVolume comparison
     capture_volume = CaptureVolume(camera_array, point_estimates)
@@ -261,7 +262,10 @@ def test_point_data_bundle(tmp_path: Path):
     assert len(loaded_bundle.world_points.df) == len(bundle.world_points.df), "World point count mismatch after load"
 
     # Verify RMSE preserved
-    loaded_rmse = loaded_bundle.rmse()
+    loaded_bundle_report = loaded_bundle.get_reprojection_report()
+
+    loaded_rmse = loaded_bundle_report.overall_rmse
+
     logger.info(f"Original RMSE: {bundle_rmse:.6f}")
     logger.info(f"Loaded RMSE: {loaded_rmse:.6f}")
     assert abs(loaded_rmse - bundle_rmse) < RMSE_TOLERANCE, (
@@ -412,5 +416,5 @@ if __name__ == "__main__":
 
     # Run test
     test_point_data_bundle(debug_dir)
-    # test_point_estimates_roundtrip(debug_dir)
-    # test_world_data_point_estimates(debug_dir)
+    test_point_estimates_roundtrip(debug_dir)
+    test_world_data_point_estimates(debug_dir)

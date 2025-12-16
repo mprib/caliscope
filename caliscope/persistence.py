@@ -125,7 +125,6 @@ def load_camera_array(path: Path) -> CameraArray:
 
     cameras_dict = {}
     for port_str, camera_data in data["cameras"].items():
-        logger.info(f"Loading Port {port_str}: {camera_data}")
         try:
             port = int(port_str)
 

@@ -3,7 +3,6 @@ from scipy.sparse import lil_matrix
 from scipy.optimize import least_squares
 from copy import deepcopy
 from numpy.typing import NDArray
-from caliscope.calibration.reprojection import compute_reprojection_residuals
 
 import numpy as np
 from dataclasses import dataclass, field
@@ -16,7 +15,8 @@ from caliscope.post_processing.point_data import ImagePoints, WorldPoints
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.calibration.reprojection import (
     ErrorsXY,
-    compute_reprojection_errors,
+    reprojection_errors,
+    bundle_residuals,
     ImageCoords,
     WorldCoords,
     CameraIndices,
@@ -132,7 +132,7 @@ class PointDataBundle:
         world_coords: WorldCoords = self.world_points.points[matched_obj_indices]
 
         # 3. Compute reprojection errors
-        errors_xy: ErrorsXY = compute_reprojection_errors(
+        errors_xy: ErrorsXY = reprojection_errors(
             self.camera_array, camera_indices, image_coords, world_coords, use_normalized=False
         )
 
@@ -219,7 +219,7 @@ class PointDataBundle:
         # Perform optimization
         logger.info(f"Beginning bundle adjustment on {len(image_coords)} observations")
         result = least_squares(
-            compute_reprojection_residuals,
+            bundle_residuals,
             initial_params,
             args=(self.camera_array, camera_indices, image_coords, obj_indices, True),
             jac_sparsity=sparsity_pattern,  # Now using sparse Jacobian

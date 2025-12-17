@@ -24,6 +24,8 @@ from caliscope.post_processing.point_data import ImagePoints
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope import persistence
+from caliscope.calibration.point_data_bundle import PointDataBundle, BundleMetadata
+from caliscope.calibration.reprojection_report import ReprojectionReport
 
 
 logger = logging.getLogger(__name__)
@@ -58,7 +60,7 @@ def test_xy_charuco_creation(tmp_path: Path):
     assert point_data_path.exists()
 
 
-def test_calibration(tmp_path: Path):
+def test_capture_volume_optimization(tmp_path: Path):
     version = "larger_calibration_post_monocal"
     # version = "larger_calibration_post_bundle_adjustment"  # needed for test_stereocalibrate
     original_session_path = Path(__root__, "tests", "sessions", version)
@@ -161,6 +163,51 @@ def test_calibration(tmp_path: Path):
         logger.info(f"  Camera {port}: {final:.4f} pixels (improved {cam_improvement:.2f}%)")
 
 
+def test_point_data_bundle_optimization(tmp_path: Path):
+    version = "larger_calibration_post_monocal"
+    # version = "larger_calibration_post_bundle_adjustment"  # needed for test_stereocalibrate
+    original_session_path = Path(__root__, "tests", "sessions", version)
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
+
+    recording_path = Path(tmp_path, "calibration", "extrinsic")
+    xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
+
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    persistence.load_charuco(tmp_path / "charuco.toml")
+
+    image_points = ImagePoints.from_csv(xy_data_path)
+
+    logger.info("Creating paired pose network")
+
+    paired_pose_network = build_paired_pose_network(image_points, camera_array)
+    logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
+    paired_pose_network.apply_to(camera_array, anchor_cam=8)
+
+    # save initial extrinsics
+    logger.info("Loading point estimates")
+    image_points = ImagePoints.from_csv(xy_data_path)
+    world_points = image_points.triangulate(camera_array)
+
+    bundle_metadata = BundleMetadata(
+        created_at=None, generation_method="triangulation", generation_params=None, camera_array_path=None
+    )
+
+    point_data_bundle = PointDataBundle(camera_array, image_points, world_points, bundle_metadata)
+
+    initial_reprojection_report: ReprojectionReport = point_data_bundle.get_reprojection_report()
+    initial_rmse = initial_reprojection_report.overall_rmse
+    logger.info(f"Initial RMSE:{initial_rmse}")
+
+    optimized_bundle = point_data_bundle.optimize()
+
+    optimized_reprojection_report: ReprojectionReport = optimized_bundle.get_reprojection_report()
+    optimized_rmse = optimized_reprojection_report.overall_rmse
+
+    assert initial_rmse > optimized_rmse, "RMSE did not decline with optimization"
+
+    logger.info(f"Optimized RMSE:{optimized_rmse}")
+
+
 if __name__ == "__main__":
     from caliscope.logger import setup_logging
 
@@ -168,5 +215,6 @@ if __name__ == "__main__":
 
     # print("start")
     temp_path = Path(__file__).parent / "debug"
-    test_calibration(temp_path)
+    test_point_data_bundle_optimization(temp_path)
+    test_capture_volume_optimization(temp_path)
     # test_xy_charuco_creation(temp_path)

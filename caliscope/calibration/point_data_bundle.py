@@ -203,25 +203,25 @@ class PointDataBundle:
         matched_mask = self.img_to_obj_map >= 0
         matched_img_df = self.image_points.df[matched_mask]
 
-        camera_indices = np.array(
+        camera_indices: CameraIndices = np.array(
             [self.camera_array.posed_port_to_index[port] for port in matched_img_df["port"]], dtype=np.int16
         )
 
-        image_coords = matched_img_df[["img_loc_x", "img_loc_y"]].values
-        obj_indices = self.img_to_obj_map[matched_mask]
+        image_coords: ImageCoords = matched_img_df[["img_loc_x", "img_loc_y"]].values
+        image_to_world_indices = self.img_to_obj_map[matched_mask]
 
         # Initial parameters from current state
         initial_params = self._get_vectorized_params()
 
         # Get sparsity pattern for Jacobian
-        sparsity_pattern = self._get_sparsity_pattern(camera_indices, obj_indices)
+        sparsity_pattern = self._get_sparsity_pattern(camera_indices, image_to_world_indices)
 
         # Perform optimization
         logger.info(f"Beginning bundle adjustment on {len(image_coords)} observations")
         result = least_squares(
             bundle_residuals,
             initial_params,
-            args=(self.camera_array, camera_indices, image_coords, obj_indices, True),
+            args=(self.camera_array, camera_indices, image_coords, image_to_world_indices, True),
             jac_sparsity=sparsity_pattern,  # Now using sparse Jacobian
             verbose=verbose,
             x_scale="jac",
@@ -242,7 +242,7 @@ class PointDataBundle:
 
         # Create new world points with optimized coordinates
         new_world_df = self.world_points.df.copy()
-        matched_obj_unique = np.unique(obj_indices)
+        matched_obj_unique = np.unique(image_to_world_indices)
         new_world_df.loc[matched_obj_unique, ["x_coord", "y_coord", "z_coord"]] = optimized_points
 
         new_world_points = WorldPoints(new_world_df)

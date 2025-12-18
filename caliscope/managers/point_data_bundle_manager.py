@@ -13,10 +13,9 @@ Key design principles:
 """
 
 from pathlib import Path
-import rtoml
 import logging
 
-from caliscope.calibration.point_data_bundle import PointDataBundle, BundleMetadata
+from caliscope.calibration.point_data_bundle import PointDataBundle
 from caliscope.persistence import (
     load_camera_array,
     save_camera_array,
@@ -57,7 +56,6 @@ class PointDataBundleManager:
         self.base_path.mkdir(parents=True, exist_ok=True)
 
         # Define file paths relative to base_path
-        self.bundle_path = base_path / "bundle.toml"
         self.camera_array_path = base_path / "camera_array.toml"
         self.image_points_path = base_path / "image_points.csv"
         self.world_points_path = base_path / "world_points.csv"
@@ -77,13 +75,11 @@ class PointDataBundleManager:
             camera_array = load_camera_array(self.camera_array_path)
             image_points = load_image_points_csv(self.image_points_path)
             world_points = load_world_points_csv(self.world_points_path)
-            metadata = self._load_metadata()
 
             return PointDataBundle(
                 camera_array=camera_array,
                 image_points=image_points,
                 world_points=world_points,
-                metadata=metadata,
             )
         except FileNotFoundError as e:
             raise PersistenceError(
@@ -113,67 +109,6 @@ class PointDataBundleManager:
             save_image_points_csv(bundle.image_points, self.image_points_path)
             save_world_points_csv(bundle.world_points, self.world_points_path)
 
-            # Save metadata last (marks bundle as complete)
-            self._save_metadata(bundle.metadata)
-
             logger.info(f"Successfully saved PointDataBundle to {self.base_path}")
         except Exception as e:
             raise PersistenceError(f"Failed to save bundle to {self.base_path}: {e}") from e
-
-    def _load_metadata(self) -> BundleMetadata:
-        """
-        Load metadata from bundle.toml.
-
-        Returns:
-            BundleMetadata instance with provenance information
-
-        Raises:
-            PersistenceError: If metadata file is missing or malformed
-        """
-        if not self.bundle_path.exists():
-            raise PersistenceError(f"Bundle metadata not found: {self.bundle_path}")
-
-        try:
-            data = rtoml.load(self.bundle_path)
-            return BundleMetadata(
-                created_at=data["created_at"],
-                generation_method=data["generation_method"],
-                generation_params=data["generation_params"],
-                camera_array_path=Path(data["camera_array_path"]),
-                operations=data.get("operations", []),
-                source_files={k: Path(v) for k, v in data.get("source_files", {}).items()},
-            )
-        except Exception as e:
-            raise PersistenceError(f"Failed to load metadata from {self.bundle_path}: {e}") from e
-
-    def _save_metadata(self, metadata: BundleMetadata) -> None:
-        """
-        Save metadata to bundle.toml with atomic write.
-
-        Writes to temporary file first, then renames to ensure atomicity.
-        This prevents corruption if write is interrupted.
-
-        Args:
-            metadata: BundleMetadata to serialize
-        """
-        # Prepare data for TOML serialization
-        data = {
-            "created_at": metadata.created_at,
-            "generation_method": metadata.generation_method,
-            "generation_params": metadata.generation_params,
-            "camera_array_path": str(metadata.camera_array_path),
-            "operations": metadata.operations,
-            "source_files": {k: str(v) for k, v in metadata.source_files.items()},
-        }
-
-        # Atomic write: temp file + rename
-        temp_path = self.bundle_path.with_suffix(".tmp")
-        try:
-            with open(temp_path, "w") as f:
-                rtoml.dump(data, f)
-            temp_path.rename(self.bundle_path)
-        except Exception as e:
-            # Clean up temp file if write fails
-            if temp_path.exists():
-                temp_path.unlink()
-            raise PersistenceError(f"Failed to save metadata to {self.bundle_path}: {e}") from e

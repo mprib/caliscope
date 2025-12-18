@@ -39,20 +39,10 @@ def test_reprojection_report_generation(tmp_path: Path):
         camera_array=camera_array,
         image_points=image_points,
         world_points=world_points,
-        metadata={
-            "created_at": "test_session",
-            "generation_method": "bundle_adjustment",
-            "generation_params": {"optimizer": "scipy.least_squares"},
-            "camera_array_path": tmp_path / "camera_array.toml",
-            "source_files": {
-                "image_points": tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv",
-                "point_estimates": tmp_path / "point_estimates.toml",
-            },
-        },
     )
 
     # Generate reprojection report
-    report = bundle.get_reprojection_report()
+    report = bundle.reprojection_report
 
     # === Validation Assertions ===
 
@@ -89,7 +79,7 @@ def test_reprojection_report_generation(tmp_path: Path):
     assert abs(report.overall_rmse - calculated_overall_rmse) < 1e-10
 
     # Verify caching works (returns same object)
-    report2 = bundle.get_reprojection_report()
+    report2 = bundle.reprojection_report
     assert report2 is report, "Caching failed - should return same object"
 
     logger.info(
@@ -115,10 +105,9 @@ def test_unmatched_observation_tracking(tmp_path: Path):
         camera_array=camera_array,
         image_points=image_points,
         world_points=world_points,
-        metadata={"created_at": "test", "generation_method": "test"},
     )
 
-    report = bundle.get_reprojection_report()
+    report = bundle.reprojection_report
 
     # Verify unmatched counting logic
     total_observations = len(bundle.image_points.df)

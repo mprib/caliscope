@@ -20,7 +20,7 @@ from caliscope.calibration.capture_volume.point_estimates import PointEstimates
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints, WorldPoints
 from caliscope import persistence
-from caliscope.calibration.point_data_bundle import PointDataBundle, BundleMetadata
+from caliscope.calibration.point_data_bundle import PointDataBundle
 
 
 logger = logging.getLogger(__name__)
@@ -63,11 +63,7 @@ def test_optimization_equivalence(tmp_path: Path):
     capture_volume.optimize()
 
     # Create New PointDataBundle structure
-    bundle_metadata = BundleMetadata(
-        created_at=None, generation_method="triangulation", generation_params=None, camera_array_path=None
-    )
-
-    initial_point_data_bundle = PointDataBundle(original_camera_array, image_points, world_points, bundle_metadata)
+    initial_point_data_bundle = PointDataBundle(original_camera_array, image_points, world_points)
     optimized_point_data_bundle = initial_point_data_bundle.optimize()
 
     cap_vol_cameras = capture_volume.camera_array

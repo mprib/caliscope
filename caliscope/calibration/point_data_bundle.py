@@ -5,7 +5,7 @@ from copy import deepcopy
 from numpy.typing import NDArray
 
 import numpy as np
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 import logging
@@ -28,28 +28,10 @@ logger = logging.getLogger(__file__)
 
 
 @dataclass(frozen=True)
-class BundleMetadata:
-    """
-    Complete provenance tracking for a PointDataBundle.
-
-    This metadata captures how the bundle was created and all operations
-    performed on it, enabling reproducibility and debugging.
-    """
-
-    created_at: str
-    generation_method: Literal["triangulation", "bundle_adjustment"]
-    generation_params: dict
-    camera_array_path: Path
-    operations: list[dict] = field(default_factory=list)
-    source_files: dict[str, Path] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
 class PointDataBundle:
     camera_array: CameraArray
     image_points: ImagePoints
     world_points: WorldPoints
-    metadata: BundleMetadata
     img_to_obj_map: np.ndarray = None  # Renamed from obj_indices
 
     def __post_init__(self):
@@ -103,7 +85,8 @@ class PointDataBundle:
 
         return img_to_obj_map
 
-    def get_reprojection_report(self) -> ReprojectionReport:
+    @property
+    def reprojection_report(self) -> ReprojectionReport:
         """
         Generate comprehensive reprojection error report in pixel units.
         Caches result for subsequent calls since bundle data is immutable.
@@ -247,32 +230,10 @@ class PointDataBundle:
 
         new_world_points = WorldPoints(new_world_df)
 
-        # Update metadata
-        new_metadata = BundleMetadata(
-            created_at=self.metadata.created_at,
-            generation_method=self.metadata.generation_method,
-            generation_params=self.metadata.generation_params,
-            camera_array_path=self.metadata.camera_array_path,
-            operations=self.metadata.operations
-            + [
-                {
-                    "operation": "bundle_adjustment",
-                    "ftol": ftol,
-                    "nfev": result.nfev,
-                    "cost_reduction": result.cost,
-                    "initial_cost": result.cost,
-                    "final_rmse": float(np.sqrt(result.cost / len(image_coords))),
-                    "timestamp": pd.Timestamp.now().isoformat(),
-                }
-            ],
-            source_files=self.metadata.source_files,
-        )
-
         return PointDataBundle(
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
-            metadata=new_metadata,
         )
 
     def _get_sparsity_pattern(
@@ -372,3 +333,156 @@ class PointDataBundle:
             obj_indices=compact_obj_indices,
             obj=world_points_compact,
         )
+
+    def _filter_by_reprojection_thresholds(self, thresholds: dict[int, float], min_per_camera: int) -> PointDataBundle:
+        """
+        Internal: Filter observations using per-camera error thresholds with safety enforcement.
+
+        Args:
+            thresholds: dict mapping camera port -> max_error_pixels for that camera
+            min_per_camera: minimum observations to preserve per camera
+
+        Returns:
+            New PointDataBundle with filtered observations
+        """
+        # Get reprojection data (cached)
+        report = self.reprojection_report
+        raw_errors = report.raw_errors
+
+        # Build initial keep mask: error <= threshold for that camera's port
+        threshold_series = raw_errors["port"].map(thresholds)
+        keep_mask = (raw_errors["euclidean_error"] <= threshold_series).copy()
+
+        # Apply safety: ensure each camera keeps at least min_per_camera observations
+        for port in raw_errors["port"].unique():
+            camera_idx = raw_errors["port"] == port
+            n_keep = keep_mask[camera_idx].sum()
+            n_total = camera_idx.sum()
+
+            # If below minimum and we can add more
+            if n_keep < min_per_camera and n_keep < n_total:
+                # How many we need to add (capped at total available)
+                n_needed = min(min_per_camera, n_total) - n_keep
+
+                # Get errors for observations that would be filtered out
+                filtered_errors = raw_errors.loc[camera_idx & ~keep_mask, "euclidean_error"]
+
+                if len(filtered_errors) >= n_needed:
+                    # Find the error threshold that would keep exactly n_needed more observations
+                    threshold_to_add = filtered_errors.nsmallest(n_needed).iloc[-1]
+
+                    # Update mask to keep observations with error <= threshold_to_add
+                    keep_mask[camera_idx] = raw_errors.loc[camera_idx, "euclidean_error"] <= threshold_to_add
+
+        # Get keys of observations to keep
+        keep_keys = raw_errors[keep_mask][["sync_index", "port", "point_id"]]
+
+        # Filter image points by merging with keep keys
+        filtered_img_df = self.image_points.df.merge(keep_keys, on=["sync_index", "port", "point_id"], how="inner")
+        filtered_image_points = ImagePoints(filtered_img_df)
+
+        # Prune orphaned world points (3D points with no observations)
+        remaining_3d_keys = filtered_img_df[["sync_index", "point_id"]].drop_duplicates()
+        filtered_world_df = self.world_points.df.merge(remaining_3d_keys, on=["sync_index", "point_id"], how="inner")
+
+        filtered_world_points = WorldPoints(filtered_world_df)
+
+        return PointDataBundle(
+            camera_array=self.camera_array,
+            image_points=filtered_image_points,
+            world_points=filtered_world_points,
+        )
+
+    def filter_by_absolute_error(self, max_pixels: float, min_per_camera: int = 10) -> PointDataBundle:
+        """
+        Remove observations with reprojection error > max_pixels.
+
+        Safety: Ensures each camera keeps at least min_per_camera observations.
+        If a camera would drop below this threshold, the lowest-error observations
+        are restored until the threshold is met.
+
+        Args:
+            max_pixels: Maximum reprojection error (pixels) to keep
+            min_per_camera: Minimum observations per camera (safety floor)
+
+        Returns:
+            New PointDataBundle with filtered observations
+        """
+        if max_pixels <= 0:
+            raise ValueError(f"max_pixels must be positive, got {max_pixels}")
+
+        if min_per_camera < 1:
+            raise ValueError(f"min_per_camera must be >= 1, got {min_per_camera}")
+
+        # Build uniform thresholds for all posed cameras
+        thresholds = {port: max_pixels for port in self.camera_array.posed_cameras.keys()}
+
+        return self._filter_by_reprojection_thresholds(thresholds, min_per_camera)
+
+    def filter_by_percentile_error(
+        self, percentile: float, scope: Literal["per_camera", "overall"] = "per_camera", min_per_camera: int = 10
+    ) -> PointDataBundle:
+        """
+        Remove worst N% of observations based on reprojection error.
+
+        Args:
+            percentile: Percentage of worst observations to remove (0-100)
+            scope: "per_camera" computes percentile per camera, "overall" uses global percentile
+            min_per_camera: Minimum observations per camera (safety floor)
+
+        Returns:
+            New PointDataBundle with filtered observations
+        """
+        if not (0 < percentile <= 100):
+            raise ValueError(f"percentile must be between 0 and 100, got {percentile}")
+
+        if min_per_camera < 1:
+            raise ValueError(f"min_per_camera must be >= 1, got {min_per_camera}")
+
+        report = self.reprojection_report
+        raw_errors = report.raw_errors
+
+        if scope == "per_camera":
+            # Compute (100 - percentile)th percentile per camera
+            thresholds = {}
+            for port in self.camera_array.posed_cameras.keys():
+                camera_errors = raw_errors[raw_errors["port"] == port]["euclidean_error"]
+                if len(camera_errors) > 0:
+                    # Keep the best (100 - percentile) percent
+                    keep_percentile = 100 - percentile
+                    thresholds[port] = np.percentile(camera_errors, keep_percentile)
+                else:
+                    thresholds[port] = np.inf  # No observations, keep nothing
+
+        elif scope == "overall":
+            # Compute global (100 - percentile)th percentile
+            keep_percentile = 100 - percentile
+            global_threshold = np.percentile(raw_errors["euclidean_error"], keep_percentile)
+            thresholds = {port: global_threshold for port in self.camera_array.posed_cameras.keys()}
+
+        else:
+            raise ValueError(f"scope must be 'per_camera' or 'overall', got {scope}")
+
+        return self._filter_by_reprojection_thresholds(thresholds, min_per_camera)
+
+
+if __name__ == "__main__":
+    from pathlib import Path
+    from caliscope import __root__
+    from caliscope.post_processing.point_data import ImagePoints
+    from caliscope.calibration.point_data_bundle import PointDataBundle
+    from caliscope import persistence
+
+    # Load test data
+    session_path = Path(__root__, "tests", "sessions", "larger_calibration_post_monocal")
+    xy_path = session_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv"
+    array_path = session_path / "camera_array.toml"
+
+    image_points = ImagePoints.from_csv(xy_path)
+    camera_array = persistence.load_camera_array(array_path)
+    world_points = image_points.triangulate(camera_array)
+
+    bundle = PointDataBundle(camera_array, image_points, world_points)
+
+    # Inspect the reprojection report
+    report = bundle.reprojection_report

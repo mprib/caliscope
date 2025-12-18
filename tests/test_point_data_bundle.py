@@ -2,12 +2,11 @@ import logging
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
 from caliscope import __root__
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
-from caliscope.calibration.point_data_bundle import PointDataBundle, BundleMetadata
+from caliscope.calibration.point_data_bundle import PointDataBundle
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.managers.point_data_bundle_manager import PointDataBundleManager
 from caliscope.post_processing.point_data import ImagePoints, WorldPoints
@@ -154,7 +153,7 @@ def test_point_data_bundle(tmp_path: Path):
     # Load data
     logger.info("Loading camera array and charuco...")
     camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
-    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
+    persistence.load_charuco(tmp_path / "charuco.toml")
 
     # Load existing OPTIMIZED point estimates (from bundle adjustment)
     point_estimates = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
@@ -182,28 +181,19 @@ def test_point_data_bundle(tmp_path: Path):
         f"Image and World points have mismatched identifiers! Only {len(img_keys & world_keys)} overlap."
     )
 
-    # Create bundle metadata
-    metadata = BundleMetadata(
-        created_at=pd.Timestamp.now().isoformat(),
-        generation_method="bundle_adjustment",
-        generation_params={"source_fixture": version, "charuco": str(charuco)},
-        camera_array_path=Path("camera_array.toml"),
-    )
-
     # Create PointDataBundle
     logger.info("Creating PointDataBundle...")
     bundle = PointDataBundle(
         camera_array=camera_array,
         image_points=image_points,
         world_points=world_points,
-        metadata=metadata,
     )
 
     # Test 1: RMSE calculation matches CaptureVolume
     logger.info("=" * 50)
     logger.info("TEST 1: RMSE Calculation")
     logger.info("=" * 50)
-    error_report = bundle.get_reprojection_report()
+    error_report = bundle.reprojection_report
     bundle_rmse = error_report.overall_rmse
 
     # Load existing point_estimates for CaptureVolume comparison
@@ -262,7 +252,7 @@ def test_point_data_bundle(tmp_path: Path):
     assert len(loaded_bundle.world_points.df) == len(bundle.world_points.df), "World point count mismatch after load"
 
     # Verify RMSE preserved
-    loaded_bundle_report = loaded_bundle.get_reprojection_report()
+    loaded_bundle_report = loaded_bundle.reprojection_report
 
     loaded_rmse = loaded_bundle_report.overall_rmse
 
@@ -271,13 +261,6 @@ def test_point_data_bundle(tmp_path: Path):
     assert abs(loaded_rmse - bundle_rmse) < RMSE_TOLERANCE, (
         f"RMSE changed after save/load: {loaded_rmse} vs {bundle_rmse}"
     )
-
-    # Verify metadata preserved
-    assert loaded_bundle.metadata.created_at == bundle.metadata.created_at, "Created at timestamp changed"
-    assert loaded_bundle.metadata.generation_method == bundle.metadata.generation_method, "Generation method changed"
-    assert len(loaded_bundle.metadata.operations) == len(bundle.metadata.operations), "Operations count changed"
-
-    logger.info("✓ Save/load roundtrip preserved all data and metadata")
 
     logger.info("\n" + "=" * 50)
     logger.info("ALL TESTS PASSED!")
@@ -305,18 +288,10 @@ def test_point_estimates_roundtrip(tmp_path: Path):
     image_points = ImagePoints.from_point_estimates(original_pe, camera_array)
     world_points = WorldPoints.from_point_estimates(original_pe)
 
-    metadata = BundleMetadata(
-        created_at=pd.Timestamp.now().isoformat(),
-        generation_method="bundle_adjustment",
-        generation_params={"source_fixture": version},
-        camera_array_path=Path("camera_array.toml"),
-    )
-
     bundle = PointDataBundle(
         camera_array=camera_array,
         image_points=image_points,
         world_points=world_points,
-        metadata=metadata,
     )
 
     # Reverse transformation: Bundle -> PointEstimates
@@ -416,5 +391,5 @@ if __name__ == "__main__":
 
     # Run test
     test_point_data_bundle(debug_dir)
-    test_point_estimates_roundtrip(debug_dir)
-    test_world_data_point_estimates(debug_dir)
+    # test_point_estimates_roundtrip(debug_dir)
+    # test_world_data_point_estimates(debug_dir)

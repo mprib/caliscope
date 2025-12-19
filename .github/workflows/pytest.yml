@@ -9,68 +9,40 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15 # Job-level safety net
     strategy:
       fail-fast: true
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
         os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            path: ~/.cache/pip
-          - os: macos-latest
-            path: ~/Library/Caches/pip
-          - os: windows-latest
-            path: ~\AppData\Local\pip\Cache
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: ${{ matrix.python-version }}
+          version: "latest"
+          enable-cache: true # Speeds up subsequent runs
 
-      - name: Install system dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgl1-mesa-dev \
-            xvfb \
-            x11-utils \
-            libxkbcommon-x11-0 \
-            libxcb-icccm4 \
-            libxcb-image0 \
-            libxcb-keysyms1 \
-            libxcb-randr0 \
-            libxcb-render-util0 \
-            libxcb-xinerama0 \
-            libxcb-xfixes0 \
-            libxcb-shape0 \
-            libxcb-cursor0
-
-      - name: Set environment variables (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          echo "MKL_NUM_THREADS=1" >> $GITHUB_ENV
-          echo "NUMEXPR_NUM_THREADS=1" >> $GITHUB_ENV
-          echo "OMP_NUM_THREADS=1" >> $GITHUB_ENV
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install ruff pytest pytest-xdist  # Added pytest-xdist
-          pip install -e .
+        run: uv sync --extra dev # Installs from lockfile including mediapipe
+
+      - name: Debug MediaPipe installation
+        run: uv run python -c "import mediapipe; print(f'MediaPipe {mediapipe.__version__} at {mediapipe.__file__}')"
 
       - name: Lint with Ruff
-        run: ruff check .
+        run: uv run ruff check .
 
       # Parallel test execution with CI-optimized flags
       - name: Test with pytest (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum pytest -n auto --dist=loadfile --color=yes --tb=short
+        run: xvfb-run --auto-servernum uv run pytest -n auto --dist=loadfile --color=yes --tb=short --timeout=60
 
       - name: Test with pytest (Windows/macOS)
         if: runner.os != 'Linux'
-        run: pytest -n auto --dist=loadfile --color=yes --tb=short
+        run: uv run pytest -n auto --dist=loadfile --color=yes --tb=short --timeout=60

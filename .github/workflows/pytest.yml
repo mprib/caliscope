@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15 # Job-level safety net
+    timeout-minutes: 15
     strategy:
       fail-fast: true
       matrix:
@@ -24,13 +24,12 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
-          enable-cache: true # Speeds up subsequent runs
-
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+          # cache-python: true  # Optional: uncomment if Python install is slow
 
       - name: Install dependencies
-        run: uv sync --extra dev # Installs from lockfile including mediapipe
+        run: uv sync --extra dev
 
       - name: Debug MediaPipe installation
         run: uv run python -c "import mediapipe; print(f'MediaPipe {mediapipe.__version__} at {mediapipe.__file__}')"

@@ -29,7 +29,7 @@ jobs:
           # cache-python: true  # Optional: uncomment if Python install is slow
 
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --group dev
 
       - name: Debug MediaPipe installation
         run: uv run python -c "import mediapipe; print(f'MediaPipe {mediapipe.__version__} at {mediapipe.__file__}')"

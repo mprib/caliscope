@@ -66,8 +66,8 @@ jobs:
       # Parallel test execution with CI-optimized flags
       - name: Test with pytest (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum uv run pytest -n auto --dist=loadfile --color=yes --tb=short
+        run: xvfb-run --auto-servernum uv run pytest -n auto -v --dist=loadfile --color=yes --tb=short
 
       - name: Test with pytest (Windows/macOS)
         if: runner.os != 'Linux'
-        run: uv run pytest -n auto --dist=loadfile --color=yes --tb=short
+        run: uv run pytest -n auto -v --dist=loadfile --color=yes --tb=short

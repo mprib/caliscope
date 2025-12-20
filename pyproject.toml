@@ -38,6 +38,12 @@ exclude = [
   "**/*.mp4",       # Or just nuke all video files by extension
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/caliscope"]
+
+[tool.hatch.build.targets.wheel.source]
+"src" = ""
+
 [tool.ruff]
 line-length = 120
 target-version = "py311"

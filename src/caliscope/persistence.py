@@ -8,7 +8,7 @@ import pandas as pd
 import rtoml
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.post_processing.point_data import ImagePointSchema, ImagePoints, WorldPoints, WorldPointSchema
+from caliscope.core.point_data import ImagePointSchema, ImagePoints, WorldPoints, WorldPointSchema
 from caliscope.core.charuco import Charuco
 from caliscope.core.capture_volume.point_estimates import PointEstimates
 from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork

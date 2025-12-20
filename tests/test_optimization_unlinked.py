@@ -9,7 +9,7 @@ from caliscope.core.capture_volume.quality_controller import QualityController
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.post_processing.point_data import ImagePoints
+from caliscope.core.point_data import ImagePoints
 from caliscope import persistence
 
 logger = logging.getLogger(__name__)

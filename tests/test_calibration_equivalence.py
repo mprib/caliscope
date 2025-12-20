@@ -18,7 +18,7 @@ from caliscope.core.capture_volume.point_estimates import PointEstimates
 
 # from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.post_processing.point_data import ImagePoints, WorldPoints
+from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope import persistence
 from caliscope.core.point_data_bundle import PointDataBundle
 

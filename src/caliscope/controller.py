@@ -22,7 +22,7 @@ from caliscope.synchronized_stream_manager import (
     SynchronizedStreamManager,
     read_video_properties,
 )
-from caliscope.post_processing.point_data import ImagePoints
+from caliscope.core.point_data import ImagePoints
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide

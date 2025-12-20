@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.post_processing.point_data import ImagePoints, WorldPoints
+from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope import __root__
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.trackers.tracker_enum import TrackerEnum

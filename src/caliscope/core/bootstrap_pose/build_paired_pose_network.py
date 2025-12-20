@@ -6,7 +6,7 @@ from typing import Literal
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
-from caliscope.post_processing.point_data import ImagePoints
+from caliscope.core.point_data import ImagePoints
 from caliscope.core.bootstrap_pose.legacy_stereocal_paired_pose_network import (
     build_legacy_stereocal_paired_pose_network,
 )

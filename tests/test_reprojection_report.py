@@ -9,7 +9,7 @@ import numpy as np
 
 from caliscope import __root__
 from caliscope.core.point_data_bundle import PointDataBundle
-from caliscope.post_processing.point_data import ImagePoints, WorldPoints
+from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope import persistence
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.logger import setup_logging

@@ -8,7 +8,7 @@ import pandas as pd
 import pandera.pandas as pa
 import pytest
 
-from caliscope.post_processing.point_data import ImagePoints
+from caliscope.core.point_data import ImagePoints
 
 
 # --- Helper functions for data generation ---

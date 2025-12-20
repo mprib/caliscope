@@ -13,7 +13,7 @@ from typing_extensions import Self
 from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
 from caliscope.core.bootstrap_pose.stereopairs import StereoPair
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.post_processing.point_data import ImagePoints
+from caliscope.core.point_data import ImagePoints
 
 logger = logging.getLogger(__file__)
 

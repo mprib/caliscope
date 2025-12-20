@@ -11,7 +11,7 @@ from typing import Literal
 import logging
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.post_processing.point_data import ImagePoints, WorldPoints
+from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope.core.capture_volume.point_estimates import PointEstimates
 from caliscope.core.reprojection import (
     ErrorsXY,
@@ -469,7 +469,7 @@ class PointDataBundle:
 if __name__ == "__main__":
     from pathlib import Path
     from caliscope import __root__
-    from caliscope.post_processing.point_data import ImagePoints
+    from caliscope.core.point_data import ImagePoints
     from caliscope.core.point_data_bundle import PointDataBundle
     from caliscope import persistence
 

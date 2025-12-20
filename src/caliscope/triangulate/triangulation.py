@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from caliscope import persistence
-from caliscope.post_processing.point_data import ImagePoints
+from caliscope.core.point_data import ImagePoints
 from caliscope.cameras.camera_array import CameraArray
 
 logger = logging.getLogger(__name__)

@@ -9,7 +9,7 @@ from caliscope.core.capture_volume.point_estimates import PointEstimates
 from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.managers.point_data_bundle_manager import PointDataBundleManager
-from caliscope.post_processing.point_data import ImagePoints, WorldPoints
+from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope import persistence
 
 logger = logging.getLogger(__name__)

@@ -15,7 +15,7 @@ import pandas as pd
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.cameras.synchronizer import Synchronizer, SyncPacket
 from caliscope.packets import XYZPacket
-from caliscope.post_processing.point_data import triangulate_sync_index
+from caliscope.core.point_data import triangulate_sync_index
 
 logger = logging.getLogger(__name__)
 

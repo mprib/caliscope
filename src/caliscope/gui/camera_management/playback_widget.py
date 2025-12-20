@@ -321,7 +321,7 @@ if __name__ == "__main__":
     # Define the input file path here.
     original_workspace_dir = Path(__root__, "tests", "sessions", "prerecorded_calibration")
     # workspace_dir = Path(
-    #     __root__, "tests", "sessions_copy_delete", "prerecorded_calibration"
+    #     __root__, "tests", "debug", "prerecorded_calibration"
     # )
 
     # copy_contents(original_workspace_dir, workspace_dir)

@@ -89,7 +89,7 @@ def test_point_estimates_structure_unlinked(tmp_path: Path):
 
     # Define source and a fresh destination for test data
     original_session_path = Path(__root__, "tests", "sessions", "point_estimate_creation", "unlinked_camera")
-    tmp_path = Path(__root__, "tests", "sessions_copy_delete", "point_estimate_creation", "unlinked_camera")
+    tmp_path = Path(__root__, "tests", "debug", "point_estimate_creation", "unlinked_camera")
 
     # Create a fresh copy of the data for the test
     copy_contents_to_clean_dest(original_session_path, tmp_path)

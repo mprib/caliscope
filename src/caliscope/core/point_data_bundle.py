@@ -12,8 +12,8 @@ import logging
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.post_processing.point_data import ImagePoints, WorldPoints
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
-from caliscope.calibration.reprojection import (
+from caliscope.core.capture_volume.point_estimates import PointEstimates
+from caliscope.core.reprojection import (
     ErrorsXY,
     reprojection_errors,
     bundle_residuals,
@@ -21,7 +21,7 @@ from caliscope.calibration.reprojection import (
     WorldCoords,
     CameraIndices,
 )
-from caliscope.calibration.reprojection_report import ReprojectionReport
+from caliscope.core.reprojection_report import ReprojectionReport
 import pandas as pd
 
 logger = logging.getLogger(__file__)
@@ -470,7 +470,7 @@ if __name__ == "__main__":
     from pathlib import Path
     from caliscope import __root__
     from caliscope.post_processing.point_data import ImagePoints
-    from caliscope.calibration.point_data_bundle import PointDataBundle
+    from caliscope.core.point_data_bundle import PointDataBundle
     from caliscope import persistence
 
     # Load test data

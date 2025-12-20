@@ -7,9 +7,9 @@ import numpy as np
 import pandas as pd
 import rtoml
 
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
-from caliscope.calibration.charuco import Charuco
+from caliscope.core.capture_volume.capture_volume import CaptureVolume
+from caliscope.core.capture_volume.point_estimates import PointEstimates
+from caliscope.core.charuco import Charuco
 
 logger = logging.getLogger(__name__)
 

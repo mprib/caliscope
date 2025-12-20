@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 
 from caliscope import __root__
-from caliscope.calibration.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+from caliscope.core.capture_volume.point_estimates import PointEstimates
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.post_processing.point_data import ImagePoints, WorldPoints
 from caliscope import persistence

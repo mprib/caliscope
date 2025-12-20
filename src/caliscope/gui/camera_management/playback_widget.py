@@ -315,7 +315,7 @@ class IntrinsicCalibrationWidget(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     from caliscope import __root__
-    from caliscope.calibration.charuco import Charuco
+    from caliscope.core.charuco import Charuco
     from caliscope.trackers.charuco_tracker import CharucoTracker
 
     # Define the input file path here.

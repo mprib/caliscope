@@ -8,7 +8,7 @@ from itertools import permutations
 import numpy as np
 
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.calibration.bootstrap_pose.stereopairs import StereoPair
+from caliscope.core.bootstrap_pose.stereopairs import StereoPair
 
 logger = logging.getLogger(__name__)
 

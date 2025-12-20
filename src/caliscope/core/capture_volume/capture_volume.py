@@ -7,11 +7,11 @@ import cv2
 import numpy as np
 from scipy.optimize import least_squares
 
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
-from caliscope.calibration.capture_volume.set_origin_functions import (
+from caliscope.core.capture_volume.point_estimates import PointEstimates
+from caliscope.core.capture_volume.set_origin_functions import (
     get_board_origin_transform,
 )
-from caliscope.calibration.charuco import Charuco
+from caliscope.core.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray
 
 logger = logging.getLogger(__name__)

@@ -12,10 +12,10 @@ import numpy as np
 
 
 from caliscope import __root__
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.calibration.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
-from caliscope.calibration.capture_volume.quality_controller import QualityController
+from caliscope.core.capture_volume.capture_volume import CaptureVolume
+from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+from caliscope.core.capture_volume.point_estimates import PointEstimates
+from caliscope.core.capture_volume.quality_controller import QualityController
 
 
 # from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
@@ -25,7 +25,7 @@ from caliscope.post_processing.point_data import ImagePoints
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope import persistence
-from caliscope.calibration.point_data_bundle import PointDataBundle
+from caliscope.core.point_data_bundle import PointDataBundle
 
 
 logger = logging.getLogger(__name__)
@@ -362,7 +362,7 @@ if __name__ == "__main__":
 
     # print("start")
     temp_path = Path(__file__).parent / "debug"
-    # test_point_data_bundle_optimization(temp_path)
-    # test_capture_volume_optimization(temp_path)
-    # test_xy_charuco_creation(temp_path)
+    test_point_data_bundle_optimization(temp_path)
+    test_capture_volume_optimization(temp_path)
+    test_xy_charuco_creation(temp_path)
     test_filter_percentile_modes(temp_path)

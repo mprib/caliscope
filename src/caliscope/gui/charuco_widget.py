@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from caliscope.calibration.charuco import Charuco
+from caliscope.core.charuco import Charuco
 from caliscope.controller import Controller
 from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 
@@ -267,4 +267,4 @@ class CharucoConfigGroup(QWidget):
 
 
 if __name__ == "__main__":
-    from caliscope.calibration.charuco import Charuco
+    from caliscope.core.charuco import Charuco

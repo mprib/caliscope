@@ -7,10 +7,10 @@ from datetime import datetime
 
 from PySide6.QtCore import QObject, QThread, Signal
 
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.calibration.capture_volume.quality_controller import QualityController
-from caliscope.calibration.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
-from caliscope.calibration.charuco import Charuco
+from caliscope.core.capture_volume.capture_volume import CaptureVolume
+from caliscope.core.capture_volume.quality_controller import QualityController
+from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+from caliscope.core.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.managers.project_settings_manager import ProjectSettingsManager
 from caliscope.managers.camera_array_manager import CameraArrayManager

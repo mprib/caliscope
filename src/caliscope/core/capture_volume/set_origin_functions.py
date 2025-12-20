@@ -7,8 +7,8 @@ import cv2
 import numpy as np
 import scipy
 
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
-from caliscope.calibration.charuco import Charuco
+from caliscope.core.capture_volume.point_estimates import PointEstimates
+from caliscope.core.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
 
 logger = logging.getLogger(__name__)

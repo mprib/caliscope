@@ -6,8 +6,8 @@ from time import sleep
 import numpy as np
 
 from caliscope import __root__
-from caliscope.calibration.charuco import Charuco
-from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
+from caliscope.core.charuco import Charuco
+from caliscope.core.intrinsic_calibrator import IntrinsicCalibrator
 from caliscope.cameras.camera_array import CameraData
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.recording.recorded_stream import RecordedStream

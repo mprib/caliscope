@@ -8,7 +8,7 @@ from caliscope.post_processing.point_data import ImagePoints, WorldPoints
 from caliscope import __root__
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.trackers.tracker_enum import TrackerEnum
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.core.capture_volume.point_estimates import PointEstimates
 from caliscope import persistence
 
 # from caliscope.post_processing.post_processor import PostProcessor

@@ -6,7 +6,7 @@ Simplest manager as Charuco is a single domain object with no dependencies.
 import logging
 from pathlib import Path
 
-from caliscope.calibration.charuco import Charuco
+from caliscope.core.charuco import Charuco
 from caliscope import persistence
 
 logger = logging.getLogger(__name__)

@@ -15,7 +15,7 @@ Key design principles:
 from pathlib import Path
 import logging
 
-from caliscope.calibration.point_data_bundle import PointDataBundle
+from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.persistence import (
     load_camera_array,
     save_camera_array,

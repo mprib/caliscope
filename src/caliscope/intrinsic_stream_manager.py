@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from time import sleep
 
-from caliscope.calibration.intrinsic_calibrator import IntrinsicCalibrator
+from caliscope.core.intrinsic_calibrator import IntrinsicCalibrator
 from caliscope.cameras.camera_array import CameraData
 from caliscope.gui.frame_emitters.playback_frame_emitter import PlaybackFrameEmitter
 from caliscope.tracker import Tracker

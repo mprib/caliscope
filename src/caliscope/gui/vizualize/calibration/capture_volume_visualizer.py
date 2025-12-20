@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import pyqtgraph.opengl as gl
 
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.core.capture_volume.capture_volume import CaptureVolume
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.gui.vizualize.camera_mesh import CameraMesh, mesh_from_camera
 

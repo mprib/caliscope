@@ -9,8 +9,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.core.capture_volume.capture_volume import CaptureVolume
+from caliscope.core.capture_volume.point_estimates import PointEstimates
 from caliscope import persistence
 
 logger = logging.getLogger(__name__)

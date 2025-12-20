@@ -6,8 +6,8 @@ import pandas as pd
 
 from caliscope import __root__
 from caliscope import persistence
-from caliscope.calibration.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
-from caliscope.calibration.charuco import Charuco
+from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+from caliscope.core.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
 
 logger = logging.getLogger(__name__)

@@ -10,8 +10,8 @@ import logging
 from scipy.spatial.transform import Rotation
 from typing_extensions import Self
 
-from caliscope.calibration.bootstrap_pose.paired_pose_network import PairedPoseNetwork
-from caliscope.calibration.bootstrap_pose.stereopairs import StereoPair
+from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
+from caliscope.core.bootstrap_pose.stereopairs import StereoPair
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.post_processing.point_data import ImagePoints
 

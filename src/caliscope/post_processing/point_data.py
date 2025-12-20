@@ -12,7 +12,7 @@ from numba.typed import Dict, List
 from pandera.typing import Series
 from scipy.signal import butter, filtfilt
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.core.capture_volume.point_estimates import PointEstimates
 
 # Add to existing imports at top of file
 from dataclasses import dataclass

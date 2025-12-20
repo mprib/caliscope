@@ -22,7 +22,7 @@ from caliscope.core.capture_volume.quality_controller import QualityController
 from caliscope.controller import FILTERED_FRACTION
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.core.point_data import ImagePoints
-from caliscope.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope import persistence
 from caliscope.core.point_data_bundle import PointDataBundle

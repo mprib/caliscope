@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from caliscope.gui.frame_emitters.frame_dictionary_emitter import FrameDictionaryEmitter
-from caliscope.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
 
 logger = logging.getLogger(__name__)
 

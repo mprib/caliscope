@@ -8,7 +8,7 @@ from time import sleep
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
 from caliscope.core.point_data import ImagePoints
-from caliscope.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.trackers.tracker_enum import TrackerEnum
 
 logger = logging.getLogger(__name__)

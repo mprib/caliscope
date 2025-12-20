@@ -7,7 +7,7 @@ import pandas as pd
 
 from caliscope import __root__
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope import persistence
 
 

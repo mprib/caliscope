@@ -16,9 +16,9 @@ from caliscope.managers.project_settings_manager import ProjectSettingsManager
 from caliscope.managers.camera_array_manager import CameraArrayManager
 from caliscope.managers.charuco_manager import CharucoManager
 from caliscope.managers.capture_volume_data_manager import CaptureVolumeDataManager
-from caliscope.intrinsic_stream_manager import IntrinsicStreamManager
+from caliscope.managers.intrinsic_stream_manager import IntrinsicStreamManager
 from caliscope.post_processing.post_processor import PostProcessor
-from caliscope.synchronized_stream_manager import (
+from caliscope.managers.synchronized_stream_manager import (
     SynchronizedStreamManager,
     read_video_properties,
 )

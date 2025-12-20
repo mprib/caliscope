@@ -4,10 +4,10 @@ from pathlib import Path
 import numpy as np
 
 from caliscope import __root__
-from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
-from caliscope.calibration.capture_volume.point_estimates import PointEstimates
+from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+from caliscope.core.capture_volume.point_estimates import PointEstimates
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.post_processing.point_data import ImagePoints, WorldPoints
+from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope import persistence
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ def test_point_estimates_structure_unlinked(tmp_path: Path):
 
     # Define source and a fresh destination for test data
     original_session_path = Path(__root__, "tests", "sessions", "point_estimate_creation", "unlinked_camera")
-    tmp_path = Path(__root__, "tests", "sessions_copy_delete", "point_estimate_creation", "unlinked_camera")
+    tmp_path = Path(__root__, "tests", "debug", "point_estimate_creation", "unlinked_camera")
 
     # Create a fresh copy of the data for the test
     copy_contents_to_clean_dest(original_session_path, tmp_path)

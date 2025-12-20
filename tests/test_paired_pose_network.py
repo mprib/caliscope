@@ -15,10 +15,10 @@ from numpy.typing import NDArray
 import pytest
 
 from caliscope import __root__
-from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
-from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
+from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
+from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope import persistence
-from caliscope.post_processing.point_data import ImagePoints
+from caliscope.core.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
 

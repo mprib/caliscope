@@ -6,7 +6,7 @@ from time import sleep
 import cv2
 
 from caliscope import __root__
-from caliscope.calibration.charuco import Charuco
+from caliscope.core.charuco import Charuco
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.trackers.charuco_tracker import CharucoTracker
 

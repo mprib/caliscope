@@ -10,11 +10,11 @@ import pytest
 import numpy as np
 
 from caliscope import __root__
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.core.capture_volume.capture_volume import CaptureVolume
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.post_processing.point_data import ImagePoints
-from caliscope.calibration.array_initialization.pose_network_builder import PoseNetworkBuilder
+from caliscope.core.point_data import ImagePoints
+from caliscope.core.bootstrap_pose.pose_network_builder import PoseNetworkBuilder
 from caliscope import persistence
 
 logger = logging.getLogger(__name__)
@@ -157,7 +157,7 @@ def test_apply_to_with_disconnected_camera(tmp_path: Path):
 
 def test_quaternion_average_edge_cases():
     """Test quaternion averaging handles realistic edge cases."""
-    from caliscope.calibration.array_initialization.pose_network_builder import quaternion_average
+    from caliscope.core.bootstrap_pose.pose_network_builder import quaternion_average
 
     # Single quaternion (common: only one valid frame)
     q1 = np.array([1.0, 0.0, 0.0, 0.0])

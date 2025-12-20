@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from caliscope import __root__
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.core.capture_volume.capture_volume import CaptureVolume
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope import persistence
 

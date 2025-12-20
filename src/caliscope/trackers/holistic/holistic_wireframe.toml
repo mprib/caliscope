@@ -1,0 +1,244 @@
+# Pelvis and Flanks
+[pelvis]
+color = "y"
+points = ["right_hip", "left_hip"]
+
+[right_flank]
+color = "y"
+points = ["right_hip", "right_shoulder"]
+
+[left_flank]
+color = "y"
+points = ["left_hip", "left_shoulder"]
+
+# Shoulders
+[shoulders]
+color = "y"
+points = ["right_shoulder", "left_shoulder"]
+
+# Legs (Thighs and Shanks)
+[right_thigh]
+color = "r"
+points = ["right_hip", "right_knee"]
+
+[left_thigh]
+color = "g"
+points = ["left_hip", "left_knee"]
+
+[right_shank]
+color = "r"
+points = ["right_knee", "right_ankle"]
+
+[left_shank]
+color = "g"
+points = ["left_knee", "left_ankle"]
+
+# Arms (Upper Arm and Forearm)
+[right_arm]
+color = "r"
+points = ["right_shoulder", "right_elbow"]
+
+[left_arm]
+color = "g"
+points = ["left_shoulder", "left_elbow"]
+
+[right_forearm]
+color = "r"
+points = ["right_elbow", "right_wrist"]
+
+[left_forearm]
+color = "g"
+points = ["left_elbow", "left_wrist"]
+
+# Right Hand Thumb Segments
+[right_thumb_CMC]
+color = "r"
+points = ["right_wrist", "right_thumb_CMC"]
+
+[right_thumb_MCP]
+color = "r"
+points = ["right_thumb_CMC", "right_thumb_MCP"]
+
+[right_thumb_IP]
+color = "r"
+points = ["right_thumb_MCP", "right_thumb_IP"]
+
+[right_thumb_tip]
+color = "r"
+points = ["right_thumb_IP", "right_thumb_tip"]
+
+# Right Hand Index Finger Segments
+[right_index_finger_MCP]
+color = "r"
+points = ["right_wrist", "right_index_finger_MCP"]
+
+[right_index_finger_PIP]
+color = "r"
+points = ["right_index_finger_MCP", "right_index_finger_PIP"]
+
+[right_index_finger_DIP]
+color = "r"
+points = ["right_index_finger_PIP", "right_index_finger_DIP"]
+
+[right_index_finger_tip]
+color = "r"
+points = ["right_index_finger_DIP", "right_index_finger_tip"]
+
+
+# Right Hand Index Finger Segments
+[right_middle_finger_MCP]
+color = "r"
+points = ["right_wrist", "right_middle_finger_MCP"]
+
+[right_middle_finger_PIP]
+color = "r"
+points = ["right_middle_finger_MCP", "right_middle_finger_PIP"]
+
+[right_middle_finger_DIP]
+color = "r"
+points = ["right_middle_finger_PIP", "right_middle_finger_DIP"]
+
+[right_middle_finger_tip]
+color = "r"
+points = ["right_middle_finger_DIP", "right_middle_finger_tip"]
+
+
+# Right Hand Ring Finger Segments
+[right_ring_finger_MCP]
+color = "r"
+points = ["right_wrist", "right_ring_finger_MCP"]
+
+[right_ring_finger_PIP]
+color = "r"
+points = ["right_ring_finger_MCP", "right_ring_finger_PIP"]
+
+[right_ring_finger_DIP]
+color = "r"
+points = ["right_ring_finger_PIP", "right_ring_finger_DIP"]
+
+[right_ring_finger_tip]
+color = "r"
+points = ["right_ring_finger_DIP", "right_ring_finger_tip"]
+
+# Right Hand Ring Finger Segments
+[right_pinky_MCP]
+color = "r"
+points = ["right_wrist", "right_pinky_MCP"]
+
+[right_pinky_PIP]
+color = "r"
+points = ["right_pinky_MCP", "right_pinky_PIP"]
+
+[right_pinky_DIP]
+color = "r"
+points = ["right_pinky_PIP", "right_pinky_DIP"]
+
+[right_pinky_tip]
+color = "r"
+points = ["right_pinky_DIP", "right_pinky_tip"]
+
+
+# Left Hand Thumb Segments
+[left_thumb_CMC]
+color = "g"
+points = ["left_wrist", "left_thumb_CMC"]
+
+[left_thumb_MCP]
+color = "g"
+points = ["left_thumb_CMC", "left_thumb_MCP"]
+
+[left_thumb_IP]
+color = "g"
+points = ["left_thumb_MCP", "left_thumb_IP"]
+
+[left_thumb_tip]
+color = "g"
+points = ["left_thumb_IP", "left_thumb_tip"]
+
+# Left Hand Index Finger Segments
+[left_index_finger_MCP]
+color = "g"
+points = ["left_wrist", "left_index_finger_MCP"]
+
+[left_index_finger_PIP]
+color = "g"
+points = ["left_index_finger_MCP", "left_index_finger_PIP"]
+
+[left_index_finger_DIP]
+color = "g"
+points = ["left_index_finger_PIP", "left_index_finger_DIP"]
+
+[left_index_finger_tip]
+color = "g"
+points = ["left_index_finger_DIP", "left_index_finger_tip"]
+
+# Left Hand Index Finger Segments
+[left_middle_finger_MCP]
+color = "g"
+points = ["left_wrist", "left_middle_finger_MCP"]
+
+[left_middle_finger_PIP]
+color = "g"
+points = ["left_middle_finger_MCP", "left_middle_finger_PIP"]
+
+[left_middle_finger_DIP]
+color = "g"
+points = ["left_middle_finger_PIP", "left_middle_finger_DIP"]
+
+[left_middle_finger_tip]
+color = "g"
+points = ["left_middle_finger_DIP", "left_middle_finger_tip"]
+
+
+# Left Hand Ring Finger Segments
+[left_ring_finger_MCP]
+color = "g"
+points = ["left_wrist", "left_ring_finger_MCP"]
+
+[left_ring_finger_PIP]
+color = "g"
+points = ["left_ring_finger_MCP", "left_ring_finger_PIP"]
+
+[left_ring_finger_DIP]
+color = "g"
+points = ["left_ring_finger_PIP", "left_ring_finger_DIP"]
+
+[left_ring_finger_tip]
+color = "g"
+points = ["left_ring_finger_DIP", "left_ring_finger_tip"]
+
+# Left Hand Ring Finger Segments
+[left_pinky_MCP]
+color = "g"
+points = ["left_wrist", "left_pinky_MCP"]
+
+[left_pinky_PIP]
+color = "g"
+points = ["left_pinky_MCP", "left_pinky_PIP"]
+
+[left_pinky_DIP]
+color = "g"
+points = ["left_pinky_PIP", "left_pinky_DIP"]
+
+[left_pinky_tip]
+color = "g"
+points = ["left_pinky_DIP", "left_pinky_tip"]
+
+# Feet
+# left foot
+[left_foot]
+color = "g"
+points = ["left_heel", "left_foot_index"]
+
+[left_ankle]
+color = "g"
+points = ["left_ankle", "left_heel"]
+
+# right foot
+[right_foot]
+color = "r"
+points = ["right_heel", "right_foot_index"]
+
+[right_ankle]
+color = "r"
+points = ["right_ankle", "right_heel"]

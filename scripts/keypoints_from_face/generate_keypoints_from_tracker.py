@@ -17,7 +17,7 @@ from caliscope.configurator import Configurator
 from caliscope.trackers.skull_tracker.skull_tracker import SkullTracker
 from caliscope.logger import setup_logging
 from caliscope.synchronized_stream_manager import SynchronizedStreamManager
-from caliscope.calibration.array_initialization.build_paired_pose_network import build_paired_pose_network
+from caliscope.calibration.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope.tracker import Tracker
 from caliscope.post_processing.point_data import ImagePoints
 from caliscope.calibration.capture_volume.capture_volume import CaptureVolume

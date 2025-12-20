@@ -5,12 +5,12 @@ import logging
 from typing import Literal
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
+from caliscope.calibration.bootstrap_pose.paired_pose_network import PairedPoseNetwork
 from caliscope.post_processing.point_data import ImagePoints
-from caliscope.calibration.array_initialization.legacy_stereocal_paired_pose_network import (
+from caliscope.calibration.bootstrap_pose.legacy_stereocal_paired_pose_network import (
     build_legacy_stereocal_paired_pose_network,
 )
-from caliscope.calibration.array_initialization.pose_network_builder import PoseNetworkBuilder
+from caliscope.calibration.bootstrap_pose.pose_network_builder import PoseNetworkBuilder
 
 logger = logging.getLogger(__name__)
 

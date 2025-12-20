@@ -11,8 +11,8 @@ from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.post_processing.point_data import ImagePointSchema, ImagePoints, WorldPoints, WorldPointSchema
 from caliscope.calibration.charuco import Charuco
 from caliscope.calibration.capture_volume.point_estimates import PointEstimates
-from caliscope.calibration.array_initialization.paired_pose_network import PairedPoseNetwork
-from caliscope.calibration.array_initialization.stereopairs import StereoPair
+from caliscope.calibration.bootstrap_pose.paired_pose_network import PairedPoseNetwork
+from caliscope.calibration.bootstrap_pose.stereopairs import StereoPair
 
 logger = logging.getLogger(__name__)
 

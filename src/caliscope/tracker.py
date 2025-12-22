@@ -1,11 +1,8 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-
+from pathlib import Path
 import numpy as np
-import pyqtgraph as pg
-from pyqtgraph.opengl import GLLinePlotItem
 
-from caliscope.packets import PointPacket, XYZPacket
+from caliscope.packets import PointPacket
 
 
 class Tracker(ABC):
@@ -55,6 +52,14 @@ class Tracker(ABC):
         """
         pass
 
+    @property
+    def wireframe_toml_path(self) -> Path | None:
+        """
+        OPTIONAL: Path to wireframe definition TOML, or None if no wireframe.
+        This is a UI concern - the tracker just provides the path.
+        """
+        return None
+
     def get_connected_points(self) -> set[tuple[int, int]]:
         """
         OPTIONAL METHOD
@@ -99,33 +104,3 @@ class Tracker(ABC):
         will be calculated and stored as the measure
         """
         raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
-
-
-@dataclass(slots=True, frozen=True)
-class Segment:
-    name: str
-    color: str  # one of: r, g, b, c, m, y, k, w
-    point_A: str  # name of landmark
-    point_B: str  # name of landmark
-    width: float = 1  # note that this does not scale with zoom level... should probably just stick with 1
-
-
-@dataclass(slots=False, frozen=False)
-class WireFrameView:
-    segments: [Segment]
-    point_names: dict[str:int]  # map landmark name to landmark id
-
-    def __post_init__(self):
-        self.line_plots = {}
-        for segment in self.segments:
-            self.line_plots[segment.name] = GLLinePlotItem(
-                color=pg.mkColor(segment.color), width=segment.width, mode="lines"
-            )
-
-        self.point_ids = {value: key for key, value in self.point_names.items()}
-
-    def set_points(self, xyz_packet: XYZPacket):
-        for segment in self.segments:
-            A_id = self.point_ids[segment.point_A]
-            B_id = self.point_ids[segment.point_B]
-            self.line_plots[segment.name].setData(pos=xyz_packet.get_segment_ends(A_id, B_id))

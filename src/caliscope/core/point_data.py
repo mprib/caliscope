@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from time import time
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 import pandera.pandas as pa
 from numba import jit
@@ -342,7 +343,7 @@ class WorldPoints:
         return self._df.copy()
 
     @property
-    def points(self) -> np.ndarray:
+    def points(self) -> NDArray:
         """Return Nx3 numpy array of coordinates."""
         return self._df[["x_coord", "y_coord", "z_coord"]].values
 

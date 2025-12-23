@@ -30,6 +30,7 @@ class PlaybackViewModel:
     world_points: WorldPoints
     camera_array: CameraArray
     wireframe_segments: list[WireframeSegment] | None
+    frame_rate: int = 30  # fps; need to
 
     def get_point_geometry(self, sync_index: int | None) -> tuple[NDArray, NDArray] | None:
         """

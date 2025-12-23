@@ -30,7 +30,6 @@ class PlaybackTriangulationWidgetPyVista(QMainWindow):
         self.slider.valueChanged.connect(self._on_sync_index_changed)
 
         self._initialize_scene()
-        self._create_point_actor()
 
     def _initialize_scene(self):
         self.plotter.show_axes()
@@ -39,36 +38,33 @@ class PlaybackTriangulationWidgetPyVista(QMainWindow):
         self.plotter.enable_terrain_style()
         logger.info("PyVista scene initialized")
 
-    def _create_point_actor(self):
-        """Create empty point actor for updates."""
-        # Start with single point at origin
-        dummy_points = np.array([[0, 0, 0]], dtype=np.float32)
-        self.point_cloud = pv.PolyData(dummy_points)
-        self.point_cloud.point_data["colors"] = np.array([[0.9, 0.9, 0.9]], dtype=np.float32)
-
-        self.point_actor = self.plotter.add_mesh(
-            self.point_cloud,
-            render_points_as_spheres=True,
-            point_size=5,
-            scalars="colors",
-            rgb=True,
-        )
-
     def _on_sync_index_changed(self, sync_index: int):
         """Update point geometry when slider moves."""
         self.sync_index = sync_index
 
-        # Get geometry from ViewModel
         point_geom = self.view_model.get_point_geometry(sync_index)
 
         if point_geom is None:
-            # No data for this frame - hide points
-            self.point_cloud.points = np.empty((0, 3))
-            self.point_cloud.point_data["colors"] = np.empty((0, 3))
+            # Clear points by setting empty array
+            points = np.empty((0, 3), dtype=np.float32)
+            colors = np.empty((0, 3), dtype=np.float32)
         else:
-            positions, colors = point_geom
-            self.point_cloud.points = positions
-            self.point_cloud.point_data["colors"] = colors
+            points, colors = point_geom
+
+        # Create PolyData
+        cloud = pv.PolyData(points)
+        cloud.point_data["colors"] = (colors * 255).astype(np.uint8)
+
+        # Update or add mesh with name (no flicker)
+        self.plotter.add_mesh(
+            cloud,
+            name="mediapipe_points",  # Key: updates existing actor
+            render_points_as_spheres=True,
+            point_size=5,
+            scalars="colors",
+            rgb=True,
+            reset_camera=False,  # Don't jump camera
+        )
 
         self.plotter.render()
         logger.debug(f"Updated points for sync_index {sync_index}")
@@ -94,7 +90,9 @@ if __name__ == "__main__":
     import caliscope.persistence as persistence
     from caliscope import __root__
     from caliscope.ui.viz.playback_view_model import PlaybackViewModel
+    from caliscope.ui.viz.wireframe_loader import load_wireframe_config
 
+    # Load test data
     session_path = __root__ / "tests" / "sessions" / "4_cam_recording"
     xyz_path = session_path / "recordings" / "recording_1" / "HOLISTIC" / "xyz_HOLISTIC.csv"
     camera_array_path = session_path / "camera_array.toml"
@@ -102,18 +100,20 @@ if __name__ == "__main__":
     world_points = persistence.load_world_points_csv(xyz_path)
     camera_array = persistence.load_camera_array(camera_array_path)
 
+    # Load wireframe
+    wireframe_path = __root__ / "src" / "caliscope" / "ui" / "viz" / "wireframes" / "holistic_wireframe.toml"
+    wireframe_config = load_wireframe_config(wireframe_path)
+
     view_model = PlaybackViewModel(
         world_points=world_points,
         camera_array=camera_array,
-        wireframe_segments=None,
+        wireframe_segments=wireframe_config.segments,
     )
 
-    # Set slider range based on actual data
-    min_idx = world_points.df["sync_index"].min()
-    max_idx = world_points.df["sync_index"].max()
-
+    # Create widget and set range
     widget = PlaybackTriangulationWidgetPyVista(view_model=view_model)
-    widget.set_sync_index_range(min_idx, max_idx)
+    widget.set_sync_index_range(world_points.df["sync_index"].min(), world_points.df["sync_index"].max())
+
     widget.show()
     widget.resize(800, 600)
 

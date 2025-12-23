@@ -1,5 +1,3 @@
-# --- File: src/caliscope/ui/viz/playback_triangulation_widget_pyvista.py ---
-
 import logging
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSlider, QMainWindow
@@ -30,6 +28,8 @@ class PlaybackTriangulationWidgetPyVista(QMainWindow):
         self.slider.valueChanged.connect(self._on_sync_index_changed)
 
         self._initialize_scene()
+        self._create_camera_actors()  # Add this line
+        self._create_point_actor()
 
     def _initialize_scene(self):
         self.plotter.show_axes()
@@ -37,6 +37,49 @@ class PlaybackTriangulationWidgetPyVista(QMainWindow):
         self.plotter.show_grid()
         self.plotter.enable_terrain_style()
         logger.info("PyVista scene initialized")
+
+    def _create_camera_actors(self):
+        """Create static camera mesh actors."""
+        camera_geom = self.view_model.get_camera_geometry()
+
+        if camera_geom is None:
+            logger.warning("No camera geometry available")
+            return
+
+        # Create mesh from camera geometry
+        mesh = pv.PolyData(camera_geom["vertices"], faces=camera_geom["faces"])
+        mesh.point_data["colors"] = camera_geom["colors"]
+
+        # Add mesh with name for potential updates
+        self.plotter.add_mesh(
+            mesh,
+            name="camera_array",
+            scalars="colors",
+            rgb=True,
+            opacity=0.7,
+        )
+
+        # Add camera labels
+        label_positions = [pos for pos, _ in camera_geom["labels"]]
+        label_texts = [text for _, text in camera_geom["labels"]]
+
+        self.plotter.add_point_labels(
+            label_positions,
+            label_texts,
+            font_size=12,
+            point_color="white",
+            text_color="white",
+            point_size=1,
+            name="camera_labels",
+        )
+
+        logger.info(f"Added {len(camera_geom['labels'])} cameras to scene")
+
+    def _create_point_actor(self):
+        """Create empty point actor for updates."""
+        dummy_points = np.array([[0, 0, 0]], dtype=np.float32)
+        self.point_cloud = pv.PolyData(dummy_points)
+        self.point_cloud.point_data["colors"] = np.array([[0.9, 0.9, 0.9]], dtype=np.float32)
 
     def _on_sync_index_changed(self, sync_index: int):
         """Update point geometry when slider moves."""
@@ -58,12 +101,12 @@ class PlaybackTriangulationWidgetPyVista(QMainWindow):
         # Update or add mesh with name (no flicker)
         self.plotter.add_mesh(
             cloud,
-            name="mediapipe_points",  # Key: updates existing actor
+            name="mediapipe_points",
             render_points_as_spheres=True,
             point_size=5,
             scalars="colors",
             rgb=True,
-            reset_camera=False,  # Don't jump camera
+            reset_camera=False,
         )
 
         self.plotter.render()

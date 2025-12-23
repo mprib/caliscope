@@ -97,6 +97,29 @@ skip-magic-trailing-comma = false
 # Normalize line endings to LF for consistency across operating systems.
 line-ending = "lf"
 
+[tool.basedpyright]
+typeCheckingMode = "standard"
+
+[tool.basedpyright.analysis]
+# These stop the "Unknown/Partially Known" noise from third-party libs
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+reportUnknownParameterType = false
+reportUnknownReturnType = false
+reportUnknownLambdaType = false
+reportPartiallyUnknownMemberType = false
+reportPartiallyUnknownVariableType = false
+reportPartiallyUnknownArgumentType = false
+reportPartiallyUnknownParameterType = false
+reportPartiallyUnknownReturnType = false
+reportPartiallyUnknownLambdaType = false
+reportUnannotatedClassAttribute = false
+reportMissingTypeStubs = false
+reportAny = false
+
+diagnosticMode = "openFilesOnly"
+
 [dependency-groups]
 dev = [
     "pytest>=7.3.0",

@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from time import time
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 import pandera.pandas as pa
 from numba import jit
@@ -331,10 +332,18 @@ class WorldPoints:
     """A validated, immutable container for 3D (x,y,z) point data."""
 
     _df: pd.DataFrame
+    min_index: int | None = None
+    max_index: int | None = None
 
     def __post_init__(self):
         # Validate schema
         object.__setattr__(self, "_df", WorldPointSchema.validate(self._df))
+
+        # calculate start and stop index
+        min_index = int(self._df["sync_index"].min())
+        max_index = int(self._df["sync_index"].max())
+        object.__setattr__(self, "min_index", min_index)
+        object.__setattr__(self, "max_index", max_index)
 
     @property
     def df(self) -> pd.DataFrame:
@@ -342,7 +351,7 @@ class WorldPoints:
         return self._df.copy()
 
     @property
-    def points(self) -> np.ndarray:
+    def points(self) -> NDArray:
         """Return Nx3 numpy array of coordinates."""
         return self._df[["x_coord", "y_coord", "z_coord"]].values
 

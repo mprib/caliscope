@@ -13,16 +13,16 @@ import sys
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.controller import Controller
-from caliscope.configurator import Configurator
 from caliscope.trackers.skull_tracker.skull_tracker import SkullTracker
 from caliscope.logger import setup_logging
-from caliscope.synchronized_stream_manager import SynchronizedStreamManager
-from caliscope.calibration.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope.tracker import Tracker
-from caliscope.post_processing.point_data import ImagePoints
-from caliscope.calibration.capture_volume.capture_volume import CaptureVolume
+from caliscope.core.point_data import ImagePoints
+from caliscope.core.capture_volume.capture_volume import CaptureVolume
 from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 from caliscope.helper import copy_contents_to_clean_dest
+import caliscope.persistence as persistence
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     # destination to copy over origin clean project just for ease of reference and avoidance of pollution across runs
     working_project_dir = Path(__file__).parent / "sample_project"
-
+    camera_array_toml = working_project_dir / "camera_array.toml"
     raw_video_dir = working_project_dir / "calibration/extrinsic"
 
     # this will create x,y image points along with x,y,z object points for pnp
@@ -83,8 +83,7 @@ if __name__ == "__main__":
         copy_contents_to_clean_dest(origin_project_dir, working_project_dir)
 
         # Load camera array from working project config
-        config = Configurator(working_project_dir)
-        camera_array = config.get_camera_array()
+        camera_array = persistence.load_camera_array(camera_array_toml)
 
         # generate keypoints from tracker that yields object x,y,z points
         tic = time.time()
@@ -94,8 +93,7 @@ if __name__ == "__main__":
         keypoint_generation_time = round(toc - tic, 3)
     else:
         # Load camera array from working project config
-        config = Configurator(working_project_dir)
-        camera_array = config.get_camera_array()
+        camera_array = persistence.load_camera_array(camera_array_toml)
 
     # keypoint data now exists. It looks like this:
 
@@ -126,6 +124,9 @@ if __name__ == "__main__":
     # run the bundle adjustment with these initialized values to dial in extrinsics
 
     tic = time.time()
+    # data_bundle = PointDataBundle(camera_array, image_points, initial_world_points)
+    # optimized_data_bundle = data_bundle.optimize()
+
     capture_volume = CaptureVolume(camera_array, initial_world_points.to_point_estimates(image_points, camera_array))
     capture_volume.optimize()
     toc = time.time()
@@ -140,8 +141,10 @@ if __name__ == "__main__":
     triangulation_time = toc - tic
 
     # Save data to load into controller layer for visualization
-    config.save_camera_array(optimized_camera_array)
-    config.save_point_estimates(capture_volume.point_estimates)
+    persistence.save_camera_array(optimized_camera_array, camera_array_toml)
+
+    point_estimates_path = working_project_dir / "point_estimates.toml"
+    persistence.save_point_estimates(capture_volume.point_estimates, point_estimates_path)
 
     logger.info(
         f"""

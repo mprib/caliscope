@@ -18,6 +18,9 @@ def get_wireframe(toml_spec_path: Path, point_names: dict) -> WireFrameView:
     segments = []
 
     for segment_name, specs in wireframe_specs.items():
+        if segment_name == "points":
+            continue
+
         segment = Segment(
             name=segment_name,
             color=specs["color"],

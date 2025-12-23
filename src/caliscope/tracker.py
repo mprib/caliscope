@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-
+from pathlib import Path
 import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.opengl import GLLinePlotItem
 
+from dataclasses import dataclass
 from caliscope.packets import PointPacket, XYZPacket
 
 
@@ -54,6 +54,14 @@ class Tracker(ABC):
         to place the tracked point on the frame. See `FramePacket` below.
         """
         pass
+
+    @property
+    def wireframe_toml_path(self) -> Path | None:
+        """
+        OPTIONAL: Path to wireframe definition TOML, or None if no wireframe.
+        This is a UI concern - the tracker just provides the path.
+        """
+        return None
 
     def get_connected_points(self) -> set[tuple[int, int]]:
         """

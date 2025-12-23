@@ -20,6 +20,8 @@ dependencies = [
     "platformdirs>=4.3.8",
     "mediapipe>=0.10.20",
     "pandera>=0.26.1",
+    "pyvista>=0.46.4",
+    "pyvistaqt>=0.11.3",
 ]
 
 
@@ -94,6 +96,29 @@ skip-magic-trailing-comma = false
 
 # Normalize line endings to LF for consistency across operating systems.
 line-ending = "lf"
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
+
+[tool.basedpyright.analysis]
+# These stop the "Unknown/Partially Known" noise from third-party libs
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+reportUnknownParameterType = false
+reportUnknownReturnType = false
+reportUnknownLambdaType = false
+reportPartiallyUnknownMemberType = false
+reportPartiallyUnknownVariableType = false
+reportPartiallyUnknownArgumentType = false
+reportPartiallyUnknownParameterType = false
+reportPartiallyUnknownReturnType = false
+reportPartiallyUnknownLambdaType = false
+reportUnannotatedClassAttribute = false
+reportMissingTypeStubs = false
+reportAny = false
+
+diagnosticMode = "openFilesOnly"
 
 [dependency-groups]
 dev = [

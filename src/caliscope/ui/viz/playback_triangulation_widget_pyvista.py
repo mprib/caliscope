@@ -14,15 +14,15 @@ class PlaybackTriangulationWidgetPyVista(QMainWindow):
     def __init__(self, view_model: PlaybackViewModel, parent=None):
         super().__init__(parent)
         self.view_model = view_model
-        self.sync_index = 0
+        self.sync_index: int = self.view_model.min_index
 
-        self.plotter = QtInteractor(parent=self)
+        self.plotter: QtInteractor = QtInteractor(parent=self)
         self.setCentralWidget(self.plotter)
 
         self.slider = QSlider(Qt.Orientation.Horizontal, self)
-        self.slider.setMinimum(0)
-        self.slider.setMaximum(100)
-        self.slider.setValue(0)
+        self.slider.setMinimum(self.view_model.min_index)
+        self.slider.setMaximum(self.view_model.max_index)
+        self.slider.setValue(self.sync_index)
         self.statusBar().addWidget(self.slider, stretch=1)
 
         self.slider.valueChanged.connect(self._on_sync_index_changed)
@@ -112,11 +112,6 @@ class PlaybackTriangulationWidgetPyVista(QMainWindow):
         self.plotter.render()
         logger.debug(f"Updated points for sync_index {sync_index}")
 
-    def set_sync_index_range(self, min_index: int, max_index: int):
-        self.slider.setMinimum(min_index)
-        self.slider.setMaximum(max_index)
-        logger.info(f"Sync index range set to [{min_index}, {max_index}]")
-
 
 # --- Demo script ---
 if __name__ == "__main__":
@@ -155,7 +150,6 @@ if __name__ == "__main__":
 
     # Create widget and set range
     widget = PlaybackTriangulationWidgetPyVista(view_model=view_model)
-    widget.set_sync_index_range(world_points.df["sync_index"].min(), world_points.df["sync_index"].max())
 
     widget.show()
     widget.resize(800, 600)

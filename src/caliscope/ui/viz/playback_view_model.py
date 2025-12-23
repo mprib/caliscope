@@ -66,3 +66,11 @@ class PlaybackViewModel:
             Dictionary with vertices, faces, colors, labels or None
         """
         return build_camera_geometry(self.camera_array)
+
+    @property
+    def max_index(self) -> int | None:
+        return self.world_points.max_index
+
+    @property
+    def min_index(self) -> int | None:
+        return self.world_points.min_index

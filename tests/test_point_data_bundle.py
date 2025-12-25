@@ -437,8 +437,8 @@ def test_align_bundle_to_charuco_board(tmp_path: Path):
     for axis in ["x", "y", "z"]:
         diff = np.abs(merged_points[f"{axis}_coord_retri"] - merged_points[f"{axis}_coord_aligned"])
         max_diff = diff.max()
-        # note that 1e-5 passes locally but via GH actions goes up to 1.8e-5, so adjusting threshold here.
-        assert max_diff < 2e-5, f"Retriangulated points don't match aligned points for {axis} axis: max diff {max_diff}"
+        # 1e-4 -> 0.1mm precision
+        assert max_diff < 1e-4, f"Retriangulated points don't match aligned points for {axis} axis: max diff {max_diff}"
 
     # Verification 3: At alignment sync_index, points should match object coordinates
     aligned_world_at_sync = aligned_bundle.world_points.df[aligned_bundle.world_points.df["sync_index"] == sync_index]

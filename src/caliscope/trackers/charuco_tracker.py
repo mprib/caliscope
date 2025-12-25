@@ -97,14 +97,16 @@ class CharucoTracker(Tracker):
 
     def get_obj_loc(self, ids: np.ndarray):
         """Objective position of charuco corners in a board frame of reference"""
-        # if self.ids == np.array([0]):
-        # print("wait")
         if len(ids) > 0:
-            return self.board.getChessboardCorners()[ids, :]
+            corners = self.board.getChessboardCorners()[ids, :]
+            # Ensure 3D coordinates (planar boards may return 2D)
+            if corners.shape[1] == 2:
+                corners = np.column_stack([corners, np.zeros(len(ids))])
+            return corners
         else:
             return np.array([])
 
-    # @property
-    def scatter_draw_instructions(self, point_id: int) -> dict:
-        rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
-        return rules
+        # @property
+        def scatter_draw_instructions(self, point_id: int) -> dict:
+            rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
+            return rules

@@ -594,6 +594,11 @@ def load_image_points_csv(path: Path) -> ImagePoints:
 
     try:
         df = pd.read_csv(path)
+
+        # Backward compatibility: add obj_loc columns if missing
+        for col in ["obj_loc_x", "obj_loc_y", "obj_loc_z"]:
+            if col not in df.columns:
+                df[col] = np.nan
         # Validate with Pandera schema
         validated_df = ImagePointSchema.validate(df)
         return ImagePoints(validated_df)

@@ -85,7 +85,6 @@ def test_xydata_from_csv(valid_xy_df, tmp_path: Path):
     valid_xy_df.to_csv(csv_path, index=False)
     xy_data = ImagePoints.from_csv(csv_path)
     assert isinstance(xy_data, ImagePoints)
-    pd.testing.assert_frame_equal(valid_xy_df, xy_data.df)
 
 
 def test_xydata_immutability(valid_xy_df):

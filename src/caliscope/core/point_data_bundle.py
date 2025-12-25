@@ -475,6 +475,10 @@ class PointDataBundle:
         corresponding ground truth object positions (from obj_loc columns) to
         estimate a similarity transform that scales the reconstruction to real-world units.
 
+        Note:
+            Object coordinates (obj_loc_*) must be in real-world units (typically meters).
+            For Charuco boards, this requires defining the board with square_length in meters.
+
         For planar Charuco boards, obj_loc_z may be missing and will be treated as 0.
         The obj_loc coordinates must be in the target units (typically meters).
 

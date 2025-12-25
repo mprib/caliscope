@@ -106,7 +106,7 @@ class CharucoTracker(Tracker):
         else:
             return np.array([])
 
-        # @property
-        def scatter_draw_instructions(self, point_id: int) -> dict:
-            rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
-            return rules
+    # @property
+    def scatter_draw_instructions(self, point_id: int) -> dict:
+        rules = {"radius": 5, "color": (0, 0, 220), "thickness": 3}
+        return rules

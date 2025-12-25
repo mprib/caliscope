@@ -155,6 +155,9 @@ class ImagePointSchema(pa.DataFrameModel):
     point_id: Series[int] = pa.Field(coerce=True)
     img_loc_x: Series[float] = pa.Field(coerce=True)
     img_loc_y: Series[float] = pa.Field(coerce=True)
+    obj_loc_x: Series[float] = pa.Field(coerce=True, nullable=True)
+    obj_loc_y: Series[float] = pa.Field(coerce=True, nullable=True)
+    obj_loc_z: Series[float] = pa.Field(coerce=True, nullable=True)
 
     class Config(pa.DataFrameModel.Config):
         strict = False
@@ -180,18 +183,29 @@ class ImagePoints:
 
     _df: pd.DataFrame
 
-    def __init__(self, df: pd.DataFrame):
-        self._df = ImagePointSchema.validate(df)
-
     @property
     def df(self) -> pd.DataFrame:
         return self._df.copy()
+
+    def __init__(self, df: pd.DataFrame):
+        # Ensure obj_loc columns exist even if not in source data
+        df = df.copy()  # Don't modify the original DataFrame
+        for col in ["obj_loc_x", "obj_loc_y", "obj_loc_z"]:
+            if col not in df.columns:
+                df[col] = np.nan
+
+        self._df = ImagePointSchema.validate(df)
 
     @classmethod
     def from_csv(cls, path: str | Path) -> ImagePoints:
         df = pd.read_csv(path)
 
-        return cls(ImagePointSchema.validate(df))
+        # Backward compatibility: add obj_loc columns if missing
+        for col in ["obj_loc_x", "obj_loc_y", "obj_loc_z"]:
+            if col not in df.columns:
+                df[col] = np.nan
+
+        return cls(df)  # Let constructor handle validation
 
     @classmethod
     def from_point_estimates(cls, point_estimates: PointEstimates, camera_array: CameraArray) -> ImagePoints:

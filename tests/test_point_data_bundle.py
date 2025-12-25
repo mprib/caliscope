@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
-
+import pandas as pd
 from caliscope import __root__
 from caliscope.core.capture_volume.capture_volume import CaptureVolume
 from caliscope.core.capture_volume.point_estimates import PointEstimates
@@ -380,6 +380,88 @@ def test_point_estimates_roundtrip(tmp_path: Path):
     logger.info("=" * 50)
 
 
+def test_align_bundle_to_charuco_board(tmp_path: Path):
+    """Test aligning a PointDataBundle to Charuco board coordinates."""
+    # Setup: load a calibration session with Charuco data
+    version = "post_optimization"
+    original_session_path = Path(__root__, "tests", "sessions", version)
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
+
+    # Load data
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    persistence.load_charuco(tmp_path / "charuco.toml")
+    image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
+
+    # CRITICAL: Handle missing obj_loc_z column (common in planar board data)
+    # The CSV may only have obj_loc_x and obj_loc_y ,with
+    logger.info("Adding missing obj_loc_z column (planar board assumption)")
+
+    df = image_points.df.copy()
+    df["obj_loc_z"] = 0.0
+    image_points = ImagePoints(df)
+
+    # Verify we have valid object coordinates
+    assert not image_points.df["obj_loc_x"].isna().any(), "obj_loc_x contains NaN values"
+    assert not image_points.df["obj_loc_z"].isna().any(), "obj_loc_z contains NaN values"
+
+    # Create initial bundle (in arbitrary reconstruction units)
+    world_points = image_points.triangulate(camera_array)
+    bundle = PointDataBundle(camera_array, image_points, world_points)
+
+    # Select a sync_index where board is well-visible (most detections)
+    sync_index_counts = image_points.df["sync_index"].value_counts()
+    sync_index = sync_index_counts.idxmax()
+    logger.info(f"Using sync_index {sync_index} for alignment (has {sync_index_counts.max()} detections)")
+
+    # Align to object
+    aligned_bundle = bundle.align_to_object(sync_index)
+
+    # Verification 1: RMSE should be preserved (geometrically identical)
+    original_rmse = bundle.reprojection_report.overall_rmse
+    aligned_rmse = aligned_bundle.reprojection_report.overall_rmse
+    assert abs(original_rmse - aligned_rmse) < 1e-6, f"RMSE changed after alignment: {original_rmse} vs {aligned_rmse}"
+
+    # Verification 2: Retriangulate with aligned cameras
+    # The retriangulated points should match the aligned world points
+    retriangulated_points = aligned_bundle.image_points.triangulate(aligned_bundle.camera_array)
+
+    # Compare retriangulated vs aligned world points
+    merged_points = pd.merge(
+        retriangulated_points.df,
+        aligned_bundle.world_points.df,
+        on=["sync_index", "point_id"],
+        suffixes=("_retri", "_aligned"),
+    )
+
+    # They should be very close (numerical differences only)
+    for axis in ["x", "y", "z"]:
+        diff = np.abs(merged_points[f"{axis}_coord_retri"] - merged_points[f"{axis}_coord_aligned"])
+        max_diff = diff.max()
+        # 1e-4 -> 0.1mm precision
+        assert max_diff < 1e-4, f"Retriangulated points don't match aligned points for {axis} axis: max diff {max_diff}"
+
+    # Verification 3: At alignment sync_index, points should match object coordinates
+    aligned_world_at_sync = aligned_bundle.world_points.df[aligned_bundle.world_points.df["sync_index"] == sync_index]
+
+    # Get object coordinates from image points
+    img_at_sync = image_points.df[image_points.df["sync_index"] == sync_index]
+    merged_at_sync = pd.merge(
+        aligned_world_at_sync, img_at_sync[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]], on="point_id"
+    )
+
+    # Check that aligned points match object coordinates (within tolerance for noise)
+    for axis in ["x", "y", "z"]:
+        coord_diff = np.abs(merged_at_sync[f"{axis}_coord"] - merged_at_sync[f"obj_loc_{axis}"])
+        max_diff = coord_diff.max()
+        # Allow 1cm tolerance for noise/reprojection errors
+        assert max_diff < 0.01, (
+            f"Aligned points don't match object coordinates for {axis} axis at sync_index {sync_index}: "
+            f"max diff {max_diff}"
+        )
+
+    logger.info("✓ All alignment validations passed")
+
+
 if __name__ == "__main__":
     from caliscope.logger import setup_logging
 
@@ -390,6 +472,7 @@ if __name__ == "__main__":
     debug_dir.mkdir(exist_ok=True)
 
     # Run test
-    test_point_data_bundle(debug_dir)
+    # test_point_data_bundle(debug_dir)
     # test_point_estimates_roundtrip(debug_dir)
     # test_world_data_point_estimates(debug_dir)
+    test_align_bundle_to_charuco_board(debug_dir)

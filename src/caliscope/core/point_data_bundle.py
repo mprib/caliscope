@@ -22,6 +22,8 @@ from caliscope.core.reprojection import (
     CameraIndices,
 )
 from caliscope.core.reprojection_report import ReprojectionReport
+from caliscope.core.alignment import estimate_similarity_transform, apply_similarity_transform
+
 import pandas as pd
 
 logger = logging.getLogger(__file__)
@@ -464,6 +466,87 @@ class PointDataBundle:
             raise ValueError(f"scope must be 'per_camera' or 'overall', got {scope}")
 
         return self._filter_by_reprojection_thresholds(thresholds, min_per_camera)
+
+    def align_to_object(self, sync_index: int) -> "PointDataBundle":
+        """
+        Align the bundle to real-world units using object point correspondences.
+
+        Uses the 3D points triangulated at the given sync_index and their
+        corresponding ground truth object positions (from obj_loc columns) to
+        estimate a similarity transform that scales the reconstruction to real-world units.
+
+        Note:
+            Object coordinates (obj_loc_*) must be in real-world units (typically meters).
+            For Charuco boards, this requires defining the board with square_length in meters.
+
+        For planar Charuco boards, obj_loc_z may be missing and will be treated as 0.
+        The obj_loc coordinates must be in the target units (typically meters).
+
+        Args:
+            sync_index: Frame index where object is visible and has obj_loc data
+
+        Returns:
+            New PointDataBundle with cameras and world points in object coordinate units
+
+        Raises:
+            ValueError: If insufficient valid correspondences (< 3 points) or missing data
+        """
+        # Extract data at sync_index
+        img_df = self.image_points.df
+        world_df = self.world_points.df
+
+        img_subset = img_df[img_df["sync_index"] == sync_index]
+        world_subset = world_df[world_df["sync_index"] == sync_index]
+
+        if img_subset.empty:
+            raise ValueError(f"No image observations at sync_index {sync_index}")
+        if world_subset.empty:
+            raise ValueError(f"No world points at sync_index {sync_index}")
+
+        # Merge on point_id to find correspondences
+        merged = pd.merge(
+            world_subset[["point_id", "x_coord", "y_coord", "z_coord"]],
+            img_subset[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]],
+            on="point_id",
+            how="inner",
+        )
+
+        if len(merged) < 3:
+            raise ValueError(f"Need at least 3 point correspondences at sync_index {sync_index}, got {len(merged)}")
+
+        # Handle missing obj_loc_z (planar boards)
+        if merged["obj_loc_z"].isna().all():
+            logger.info("obj_loc_z is all NaN, assuming planar board with z=0")
+            merged["obj_loc_z"] = 0.0
+
+        # Filter out any rows with NaN object coordinates
+        obj_cols = ["obj_loc_x", "obj_loc_y", "obj_loc_z"]
+        valid_mask = ~merged[obj_cols].isna().any(axis=1)
+        merged = merged[valid_mask]
+
+        if len(merged) < 3:
+            raise ValueError(
+                f"Need at least 3 valid point correspondences at sync_index {sync_index}, "
+                f"got {len(merged)} after filtering NaN values"
+            )
+
+        # Prepare source (triangulated) and target (object) points
+        source_points = merged[["x_coord", "y_coord", "z_coord"]].values.astype(np.float64)
+        target_points = merged[obj_cols].values.astype(np.float64)
+
+        # Estimate and apply transform
+        transform = estimate_similarity_transform(source_points, target_points)
+
+        logger.info(
+            f"Estimated alignment: scale={transform.scale:.6f}, "
+            f"translation={transform.translation}, rotation_det={np.linalg.det(transform.rotation):.6f}"
+        )
+
+        new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
+
+        return PointDataBundle(
+            camera_array=new_camera_array, image_points=self.image_points, world_points=new_world_points
+        )
 
 
 if __name__ == "__main__":

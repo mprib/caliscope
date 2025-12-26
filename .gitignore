@@ -33,3 +33,4 @@ caliscope.egg-info
 build/lib/caliscope
 .swp
 branch_notes.md
+AGENTS.md

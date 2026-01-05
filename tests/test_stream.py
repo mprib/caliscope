@@ -6,6 +6,7 @@ from time import sleep
 import cv2
 
 from caliscope import __root__
+from caliscope.cameras.camera_array import CameraData
 from caliscope.core.charuco import Charuco
 from caliscope.recording.recorded_stream import RecordedStream
 from caliscope.trackers.charuco_tracker import CharucoTracker
@@ -20,7 +21,8 @@ def test_stream():
 
     charuco_tracker = CharucoTracker(charuco)
 
-    stream = RecordedStream(recording_directory, port=1, rotation_count=0, tracker=charuco_tracker, fps_target=6)
+    camera = CameraData(port=1, size=[640, 480])  # placeholder size; stream reads actual from video
+    stream = RecordedStream(recording_directory, camera=camera, tracker=charuco_tracker, fps_target=6)
     frame_q = Queue()
     stream.subscribe(frame_q)
     stream.play_video()

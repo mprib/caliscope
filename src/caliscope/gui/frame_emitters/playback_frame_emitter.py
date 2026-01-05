@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
 
 import caliscope.core.draw_charuco as draw_charuco
+from caliscope.gui.camera_undistort_view import CameraUndistortView
 from caliscope.gui.frame_emitters.tools import apply_rotation, cv2_to_qlabel, resize_to_square
 from caliscope.recording.recorded_stream import RecordedStream
 
@@ -27,16 +28,13 @@ class PlaybackFrameEmitter(QThread):
         self.stream = recorded_stream
         self.port = self.stream.port
 
-        # Apply a safety margin to the scaling factors (e.g., 5%)
-        # used only when applying the undistortion
-        self.scaling_factor = 1
-
         self.frame_packet_q = Queue()
         self.grid_history_q = grid_history_q  # received a tuple of ids, img_loc
 
         self.stream.subscribe(self.frame_packet_q)
         self.pixmap_edge_length = pixmap_edge_length
-        self.undistort = False
+        self._undistort_enabled = False
+        self._undistort_view: CameraUndistortView | None = None
         self.keep_collecting = Event()
         self.initialize_grid_capture_history()
 
@@ -104,75 +102,31 @@ class PlaybackFrameEmitter(QThread):
         self.frame_packet_q.put(-1)
         self.quit()
 
-    def set_scale_factor(self, scaling_factor):
-        self.scaling_factor = scaling_factor
+    def set_scale_factor(self, scaling_factor: float) -> None:
+        """Update the display scale factor for undistortion."""
+        if self._undistort_view is not None:
+            self._undistort_view.set_scale_factor(scaling_factor)
 
-        if hasattr(self, "matrix") and hasattr(self, "distortions"):
-            self.update_distortion_params(self.undistort, self.matrix, self.distortions)
-
-    def update_distortion_params(self, undistort=None, matrix=None, distortions=None):
-        if matrix is None:
+    def set_undistort(self, undistort: bool) -> None:
+        """Enable or disable undistortion for display."""
+        camera = self.stream.camera
+        if camera.matrix is None:
             logger.info(f"No camera matrix calculated yet at port {self.port}")
-        else:
-            logger.info(f"Updating camera matrix and distortion parameters for frame emitter at port {self.port}")
+            return
 
-            self.undistort = undistort
-            self.matrix = matrix
-            self.distortions = distortions
+        logger.info(f"Setting undistort={undistort} for frame emitter at port {self.port}")
+        self._undistort_enabled = undistort
 
-            h, w = self.stream.size
-            # h, w = original_image_size
-            initial_new_matrix, valid_roi = cv2.getOptimalNewCameraMatrix(self.matrix, self.distortions, (w, h), 1)
+        # Create view on first enable (lazy initialization)
+        if undistort and self._undistort_view is None:
+            # stream.size is (width, height), but CameraUndistortView expects (height, width)
+            h, w = self.stream.size[1], self.stream.size[0]
+            self._undistort_view = CameraUndistortView(camera, (h, w))
 
-            logger.info(f"Valid ROI is {valid_roi}")
-
-            # Find extreme points and midpoints in the original image
-            corners = np.array([[0, 0], [0, h], [w, 0], [w, h]], dtype=np.float32)
-            midpoints = np.array([[w / 2, 0], [w / 2, h], [0, h / 2], [w, h / 2]], dtype=np.float32)
-            extreme_points = np.vstack((corners, midpoints))
-
-            # Undistort these points
-            # TODO: link function call to camera undistort method
-            undistorted_points = cv2.undistortPoints(
-                np.expand_dims(extreme_points, axis=1),
-                self.matrix,
-                self.distortions,
-                P=initial_new_matrix,
-            )
-
-            # Find min/max x and y in undistorted points
-            min_x = min(undistorted_points[:, 0, 0])
-            max_x = max(undistorted_points[:, 0, 0])
-            min_y = min(undistorted_points[:, 0, 1])
-            max_y = max(undistorted_points[:, 0, 1])
-
-            # # Calculate new image width and height
-            # new_width = int(np.ceil(max_x - min_x))
-            # new_height = int(np.ceil(max_y - min_y))
-
-            # Calculate scaling factors
-            scale_x = (max_x - min_x) / w
-            scale_y = (max_y - min_y) / h
-
-            scale_x *= self.scaling_factor
-            scale_y *= self.scaling_factor
-
-            # Adjust new image width and height
-            adjusted_width = int(w * scale_x)
-            adjusted_height = int(h * scale_y)
-
-            logger.info(f"New image size for undistorted frame: {(adjusted_width, adjusted_height)}")
-            # Now use new_width and new_height as your NewImageSize for undistortion
-            # newImageSize = (new_width, new_height)
-            self.new_matrix, valid_roi = cv2.getOptimalNewCameraMatrix(
-                self.matrix, self.distortions, (w, h), 1, (adjusted_width, adjusted_height)
-            )
-
-    def _apply_undistortion(self):
-        if self.undistort and self.matrix is not None:
-            # Compute the optimal new camera matrix
-            # Undistort the image
-            self.frame = cv2.undistort(self.frame, self.matrix, self.distortions, None, self.new_matrix)
+    def _apply_undistortion(self) -> None:
+        """Apply undistortion to current frame if enabled."""
+        if self._undistort_enabled and self._undistort_view is not None:
+            self.frame = self._undistort_view.undistort_frame(self.frame)
 
     def add_to_grid_history(self, ids, img_loc):
         """

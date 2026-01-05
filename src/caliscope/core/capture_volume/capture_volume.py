@@ -95,7 +95,8 @@ class CaptureVolume:
                 obs_indices_for_cam = np.where(self._point_estimates.camera_indices == camera_index)[0]
                 if obs_indices_for_cam.size > 0:
                     img_points_for_cam = self._point_estimates.img[obs_indices_for_cam]
-                    self._normalized_points[obs_indices_for_cam] = cam.undistort_points(img_points_for_cam)
+                    undistorted = cam.undistort_points(img_points_for_cam, output="normalized")
+                    self._normalized_points[obs_indices_for_cam] = undistorted
         return self._normalized_points
 
     @property

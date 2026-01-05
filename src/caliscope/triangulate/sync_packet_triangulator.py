@@ -95,7 +95,7 @@ class SyncPacketTriangulator:
                         mask = cameras == port
                         points_to_undistort = imgs_xy[mask]
                         camera = self.camera_array.cameras[port]
-                        undistorted_subset = camera.undistort_points(points_to_undistort)
+                        undistorted_subset = camera.undistort_points(points_to_undistort, output="normalized")
                         undistorted_imgs_xy[mask] = undistorted_subset
 
                     logger.debug("Attempting to triangulate synced frames with undistorted points")

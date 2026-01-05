@@ -33,8 +33,7 @@ class IntrinsicStreamManager:
             logger.info(f"Loading stream tools associated with camera {camera.port}")
             stream = RecordedStream(
                 directory=self.recording_dir,
-                port=camera.port,
-                rotation_count=camera.rotation_count,
+                camera=camera,
                 tracker=self.tracker,
                 break_on_last=False,
             )

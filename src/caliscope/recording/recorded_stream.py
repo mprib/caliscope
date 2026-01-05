@@ -7,6 +7,7 @@ from time import perf_counter, sleep
 import cv2
 import numpy as np
 import pandas as pd
+from caliscope.cameras.camera_array import CameraData
 from caliscope.tracker import Tracker
 from caliscope.packets import FramePacket
 
@@ -24,17 +25,15 @@ class RecordedStream:
     def __init__(
         self,
         directory: Path,
-        port: int,
-        # size: tuple = None,
-        rotation_count: int = 0,
+        camera: CameraData,
         fps_target: int = None,
         tracker: Tracker = None,
         break_on_last=True,
     ):
-        # self.port = port
         self.directory = directory
-        self.port = port
-        self.rotation_count = rotation_count
+        self.camera = camera
+        self.port = camera.port
+        self.rotation_count = camera.rotation_count
 
         # stop while loop if end reached.
         # Preferred behavior for automated file processing, not interactive frame selection

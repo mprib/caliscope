@@ -52,8 +52,7 @@ class SynchronizedStreamManager:
         for camera in self.all_camera_data.values():
             stream = RecordedStream(
                 directory=self.recording_dir,
-                port=camera.port,
-                rotation_count=camera.rotation_count,
+                camera=camera,
                 tracker=self.tracker,
                 break_on_last=True,
             )

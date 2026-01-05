@@ -27,9 +27,10 @@ def test_intrinsic_calibrator(tmp_path: Path):
 
     charuco_tracker = CharucoTracker(charuco)
 
-    stream = RecordedStream(recording_directory, port=1, rotation_count=0, tracker=charuco_tracker)
+    stream_camera = CameraData(port=1, size=[640, 480])  # placeholder; stream reads actual from video
+    stream = RecordedStream(recording_directory, camera=stream_camera, tracker=charuco_tracker)
 
-    camera = CameraData(port=0, size=stream.size)
+    camera = CameraData(port=0, size=stream.size)  # fresh camera for calibration
 
     assert camera.rotation is None
     assert camera.translation is None
@@ -88,9 +89,10 @@ def test_autopopulate_data(tmp_path: Path):
 
     charuco_tracker = CharucoTracker(charuco)
 
-    stream = RecordedStream(recording_directory, port=1, rotation_count=0, tracker=charuco_tracker)
+    stream_camera = CameraData(port=1, size=[640, 480])  # placeholder; stream reads actual from video
+    stream = RecordedStream(recording_directory, camera=stream_camera, tracker=charuco_tracker)
 
-    camera = CameraData(port=0, size=stream.size)
+    camera = CameraData(port=0, size=stream.size)  # fresh camera for calibration
 
     assert camera.rotation is None
     assert camera.translation is None

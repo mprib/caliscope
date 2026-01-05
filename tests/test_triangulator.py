@@ -45,10 +45,7 @@ def test_triangulator(tmp_path: Path):
 
     streams = {}
     for port, camera in camera_array.cameras.items():
-        rotation_count = camera.rotation_count
-        streams[port] = RecordedStream(
-            recording_directory, port, rotation_count, fps_target=100, tracker=charuco_tracker
-        )
+        streams[port] = RecordedStream(recording_directory, camera=camera, fps_target=100, tracker=charuco_tracker)
 
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(streams)

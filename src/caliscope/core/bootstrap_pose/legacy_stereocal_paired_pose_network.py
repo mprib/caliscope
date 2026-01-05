@@ -163,8 +163,8 @@ def _estimate_single_pair(
         return None
 
     # Undistort points
-    norm_locs_a = [cam_a.undistort_points(pts) for pts in img_locs_a]
-    norm_locs_b = [cam_b.undistort_points(pts) for pts in img_locs_b]
+    norm_locs_a = [cam_a.undistort_points(pts, output="normalized") for pts in img_locs_a]
+    norm_locs_b = [cam_b.undistort_points(pts, output="normalized") for pts in img_locs_b]
 
     # Stereo calibration
     stereocal_flags = cv2.CALIB_FIX_INTRINSIC

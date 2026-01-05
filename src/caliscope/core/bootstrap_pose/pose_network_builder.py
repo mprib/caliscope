@@ -239,7 +239,7 @@ def compute_camera_to_object_poses_pnp(
             continue
 
         img_points = cam_data[["img_loc_x", "img_loc_y"]].to_numpy(dtype=np.float32)
-        undistorted_xy = camera.undistort_points(img_points)
+        undistorted_xy = camera.undistort_points(img_points, output="normalized")
         cam_data[["undistort_x", "undistort_y"]] = undistorted_xy
         undistorted_data.append(cam_data)
 
@@ -632,8 +632,8 @@ def calculate_stereo_rmse_for_pair(
     # Extract and undistort points
     pts_a = common[["img_loc_x_a", "img_loc_y_a"]].to_numpy(dtype=np.float32)
     pts_b = common[["img_loc_x_b", "img_loc_y_b"]].to_numpy(dtype=np.float32)
-    norm_a = cam_a.undistort_points(pts_a)
-    norm_b = cam_b.undistort_points(pts_b)
+    norm_a = cam_a.undistort_points(pts_a, output="normalized")
+    norm_b = cam_b.undistort_points(pts_b, output="normalized")
 
     # Triangulate using the stereo pair pose
     P1 = np.eye(3, 4)  # Camera A at origin

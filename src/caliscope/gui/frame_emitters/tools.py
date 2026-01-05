@@ -44,13 +44,13 @@ def apply_rotation(frame, rotation_count: int):
 
 
 def cv2_to_qlabel(frame):
-    Image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    # FlippedImage = cv2.flip(Image, 1)
+    image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     qt_frame = QImage(
-        Image.data,
-        Image.shape[1],
-        Image.shape[0],
+        image.data,
+        image.shape[1],
+        image.shape[0],
+        image.strides[0],  # bytes per line - required for non-contiguous arrays
         QImage.Format.Format_RGB888,
     )
     return qt_frame

@@ -116,10 +116,9 @@ class IntrinsicStreamManager:
         logger.info(f"Calibrating camera at port {port}")
         self.calibrators[port].calibrate_camera()
 
-    def apply_distortion(self, camera: CameraData, undistort: bool):
-        self.frame_emitters[camera.port].update_distortion_params(
-            undistort=undistort, matrix=camera.matrix, distortions=camera.distortions
-        )
+    def apply_distortion(self, port: int, undistort: bool):
+        """Toggle undistortion for display at the given port."""
+        self.frame_emitters[port].set_undistort(undistort)
 
     def set_stream_rotation(self, port, rotation_count):
         self.streams[port].rotation_count = rotation_count

@@ -22,12 +22,19 @@ def reprojection_errors(
     Core projection logic. Returns (n_observations, 2) error array.
     This is the ONLY place that calls cv2.projectPoints.
 
+    Two modes for different use cases:
+    - normalized: Undistorts observations to normalized plane, projects with identity K.
+                  Better numerical conditioning for optimization (see Triggs et al.).
+    - pixels: Keeps distorted observations, projects with full camera model.
+              Reports error in original image coordinates (intuitive for users).
+
     Args:
         camera_array: CameraArray with posed cameras
         camera_indices: Array mapping each observation to a camera index
-        image_coords: Observed 2D image coordinates
+        image_coords: Observed 2D image coordinates (distorted pixel coords)
         world_coords: 3D world coordinates (one per observation)
-        use_normalized: If True, uses undistorted coordinates and ideal camera model
+        use_normalized: If True, compute error in normalized coords (for optimization)
+                        If False, compute error in distorted pixel coords (for reporting)
 
     Returns:
         errors_xy: (n_observations, 2) array of x,y reprojection errors
@@ -41,20 +48,22 @@ def reprojection_errors(
         if not cam_mask.any():
             continue
 
-        # Get data for this camera - shapes preserved
+        # Get data for this camera
         cam_world_coords = world_coords[cam_mask]  # (n_cam_obs, 3)
         cam_observed = image_coords[cam_mask]  # (n_cam_obs, 2)
 
-        # Select camera model
+        # Select coordinate system and camera model
         if use_normalized:
-            cam_observed = camera_data.undistort_points(cam_observed)
+            # Normalized mode: undistort observations, project with identity K
+            cam_observed = camera_data.undistort_points(cam_observed, output="normalized")
             cam_matrix = np.identity(3)
             dist_coeffs = None
         else:
+            # Pixel mode: keep distorted observations, project with full model
             cam_matrix = camera_data.matrix
             dist_coeffs = camera_data.distortions
 
-        # Project and compute error
+        # Project 3D points to 2D
         projected, _ = cv2.projectPoints(
             cam_world_coords.reshape(-1, 1, 3),
             camera_data.rotation,

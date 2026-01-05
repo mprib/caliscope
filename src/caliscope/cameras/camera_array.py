@@ -2,7 +2,7 @@
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Literal
 
 import cv2
 import numpy as np
@@ -78,20 +78,22 @@ class CameraData:
         self.rotation = cv2.Rodrigues(row[0:3])[0]
         self.translation = np.array([row[3:6]], dtype=np.float64)[0]
 
-    def undistort_points(self, points: NDArray) -> NDArray:
+    def undistort_points(self, points: NDArray, *, output: Literal["normalized", "pixels"]) -> NDArray:
         """
-        Normalizes 2D image points by removing lens distortion and mapping
-        them to the ideal normalized image plane.
+        Remove lens distortion from 2D image points.
 
-        This is the core of our camera model abstraction. The output of this
-        function is in a universal coordinate system, independent of the
-        original camera's lens, sensor, or resolution.
+        Using normalized coordinates for triangulation and bundle adjustment
+        improves numerical conditioning of the Jacobian/Hessian matrices.
+        See Triggs et al., "Bundle Adjustment - A Modern Synthesis" (2000).
 
         Args:
-            points: An (N, 2) array of distorted 2D points in pixel coordinates.
+            points: (N, 2) array of distorted points in pixel coordinates
+            output: Coordinate system for result
+                - 'normalized': Identity K matrix, for triangulation/bundle adjustment
+                - 'pixels': Camera's K matrix, for reprojection error in pixel units
 
         Returns:
-            An (N, 2) array of normalized 2D points.
+            (N, 2) array of undistorted points in the specified coordinate system
         """
         if self.matrix is None or self.distortions is None:
             raise ValueError(f"Camera {self.port} lacks intrinsic calibration; cannot undistort points.")
@@ -99,20 +101,58 @@ class CameraData:
         # OpenCV functions require points in shape (N, 1, 2) and float32 type
         points_reshaped = np.ascontiguousarray(points, dtype=np.float32).reshape(-1, 1, 2)
 
-        # The "perfect" camera matrix for the normalized image plane is the identity matrix.
-        # This maps the principal point to (0,0) and focal length to 1.
-        k_perfect = np.identity(3)
+        # Select output projection matrix based on requested coordinate system
+        if output == "normalized":
+            # Identity matrix maps to normalized image plane (principal point at origin, f=1)
+            projection_matrix = np.identity(3)
+        else:  # output == "pixels"
+            projection_matrix = self.matrix
 
         if self.fisheye:
-            # Use the fisheye model for undistortion
             undistorted_points = cv2.fisheye.undistortPoints(
-                points_reshaped, self.matrix, self.distortions, P=k_perfect
+                points_reshaped, self.matrix, self.distortions, P=projection_matrix
             )
         else:
-            # Use the standard Brown-Conrady model
-            undistorted_points = cv2.undistortPoints(points_reshaped, self.matrix, self.distortions, P=k_perfect)
+            undistorted_points = cv2.undistortPoints(
+                points_reshaped, self.matrix, self.distortions, P=projection_matrix
+            )
 
         return undistorted_points.reshape(-1, 2)
+
+    def undistort_frame(self, frame: NDArray) -> NDArray:
+        """Undistort a frame using original matrix geometry with cached remap tables.
+
+        Uses self.matrix as the output projection matrix, guaranteeing that
+        points from undistort_points(output='pixels') align with this frame.
+
+        Output has same dimensions as input. Depending on distortion magnitude:
+        - Barrel distortion (k1 < 0): content may extend beyond edges (clipped)
+        - Pincushion distortion (k1 > 0): black borders may appear at edges
+
+        Remap tables are cached on first call and reused for efficiency (~10x faster
+        than cv2.undistort per frame). Cache is invalidated if frame size changes.
+
+        For display with variable sizing/scaling, use CameraUndistortView instead.
+        """
+        if self.matrix is None or self.distortions is None:
+            raise ValueError(f"Camera {self.port} lacks intrinsic calibration; cannot undistort frame.")
+
+        h, w = frame.shape[:2]
+        frame_size = (w, h)
+
+        # Check if we need to (re)compute remap tables
+        if not hasattr(self, "_remap_cache") or self._remap_cache.get("size") != frame_size:
+            if self.fisheye:
+                map1, map2 = cv2.fisheye.initUndistortRectifyMap(
+                    self.matrix, self.distortions, np.eye(3), self.matrix, frame_size, cv2.CV_16SC2
+                )
+            else:
+                map1, map2 = cv2.initUndistortRectifyMap(
+                    self.matrix, self.distortions, np.eye(3), self.matrix, frame_size, cv2.CV_16SC2
+                )
+            self._remap_cache = {"size": frame_size, "map1": map1, "map2": map2}
+
+        return cv2.remap(frame, self._remap_cache["map1"], self._remap_cache["map2"], cv2.INTER_LINEAR)
 
     def get_display_data(self) -> OrderedDict:
         # Extracting camera matrix parameters

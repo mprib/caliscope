@@ -135,7 +135,7 @@ def _undistort_batch(xy_df: pd.DataFrame, camera_array: CameraArray) -> pd.DataF
         subset_xy = xy_df.query(f"port == {port}").copy()
         if not subset_xy.empty:
             points = np.vstack([subset_xy["img_loc_x"], subset_xy["img_loc_y"]]).T
-            undistorted_xy = camera.undistort_points(points)
+            undistorted_xy = camera.undistort_points(points, output="normalized")
             subset_xy["img_loc_undistort_x"] = undistorted_xy[:, 0]
             subset_xy["img_loc_undistort_y"] = undistorted_xy[:, 1]
             undistorted_points.append(subset_xy)

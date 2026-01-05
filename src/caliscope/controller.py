@@ -329,10 +329,9 @@ class Controller(QObject):
         logger.info(f"camera display data is {camera_display_data}")
         self.new_camera_data.emit(port, camera_display_data)
 
-    def apply_distortion(self, port, undistort: bool):
+    def apply_distortion(self, port: int, undistort: bool):
         """Toggle distortion correction for stream display."""
-        camera = self.camera_array.cameras[port]
-        self.intrinsic_stream_manager.apply_distortion(camera, undistort)
+        self.intrinsic_stream_manager.apply_distortion(port, undistort)
 
     def rotate_camera(self, port, change):
         """Adjust camera rotation count and persist."""

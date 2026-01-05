@@ -99,26 +99,9 @@ line-ending = "lf"
 
 [tool.basedpyright]
 typeCheckingMode = "standard"
-
-[tool.basedpyright.analysis]
-# These stop the "Unknown/Partially Known" noise from third-party libs
-reportUnknownMemberType = false
-reportUnknownVariableType = false
-reportUnknownArgumentType = false
-reportUnknownParameterType = false
-reportUnknownReturnType = false
-reportUnknownLambdaType = false
-reportPartiallyUnknownMemberType = false
-reportPartiallyUnknownVariableType = false
-reportPartiallyUnknownArgumentType = false
-reportPartiallyUnknownParameterType = false
-reportPartiallyUnknownReturnType = false
-reportPartiallyUnknownLambdaType = false
-reportUnannotatedClassAttribute = false
+exclude = ["dist", "build", ".venv", "dev"]
 reportMissingTypeStubs = false
 reportAny = false
-
-diagnosticMode = "openFilesOnly"
 
 [dependency-groups]
 dev = [
@@ -130,6 +113,7 @@ dev = [
     "mkdocs-material>=9.1.6",
     "mkdocs-git-revision-date-localized-plugin>=1.2.0",
     "ruff>=0.6.5",
+    "basedpyright>=1.18.0",
     "pre-commit",
     "openpyxl",
     "pywinctl",

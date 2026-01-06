@@ -1,8 +1,19 @@
 """Top-level package for Caliscope."""
 
-from pathlib import Path
+# PySide6-essentials compatibility shim for pyqtgraph
+# pyqtgraph expects PySide6.__version__ and PySide6.__version_info__ at the top level,
+# but pyside6-essentials only exposes these in PySide6.QtCore.
+# This shim adds the missing attributes before pyqtgraph is imported.
+# Can be removed once pyqtgraph fixes: https://github.com/pyqtgraph/pyqtgraph/issues/2048
+import PySide6
+from PySide6 import QtCore
 
-from platformdirs import user_data_dir
+PySide6.__version__ = QtCore.__version__
+PySide6.__version_info__ = QtCore.__version_info__
+
+from pathlib import Path  # noqa: E402
+
+from platformdirs import user_data_dir  # noqa: E402
 
 __package_name__ = "caliscope"
 __author__ = "Mac Prible"

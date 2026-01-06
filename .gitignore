@@ -1,4 +1,6 @@
 scripts/*
+!scripts/ralph_wiggum_viz/
+scripts/ralph_wiggum_viz/output/
 tests/debug/*
 *context.txt
 *.png

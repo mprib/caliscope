@@ -80,5 +80,5 @@ class FrameDictionaryEmitter(QThread):
         logger.info("Thread loop within dictionary frame emitter successfully ended")
 
     def stop(self):
-        self.keep_collecting = False
+        self.keep_collecting.clear()
         self.quit()

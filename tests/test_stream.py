@@ -58,12 +58,15 @@ def test_stream():
             sleep(1)  # need to make sure fps_target wait plays out
             stream.jump_to(target_frame)
             sleep(1)  # need to make sure fps_target wait plays out
-            assert stream.frame_index == 21
+            # frame_index should match the jump target (the frame we just displayed)
+            assert stream.frame_index == 20
 
             logger.info(f"After attempting to jump to target frame {target_frame} ")
-            current_frame = int(stream.capture.get(cv2.CAP_PROP_POS_FRAMES))
-            logger.info(f"Current frame is now {current_frame}")
-            assert current_frame == 21
+            # OpenCV's CAP_PROP_POS_FRAMES returns the NEXT frame to be read
+            next_frame_position = int(stream.capture.get(cv2.CAP_PROP_POS_FRAMES))
+            logger.info(f"Next frame position is {next_frame_position}")
+            # After reading frame 20, capture position advances to 21
+            assert next_frame_position == 21
             stream.unpause()
 
         # cv2.imshow("Test", frame_packet.frame_with_points)

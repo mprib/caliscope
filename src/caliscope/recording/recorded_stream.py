@@ -218,10 +218,7 @@ class RecordedStream:
             for q in self.subscribers:
                 q.put(frame_packet)
 
-            logger.debug(f"Incrementing frame index from {self.frame_index} to {self.frame_index + 1}")
-            self.frame_index += 1
-
-            if self.frame_index > self.last_frame_index and self.break_on_last:
+            if self.frame_index == self.last_frame_index and self.break_on_last:
                 logger.info(f"Ending recorded playback at port {self.port}")
                 # time of -1 indicates end of stream
                 frame_packet = FramePacket(
@@ -237,8 +234,7 @@ class RecordedStream:
                 break
 
             ############ Autopause if last frame and in playback mode (i.e. break_on_last == False)
-            if not self.break_on_last and self.frame_index > self.last_frame_index:
-                self.frame_index = self.last_frame_index
+            if not self.break_on_last and self.frame_index == self.last_frame_index:
                 self._pause_event.set()
 
             ############ SPIN LOCK FOR PAUSE ##################
@@ -259,3 +255,6 @@ class RecordedStream:
                 self.frame_index = self._jump_q.get()
                 logger.info(f"Setting port {self.port} capture object to frame index {self.frame_index}")
                 self.capture.set(cv2.CAP_PROP_POS_FRAMES, self.frame_index)
+            else:
+                # Increment for next iteration (only if not jumping)
+                self.frame_index += 1

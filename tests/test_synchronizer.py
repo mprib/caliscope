@@ -35,9 +35,9 @@ def test_synchronizer(tmp_path: Path):
     stream_manager.process_streams(fps_target=100)
     target_frame_time_path = Path(recording_directory, "processed", "frame_time_history.csv")
 
-    while not target_frame_time_path.exists():
-        # recorder hasn't finished yet
-        time.sleep(1)
+    # Wait for file to exist AND have content (avoid race where file is created but not yet written)
+    while not target_frame_time_path.exists() or target_frame_time_path.stat().st_size == 0:
+        time.sleep(0.1)
 
     df = pd.read_csv(target_frame_time_path)
 

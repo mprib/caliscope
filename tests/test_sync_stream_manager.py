@@ -47,10 +47,9 @@ def test_sync_stream_manager(tmp_path: Path):
     gold_standard_df = pd.read_csv(Path(original_workspace, "calibration", "extrinsic", "xy.csv"))
     test_data_path = Path(tmp_path, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv")
 
-    while not test_data_path.exists():
-        # wait for the tracked points to be created to compare
-        logger.info("Waiting for ")
-        time.sleep(1)
+    # Wait for file to exist AND have content (avoid race where file is created but not yet written)
+    while not test_data_path.exists() or test_data_path.stat().st_size == 0:
+        time.sleep(0.1)
 
     test_df = pd.read_csv(test_data_path)
     # Adjust sync_index in gold_standard_df to start at 1

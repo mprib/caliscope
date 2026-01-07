@@ -9,6 +9,7 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
 from caliscope.core.point_data import ImagePoints
 from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.task_manager import CancellationToken
 from caliscope.trackers.tracker_enum import TrackerEnum
 
 logger = logging.getLogger(__name__)
@@ -48,21 +49,37 @@ class PostProcessor:
             self.recording_path, self.camera_array.cameras, self.tracker
         )
 
-    def create_xy(self, fps_target=100, include_video=True):
+    def create_xy(
+        self, fps_target: int = 100, include_video: bool = True, token: CancellationToken | None = None
+    ) -> bool:
         """
-        Reads through all .mp4  files in the recording path and applies the tracker to them
-        The xy_TrackerName.csv file is saved out to the same directory by the VideoRecorder
+        Reads through all .mp4 files in the recording path and applies the tracker to them.
+        The xy_TrackerName.csv file is saved out to the same directory by the VideoRecorder.
 
-        Note that high fps target and including video will increase processing overhead
+        Note that high fps target and including video will increase processing overhead.
+
+        Args:
+            fps_target: Target frames per second for processing
+            include_video: Whether to save tracked video output
+            token: Optional cancellation token for cooperative cancellation
+
+        Returns:
+            True if completed, False if cancelled.
         """
         self.sync_stream_manager.process_streams(include_video=include_video, fps_target=fps_target)
 
         while self.sync_stream_manager.recorder.recording:
-            sleep(1)
+            if token is not None and token.sleep_unless_cancelled(1):
+                return False  # Cancelled
+            elif token is None:
+                sleep(1)
+
             percent_complete = int(
                 (self.sync_stream_manager.recorder.sync_index / self.sync_stream_manager.mean_frame_count) * 100
             )
             logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
+
+        return True  # Completed
 
     def create_xyz(self, xy_gap_fill=3, xyz_gap_fill=3, cutoff_freq=6, include_trc=True) -> None:
         """

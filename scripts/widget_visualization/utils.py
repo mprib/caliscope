@@ -1,8 +1,8 @@
-"""Core utilities for Ralph Wiggum GUI visual testing.
+"""Core utilities for widget visualization testing.
 
 Provides reusable helpers for capturing screenshots and sequencing actions
-in PySide6/Qt applications. These utilities support the "Visual Ralph Wiggum"
-technique where Claude reviews screenshots to verify UI correctness.
+in PySide6/Qt applications. These utilities support visual debugging where
+Claude reviews screenshots to verify UI correctness.
 
 Usage:
     from utils import capture_widget, process_events_for, schedule_actions

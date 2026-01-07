@@ -1,6 +1,6 @@
-# Ralph Wiggum GUI Visual Testing
+# Widget Visualization
 
-Visual debugging and development technique for PySide6/Qt applications. Named for the "I'm in danger" meme — when you're deep in visual bugs and need to see what's actually happening.
+Visual debugging and development technique for PySide6/Qt applications. Capture screenshots at key moments and verify them visually.
 
 ## The Technique
 
@@ -24,11 +24,11 @@ Instead of relying on logs or assertions, capture screenshots at each step and h
 ## Directory Structure
 
 ```
-scripts/ralph_wiggum_viz/
+scripts/widget_visualization/
 ├── utils.py              # Core utilities
-├── rw_charuco_widget.py  # Widget interaction test
-├── rw_capture_volume.py  # 3D OpenGL rendering test
-├── rw_full_workflow.py   # Full app smoke test
+├── wv_charuco_widget.py  # Widget interaction test
+├── wv_capture_volume.py  # 3D OpenGL rendering test
+├── wv_full_workflow.py   # Full app smoke test
 ├── README.md
 └── output/               # Screenshots saved here (gitignored)
 ```
@@ -37,10 +37,10 @@ scripts/ralph_wiggum_viz/
 
 ```bash
 # With display
-python scripts/ralph_wiggum_viz/rw_charuco_widget.py
+python scripts/widget_visualization/wv_charuco_widget.py
 
 # Headless (Linux) - required for CI or remote sessions
-xvfb-run --auto-servernum python scripts/ralph_wiggum_viz/rw_full_workflow.py
+xvfb-run --auto-servernum python scripts/widget_visualization/wv_full_workflow.py
 ```
 
 ## Core Utilities
@@ -62,8 +62,8 @@ clear_output_dir()
 
 ### Naming Convention
 
-Use `rw_` prefix to avoid pytest collection:
-- `rw_my_feature.py` (not `test_my_feature.py`)
+Use `wv_` prefix to avoid pytest collection:
+- `wv_my_feature.py` (not `test_my_feature.py`)
 
 ### Basic Pattern
 
@@ -129,7 +129,7 @@ After capturing screenshots, spawn a Haiku agent with targeted questions:
 ```
 Use Task tool with model="haiku":
 
-"Review the screenshots in scripts/ralph_wiggum_viz/output/
+"Review the screenshots in scripts/widget_visualization/output/
 
 We tested [describe what the script does]:
 1. Screenshot 01: [what it should show]
@@ -151,9 +151,9 @@ If Haiku's descriptions aren't helping after 2-3 iterations, read the screenshot
 
 | Script | Tests | Complexity |
 |--------|-------|------------|
-| `rw_charuco_widget.py` | Spinbox/checkbox interactions | Simple - direct widget |
-| `rw_capture_volume.py` | 3D OpenGL rendering | Medium - data loading |
-| `rw_full_workflow.py` | Full app navigation | Complex - async loading |
+| `wv_charuco_widget.py` | Spinbox/checkbox interactions | Simple - direct widget |
+| `wv_capture_volume.py` | 3D OpenGL rendering | Medium - data loading |
+| `wv_full_workflow.py` | Full app navigation | Complex - async loading |
 
 ## Tips
 

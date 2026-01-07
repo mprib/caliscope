@@ -1,14 +1,14 @@
 """Visual test for CharucoWidget interactions.
 
-Ralph Wiggum script demonstrating widget interaction testing pattern.
+Widget visualization script demonstrating widget interaction testing pattern.
 Creates the CharucoWidget and interacts with spinboxes/checkboxes to
 change parameters, capturing screenshots at each state.
 
 Usage:
-    python scripts/ralph_wiggum_viz/rw_charuco_widget.py
+    python scripts/widget_visualization/wv_charuco_widget.py
 
 Or headless:
-    xvfb-run python scripts/ralph_wiggum_viz/rw_charuco_widget.py
+    xvfb-run python scripts/widget_visualization/wv_charuco_widget.py
 """
 
 import sys
@@ -107,7 +107,7 @@ def main():
     print("\n" + "=" * 50)
     print("CHARUCO WIDGET TEST COMPLETE")
     print("=" * 50)
-    print("\nScreenshots saved to: scripts/ralph_wiggum/gui/output/")
+    print("\nScreenshots saved to: scripts/widget_visualization/output/")
     print("\nVerification checklist:")
     print("  [ ] 01: Initial charuco board renders with config controls visible")
     print("  [ ] 02: Board has more rows (taller grid)")

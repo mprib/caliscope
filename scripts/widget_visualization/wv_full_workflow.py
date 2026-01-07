@@ -1,6 +1,6 @@
 """Full app workflow smoke test for Caliscope.
 
-Ralph Wiggum visual testing script that:
+Widget visualization script that:
 1. Launches the full application with a sample project
 2. Navigates to the Camera tab
 3. Plays video, captures screenshot
@@ -11,10 +11,10 @@ Ralph Wiggum visual testing script that:
 Uses QTimer.singleShot() for sequencing async operations.
 
 Usage:
-    xvfb-run python scripts/ralph_wiggum_viz/rw_full_workflow.py
+    xvfb-run python scripts/widget_visualization/wv_full_workflow.py
 
 Or with a display:
-    python scripts/ralph_wiggum_viz/rw_full_workflow.py
+    python scripts/widget_visualization/wv_full_workflow.py
 """
 
 import sys
@@ -157,9 +157,9 @@ class FullWorkflowTest:
     def finish(self):
         """Test complete."""
         print("\n" + "=" * 50)
-        print("RALPH WIGGUM WORKFLOW TEST COMPLETE")
+        print("FULL WORKFLOW TEST COMPLETE")
         print("=" * 50)
-        print("\nScreenshots saved to: scripts/ralph_wiggum/gui/output/")
+        print("\nScreenshots saved to: scripts/widget_visualization/output/")
         print("\nVerification checklist:")
         print("  [ ] 01: Main window renders, tabs visible")
         print("  [ ] 02: Cameras tab shows camera sub-tabs, video frame visible")

@@ -1,14 +1,14 @@
 """Visual test for CaptureVolumeVisualizer (3D OpenGL rendering).
 
-Ralph Wiggum script testing the 3D capture volume display.
+Widget visualization script testing the 3D capture volume display.
 Loads a calibrated project, creates the visualizer, and captures
 screenshots of the OpenGL scene with camera frustums and point cloud.
 
 Usage:
-    python scripts/ralph_wiggum_viz/rw_capture_volume.py
+    python scripts/widget_visualization/wv_capture_volume.py
 
 Or headless:
-    xvfb-run python scripts/ralph_wiggum_viz/rw_capture_volume.py
+    xvfb-run python scripts/widget_visualization/wv_capture_volume.py
 """
 
 import sys
@@ -119,7 +119,7 @@ def main():
     print("\n" + "=" * 50)
     print("CAPTURE VOLUME TEST COMPLETE")
     print("=" * 50)
-    print("\nScreenshots saved to: scripts/ralph_wiggum/gui/output/")
+    print("\nScreenshots saved to: scripts/widget_visualization/output/")
     print("\nVerification checklist:")
     print("  [ ] 01: 3D scene renders with axis and camera frustums")
     print("  [ ] 02: White point cloud visible in scene")

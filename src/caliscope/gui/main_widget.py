@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from caliscope import APP_SETTINGS_PATH, LOG_DIR, __root__
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.controller import Controller
+from caliscope.task_manager import TaskHandle
 from caliscope.gui.camera_management.multiplayback_widget import (
     MultiIntrinsicPlaybackWidget,
 )
@@ -153,15 +154,22 @@ class MainWindow(QMainWindow):
 
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.docked_logger)
 
-    def launch_workspace(self, path_to_workspace: str):
+    def launch_workspace(self, path_to_workspace: str) -> TaskHandle:
+        """Launch workspace and return TaskHandle for additional callbacks.
+
+        Returns:
+            TaskHandle for connecting additional completion callbacks.
+        """
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
         self.controller = Controller(Path(path_to_workspace))
-        self.controller.load_workspace_thread.finished.connect(self.build_central_tabs)
         logger.info("Initiate controller loading")
-        self.controller.load_workspace()
+        # TaskHandle.completed safe to connect after start - Qt queues cross-thread signals
+        handle = self.controller.load_workspace()
+        handle.completed.connect(self.build_central_tabs)
 
         self.open_project_action.setEnabled(False)
         self.open_recent_project_submenu.setEnabled(False)
+        return handle
 
     def find_tab_index_by_title(self, title):
         # Iterate through tabs to find the index of the tab with the given title
@@ -186,8 +194,8 @@ class MainWindow(QMainWindow):
         workspace = self.controller.workspace
         del self.controller
         self.controller = Controller(workspace_dir=workspace)
-        self.controller.load_workspace()
-        self.controller.load_workspace_thread.finished.connect(self.build_central_tabs)
+        handle = self.controller.load_workspace()
+        handle.completed.connect(self.build_central_tabs)
 
     def add_to_recent_project(self, project_path: str):
         recent_project_action = QAction(project_path, self)

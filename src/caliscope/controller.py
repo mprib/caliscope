@@ -7,6 +7,8 @@ from datetime import datetime
 
 from PySide6.QtCore import QObject, QThread, Signal
 
+from caliscope.task_manager import TaskHandle, TaskManager
+
 from caliscope.core.capture_volume.capture_volume import CaptureVolume
 from caliscope.core.capture_volume.quality_controller import QualityController
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
@@ -87,10 +89,9 @@ class Controller(QObject):
         self.cameras_loaded = False
         self.capture_volume_loaded = False
 
-        # needs to exist before main widget can connect to its finished signal
-        self.load_workspace_thread = QThread()
-        self.calibrate_camera_threads = {}
-        self.autocalibrate_threads = {}
+        # Centralized task management for background operations
+        self.task_manager = TaskManager(parent=self)
+        self.autocalibrate_threads = {}  # migrated in #855
 
     def _initialize_project_files(self):
         """Create default project files if they don't exist."""
@@ -120,10 +121,14 @@ class Controller(QObject):
             empty_array = CameraArray({})
             self.camera_manager.save(empty_array)
 
-    def load_workspace(self):
-        """Asynchronously load workspace state on startup."""
+    def load_workspace(self) -> TaskHandle:
+        """Asynchronously load workspace state on startup.
 
-        def worker():
+        Returns:
+            TaskHandle for connecting completion callbacks.
+        """
+
+        def worker(_token, _handle):
             logger.info("Assessing whether to load cameras")
             if self.workspace_guide.all_instrinsic_mp4s_available(self.camera_count):
                 self.load_camera_array()
@@ -141,8 +146,7 @@ class Controller(QObject):
                 logger.info("Not all extrinsics calibrated...not loading capture volume")
                 self.capture_volume_loaded = False
 
-        self.load_workspace_thread.run = worker
-        self.load_workspace_thread.start()
+        return self.task_manager.submit(worker, name="load_workspace")
 
     def set_camera_count(self, count: int):
         """Update camera count in project settings."""
@@ -304,7 +308,7 @@ class Controller(QObject):
     def calibrate_camera(self, port):
         """Calibrate single camera in worker thread."""
 
-        def worker():
+        def worker(_token, _handle):
             if self.intrinsic_stream_manager.calibrators[port].grid_count > 0:
                 self.enable_inputs.emit(port, False)
                 self.camera_array.cameras[port].erase_calibration_data()
@@ -318,9 +322,7 @@ class Controller(QObject):
             else:
                 logger.warning("Not enough grids available to calibrate")
 
-        self.calibrate_camera_threads[port] = QThread()
-        self.calibrate_camera_threads[port].run = worker
-        self.calibrate_camera_threads[port].start()
+        self.task_manager.submit(worker, name=f"calibrate_camera_{port}")
 
     def push_camera_data(self, port):
         """Emit signal with updated camera display data."""
@@ -465,26 +467,22 @@ class Controller(QObject):
         self.capture_volume.rotate(direction)
         self.capture_volume_shifted.emit()
 
-        def worker():
+        def worker(_token, _handle):
             self.camera_manager.save(self.camera_array)
             self.capture_volume_manager.save_capture_volume(self.capture_volume)
 
-        self.rotate_capture_volume_thread = QThread()
-        self.rotate_capture_volume_thread.run = worker
-        self.rotate_capture_volume_thread.start()
+        self.task_manager.submit(worker, name="rotate_capture_volume")
 
     def set_capture_volume_origin_to_board(self, origin_index):
         """Set world origin and persist in background thread."""
         self.capture_volume.set_origin_to_board(origin_index, self.charuco)
         self.capture_volume_shifted.emit()
 
-        def worker():
+        def worker(_token, _handle):
             self.camera_manager.save(self.camera_array)
             self.capture_volume_manager.save_capture_volume(self.capture_volume)
 
-        self.set_origin_thread = QThread()
-        self.set_origin_thread.run = worker
-        self.set_origin_thread.start()
+        self.task_manager.submit(worker, name="set_capture_volume_origin")
 
     def autocalibrate(self, port, grid_count, board_threshold):
         """Auto-calibrate camera in worker thread."""

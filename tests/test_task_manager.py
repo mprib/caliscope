@@ -55,12 +55,16 @@ def test_submit_returns_handle(qapp):
 def test_worker_result_emitted_via_completed_signal(qapp):
     manager = TaskManager()
     received = {}
+    start_event = threading.Event()
 
     def worker(token, handle):
+        start_event.wait()  # Wait until signal is connected
         return "result_value"
 
     handle = manager.submit(worker, "test_task")
     handle.completed.connect(lambda r: received.update({"result": r}))
+    qapp.processEvents()  # Ensure connection is processed
+    start_event.set()  # Now let worker proceed
 
     _wait_for_condition(lambda: "result" in received, timeout=2.0, qapp=qapp)
 
@@ -73,12 +77,16 @@ def test_worker_result_emitted_via_completed_signal(qapp):
 def test_worker_exception_emitted_via_failed_signal(qapp):
     manager = TaskManager()
     received = {}
+    start_event = threading.Event()
 
     def worker(token, handle):
+        start_event.wait()  # Wait until signal is connected
         raise ValueError("test error")
 
     handle = manager.submit(worker, "failing_task")
     handle.failed.connect(lambda t, m: received.update({"type": t, "msg": m}))
+    qapp.processEvents()  # Ensure connection is processed
+    start_event.set()  # Now let worker proceed
 
     _wait_for_condition(lambda: "type" in received, timeout=2.0, qapp=qapp)
 

@@ -1,11 +1,11 @@
 import logging
 from collections import OrderedDict
 from pathlib import Path
-from time import sleep, time
+from time import time
 from datetime import datetime
 
 
-from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtCore import QObject, Signal
 
 from caliscope.task_manager import TaskHandle, TaskManager
 
@@ -91,7 +91,6 @@ class Controller(QObject):
 
         # Centralized task management for background operations
         self.task_manager = TaskManager(parent=self)
-        self.autocalibrate_threads = {}  # migrated in #855
 
     def _initialize_project_files(self):
         """Create default project files if they don't exist."""
@@ -375,10 +374,14 @@ class Controller(QObject):
         # QC needed to get the corner distance accuracy within the GUI
         self.quality_controller = QualityController(self.capture_volume, charuco=self.charuco)
 
-    def calibrate_capture_volume(self):
-        """Perform full extrinsic calibration in worker thread."""
+    def calibrate_capture_volume(self) -> TaskHandle:
+        """Perform full extrinsic calibration in worker thread.
 
-        def worker():
+        Returns:
+            TaskHandle for connecting completion callbacks.
+        """
+
+        def worker(token, _handle):
             output_path = Path(self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv")
             if output_path.exists():
                 output_path.unlink()  # ensure clean start
@@ -395,11 +398,16 @@ class Controller(QObject):
             logger.info("About to signal that synched frames should be shown")
             self.show_synched_frames.emit()
 
+            # Cancellable wait for tracked points
             while not output_path.exists():
-                sleep(0.5)
+                if token.sleep_unless_cancelled(0.5):
+                    return  # User cancelled
                 # moderate the frequency with which logging statements get made
                 if round(time()) % 3 == 0:
                     logger.info(f"Waiting for 2D tracked points to populate at {output_path}")
+
+            if token.is_cancelled:
+                return
 
             logger.info("Processing of extrinsic calibration streams complete...")
 
@@ -417,6 +425,10 @@ class Controller(QObject):
 
             self.point_estimates = world_points.to_point_estimates(image_points, self.camera_array)
 
+            if token.is_cancelled:
+                return
+
+            # Bundle adjustment (can't interrupt mid-call)
             self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
             self.capture_volume.optimize()
 
@@ -424,6 +436,10 @@ class Controller(QObject):
 
             logger.info(f"Removing the worst fitting {FILTERED_FRACTION * 100} percent of points from the model")
             self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
+
+            if token.is_cancelled:
+                return
+
             self.capture_volume.optimize()
             self.capture_volume_loaded = True
 
@@ -431,21 +447,23 @@ class Controller(QObject):
             self.camera_manager.save(self.camera_array)
             self.capture_volume_manager.save_capture_volume(self.capture_volume)
 
-        self.calibrate_capture_volume_thread = QThread()
-        self.calibrate_capture_volume_thread.run = worker
-        self.calibrate_capture_volume_thread.finished.connect(self.capture_volume_calibrated.emit)
-        self.calibrate_capture_volume_thread.start()
+        handle = self.task_manager.submit(worker, name="calibrate_capture_volume")
+        handle.completed.connect(lambda _: self.capture_volume_calibrated.emit())
+        return handle
 
-    def process_recordings(self, recording_path: Path, tracker_enum: TrackerEnum):
+    def process_recordings(self, recording_path: Path, tracker_enum: TrackerEnum) -> TaskHandle:
         """
         Initiate post-processing of recorded video in worker thread.
 
         Args:
             recording_path: Directory containing synchronized video recordings
             tracker_enum: Tracker type to use for landmark detection
+
+        Returns:
+            TaskHandle for connecting completion callbacks.
         """
 
-        def worker():
+        def worker(token, _handle):
             logger.info(f"Beginning to process video files at {recording_path}")
             logger.info(f"Creating post processor for {recording_path}")
             self.post_processor = PostProcessor(self.camera_array, recording_path, tracker_enum)
@@ -454,13 +472,15 @@ class Controller(QObject):
             include_video = self.settings_manager.get_save_tracked_points_video()
             fps_target = self.settings_manager.get_fps_sync_stream_processing()
 
-            self.post_processor.create_xy(include_video=include_video, fps_target=fps_target)
+            # Pass token for cancellation support
+            if not self.post_processor.create_xy(include_video=include_video, fps_target=fps_target, token=token):
+                return  # Cancelled
+
             self.post_processor.create_xyz()
 
-        self.process_recordings_thread = QThread()
-        self.process_recordings_thread.run = worker
-        self.process_recordings_thread.finished.connect(self.post_processing_complete)
-        self.process_recordings_thread.start()
+        handle = self.task_manager.submit(worker, name="process_recordings")
+        handle.completed.connect(lambda _: self.post_processing_complete.emit())
+        return handle
 
     def rotate_capture_volume(self, direction: str):
         """Rotate capture volume and persist in background thread."""
@@ -487,7 +507,7 @@ class Controller(QObject):
     def autocalibrate(self, port, grid_count, board_threshold):
         """Auto-calibrate camera in worker thread."""
 
-        def worker():
+        def worker(token, _handle):
             self.enable_inputs.emit(port, False)
             self.camera_array.cameras[port].erase_calibration_data()
             self.camera_manager.save_camera(self.camera_array.cameras[port])
@@ -498,13 +518,14 @@ class Controller(QObject):
 
             while self.camera_array.cameras[port].matrix is None:
                 logger.info(f"Waiting for calibration to complete at port {port}")
-                sleep(2)
+                if token.sleep_unless_cancelled(2):
+                    # User cancelled - re-enable inputs and exit
+                    self.enable_inputs.emit(port, True)
+                    return
 
             self.camera_manager.save_camera(self.camera_array.cameras[port])
             self.push_camera_data(port)
             self.intrinsic_stream_manager.stream_jump_to(port, 0)
             self.enable_inputs.emit(port, True)
 
-        self.autocalibrate_threads[port] = QThread()
-        self.autocalibrate_threads[port].run = worker
-        self.autocalibrate_threads[port].start()
+        self.task_manager.submit(worker, name=f"autocalibrate_{port}")

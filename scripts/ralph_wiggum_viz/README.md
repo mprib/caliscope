@@ -113,12 +113,9 @@ class WorkflowTest:
         self.window = window
 
     def run(self):
-        # Launch operation first
-        self.window.launch_workspace(path)
-        # Then connect to completion signal
-        self.window.controller.load_workspace_thread.finished.connect(
-            self.on_loaded
-        )
+        # launch_workspace returns TaskHandle for connecting callbacks
+        handle = self.window.launch_workspace(path)
+        handle.completed.connect(self.on_loaded)
 
     def on_loaded(self):
         # Now safe to interact

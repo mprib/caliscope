@@ -51,12 +51,9 @@ class FullWorkflowTest:
         """Start the test sequence."""
         print(f"Loading project: {self.project_path}")
 
-        # Launch workspace first (this creates the controller)
-        self.window.launch_workspace(str(self.project_path))
-
-        # Now connect to workspace load completion
-        # (controller exists after launch_workspace is called)
-        self.window.controller.load_workspace_thread.finished.connect(self.on_workspace_loaded)
+        # Launch workspace and connect our callback to the returned handle
+        handle = self.window.launch_workspace(str(self.project_path))
+        handle.completed.connect(self.on_workspace_loaded)
 
     def on_workspace_loaded(self):
         """Called when workspace finishes loading asynchronously."""

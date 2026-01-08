@@ -1,5 +1,5 @@
 """
-Manages capture volume data: point estimates (2D-3D correspondences) and
+Repository for capture volume data: point estimates (2D-3D correspondences) and
 capture volume metadata (stage, origin index). These are combined because
 they represent different facets of the same domain concept and are always
 loaded/saved together during calibration workflows.
@@ -16,13 +16,13 @@ from caliscope import persistence
 logger = logging.getLogger(__name__)
 
 
-class CaptureVolumeDataManager:
+class CaptureVolumeRepository:
     """
-    Manages capture volume data stored across two files:
+    Persistence gateway for capture volume data stored across two files:
     - point_estimates.toml: 2D-3D point correspondences
     - capture_volume.toml: Metadata (stage, origin_sync_index)
 
-    This manager is thread-safe as it holds no mutable state. The
+    This repository is thread-safe as it holds no mutable state. The
     save_capture_volume() method coordinates multiple persistence calls
     which is acceptable for this domain; if this logic grows, consider
     extracting a dedicated use-case service.

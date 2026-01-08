@@ -1,5 +1,5 @@
 """
-Manager for PointDataBundle persistence with complete snapshotting.
+Repository for PointDataBundle persistence with complete snapshotting.
 
 This module provides atomic save/load operations for calibration data bundles,
 ensuring data integrity when the active calibration changes. Each bundle is
@@ -29,9 +29,9 @@ from caliscope.persistence import (
 logger = logging.getLogger(__name__)
 
 
-class PointDataBundleManager:
+class PointDataBundleRepository:
     """
-    Handles atomic save/load of PointDataBundle with complete snapshots.
+    Persistence gateway for PointDataBundle with complete snapshots.
 
     Each bundle directory contains:
     - camera_array.toml: Snapshot of calibration used for processing
@@ -39,13 +39,13 @@ class PointDataBundleManager:
     - world_points.csv: 3D triangulated points
     - bundle.toml: Provenance metadata and operations history
 
-    The manager is short-lived and should be created per operation to avoid
+    The repository is short-lived and should be created per operation to avoid
     stale state. It delegates all format-specific I/O to the persistence layer.
     """
 
     def __init__(self, base_path: Path):
         """
-        Initialize manager for a specific bundle directory.
+        Initialize repository for a specific bundle directory.
 
         Args:
             base_path: Directory where bundle components will be stored.

@@ -24,9 +24,9 @@ from caliscope.core.capture_volume.capture_volume import CaptureVolume  # noqa: 
 from caliscope.gui.vizualize.calibration.capture_volume_visualizer import (  # noqa: E402
     CaptureVolumeVisualizer,
 )
-from caliscope.managers.camera_array_manager import CameraArrayManager  # noqa: E402
-from caliscope.managers.capture_volume_data_manager import (  # noqa: E402
-    CaptureVolumeDataManager,
+from caliscope.repositories import (  # noqa: E402
+    CameraArrayRepository,
+    CaptureVolumeRepository,
 )
 
 from utils import capture_widget, clear_output_dir, process_events_for  # noqa: E402
@@ -48,18 +48,18 @@ def main():
     QApplication(sys.argv)
 
     # Load camera array
-    camera_manager = CameraArrayManager(SAMPLE_PROJECT / "camera_array.toml")
-    camera_array = camera_manager.load()
+    camera_repository = CameraArrayRepository(SAMPLE_PROJECT / "camera_array.toml")
+    camera_array = camera_repository.load()
     print(f"Loaded camera array with {len(camera_array.cameras)} cameras")
 
     # Load capture volume data
-    cv_manager = CaptureVolumeDataManager(SAMPLE_PROJECT)
-    if not cv_manager.exists():
+    cv_repository = CaptureVolumeRepository(SAMPLE_PROJECT)
+    if not cv_repository.exists():
         print("ERROR: Capture volume data not found in project")
         sys.exit(1)
 
-    point_estimates = cv_manager.load_point_estimates()
-    metadata = cv_manager.load_metadata()
+    point_estimates = cv_repository.load_point_estimates()
+    metadata = cv_repository.load_metadata()
     print(f"Loaded point estimates with {len(point_estimates.obj)} points")
 
     # Create CaptureVolume

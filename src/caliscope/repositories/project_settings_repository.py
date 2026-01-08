@@ -1,5 +1,5 @@
 """
-Manages global project configuration settings with in-memory caching.
+Repository for global project configuration settings with in-memory caching.
 All persistence errors are converted to ValueError for cleaner API boundaries.
 """
 
@@ -12,12 +12,12 @@ from caliscope import persistence
 logger = logging.getLogger(__name__)
 
 
-class ProjectSettingsManager:
+class ProjectSettingsRepository:
     """
-    Manages project-wide settings stored in project_settings.toml.
+    Persistence gateway for project-wide settings stored in project_settings.toml.
 
     Settings are loaded once on initialization and cached. Call refresh() to
-    reload from disk. This manager is thread-safe as it holds no mutable state
+    reload from disk. This repository is thread-safe as it holds no mutable state
     beyond the cached settings dictionary.
     """
 

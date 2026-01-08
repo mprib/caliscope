@@ -1,6 +1,6 @@
 """
-Manages Charuco calibration board definition.
-Simplest manager as Charuco is a single domain object with no dependencies.
+Repository for Charuco calibration board definition.
+Simplest repository as Charuco is a single domain object with no dependencies.
 """
 
 import logging
@@ -12,11 +12,11 @@ from caliscope import persistence
 logger = logging.getLogger(__name__)
 
 
-class CharucoManager:
+class CharucoRepository:
     """
-    Manages Charuco board definition stored in charuco.toml.
+    Persistence gateway for Charuco board definition stored in charuco.toml.
 
-    This manager is thread-safe as it holds no state and performs only
+    This repository is thread-safe as it holds no state and performs only
     atomic file operations.
     """
 

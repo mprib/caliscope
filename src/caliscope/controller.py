@@ -14,10 +14,12 @@ from caliscope.core.capture_volume.quality_controller import QualityController
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope.core.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
-from caliscope.managers.project_settings_manager import ProjectSettingsManager
-from caliscope.managers.camera_array_manager import CameraArrayManager
-from caliscope.managers.charuco_manager import CharucoManager
-from caliscope.managers.capture_volume_data_manager import CaptureVolumeDataManager
+from caliscope.repositories import (
+    CameraArrayRepository,
+    CaptureVolumeRepository,
+    CharucoRepository,
+    ProjectSettingsRepository,
+)
 from caliscope.managers.intrinsic_stream_manager import IntrinsicStreamManager
 from caliscope.post_processing.post_processor import PostProcessor
 from caliscope.managers.synchronized_stream_manager import (
@@ -61,22 +63,22 @@ class Controller(QObject):
         super().__init__()
         self.workspace = workspace_dir
 
-        # Initialize managers with explicit file paths
-        self.settings_manager = ProjectSettingsManager(workspace_dir / "project_settings.toml")
-        self.camera_manager = CameraArrayManager(workspace_dir / "camera_array.toml")
-        self.charuco_manager = CharucoManager(workspace_dir / "charuco.toml")
-        self.capture_volume_manager = CaptureVolumeDataManager(workspace_dir)
+        # Initialize repositories with explicit file paths
+        self.settings_repository = ProjectSettingsRepository(workspace_dir / "project_settings.toml")
+        self.camera_repository = CameraArrayRepository(workspace_dir / "camera_array.toml")
+        self.charuco_repository = CharucoRepository(workspace_dir / "charuco.toml")
+        self.capture_volume_repository = CaptureVolumeRepository(workspace_dir)
 
         # Initialize project files if they don't exist
         self._initialize_project_files()
 
-        self.camera_count = self.settings_manager.get_camera_count()
+        self.camera_count = self.settings_repository.get_camera_count()
 
         # streams will be used to play back recorded video with tracked markers to select frames
         self.camera_array = CameraArray({})  # empty camera array at init
 
         logger.info("Loading charuco from manager")
-        self.charuco = self.charuco_manager.load()
+        self.charuco = self.charuco_repository.load()
         self.charuco_tracker = CharucoTracker(self.charuco)
 
         logger.info("Building workspace guide")
@@ -97,9 +99,9 @@ class Controller(QObject):
         logger.info("Checking for existing project files...")
 
         # Project settings (always create/update to ensure required fields exist)
-        if not self.settings_manager.path.exists():
+        if not self.settings_repository.path.exists():
             logger.info("Creating default project settings")
-            self.settings_manager.save(
+            self.settings_repository.save(
                 {
                     "creation_date": datetime.now().isoformat(),
                     "camera_count": 0,
@@ -109,16 +111,16 @@ class Controller(QObject):
             )
 
         # Charuco board (create default if missing)
-        if not self.charuco_manager.path.exists():
+        if not self.charuco_repository.path.exists():
             logger.info("Creating default charuco board")
             default_charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
-            self.charuco_manager.save(default_charuco)
+            self.charuco_repository.save(default_charuco)
 
         # Camera array (create empty if missing)
-        if not self.camera_manager.path.exists():
+        if not self.camera_repository.path.exists():
             logger.info("Creating empty camera array")
             empty_array = CameraArray({})
-            self.camera_manager.save(empty_array)
+            self.camera_repository.save(empty_array)
 
     def load_workspace(self) -> TaskHandle:
         """Asynchronously load workspace state on startup.
@@ -150,11 +152,11 @@ class Controller(QObject):
     def set_camera_count(self, count: int):
         """Update camera count in project settings."""
         self.camera_count = count
-        self.settings_manager.set_camera_count(count)
+        self.settings_repository.set_camera_count(count)
 
     def get_camera_count(self) -> int:
         """Get current camera count from settings."""
-        count = self.settings_manager.get_camera_count()
+        count = self.settings_repository.get_camera_count()
         self.camera_count = count
         return count
 
@@ -183,7 +185,7 @@ class Controller(QObject):
         cameras_good = self.camera_array.all_extrinsics_calibrated()
         logger.info(f"All extrinsics calculated: {cameras_good}")
 
-        point_estimates_good = self.capture_volume_manager.point_estimates_path.exists()
+        point_estimates_good = self.capture_volume_repository.point_estimates_path.exists()
         logger.info(f"Point estimates available: {point_estimates_good}")
 
         all_data_available = self.workspace_guide.all_extrinsic_mp4s_available(self.camera_count)
@@ -202,7 +204,7 @@ class Controller(QObject):
         Also updates the charuco tracker used by stream managers.
         """
         self.charuco = charuco
-        self.charuco_manager.save(self.charuco)
+        self.charuco_repository.save(self.charuco)
         self.charuco_tracker = CharucoTracker(self.charuco)
 
         if hasattr(self, "intrinsic_stream_manager"):
@@ -237,7 +239,7 @@ class Controller(QObject):
         Any cameras discovered in the intrinsic directory that aren't in the
         saved array will be added automatically.
         """
-        self.camera_array = self.camera_manager.load()
+        self.camera_array = self.camera_repository.load()
 
         # double check that no new camera associated files have been placed in the intrinsic calibration folder
         all_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.intrinsic_dir)
@@ -262,7 +264,7 @@ class Controller(QObject):
             size=size,
         )
         self.camera_array.cameras[port] = new_cam_data
-        self.camera_manager.save(self.camera_array)
+        self.camera_repository.save(self.camera_array)
 
     def get_intrinsic_stream_frame_count(self, port):
         """Get frame count for intrinsic stream at given port."""
@@ -315,7 +317,7 @@ class Controller(QObject):
                 self.intrinsic_stream_manager.calibrate_camera(port)
 
                 camera_data = self.camera_array.cameras[port]
-                self.camera_manager.save_camera(camera_data)
+                self.camera_repository.save_camera(camera_data)
                 self.push_camera_data(port)
                 self.enable_inputs.emit(port, True)
             else:
@@ -349,7 +351,7 @@ class Controller(QObject):
         self.intrinsic_stream_manager.set_stream_rotation(port, camera_data.rotation_count)
 
         self.push_camera_data(port)
-        self.camera_manager.save_camera(camera_data)
+        self.camera_repository.save_camera(camera_data)
 
     def load_estimated_capture_volume(self):
         """
@@ -361,11 +363,11 @@ class Controller(QObject):
         logger.info("Beginning to load estimated capture volume")
 
         # Load point estimates from dedicated manager
-        self.point_estimates = self.capture_volume_manager.load_point_estimates()
+        self.point_estimates = self.capture_volume_repository.load_point_estimates()
         self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
 
         # Load metadata and apply to capture volume
-        metadata = self.capture_volume_manager.load_metadata()
+        metadata = self.capture_volume_repository.load_metadata()
         self.capture_volume.stage = metadata.get("stage")
         self.capture_volume.origin_sync_index = metadata.get("origin_sync_index")
 
@@ -389,8 +391,8 @@ class Controller(QObject):
             self.load_extrinsic_stream_manager()
 
             # Get processing settings from project configuration
-            include_video = self.settings_manager.get_save_tracked_points_video()
-            fps_target = self.settings_manager.get_fps_sync_stream_processing()
+            include_video = self.settings_repository.get_save_tracked_points_video()
+            fps_target = self.settings_repository.get_fps_sync_stream_processing()
 
             self.extrinsic_stream_manager.process_streams(fps_target=fps_target, include_video=include_video)
             logger.info(f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}")
@@ -444,8 +446,8 @@ class Controller(QObject):
             self.capture_volume_loaded = True
 
             # Save complete capture volume state
-            self.camera_manager.save(self.camera_array)
-            self.capture_volume_manager.save_capture_volume(self.capture_volume)
+            self.camera_repository.save(self.camera_array)
+            self.capture_volume_repository.save_capture_volume(self.capture_volume)
 
         handle = self.task_manager.submit(worker, name="calibrate_capture_volume")
         handle.completed.connect(lambda _: self.capture_volume_calibrated.emit())
@@ -469,8 +471,8 @@ class Controller(QObject):
             self.post_processor = PostProcessor(self.camera_array, recording_path, tracker_enum)
 
             # Get processing settings from project configuration
-            include_video = self.settings_manager.get_save_tracked_points_video()
-            fps_target = self.settings_manager.get_fps_sync_stream_processing()
+            include_video = self.settings_repository.get_save_tracked_points_video()
+            fps_target = self.settings_repository.get_fps_sync_stream_processing()
 
             # Pass token for cancellation support
             if not self.post_processor.create_xy(include_video=include_video, fps_target=fps_target, token=token):
@@ -488,8 +490,8 @@ class Controller(QObject):
         self.capture_volume_shifted.emit()
 
         def worker(_token, _handle):
-            self.camera_manager.save(self.camera_array)
-            self.capture_volume_manager.save_capture_volume(self.capture_volume)
+            self.camera_repository.save(self.camera_array)
+            self.capture_volume_repository.save_capture_volume(self.capture_volume)
 
         self.task_manager.submit(worker, name="rotate_capture_volume")
 
@@ -499,8 +501,8 @@ class Controller(QObject):
         self.capture_volume_shifted.emit()
 
         def worker(_token, _handle):
-            self.camera_manager.save(self.camera_array)
-            self.capture_volume_manager.save_capture_volume(self.capture_volume)
+            self.camera_repository.save(self.camera_array)
+            self.capture_volume_repository.save_capture_volume(self.capture_volume)
 
         self.task_manager.submit(worker, name="set_capture_volume_origin")
 
@@ -510,7 +512,7 @@ class Controller(QObject):
         def worker(token, _handle):
             self.enable_inputs.emit(port, False)
             self.camera_array.cameras[port].erase_calibration_data()
-            self.camera_manager.save_camera(self.camera_array.cameras[port])
+            self.camera_repository.save_camera(self.camera_array.cameras[port])
             self.push_camera_data(port)
 
             logger.info(f"Initiate autocalibration of grids for port {port}")
@@ -523,7 +525,7 @@ class Controller(QObject):
                     self.enable_inputs.emit(port, True)
                     return
 
-            self.camera_manager.save_camera(self.camera_array.cameras[port])
+            self.camera_repository.save_camera(self.camera_array.cameras[port])
             self.push_camera_data(port)
             self.intrinsic_stream_manager.stream_jump_to(port, 0)
             self.enable_inputs.emit(port, True)

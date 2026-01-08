@@ -1,5 +1,5 @@
 """
-Manages camera array data (intrinsics, extrinsics, metadata).
+Repository for camera array data (intrinsics, extrinsics, metadata).
 Provides atomic operations for individual camera updates.
 """
 
@@ -12,11 +12,11 @@ from caliscope import persistence
 logger = logging.getLogger(__name__)
 
 
-class CameraArrayManager:
+class CameraArrayRepository:
     """
-    Manages camera array data stored in camera_array.toml.
+    Persistence gateway for camera array data stored in camera_array.toml.
 
-    This manager is thread-safe as it holds no mutable state and each operation
+    This repository is thread-safe as it holds no mutable state and each operation
     is independent. The save_camera() method uses a load-modify-save pattern
     which is correct but not optimized for high-frequency updates.
     """

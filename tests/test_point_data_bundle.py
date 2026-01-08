@@ -8,7 +8,7 @@ from caliscope.core.capture_volume.capture_volume import CaptureVolume
 from caliscope.core.capture_volume.point_estimates import PointEstimates
 from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.managers.point_data_bundle_manager import PointDataBundleManager
+from caliscope.repositories import PointDataBundleRepository
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope import persistence
 
@@ -240,12 +240,12 @@ def test_point_data_bundle(tmp_path: Path):
     bundle_dir = tmp_path / "test_bundle"
     bundle_dir.mkdir(exist_ok=True)
 
-    manager = PointDataBundleManager(bundle_dir)
+    repository = PointDataBundleRepository(bundle_dir)
     logger.info(f"Saving bundle to {bundle_dir}...")
-    manager.save(bundle)
+    repository.save(bundle)
 
     logger.info("Loading bundle back...")
-    loaded_bundle = manager.load()
+    loaded_bundle = repository.load()
 
     # Verify data integrity
     assert len(loaded_bundle.image_points.df) == len(bundle.image_points.df), "Image point count mismatch after load"

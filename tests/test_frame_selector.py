@@ -9,6 +9,7 @@ These tests focus on behavior rather than implementation details:
 import logging
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from caliscope import __root__
@@ -16,6 +17,7 @@ from caliscope.core.frame_selector import (
     FrameSelectionResult,
     _compute_board_aspect_ratio,
     _max_possible_bbox_area,
+    _score_frame,
     select_calibration_frames,
 )
 from caliscope.core.point_data import ImagePoints
@@ -362,6 +364,150 @@ class TestIntegration:
         port_0_frames = set(image_points.df[image_points.df["port"] == 0]["sync_index"].unique())
         for frame in result.selected_frames:
             assert frame in port_0_frames, f"Selected frame {frame} not in original data"
+
+
+class TestScoreFrame:
+    """Unit tests for the frame scoring function."""
+
+    def test_edge_cells_receive_bonus(self):
+        """Cells on image edges receive extra weight for distortion estimation."""
+        grid_size = 5
+
+        # Frame covering only edge cells (top and bottom edge, middle column)
+        edge_coverage = {(0, 2), (4, 2)}
+        # Frame covering only a center cell
+        center_coverage = {(2, 2)}
+
+        # Same pose features, no prior selection
+        pose = np.zeros(5)
+
+        edge_score = _score_frame(
+            edge_coverage,
+            selected_coverage=set(),
+            candidate_pose=pose,
+            selected_poses=[],
+            grid_size=grid_size,
+        )
+
+        center_score = _score_frame(
+            center_coverage,
+            selected_coverage=set(),
+            candidate_pose=pose,
+            selected_poses=[],
+            grid_size=grid_size,
+        )
+
+        # 2 edge cells with bonus should score higher than 1 center cell
+        # Edge: 2 * 1.0 (base) + 2 * 0.2 (edge bonus) = 2.4
+        # Center: 1 * 1.0 (base) = 1.0
+        assert edge_score > center_score
+        assert edge_score == 2.4
+        assert center_score == 1.0
+
+    def test_corner_cells_receive_additional_bonus(self):
+        """Corner cells get both edge and corner bonuses."""
+        grid_size = 5
+
+        # Corner cell (gets edge + corner bonus)
+        corner_coverage = {(0, 0)}
+        # Edge-only cell (only edge bonus)
+        edge_only_coverage = {(0, 2)}
+
+        pose = np.zeros(5)
+
+        corner_score = _score_frame(
+            corner_coverage,
+            selected_coverage=set(),
+            candidate_pose=pose,
+            selected_poses=[],
+            grid_size=grid_size,
+        )
+
+        edge_only_score = _score_frame(
+            edge_only_coverage,
+            selected_coverage=set(),
+            candidate_pose=pose,
+            selected_poses=[],
+            grid_size=grid_size,
+        )
+
+        # Corner: 1.0 (base) + 0.2 (edge) + 0.3 (corner) = 1.5
+        # Edge only: 1.0 (base) + 0.2 (edge) = 1.2
+        assert corner_score > edge_only_score
+        assert corner_score == 1.5
+        assert edge_only_score == 1.2
+
+    def test_already_covered_cells_give_zero_base_score(self):
+        """Cells already covered don't contribute to base coverage gain."""
+        grid_size = 5
+
+        candidate_coverage = {(0, 0), (1, 1)}  # 2 cells
+        already_selected = {(0, 0)}  # One already covered
+
+        pose = np.zeros(5)
+
+        score = _score_frame(
+            candidate_coverage,
+            selected_coverage=already_selected,
+            candidate_pose=pose,
+            selected_poses=[],
+            grid_size=grid_size,
+        )
+
+        # Only (1,1) is new - center cell, no bonus
+        # Score = 1.0 (base for 1 new cell)
+        assert score == 1.0
+
+    def test_pose_diversity_bonus(self):
+        """Frames far from selected poses get diversity bonus."""
+        grid_size = 5
+
+        # Same coverage for both
+        coverage = {(2, 2)}
+
+        # Previously selected pose at origin of feature space
+        selected_poses = [np.array([0.0, 0.0, 0.0, 0.0, 0.0])]
+
+        # Near pose
+        near_pose = np.array([0.1, 0.1, 0.0, 0.0, 0.0])
+        # Far pose
+        far_pose = np.array([0.5, 0.5, 0.0, 0.0, 0.0])
+
+        near_score = _score_frame(
+            coverage,
+            selected_coverage=set(),
+            candidate_pose=near_pose,
+            selected_poses=selected_poses,
+            grid_size=grid_size,
+        )
+
+        far_score = _score_frame(
+            coverage,
+            selected_coverage=set(),
+            candidate_pose=far_pose,
+            selected_poses=selected_poses,
+            grid_size=grid_size,
+        )
+
+        # Far pose should have higher diversity bonus
+        assert far_score > near_score
+
+    def test_empty_selected_poses_no_diversity_bonus(self):
+        """First frame selection has no diversity bonus (no prior poses)."""
+        grid_size = 5
+        coverage = {(2, 2)}
+        pose = np.array([0.5, 0.5, 0.1, 0.1, 1.0])
+
+        score = _score_frame(
+            coverage,
+            selected_coverage=set(),
+            candidate_pose=pose,
+            selected_poses=[],
+            grid_size=grid_size,
+        )
+
+        # Just base score for 1 center cell
+        assert score == 1.0
 
 
 if __name__ == "__main__":

@@ -22,6 +22,26 @@ import pandas as pd
 
 from caliscope.core.point_data import ImagePoints
 
+# --- Type Aliases for Domain Clarity ---
+GridCell = tuple[int, int]  # (row, col) in coverage grid
+CoveredCells = set[GridCell]
+PoseFeatures = np.ndarray  # Shape: (5,) - see indices below
+
+# Pose feature indices (for documentation and potential direct access)
+_POSE_CENTROID_X = 0
+_POSE_CENTROID_Y = 1
+_POSE_SPREAD_X = 2
+_POSE_SPREAD_Y = 3
+_POSE_ASPECT_RATIO = 4
+
+
+@dataclass(frozen=True)
+class FrameCoverageData:
+    """Precomputed coverage and pose data for a single eligible frame."""
+
+    covered_cells: CoveredCells
+    pose_features: PoseFeatures
+
 
 @dataclass(frozen=True)
 class FrameSelectionResult:
@@ -102,12 +122,12 @@ def select_calibration_frames(
         )
 
     # Precompute coverage and pose features for all eligible frames
-    frame_data: dict[int, tuple[set[tuple[int, int]], np.ndarray]] = {}
+    frame_data: dict[int, FrameCoverageData] = {}
     for sync_index in eligible_frames:
         frame_df = cast(pd.DataFrame, port_df[port_df["sync_index"] == sync_index])
         coverage = _compute_frame_coverage(frame_df, image_size, grid_size)
         pose = _compute_pose_features(frame_df, image_size)
-        frame_data[sync_index] = (coverage, pose)
+        frame_data[sync_index] = FrameCoverageData(coverage, pose)
 
     # Greedy selection
     selected_frames = _greedy_select(frame_data, target_frame_count, grid_size, min_score=0.01)
@@ -131,13 +151,17 @@ def _compute_board_aspect_ratio(port_df: pd.DataFrame) -> float:
 
     The obj_loc values represent physical board coordinates, so their spread
     reveals the board's physical aspect ratio (width/height).
-    """
 
+    Note: A single-point degenerate case (both ranges ≈ 0) is prevented upstream
+    by min_corners_per_frame=6 - charuco boards can't have 6 corners at one point.
+    Collinear cases (horizontal/vertical lines) are theoretically possible but
+    extremely unlikely with real data; we handle them defensively.
+    """
     obj_x_range = float(port_df["obj_loc_x"].max() - port_df["obj_loc_x"].min())
     obj_y_range = float(port_df["obj_loc_y"].max() - port_df["obj_loc_y"].min())
 
-    if obj_y_range < 1e-6:
-        return 1.0
+    if obj_x_range < 1e-6 or obj_y_range < 1e-6:
+        return 1.0  # Degenerate case: assume square
     return obj_x_range / obj_y_range
 
 
@@ -214,25 +238,26 @@ def _compute_frame_coverage(
     frame_df: pd.DataFrame,
     image_size: tuple[int, int],
     grid_size: int,
-) -> set[tuple[int, int]]:
+) -> CoveredCells:
     """Compute set of (row, col) grid cells covered by frame's corners."""
     width, height = image_size
     cell_width = width / grid_size
     cell_height = height / grid_size
 
-    covered: set[tuple[int, int]] = set()
-    for _, row in frame_df.iterrows():
-        col = min(int(row["img_loc_x"] / cell_width), grid_size - 1)
-        row_idx = min(int(row["img_loc_y"] / cell_height), grid_size - 1)
-        covered.add((row_idx, col))
+    covered: CoveredCells = set()
+    for _, point in frame_df.iterrows():
+        grid_col = max(0, min(int(point["img_loc_x"] / cell_width), grid_size - 1))
+        grid_row = max(0, min(int(point["img_loc_y"] / cell_height), grid_size - 1))
+        covered.add((grid_row, grid_col))
 
     return covered
 
 
-def _compute_pose_features(frame_df: pd.DataFrame, image_size: tuple[int, int]) -> np.ndarray:
+def _compute_pose_features(frame_df: pd.DataFrame, image_size: tuple[int, int]) -> PoseFeatures:
     """Extract 5D pose feature vector for diversity comparison.
 
     Returns: [centroid_x, centroid_y, spread_x, spread_y, aspect_ratio]
+    (See _POSE_* constants for index mapping)
 
     The aspect ratio (spread_x / spread_y) captures board orientation/tilt,
     which is critical for intrinsic calibration per Zhang (2000) - different
@@ -257,10 +282,10 @@ def _compute_pose_features(frame_df: pd.DataFrame, image_size: tuple[int, int]) 
 
 
 def _score_frame(
-    candidate_coverage: set[tuple[int, int]],
-    selected_coverage: set[tuple[int, int]],
-    candidate_pose: np.ndarray,
-    selected_poses: list[np.ndarray],
+    candidate_coverage: CoveredCells,
+    selected_coverage: CoveredCells,
+    candidate_pose: PoseFeatures,
+    selected_poses: list[PoseFeatures],
     grid_size: int,
     edge_weight: float = 0.2,
     corner_weight: float = 0.3,
@@ -304,15 +329,15 @@ def _score_frame(
 
 
 def _greedy_select(
-    frame_data: dict[int, tuple[set[tuple[int, int]], np.ndarray]],
+    frame_data: dict[int, FrameCoverageData],
     target_count: int,
     grid_size: int,
     min_score: float = 0.01,
 ) -> list[int]:
     """Greedily select frames to maximize coverage score."""
     selected: list[int] = []
-    selected_coverage: set[tuple[int, int]] = set()
-    selected_poses: list[np.ndarray] = []
+    selected_coverage: CoveredCells = set()
+    selected_poses: list[PoseFeatures] = []
 
     remaining = set(frame_data.keys())
 
@@ -320,8 +345,8 @@ def _greedy_select(
         # Score all remaining candidates
         scores: list[tuple[float, int]] = []
         for sync_index in remaining:
-            coverage, pose = frame_data[sync_index]
-            score = _score_frame(coverage, selected_coverage, pose, selected_poses, grid_size)
+            data = frame_data[sync_index]
+            score = _score_frame(data.covered_cells, selected_coverage, data.pose_features, selected_poses, grid_size)
             scores.append((score, sync_index))
 
         # Sort by score descending, then sync_index ascending for determinism
@@ -332,17 +357,17 @@ def _greedy_select(
             break  # Early stopping: no frame provides sufficient benefit
 
         # Update state
-        coverage, pose = frame_data[best_frame]
+        best_data = frame_data[best_frame]
         selected.append(best_frame)
-        selected_coverage |= coverage
-        selected_poses.append(pose)
+        selected_coverage |= best_data.covered_cells
+        selected_poses.append(best_data.pose_features)
         remaining.remove(best_frame)
 
     return selected
 
 
 def _compute_quality_metrics(
-    frame_data: dict[int, tuple[set[tuple[int, int]], np.ndarray]],
+    frame_data: dict[int, FrameCoverageData],
     selected_frames: list[int],
     grid_size: int,
 ) -> dict[str, float]:
@@ -356,12 +381,12 @@ def _compute_quality_metrics(
         }
 
     # Aggregate coverage from selected frames
-    total_coverage: set[tuple[int, int]] = set()
-    poses: list[np.ndarray] = []
+    total_coverage: CoveredCells = set()
+    poses: list[PoseFeatures] = []
     for sync_index in selected_frames:
-        coverage, pose = frame_data[sync_index]
-        total_coverage |= coverage
-        poses.append(pose)
+        data = frame_data[sync_index]
+        total_coverage |= data.covered_cells
+        poses.append(data.pose_features)
 
     total_cells = grid_size * grid_size
     coverage_fraction = len(total_coverage) / total_cells

@@ -132,8 +132,6 @@ def _compute_board_aspect_ratio(port_df: pd.DataFrame) -> float:
     The obj_loc values represent physical board coordinates, so their spread
     reveals the board's physical aspect ratio (width/height).
     """
-    if "obj_loc_x" not in port_df.columns or "obj_loc_y" not in port_df.columns:
-        return 1.0  # Fallback if obj_loc not available
 
     obj_x_range = float(port_df["obj_loc_x"].max() - port_df["obj_loc_x"].min())
     obj_y_range = float(port_df["obj_loc_y"].max() - port_df["obj_loc_y"].min())
@@ -174,8 +172,13 @@ def _filter_eligible_frames(
 
     Coverage is computed relative to the maximum possible bbox for the board's
     aspect ratio, not the full image area. This handles small boards (e.g., 3x4
-    charuco with only 6 corners) correctly - a board filling 30% of the frame
-    should pass a 10% threshold even if its corner bbox is only 3% of image area.
+    charuco with only 6 corners) correctly - a board whose corners fill 30% of
+    the frame should pass a 10% threshold even if its corner bbox is only 3% of
+    image area.
+
+    Note: For ChArUco boards, internal corners are inset from the board edge by
+    one square width, so a denser grid has corners closer to the true edge.
+    Classic checkerboard patterns would differ.
     """
     # Compute board aspect ratio from obj_loc spread across all frames
     board_aspect = _compute_board_aspect_ratio(port_df)

@@ -1,22 +1,29 @@
 """Automatic frame selection for intrinsic camera calibration.
 
-Implements a deterministic, coverage-optimizing greedy algorithm for selecting
-calibration frames from tracked charuco corner data. The algorithm maximizes
-spatial coverage across the image while considering edge/corner regions
-(critical for distortion estimation) and pose diversity.
+Implements a two-phase deterministic algorithm for selecting calibration frames:
+
+Phase 1 (Orientation Diversity): Ensures minimum orientation diversity by
+selecting anchor frames from distinct tilt directions. This is a HARD CONSTRAINT
+for focal length observability - without sufficient orientation diversity, the
+focal length and principal point parameters become coupled (Zhang 2000).
+
+Phase 2 (Spatial Coverage): Fills remaining slots with greedy coverage
+optimization, prioritizing edge/corner regions (critical for distortion estimation).
 
 Literature foundation:
-- Zhang (2000): Different orientations needed for parameter observability
+- Zhang (2000): Different orientations needed for focal length observability
 - MATLAB/OpenCV docs: Peripheral coverage constrains distortion model
 - Krause (2012): Greedy submodular maximization achieves (1-1/e) approximation
 
-Note: For charuco boards (planar targets), obj_loc_z is always 0. Pose diversity
-is computed from image-space features (centroid, spread) rather than 3D pose.
+Orientation features are extracted from the homography mapping board coordinates
+to image coordinates. The perspective components of H encode board tilt relative
+to the image plane.
 """
 
 from dataclasses import dataclass
-from typing import cast
+from typing import NamedTuple, cast
 
+import cv2
 import numpy as np
 import pandas as pd
 
@@ -27,6 +34,19 @@ GridCell = tuple[int, int]  # (row, col) in coverage grid
 CoveredCells = set[GridCell]
 PoseFeatures = np.ndarray  # Shape: (5,) - see indices below
 
+
+class OrientationFeatures(NamedTuple):
+    """Board orientation extracted from homography.
+
+    These features capture how the calibration board is oriented relative to
+    the camera, which is critical for focal length observability (Zhang 2000).
+    """
+
+    tilt_direction: float  # Angle in radians [0, 2π) - direction board is tilting
+    tilt_magnitude: float  # Scalar [0, inf) - how tilted the board is (0 = frontal)
+    in_plane_rotation: float  # Angle in radians [0, 2π) - rotation around optical axis
+
+
 # Pose feature indices (for documentation and potential direct access)
 _POSE_CENTROID_X = 0
 _POSE_CENTROID_Y = 1
@@ -34,13 +54,18 @@ _POSE_SPREAD_X = 2
 _POSE_SPREAD_Y = 3
 _POSE_ASPECT_RATIO = 4
 
+# Orientation binning constants
+_NUM_TILT_DIRECTION_BINS = 8  # 45° sectors
+_MIN_TILT_FOR_DIVERSITY = 0.05  # Minimum tilt magnitude to count as "tilted"
+
 
 @dataclass(frozen=True)
 class FrameCoverageData:
-    """Precomputed coverage and pose data for a single eligible frame."""
+    """Precomputed coverage, pose, and orientation data for a single eligible frame."""
 
     covered_cells: CoveredCells
     pose_features: PoseFeatures
+    orientation: OrientationFeatures
 
 
 @dataclass(frozen=True)
@@ -55,6 +80,10 @@ class FrameSelectionResult:
     corner_coverage_fraction: float  # Target > 0.50
     pose_diversity: float  # Variance of pose features
 
+    # Orientation diversity (critical for focal length observability)
+    orientation_sufficient: bool  # True if ≥4 distinct tilt directions found
+    orientation_count: int  # Number of distinct orientation bins covered
+
     # Selection metadata
     eligible_frame_count: int
     total_frame_count: int
@@ -67,16 +96,21 @@ def select_calibration_frames(
     *,
     target_frame_count: int = 30,
     min_corners_per_frame: int = 6,
-    min_coverage_fraction: float = 0.10,
+    min_orientations: int = 4,
     grid_size: int = 5,
 ) -> FrameSelectionResult:
     """Select optimal frames for intrinsic camera calibration.
 
-    Uses a deterministic, coverage-optimizing greedy algorithm that:
-    1. Filters frames by corner count and coverage criteria
-    2. Greedily selects frames to maximize image grid coverage
-    3. Weights edge and corner regions for distortion estimation
-    4. Considers pose diversity for robust parameter estimation
+    Uses a two-phase selection algorithm:
+
+    Phase 1 (Orientation Diversity): Ensures minimum orientation diversity
+    by selecting anchor frames from distinct tilt directions. This is a
+    HARD CONSTRAINT - without sufficient orientation diversity, focal length
+    estimation is mathematically ill-posed (Zhang 2000).
+
+    Phase 2 (Spatial Coverage): Fills remaining slots by greedily optimizing
+    for image grid coverage, with extra weight for edge/corner regions
+    (critical for distortion estimation).
 
     Determinism: Ties are broken by sync_index (lowest first). No random sampling.
 
@@ -86,11 +120,12 @@ def select_calibration_frames(
         image_size: (width, height) of the camera image
         target_frame_count: Maximum frames to select (default 30)
         min_corners_per_frame: Minimum corners required per frame (default 6)
-        min_coverage_fraction: Minimum image coverage per frame (default 0.10)
+        min_orientations: Minimum distinct tilt directions required (default 4)
         grid_size: Coverage grid dimension (default 5 for 5x5 = 25 cells)
 
     Returns:
-        FrameSelectionResult with selected sync_index values and quality metrics
+        FrameSelectionResult with selected sync_index values, quality metrics,
+        and orientation_sufficient flag indicating if diversity requirements were met
     """
     # Filter to specified port
     port_df = cast(pd.DataFrame, image_points.df[image_points.df["port"] == port].copy())
@@ -103,12 +138,14 @@ def select_calibration_frames(
             edge_coverage_fraction=0.0,
             corner_coverage_fraction=0.0,
             pose_diversity=0.0,
+            orientation_sufficient=False,
+            orientation_count=0,
             eligible_frame_count=0,
             total_frame_count=0,
         )
 
-    # Filter eligible frames
-    eligible_frames = _filter_eligible_frames(port_df, image_size, min_corners_per_frame, min_coverage_fraction)
+    # Filter eligible frames (only by corner count - no coverage filtering)
+    eligible_frames = _filter_eligible_frames(port_df, min_corners_per_frame)
 
     if not eligible_frames:
         return FrameSelectionResult(
@@ -117,20 +154,39 @@ def select_calibration_frames(
             edge_coverage_fraction=0.0,
             corner_coverage_fraction=0.0,
             pose_diversity=0.0,
+            orientation_sufficient=False,
+            orientation_count=0,
             eligible_frame_count=0,
             total_frame_count=total_frame_count,
         )
 
-    # Precompute coverage and pose features for all eligible frames
+    # Precompute coverage, pose, and orientation features for all eligible frames
     frame_data: dict[int, FrameCoverageData] = {}
     for sync_index in eligible_frames:
         frame_df = cast(pd.DataFrame, port_df[port_df["sync_index"] == sync_index])
         coverage = _compute_frame_coverage(frame_df, image_size, grid_size)
         pose = _compute_pose_features(frame_df, image_size)
-        frame_data[sync_index] = FrameCoverageData(coverage, pose)
+        orientation = _compute_orientation_features(frame_df)
+        frame_data[sync_index] = FrameCoverageData(coverage, pose, orientation)
 
-    # Greedy selection
-    selected_frames = _greedy_select(frame_data, target_frame_count, grid_size, min_score=0.01)
+    # Two-phase selection
+    # Phase 1: Select orientation anchor frames (hard constraint for focal length observability)
+    anchor_frames, covered_bins = _select_orientation_anchors(frame_data, min_orientations)
+    orientation_count = len(covered_bins)
+    orientation_sufficient = orientation_count >= min_orientations
+
+    # Phase 2: Fill remaining slots with coverage-optimized selection
+    remaining_budget = target_frame_count - len(anchor_frames)
+    if remaining_budget > 0:
+        coverage_frames = _greedy_select_coverage(
+            frame_data,
+            already_selected=anchor_frames,
+            target_count=remaining_budget,
+            grid_size=grid_size,
+        )
+        selected_frames = anchor_frames + coverage_frames
+    else:
+        selected_frames = anchor_frames[:target_frame_count]
 
     # Compute quality metrics
     metrics = _compute_quality_metrics(frame_data, selected_frames, grid_size)
@@ -141,94 +197,31 @@ def select_calibration_frames(
         edge_coverage_fraction=metrics["edge_coverage_fraction"],
         corner_coverage_fraction=metrics["corner_coverage_fraction"],
         pose_diversity=metrics["pose_diversity"],
+        orientation_sufficient=orientation_sufficient,
+        orientation_count=orientation_count,
         eligible_frame_count=len(eligible_frames),
         total_frame_count=total_frame_count,
     )
 
 
-def _compute_board_aspect_ratio(port_df: pd.DataFrame) -> float:
-    """Infer board aspect ratio from obj_loc spread across all frames.
-
-    The obj_loc values represent physical board coordinates, so their spread
-    reveals the board's physical aspect ratio (width/height).
-
-    Note: A single-point degenerate case (both ranges ≈ 0) is prevented upstream
-    by min_corners_per_frame=6 - charuco boards can't have 6 corners at one point.
-    Collinear cases (horizontal/vertical lines) are theoretically possible but
-    extremely unlikely with real data; we handle them defensively.
-    """
-    obj_x_range = float(port_df["obj_loc_x"].max() - port_df["obj_loc_x"].min())
-    obj_y_range = float(port_df["obj_loc_y"].max() - port_df["obj_loc_y"].min())
-
-    if obj_x_range < 1e-6 or obj_y_range < 1e-6:
-        return 1.0  # Degenerate case: assume square
-    return obj_x_range / obj_y_range
-
-
-def _max_possible_bbox_area(image_size: tuple[int, int], board_aspect_ratio: float) -> float:
-    """Calculate max bbox area if board filled frame while preserving aspect ratio.
-
-    This is the theoretical maximum - if the board's corners spanned the full
-    image while maintaining the board's physical aspect ratio.
-    """
-    width, height = image_size
-    image_aspect = width / height
-
-    if board_aspect_ratio > image_aspect:
-        # Board wider than image aspect - width-constrained
-        max_bbox_width = float(width)
-        max_bbox_height = width / board_aspect_ratio
-    else:
-        # Board taller than image aspect - height-constrained
-        max_bbox_height = float(height)
-        max_bbox_width = height * board_aspect_ratio
-
-    return max_bbox_width * max_bbox_height
-
-
 def _filter_eligible_frames(
     port_df: pd.DataFrame,
-    image_size: tuple[int, int],
     min_corners: int,
-    min_coverage: float,
 ) -> list[int]:
-    """Filter frames meeting minimum corner count and relative coverage criteria.
+    """Filter frames meeting minimum corner count.
 
-    Coverage is computed relative to the maximum possible bbox for the board's
-    aspect ratio, not the full image area. This handles small boards (e.g., 3x4
-    charuco with only 6 corners) correctly - a board whose corners fill 30% of
-    the frame should pass a 10% threshold even if its corner bbox is only 3% of
-    image area.
-
-    Note: For ChArUco boards, internal corners are inset from the board edge by
-    one square width, so a denser grid has corners closer to the true edge.
-    Classic checkerboard patterns would differ.
+    Only filters by corner count - no coverage filtering. This allows frames
+    with distant (small-appearing) boards to be included, which is valuable
+    for focal length estimation per Zhang (2000).
     """
-    # Compute board aspect ratio from obj_loc spread across all frames
-    board_aspect = _compute_board_aspect_ratio(port_df)
-    max_bbox = _max_possible_bbox_area(image_size, board_aspect)
-
     eligible: list[int] = []
     grouped = port_df.groupby("sync_index")
     for sync_index_key, frame_group in grouped:
         frame_df = cast(pd.DataFrame, frame_group)
         sync_index = int(sync_index_key)  # type: ignore[arg-type]
 
-        # Check corner count
-        if len(frame_df) < min_corners:
-            continue
-
-        # Check relative coverage (bbox area / max possible bbox area)
-        x_min = float(frame_df["img_loc_x"].min())
-        x_max = float(frame_df["img_loc_x"].max())
-        y_min = float(frame_df["img_loc_y"].min())
-        y_max = float(frame_df["img_loc_y"].max())
-        bbox_area = (x_max - x_min) * (y_max - y_min)
-
-        # Use relative coverage: how much of the max possible bbox is this frame using?
-        relative_coverage = bbox_area / max_bbox if max_bbox > 0 else 0.0
-
-        if relative_coverage >= min_coverage:
+        # Check corner count only
+        if len(frame_df) >= min_corners:
             eligible.append(sync_index)
 
     return sorted(eligible)  # Sorted for determinism
@@ -281,6 +274,90 @@ def _compute_pose_features(frame_df: pd.DataFrame, image_size: tuple[int, int]) 
     return np.array([centroid_x, centroid_y, spread_x, spread_y, aspect_ratio])
 
 
+def _compute_orientation_features(frame_df: pd.DataFrame) -> OrientationFeatures:
+    """Extract board orientation from 2D-2D homography.
+
+    Computes a homography mapping board object coordinates to image coordinates,
+    then extracts orientation features from the homography matrix structure:
+
+    - tilt_direction: Direction the board is tilting (from perspective components)
+    - tilt_magnitude: How much the board is tilted (0 = frontal-parallel)
+    - in_plane_rotation: Rotation around the camera's optical axis
+
+    These features capture what Zhang (2000) showed is critical for focal length
+    observability: boards at different orientations provide constraints that
+    "pull apart" the focal length and principal point parameter coupling.
+
+    The homography H relates board coords (obj_loc) to image coords (img_loc):
+        [u, v, 1]^T ~ H @ [X, Y, 1]^T
+
+    H[2,0] and H[2,1] encode perspective distortion (tilt information).
+    The affine component (top-left 2x2) encodes scale, rotation, and shear.
+    """
+    # Extract object (board) and image coordinates
+    obj_points = frame_df[["obj_loc_x", "obj_loc_y"]].to_numpy(dtype=np.float32)
+    img_points = frame_df[["img_loc_x", "img_loc_y"]].to_numpy(dtype=np.float32)
+
+    # Need at least 4 points for homography
+    if len(obj_points) < 4:
+        return OrientationFeatures(
+            tilt_direction=0.0,
+            tilt_magnitude=0.0,
+            in_plane_rotation=0.0,
+        )
+
+    # Compute homography using RANSAC for robustness
+    H, mask = cv2.findHomography(obj_points, img_points, cv2.RANSAC, 5.0)
+
+    if H is None:
+        return OrientationFeatures(
+            tilt_direction=0.0,
+            tilt_magnitude=0.0,
+            in_plane_rotation=0.0,
+        )
+
+    # Normalize H by H[2,2] to get standard form
+    H = H / H[2, 2]
+
+    # Extract tilt from perspective components
+    # H[2,0] and H[2,1] encode how the board plane tilts relative to the image plane
+    tilt_direction = float(np.arctan2(H[2, 1], H[2, 0]))
+    if tilt_direction < 0:
+        tilt_direction += 2 * np.pi
+
+    tilt_magnitude = float(np.sqrt(H[2, 0] ** 2 + H[2, 1] ** 2))
+
+    # Extract in-plane rotation from affine component
+    # The top-left 2x2 of H approximates an affine transformation
+    A = H[:2, :2]
+    U, S, Vt = np.linalg.svd(A)
+    R = U @ Vt  # Rotation component
+
+    in_plane_rotation = float(np.arctan2(R[1, 0], R[0, 0]))
+    if in_plane_rotation < 0:
+        in_plane_rotation += 2 * np.pi
+
+    return OrientationFeatures(
+        tilt_direction=tilt_direction,
+        tilt_magnitude=tilt_magnitude,
+        in_plane_rotation=in_plane_rotation,
+    )
+
+
+def _get_orientation_bin(orientation: OrientationFeatures) -> int | None:
+    """Map orientation to a bin index for diversity checking.
+
+    Returns None for frontal-parallel boards (tilt below threshold).
+    Returns bin index 0-7 for tilted boards (8 sectors of 45° each).
+    """
+    if orientation.tilt_magnitude < _MIN_TILT_FOR_DIVERSITY:
+        return None  # Frontal-parallel, doesn't contribute to orientation diversity
+
+    # Map tilt_direction [0, 2π) to bin [0, 7]
+    bin_index = int(orientation.tilt_direction / (2 * np.pi) * _NUM_TILT_DIRECTION_BINS)
+    return min(bin_index, _NUM_TILT_DIRECTION_BINS - 1)  # Clamp to valid range
+
+
 def _score_frame(
     candidate_coverage: CoveredCells,
     selected_coverage: CoveredCells,
@@ -328,25 +405,90 @@ def _score_frame(
     return score
 
 
-def _greedy_select(
+def _select_orientation_anchors(
     frame_data: dict[int, FrameCoverageData],
+    min_orientations: int,
+) -> tuple[list[int], set[int]]:
+    """Phase 1: Select anchor frames ensuring orientation diversity.
+
+    Selects frames from distinct tilt direction bins to ensure the calibration
+    problem is well-posed for focal length estimation. This is a HARD CONSTRAINT
+    per Zhang (2000) - without sufficient orientation diversity, the focal length
+    and principal point parameters become coupled.
+
+    Strategy:
+    - Bin frames by tilt direction (8 sectors of 45° each)
+    - For each occupied bin, select the frame with highest tilt magnitude
+      (more tilted = more information for focal length estimation)
+    - Frontal-parallel frames (low tilt) don't count toward diversity
+
+    Returns:
+        selected_anchors: List of sync_index values for anchor frames
+        covered_bins: Set of bin indices that have been covered
+    """
+    # Group frames by orientation bin
+    bin_to_frames: dict[int, list[tuple[int, float]]] = {}  # bin -> [(sync_index, tilt_magnitude), ...]
+
+    for sync_index, data in frame_data.items():
+        bin_idx = _get_orientation_bin(data.orientation)
+        if bin_idx is not None:  # Skip frontal-parallel frames
+            if bin_idx not in bin_to_frames:
+                bin_to_frames[bin_idx] = []
+            bin_to_frames[bin_idx].append((sync_index, data.orientation.tilt_magnitude))
+
+    # Select one frame per bin, preferring higher tilt magnitude
+    selected_anchors: list[int] = []
+    covered_bins: set[int] = set()
+
+    # Sort bins by index for determinism
+    for bin_idx in sorted(bin_to_frames.keys()):
+        frames = bin_to_frames[bin_idx]
+        # Sort by tilt magnitude descending, then sync_index ascending for determinism
+        frames.sort(key=lambda x: (-x[1], x[0]))
+        best_frame = frames[0][0]
+        selected_anchors.append(best_frame)
+        covered_bins.add(bin_idx)
+
+    return selected_anchors, covered_bins
+
+
+def _greedy_select_coverage(
+    frame_data: dict[int, FrameCoverageData],
+    already_selected: list[int],
     target_count: int,
     grid_size: int,
     min_score: float = 0.01,
 ) -> list[int]:
-    """Greedily select frames to maximize coverage score."""
-    selected: list[int] = []
+    """Phase 2: Greedily select frames to maximize spatial coverage.
+
+    After orientation anchors are selected, this fills remaining slots by
+    optimizing for spatial coverage with edge/corner bonuses.
+    """
+    # Initialize with already-selected anchor frames
     selected_coverage: CoveredCells = set()
     selected_poses: list[PoseFeatures] = []
 
-    remaining = set(frame_data.keys())
+    for sync_index in already_selected:
+        data = frame_data[sync_index]
+        selected_coverage |= data.covered_cells
+        selected_poses.append(data.pose_features)
 
-    while len(selected) < target_count and remaining:
+    # Exclude already-selected frames
+    remaining = set(frame_data.keys()) - set(already_selected)
+    newly_selected: list[int] = []
+
+    while len(newly_selected) < target_count and remaining:
         # Score all remaining candidates
         scores: list[tuple[float, int]] = []
         for sync_index in remaining:
             data = frame_data[sync_index]
-            score = _score_frame(data.covered_cells, selected_coverage, data.pose_features, selected_poses, grid_size)
+            score = _score_frame(
+                data.covered_cells,
+                selected_coverage,
+                data.pose_features,
+                selected_poses,
+                grid_size,
+            )
             scores.append((score, sync_index))
 
         # Sort by score descending, then sync_index ascending for determinism
@@ -358,12 +500,12 @@ def _greedy_select(
 
         # Update state
         best_data = frame_data[best_frame]
-        selected.append(best_frame)
+        newly_selected.append(best_frame)
         selected_coverage |= best_data.covered_cells
         selected_poses.append(best_data.pose_features)
         remaining.remove(best_frame)
 
-    return selected
+    return newly_selected
 
 
 def _compute_quality_metrics(

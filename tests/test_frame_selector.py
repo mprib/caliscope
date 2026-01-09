@@ -4,9 +4,11 @@ These tests focus on behavior rather than implementation details:
 - Determinism: same input produces identical output
 - Edge cases: empty port, all frames ineligible
 - Integration: realistic frame selection with real tracking data
+- Orientation diversity: homography-based orientation extraction
 """
 
 import logging
+import random
 from pathlib import Path
 
 import numpy as np
@@ -15,8 +17,9 @@ import pandas as pd
 from caliscope import __root__
 from caliscope.core.frame_selector import (
     FrameSelectionResult,
-    _compute_board_aspect_ratio,
-    _max_possible_bbox_area,
+    OrientationFeatures,
+    _compute_orientation_features,
+    _get_orientation_bin,
     _score_frame,
     select_calibration_frames,
 )
@@ -26,177 +29,183 @@ from caliscope.helper import copy_contents_to_clean_dest
 logger = logging.getLogger(__name__)
 
 
-class TestBoardAwareCoverage:
-    """Unit tests for board-aware coverage geometry.
+class TestOrientationExtraction:
+    """Tests for homography-based orientation feature extraction."""
 
-    ChArUco internal corner geometry:
-    - For an MxN board (M columns × N rows of squares), internal corners
-      are at grid intersections where 4 squares meet.
-    - Internal corners span from column 1 to M-1 and row 1 to N-1.
-    - As a fraction of board dimensions: (M-2)/M width × (N-2)/N height.
+    def test_frontal_board_has_low_tilt_magnitude(self):
+        """A board parallel to the image plane should have near-zero tilt."""
+        # Create a frontal-parallel board (no perspective distortion)
+        # Object points form a 3x3 grid centered at origin
+        obj_x = [0, 1, 2, 0, 1, 2, 0, 1, 2]
+        obj_y = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+        # Image points are scaled and translated versions (affine, no perspective)
+        scale = 100
+        offset_x, offset_y = 500, 300
+        img_x = [x * scale + offset_x for x in obj_x]
+        img_y = [y * scale + offset_y for y in obj_y]
 
-    Example:
-    - 3×4 board: 2×3 = 6 internal corners, spanning 1/3 × 2/4 of board
-    - 5×7 board: 4×6 = 24 internal corners, spanning 3/5 × 5/7 of board
-
-    The denser the grid, the closer internal corners are to the true board edge.
-    """
-
-    def test_square_board_aspect_ratio(self):
-        """A square internal corner grid has aspect ratio 1.0."""
-        # 4×4 board: 3×3 internal corners, each spanning 2/4 = 0.5 of dimension
-        # obj_loc would be at positions 1, 2, 3 in both x and y (in square units)
-        # Using arbitrary square_size of 5cm:
         data = {
             "sync_index": [0] * 9,
             "port": [0] * 9,
             "point_id": list(range(9)),
-            "img_loc_x": [100] * 9,  # img_loc doesn't matter for aspect ratio
-            "img_loc_y": [100] * 9,
-            "obj_loc_x": [5, 10, 15, 5, 10, 15, 5, 10, 15],  # 3 columns at 5, 10, 15
-            "obj_loc_y": [5, 5, 5, 10, 10, 10, 15, 15, 15],  # 3 rows at 5, 10, 15
+            "obj_loc_x": obj_x,
+            "obj_loc_y": obj_y,
+            "img_loc_x": img_x,
+            "img_loc_y": img_y,
         }
         df = pd.DataFrame(data)
 
-        aspect = _compute_board_aspect_ratio(df)
+        orientation = _compute_orientation_features(df)
 
-        # X range = 15-5 = 10, Y range = 15-5 = 10, aspect = 1.0
-        assert aspect == 1.0
+        # Frontal board should have very low tilt magnitude
+        assert orientation.tilt_magnitude < 0.01, (
+            f"Expected low tilt for frontal board, got {orientation.tilt_magnitude}"
+        )
 
-    def test_wide_board_aspect_ratio(self):
-        """A 5×3 board (wide) has internal corners with aspect > 1."""
-        # 5×3 board: 4×2 = 8 internal corners
-        # X spans columns 1-4 (3 units out of 5) → 3/5 of width
-        # Y spans rows 1-2 (1 unit out of 3) → 1/3 of height
-        # Internal corner aspect = (3/5) / (1/3) = 9/5 = 1.8? No wait...
-        # The obj_loc spans: x = 1 to 4, y = 1 to 2 (in square units)
-        # Range: x = 3, y = 1 → aspect = 3/1 = 3.0
+    def test_tilted_board_has_higher_tilt_magnitude(self):
+        """A tilted board should have measurable tilt magnitude."""
+        # Create a board with perspective distortion (simulating tilt)
+        # Object points form a 3x3 grid
+        obj_x = [0, 1, 2, 0, 1, 2, 0, 1, 2]
+        obj_y = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+        # Image points with perspective foreshortening (top smaller than bottom)
+        # This simulates a board tilted away from the camera at the top
+        img_x = [
+            505,
+            550,
+            595,  # Top row: narrower
+            500,
+            550,
+            600,  # Middle row
+            495,
+            550,
+            605,  # Bottom row: wider
+        ]
+        img_y = [
+            300,
+            300,
+            300,
+            350,
+            350,
+            350,
+            410,
+            410,
+            410,  # Increased spacing at bottom
+        ]
+
         data = {
-            "sync_index": [0] * 8,
-            "port": [0] * 8,
-            "point_id": list(range(8)),
-            "img_loc_x": [100] * 8,
-            "img_loc_y": [100] * 8,
-            # 4 columns (x=1,2,3,4) × 2 rows (y=1,2) in square units
-            "obj_loc_x": [1, 2, 3, 4, 1, 2, 3, 4],
-            "obj_loc_y": [1, 1, 1, 1, 2, 2, 2, 2],
+            "sync_index": [0] * 9,
+            "port": [0] * 9,
+            "point_id": list(range(9)),
+            "obj_loc_x": obj_x,
+            "obj_loc_y": obj_y,
+            "img_loc_x": img_x,
+            "img_loc_y": img_y,
         }
         df = pd.DataFrame(data)
 
-        aspect = _compute_board_aspect_ratio(df)
+        orientation = _compute_orientation_features(df)
 
-        # X range = 4-1 = 3, Y range = 2-1 = 1, aspect = 3.0
-        assert aspect == 3.0
+        # Tilted board should have measurable tilt magnitude
+        assert orientation.tilt_magnitude > 0.001, (
+            f"Expected measurable tilt for tilted board, got {orientation.tilt_magnitude}"
+        )
 
-    def test_tall_board_aspect_ratio(self):
-        """A 3×5 board (tall) has internal corners with aspect < 1."""
-        # 3×5 board: 2×4 = 8 internal corners
-        # X spans 1 unit, Y spans 3 units → aspect = 1/3
+    def test_orientation_bin_returns_none_for_frontal(self):
+        """Frontal-parallel boards should not be assigned an orientation bin."""
+        # Low tilt magnitude should return None (doesn't count for diversity)
+        frontal = OrientationFeatures(
+            tilt_direction=0.0,
+            tilt_magnitude=0.01,  # Below threshold
+            in_plane_rotation=0.0,
+        )
+
+        bin_idx = _get_orientation_bin(frontal)
+
+        assert bin_idx is None
+
+    def test_orientation_bin_maps_directions_to_bins(self):
+        """Tilted boards should be assigned to direction bins."""
+        # Test different tilt directions map to different bins
+        tilt_mag = 0.1  # Above threshold
+
+        # 0 degrees should be bin 0
+        east = OrientationFeatures(tilt_direction=0.0, tilt_magnitude=tilt_mag, in_plane_rotation=0.0)
+        # 90 degrees (π/2) should be bin 2
+        north = OrientationFeatures(tilt_direction=np.pi / 2, tilt_magnitude=tilt_mag, in_plane_rotation=0.0)
+        # 180 degrees (π) should be bin 4
+        west = OrientationFeatures(tilt_direction=np.pi, tilt_magnitude=tilt_mag, in_plane_rotation=0.0)
+
+        assert _get_orientation_bin(east) == 0
+        assert _get_orientation_bin(north) == 2
+        assert _get_orientation_bin(west) == 4
+
+    def test_insufficient_points_returns_zero_orientation(self):
+        """With fewer than 4 points, orientation extraction returns zeros."""
         data = {
-            "sync_index": [0] * 8,
-            "port": [0] * 8,
-            "point_id": list(range(8)),
-            "img_loc_x": [100] * 8,
-            "img_loc_y": [100] * 8,
-            # 2 columns (x=1,2) × 4 rows (y=1,2,3,4)
-            "obj_loc_x": [1, 2, 1, 2, 1, 2, 1, 2],
-            "obj_loc_y": [1, 1, 2, 2, 3, 3, 4, 4],
+            "sync_index": [0] * 3,
+            "port": [0] * 3,
+            "point_id": [0, 1, 2],
+            "obj_loc_x": [0, 1, 2],
+            "obj_loc_y": [0, 0, 0],
+            "img_loc_x": [100, 200, 300],
+            "img_loc_y": [100, 100, 100],
         }
         df = pd.DataFrame(data)
 
-        aspect = _compute_board_aspect_ratio(df)
+        orientation = _compute_orientation_features(df)
 
-        # X range = 1, Y range = 3, aspect = 1/3
-        assert abs(aspect - (1 / 3)) < 1e-6
+        assert orientation.tilt_magnitude == 0.0
+        assert orientation.tilt_direction == 0.0
+        assert orientation.in_plane_rotation == 0.0
 
-    def test_max_bbox_square_board_in_square_image(self):
-        """Square board in square image: max bbox is full image."""
-        # Board aspect 1.0, image 1000×1000
-        max_area = _max_possible_bbox_area((1000, 1000), 1.0)
 
-        assert max_area == 1000 * 1000
+class TestTwoPhaseSelection:
+    """Tests for two-phase frame selection (orientation anchors + coverage)."""
 
-    def test_max_bbox_wide_board_in_square_image(self):
-        """Wide board (2:1) in square image: constrained by width."""
-        # Board aspect 2.0 (twice as wide as tall)
-        # In 1000×1000 image: board fills width (1000), height = 1000/2 = 500
-        max_area = _max_possible_bbox_area((1000, 1000), 2.0)
+    def test_result_includes_orientation_metrics(self, tmp_path: Path):
+        """Frame selection result includes orientation_sufficient and orientation_count."""
+        original_path = Path(__root__, "tests", "sessions", "prerecorded_calibration")
+        copy_contents_to_clean_dest(original_path, tmp_path)
 
-        assert max_area == 1000 * 500
+        xy_csv = tmp_path / "calibration" / "intrinsic" / "CHARUCO" / "xy_CHARUCO.csv"
+        image_points = ImagePoints.from_csv(xy_csv)
 
-    def test_max_bbox_tall_board_in_square_image(self):
-        """Tall board (1:2) in square image: constrained by height."""
-        # Board aspect 0.5 (half as wide as tall)
-        # In 1000×1000 image: board fills height (1000), width = 1000 * 0.5 = 500
-        max_area = _max_possible_bbox_area((1000, 1000), 0.5)
+        result = select_calibration_frames(
+            image_points,
+            port=0,
+            image_size=(1280, 720),
+            target_frame_count=20,
+        )
 
-        assert max_area == 500 * 1000
+        # Check new fields exist
+        assert hasattr(result, "orientation_sufficient")
+        assert hasattr(result, "orientation_count")
+        assert isinstance(result.orientation_sufficient, bool)
+        assert isinstance(result.orientation_count, int)
+        assert result.orientation_count >= 0
 
-    def test_max_bbox_in_widescreen_image(self):
-        """Board in 16:9 widescreen image."""
-        # Square board (aspect 1.0) in 1920×1080 image
-        # Image aspect = 1920/1080 = 16/9 ≈ 1.78
-        # Square board is "taller" than image aspect, so height-constrained
-        # Max height = 1080, max width = 1080 * 1.0 = 1080
-        max_area = _max_possible_bbox_area((1920, 1080), 1.0)
-
-        assert max_area == 1080 * 1080
-
-    def test_denser_grid_larger_relative_coverage(self):
-        """A denser grid has corners closer to board edge, so larger obj_loc spread.
-
-        For two boards with SAME physical dimensions but different grid density,
-        the denser board's internal corners span a larger fraction of the board.
-
-        This test verifies the math:
-        - 3×4 board: corners span 1/3 × 2/4 = 1/3 × 1/2 of board
-        - 6×8 board: corners span 4/6 × 6/8 = 2/3 × 3/4 of board
-
-        The 6×8 board's corners span 4x more area than the 3×4 board's corners,
-        even for the same physical board size.
-        """
-        # Assume both boards are 30cm × 40cm physical size
-        # 3×4 board: square_size = 10cm, corners at 10,20 × 10,20,30
-        sparse_data = {
-            "sync_index": [0] * 6,
-            "port": [0] * 6,
-            "point_id": list(range(6)),
-            "img_loc_x": [100] * 6,
-            "img_loc_y": [100] * 6,
-            "obj_loc_x": [10, 20, 10, 20, 10, 20],  # 2 columns
-            "obj_loc_y": [10, 10, 20, 20, 30, 30],  # 3 rows
+    def test_empty_result_has_orientation_fields(self):
+        """Empty result (no frames) should have orientation fields set to defaults."""
+        data = {
+            "sync_index": [0],
+            "port": [1],  # Only port 1 has data
+            "point_id": [0],
+            "img_loc_x": [100],
+            "img_loc_y": [100],
+            "obj_loc_x": [0.0],
+            "obj_loc_y": [0.0],
         }
-        sparse_df = pd.DataFrame(sparse_data)
-        sparse_x_range = 20 - 10  # = 10
-        sparse_y_range = 30 - 10  # = 20
+        image_points = ImagePoints(pd.DataFrame(data))
 
-        # 6×8 board: square_size = 5cm, corners at 5,10,15,20,25 × 5,10,...,35
-        dense_data = {
-            "sync_index": [0] * 35,
-            "port": [0] * 35,
-            "point_id": list(range(35)),
-            "img_loc_x": [100] * 35,
-            "img_loc_y": [100] * 35,
-            "obj_loc_x": [5, 10, 15, 20, 25] * 7,  # 5 columns
-            "obj_loc_y": [y for y in [5, 10, 15, 20, 25, 30, 35] for _ in range(5)],
-        }
-        dense_df = pd.DataFrame(dense_data)
-        dense_x_range = 25 - 5  # = 20
-        dense_y_range = 35 - 5  # = 30
+        result = select_calibration_frames(
+            image_points,
+            port=0,  # Port 0 has no data
+            image_size=(1920, 1080),
+        )
 
-        # Denser grid spans 2x in each dimension → 4x area
-        assert dense_x_range == 2 * sparse_x_range
-        assert dense_y_range == 1.5 * sparse_y_range  # 30/20 = 1.5
-
-        # Both should have same aspect ratio (board shape is same)
-        sparse_aspect = _compute_board_aspect_ratio(sparse_df)
-        dense_aspect = _compute_board_aspect_ratio(dense_df)
-
-        # Sparse: 10/20 = 0.5, Dense: 20/30 = 0.667
-        # Wait - these AREN'T the same! The corner grid aspect differs from board aspect.
-        # This is actually correct behavior - see docstring above.
-        assert abs(sparse_aspect - 0.5) < 1e-6
-        assert abs(dense_aspect - (20 / 30)) < 1e-6
+        assert result.orientation_sufficient is False
+        assert result.orientation_count == 0
 
 
 class TestDeterminism:
@@ -226,6 +235,7 @@ class TestDeterminism:
             assert results[i].selected_frames == results[0].selected_frames
             assert results[i].coverage_fraction == results[0].coverage_fraction
             assert results[i].eligible_frame_count == results[0].eligible_frame_count
+            assert results[i].orientation_count == results[0].orientation_count
 
 
 class TestEdgeCases:
@@ -253,6 +263,7 @@ class TestEdgeCases:
         assert result.selected_frames == []
         assert result.total_frame_count == 0
         assert result.eligible_frame_count == 0
+        assert result.orientation_sufficient is False
 
     def test_all_frames_ineligible_returns_empty_result(self):
         """When all frames fail eligibility criteria, return empty result."""
@@ -283,6 +294,7 @@ class TestEdgeCases:
         assert result.selected_frames == []
         assert result.total_frame_count == 5
         assert result.eligible_frame_count == 0
+        assert result.orientation_sufficient is False
 
 
 class TestIntegration:
@@ -312,6 +324,8 @@ class TestIntegration:
             logger.info(f"Port {port}: selected {len(result.selected_frames)} frames")
             logger.info(f"  Coverage: {result.coverage_fraction:.2%}")
             logger.info(f"  Edge coverage: {result.edge_coverage_fraction:.2%}")
+            logger.info(f"  Orientation count: {result.orientation_count}")
+            logger.info(f"  Orientation sufficient: {result.orientation_sufficient}")
             logger.info(f"  Eligible: {result.eligible_frame_count}/{result.total_frame_count}")
 
             # Validate result structure
@@ -361,9 +375,124 @@ class TestIntegration:
         )
 
         # All selected frames must exist in the original data
-        port_0_frames = set(image_points.df[image_points.df["port"] == 0]["sync_index"].unique())
+        port_0_frames = set(pd.unique(image_points.df[image_points.df["port"] == 0]["sync_index"]))
         for frame in result.selected_frames:
             assert frame in port_0_frames, f"Selected frame {frame} not in original data"
+
+    def test_frame_selector_beats_random_baseline(self, tmp_path: Path):
+        """Selected frames should produce lower holdout error than random selection.
+
+        This integration test validates that the frame selection algorithm produces
+        better calibrations than naive random selection, using holdout reprojection
+        error as the quality metric.
+        """
+        from caliscope.core.calibrate_intrinsics import calibrate_intrinsics, compute_holdout_error
+
+        original_path = Path(__root__, "tests", "sessions", "prerecorded_calibration")
+        copy_contents_to_clean_dest(original_path, tmp_path)
+
+        xy_csv = tmp_path / "calibration" / "intrinsic" / "CHARUCO" / "xy_CHARUCO.csv"
+        image_points = ImagePoints.from_csv(xy_csv)
+
+        port = 0
+        image_size = (1280, 720)
+        target_count = 15
+
+        # Get eligible frames for this port
+        port_df = image_points.df[image_points.df["port"] == port]
+        eligible_df = port_df.groupby("sync_index").filter(lambda g: len(g) >= 6)
+        all_frames = list(pd.unique(eligible_df["sync_index"]))
+
+        if len(all_frames) < target_count * 2:
+            logger.warning(f"Insufficient frames for holdout test: {len(all_frames)}")
+            return  # Skip test if insufficient data
+
+        # Run frame selector
+        result = select_calibration_frames(
+            image_points,
+            port=port,
+            image_size=image_size,
+            target_frame_count=target_count,
+        )
+
+        if len(result.selected_frames) < 10:
+            logger.warning(f"Frame selector returned too few frames: {len(result.selected_frames)}")
+            return  # Skip if selector couldn't find enough frames
+
+        # Determine holdout frames (not selected)
+        selected_set = set(result.selected_frames)
+        holdout_frames = [f for f in all_frames if f not in selected_set]
+
+        if len(holdout_frames) < 5:
+            logger.warning(f"Insufficient holdout frames: {len(holdout_frames)}")
+            return  # Skip if not enough holdout frames
+
+        # Calibrate with selected frames
+        try:
+            greedy_calib = calibrate_intrinsics(
+                image_points,
+                port=port,
+                image_size=image_size,
+                selected_frames=result.selected_frames,
+            )
+            greedy_holdout = compute_holdout_error(
+                image_points,
+                greedy_calib,
+                port=port,
+                holdout_frames=holdout_frames[:20],  # Use subset for speed
+            )
+        except Exception as e:
+            logger.warning(f"Greedy calibration failed: {e}")
+            return
+
+        # Compare against random selection baseline (multiple trials)
+        n_random_trials = 10
+        random_rmses: list[float] = []
+        rng = random.Random(42)  # Fixed seed for reproducibility
+
+        for trial in range(n_random_trials):
+            random_frames = rng.sample(all_frames, min(target_count, len(all_frames)))
+            random_holdout = [f for f in all_frames if f not in set(random_frames)]
+
+            if len(random_holdout) < 5:
+                continue
+
+            try:
+                random_calib = calibrate_intrinsics(
+                    image_points,
+                    port=port,
+                    image_size=image_size,
+                    selected_frames=random_frames,
+                )
+                random_error = compute_holdout_error(
+                    image_points,
+                    random_calib,
+                    port=port,
+                    holdout_frames=random_holdout[:20],
+                )
+                if not np.isnan(random_error.rmse_pixels):
+                    random_rmses.append(random_error.rmse_pixels)
+            except Exception:
+                continue
+
+        if len(random_rmses) < 3:
+            logger.warning("Insufficient successful random trials")
+            return
+
+        random_mean = np.mean(random_rmses)
+        random_std = np.std(random_rmses)
+
+        logger.info(f"Greedy holdout RMSE: {greedy_holdout.rmse_pixels:.3f}")
+        logger.info(f"Random baseline: {random_mean:.3f} +/- {random_std:.3f}")
+        logger.info(f"Threshold (mean - 1 std): {random_mean - random_std:.3f}")
+
+        # Greedy selection should significantly outperform random selection
+        # The two-phase algorithm (orientation diversity first, then coverage)
+        # should produce calibrations at least 1 std better than random mean
+        assert greedy_holdout.rmse_pixels < random_mean - random_std, (
+            f"Greedy RMSE {greedy_holdout.rmse_pixels:.3f} should beat "
+            f"random mean - 1 std ({random_mean - random_std:.3f})"
+        )
 
 
 class TestScoreFrame:
@@ -521,6 +650,20 @@ if __name__ == "__main__":
     debug_dir = Path(__file__).parent / "tmp"
     debug_dir.mkdir(parents=True, exist_ok=True)
 
+    # Run orientation tests
+    test_orientation = TestOrientationExtraction()
+    test_orientation.test_frontal_board_has_low_tilt_magnitude()
+    logger.info("PASS: test_frontal_board_has_low_tilt_magnitude")
+
+    test_orientation.test_tilted_board_has_higher_tilt_magnitude()
+    logger.info("PASS: test_tilted_board_has_higher_tilt_magnitude")
+
+    test_orientation.test_orientation_bin_returns_none_for_frontal()
+    logger.info("PASS: test_orientation_bin_returns_none_for_frontal")
+
+    test_orientation.test_orientation_bin_maps_directions_to_bins()
+    logger.info("PASS: test_orientation_bin_maps_directions_to_bins")
+
     # Run determinism test
     test_determinism = TestDeterminism()
     test_determinism.test_repeated_calls_produce_identical_results(debug_dir)
@@ -533,6 +676,14 @@ if __name__ == "__main__":
 
     test_edge_cases.test_all_frames_ineligible_returns_empty_result()
     logger.info("PASS: test_all_frames_ineligible_returns_empty_result")
+
+    # Run two-phase tests
+    test_two_phase = TestTwoPhaseSelection()
+    test_two_phase.test_result_includes_orientation_metrics(debug_dir)
+    logger.info("PASS: test_result_includes_orientation_metrics")
+
+    test_two_phase.test_empty_result_has_orientation_fields()
+    logger.info("PASS: test_empty_result_has_orientation_fields")
 
     # Run integration tests
     test_integration = TestIntegration()

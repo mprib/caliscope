@@ -137,10 +137,8 @@ class PostProcessor:
 
         if include_trc:
             trc_path = Path(tracker_output_path, f"xyz_{self.tracker_name}.trc")
-            time_history_path = Path(self.recording_path, "frame_time_history.csv")
             xyz_to_trc(
                 final_xyz_data.df,
                 tracker=self.tracker_enum.value(),
-                time_history_path=time_history_path,
                 target_path=trc_path,
             )

@@ -149,7 +149,7 @@ def load_camera_array(path: Path) -> CameraArray:
 
             camera = CameraData(
                 port=port,
-                size=camera_data["size"],
+                size=(camera_data["size"][0], camera_data["size"][1]),
                 rotation_count=camera_data.get("rotation_count", 0),
                 # WRAP SCALARS IN _clean_scalar
                 error=_clean_scalar(camera_data.get("error")),

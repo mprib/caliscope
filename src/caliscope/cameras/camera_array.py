@@ -24,7 +24,7 @@ class CameraData:
     """
 
     port: int
-    size: list[int]
+    size: tuple[int, int]
     rotation_count: int = 0
     error: float | None = None  # the RMSE of reprojection associated with the intrinsic calibration
     matrix: np.ndarray | None = None
@@ -132,7 +132,7 @@ class CameraData:
         Remap tables are cached on first call and reused for efficiency (~10x faster
         than cv2.undistort per frame). Cache is invalidated if frame size changes.
 
-        For display with variable sizing/scaling, use CameraUndistortView instead.
+        For display visualization, use LensModelVisualizer instead.
         """
         if self.matrix is None or self.distortions is None:
             raise ValueError(f"Camera {self.port} lacks intrinsic calibration; cannot undistort frame.")

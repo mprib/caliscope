@@ -21,12 +21,12 @@ from PySide6.QtWidgets import (
 )
 
 from caliscope.cameras.camera_array import CameraData
-from caliscope.gui.camera_undistort_view import CameraUndistortView
 from caliscope.gui.frame_emitters.tools import (
     apply_rotation,
     cv2_to_qlabel,
     resize_to_square,
 )
+from caliscope.gui.lens_model_visualizer import LensModelVisualizer
 from caliscope.gui.presenters.intrinsic_calibration_presenter import (
     IntrinsicCalibrationPresenter,
     PresenterState,
@@ -57,18 +57,24 @@ class FrameProcessingThread(QThread):
         self._camera = camera
         self._pixmap_edge_length = pixmap_edge_length
         self._undistort_enabled = False
-        self._undistort_view: CameraUndistortView | None = None
+        self._visualizer: LensModelVisualizer | None = None
         self._keep_running = Event()
 
     def set_undistort(self, enabled: bool, calibrated_camera: CameraData | None) -> None:
         """Enable/disable undistortion."""
         self._undistort_enabled = enabled
 
-        # Create undistort view on first enable
-        if enabled and self._undistort_view is None and calibrated_camera is not None:
-            h, w = calibrated_camera.size[1], calibrated_camera.size[0]
-            self._undistort_view = CameraUndistortView(calibrated_camera, (h, w))
-            logger.info(f"Created undistort view for port {calibrated_camera.port}")
+        # Create visualizer on first enable
+        if enabled and self._visualizer is None and calibrated_camera is not None:
+            self._visualizer = LensModelVisualizer(calibrated_camera)
+            logger.info(f"Created LensModelVisualizer for port {calibrated_camera.port}")
+
+    @property
+    def shows_boundary(self) -> bool:
+        """True if the visualizer draws the original frame boundary."""
+        if self._visualizer is None or not self._undistort_enabled:
+            return False
+        return self._visualizer.content_expands_beyond_frame
 
     def stop(self) -> None:
         """Signal thread to stop."""
@@ -96,8 +102,8 @@ class FrameProcessingThread(QThread):
             # Processing pipeline (mirrors PlaybackFrameEmitter)
             frame = packet.frame_with_points
 
-            if self._undistort_enabled and self._undistort_view is not None:
-                frame = self._undistort_view.undistort_frame(frame)
+            if self._undistort_enabled and self._visualizer is not None:
+                frame = self._visualizer.undistort(frame)
 
             frame = resize_to_square(frame)
             frame = apply_rotation(frame, self._camera.rotation_count)
@@ -150,6 +156,13 @@ class IntrinsicCalibrationDevView(QWidget):
         self._frame_label.setMinimumSize(500, 500)
         self._frame_label.setStyleSheet("background-color: #1a1a1a;")
         layout.addWidget(self._frame_label)
+
+        # Legend for boundary overlay (hidden by default)
+        self._boundary_legend = QLabel("┈┈ Original frame boundary")
+        self._boundary_legend.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._boundary_legend.setStyleSheet("color: #00FFFF;")  # Cyan to match boundary
+        self._boundary_legend.hide()
+        layout.addWidget(self._boundary_legend)
 
         # Status label
         self._status_label = QLabel("Status: READY")
@@ -224,6 +237,13 @@ class IntrinsicCalibrationDevView(QWidget):
     def _on_undistort_toggled(self, checked: bool) -> None:
         """Handle undistort checkbox toggle."""
         self._processing_thread.set_undistort(checked, self._presenter.calibrated_camera)
+
+        # Show/hide boundary legend based on whether boundary is drawn
+        if self._processing_thread.shows_boundary:
+            self._boundary_legend.show()
+        else:
+            self._boundary_legend.hide()
+
         # Request fresh frame to show undistort effect
         self._presenter.refresh_display()
 

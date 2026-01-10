@@ -21,7 +21,7 @@ def test_stream():
 
     charuco_tracker = CharucoTracker(charuco)
 
-    camera = CameraData(port=1, size=[640, 480])  # placeholder size; stream reads actual from video
+    camera = CameraData(port=1, size=(640, 480))  # placeholder size; stream reads actual from video
     stream = RecordedStream(recording_directory, camera=camera, tracker=charuco_tracker, fps_target=6)
     frame_q = Queue()
     stream.subscribe(frame_q)

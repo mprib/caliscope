@@ -34,7 +34,9 @@ class PostProcessor:
         self.recording_path = recording_path
         self.tracker_enum = tracker_enum
         self.tracker_name = tracker_enum.name
-        self.tracker = tracker_enum.value()
+        # Post-processing uses motion trackers (HOLISTIC, POSE, etc.) that don't require args
+        # CharucoTracker requires charuco arg but isn't used for motion capture
+        self.tracker = tracker_enum.value()  # type: ignore[call-arg]
 
         # save out current camera array to output folder
         tracker_subdirectory = Path(self.recording_path, self.tracker_name)
@@ -132,13 +134,14 @@ class PostProcessor:
         final_xyz_data.df.to_csv(xyz_csv_path, index=False)
 
         xyz_wide_csv_path = Path(tracker_output_path, f"xyz_{self.tracker_name}_labelled.csv")
-        xyz_labelled = xyz_to_wide_labelled(final_xyz_data.df, self.tracker_enum.value())
+        # Motion trackers don't require constructor args (see comment in __init__)
+        xyz_labelled = xyz_to_wide_labelled(final_xyz_data.df, self.tracker_enum.value())  # type: ignore[call-arg]
         xyz_labelled.to_csv(xyz_wide_csv_path, index=False)
 
         if include_trc:
             trc_path = Path(tracker_output_path, f"xyz_{self.tracker_name}.trc")
             xyz_to_trc(
                 final_xyz_data.df,
-                tracker=self.tracker_enum.value(),
+                tracker=self.tracker_enum.value(),  # type: ignore[call-arg]
                 target_path=trc_path,
             )

@@ -17,11 +17,11 @@ class IntrinsicStreamManager:
         self,
         recording_dir: Path,
         cameras: dict[int, CameraData],
-        tracker: Tracker = None,
+        tracker: Tracker | None = None,
     ) -> None:
         self.recording_dir = recording_dir
         self.cameras = cameras
-        self.tracker: Tracker = tracker
+        self.tracker: Tracker | None = tracker
         self.load_stream_tools()
 
     def load_stream_tools(self):
@@ -122,6 +122,9 @@ class IntrinsicStreamManager:
         self.streams[port].rotation_count = rotation_count
 
     def autocalibrate(self, port, grid_count, pct_board_threshold):
+        # Intrinsic calibration requires CharucoTracker for board detection
+        assert isinstance(self.tracker, CharucoTracker)
+
         stream = self.streams[port]
         intrinsic_calibrator: IntrinsicCalibrator = self.calibrators[port]
         frame_emitter = self.frame_emitters[port]

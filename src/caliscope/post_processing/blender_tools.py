@@ -17,7 +17,8 @@ def calculate_distance(xyz_trajectory_data: pd.DataFrame, point1: str, point2: s
 
     """
     # calculate the distance
-    distances = np.sqrt(
+    # np.sqrt on pandas Series returns a Series (stubs incorrectly say NDArray)
+    distances: pd.Series = np.sqrt(  # type: ignore[assignment]
         (xyz_trajectory_data[point1 + "_x"] - xyz_trajectory_data[point2 + "_x"]) ** 2
         + (xyz_trajectory_data[point1 + "_y"] - xyz_trajectory_data[point2 + "_y"]) ** 2
         + (xyz_trajectory_data[point1 + "_z"] - xyz_trajectory_data[point2 + "_z"]) ** 2
@@ -40,7 +41,8 @@ def generate_metarig_config(tracker_enum: TrackerEnum, xyz_csv_path: Path):
     """
     Stores metarig config json file within the tracker sub-directory within a recording folder
     """
-    tracker = tracker_enum.value()
+    # Motion trackers (HOLISTIC, POSE, etc.) don't require constructor args
+    tracker = tracker_enum.value()  # type: ignore[call-arg]
 
     xyz_trajectories = pd.read_csv(xyz_csv_path)
     json_path = Path(xyz_csv_path.parent, f"metarig_config_{tracker.name}.json")

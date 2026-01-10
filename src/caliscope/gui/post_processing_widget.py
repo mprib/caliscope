@@ -197,6 +197,7 @@ class PostProcessingWidget(QWidget):
 
         This needs to get pushed into the controller layer
         """
+        self.disable_all_inputs()
         recording_path = Path(self.controller.workspace_guide.recording_dir, self.active_folder)
         logger.info(f"Beginning processing of recordings at {recording_path}")
         tracker_enum = self.tracker_combo.currentData()

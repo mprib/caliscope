@@ -139,22 +139,26 @@ def test_camera_array_roundtrip(tmp_path: Path):
 
         # Check numpy arrays
         if orig_cam.matrix is not None:
+            assert loaded_cam.matrix is not None
             np.testing.assert_array_equal(loaded_cam.matrix, orig_cam.matrix)
         else:
             assert loaded_cam.matrix is None
 
         if orig_cam.distortions is not None:
+            assert loaded_cam.distortions is not None
             np.testing.assert_array_equal(loaded_cam.distortions, orig_cam.distortions)
         else:
             assert loaded_cam.distortions is None
 
         if orig_cam.translation is not None:
+            assert loaded_cam.translation is not None
             np.testing.assert_array_equal(loaded_cam.translation, orig_cam.translation)
         else:
             assert loaded_cam.translation is None
 
         if orig_cam.rotation is not None:
             # floating point imprecision from rodrigues calcultion -> not exactly equal
+            assert loaded_cam.rotation is not None
             np.testing.assert_allclose(loaded_cam.rotation, orig_cam.rotation, rtol=1e-10, atol=1e-10)
         else:
             assert loaded_cam.rotation is None

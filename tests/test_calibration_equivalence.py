@@ -75,6 +75,7 @@ def test_optimization_equivalence(tmp_path: Path):
         # Translation difference (mm)
         t_legacy = cap_vol_cameras.cameras[port].translation
         t_bundle = bundle_cameras.cameras[port].translation
+        assert t_legacy is not None and t_bundle is not None
         trans_diff_mm = np.linalg.norm(t_legacy - t_bundle) * 1000
 
         # Rotation difference (degrees)

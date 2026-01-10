@@ -80,7 +80,7 @@ def parse_array_string(array_str: str) -> NDArray[np.float64]:
         parsed = json.loads(clean)
         return np.array(parsed, dtype=np.float64)
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse array string: {clean}")
+        logger.error(f"Failed to parse array string: {array_str}")
         raise e
 
 

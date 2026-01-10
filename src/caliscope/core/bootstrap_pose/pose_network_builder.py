@@ -447,7 +447,7 @@ def translation_error(t1: NDArray[np.float64], t2: NDArray[np.float64]) -> dict[
         dot_product = np.clip(np.dot(t1 / mag1, t2 / mag2), -1.0, 1.0)
         direction_error = np.degrees(np.arccos(dot_product))
 
-    return {"magnitude_delta_pct": magnitude_error, "direction_delta_deg": direction_error}
+    return {"magnitude_delta_pct": float(magnitude_error), "direction_delta_deg": float(direction_error)}
 
 
 def compute_relative_poses(
@@ -490,7 +490,7 @@ def compute_relative_poses(
             relative_poses[(pair_key, sync_index)] = StereoPair(
                 primary_port=port_a,
                 secondary_port=port_b,
-                error_score=None,  # Will be filled after RMSE calculation
+                error_score=float("nan"),  # Placeholder until RMSE calculation
                 translation=t_rel,
                 rotation=R_rel,
             )
@@ -533,7 +533,7 @@ def aggregate_poses(filtered_poses: dict[tuple[int, int], list[StereoPair]]) -> 
         aggregated[pair] = StereoPair(
             primary_port=pair[0],
             secondary_port=pair[1],
-            error_score=None,  # Will be filled by RMSE calculation
+            error_score=float("nan"),  # Placeholder until RMSE calculation
             rotation=avg_R,
             translation=avg_t,
         )

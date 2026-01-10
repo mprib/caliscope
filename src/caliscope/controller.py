@@ -368,8 +368,12 @@ class Controller(QObject):
 
         # Load metadata and apply to capture volume
         metadata = self.capture_volume_repository.load_metadata()
-        self.capture_volume.stage = metadata.get("stage")
-        self.capture_volume.origin_sync_index = metadata.get("origin_sync_index")
+        stage = metadata.get("stage")
+        if stage is not None:
+            self.capture_volume.stage = stage
+        origin_sync_index = metadata.get("origin_sync_index")
+        if origin_sync_index is not None:
+            self.capture_volume.origin_sync_index = origin_sync_index
 
         logger.info("Load of capture volume complete")
 
@@ -487,23 +491,29 @@ class Controller(QObject):
 
     def rotate_capture_volume(self, direction: str):
         """Rotate capture volume and persist in background thread."""
+        assert self.capture_volume is not None
         self.capture_volume.rotate(direction)
         self.capture_volume_shifted.emit()
 
+        capture_volume = self.capture_volume  # capture for closure
+
         def worker(_token, _handle):
             self.camera_repository.save(self.camera_array)
-            self.capture_volume_repository.save_capture_volume(self.capture_volume)
+            self.capture_volume_repository.save_capture_volume(capture_volume)
 
         self.task_manager.submit(worker, name="rotate_capture_volume")
 
     def set_capture_volume_origin_to_board(self, origin_index):
         """Set world origin and persist in background thread."""
+        assert self.capture_volume is not None
         self.capture_volume.set_origin_to_board(origin_index, self.charuco)
         self.capture_volume_shifted.emit()
 
+        capture_volume = self.capture_volume  # capture for closure
+
         def worker(_token, _handle):
             self.camera_repository.save(self.camera_array)
-            self.capture_volume_repository.save_capture_volume(self.capture_volume)
+            self.capture_volume_repository.save_capture_volume(capture_volume)
 
         self.task_manager.submit(worker, name="set_capture_volume_origin")
 

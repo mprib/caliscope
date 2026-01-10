@@ -49,6 +49,9 @@ class Synchronizer:
             stream.set_tracking_on(track)
 
     def update_dropped_frame_history(self):
+        if self.current_sync_packet is None:
+            return
+
         current_dropped: dict = self.current_sync_packet.dropped
 
         for port, dropped in current_dropped.items():

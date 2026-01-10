@@ -158,11 +158,14 @@ def xyz_to_trc(xyz: pd.DataFrame, tracker: Tracker, target_path: Path):
         # df_xyz_labelled.fillna(0,inplace=True)
 
         # and finally actually write the trajectories
+        # get_loc returns int for single column names (slice/array only for multi-index)
+        frame_col_loc = xyz_labelled.columns.get_loc("Frame")
+        assert isinstance(frame_col_loc, int)
+        frame_index = frame_col_loc
         for row in range(0, len(xyz_labelled)):
             row_data = xyz_labelled.iloc[row].tolist()
 
             # Convert the 'Frame' column value to int to satisfy trc format requirements
-            frame_index = xyz_labelled.columns.get_loc("Frame")
             row_data[frame_index] = int(row_data[frame_index])
 
             tsv_writer.writerow(row_data)

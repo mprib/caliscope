@@ -14,9 +14,10 @@ logger = logging.getLogger(__name__)
 
 
 class LogWidget(QWidget):
-    def __init__(self, message: str = None):
+    def __init__(self, message: str | None = None):
         super(LogWidget, self).__init__()
-        self.setWindowTitle(message)
+        if message is not None:
+            self.setWindowTitle(message)
         self._console = LogMessageViewer(self)
 
         self.setWindowFlags(Qt.WindowType.WindowTitleHint)

@@ -21,7 +21,9 @@ class FrameDictionaryEmitter(QThread):
     # GridCountBroadcast = Signal(int)
     # FrameIndexBroadcast = Signal(int, int)
 
-    def __init__(self, synchronizer: Synchronizer, all_camera_data: dict[CameraData], pixmap_edge_length=500):
+    def __init__(
+        self, synchronizer: Synchronizer, all_camera_data: dict[int, CameraData], pixmap_edge_length: int = 500
+    ):
         # pixmap_edge length is from the display window. Keep the display area
         # square to keep life simple.
         super(FrameDictionaryEmitter, self).__init__()

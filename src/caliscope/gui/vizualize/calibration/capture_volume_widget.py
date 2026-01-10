@@ -29,6 +29,8 @@ class CaptureVolumeWidget(QWidget):
         if not hasattr(self.controller, "capture_volume"):
             self.controller.load_estimated_capture_volume()
 
+        # Widget requires capture_volume to exist - load above should ensure this
+        assert self.controller.capture_volume is not None
         self.visualizer = CaptureVolumeVisualizer(self.controller.capture_volume)
         # self.visualizer.scene.show()
         self.slider = QSlider(Qt.Orientation.Horizontal)
@@ -45,7 +47,10 @@ class CaptureVolumeWidget(QWidget):
         self.rotate_z_plus_btn = QPushButton("Z+")
         self.rotate_z_minus_btn = QPushButton("Z-")
 
-        self.rmse_summary = QLabel(self.controller.capture_volume.get_rmse_summary())
+        # capture_volume guaranteed non-None by assertion in __init__
+        capture_volume = self.controller.capture_volume
+        assert capture_volume is not None
+        self.rmse_summary = QLabel(capture_volume.get_rmse_summary())
 
         self.place_widgets()
         self.connect_widgets()

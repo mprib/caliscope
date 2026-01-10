@@ -17,11 +17,13 @@ class CaptureVolumeVisualizer:
     be played back.
     """
 
-    def __init__(self, capture_volume: CaptureVolume = None, camera_array: CameraArray = None):
+    def __init__(self, capture_volume: CaptureVolume | None = None, camera_array: CameraArray | None = None):
         if camera_array is not None and capture_volume is None:
             self.camera_array = camera_array
             self.point_estimates = None
         else:
+            # capture_volume required when camera_array not provided
+            assert capture_volume is not None
             self.capture_volume = capture_volume
             self.camera_array = capture_volume.camera_array
             self.point_estimates = self.capture_volume.point_estimates
@@ -82,6 +84,9 @@ class CaptureVolumeVisualizer:
         sync_index is provided from the dialog and linked to the slider
         it is initially set to the minimum viable sync index
         """
+        if self.point_estimates is None:
+            return
+
         self.sync_index = sync_index
         current_sync_index_flag = self.point_estimates.sync_indices == sync_index
         single_board_indices = np.unique(self.point_estimates.obj_indices[current_sync_index_flag])

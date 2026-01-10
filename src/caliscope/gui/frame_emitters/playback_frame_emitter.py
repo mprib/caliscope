@@ -47,7 +47,7 @@ class PlaybackFrameEmitter(QThread):
         the intrinsic stream manager whenever the intrinsic calibrators data is also
         re-initialized.
         """
-        self.connected_points = self.stream.tracker.get_connected_points()
+        self.connected_points = self.stream.tracker.get_connected_points() if self.stream.tracker else set()
         width = self.stream.size[0]
         height = self.stream.size[1]
         channels = 3

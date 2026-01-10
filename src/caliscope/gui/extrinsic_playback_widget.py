@@ -130,10 +130,14 @@ class FrameDictionaryEmitter(QThread):
 
             logger.debug("Referencing current sync packet in synchronizer")
             self.current_sync_packet = self.synchronizer.current_sync_packet
+            if self.current_sync_packet is None:
+                continue
 
             thumbnail_qimage = {}
             for port in self.synchronizer.ports:
                 frame_packet = self.current_sync_packet.frame_packets[port]
+                if frame_packet is None:
+                    continue
                 rotation_count = self.synchronizer.streams[port].camera.rotation_count
 
                 text_frame = frame_packet_2_thumbnail(frame_packet, rotation_count, self.single_frame_height, port)

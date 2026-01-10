@@ -96,6 +96,11 @@ def mesh_from_camera(camera_data: CameraData) -> tuple[CameraMesh, gl.GLTextItem
     to be the case.
 
     """
+    # Callers must ensure camera has matrix and extrinsics before calling
+    assert camera_data.matrix is not None
+    assert camera_data.rotation is not None
+    assert camera_data.translation is not None
+
     mesh = CameraMesh(camera_data.size, camera_data.matrix).mesh
 
     R = camera_data.rotation
@@ -121,7 +126,8 @@ def mesh_from_camera(camera_data: CameraData) -> tuple[CameraMesh, gl.GLTextItem
 
     # add text label to distinguish multiple cameras and shift it slightly above the mesh
     z += 0.05
-    tx = gl.GLTextItem(text=f"Cam {camera_data.port}", pos=(x, y, z), font=pg.QtGui.QFont("Helvetica", 10))
+    # pyqtgraph re-exports QtGui from PySide6/PyQt - stubs don't reflect this
+    tx = gl.GLTextItem(text=f"Cam {camera_data.port}", pos=(x, y, z), font=pg.QtGui.QFont("Helvetica", 10))  # type: ignore[attr-defined]
 
     return mesh, tx
 

@@ -3,12 +3,13 @@ Pure functions to build renderable geometry from domain objects.
 No UI imports - returns raw numpy arrays and connectivity data.
 """
 
+from typing import Any
+
 import numpy as np
-from numpy.typing import NDArray
 from caliscope.cameras.camera_array import CameraArray
 
 
-def build_camera_geometry(camera_array: CameraArray) -> dict[str, NDArray] | None:
+def build_camera_geometry(camera_array: CameraArray) -> dict[str, Any] | None:
     """
     Build static camera mesh geometry as pyramid frustums.
     Corrects the rotation math and aligns with OpenCV Y-down convention.
@@ -26,7 +27,7 @@ def build_camera_geometry(camera_array: CameraArray) -> dict[str, NDArray] | Non
     cam_color = np.array([0.2, 0.8, 0.2], dtype=np.float32)
 
     for port, cam in camera_array.cameras.items():
-        if cam.rotation is None or cam.translation is None:
+        if cam.rotation is None or cam.translation is None or cam.matrix is None:
             continue
 
         # 1. Camera Intrinsics

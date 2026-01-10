@@ -40,21 +40,16 @@ def xyz_to_wide_labelled(xyz: pd.DataFrame, tracker: Tracker) -> pd.DataFrame:
     return df_merged
 
 
-def xyz_to_trc(xyz: pd.DataFrame, tracker: Tracker, time_history_path: Path, target_path: Path):
+def xyz_to_trc(xyz: pd.DataFrame, tracker: Tracker, target_path: Path):
     """
-    Will save a .trc file in the same folder as the long xyz data
-    relies on xyz_to_wide_csv for input data
+    Will save a .trc file in the same folder as the long xyz data.
+    Uses frame_time from the xyz DataFrame directly (carried through from triangulation).
     """
     # create xyz_labelled file to provide input for trc creation
     xyz_labelled = xyz_to_wide_labelled(xyz, tracker)
 
-    # from here I need to get a .trc file format. For part of that I also need to know the framerate.
-    # time_history_path = Path(target_path.parent, "frame_time_history.csv")
-    time_history = pd.read_csv(time_history_path)
-
-    # get the mean time by sync index
-    # Group by 'sync_index' and calculate mean 'frame_time'
-    sync_time = time_history.groupby("sync_index")["frame_time"].mean()
+    # Get mean frame_time per sync_index directly from xyz data
+    sync_time = xyz.groupby("sync_index")["frame_time"].mean()
 
     # Shift times so that it starts at zero
     min_time = sync_time.min()

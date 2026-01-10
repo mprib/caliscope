@@ -172,6 +172,7 @@ class WorldPointSchema(pa.DataFrameModel):
     x_coord: Series[float] = pa.Field(coerce=True)
     y_coord: Series[float] = pa.Field(coerce=True)
     z_coord: Series[float] = pa.Field(coerce=True)
+    frame_time: Series[float] = pa.Field(coerce=True, nullable=True)
 
     class Config(pa.DataFrameModel.Config):
         strict = False
@@ -287,12 +288,16 @@ class ImagePoints:
         # Undistort all image points before triangulation
         undistorted_xy = _undistort_batch(xy_df, camera_array)
 
+        # Compute mean frame_time per sync_index to carry through triangulation
+        frame_times = xy_df.groupby("sync_index")["frame_time"].mean()
+
         xyz_data = {
             "sync_index": [],
             "point_id": [],
             "x_coord": [],
             "y_coord": [],
             "z_coord": [],
+            "frame_time": [],
         }
 
         # sync_index_max = xy_df["sync_index"].max()
@@ -331,6 +336,7 @@ class ImagePoints:
                 xyz_data["x_coord"].extend(points_xyz_arr[:, 0].tolist())
                 xyz_data["y_coord"].extend(points_xyz_arr[:, 1].tolist())
                 xyz_data["z_coord"].extend(points_xyz_arr[:, 2].tolist())
+                xyz_data["frame_time"].extend([frame_times[index]] * len(point_id_xyz))
 
             if int(time()) - last_log_update >= 1:
                 percent_complete = int(100 * (sync_index_counter / total_sync_indices))
@@ -468,8 +474,8 @@ class WorldPoints:
             )
             merged = merged[merged["gap_size"] <= max_gap_size]
 
-            # Interpolate coordinates
-            for col in ["x_coord", "y_coord", "z_coord"]:
+            # Interpolate coordinates and frame_time
+            for col in ["x_coord", "y_coord", "z_coord", "frame_time"]:
                 if col in merged.columns:
                     merged[col] = merged[col].interpolate(method="linear", limit=max_gap_size)
 
@@ -513,6 +519,7 @@ class WorldPoints:
             "x_coord": [],
             "y_coord": [],
             "z_coord": [],
+            "frame_time": [],  # NaN - not available from PointEstimates
         }
 
         for obj_idx in unique_obj_indices:
@@ -527,6 +534,7 @@ class WorldPoints:
             world_data["x_coord"].append(coords[0])
             world_data["y_coord"].append(coords[1])
             world_data["z_coord"].append(coords[2])
+            world_data["frame_time"].append(np.nan)
 
         world_df = pd.DataFrame(world_data)
         return cls(world_df)

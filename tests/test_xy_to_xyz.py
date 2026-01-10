@@ -64,8 +64,11 @@ def test_image_points_to_world_points(tmp_path: Path):
     original_xyz_face = original_xyz_face.reset_index(drop=True)
     xyz_recalculated_face = xyz_recalculated_face.reset_index(drop=True)
 
-    # Remove index column if it exists
+    # Remove index column if it exists and select common columns for comparison
     original_xyz_face = original_xyz_face.drop("Unnamed: 0", axis=1, errors="ignore")
+    common_cols = ["sync_index", "point_id", "x_coord", "y_coord", "z_coord"]
+    original_xyz_face = original_xyz_face[common_cols]
+    xyz_recalculated_face = xyz_recalculated_face[common_cols]
 
     # Make sure both filtered dataframes have the same shape
     assert original_xyz_face.shape == xyz_recalculated_face.shape, (
@@ -162,8 +165,11 @@ def test_triangulate_from_files(tmp_path: Path):
     original_xyz_face = original_xyz_face.reset_index(drop=True)
     xyz_recalculated_face = xyz_recalculated_face.reset_index(drop=True)
 
-    # Remove index column if it exists
+    # Remove index column if it exists and select common columns for comparison
     original_xyz_face = original_xyz_face.drop("Unnamed: 0", axis=1, errors="ignore")
+    common_cols = ["sync_index", "point_id", "x_coord", "y_coord", "z_coord"]
+    original_xyz_face = original_xyz_face[common_cols]
+    xyz_recalculated_face = xyz_recalculated_face[common_cols]
 
     # Make sure both filtered dataframes have the same shape
     assert original_xyz_face.shape == xyz_recalculated_face.shape, (

@@ -60,8 +60,8 @@ def test_intrinsic_calibrator(tmp_path: Path):
         intrinsic_calibrator.add_frame_packet(packet)
         intrinsic_calibrator.add_calibration_frame_index(packet.frame_index)
 
-    stream.stop_event.set()
     stream.unpause()
+    stream.stop()
     intrinsic_calibrator.stop_event.set()
 
     logger.info(camera.get_display_data())

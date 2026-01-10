@@ -2,6 +2,9 @@ import logging
 from pathlib import Path
 from queue import Queue
 from threading import Event, Thread
+
+from caliscope.task_manager.cancellation import CancellationToken
+from caliscope.task_manager.task_handle import TaskHandle
 from time import perf_counter, sleep
 
 import cv2
@@ -53,11 +56,14 @@ class RecordedStream:
         height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.size = (width, height)
 
-        self.stop_event = Event()
         self._jump_q = Queue(maxsize=1)
         self._pause_event = Event()
         self._pause_event.clear()
         self.subscribers = []
+
+        # For play_video() convenience wrapper
+        self._internal_token: CancellationToken | None = None
+        self.thread: Thread | None = None
 
         ############ PROCESS WITH TRUE TIME STAMPS IF AVAILABLE #########################
         synched_frames_history_path = Path(self.directory, "frame_time_history.csv")
@@ -158,12 +164,23 @@ class RecordedStream:
         logger.info(f"Unpausing recorded stream at port {self.port}")
         self._pause_event.clear()
 
-    def play_video(self):
-        logger.info(f"Initiating _play_worker for Camera {self.port}")
-        self.thread = Thread(target=self._play_worker, args=[], daemon=False)
+    def play_video(self) -> None:
+        """Start playback in a new thread. Call stop() to terminate."""
+        logger.info(f"Initiating play_worker for Camera {self.port}")
+        self._internal_token = CancellationToken()
+        self.thread = Thread(target=self.play_worker, args=[self._internal_token, None], daemon=False)
         self.thread.start()
 
-    def _play_worker(self):
+    def stop(self) -> None:
+        """Stop playback started via play_video()."""
+        if self._internal_token is not None:
+            self._internal_token.cancel()
+        if self.thread is not None:
+            self.thread.join(timeout=2.0)
+            self.thread = None
+        logger.info(f"Stopped playback for port {self.port}")
+
+    def play_worker(self, token: CancellationToken, handle: TaskHandle | None = None) -> None:
         """
         Places FramePacket on the out_q, mimicking the behaviour of the LiveStream.
         """
@@ -171,18 +188,18 @@ class RecordedStream:
         self.frame_index = self.start_frame_index
         logger.info(f"Beginning playback of video for port {self.port}")
 
-        while not self.stop_event.is_set():
+        while not token.is_cancelled:
             current_frame = self.port_history["frame_index"] == self.frame_index
             self.frame_time = self.port_history[current_frame]["frame_time"]
             self.frame_time = float(self.frame_time.iloc[0])
 
             ########## BEGIN NO SUBSCRIBERS SPINLOCK ##################
             spinlock_looped = False
-            while len(self.subscribers) == 0 and not self.stop_event.is_set():
+            while len(self.subscribers) == 0 and not token.is_cancelled:
                 if not spinlock_looped:
                     logger.info(f"Spinlock initiated at port {self.port}")
                     spinlock_looped = True
-                sleep(0.5)
+                token.sleep_unless_cancelled(0.5)
             if spinlock_looped:
                 logger.info(f"Spinlock released at port {self.port}")
             ########## END NO SUBSCRIBERS SPINLOCK ##################
@@ -239,8 +256,7 @@ class RecordedStream:
 
             ############ SPIN LOCK FOR PAUSE ##################
             pause_logged = False
-            while self._pause_event.is_set():
-                # logger.info("I'm paused")
+            while self._pause_event.is_set() and not token.is_cancelled:
                 if not pause_logged:
                     logger.info("Initiating Pause")
                     pause_logged = True
@@ -249,7 +265,7 @@ class RecordedStream:
                     logger.info("New Value on jump queue, exiting pause spin lock")
                     break
 
-                sleep(0.1)
+                token.sleep_unless_cancelled(0.1)
             #######################################################
             if not self._jump_q.empty():
                 self.frame_index = self._jump_q.get()

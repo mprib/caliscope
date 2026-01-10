@@ -482,6 +482,7 @@ class Controller(QObject):
 
         handle = self.task_manager.submit(worker, name="process_recordings")
         handle.completed.connect(lambda _: self.post_processing_complete.emit())
+        handle.failed.connect(lambda *_: self.post_processing_complete.emit())
         return handle
 
     def rotate_capture_volume(self, direction: str):

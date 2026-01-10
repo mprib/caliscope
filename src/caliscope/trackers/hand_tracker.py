@@ -32,7 +32,8 @@ class HandTracker(Tracker):
 
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe Hands instance
-        with mp.solutions.hands.Hands(
+        # Mediapipe type stubs are incomplete; the hands module exists at runtime
+        with mp.solutions.hands.Hands(  # type: ignore[reportAttributeAccessIssue]
             static_image_mode=False,
             max_num_hands=2,
             min_detection_confidence=0.8,
@@ -86,7 +87,7 @@ class HandTracker(Tracker):
 
                 self.out_queues[port].put(point_packet)
 
-    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
         if port not in self.in_queues.keys():
             self.in_queues[port] = Queue(1)
             self.out_queues[port] = Queue(1)

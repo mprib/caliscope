@@ -198,7 +198,8 @@ class SimpleHolisticTracker(Tracker):
 
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance
-        with mp.solutions.holistic.Holistic(
+        # Mediapipe type stubs are incomplete; the holistic module exists at runtime
+        with mp.solutions.holistic.Holistic(  # type: ignore[reportAttributeAccessIssue]
             min_detection_confidence=MIN_DETECTION_CONFIDENCE,
             min_tracking_confidence=MIN_TRACKING_CONFIDENCE,
         ) as holistic:
@@ -278,7 +279,7 @@ class SimpleHolisticTracker(Tracker):
 
                 self.out_queues[port].put(point_packet)
 
-    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
         """
         This is the primary method exposed to the rest of the code.
         The tracker receives frames and basic camera data from the Stream,

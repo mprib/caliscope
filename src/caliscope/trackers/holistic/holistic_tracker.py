@@ -140,7 +140,8 @@ class HolisticTracker(Tracker):
 
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance
-        with mp.solutions.holistic.Holistic(min_detection_confidence=0.8, min_tracking_confidence=0.8) as holistic:
+        # Mediapipe type stubs are incomplete; the holistic module exists at runtime
+        with mp.solutions.holistic.Holistic(min_detection_confidence=0.8, min_tracking_confidence=0.8) as holistic:  # type: ignore[reportAttributeAccessIssue]
             while True:
                 frame = self.in_queues[port].get()
                 # apply rotation as needed
@@ -199,14 +200,14 @@ class HolisticTracker(Tracker):
                             point_ids.append(landmark_id + FACE_OFFSET)
                             landmark_xy.append((x, y))
 
-                point_ids = np.array(point_ids)
-                landmark_xy = np.array(landmark_xy)
-                landmark_xy = unrotate_points(landmark_xy, rotation_count, width, height)
-                point_packet = PointPacket(point_ids, landmark_xy)
+                point_packet = PointPacket(
+                    np.array(point_ids),
+                    unrotate_points(np.array(landmark_xy), rotation_count, width, height),
+                )
 
                 self.out_queues[port].put(point_packet)
 
-    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
         if port not in self.in_queues.keys():
             self.in_queues[port] = Queue(1)
             self.out_queues[port] = Queue(1)

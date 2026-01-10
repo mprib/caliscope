@@ -148,7 +148,8 @@ class SkullTracker(Tracker):
         Background thread processor for each camera port.
         Only detects landmarks and returns 2D positions + CONSTANT 3D positions.
         """
-        with mp.solutions.holistic.Holistic(
+        # Mediapipe type stubs are incomplete; the holistic module exists at runtime
+        with mp.solutions.holistic.Holistic(  # type: ignore[reportAttributeAccessIssue]
             static_image_mode=False,
             model_complexity=1,
             smooth_landmarks=True,
@@ -215,7 +216,7 @@ class SkullTracker(Tracker):
                 # Put result in output queue
                 self.out_queues[port].put(point_packet)
 
-    def get_points(self, frame: NDArray[np.uint8], port: int, rotation_count: int) -> PointPacket:
+    def get_points(self, frame: NDArray[np.uint8], port: int = 0, rotation_count: int = 0) -> PointPacket:
         """
         Main interface called by SynchronizedStreamManager.
         Queues frame for processing and returns result.

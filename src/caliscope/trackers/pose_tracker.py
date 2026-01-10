@@ -64,7 +64,8 @@ class PoseTracker(Tracker):
 
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe pose instance
-        with mp.solutions.pose.Pose(
+        # Mediapipe type stubs are incomplete; the pose module exists at runtime
+        with mp.solutions.pose.Pose(  # type: ignore[reportAttributeAccessIssue]
             static_image_mode=False,
             model_complexity=1,
             min_detection_confidence=0.8,
@@ -99,7 +100,7 @@ class PoseTracker(Tracker):
 
                 self.out_queues[port].put(point_packet)
 
-    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
         if port not in self.in_queues.keys():
             self.in_queues[port] = Queue(1)
             self.out_queues[port] = Queue(1)

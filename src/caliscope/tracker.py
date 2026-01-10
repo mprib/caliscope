@@ -72,10 +72,10 @@ class Tracker(ABC):
 
         currently only implemented for charuco...
         """
-        pass
+        return set()
 
     @property
-    def metarig_mapped(self):
+    def metarig_mapped(self) -> bool:
         """
         OPTIONAL PROPERTY
 
@@ -120,17 +120,19 @@ class Segment:
 
 @dataclass(slots=False, frozen=False)
 class WireFrameView:
-    segments: [Segment]
-    point_names: dict[str:int]  # map landmark name to landmark id
+    segments: list[Segment]
+    point_names: dict[str, int]  # map landmark name to landmark id
 
     def __post_init__(self):
-        self.line_plots = {}
+        self.line_plots: dict[str, GLLinePlotItem] = {}
         for segment in self.segments:
             self.line_plots[segment.name] = GLLinePlotItem(
                 color=pg.mkColor(segment.color), width=segment.width, mode="lines"
             )
 
-        self.point_ids = {value: key for key, value in self.point_names.items()}
+        # Same as point_names: point_name (str) -> point_id (int)
+        # Used in set_points() to look up IDs by landmark name
+        self.point_ids: dict[str, int] = dict(self.point_names)
 
     def set_points(self, xyz_packet: XYZPacket):
         for segment in self.segments:

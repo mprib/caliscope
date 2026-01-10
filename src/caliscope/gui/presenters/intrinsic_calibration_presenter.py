@@ -106,6 +106,7 @@ class IntrinsicCalibrationPresenter(QObject):
 
         # Collection state
         self._stream: RecordedStream | None = None
+        self._stream_handle: TaskHandle | None = None
         self._frame_queue: Queue[FramePacket] = Queue()  # From RecordedStream
         self._display_queue: Queue[FramePacket | None] = Queue()  # For View consumption
         self._consumer_thread: Thread | None = None
@@ -191,6 +192,7 @@ class IntrinsicCalibrationPresenter(QObject):
         self._collected_points.clear()
         self._calibrated_camera = None
         self._calibration_task = None
+        self._stream_handle = None
 
         # Create stream with tracker
         self._stream = RecordedStream(
@@ -210,8 +212,11 @@ class IntrinsicCalibrationPresenter(QObject):
         self._is_collecting = True
         self._emit_state_changed()
 
-        # Start playback
-        self._stream.play_video()
+        # Start playback via TaskManager
+        self._stream_handle = self._task_manager.submit(
+            self._stream.play_worker,
+            name=f"Stream port {self._port}",
+        )
 
     def stop_calibration(self) -> None:
         """Stop collection and return to READY state.
@@ -227,9 +232,9 @@ class IntrinsicCalibrationPresenter(QObject):
         # Signal consumer to stop
         self._stop_event.set()
 
-        # Stop stream playback
-        if self._stream is not None:
-            self._stream.stop_event.set()
+        # Stop stream playback via TaskHandle
+        if self._stream_handle is not None:
+            self._stream_handle.cancel()
 
         # Wait for consumer thread
         if self._consumer_thread is not None:
@@ -400,3 +405,10 @@ class IntrinsicCalibrationPresenter(QObject):
         current_state = self.state
         logger.debug(f"State changed to {current_state} for port {self._port}")
         self.state_changed.emit(current_state)
+
+    def cleanup(self) -> None:
+        """Clean up resources. Call before discarding presenter."""
+        if self._stream_handle is not None:
+            self._stream_handle.cancel()
+        if self.state == PresenterState.COLLECTING:
+            self.stop_calibration()

@@ -62,11 +62,9 @@ class IntrinsicStreamManager:
             calibrator.stop()
 
         for port, stream in self.streams.items():
-            stream.stop_event.set()
             stream.unpause()
-            logger.info(f"About to wait for camera {port} to close")
-            # stream.jump_to(0)
-            stream.thread.join()
+            stream.stop()
+            logger.info(f"Stopped stream for camera {port}")
 
         logger.info("Finished closing stream tools")
 
@@ -102,8 +100,8 @@ class IntrinsicStreamManager:
         self.streams[port].jump_to(frame)
 
     def end_stream(self, port):
-        self.streams[port].stop_event.set()
         self.unpause_stream(port)
+        self.streams[port].stop()
 
     def add_calibration_grid(self, port: int, frame_index: int):
         self.calibrators[port].add_calibration_frame_index(frame_index)

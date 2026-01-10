@@ -39,7 +39,7 @@ class SynchronizedStreamManager:
         self.all_camera_data = all_camera_data
         self.tracker = tracker
 
-        self.subfolder_name = "processed" if tracker is None else self.tracker.name
+        self.subfolder_name = "processed" if tracker is None else tracker.name
         self.output_dir = Path(self.recording_dir, self.subfolder_name)
 
         self.load_video_properties()

@@ -60,8 +60,9 @@ def triangulate_sync_index(
     projection_matrices: Dict, current_camera_indices: np.ndarray, current_point_id: np.ndarray, current_img: np.ndarray
 ):
     """A more optimized Numba function to triangulate points for a single sync_index."""
-    point_indices_xyz = List()
-    obj_xyz = List()
+    # Numba typed containers are JIT-compiled; static type checkers can't introspect them
+    point_indices_xyz = List()  # type: ignore[reportCallIssue]
+    obj_xyz = List()  # type: ignore[reportCallIssue]
 
     # Exit early if there's not enough data to form a pair
     if len(current_point_id) < 2:
@@ -249,8 +250,8 @@ class ImagePoints:
             last_port = port
             group = group.sort_values(index_key)
             all_frames = pd.DataFrame({index_key: np.arange(group[index_key].min(), group[index_key].max() + 1)})
-            all_frames["port"] = port
-            all_frames["point_id"] = point_id
+            all_frames["port"] = int(port)  # type: ignore[arg-type]
+            all_frames["point_id"] = int(point_id)  # type: ignore[arg-type]
             merged = pd.merge(all_frames, group, on=["port", "point_id", index_key], how="left")
             merged["gap_size"] = (
                 merged["img_loc_x"].isnull().astype(int).groupby((merged["img_loc_x"].notnull()).cumsum()).cumsum()
@@ -486,7 +487,8 @@ class WorldPoints:
 
     def smooth(self, fps: float, cutoff_freq: float, order: int = 2) -> WorldPoints:
         """Apply Butterworth filter to smooth 3D trajectories."""
-        b, a = butter(order, cutoff_freq, btype="low", fs=fps)
+        # output="ba" returns (b, a) coefficients; scipy stubs don't narrow this
+        b, a = butter(order, cutoff_freq, btype="low", fs=fps, output="ba")  # type: ignore[assignment]
         base_df = self.df
         xyz_filtered = base_df.copy()
 

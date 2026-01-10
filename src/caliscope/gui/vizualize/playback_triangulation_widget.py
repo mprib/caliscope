@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class PlaybackTriangulationWidget(QWidget):
-    def __init__(self, camera_array: CameraArray, xyz_history_path: Path = None):
+    def __init__(self, camera_array: CameraArray, xyz_history_path: Path | None = None):
         super(PlaybackTriangulationWidget, self).__init__()
 
         self.camera_array = camera_array
@@ -70,6 +70,7 @@ class PlaybackTriangulationWidget(QWidget):
 class TriangulationVisualizer:
     def __init__(self, camera_array: CameraArray):
         self.camera_array = camera_array
+        self.motion_trial: MotionTrial | None = None
         self.build_scene()
 
     def build_scene(self):
@@ -115,11 +116,13 @@ class TriangulationVisualizer:
 
     def update_motion_trial(self, motion_trial: MotionTrial):
         logger.info("Updating xyz history in playback widget")
-        self.motion_trial: MotionTrial = motion_trial
+        self.motion_trial = motion_trial
 
         try:
-            if hasattr(self.motion_trial.tracker, "wireframe"):
-                for segment_line in self.motion_trial.tracker.wireframe.line_plots.values():
+            # Not all trackers have wireframe attribute - check dynamically
+            tracker = self.motion_trial.tracker
+            if tracker is not None and hasattr(tracker, "wireframe"):
+                for segment_line in tracker.wireframe.line_plots.values():  # type: ignore[union-attr]
                     self.scene.addItem(segment_line)
         except Exception as e:
             logger.exception(f"{e}: unable to acccess tracker to get wireframe")
@@ -132,6 +135,8 @@ class TriangulationVisualizer:
         sync_index is provided from the dialog and linked to the slider
         it is initially set to the minimum viable sync index
         """
+        if self.motion_trial is None:
+            return
 
         if self.motion_trial.is_empty:
             self.scatter.setData(pos=None)
@@ -142,4 +147,6 @@ class TriangulationVisualizer:
             self.scatter.setData(pos=xyz_coords)
 
     def update_segment_lines(self, sync_index: int):
+        if self.motion_trial is None:
+            return
         self.motion_trial.update_wireframe(sync_index)

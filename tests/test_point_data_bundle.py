@@ -110,8 +110,8 @@ def test_world_data_point_estimates(tmp_path: Path):
     logger.info(f"✓ Same number of unique points: {len(reconstructed)}")
 
     # Check 7: Point IDs match exactly
-    triangulated_point_ids = triangulated["point_id"].values
-    reconstructed_point_ids = reconstructed["point_id"].values
+    triangulated_point_ids = triangulated["point_id"].to_numpy()
+    reconstructed_point_ids = reconstructed["point_id"].to_numpy()
     assert np.array_equal(triangulated_point_ids, reconstructed_point_ids), (
         "Point IDs do not match between original and reconstructed"
     )
@@ -120,8 +120,8 @@ def test_world_data_point_estimates(tmp_path: Path):
     # Check 8: Coordinates match within tolerance
     coord_tolerance = 1e-6  # micrometer precision at meter scale
     for axis in ["x_coord", "y_coord", "z_coord"]:
-        triangulated_coords = triangulated[axis].values
-        reconstructed_coords = reconstructed[axis].values
+        triangulated_coords = triangulated[axis].to_numpy()
+        reconstructed_coords = reconstructed[axis].to_numpy()
         max_diff = np.max(np.abs(triangulated_coords - reconstructed_coords))
         assert max_diff < coord_tolerance, (
             f"{axis} coordinate mismatch: max difference {max_diff} exceeds tolerance {coord_tolerance}"
@@ -130,8 +130,9 @@ def test_world_data_point_estimates(tmp_path: Path):
 
     # Check 9: Sync indices are reasonable (should be first occurrence)
     for point_id in reconstructed["point_id"]:
-        triangulated_sync = triangulated.loc[triangulated["point_id"] == point_id, "sync_index"].iloc[0]
-        reconstructed_sync = reconstructed.loc[reconstructed["point_id"] == point_id, "sync_index"].iloc[0]
+        # .loc with boolean mask returns Series, but stubs think it might return scalar
+        triangulated_sync = triangulated.loc[triangulated["point_id"] == point_id, "sync_index"].iloc[0]  # type: ignore[union-attr]
+        reconstructed_sync = reconstructed.loc[reconstructed["point_id"] == point_id, "sync_index"].iloc[0]  # type: ignore[union-attr]
         assert triangulated_sync == reconstructed_sync, f"""
             Sync index mismatch for point_id {point_id}:
             original {triangulated_sync} vs reconstructed {reconstructed_sync}
@@ -410,7 +411,7 @@ def test_align_bundle_to_charuco_board(tmp_path: Path):
 
     # Select a sync_index where board is well-visible (most detections)
     sync_index_counts = image_points.df["sync_index"].value_counts()
-    sync_index = sync_index_counts.idxmax()
+    sync_index = int(sync_index_counts.idxmax())  # idxmax returns int | str, but sync_index is always int
     logger.info(f"Using sync_index {sync_index} for alignment (has {sync_index_counts.max()} detections)")
 
     # Align to object

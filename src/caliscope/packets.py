@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from numpy.typing import NDArray
-from typing import Callable, cast
+from typing import Any, Callable, cast
 
 import cv2
 import numpy as np
+from numpy.typing import NDArray
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,12 +16,11 @@ class PointPacket:
     It has actual values when using the Charuco tracker as these are used in the calibration.
     """
 
-    point_id: NDArray[np.float64]  # unique point id that aligns with Tracker.get_point_names()
-    img_loc: NDArray[np.float64]  # x,y position of tracked point
-    obj_loc: NDArray[np.float64] | None = (
-        None  # x,y,z in object frame of reference; primarily for intrinsic calibration
-    )
-    confidence: NDArray[np.float64] | None = None  # may be available in some trackers..include for future
+    # Using NDArray[Any] because trackers produce various dtypes (int32 for IDs, float32/64 for coords)
+    point_id: NDArray[Any]  # unique point id that aligns with Tracker.get_point_names()
+    img_loc: NDArray[Any]  # x,y position of tracked point
+    obj_loc: NDArray[Any] | None = None  # x,y,z in object frame of reference; primarily for intrinsic calibration
+    confidence: NDArray[Any] | None = None  # may be available in some trackers..include for future
 
     @property
     def obj_loc_list(self) -> list[list[float | None]]:
@@ -53,7 +52,7 @@ class FramePacket:
     port: int
     frame_index: int
     frame_time: float
-    frame: NDArray[np.float64]
+    frame: NDArray[Any] | None  # None for end-of-stream markers
     points: PointPacket | None = None
     draw_instructions: Callable | None = None
 
@@ -85,7 +84,10 @@ class FramePacket:
         return table
 
     @property
-    def frame_with_points(self):
+    def frame_with_points(self) -> NDArray[Any] | None:
+        if self.frame is None:
+            return None
+
         if self.points is not None and self.draw_instructions is not None:
             drawn_frame = self.frame.copy()
             ids = self.points.point_id

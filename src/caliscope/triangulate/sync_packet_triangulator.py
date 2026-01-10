@@ -30,8 +30,8 @@ class SyncPacketTriangulator:
         self,
         camera_array: CameraArray,
         synchronizer: Synchronizer,
-        recording_directory: Path = None,
-        tracker_name: str = None,  # used only for getting the point names and tracker name
+        recording_directory: Path | None = None,
+        tracker_name: str | None = None,  # used only for getting the point names and tracker name
     ):
         self.camera_array = camera_array
         self.synchronizer = synchronizer

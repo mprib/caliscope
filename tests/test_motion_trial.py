@@ -27,6 +27,7 @@ def test_motion_trial():
     assert xyz_packet_0.point_xyz.shape[1] == 3
 
     # able to read in tracker information
+    assert motion_trial.tracker is not None
     assert motion_trial.tracker.name == "SIMPLE_HOLISTIC"
     assert xyz_packet_0.point_ids.shape[0] == xyz_packet_0.point_xyz.shape[0]
 

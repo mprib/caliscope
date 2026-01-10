@@ -121,20 +121,21 @@ class PostProcessingWidget(QWidget):
         return result
 
     @property
-    def active_folder(self):
+    def active_folder(self) -> str | None:
         if self.recording_folders.count() == 0:
-            active_folder = None
-        elif self.recording_folders.currentItem() is None:
+            return None
+        if self.recording_folders.currentItem() is None:
             self.recording_folders.setCurrentRow(0)
-            active_folder: str = self.recording_folders.currentItem().text()
-        else:
-            active_folder: str = self.recording_folders.currentItem().text()
-
-        return active_folder
+        current_item = self.recording_folders.currentItem()
+        if current_item is None:
+            return None
+        return current_item.text()
 
     @property
     def active_recording_path(self) -> Path:
-        p = Path(self.controller.workspace_guide.recording_dir, self.active_folder)
+        folder = self.active_folder
+        assert folder is not None  # Property callers ensure folder is selected
+        p = Path(self.controller.workspace_guide.recording_dir, folder)
         logger.info(f"Active recording path is {p}")
         return p
 
@@ -198,7 +199,9 @@ class PostProcessingWidget(QWidget):
         This needs to get pushed into the controller layer
         """
         self.disable_all_inputs()
-        recording_path = Path(self.controller.workspace_guide.recording_dir, self.active_folder)
+        folder = self.active_folder
+        assert folder is not None  # Button is disabled when no folder selected
+        recording_path = Path(self.controller.workspace_guide.recording_dir, folder)
         logger.info(f"Beginning processing of recordings at {recording_path}")
         tracker_enum = self.tracker_combo.currentData()
         logger.info(f"(x,y) tracking will be applied using {tracker_enum.name}")

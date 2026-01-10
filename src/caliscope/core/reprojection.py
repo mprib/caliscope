@@ -57,11 +57,17 @@ def reprojection_errors(
             # Normalized mode: undistort observations, project with identity K
             cam_observed = camera_data.undistort_points(cam_observed, output="normalized")
             cam_matrix = np.identity(3)
-            dist_coeffs = None
+            dist_coeffs = np.zeros(5)  # No distortion in normalized space
         else:
             # Pixel mode: keep distorted observations, project with full model
+            if camera_data.matrix is None or camera_data.distortions is None:
+                raise ValueError(f"Camera {port} missing intrinsics for pixel-mode reprojection")
             cam_matrix = camera_data.matrix
             dist_coeffs = camera_data.distortions
+
+        # posed_cameras guarantees rotation/translation are present
+        if camera_data.rotation is None or camera_data.translation is None:
+            raise ValueError(f"Camera {port} missing extrinsics")
 
         # Project 3D points to 2D
         projected, _ = cv2.projectPoints(

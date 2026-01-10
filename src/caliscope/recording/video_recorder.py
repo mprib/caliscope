@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class VideoRecorder:
-    def __init__(self, synchronizer: Synchronizer, suffix: str = None):
+    def __init__(self, synchronizer: Synchronizer, suffix: str | None = None):
         """
         suffix: provide a way to clarify any modifications to the video that are being saved
         This is likely going to be the name of the tracker used in most cases
@@ -46,7 +46,8 @@ class VideoRecorder:
         for port, stream in self.synchronizer.streams.items():
             path = str(Path(self.destination_folder, f"port_{port}{self.suffix}.mp4"))
             logger.info(f"Building video writer for port {port}; recording to {path}")
-            fourcc = cv2.VideoWriter_fourcc(*"MP4V")
+            # VideoWriter_fourcc exists at runtime but not in cv2 stubs
+            fourcc = cv2.VideoWriter_fourcc(*"MP4V")  # type: ignore[attr-defined]
             frame_size = stream.size
             logger.info(f"Creating video writer with fps of {stream.original_fps} and frame size of {frame_size}")
             writer = cv2.VideoWriter(path, fourcc, stream.original_fps, frame_size)
@@ -111,7 +112,7 @@ class VideoRecorder:
                     frame_index = frame_packet.frame_index
                     frame_time = frame_packet.frame_time
 
-                    if include_video:
+                    if include_video and frame is not None:
                         # store the frame
                         if self.sync_index % 50 == 0:
                             logger.debug(f"Writing frame for port {port} and sync index {self.sync_index}")

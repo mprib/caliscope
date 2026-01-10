@@ -49,7 +49,7 @@ def _array_to_list(arr: np.ndarray | None) -> list | None:
     return arr.tolist() if arr is not None else None
 
 
-def _list_to_array(lst: Any, dtype=np.float64) -> np.ndarray | None:
+def _list_to_array(lst: Any, dtype: type[np.generic] = np.float64) -> np.ndarray | None:
     """
     Convert list back to numpy array from TOML deserialization.
 
@@ -286,11 +286,19 @@ def load_point_estimates(path: Path) -> PointEstimates:
         obj_indices = _list_to_array(data.get("obj_indices"), dtype=np.int64)
         obj = _list_to_array(data.get("obj"), dtype=np.float32)
 
-        # Validate that we have all required fields
-        required_fields = ["sync_indices", "camera_indices", "point_id", "img", "obj_indices", "obj"]
-        for field in required_fields:
-            if locals()[field] is None:
-                raise PersistenceError(f"Missing required field '{field}' in point estimates")
+        # Validate required fields - explicit checks for type narrowing
+        if sync_indices is None:
+            raise PersistenceError("Missing required field 'sync_indices' in point estimates")
+        if camera_indices is None:
+            raise PersistenceError("Missing required field 'camera_indices' in point estimates")
+        if point_id is None:
+            raise PersistenceError("Missing required field 'point_id' in point estimates")
+        if img is None:
+            raise PersistenceError("Missing required field 'img' in point estimates")
+        if obj_indices is None:
+            raise PersistenceError("Missing required field 'obj_indices' in point estimates")
+        if obj is None:
+            raise PersistenceError("Missing required field 'obj' in point estimates")
 
         # Validate array shapes and consistency
         if img.ndim != 2 or img.shape[1] != 2:

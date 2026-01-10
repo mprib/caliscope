@@ -67,7 +67,7 @@ class QualityController:
             {"sync_index": "int32", "charuco_id": "int32", "obj_id": "int32"},
         )
 
-        reproj_errors = summarized_data["reproj_error"].values
+        reproj_errors = summarized_data["reproj_error"].to_numpy()
         sorted_indices = np.argsort(reproj_errors)
         ranks = np.empty_like(sorted_indices)
         ranks[sorted_indices] = np.linspace(0, 100, len(reproj_errors))
@@ -102,7 +102,7 @@ class QualityController:
         obj_id = self.corners_world_xyz["obj_id"].to_numpy(dtype=np.int32)
 
         # for a given sync index (i.e. one board snapshot) get all pairs of object ids
-        paired_obj_indices = None
+        paired_obj_indices: np.ndarray | None = None
         for x in unique_sync_indices:
             sync_obj = obj_id[sync_indices == x]  # 3d objects (corners) at a specific sync_index
             all_pairs = cartesian_product(sync_obj, sync_obj)
@@ -110,6 +110,10 @@ class QualityController:
                 paired_obj_indices = all_pairs
             else:
                 paired_obj_indices = np.vstack([paired_obj_indices, all_pairs])
+
+        # Handle empty case - return empty array with correct shape
+        if paired_obj_indices is None:
+            return np.zeros((0, 2), dtype=np.int32)
 
         # paired_corner_indices will contain duplicates (i.e. [0,1] and [1,0]) as well as self-pairs ([0,0], [1,1])
         # this need to get filtered out
@@ -137,8 +141,11 @@ class QualityController:
 
     @property
     def corners_board_xyz(self) -> np.ndarray:
-        corner_ids = self.corners_world_xyz["charuco_id"]
-        corners_board_xyz = self.charuco.board.getChessboardCorners()[corner_ids]
+        if self.charuco is None:
+            raise ValueError("Charuco board required for board corner positions")
+        corner_ids = self.corners_world_xyz["charuco_id"].to_numpy()
+        all_corners = np.asarray(self.charuco.board.getChessboardCorners())
+        corners_board_xyz = all_corners[corner_ids]
 
         return corners_board_xyz
 

@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -35,7 +36,7 @@ class PlaybackViewModel:
 
         # 1. Establish the Canonical Map (The "Superset" of all points)
         # We find every unique point_id that appears in the entire recording.
-        unique_ids = np.unique(self.world_points.df["point_id"].values)
+        unique_ids = np.unique(self.world_points.df["point_id"].to_numpy())
         unique_ids.sort()
 
         self.all_point_ids = unique_ids
@@ -63,7 +64,7 @@ class PlaybackViewModel:
     def max_index(self) -> int:
         return self.world_points.max_index if self.world_points.max_index is not None else 100
 
-    def get_camera_geometry(self) -> dict[str, NDArray] | None:
+    def get_camera_geometry(self) -> dict[str, Any] | None:
         """Pass-through to the static camera builder."""
         return build_camera_geometry(self.camera_array)
 
@@ -101,7 +102,8 @@ class PlaybackViewModel:
             # Vectorized Scatter
             # We map the frame's point_ids to their canonical buffer indices
             # Note: We filter out any IDs that might not be in our canonical set (safety)
-            valid_mask = np.isin(p_ids, self.all_point_ids)
+            # p_ids from .values might be ExtensionArray - convert to numpy for isin
+            valid_mask = np.isin(np.asarray(p_ids), self.all_point_ids)
 
             if np.any(valid_mask):
                 p_ids = p_ids[valid_mask]

@@ -58,8 +58,8 @@ def test_pose_network_builder_end_to_end(tmp_path: Path):
 
     # Verify pose quality
     for port, cam in test_array.posed_cameras.items():
-        assert cam.rotation.shape == (3, 3)
-        assert cam.translation.shape == (3,)
+        assert cam.rotation is not None and cam.rotation.shape == (3, 3)
+        assert cam.translation is not None and cam.translation.shape == (3,)
         assert np.isclose(np.linalg.det(cam.rotation), 1.0, atol=1e-5)
 
     # assure that capture volume can be created from array and points

@@ -32,7 +32,8 @@ class FaceTracker(Tracker):
 
     def run_frame_processor(self, port: int, rotation_count: int):
         # Create a MediaPipe FaceMesh instance
-        with mp.solutions.face_mesh.FaceMesh(
+        # Mediapipe type stubs are incomplete; the face_mesh module exists at runtime
+        with mp.solutions.face_mesh.FaceMesh(  # type: ignore[reportAttributeAccessIssue]
             static_image_mode=False, max_num_faces=1, refine_landmarks=True, min_detection_confidence=0.5
         ) as facemeshes:
             while True:
@@ -66,7 +67,7 @@ class FaceTracker(Tracker):
 
                 self.out_queues[port].put(point_packet)
 
-    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
         if port not in self.in_queues.keys():
             self.in_queues[port] = Queue(1)
             self.out_queues[port] = Queue(1)
@@ -207,7 +208,7 @@ NAME2KEYPOINTS = {
 }
 
 NAMES = sorted(NAME2KEYPOINTS)
-POINT_ID2NAME = [None for _ in range(478)]
+POINT_ID2NAME: list[str | None] = [None for _ in range(478)]
 for i_n, name in enumerate(NAMES):
     for id in NAME2KEYPOINTS[name]:
         POINT_ID2NAME[id] = name

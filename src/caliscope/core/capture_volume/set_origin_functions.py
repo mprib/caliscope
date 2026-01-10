@@ -50,10 +50,12 @@ def get_board_corners_xyz(point_estimates: PointEstimates, sync_index: int, char
     """
     sync_indices = point_estimates.sync_indices  # convienent shortening
     charuco_ids = point_estimates.point_id[sync_indices == sync_index]
-    unique_charuco_id = np.unique(charuco_ids)
+    unique_charuco_id = np.unique(charuco_ids).astype(np.intp)  # ensure integer index type
     unique_charuco_id.sort()
 
-    board_corners_xyz = charuco.board.getChessboardCorners()[unique_charuco_id]
+    # OpenCV's getChessboardCorners returns MatLike which supports array indexing at runtime
+    all_corners = np.asarray(charuco.board.getChessboardCorners())
+    board_corners_xyz = all_corners[unique_charuco_id]
     return board_corners_xyz
 
 
@@ -135,19 +137,19 @@ def get_rvec_tvec_from_board_pose(
     return mean_rvec, mean_tvec
 
 
-def mean_vec(vecs):
-    hstacked_vec = None
+def mean_vec(vecs: list[np.ndarray]) -> np.ndarray:
+    """Compute mean of a list of vectors by stacking and averaging along axis 1."""
+    if not vecs:
+        raise ValueError("Cannot compute mean of empty vector list")
 
-    for vec in vecs:
-        if hstacked_vec is None:
-            hstacked_vec = vec
-        else:
-            hstacked_vec = np.hstack([hstacked_vec, vec])
+    hstacked_vec = vecs[0]
+    for vec in vecs[1:]:
+        hstacked_vec = np.hstack([hstacked_vec, vec])
 
-    mean_vec = np.mean(hstacked_vec, axis=1)
-    mean_vec = np.expand_dims(mean_vec, axis=1)
+    result = np.mean(hstacked_vec, axis=1)
+    result = np.expand_dims(result, axis=1)
 
-    return mean_vec
+    return result
 
 
 def transform_to_rvec_tvec(transformation: np.ndarray):

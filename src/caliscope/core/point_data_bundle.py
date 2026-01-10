@@ -5,7 +5,8 @@ from copy import deepcopy
 from numpy.typing import NDArray
 
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
 from typing import Literal
 import logging
@@ -34,13 +35,12 @@ class PointDataBundle:
     camera_array: CameraArray
     image_points: ImagePoints
     world_points: WorldPoints
-    img_to_obj_map: np.ndarray = None  # Renamed from obj_indices
+    # Computed field: maps each image observation to its world point index (-1 if unmatched)
+    img_to_obj_map: np.ndarray = field(init=False)
 
     def __post_init__(self):
         """Compute mapping and validate geometry."""
-        if self.img_to_obj_map is None:
-            img_to_obj_map = self._compute_img_to_obj_map()
-            object.__setattr__(self, "img_to_obj_map", img_to_obj_map)
+        object.__setattr__(self, "img_to_obj_map", self._compute_img_to_obj_map())
         self._validate_geometry()
 
     def _validate_geometry(self):
@@ -87,16 +87,12 @@ class PointDataBundle:
 
         return img_to_obj_map
 
-    @property
+    @cached_property
     def reprojection_report(self) -> ReprojectionReport:
         """
         Generate comprehensive reprojection error report in pixel units.
-        Caches result for subsequent calls since bundle data is immutable.
+        Cached automatically since bundle data is immutable.
         """
-        # Check cache first
-        if hasattr(self, "_reprojection_report"):
-            return self._reprojection_report
-
         # 1. Filter to matched observations
         matched_mask = self.img_to_obj_map >= 0
         n_total = len(self.img_to_obj_map)
@@ -169,7 +165,6 @@ class PointDataBundle:
             n_points=len(self.world_points.points),
         )
 
-        object.__setattr__(self, "_reprojection_report", report)
         return report
 
     def optimize(
@@ -291,6 +286,8 @@ class PointDataBundle:
         Shape: (n_cameras*6 + n_points*3,)
         """
         camera_params = self.camera_array.get_extrinsic_params()  # (n_cams, 6)
+        if camera_params is None:
+            raise ValueError("Camera extrinsic parameters not initialized")
         points_3d = self.world_points.points  # (n_points, 3)
 
         return np.concatenate([camera_params.ravel(), points_3d.ravel()])
@@ -367,14 +364,15 @@ class PointDataBundle:
                 n_needed = min(min_per_camera, n_total) - n_keep
 
                 # Get errors for observations that would be filtered out
+                # pandas stubs don't narrow .loc with boolean mask to Series
                 filtered_errors = raw_errors.loc[camera_idx & ~keep_mask, "euclidean_error"]
 
-                if len(filtered_errors) >= n_needed:
+                if len(filtered_errors) >= n_needed:  # type: ignore[arg-type]
                     # Find the error threshold that would keep exactly n_needed more observations
-                    threshold_to_add = filtered_errors.nsmallest(n_needed).iloc[-1]
+                    threshold_to_add: float = filtered_errors.nsmallest(n_needed).iloc[-1]  # type: ignore[union-attr]
 
                     # Update mask to keep observations with error <= threshold_to_add
-                    keep_mask[camera_idx] = raw_errors.loc[camera_idx, "euclidean_error"] <= threshold_to_add
+                    keep_mask[camera_idx] = raw_errors.loc[camera_idx, "euclidean_error"] <= threshold_to_add  # type: ignore[index, operator]
 
         # Get keys of observations to keep
         keep_keys = raw_errors[keep_mask][["sync_index", "port", "point_id"]]
@@ -446,20 +444,20 @@ class PointDataBundle:
 
         if scope == "per_camera":
             # Compute (100 - percentile)th percentile per camera
-            thresholds = {}
+            thresholds: dict[int, float] = {}
             for port in self.camera_array.posed_cameras.keys():
                 camera_errors = raw_errors[raw_errors["port"] == port]["euclidean_error"]
                 if len(camera_errors) > 0:
                     # Keep the best (100 - percentile) percent
                     keep_percentile = 100 - percentile
-                    thresholds[port] = np.percentile(camera_errors, keep_percentile)
+                    thresholds[port] = float(np.percentile(camera_errors, keep_percentile))
                 else:
-                    thresholds[port] = np.inf  # No observations, keep nothing
+                    thresholds[port] = float(np.inf)  # No observations, keep nothing
 
         elif scope == "overall":
             # Compute global (100 - percentile)th percentile
             keep_percentile = 100 - percentile
-            global_threshold = np.percentile(raw_errors["euclidean_error"], keep_percentile)
+            global_threshold = float(np.percentile(raw_errors["euclidean_error"], keep_percentile))
             thresholds = {port: global_threshold for port in self.camera_array.posed_cameras.keys()}
 
         else:

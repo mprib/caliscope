@@ -3,9 +3,7 @@
 from pathlib import Path
 
 import pandas as pd
-
-# Updated pandera import to address FutureWarning
-import pandera.pandas as pa
+import pandera
 import pytest
 
 from caliscope.core.point_data import ImagePoints
@@ -75,7 +73,8 @@ def test_xydata_creation_success(valid_xy_df):
 
 
 def test_xydata_creation_failure(invalid_xy_df):
-    with pytest.raises(pa.errors.SchemaError) as excinfo:
+    # pandera.errors exists at runtime but type stubs don't export it
+    with pytest.raises(pandera.errors.SchemaError) as excinfo:  # type: ignore[attr-defined]
         ImagePoints(invalid_xy_df)
     assert "column 'point_id' not in dataframe" in str(excinfo.value)
 

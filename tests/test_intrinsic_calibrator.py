@@ -73,7 +73,7 @@ def test_intrinsic_calibrator(tmp_path: Path):
     assert camera.grid_count == 6
     assert isinstance(camera.matrix, np.ndarray)
     assert isinstance(camera.distortions, np.ndarray)
-    assert camera.error > 0
+    assert camera.error is not None and camera.error > 0
 
     logger.info(camera.get_display_data())
 
@@ -135,5 +135,9 @@ def test_autopopulate_data(tmp_path: Path):
 
 
 if __name__ == "__main__":
-    test_intrinsic_calibrator()
-    test_autopopulate_data()
+    from tempfile import TemporaryDirectory
+
+    with TemporaryDirectory() as tmp:
+        test_intrinsic_calibrator(Path(tmp))
+    with TemporaryDirectory() as tmp:
+        test_autopopulate_data(Path(tmp))

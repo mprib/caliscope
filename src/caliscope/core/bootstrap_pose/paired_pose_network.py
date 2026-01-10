@@ -190,6 +190,8 @@ class PairedPoseNetwork:
         if best_anchor == -1:
             return None, camera_array.cameras
         else:
+            # best_cameras_config is guaranteed to be set if best_anchor != -1
+            assert best_cameras_config is not None
             return best_anchor, best_cameras_config
 
     def apply_to(self, camera_array: CameraArray, anchor_cam: int | None = None) -> None:

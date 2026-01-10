@@ -123,12 +123,12 @@ class ArucoTracker(Tracker):
             point_ids, all_corners = self._detect_markers(mirrored_frame)
 
             # If markers found in mirror, adjust x-coordinates back to original frame and send packet
-            if point_ids is not None:
+            if point_ids is not None and all_corners is not None:
                 frame_width = gray_frame.shape[1]
                 all_corners[:, 0] = frame_width - all_corners[:, 0]
                 logger.debug(f"Detected {len(np.unique(point_ids // 10))} markers in mirrored image")
 
-        if point_ids is not None:
+        if point_ids is not None and all_corners is not None:
             return PointPacket(point_id=point_ids, img_loc=all_corners, obj_loc=None)
 
         # Return empty PointPacket if no markers detected

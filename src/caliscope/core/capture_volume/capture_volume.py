@@ -26,12 +26,12 @@ class CaptureVolume:
     _point_estimates: PointEstimates  # Internal storage for point data
     stage: int = 0
     _normalized_points: np.ndarray | None = None
-    origin_sync_index: int = None
+    origin_sync_index: int | None = None
 
     def __post__init__(self):
         logger.info("Creating capture volume from estimated camera array and stereotriangulated points...")
 
-    def _save(self, directory: Path, descriptor: str = None):
+    def _save(self, directory: Path, descriptor: str | None = None):
         """
         Convenience function to facilitate visual checks through the stages of processing using the GUI
         """
@@ -49,6 +49,8 @@ class CaptureVolume:
         This is the required data format of the least squares optimization
         """
         camera_params = self.camera_array.get_extrinsic_params()
+        if camera_params is None:
+            raise ValueError("No posed cameras available for optimization")
         combined = np.hstack((camera_params.ravel(), self._point_estimates.obj.ravel()))
 
         return combined
@@ -272,11 +274,13 @@ def xy_reprojection_error(current_param_estimates, capture_volume: CaptureVolume
 
         # --- Select camera intrinsics based on the mode ---
         if use_normalized:
-            # OPTIMIZED PATH: Use the 'perfect' camera model. Much faster.
+            # OPTIMIZED PATH: Use the 'perfect' camera model. Computational benefits.
             cam_matrix = np.identity(3)
-            dist_coeffs = None
+            dist_coeffs = np.zeros(5)  # No distortion in normalized space
         else:
             # SLOW PATH: Use the camera's true intrinsics. Needed for final pixel error.
+            if cam.matrix is None or cam.distortions is None:
+                raise ValueError(f"Camera {port} missing intrinsics for pixel-mode reprojection")
             cam_matrix = cam.matrix
             dist_coeffs = cam.distortions
 

@@ -174,6 +174,11 @@ def _estimate_single_pair(
     D_perfect = np.zeros(5)
 
     try:
+        # Using normalized coordinates (K=identity, D=zeros) rather than pixel coordinates.
+        # This allows a unified pipeline for fisheye and rectilinear lenses, and improves
+        # numerical stability for bundle adjustment. In this reference frame, imageSize
+        # is meaningless - there are no "pixels", just normalized ray directions.
+        # OpenCV's type stubs don't account for this valid use case.
         ret, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
             obj_locs_a,
             norm_locs_a,
@@ -182,7 +187,7 @@ def _estimate_single_pair(
             D_perfect,
             K_perfect,
             D_perfect,
-            imageSize=None,
+            imageSize=None,  # type: ignore[arg-type]
             criteria=criteria,
             flags=stereocal_flags,
         )
@@ -214,7 +219,7 @@ def _select_diverse_boards(valid_boards_a: pd.DataFrame, sample_size: int) -> pd
         return boards_sorted
 
     # For temporal diversity, select boards spread across time range
-    sync_indices = boards_sorted["sync_index"].values
+    sync_indices = boards_sorted["sync_index"].to_numpy()
     min_sync, max_sync = sync_indices.min(), sync_indices.max()
 
     if max_sync > min_sync and sample_size > 1:

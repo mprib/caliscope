@@ -101,6 +101,8 @@ class FrameProcessingThread(QThread):
 
             # Processing pipeline (mirrors PlaybackFrameEmitter)
             frame = packet.frame_with_points
+            if frame is None:
+                continue
 
             if self._undistort_enabled and self._visualizer is not None:
                 frame = self._visualizer.undistort(frame)

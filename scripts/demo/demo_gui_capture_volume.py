@@ -26,9 +26,11 @@ window = CaptureVolumeWidget(controller)
 # After filtering - log filtered point counts
 
 logger.info("Point counts loaded into Capture Volume Widget:")
-logger.info(f"  3D points (obj.shape[0]): {controller.capture_volume.point_estimates.obj.shape[0]}")
-logger.info(f"  2D observations (img.shape[0]): {controller.capture_volume.point_estimates.img.shape[0]}")
-logger.info(f"  Camera indices length: {len(controller.capture_volume.point_estimates.camera_indices)}")
+capture_volume = controller.capture_volume
+assert capture_volume is not None  # Widget requires capture volume to exist
+logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
+logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")
+logger.info(f"  Camera indices length: {len(capture_volume.point_estimates.camera_indices)}")
 
 window.show()
 

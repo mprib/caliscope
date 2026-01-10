@@ -8,8 +8,9 @@
 import PySide6
 from PySide6 import QtCore
 
-PySide6.__version__ = QtCore.__version__
-PySide6.__version_info__ = QtCore.__version_info__
+# Monkey-patch for pyqtgraph compatibility - stubs don't know about this
+PySide6.__version__ = QtCore.__version__  # type: ignore[attr-defined]
+PySide6.__version_info__ = QtCore.__version_info__  # type: ignore[attr-defined]
 
 from pathlib import Path  # noqa: E402
 

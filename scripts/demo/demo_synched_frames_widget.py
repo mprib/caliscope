@@ -4,7 +4,7 @@ import sys
 
 from caliscope.gui.synched_frames_display import SyncedFramesDisplay
 from caliscope.controller import Controller
-from caliscope.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
 
 from pathlib import Path
 

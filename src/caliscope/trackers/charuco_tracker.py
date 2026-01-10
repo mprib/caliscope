@@ -29,14 +29,14 @@ class CharucoTracker(Tracker):
     def name(self):
         return "CHARUCO"
 
-    def get_points(self, frame: np.ndarray, port: int, rotation_count: int) -> PointPacket:
+    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
         """Will check for charuco corners in the frame, if it doesn't find any,
         then it will look for corners in the mirror image of the frame"""
 
         # invert the frame for detection if needed
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # convert to gray
         if self.charuco.inverted:
-            gray = ~gray  # invert
+            gray = cv2.bitwise_not(gray)
 
         ids, img_loc = self.find_corners_single_frame(gray, mirror=False)
 

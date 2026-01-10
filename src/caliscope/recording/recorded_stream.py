@@ -29,9 +29,9 @@ class RecordedStream:
         self,
         directory: Path,
         camera: CameraData,
-        fps_target: int = None,
-        tracker: Tracker = None,
-        break_on_last=True,
+        fps_target: int | None = None,
+        tracker: Tracker | None = None,
+        break_on_last: bool = True,
     ):
         self.directory = directory
         self.camera = camera
@@ -136,11 +136,12 @@ class RecordedStream:
             logger.info(f"Setting fps to {self.fps}")
             self.milestones = np.array(milestones)
 
-    def wait_to_next_frame(self):
+    def wait_to_next_frame(self) -> float:
         """
         based on the next milestone time, return the time needed to sleep so that
         a frame read immediately after would occur when needed
         """
+        assert self.milestones is not None  # Caller checks milestones before calling
 
         time = perf_counter()
         fractional_time = time % 1

@@ -97,8 +97,7 @@ class IntrinsicCalibrationPresenter(QObject):
 
         # Derived properties for convenience
         self._port = camera.port
-        # CameraData.size is list[int], convert to tuple for API compatibility
-        self._image_size: tuple[int, int] = (camera.size[0], camera.size[1])
+        self._image_size = camera.size
 
         # Scratchpad state
         self._collected_points: list[tuple[int, PointPacket]] = []

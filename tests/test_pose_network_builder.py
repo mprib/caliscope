@@ -145,7 +145,7 @@ def test_apply_to_with_disconnected_camera(tmp_path: Path):
     extra_cameras = camera_array.cameras.copy()
     from caliscope.cameras.camera_array import CameraData
 
-    extra_cameras[99] = CameraData(port=99, size=[640, 480], matrix=np.eye(3), distortions=np.zeros(5))
+    extra_cameras[99] = CameraData(port=99, size=(640, 480), matrix=np.eye(3), distortions=np.zeros(5))
 
     test_array = CameraArray(extra_cameras)
     network.apply_to(test_array)

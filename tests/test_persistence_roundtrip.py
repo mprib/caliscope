@@ -18,7 +18,7 @@ def create_test_camera_array() -> CameraArray:
     cameras = {
         0: CameraData(
             port=0,
-            size=[1920, 1080],
+            size=(1920, 1080),
             rotation_count=0,
             error=0.5,
             matrix=np.array([[1000, 0, 960], [0, 1000, 540], [0, 0, 1]], dtype=np.float64),
@@ -32,7 +32,7 @@ def create_test_camera_array() -> CameraArray:
         ),
         1: CameraData(
             port=1,
-            size=[1280, 720],
+            size=(1280, 720),
             rotation_count=1,
             error=0.7,
             matrix=np.array([[800, 0, 640], [0, 800, 360], [0, 0, 1]], dtype=np.float64),
@@ -46,7 +46,7 @@ def create_test_camera_array() -> CameraArray:
         ),
         2: CameraData(
             port=2,
-            size=[640, 480],
+            size=(640, 480),
             rotation_count=0,
             error=None,  # Intrinsic-only camera
             matrix=np.array([[400, 0, 320], [0, 400, 240], [0, 0, 1]], dtype=np.float64),

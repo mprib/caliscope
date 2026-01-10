@@ -52,7 +52,7 @@ class FramePacket:
     port: int
     frame_index: int
     frame_time: float
-    frame: NDArray[np.float64]
+    frame: NDArray[Any] | None  # None for end-of-stream markers
     points: PointPacket | None = None
     draw_instructions: Callable | None = None
 
@@ -84,7 +84,10 @@ class FramePacket:
         return table
 
     @property
-    def frame_with_points(self):
+    def frame_with_points(self) -> NDArray[Any] | None:
+        if self.frame is None:
+            return None
+
         if self.points is not None and self.draw_instructions is not None:
             drawn_frame = self.frame.copy()
             ids = self.points.point_id

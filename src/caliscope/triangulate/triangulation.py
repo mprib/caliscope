@@ -12,7 +12,9 @@ from caliscope.cameras.camera_array import CameraArray
 logger = logging.getLogger(__name__)
 
 
-def triangulate_from_files(camera_array_path: Path, image_point_path: Path, output_path: Path = None) -> pd.DataFrame:
+def triangulate_from_files(
+    camera_array_path: Path, image_point_path: Path, output_path: Path | None = None
+) -> pd.DataFrame:
     """
     Triangulate 2D points to 3D using camera calibration from config.toml
 

@@ -56,8 +56,8 @@ class CharucoTracker(Tracker):
         return self.charuco.get_connected_points()
 
     def find_corners_single_frame(self, gray_frame, mirror):
-        ids = np.array([])
-        img_loc = np.array([])
+        ids = np.array([], dtype=np.int32)
+        img_loc = np.empty((0, 2), dtype=np.float64)
 
         # detect if aruco markers are present
         aruco_corners, aruco_ids, rejected = cv2.aruco.detectMarkers(gray_frame, self.dictionary_object)
@@ -104,7 +104,7 @@ class CharucoTracker(Tracker):
                 corners = np.column_stack([corners, np.zeros(len(ids))])
             return corners
         else:
-            return np.array([])
+            return np.empty((0, 3), dtype=np.float64)
 
     # @property
     def scatter_draw_instructions(self, point_id: int) -> dict:

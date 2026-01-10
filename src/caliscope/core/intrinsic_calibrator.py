@@ -89,7 +89,7 @@ class IntrinsicCalibrator:
         """
         index = frame_packet.frame_index
 
-        if index != -1:  # indicates end of stream
+        if index != -1 and frame_packet.points is not None:
             self.all_ids[index] = frame_packet.points.point_id
             self.all_img_loc[index] = frame_packet.points.img_loc
             self.all_obj_loc[index] = frame_packet.points.obj_loc

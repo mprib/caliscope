@@ -11,6 +11,7 @@ from collections import defaultdict
 from itertools import combinations
 
 import cv2
+import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 
@@ -128,7 +129,7 @@ class Charuco:
             (self.board_width_scaled(pixmap_scale=pixmap_scale), self.board_height_scaled(pixmap_scale=pixmap_scale))
         )
         if self.inverted:
-            img = ~img
+            img = cv2.bitwise_not(img)
 
         return img
 
@@ -171,7 +172,8 @@ class Charuco:
         The return value is a *set* not a list
         """
         # create sets of the vertical and horizontal line positions
-        corners = self.board.getChessboardCorners()
+        # getChessboardCorners returns MatLike; convert to ndarray for indexing
+        corners = np.asarray(self.board.getChessboardCorners())
         corners_x = corners[:, 0]
         corners_y = corners[:, 1]
         x_set = set(corners_x)
@@ -204,8 +206,8 @@ class Charuco:
         Given an array of corner IDs, provide an array of their relative
         position in a board frame of reference, originating from a corner position.
         """
-
-        return self.board.chessboardCorners()[corner_ids, :]
+        corners = np.asarray(self.board.getChessboardCorners())
+        return corners[corner_ids, :]
 
     def summary(self):
         text = f"Columns: {self.columns}\n"

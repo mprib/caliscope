@@ -117,4 +117,5 @@ dev = [
     "pre-commit",
     "openpyxl",
     "pywinctl",
+    "pandas-stubs>=2.3.3.251219",
 ]

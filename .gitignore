@@ -38,3 +38,4 @@ build/lib/caliscope
 branch_notes.md
 AGENTS.md
 CLAUDE.md
+tests/tmp

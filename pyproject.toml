@@ -22,6 +22,7 @@ dependencies = [
     "pyvista>=0.46.4",
     "pyvistaqt>=0.11.3",
     "pyside6-essentials>=6.10.1",
+    "av>=16.0.0,<16.1.0",  # 16.1.0 lacks Linux wheels as of 2025-01 - revisit
 ]
 
 

@@ -1,5 +1,6 @@
 scripts/*
 !scripts/ralph_wiggum_viz/
+!scripts/benchmark_frame_seeking.py
 scripts/ralph_wiggum_viz/output/
 tests/debug/*
 *context.txt

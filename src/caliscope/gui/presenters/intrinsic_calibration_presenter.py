@@ -244,7 +244,7 @@ class IntrinsicCalibrationPresenter(QObject):
         # Clean up stream
         if self._stream is not None:
             self._stream.unsubscribe(self._frame_queue)
-            self._stream.capture.release()
+            self._stream.close()
             self._stream = None
 
         # Drain queue

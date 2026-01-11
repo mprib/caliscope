@@ -3,8 +3,6 @@ from pathlib import Path
 from queue import Queue
 from time import sleep
 
-import cv2
-
 from caliscope import __root__
 from caliscope.cameras.camera_array import CameraData
 from caliscope.core.charuco import Charuco
@@ -61,12 +59,7 @@ def test_stream():
             # frame_index should match the jump target (the frame we just displayed)
             assert stream.frame_index == 20
 
-            logger.info(f"After attempting to jump to target frame {target_frame} ")
-            # OpenCV's CAP_PROP_POS_FRAMES returns the NEXT frame to be read
-            next_frame_position = int(stream.capture.get(cv2.CAP_PROP_POS_FRAMES))
-            logger.info(f"Next frame position is {next_frame_position}")
-            # After reading frame 20, capture position advances to 21
-            assert next_frame_position == 21
+            logger.info(f"After attempting to jump to target frame {target_frame}")
             stream.unpause()
 
         # cv2.imshow("Test", frame_packet.frame_with_points)

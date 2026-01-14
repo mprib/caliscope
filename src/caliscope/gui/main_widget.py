@@ -22,9 +22,6 @@ from caliscope import APP_SETTINGS_PATH, LOG_DIR, __root__
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.controller import Controller
 from caliscope.task_manager import TaskHandle
-from caliscope.gui.camera_management.multiplayback_widget import (
-    MultiIntrinsicPlaybackWidget,
-)
 from caliscope.gui.charuco_widget import CharucoWidget
 from caliscope.gui.log_widget import LogWidget
 from caliscope.gui.post_processing_widget import PostProcessingWidget
@@ -106,15 +103,9 @@ class MainWindow(QMainWindow):
         self.charuco_widget = CharucoWidget(self.controller)
         self.central_tab.addTab(self.charuco_widget, "Charuco")
 
-        logger.info("About to load Camera tab")
-        if self.controller.cameras_loaded:
-            logger.info("Creating MultiIntrinsic Playback Widget")
-            self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
-            logger.info("MultiIntrinsic Playback Widget created")
-        else:
-            self.intrinsic_cal_widget = QWidget()
-
-        logger.info("finished loading camera tab")
+        # Camera tab disabled until new architecture is wired in (epic #885)
+        logger.info("Camera tab disabled until new architecture is wired in")
+        self.intrinsic_cal_widget = QWidget()
         self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras")
         self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"), self.controller.cameras_loaded)
         logger.info("Camera tab enabled")

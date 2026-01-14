@@ -20,7 +20,6 @@ from caliscope.repositories import (
     CharucoRepository,
     ProjectSettingsRepository,
 )
-from caliscope.managers.intrinsic_stream_manager import IntrinsicStreamManager
 from caliscope.post_processing.post_processor import PostProcessor
 from caliscope.managers.synchronized_stream_manager import (
     SynchronizedStreamManager,
@@ -133,10 +132,8 @@ class Controller(QObject):
             logger.info("Assessing whether to load cameras")
             if self.workspace_guide.all_instrinsic_mp4s_available(self.camera_count):
                 self.load_camera_array()
-                self.load_intrinsic_stream_manager()
-                self.cameras_loaded = True
-            else:
-                self.cameras_loaded = False
+            # Camera tab disabled until new architecture is wired in (epic #885)
+            self.cameras_loaded = False
 
             logger.info("Assessing whether to load capture volume")
             if self.all_extrinsics_estimated():
@@ -207,10 +204,6 @@ class Controller(QObject):
         self.charuco_repository.save(self.charuco)
         self.charuco_tracker = CharucoTracker(self.charuco)
 
-        if hasattr(self, "intrinsic_stream_manager"):
-            logger.info("Updating charuco within the intrinsic stream manager")
-            self.intrinsic_stream_manager.update_charuco(self.charuco_tracker)
-
     def get_charuco_params(self) -> dict:
         return self.charuco.__dict__
 
@@ -222,15 +215,6 @@ class Controller(QObject):
             all_camera_data=self.camera_array.cameras,
             tracker=self.charuco_tracker,
         )
-
-    def load_intrinsic_stream_manager(self):
-        """Initialize stream manager for intrinsic calibration videos."""
-        self.intrinsic_stream_manager = IntrinsicStreamManager(
-            recording_dir=self.workspace_guide.intrinsic_dir,
-            cameras=self.camera_array.cameras,
-            tracker=self.charuco_tracker,
-        )
-        logger.info("Intrinsic stream manager has loaded")
 
     def load_camera_array(self):
         """
@@ -266,92 +250,12 @@ class Controller(QObject):
         self.camera_array.cameras[port] = new_cam_data
         self.camera_repository.save(self.camera_array)
 
-    def get_intrinsic_stream_frame_count(self, port):
-        """Get frame count for intrinsic stream at given port."""
-        return self.intrinsic_stream_manager.get_frame_count(port)
-
-    def play_intrinsic_stream(self, port):
-        """Begin playback of intrinsic stream."""
-        logger.info(f"Begin playing stream at port {port}")
-        self.intrinsic_stream_manager.play_stream(port)
-
-    def pause_intrinsic_stream(self, port):
-        """Pause intrinsic stream playback."""
-        logger.info(f"Pausing stream at port {port}")
-        self.intrinsic_stream_manager.pause_stream(port)
-
-    def unpause_intrinsic_stream(self, port):
-        """Resume paused intrinsic stream."""
-        logger.info(f"Unpausing stream at port {port}")
-        self.intrinsic_stream_manager.unpause_stream(port)
-
-    def stream_jump_to(self, port, frame_index):
-        """Seek intrinsic stream to specific frame."""
-        logger.info(f"Jump to frame {frame_index} at port {port}")
-        self.intrinsic_stream_manager.stream_jump_to(port, frame_index)
-
-    def end_stream(self, port):
-        """Terminate stream playback and release resources."""
-        self.intrinsic_stream_manager.end_stream(port)
-
-    def add_calibration_grid(self, port: int, frame_index: int):
-        """Add calibration grid point at specific frame."""
-        self.intrinsic_stream_manager.add_calibration_grid(port, frame_index)
-
-    def clear_calibration_data(self, port: int):
-        """Clear all calibration data for a camera."""
-        self.intrinsic_stream_manager.clear_calibration_data(port)
-
-    def scale_intrinsic_stream(self, port, new_scale):
-        """Adjust display scale of intrinsic stream."""
-        self.intrinsic_stream_manager.frame_emitters[port].set_scale_factor(new_scale)
-
-    def calibrate_camera(self, port):
-        """Calibrate single camera in worker thread."""
-
-        def worker(_token, _handle):
-            if self.intrinsic_stream_manager.calibrators[port].grid_count > 0:
-                self.enable_inputs.emit(port, False)
-                self.camera_array.cameras[port].erase_calibration_data()
-                logger.info(f"Calibrating camera at port {port}")
-                self.intrinsic_stream_manager.calibrate_camera(port)
-
-                camera_data = self.camera_array.cameras[port]
-                self.camera_repository.save_camera(camera_data)
-                self.push_camera_data(port)
-                self.enable_inputs.emit(port, True)
-            else:
-                logger.warning("Not enough grids available to calibrate")
-
-        self.task_manager.submit(worker, name=f"calibrate_camera_{port}")
-
     def push_camera_data(self, port):
         """Emit signal with updated camera display data."""
         logger.info(f"Pushing camera data for port {port}")
         camera_display_data = self.camera_array.cameras[port].get_display_data()
         logger.info(f"camera display data is {camera_display_data}")
         self.new_camera_data.emit(port, camera_display_data)
-
-    def apply_distortion(self, port: int, undistort: bool):
-        """Toggle distortion correction for stream display."""
-        self.intrinsic_stream_manager.apply_distortion(port, undistort)
-
-    def rotate_camera(self, port, change):
-        """Adjust camera rotation count and persist."""
-        camera_data = self.camera_array.cameras[port]
-        count = camera_data.rotation_count
-        count += change
-        if count in [-4, 4]:
-            # reset if it completes a revolution
-            camera_data.rotation_count = 0
-        else:
-            camera_data.rotation_count = count
-
-        # note that extrinsic streams not altered.... just reload an replay
-        self.intrinsic_stream_manager.set_stream_rotation(port, camera_data.rotation_count)
-
-        self.push_camera_data(port)
-        self.camera_repository.save_camera(camera_data)
 
     def load_estimated_capture_volume(self):
         """
@@ -516,29 +420,3 @@ class Controller(QObject):
             self.capture_volume_repository.save_capture_volume(capture_volume)
 
         self.task_manager.submit(worker, name="set_capture_volume_origin")
-
-    def autocalibrate(self, port, grid_count, board_threshold):
-        """Auto-calibrate camera in worker thread."""
-
-        def worker(token, _handle):
-            self.enable_inputs.emit(port, False)
-            self.camera_array.cameras[port].erase_calibration_data()
-            self.camera_repository.save_camera(self.camera_array.cameras[port])
-            self.push_camera_data(port)
-
-            logger.info(f"Initiate autocalibration of grids for port {port}")
-            self.intrinsic_stream_manager.autocalibrate(port, grid_count, board_threshold)
-
-            while self.camera_array.cameras[port].matrix is None:
-                logger.info(f"Waiting for calibration to complete at port {port}")
-                if token.sleep_unless_cancelled(2):
-                    # User cancelled - re-enable inputs and exit
-                    self.enable_inputs.emit(port, True)
-                    return
-
-            self.camera_repository.save_camera(self.camera_array.cameras[port])
-            self.push_camera_data(port)
-            self.intrinsic_stream_manager.stream_jump_to(port, 0)
-            self.enable_inputs.emit(port, True)
-
-        self.task_manager.submit(worker, name=f"autocalibrate_{port}")

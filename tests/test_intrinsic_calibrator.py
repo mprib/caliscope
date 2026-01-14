@@ -10,7 +10,7 @@ from caliscope.core.charuco import Charuco
 from caliscope.core.intrinsic_calibrator import IntrinsicCalibrator
 from caliscope.cameras.camera_array import CameraData
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.recording import create_publisher
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
 logger = logging.getLogger(__name__)
@@ -27,23 +27,26 @@ def test_intrinsic_calibrator(tmp_path: Path):
 
     charuco_tracker = CharucoTracker(charuco)
 
-    stream_camera = CameraData(port=1, size=(640, 480))  # placeholder; stream reads actual from video
-    stream = RecordedStream(recording_directory, camera=stream_camera, tracker=charuco_tracker)
+    publisher = create_publisher(
+        video_directory=recording_directory,
+        port=1,
+        tracker=charuco_tracker,
+    )
 
-    camera = CameraData(port=0, size=stream.size)  # fresh camera for calibration
+    camera = CameraData(port=0, size=publisher.size)  # fresh camera for calibration
 
     assert camera.rotation is None
     assert camera.translation is None
     assert camera.matrix is None
     assert camera.distortions is None
 
-    intrinsic_calibrator = IntrinsicCalibrator(camera, stream)
+    intrinsic_calibrator = IntrinsicCalibrator(camera, publisher)
 
     frame_q = Queue()
-    stream.subscribe(frame_q)
+    publisher.subscribe(frame_q)
 
-    stream.play_video()
-    stream.pause()
+    publisher.start()
+    publisher.pause()
 
     packet = frame_q.get()  # pull off frame 0 to clear queue
 
@@ -53,15 +56,15 @@ def test_intrinsic_calibrator(tmp_path: Path):
 
     test_frames = [3, 5, 7, 9, 20, 25]
     for i in test_frames:
-        stream.jump_to(i)
+        publisher.jump_to(i)
         packet = frame_q.get()
         assert i == packet.frame_index
         logger.info(packet.frame_index)
         intrinsic_calibrator.add_frame_packet(packet)
         intrinsic_calibrator.add_calibration_frame_index(packet.frame_index)
 
-    stream.unpause()
-    stream.stop()
+    publisher.unpause()
+    publisher.stop()
     intrinsic_calibrator.stop_event.set()
 
     logger.info(camera.get_display_data())
@@ -89,24 +92,27 @@ def test_autopopulate_data(tmp_path: Path):
 
     charuco_tracker = CharucoTracker(charuco)
 
-    stream_camera = CameraData(port=1, size=(640, 480))  # placeholder; stream reads actual from video
-    stream = RecordedStream(recording_directory, camera=stream_camera, tracker=charuco_tracker)
+    publisher = create_publisher(
+        video_directory=recording_directory,
+        port=1,
+        tracker=charuco_tracker,
+        fps_target=100,  # Fast playback for autopopulation
+    )
 
-    camera = CameraData(port=0, size=stream.size)  # fresh camera for calibration
+    camera = CameraData(port=0, size=publisher.size)  # fresh camera for calibration
 
     assert camera.rotation is None
     assert camera.translation is None
     assert camera.matrix is None
     assert camera.distortions is None
 
-    intrinsic_calibrator = IntrinsicCalibrator(camera, stream)
+    intrinsic_calibrator = IntrinsicCalibrator(camera, publisher)
 
     # handy way to peek into what is going on
     frame_q = Queue()
-    stream.subscribe(frame_q)
-    stream.set_fps_target(100)
-    stream.play_video()
-    stream.pause()
+    publisher.subscribe(frame_q)
+    publisher.start()
+    publisher.pause()
 
     _ = frame_q.get()  # pull off frame 0 to clear queue
 
@@ -119,8 +125,8 @@ def test_autopopulate_data(tmp_path: Path):
         target_grid_count=target_grid_count,
     )
 
-    stream.jump_to(0)
-    stream.unpause()
+    publisher.jump_to(0)
+    publisher.unpause()
 
     while intrinsic_calibrator.auto_store_data.is_set():
         actual_grid_count = len(intrinsic_calibrator.calibration_frame_indices)

@@ -8,24 +8,24 @@ import numpy as np
 
 from caliscope.cameras.camera_array import CameraData
 from caliscope.packets import FramePacket
-from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.recording import FramePacketPublisher
 
 logger = logging.getLogger(__name__)
 
 
 class IntrinsicCalibrator:
     """
-    Takes a recorded stream and determines a CameraData object from it
-    Stream needs to have a charuco tracker assigned to it
+    Takes a FramePacketPublisher and determines a CameraData object from it.
+    Publisher needs to have a charuco tracker assigned to it.
     """
 
-    def __init__(self, camera_data: CameraData, stream: RecordedStream):
+    def __init__(self, camera_data: CameraData, publisher: FramePacketPublisher):
         self.camera = camera_data  # pointer needed to update params
-        self.stream = stream
+        self.publisher = publisher
         self.initialize_point_history()
 
         self.frame_packet_q = Queue()
-        self.stream.subscribe(self.frame_packet_q)
+        self.publisher.subscribe(self.frame_packet_q)
 
         # The following group of parameters relate to the autopopulation of the calibrator
         self.grid_history_q = Queue()  # for passing ids, img_loc used in calibration
@@ -50,7 +50,7 @@ class IntrinsicCalibrator:
 
                 self.add_frame_packet(frame_packet)
 
-            logger.info(f"Harvest frames successfully ended in calibrator for port {self.stream.port}")
+            logger.info(f"Harvest frames successfully ended in calibrator for port {self.publisher.port}")
 
         self.harvest_thread = Thread(target=harvest_worker, args=[], daemon=True)
         self.harvest_thread.start()
@@ -58,7 +58,7 @@ class IntrinsicCalibrator:
     def stop(self):
         logger.info("Beginning to stop intrinsic calibrator")
         self.stop_event.set()
-        self.stream.unsubscribe(self.frame_packet_q)
+        self.publisher.unsubscribe(self.frame_packet_q)
         self.frame_packet_q.put(-1)
 
     @property
@@ -115,7 +115,7 @@ class IntrinsicCalibrator:
                     self.auto_pop_frame_wait = max(self.auto_pop_frame_wait - 1, 0)
 
                 logger.debug(f"Current index is {index}")
-                if index == self.stream.last_frame_index:
+                if index == self.publisher.last_frame_index:
                     # end of stream, so stop auto pop and backfill to hit grid target
                     logger.info("End of autopop detected...")
                     self.auto_store_data.clear()
@@ -212,8 +212,8 @@ class IntrinsicCalibrator:
 
         logger.info(f"Calibrating camera {self.camera.port}....")
 
-        width = self.stream.size[0]
-        height = self.stream.size[1]
+        width = self.publisher.size[0]
+        height = self.publisher.size[1]
 
         if self.camera.fisheye:
             # Convert to float32 and RESHAPE to add the required channel dimension

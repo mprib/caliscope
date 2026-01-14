@@ -1,5 +1,6 @@
 """Tests for FrameSource - raw video frame access."""
 
+from collections.abc import Generator
 from pathlib import Path
 
 import numpy as np
@@ -8,14 +9,15 @@ import pytest
 from caliscope.recording.frame_source import FrameSource
 
 
-# Test video path - use existing test session data
-TEST_VIDEO = Path(__file__).parent / "sessions/4_cam_recording/calibration/extrinsic/port_0.mp4"
+# Test video directory and port
+TEST_VIDEO_DIR = Path(__file__).parent / "sessions/4_cam_recording/calibration/extrinsic"
+TEST_PORT = 0
 
 
 @pytest.fixture
-def frame_source() -> FrameSource:
+def frame_source() -> Generator[FrameSource, None, None]:
     """Create a FrameSource for testing."""
-    source = FrameSource(TEST_VIDEO)
+    source = FrameSource(TEST_VIDEO_DIR, TEST_PORT)
     yield source
     source.close()
 
@@ -38,9 +40,14 @@ class TestFrameSourceProperties:
         """last_frame_index is frame_count - 1."""
         assert frame_source.last_frame_index == frame_source.frame_count - 1
 
-    def test_video_path_stored(self, frame_source: FrameSource) -> None:
-        """video_path is stored for reference."""
-        assert frame_source.video_path == TEST_VIDEO
+    def test_port_stored(self, frame_source: FrameSource) -> None:
+        """port is stored from constructor."""
+        assert frame_source.port == TEST_PORT
+
+    def test_video_path_constructed(self, frame_source: FrameSource) -> None:
+        """video_path is constructed from directory and port."""
+        expected_path = TEST_VIDEO_DIR / f"port_{TEST_PORT}.mp4"
+        assert frame_source.video_path == expected_path
 
 
 class TestSequentialReading:
@@ -180,14 +187,14 @@ class TestContextManager:
 
     def test_context_manager_opens_and_closes(self) -> None:
         """Context manager properly opens and closes resources."""
-        with FrameSource(TEST_VIDEO) as source:
+        with FrameSource(TEST_VIDEO_DIR, TEST_PORT) as source:
             frame = source.read_frame()
             assert frame is not None
 
     def test_context_manager_closes_on_exception(self) -> None:
         """Context manager closes resources even on exception."""
         try:
-            with FrameSource(TEST_VIDEO) as source:
+            with FrameSource(TEST_VIDEO_DIR, TEST_PORT) as source:
                 _ = source.read_frame()
                 raise ValueError("Test exception")
         except ValueError:
@@ -223,10 +230,15 @@ class TestResourceManagement:
 class TestInvalidInput:
     """Test handling of invalid inputs."""
 
-    def test_nonexistent_file_raises(self) -> None:
-        """Opening non-existent file raises exception."""
-        with pytest.raises(Exception):  # av.AVError
-            FrameSource(Path("/nonexistent/video.mp4"))
+    def test_nonexistent_directory_raises(self) -> None:
+        """Opening non-existent directory raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            FrameSource(Path("/nonexistent/directory"), 0)
+
+    def test_nonexistent_port_raises(self) -> None:
+        """Opening non-existent port raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            FrameSource(TEST_VIDEO_DIR, 999)
 
     def test_negative_frame_index_returns_none(self, frame_source: FrameSource) -> None:
         """Negative frame index returns None (bounds checking)."""
@@ -242,13 +254,15 @@ if __name__ == "__main__":
     debug_dir.mkdir(parents=True, exist_ok=True)
 
     # Test basic functionality
-    print(f"Test video: {TEST_VIDEO}")
-    print(f"Exists: {TEST_VIDEO.exists()}")
+    print(f"Test video dir: {TEST_VIDEO_DIR}")
+    print(f"Test port: {TEST_PORT}")
+    print(f"Dir exists: {TEST_VIDEO_DIR.exists()}")
 
-    with FrameSource(TEST_VIDEO) as source:
+    with FrameSource(TEST_VIDEO_DIR, TEST_PORT) as source:
         print(f"Frame count: {source.frame_count}")
         print(f"FPS: {source.fps}")
         print(f"Size: {source.size}")
+        print(f"Port: {source.port}")
         print(f"Start index: {source.start_frame_index}")
         print(f"Last index: {source.last_frame_index}")
 

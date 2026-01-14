@@ -7,7 +7,7 @@ import cv2
 from caliscope.cameras.camera_array import CameraData
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.tracker import Tracker
-from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.recording import FramePacketPublisher, create_publisher
 from caliscope.recording.video_recorder import VideoRecorder
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
@@ -43,25 +43,11 @@ class SynchronizedStreamManager:
         self.output_dir = Path(self.recording_dir, self.subfolder_name)
 
         self.load_video_properties()
-        # To be filled when loading stream tools
-        self.load_stream_tools()
 
-    def load_stream_tools(self):
-        self.streams = {}
-
-        for camera in self.all_camera_data.values():
-            stream = RecordedStream(
-                directory=self.recording_dir,
-                camera=camera,
-                tracker=self.tracker,
-                break_on_last=True,
-            )
-
-            self.streams[camera.port] = stream
-
-        logger.info(f"Creating synchronizer based off of streams: {self.streams}")
-        self.synchronizer = Synchronizer(self.streams)
-        self.recorder = VideoRecorder(self.synchronizer, suffix=self.subfolder_name)
+        # Initialized lazily in process_streams()
+        self.publishers: dict[int, FramePacketPublisher] = {}
+        self.synchronizer: Synchronizer | None = None
+        self.recorder: VideoRecorder | None = None
 
     def process_streams(self, fps_target: int | None = None, include_video: bool = True) -> None:
         """
@@ -70,6 +56,26 @@ class SynchronizedStreamManager:
         Default behavior is to process streams at the mean frame rate they were recorded at.
         But this can be overridden with a new fps_target
         """
+        if fps_target is None:
+            fps_target = int(self.mean_fps)
+
+        # Create publishers with fps_target
+        self.publishers = {}
+        for camera in self.all_camera_data.values():
+            publisher = create_publisher(
+                video_directory=self.recording_dir,
+                port=camera.port,
+                rotation_count=camera.rotation_count,
+                tracker=self.tracker,
+                fps_target=fps_target,
+                break_on_last=True,
+            )
+            self.publishers[camera.port] = publisher
+
+        logger.info(f"Creating synchronizer based off of publishers: {self.publishers}")
+        self.synchronizer = Synchronizer(self.publishers)
+        self.recorder = VideoRecorder(self.synchronizer, suffix=self.subfolder_name)
+
         logger.info(f"beginning to create recording for files saved to {self.output_dir}")
         self.recorder.start_recording(
             self.output_dir,
@@ -78,15 +84,9 @@ class SynchronizedStreamManager:
             store_point_history=True,
         )
 
-        if fps_target is None:
-            fps_target = self.mean_fps
-
-        logger.info(f"About to start playing video streams to be processed. Streams: {self.streams}")
-        for port, stream in self.streams.items():
-            if fps_target is not None:
-                stream.set_fps_target(fps_target)
-
-            stream.play_video()
+        logger.info(f"About to start playing video publishers. Publishers: {self.publishers}")
+        for port, publisher in self.publishers.items():
+            publisher.start()
 
     def load_video_properties(self):
         fps = []

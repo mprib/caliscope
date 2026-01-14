@@ -34,27 +34,33 @@ class FrameSource:
     the internal iterator is naturally exhausted or a new FrameSource is created.
     """
 
-    def __init__(self, video_path: Path) -> None:
+    def __init__(self, video_directory: Path, port: int) -> None:
         """Open a video file for frame access.
 
         Args:
-            video_path: Path to the video file to open.
+            video_directory: Directory containing port_N.mp4 video files.
+            port: Camera port number (used to construct filename).
 
         Raises:
             ValueError: If the video stream lacks required metadata.
+            FileNotFoundError: If the video file doesn't exist.
         """
-        self.video_path = video_path
+        self.port = port
+        self.video_path = video_directory / f"port_{port}.mp4"
 
-        self._container = av.open(str(video_path))
+        if not self.video_path.exists():
+            raise FileNotFoundError(f"Video file not found: {self.video_path}")
+
+        self._container = av.open(str(self.video_path))
         self._video_stream = self._container.streams.video[0]
         self._lock = Lock()
         self._frame_iterator: Iterator[VideoFrame] | None = None
 
         # Validate stream metadata
         if self._video_stream.time_base is None:
-            raise ValueError(f"Video stream has no time_base: {video_path}")
+            raise ValueError(f"Video stream has no time_base: {self.video_path}")
         if self._video_stream.average_rate is None:
-            raise ValueError(f"Video stream has no average_rate: {video_path}")
+            raise ValueError(f"Video stream has no average_rate: {self.video_path}")
 
         self._time_base = float(self._video_stream.time_base)
         self.fps = float(self._video_stream.average_rate)

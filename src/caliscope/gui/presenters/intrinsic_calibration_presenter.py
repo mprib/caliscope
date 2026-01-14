@@ -26,7 +26,7 @@ from caliscope.core.calibrate_intrinsics import (
 from caliscope.core.frame_selector import select_calibration_frames
 from caliscope.core.point_data import ImagePoints
 from caliscope.packets import FramePacket, PointPacket
-from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.recording import FramePacketPublisher, create_publisher
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
@@ -105,7 +105,7 @@ class IntrinsicCalibrationPresenter(QObject):
         self._calibration_task: TaskHandle | None = None
 
         # Collection state
-        self._stream: RecordedStream | None = None
+        self._publisher: FramePacketPublisher | None = None
         self._stream_handle: TaskHandle | None = None
         self._frame_queue: Queue[FramePacket] = Queue()  # From RecordedStream
         self._display_queue: Queue[FramePacket | None] = Queue()  # For View consumption
@@ -194,14 +194,15 @@ class IntrinsicCalibrationPresenter(QObject):
         self._calibration_task = None
         self._stream_handle = None
 
-        # Create stream with tracker
-        self._stream = RecordedStream(
-            directory=self._video_path.parent,
-            camera=self._camera,
+        # Create publisher with tracker
+        self._publisher = create_publisher(
+            video_directory=self._video_path.parent,
+            port=self._camera.port,
+            rotation_count=self._camera.rotation_count,
             tracker=self._tracker,
             break_on_last=True,
         )
-        self._stream.subscribe(self._frame_queue)
+        self._publisher.subscribe(self._frame_queue)
 
         # Start consumer thread
         self._stop_event.clear()
@@ -214,8 +215,8 @@ class IntrinsicCalibrationPresenter(QObject):
 
         # Start playback via TaskManager
         self._stream_handle = self._task_manager.submit(
-            self._stream.play_worker,
-            name=f"Stream port {self._port}",
+            self._publisher.play_worker,
+            name=f"Publisher port {self._port}",
         )
 
     def stop_calibration(self) -> None:
@@ -241,11 +242,11 @@ class IntrinsicCalibrationPresenter(QObject):
             self._consumer_thread.join(timeout=2.0)
             self._consumer_thread = None
 
-        # Clean up stream
-        if self._stream is not None:
-            self._stream.unsubscribe(self._frame_queue)
-            self._stream.close()
-            self._stream = None
+        # Clean up publisher
+        if self._publisher is not None:
+            self._publisher.unsubscribe(self._frame_queue)
+            self._publisher.close()
+            self._publisher = None
 
         # Drain queue
         while not self._frame_queue.empty():

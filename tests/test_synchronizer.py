@@ -25,7 +25,7 @@ def test_synchronizer(tmp_path: Path):
     logger.info(f"Copying over files from {original_session_path} to {tmp_path} for testing purposes")
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    logger.info("Creating RecordedStreamPool")
+    logger.info("Creating publishers")
     recording_directory = Path(tmp_path, "recordings", "recording_1")
 
     camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")

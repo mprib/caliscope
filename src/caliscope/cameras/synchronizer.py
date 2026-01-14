@@ -44,10 +44,6 @@ class Synchronizer:
         self.initialize_ledgers()
         self.start()
 
-    def set_tracking_on_streams(self, track: bool):
-        for port, stream in self.streams.items():
-            stream.set_tracking_on(track)
-
     def update_dropped_frame_history(self):
         if self.current_sync_packet is None:
             return

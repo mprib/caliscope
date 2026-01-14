@@ -107,7 +107,7 @@ class IntrinsicCalibrationPresenter(QObject):
         # Collection state
         self._publisher: FramePacketPublisher | None = None
         self._stream_handle: TaskHandle | None = None
-        self._frame_queue: Queue[FramePacket] = Queue()  # From RecordedStream
+        self._frame_queue: Queue[FramePacket] = Queue()  # From FramePacketPublisher
         self._display_queue: Queue[FramePacket | None] = Queue()  # For View consumption
         self._consumer_thread: Thread | None = None
         self._stop_event = Event()
@@ -179,7 +179,7 @@ class IntrinsicCalibrationPresenter(QObject):
     def start_calibration(self) -> None:
         """Start collecting calibration frames.
 
-        Creates RecordedStream with tracker, subscribes to queue,
+        Creates FramePacketPublisher with tracker, subscribes to queue,
         and starts playback. Transitions to COLLECTING state.
         """
         if self.state not in (PresenterState.READY, PresenterState.CALIBRATED):

@@ -15,18 +15,21 @@ logger = logging.getLogger(__name__)
 
 
 class SynchronizedStreamManager:
-    """
-    The primary job of the SynchronizedStreamManager is to take in a directory of concurrently recorded video
-    as well as a Tracker and produce the xy.csv file that is the foundation of both the extrinsic calibration
-    as well as the point triangulation.
+    """Orchestrates batch processing of multi-camera video to extract 2D landmarks.
 
-    Related to this, it also directs where the recorded data will go and builds the DictionaryFrameEmitter
-    that will broadcast a dictionary of frames while they are being processed.
+    Takes a directory of concurrently recorded video and a Tracker, produces xy.csv
+    output that is the foundation of extrinsic calibration and point triangulation.
 
-    Because of this it has substantial and broad responsibilities that include creation of:
-    - streams
-    - synchronizer
-    - video recorder
+    TODO(#890): Refactor to pure function `process_synchronized_recording()` with:
+    - CancellationToken support for graceful shutdown
+    - on_progress callback for TaskManager integration
+    - on_sync_packet callback for live frame display
+    See CLAUDE.md "Planned Refactor: SynchronizedStreamManager" for architecture.
+
+    Current responsibilities:
+    - Create FramePacketPublisher per camera
+    - Create Synchronizer for frame alignment
+    - Create VideoRecorder for output
     """
 
     def __init__(

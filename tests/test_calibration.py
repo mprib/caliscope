@@ -41,8 +41,8 @@ def test_xy_charuco_creation(tmp_path: Path):
     charuco = persistence.load_charuco(tmp_path / "charuco.toml")
     charuco_tracker = CharucoTracker(charuco)
 
-    # create a synchronizer based off of these stream pools
-    logger.info("Creating RecordedStreamPool")
+    # create publishers for synchronized processing
+    logger.info("Creating publishers")
     recording_path = Path(tmp_path, "calibration", "extrinsic")
     point_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
 

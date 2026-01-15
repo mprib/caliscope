@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -140,6 +141,7 @@ class IntrinsicCalibrationDevView(QWidget):
     ):
         super().__init__(parent)
         self._presenter = presenter
+        self._user_dragging = False
 
         self._setup_ui()
         self._setup_processing_thread()
@@ -171,6 +173,20 @@ class IntrinsicCalibrationDevView(QWidget):
         self._status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self._status_label)
 
+        # Position slider row
+        slider_row = QHBoxLayout()
+
+        self._position_slider = QSlider(Qt.Orientation.Horizontal)
+        self._position_slider.setMinimum(0)
+        self._position_slider.setMaximum(max(0, self._presenter.frame_count - 1))
+        slider_row.addWidget(self._position_slider)
+
+        self._frame_counter = QLabel(f"0 / {self._presenter.frame_count - 1}")
+        self._frame_counter.setMinimumWidth(100)
+        slider_row.addWidget(self._frame_counter)
+
+        layout.addLayout(slider_row)
+
         # Controls row
         controls = QHBoxLayout()
 
@@ -200,9 +216,40 @@ class IntrinsicCalibrationDevView(QWidget):
         self._presenter.calibration_complete.connect(self._on_calibration_complete)
         self._presenter.calibration_failed.connect(self._on_calibration_failed)
 
+        # Slider user interaction tracking
+        self._position_slider.sliderPressed.connect(self._on_slider_pressed)
+        self._position_slider.sliderReleased.connect(self._on_slider_released)
+        self._position_slider.valueChanged.connect(self._on_slider_changed)
+
+        # Position tracking from presenter
+        self._presenter.frame_position_changed.connect(self._on_position_changed)
+
     def _on_pixmap_ready(self, pixmap: QPixmap) -> None:
         """Update frame display."""
         self._frame_label.setPixmap(pixmap)
+
+    def _on_slider_pressed(self) -> None:
+        """User started dragging slider."""
+        self._user_dragging = True
+
+    def _on_slider_released(self) -> None:
+        """User released slider."""
+        self._user_dragging = False
+
+    def _on_slider_changed(self, value: int) -> None:
+        """Slider value changed - seek only if user is dragging."""
+        if self._user_dragging and self._position_slider.isEnabled():
+            self._presenter.seek_to(value)
+
+    def _on_position_changed(self, frame_index: int) -> None:
+        """Presenter reports position - update slider and counter."""
+        self._position_slider.blockSignals(True)
+        try:
+            self._position_slider.setValue(frame_index)
+        finally:
+            self._position_slider.blockSignals(False)
+
+        self._frame_counter.setText(f"{frame_index} / {self._presenter.frame_count - 1}")
 
     def _update_ui_for_state(self, state: PresenterState) -> None:
         """Update UI elements based on presenter state."""
@@ -212,18 +259,22 @@ class IntrinsicCalibrationDevView(QWidget):
             self._calibrate_btn.setText("Calibrate")
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(False)
+            self._position_slider.setEnabled(True)
         elif state == PresenterState.COLLECTING:
             self._calibrate_btn.setText("Stop")
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(False)
+            self._position_slider.setEnabled(False)
         elif state == PresenterState.CALIBRATING:
             self._calibrate_btn.setText("Calibrating...")
             self._calibrate_btn.setEnabled(False)
             self._undistort_checkbox.setEnabled(False)
+            self._position_slider.setEnabled(False)
         elif state == PresenterState.CALIBRATED:
             self._calibrate_btn.setText("Recalibrate")
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(True)
+            self._position_slider.setEnabled(True)
 
     def _on_calibrate_clicked(self) -> None:
         """Handle calibrate/stop button click."""
@@ -254,6 +305,9 @@ class IntrinsicCalibrationDevView(QWidget):
         error = calibrated_camera.error or 0.0
         grid_count = calibrated_camera.grid_count or 0
         self._status_label.setText(f"Status: CALIBRATED (RMSE: {error:.3f}px, frames: {grid_count})")
+
+        # Auto-enable undistortion to show calibration effect
+        self._undistort_checkbox.setChecked(True)
 
     def _on_calibration_failed(self, error_msg: str) -> None:
         """Handle calibration failure."""

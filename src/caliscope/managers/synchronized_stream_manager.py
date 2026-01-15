@@ -7,7 +7,7 @@ import cv2
 from caliscope.cameras.camera_array import CameraData
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.tracker import Tracker
-from caliscope.recording import FramePacketPublisher, create_publisher
+from caliscope.recording import FramePacketStreamer, create_streamer
 from caliscope.recording.video_recorder import VideoRecorder
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
@@ -27,7 +27,7 @@ class SynchronizedStreamManager:
     See CLAUDE.md "Planned Refactor: SynchronizedStreamManager" for architecture.
 
     Current responsibilities:
-    - Create FramePacketPublisher per camera
+    - Create FramePacketStreamer per camera
     - Create Synchronizer for frame alignment
     - Create VideoRecorder for output
     """
@@ -48,7 +48,7 @@ class SynchronizedStreamManager:
         self.load_video_properties()
 
         # Initialized lazily in process_streams()
-        self.publishers: dict[int, FramePacketPublisher] = {}
+        self.streamers: dict[int, FramePacketStreamer] = {}
         self.synchronizer: Synchronizer | None = None
         self.recorder: VideoRecorder | None = None
 
@@ -62,21 +62,21 @@ class SynchronizedStreamManager:
         if fps_target is None:
             fps_target = int(self.mean_fps)
 
-        # Create publishers with fps_target
-        self.publishers = {}
+        # Create streamers with fps_target
+        self.streamers = {}
         for camera in self.all_camera_data.values():
-            publisher = create_publisher(
+            streamer = create_streamer(
                 video_directory=self.recording_dir,
                 port=camera.port,
                 rotation_count=camera.rotation_count,
                 tracker=self.tracker,
                 fps_target=fps_target,
-                break_on_last=True,
+                end_behavior="stop",  # Stop at end for batch processing
             )
-            self.publishers[camera.port] = publisher
+            self.streamers[camera.port] = streamer
 
-        logger.info(f"Creating synchronizer based off of publishers: {self.publishers}")
-        self.synchronizer = Synchronizer(self.publishers)
+        logger.info(f"Creating synchronizer based off of streamers: {self.streamers}")
+        self.synchronizer = Synchronizer(self.streamers)
         self.recorder = VideoRecorder(self.synchronizer, suffix=self.subfolder_name)
 
         logger.info(f"beginning to create recording for files saved to {self.output_dir}")
@@ -87,9 +87,9 @@ class SynchronizedStreamManager:
             store_point_history=True,
         )
 
-        logger.info(f"About to start playing video publishers. Publishers: {self.publishers}")
-        for port, publisher in self.publishers.items():
-            publisher.start()
+        logger.info(f"About to start playing video streamers: {self.streamers}")
+        for port, streamer in self.streamers.items():
+            streamer.start()
 
     def load_video_properties(self):
         fps = []

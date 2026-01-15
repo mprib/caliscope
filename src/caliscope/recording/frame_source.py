@@ -49,7 +49,7 @@ class FrameSource:
 
     Typical usage: one owner thread, or explicit external synchronization.
 
-    Note: get_frame() and get_frame_fast() invalidate the sequential read
+    Note: get_frame() and get_nearest_keyframe() invalidate the sequential read
     position. After calling either, read_frame() behavior is undefined until
     the internal iterator is naturally exhausted or a new FrameSource is created.
     """
@@ -216,8 +216,8 @@ class FrameSource:
 
             return None
 
-    def get_frame_fast(self, frame_index: int) -> tuple[np.ndarray | None, int]:
-        """Seek to nearest keyframe and return it with actual index.
+    def get_nearest_keyframe(self, frame_index: int) -> tuple[np.ndarray | None, int]:
+        """Seek to nearest keyframe at or before target.
 
         Fast seeking for scrubbing - returns the keyframe at or before target,
         without decoding forward to the exact frame. O(1) complexity for
@@ -267,7 +267,7 @@ class FrameSource:
             Frame as BGR numpy array, or None at end of file.
 
         Note:
-            Position is undefined after get_frame() or get_frame_fast() calls.
+            Position is undefined after get_frame() or get_nearest_keyframe() calls.
             For predictable sequential reading, use a fresh FrameSource or
             read all frames without seeking.
         """

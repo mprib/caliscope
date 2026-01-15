@@ -50,7 +50,7 @@ class OverlaySettings:
     show_selected_grids: bool = True
 
 
-class FrameProcessingThread(QThread):
+class FrameRenderThread(QThread):
     """Processes raw frames for display - runs off GUI thread.
 
     Reads directly from Presenter's display_queue (no intermediate signal).
@@ -230,9 +230,9 @@ class FrameProcessingThread(QThread):
         self.pixmap_ready.emit(pixmap)
 
     def run(self) -> None:
-        """Main processing loop - reads directly from Presenter's queue."""
+        """Main render loop - reads directly from Presenter's queue."""
         self._keep_running.set()
-        logger.debug(f"Frame processing thread started for port {self._camera.port}")
+        logger.debug(f"Frame render thread started for port {self._camera.port}")
 
         while self._keep_running.is_set():
             try:
@@ -253,7 +253,7 @@ class FrameProcessingThread(QThread):
 
             self._render_packet(packet)
 
-        logger.debug(f"Frame processing thread exiting for port {self._camera.port}")
+        logger.debug(f"Frame render thread exiting for port {self._camera.port}")
 
 
 class IntrinsicCalibrationDevView(QWidget):
@@ -276,7 +276,7 @@ class IntrinsicCalibrationDevView(QWidget):
         self._user_dragging = False
 
         self._setup_ui()
-        self._setup_processing_thread()
+        self._setup_render_thread()
         self._connect_signals()
 
         # Initial UI state
@@ -354,15 +354,15 @@ class IntrinsicCalibrationDevView(QWidget):
 
         layout.addLayout(overlay_row)
 
-    def _setup_processing_thread(self) -> None:
-        """Create and start the frame processing thread."""
-        self._processing_thread = FrameProcessingThread(
+    def _setup_render_thread(self) -> None:
+        """Create and start the frame render thread."""
+        self._render_thread = FrameRenderThread(
             display_queue=self._presenter.display_queue,
             camera=self._presenter.camera,
             presenter=self._presenter,
         )
-        self._processing_thread.pixmap_ready.connect(self._on_pixmap_ready)
-        self._processing_thread.start()
+        self._render_thread.pixmap_ready.connect(self._on_pixmap_ready)
+        self._render_thread.start()
 
     def _connect_signals(self) -> None:
         """Connect presenter signals to view slots."""
@@ -445,26 +445,26 @@ class IntrinsicCalibrationDevView(QWidget):
 
     def _on_undistort_toggled(self, checked: bool) -> None:
         """Handle undistort checkbox toggle."""
-        self._processing_thread.set_undistort(checked, self._presenter.calibrated_camera)
+        self._render_thread.set_undistort(checked, self._presenter.calibrated_camera)
 
         # Show/hide boundary legend based on whether boundary is drawn
-        if self._processing_thread.shows_boundary:
+        if self._render_thread.shows_boundary:
             self._boundary_legend.show()
         else:
             self._boundary_legend.hide()
 
         # Re-render cached frame with new settings (don't jump to frame 0)
-        self._processing_thread.rerender_cached()
+        self._render_thread.rerender_cached()
 
     def _on_overlay_toggled(self) -> None:
         """Handle overlay checkbox toggles."""
-        self._processing_thread.set_overlay_visibility(
+        self._render_thread.set_overlay_visibility(
             current_points=self._current_points_cb.isChecked(),
             accumulated=self._accumulated_cb.isChecked(),
             selected_grids=self._grids_cb.isChecked(),
         )
         # Re-render cached frame with new settings (don't jump to frame 0)
-        self._processing_thread.rerender_cached()
+        self._render_thread.rerender_cached()
 
     def _on_calibration_complete(self, calibrated_camera: CameraData) -> None:
         """Handle successful calibration."""
@@ -484,6 +484,6 @@ class IntrinsicCalibrationDevView(QWidget):
 
     def closeEvent(self, event) -> None:
         """Clean up on close."""
-        self._processing_thread.stop()
-        self._processing_thread.wait(2000)
+        self._render_thread.stop()
+        self._render_thread.wait(2000)
         super().closeEvent(event)

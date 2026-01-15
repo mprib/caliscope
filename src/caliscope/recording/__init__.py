@@ -1,15 +1,15 @@
-"""Recording module - video I/O, timing, and publishing."""
+"""Recording module - video I/O, timing, and streaming."""
 
-from caliscope.recording.frame_packet_publisher import (
-    FramePacketPublisher,
-    create_publisher,
+from caliscope.recording.frame_packet_streamer import (
+    FramePacketStreamer,
+    create_streamer,
 )
 from caliscope.recording.frame_source import FrameSource
 from caliscope.recording.frame_timestamps import FrameTimestamps
 
 __all__ = [
-    "FramePacketPublisher",
+    "FramePacketStreamer",
     "FrameSource",
     "FrameTimestamps",
-    "create_publisher",
+    "create_streamer",
 ]

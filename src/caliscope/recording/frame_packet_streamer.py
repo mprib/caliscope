@@ -1,8 +1,25 @@
-"""Publisher for FramePackets from recorded video.
+"""Streamer for FramePackets from recorded video.
 
-FramePacketPublisher wraps a FrameSource and FrameTimestamps, adding threading,
+FramePacketStreamer wraps a FrameSource and FrameTimestamps, adding threading,
 pub/sub broadcasting, and optional tracking. It's the streaming layer on top
 of the raw video I/O.
+
+Seeking and Pause Handling (lessons learned):
+---------------------------------------------
+1. **Seek failure must not kill the streamer**: When get_frame() returns None
+   (e.g., PyAV can't decode near EOF), we must set skip_read=True to stay at
+   the current position. Otherwise, the next read_frame() call has undefined
+   behavior after a seek and will likely return None, causing premature exit.
+
+2. **Condition variable for responsive pause loop**: The pause loop uses
+   _seek_condition.wait() instead of plain sleep. This allows seek_to() calls
+   to wake the loop immediately via notify(), making scrubbing responsive.
+   Without this, there's up to 0.1s latency on each seek while paused.
+
+3. **last_frame_index uses minimum of timestamps and source**: FrameTimestamps
+   may have entries for frames that aren't actually accessible in the video
+   file. We use min(timestamps, source) to ensure we don't try to seek beyond
+   what's actually readable.
 """
 
 import logging
@@ -10,6 +27,7 @@ from pathlib import Path
 from queue import Queue
 from threading import Condition, Event, Lock, Thread
 from time import perf_counter, sleep
+from typing import Literal
 
 import numpy as np
 
@@ -23,8 +41,8 @@ from caliscope.tracker import Tracker
 logger = logging.getLogger(__name__)
 
 
-class FramePacketPublisher:
-    """Publishes FramePackets from recorded video to subscriber queues.
+class FramePacketStreamer:
+    """Streams FramePackets from recorded video to subscriber queues.
 
     Wraps FrameSource (video I/O) and FrameTimestamps (timing), adding:
     - Pub/sub broadcasting to multiple queues
@@ -47,9 +65,9 @@ class FramePacketPublisher:
         rotation_count: int = 0,
         tracker: Tracker | None = None,
         fps_target: float | None = None,
-        break_on_last: bool = True,
+        end_behavior: Literal["stop", "pause"] = "stop",
     ) -> None:
-        """Initialize the publisher.
+        """Initialize the streamer.
 
         Args:
             frame_source: Video I/O wrapper (provides frames).
@@ -57,13 +75,14 @@ class FramePacketPublisher:
             rotation_count: Camera rotation (0, 1, 2, 3 for 0/90/180/270 degrees).
             tracker: Optional tracker for landmark detection.
             fps_target: Target playback FPS. None = unlimited (as fast as possible).
-            break_on_last: If True, stop at last frame. If False, pause at last frame.
+            end_behavior: What to do at last frame. "stop" broadcasts EOF and exits,
+                "pause" auto-pauses for interactive scrubbing.
         """
         self._frame_source = frame_source
         self._frame_timestamps = frame_timestamps
         self._rotation_count = rotation_count
         self._tracker = tracker
-        self._break_on_last = break_on_last
+        self._end_behavior = end_behavior
 
         # FPS targeting
         self._fps_target = fps_target
@@ -80,10 +99,10 @@ class FramePacketPublisher:
         self._pause_event = Event()
         self._pause_event.clear()
 
-        # Jump request: (frame_index, exact) - latest wins
-        self._pending_jump: tuple[int, bool] | None = None
-        self._jump_lock = Lock()
-        self._jump_condition = Condition(self._jump_lock)
+        # Seek request: (frame_index, exact) - latest wins
+        self._pending_seek: tuple[int, bool] | None = None
+        self._seek_lock = Lock()
+        self._seek_condition = Condition(self._seek_lock)
 
         # Current position
         self._frame_index = frame_timestamps.start_frame_index
@@ -119,8 +138,13 @@ class FramePacketPublisher:
 
     @property
     def last_frame_index(self) -> int:
-        """Last valid frame index."""
-        return self._frame_timestamps.last_frame_index
+        """Last valid frame index (minimum of timestamps and source).
+
+        FrameTimestamps may have entries for frames that aren't actually
+        accessible in the video file. We use min() to ensure we don't try
+        to seek beyond what's actually readable.
+        """
+        return min(self._frame_timestamps.last_frame_index, self._frame_source.last_frame_index)
 
     @property
     def frame_index(self) -> int:
@@ -139,15 +163,15 @@ class FramePacketPublisher:
     def subscribe(self, queue: Queue) -> None:
         """Add a queue to receive FramePackets.
 
-        Thread-safe. Notifies waiting publisher if this is the first subscriber.
+        Thread-safe. Notifies waiting streamer if this is the first subscriber.
         """
         with self._subscriber_condition:
             if queue not in self._subscribers:
-                logger.info(f"Adding subscriber to publisher at port {self.port}")
+                logger.info(f"Adding subscriber to streamer at port {self.port}")
                 self._subscribers.append(queue)
                 self._subscriber_condition.notify()
             else:
-                logger.warning(f"Attempted duplicate subscription at port {self.port}")
+                logger.warning(f"Attempted duplicate subscription to streamer at port {self.port}")
 
     def unsubscribe(self, queue: Queue) -> None:
         """Remove a queue from receiving FramePackets.
@@ -156,7 +180,7 @@ class FramePacketPublisher:
         """
         with self._subscriber_lock:
             if queue in self._subscribers:
-                logger.info(f"Removing subscriber from publisher at port {self.port}")
+                logger.info(f"Removing subscriber from streamer at port {self.port}")
                 self._subscribers.remove(queue)
             else:
                 logger.warning(f"Attempted to unsubscribe non-existent queue at port {self.port}")
@@ -196,41 +220,41 @@ class FramePacketPublisher:
 
     def pause(self) -> None:
         """Pause playback."""
-        logger.info(f"Pausing publisher at port {self.port}")
+        logger.info(f"Pausing streamer at port {self.port}")
         self._pause_event.set()
 
     def unpause(self) -> None:
         """Resume playback."""
-        logger.info(f"Unpausing publisher at port {self.port}")
+        logger.info(f"Unpausing streamer at port {self.port}")
         self._pause_event.clear()
 
-    def jump_to(self, frame_index: int, exact: bool = True) -> None:
+    def seek_to(self, frame_index: int, precise: bool = True) -> None:
         """Request a seek to the specified frame.
 
         Args:
             frame_index: Target frame to seek to.
-            exact: If True, decode to exact frame. If False, seek to nearest
-                   keyframe only (faster for scrubbing).
+            precise: If True, decode to exact frame (slower). If False, seek to
+                nearest keyframe only (faster for scrubbing).
 
-        Note: If multiple jump requests arrive before processing, only the
-        latest is honored (previous pending jumps are dropped).
+        Note: If multiple seek requests arrive before processing, only the
+        latest is honored (previous pending seeks are dropped).
         """
-        with self._jump_condition:
-            logger.info(f"Setting pending jump to frame {frame_index} (exact={exact})")
-            self._pending_jump = (frame_index, exact)
-            self._jump_condition.notify()
+        with self._seek_condition:
+            logger.info(f"Setting pending seek to frame {frame_index} (precise={precise})")
+            self._pending_seek = (frame_index, precise)
+            self._seek_condition.notify()
 
-    def _has_pending_jump(self) -> bool:
-        """Check for pending jump request."""
-        with self._jump_lock:
-            return self._pending_jump is not None
+    def _has_pending_seek(self) -> bool:
+        """Check for pending seek request."""
+        with self._seek_lock:
+            return self._pending_seek is not None
 
-    def _take_pending_jump(self) -> tuple[int, bool] | None:
-        """Take and clear the pending jump request."""
-        with self._jump_lock:
-            jump = self._pending_jump
-            self._pending_jump = None
-            return jump
+    def _take_pending_seek(self) -> tuple[int, bool] | None:
+        """Take and clear the pending seek request."""
+        with self._seek_lock:
+            seek = self._pending_seek
+            self._pending_seek = None
+            return seek
 
     # -------------------------------------------------------------------------
     # FPS Timing
@@ -256,7 +280,7 @@ class FramePacketPublisher:
 
     def start(self) -> None:
         """Start playback in a new thread. Call stop() to terminate."""
-        logger.info(f"Starting publisher for port {self.port}")
+        logger.info(f"Starting streamer for port {self.port}")
         self._internal_token = CancellationToken()
         self._thread = Thread(
             target=self.play_worker,
@@ -272,7 +296,7 @@ class FramePacketPublisher:
         if self._thread is not None:
             self._thread.join(timeout=2.0)
             self._thread = None
-        logger.info(f"Stopped publisher for port {self.port}")
+        logger.info(f"Stopped streamer for port {self.port}")
 
     def close(self) -> None:
         """Release all resources."""
@@ -357,7 +381,7 @@ class FramePacketPublisher:
 
                 # Handle last frame
                 if self._frame_index == self.last_frame_index:
-                    if self._break_on_last:
+                    if self._end_behavior == "stop":
                         logger.info(f"Reached last frame at port {self.port}")
                         eof_packet = FramePacket(
                             port=self.port,
@@ -372,47 +396,57 @@ class FramePacketPublisher:
                         # Auto-pause at end for interactive mode
                         self._pause_event.set()
 
-                # Handle pause (check for jumps while paused)
+                # Handle pause (check for seeks while paused)
                 while self._pause_event.is_set() and not token.is_cancelled:
-                    if self._has_pending_jump():
+                    if self._has_pending_seek():
                         break
-                    token.sleep_unless_cancelled(0.1)
+                    # Wait on condition variable - wakes immediately when seek_to() calls notify()
+                    with self._seek_condition:
+                        self._seek_condition.wait(timeout=0.1)
 
-                # Process pending jump
-                pending = self._take_pending_jump()
+                # Process pending seek
+                pending = self._take_pending_seek()
                 if pending is not None:
-                    target_index, exact = pending
-                    logger.info(f"Processing jump to frame {target_index} (exact={exact}) at port {self.port}")
+                    target_index, precise = pending
+                    logger.info(f"Processing seek to frame {target_index} (precise={precise}) at port {self.port}")
 
-                    if exact:
+                    if precise:
                         frame = self._frame_source.get_frame(target_index)
                         if frame is not None:
                             current_frame = frame
                             self._frame_index = target_index
                             skip_read = True
+                        else:
+                            # Seek failed - stay at current position, don't call read_frame()
+                            logger.warning(f"Seek to frame {target_index} failed at port {self.port}")
+                            skip_read = True
                     else:
-                        frame, actual_index = self._frame_source.get_frame_fast(target_index)
+                        frame, actual_index = self._frame_source.get_nearest_keyframe(target_index)
                         if frame is not None:
                             current_frame = frame
                             self._frame_index = actual_index
                             skip_read = True
+                        else:
+                            # Fast seek failed - stay at current position
+                            logger.warning(f"Fast seek to frame {target_index} failed at port {self.port}")
+                            skip_read = True
                 else:
-                    # Increment for next iteration (only if not jumping)
+                    # Increment for next iteration (only if not seeking)
                     self._frame_index += 1
 
         finally:
-            logger.info(f"Publisher worker exiting for port {self.port}")
+            logger.info(f"Streamer worker exiting for port {self.port}")
 
 
-def create_publisher(
+def create_streamer(
     video_directory: Path,
     port: int,
     rotation_count: int = 0,
     tracker: Tracker | None = None,
     fps_target: float | None = None,
-    break_on_last: bool = True,
-) -> FramePacketPublisher:
-    """Factory function to create a FramePacketPublisher.
+    end_behavior: Literal["stop", "pause"] = "stop",
+) -> FramePacketStreamer:
+    """Factory function to create a FramePacketStreamer.
 
     Convenience function that handles FrameSource and FrameTimestamps creation.
 
@@ -422,10 +456,10 @@ def create_publisher(
         rotation_count: Camera rotation (0, 1, 2, 3).
         tracker: Optional tracker for landmark detection.
         fps_target: Target FPS. None = unlimited.
-        break_on_last: If True, stop at last frame. If False, pause.
+        end_behavior: What to do at last frame. "stop" or "pause".
 
     Returns:
-        Configured FramePacketPublisher ready to start().
+        Configured FramePacketStreamer ready to start().
     """
     frame_source = FrameSource(video_directory, port)
 
@@ -435,11 +469,11 @@ def create_publisher(
     else:
         frame_timestamps = FrameTimestamps.inferred(frame_source.fps, frame_source.frame_count)
 
-    return FramePacketPublisher(
+    return FramePacketStreamer(
         frame_source=frame_source,
         frame_timestamps=frame_timestamps,
         rotation_count=rotation_count,
         tracker=tracker,
         fps_target=fps_target,
-        break_on_last=break_on_last,
+        end_behavior=end_behavior,
     )

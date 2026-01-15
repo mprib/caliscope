@@ -36,9 +36,13 @@ class TestFrameSourceProperties:
         """start_frame_index is always 0 for raw video."""
         assert frame_source.start_frame_index == 0
 
-    def test_last_frame_index(self, frame_source: FrameSource) -> None:
-        """last_frame_index is frame_count - 1."""
-        assert frame_source.last_frame_index == frame_source.frame_count - 1
+    def test_last_frame_index_is_accessible(self, frame_source: FrameSource) -> None:
+        """last_frame_index returns an accessible frame, not metadata estimate."""
+        # The actual last frame should be accessible
+        frame = frame_source.get_frame(frame_source.last_frame_index)
+        assert frame is not None
+        # Should not exceed metadata estimate
+        assert frame_source.last_frame_index <= frame_source.frame_count - 1
 
     def test_port_stored(self, frame_source: FrameSource) -> None:
         """port is stored from constructor."""
@@ -137,47 +141,47 @@ class TestExactFrameAccess:
         assert not np.array_equal(frame_start, frame_middle)
 
 
-class TestFastFrameAccess:
-    """Test get_frame_fast() keyframe seeking."""
+class TestKeyframeAccess:
+    """Test get_nearest_keyframe() keyframe seeking."""
 
-    def test_get_frame_fast_returns_tuple(self, frame_source: FrameSource) -> None:
-        """get_frame_fast() returns (frame, actual_index) tuple."""
-        result = frame_source.get_frame_fast(10)
+    def test_get_nearest_keyframe_returns_tuple(self, frame_source: FrameSource) -> None:
+        """get_nearest_keyframe() returns (frame, actual_index) tuple."""
+        result = frame_source.get_nearest_keyframe(10)
         assert isinstance(result, tuple)
         assert len(result) == 2
         frame, actual_idx = result
         assert frame is not None
         assert isinstance(actual_idx, int)
 
-    def test_get_frame_fast_actual_index_at_or_before_target(self, frame_source: FrameSource) -> None:
-        """get_frame_fast() returns keyframe at or before target."""
+    def test_get_nearest_keyframe_actual_index_at_or_before_target(self, frame_source: FrameSource) -> None:
+        """get_nearest_keyframe() returns keyframe at or before target."""
         target = frame_source.frame_count // 2
-        frame, actual_idx = frame_source.get_frame_fast(target)
+        frame, actual_idx = frame_source.get_nearest_keyframe(target)
         assert frame is not None
         # Actual index should be at or before target (keyframe)
         assert actual_idx <= target
 
-    def test_get_frame_fast_returns_valid_frame(self, frame_source: FrameSource) -> None:
-        """get_frame_fast() returns valid BGR array."""
-        frame, _ = frame_source.get_frame_fast(10)
+    def test_get_nearest_keyframe_returns_valid_frame(self, frame_source: FrameSource) -> None:
+        """get_nearest_keyframe() returns valid BGR array."""
+        frame, _ = frame_source.get_nearest_keyframe(10)
         assert frame is not None
         assert isinstance(frame, np.ndarray)
         assert frame.ndim == 3
         assert frame.shape[2] == 3
 
-    def test_get_frame_fast_beyond_end_returns_none_and_minus_one(self, frame_source: FrameSource) -> None:
-        """get_frame_fast() beyond video length returns (None, -1).
+    def test_get_nearest_keyframe_beyond_end_returns_none_and_minus_one(self, frame_source: FrameSource) -> None:
+        """get_nearest_keyframe() beyond video length returns (None, -1).
 
         Bounds checking prevents PyAV's wrap-around behavior.
         """
         beyond = frame_source.frame_count + 100
-        frame, actual_idx = frame_source.get_frame_fast(beyond)
+        frame, actual_idx = frame_source.get_nearest_keyframe(beyond)
         assert frame is None
         assert actual_idx == -1
 
-    def test_get_frame_fast_negative_index_returns_none_and_minus_one(self, frame_source: FrameSource) -> None:
-        """get_frame_fast() with negative index returns (None, -1)."""
-        frame, actual_idx = frame_source.get_frame_fast(-1)
+    def test_get_nearest_keyframe_negative_index_returns_none_and_minus_one(self, frame_source: FrameSource) -> None:
+        """get_nearest_keyframe() with negative index returns (None, -1)."""
+        frame, actual_idx = frame_source.get_nearest_keyframe(-1)
         assert frame is None
         assert actual_idx == -1
 
@@ -222,7 +226,7 @@ class TestResourceManagement:
         frame_source.close()
         assert frame_source.read_frame() is None
         assert frame_source.get_frame(0) is None
-        frame, idx = frame_source.get_frame_fast(0)
+        frame, idx = frame_source.get_nearest_keyframe(0)
         assert frame is None
         assert idx == -1
 
@@ -274,6 +278,6 @@ if __name__ == "__main__":
         frame = source.get_frame(50)
         print(f"Frame 50 shape: {frame.shape if frame is not None else None}")
 
-        # Test fast seek
-        frame, idx = source.get_frame_fast(50)
-        print(f"Fast seek to 50: got frame at index {idx}")
+        # Test keyframe seek
+        frame, idx = source.get_nearest_keyframe(50)
+        print(f"Keyframe seek to 50: got frame at index {idx}")

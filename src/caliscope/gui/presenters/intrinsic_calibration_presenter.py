@@ -12,7 +12,7 @@ import logging
 from enum import Enum, auto
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 
 import cv2
 import numpy as np
@@ -23,10 +23,10 @@ from caliscope.core.calibrate_intrinsics import (
     IntrinsicCalibrationResult,
     calibrate_intrinsics,
 )
-from caliscope.core.frame_selector import select_calibration_frames
+from caliscope.core.frame_selector import FrameSelectionResult, select_calibration_frames
 from caliscope.core.point_data import ImagePoints
 from caliscope.packets import FramePacket, PointPacket
-from caliscope.recording import create_publisher
+from caliscope.recording import create_streamer
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
@@ -56,7 +56,7 @@ class IntrinsicCalibrationPresenter(QObject):
     submission of calibration to TaskManager. Exposes a display_queue for
     the View's processing thread to consume directly (avoids GUI thread hop).
 
-    A single FramePacketPublisher lives across all states, enabling scrubbing
+    A single FramePacketStreamer lives across all states, enabling scrubbing
     in READY/CALIBRATED states and collection during COLLECTING state.
 
     Signals:
@@ -109,6 +109,10 @@ class IntrinsicCalibrationPresenter(QObject):
         self._collected_points: list[tuple[int, PointPacket]] = []
         self._calibrated_camera: CameraData | None = None
         self._calibration_task: TaskHandle | None = None
+        self._selection_result: FrameSelectionResult | None = None
+
+        # Lock for thread-safe access to collected_points from View
+        self._overlay_lock = Lock()
 
         # Display queue for View consumption
         self._display_queue: Queue[FramePacket | None] = Queue()
@@ -116,23 +120,23 @@ class IntrinsicCalibrationPresenter(QObject):
         # Collection state
         self._is_collecting = False
 
-        # Single publisher for all states (scrubbing + collection)
-        self._publisher = create_publisher(
+        # Single streamer for all states (scrubbing + collection)
+        self._streamer = create_streamer(
             video_directory=self._video_path.parent,
             port=self._camera.port,
             rotation_count=self._camera.rotation_count,
             tracker=self._tracker,
-            break_on_last=False,  # Pause at end instead of exit
+            end_behavior="pause",  # Pause at end for interactive scrubbing
         )
         self._frame_queue: Queue[FramePacket] = Queue()
-        self._publisher.subscribe(self._frame_queue)
+        self._streamer.subscribe(self._frame_queue)
 
-        # Start publisher worker (will read first frame, then we pause)
+        # Start streamer worker (will read first frame, then we pause)
         self._stream_handle = self._task_manager.submit(
-            self._publisher.play_worker,
-            name=f"Publisher port {self._port}",
+            self._streamer.play_worker,
+            name=f"Streamer port {self._port}",
         )
-        self._publisher.pause()  # Immediately pause for scrubbing mode
+        self._streamer.pause()  # Immediately pause for scrubbing mode
 
         # Guaranteed initial frame display (don't rely on thread timing)
         self._load_initial_frame()
@@ -180,12 +184,30 @@ class IntrinsicCalibrationPresenter(QObject):
     @property
     def frame_count(self) -> int:
         """Total frames in video."""
-        return self._publisher.last_frame_index + 1
+        return self._streamer.last_frame_index + 1
 
     @property
     def current_frame_index(self) -> int:
         """Current frame position."""
         return self._current_frame_index
+
+    @property
+    def collected_points(self) -> list[tuple[int, PointPacket]]:
+        """Thread-safe access to accumulated points for overlay rendering."""
+        with self._overlay_lock:
+            return list(self._collected_points)
+
+    @property
+    def selected_frame_indices(self) -> list[int] | None:
+        """Frame indices used in calibration, or None if not yet calibrated."""
+        if self._selection_result is None:
+            return None
+        return self._selection_result.selected_frames
+
+    @property
+    def board_connectivity(self) -> set[tuple[int, int]]:
+        """Point ID pairs that should be connected to form grid."""
+        return self._tracker.get_connected_points()
 
     def refresh_display(self) -> None:
         """Put a fresh frame on the display queue.
@@ -196,14 +218,14 @@ class IntrinsicCalibrationPresenter(QObject):
         self._load_initial_frame()
 
     def seek_to(self, frame_index: int) -> None:
-        """Seek to frame. Works in READY/CALIBRATED states via publisher's jump_to."""
+        """Seek to frame. Works in READY/CALIBRATED states via streamer's seek_to."""
         if self.state not in (PresenterState.READY, PresenterState.CALIBRATED):
             return
 
         frame_index = max(0, min(frame_index, self.frame_count - 1))
-        self._publisher.jump_to(
-            frame_index, exact=True
-        )  # exact=False would cause Fast seek, skipping between keyframes
+        self._streamer.seek_to(
+            frame_index, precise=True
+        )  # precise=False would cause Fast seek, skipping between keyframes
 
     def _load_initial_frame(self) -> None:
         """Read first frame from video and put on display queue."""
@@ -228,7 +250,7 @@ class IntrinsicCalibrationPresenter(QObject):
     def start_calibration(self) -> None:
         """Start collecting calibration frames.
 
-        Resets to beginning and unpauses the publisher.
+        Resets to beginning and unpauses the streamer.
         """
         if self.state not in (PresenterState.READY, PresenterState.CALIBRATED):
             logger.warning(f"Cannot start calibration in state {self.state}")
@@ -236,18 +258,21 @@ class IntrinsicCalibrationPresenter(QObject):
 
         logger.info(f"Starting calibration collection for port {self._port}")
 
-        # Set collecting FIRST to block concurrent seeks
+        # Clear previous calibration data BEFORE setting collecting flag
+        # (state is computed: CALIBRATED check comes before COLLECTING check)
+        with self._overlay_lock:
+            self._collected_points.clear()
+        self._calibrated_camera = None
+        self._calibration_task = None
+        self._selection_result = None
+
+        # Now set collecting and emit state change
         self._is_collecting = True
         self._emit_state_changed()
 
-        # Clear previous attempt's data
-        self._collected_points.clear()
-        self._calibrated_camera = None
-        self._calibration_task = None
-
         # Reset to beginning and start playback
-        self._publisher.jump_to(0, exact=True)
-        self._publisher.unpause()
+        self._streamer.seek_to(0, precise=True)
+        self._streamer.unpause()
 
     def stop_calibration(self) -> None:
         """Stop collection and return to READY state.
@@ -260,8 +285,9 @@ class IntrinsicCalibrationPresenter(QObject):
 
         logger.info(f"Stopping calibration collection for port {self._port}")
 
-        self._publisher.pause()
-        self._collected_points.clear()
+        self._streamer.pause()
+        with self._overlay_lock:
+            self._collected_points.clear()
         self._is_collecting = False
         self._emit_state_changed()
 
@@ -269,12 +295,12 @@ class IntrinsicCalibrationPresenter(QObject):
         """Pull frames from queue, accumulate points when collecting, emit for display.
 
         Runs continuously across all states. Exits when stop_event is set or
-        publisher is cancelled externally.
+        streamer is cancelled externally.
         """
         logger.debug(f"Consumer thread started for port {self._port}")
 
         while not self._stop_event.is_set():
-            # Exit if publisher was cancelled externally
+            # Exit if streamer was cancelled externally
             if self._stream_handle is not None and self._stream_handle.state == TaskState.CANCELLED:
                 break
 
@@ -289,7 +315,8 @@ class IntrinsicCalibrationPresenter(QObject):
 
             # Accumulate points only during collection
             if self._is_collecting and packet.points is not None and len(packet.points.point_id) > 0:
-                self._collected_points.append((packet.frame_index, packet.points))
+                with self._overlay_lock:
+                    self._collected_points.append((packet.frame_index, packet.points))
 
             # Always emit for display
             self._display_queue.put(packet)
@@ -297,14 +324,14 @@ class IntrinsicCalibrationPresenter(QObject):
             self.frame_position_changed.emit(packet.frame_index)
 
             # Detect end of video during collection
-            if self._is_collecting and packet.frame_index >= self._publisher.last_frame_index:
+            if self._is_collecting and packet.frame_index >= self._streamer.last_frame_index:
                 self._on_collection_complete()
 
         logger.debug(f"Consumer thread exiting for port {self._port}")
 
     def _on_collection_complete(self) -> None:
         """Called when video playback finishes. Submits calibration task."""
-        self._publisher.pause()
+        self._streamer.pause()
         self._is_collecting = False
 
         if len(self._collected_points) == 0:
@@ -334,6 +361,9 @@ class IntrinsicCalibrationPresenter(QObject):
             return
 
         logger.info(f"Selected {len(selection_result.selected_frames)} frames for calibration")
+
+        # Store selection result for overlay rendering
+        self._selection_result = selection_result
 
         # Submit calibration to TaskManager
         def calibration_worker(token: CancellationToken, handle: TaskHandle) -> IntrinsicCalibrationResult:
@@ -402,8 +432,8 @@ class IntrinsicCalibrationPresenter(QObject):
         self.calibration_complete.emit(self._calibrated_camera)
         self._emit_state_changed()
 
-        # Jump to first frame so View can display with undistortion
-        self._publisher.jump_to(0, exact=True)
+        # Seek to first frame so View can display with undistortion
+        self._streamer.seek_to(0, precise=True)
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
         """Handle calibration failure."""
@@ -424,10 +454,10 @@ class IntrinsicCalibrationPresenter(QObject):
         if self._consumer_thread is not None:
             self._consumer_thread.join(timeout=2.0)
 
-        # Cancel publisher worker
+        # Cancel streamer worker
         if self._stream_handle is not None:
             self._stream_handle.cancel()
 
-        # Clean up publisher
-        self._publisher.unsubscribe(self._frame_queue)
-        self._publisher.close()
+        # Clean up streamer
+        self._streamer.unsubscribe(self._frame_queue)
+        self._streamer.close()

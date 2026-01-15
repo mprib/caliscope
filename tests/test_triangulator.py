@@ -18,7 +18,7 @@ import pandas as pd
 from caliscope import __root__
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.recording import create_publisher
+from caliscope.recording import create_streamer
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.triangulate.sync_packet_triangulator import SyncPacketTriangulator
 from caliscope import persistence
@@ -41,11 +41,11 @@ def test_triangulator(tmp_path: Path):
     charuco = persistence.load_charuco(tmp_path / "charuco.toml")
     charuco_tracker = CharucoTracker(charuco)
 
-    logger.info("Creating publishers based on calibration recordings")
+    logger.info("Creating streamers based on calibration recordings")
 
-    publishers = {}
+    streamers = {}
     for port, camera in camera_array.cameras.items():
-        publishers[port] = create_publisher(
+        streamers[port] = create_streamer(
             video_directory=recording_directory,
             port=port,
             rotation_count=camera.rotation_count,
@@ -54,7 +54,7 @@ def test_triangulator(tmp_path: Path):
         )
 
     logger.info("Creating Synchronizer")
-    syncr = Synchronizer(publishers)
+    syncr = Synchronizer(streamers)
 
     #### Basic code for interfacing with in-progress RealTimeTriangulator
     #### Just run off of saved point_data.csv for development/testing
@@ -65,7 +65,7 @@ def test_triangulator(tmp_path: Path):
         tracker_name=charuco_tracker.name,
     )
 
-    for port, publisher in publishers.items():
+    for port, publisher in streamers.items():
         publisher.start()
 
     while real_time_triangulator.running:

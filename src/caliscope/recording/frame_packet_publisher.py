@@ -3,6 +3,23 @@
 FramePacketPublisher wraps a FrameSource and FrameTimestamps, adding threading,
 pub/sub broadcasting, and optional tracking. It's the streaming layer on top
 of the raw video I/O.
+
+Seeking and Pause Handling (lessons learned):
+---------------------------------------------
+1. **Seek failure must not kill the publisher**: When get_frame() returns None
+   (e.g., PyAV can't decode near EOF), we must set skip_read=True to stay at
+   the current position. Otherwise, the next read_frame() call has undefined
+   behavior after a seek and will likely return None, causing premature exit.
+
+2. **Condition variable for responsive pause loop**: The pause loop uses
+   _jump_condition.wait() instead of plain sleep. This allows jump_to() calls
+   to wake the loop immediately via notify(), making scrubbing responsive.
+   Without this, there's up to 0.1s latency on each seek while paused.
+
+3. **last_frame_index uses minimum of timestamps and source**: FrameTimestamps
+   may have entries for frames that aren't actually accessible in the video
+   file. We use min(timestamps, source) to ensure we don't try to seek beyond
+   what's actually readable.
 """
 
 import logging
@@ -119,8 +136,13 @@ class FramePacketPublisher:
 
     @property
     def last_frame_index(self) -> int:
-        """Last valid frame index."""
-        return self._frame_timestamps.last_frame_index
+        """Last valid frame index (minimum of timestamps and source).
+
+        FrameTimestamps may have entries for frames that aren't actually
+        accessible in the video file. We use min() to ensure we don't try
+        to seek beyond what's actually readable.
+        """
+        return min(self._frame_timestamps.last_frame_index, self._frame_source.last_frame_index)
 
     @property
     def frame_index(self) -> int:
@@ -376,7 +398,9 @@ class FramePacketPublisher:
                 while self._pause_event.is_set() and not token.is_cancelled:
                     if self._has_pending_jump():
                         break
-                    token.sleep_unless_cancelled(0.1)
+                    # Wait on condition variable - wakes immediately when jump_to() calls notify()
+                    with self._jump_condition:
+                        self._jump_condition.wait(timeout=0.1)
 
                 # Process pending jump
                 pending = self._take_pending_jump()
@@ -390,11 +414,19 @@ class FramePacketPublisher:
                             current_frame = frame
                             self._frame_index = target_index
                             skip_read = True
+                        else:
+                            # Seek failed - stay at current position, don't call read_frame()
+                            logger.warning(f"Seek to frame {target_index} failed at port {self.port}")
+                            skip_read = True
                     else:
                         frame, actual_index = self._frame_source.get_frame_fast(target_index)
                         if frame is not None:
                             current_frame = frame
                             self._frame_index = actual_index
+                            skip_read = True
+                        else:
+                            # Fast seek failed - stay at current position
+                            logger.warning(f"Fast seek to frame {target_index} failed at port {self.port}")
                             skip_read = True
                 else:
                     # Increment for next iteration (only if not jumping)

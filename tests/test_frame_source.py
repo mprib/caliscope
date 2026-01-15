@@ -36,9 +36,13 @@ class TestFrameSourceProperties:
         """start_frame_index is always 0 for raw video."""
         assert frame_source.start_frame_index == 0
 
-    def test_last_frame_index(self, frame_source: FrameSource) -> None:
-        """last_frame_index is frame_count - 1."""
-        assert frame_source.last_frame_index == frame_source.frame_count - 1
+    def test_last_frame_index_is_accessible(self, frame_source: FrameSource) -> None:
+        """last_frame_index returns an accessible frame, not metadata estimate."""
+        # The actual last frame should be accessible
+        frame = frame_source.get_frame(frame_source.last_frame_index)
+        assert frame is not None
+        # Should not exceed metadata estimate
+        assert frame_source.last_frame_index <= frame_source.frame_count - 1
 
     def test_port_stored(self, frame_source: FrameSource) -> None:
         """port is stored from constructor."""

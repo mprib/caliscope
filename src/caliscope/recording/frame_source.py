@@ -5,6 +5,26 @@ queues, or tracking. It wraps PyAV for efficient video decoding.
 
 This is infrastructure (I/O), not domain logic - hence placement in recording/
 rather than core/.
+
+PyAV/FFmpeg Quirks (lessons learned):
+-------------------------------------
+1. **PTS-to-frame-index calculation**: Must use `round()` not `int()`.
+   The formula `frame.pts * time_base * fps` has floating point precision
+   issues that cause `int()` to truncate incorrectly near frame boundaries.
+   Example: PTS 285696 * time_base * fps = 557.8125 → int() gives 557, but
+   round() correctly gives 558.
+
+2. **Metadata frame count vs actual frames**: The container's frame count
+   (from duration or stream.frames) may not match actually accessible frames.
+   We scan keyframes at init to find the true last accessible frame index.
+
+3. **skip_frame="NONKEY" corrupts decoder state**: After using skip_frame
+   to scan keyframes, non-keyframe decoding fails silently. The container
+   must be closed and reopened to restore normal behavior.
+
+4. **Seeking near EOF**: PyAV's seek can fail silently near end of video,
+   especially with B-frame encoded content. The keyframe index helps us
+   know which frames are actually reachable.
 """
 
 import logging
@@ -66,13 +86,25 @@ class FrameSource:
         self.fps = float(self._video_stream.average_rate)
         self.size = (self._video_stream.width, self._video_stream.height)
 
-        # Compute frame count - stream.frames may be 0 if unknown
+        # Build keyframe index and find actual last frame
+        # This solves PyAV/FFmpeg issues where metadata frame count doesn't match
+        # accessible frames via seeking (especially near EOF with B-frames)
+        self._keyframe_pts: list[int] = []
+        self._keyframe_indices: list[int] = []
+        self._actual_last_frame_index = self._build_frame_index()
+
+        # frame_count from metadata (may differ from actual accessible frames)
         frame_count = self._video_stream.frames
         if frame_count == 0 and self._container.duration is not None:
-            # duration is in microseconds
             duration_seconds = self._container.duration / 1_000_000
             frame_count = int(duration_seconds * self.fps)
         self.frame_count = frame_count
+
+        logger.debug(
+            f"FrameSource for port {port}: metadata says {frame_count} frames, "
+            f"actual last accessible frame is {self._actual_last_frame_index}, "
+            f"found {len(self._keyframe_pts)} keyframes"
+        )
 
         # Mark as successfully initialized - must be last line of __init__
         # If init fails, _closed won't exist and __del__ won't warn
@@ -85,8 +117,65 @@ class FrameSource:
 
     @property
     def last_frame_index(self) -> int:
-        """Last valid frame index (frame_count - 1)."""
-        return self.frame_count - 1
+        """Last valid frame index (actual accessible frame, not metadata estimate)."""
+        return self._actual_last_frame_index
+
+    def _build_frame_index(self) -> int:
+        """Scan video to build keyframe index and find actual last frame.
+
+        Uses skip_frame="NONKEY" to quickly iterate keyframes only.
+        Records keyframe positions for potential future use in smarter seeking.
+
+        Returns:
+            Actual last accessible frame index.
+
+        Note:
+            Called during __init__ before _container could be set to None.
+            Reopens container after scan because skip_frame corrupts decoder state.
+        """
+        # Container is guaranteed valid here - called from __init__ after open
+        assert self._container is not None
+
+        # Set decoder to skip non-keyframes for fast scanning
+        self._video_stream.codec_context.skip_frame = "NONKEY"
+
+        max_frame_idx = 0
+        try:
+            for frame in self._container.decode(self._video_stream):
+                if frame.pts is None:
+                    continue
+                frame_idx = round(frame.pts * self._time_base * self.fps)
+                self._keyframe_pts.append(frame.pts)
+                self._keyframe_indices.append(frame_idx)
+                max_frame_idx = max(max_frame_idx, frame_idx)
+        except Exception as e:
+            logger.warning(f"Error during keyframe scan: {e}")
+
+        # Close and reopen container - skip_frame corrupts decoder state
+        # such that non-keyframes become inaccessible after scanning
+        self._container.close()
+        self._container = av.open(str(self.video_path))
+        self._video_stream = self._container.streams.video[0]
+        self._frame_iterator = None
+
+        # Find actual last accessible frame by seeking from last keyframe
+        # The last keyframe may not be the last accessible frame
+        if self._keyframe_indices:
+            last_keyframe = self._keyframe_indices[-1]
+            target_pts = int(last_keyframe / self.fps / self._time_base)
+            self._container.seek(target_pts, stream=self._video_stream)
+
+            # Decode forward from last keyframe to find true last frame
+            for frame in self._container.decode(self._video_stream):
+                if frame.pts is None:
+                    continue
+                frame_idx = round(frame.pts * self._time_base * self.fps)
+                max_frame_idx = max(max_frame_idx, frame_idx)
+
+            # Reset to beginning for normal use
+            self._container.seek(0, stream=self._video_stream)
+
+        return max_frame_idx
 
     def get_frame(self, frame_index: int) -> np.ndarray | None:
         """Seek to exact frame and return it as BGR numpy array.
@@ -121,7 +210,7 @@ class FrameSource:
             for frame in self._container.decode(self._video_stream):
                 if frame.pts is None:
                     continue  # Skip frames without PTS
-                frame_idx = int(frame.pts * self._time_base * self.fps)
+                frame_idx = round(frame.pts * self._time_base * self.fps)
                 if frame_idx >= frame_index:
                     return frame.to_ndarray(format="bgr24")
 
@@ -163,7 +252,7 @@ class FrameSource:
             for frame in self._container.decode(self._video_stream):
                 if frame.pts is None:
                     continue
-                actual_idx = int(frame.pts * self._time_base * self.fps)
+                actual_idx = round(frame.pts * self._time_base * self.fps)
                 return frame.to_ndarray(format="bgr24"), actual_idx
 
             return None, -1

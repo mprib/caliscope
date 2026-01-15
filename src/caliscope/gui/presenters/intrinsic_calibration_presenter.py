@@ -258,16 +258,17 @@ class IntrinsicCalibrationPresenter(QObject):
 
         logger.info(f"Starting calibration collection for port {self._port}")
 
-        # Set collecting FIRST to block concurrent seeks
-        self._is_collecting = True
-        self._emit_state_changed()
-
-        # Clear previous attempt's data
+        # Clear previous calibration data BEFORE setting collecting flag
+        # (state is computed: CALIBRATED check comes before COLLECTING check)
         with self._overlay_lock:
             self._collected_points.clear()
         self._calibrated_camera = None
         self._calibration_task = None
         self._selection_result = None
+
+        # Now set collecting and emit state change
+        self._is_collecting = True
+        self._emit_state_changed()
 
         # Reset to beginning and start playback
         self._publisher.jump_to(0, exact=True)

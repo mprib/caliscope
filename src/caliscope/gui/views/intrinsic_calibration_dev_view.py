@@ -6,9 +6,13 @@ workflow before building the production View.
 """
 
 import logging
+from dataclasses import dataclass
 from queue import Empty, Queue
 from threading import Event
+from typing import Any
 
+import cv2
+from numpy.typing import NDArray
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
@@ -32,9 +36,18 @@ from caliscope.gui.presenters.intrinsic_calibration_presenter import (
     IntrinsicCalibrationPresenter,
     PresenterState,
 )
-from caliscope.packets import FramePacket
+from caliscope.packets import FramePacket, PointPacket
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class OverlaySettings:
+    """User-toggleable overlay visibility."""
+
+    show_current_points: bool = True
+    show_accumulated: bool = True
+    show_selected_grids: bool = True
 
 
 class FrameProcessingThread(QThread):
@@ -42,24 +55,43 @@ class FrameProcessingThread(QThread):
 
     Reads directly from Presenter's display_queue (no intermediate signal).
     Applies display transforms and emits QPixmaps for the GUI thread.
+    Handles overlay rendering for point visualization layers.
     """
 
     pixmap_ready = Signal(QPixmap)
+
+    # Overlay colors (BGR format for OpenCV)
+    CURRENT_POINTS_COLOR = (0, 0, 220)  # Red
+    ACCUMULATED_COLOR = (128, 128, 0)  # Teal
+    SELECTED_GRIDS_COLOR = (255, 200, 0)  # Bright cyan
 
     def __init__(
         self,
         display_queue: Queue[FramePacket | None],
         camera: CameraData,
+        presenter: IntrinsicCalibrationPresenter,
         pixmap_edge_length: int = 500,
         parent: QThread | None = None,
     ):
         super().__init__(parent)
         self._display_queue = display_queue
         self._camera = camera
+        self._presenter = presenter
         self._pixmap_edge_length = pixmap_edge_length
         self._undistort_enabled = False
         self._visualizer: LensModelVisualizer | None = None
         self._keep_running = Event()
+        self._overlay_settings = OverlaySettings()
+
+        # Cache last packet for re-rendering when overlay settings change
+        self._last_packet: FramePacket | None = None
+
+        # Compute overlay sizes based on image dimensions
+        width = camera.size[0]
+        self._accumulated_radius = max(4, width // 400)
+        self._grid_line_thickness = max(2, width // 600)
+        self._current_point_radius = max(5, width // 300)
+        self._current_point_thickness = max(2, width // 500)
 
     def set_undistort(self, enabled: bool, calibrated_camera: CameraData | None) -> None:
         """Enable/disable undistortion."""
@@ -69,6 +101,17 @@ class FrameProcessingThread(QThread):
         if enabled and self._visualizer is None and calibrated_camera is not None:
             self._visualizer = LensModelVisualizer(calibrated_camera)
             logger.info(f"Created LensModelVisualizer for port {calibrated_camera.port}")
+
+    def set_overlay_visibility(
+        self,
+        current_points: bool,
+        accumulated: bool,
+        selected_grids: bool,
+    ) -> None:
+        """Configure which overlay layers to show."""
+        self._overlay_settings.show_current_points = current_points
+        self._overlay_settings.show_accumulated = accumulated
+        self._overlay_settings.show_selected_grids = selected_grids
 
     @property
     def shows_boundary(self) -> bool:
@@ -80,6 +123,111 @@ class FrameProcessingThread(QThread):
     def stop(self) -> None:
         """Signal thread to stop."""
         self._keep_running.clear()
+
+    def rerender_cached(self) -> None:
+        """Re-render the last packet with current overlay settings.
+
+        Call this when overlay visibility changes instead of requesting
+        a new frame from the presenter.
+        """
+        if self._last_packet is not None:
+            self._render_packet(self._last_packet)
+
+    def _draw_current_points(self, frame: NDArray[Any], points: PointPacket) -> NDArray[Any]:
+        """Draw current frame's detected points as red circles."""
+        for x, y in points.img_loc:
+            cv2.circle(
+                frame,
+                (int(x), int(y)),
+                self._current_point_radius,
+                self.CURRENT_POINTS_COLOR,
+                self._current_point_thickness,
+            )
+        return frame
+
+    def _draw_accumulated(self, frame: NDArray[Any]) -> NDArray[Any]:
+        """Draw accumulated points as semi-transparent teal circles."""
+        collected = self._presenter.collected_points
+        if not collected:
+            return frame
+
+        overlay = frame.copy()
+        for _, points in collected:
+            for x, y in points.img_loc:
+                cv2.circle(
+                    overlay,
+                    (int(x), int(y)),
+                    self._accumulated_radius,
+                    self.ACCUMULATED_COLOR,
+                    -1,
+                )
+
+        return cv2.addWeighted(overlay, 0.5, frame, 0.5, 0)
+
+    def _draw_selected_grids(self, frame: NDArray[Any]) -> NDArray[Any]:
+        """Draw grids for ALL selected calibration frames at once (coverage map)."""
+        selected = self._presenter.selected_frame_indices
+        if selected is None:
+            return frame
+
+        selected_set = set(selected)
+        connectivity = self._presenter.board_connectivity
+
+        # Draw grids for all selected frames simultaneously
+        for frame_idx, points in self._presenter.collected_points:
+            if frame_idx not in selected_set:
+                continue
+
+            id_to_loc = {int(pid): (int(x), int(y)) for pid, (x, y) in zip(points.point_id, points.img_loc)}
+
+            for id_a, id_b in connectivity:
+                if id_a in id_to_loc and id_b in id_to_loc:
+                    cv2.line(
+                        frame,
+                        id_to_loc[id_a],
+                        id_to_loc[id_b],
+                        self.SELECTED_GRIDS_COLOR,
+                        self._grid_line_thickness,
+                    )
+
+        return frame
+
+    def _render_packet(self, packet: FramePacket) -> None:
+        """Render a packet with current overlay settings and emit pixmap."""
+        if packet.frame is None:
+            return
+
+        # Start with raw frame (View owns all rendering)
+        frame = packet.frame.copy()
+
+        # Layer 1: Accumulated points (behind current)
+        if self._overlay_settings.show_accumulated:
+            frame = self._draw_accumulated(frame)
+
+        # Layer 2: Selected board grids (coverage map)
+        if self._overlay_settings.show_selected_grids:
+            frame = self._draw_selected_grids(frame)
+
+        # Layer 3: Current frame points (on top)
+        if self._overlay_settings.show_current_points and packet.points is not None:
+            frame = self._draw_current_points(frame, packet.points)
+
+        # Undistortion
+        if self._undistort_enabled and self._visualizer is not None:
+            frame = self._visualizer.undistort(frame)
+
+        frame = resize_to_square(frame)
+        frame = apply_rotation(frame, self._camera.rotation_count)
+
+        image = cv2_to_qlabel(frame)
+        pixmap = QPixmap.fromImage(image)
+        pixmap = pixmap.scaled(
+            self._pixmap_edge_length,
+            self._pixmap_edge_length,
+            Qt.AspectRatioMode.KeepAspectRatio,
+        )
+
+        self.pixmap_ready.emit(pixmap)
 
     def run(self) -> None:
         """Main processing loop - reads directly from Presenter's queue."""
@@ -100,26 +248,10 @@ class FrameProcessingThread(QThread):
             if packet.frame is None:
                 continue
 
-            # Processing pipeline (mirrors PlaybackFrameEmitter)
-            frame = packet.frame_with_points
-            if frame is None:
-                continue
+            # Cache for re-rendering on overlay toggle
+            self._last_packet = packet
 
-            if self._undistort_enabled and self._visualizer is not None:
-                frame = self._visualizer.undistort(frame)
-
-            frame = resize_to_square(frame)
-            frame = apply_rotation(frame, self._camera.rotation_count)
-
-            image = cv2_to_qlabel(frame)
-            pixmap = QPixmap.fromImage(image)
-            pixmap = pixmap.scaled(
-                self._pixmap_edge_length,
-                self._pixmap_edge_length,
-                Qt.AspectRatioMode.KeepAspectRatio,
-            )
-
-            self.pixmap_ready.emit(pixmap)
+            self._render_packet(packet)
 
         logger.debug(f"Frame processing thread exiting for port {self._camera.port}")
 
@@ -201,11 +333,33 @@ class IntrinsicCalibrationDevView(QWidget):
 
         layout.addLayout(controls)
 
+        # Overlay controls row
+        overlay_row = QHBoxLayout()
+
+        self._current_points_cb = QCheckBox("Current Points")
+        self._current_points_cb.setChecked(True)
+        self._current_points_cb.toggled.connect(self._on_overlay_toggled)
+        overlay_row.addWidget(self._current_points_cb)
+
+        self._accumulated_cb = QCheckBox("All Points")
+        self._accumulated_cb.setChecked(True)
+        self._accumulated_cb.toggled.connect(self._on_overlay_toggled)
+        overlay_row.addWidget(self._accumulated_cb)
+
+        self._grids_cb = QCheckBox("Selected Grids")
+        self._grids_cb.setChecked(True)
+        self._grids_cb.setEnabled(False)  # Enable after calibration
+        self._grids_cb.toggled.connect(self._on_overlay_toggled)
+        overlay_row.addWidget(self._grids_cb)
+
+        layout.addLayout(overlay_row)
+
     def _setup_processing_thread(self) -> None:
         """Create and start the frame processing thread."""
         self._processing_thread = FrameProcessingThread(
             display_queue=self._presenter.display_queue,
             camera=self._presenter.camera,
+            presenter=self._presenter,
         )
         self._processing_thread.pixmap_ready.connect(self._on_pixmap_ready)
         self._processing_thread.start()
@@ -283,8 +437,10 @@ class IntrinsicCalibrationDevView(QWidget):
         if state == PresenterState.COLLECTING:
             self._presenter.stop_calibration()
         elif state in (PresenterState.READY, PresenterState.CALIBRATED):
-            # Reset undistort when starting new calibration
+            # Reset display state when starting new calibration
             self._undistort_checkbox.setChecked(False)
+            self._grids_cb.setChecked(True)
+            self._grids_cb.setEnabled(False)
             self._presenter.start_calibration()
 
     def _on_undistort_toggled(self, checked: bool) -> None:
@@ -297,8 +453,18 @@ class IntrinsicCalibrationDevView(QWidget):
         else:
             self._boundary_legend.hide()
 
-        # Request fresh frame to show undistort effect
-        self._presenter.refresh_display()
+        # Re-render cached frame with new settings (don't jump to frame 0)
+        self._processing_thread.rerender_cached()
+
+    def _on_overlay_toggled(self) -> None:
+        """Handle overlay checkbox toggles."""
+        self._processing_thread.set_overlay_visibility(
+            current_points=self._current_points_cb.isChecked(),
+            accumulated=self._accumulated_cb.isChecked(),
+            selected_grids=self._grids_cb.isChecked(),
+        )
+        # Re-render cached frame with new settings (don't jump to frame 0)
+        self._processing_thread.rerender_cached()
 
     def _on_calibration_complete(self, calibrated_camera: CameraData) -> None:
         """Handle successful calibration."""
@@ -308,6 +474,9 @@ class IntrinsicCalibrationDevView(QWidget):
 
         # Auto-enable undistortion to show calibration effect
         self._undistort_checkbox.setChecked(True)
+
+        # Enable selected grids overlay now that selection is available
+        self._grids_cb.setEnabled(True)
 
     def _on_calibration_failed(self, error_msg: str) -> None:
         """Handle calibration failure."""

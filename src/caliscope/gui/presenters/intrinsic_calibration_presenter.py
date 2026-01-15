@@ -12,7 +12,7 @@ import logging
 from enum import Enum, auto
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 
 import cv2
 import numpy as np
@@ -23,7 +23,7 @@ from caliscope.core.calibrate_intrinsics import (
     IntrinsicCalibrationResult,
     calibrate_intrinsics,
 )
-from caliscope.core.frame_selector import select_calibration_frames
+from caliscope.core.frame_selector import FrameSelectionResult, select_calibration_frames
 from caliscope.core.point_data import ImagePoints
 from caliscope.packets import FramePacket, PointPacket
 from caliscope.recording import create_publisher
@@ -109,6 +109,10 @@ class IntrinsicCalibrationPresenter(QObject):
         self._collected_points: list[tuple[int, PointPacket]] = []
         self._calibrated_camera: CameraData | None = None
         self._calibration_task: TaskHandle | None = None
+        self._selection_result: FrameSelectionResult | None = None
+
+        # Lock for thread-safe access to collected_points from View
+        self._overlay_lock = Lock()
 
         # Display queue for View consumption
         self._display_queue: Queue[FramePacket | None] = Queue()
@@ -187,6 +191,24 @@ class IntrinsicCalibrationPresenter(QObject):
         """Current frame position."""
         return self._current_frame_index
 
+    @property
+    def collected_points(self) -> list[tuple[int, PointPacket]]:
+        """Thread-safe access to accumulated points for overlay rendering."""
+        with self._overlay_lock:
+            return list(self._collected_points)
+
+    @property
+    def selected_frame_indices(self) -> list[int] | None:
+        """Frame indices used in calibration, or None if not yet calibrated."""
+        if self._selection_result is None:
+            return None
+        return self._selection_result.selected_frames
+
+    @property
+    def board_connectivity(self) -> set[tuple[int, int]]:
+        """Point ID pairs that should be connected to form grid."""
+        return self._tracker.get_connected_points()
+
     def refresh_display(self) -> None:
         """Put a fresh frame on the display queue.
 
@@ -241,9 +263,11 @@ class IntrinsicCalibrationPresenter(QObject):
         self._emit_state_changed()
 
         # Clear previous attempt's data
-        self._collected_points.clear()
+        with self._overlay_lock:
+            self._collected_points.clear()
         self._calibrated_camera = None
         self._calibration_task = None
+        self._selection_result = None
 
         # Reset to beginning and start playback
         self._publisher.jump_to(0, exact=True)
@@ -261,7 +285,8 @@ class IntrinsicCalibrationPresenter(QObject):
         logger.info(f"Stopping calibration collection for port {self._port}")
 
         self._publisher.pause()
-        self._collected_points.clear()
+        with self._overlay_lock:
+            self._collected_points.clear()
         self._is_collecting = False
         self._emit_state_changed()
 
@@ -289,7 +314,8 @@ class IntrinsicCalibrationPresenter(QObject):
 
             # Accumulate points only during collection
             if self._is_collecting and packet.points is not None and len(packet.points.point_id) > 0:
-                self._collected_points.append((packet.frame_index, packet.points))
+                with self._overlay_lock:
+                    self._collected_points.append((packet.frame_index, packet.points))
 
             # Always emit for display
             self._display_queue.put(packet)
@@ -334,6 +360,9 @@ class IntrinsicCalibrationPresenter(QObject):
             return
 
         logger.info(f"Selected {len(selection_result.selected_frames)} frames for calibration")
+
+        # Store selection result for overlay rendering
+        self._selection_result = selection_result
 
         # Submit calibration to TaskManager
         def calibration_worker(token: CancellationToken, handle: TaskHandle) -> IntrinsicCalibrationResult:

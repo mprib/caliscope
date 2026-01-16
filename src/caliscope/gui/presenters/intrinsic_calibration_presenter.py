@@ -5,14 +5,14 @@ via the domain's pure functions. Emits raw FramePackets for the View to
 handle display transforms (undistortion, rotation, padding).
 
 This is a "scratchpad" presenter - accumulated data and calibration results
-are transient until emitted to the Controller for persistence.
+are transient until emitted to the Coordinator for persistence.
 """
 
 import logging
 from enum import Enum, auto
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Event, Lock, Thread
+from threading import Event, Thread
 
 import cv2
 import numpy as np
@@ -111,9 +111,6 @@ class IntrinsicCalibrationPresenter(QObject):
         self._calibration_task: TaskHandle | None = None
         self._selection_result: FrameSelectionResult | None = None
 
-        # Lock for thread-safe access to collected_points from View
-        self._overlay_lock = Lock()
-
         # Display queue for View consumption
         self._display_queue: Queue[FramePacket | None] = Queue()
 
@@ -193,16 +190,15 @@ class IntrinsicCalibrationPresenter(QObject):
 
     @property
     def collected_points(self) -> list[tuple[int, PointPacket]]:
-        """Thread-safe access to accumulated points for overlay rendering."""
-        with self._overlay_lock:
-            return list(self._collected_points)
+        """Accumulated points for overlay rendering. Returns a copy."""
+        return list(self._collected_points)
 
     @property
     def selected_frame_indices(self) -> list[int] | None:
-        """Frame indices used in calibration, or None if not yet calibrated."""
+        """Selected frame indices for overlay rendering. Returns a copy."""
         if self._selection_result is None:
             return None
-        return self._selection_result.selected_frames
+        return list(self._selection_result.selected_frames)
 
     @property
     def board_connectivity(self) -> set[tuple[int, int]]:
@@ -260,11 +256,10 @@ class IntrinsicCalibrationPresenter(QObject):
 
         # Clear previous calibration data BEFORE setting collecting flag
         # (state is computed: CALIBRATED check comes before COLLECTING check)
-        with self._overlay_lock:
-            self._collected_points.clear()
+        self._collected_points.clear()
+        self._selection_result = None
         self._calibrated_camera = None
         self._calibration_task = None
-        self._selection_result = None
 
         # Now set collecting and emit state change
         self._is_collecting = True
@@ -286,8 +281,7 @@ class IntrinsicCalibrationPresenter(QObject):
         logger.info(f"Stopping calibration collection for port {self._port}")
 
         self._streamer.pause()
-        with self._overlay_lock:
-            self._collected_points.clear()
+        self._collected_points.clear()
         self._is_collecting = False
         self._emit_state_changed()
 
@@ -315,8 +309,7 @@ class IntrinsicCalibrationPresenter(QObject):
 
             # Accumulate points only during collection
             if self._is_collecting and packet.points is not None and len(packet.points.point_id) > 0:
-                with self._overlay_lock:
-                    self._collected_points.append((packet.frame_index, packet.points))
+                self._collected_points.append((packet.frame_index, packet.points))
 
             # Always emit for display
             self._display_queue.put(packet)

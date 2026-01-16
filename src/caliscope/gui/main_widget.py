@@ -22,6 +22,7 @@ from caliscope import APP_SETTINGS_PATH, LOG_DIR, __root__
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.task_manager import TaskHandle
+from caliscope.gui.cameras_tab_widget import CamerasTabWidget
 from caliscope.gui.charuco_widget import CharucoWidget
 from caliscope.gui.log_widget import LogWidget
 from caliscope.gui.post_processing_widget import PostProcessingWidget
@@ -105,12 +106,18 @@ class MainWindow(QMainWindow):
         self.charuco_widget = CharucoWidget(self.coordinator)
         self.central_tab.addTab(self.charuco_widget, "Charuco")
 
-        # Camera tab disabled until new architecture is wired in (epic #885)
-        logger.info("Camera tab disabled until new architecture is wired in")
-        self.intrinsic_cal_widget = QWidget()
-        self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"), self.coordinator.cameras_loaded)
-        logger.info("Camera tab enabled")
+        # Build Cameras tab with intrinsic calibration workflow
+        if self.coordinator.cameras_loaded:
+            logger.info("Building Cameras tab with intrinsic calibration")
+            self.cameras_tab_widget = CamerasTabWidget(self.coordinator)
+        else:
+            logger.info("Cameras tab disabled - no intrinsic videos available")
+            self.cameras_tab_widget = QWidget()
+        self.central_tab.addTab(self.cameras_tab_widget, "Cameras")
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Cameras"),
+            self.coordinator.cameras_loaded,
+        )
 
         logger.info("About to load capture volume tab")
         if self.coordinator.capture_volume_loaded:
@@ -180,6 +187,10 @@ class MainWindow(QMainWindow):
             logger.info(f"Removing tab with index {index}")
             self.central_tab.removeTab(index)
             if widget_to_remove is not None:
+                # Explicit cleanup for widgets that need it
+                # (closeEvent not triggered by removeTab + deleteLater)
+                if hasattr(widget_to_remove, "cleanup"):
+                    widget_to_remove.cleanup()
                 widget_to_remove.deleteLater()
 
             self.central_tab.clear()

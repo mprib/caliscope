@@ -239,6 +239,8 @@ class FrameRenderThread(QThread):
         """
         if self._last_packet is not None:
             self._render_packet(self._last_packet)
+        else:
+            logger.debug(f"rerender_cached called but no cached packet for port {self._camera.port}")
 
     def _draw_current_points(self, frame: NDArray[Any], points: PointPacket) -> NDArray[Any]:
         """Draw current frame's detected points as red circles."""
@@ -593,11 +595,11 @@ class IntrinsicCalibrationWidget(QWidget):
         grid_count = calibrated_camera.grid_count or 0
         self._status_label.setText(f"Status: CALIBRATED (RMSE: {error:.3f}px, frames: {grid_count})")
 
-        # Auto-enable undistortion to show calibration effect
-        self._undistort_checkbox.setChecked(True)
-
         # Enable selected grids overlay now that selection is available
         self._grids_cb.setEnabled(True)
+
+        # Auto-enable undistort to show the calibration effect
+        self._undistort_checkbox.setChecked(True)
 
     def _on_calibration_failed(self, error_msg: str) -> None:
         """Handle calibration failure."""

@@ -101,3 +101,38 @@ def clear_output_dir() -> None:
         if file.is_file():
             file.unlink()
     print(f"Cleared: {output_dir}")
+
+
+def wait_for_signal(signal, timeout_ms: int = 30000) -> bool:
+    """Block until a Qt signal fires or timeout expires.
+
+    Use this instead of fixed delays when waiting for async operations
+    like calibration, video processing, or API calls. Makes tests
+    deterministic and as fast as possible.
+
+    Args:
+        signal: Any Qt Signal to wait for
+        timeout_ms: Maximum time to wait in milliseconds
+
+    Returns:
+        True if signal fired, False if timed out
+
+    Example:
+        presenter.start_calibration()
+        if wait_for_signal(presenter.calibration_complete, timeout_ms=60000):
+            capture_widget(widget, "calibration_done.png")
+        else:
+            print("ERROR: Calibration timed out")
+    """
+    loop = QEventLoop()
+    timed_out = [False]  # Mutable container for closure
+
+    def on_timeout() -> None:
+        timed_out[0] = True
+        loop.quit()
+
+    signal.connect(loop.quit)
+    QTimer.singleShot(timeout_ms, on_timeout)
+    loop.exec()
+
+    return not timed_out[0]

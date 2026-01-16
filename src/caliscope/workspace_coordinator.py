@@ -29,6 +29,7 @@ from caliscope.core.point_data import ImagePoints
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide
+from caliscope.gui.presenters.intrinsic_calibration_presenter import IntrinsicCalibrationPresenter
 
 logger = logging.getLogger(__name__)
 
@@ -133,8 +134,9 @@ class WorkspaceCoordinator(QObject):
             logger.info("Assessing whether to load cameras")
             if self.workspace_guide.all_instrinsic_mp4s_available(self.camera_count):
                 self.load_camera_array()
-            # Camera tab disabled until new architecture is wired in (epic #885)
-            self.cameras_loaded = False
+                self.cameras_loaded = True
+            else:
+                self.cameras_loaded = False
 
             logger.info("Assessing whether to load capture volume")
             if self.all_extrinsics_estimated():
@@ -257,6 +259,43 @@ class WorkspaceCoordinator(QObject):
         camera_display_data = self.camera_array.cameras[port].get_display_data()
         logger.info(f"camera display data is {camera_display_data}")
         self.new_camera_data.emit(port, camera_display_data)
+
+    def create_intrinsic_presenter(self, port: int) -> IntrinsicCalibrationPresenter:
+        """Create presenter for intrinsic calibration of a single camera.
+
+        Factory method that assembles the presenter with all required dependencies.
+        The caller is responsible for connecting signals and managing presenter lifecycle.
+
+        Raises:
+            ValueError: If port is not in camera_array or intrinsic video doesn't exist.
+        """
+        if port not in self.camera_array.cameras:
+            raise ValueError(f"No camera data for port {port}")
+
+        camera = self.camera_array.cameras[port]
+        video_path = self.workspace_guide.intrinsic_dir / f"port_{port}.mp4"
+
+        if not video_path.exists():
+            raise ValueError(f"No intrinsic video for port {port}")
+
+        return IntrinsicCalibrationPresenter(
+            camera=camera,
+            video_path=video_path,
+            tracker=self.charuco_tracker,
+            task_manager=self.task_manager,
+        )
+
+    def persist_intrinsic_calibration(self, calibrated_camera: CameraData) -> None:
+        """Persist intrinsic calibration result to ground truth.
+
+        Updates the in-memory camera array and saves to disk. Also emits
+        new_camera_data signal so UI components can update their display.
+        """
+        port = calibrated_camera.port
+        self.camera_array.cameras[port] = calibrated_camera
+        self.camera_repository.save(self.camera_array)
+        logger.info(f"Persisted intrinsic calibration for port {port}")
+        self.push_camera_data(port)
 
     def load_estimated_capture_volume(self):
         """

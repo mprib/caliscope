@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from caliscope.cameras.camera_array import CameraData
+from caliscope.core.calibrate_intrinsics import IntrinsicCalibrationOutput
 from caliscope.gui.camera_list_widget import CameraListWidget
 from caliscope.gui.views.intrinsic_calibration_widget import IntrinsicCalibrationWidget
 
@@ -131,12 +131,22 @@ class CamerasTabWidget(QWidget):
 
         logger.info(f"Intrinsic calibration widget active for port {port}")
 
-    def _on_calibration_complete(self, port: int, camera: CameraData) -> None:
+    def _on_calibration_complete(self, port: int, output: IntrinsicCalibrationOutput) -> None:
         """Handle calibration completion - persist and update list."""
-        logger.info(f"Calibration complete for port {port}, RMSE: {camera.error}")
+        report = output.report
+        logger.info(
+            f"Calibration complete for port {port}, "
+            f"in_sample={report.in_sample_rmse:.3f}px, "
+            f"out_of_sample={report.out_of_sample_rmse:.3f}px"
+        )
 
-        # Persist to ground truth via coordinator
-        self.coordinator.persist_intrinsic_calibration(camera)
+        # Get collected points from presenter for session-based overlay restoration
+        collected_points = None
+        if self._current_presenter is not None:
+            collected_points = self._current_presenter.collected_points
+
+        # Persist to ground truth via coordinator (including collected points for session)
+        self.coordinator.persist_intrinsic_calibration(output, collected_points)
 
         # Refresh camera list to show updated status
         self.camera_list.refresh(self.coordinator.camera_array)

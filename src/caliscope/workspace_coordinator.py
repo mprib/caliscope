@@ -14,12 +14,14 @@ from caliscope.core.capture_volume.quality_controller import QualityController
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope.core.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
+from caliscope.core.calibrate_intrinsics import IntrinsicCalibrationOutput, IntrinsicCalibrationReport
 from caliscope.repositories import (
     CameraArrayRepository,
     CaptureVolumeRepository,
     CharucoRepository,
     ProjectSettingsRepository,
 )
+from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
 from caliscope.post_processing.post_processor import PostProcessor
 from caliscope.managers.synchronized_stream_manager import (
     SynchronizedStreamManager,
@@ -30,6 +32,7 @@ from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide
 from caliscope.gui.presenters.intrinsic_calibration_presenter import IntrinsicCalibrationPresenter
+from caliscope.packets import PointPacket
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +72,9 @@ class WorkspaceCoordinator(QObject):
         self.camera_repository = CameraArrayRepository(workspace_dir / "camera_array.toml")
         self.charuco_repository = CharucoRepository(workspace_dir / "charuco.toml")
         self.capture_volume_repository = CaptureVolumeRepository(workspace_dir)
+        self.intrinsic_report_repository = IntrinsicReportRepository(
+            workspace_dir / "calibration" / "intrinsic" / "reports"
+        )
 
         # Initialize project files if they don't exist
         self._initialize_project_files()
@@ -94,6 +100,13 @@ class WorkspaceCoordinator(QObject):
 
         # Centralized task management for background operations
         self.task_manager = TaskManager(parent=self)
+
+        # In-memory cache of intrinsic calibration data (by port)
+        # These enable overlay restoration when switching between cameras
+        self._intrinsic_reports: dict[int, IntrinsicCalibrationReport] = {}
+        # Session-only cache of collected points for overlay rendering
+        # Not persisted to disk - lost on app restart
+        self._intrinsic_points: dict[int, list[tuple[int, PointPacket]]] = {}
 
     def _initialize_project_files(self):
         """Create default project files if they don't exist."""
@@ -224,7 +237,8 @@ class WorkspaceCoordinator(QObject):
         Load camera array from persistence and detect new cameras from video files.
 
         Any cameras discovered in the intrinsic directory that aren't in the
-        saved array will be added automatically.
+        saved array will be added automatically. Also loads any persisted
+        intrinsic calibration reports for overlay restoration.
         """
         self.camera_array = self.camera_repository.load()
 
@@ -234,6 +248,11 @@ class WorkspaceCoordinator(QObject):
         for port in all_ports:
             if port not in self.camera_array.cameras:
                 self._add_camera_from_source(port)
+
+        # Load any persisted intrinsic reports for overlay restoration
+        self._intrinsic_reports = self.intrinsic_report_repository.load_all()
+        if self._intrinsic_reports:
+            logger.info(f"Loaded intrinsic reports for ports: {list(self._intrinsic_reports.keys())}")
 
     def _add_camera_from_source(self, port: int):
         """
@@ -266,6 +285,10 @@ class WorkspaceCoordinator(QObject):
         Factory method that assembles the presenter with all required dependencies.
         The caller is responsible for connecting signals and managing presenter lifecycle.
 
+        If a previous calibration exists (report in cache), it's passed to the presenter
+        for overlay restoration. Collected points are only available during the session
+        (not after app restart).
+
         Raises:
             ValueError: If port is not in camera_array or intrinsic video doesn't exist.
         """
@@ -278,24 +301,64 @@ class WorkspaceCoordinator(QObject):
         if not video_path.exists():
             raise ValueError(f"No intrinsic video for port {port}")
 
+        # Get cached data for overlay restoration
+        report = self._intrinsic_reports.get(port)
+        collected_points = self._intrinsic_points.get(port)
+
         return IntrinsicCalibrationPresenter(
             camera=camera,
             video_path=video_path,
             tracker=self.charuco_tracker,
             task_manager=self.task_manager,
+            restored_report=report,
+            restored_points=collected_points,
         )
 
-    def persist_intrinsic_calibration(self, calibrated_camera: CameraData) -> None:
+    def persist_intrinsic_calibration(
+        self,
+        output: IntrinsicCalibrationOutput,
+        collected_points: list[tuple[int, PointPacket]] | None = None,
+    ) -> None:
         """Persist intrinsic calibration result to ground truth.
 
-        Updates the in-memory camera array and saves to disk. Also emits
-        new_camera_data signal so UI components can update their display.
+        Updates the in-memory camera array and saves to disk. Also caches
+        the calibration report for overlay restoration when switching cameras
+        and persists it to disk for reload on app restart.
+        Emits new_camera_data signal so UI components can update their display.
+
+        Args:
+            output: Complete calibration output with camera and report
+            collected_points: Optional list of (frame_index, PointPacket) for
+                overlay restoration during session. Not persisted to disk.
         """
-        port = calibrated_camera.port
-        self.camera_array.cameras[port] = calibrated_camera
+        port = output.camera.port
+
+        # Update camera in array and save
+        self.camera_array.cameras[port] = output.camera
         self.camera_repository.save(self.camera_array)
-        logger.info(f"Persisted intrinsic calibration for port {port}")
+
+        # Cache report for overlay restoration and save to disk
+        self._intrinsic_reports[port] = output.report
+        self.intrinsic_report_repository.save(port, output.report)
+
+        # Cache collected points for session-only overlay restoration
+        if collected_points is not None:
+            self._intrinsic_points[port] = collected_points
+
+        logger.info(
+            f"Persisted intrinsic calibration for port {port}: "
+            f"in_sample={output.report.in_sample_rmse:.3f}px, "
+            f"out_of_sample={output.report.out_of_sample_rmse:.3f}px"
+        )
         self.push_camera_data(port)
+
+    def get_intrinsic_report(self, port: int) -> IntrinsicCalibrationReport | None:
+        """Get cached intrinsic calibration report for a port."""
+        return self._intrinsic_reports.get(port)
+
+    def get_intrinsic_points(self, port: int) -> list[tuple[int, PointPacket]] | None:
+        """Get cached collected points for a port (session-only)."""
+        return self._intrinsic_points.get(port)
 
     def load_estimated_capture_volume(self):
         """

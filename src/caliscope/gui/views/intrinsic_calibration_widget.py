@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from caliscope.cameras.camera_array import CameraData
+from caliscope.core.calibrate_intrinsics import IntrinsicCalibrationOutput
 from caliscope.gui.frame_emitters.tools import (
     apply_rotation,
     cv2_to_qlabel,
@@ -56,7 +57,16 @@ class CalibrationResultsDisplay(QWidget):
 
     Shows camera matrix parameters, distortion coefficients, and fit quality
     metrics. Always visible with placeholder values until calibration populates them.
+
+    Quality color-coding for RMSE values:
+    - Green (< 0.5px): Excellent for motion capture
+    - Yellow (0.5-1.0px): Acceptable for most applications
+    - Red (> 1.0px): May affect 3D reconstruction accuracy
     """
+
+    # RMSE thresholds for quality color-coding
+    RMSE_EXCELLENT = 0.5  # pixels
+    RMSE_ACCEPTABLE = 1.0  # pixels
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -67,14 +77,31 @@ class CalibrationResultsDisplay(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Fit quality group
+        # Fit quality group - RMSE metrics with color-coding
         fit_group = QGroupBox("Fit Quality")
         fit_layout = QFormLayout(fit_group)
-        self._rmse_label = QLabel("—")
+        self._in_sample_rmse_label = QLabel("—")
+        self._out_sample_rmse_label = QLabel("—")
         self._grid_count_label = QLabel("—")
-        fit_layout.addRow("RMSE:", self._rmse_label)
+        self._holdout_count_label = QLabel("—")
+        fit_layout.addRow("In-sample RMSE:", self._in_sample_rmse_label)
+        fit_layout.addRow("Out-of-sample RMSE:", self._out_sample_rmse_label)
         fit_layout.addRow("Frames used:", self._grid_count_label)
+        fit_layout.addRow("Holdout frames:", self._holdout_count_label)
         layout.addWidget(fit_group)
+
+        # Coverage quality group - spatial distribution of calibration frames
+        coverage_group = QGroupBox("Coverage Quality")
+        coverage_layout = QFormLayout(coverage_group)
+        self._coverage_label = QLabel("—")
+        self._edge_coverage_label = QLabel("—")
+        self._corner_coverage_label = QLabel("—")
+        self._orientation_label = QLabel("—")
+        coverage_layout.addRow("Image coverage:", self._coverage_label)
+        coverage_layout.addRow("Edge coverage:", self._edge_coverage_label)
+        coverage_layout.addRow("Corner coverage:", self._corner_coverage_label)
+        coverage_layout.addRow("Board orientations:", self._orientation_label)
+        layout.addWidget(coverage_group)
 
         # Camera matrix group
         matrix_group = QGroupBox("Camera Matrix")
@@ -104,17 +131,51 @@ class CalibrationResultsDisplay(QWidget):
         dist_layout.addRow("k3:", self._k3_label)
         layout.addWidget(dist_group)
 
-    def update_from_camera(self, camera: CameraData) -> None:
-        """Populate display from calibrated CameraData.
+    def _format_rmse_with_color(self, rmse: float) -> str:
+        """Format RMSE value with color-coded quality indicator.
+
+        Returns HTML span with color based on quality thresholds.
+        """
+        if rmse < self.RMSE_EXCELLENT:
+            color = "#4CAF50"  # Green - excellent
+        elif rmse < self.RMSE_ACCEPTABLE:
+            color = "#FFC107"  # Yellow/amber - acceptable
+        else:
+            color = "#F44336"  # Red - needs attention
+
+        return f'<span style="color: {color}; font-weight: bold;">{rmse:.3f} px</span>'
+
+    def _format_percentage(self, fraction: float) -> str:
+        """Format a 0-1 fraction as a percentage string."""
+        return f"{fraction * 100:.0f}%"
+
+    def update_from_output(self, output: IntrinsicCalibrationOutput) -> None:
+        """Populate display from calibration output.
 
         Args:
-            camera: CameraData with calibration results (matrix, distortions, error).
+            output: Complete calibration output with camera params and quality report.
         """
-        # Fit quality
-        error = camera.error if camera.error is not None else 0.0
-        grid_count = camera.grid_count if camera.grid_count is not None else 0
-        self._rmse_label.setText(f"{error:.3f} px")
-        self._grid_count_label.setText(str(grid_count))
+        camera = output.camera
+        report = output.report
+
+        # Fit quality - RMSE values with color-coding
+        self._in_sample_rmse_label.setText(self._format_rmse_with_color(report.in_sample_rmse))
+        self._out_sample_rmse_label.setText(self._format_rmse_with_color(report.out_of_sample_rmse))
+        self._grid_count_label.setText(str(report.frames_used))
+        self._holdout_count_label.setText(str(report.holdout_frame_count))
+
+        # Coverage quality
+        self._coverage_label.setText(self._format_percentage(report.coverage_fraction))
+        self._edge_coverage_label.setText(self._format_percentage(report.edge_coverage_fraction))
+        self._corner_coverage_label.setText(self._format_percentage(report.corner_coverage_fraction))
+
+        # Orientation - show count and sufficiency
+        orientation_text = f"{report.orientation_count}"
+        if report.orientation_sufficient:
+            orientation_text += " ✓"
+        else:
+            orientation_text += " (need more variety)"
+        self._orientation_label.setText(orientation_text)
 
         # Camera matrix (guard against None)
         if camera.matrix is not None:
@@ -144,12 +205,25 @@ class CalibrationResultsDisplay(QWidget):
 
     def reset(self) -> None:
         """Reset all values to placeholder state."""
-        self._rmse_label.setText("—")
+        # Fit quality
+        self._in_sample_rmse_label.setText("—")
+        self._out_sample_rmse_label.setText("—")
         self._grid_count_label.setText("—")
+        self._holdout_count_label.setText("—")
+
+        # Coverage quality
+        self._coverage_label.setText("—")
+        self._edge_coverage_label.setText("—")
+        self._corner_coverage_label.setText("—")
+        self._orientation_label.setText("—")
+
+        # Camera matrix
         self._fx_label.setText("—")
         self._fy_label.setText("—")
         self._cx_label.setText("—")
         self._cy_label.setText("—")
+
+        # Distortion
         self._k1_label.setText("—")
         self._k2_label.setText("—")
         self._p1_label.setText("—")
@@ -391,6 +465,10 @@ class IntrinsicCalibrationWidget(QWidget):
         # Initial UI state
         self._update_ui_for_state(presenter.state)
 
+        # Handle restored calibration state (from session cache)
+        if presenter.state == PresenterState.CALIBRATED:
+            self._restore_calibrated_state()
+
     def _setup_ui(self) -> None:
         """Create UI elements."""
         # Main horizontal layout: results on left, video+controls on right
@@ -549,6 +627,41 @@ class IntrinsicCalibrationWidget(QWidget):
             self._undistort_checkbox.setEnabled(True)
             self._position_slider.setEnabled(True)
 
+    def _restore_calibrated_state(self) -> None:
+        """Initialize display for restored calibration state (from session cache).
+
+        Called on widget init when presenter starts in CALIBRATED state due to
+        restoring a previous calibration's report and collected points.
+        """
+        # The calibration_complete signal wasn't emitted (we restored from cache),
+        # so we need to manually update the display as if calibration just finished.
+        report = self._presenter.calibration_report
+        if report is None:
+            return
+
+        # Build output from presenter's restored data
+        camera = self._presenter.calibrated_camera
+        if camera is None:
+            return
+
+        output = IntrinsicCalibrationOutput(camera=camera, report=report)
+
+        # Populate results display
+        self._results_display.update_from_output(output)
+
+        # Update status with RMSE info
+        self._status_label.setText(
+            f"Status: CALIBRATED (in: {report.in_sample_rmse:.2f}px, "
+            f"out: {report.out_of_sample_rmse:.2f}px, frames: {report.frames_used})"
+        )
+
+        # Enable grids overlay if we have collected points to render
+        if self._presenter.collected_points:
+            self._grids_cb.setEnabled(True)
+
+        # Auto-enable undistort to show calibration effect
+        self._undistort_checkbox.setChecked(True)
+
     def _on_calibrate_clicked(self) -> None:
         """Handle calibrate/stop button click."""
         state = self._presenter.state
@@ -586,14 +699,16 @@ class IntrinsicCalibrationWidget(QWidget):
         # Re-render cached frame with new settings (don't jump to frame 0)
         self._render_thread.rerender_cached()
 
-    def _on_calibration_complete(self, calibrated_camera: CameraData) -> None:
+    def _on_calibration_complete(self, output: IntrinsicCalibrationOutput) -> None:
         """Handle successful calibration."""
         # Populate results display FIRST (before state change shows it)
-        self._results_display.update_from_camera(calibrated_camera)
+        self._results_display.update_from_output(output)
 
-        error = calibrated_camera.error or 0.0
-        grid_count = calibrated_camera.grid_count or 0
-        self._status_label.setText(f"Status: CALIBRATED (RMSE: {error:.3f}px, frames: {grid_count})")
+        report = output.report
+        self._status_label.setText(
+            f"Status: CALIBRATED (in: {report.in_sample_rmse:.2f}px, "
+            f"out: {report.out_of_sample_rmse:.2f}px, frames: {report.frames_used})"
+        )
 
         # Enable selected grids overlay now that selection is available
         self._grids_cb.setEnabled(True)

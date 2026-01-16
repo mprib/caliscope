@@ -20,8 +20,9 @@ from PySide6.QtCore import QObject, Signal
 
 from caliscope.cameras.camera_array import CameraData
 from caliscope.core.calibrate_intrinsics import (
-    IntrinsicCalibrationResult,
-    calibrate_intrinsics,
+    IntrinsicCalibrationOutput,
+    IntrinsicCalibrationReport,
+    run_intrinsic_calibration,
 )
 from caliscope.core.frame_selector import FrameSelectionResult, select_calibration_frames
 from caliscope.core.point_data import ImagePoints
@@ -73,7 +74,7 @@ class IntrinsicCalibrationPresenter(QObject):
     """
 
     state_changed = Signal(PresenterState)
-    calibration_complete = Signal(CameraData)  # Calibrated camera, ready to use
+    calibration_complete = Signal(object)  # IntrinsicCalibrationOutput
     calibration_failed = Signal(str)
     frame_position_changed = Signal(int)  # Current frame index
 
@@ -84,6 +85,8 @@ class IntrinsicCalibrationPresenter(QObject):
         tracker: Tracker,
         task_manager: TaskManager,
         parent: QObject | None = None,
+        restored_report: IntrinsicCalibrationReport | None = None,
+        restored_points: list[tuple[int, PointPacket]] | None = None,
     ) -> None:
         """Initialize the presenter.
 
@@ -93,6 +96,8 @@ class IntrinsicCalibrationPresenter(QObject):
             tracker: CharucoTracker for point detection
             task_manager: TaskManager for background calibration
             parent: Optional Qt parent
+            restored_report: Optional report from previous calibration for overlay restoration
+            restored_points: Optional collected points from previous calibration (session-only)
         """
         super().__init__(parent)
 
@@ -105,11 +110,23 @@ class IntrinsicCalibrationPresenter(QObject):
         self._port = camera.port
         self._image_size = camera.size
 
-        # Scratchpad state
+        # Scratchpad state - may be restored from previous calibration
         self._collected_points: list[tuple[int, PointPacket]] = []
-        self._calibrated_camera: CameraData | None = None
+        self._output: IntrinsicCalibrationOutput | None = None
         self._calibration_task: TaskHandle | None = None
         self._selection_result: FrameSelectionResult | None = None
+
+        # Restore previous calibration state if available
+        if restored_report is not None and camera.matrix is not None:
+            # Camera is calibrated and we have a report - restore CALIBRATED state
+            self._output = IntrinsicCalibrationOutput(camera=camera, report=restored_report)
+            logger.info(
+                f"Restored calibration state for port {self._port}: RMSE={restored_report.in_sample_rmse:.3f}px"
+            )
+
+        if restored_points is not None:
+            self._collected_points = list(restored_points)
+            logger.info(f"Restored {len(restored_points)} collected point frames for port {self._port}")
 
         # Display queue for View consumption
         self._display_queue: Queue[FramePacket | None] = Queue()
@@ -149,7 +166,7 @@ class IntrinsicCalibrationPresenter(QObject):
     @property
     def state(self) -> PresenterState:
         """Compute current state from internal reality - never stale."""
-        if self._calibrated_camera is not None:
+        if self._output is not None:
             return PresenterState.CALIBRATED
 
         if self._calibration_task is not None and self._calibration_task.state == TaskState.RUNNING:
@@ -171,7 +188,12 @@ class IntrinsicCalibrationPresenter(QObject):
     @property
     def calibrated_camera(self) -> CameraData | None:
         """Access calibrated camera for View's undistortion setup."""
-        return self._calibrated_camera
+        return self._output.camera if self._output is not None else None
+
+    @property
+    def calibration_report(self) -> IntrinsicCalibrationReport | None:
+        """Access calibration quality report for display."""
+        return self._output.report if self._output is not None else None
 
     @property
     def camera(self) -> CameraData:
@@ -195,10 +217,16 @@ class IntrinsicCalibrationPresenter(QObject):
 
     @property
     def selected_frame_indices(self) -> list[int] | None:
-        """Selected frame indices for overlay rendering. Returns a copy."""
-        if self._selection_result is None:
-            return None
-        return list(self._selection_result.selected_frames)
+        """Selected frame indices for overlay rendering. Returns a copy.
+
+        Checks both the selection result (from current calibration) and the
+        output report (from restored calibration) for the frame list.
+        """
+        if self._selection_result is not None:
+            return list(self._selection_result.selected_frames)
+        if self._output is not None:
+            return list(self._output.report.selected_frames)
+        return None
 
     @property
     def board_connectivity(self) -> set[tuple[int, int]]:
@@ -258,7 +286,7 @@ class IntrinsicCalibrationPresenter(QObject):
         # (state is computed: CALIBRATED check comes before COLLECTING check)
         self._collected_points.clear()
         self._selection_result = None
-        self._calibrated_camera = None
+        self._output = None
         self._calibration_task = None
 
         # Now set collecting and emit state change
@@ -358,13 +386,15 @@ class IntrinsicCalibrationPresenter(QObject):
         # Store selection result for overlay rendering
         self._selection_result = selection_result
 
-        # Submit calibration to TaskManager
-        def calibration_worker(token: CancellationToken, handle: TaskHandle) -> IntrinsicCalibrationResult:
-            return calibrate_intrinsics(
+        # Capture camera for closure (avoid stale reference)
+        camera = self._camera
+
+        # Submit calibration to TaskManager using the orchestrator
+        def calibration_worker(token: CancellationToken, handle: TaskHandle) -> IntrinsicCalibrationOutput:
+            return run_intrinsic_calibration(
+                camera,
                 image_points,
-                self._port,
-                self._image_size,
-                selection_result.selected_frames,
+                selection_result,
             )
 
         self._calibration_task = self._task_manager.submit(
@@ -403,26 +433,20 @@ class IntrinsicCalibrationPresenter(QObject):
         df = pd.concat(rows, ignore_index=True)
         return ImagePoints(df)
 
-    def _on_calibration_complete(self, result: IntrinsicCalibrationResult) -> None:
-        """Handle successful calibration. Creates calibrated CameraData."""
+    def _on_calibration_complete(self, output: IntrinsicCalibrationOutput) -> None:
+        """Handle successful calibration. Stores output and emits signal."""
+        report = output.report
         logger.info(
             f"Calibration complete for port {self._port}: "
-            f"error={result.reprojection_error:.4f}px, "
-            f"frames={result.frames_used}"
+            f"in_sample={report.in_sample_rmse:.3f}px, "
+            f"out_of_sample={report.out_of_sample_rmse:.3f}px, "
+            f"frames={report.frames_used}"
         )
 
-        # Create new CameraData with calibration results applied
-        self._calibrated_camera = CameraData(
-            port=self._camera.port,
-            size=self._camera.size,
-            rotation_count=self._camera.rotation_count,
-            error=result.reprojection_error,
-            matrix=result.camera_matrix,
-            distortions=result.distortions,
-            grid_count=result.frames_used,
-        )
+        # Store complete output (camera + report)
+        self._output = output
 
-        self.calibration_complete.emit(self._calibrated_camera)
+        self.calibration_complete.emit(output)
         self._emit_state_changed()
 
         # Seek to first frame so View can display with undistortion

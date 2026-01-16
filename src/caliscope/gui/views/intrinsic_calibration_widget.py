@@ -1,8 +1,7 @@
-"""Minimal development View for intrinsic calibration testing.
+"""Intrinsic calibration widget for single-camera calibration workflow.
 
-This is a development harness to validate the IntrinsicCalibrationPresenter.
-Not intended for production use - serves as a testbed for the Presenter's
-workflow before building the production View.
+Provides video playback with charuco tracking overlay, calibration controls,
+and results display. Connects to IntrinsicCalibrationPresenter for business logic.
 """
 
 import logging
@@ -17,6 +16,8 @@ from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
+    QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -48,6 +49,112 @@ class OverlaySettings:
     show_current_points: bool = True
     show_accumulated: bool = True
     show_selected_grids: bool = True
+
+
+class CalibrationResultsDisplay(QWidget):
+    """Display intrinsic calibration results.
+
+    Shows camera matrix parameters, distortion coefficients, and fit quality
+    metrics. Always visible with placeholder values until calibration populates them.
+    """
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        """Create the form layout with labeled value fields."""
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # Fit quality group
+        fit_group = QGroupBox("Fit Quality")
+        fit_layout = QFormLayout(fit_group)
+        self._rmse_label = QLabel("—")
+        self._grid_count_label = QLabel("—")
+        fit_layout.addRow("RMSE:", self._rmse_label)
+        fit_layout.addRow("Frames used:", self._grid_count_label)
+        layout.addWidget(fit_group)
+
+        # Camera matrix group
+        matrix_group = QGroupBox("Camera Matrix")
+        matrix_layout = QFormLayout(matrix_group)
+        self._fx_label = QLabel("—")
+        self._fy_label = QLabel("—")
+        self._cx_label = QLabel("—")
+        self._cy_label = QLabel("—")
+        matrix_layout.addRow("fx:", self._fx_label)
+        matrix_layout.addRow("fy:", self._fy_label)
+        matrix_layout.addRow("cx:", self._cx_label)
+        matrix_layout.addRow("cy:", self._cy_label)
+        layout.addWidget(matrix_group)
+
+        # Distortion coefficients group
+        dist_group = QGroupBox("Distortion")
+        dist_layout = QFormLayout(dist_group)
+        self._k1_label = QLabel("—")
+        self._k2_label = QLabel("—")
+        self._p1_label = QLabel("—")
+        self._p2_label = QLabel("—")
+        self._k3_label = QLabel("—")
+        dist_layout.addRow("k1:", self._k1_label)
+        dist_layout.addRow("k2:", self._k2_label)
+        dist_layout.addRow("p1:", self._p1_label)
+        dist_layout.addRow("p2:", self._p2_label)
+        dist_layout.addRow("k3:", self._k3_label)
+        layout.addWidget(dist_group)
+
+    def update_from_camera(self, camera: CameraData) -> None:
+        """Populate display from calibrated CameraData.
+
+        Args:
+            camera: CameraData with calibration results (matrix, distortions, error).
+        """
+        # Fit quality
+        error = camera.error if camera.error is not None else 0.0
+        grid_count = camera.grid_count if camera.grid_count is not None else 0
+        self._rmse_label.setText(f"{error:.3f} px")
+        self._grid_count_label.setText(str(grid_count))
+
+        # Camera matrix (guard against None)
+        if camera.matrix is not None:
+            fx = camera.matrix[0, 0]
+            fy = camera.matrix[1, 1]
+            cx = camera.matrix[0, 2]
+            cy = camera.matrix[1, 2]
+            self._fx_label.setText(f"{fx:.1f} px")
+            self._fy_label.setText(f"{fy:.1f} px")
+            self._cx_label.setText(f"{cx:.1f} px")
+            self._cy_label.setText(f"{cy:.1f} px")
+        else:
+            for label in (self._fx_label, self._fy_label, self._cx_label, self._cy_label):
+                label.setText("—")
+
+        # Distortion coefficients (guard against None and variable length)
+        if camera.distortions is not None and len(camera.distortions) >= 5:
+            k1, k2, p1, p2, k3 = camera.distortions[:5]
+            self._k1_label.setText(f"{k1:.6f}")
+            self._k2_label.setText(f"{k2:.6f}")
+            self._p1_label.setText(f"{p1:.6f}")
+            self._p2_label.setText(f"{p2:.6f}")
+            self._k3_label.setText(f"{k3:.6f}")
+        else:
+            for label in (self._k1_label, self._k2_label, self._p1_label, self._p2_label, self._k3_label):
+                label.setText("—")
+
+    def reset(self) -> None:
+        """Reset all values to placeholder state."""
+        self._rmse_label.setText("—")
+        self._grid_count_label.setText("—")
+        self._fx_label.setText("—")
+        self._fy_label.setText("—")
+        self._cx_label.setText("—")
+        self._cy_label.setText("—")
+        self._k1_label.setText("—")
+        self._k2_label.setText("—")
+        self._p1_label.setText("—")
+        self._p2_label.setText("—")
+        self._k3_label.setText("—")
 
 
 class FrameRenderThread(QThread):
@@ -256,7 +363,7 @@ class FrameRenderThread(QThread):
         logger.debug(f"Frame render thread exiting for port {self._camera.port}")
 
 
-class IntrinsicCalibrationDevView(QWidget):
+class IntrinsicCalibrationWidget(QWidget):
     """Minimal development View for testing IntrinsicCalibrationPresenter.
 
     Layout:
@@ -284,26 +391,34 @@ class IntrinsicCalibrationDevView(QWidget):
 
     def _setup_ui(self) -> None:
         """Create UI elements."""
-        layout = QVBoxLayout(self)
+        # Main horizontal layout: results on left, video+controls on right
+        main_layout = QHBoxLayout(self)
+
+        # Left column: Calibration results (always visible)
+        self._results_display = CalibrationResultsDisplay()
+        main_layout.addWidget(self._results_display)
+
+        # Right column: Video display and controls
+        right_column = QVBoxLayout()
 
         # Frame display
         self._frame_label = QLabel()
         self._frame_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._frame_label.setMinimumSize(500, 500)
         self._frame_label.setStyleSheet("background-color: #1a1a1a;")
-        layout.addWidget(self._frame_label)
+        right_column.addWidget(self._frame_label)
 
         # Legend for boundary overlay (hidden by default)
         self._boundary_legend = QLabel("┈┈ Original frame boundary")
         self._boundary_legend.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._boundary_legend.setStyleSheet("color: #00FFFF;")  # Cyan to match boundary
         self._boundary_legend.hide()
-        layout.addWidget(self._boundary_legend)
+        right_column.addWidget(self._boundary_legend)
 
         # Status label
         self._status_label = QLabel("Status: READY")
         self._status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self._status_label)
+        right_column.addWidget(self._status_label)
 
         # Position slider row
         slider_row = QHBoxLayout()
@@ -317,7 +432,7 @@ class IntrinsicCalibrationDevView(QWidget):
         self._frame_counter.setMinimumWidth(100)
         slider_row.addWidget(self._frame_counter)
 
-        layout.addLayout(slider_row)
+        right_column.addLayout(slider_row)
 
         # Controls row
         controls = QHBoxLayout()
@@ -331,7 +446,7 @@ class IntrinsicCalibrationDevView(QWidget):
         self._undistort_checkbox.toggled.connect(self._on_undistort_toggled)
         controls.addWidget(self._undistort_checkbox)
 
-        layout.addLayout(controls)
+        right_column.addLayout(controls)
 
         # Overlay controls row
         overlay_row = QHBoxLayout()
@@ -352,7 +467,9 @@ class IntrinsicCalibrationDevView(QWidget):
         self._grids_cb.toggled.connect(self._on_overlay_toggled)
         overlay_row.addWidget(self._grids_cb)
 
-        layout.addLayout(overlay_row)
+        right_column.addLayout(overlay_row)
+
+        main_layout.addLayout(right_column)
 
     def _setup_render_thread(self) -> None:
         """Create and start the frame render thread."""
@@ -441,6 +558,7 @@ class IntrinsicCalibrationDevView(QWidget):
             self._undistort_checkbox.setChecked(False)
             self._grids_cb.setChecked(True)
             self._grids_cb.setEnabled(False)
+            self._results_display.reset()
             self._presenter.start_calibration()
 
     def _on_undistort_toggled(self, checked: bool) -> None:
@@ -468,6 +586,9 @@ class IntrinsicCalibrationDevView(QWidget):
 
     def _on_calibration_complete(self, calibrated_camera: CameraData) -> None:
         """Handle successful calibration."""
+        # Populate results display FIRST (before state change shows it)
+        self._results_display.update_from_camera(calibrated_camera)
+
         error = calibrated_camera.error or 0.0
         grid_count = calibrated_camera.grid_count or 0
         self._status_label.setText(f"Status: CALIBRATED (RMSE: {error:.3f}px, frames: {grid_count})")

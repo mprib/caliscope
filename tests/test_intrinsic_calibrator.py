@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
-from queue import Queue
-from time import sleep
+from queue import Empty, Queue
+from time import sleep, time
 
 import numpy as np
 
@@ -48,17 +48,26 @@ def test_intrinsic_calibrator(tmp_path: Path):
     streamer.start()
     streamer.pause()
 
-    packet = frame_q.get()  # pull off frame 0 to clear queue
-
-    # safety check to really clear queue
-    while frame_q.qsize() > 0:
-        packet = frame_q.get()
+    # Drain any initial frames - use timeout-based drain since qsize() is unreliable
+    # in multithreaded contexts
+    while True:
+        try:
+            frame_q.get(timeout=0.2)
+        except Empty:
+            break
 
     test_frames = [3, 5, 7, 9, 20, 25]
     for i in test_frames:
         streamer.seek_to(i)
-        packet = frame_q.get()
-        assert i == packet.frame_index
+        # Get packets until we find the one from the seek.
+        # Due to race conditions, there may be stale packets from before pause took
+        # full effect. The seek will produce exactly one packet with the target index.
+        timeout_at = time() + 2.0
+        while time() < timeout_at:
+            packet = frame_q.get(timeout=0.5)
+            if packet.frame_index == i:
+                break
+        assert i == packet.frame_index, f"Expected frame {i}, got {packet.frame_index}"
         logger.info(packet.frame_index)
         intrinsic_calibrator.add_frame_packet(packet)
         intrinsic_calibrator.add_calibration_frame_index(packet.frame_index)

@@ -23,7 +23,7 @@ class SyncedFramesDisplay(QWidget):
     This widget is not intended to have any interactive functionality at all and to only
     provide a window to the user of the current landmark tracking
 
-    This is why the primary input is the sync stream manager directly and not the controller
+    This is why the primary input is the sync stream manager directly and not the coordinator
     Apologies to Future Mac who is reading this and regretting my decisions.
     """
 

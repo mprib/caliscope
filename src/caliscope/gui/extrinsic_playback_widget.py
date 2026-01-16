@@ -17,21 +17,21 @@ from PySide6.QtWidgets import (
 )
 
 from caliscope.cameras.synchronizer import Synchronizer
-from caliscope.controller import Controller
+from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.packets import FramePacket
 
 logger = logging.getLogger(__name__)
 
 
 class ExtrinsicPlaybackWidget(QWidget):
-    def __init__(self, controller: Controller):
+    def __init__(self, coordinator: WorkspaceCoordinator):
         super(ExtrinsicPlaybackWidget, self).__init__()
-        self.controller = controller
-        self.synchronizer: Synchronizer = self.controller.synchronizer
+        self.coordinator = coordinator
+        self.synchronizer: Synchronizer = self.coordinator.synchronizer
         self.ports = self.synchronizer.ports
 
         # need to let synchronizer spin up before able to display frames
-        while not hasattr(controller.synchronizer, "current_sync_packet"):
+        while not hasattr(self.coordinator.synchronizer, "current_sync_packet"):
             sleep(0.25)
         # create tools to build and emit the displayed frame
         # self.unpaired_frame_builder = FramePrepper(self.synchronizer)
@@ -95,10 +95,10 @@ class ExtrinsicPlaybackWidget(QWidget):
 
     def connect_widgets(self):
         self.thumbnail_emitter.ThumbnailImagesBroadcast.connect(self.ImageUpdateSlot)
-        self.frame_rate_spin.valueChanged.connect(self.controller.set_active_mode_fps)
+        self.frame_rate_spin.valueChanged.connect(self.coordinator.set_active_mode_fps)
         self.thumbnail_emitter.dropped_fps.connect(self.update_dropped_fps)
         self.start_stop.clicked.connect(self.toggle_start_stop)
-        self.controller.qt_signaler.recording_complete_signal.connect(self.on_recording_complete)
+        self.coordinator.qt_signaler.recording_complete_signal.connect(self.on_recording_complete)
 
     @Slot(dict)
     def ImageUpdateSlot(self, q_image_dict: dict):

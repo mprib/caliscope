@@ -18,22 +18,22 @@ from PySide6.QtWidgets import (
 )
 
 from caliscope.core.charuco import Charuco
-from caliscope.controller import Controller
+from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 
 logger = logging.getLogger(__name__)
 
 
 class CharucoWidget(QWidget):
-    def __init__(self, controller: Controller):
+    def __init__(self, coordinator: WorkspaceCoordinator):
         super().__init__()
 
         logger.info("Charuco Wizard initializing")
-        self.controller = controller
-        self.params = self.controller.get_charuco_params()
+        self.coordinator = coordinator
+        self.params = self.coordinator.get_charuco_params()
 
         # add group to do initial configuration of the charuco board
-        self.charuco_config = CharucoConfigGroup(self.controller)
+        self.charuco_config = CharucoConfigGroup(self.coordinator)
         self.charuco_config.row_spin.valueChanged.connect(self.build_charuco)
         self.charuco_config.column_spin.valueChanged.connect(self.build_charuco)
         self.charuco_config.width_spin.valueChanged.connect(self.build_charuco)
@@ -73,7 +73,7 @@ class CharucoWidget(QWidget):
             save_file_tuple = QFileDialog.getSaveFileName(
                 self,
                 "Save As",
-                str(Path(self.controller.workspace, "charuco.png")),
+                str(Path(self.coordinator.workspace, "charuco.png")),
                 "PNG (*.png)",
             )
             print(save_file_tuple)
@@ -92,7 +92,7 @@ class CharucoWidget(QWidget):
             save_file_tuple = QFileDialog.getSaveFileName(
                 self,
                 "Save As",
-                str(Path(self.controller.workspace, "charuco_mirror.png")),
+                str(Path(self.coordinator.workspace, "charuco_mirror.png")),
                 "PNG (*.png)",
             )
             print(save_file_tuple)
@@ -115,15 +115,13 @@ class CharucoWidget(QWidget):
         self.printed_edge_length.setSingleStep(0.01)
         self.printed_edge_length.setMaximumWidth(100)
         # self.set_true_edge_length()
-        overide = self.controller.charuco.square_size_overide_cm
+        overide = self.coordinator.charuco.square_size_overide_cm
         self.printed_edge_length.setValue(overide)
 
         def update_charuco():
             self.charuco.square_size_overide_cm = round(self.printed_edge_length.value(), 2)
-
-            logger.info(f"Updated Square Size Overide to {self.printed_edge_length.value}")
-            self.controller.charuco = self.charuco
-            self.controller.config.save_charuco(self.charuco)
+            logger.info(f"Updated square size override to {self.printed_edge_length.value()}")
+            self.coordinator.update_charuco(self.charuco)
 
         self.printed_edge_length.valueChanged.connect(update_charuco)
 
@@ -175,7 +173,7 @@ class CharucoWidget(QWidget):
             # Clear any previous error message
             self.charuco_display.setStyleSheet("")
             self.charuco_display.setToolTip("")
-            self.controller.update_charuco(self.charuco)
+            self.coordinator.update_charuco(self.charuco)
         except Exception as e:
             logger.error(f"Failed to create charuco board: {str(e)}")
             error_msg = """Unable to create board with current dimensions.\n
@@ -193,10 +191,10 @@ class CharucoWidget(QWidget):
 
 
 class CharucoConfigGroup(QWidget):
-    def __init__(self, controller: Controller):
+    def __init__(self, coordinator: WorkspaceCoordinator):
         super().__init__()
-        self.controller = controller
-        self.params = self.controller.charuco.__dict__
+        self.coordinator = coordinator
+        self.params = self.coordinator.charuco.__dict__
 
         self.column_spin = QSpinBox()
         setup_spinbox_sizing(self.column_spin, min_value=3, max_value=999, padding=10)

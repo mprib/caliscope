@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from caliscope import persistence
-from caliscope.controller import Controller
+from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.gui.vizualize.playback_triangulation_widget import (
     PlaybackTriangulationWidget,
 )
@@ -29,15 +29,15 @@ logger = logging.getLogger(__name__)
 class PostProcessingWidget(QWidget):
     processing_complete = Signal()
 
-    def __init__(self, controller: Controller):
+    def __init__(self, coordinator: WorkspaceCoordinator):
         super(PostProcessingWidget, self).__init__()
-        self.controller = controller
+        self.coordinator = coordinator
 
         self.sync_index_cursors = {}  # track where the slider is for each playback...
         self.recording_folders = QListWidget()
         self.update_recording_folders()
 
-        self.vis_widget = PlaybackTriangulationWidget(self.controller.camera_array)
+        self.vis_widget = PlaybackTriangulationWidget(self.coordinator.camera_array)
 
         self.tracker_combo = QComboBox()
         self.vizualizer_title = QLabel()
@@ -76,7 +76,7 @@ class PostProcessingWidget(QWidget):
         # this check here is an artifact of the way that the main widget handles refresh
         self.recording_folders.clear()
         # create list of recording directories
-        dir_list = self.controller.workspace_guide.valid_recording_dirs()
+        dir_list = self.coordinator.workspace_guide.valid_recording_dirs()
 
         # add each folder to the QListWidget
         for folder in dir_list:
@@ -88,7 +88,7 @@ class PostProcessingWidget(QWidget):
     @property
     def processed_subfolder(self):
         subfolder = Path(
-            self.controller.workspace_guide.recording_dir,
+            self.coordinator.workspace_guide.recording_dir,
             self.recording_folders.currentItem().text(),
             self.tracker_combo.currentData().name,
         )
@@ -135,7 +135,7 @@ class PostProcessingWidget(QWidget):
     def active_recording_path(self) -> Path:
         folder = self.active_folder
         assert folder is not None  # Property callers ensure folder is selected
-        p = Path(self.controller.workspace_guide.recording_dir, folder)
+        p = Path(self.coordinator.workspace_guide.recording_dir, folder)
         logger.info(f"Active recording path is {p}")
         return p
 
@@ -177,8 +177,8 @@ class PostProcessingWidget(QWidget):
         self.open_folder_btn.clicked.connect(self.open_folder)
         self.generate_metarig_config_btn.clicked.connect(self.create_metarig_config)
 
-        self.controller.post_processing_complete.connect(self.enable_all_inputs)
-        self.controller.post_processing_complete.connect(self.refresh_visualizer)
+        self.coordinator.post_processing_complete.connect(self.enable_all_inputs)
+        self.coordinator.post_processing_complete.connect(self.refresh_visualizer)
 
     def store_sync_index_cursor(self, cursor_value):
         if self.xyz_processed_path.exists():
@@ -187,7 +187,7 @@ class PostProcessingWidget(QWidget):
     def open_folder(self):
         """Opens the currently active folder in a system file browser"""
         if self.active_folder is not None:
-            folder_path = Path(self.controller.workspace_guide.recording_dir, self.active_folder)
+            folder_path = Path(self.coordinator.workspace_guide.recording_dir, self.active_folder)
             url = QUrl.fromLocalFile(str(folder_path))
             QDesktopServices.openUrl(url)
         else:
@@ -196,19 +196,19 @@ class PostProcessingWidget(QWidget):
     def process_current(self):
         """
 
-        This needs to get pushed into the controller layer
+        This needs to get pushed into the coordinator layer
         """
         self.disable_all_inputs()
         folder = self.active_folder
         assert folder is not None  # Button is disabled when no folder selected
-        recording_path = Path(self.controller.workspace_guide.recording_dir, folder)
+        recording_path = Path(self.coordinator.workspace_guide.recording_dir, folder)
         logger.info(f"Beginning processing of recordings at {recording_path}")
         tracker_enum = self.tracker_combo.currentData()
         logger.info(f"(x,y) tracking will be applied using {tracker_enum.name}")
         recording_config_toml = Path(recording_path, "config.toml")
         logger.info(f"Camera data based on config file saved to {recording_config_toml}")
 
-        self.controller.process_recordings(recording_path, tracker_enum)
+        self.coordinator.process_recordings(recording_path, tracker_enum)
 
     def active_tracker_config_path(self):
         """
@@ -225,7 +225,7 @@ class PostProcessingWidget(QWidget):
         ):  # processing has been done and their is a camera array that can be loaded
             presented_camera_array = persistence.load_camera_array(self.archived_camera_array_path)
         else:
-            presented_camera_array = self.controller.camera_array
+            presented_camera_array = self.coordinator.camera_array
 
         self.vis_widget.update_camera_array(presented_camera_array)
 

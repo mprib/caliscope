@@ -38,17 +38,18 @@ FILTERED_FRACTION = (
 )
 
 
-class Controller(QObject):
+class WorkspaceCoordinator(QObject):
     """
-    Thin integration layer between GUI and backend domain logic.
+    Application-level coordinator for a calibration workspace.
 
-    The Controller orchestrates the calibration workflow by coordinating between
-    managers (data persistence), stream managers (video processing), and domain
-    objects (CameraArray, CaptureVolume). It maintains no business logic itself
-    beyond workflow state management.
+    Orchestrates the calibration workflow by coordinating between repositories
+    (persistence), stream managers (video processing), and domain objects
+    (CameraArray, CaptureVolume). Maintains no business logic itself beyond
+    workflow state management.
 
-    All data access is delegated to typed manager classes, eliminating coupling
-    between the GUI and persistence implementation details.
+    This is session-scoped to a workspace directory. All data access is delegated
+    to typed repository classes, eliminating coupling between the GUI and
+    persistence implementation details.
     """
 
     new_camera_data = Signal(int, OrderedDict)  # port, camera_display_dictionary

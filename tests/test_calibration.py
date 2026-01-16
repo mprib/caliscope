@@ -19,7 +19,7 @@ from caliscope.core.capture_volume.quality_controller import QualityController
 
 
 # from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
-from caliscope.controller import FILTERED_FRACTION
+from caliscope.workspace_coordinator import FILTERED_FRACTION
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.core.point_data import ImagePoints
 from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager

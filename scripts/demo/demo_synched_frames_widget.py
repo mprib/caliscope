@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QApplication
 import sys
 
 from caliscope.gui.synched_frames_display import SyncedFramesDisplay
-from caliscope.controller import Controller
+from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
 
 from pathlib import Path
@@ -18,9 +18,10 @@ app = QApplication(sys.argv)
 demo_workspace = Path("/home/mprib/caliscope_projects/minimal_project")
 # video_dir = demo_workspace / "calibration/extrinsic"
 video_dir = demo_workspace / "recordings/sitting"
-controller = Controller(demo_workspace)
-camera_array = controller.config.get_camera_array()
-# charuco = controller.config.get_charuco()
+coordinator = WorkspaceCoordinator(demo_workspace)
+coordinator.load_camera_array()
+camera_array = coordinator.camera_array
+# charuco = coordinator.config.get_charuco()
 # tracker = CharucoTracker(charuco)
 tracker = HolisticTracker()
 sync_stream_manager = SynchronizedStreamManager(video_dir, camera_array.cameras, tracker=tracker)

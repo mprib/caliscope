@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from caliscope.controller import Controller
+from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.gui.vizualize.calibration.capture_volume_visualizer import (
     CaptureVolumeVisualizer,
 )
@@ -21,17 +21,17 @@ logger = logging.getLogger(__name__)
 
 
 class CaptureVolumeWidget(QWidget):
-    def __init__(self, controller: Controller):
+    def __init__(self, coordinator: WorkspaceCoordinator):
         super(CaptureVolumeWidget, self).__init__()
 
-        self.controller = controller
+        self.coordinator = coordinator
 
-        if not hasattr(self.controller, "capture_volume"):
-            self.controller.load_estimated_capture_volume()
+        if not hasattr(self.coordinator, "capture_volume"):
+            self.coordinator.load_estimated_capture_volume()
 
         # Widget requires capture_volume to exist - load above should ensure this
-        assert self.controller.capture_volume is not None
-        self.visualizer = CaptureVolumeVisualizer(self.controller.capture_volume)
+        assert self.coordinator.capture_volume is not None
+        self.visualizer = CaptureVolumeVisualizer(self.coordinator.capture_volume)
         # self.visualizer.scene.show()
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setMinimum(self.visualizer.min_sync_index)
@@ -48,7 +48,7 @@ class CaptureVolumeWidget(QWidget):
         self.rotate_z_minus_btn = QPushButton("Z-")
 
         # capture_volume guaranteed non-None by assertion in __init__
-        capture_volume = self.controller.capture_volume
+        capture_volume = self.coordinator.capture_volume
         assert capture_volume is not None
         self.rmse_summary = QLabel(capture_volume.get_rmse_summary())
 
@@ -100,13 +100,13 @@ class CaptureVolumeWidget(QWidget):
     def set_origin_to_board(self):
         logger.info("Setting origin to board...")
         origin_index = self.slider.value()
-        self.controller.set_capture_volume_origin_to_board(origin_index)
+        self.coordinator.set_capture_volume_origin_to_board(origin_index)
         self.visualizer.refresh_scene()
 
     def rotate_capture_volume(self, direction):
         logger.info(f"Rotating capture volume: {direction}")
 
-        self.controller.rotate_capture_volume(direction)
+        self.coordinator.rotate_capture_volume(direction)
         self.visualizer.refresh_scene()
 
     def update_board(self, sync_index):

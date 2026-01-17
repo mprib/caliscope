@@ -1,5 +1,7 @@
 <div align="center">
 
+NOTE: The GUI on main is currently bugged out while in the midst of a major refactor. The last release here and on pypi is still operating in line with the posted videos. Apologies for any frustration,this should get cleaned up in the next couple of weeks.
+
 # Caliscope
 
 *Multicamera Calibration + Pose Estimation --> Open Source Motion Capture*

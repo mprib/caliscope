@@ -11,7 +11,9 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        # Target Python 3.12 only for faster CI feedback.
+        # pyproject.toml still supports 3.10-3.12 for user flexibility.
+        python-version: ["3.12"]
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:

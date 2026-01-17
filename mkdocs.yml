@@ -16,22 +16,22 @@ theme:
     - media: "(prefers-color-scheme: light)"
       scheme: default
       toggle:
-        icon: material/toggle-switch-off-outline 
+        icon: material/toggle-switch-off-outline
         name: Switch to dark mode
       primary: blue
       accent: green
     - media: "(prefers-color-scheme: light)"
-      scheme: slate 
+      scheme: slate
       toggle:
         icon: material/toggle-switch
-        name: Switch to light mode    
-      primary: blue 
+        name: Switch to light mode
+      primary: blue
       accent: green
 
 
 nav:
   - Installation: installation.md
-  - Project Setup: 
+  - Project Setup:
     - Overview: project_setup.md
     - Sample Project: sample_project.md
   - Project Setup:  project_setup.md
@@ -41,9 +41,10 @@ nav:
     - Charuco Board: calibration_board.md
     - Cameras: intrinsic_calibration.md
     - Capture Volume: extrinsic_calibration.md
-    - Post-Processing: post_processing.md 
+    - Post-Processing: post_processing.md
   - Python API:
     - Triangulation: triangulation_api.md
+  - Roadmap: roadmap.md
 
 
 plugins:

@@ -19,7 +19,7 @@ from caliscope.core.capture_volume.quality_controller import QualityController
 
 
 # from caliscope.cameras.camera_array_initializer import CameraArrayInitializer
-from caliscope.controller import FILTERED_FRACTION
+from caliscope.workspace_coordinator import FILTERED_FRACTION
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.core.point_data import ImagePoints
 from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
@@ -41,8 +41,8 @@ def test_xy_charuco_creation(tmp_path: Path):
     charuco = persistence.load_charuco(tmp_path / "charuco.toml")
     charuco_tracker = CharucoTracker(charuco)
 
-    # create a synchronizer based off of these stream pools
-    logger.info("Creating RecordedStreamPool")
+    # create publishers for synchronized processing
+    logger.info("Creating publishers")
     recording_path = Path(tmp_path, "calibration", "extrinsic")
     point_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
 

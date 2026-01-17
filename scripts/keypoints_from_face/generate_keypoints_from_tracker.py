@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QApplication
 import sys
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.controller import Controller
+from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.trackers.skull_tracker.skull_tracker import SkullTracker
 from caliscope.logger import setup_logging
 from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     toc = time.time()
     triangulation_time = toc - tic
 
-    # Save data to load into controller layer for visualization
+    # Save data to load into coordinator layer for visualization
     persistence.save_camera_array(optimized_camera_array, camera_array_toml)
 
     point_estimates_path = working_project_dir / "point_estimates.toml"
@@ -157,15 +157,15 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
 
-    controller = Controller(working_project_dir)
-    controller.load_camera_array()
-    controller.load_estimated_capture_volume()
+    coordinator = WorkspaceCoordinator(working_project_dir)
+    coordinator.load_camera_array()
+    coordinator.load_estimated_capture_volume()
 
-    window = CaptureVolumeWidget(controller)
+    window = CaptureVolumeWidget(coordinator)
     # After filtering - log filtered point counts
 
     logger.info("Point counts loaded into Capture Volume Widget:")
-    capture_volume = controller.capture_volume
+    capture_volume = coordinator.capture_volume
     assert capture_volume is not None  # Widget requires capture volume to exist
     logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
     logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")

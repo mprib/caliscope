@@ -7,15 +7,21 @@ have no side effects and return immutable results.
 
 The design follows "Level 1 purity": pure functions that return results,
 with mutation handled by the caller (typically a Presenter or Controller).
+
+Main entry point: `run_intrinsic_calibration()` orchestrates the complete
+workflow and returns an `IntrinsicCalibrationOutput` containing both the
+calibrated camera data and a quality report.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import logging
 
 import cv2
 import numpy as np
 from numpy.typing import NDArray
 
+from caliscope.cameras.camera_array import CameraData
+from caliscope.core.frame_selector import FrameSelectionResult, select_calibration_frames
 from caliscope.core.point_data import ImagePoints
 
 logger = logging.getLogger(__name__)
@@ -64,6 +70,50 @@ class HoldoutResult:
     total_points: int
     total_frames: int
     failed_frames: list[int]
+
+
+@dataclass(frozen=True)
+class IntrinsicCalibrationReport:
+    """Complete record of how intrinsic calibration was derived.
+
+    This captures quality metrics, selection statistics, and provenance
+    information for diagnostics and overlay restoration. Persisted alongside
+    CameraData to enable quality review and selected frame visualization.
+
+    Note on holdout RMSE: Computed via solvePnP on held-out frames, which
+    may slightly underestimate true error due to pose adaptation. The
+    normalized-to-pixel conversion is approximate (assumes center principal
+    point). These limitations are acceptable for practical quality assessment.
+    """
+
+    # Quality metrics
+    in_sample_rmse: float  # RMSE on training frames (pixels)
+    out_of_sample_rmse: float  # RMSE on held-out frames (pixels)
+    frames_used: int  # Number of frames in training set
+    holdout_frame_count: int  # Number of frames in holdout set
+
+    # Selection quality (from FrameSelectionResult)
+    coverage_fraction: float  # Fraction of 5x5 grid cells covered (target > 0.80)
+    edge_coverage_fraction: float  # Fraction of edge cells covered (target > 0.75)
+    corner_coverage_fraction: float  # Fraction of corner cells covered (target > 0.50)
+    orientation_sufficient: bool  # True if >= 4 distinct tilt directions
+    orientation_count: int  # Number of orientation bins covered (0-8)
+
+    # Provenance (the ~30 selected sync_index values)
+    selected_frames: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class IntrinsicCalibrationOutput:
+    """Complete output of the intrinsic calibration use case.
+
+    Bundles the calibrated camera with its quality report so they travel
+    together through the system. The Coordinator persists both: camera
+    parameters to camera_array.toml, report to intrinsic/reports/port_N.toml.
+    """
+
+    camera: CameraData
+    report: IntrinsicCalibrationReport
 
 
 def calibrate_intrinsics(
@@ -431,3 +481,119 @@ def _evaluate_frame(
     # Compute error
     errors = img_normalized - projected.reshape(-1, 2)
     return errors
+
+
+# =============================================================================
+# Orchestrator: Main entry point
+# =============================================================================
+
+
+def run_intrinsic_calibration(
+    camera: CameraData,
+    image_points: ImagePoints,
+    selection_result: FrameSelectionResult | None = None,
+) -> IntrinsicCalibrationOutput:
+    """Execute complete intrinsic calibration workflow.
+
+    This orchestrator coordinates the full calibration pipeline:
+    1. Frame selection (if not provided)
+    2. Intrinsic calibration → matrix, distortions, in_sample_rmse
+    3. Holdout error computation → out_of_sample_rmse
+    4. Build calibrated CameraData
+    5. Build IntrinsicCalibrationReport
+    6. Return both together
+
+    Args:
+        camera: Camera to calibrate (provides port, size, fisheye flag).
+        image_points: Detected charuco corners across all frames.
+        selection_result: Pre-computed frame selection. If None, runs
+            `select_calibration_frames()` automatically.
+
+    Returns:
+        IntrinsicCalibrationOutput with calibrated camera and quality report.
+
+    Raises:
+        ValueError: If no valid frames found or calibration fails.
+    """
+    port = camera.port
+    image_size = camera.size
+    fisheye = camera.fisheye
+
+    # Step 1: Frame selection (if not provided)
+    if selection_result is None:
+        selection_result = select_calibration_frames(image_points, port, image_size)
+
+    if not selection_result.selected_frames:
+        raise ValueError(f"No frames selected for calibration on port {port}")
+
+    selected_frames = selection_result.selected_frames
+
+    # Step 2: Intrinsic calibration
+    calibration_result = calibrate_intrinsics(
+        image_points,
+        port,
+        image_size,
+        selected_frames,
+        fisheye=fisheye,
+    )
+
+    # Step 3: Compute holdout error
+    # Holdout frames = all eligible frames not in selected_frames
+    all_frames = _get_all_frames_for_port(image_points, port)
+    holdout_frames = [f for f in all_frames if f not in set(selected_frames)]
+
+    if holdout_frames:
+        holdout_result = compute_holdout_error(
+            image_points,
+            calibration_result,
+            port,
+            holdout_frames,
+            fisheye=fisheye,
+        )
+        out_of_sample_rmse = holdout_result.rmse_pixels
+        holdout_frame_count = holdout_result.total_frames
+    else:
+        # No holdout frames available - use in-sample as fallback
+        out_of_sample_rmse = calibration_result.reprojection_error
+        holdout_frame_count = 0
+        logger.warning(f"Port {port}: No holdout frames available, using in-sample RMSE")
+
+    # Step 4: Build calibrated CameraData
+    calibrated_camera = replace(
+        camera,
+        matrix=calibration_result.camera_matrix,
+        distortions=calibration_result.distortions,
+        error=calibration_result.reprojection_error,
+        grid_count=calibration_result.frames_used,
+    )
+
+    # Step 5: Build report
+    report = IntrinsicCalibrationReport(
+        in_sample_rmse=calibration_result.reprojection_error,
+        out_of_sample_rmse=out_of_sample_rmse,
+        frames_used=calibration_result.frames_used,
+        holdout_frame_count=holdout_frame_count,
+        coverage_fraction=selection_result.coverage_fraction,
+        edge_coverage_fraction=selection_result.edge_coverage_fraction,
+        corner_coverage_fraction=selection_result.corner_coverage_fraction,
+        orientation_sufficient=selection_result.orientation_sufficient,
+        orientation_count=selection_result.orientation_count,
+        selected_frames=tuple(selected_frames),
+    )
+
+    logger.info(
+        f"Calibration complete for port {port}: "
+        f"in_sample={report.in_sample_rmse:.3f}px, "
+        f"out_of_sample={report.out_of_sample_rmse:.3f}px, "
+        f"frames={report.frames_used}, "
+        f"coverage={report.coverage_fraction:.0%}"
+    )
+
+    return IntrinsicCalibrationOutput(camera=calibrated_camera, report=report)
+
+
+def _get_all_frames_for_port(image_points: ImagePoints, port: int) -> list[int]:
+    """Get all sync_index values that have data for the given port."""
+    df = image_points.df
+    port_df = df[df["port"] == port]
+    return sorted(port_df["sync_index"].unique().tolist())

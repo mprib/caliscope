@@ -100,15 +100,19 @@ def test_worker_exception_emitted_via_failed_signal(qapp):
 def test_cancel_emits_cancelled_signal(qapp):
     manager = TaskManager()
     received = {"cancelled": False}
+    start_event = threading.Event()
 
     def worker(token, handle):
+        start_event.wait()  # Wait until signal is connected
         while not token.is_cancelled:
             token.sleep_unless_cancelled(0.1)
 
     handle = manager.submit(worker, "cancellable_task")
     handle.cancelled.connect(lambda: received.update({"cancelled": True}))
+    qapp.processEvents()  # Ensure connection is processed
+    start_event.set()  # Now let worker proceed
 
-    time.sleep(0.05)  # Let worker start
+    time.sleep(0.05)  # Let worker start its loop
     manager.cancel(handle.task_id)
 
     _wait_for_condition(lambda: received["cancelled"], timeout=2.0, qapp=qapp)

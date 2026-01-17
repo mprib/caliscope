@@ -20,11 +20,9 @@ from PySide6.QtWidgets import (
 
 from caliscope import APP_SETTINGS_PATH, LOG_DIR, __root__
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.controller import Controller
+from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.task_manager import TaskHandle
-from caliscope.gui.camera_management.multiplayback_widget import (
-    MultiIntrinsicPlaybackWidget,
-)
+from caliscope.gui.cameras_tab_widget import CamerasTabWidget
 from caliscope.gui.charuco_widget import CharucoWidget
 from caliscope.gui.log_widget import LogWidget
 from caliscope.gui.post_processing_widget import PostProcessingWidget
@@ -93,49 +91,51 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.central_tab)
 
         logger.info("Building workspace summary")
-        self.workspace_summary = WorkspaceSummaryWidget(self.controller)
+        self.workspace_summary = WorkspaceSummaryWidget(self.coordinator)
         self.workspace_summary.reload_workspace_btn.clicked.connect(self.reload_workspace)
         self.central_tab.addTab(self.workspace_summary, "Workspace")
 
-        if self.controller.all_extrinsic_mp4s_available() and self.controller.camera_array.all_intrinsics_calibrated():
+        extrinsics_available = self.coordinator.all_extrinsic_mp4s_available()
+        intrinsics_calibrated = self.coordinator.camera_array.all_intrinsics_calibrated()
+        if extrinsics_available and intrinsics_calibrated:
             self.workspace_summary.calibrate_btn.setEnabled(True)
         else:
             self.workspace_summary.calibrate_btn.setEnabled(False)
 
         logger.info("Building Charuco widget")
-        self.charuco_widget = CharucoWidget(self.controller)
+        self.charuco_widget = CharucoWidget(self.coordinator)
         self.central_tab.addTab(self.charuco_widget, "Charuco")
 
-        logger.info("About to load Camera tab")
-        if self.controller.cameras_loaded:
-            logger.info("Creating MultiIntrinsic Playback Widget")
-            self.intrinsic_cal_widget = MultiIntrinsicPlaybackWidget(self.controller)
-            logger.info("MultiIntrinsic Playback Widget created")
+        # Build Cameras tab with intrinsic calibration workflow
+        if self.coordinator.cameras_loaded:
+            logger.info("Building Cameras tab with intrinsic calibration")
+            self.cameras_tab_widget = CamerasTabWidget(self.coordinator)
         else:
-            self.intrinsic_cal_widget = QWidget()
-
-        logger.info("finished loading camera tab")
-        self.central_tab.addTab(self.intrinsic_cal_widget, "Cameras")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Cameras"), self.controller.cameras_loaded)
-        logger.info("Camera tab enabled")
+            logger.info("Cameras tab disabled - no intrinsic videos available")
+            self.cameras_tab_widget = QWidget()
+        self.central_tab.addTab(self.cameras_tab_widget, "Cameras")
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Cameras"),
+            self.coordinator.cameras_loaded,
+        )
 
         logger.info("About to load capture volume tab")
-        if self.controller.capture_volume_loaded:
+        if self.coordinator.capture_volume_loaded:
             logger.info("Creating capture Volume Widget")
-            self.capture_volume_widget = CaptureVolumeWidget(self.controller)
+            self.capture_volume_widget = CaptureVolumeWidget(self.coordinator)
         else:
             logger.info("Creating dummy widget")
             self.capture_volume_widget = QWidget()
         self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Capture Volume"), self.controller.capture_volume_loaded
+            self.find_tab_index_by_title("Capture Volume"), self.coordinator.capture_volume_loaded
         )
 
         logger.info("About to load post-processing tab")
-        if self.controller.capture_volume_loaded and self.controller.recordings_available():
+        if self.coordinator.capture_volume_loaded and self.coordinator.recordings_available():
             logger.info("Creating post processing widget")
-            self.post_processing_widget = PostProcessingWidget(self.controller)
-            self.controller.capture_volume_shifted.connect(self.post_processing_widget.refresh_visualizer)
+            self.post_processing_widget = PostProcessingWidget(self.coordinator)
+            self.coordinator.capture_volume_shifted.connect(self.post_processing_widget.refresh_visualizer)
             post_processing_enabled = True
         else:
             logger.info("Creating dummy widget")
@@ -161,10 +161,10 @@ class MainWindow(QMainWindow):
             TaskHandle for connecting additional completion callbacks.
         """
         logger.info(f"Launching session with config file stored in {path_to_workspace}")
-        self.controller = Controller(Path(path_to_workspace))
-        logger.info("Initiate controller loading")
+        self.coordinator = WorkspaceCoordinator(Path(path_to_workspace))
+        logger.info("Initiate coordinator loading")
         # TaskHandle.completed safe to connect after start - Qt queues cross-thread signals
-        handle = self.controller.load_workspace()
+        handle = self.coordinator.load_workspace()
         handle.completed.connect(self.build_central_tabs)
 
         self.open_project_action.setEnabled(False)
@@ -187,14 +187,18 @@ class MainWindow(QMainWindow):
             logger.info(f"Removing tab with index {index}")
             self.central_tab.removeTab(index)
             if widget_to_remove is not None:
+                # Explicit cleanup for widgets that need it
+                # (closeEvent not triggered by removeTab + deleteLater)
+                if hasattr(widget_to_remove, "cleanup"):
+                    widget_to_remove.cleanup()
                 widget_to_remove.deleteLater()
 
             self.central_tab.clear()
 
-        workspace = self.controller.workspace
-        del self.controller
-        self.controller = Controller(workspace_dir=workspace)
-        handle = self.controller.load_workspace()
+        workspace = self.coordinator.workspace
+        del self.coordinator
+        self.coordinator = WorkspaceCoordinator(workspace_dir=workspace)
+        handle = self.coordinator.load_workspace()
         handle.completed.connect(self.build_central_tabs)
 
     def add_to_recent_project(self, project_path: str):

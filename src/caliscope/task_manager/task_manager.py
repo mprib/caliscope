@@ -49,7 +49,7 @@ class _WorkerThread(QThread):
 class TaskManager(QObject):
     """Centralized manager for background task lifecycle.
 
-    Replaces the controller's pattern of storing threads in dictionaries
+    Replaces the coordinator's pattern of storing threads in dictionaries
     without cleanup. Tracks active tasks and provides abort functionality.
     """
 

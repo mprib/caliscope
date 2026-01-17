@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QApplication
 import sys
 from pathlib import Path
-from caliscope.controller import Controller
+from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
 import logging
 import caliscope.logger
@@ -17,16 +17,16 @@ root = Path(__file__).parent.parent.parent
 workspace_dir = Path(root, "tests", "sessions_copy_delete", "capture_volume_pre_quality_control")
 
 workspace_dir = Path(__root__, "tests", "sessions_copy_delete", "post_optimization")
-controller = Controller(workspace_dir)
+coordinator = WorkspaceCoordinator(workspace_dir)
 
-controller.load_camera_array()
-controller.load_estimated_capture_volume()
+coordinator.load_camera_array()
+coordinator.load_estimated_capture_volume()
 
-window = CaptureVolumeWidget(controller)
+window = CaptureVolumeWidget(coordinator)
 # After filtering - log filtered point counts
 
 logger.info("Point counts loaded into Capture Volume Widget:")
-capture_volume = controller.capture_volume
+capture_volume = coordinator.capture_volume
 assert capture_volume is not None  # Widget requires capture volume to exist
 logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
 logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")

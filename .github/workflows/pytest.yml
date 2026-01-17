@@ -2,8 +2,6 @@ name: Run Linting and Tests
 
 on:
   pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:

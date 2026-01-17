@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QApplication
 import sys
 from pathlib import Path
-from caliscope.controller import Controller
+from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.gui.vizualize.playback_triangulation_widget import PlaybackTriangulationWidget
 from caliscope.trackers.holistic.holistic_tracker import HolisticTracker
 from caliscope import __root__
@@ -9,9 +9,9 @@ from caliscope import __root__
 app = QApplication(sys.argv)
 workspace_dir = Path(__root__, "tests", "sessions_copy_delete", "post_optimization")
 
-controller = Controller(workspace_dir)
-controller.load_camera_array()
-camera_array = controller.camera_array
+coordinator = WorkspaceCoordinator(workspace_dir)
+coordinator.load_camera_array()
+camera_array = coordinator.camera_array
 tracker = HolisticTracker()
 
 xyz_history = Path(workspace_dir, "calibration", "extrinsic", "xyz_CHARUCO.csv")

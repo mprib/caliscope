@@ -20,7 +20,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from caliscope.controller import Controller  # noqa: E402
+from caliscope.workspace_coordinator import WorkspaceCoordinator  # noqa: E402
 from caliscope.gui.charuco_widget import CharucoWidget  # noqa: E402
 
 from utils import capture_widget, clear_output_dir, process_events_for  # noqa: E402
@@ -41,11 +41,11 @@ def main():
     # Initialize Qt application
     QApplication(sys.argv)
 
-    # Create controller (loads charuco config from project)
-    controller = Controller(SAMPLE_PROJECT)
+    # Create coordinator (loads charuco config from project)
+    coordinator = WorkspaceCoordinator(SAMPLE_PROJECT)
 
     # Create the CharucoWidget
-    widget = CharucoWidget(controller)
+    widget = CharucoWidget(coordinator)
     widget.resize(600, 700)
     widget.show()
 

@@ -197,8 +197,57 @@ class TestComputeHoldoutError:
 # and create a proper testing framework for intrinsic calibration quality.
 
 
+class TestCalibrationPersistence:
+    """Integration tests for calibration output persistence.
+
+    Tests the full flow: run_intrinsic_calibration → repository save → reload.
+    This caught a bug where numpy types in the report couldn't be serialized.
+    """
+
+    def test_calibration_output_survives_persistence(self, tmp_path):
+        """Calibration output can be saved and loaded via repository."""
+        from caliscope.cameras.camera_array import CameraData
+        from caliscope.core.calibrate_intrinsics import run_intrinsic_calibration
+        from caliscope.core.frame_selector import select_calibration_frames
+        from caliscope.repositories.intrinsic_report_repository import (
+            IntrinsicReportRepository,
+        )
+
+        image_points, port0_frames = _load_test_data()
+
+        # Create a minimal CameraData for the calibration
+        camera = CameraData(port=0, size=IMAGE_SIZE, rotation_count=0)
+
+        # Run frame selection (produces numpy types internally)
+        selection_result = select_calibration_frames(image_points, port=0, image_size=IMAGE_SIZE)
+
+        # Run calibration orchestrator - this produces IntrinsicCalibrationOutput
+        output = run_intrinsic_calibration(camera, image_points, selection_result)
+
+        # Verify we got a valid output
+        assert output.camera.matrix is not None
+        assert output.report.in_sample_rmse > 0
+        assert len(output.report.selected_frames) > 0
+
+        # Save via repository (this is where numpy types caused problems)
+        repo = IntrinsicReportRepository(tmp_path / "reports")
+        repo.save(port=0, report=output.report)
+
+        # Load back
+        loaded_report = repo.load(port=0)
+
+        # Verify round-trip preserves values
+        assert loaded_report is not None
+        assert loaded_report.in_sample_rmse == pytest.approx(output.report.in_sample_rmse)
+        assert loaded_report.out_of_sample_rmse == pytest.approx(output.report.out_of_sample_rmse)
+        assert loaded_report.frames_used == output.report.frames_used
+        assert loaded_report.coverage_fraction == pytest.approx(output.report.coverage_fraction)
+        assert loaded_report.selected_frames == output.report.selected_frames
+
+
 if __name__ == "__main__":
     import caliscope.logger
+    import tempfile
 
     caliscope.logger.setup_logging()
 
@@ -219,5 +268,10 @@ if __name__ == "__main__":
 
     test_holdout.test_holdout_empty_frames_returns_nan()
     logger.info("PASS: test_holdout_empty_frames_returns_nan")
+
+    test_persist = TestCalibrationPersistence()
+    with tempfile.TemporaryDirectory() as tmp:
+        test_persist.test_calibration_output_survives_persistence(Path(tmp))
+    logger.info("PASS: test_calibration_output_survives_persistence")
 
     logger.info("All tests passed!")

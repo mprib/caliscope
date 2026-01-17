@@ -7,7 +7,7 @@ import cv2
 from caliscope.cameras.camera_array import CameraData
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.tracker import Tracker
-from caliscope.recording.recorded_stream import RecordedStream
+from caliscope.recording import FramePacketStreamer, create_streamer
 from caliscope.recording.video_recorder import VideoRecorder
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
@@ -15,18 +15,21 @@ logger = logging.getLogger(__name__)
 
 
 class SynchronizedStreamManager:
-    """
-    The primary job of the SynchronizedStreamManager is to take in a directory of concurrently recorded video
-    as well as a Tracker and produce the xy.csv file that is the foundation of both the extrinsic calibration
-    as well as the point triangulation.
+    """Orchestrates batch processing of multi-camera video to extract 2D landmarks.
 
-    Related to this, it also directs where the recorded data will go and builds the DictionaryFrameEmitter
-    that will broadcast a dictionary of frames while they are being processed.
+    Takes a directory of concurrently recorded video and a Tracker, produces xy.csv
+    output that is the foundation of extrinsic calibration and point triangulation.
 
-    Because of this it has substantial and broad responsibilities that include creation of:
-    - streams
-    - synchronizer
-    - video recorder
+    TODO(#890): Refactor to pure function `process_synchronized_recording()` with:
+    - CancellationToken support for graceful shutdown
+    - on_progress callback for TaskManager integration
+    - on_sync_packet callback for live frame display
+    See CLAUDE.md "Planned Refactor: SynchronizedStreamManager" for architecture.
+
+    Current responsibilities:
+    - Create FramePacketStreamer per camera
+    - Create Synchronizer for frame alignment
+    - Create VideoRecorder for output
     """
 
     def __init__(
@@ -43,25 +46,11 @@ class SynchronizedStreamManager:
         self.output_dir = Path(self.recording_dir, self.subfolder_name)
 
         self.load_video_properties()
-        # To be filled when loading stream tools
-        self.load_stream_tools()
 
-    def load_stream_tools(self):
-        self.streams = {}
-
-        for camera in self.all_camera_data.values():
-            stream = RecordedStream(
-                directory=self.recording_dir,
-                camera=camera,
-                tracker=self.tracker,
-                break_on_last=True,
-            )
-
-            self.streams[camera.port] = stream
-
-        logger.info(f"Creating synchronizer based off of streams: {self.streams}")
-        self.synchronizer = Synchronizer(self.streams)
-        self.recorder = VideoRecorder(self.synchronizer, suffix=self.subfolder_name)
+        # Initialized lazily in process_streams()
+        self.streamers: dict[int, FramePacketStreamer] = {}
+        self.synchronizer: Synchronizer | None = None
+        self.recorder: VideoRecorder | None = None
 
     def process_streams(self, fps_target: int | None = None, include_video: bool = True) -> None:
         """
@@ -70,6 +59,26 @@ class SynchronizedStreamManager:
         Default behavior is to process streams at the mean frame rate they were recorded at.
         But this can be overridden with a new fps_target
         """
+        if fps_target is None:
+            fps_target = int(self.mean_fps)
+
+        # Create streamers with fps_target
+        self.streamers = {}
+        for camera in self.all_camera_data.values():
+            streamer = create_streamer(
+                video_directory=self.recording_dir,
+                port=camera.port,
+                rotation_count=camera.rotation_count,
+                tracker=self.tracker,
+                fps_target=fps_target,
+                end_behavior="stop",  # Stop at end for batch processing
+            )
+            self.streamers[camera.port] = streamer
+
+        logger.info(f"Creating synchronizer based off of streamers: {self.streamers}")
+        self.synchronizer = Synchronizer(self.streamers)
+        self.recorder = VideoRecorder(self.synchronizer, suffix=self.subfolder_name)
+
         logger.info(f"beginning to create recording for files saved to {self.output_dir}")
         self.recorder.start_recording(
             self.output_dir,
@@ -78,15 +87,9 @@ class SynchronizedStreamManager:
             store_point_history=True,
         )
 
-        if fps_target is None:
-            fps_target = self.mean_fps
-
-        logger.info(f"About to start playing video streams to be processed. Streams: {self.streams}")
-        for port, stream in self.streams.items():
-            if fps_target is not None:
-                stream.set_fps_target(fps_target)
-
-            stream.play_video()
+        logger.info(f"About to start playing video streamers: {self.streamers}")
+        for port, streamer in self.streamers.items():
+            streamer.start()
 
     def load_video_properties(self):
         fps = []

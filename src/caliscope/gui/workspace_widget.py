@@ -6,7 +6,7 @@ import sys
 from PySide6.QtCore import QFileSystemWatcher, Qt
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QSpinBox, QTextBrowser, QWidget
 
-from caliscope.controller import Controller
+from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.gui.synched_frames_display import SyncedFramesDisplay
 from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 
@@ -14,21 +14,21 @@ logger = logging.getLogger(__name__)
 
 
 class WorkspaceSummaryWidget(QWidget):
-    def __init__(self, controller: Controller):
+    def __init__(self, coordinator: WorkspaceCoordinator):
         super().__init__()
 
-        self.controller = controller
+        self.coordinator = coordinator
 
         # Watch for filesystem changes to auto-refresh status
         self.watcher = QFileSystemWatcher()
-        self.watcher.addPath(str(self.controller.workspace))
+        self.watcher.addPath(str(self.coordinator.workspace))
 
         self.open_workspace_folder_btn = QPushButton("Open Workspace Folder", self)
         self.calibrate_btn = QPushButton("Calibrate Capture Volume", self)
         self.reload_workspace_btn = QPushButton("Reload Workspace")
 
         self.camera_count_spin = QSpinBox()
-        self.camera_count_spin.setValue(self.controller.get_camera_count())
+        self.camera_count_spin.setValue(self.coordinator.get_camera_count())
         setup_spinbox_sizing(self.camera_count_spin, min_value=1, max_value=100, padding=30)
         self.camera_count_spin.setMaximumWidth(40)
 
@@ -55,36 +55,37 @@ class WorkspaceSummaryWidget(QWidget):
         self.open_workspace_folder_btn.clicked.connect(self.open_workspace)
         self.calibrate_btn.clicked.connect(self.on_calibrate_btn_clicked)
         self.camera_count_spin.valueChanged.connect(self.set_camera_count)
-        self.controller.show_synched_frames.connect(self.show_synched_frames)
+        self.coordinator.show_synched_frames.connect(self.show_synched_frames)
 
         # Auto-refresh when workspace changes
         self.watcher.directoryChanged.connect(self.update_status)
         self.reload_workspace_btn.clicked.connect(self.update_status)
 
     def on_calibrate_btn_clicked(self):
-        logger.info("Calling controller to process extrinsic streams into 2D data")
-        self.controller.calibrate_capture_volume()
+        logger.info("Calling coordinator to process extrinsic streams into 2D data")
+        self.coordinator.calibrate_capture_volume()
 
     def set_camera_count(self, value):
-        self.controller.set_camera_count(value)
+        self.coordinator.set_camera_count(value)
         self.update_status()  # Refresh display after change
 
     def open_workspace(self):
-        logger.info(f"Opening workspace within File Explorer... located at {self.controller.workspace}")
+        logger.info(f"Opening workspace within File Explorer... located at {self.coordinator.workspace}")
         if sys.platform == "win32":
-            os.startfile(self.controller.workspace)
+            os.startfile(self.coordinator.workspace)
         elif sys.platform == "darwin":
-            subprocess.run(["open", self.controller.workspace])
+            subprocess.run(["open", self.coordinator.workspace])
         else:  # Linux and Unix-like systems
-            subprocess.run(["xdg-open", self.controller.workspace])
+            subprocess.run(["xdg-open", self.coordinator.workspace])
 
     def show_synched_frames(self):
         logger.info("About to launch synced Frames Display")
-        self.display_window = SyncedFramesDisplay(self.controller.extrinsic_stream_manager)
+        self.display_window = SyncedFramesDisplay(self.coordinator.extrinsic_stream_manager)
         self.display_window.show()
 
     def update_status(self):
-        """Refresh status display with current Controller state."""
-        self.status_HTML.setHtml(
-            self.controller.workspace_guide.get_html_summary(self.controller.camera_array, self.controller.camera_count)
+        """Refresh status display with current Coordinator state."""
+        html = self.coordinator.workspace_guide.get_html_summary(
+            self.coordinator.camera_array, self.coordinator.camera_count
         )
+        self.status_HTML.setHtml(html)

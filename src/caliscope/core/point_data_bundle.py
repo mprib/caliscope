@@ -23,7 +23,11 @@ from caliscope.core.reprojection import (
     CameraIndices,
 )
 from caliscope.core.reprojection_report import ReprojectionReport
-from caliscope.core.alignment import estimate_similarity_transform, apply_similarity_transform
+from caliscope.core.alignment import (
+    estimate_similarity_transform,
+    apply_similarity_transform,
+    SimilarityTransform,
+)
 
 import pandas as pd
 
@@ -544,6 +548,81 @@ class PointDataBundle:
 
         return PointDataBundle(
             camera_array=new_camera_array, image_points=self.image_points, world_points=new_world_points
+        )
+
+    @property
+    def unique_sync_indices(self) -> np.ndarray:
+        """
+        Return sorted array of unique sync_index values present in world_points.
+
+        Used for slider range in visualization widgets.
+        """
+        indices = self.world_points.df["sync_index"].unique()
+        return np.sort(indices)
+
+    def rotate(self, axis: Literal["x", "y", "z"], angle_degrees: float) -> "PointDataBundle":
+        """
+        Rotate the coordinate system around the specified axis.
+
+        Uses right-hand rule: positive angle = counter-clockwise rotation
+        when looking down the positive axis toward the origin.
+
+        Transforms both camera extrinsics and world points, returning a new
+        immutable bundle. The original bundle remains unchanged.
+
+        Args:
+            axis: The axis to rotate around ("x", "y", or "z")
+            angle_degrees: Rotation angle in degrees (positive = counter-clockwise)
+
+        Returns:
+            New PointDataBundle with rotated coordinate system.
+        """
+        angle_rad = np.radians(angle_degrees)
+        c, s = np.cos(angle_rad), np.sin(angle_rad)
+
+        # Standard rotation matrices following right-hand rule
+        if axis == "x":
+            rotation = np.array(
+                [
+                    [1, 0, 0],
+                    [0, c, -s],
+                    [0, s, c],
+                ],
+                dtype=np.float64,
+            )
+        elif axis == "y":
+            rotation = np.array(
+                [
+                    [c, 0, s],
+                    [0, 1, 0],
+                    [-s, 0, c],
+                ],
+                dtype=np.float64,
+            )
+        elif axis == "z":
+            rotation = np.array(
+                [
+                    [c, -s, 0],
+                    [s, c, 0],
+                    [0, 0, 1],
+                ],
+                dtype=np.float64,
+            )
+        else:
+            raise ValueError(f"Invalid axis '{axis}'. Must be 'x', 'y', or 'z'")
+
+        transform = SimilarityTransform(
+            rotation=rotation,
+            translation=np.zeros(3, dtype=np.float64),
+            scale=1.0,
+        )
+
+        new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
+
+        return PointDataBundle(
+            camera_array=new_camera_array,
+            image_points=self.image_points,
+            world_points=new_world_points,
         )
 
 

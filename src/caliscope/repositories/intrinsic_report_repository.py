@@ -47,17 +47,18 @@ class IntrinsicReportRepository:
         """
         self._reports_dir.mkdir(parents=True, exist_ok=True)
 
+        # Explicitly convert to Python native types - numpy types can't be serialized by rtoml
         data = {
-            "in_sample_rmse": report.in_sample_rmse,
-            "out_of_sample_rmse": report.out_of_sample_rmse,
-            "frames_used": report.frames_used,
-            "holdout_frame_count": report.holdout_frame_count,
-            "coverage_fraction": report.coverage_fraction,
-            "edge_coverage_fraction": report.edge_coverage_fraction,
-            "corner_coverage_fraction": report.corner_coverage_fraction,
-            "orientation_sufficient": report.orientation_sufficient,
-            "orientation_count": report.orientation_count,
-            "selected_frames": list(report.selected_frames),
+            "in_sample_rmse": float(report.in_sample_rmse),
+            "out_of_sample_rmse": float(report.out_of_sample_rmse),
+            "frames_used": int(report.frames_used),
+            "holdout_frame_count": int(report.holdout_frame_count),
+            "coverage_fraction": float(report.coverage_fraction),
+            "edge_coverage_fraction": float(report.edge_coverage_fraction),
+            "corner_coverage_fraction": float(report.corner_coverage_fraction),
+            "orientation_sufficient": bool(report.orientation_sufficient),
+            "orientation_count": int(report.orientation_count),
+            "selected_frames": [int(f) for f in report.selected_frames],
         }
 
         path = self._port_path(port)

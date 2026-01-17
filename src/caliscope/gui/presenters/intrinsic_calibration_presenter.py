@@ -118,15 +118,11 @@ class IntrinsicCalibrationPresenter(QObject):
 
         # Restore previous calibration state if available
         if restored_report is not None and camera.matrix is not None:
-            # Camera is calibrated and we have a report - restore CALIBRATED state
             self._output = IntrinsicCalibrationOutput(camera=camera, report=restored_report)
-            logger.info(
-                f"Restored calibration state for port {self._port}: RMSE={restored_report.in_sample_rmse:.3f}px"
-            )
+            logger.info(f"Restored calibration for port {self._port}")
 
         if restored_points is not None:
             self._collected_points = list(restored_points)
-            logger.info(f"Restored {len(restored_points)} collected point frames for port {self._port}")
 
         # Display queue for View consumption
         self._display_queue: Queue[FramePacket | None] = Queue()
@@ -267,7 +263,6 @@ class IntrinsicCalibrationPresenter(QObject):
                 points=None,
             )
             self._display_queue.put(initial_packet)
-            logger.debug(f"Loaded initial frame for port {self._port}")
         else:
             logger.warning(f"Failed to load initial frame from {self._video_path}")
 

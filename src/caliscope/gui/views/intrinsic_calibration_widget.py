@@ -281,7 +281,6 @@ class FrameRenderThread(QThread):
         # Create visualizer on first enable
         if enabled and self._visualizer is None and calibrated_camera is not None:
             self._visualizer = LensModelVisualizer(calibrated_camera)
-            logger.info(f"Created LensModelVisualizer for port {calibrated_camera.port}")
 
     def set_overlay_visibility(
         self,
@@ -313,8 +312,6 @@ class FrameRenderThread(QThread):
         """
         if self._last_packet is not None:
             self._render_packet(self._last_packet)
-        else:
-            logger.debug(f"rerender_cached called but no cached packet for port {self._camera.port}")
 
     def _draw_current_points(self, frame: NDArray[Any], points: PointPacket) -> NDArray[Any]:
         """Draw current frame's detected points as red circles."""
@@ -433,7 +430,6 @@ class FrameRenderThread(QThread):
 
             # Cache for re-rendering on overlay toggle
             self._last_packet = packet
-
             self._render_packet(packet)
 
         logger.debug(f"Frame render thread exiting for port {self._camera.port}")
@@ -633,23 +629,14 @@ class IntrinsicCalibrationWidget(QWidget):
         Called on widget init when presenter starts in CALIBRATED state due to
         restoring a previous calibration's report and collected points.
         """
-        # The calibration_complete signal wasn't emitted (we restored from cache),
-        # so we need to manually update the display as if calibration just finished.
         report = self._presenter.calibration_report
-        if report is None:
-            return
-
-        # Build output from presenter's restored data
         camera = self._presenter.calibrated_camera
-        if camera is None:
+        if report is None or camera is None:
             return
 
         output = IntrinsicCalibrationOutput(camera=camera, report=report)
-
-        # Populate results display
         self._results_display.update_from_output(output)
 
-        # Update status with RMSE info
         self._status_label.setText(
             f"Status: CALIBRATED (in: {report.in_sample_rmse:.2f}px, "
             f"out: {report.out_of_sample_rmse:.2f}px, frames: {report.frames_used})"
@@ -686,7 +673,6 @@ class IntrinsicCalibrationWidget(QWidget):
         else:
             self._boundary_legend.hide()
 
-        # Re-render cached frame with new settings (don't jump to frame 0)
         self._render_thread.rerender_cached()
 
     def _on_overlay_toggled(self) -> None:

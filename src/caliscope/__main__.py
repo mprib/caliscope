@@ -1,9 +1,22 @@
-import logging
+# Platform compatibility patches (must run before Qt imports)
+import os
 import sys
 
-from caliscope.gui.main_widget import launch_main
-from caliscope.logger import setup_logging
-from caliscope.startup import initialize_app
+# Linux + Wayland: VTK doesn't support native Wayland rendering, force XWayland
+if sys.platform == "linux" and os.environ.get("XDG_SESSION_TYPE") == "wayland":
+    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
+
+# pyside6-essentials compatibility: qtpy needs PySide6.__version__ which essentials doesn't provide
+import PySide6
+from PySide6.QtCore import __version__ as _qt_version
+
+PySide6.__version__ = _qt_version
+
+import logging  # noqa: E402
+
+from caliscope.gui.main_widget import launch_main  # noqa: E402
+from caliscope.logger import setup_logging  # noqa: E402
+from caliscope.startup import initialize_app  # noqa: E402
 
 setup_logging()
 initialize_app()

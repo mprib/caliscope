@@ -6,7 +6,7 @@ import pandas as pd
 import pandera
 import pytest
 
-from caliscope.core.point_data import ImagePoints
+from caliscope.core.point_data import ImagePoints, WorldPoints
 
 
 # --- Helper functions for data generation ---
@@ -42,6 +42,7 @@ def _get_valid_xyz_df() -> pd.DataFrame:
             "x_coord": [1.1, 1.2, 1.3],
             "y_coord": [2.1, 2.2, 2.3],
             "z_coord": [3.1, 3.2, 3.3],
+            "frame_time": [0.0, 0.033, 0.066],
         }
     )
 
@@ -126,6 +127,36 @@ def test_xydata_fill_gaps():
         .reset_index(drop=True)
     )
     pd.testing.assert_frame_equal(expected_data, result_df)
+
+
+# --- WorldPoints Tests ---
+def test_worldpoints_from_csv(valid_xyz_df: pd.DataFrame, tmp_path: Path):
+    """Test loading WorldPoints from CSV file."""
+    csv_path = tmp_path / "test_xyz.csv"
+    valid_xyz_df.to_csv(csv_path, index=False)
+    xyz_data = WorldPoints.from_csv(csv_path)
+    assert isinstance(xyz_data, WorldPoints)
+    assert xyz_data.min_index == 0
+    assert xyz_data.max_index == 2
+    assert len(xyz_data.df) == 3
+
+
+def test_worldpoints_from_csv_with_frame_time(tmp_path: Path):
+    """Test loading WorldPoints with optional frame_time column."""
+    df = pd.DataFrame(
+        {
+            "sync_index": [0, 1],
+            "point_id": [1, 1],
+            "x_coord": [1.0, 1.1],
+            "y_coord": [2.0, 2.1],
+            "z_coord": [3.0, 3.1],
+            "frame_time": [0.0, 0.033],
+        }
+    )
+    csv_path = tmp_path / "test_xyz_with_time.csv"
+    df.to_csv(csv_path, index=False)
+    xyz_data = WorldPoints.from_csv(csv_path)
+    assert "frame_time" in xyz_data.df.columns
 
 
 if __name__ == "__main__":

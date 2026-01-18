@@ -3,6 +3,7 @@ from collections import OrderedDict
 from pathlib import Path
 from time import time
 from datetime import datetime
+from typing import Literal
 
 
 from PySide6.QtCore import QObject, Signal
@@ -428,6 +429,32 @@ class WorkspaceCoordinator(QObject):
 
         self.task_manager.submit(worker, name="save_point_data_bundle")
 
+    def rotate_calibration_bundle(self, axis: Literal["x", "y", "z"], angle_degrees: float) -> None:
+        """Rotate the calibration bundle and persist.
+
+        The bundle's rotate() method returns a new immutable bundle with transformed
+        world points and camera extrinsics. We update and persist via update_bundle().
+        """
+        bundle = self.point_data_bundle
+        if bundle is None:
+            logger.warning("Cannot rotate: no calibration bundle loaded")
+            return
+        new_bundle = bundle.rotate(axis, angle_degrees)
+        self.update_bundle(new_bundle)
+
+    def set_calibration_bundle_origin(self, sync_index: int) -> None:
+        """Set world origin to board position at sync_index and persist.
+
+        Uses the charuco board detected at the given sync_index to define
+        a new coordinate frame, transforming all points and cameras accordingly.
+        """
+        bundle = self.point_data_bundle
+        if bundle is None:
+            logger.warning("Cannot set origin: no calibration bundle loaded")
+            return
+        new_bundle = bundle.align_to_object(sync_index)
+        self.update_bundle(new_bundle)
+
     # -------------------------------------------------------------------------
     # CaptureVolume API (legacy system - do not mix with PointDataBundle)
     # -------------------------------------------------------------------------
@@ -528,8 +555,17 @@ class WorkspaceCoordinator(QObject):
             self.capture_volume.optimize()
             self.capture_volume_loaded = True
 
-            # Save complete capture volume state
+            # Save camera array (shared by both systems)
             self.camera_repository.save(self.camera_array)
+
+            # Save as PointDataBundle (new system)
+            # We have image_points and world_points from earlier in this workflow
+            bundle = PointDataBundle(self.camera_array, image_points, world_points)
+            self.bundle_repository.save(bundle)
+            self._point_data_bundle = bundle
+            logger.info("Saved PointDataBundle for extrinsic calibration")
+
+            # Also save CaptureVolume (legacy, can remove once migration complete)
             self.capture_volume_repository.save_capture_volume(self.capture_volume)
 
         handle = self.task_manager.submit(worker, name="calibrate_capture_volume")

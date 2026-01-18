@@ -27,7 +27,7 @@ from caliscope.gui.charuco_widget import CharucoWidget
 from caliscope.gui.log_widget import LogWidget
 from caliscope.gui.post_processing_widget import PostProcessingWidget
 from caliscope.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
-from caliscope.gui.vizualize.calibration.capture_volume_widget import CaptureVolumeWidget
+from caliscope.gui.extrinsic_calibration_tab import ExtrinsicCalibrationTab
 from caliscope.gui.workspace_widget import WorkspaceSummaryWidget
 
 logger = logging.getLogger(__name__)
@@ -121,12 +121,12 @@ class MainWindow(QMainWindow):
 
         logger.info("About to load capture volume tab")
         if self.coordinator.capture_volume_loaded:
-            logger.info("Creating capture Volume Widget")
-            self.capture_volume_widget = CaptureVolumeWidget(self.coordinator)
+            logger.info("Creating ExtrinsicCalibrationTab")
+            self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
         else:
             logger.info("Creating dummy widget")
-            self.capture_volume_widget = QWidget()
-        self.central_tab.addTab(self.capture_volume_widget, "Capture Volume")
+            self.extrinsic_calibration_tab = QWidget()
+        self.central_tab.addTab(self.extrinsic_calibration_tab, "Capture Volume")
         self.central_tab.setTabEnabled(
             self.find_tab_index_by_title("Capture Volume"), self.coordinator.capture_volume_loaded
         )
@@ -189,11 +189,11 @@ class MainWindow(QMainWindow):
 
         logger.info("Enabling Capture Volume tab after calibration")
 
-        # Replace dummy widget with real CaptureVolumeWidget
+        # Replace dummy widget with real ExtrinsicCalibrationTab
         old_widget = self.central_tab.widget(idx)
-        self.capture_volume_widget = CaptureVolumeWidget(self.coordinator)
+        self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
         self.central_tab.removeTab(idx)
-        self.central_tab.insertTab(idx, self.capture_volume_widget, "Capture Volume")
+        self.central_tab.insertTab(idx, self.extrinsic_calibration_tab, "Capture Volume")
         if old_widget is not None:
             old_widget.deleteLater()
         self.central_tab.setTabEnabled(idx, True)

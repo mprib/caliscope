@@ -7,7 +7,10 @@ Displays camera frustums and triangulated charuco points, with controls for:
 - Setting the world origin to a charuco board position
 """
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 import pyvista as pv
 from PySide6.QtCore import Qt, Signal
@@ -15,24 +18,28 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
     QLabel,
-    QMainWindow,
     QPushButton,
     QSlider,
+    QVBoxLayout,
     QWidget,
 )
-from pyvistaqt import QtInteractor
+
+if TYPE_CHECKING:
+    from pyvistaqt import QtInteractor
 
 from caliscope.ui.viz.playback_view_model import PlaybackViewModel
 
 logger = logging.getLogger(__name__)
 
 
-class ExtrinsicCalibrationWidget(QMainWindow):
+class ExtrinsicCalibrationWidget(QWidget):
     """
     PyVista-based widget for visualizing and adjusting extrinsic calibration.
 
     Emits signals for user actions - does NOT call coordinator directly.
     This follows MVP pattern where the container wires signals to coordinator methods.
+
+    Note: Inherits from QWidget (not QMainWindow) so it can be embedded in layouts.
     """
 
     # Signals for user actions (container wires these to coordinator)
@@ -41,6 +48,10 @@ class ExtrinsicCalibrationWidget(QMainWindow):
 
     def __init__(self, view_model: PlaybackViewModel, parent: QWidget | None = None):
         super().__init__(parent)
+
+        # Lazy import to ensure QApplication exists before pyvistaqt init
+        from pyvistaqt import QtInteractor
+
         self.view_model = view_model
         self.sync_index: int = self.view_model.min_index
 
@@ -51,35 +62,32 @@ class ExtrinsicCalibrationWidget(QMainWindow):
         self._point_cloud_mesh: pv.PolyData | None = None
         self._label_actor = None
 
-        # Main 3D view
-        self.plotter: QtInteractor = QtInteractor(parent=self)
-        self.setCentralWidget(self.plotter)
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # Build UI
-        self._create_controls()
+        # 3D view (takes most space)
+        self.plotter: QtInteractor = QtInteractor(parent=self)
+        main_layout.addWidget(self.plotter, stretch=1)
+
+        # Controls bar at bottom
+        controls_widget = self._create_controls()
+        main_layout.addWidget(controls_widget)
+
+        # Initialize scene
         self._initialize_scene()
         self._create_static_actors()
         self._create_dynamic_actors()
         self._on_sync_index_changed(self.sync_index)
 
-    def _create_controls(self):
-        """Create rotation buttons, slider, and set origin button."""
-        # Sync index slider
-        self.slider = QSlider(Qt.Orientation.Horizontal, self)
-        self.slider.setMinimum(self.view_model.min_index)
-        self.slider.setMaximum(self.view_model.max_index)
-        self.slider.setValue(self.sync_index)
-        self.slider.valueChanged.connect(self._on_sync_index_changed)
-
-        self.index_label = QLabel(f"Frame: {self.sync_index}", self)
-        self.index_label.setFixedWidth(80)
+    def _create_controls(self) -> QWidget:
+        """Create control bar with rotation buttons, slider, and set origin button."""
+        controls = QWidget(self)
+        layout = QHBoxLayout(controls)
+        layout.setContentsMargins(5, 5, 5, 5)
 
         # Rotation buttons - organized by axis
-        rotation_widget = QWidget(self)
-        rotation_layout = QHBoxLayout(rotation_widget)
-        rotation_layout.setContentsMargins(0, 0, 0, 0)
-        rotation_layout.setSpacing(2)
-
         for axis in ["X", "Y", "Z"]:
             axis_lower = axis.lower()
             # Positive rotation button
@@ -94,35 +102,36 @@ class ExtrinsicCalibrationWidget(QMainWindow):
             btn_neg.setToolTip(f"Rotate -90° around {axis} axis")
             btn_neg.clicked.connect(lambda _, a=axis_lower: self._on_rotate_clicked(a, -90))
 
-            rotation_layout.addWidget(btn_pos)
-            rotation_layout.addWidget(btn_neg)
+            layout.addWidget(btn_pos)
+            layout.addWidget(btn_neg)
 
         # Set Origin button
         self.set_origin_btn = QPushButton("Set Origin", self)
         self.set_origin_btn.setToolTip("Set world origin to board position at current frame")
         self.set_origin_btn.clicked.connect(self._on_set_origin_clicked)
+        layout.addWidget(self.set_origin_btn)
 
         # Camera labels toggle
         self.labels_checkbox = QCheckBox("Labels", self)
         self.labels_checkbox.setChecked(True)
         self.labels_checkbox.stateChanged.connect(self._on_labels_toggled)
+        layout.addWidget(self.labels_checkbox)
 
-        # Layout: left side has rotations + set origin, right side has slider
-        left_widget = QWidget(self)
-        left_layout = QHBoxLayout(left_widget)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.addWidget(rotation_widget)
-        left_layout.addWidget(self.set_origin_btn)
-        left_layout.addWidget(self.labels_checkbox)
+        layout.addStretch()
 
-        right_widget = QWidget(self)
-        right_layout = QHBoxLayout(right_widget)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.addWidget(self.index_label)
-        right_layout.addWidget(self.slider)
+        # Frame label and slider on right side
+        self.index_label = QLabel(f"Frame: {self.sync_index}", self)
+        self.index_label.setFixedWidth(80)
+        layout.addWidget(self.index_label)
 
-        self.statusBar().addWidget(left_widget)
-        self.statusBar().addPermanentWidget(right_widget)
+        self._slider = QSlider(Qt.Orientation.Horizontal, self)
+        self._slider.setMinimum(self.view_model.min_index)
+        self._slider.setMaximum(self.view_model.max_index)
+        self._slider.setValue(self.sync_index)
+        self._slider.valueChanged.connect(self._on_sync_index_changed)
+        layout.addWidget(self._slider, stretch=1)
+
+        return controls
 
     def _initialize_scene(self):
         """Set up PyVista scene defaults."""
@@ -212,6 +221,11 @@ class ExtrinsicCalibrationWidget(QMainWindow):
             self._label_actor.SetVisibility(self.show_camera_labels)
             self.plotter.render()
 
+    def showEvent(self, event) -> None:
+        """Force render when widget becomes visible."""
+        super().showEvent(event)
+        self.plotter.render()
+
     def set_view_model(self, view_model: PlaybackViewModel) -> None:
         """
         Replace the ViewModel and rebuild the scene.
@@ -221,8 +235,8 @@ class ExtrinsicCalibrationWidget(QMainWindow):
         self.view_model = view_model
 
         # Update slider range
-        self.slider.setMinimum(view_model.min_index)
-        self.slider.setMaximum(view_model.max_index)
+        self._slider.setMinimum(view_model.min_index)
+        self._slider.setMaximum(view_model.max_index)
 
         # Clamp current index to valid range
         if self.sync_index < view_model.min_index:
@@ -230,7 +244,7 @@ class ExtrinsicCalibrationWidget(QMainWindow):
         elif self.sync_index > view_model.max_index:
             self.sync_index = view_model.max_index
 
-        self.slider.setValue(self.sync_index)
+        self._slider.setValue(self.sync_index)
 
         # Rebuild scene with new geometry
         self.plotter.clear()
@@ -238,11 +252,3 @@ class ExtrinsicCalibrationWidget(QMainWindow):
         self._create_static_actors()
         self._create_dynamic_actors()
         self._on_sync_index_changed(self.sync_index)
-
-
-if __name__ == "__main__":
-    # For standalone testing, use: scripts/widget_visualization/test_extrinsic_widget.py
-    # Direct execution doesn't work because pyvistaqt is imported at module level,
-    # before we can apply the pyside6-essentials compatibility patch.
-    print("Run: uv run python scripts/widget_visualization/test_extrinsic_widget.py")
-    raise SystemExit(1)

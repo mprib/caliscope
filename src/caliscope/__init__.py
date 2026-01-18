@@ -1,5 +1,15 @@
 """Top-level package for Caliscope."""
 
+# VTK/PyVista environment configuration
+# Must be set before any Qt or VTK imports
+import os
+import sys
+
+if sys.platform == "linux" and os.environ.get("XDG_SESSION_TYPE") == "wayland":
+    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
+
+os.environ.setdefault("QT_API", "pyside6")
+
 # PySide6-essentials compatibility shim for pyqtgraph
 # pyqtgraph expects PySide6.__version__ and PySide6.__version_info__ at the top level,
 # but pyside6-essentials only exposes these in PySide6.QtCore.

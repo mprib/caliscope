@@ -82,7 +82,12 @@ class PostProcessor:
 
         while recorder.recording:
             if token is not None and token.sleep_unless_cancelled(1):
-                return False  # Cancelled
+                # Cancelled - stop all background threads
+                logger.info("Cancellation requested, stopping streamers and recorder")
+                recorder.stop_recording()
+                for streamer in self.sync_stream_manager.streamers.values():
+                    streamer.stop()
+                return False
             elif token is None:
                 sleep(1)
 

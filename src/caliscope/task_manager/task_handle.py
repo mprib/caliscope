@@ -19,6 +19,7 @@ class TaskHandle(QObject):
     signals for status updates.
     """
 
+    started = Signal()  # emitted when task begins running
     completed = Signal(object)  # result value from worker
     failed = Signal(str, str)  # exception_type, message
     cancelled = Signal()
@@ -73,6 +74,7 @@ class TaskHandle(QObject):
 
     def _set_running(self) -> None:
         self._state = TaskState.RUNNING
+        self.started.emit()
 
     def _emit_completed(self, result: Any) -> None:
         self._result = result

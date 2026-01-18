@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -55,6 +56,27 @@ class PlaybackViewModel:
         # 3. Pre-group data for fast lookup during playback
         # We group by sync_index so we don't have to filter the huge dataframe every frame.
         self._grouped_points = {idx: grp for idx, grp in self.world_points.df.groupby("sync_index")}
+
+    @classmethod
+    def from_xyz_csv(
+        cls,
+        xyz_path: str | Path,
+        camera_array: CameraArray,
+        wireframe_segments: list[WireframeSegment] | None = None,
+        fps: int = 30,
+    ) -> "PlaybackViewModel":
+        """Create PlaybackViewModel from an xyz CSV file.
+
+        Convenience factory for post-processing visualization where xyz data
+        is loaded from disk rather than live triangulation.
+        """
+        world_points = WorldPoints.from_csv(xyz_path)
+        return cls(
+            world_points=world_points,
+            camera_array=camera_array,
+            wireframe_segments=wireframe_segments,
+            fps=fps,
+        )
 
     @property
     def min_index(self) -> int:

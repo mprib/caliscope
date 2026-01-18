@@ -74,40 +74,6 @@ class Tracker(ABC):
         """
         return set()
 
-    @property
-    def metarig_mapped(self) -> bool:
-        """
-        OPTIONAL PROPERTY
-
-        Defaults to false and can be overriden to True
-        Used to ensure that metarig_config creation is not presented as
-        an option in GUI
-        """
-        return False
-
-    @property
-    def metarig_symmetrical_measures(self):
-        """
-        OPTIONAL PROPERTY
-
-        a dictionary of key: value in the form Measure_Name:[pointA, pointB]
-        when processed, the mean distances (excluding outliers) of both
-        left_pointA,left_pointB and right_pointA, right_pointB will be calculated.
-        The mean of the two sides will be taken
-        """
-        raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
-
-    @property
-    def metarig_bilateral_measures(self):
-        """
-        OPTIONAL PROPERTY
-
-        a dictionary of key: value in the form Measure_Name:[side_pointA, side_pointB]
-        when processed, mean distance (excluding outliers) between the two points
-        will be calculated and stored as the measure
-        """
-        raise NotImplementedError(f"Tracker {self.name} has not provided its measures for configuring a metarig")
-
 
 @dataclass(slots=True, frozen=True)
 class Segment:

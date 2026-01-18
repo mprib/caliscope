@@ -21,6 +21,9 @@ from caliscope.repositories import (
     CharucoRepository,
     ProjectSettingsRepository,
 )
+from caliscope.repositories.point_data_bundle_repository import PointDataBundleRepository
+from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.persistence import PersistenceError
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
 from caliscope.post_processing.post_processor import PostProcessor
 from caliscope.managers.synchronized_stream_manager import (
@@ -59,6 +62,7 @@ class WorkspaceCoordinator(QObject):
     new_camera_data = Signal(int, OrderedDict)  # port, camera_display_dictionary
     capture_volume_calibrated = Signal()
     capture_volume_shifted = Signal()
+    bundle_updated = Signal()  # PointDataBundle changed (new system, parallel to CaptureVolume)
     enable_inputs = Signal(int, bool)  # port, enable
     post_processing_complete = Signal()
     show_synched_frames = Signal()
@@ -75,6 +79,11 @@ class WorkspaceCoordinator(QObject):
         self.intrinsic_report_repository = IntrinsicReportRepository(
             workspace_dir / "calibration" / "intrinsic" / "reports"
         )
+
+        # PointDataBundle (new system, parallel to CaptureVolume)
+        # These two systems are independent during migration - do not mix them
+        self.bundle_repository = PointDataBundleRepository(workspace_dir / "calibration" / "extrinsic" / "CHARUCO")
+        self._point_data_bundle: PointDataBundle | None = None
 
         # Initialize project files if they don't exist
         self._initialize_project_files()
@@ -359,6 +368,66 @@ class WorkspaceCoordinator(QObject):
     def get_intrinsic_points(self, port: int) -> list[tuple[int, PointPacket]] | None:
         """Get cached collected points for a port (session-only)."""
         return self._intrinsic_points.get(port)
+
+    # -------------------------------------------------------------------------
+    # PointDataBundle API (new system, parallel to CaptureVolume)
+    # -------------------------------------------------------------------------
+
+    @property
+    def point_data_bundle(self) -> PointDataBundle | None:
+        """Get the current PointDataBundle for extrinsic calibration.
+
+        Loading priority:
+        1. Return cached bundle if available
+        2. Try to load from PointDataBundleRepository
+        3. Return None if no data available
+
+        Note: This does NOT fall back to CaptureVolume. The two systems are
+        independent during migration. Use legacy CaptureVolume methods if you
+        need data from the old system.
+        """
+        if self._point_data_bundle is not None:
+            return self._point_data_bundle
+
+        # Try loading from bundle repository
+        if self.bundle_repository.camera_array_path.exists():
+            try:
+                self._point_data_bundle = self.bundle_repository.load()
+                logger.info("Loaded PointDataBundle from repository")
+                return self._point_data_bundle
+            except PersistenceError as e:
+                logger.warning(f"Bundle repository exists but load failed: {e}")
+
+        return None
+
+    def update_bundle(self, bundle: PointDataBundle) -> None:
+        """Update the in-memory bundle, emit signal, and persist in background.
+
+        Pattern: Update immediately → emit signal → persist asynchronously.
+        This ensures UI responsiveness while maintaining durability.
+
+        Args:
+            bundle: The new PointDataBundle to store
+        """
+        self._point_data_bundle = bundle
+        self.bundle_updated.emit()
+
+        # Capture for closure (background worker)
+        bundle_to_save = bundle
+
+        def worker(_token, _handle):
+            try:
+                self.bundle_repository.save(bundle_to_save)
+                logger.info("PointDataBundle persisted to disk")
+            except PersistenceError as e:
+                # Log prominently - user's changes may be lost on restart
+                logger.error(f"Failed to persist PointDataBundle: {e}")
+
+        self.task_manager.submit(worker, name="save_point_data_bundle")
+
+    # -------------------------------------------------------------------------
+    # CaptureVolume API (legacy system - do not mix with PointDataBundle)
+    # -------------------------------------------------------------------------
 
     def load_estimated_capture_volume(self):
         """

@@ -9,10 +9,16 @@ import numpy as np
 from caliscope.cameras.camera_array import CameraArray
 
 
-def build_camera_geometry(camera_array: CameraArray) -> dict[str, Any] | None:
+def build_camera_geometry(camera_array: CameraArray, scale: float = 0.0005) -> dict[str, Any] | None:
     """
     Build static camera mesh geometry as pyramid frustums.
     Corrects the rotation math and aligns with OpenCV Y-down convention.
+
+    Args:
+        camera_array: The camera array with extrinsic calibration.
+        scale: Size multiplier for camera frustums. Default 0.0005 works well
+               for calibration views. Use smaller values (e.g., 0.0002) when
+               cameras dominate the scene relative to tracked points.
     """
     if not camera_array.all_extrinsics_calibrated():
         return None
@@ -36,8 +42,6 @@ def build_camera_geometry(camera_array: CameraArray) -> dict[str, Any] | None:
         w, h = cam.size
 
         # Scale to reasonable size (normalize by focal length)
-        # 0.0005 is a good baseline, but adjust if cameras look too large/small
-        scale = 0.0005
         f_avg = (fx + fy) / 2 * scale
 
         # 2. Local Vertices (OpenCV convention: X-right, Y-down, Z-forward)

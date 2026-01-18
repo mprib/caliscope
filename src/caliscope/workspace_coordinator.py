@@ -36,6 +36,7 @@ from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide
 from caliscope.gui.presenters.intrinsic_calibration_presenter import IntrinsicCalibrationPresenter
+from caliscope.gui.presenters.reconstruction_presenter import ReconstructionPresenter
 from caliscope.packets import PointPacket
 
 logger = logging.getLogger(__name__)
@@ -325,6 +326,21 @@ class WorkspaceCoordinator(QObject):
             task_manager=self.task_manager,
             restored_report=report,
             restored_points=collected_points,
+        )
+
+    def create_reconstruction_presenter(self) -> ReconstructionPresenter:
+        """Create presenter for reconstruction (post-processing) workflow.
+
+        Factory method that assembles the presenter with all required dependencies.
+        The caller is responsible for connecting signals and managing presenter lifecycle.
+
+        Returns:
+            ReconstructionPresenter configured with workspace and camera array.
+        """
+        return ReconstructionPresenter(
+            workspace_dir=self.workspace,
+            camera_array=self.camera_array,
+            task_manager=self.task_manager,
         )
 
     def persist_intrinsic_calibration(

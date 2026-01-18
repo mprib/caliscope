@@ -36,7 +36,7 @@ from caliscope.gui.frame_emitters.tools import (
 from caliscope.gui.lens_model_visualizer import LensModelVisualizer
 from caliscope.gui.presenters.intrinsic_calibration_presenter import (
     IntrinsicCalibrationPresenter,
-    PresenterState,
+    IntrinsicCalibrationState,
 )
 from caliscope.packets import FramePacket, PointPacket
 
@@ -462,7 +462,7 @@ class IntrinsicCalibrationWidget(QWidget):
         self._update_ui_for_state(presenter.state)
 
         # Handle restored calibration state (from session cache)
-        if presenter.state == PresenterState.CALIBRATED:
+        if presenter.state == IntrinsicCalibrationState.CALIBRATED:
             self._restore_calibrated_state()
 
     def _setup_ui(self) -> None:
@@ -598,26 +598,26 @@ class IntrinsicCalibrationWidget(QWidget):
 
         self._frame_counter.setText(f"{frame_index} / {self._presenter.frame_count - 1}")
 
-    def _update_ui_for_state(self, state: PresenterState) -> None:
+    def _update_ui_for_state(self, state: IntrinsicCalibrationState) -> None:
         """Update UI elements based on presenter state."""
         self._status_label.setText(f"Status: {state.name}")
 
-        if state == PresenterState.READY:
+        if state == IntrinsicCalibrationState.READY:
             self._calibrate_btn.setText("Calibrate")
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(False)
             self._position_slider.setEnabled(True)
-        elif state == PresenterState.COLLECTING:
+        elif state == IntrinsicCalibrationState.COLLECTING:
             self._calibrate_btn.setText("Stop")
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(False)
             self._position_slider.setEnabled(False)
-        elif state == PresenterState.CALIBRATING:
+        elif state == IntrinsicCalibrationState.CALIBRATING:
             self._calibrate_btn.setText("Calibrating...")
             self._calibrate_btn.setEnabled(False)
             self._undistort_checkbox.setEnabled(False)
             self._position_slider.setEnabled(False)
-        elif state == PresenterState.CALIBRATED:
+        elif state == IntrinsicCalibrationState.CALIBRATED:
             self._calibrate_btn.setText("Recalibrate")
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(True)
@@ -653,9 +653,9 @@ class IntrinsicCalibrationWidget(QWidget):
         """Handle calibrate/stop button click."""
         state = self._presenter.state
 
-        if state == PresenterState.COLLECTING:
+        if state == IntrinsicCalibrationState.COLLECTING:
             self._presenter.stop_calibration()
-        elif state in (PresenterState.READY, PresenterState.CALIBRATED):
+        elif state in (IntrinsicCalibrationState.READY, IntrinsicCalibrationState.CALIBRATED):
             # Reset display state when starting new calibration
             self._undistort_checkbox.setChecked(False)
             self._grids_cb.setChecked(True)

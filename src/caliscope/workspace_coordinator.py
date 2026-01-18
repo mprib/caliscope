@@ -36,6 +36,7 @@ from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide
 from caliscope.gui.presenters.intrinsic_calibration_presenter import IntrinsicCalibrationPresenter
+from caliscope.gui.presenters.reconstruction_presenter import ReconstructionPresenter
 from caliscope.packets import PointPacket
 
 logger = logging.getLogger(__name__)
@@ -327,6 +328,21 @@ class WorkspaceCoordinator(QObject):
             restored_points=collected_points,
         )
 
+    def create_reconstruction_presenter(self) -> ReconstructionPresenter:
+        """Create presenter for reconstruction (post-processing) workflow.
+
+        Factory method that assembles the presenter with all required dependencies.
+        The caller is responsible for connecting signals and managing presenter lifecycle.
+
+        Returns:
+            ReconstructionPresenter configured with workspace and camera array.
+        """
+        return ReconstructionPresenter(
+            workspace_dir=self.workspace,
+            camera_array=self.camera_array,
+            task_manager=self.task_manager,
+        )
+
     def persist_intrinsic_calibration(
         self,
         output: IntrinsicCalibrationOutput,
@@ -584,7 +600,7 @@ class WorkspaceCoordinator(QObject):
             TaskHandle for connecting completion callbacks.
         """
 
-        def worker(token, _handle):
+        def worker(token, handle):
             logger.info(f"Beginning to process video files at {recording_path}")
             logger.info(f"Creating post processor for {recording_path}")
             self.post_processor = PostProcessor(self.camera_array, recording_path, tracker_enum)
@@ -593,11 +609,16 @@ class WorkspaceCoordinator(QObject):
             include_video = self.settings_repository.get_save_tracked_points_video()
             fps_target = self.settings_repository.get_fps_sync_stream_processing()
 
-            # Pass token for cancellation support
-            if not self.post_processor.create_xy(include_video=include_video, fps_target=fps_target, token=token):
+            # Pass token for cancellation support and handle for progress reporting
+            if not self.post_processor.create_xy(
+                include_video=include_video, fps_target=fps_target, token=token, handle=handle
+            ):
                 return  # Cancelled
 
+            # Stage 2 progress (80-100%)
+            handle.report_progress(85, "Stage 2: Triangulating 3D points")
             self.post_processor.create_xyz()
+            handle.report_progress(100, "Complete")
 
         handle = self.task_manager.submit(worker, name="process_recordings")
         handle.completed.connect(lambda _: self.post_processing_complete.emit())

@@ -37,7 +37,7 @@ from caliscope.tracker import Tracker
 logger = logging.getLogger(__name__)
 
 
-class PresenterState(Enum):
+class IntrinsicCalibrationState(Enum):
     """Workflow states for intrinsic calibration.
 
     States are computed from internal reality, not stored separately.
@@ -73,7 +73,7 @@ class IntrinsicCalibrationPresenter(QObject):
             Keeps heavy frame data off the GUI thread until processed into QPixmap.
     """
 
-    state_changed = Signal(PresenterState)
+    state_changed = Signal(IntrinsicCalibrationState)
     calibration_complete = Signal(object)  # IntrinsicCalibrationOutput
     calibration_failed = Signal(str)
     frame_position_changed = Signal(int)  # Current frame index
@@ -160,18 +160,18 @@ class IntrinsicCalibrationPresenter(QObject):
         self._current_frame_index: int = 0
 
     @property
-    def state(self) -> PresenterState:
+    def state(self) -> IntrinsicCalibrationState:
         """Compute current state from internal reality - never stale."""
         if self._output is not None:
-            return PresenterState.CALIBRATED
+            return IntrinsicCalibrationState.CALIBRATED
 
         if self._calibration_task is not None and self._calibration_task.state == TaskState.RUNNING:
-            return PresenterState.CALIBRATING
+            return IntrinsicCalibrationState.CALIBRATING
 
         if self._is_collecting:
-            return PresenterState.COLLECTING
+            return IntrinsicCalibrationState.COLLECTING
 
-        return PresenterState.READY
+        return IntrinsicCalibrationState.READY
 
     @property
     def display_queue(self) -> Queue[FramePacket | None]:
@@ -239,7 +239,7 @@ class IntrinsicCalibrationPresenter(QObject):
 
     def seek_to(self, frame_index: int) -> None:
         """Seek to frame. Works in READY/CALIBRATED states via streamer's seek_to."""
-        if self.state not in (PresenterState.READY, PresenterState.CALIBRATED):
+        if self.state not in (IntrinsicCalibrationState.READY, IntrinsicCalibrationState.CALIBRATED):
             return
 
         frame_index = max(0, min(frame_index, self.frame_count - 1))
@@ -271,7 +271,7 @@ class IntrinsicCalibrationPresenter(QObject):
 
         Resets to beginning and unpauses the streamer.
         """
-        if self.state not in (PresenterState.READY, PresenterState.CALIBRATED):
+        if self.state not in (IntrinsicCalibrationState.READY, IntrinsicCalibrationState.CALIBRATED):
             logger.warning(f"Cannot start calibration in state {self.state}")
             return
 
@@ -297,7 +297,7 @@ class IntrinsicCalibrationPresenter(QObject):
 
         Pauses playback and clears accumulated data.
         """
-        if self.state != PresenterState.COLLECTING:
+        if self.state != IntrinsicCalibrationState.COLLECTING:
             logger.warning(f"Cannot stop calibration in state {self.state}")
             return
 

@@ -10,6 +10,7 @@ from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
 from caliscope.core.point_data import ImagePoints
 from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.task_manager import CancellationToken
+from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.trackers.tracker_enum import TrackerEnum
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,11 @@ class PostProcessor:
         )
 
     def create_xy(
-        self, fps_target: int = 100, include_video: bool = True, token: CancellationToken | None = None
+        self,
+        fps_target: int = 100,
+        include_video: bool = True,
+        token: CancellationToken | None = None,
+        handle: TaskHandle | None = None,
     ) -> bool:
         """
         Reads through all .mp4 files in the recording path and applies the tracker to them.
@@ -64,22 +69,32 @@ class PostProcessor:
             fps_target: Target frames per second for processing
             include_video: Whether to save tracked video output
             token: Optional cancellation token for cooperative cancellation
+            handle: Optional task handle for progress reporting
 
         Returns:
             True if completed, False if cancelled.
         """
         self.sync_stream_manager.process_streams(include_video=include_video, fps_target=fps_target)
 
-        while self.sync_stream_manager.recorder.recording:
+        # Recorder is guaranteed to exist after process_streams() initializes it
+        recorder = self.sync_stream_manager.recorder
+        assert recorder is not None, "Recorder should be initialized after process_streams()"
+
+        while recorder.recording:
             if token is not None and token.sleep_unless_cancelled(1):
                 return False  # Cancelled
             elif token is None:
                 sleep(1)
 
-            percent_complete = int(
-                (self.sync_stream_manager.recorder.sync_index / self.sync_stream_manager.mean_frame_count) * 100
-            )
-            logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
+            percent_complete = int((recorder.sync_index / self.sync_stream_manager.mean_frame_count) * 100)
+            # Stage 1 is 0-80% of total progress (2D landmark detection)
+            scaled_percent = int(percent_complete * 0.8)
+            message = f"Stage 1: {percent_complete}% - Detecting 2D landmarks"
+
+            if handle is not None:
+                handle.report_progress(scaled_percent, message)
+            else:
+                logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
 
         return True  # Completed
 

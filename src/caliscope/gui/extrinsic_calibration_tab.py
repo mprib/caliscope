@@ -8,7 +8,7 @@ to the application coordinator (which manages domain state and persistence).
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, cast
 
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
@@ -44,7 +44,7 @@ class ExtrinsicCalibrationTab(QWidget):
         self._refresh_widget()
 
         # Listen for bundle changes from coordinator
-        self._coordinator.bundle_changed.connect(self._on_bundle_changed)
+        self._coordinator.bundle_updated.connect(self._on_bundle_changed)
 
     def _refresh_widget(self) -> None:
         """Create or update widget with current bundle data."""
@@ -77,14 +77,19 @@ class ExtrinsicCalibrationTab(QWidget):
             logger.info("ExtrinsicCalibrationWidget ViewModel refreshed")
 
     def _on_rotation_requested(self, axis: str, angle_degrees: float) -> None:
-        """Handle rotation request from widget."""
+        """Handle rotation request from widget.
+
+        The widget emits str for axis (Qt signals don't support Literal types),
+        but we know it's constrained to "x", "y", "z" at runtime.
+        """
         logger.info(f"Rotation requested: axis={axis}, angle={angle_degrees}")
-        self._coordinator.rotate_bundle(axis, angle_degrees)
+        typed_axis = cast(Literal["x", "y", "z"], axis)
+        self._coordinator.rotate_calibration_bundle(typed_axis, angle_degrees)
 
     def _on_set_origin_requested(self, sync_index: int) -> None:
         """Handle set origin request from widget."""
         logger.info(f"Set origin requested: sync_index={sync_index}")
-        self._coordinator.set_bundle_origin(sync_index)
+        self._coordinator.set_calibration_bundle_origin(sync_index)
 
     def _on_bundle_changed(self) -> None:
         """Handle bundle change signal from coordinator."""

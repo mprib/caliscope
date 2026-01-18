@@ -61,6 +61,7 @@ class WorkspaceCoordinator(QObject):
 
     new_camera_data = Signal(int, OrderedDict)  # port, camera_display_dictionary
     capture_volume_calibrated = Signal()
+    charuco_changed = Signal()  # Emitted when charuco board config is updated
     capture_volume_shifted = Signal()
     bundle_updated = Signal()  # PointDataBundle changed (new system, parallel to CaptureVolume)
     enable_inputs = Signal(int, bool)  # port, enable
@@ -224,10 +225,12 @@ class WorkspaceCoordinator(QObject):
         Update charuco board definition and persist to disk.
 
         Also updates the charuco tracker used by stream managers.
+        Emits charuco_changed signal so dependent components can refresh.
         """
         self.charuco = charuco
         self.charuco_repository.save(self.charuco)
         self.charuco_tracker = CharucoTracker(self.charuco)
+        self.charuco_changed.emit()
 
     def get_charuco_params(self) -> dict:
         return self.charuco.__dict__

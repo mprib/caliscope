@@ -131,6 +131,9 @@ class MainWindow(QMainWindow):
             self.find_tab_index_by_title("Capture Volume"), self.coordinator.capture_volume_loaded
         )
 
+        # Enable Capture Volume tab dynamically when extrinsic calibration completes
+        self.coordinator.capture_volume_calibrated.connect(self._on_capture_volume_ready)
+
         logger.info("About to load post-processing tab")
         if self.coordinator.capture_volume_loaded and self.coordinator.recordings_available():
             logger.info("Creating post processing widget")
@@ -177,6 +180,23 @@ class MainWindow(QMainWindow):
             if self.central_tab.tabText(index) == title:
                 return index
         return -1  # Return -1 if the tab is not found
+
+    def _on_capture_volume_ready(self) -> None:
+        """Enable Capture Volume tab after extrinsic calibration completes."""
+        idx = self.find_tab_index_by_title("Capture Volume")
+        if idx < 0 or self.central_tab.isTabEnabled(idx):
+            return  # Tab not found or already enabled
+
+        logger.info("Enabling Capture Volume tab after calibration")
+
+        # Replace dummy widget with real CaptureVolumeWidget
+        old_widget = self.central_tab.widget(idx)
+        self.capture_volume_widget = CaptureVolumeWidget(self.coordinator)
+        self.central_tab.removeTab(idx)
+        self.central_tab.insertTab(idx, self.capture_volume_widget, "Capture Volume")
+        if old_widget is not None:
+            old_widget.deleteLater()
+        self.central_tab.setTabEnabled(idx, True)
 
     def reload_workspace(self):
         # Clear all existing tabs

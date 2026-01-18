@@ -1,8 +1,8 @@
 """Cameras tab container widget for intrinsic calibration workflow.
 
 Provides camera selection sidebar and hosts the IntrinsicCalibrationWidget
-for the selected camera. Manages presenter lifecycle and forwards calibration
-results to the coordinator for persistence.
+for the selected camera. Uses pool pattern — presenters are kept alive when
+switching cameras, allowing calibration to continue in background.
 """
 
 from __future__ import annotations
@@ -47,18 +47,19 @@ class CamerasTabWidget(QWidget):
     └──────────────┴────────────────────────────────────────┘
 
     Lifecycle:
-    - Presenter created lazily on camera selection
-    - Presenter cleaned up before switching cameras or closing tab
-    - Widget owns presenter cleanup; widget's closeEvent handles render thread
+    - Presenters created lazily on first camera selection
+    - Presenters kept alive when switching cameras (pool pattern)
+    - All presenters cleaned up when tab is closed or workspace reloaded
     """
 
     def __init__(self, coordinator: WorkspaceCoordinator):
         super().__init__()
         self.coordinator = coordinator
 
-        # Current presenter/widget (one at a time)
-        self._current_presenter: IntrinsicCalibrationPresenter | None = None
-        self._current_widget: IntrinsicCalibrationWidget | None = None
+        # Pool of presenters and widgets, keyed by port
+        self._presenters: dict[int, IntrinsicCalibrationPresenter] = {}
+        self._widgets: dict[int, IntrinsicCalibrationWidget] = {}
+        self._current_port: int | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -99,35 +100,54 @@ class CamerasTabWidget(QWidget):
     def _connect_signals(self) -> None:
         """Connect internal signals."""
         self.camera_list.camera_selected.connect(self._on_camera_selected)
+        self.coordinator.charuco_changed.connect(self._on_charuco_changed)
+
+    def _on_charuco_changed(self) -> None:
+        """Clear presenter pool when charuco config changes.
+
+        Presenters hold tracker references from creation time. When charuco
+        changes, the old tracker is stale — clear pool so fresh presenters
+        get the new tracker.
+        """
+        logger.info("Charuco changed — clearing presenter pool")
+        current_port = self._current_port
+        self.cleanup()
+
+        # Re-select current camera to recreate with fresh tracker
+        if current_port is not None:
+            self._on_camera_selected(current_port)
 
     def _on_camera_selected(self, port: int) -> None:
-        """Handle camera selection - create presenter and widget."""
+        """Handle camera selection - show existing or create new presenter/widget."""
         logger.info(f"Camera selected: port {port}")
 
-        # Clean up previous presenter/widget
-        self._cleanup_current()
+        # Hide current widget (keep presenter running in background)
+        if self._current_port is not None and self._current_port in self._widgets:
+            current_widget = self._widgets[self._current_port]
+            self._content_layout.removeWidget(current_widget)
+            current_widget.hide()
 
-        try:
-            presenter = self.coordinator.create_intrinsic_presenter(port)
-        except ValueError as e:
-            # Video missing or camera not in array
-            logger.warning(f"Cannot create presenter for port {port}: {e}")
-            self._show_message(str(e))
-            return
+        # Get or create presenter/widget for new port
+        if port not in self._presenters:
+            try:
+                presenter = self.coordinator.create_intrinsic_presenter(port)
+            except ValueError as e:
+                logger.warning(f"Cannot create presenter for port {port}: {e}")
+                self._show_message(str(e))
+                return
 
-        # Store reference for cleanup
-        self._current_presenter = presenter
+            presenter.calibration_complete.connect(partial(self._on_calibration_complete, port))
+            widget = IntrinsicCalibrationWidget(presenter)
 
-        # Connect calibration_complete to coordinator persistence
-        presenter.calibration_complete.connect(partial(self._on_calibration_complete, port))
+            self._presenters[port] = presenter
+            self._widgets[port] = widget
 
-        # Create and show the calibration widget
-        widget = IntrinsicCalibrationWidget(presenter)
-        self._current_widget = widget
-
-        # Replace message with widget
+        # Show the widget for this port
+        widget = self._widgets[port]
         self._message_label.hide()
         self._content_layout.addWidget(widget)
+        widget.show()
+        self._current_port = port
 
         logger.info(f"Intrinsic calibration widget active for port {port}")
 
@@ -142,8 +162,8 @@ class CamerasTabWidget(QWidget):
 
         # Get collected points from presenter for session-based overlay restoration
         collected_points = None
-        if self._current_presenter is not None:
-            collected_points = self._current_presenter.collected_points
+        if port in self._presenters:
+            collected_points = self._presenters[port].collected_points
 
         # Persist to ground truth via coordinator (including collected points for session)
         self.coordinator.persist_intrinsic_calibration(output, collected_points)
@@ -153,38 +173,35 @@ class CamerasTabWidget(QWidget):
 
     def _show_message(self, text: str) -> None:
         """Show a message in the content area."""
-        # Remove current widget if any
-        if self._current_widget is not None:
-            self._content_layout.removeWidget(self._current_widget)
-            self._current_widget.close()
-            self._current_widget.deleteLater()
-            self._current_widget = None
+        # Hide current widget if any
+        if self._current_port is not None and self._current_port in self._widgets:
+            current_widget = self._widgets[self._current_port]
+            self._content_layout.removeWidget(current_widget)
+            current_widget.hide()
 
         self._message_label.setText(text)
         self._message_label.show()
 
-    def _cleanup_current(self) -> None:
-        """Clean up current presenter and widget."""
-        if self._current_presenter is not None:
-            logger.info("Cleaning up current presenter")
-            self._current_presenter.cleanup()
-            self._current_presenter = None
-
-        if self._current_widget is not None:
-            logger.info("Cleaning up current widget")
-            self._content_layout.removeWidget(self._current_widget)
-            self._current_widget.close()  # Triggers closeEvent for render thread
-            self._current_widget.deleteLater()
-            self._current_widget = None
-
     def cleanup(self) -> None:
-        """Explicit cleanup - MUST be called before destruction.
+        """Clean up all presenters and widgets.
 
         Note: closeEvent is NOT reliable for tab widgets because
         removeTab() + deleteLater() doesn't trigger closeEvent.
         The parent (MainWidget) must call this during reload_workspace.
         """
-        self._cleanup_current()
+        for port, presenter in self._presenters.items():
+            logger.info(f"Cleaning up presenter for port {port}")
+            presenter.cleanup()
+
+        for port, widget in self._widgets.items():
+            logger.info(f"Cleaning up widget for port {port}")
+            self._content_layout.removeWidget(widget)
+            widget.close()
+            widget.deleteLater()
+
+        self._presenters.clear()
+        self._widgets.clear()
+        self._current_port = None
 
     def closeEvent(self, event) -> None:
         """Defensive cleanup on normal close."""

@@ -153,6 +153,7 @@ If Haiku's descriptions aren't helping after 2-3 iterations, read the screenshot
 |--------|-------|------------|
 | `wv_charuco_widget.py` | Spinbox/checkbox interactions | Simple - direct widget |
 | `wv_capture_volume.py` | 3D OpenGL rendering | Medium - data loading |
+| `wv_playback_pyvista.py` | PyVista 3D playback, embedding, SVG icons | Medium - data loading |
 | `wv_full_workflow.py` | Full app navigation | Complex - async loading |
 
 ## Tips
@@ -162,3 +163,57 @@ If Haiku's descriptions aren't helping after 2-3 iterations, read the screenshot
 - **Print verification checklist** at the end for quick reference
 - **Clear output dir** at start to avoid stale screenshots
 - **Use process_events_for()** before every capture — Qt needs time to render
+
+## PyVista/VTK Widget Testing
+
+PyVista widgets have unique challenges due to VTK's OpenGL requirements.
+
+### Headless Mode Limitations
+
+**xvfb + PyVista often segfaults** even with `LIBGL_ALWAYS_SOFTWARE=1`. The VTK rendering pipeline doesn't play well with virtual framebuffers.
+
+**Workaround:** Run with an actual display when testing PyVista widgets:
+```bash
+# With display (preferred for PyVista)
+uv run python scripts/widget_visualization/wv_playback_pyvista.py
+
+# Headless (often crashes with PyVista)
+xvfb-run --auto-servernum uv run python scripts/widget_visualization/wv_playback_pyvista.py
+```
+
+### Black 3D Views in Software Mode
+
+Even when scripts don't crash, **software rendering may produce black 3D views**. This is a VTK limitation, not a bug in your widget. The Qt controls layer still renders correctly.
+
+**What you CAN verify in software mode:**
+- Widget embeds in layouts (no nested window behavior)
+- Controls render and respond to clicks
+- Icon loading works
+- Slider/button state changes
+
+**What you CANNOT reliably verify:**
+- 3D scene content (cameras, points, meshes)
+- PyVista rendering quality
+
+### Embedding Test Pattern
+
+To verify a `QMainWindow` → `QWidget` refactor worked, embed the widget below a colored header:
+
+```python
+container = QMainWindow()
+central = QWidget()
+layout = QVBoxLayout(central)
+
+# Colored header proves embedding works
+header = QLabel("This label is ABOVE the embedded widget")
+header.setStyleSheet("background-color: #2196F3; color: white; padding: 10px;")
+layout.addWidget(header)
+
+# Your refactored widget
+widget = YourPyVistaWidget(view_model)
+layout.addWidget(widget, stretch=1)
+
+container.setCentralWidget(central)
+```
+
+If the header appears **above** the 3D view (not in a separate window), the refactor succeeded.

@@ -51,3 +51,6 @@ APP_SETTINGS_PATH = APP_DIR / "settings.toml"
 
 # A helpful reference to the source code root
 __root__ = Path(__file__).parent.parent.parent
+
+# Package-internal directory aliases
+ICONS_DIR = Path(__file__).parent / "gui" / "icons"

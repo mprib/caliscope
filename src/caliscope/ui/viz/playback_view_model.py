@@ -86,9 +86,9 @@ class PlaybackViewModel:
     def max_index(self) -> int:
         return self.world_points.max_index if self.world_points.max_index is not None else 100
 
-    def get_camera_geometry(self) -> dict[str, Any] | None:
+    def get_camera_geometry(self, scale: float = 0.0005) -> dict[str, Any] | None:
         """Pass-through to the static camera builder."""
-        return build_camera_geometry(self.camera_array)
+        return build_camera_geometry(self.camera_array, scale=scale)
 
     def get_static_wireframe_data(self) -> tuple[NDArray[np.int32], NDArray[np.float32]]:
         """

@@ -56,8 +56,8 @@ class ExtrinsicCalibrationTab(QWidget):
 
         # Create ViewModel from bundle
         view_model = PlaybackViewModel(
-            world_points=bundle.world_points,
             camera_array=bundle.camera_array,
+            world_points=bundle.world_points,
             wireframe_segments=None,  # No skeleton for charuco points
         )
 

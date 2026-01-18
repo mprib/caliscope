@@ -25,8 +25,8 @@ class FrameGeometry:
 class PlaybackViewModel:
     def __init__(
         self,
-        world_points: WorldPoints,
         camera_array: CameraArray,
+        world_points: WorldPoints | None = None,
         wireframe_segments: list[WireframeSegment] | None = None,
         fps: int = 30,
     ):
@@ -35,9 +35,20 @@ class PlaybackViewModel:
         self.wireframe_segments = wireframe_segments or []
         self.frame_rate = fps
 
+        # Handle camera-only mode (no points)
+        if world_points is None:
+            self.all_point_ids = np.array([], dtype=np.int64)
+            self.n_points = 0
+            self.id_to_index: dict[int, int] = {}
+            self._static_lines = np.empty((0, 3), dtype=np.int32)
+            self._static_line_colors = np.empty((0, 3), dtype=np.float32)
+            self._grouped_points: dict[Any, Any] = {}
+            logger.info("PlaybackViewModel initialized in camera-only mode (no points).")
+            return
+
         # 1. Establish the Canonical Map (The "Superset" of all points)
         # We find every unique point_id that appears in the entire recording.
-        unique_ids = np.unique(self.world_points.df["point_id"].to_numpy())
+        unique_ids = np.unique(world_points.df["point_id"].to_numpy())
         unique_ids.sort()
 
         self.all_point_ids = unique_ids
@@ -55,7 +66,7 @@ class PlaybackViewModel:
 
         # 3. Pre-group data for fast lookup during playback
         # We group by sync_index so we don't have to filter the huge dataframe every frame.
-        self._grouped_points = {idx: grp for idx, grp in self.world_points.df.groupby("sync_index")}
+        self._grouped_points = {idx: grp for idx, grp in world_points.df.groupby("sync_index")}
 
     @classmethod
     def from_xyz_csv(
@@ -72,19 +83,37 @@ class PlaybackViewModel:
         """
         world_points = WorldPoints.from_csv(xyz_path)
         return cls(
-            world_points=world_points,
             camera_array=camera_array,
+            world_points=world_points,
             wireframe_segments=wireframe_segments,
             fps=fps,
         )
 
+    @classmethod
+    def from_camera_array_only(cls, camera_array: CameraArray) -> "PlaybackViewModel":
+        """Create a ViewModel with cameras only (no points).
+
+        Used for preview mode before reconstruction — shows camera frustums
+        without any tracked points.
+        """
+        return cls(camera_array=camera_array)
+
+    @property
+    def has_points(self) -> bool:
+        """True if this contains point data, False if camera-only preview."""
+        return self.world_points is not None
+
     @property
     def min_index(self) -> int:
-        return self.world_points.min_index if self.world_points.min_index is not None else 0
+        if self.world_points is None or self.world_points.min_index is None:
+            return 0
+        return self.world_points.min_index
 
     @property
     def max_index(self) -> int:
-        return self.world_points.max_index if self.world_points.max_index is not None else 100
+        if self.world_points is None or self.world_points.max_index is None:
+            return 0  # Single frame for camera-only mode
+        return self.world_points.max_index
 
     def get_camera_geometry(self, scale: float = 0.0005) -> dict[str, Any] | None:
         """Pass-through to the static camera builder."""

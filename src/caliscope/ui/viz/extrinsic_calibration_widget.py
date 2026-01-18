@@ -138,7 +138,7 @@ class ExtrinsicCalibrationWidget(QWidget):
         self.plotter.show_axes()
         self.plotter.camera_position = [(4, 4, 4), (0, 0, 0), (0, 0, 1)]
         self.plotter.show_grid()
-        self.plotter.enable_terrain_style()
+        self.plotter.enable_trackball_style()
         logger.info("PyVista scene initialized")
 
     def _create_static_actors(self):

@@ -12,7 +12,7 @@ import logging
 from enum import Enum, auto
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.post_processing.post_processor import PostProcessor
@@ -192,6 +192,11 @@ class ReconstructionPresenter(QObject):
         """Last error message, if any."""
         return self._last_error
 
+    @property
+    def camera_array(self) -> CameraArray:
+        """Camera array used for triangulation (needed for visualization)."""
+        return self._camera_array
+
     def select_recording(self, name: str) -> None:
         """Select a recording for processing.
 
@@ -265,11 +270,28 @@ class ReconstructionPresenter(QObject):
 
         self._processing_task = self._task_manager.submit(worker, name="reconstruction")
 
-        # Connect signals
-        self._processing_task.completed.connect(self._on_reconstruction_complete)
-        self._processing_task.failed.connect(self._on_reconstruction_failed)
-        self._processing_task.cancelled.connect(self._on_reconstruction_cancelled)
-        self._processing_task.progress_updated.connect(self._on_progress)
+        # Connect signals - use QueuedConnection since TaskHandle signals
+        # are emitted from worker threads
+        self._processing_task.started.connect(
+            self._emit_state_changed,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._processing_task.completed.connect(
+            self._on_reconstruction_complete,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._processing_task.failed.connect(
+            self._on_reconstruction_failed,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._processing_task.cancelled.connect(
+            self._on_reconstruction_cancelled,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._processing_task.progress_updated.connect(
+            self._on_progress,
+            Qt.ConnectionType.QueuedConnection,
+        )
 
         self._emit_state_changed()
 

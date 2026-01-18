@@ -160,7 +160,7 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
         self.plotter.show_axes()
         self.plotter.camera_position = [(4, 4, 4), (0, 0, 0), (0, 0, 1)]
         self.plotter.show_grid()
-        self.plotter.enable_terrain_style()
+        self.plotter.enable_trackball_style()
         logger.info("PyVista scene initialized")
 
     def _create_static_actors(self):
@@ -200,6 +200,11 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
         Initialize the persistent PolyData objects for points and wireframes.
         This is called EXACTLY ONCE.
         """
+        # Camera-only mode: no points to render
+        if self.view_model.n_points == 0:
+            logger.info("Camera-only mode: skipping dynamic actors (no points)")
+            return
+
         # 1. Get initial frame data (likely NaN, but sets the size)
         frame_geom = self.view_model.get_frame_geometry(self.sync_index)
 
@@ -317,3 +322,40 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
         """Force render when widget becomes visible."""
         super().showEvent(event)
         self.plotter.render()
+
+    def set_view_model(self, view_model: PlaybackViewModel) -> None:
+        """
+        Replace the ViewModel and rebuild the scene.
+
+        Used when switching recordings or trackers in post-processing.
+        Must rebuild the full scene (not just dynamic actors) because
+        cameras may differ between recordings.
+        """
+        logger.info(f"Switching view model: {self.view_model.n_points} points → {view_model.n_points} points")
+
+        # Stop any playback
+        self.playback_timer.stop()
+        self.is_playing = False
+        self.play_button.setChecked(False)
+        self.play_button.setIcon(self._play_icon)
+
+        # Clear mesh references FIRST - before any slider changes that might
+        # trigger _on_sync_index_changed() with mismatched point counts
+        self._point_cloud_mesh = None
+        self._wireframe_mesh = None
+
+        self.view_model = view_model
+        self.sync_index = view_model.min_index
+
+        # Update slider range (setValue may trigger _on_sync_index_changed,
+        # but mesh refs are already None so it safely returns early)
+        self.slider.setMinimum(view_model.min_index)
+        self.slider.setMaximum(view_model.max_index)
+        self.slider.setValue(self.sync_index)
+
+        # FULL scene rebuild
+        self.plotter.clear()
+        self._initialize_scene()
+        self._create_static_actors()
+        self._create_dynamic_actors()
+        self._on_sync_index_changed(self.sync_index)

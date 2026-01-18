@@ -121,18 +121,36 @@ class ReconstructionPresenter(QObject):
 
     @property
     def available_recordings(self) -> list[str]:
-        """List of valid recording directory names."""
+        """List of valid recording directory names.
+
+        A recording directory is valid if:
+        1. It contains a port_N.mp4 file for every port in the camera array
+        2. There are no unexpected .mp4 files (catches misnamed files)
+        """
         recordings_dir = self._workspace_dir / "recordings"
         if not recordings_dir.exists():
             return []
 
-        # A valid recording has config.toml and at least one .mp4
+        expected_ports = set(self._camera_array.cameras.keys())
+        if not expected_ports:
+            return []
+
         valid = []
         for item in recordings_dir.iterdir():
             if item.is_dir():
-                has_config = (item / "config.toml").exists()
-                has_video = any(item.glob("*.mp4"))
-                if has_config and has_video:
+                # Get all mp4 files in the directory
+                all_mp4s = list(item.glob("*.mp4"))
+
+                # Parse port numbers from properly named files
+                available_ports: set[int] = set()
+                for mp4 in all_mp4s:
+                    parts = mp4.stem.split("_")
+                    if len(parts) == 2 and parts[0] == "port" and parts[1].isdigit():
+                        available_ports.add(int(parts[1]))
+
+                # Valid if: all expected ports present AND no unexpected mp4 files
+                expected_files_count = len(expected_ports)
+                if expected_ports == available_ports and len(all_mp4s) == expected_files_count:
                     valid.append(item.name)
 
         return sorted(valid)

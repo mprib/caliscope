@@ -7,17 +7,24 @@ Tests focus on:
 - cleanup() cancels active task
 """
 
-import pytest
+from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 from PySide6.QtCore import QCoreApplication
 
+from caliscope import __root__
 from caliscope.gui.presenters.reconstruction_presenter import (
     ReconstructionPresenter,
     ReconstructionState,
 )
+from caliscope.helper import copy_contents_to_clean_dest
+from caliscope.persistence import load_camera_array
 from caliscope.task_manager.task_state import TaskState
 from caliscope.trackers.tracker_enum import TrackerEnum
+
+# Test session with 4 cameras and recordings
+TEST_SESSION = Path(__root__) / "tests" / "sessions" / "4_cam_recording"
 
 
 @pytest.fixture
@@ -30,14 +37,6 @@ def qapp():
 
 
 @pytest.fixture
-def mock_camera_array():
-    """Mock camera array with basic structure."""
-    camera_array = MagicMock()
-    camera_array.cameras = {}
-    return camera_array
-
-
-@pytest.fixture
 def mock_task_manager():
     """Mock task manager."""
     return MagicMock()
@@ -45,26 +44,23 @@ def mock_task_manager():
 
 @pytest.fixture
 def workspace_with_recordings(tmp_path):
-    """Create a workspace with valid recording directories."""
-    recordings_dir = tmp_path / "recordings"
-    recordings_dir.mkdir()
-
-    # Create two valid recordings
-    for name in ["recording_001", "recording_002"]:
-        rec_dir = recordings_dir / name
-        rec_dir.mkdir()
-        (rec_dir / "config.toml").touch()
-        (rec_dir / "port_0.mp4").touch()
-
+    """Copy test session to tmp_path for isolated testing."""
+    copy_contents_to_clean_dest(TEST_SESSION, tmp_path)
     return tmp_path
 
 
 @pytest.fixture
-def presenter(workspace_with_recordings, mock_camera_array, mock_task_manager, qapp):
+def camera_array(workspace_with_recordings):
+    """Load real camera array from test session."""
+    return load_camera_array(workspace_with_recordings / "camera_array.toml")
+
+
+@pytest.fixture
+def presenter(workspace_with_recordings, camera_array, mock_task_manager, qapp):
     """Create a ReconstructionPresenter for testing."""
     return ReconstructionPresenter(
         workspace_dir=workspace_with_recordings,
-        camera_array=mock_camera_array,
+        camera_array=camera_array,
         task_manager=mock_task_manager,
     )
 
@@ -108,24 +104,24 @@ class TestStateComputation:
 
     def test_state_complete_when_xyz_exists(self, presenter, workspace_with_recordings):
         """State is COMPLETE when xyz output file exists."""
-        presenter._selected_recording = "recording_001"
+        presenter._selected_recording = "recording_1"
         presenter._selected_tracker = TrackerEnum.SIMPLE_HOLISTIC
 
-        # Create the output file
-        output_dir = workspace_with_recordings / "recordings" / "recording_001" / "SIMPLE_HOLISTIC"
-        output_dir.mkdir(parents=True)
+        # Create the output file (exist_ok because test session may have partial data)
+        output_dir = workspace_with_recordings / "recordings" / "recording_1" / "SIMPLE_HOLISTIC"
+        output_dir.mkdir(parents=True, exist_ok=True)
         (output_dir / "xyz_SIMPLE_HOLISTIC.csv").touch()
 
         assert presenter.state == ReconstructionState.COMPLETE
 
     def test_task_state_takes_precedence_over_file(self, presenter, workspace_with_recordings):
         """Task RUNNING state takes precedence over file existence."""
-        presenter._selected_recording = "recording_001"
+        presenter._selected_recording = "recording_1"
         presenter._selected_tracker = TrackerEnum.SIMPLE_HOLISTIC
 
-        # Create the output file
-        output_dir = workspace_with_recordings / "recordings" / "recording_001" / "SIMPLE_HOLISTIC"
-        output_dir.mkdir(parents=True)
+        # Create the output file (exist_ok because test session may have partial data)
+        output_dir = workspace_with_recordings / "recordings" / "recording_1" / "SIMPLE_HOLISTIC"
+        output_dir.mkdir(parents=True, exist_ok=True)
         (output_dir / "xyz_SIMPLE_HOLISTIC.csv").touch()
 
         # But task is running
@@ -143,9 +139,8 @@ class TestAvailableOptions:
     def test_available_recordings(self, presenter):
         """Should list valid recording directories."""
         recordings = presenter.available_recordings
-        assert "recording_001" in recordings
-        assert "recording_002" in recordings
-        assert len(recordings) == 2
+        assert "recording_1" in recordings
+        assert len(recordings) == 1  # Test session has one recording
 
     def test_available_trackers_excludes_charuco(self, presenter):
         """CHARUCO should not be in available trackers."""
@@ -161,8 +156,8 @@ class TestSelection:
 
     def test_select_recording(self, presenter):
         """Selecting a recording updates selection."""
-        presenter.select_recording("recording_001")
-        assert presenter.selected_recording == "recording_001"
+        presenter.select_recording("recording_1")
+        assert presenter.selected_recording == "recording_1"
 
     def test_select_tracker(self, presenter):
         """Selecting a tracker updates selection."""
@@ -172,7 +167,7 @@ class TestSelection:
     def test_select_recording_clears_error(self, presenter):
         """Selecting a recording clears previous error."""
         presenter._last_error = "Previous error"
-        presenter.select_recording("recording_001")
+        presenter.select_recording("recording_1")
         assert presenter._last_error is None
 
     def test_select_tracker_clears_error(self, presenter):
@@ -196,11 +191,11 @@ class TestXyzOutputPath:
 
     def test_xyz_output_path_computed_from_selection(self, presenter, workspace_with_recordings):
         """Path is computed from selected recording and tracker."""
-        presenter._selected_recording = "recording_001"
+        presenter._selected_recording = "recording_1"
         presenter._selected_tracker = TrackerEnum.SIMPLE_HOLISTIC
 
         expected = (
-            workspace_with_recordings / "recordings" / "recording_001" / "SIMPLE_HOLISTIC" / "xyz_SIMPLE_HOLISTIC.csv"
+            workspace_with_recordings / "recordings" / "recording_1" / "SIMPLE_HOLISTIC" / "xyz_SIMPLE_HOLISTIC.csv"
         )
         assert presenter.xyz_output_path == expected
 
@@ -213,7 +208,7 @@ class TestSignalEmissions:
         signal_received = []
         presenter.state_changed.connect(lambda s: signal_received.append(s))
 
-        presenter.select_recording("recording_001")
+        presenter.select_recording("recording_1")
 
         assert len(signal_received) == 1
         assert signal_received[0] == ReconstructionState.IDLE
@@ -245,7 +240,7 @@ class TestStartReconstruction:
         mock_handle.state = TaskState.RUNNING
         mock_task_manager.submit.return_value = mock_handle
 
-        presenter.select_recording("recording_001")
+        presenter.select_recording("recording_1")
         presenter.select_tracker(TrackerEnum.SIMPLE_HOLISTIC)
         presenter.start_reconstruction()
 

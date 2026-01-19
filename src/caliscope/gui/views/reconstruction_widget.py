@@ -346,6 +346,16 @@ class ReconstructionWidget(QWidget):
             self._pyvista_widget.close()
             self._pyvista_widget = None
 
+    def suspend_vtk(self) -> None:
+        """Pause VTK rendering when widget is not active."""
+        if self._pyvista_widget is not None:
+            self._pyvista_widget.suspend_vtk()
+
+    def resume_vtk(self) -> None:
+        """Resume VTK rendering when widget becomes active."""
+        if self._pyvista_widget is not None:
+            self._pyvista_widget.resume_vtk()
+
     def closeEvent(self, event) -> None:
         """Handle close event."""
         self.cleanup()

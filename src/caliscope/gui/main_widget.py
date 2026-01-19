@@ -156,6 +156,10 @@ class MainWindow(QMainWindow):
         # Enable Capture Volume tab dynamically when extrinsic calibration completes
         self.coordinator.capture_volume_calibrated.connect(self._on_capture_volume_ready)
 
+        # Track current tab for VTK suspend/resume (QTabWidget doesn't fire hideEvent)
+        self._previous_tab_index: int = 0
+        self.central_tab.currentChanged.connect(self._on_tab_changed)
+
         logger.info("About to load reconstruction tab")
         if self.coordinator.capture_volume_loaded and self.coordinator.recordings_available():
             logger.info("Creating reconstruction tab")
@@ -223,6 +227,27 @@ class MainWindow(QMainWindow):
         if old_widget is not None:
             old_widget.deleteLater()
         self.central_tab.setTabEnabled(idx, True)
+
+    def _on_tab_changed(self, new_index: int) -> None:
+        """Suspend/resume VTK rendering when switching tabs.
+
+        QTabWidget doesn't fire hideEvent/showEvent on tab contents when switching
+        tabs - it only stops painting them. VTK's interactor keeps polling for events,
+        wasting CPU. We manually notify VTK widgets when their tab becomes inactive.
+        """
+        # Suspend VTK on previous tab if it has VTK
+        prev_widget = self.central_tab.widget(self._previous_tab_index)
+        if hasattr(prev_widget, "suspend_vtk"):
+            logger.debug(f"Suspending VTK on tab {self._previous_tab_index}")
+            prev_widget.suspend_vtk()
+
+        # Resume VTK on new tab if it has VTK
+        new_widget = self.central_tab.widget(new_index)
+        if hasattr(new_widget, "resume_vtk"):
+            logger.debug(f"Resuming VTK on tab {new_index}")
+            new_widget.resume_vtk()
+
+        self._previous_tab_index = new_index
 
     def reload_workspace(self):
         # Clear all existing tabs

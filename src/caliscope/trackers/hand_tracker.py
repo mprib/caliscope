@@ -1,12 +1,12 @@
+import gc
 import logging
-from queue import Queue
+from queue import Full, Queue
 from threading import Thread
 
 import cv2
 import mediapipe as mp
 import numpy as np
 
-# cap = cv2.VideoCapture(0)
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
 from caliscope.trackers.helper import apply_rotation, unrotate_points
@@ -15,16 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 class HandTracker(Tracker):
-    # Initialize MediaPipe Hands and Drawing utility
     def __init__(self) -> None:
-        self.in_queue = Queue(-1)
-        self.out_queue = Queue(-1)
-
-        # each port gets its own mediapipe context manager
+        # Each port gets its own mediapipe context manager
         # use a dictionary of queues for passing
-        self.in_queues = {}
-        self.out_queues = {}
-        self.threads = {}
+        self.in_queues: dict[int, Queue] = {}
+        self.out_queues: dict[int, Queue] = {}
+        self.threads: dict[int, Thread] = {}
 
     @property
     def name(self):
@@ -41,6 +37,12 @@ class HandTracker(Tracker):
         ) as hands:
             while True:
                 frame = self.in_queues[port].get()
+
+                if frame is None:  # Shutdown signal
+                    logger.debug(f"HandTracker port {port} received shutdown signal")
+                    # reset() closes the calculator graph but TFLite memory persists
+                    hands.reset()
+                    break
                 # apply rotation as needed
                 frame = apply_rotation(frame, rotation_count)
 
@@ -96,6 +98,7 @@ class HandTracker(Tracker):
                 target=self.run_frame_processor,
                 args=(port, rotation_count),
                 daemon=True,
+                name=f"HandTracker_Port_{port}",
             )
             self.threads[port].start()
 
@@ -113,3 +116,32 @@ class HandTracker(Tracker):
         else:
             rules = {"radius": 5, "color": (220, 0, 0), "thickness": 3}
         return rules
+
+    def cleanup(self) -> None:
+        """Signal threads to exit and wait for them to finish."""
+        logger.debug(f"HandTracker cleanup: stopping {len(self.threads)} threads")
+
+        # Send shutdown signal to all threads
+        for port, queue in self.in_queues.items():
+            try:
+                queue.put(None, timeout=1.0)
+            except Full:
+                logger.warning(f"HandTracker: timeout sending shutdown to port {port}")
+
+        # Wait for threads to finish
+        for port, thread in self.threads.items():
+            thread.join(timeout=2.0)
+            if thread.is_alive():
+                logger.warning(f"HandTracker: thread for port {port} did not exit in time")
+
+        # Clear state
+        self.in_queues.clear()
+        self.out_queues.clear()
+        self.threads.clear()
+
+        # Hygienic gc.collect() - clears Python references but does NOT release
+        # TFLite's C++ allocated memory (~500MB per tracker). Only process
+        # termination releases that memory. See: multiprocessing refactor issue.
+        gc.collect()
+
+        logger.debug("HandTracker cleanup complete")

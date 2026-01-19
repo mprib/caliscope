@@ -74,6 +74,14 @@ class Tracker(ABC):
         """
         return set()
 
+    def cleanup(self) -> None:
+        """Release tracker resources (threads, GPU memory, etc.).
+
+        Override in subclasses that spawn background threads or hold GPU resources.
+        Default implementation is a no-op for stateless trackers (ArUco, Charuco).
+        """
+        pass
+
 
 @dataclass(slots=True, frozen=True)
 class Segment:

@@ -71,6 +71,17 @@ class ExtrinsicCalibrationWidget(QWidget):
         self.plotter: QtInteractor = QtInteractor(parent=self)
         main_layout.addWidget(self.plotter, stretch=1)
 
+        # Reduce CPU by tuning VTK interactor timing
+        # (especially important when using software rendering like llvmpipe)
+        if hasattr(self.plotter, "iren") and self.plotter.iren is not None:
+            vtk_iren = self.plotter.iren.interactor
+            if vtk_iren is not None:
+                # Event polling: 33ms = 30Hz (default 10ms = 100Hz is overkill)
+                vtk_iren.SetTimerDuration(33)
+                # Render rate limits
+                vtk_iren.SetDesiredUpdateRate(15.0)  # Max 15 FPS during rotate/zoom
+                vtk_iren.SetStillUpdateRate(0.5)  # 0.5 FPS when idle
+
         # Controls bar at bottom
         controls_widget = self._create_controls()
         main_layout.addWidget(controls_widget)
@@ -135,6 +146,13 @@ class ExtrinsicCalibrationWidget(QWidget):
 
     def _initialize_scene(self):
         """Set up PyVista scene defaults."""
+        # Log GPU capabilities for debugging CPU issues
+        if hasattr(self.plotter, "ren_win"):
+            caps = self.plotter.ren_win.ReportCapabilities()
+            # First line contains renderer name (e.g., "OpenGL renderer: llvmpipe" or "NVIDIA...")
+            first_line = caps.split("\n")[0] if caps else "unknown"
+            logger.info(f"VTK Renderer: {first_line}")
+
         self.plotter.show_axes()
         self.plotter.camera_position = [(4, 4, 4), (0, 0, 0), (0, 0, 1)]
         self.plotter.show_grid()
@@ -221,31 +239,50 @@ class ExtrinsicCalibrationWidget(QWidget):
             self._label_actor.SetVisibility(self.show_camera_labels)
             self.plotter.render()
 
-    def showEvent(self, event) -> None:
-        """Resume interactor and render when widget becomes visible.
-
-        Pair with hideEvent to reduce idle CPU when widget is hidden.
-        VTK's interactor runs a timer that polls for events continuously;
-        we disable it when hidden to avoid wasted CPU cycles.
-        """
-        super().showEvent(event)
-        # Re-enable interactor event processing
-        if hasattr(self.plotter, "iren") and self.plotter.iren is not None:
-            self.plotter.iren.EnableRenderOn()
-        self.plotter.render()
-
-    def hideEvent(self, event) -> None:
-        """Pause interactor when widget is hidden to reduce idle CPU.
+    def suspend_vtk(self) -> None:
+        """Pause VTK interactor to reduce idle CPU when widget is not active.
 
         VTK's RenderWindowInteractor runs a repeating timer (~10ms) that
         continuously polls for events. When the tab is switched away,
-        this timer keeps running, wasting CPU. Disabling render while
-        hidden eliminates this overhead.
+        this timer keeps running, wasting CPU. Disabling the interactor
+        while inactive eliminates this overhead.
+
+        Call this when the containing tab becomes inactive.
+        Pair with resume_vtk() when tab becomes active again.
         """
-        super().hideEvent(event)
-        # Disable render requests while hidden
+        logger.debug("ExtrinsicCalibrationWidget suspending VTK")
         if hasattr(self.plotter, "iren") and self.plotter.iren is not None:
-            self.plotter.iren.EnableRenderOff()
+            # Access underlying VTK interactor - PyVista wrapper doesn't expose these methods
+            vtk_iren = self.plotter.iren.interactor
+            if vtk_iren is not None:
+                # Disable() stops the event processing timer entirely (not just rendering)
+                vtk_iren.Disable()
+
+    def resume_vtk(self) -> None:
+        """Resume VTK interactor when widget becomes active.
+
+        Re-enables rendering and triggers an immediate render to refresh
+        the view after suspension.
+
+        Call this when the containing tab becomes active.
+        """
+        logger.debug("ExtrinsicCalibrationWidget resuming VTK")
+        if hasattr(self.plotter, "iren") and self.plotter.iren is not None:
+            vtk_iren = self.plotter.iren.interactor
+            if vtk_iren is not None:
+                # Enable() resumes event processing
+                vtk_iren.Enable()
+        self.plotter.render()
+
+    def showEvent(self, event) -> None:
+        """Resume interactor when widget becomes visible (actual visibility change)."""
+        super().showEvent(event)
+        self.resume_vtk()
+
+    def hideEvent(self, event) -> None:
+        """Pause interactor when widget is hidden (actual visibility change)."""
+        super().hideEvent(event)
+        self.suspend_vtk()
 
     def set_view_model(self, view_model: PlaybackViewModel) -> None:
         """

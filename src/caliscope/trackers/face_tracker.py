@@ -1,3 +1,4 @@
+import gc
 import logging
 from queue import Full, Queue
 from threading import Thread
@@ -36,6 +37,8 @@ class FaceTracker(Tracker):
 
                 if frame is None:  # Shutdown signal
                     logger.debug(f"FaceTracker port {port} received shutdown signal")
+                    # reset() closes the calculator graph but TFLite memory persists
+                    facemeshes.reset()
                     break
                 # apply rotation as needed
                 frame = apply_rotation(frame, rotation_count)
@@ -154,6 +157,11 @@ class FaceTracker(Tracker):
         self.in_queues.clear()
         self.out_queues.clear()
         self.threads.clear()
+
+        # Hygienic gc.collect() - clears Python references but does NOT release
+        # TFLite's C++ allocated memory (~500MB per tracker). Only process
+        # termination releases that memory. See: multiprocessing refactor issue.
+        gc.collect()
 
         logger.debug("FaceTracker cleanup complete")
 

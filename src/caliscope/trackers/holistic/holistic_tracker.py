@@ -1,3 +1,4 @@
+import gc
 import logging
 from pathlib import Path
 from queue import Full, Queue
@@ -146,6 +147,8 @@ class HolisticTracker(Tracker):
 
                 if frame is None:  # Shutdown signal
                     logger.debug(f"HolisticTracker port {port} received shutdown signal")
+                    # reset() closes the calculator graph but TFLite memory persists
+                    holistic.reset()
                     break
                 # apply rotation as needed
                 frame = apply_rotation(frame, rotation_count)
@@ -273,5 +276,10 @@ class HolisticTracker(Tracker):
         self.in_queues.clear()
         self.out_queues.clear()
         self.threads.clear()
+
+        # Hygienic gc.collect() - clears Python references but does NOT release
+        # TFLite's C++ allocated memory (~500MB per tracker). Only process
+        # termination releases that memory. See: multiprocessing refactor issue.
+        gc.collect()
 
         logger.debug("HolisticTracker cleanup complete")

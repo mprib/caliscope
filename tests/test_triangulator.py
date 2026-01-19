@@ -55,6 +55,7 @@ def test_triangulator(tmp_path: Path):
 
     logger.info("Creating Synchronizer")
     syncr = Synchronizer(streamers)
+    syncr.start()  # Explicit start required - Synchronizer no longer auto-starts in __init__
 
     #### Basic code for interfacing with in-progress RealTimeTriangulator
     #### Just run off of saved point_data.csv for development/testing

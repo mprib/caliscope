@@ -1,7 +1,7 @@
 # logger.setLevel(logging.DEBUG)
 import logging
 import time
-from queue import Queue
+from queue import Empty, Queue
 from threading import Event, Thread
 
 import numpy as np
@@ -15,6 +15,12 @@ DROPPED_FRAME_TRACK_WINDOW = 100  # trailing frames tracked for reporting purpos
 
 class Synchronizer:
     def __init__(self, streams: dict):
+        """Initialize synchronizer without starting threads.
+
+        Caller must explicitly call start() to begin processing. This avoids
+        the anti-pattern of constructors with side effects (thread spawning)
+        and gives the caller control over the lifecycle.
+        """
         self.streams = streams
         self.current_synched_frames = None
 
@@ -34,15 +40,11 @@ class Synchronizer:
         self.subscribed_to_streams = False  # not subscribed yet
         self.subscribe_to_streams()
 
-        # note that self.fps target is set in set_stream_fps
-        # self.set_stream_fps(fps_target)
-        # self.fps_mean = fps_target
-
         # place to store a recent history of dropped frames
         self.dropped_frame_history = {port: [] for port in sorted(self.ports)}
 
         self.initialize_ledgers()
-        self.start()
+        # Note: Caller must call start() explicitly - no auto-start in constructor
 
     def update_dropped_frame_history(self):
         if self.current_sync_packet is None:
@@ -80,10 +82,33 @@ class Synchronizer:
         self.subscribed_to_streams = False
 
     def stop(self):
+        """Stop all synchronizer threads.
+
+        Uses timeouts on joins to prevent deadlock if threads are stuck
+        on blocking queue.get() calls. Threads are daemon threads so they
+        will be killed when the main process exits regardless.
+        """
+        logger.info("Synchronizer stop initiated")
         self.stop_event.set()
-        self.thread.join()
-        for t in self.threads:
-            t.join()
+
+        # Join main synchronizer thread (with timeout)
+        if hasattr(self, "thread") and self.thread is not None:
+            self.thread.join(timeout=5.0)
+            if self.thread.is_alive():
+                logger.warning("Synchronizer main thread did not terminate within timeout")
+            else:
+                logger.info("Synchronizer main thread terminated")
+
+        # Join harvester threads (with timeout)
+        if hasattr(self, "threads"):
+            for i, t in enumerate(self.threads):
+                t.join(timeout=2.0)
+                if t.is_alive():
+                    logger.warning(f"Harvester thread {i} did not terminate within timeout")
+                else:
+                    logger.debug(f"Harvester thread {i} terminated")
+
+        logger.info("Synchronizer stop complete")
 
     def initialize_ledgers(self):
         self.port_frame_count = {port: 0 for port in self.ports}
@@ -112,12 +137,23 @@ class Synchronizer:
         self.synched_frames_subscribers.remove(q)
 
     def harvest_frame_packets(self, stream):
+        """Harvest frame packets from a stream and store them.
+
+        Uses timeout on queue.get() to periodically check stop_event,
+        allowing clean shutdown when stop() is called.
+        """
         port = stream.port
 
         logger.info(f"Beginning to collect data generated at port {port}")
 
         while not self.stop_event.is_set():
-            frame_packet = self.frame_packet_queues[port].get()
+            try:
+                # Use timeout to periodically check stop_event
+                frame_packet = self.frame_packet_queues[port].get(timeout=0.5)
+            except Empty:
+                # No frame available, loop back to check stop_event
+                continue
+
             frame_index = self.port_frame_count[port]
 
             self.all_frame_packets[f"{port}_{frame_index}"] = frame_packet

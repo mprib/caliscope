@@ -81,28 +81,30 @@ class Reconstructor:
         recorder = self.sync_stream_manager.recorder
         assert recorder is not None, "Recorder should be initialized after process_streams()"
 
-        while recorder.recording:
-            if token is not None and token.sleep_unless_cancelled(1):
-                # Cancelled - stop all background threads
-                logger.info("Cancellation requested, stopping streamers and recorder")
-                recorder.stop_recording()
-                for streamer in self.sync_stream_manager.streamers.values():
-                    streamer.stop()
-                return False
-            elif token is None:
-                sleep(1)
+        try:
+            while recorder.recording:
+                if token is not None and token.sleep_unless_cancelled(1):
+                    # Cancelled - cleanup handled in finally block
+                    logger.info("Cancellation requested")
+                    return False
+                elif token is None:
+                    sleep(1)
 
-            percent_complete = int((recorder.sync_index / self.sync_stream_manager.mean_frame_count) * 100)
-            # Stage 1 is 0-80% of total progress (2D landmark detection)
-            scaled_percent = int(percent_complete * 0.8)
-            message = f"Stage 1: {percent_complete}% - Detecting 2D landmarks"
+                percent_complete = int((recorder.sync_index / self.sync_stream_manager.mean_frame_count) * 100)
+                # Stage 1 is 0-80% of total progress (2D landmark detection)
+                scaled_percent = int(percent_complete * 0.8)
+                message = f"Stage 1: {percent_complete}% - Detecting 2D landmarks"
 
-            if handle is not None:
-                handle.report_progress(scaled_percent, message)
-            else:
-                logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
+                if handle is not None:
+                    handle.report_progress(scaled_percent, message)
+                else:
+                    logger.info(f"(Stage 1 of 2): {percent_complete}% of frames processed for (x,y) landmark detection")
 
-        return True  # Completed
+            return True  # Completed
+        finally:
+            # Always cleanup streaming threads (recorder, synchronizer, streamers)
+            # This runs on both normal completion and cancellation
+            self.sync_stream_manager.cleanup()
 
     def create_xyz(self, xy_gap_fill=3, xyz_gap_fill=3, cutoff_freq=6, include_trc=True) -> None:
         """

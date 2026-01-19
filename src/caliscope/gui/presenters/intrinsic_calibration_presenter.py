@@ -14,7 +14,6 @@ from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Thread
 
-import cv2
 import numpy as np
 from PySide6.QtCore import QObject, Signal
 
@@ -249,15 +248,14 @@ class IntrinsicCalibrationPresenter(QObject):
 
     def _load_initial_frame(self) -> None:
         """Read first frame from video and put on display queue."""
-        cap = cv2.VideoCapture(str(self._video_path))
-        success, frame = cap.read()
-        cap.release()
+        start_index = self._streamer.start_frame_index
+        frame = self._streamer.peek_frame(start_index)
 
-        if success:
-            # Note: FramePacket.frame typed as float64 but cv2 returns uint8
+        if frame is not None:
+            # FramePacket.frame typed as float64 but FrameSource returns uint8
             initial_packet = FramePacket(
                 port=self._port,
-                frame_index=0,
+                frame_index=start_index,
                 frame_time=0.0,
                 frame=np.asarray(frame),  # type: ignore[arg-type]
                 points=None,

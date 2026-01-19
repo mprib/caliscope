@@ -26,7 +26,7 @@ from caliscope.repositories.point_data_bundle_repository import PointDataBundleR
 from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.persistence import PersistenceError
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
-from caliscope.post_processing.post_processor import PostProcessor
+from caliscope.reconstruction.reconstructor import Reconstructor
 from caliscope.managers.synchronized_stream_manager import (
     SynchronizedStreamManager,
     read_video_properties,
@@ -67,7 +67,6 @@ class WorkspaceCoordinator(QObject):
     capture_volume_shifted = Signal()
     bundle_updated = Signal()  # PointDataBundle changed (new system, parallel to CaptureVolume)
     enable_inputs = Signal(int, bool)  # port, enable
-    post_processing_complete = Signal()
     show_synched_frames = Signal()
 
     def __init__(self, workspace_dir: Path):
@@ -602,27 +601,25 @@ class WorkspaceCoordinator(QObject):
 
         def worker(token, handle):
             logger.info(f"Beginning to process video files at {recording_path}")
-            logger.info(f"Creating post processor for {recording_path}")
-            self.post_processor = PostProcessor(self.camera_array, recording_path, tracker_enum)
+            logger.info(f"Creating reconstructor for {recording_path}")
+            self.reconstructor = Reconstructor(self.camera_array, recording_path, tracker_enum)
 
             # Get processing settings from project configuration
             include_video = self.settings_repository.get_save_tracked_points_video()
             fps_target = self.settings_repository.get_fps_sync_stream_processing()
 
             # Pass token for cancellation support and handle for progress reporting
-            if not self.post_processor.create_xy(
+            if not self.reconstructor.create_xy(
                 include_video=include_video, fps_target=fps_target, token=token, handle=handle
             ):
                 return  # Cancelled
 
             # Stage 2 progress (80-100%)
             handle.report_progress(85, "Stage 2: Triangulating 3D points")
-            self.post_processor.create_xyz()
+            self.reconstructor.create_xyz()
             handle.report_progress(100, "Complete")
 
         handle = self.task_manager.submit(worker, name="process_recordings")
-        handle.completed.connect(lambda _: self.post_processing_complete.emit())
-        handle.failed.connect(lambda *_: self.post_processing_complete.emit())
         return handle
 
     def rotate_capture_volume(self, direction: str):

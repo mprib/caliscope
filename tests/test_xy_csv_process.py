@@ -7,7 +7,7 @@ from caliscope import __root__
 
 # specify a source directory (with recordings)
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.post_processing.post_processor import PostProcessor
+from caliscope.reconstruction.reconstructor import Reconstructor
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope import persistence
 
@@ -23,7 +23,7 @@ def test_xy_point_creation(tmp_path: Path):
 
     recording_path = Path(tmp_path, "recordings", "recording_1")
     tracker_enum = TrackerEnum.HAND
-    post_processor = PostProcessor(
+    reconstructor = Reconstructor(
         camera_array=camera_array,
         recording_path=recording_path,
         tracker_enum=tracker_enum,
@@ -41,7 +41,7 @@ def test_xy_point_creation(tmp_path: Path):
         logger.info(f"Asserting that the following file exists: {file}")
         assert not file.exists()
 
-    post_processor.create_xy()
+    reconstructor.create_xy()
 
     for file in produced_files:
         logger.info(f"Asserting that the following file exists: {file}")

@@ -1,4 +1,4 @@
-# caliscope/post_processing/point_data.py
+# caliscope/core/point_data.py
 
 from __future__ import annotations
 import logging

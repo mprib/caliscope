@@ -1,4 +1,4 @@
-# Post-Processing: Landmark Triangulation from Motion Capture
+# Reconstruction: Landmark Triangulation from Motion Capture
 
 
 *demonstration video coming soon...*
@@ -8,7 +8,7 @@
 
 1. Save videos to dedicated subfolders within `project_root/recordings/` according to the naming convention outlined in [Project Setup](project_setup.md#stage-3-processing-motion-capture-trial)
 2. Ensure that videos were synchronized when recording, or provide a [`frame_time_history.csv`](project_setup.md#frame_time_historycsv) file so that caliscope can perform the synchronization during processing.
-3. You may need to reload the workspace for the recordings to appear in the `PostProcessing` tab
+3. You may need to reload the workspace for the recordings to appear in the `Reconstruction` tab
 4. Select which tracker you would like to apply
 5. Click the `Process` button to begin the landmark tracking and triangulation.
 6. 3D landmark positions will be visualized and you can open the subfolder to inspect the landmark tracking on the recordings or to access the trajectory output files
@@ -18,7 +18,7 @@
 Current options for the tracker outputs are built on Google's [Mediapipe]() and include pipelines for general [Pose](), [Hands](), and [Face]().
 The [Holistic]() tracker combines all three outputs.
 While the Holistic tracker offers improved tracking of the face and hands compared to the Pose model, the number of points it supplies can quickly become unweildy (several hundred for the face).
-The Simple Holistic model filters out many of these points that may be extraneous to users primarily interested in gross skeletal movement. 
+The Simple Holistic model filters out many of these points that may be extraneous to users primarily interested in gross skeletal movement.
 
 
 ## Metarig Generation
@@ -34,5 +34,3 @@ With a more accurately scaled skeletal model, inverse kinematics can more succes
     - motion blur can substantially compromise landmark recognition
     - using a higher frame rate can reduce motion blur
       - this will require more light to maintain good illumination
-
-

@@ -222,9 +222,30 @@ class ExtrinsicCalibrationWidget(QWidget):
             self.plotter.render()
 
     def showEvent(self, event) -> None:
-        """Force render when widget becomes visible."""
+        """Resume interactor and render when widget becomes visible.
+
+        Pair with hideEvent to reduce idle CPU when widget is hidden.
+        VTK's interactor runs a timer that polls for events continuously;
+        we disable it when hidden to avoid wasted CPU cycles.
+        """
         super().showEvent(event)
+        # Re-enable interactor event processing
+        if hasattr(self.plotter, "iren") and self.plotter.iren is not None:
+            self.plotter.iren.EnableRenderOn()
         self.plotter.render()
+
+    def hideEvent(self, event) -> None:
+        """Pause interactor when widget is hidden to reduce idle CPU.
+
+        VTK's RenderWindowInteractor runs a repeating timer (~10ms) that
+        continuously polls for events. When the tab is switched away,
+        this timer keeps running, wasting CPU. Disabling render while
+        hidden eliminates this overhead.
+        """
+        super().hideEvent(event)
+        # Disable render requests while hidden
+        if hasattr(self.plotter, "iren") and self.plotter.iren is not None:
+            self.plotter.iren.EnableRenderOff()
 
     def set_view_model(self, view_model: PlaybackViewModel) -> None:
         """

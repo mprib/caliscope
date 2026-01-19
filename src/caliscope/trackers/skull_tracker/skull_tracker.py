@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from queue import Queue
+from queue import Full, Queue
 from threading import Thread
 from typing import Any
 
@@ -254,3 +254,27 @@ class SkullTracker(Tracker):
 
     def get_connected_points(self) -> set[tuple[int, int]]:
         return set()
+
+    def cleanup(self) -> None:
+        """Signal threads to exit and wait for them to finish."""
+        logger.debug(f"SkullTracker cleanup: stopping {len(self.threads)} threads")
+
+        # Send shutdown signal to all threads
+        for port, queue in self.in_queues.items():
+            try:
+                queue.put(None, timeout=1.0)
+            except Full:
+                logger.warning(f"SkullTracker: timeout sending shutdown to port {port}")
+
+        # Wait for threads to finish
+        for port, thread in self.threads.items():
+            thread.join(timeout=2.0)
+            if thread.is_alive():
+                logger.warning(f"SkullTracker: thread for port {port} did not exit in time")
+
+        # Clear state
+        self.in_queues.clear()
+        self.out_queues.clear()
+        self.threads.clear()
+
+        logger.debug("SkullTracker cleanup complete")

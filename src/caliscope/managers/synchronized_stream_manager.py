@@ -128,10 +128,10 @@ class SynchronizedStreamManager:
             self.synchronizer.stop()
             logger.info("Synchronizer stopped")
 
-        # Stop streamers last
+        # Close streamers last (close() calls stop() then cleans up tracker resources)
         for port, streamer in self.streamers.items():
-            streamer.stop()
-            logger.info(f"Streamer for port {port} stopped")
+            streamer.close()
+            logger.info(f"Streamer for port {port} closed")
 
         logger.info("SynchronizedStreamManager cleanup complete")
 

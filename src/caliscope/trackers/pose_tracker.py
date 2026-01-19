@@ -1,12 +1,11 @@
 import logging
-from queue import Queue
+from queue import Full, Queue
 from threading import Thread
 
 import cv2
 import mediapipe as mp
 import numpy as np
 
-# cap = cv2.VideoCapture(0)
 from caliscope.packets import PointPacket
 from caliscope.tracker import Tracker
 from caliscope.trackers.helper import apply_rotation, unrotate_points
@@ -73,6 +72,10 @@ class PoseTracker(Tracker):
         ) as pose:
             while True:
                 frame = self.in_queues[port].get()
+
+                if frame is None:  # Shutdown signal
+                    logger.debug(f"PoseTracker port {port} received shutdown signal")
+                    break
                 # apply rotation as needed
                 frame = apply_rotation(frame, rotation_count)
 
@@ -109,6 +112,7 @@ class PoseTracker(Tracker):
                 target=self.run_frame_processor,
                 args=(port, rotation_count),
                 daemon=True,
+                name=f"PoseTracker_Port_{port}",
             )
 
             self.threads[port].start()
@@ -130,3 +134,27 @@ class PoseTracker(Tracker):
             rules = {"radius": 5, "color": (220, 0, 220), "thickness": 3}
 
         return rules
+
+    def cleanup(self) -> None:
+        """Signal threads to exit and wait for them to finish."""
+        logger.debug(f"PoseTracker cleanup: stopping {len(self.threads)} threads")
+
+        # Send shutdown signal to all threads
+        for port, queue in self.in_queues.items():
+            try:
+                queue.put(None, timeout=1.0)
+            except Full:
+                logger.warning(f"PoseTracker: timeout sending shutdown to port {port}")
+
+        # Wait for threads to finish
+        for port, thread in self.threads.items():
+            thread.join(timeout=2.0)
+            if thread.is_alive():
+                logger.warning(f"PoseTracker: thread for port {port} did not exit in time")
+
+        # Clear state
+        self.in_queues.clear()
+        self.out_queues.clear()
+        self.threads.clear()
+
+        logger.debug("PoseTracker cleanup complete")

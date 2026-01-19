@@ -1,5 +1,5 @@
 import logging
-from queue import Queue
+from queue import Full, Queue
 from threading import Thread
 
 import cv2
@@ -136,11 +136,11 @@ FACE_OFFSET = 500
 
 class SimpleHolisticTracker(Tracker):
     def __init__(self) -> None:
-        # each port gets its own mediapipe context manager
+        # Each port gets its own mediapipe context manager
         # use a dictionary of queues for passing
-        self.in_queues = {}
-        self.out_queues = {}
-        self.threads = {}
+        self.in_queues: dict[int, Queue] = {}
+        self.out_queues: dict[int, Queue] = {}
+        self.threads: dict[int, Thread] = {}
 
     @property
     def name(self):
@@ -155,6 +155,10 @@ class SimpleHolisticTracker(Tracker):
         ) as holistic:
             while True:
                 frame = self.in_queues[port].get()
+
+                if frame is None:  # Shutdown signal
+                    logger.debug(f"SimpleHolisticTracker port {port} received shutdown signal")
+                    break
                 # apply rotation as needed
                 frame = apply_rotation(frame, rotation_count)
 
@@ -245,6 +249,7 @@ class SimpleHolisticTracker(Tracker):
                 target=self.run_frame_processor,
                 args=(port, rotation_count),
                 daemon=True,
+                name=f"SimpleHolisticTracker_Port_{port}",
             )
 
             self.threads[port].start()
@@ -274,3 +279,27 @@ class SimpleHolisticTracker(Tracker):
             rules = {"radius": 3, "color": (0, 220, 220), "thickness": 3}
 
         return rules
+
+    def cleanup(self) -> None:
+        """Signal threads to exit and wait for them to finish."""
+        logger.debug(f"SimpleHolisticTracker cleanup: stopping {len(self.threads)} threads")
+
+        # Send shutdown signal to all threads
+        for port, queue in self.in_queues.items():
+            try:
+                queue.put(None, timeout=1.0)
+            except Full:
+                logger.warning(f"SimpleHolisticTracker: timeout sending shutdown to port {port}")
+
+        # Wait for threads to finish
+        for port, thread in self.threads.items():
+            thread.join(timeout=2.0)
+            if thread.is_alive():
+                logger.warning(f"SimpleHolisticTracker: thread for port {port} did not exit in time")
+
+        # Clear state
+        self.in_queues.clear()
+        self.out_queues.clear()
+        self.threads.clear()
+
+        logger.debug("SimpleHolisticTracker cleanup complete")

@@ -95,3 +95,13 @@ class ExtrinsicCalibrationTab(QWidget):
         """Handle bundle change signal from coordinator."""
         logger.info("Bundle changed, refreshing widget")
         self._refresh_widget()
+
+    def suspend_vtk(self) -> None:
+        """Pause VTK rendering when tab is not active."""
+        if self._widget is not None:
+            self._widget.suspend_vtk()
+
+    def resume_vtk(self) -> None:
+        """Resume VTK rendering when tab becomes active."""
+        if self._widget is not None:
+            self._widget.resume_vtk()

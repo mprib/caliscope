@@ -48,6 +48,14 @@ class ReconstructionTab(QWidget):
         self._presenter.cleanup()
         logger.info("ReconstructionTab cleaned up")
 
+    def suspend_vtk(self) -> None:
+        """Pause VTK rendering when tab is not active."""
+        self._widget.suspend_vtk()
+
+    def resume_vtk(self) -> None:
+        """Resume VTK rendering when tab becomes active."""
+        self._widget.resume_vtk()
+
     def closeEvent(self, event) -> None:
         """Defensive cleanup if explicit cleanup wasn't called."""
         self.cleanup()

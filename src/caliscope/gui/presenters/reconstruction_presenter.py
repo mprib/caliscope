@@ -15,7 +15,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Qt, Signal
 
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.post_processing.post_processor import PostProcessor
+from caliscope.reconstruction.reconstructor import Reconstructor
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
 from caliscope.task_manager.task_state import TaskState
@@ -255,18 +255,18 @@ class ReconstructionPresenter(QObject):
         camera_array = self._camera_array
 
         def worker(token, handle):
-            processor = PostProcessor(camera_array, recording_path, tracker_enum)
+            reconstructor = Reconstructor(camera_array, recording_path, tracker_enum)
 
             # Stage 1: 2D landmark detection (0-80%)
-            if not processor.create_xy(token=token, handle=handle):
+            if not reconstructor.create_xy(token=token, handle=handle):
                 return None  # Cancelled
 
             # Stage 2: Triangulation (80-100%)
             handle.report_progress(85, "Stage 2: Triangulating 3D points")
-            processor.create_xyz()
+            reconstructor.create_xyz()
             handle.report_progress(100, "Complete")
 
-            return processor
+            return reconstructor
 
         self._processing_task = self._task_manager.submit(worker, name="reconstruction")
 
@@ -304,6 +304,17 @@ class ReconstructionPresenter(QObject):
     def cleanup(self) -> None:
         """Clean up resources. Call before discarding presenter."""
         self.cancel_reconstruction()
+
+    def refresh_camera_array(self, camera_array: CameraArray) -> None:
+        """Update camera array after coordinate system change.
+
+        When the user adjusts the coordinate system origin in the calibration tab,
+        the camera extrinsics change. This updates the presenter's reference and
+        triggers a view rebuild if we're showing completed results.
+        """
+        self._camera_array = camera_array
+        if self.state == ReconstructionState.COMPLETE:
+            self._emit_state_changed()  # Triggers view rebuild with new camera positions
 
     def _on_reconstruction_complete(self, result: object) -> None:
         """Handle successful reconstruction."""

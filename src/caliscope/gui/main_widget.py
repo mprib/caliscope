@@ -25,7 +25,7 @@ from caliscope.task_manager import TaskHandle
 from caliscope.gui.cameras_tab_widget import CamerasTabWidget
 from caliscope.gui.charuco_widget import CharucoWidget
 from caliscope.gui.log_widget import LogWidget
-from caliscope.gui.post_processing_widget import PostProcessingWidget
+from caliscope.gui.reconstruction_tab import ReconstructionTab
 from caliscope.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
 from caliscope.gui.extrinsic_calibration_tab import ExtrinsicCalibrationTab
 from caliscope.gui.workspace_widget import WorkspaceSummaryWidget
@@ -134,18 +134,22 @@ class MainWindow(QMainWindow):
         # Enable Capture Volume tab dynamically when extrinsic calibration completes
         self.coordinator.capture_volume_calibrated.connect(self._on_capture_volume_ready)
 
-        logger.info("About to load post-processing tab")
+        logger.info("About to load reconstruction tab")
         if self.coordinator.capture_volume_loaded and self.coordinator.recordings_available():
-            logger.info("Creating post processing widget")
-            self.post_processing_widget = PostProcessingWidget(self.coordinator)
-            self.coordinator.capture_volume_shifted.connect(self.post_processing_widget.refresh_visualizer)
-            post_processing_enabled = True
+            logger.info("Creating reconstruction tab")
+            presenter = self.coordinator.create_reconstruction_presenter()
+            self.reconstruction_tab = ReconstructionTab(presenter)
+            # Update camera array when coordinate system changes
+            self.coordinator.capture_volume_shifted.connect(
+                lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
+            )
+            reconstruction_enabled = True
         else:
             logger.info("Creating dummy widget")
-            self.post_processing_widget = QWidget()
-            post_processing_enabled = False
-        self.central_tab.addTab(self.post_processing_widget, "Post Processing")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Post Processing"), post_processing_enabled)
+            self.reconstruction_tab = QWidget()
+            reconstruction_enabled = False
+        self.central_tab.addTab(self.reconstruction_tab, "Reconstruction")
+        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Reconstruction"), reconstruction_enabled)
 
     def build_docked_logger(self):
         # create log window which is fixed below main window

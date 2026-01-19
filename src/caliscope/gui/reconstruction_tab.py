@@ -47,3 +47,8 @@ class ReconstructionTab(QWidget):
         self._widget.cleanup()
         self._presenter.cleanup()
         logger.info("ReconstructionTab cleaned up")
+
+    def closeEvent(self, event) -> None:
+        """Defensive cleanup if explicit cleanup wasn't called."""
+        self.cleanup()
+        super().closeEvent(event)

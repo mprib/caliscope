@@ -1,4 +1,4 @@
-# caliscope/post_processing/post_processor.py
+# caliscope/reconstruction/reconstructor.py
 
 import logging
 import shutil
@@ -19,15 +19,16 @@ logger = logging.getLogger(__name__)
 APPLY_EXPERIMENTAL_POST_PROCESSING = False
 
 
-class PostProcessor:
+class Reconstructor:
     """
-    The post processer operates independently of the session. It does not need to worry about camera management.
+    The Reconstructor operates independently of the session and handles 3D reconstruction from 2D landmarks.
+
     Provide it with a path to the directory that contains the following:
     - config.toml
     - frame_time.csv
     - .mp4 files
 
-    The post processor will archive the active config.toml file into the subdirectory
+    The Reconstructor will archive the active config.toml file into the subdirectory.
     """
 
     def __init__(self, camera_array: CameraArray, recording_path: Path, tracker_enum: TrackerEnum):

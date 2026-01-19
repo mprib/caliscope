@@ -203,9 +203,20 @@ class VideoRecorder:
         self.recording_thread.start()
 
     def stop_recording(self):
-        logger.info("about to Stop recording initiated within VideoRecorder")
-        self.trigger_stop.set()
+        """Signal recording thread to stop and wait for it to terminate.
+
+        Uses a 5-second timeout to avoid blocking forever if the thread
+        is stuck. Logs a warning if the thread doesn't terminate cleanly.
+        """
         logger.info("Stop recording initiated within VideoRecorder")
+        self.trigger_stop.set()
+
+        if hasattr(self, "recording_thread") and self.recording_thread is not None:
+            self.recording_thread.join(timeout=5.0)
+            if self.recording_thread.is_alive():
+                logger.warning("Recording thread did not terminate within timeout")
+            else:
+                logger.info("Recording thread terminated cleanly")
 
 
 def find_config_file(start_dir):

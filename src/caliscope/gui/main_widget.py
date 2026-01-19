@@ -7,7 +7,7 @@ from pathlib import Path
 
 import rtoml
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction, QCloseEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -55,6 +55,28 @@ class MainWindow(QMainWindow):
         self.build_menus()
         self.connect_menu_actions()
         self.build_docked_logger()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Graceful shutdown on app exit.
+
+        Ensures all background threads and resources are cleaned up before
+        the application terminates. Without this, threads spawned by the
+        coordinator (TaskManager, streamers, synchronizers) would leak.
+        """
+        logger.info("Application exit initiated")
+
+        # Clean up tabs that have presenter resources
+        if hasattr(self, "cameras_tab_widget") and hasattr(self.cameras_tab_widget, "cleanup"):
+            self.cameras_tab_widget.cleanup()
+        if hasattr(self, "reconstruction_tab") and hasattr(self.reconstruction_tab, "cleanup"):
+            self.reconstruction_tab.cleanup()
+
+        # Coordinator cleanup (TaskManager shutdown)
+        if hasattr(self, "coordinator"):
+            self.coordinator.cleanup()
+
+        logger.info("Application cleanup complete")
+        super().closeEvent(event)
 
     def connect_menu_actions(self):
         self.open_project_action.triggered.connect(self.create_new_project_folder)

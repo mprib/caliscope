@@ -519,24 +519,30 @@ class WorkspaceCoordinator(QObject):
             include_video = self.settings_repository.get_save_tracked_points_video()
             fps_target = self.settings_repository.get_fps_sync_stream_processing()
 
-            self.extrinsic_stream_manager.process_streams(fps_target=fps_target, include_video=include_video)
-            logger.info(f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}")
+            try:
+                self.extrinsic_stream_manager.process_streams(fps_target=fps_target, include_video=include_video)
+                logger.info(
+                    f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
+                )
 
-            logger.info("About to signal that synched frames should be shown")
-            self.show_synched_frames.emit()
+                logger.info("About to signal that synched frames should be shown")
+                self.show_synched_frames.emit()
 
-            # Cancellable wait for tracked points
-            while not output_path.exists():
-                if token.sleep_unless_cancelled(0.5):
-                    return  # User cancelled
-                # moderate the frequency with which logging statements get made
-                if round(time()) % 3 == 0:
-                    logger.info(f"Waiting for 2D tracked points to populate at {output_path}")
+                # Cancellable wait for tracked points
+                while not output_path.exists():
+                    if token.sleep_unless_cancelled(0.5):
+                        return  # User cancelled
+                    # moderate the frequency with which logging statements get made
+                    if round(time()) % 3 == 0:
+                        logger.info(f"Waiting for 2D tracked points to populate at {output_path}")
 
-            if token.is_cancelled:
-                return
+                if token.is_cancelled:
+                    return
 
-            logger.info("Processing of extrinsic calibration streams complete...")
+                logger.info("Processing of extrinsic calibration streams complete...")
+            finally:
+                # Cleanup stream manager threads (recorder, synchronizer, streamers)
+                self.extrinsic_stream_manager.cleanup()
 
             self.extrinsic_calibration_xy = Path(
                 self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
@@ -649,3 +655,14 @@ class WorkspaceCoordinator(QObject):
             self.capture_volume_repository.save_capture_volume(capture_volume)
 
         self.task_manager.submit(worker, name="set_capture_volume_origin")
+
+    def cleanup(self) -> None:
+        """Shutdown all background operations.
+
+        Should be called when the application is closing to ensure threads
+        are properly terminated. The TaskManager handles its own thread
+        pool shutdown with configurable timeout.
+        """
+        logger.info("WorkspaceCoordinator cleanup initiated")
+        self.task_manager.shutdown(timeout_ms=5000)
+        logger.info("WorkspaceCoordinator cleanup complete")

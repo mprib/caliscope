@@ -77,6 +77,7 @@ class SynchronizedStreamManager:
 
         logger.info(f"Creating synchronizer based off of streamers: {self.streamers}")
         self.synchronizer = Synchronizer(self.streamers)
+        self.synchronizer.start()  # Explicit start - Synchronizer no longer auto-starts in __init__
         self.recorder = VideoRecorder(self.synchronizer, suffix=self.subfolder_name)
 
         logger.info(f"beginning to create recording for files saved to {self.output_dir}")
@@ -106,6 +107,33 @@ class SynchronizedStreamManager:
 
         self.mean_fps = statistics.mean(fps)
         self.mean_frame_count = statistics.mean(frame_count)
+
+    def cleanup(self) -> None:
+        """Stop all managed threads and release resources.
+
+        Cleanup order matters for the pipeline:
+        1. Recorder (downstream subscriber) - stop consuming sync packets
+        2. Synchronizer (middle) - stop producing sync packets
+        3. Streamers (upstream) - stop producing frame packets
+        """
+        logger.info("SynchronizedStreamManager cleanup initiated")
+
+        # Stop recorder first (subscribes to synchronizer)
+        if self.recorder is not None:
+            self.recorder.stop_recording()
+            logger.info("Recorder stopped")
+
+        # Stop synchronizer (subscribes to streamers)
+        if self.synchronizer is not None:
+            self.synchronizer.stop()
+            logger.info("Synchronizer stopped")
+
+        # Stop streamers last
+        for port, streamer in self.streamers.items():
+            streamer.stop()
+            logger.info(f"Streamer for port {port} stopped")
+
+        logger.info("SynchronizedStreamManager cleanup complete")
 
 
 def read_video_properties(source_path: Path) -> dict:

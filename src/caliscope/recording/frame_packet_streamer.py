@@ -156,6 +156,20 @@ class FramePacketStreamer:
         """Current frame timestamp."""
         return self._frame_time
 
+    def peek_frame(self, frame_index: int) -> np.ndarray | None:
+        """Read a single frame without affecting playback state.
+
+        Thread-safe via the underlying FrameSource lock. Does not affect
+        the streamer's current position or pause state.
+
+        Args:
+            frame_index: Target frame index to retrieve.
+
+        Returns:
+            Frame as BGR numpy array, or None if out of bounds or read fails.
+        """
+        return self._frame_source.get_frame(frame_index)
+
     # -------------------------------------------------------------------------
     # Pub/Sub (thread-safe)
     # -------------------------------------------------------------------------

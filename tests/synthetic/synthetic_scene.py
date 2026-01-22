@@ -299,12 +299,23 @@ def _project_points_to_cameras(
     sync_indices: NDArray[np.int64],  # (N,)
     point_ids: NDArray[np.int64],  # (N,)
     camera_array: CameraArray,
+    visibility_mask: NDArray[np.bool_] | None = None,
 ) -> pd.DataFrame:
     """
     Project 3D world points to 2D image coordinates for all cameras.
 
     Uses cv2.projectPoints with the camera's intrinsics and extrinsics.
     Only includes projections that fall within the image bounds.
+
+    Args:
+        world_points: 3D coordinates, shape (N, 3)
+        sync_indices: Frame index for each point, shape (N,)
+        point_ids: Point ID within frame, shape (N,)
+        camera_array: Cameras to project through
+        visibility_mask: Optional boolean mask, shape (n_cameras, n_sync_indices, n_points_per_frame).
+                        True = visible, False = occluded. If None, all in-bounds projections are visible.
+                        Assumption: Camera ports are 0, 1, ..., n_cameras-1 (matching array indices).
+                        This is guaranteed by _create_ring_cameras().
 
     Returns:
         DataFrame with columns: sync_index, port, point_id, img_loc_x, img_loc_y,
@@ -332,6 +343,16 @@ def _project_points_to_cameras(
         w, h = camera.size
         for i in range(len(world_points)):
             x, y = projected[i]
+
+            # Check visibility mask if provided
+            # Assumption: camera ports are 0, 1, ..., n_cameras-1 (matching array indices)
+            if visibility_mask is not None:
+                cam_idx = port
+                sync_idx = int(sync_indices[i])
+                point_idx = int(point_ids[i])
+                if not visibility_mask[cam_idx, sync_idx, point_idx]:
+                    continue  # Point is occluded for this camera
+
             if 0 <= x < w and 0 <= y < h:
                 rows.append(
                     {
@@ -361,6 +382,7 @@ def create_four_camera_ring(
     grid_spacing_mm: float = 50.0,
     trajectory_radius_mm: float = 200.0,
     seed: int = 42,
+    visibility_mask: NDArray[np.bool_] | None = None,
 ) -> SyntheticGroundTruth:
     """
     Create 4 cameras in a ring arrangement observing a moving rigid grid.
@@ -387,6 +409,9 @@ def create_four_camera_ring(
         grid_spacing_mm: Distance between adjacent grid points in mm
         trajectory_radius_mm: Radius of the helical trajectory the grid follows
         seed: Random seed for reproducibility
+        visibility_mask: Optional boolean mask, shape (n_cameras, n_sync_indices, n_points_per_frame).
+                        If provided, only visible point-camera pairs are included in image_points.
+                        If None, all in-bounds projections are included (default behavior).
 
     Returns:
         SyntheticGroundTruth with:
@@ -434,6 +459,7 @@ def create_four_camera_ring(
         sync_indices=sync_indices,
         point_ids=point_ids,
         camera_array=camera_array,
+        visibility_mask=visibility_mask,
     )
     image_points = ImagePoints(image_df)
 

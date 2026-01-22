@@ -16,8 +16,7 @@ uv run python tests/synthetic/test_extrinsic_calibration_synthetic.py
 
 ```
 tests/synthetic/
-├── generators/
-│   └── ground_truth.py      # Creates perfect cameras, points, projections
+├── synthetic_scene.py       # Creates perfect cameras, points, projections
 ├── test_cases.py            # Factory: ground truth → noisy input → optimized
 ├── assertions.py            # Pose error comparison helpers
 ├── test_extrinsic_calibration_synthetic.py  # Actual pytest tests
@@ -65,7 +64,7 @@ This validates the optimizer is working correctly.
 
 To add new test scenarios:
 
-1. Create new generator in `generators/` if needed
+1. Add generation functions to `synthetic_scene.py` if needed
 2. Add factory function in `test_cases.py`
 3. Add assertions in `assertions.py` if needed
 4. Write tests in a new `test_*.py` file

@@ -175,10 +175,16 @@ def apply_similarity_transform(
     new_world_points = WorldPoints(world_df)
 
     # Transform camera extrinsics
-    # Camera pose is T_cam_world (world → camera)
-    # We want: T_cam_world_new = T_cam_world_old @ T_world_old_world_new
-    # where T_world_old_world_new is the inverse of the similarity transform
-    world_to_world_transform = transform.inverse.matrix
+    #
+    # IMPORTANT: Cannot use 4x4 matrix composition for similarity transforms!
+    # The 4x4 matrix embeds scale into the rotation block (s*R), which corrupts
+    # the camera's rotation matrix (must remain orthonormal).
+    #
+    # Correct approach:
+    # 1. Extract camera position in old world coords: C_old = -R_cam^T @ t_cam
+    # 2. Apply similarity to position: C_new = scale * (R_world @ C_old) + t_world
+    # 3. Apply pure rotation to orientation: R_cam_new = R_cam @ R_world^T
+    # 4. Compute new translation: t_cam_new = -R_cam_new @ C_new
 
     # Build new camera dictionary
     new_cameras = {}
@@ -199,11 +205,24 @@ def apply_similarity_transform(
 
         # If camera has extrinsics, transform them
         if camera_data.rotation is not None and camera_data.translation is not None:
-            current_transform = camera_data.transformation
-            new_transform = current_transform @ world_to_world_transform
+            R_cam = camera_data.rotation
+            t_cam = camera_data.translation
 
-            # Update the new camera data
-            new_camera_data.transformation = new_transform
+            # Camera position in old world coordinates
+            cam_position_old = -R_cam.T @ t_cam
+
+            # Apply similarity transform to camera position
+            # new_point = scale * (R @ old_point) + t
+            cam_position_new = transform.scale * (transform.rotation @ cam_position_old) + transform.translation
+
+            # Rotate camera orientation (pure rotation, no scale!)
+            R_cam_new = R_cam @ transform.rotation.T
+
+            # New translation from new position
+            t_cam_new = -R_cam_new @ cam_position_new
+
+            new_camera_data.rotation = R_cam_new
+            new_camera_data.translation = t_cam_new
 
         new_cameras[port] = new_camera_data
 

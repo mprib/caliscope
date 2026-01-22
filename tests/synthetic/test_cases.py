@@ -10,12 +10,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
+from numpy.typing import NDArray
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.point_data_bundle import PointDataBundle
 from tests.synthetic.assertions import PoseError, pose_error
-from tests.synthetic.generators.ground_truth import SyntheticGroundTruth, create_four_camera_ring
+from tests.synthetic.synthetic_scene import SyntheticGroundTruth, create_four_camera_ring
 
 
 @dataclass(frozen=True)
@@ -120,6 +121,7 @@ def create_extrinsic_calibration_test_case(
     pixel_sigma: float = 0.5,
     optimize_ftol: float = 1e-8,
     optimize_max_nfev: int | None = None,
+    visibility_mask: NDArray[np.bool_] | None = None,
 ) -> ExtrinsicCalibrationTestCase:
     """
     Create a complete test case by generating ground truth, adding noise, and running optimization.
@@ -134,6 +136,9 @@ def create_extrinsic_calibration_test_case(
         pixel_sigma: Image point noise in pixels (default: 0.5 pixels)
         optimize_ftol: Tolerance for optimization convergence
         optimize_max_nfev: Maximum function evaluations (None = no limit)
+        visibility_mask: Optional boolean mask, shape (n_cameras, n_sync_indices, n_points_per_frame).
+                        If provided, only visible point-camera pairs are included in image_points.
+                        If None, all in-bounds projections are included (default behavior).
 
     Returns:
         ExtrinsicCalibrationTestCase with ground truth, noisy input, and optimization result
@@ -146,7 +151,7 @@ def create_extrinsic_calibration_test_case(
     rng = np.random.default_rng(seed)
 
     # Step 1: Generate ground truth
-    ground_truth = create_four_camera_ring(seed=seed, n_frames=n_frames)
+    ground_truth = create_four_camera_ring(seed=seed, n_frames=n_frames, visibility_mask=visibility_mask)
 
     # Step 2: Create perturbed cameras (all cameras perturbed - gauge resolved by align_to_object)
     perturbed_cameras = ground_truth.with_camera_perturbation(

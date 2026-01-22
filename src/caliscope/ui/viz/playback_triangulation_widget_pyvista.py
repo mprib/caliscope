@@ -52,13 +52,22 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
     Note: Inherits from QWidget (not QMainWindow) so it can be embedded in layouts.
     """
 
-    def __init__(self, view_model: PlaybackViewModel, parent: QWidget | None = None):
+    # Default camera frustum scale for production scenes (meters, small scale)
+    DEFAULT_CAMERA_SCALE = 0.0002
+
+    def __init__(
+        self,
+        view_model: PlaybackViewModel,
+        parent: QWidget | None = None,
+        camera_scale: float | None = None,
+    ):
         super().__init__(parent)
 
         # Lazy import to ensure QApplication exists before pyvistaqt init
         from pyvistaqt import QtInteractor
 
         self.view_model = view_model
+        self._camera_scale = camera_scale if camera_scale is not None else self.DEFAULT_CAMERA_SCALE
         self.sync_index: int = self.view_model.min_index
 
         # UI State
@@ -101,8 +110,8 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
                 vtk_iren.SetStillUpdateRate(0.5)  # 0.5 FPS when idle
 
         # Controls bar at bottom
-        controls_widget = self._create_controls()
-        main_layout.addWidget(controls_widget)
+        self._control_bar = self._create_controls()
+        main_layout.addWidget(self._control_bar)
 
         # --- Initialization ---
         self._initialize_scene()
@@ -183,8 +192,7 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
 
     def _create_static_actors(self):
         """Create static camera geometry."""
-        # Use smaller camera scale for playback (points are the focus, not cameras)
-        camera_geom = self.view_model.get_camera_geometry(scale=0.0002)
+        camera_geom = self.view_model.get_camera_geometry(scale=self._camera_scale)
         if camera_geom is None:
             return
 
@@ -417,3 +425,28 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
         self._create_static_actors()
         self._create_dynamic_actors()
         self._on_sync_index_changed(self.sync_index)
+
+    def set_sync_index(self, sync_index: int) -> None:
+        """
+        Set frame index programmatically (for external slider control).
+
+        Use this when embedding the widget in a container with a shared slider.
+        """
+        self.sync_index = sync_index
+        self._on_sync_index_changed(sync_index)
+
+        # Update internal slider without triggering signal
+        self.slider.blockSignals(True)
+        self.slider.setValue(sync_index)
+        self.slider.blockSignals(False)
+
+    def show_playback_controls(self, visible: bool) -> None:
+        """
+        Show or hide the playback control bar.
+
+        Use this when embedding the widget in a container with shared controls.
+
+        Args:
+            visible: If False, hides the slider, play/pause button, speed control, etc.
+        """
+        self._control_bar.setVisible(visible)

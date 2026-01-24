@@ -119,6 +119,27 @@ class PlaybackViewModel:
         """Pass-through to the static camera builder."""
         return build_camera_geometry(self.camera_array, scale=scale)
 
+    def get_camera_positions(self) -> NDArray[np.float64] | None:
+        """Get world positions of all cameras.
+
+        Returns (n_cameras, 3) array of camera centers in world coordinates,
+        or None if no cameras have extrinsics.
+
+        Used by visualization to compute appropriate camera/view positioning.
+        """
+        positions = []
+        for camera in self.camera_array.cameras.values():
+            if camera.rotation is None or camera.translation is None:
+                continue
+            # Camera center in world: C = -R^T @ t
+            center = -camera.rotation.T @ camera.translation
+            positions.append(center)
+
+        if not positions:
+            return None
+
+        return np.array(positions, dtype=np.float64)
+
     def get_static_wireframe_data(self) -> tuple[NDArray[np.int32], NDArray[np.float32]]:
         """
         Returns the static connectivity data for the wireframe.

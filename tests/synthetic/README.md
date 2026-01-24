@@ -12,71 +12,147 @@ uv run pytest tests/synthetic/ -v
 uv run python tests/synthetic/test_extrinsic_calibration_synthetic.py
 ```
 
+## Workflow
+
+```
+[1] Define scenes via factory functions (scene_factories.py)
+        ↓
+[2] Inspect visually via Explorer (view-only)
+        ↓
+[3] Export domain objects as fixtures (optional)
+        ↓
+[4] Load fixtures in tests (fast, deterministic)
+```
+
 ## Architecture
 
 ```
+src/caliscope/synthetic/
+├── synthetic_scene.py       # SyntheticScene frozen dataclass
+├── scene_factories.py       # Factory functions (default_ring_scene, etc.)
+├── fixture_repository.py    # Fixture persistence (save/load)
+├── se3_pose.py              # SE3 pose representation
+├── trajectory.py            # Trajectory generators (orbital, linear, stationary)
+├── calibration_object.py    # Rigid body with known geometry
+├── camera_synthesizer.py    # Fluent builder for camera arrays
+├── filter_config.py         # Visibility filtering (dropout, occlusion)
+├── coverage.py              # Coverage matrix computation
+└── explorer/                # Interactive GUI for exploring scenarios
+    ├── presenter.py         # View-only presenter (accepts SyntheticScene)
+    ├── explorer_tab.py
+    └── widgets/
+
 tests/synthetic/
-├── synthetic_scene.py       # Creates perfect cameras, points, projections
-├── test_cases.py            # Factory: ground truth → noisy input → optimized
-├── assertions.py            # Pose error comparison helpers
-├── test_extrinsic_calibration_synthetic.py  # Actual pytest tests
-└── widgets/
-    └── storyboard.py        # 3-panel visual comparison widget
+├── test_extrinsic_calibration_synthetic.py  # Main calibration tests
+├── primitives/              # Unit tests for domain primitives
+└── fixtures/synthetic/      # Persisted test fixtures (gitignored or committed)
 ```
 
-## How It Works
+## Scene Factory Functions
 
-1. **Generate ground truth** - 4 cameras in a ring, 5x7 grid moving through space
-2. **Add noise** - Perturb camera poses, add Gaussian noise to 2D observations
-3. **Run optimization** - Bundle adjustment via `PointDataBundle.optimize()`
-4. **Compare** - Measure how close optimized result is to ground truth
+Three pre-configured scenes in `scene_factories.py`:
+
+```python
+from caliscope.synthetic import default_ring_scene, sparse_coverage_scene, quick_test_scene
+
+# Standard 4-camera ring, 20 frames, 5×7 grid
+scene = default_ring_scene()
+
+# 180° arc, larger radius for limited overlap
+scene = sparse_coverage_scene()
+
+# Minimal scene for fast tests (5 frames, 3×4 grid)
+scene = quick_test_scene()
+```
+
+### Creating Custom Scenes
+
+```python
+from caliscope.synthetic import (
+    SyntheticScene,
+    CameraSynthesizer,
+    CalibrationObject,
+    Trajectory,
+)
+
+camera_array = (
+    CameraSynthesizer()
+    .add_ring(n=6, radius_mm=2500.0, height_mm=600.0)
+    .build()
+)
+
+calibration_object = CalibrationObject.planar_grid(rows=7, cols=9, spacing_mm=40.0)
+trajectory = Trajectory.orbital(n_frames=30, radius_mm=300.0, arc_extent_deg=360.0)
+
+scene = SyntheticScene(
+    camera_array=camera_array,
+    calibration_object=calibration_object,
+    trajectory=trajectory,
+    pixel_noise_sigma=0.5,
+    random_seed=42,
+)
+```
+
+## Fixture Persistence
+
+Save scenes as fixtures for fast, deterministic test loading:
+
+```python
+from caliscope.synthetic import save_fixture, load_fixture
+
+# Save scene to tests/fixtures/synthetic/my_scenario/
+save_fixture(scene, "my_scenario")
+
+# Load fixture (returns SyntheticFixture with camera_array, image_points, world_points)
+fixture = load_fixture("my_scenario")
+```
+
+**Fixture directory structure:**
+```
+tests/fixtures/synthetic/my_scenario/
+├── camera_array.toml      # Ground truth cameras
+├── world_points.csv       # Transformed object points per frame
+├── image_points.csv       # Noisy projections
+└── metadata.toml          # Scene parameters (noise, seed, counts)
+```
+
+## Explorer (Visual Verification)
+
+The Explorer is a **view-only** tool for inspecting pre-defined scenes:
+
+```python
+from caliscope.synthetic import default_ring_scene
+from caliscope.synthetic.explorer.presenter import ExplorerPresenter
+
+scene = default_ring_scene()
+presenter = ExplorerPresenter(task_manager, scene=scene)
+
+# Replace scene
+presenter.set_scene(another_scene)
+
+# Run calibration pipeline
+presenter.run_pipeline()
+```
 
 ## Key Concepts
 
 ### Gauge Freedom
 
-Bundle adjustment has 7 degrees of freedom that can't be determined from images:
-- 3 rotation, 3 translation, 1 scale
-
-We resolve this via `align_to_object()` which uses known object coordinates
-(`obj_loc_x/y/z`) to snap the result back to the ground truth frame.
-
-**All cameras are perturbed** - there's no "gauge reference" camera.
+Bundle adjustment has 7 degrees of freedom (3 rotation, 3 translation, 1 scale) that can't be determined from images alone. We resolve this via `align_to_object()` which snaps results to the ground truth frame.
 
 ### Theory-Based Tolerances
 
-Tolerances are derived from covariance propagation, not arbitrary:
+Tolerances derive from covariance propagation, not arbitrary values:
 
 ```
 Translation error ≈ GEOMETRY_FACTOR × pixel_sigma
 ```
 
-Where `GEOMETRY_FACTOR ≈ 15-20` for our setup (derived from σ_trans ≈ Z²/(f×B) × σ_pixel).
-
-For `pixel_sigma=0.5`, expect max translation error of ~7-10mm.
+Where `GEOMETRY_FACTOR ≈ 15-20` for typical setups. For `pixel_sigma=0.5`, expect max translation error of ~7-10mm.
 
 ### RMSE Convergence
 
-If RMSE ≈ pixel_sigma, the optimizer converged to the noise floor.
-This validates the optimizer is working correctly.
-
-## Extending
-
-To add new test scenarios:
-
-1. Add generation functions to `synthetic_scene.py` if needed
-2. Add factory function in `test_cases.py`
-3. Add assertions in `assertions.py` if needed
-4. Write tests in a new `test_*.py` file
-
-## Visual Verification
-
-The storyboard widget shows three panels side-by-side:
-- **Ground Truth** - Perfect cameras and points
-- **Noisy Input** - Perturbed cameras, noisy observations
-- **Optimized** - Result of bundle adjustment
-
-All panels are synchronized (rotate one, all rotate). Error metrics shown below.
+If RMSE ≈ pixel_sigma, the optimizer converged to the noise floor, validating correctness.
 
 ## References
 

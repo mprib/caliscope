@@ -185,10 +185,42 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
 
         self.plotter.set_background("black")
         self.plotter.show_axes()
-        self.plotter.camera_position = [(4, 4, 4), (0, 0, 0), (0, 0, 1)]
+        self._set_adaptive_camera()
         self.plotter.show_grid()
         self.plotter.enable_trackball_style()
         logger.info("PyVista scene initialized")
+
+    def _set_adaptive_camera(self) -> None:
+        """Set camera position based on scene extent.
+
+        For meter-scale real scenes (~1-2m), uses default view.
+        For mm-scale synthetic scenes (~2000-4000mm), positions camera
+        to show the full capture volume.
+        """
+        # Get scene extent from camera positions
+        positions = self.view_model.get_camera_positions()
+        if positions is None or len(positions) == 0:
+            # Fallback: default position for unknown scenes
+            self.plotter.camera_position = [(4, 4, 4), (0, 0, 0), (0, 0, 1)]
+            return
+
+        # Compute bounding box of camera positions
+        min_coords = positions.min(axis=0)
+        max_coords = positions.max(axis=0)
+        center = (min_coords + max_coords) / 2
+        extent = max_coords - min_coords
+        max_extent = max(extent)
+
+        # Position camera at ~2x max extent, 45° angle
+        # This ensures the full scene is visible with comfortable margins
+        dist = max_extent * 2.0
+        eye = center + [dist * 0.7, dist * 0.7, dist * 0.5]
+
+        self.plotter.camera_position = [
+            tuple(eye),
+            tuple(center),
+            (0, 0, 1),  # Z-up
+        ]
 
     def _create_static_actors(self):
         """Create static camera geometry."""

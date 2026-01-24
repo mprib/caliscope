@@ -206,3 +206,38 @@ class SE3Pose:
             raise ValueError(f"Points must be (N, 3), got shape {points.shape}")
 
         return (self.rotation @ points.T).T + self.translation
+
+    def with_roll(self, roll_rad: float) -> SE3Pose:
+        """Apply roll around optical axis (camera Z).
+
+        Pre-multiplication applies the rotation in camera frame, so roll
+        tilts the image regardless of where the camera points in world space.
+
+        Args:
+            roll_rad: Roll angle in radians. Positive tilts clockwise when
+                viewed from behind the camera (right side tilts down).
+
+        Returns:
+            New SE3Pose with roll applied.
+        """
+        c, s = np.cos(roll_rad), np.sin(roll_rad)
+        R_roll = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=np.float64)
+        return SE3Pose(rotation=R_roll @ self.rotation, translation=self.translation)
+
+    def with_pitch(self, pitch_rad: float) -> SE3Pose:
+        """Apply pitch around camera X axis (tilt up/down).
+
+        Pre-multiplication applies the rotation in camera frame, so pitch
+        changes where the camera looks regardless of its world orientation.
+
+        Args:
+            pitch_rad: Pitch angle in radians. Positive tilts camera to
+                look upward (image shifts down).
+
+        Returns:
+            New SE3Pose with pitch applied.
+        """
+        c, s = np.cos(pitch_rad), np.sin(pitch_rad)
+        # Sign chosen so positive pitch = look upward (Z rotates toward -Y)
+        R_pitch = np.array([[1, 0, 0], [0, c, s], [0, -s, c]], dtype=np.float64)
+        return SE3Pose(rotation=R_pitch @ self.rotation, translation=self.translation)

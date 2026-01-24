@@ -8,7 +8,7 @@ from typing import Any, Literal
 import numpy as np
 
 from caliscope.synthetic.calibration_object import CalibrationObject
-from caliscope.synthetic.camera_rigs import linear_rig, nested_rings_rig, ring_rig
+from caliscope.synthetic.camera_synthesizer import CameraSynthesizer
 from caliscope.synthetic.filter_config import CameraOcclusion, FilterConfig
 from caliscope.synthetic.scene import SyntheticScene
 from caliscope.synthetic.trajectory import Trajectory
@@ -45,13 +45,45 @@ class ScenarioConfig:
 
     def build_scene(self) -> SyntheticScene:
         """Construct the SyntheticScene from this config."""
-        # Build camera rig
+        # Build camera rig using CameraSynthesizer
         if self.rig_type == "ring":
-            camera_array = ring_rig(**self.rig_params)
+            camera_array = (
+                CameraSynthesizer()
+                .add_ring(
+                    n=self.rig_params["n_cameras"],
+                    radius_mm=self.rig_params["radius_mm"],
+                    height_mm=self.rig_params.get("height_mm", 0.0),
+                    facing=self.rig_params.get("facing", "inward"),
+                )
+                .build()
+            )
         elif self.rig_type == "linear":
-            camera_array = linear_rig(**self.rig_params)
+            camera_array = (
+                CameraSynthesizer()
+                .add_line(
+                    n=self.rig_params["n_cameras"],
+                    spacing_mm=self.rig_params["spacing_mm"],
+                    curvature=self.rig_params.get("curvature", 0.0),
+                )
+                .build()
+            )
         elif self.rig_type == "nested_rings":
-            camera_array = nested_rings_rig(**self.rig_params)
+            camera_array = (
+                CameraSynthesizer()
+                .add_ring(
+                    n=self.rig_params["inner_n"],
+                    radius_mm=self.rig_params["inner_radius_mm"],
+                    height_mm=self.rig_params.get("inner_height_mm", 0.0),
+                    facing="outward",
+                )
+                .add_ring(
+                    n=self.rig_params["outer_n"],
+                    radius_mm=self.rig_params["outer_radius_mm"],
+                    height_mm=self.rig_params.get("outer_height_mm", 500.0),
+                    facing="inward",
+                )
+                .build()
+            )
         else:
             raise ValueError(f"Unknown rig type: {self.rig_type}")
 

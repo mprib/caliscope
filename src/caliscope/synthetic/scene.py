@@ -13,7 +13,7 @@ from numpy.typing import NDArray
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope.synthetic.calibration_object import CalibrationObject
-from caliscope.synthetic.camera_rigs import strip_extrinsics
+from caliscope.synthetic.camera_synthesizer import strip_extrinsics
 from caliscope.synthetic.coverage import compute_coverage_matrix
 from caliscope.synthetic.filter_config import FilterConfig
 from caliscope.synthetic.trajectory import Trajectory

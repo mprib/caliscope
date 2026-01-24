@@ -20,7 +20,7 @@ from caliscope.ui.viz.playback_view_model import PlaybackViewModel
 
 if TYPE_CHECKING:
     from caliscope.synthetic.explorer.presenter import PipelineResult
-    from caliscope.synthetic.scene import SyntheticScene
+    from caliscope.synthetic.synthetic_scene import SyntheticScene
 
 logger = logging.getLogger(__name__)
 

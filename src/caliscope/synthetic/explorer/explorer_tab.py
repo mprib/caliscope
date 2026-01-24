@@ -11,6 +11,7 @@ Layout uses QSplitter for resizable left sidebar and main visualization area.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -27,22 +28,22 @@ from PySide6.QtWidgets import (
 
 from caliscope.synthetic.explorer.presenter import ExplorerPresenter, PipelineResult
 from caliscope.synthetic.explorer.widgets import CoverageHeatmapWidget, StoryboardView
-from caliscope.synthetic.scenario_config import (
-    ScenarioConfig,
-    default_ring_scenario,
-    occluded_camera_scenario,
-    sparse_coverage_scenario,
+from caliscope.synthetic.synthetic_scene import SyntheticScene
+from caliscope.synthetic.scene_factories import (
+    default_ring_scene,
+    quick_test_scene,
+    sparse_coverage_scene,
 )
 from caliscope.task_manager.task_manager import TaskManager
 
 logger = logging.getLogger(__name__)
 
 
-# Preset scenarios available in the dropdown
-PRESETS: dict[str, ScenarioConfig] = {
-    "Default Ring (4 cameras)": default_ring_scenario(),
-    "Sparse Coverage": sparse_coverage_scenario(),
-    "Occluded Camera": occluded_camera_scenario(),
+# Preset scene factories available in the dropdown
+SCENE_PRESETS: dict[str, Callable[[], SyntheticScene]] = {
+    "Default Ring (4 cameras, full orbit)": default_ring_scene,
+    "Sparse Coverage (180° arc)": sparse_coverage_scene,
+    "Quick Test (5 frames)": quick_test_scene,
 }
 
 
@@ -110,7 +111,7 @@ class ExplorerTab(QWidget):
         preset_layout = QVBoxLayout(preset_group)
 
         self._preset_combo = QComboBox()
-        self._preset_combo.addItems(PRESETS.keys())
+        self._preset_combo.addItems(SCENE_PRESETS.keys())
         preset_layout.addWidget(self._preset_combo)
 
         layout.addWidget(preset_group)
@@ -201,10 +202,10 @@ class ExplorerTab(QWidget):
 
     def _on_preset_changed(self, index: int) -> None:
         """Handle preset selection change."""
-        preset_names = list(PRESETS.keys())
+        preset_names = list(SCENE_PRESETS.keys())
         if 0 <= index < len(preset_names):
-            config = PRESETS[preset_names[index]]
-            self._presenter.set_config(config)
+            scene_factory = SCENE_PRESETS[preset_names[index]]
+            self._presenter.set_scene(scene_factory())
             self._status_label.setText("Ready")
             self._status_label.setStyleSheet("color: #888; font-style: italic;")
 

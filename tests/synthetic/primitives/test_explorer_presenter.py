@@ -9,7 +9,11 @@ from caliscope.synthetic.explorer.presenter import (
     ExplorerPresenter,
     PipelineResult,
 )
-from caliscope.synthetic.scenario_config import ScenarioConfig
+from caliscope.synthetic.scene_factories import quick_test_scene
+from caliscope.synthetic.synthetic_scene import SyntheticScene
+from caliscope.synthetic.calibration_object import CalibrationObject
+from caliscope.synthetic.camera_synthesizer import CameraSynthesizer
+from caliscope.synthetic.trajectory import Trajectory
 from caliscope.task_manager.task_manager import TaskManager
 
 
@@ -34,34 +38,34 @@ def presenter(task_manager: TaskManager) -> ExplorerPresenter:
     return ExplorerPresenter(task_manager)
 
 
-def test_construction_with_default_scenario(presenter: ExplorerPresenter) -> None:
-    """Presenter initializes with default ring scenario."""
+def test_construction_with_default_scene(presenter: ExplorerPresenter) -> None:
+    """Presenter initializes with default ring scene."""
     assert presenter.scene is not None
-    assert presenter.config.rig_type == "ring"
+    assert presenter.scene.n_cameras == 4  # Default ring has 4 cameras
     assert presenter.n_frames == 20  # Default orbital n_frames
 
 
-def test_set_config_rebuilds_scene(presenter: ExplorerPresenter) -> None:
-    """set_config() rebuilds scene and emits signal."""
-    # Create a different config
-    sparse_config = ScenarioConfig(
-        rig_type="ring",
-        rig_params={"n_cameras": 4, "radius_mm": 2000.0, "height_mm": 500.0},
-        trajectory_type="stationary",
-        trajectory_params={"n_frames": 5},
-        object_type="planar_grid",
-        object_params={"rows": 3, "cols": 4, "spacing_mm": 50.0},
-        name="Test Scenario",
+def test_set_scene_replaces_scene_and_emits(presenter: ExplorerPresenter) -> None:
+    """set_scene() replaces scene and emits signal."""
+    # Create a different scene with 5 frames
+    camera_array = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0, height_mm=500.0).build()
+    calibration_object = CalibrationObject.planar_grid(rows=3, cols=4, spacing_mm=50.0)
+    trajectory = Trajectory.stationary(n_frames=5)
+
+    new_scene = SyntheticScene(
+        camera_array=camera_array,
+        calibration_object=calibration_object,
+        trajectory=trajectory,
     )
 
     signal_received = []
     presenter.scene_changed.connect(lambda s: signal_received.append(s))
 
-    presenter.set_config(sparse_config)
+    presenter.set_scene(new_scene)
 
-    assert presenter.config.name == "Test Scenario"
     assert presenter.n_frames == 5
     assert len(signal_received) == 1
+    assert signal_received[0] is new_scene
 
 
 def test_is_linkage_killed_normalizes_order(presenter: ExplorerPresenter) -> None:
@@ -100,24 +104,10 @@ def test_set_frame_clamps_and_emits(presenter: ExplorerPresenter) -> None:
 def test_run_pipeline_executes_stages(presenter: ExplorerPresenter) -> None:
     """run_pipeline() executes bootstrap, optimize, and align stages.
 
-    Uses a shorter scenario to speed up the test.
+    Uses a shorter scene to speed up the test.
     """
-    # Use smaller scenario for faster execution
-    short_config = ScenarioConfig(
-        rig_type="ring",
-        rig_params={"n_cameras": 4, "radius_mm": 2000.0, "height_mm": 500.0},
-        trajectory_type="orbital",
-        trajectory_params={
-            "n_frames": 5,  # Reduced from default 20
-            "radius_mm": 200.0,
-            "arc_extent_deg": 180.0,  # Half orbit
-            "tumble_rate": 0.5,
-        },
-        object_type="planar_grid",
-        object_params={"rows": 3, "cols": 4, "spacing_mm": 50.0},  # Smaller grid
-        name="Quick Test",
-    )
-    presenter.set_config(short_config)
+    # Use quick_test_scene for faster execution
+    presenter.set_scene(quick_test_scene())
 
     # Wait for pipeline to complete using QEventLoop
     loop = QEventLoop()
@@ -186,18 +176,18 @@ def test_coverage_matrix_reflects_filter(presenter: ExplorerPresenter) -> None:
 
 def test_pipeline_failure_emits_signal(presenter: ExplorerPresenter) -> None:
     """Pipeline failure emits pipeline_failed signal."""
-    # Create an invalid scenario that will fail bootstrap
-    # (not enough shared observations between cameras)
-    bad_config = ScenarioConfig(
-        rig_type="ring",
-        rig_params={"n_cameras": 4, "radius_mm": 2000.0, "height_mm": 500.0},
-        trajectory_type="stationary",
-        trajectory_params={"n_frames": 1},  # Very few frames
-        object_type="planar_grid",
-        object_params={"rows": 2, "cols": 2, "spacing_mm": 50.0},  # Very few points
-        name="Sparse Scenario",
+    # Create a minimal scene that will fail bootstrap
+    # (not enough shared observations between cameras when linkages are killed)
+    camera_array = CameraSynthesizer().add_ring(n=4, radius_mm=2000.0, height_mm=500.0).build()
+    calibration_object = CalibrationObject.planar_grid(rows=2, cols=2, spacing_mm=50.0)
+    trajectory = Trajectory.stationary(n_frames=1)
+
+    sparse_scene = SyntheticScene(
+        camera_array=camera_array,
+        calibration_object=calibration_object,
+        trajectory=trajectory,
     )
-    presenter.set_config(bad_config)
+    presenter.set_scene(sparse_scene)
 
     # Kill all linkages to guarantee failure via FilterConfig
     presenter._filter_config = (
@@ -261,14 +251,18 @@ if __name__ == "__main__":
     presenter = ExplorerPresenter(task_manager)
 
     print(f"Initial scene: {presenter.scene.n_cameras} cameras, {presenter.n_frames} frames")
-    print(f"Coverage matrix shape: {presenter.coverage_matrix.shape}")
+    coverage = presenter.coverage_matrix
+    assert coverage is not None
+    print(f"Coverage matrix shape: {coverage.shape}")
 
     # Kill a linkage via FilterConfig and observe change
     presenter._filter_config = presenter._filter_config.with_killed_linkage(0, 1)
     presenter._apply_filter()
     print("After killing (0,1) linkage:")
     print(f"  Killed linkages: {presenter.filter_config.killed_linkages}")
-    print(f"  Coverage[0,1]: {presenter.coverage_matrix[0, 1]}")
+    new_coverage = presenter.coverage_matrix
+    assert new_coverage is not None
+    print(f"  Coverage[0,1]: {new_coverage[0, 1]}")
 
     print("\nTo run pipeline test, uncomment the section below and run with 'python test_explorer_presenter.py'")
 

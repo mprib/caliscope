@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -17,8 +17,8 @@ from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.core.bootstrap_pose.build_paired_pose_network import (
     build_paired_pose_network,
 )
-from caliscope.synthetic.scene import SyntheticScene
-from caliscope.synthetic.scenario_config import ScenarioConfig, default_ring_scenario
+from caliscope.synthetic.synthetic_scene import SyntheticScene
+from caliscope.synthetic.scene_factories import default_ring_scene
 from caliscope.synthetic.filter_config import FilterConfig
 from caliscope.synthetic.coverage import compute_coverage_matrix
 from caliscope.task_manager.task_manager import TaskManager
@@ -105,14 +105,16 @@ def _compute_pose_error(
 class ExplorerPresenter(QObject):
     """Presenter for Synthetic Calibration Explorer.
 
+    View-only presenter that accepts pre-built SyntheticScene instances.
+    Scene generation (rig, trajectory, noise) is handled externally.
+
     Manages the lifecycle of:
-    - Scenario configuration (rig, trajectory, object)
     - Filter configuration (killed linkages, dropped cameras)
     - Pipeline execution (bootstrap, optimize, align)
     - Result comparison (ground truth vs optimized)
 
     Signals:
-        scene_changed: Emitted when scenario config changes. Contains new SyntheticScene.
+        scene_changed: Emitted when scene is replaced. Contains new SyntheticScene.
         filter_changed: Emitted when filter config changes. Contains new coverage matrix.
         pipeline_started: Emitted when pipeline execution begins.
         pipeline_stage_complete: Emitted after each pipeline stage. Contains PipelineStage.
@@ -132,6 +134,7 @@ class ExplorerPresenter(QObject):
     def __init__(
         self,
         task_manager: TaskManager,
+        scene: SyntheticScene | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
@@ -140,24 +143,18 @@ class ExplorerPresenter(QObject):
         self._pipeline_task: TaskHandle | None = None
 
         # State
-        self._config = default_ring_scenario()
-        self._scene: SyntheticScene | None = None
+        self._scene: SyntheticScene = scene if scene is not None else default_ring_scene()
         self._filter_config = FilterConfig()
         self._filtered_image_points: ImagePoints | None = None
         self._result: PipelineResult | None = None
         self._current_frame: int = 0
 
-        # Initialize scene
-        self._rebuild_scene()
+        # Initialize filter
+        self._apply_filter()
 
     @property
-    def config(self) -> ScenarioConfig:
-        """Current scenario configuration."""
-        return self._config
-
-    @property
-    def scene(self) -> SyntheticScene | None:
-        """Current synthetic scene (None if not built)."""
+    def scene(self) -> SyntheticScene:
+        """Current synthetic scene."""
         return self._scene
 
     @property
@@ -168,7 +165,7 @@ class ExplorerPresenter(QObject):
     @property
     def coverage_matrix(self) -> NDArray[np.int64] | None:
         """Current coverage matrix (after filtering)."""
-        if self._filtered_image_points is None or self._scene is None:
+        if self._filtered_image_points is None:
             return None
         return compute_coverage_matrix(self._filtered_image_points, self._scene.n_cameras)
 
@@ -185,78 +182,18 @@ class ExplorerPresenter(QObject):
     @property
     def n_frames(self) -> int:
         """Number of frames in current scene."""
-        return self._scene.n_frames if self._scene else 0
+        return self._scene.n_frames
 
-    # --- Configuration Methods ---
+    # --- Scene Management ---
 
-    def set_config(self, config: ScenarioConfig) -> None:
-        """Replace entire scenario configuration and rebuild scene."""
-        self._config = config
-        self._filter_config = config.filter_config
+    def set_scene(self, scene: SyntheticScene) -> None:
+        """Replace the synthetic scene and reset state."""
+        self._scene = scene
+        self._filter_config = FilterConfig()
         self._result = None
-        self._rebuild_scene()
-
-    def update_rig(
-        self,
-        rig_type: Literal["ring", "linear", "nested_rings"],
-        rig_params: dict[str, Any],
-    ) -> None:
-        """Update camera rig configuration."""
-        self._config = ScenarioConfig(
-            rig_type=rig_type,
-            rig_params=rig_params,
-            trajectory_type=self._config.trajectory_type,
-            trajectory_params=self._config.trajectory_params,
-            object_type=self._config.object_type,
-            object_params=self._config.object_params,
-            pixel_noise_sigma=self._config.pixel_noise_sigma,
-            filter_config=self._filter_config,
-            random_seed=self._config.random_seed,
-            name=self._config.name,
-            description=self._config.description,
-        )
-        self._result = None
-        self._rebuild_scene()
-
-    def update_trajectory(
-        self,
-        traj_type: Literal["orbital", "linear", "stationary"],
-        traj_params: dict[str, Any],
-    ) -> None:
-        """Update trajectory configuration."""
-        self._config = ScenarioConfig(
-            rig_type=self._config.rig_type,
-            rig_params=self._config.rig_params,
-            trajectory_type=traj_type,
-            trajectory_params=traj_params,
-            object_type=self._config.object_type,
-            object_params=self._config.object_params,
-            pixel_noise_sigma=self._config.pixel_noise_sigma,
-            filter_config=self._filter_config,
-            random_seed=self._config.random_seed,
-            name=self._config.name,
-            description=self._config.description,
-        )
-        self._result = None
-        self._rebuild_scene()
-
-    def update_noise(self, pixel_sigma: float, seed: int) -> None:
-        """Update noise configuration."""
-        self._config = ScenarioConfig(
-            rig_type=self._config.rig_type,
-            rig_params=self._config.rig_params,
-            trajectory_type=self._config.trajectory_type,
-            trajectory_params=self._config.trajectory_params,
-            object_type=self._config.object_type,
-            object_params=self._config.object_params,
-            pixel_noise_sigma=pixel_sigma,
-            filter_config=self._filter_config,
-            random_seed=seed,
-            name=self._config.name,
-            description=self._config.description,
-        )
-        self._result = None
-        self._rebuild_scene()
+        self._current_frame = 0
+        self._apply_filter()
+        self.scene_changed.emit(self._scene)
 
     # --- Filter Methods ---
 
@@ -269,9 +206,6 @@ class ExplorerPresenter(QObject):
 
     def set_frame(self, frame: int) -> None:
         """Set current frame for visualization."""
-        if self._scene is None:
-            return
-
         frame = max(0, min(frame, self._scene.n_frames - 1))
         if frame != self._current_frame:
             self._current_frame = frame
@@ -287,10 +221,6 @@ class ExplorerPresenter(QObject):
         2. Optimize: Bundle adjustment via PointDataBundle.optimize()
         3. Align: Umeyama alignment to ground truth using obj_loc at origin_frame
         """
-        if self._scene is None:
-            self.pipeline_failed.emit("No scene configured")
-            return
-
         if self._filtered_image_points is None:
             self.pipeline_failed.emit("No filtered image points available")
             return
@@ -462,23 +392,8 @@ class ExplorerPresenter(QObject):
 
     # --- Internal Methods ---
 
-    def _rebuild_scene(self) -> None:
-        """Rebuild scene from current config."""
-        try:
-            self._scene = self._config.build_scene()
-            self._current_frame = 0
-            self._apply_filter()
-            self.scene_changed.emit(self._scene)
-
-        except Exception as e:
-            logger.error(f"Failed to build scene: {e}")
-            self._scene = None
-
     def _apply_filter(self) -> None:
         """Apply current filter to scene and emit coverage update."""
-        if self._scene is None:
-            return
-
         self._filtered_image_points = self._filter_config.apply(self._scene.image_points_noisy)
 
         coverage = compute_coverage_matrix(self._filtered_image_points, self._scene.n_cameras)

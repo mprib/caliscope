@@ -55,74 +55,6 @@ def test_construction_with_all_parameters():
     assert config.filter_config.dropped_cameras == (0,)
 
 
-def test_toml_roundtrip_preserves_values():
-    """TOML serialization and deserialization recovers same values."""
-    original = ScenarioConfig(
-        rig_type="linear",
-        rig_params={"n_cameras": 3, "spacing_mm": 500.0, "curvature": 0.5},
-        trajectory_type="linear",
-        trajectory_params={
-            "n_frames": 10,
-            "start": [0.0, -500.0, 100.0],
-            "end": [0.0, 500.0, 100.0],
-            "tumble_rate": 0.25,
-        },
-        object_type="planar_grid",
-        object_params={"rows": 4, "cols": 6, "spacing_mm": 40.0, "origin": "center"},
-        pixel_noise_sigma=1.2,
-        filter_config=FilterConfig(dropped_cameras=(2,), random_dropout_fraction=0.05),
-        random_seed=42,
-        name="Linear Scenario",
-        description="Testing linear trajectory",
-    )
-
-    # Serialize to TOML
-    toml_str = original.to_toml()
-
-    # Deserialize back
-    recovered = ScenarioConfig.from_toml(toml_str)
-
-    # Compare all fields
-    assert recovered.rig_type == original.rig_type
-    assert recovered.rig_params == original.rig_params
-    assert recovered.trajectory_type == original.trajectory_type
-    assert recovered.trajectory_params == original.trajectory_params
-    assert recovered.object_type == original.object_type
-    assert recovered.object_params == original.object_params
-    assert recovered.pixel_noise_sigma == original.pixel_noise_sigma
-    assert recovered.random_seed == original.random_seed
-    assert recovered.name == original.name
-    assert recovered.description == original.description
-    assert recovered.filter_config.dropped_cameras == original.filter_config.dropped_cameras
-    assert recovered.filter_config.random_dropout_fraction == original.filter_config.random_dropout_fraction
-
-
-def test_toml_roundtrip_with_nested_rings():
-    """TOML roundtrip works with nested_rings rig type."""
-    original = ScenarioConfig(
-        rig_type="nested_rings",
-        rig_params={
-            "inner_n": 3,
-            "outer_n": 4,
-            "inner_radius_mm": 1000.0,
-            "outer_radius_mm": 2500.0,
-            "inner_height_mm": 0.0,
-            "outer_height_mm": 600.0,
-        },
-        trajectory_type="stationary",
-        trajectory_params={"n_frames": 1},
-        object_type="planar_grid",
-        object_params={"rows": 5, "cols": 7, "spacing_mm": 50.0},
-    )
-
-    toml_str = original.to_toml()
-    recovered = ScenarioConfig.from_toml(toml_str)
-
-    assert recovered.rig_type == "nested_rings"
-    assert recovered.rig_params["inner_n"] == 3
-    assert recovered.rig_params["outer_n"] == 4
-
-
 def test_build_scene_produces_valid_scene():
     """build_scene() produces a valid SyntheticScene."""
     config = default_ring_scenario()
@@ -275,25 +207,6 @@ def test_build_scene_all_trajectory_types():
         assert isinstance(scene, SyntheticScene)
 
 
-def test_toml_serialization_is_human_readable():
-    """TOML output has clear section structure."""
-    config = default_ring_scenario()
-    toml_str = config.to_toml()
-
-    # Should contain section headers
-    assert "[metadata]" in toml_str
-    assert "[camera_rig]" in toml_str
-    assert "[trajectory]" in toml_str
-    assert "[calibration_object]" in toml_str
-    assert "[noise]" in toml_str
-    assert "[filter]" in toml_str
-
-    # Should contain type fields
-    assert 'type = "ring"' in toml_str
-    assert 'type = "orbital"' in toml_str
-    assert 'type = "planar_grid"' in toml_str
-
-
 def test_build_scene_respects_pixel_noise_sigma():
     """build_scene() passes pixel_noise_sigma to SyntheticScene."""
     config = ScenarioConfig(
@@ -326,12 +239,6 @@ if __name__ == "__main__":
     test_construction_with_all_parameters()
     print("✓ test_construction_with_all_parameters")
 
-    test_toml_roundtrip_preserves_values()
-    print("✓ test_toml_roundtrip_preserves_values")
-
-    test_toml_roundtrip_with_nested_rings()
-    print("✓ test_toml_roundtrip_with_nested_rings")
-
     test_build_scene_produces_valid_scene()
     print("✓ test_build_scene_produces_valid_scene")
 
@@ -353,21 +260,13 @@ if __name__ == "__main__":
     test_build_scene_all_trajectory_types()
     print("✓ test_build_scene_all_trajectory_types")
 
-    test_toml_serialization_is_human_readable()
-    print("✓ test_toml_serialization_is_human_readable")
-
     test_build_scene_respects_pixel_noise_sigma()
     print("✓ test_build_scene_respects_pixel_noise_sigma")
 
     print("\nAll tests passed!")
 
-    # Save a sample TOML for inspection
-    config = default_ring_scenario()
-    toml_path = debug_dir / "sample_scenario.toml"
-    toml_path.write_text(config.to_toml())
-    print(f"\nSample TOML saved to: {toml_path}")
-
     # Build a scene and inspect
+    config = default_ring_scenario()
     scene = config.build_scene()
     print(f"\nBuilt scene: {scene.n_cameras} cameras, {scene.n_frames} frames")
     print(f"World points: {len(scene.world_points)} total")

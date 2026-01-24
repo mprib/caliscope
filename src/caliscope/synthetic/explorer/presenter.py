@@ -72,6 +72,7 @@ class CameraMetrics:
     port: int
     rotation_error_deg: float
     translation_error_mm: float
+    reprojection_rmse: float
     n_observations: int
 
 
@@ -259,24 +260,6 @@ class ExplorerPresenter(QObject):
 
     # --- Filter Methods ---
 
-    def kill_linkage(self, cam_a: int, cam_b: int) -> None:
-        """Kill the linkage between two cameras."""
-        self._filter_config = self._filter_config.with_killed_linkage(cam_a, cam_b)
-        self._apply_filter()
-
-    def restore_linkage(self, cam_a: int, cam_b: int) -> None:
-        """Restore a previously killed linkage."""
-        self._filter_config = self._filter_config.without_killed_linkage(cam_a, cam_b)
-        self._apply_filter()
-
-    def toggle_linkage(self, cam_a: int, cam_b: int) -> None:
-        """Toggle linkage state (kill if alive, restore if dead)."""
-        normalized = (min(cam_a, cam_b), max(cam_a, cam_b))
-        if normalized in self._filter_config.killed_linkages:
-            self.restore_linkage(cam_a, cam_b)
-        else:
-            self.kill_linkage(cam_a, cam_b)
-
     def is_linkage_killed(self, cam_a: int, cam_b: int) -> bool:
         """Check if linkage is currently killed."""
         normalized = (min(cam_a, cam_b), max(cam_a, cam_b))
@@ -415,7 +398,8 @@ class ExplorerPresenter(QObject):
             logger.info("Alignment complete")
 
             # Compute error metrics after successful alignment
-            result.reprojection_rmse = optimized_bundle.reprojection_report.overall_rmse
+            reprojection_report = optimized_bundle.reprojection_report
+            result.reprojection_rmse = reprojection_report.overall_rmse
 
             # Compute per-camera pose errors and observation counts
             camera_metrics_list = []
@@ -439,11 +423,15 @@ class ExplorerPresenter(QObject):
                 # Count observations for this camera
                 n_obs = int((image_points.df["port"] == port).sum())
 
+                # Get per-camera reprojection RMSE
+                camera_reproj_rmse = reprojection_report.by_camera.get(port, 0.0)
+
                 camera_metrics_list.append(
                     CameraMetrics(
                         port=port,
                         rotation_error_deg=rotation_error,
                         translation_error_mm=translation_error,
+                        reprojection_rmse=camera_reproj_rmse,
                         n_observations=n_obs,
                     )
                 )
@@ -471,31 +459,6 @@ class ExplorerPresenter(QObject):
         """Cancel running pipeline."""
         if self._pipeline_task is not None:
             self._pipeline_task.cancel()
-
-    # --- Export ---
-
-    def export_config(self) -> str:
-        """Export current configuration to TOML string."""
-        # Update config with current filter
-        export_config = ScenarioConfig(
-            rig_type=self._config.rig_type,
-            rig_params=self._config.rig_params,
-            trajectory_type=self._config.trajectory_type,
-            trajectory_params=self._config.trajectory_params,
-            object_type=self._config.object_type,
-            object_params=self._config.object_params,
-            pixel_noise_sigma=self._config.pixel_noise_sigma,
-            filter_config=self._filter_config,
-            random_seed=self._config.random_seed,
-            name=self._config.name,
-            description=self._config.description,
-        )
-        return export_config.to_toml()
-
-    def load_config(self, toml_str: str) -> None:
-        """Load configuration from TOML string."""
-        config = ScenarioConfig.from_toml(toml_str)
-        self.set_config(config)
 
     # --- Internal Methods ---
 

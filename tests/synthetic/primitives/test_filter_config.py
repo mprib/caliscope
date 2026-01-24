@@ -318,41 +318,6 @@ class TestImmutability:
         assert config2.killed_linkages == ((2, 3),)
 
 
-class TestSerialization:
-    """Test to_dict and from_dict serialization."""
-
-    def test_empty_config_round_trip(self):
-        """Empty config serializes and deserializes correctly."""
-        config = FilterConfig()
-        data = config.to_dict()
-        restored = FilterConfig.from_dict(data)
-
-        assert restored.dropped_cameras == config.dropped_cameras
-        assert restored.killed_linkages == config.killed_linkages
-        assert restored.dropped_frame_ranges == config.dropped_frame_ranges
-        assert restored.random_dropout_fraction == config.random_dropout_fraction
-        assert restored.random_seed == config.random_seed
-
-    def test_full_config_round_trip(self):
-        """Full config serializes and deserializes correctly."""
-        config = FilterConfig(
-            dropped_cameras=(0, 2),
-            killed_linkages=((0, 1), (2, 3)),
-            dropped_frame_ranges=((5, 10), (20, 25)),
-            random_dropout_fraction=0.3,
-            random_seed=123,
-        )
-
-        data = config.to_dict()
-        restored = FilterConfig.from_dict(data)
-
-        assert restored.dropped_cameras == config.dropped_cameras
-        assert restored.killed_linkages == config.killed_linkages
-        assert restored.dropped_frame_ranges == config.dropped_frame_ranges
-        assert restored.random_dropout_fraction == config.random_dropout_fraction
-        assert restored.random_seed == config.random_seed
-
-
 if __name__ == "__main__":
     """Debug harness for running tests with saved outputs."""
     import sys

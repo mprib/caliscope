@@ -64,60 +64,10 @@ def test_set_config_rebuilds_scene(presenter: ExplorerPresenter) -> None:
     assert len(signal_received) == 1
 
 
-def test_kill_linkage_updates_filter(presenter: ExplorerPresenter) -> None:
-    """kill_linkage() updates filter config and emits signal."""
-    initial_filter = presenter.filter_config
-
-    signal_received = []
-    presenter.filter_changed.connect(lambda m: signal_received.append(m))
-
-    presenter.kill_linkage(0, 1)
-
-    # Filter should have changed
-    assert presenter.filter_config != initial_filter
-    assert (0, 1) in presenter.filter_config.killed_linkages
-    assert len(signal_received) == 1
-
-
-def test_restore_linkage_removes_killed_linkage(presenter: ExplorerPresenter) -> None:
-    """restore_linkage() removes killed linkage and emits signal."""
-    # First kill a linkage
-    presenter.kill_linkage(0, 1)
-    assert (0, 1) in presenter.filter_config.killed_linkages
-
-    # Now restore it
-    signal_received = []
-    presenter.filter_changed.connect(lambda m: signal_received.append(m))
-
-    presenter.restore_linkage(0, 1)
-
-    assert (0, 1) not in presenter.filter_config.killed_linkages
-    assert len(signal_received) == 1
-
-
-def test_toggle_linkage_flips_state(presenter: ExplorerPresenter) -> None:
-    """toggle_linkage() kills if alive, restores if dead."""
-    # Initially alive
-    assert not presenter.is_linkage_killed(0, 1)
-
-    signal_received = []
-    presenter.filter_changed.connect(lambda m: signal_received.append(m))
-
-    # Toggle to kill
-    presenter.toggle_linkage(0, 1)
-    assert presenter.is_linkage_killed(0, 1)
-
-    # Toggle to restore
-    presenter.toggle_linkage(0, 1)
-    assert not presenter.is_linkage_killed(0, 1)
-
-    # Should have received 2 signals (one for each toggle)
-    assert len(signal_received) == 2
-
-
 def test_is_linkage_killed_normalizes_order(presenter: ExplorerPresenter) -> None:
     """is_linkage_killed() works regardless of argument order."""
-    presenter.kill_linkage(2, 3)
+    # Set up killed linkage via FilterConfig (not via removed kill_linkage method)
+    presenter._filter_config = presenter._filter_config.with_killed_linkage(2, 3)
 
     assert presenter.is_linkage_killed(2, 3)
     assert presenter.is_linkage_killed(3, 2)  # Order doesn't matter
@@ -216,36 +166,15 @@ def test_run_pipeline_executes_stages(presenter: ExplorerPresenter) -> None:
     assert result.alignment_error is None
 
 
-def test_export_and_load_config_roundtrip(presenter: ExplorerPresenter) -> None:
-    """Export and load config preserves configuration."""
-    # Modify presenter state
-    presenter.update_noise(pixel_sigma=1.5, seed=123)
-    presenter.kill_linkage(0, 2)
-
-    # Export
-    toml_str = presenter.export_config()
-    assert "pixel_sigma = 1.5" in toml_str
-    assert "seed = 123" in toml_str
-
-    # Create new presenter and load
-    new_presenter = ExplorerPresenter(TaskManager())
-
-    new_presenter.load_config(toml_str)
-
-    # Should match
-    assert new_presenter.config.pixel_noise_sigma == 1.5
-    assert new_presenter.config.random_seed == 123
-    assert (0, 2) in new_presenter.filter_config.killed_linkages
-
-
 def test_coverage_matrix_reflects_filter(presenter: ExplorerPresenter) -> None:
     """Coverage matrix updates when filter changes."""
     # Get initial coverage
     initial_coverage = presenter.coverage_matrix
     assert initial_coverage is not None
 
-    # Kill linkage between cameras 0 and 1
-    presenter.kill_linkage(0, 1)
+    # Kill linkage between cameras 0 and 1 via FilterConfig
+    presenter._filter_config = presenter._filter_config.with_killed_linkage(0, 1)
+    presenter._apply_filter()
 
     # Coverage should change
     new_coverage = presenter.coverage_matrix
@@ -270,13 +199,16 @@ def test_pipeline_failure_emits_signal(presenter: ExplorerPresenter) -> None:
     )
     presenter.set_config(bad_config)
 
-    # Kill all linkages to guarantee failure
-    presenter.kill_linkage(0, 1)
-    presenter.kill_linkage(0, 2)
-    presenter.kill_linkage(0, 3)
-    presenter.kill_linkage(1, 2)
-    presenter.kill_linkage(1, 3)
-    presenter.kill_linkage(2, 3)
+    # Kill all linkages to guarantee failure via FilterConfig
+    presenter._filter_config = (
+        presenter._filter_config.with_killed_linkage(0, 1)
+        .with_killed_linkage(0, 2)
+        .with_killed_linkage(0, 3)
+        .with_killed_linkage(1, 2)
+        .with_killed_linkage(1, 3)
+        .with_killed_linkage(2, 3)
+    )
+    presenter._apply_filter()
 
     # Wait for pipeline to complete or fail
     loop = QEventLoop()
@@ -331,17 +263,12 @@ if __name__ == "__main__":
     print(f"Initial scene: {presenter.scene.n_cameras} cameras, {presenter.n_frames} frames")
     print(f"Coverage matrix shape: {presenter.coverage_matrix.shape}")
 
-    # Kill a linkage and observe change
-    presenter.kill_linkage(0, 1)
+    # Kill a linkage via FilterConfig and observe change
+    presenter._filter_config = presenter._filter_config.with_killed_linkage(0, 1)
+    presenter._apply_filter()
     print("After killing (0,1) linkage:")
     print(f"  Killed linkages: {presenter.filter_config.killed_linkages}")
     print(f"  Coverage[0,1]: {presenter.coverage_matrix[0, 1]}")
-
-    # Export config
-    toml_str = presenter.export_config()
-    toml_path = debug_dir / "exported_config.toml"
-    toml_path.write_text(toml_str)
-    print(f"\nExported config to {toml_path}")
 
     print("\nTo run pipeline test, uncomment the section below and run with 'python test_explorer_presenter.py'")
 

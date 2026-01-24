@@ -118,26 +118,6 @@ class CoverageHeatmapWidget(QWidget):
                 f"C{i}",
             )
 
-    def _cell_at(self, pos) -> tuple[int, int] | None:
-        """Get cell coordinates at pixel position."""
-        if self._coverage is None:
-            return None
-
-        n = len(self._coverage)
-        if n == 0:
-            return None
-
-        cell_size = self._cell_size()
-        if cell_size <= 0:
-            return None
-
-        col = (pos.x() - self.MARGIN) // cell_size
-        row = (pos.y() - self.MARGIN) // cell_size
-
-        if 0 <= row < n and 0 <= col < n:
-            return (int(row), int(col))
-        return None
-
     def _cell_size(self) -> int:
         """Calculate cell size based on widget dimensions and camera count."""
         if self._coverage is None:

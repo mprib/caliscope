@@ -1,4 +1,4 @@
-"""Serializable configuration for a complete synthetic calibration scenario."""
+"""Configuration for a complete synthetic calibration scenario."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import numpy as np
-import rtoml
 
 from caliscope.synthetic.calibration_object import CalibrationObject
 from caliscope.synthetic.camera_rigs import linear_rig, nested_rings_rig, ring_rig
@@ -17,10 +16,10 @@ from caliscope.synthetic.trajectory import Trajectory
 
 @dataclass
 class ScenarioConfig:
-    """Serializable configuration for a synthetic scenario.
+    """Configuration for a synthetic calibration scenario.
 
-    Can be exported from Explorer GUI and loaded by pytest for automated testing.
-    Designed for TOML serialization with human-readable structure.
+    Use factory functions (default_ring_scenario, sparse_coverage_scenario, etc.)
+    for common configurations. Call build_scene() to produce an executable SyntheticScene.
     """
 
     # Camera rig configuration
@@ -43,64 +42,6 @@ class ScenarioConfig:
     # Metadata
     name: str = "unnamed"
     description: str = ""
-
-    def to_toml(self) -> str:
-        """Serialize to TOML string."""
-        data = {
-            "metadata": {
-                "name": self.name,
-                "description": self.description,
-            },
-            "camera_rig": {
-                "type": self.rig_type,
-                **self.rig_params,
-            },
-            "trajectory": {
-                "type": self.trajectory_type,
-                **self.trajectory_params,
-            },
-            "calibration_object": {
-                "type": self.object_type,
-                **self.object_params,
-            },
-            "noise": {
-                "pixel_sigma": self.pixel_noise_sigma,
-                "seed": self.random_seed,
-            },
-            "filter": self.filter_config.to_dict(),
-        }
-        return rtoml.dumps(data)
-
-    @classmethod
-    def from_toml(cls, toml_str: str) -> ScenarioConfig:
-        """Deserialize from TOML string."""
-        data = rtoml.loads(toml_str)
-
-        metadata = data.get("metadata", {})
-        rig = data["camera_rig"]
-        traj = data["trajectory"]
-        obj = data["calibration_object"]
-        noise = data.get("noise", {})
-        filter_data = data.get("filter", {})
-
-        # Extract type and remaining params
-        rig_type = rig.pop("type")
-        traj_type = traj.pop("type")
-        obj_type = obj.pop("type")
-
-        return cls(
-            rig_type=rig_type,
-            rig_params=rig,
-            trajectory_type=traj_type,
-            trajectory_params=traj,
-            object_type=obj_type,
-            object_params=obj,
-            pixel_noise_sigma=noise.get("pixel_sigma", 0.5),
-            random_seed=noise.get("seed", 42),
-            filter_config=FilterConfig.from_dict(filter_data),
-            name=metadata.get("name", "unnamed"),
-            description=metadata.get("description", ""),
-        )
 
     def build_scene(self) -> SyntheticScene:
         """Construct the SyntheticScene from this config."""

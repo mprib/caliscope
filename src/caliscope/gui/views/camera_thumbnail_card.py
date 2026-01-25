@@ -93,9 +93,9 @@ class CameraThumbnailCard(QFrame):
         """Camera port for this card."""
         return self._port
 
-    # Landmark overlay color (BGR for OpenCV)
-    LANDMARK_COLOR = (0, 0, 255)  # Red
-    LANDMARK_RADIUS = 5  # bigger dots for visibility on thumbnails
+    # Landmark overlay styling
+    LANDMARK_COLOR = (0, 0, 255)  # Red (BGR for OpenCV)
+    LANDMARK_SCALE = 0.012  # Radius as fraction of frame's smaller dimension
 
     def set_thumbnail(
         self,
@@ -112,12 +112,12 @@ class CameraThumbnailCard(QFrame):
         """
         self._rotation_count = rotation_count
 
-        # Apply rotation for display
-        rotated = apply_rotation(frame, rotation_count)
-
-        # Draw landmark overlay if points provided (View layer renders)
+        # Draw landmark overlay BEFORE rotation - points are in original frame coordinates
         if points is not None:
-            rotated = self._draw_landmarks(rotated, points)
+            frame = self._draw_landmarks(frame, points)
+
+        # Apply rotation for display (after drawing, so dots rotate with the image)
+        rotated = apply_rotation(frame, rotation_count)
 
         # Convert to QPixmap and scale
         image = cv2_to_qlabel(rotated)
@@ -132,17 +132,22 @@ class CameraThumbnailCard(QFrame):
     def _draw_landmarks(self, frame: NDArray, points: "PointPacket") -> NDArray:
         """Draw tracked landmarks as red dots on frame.
 
-        Points from trackers are in original image coordinates. After testing,
-        we found that NOT transforming them produces correct results - the
-        frame has been rotated by apply_rotation() and points overlay correctly
-        without additional transformation.
+        Points from trackers are in original (unrotated) image coordinates.
+        This method must be called BEFORE apply_rotation() so that the dots
+        rotate together with the image content.
+
+        Radius scales with frame size so dots remain visible after thumbnail scaling.
         """
         if len(points.point_id) == 0:
             return frame
 
+        # Scale radius with frame size (use smaller dimension for consistency)
+        h, w = frame.shape[:2]
+        radius = max(3, int(min(h, w) * self.LANDMARK_SCALE))
+
         result = frame.copy()
         for x, y in points.img_loc:
-            cv2.circle(result, (int(x), int(y)), self.LANDMARK_RADIUS, self.LANDMARK_COLOR, -1)
+            cv2.circle(result, (int(x), int(y)), radius, self.LANDMARK_COLOR, -1)
 
         return result
 

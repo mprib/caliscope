@@ -34,8 +34,10 @@ from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide
 from caliscope.gui.presenters.intrinsic_calibration_presenter import IntrinsicCalibrationPresenter
+from caliscope.gui.presenters.multi_camera_processing_presenter import MultiCameraProcessingPresenter
 from caliscope.gui.presenters.reconstruction_presenter import ReconstructionPresenter
 from caliscope.packets import PointPacket
+from caliscope.persistence import save_image_points_csv
 
 logger = logging.getLogger(__name__)
 
@@ -339,6 +341,62 @@ class WorkspaceCoordinator(QObject):
             camera_array=self.camera_array,
             task_manager=self.task_manager,
         )
+
+    def create_multi_camera_presenter(self) -> MultiCameraProcessingPresenter:
+        """Create presenter for multi-camera synchronized video processing.
+
+        Factory method that assembles the presenter with all required dependencies.
+        The caller is responsible for:
+        - Calling set_recording_dir() and set_cameras() to configure
+        - Connecting signals for rotation persistence and result handling
+        - Managing presenter lifecycle (cleanup on tab close)
+
+        Returns:
+            MultiCameraProcessingPresenter configured with task_manager and tracker.
+        """
+        return MultiCameraProcessingPresenter(
+            task_manager=self.task_manager,
+            tracker=self.charuco_tracker,
+        )
+
+    def persist_extrinsic_image_points(self, image_points: ImagePoints, tracker_name: str) -> None:
+        """Persist 2D image points from multi-camera processing.
+
+        Saves ImagePoints to the extrinsic calibration directory for use by
+        the Extrinsic Calibration tab. The full PointDataBundle (with WorldPoints)
+        is created later after bootstrapping and triangulation.
+
+        Args:
+            image_points: 2D observations from synchronized video processing
+            tracker_name: Tracker name for subfolder (e.g., "CHARUCO")
+        """
+        # Ensure the tracker directory exists
+        tracker_dir = self.workspace_guide.extrinsic_dir / tracker_name
+        tracker_dir.mkdir(parents=True, exist_ok=True)
+
+        output_path = tracker_dir / "image_points.csv"
+        save_image_points_csv(image_points, output_path)
+
+        logger.info(f"Persisted extrinsic image points: {len(image_points.df)} observations to {output_path}")
+
+    def persist_camera_rotation(self, port: int, rotation_count: int) -> None:
+        """Persist updated rotation for a camera.
+
+        Called when user adjusts camera orientation in the multi-camera processing
+        view. Updates both the in-memory camera array and disk persistence.
+
+        Args:
+            port: Camera port to update
+            rotation_count: Rotation in 90° increments (0-3)
+        """
+        if port not in self.camera_array.cameras:
+            logger.warning(f"Cannot persist rotation: port {port} not in camera_array")
+            return
+
+        self.camera_array.cameras[port].rotation_count = rotation_count
+        self.camera_repository.save(self.camera_array)
+        self.push_camera_data(port)
+        logger.debug(f"Persisted camera rotation: port {port} -> {rotation_count * 90}°")
 
     def persist_intrinsic_calibration(
         self,

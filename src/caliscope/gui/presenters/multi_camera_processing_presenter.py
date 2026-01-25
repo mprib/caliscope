@@ -80,7 +80,7 @@ class MultiCameraProcessingPresenter(QObject):
     thumbnail_updated = Signal(int, object)  # (port, NDArray frame)
 
     # Completion signals
-    processing_complete = Signal(object, object)  # (ImagePoints, ExtrinsicCoverageReport)
+    processing_complete = Signal(object, object, object)  # (ImagePoints, ExtrinsicCoverageReport, Tracker)
     processing_failed = Signal(str)  # error message
 
     # Rotation signals
@@ -352,7 +352,8 @@ class MultiCameraProcessingPresenter(QObject):
         self._result = image_points
         self._coverage_report = coverage_report
 
-        self.processing_complete.emit(image_points, coverage_report)
+        # Emit results with tracker so caller knows where to persist
+        self.processing_complete.emit(image_points, coverage_report, self._tracker)
         self._emit_state_changed()
 
     def _on_processing_failed(self, exc_type: str, message: str) -> None:

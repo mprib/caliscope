@@ -230,7 +230,12 @@ class MultiCameraProcessingWidget(QWidget):
             rotation = self._presenter.cameras[port].rotation_count
             self._camera_cards[port].set_thumbnail(frame, rotation)
 
-    def _on_processing_complete(self, image_points: "ImagePoints", coverage_report: "ExtrinsicCoverageReport") -> None:
+    def _on_processing_complete(
+        self,
+        image_points: "ImagePoints",
+        coverage_report: "ExtrinsicCoverageReport",
+        tracker: object,  # Tracker included in signal; widget doesn't use it (Tab does)
+    ) -> None:
         """Handle processing completion from presenter."""
         from caliscope.core.coverage_analysis import (
             LinkQuality,

@@ -27,10 +27,8 @@ from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.persistence import PersistenceError
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
 from caliscope.reconstruction.reconstructor import Reconstructor
-from caliscope.managers.synchronized_stream_manager import (
-    SynchronizedStreamManager,
-    read_video_properties,
-)
+from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
+from caliscope.recording import read_video_properties
 from caliscope.core.point_data import ImagePoints
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.tracker_enum import TrackerEnum

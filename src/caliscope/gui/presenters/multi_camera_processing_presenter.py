@@ -344,10 +344,7 @@ class MultiCameraProcessingPresenter(QObject):
         logger.info(f"Multi-camera processing complete: {len(image_points.df)} points")
 
         # Compute coverage analysis
-        coverage_report = analyze_multi_camera_coverage(
-            image_points,
-            n_cameras=len(self._cameras),
-        )
+        coverage_report = analyze_multi_camera_coverage(image_points)
 
         self._result = image_points
         self._coverage_report = coverage_report

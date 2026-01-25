@@ -14,7 +14,7 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope.synthetic.calibration_object import CalibrationObject
 from caliscope.synthetic.camera_synthesizer import strip_extrinsics
-from caliscope.synthetic.coverage import compute_coverage_matrix
+from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.synthetic.filter_config import FilterConfig
 from caliscope.synthetic.trajectory import Trajectory
 
@@ -165,7 +165,8 @@ class SyntheticScene:
         Element [i, j] is the number of (frame, point) pairs visible
         from both camera i and camera j. Diagonal is total observations per camera.
         """
-        return compute_coverage_matrix(self.image_points_noisy, self.n_cameras)
+        port_to_index = {port: idx for idx, port in enumerate(sorted(self.camera_array.cameras.keys()))}
+        return compute_coverage_matrix(self.image_points_noisy, port_to_index)
 
     def intrinsics_only_cameras(self) -> CameraArray:
         """Return cameras with extrinsics stripped (for pipeline input)."""

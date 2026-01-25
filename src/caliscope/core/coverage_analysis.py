@@ -90,7 +90,7 @@ class ExtrinsicCoverageReport:
 
 def compute_coverage_matrix(
     image_points: ImagePoints,
-    n_cameras: int,
+    port_to_index: dict[int, int],
 ) -> NDArray[np.int64]:
     """Compute camera-pair shared observation counts.
 
@@ -100,12 +100,13 @@ def compute_coverage_matrix(
 
     Args:
         image_points: ImagePoints to analyze
-        n_cameras: Number of cameras (assumes ports 0 to n_cameras-1)
+        port_to_index: Mapping from actual port numbers to matrix indices
 
     Returns:
         (n_cameras, n_cameras) symmetric matrix of observation counts
     """
     df = image_points.df
+    n_cameras = len(port_to_index)
     coverage = np.zeros((n_cameras, n_cameras), dtype=np.int64)
 
     # Group by (sync_index, point_id) to find which cameras see each point
@@ -115,25 +116,28 @@ def compute_coverage_matrix(
         port_list = sorted(ports)
         for i, port_i in enumerate(port_list):
             for port_j in port_list[i:]:
-                if port_i < n_cameras and port_j < n_cameras:
-                    coverage[port_i, port_j] += 1
-                    if port_i != port_j:
-                        coverage[port_j, port_i] += 1
+                if port_i in port_to_index and port_j in port_to_index:
+                    idx_i = port_to_index[port_i]
+                    idx_j = port_to_index[port_j]
+                    coverage[idx_i, idx_j] += 1
+                    if idx_i != idx_j:
+                        coverage[idx_j, idx_i] += 1
 
     return coverage
 
 
 def analyze_multi_camera_coverage(
     image_points: ImagePoints,
-    n_cameras: int,
     max_corners_per_frame: int = 35,  # Typical charuco board
     thresholds: CoverageThresholds | None = None,
 ) -> ExtrinsicCoverageReport:
     """Analyze pairwise coverage for extrinsic calibration.
 
+    Discovers actual camera ports from the data and builds port-to-index mapping
+    internally. Reports (isolated cameras, weak links, etc.) use actual port numbers.
+
     Args:
         image_points: ImagePoints containing all camera observations
-        n_cameras: Number of cameras in the array
         max_corners_per_frame: Expected max corners per frame (for density calc)
         thresholds: Quality thresholds (uses defaults if None)
 
@@ -145,20 +149,30 @@ def analyze_multi_camera_coverage(
 
     df = image_points.df
 
-    # Compute observation counts
-    pairwise_obs = compute_coverage_matrix(image_points, n_cameras)
+    # Build port-to-index mapping from actual data
+    # This handles arbitrary port numbers (not just 0..n-1)
+    actual_ports = sorted(df["port"].unique()) if len(df) > 0 else []
+    port_to_index = {port: idx for idx, port in enumerate(actual_ports)}
+    index_to_port = {idx: port for port, idx in port_to_index.items()}
+    n_actual = len(actual_ports)
+
+    # Compute observation counts using actual port mapping
+    pairwise_obs = compute_coverage_matrix(image_points, port_to_index)
 
     # Compute frame counts
-    pairwise_frames = np.zeros((n_cameras, n_cameras), dtype=np.int64)
-    frame_groups = df.groupby("sync_index")["port"].apply(set)
-    for ports in frame_groups:
-        port_list = sorted(ports)
-        for i, port_i in enumerate(port_list):
-            for port_j in port_list[i:]:
-                if port_i < n_cameras and port_j < n_cameras:
-                    pairwise_frames[port_i, port_j] += 1
-                    if port_i != port_j:
-                        pairwise_frames[port_j, port_i] += 1
+    pairwise_frames = np.zeros((n_actual, n_actual), dtype=np.int64)
+    if len(df) > 0:
+        frame_groups = df.groupby("sync_index")["port"].apply(set)
+        for ports in frame_groups:
+            port_list = sorted(ports)
+            for i, port_i in enumerate(port_list):
+                for port_j in port_list[i:]:
+                    if port_i in port_to_index and port_j in port_to_index:
+                        idx_i = port_to_index[port_i]
+                        idx_j = port_to_index[port_j]
+                        pairwise_frames[idx_i, idx_j] += 1
+                        if idx_i != idx_j:
+                            pairwise_frames[idx_j, idx_i] += 1
 
     # Compute observation density
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -166,39 +180,47 @@ def analyze_multi_camera_coverage(
         density = np.nan_to_num(density, nan=0.0, posinf=0.0, neginf=0.0)
 
     # Find isolated cameras and classify links
+    # Report using actual port numbers, not matrix indices
     isolated: list[int] = []
     weak_links: list[tuple[int, int, LinkQuality]] = []
 
-    for i in range(n_cameras):
+    for idx_i in range(n_actual):
         has_any_link = False
-        for j in range(n_cameras):
-            if i == j:
+        for idx_j in range(n_actual):
+            if idx_i == idx_j:
                 continue
-            obs = pairwise_obs[i, j]
-            frames = pairwise_frames[i, j]
-            dens = density[i, j]
+            obs = pairwise_obs[idx_i, idx_j]
+            frames = pairwise_frames[idx_i, idx_j]
+            dens = density[idx_i, idx_j]
 
             if obs > 0:
                 has_any_link = True
 
-            # Only record each pair once (i < j)
-            if i < j:
+            # Only record each pair once (idx_i < idx_j)
+            if idx_i < idx_j:
                 quality = _classify_link_quality(obs, frames, dens, thresholds)
                 if quality in (LinkQuality.WEAK, LinkQuality.CRITICAL, LinkQuality.DISCONNECTED):
-                    weak_links.append((i, j, quality))
+                    # Convert back to actual port numbers
+                    port_i = index_to_port[idx_i]
+                    port_j = index_to_port[idx_j]
+                    weak_links.append((port_i, port_j, quality))
 
         if not has_any_link:
-            isolated.append(i)
+            # Convert back to actual port number
+            isolated.append(index_to_port[idx_i])
 
     # Graph analysis using NetworkX
-    articulation_pts, bridges = _compute_graph_metrics(pairwise_obs)
+    articulation_pts_idx, bridges_idx = _compute_graph_metrics(pairwise_obs)
+    # Convert back to actual port numbers
+    articulation_pts = [index_to_port[idx] for idx in articulation_pts_idx]
+    bridges = [(index_to_port[i], index_to_port[j]) for i, j in bridges_idx]
 
     # Compute redundancy and topology
     n_edges = np.sum(pairwise_obs > 0) // 2  # Symmetric matrix, count once
-    min_edges = max(n_cameras - 1, 1)
+    min_edges = max(n_actual - 1, 1)
     redundancy = n_edges / min_edges if min_edges > 0 else 0.0
 
-    topology = _classify_topology(pairwise_obs, articulation_pts, isolated)
+    topology = _classify_topology(pairwise_obs, articulation_pts_idx, isolated)
 
     return ExtrinsicCoverageReport(
         pairwise_observations=pairwise_obs,

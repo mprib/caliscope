@@ -20,7 +20,7 @@ from caliscope.core.bootstrap_pose.build_paired_pose_network import (
 from caliscope.synthetic.synthetic_scene import SyntheticScene
 from caliscope.synthetic.scene_factories import default_ring_scene
 from caliscope.synthetic.filter_config import FilterConfig
-from caliscope.synthetic.coverage import compute_coverage_matrix
+from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.task_manager.task_manager import TaskManager
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.cancellation import CancellationToken
@@ -167,7 +167,8 @@ class ExplorerPresenter(QObject):
         """Current coverage matrix (after filtering)."""
         if self._filtered_image_points is None:
             return None
-        return compute_coverage_matrix(self._filtered_image_points, self._scene.n_cameras)
+        port_to_index = {port: idx for idx, port in enumerate(sorted(self._scene.camera_array.cameras.keys()))}
+        return compute_coverage_matrix(self._filtered_image_points, port_to_index)
 
     @property
     def result(self) -> PipelineResult | None:
@@ -396,5 +397,6 @@ class ExplorerPresenter(QObject):
         """Apply current filter to scene and emit coverage update."""
         self._filtered_image_points = self._filter_config.apply(self._scene.image_points_noisy)
 
-        coverage = compute_coverage_matrix(self._filtered_image_points, self._scene.n_cameras)
+        port_to_index = {port: idx for idx, port in enumerate(sorted(self._scene.camera_array.cameras.keys()))}
+        coverage = compute_coverage_matrix(self._filtered_image_points, port_to_index)
         self.filter_changed.emit(coverage)

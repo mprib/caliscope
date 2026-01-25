@@ -7,7 +7,12 @@ import pandas as pd
 import pytest
 
 from caliscope.core.point_data import ImagePoints
-from caliscope.synthetic import FilterConfig, compute_coverage_matrix
+from caliscope.core.coverage_analysis import compute_coverage_matrix
+from caliscope.synthetic import FilterConfig
+
+
+# Mapping for 3-camera test setup (ports 0, 1, 2 -> indices 0, 1, 2)
+THREE_CAMERA_PORT_TO_INDEX = {0: 0, 1: 1, 2: 2}
 
 
 def make_simple_image_points() -> ImagePoints:
@@ -94,21 +99,21 @@ class TestCoverageMatrix:
     def test_coverage_matrix_shape(self):
         """Coverage matrix has shape (n_cameras, n_cameras)."""
         image_points = make_simple_image_points()
-        coverage = compute_coverage_matrix(image_points, n_cameras=3)
+        coverage = compute_coverage_matrix(image_points, THREE_CAMERA_PORT_TO_INDEX)
 
         assert coverage.shape == (3, 3)
 
     def test_coverage_matrix_is_symmetric(self):
         """Coverage matrix is symmetric."""
         image_points = make_simple_image_points()
-        coverage = compute_coverage_matrix(image_points, n_cameras=3)
+        coverage = compute_coverage_matrix(image_points, THREE_CAMERA_PORT_TO_INDEX)
 
         assert np.allclose(coverage, coverage.T)
 
     def test_diagonal_is_total_observations(self):
         """Diagonal elements are total observations per camera."""
         image_points = make_simple_image_points()
-        coverage = compute_coverage_matrix(image_points, n_cameras=3)
+        coverage = compute_coverage_matrix(image_points, THREE_CAMERA_PORT_TO_INDEX)
 
         # Each camera sees 6 points * 3 frames = 18 observations
         expected_diagonal = 18
@@ -129,7 +134,7 @@ class TestKilledLinkages:
         config = FilterConfig(killed_linkages=((0, 1),))
         filtered = config.apply(image_points)
 
-        coverage = compute_coverage_matrix(filtered, n_cameras=3)
+        coverage = compute_coverage_matrix(filtered, THREE_CAMERA_PORT_TO_INDEX)
 
         # Cameras 0 and 1 should have zero shared observations
         assert coverage[0, 1] == 0
@@ -150,7 +155,8 @@ class TestDroppedCameras:
         config = FilterConfig(dropped_cameras=(1,))
         filtered = config.apply(image_points)
 
-        coverage = compute_coverage_matrix(filtered, n_cameras=3)
+        # Pass full port_to_index to maintain 3x3 shape even with dropped camera
+        coverage = compute_coverage_matrix(filtered, THREE_CAMERA_PORT_TO_INDEX)
 
         # Camera 1 should have zero observations (entire row/column is zero)
         assert coverage[1, 1] == 0
@@ -192,7 +198,8 @@ class TestCoverageIntegration:
         df = pd.DataFrame(rows)
         image_points = ImagePoints(df)
 
-        coverage = compute_coverage_matrix(image_points, n_cameras=2)
+        two_camera_port_to_index = {0: 0, 1: 1}
+        coverage = compute_coverage_matrix(image_points, two_camera_port_to_index)
 
         # Each camera: 10 frames * 5 points = 50 observations
         assert coverage[0, 0] == 50

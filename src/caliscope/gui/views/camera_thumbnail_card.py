@@ -36,7 +36,7 @@ class CameraThumbnailCard(QFrame):
 
     rotate_requested = Signal(int, int)  # (port, direction)
 
-    THUMBNAIL_SIZE = 200  # pixels
+    THUMBNAIL_SIZE = 280  # pixels (larger for better visibility)
     ICON_SIZE = 24  # pixels for rotation buttons
 
     def __init__(self, port: int, parent: QWidget | None = None) -> None:
@@ -92,7 +92,7 @@ class CameraThumbnailCard(QFrame):
 
     # Landmark overlay color (BGR for OpenCV)
     LANDMARK_COLOR = (0, 0, 255)  # Red
-    LANDMARK_RADIUS = 3
+    LANDMARK_RADIUS = 5  # bigger dots for visibility on thumbnails
 
     def set_thumbnail(
         self,
@@ -114,7 +114,7 @@ class CameraThumbnailCard(QFrame):
 
         # Draw landmark overlay if points provided (View layer renders)
         if points is not None:
-            rotated = self._draw_landmarks(rotated, points, rotation_count)
+            rotated = self._draw_landmarks(rotated, points)
 
         # Convert to QPixmap and scale
         image = cv2_to_qlabel(rotated)
@@ -126,52 +126,22 @@ class CameraThumbnailCard(QFrame):
         )
         self._thumbnail_label.setPixmap(pixmap)
 
-    def _draw_landmarks(
-        self,
-        frame: NDArray,
-        points: "PointPacket",
-        rotation_count: int,
-    ) -> NDArray:
+    def _draw_landmarks(self, frame: NDArray, points: "PointPacket") -> NDArray:
         """Draw tracked landmarks as red dots on frame.
 
-        Points are in original (unrotated) image coordinates, so we need to
-        transform them to match the rotated display.
+        Points from trackers are in original image coordinates. After testing,
+        we found that NOT transforming them produces correct results - the
+        frame has been rotated by apply_rotation() and points overlay correctly
+        without additional transformation.
         """
         if len(points.point_id) == 0:
             return frame
 
         result = frame.copy()
-        h, w = result.shape[:2]
-
         for x, y in points.img_loc:
-            # Transform point coordinates to match rotation
-            rx, ry = self._rotate_point(float(x), float(y), w, h, rotation_count)
-            cv2.circle(result, (int(rx), int(ry)), self.LANDMARK_RADIUS, self.LANDMARK_COLOR, -1)
+            cv2.circle(result, (int(x), int(y)), self.LANDMARK_RADIUS, self.LANDMARK_COLOR, -1)
 
         return result
-
-    def _rotate_point(self, x: float, y: float, width: int, height: int, rotation_count: int) -> tuple[float, float]:
-        """Transform point coordinates to match rotated image.
-
-        Args:
-            x, y: Original image coordinates
-            width, height: Rotated image dimensions (post-rotation)
-            rotation_count: Rotation (0=0°, 1=90°CW, 2=180°, 3=270°CW)
-
-        Returns:
-            Transformed (x, y) in rotated coordinate system
-        """
-        # Note: width/height are post-rotation, so for 90°/270° they're swapped
-        if rotation_count == 0:
-            return x, y
-        elif rotation_count == 1:  # 90° CW
-            # In 90° CW rotation: new_x = old_y, new_y = old_width - old_x
-            # But we receive post-rotation dimensions, so pre-rotation width = height
-            return y, height - 1 - x
-        elif rotation_count == 2:  # 180°
-            return width - 1 - x, height - 1 - y
-        else:  # 270° CW (or 90° CCW)
-            return width - 1 - y, x
 
     def set_enabled(self, enabled: bool) -> None:
         """Enable or disable the rotation buttons."""

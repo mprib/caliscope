@@ -79,12 +79,15 @@ class CoverageHeatmapWidget(QWidget):
         # Find max value for color scaling (excluding diagonal)
         max_val = self._max_off_diagonal()
 
-        # Draw cells
+        # Draw cells (lower triangle only - upper triangle is redundant mirror data)
         font = QFont("Monospace", 9)
         painter.setFont(font)
 
         for i in range(n):
             for j in range(n):
+                if j > i:  # Skip upper triangle
+                    continue
+
                 x = self.MARGIN + j * cell_size
                 y = self.MARGIN + i * cell_size
 

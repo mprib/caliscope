@@ -10,12 +10,15 @@ from typing import TYPE_CHECKING
 from numpy.typing import NDArray
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QFormLayout,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QProgressBar,
     QPushButton,
+    QScrollArea,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -48,7 +51,17 @@ class MultiCameraProcessingWidget(QWidget):
     The Tab layer handles Presenter-to-Coordinator communication.
     """
 
-    GRID_COLUMNS = 2  # Cameras per row
+    # Thumbnail layout constants
+    MIN_CARD_WIDTH = 300  # Minimum width per card (thumbnail + margins)
+    DEFAULT_COLUMNS = 2  # Fallback before first resize
+
+    # Style for row labels with tooltip indicator (dotted underline)
+    # QToolTip rule ensures tooltip popup doesn't inherit the underline
+    _INFO_LABEL_STYLE = (
+        "QLabel { text-decoration: underline dotted; text-decoration-color: #888; "
+        "text-underline-offset: 2px; } "
+        "QToolTip { text-decoration: none; }"
+    )
 
     def __init__(
         self,
@@ -58,20 +71,33 @@ class MultiCameraProcessingWidget(QWidget):
         super().__init__(parent)
         self._presenter = presenter
         self._camera_cards: dict[int, CameraThumbnailCard] = {}
+        self._current_columns = self.DEFAULT_COLUMNS
 
         self._setup_ui()
         self._connect_signals()
         self._update_ui_for_state(presenter.state)
 
+    def _create_info_label(self, text: str, tooltip: str) -> QLabel:
+        """Create a row label with discoverable tooltip styling (dotted underline)."""
+        label = QLabel(text)
+        label.setToolTip(tooltip)
+        label.setStyleSheet(self._INFO_LABEL_STYLE)
+        return label
+
     def _setup_ui(self) -> None:
         """Build the UI layout."""
         layout = QVBoxLayout(self)
 
-        # Camera grid
+        # Camera grid in a scroll area (so it doesn't push controls off screen)
         self._camera_grid = QGridLayout()
         self._camera_group = QGroupBox("Cameras")
         self._camera_group.setLayout(self._camera_grid)
-        layout.addWidget(self._camera_group)
+
+        self._scroll_area = QScrollArea()
+        self._scroll_area.setWidgetResizable(True)
+        self._scroll_area.setWidget(self._camera_group)
+        self._scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        layout.addWidget(self._scroll_area, stretch=1)  # Takes available space
 
         # Create cards for existing cameras
         self._rebuild_camera_grid()
@@ -91,6 +117,23 @@ class MultiCameraProcessingWidget(QWidget):
 
         layout.addWidget(progress_group)
 
+        # Subsample control row
+        subsample_row = QHBoxLayout()
+        subsample_row.addWidget(QLabel("Process every"))
+        self._subsample_spin = QSpinBox()
+        self._subsample_spin.setRange(1, 20)
+        self._subsample_spin.setValue(5)
+        self._subsample_spin.setToolTip(
+            "Skip frames to speed up processing.\n\n"
+            "1 = every frame (slow, most data)\n"
+            "5 = every 5th frame (default, good balance)\n"
+            "20 = every 20th frame (fast, less data)"
+        )
+        subsample_row.addWidget(self._subsample_spin)
+        subsample_row.addWidget(QLabel("frames"))
+        subsample_row.addStretch()
+        layout.addLayout(subsample_row)
+
         # Single action button (changes role based on state)
         self._action_btn = QPushButton("Start Processing")
         self._action_btn.clicked.connect(self._on_action_clicked)
@@ -106,32 +149,66 @@ class MultiCameraProcessingWidget(QWidget):
         self._coverage_heatmap.setMaximumSize(300, 300)
         coverage_outer_layout.addWidget(self._coverage_heatmap)
 
-        # Right side: text summary
-        coverage_text_layout = QVBoxLayout()
+        # Right side: text summary with tooltips
+        coverage_text_layout = QFormLayout()
+        coverage_text_layout.setHorizontalSpacing(12)
 
-        self._frames_label = QLabel("Frames processed: —")
-        coverage_text_layout.addWidget(self._frames_label)
+        # Frames processed (simple label, no tooltip needed)
+        self._frames_value = QLabel("—")
+        coverage_text_layout.addRow("Frames processed:", self._frames_value)
 
-        self._topology_label = QLabel("Network topology: —")
-        coverage_text_layout.addWidget(self._topology_label)
+        # Network topology with tooltip
+        topology_row = self._create_info_label(
+            "Network topology:",
+            "How cameras are connected via shared observations.\n\n"
+            "Ring: Each camera shares points with neighbors\n"
+            "Star: One central camera sees all others\n"
+            "Mesh: All cameras share points with each other (ideal)",
+        )
+        self._topology_value = QLabel("—")
+        coverage_text_layout.addRow(topology_row, self._topology_value)
 
-        self._redundancy_label = QLabel("Redundancy: —")
-        coverage_text_layout.addWidget(self._redundancy_label)
+        # Redundancy with tooltip
+        redundancy_row = self._create_info_label(
+            "Redundancy:",
+            "How many independent paths connect cameras.\n\n"
+            "1.0x = minimal (single path, fragile)\n"
+            "1.5x+ = good redundancy\n"
+            "2.0x+ = excellent (can lose links and still calibrate)",
+        )
+        self._redundancy_value = QLabel("—")
+        coverage_text_layout.addRow(redundancy_row, self._redundancy_value)
 
-        self._quality_label = QLabel("Quality: —")
-        coverage_text_layout.addWidget(self._quality_label)
+        # Quality with tooltip
+        quality_row = self._create_info_label(
+            "Quality:",
+            "Overall assessment based on topology, redundancy, and weak links.\n\n"
+            "Good: Sufficient coverage for calibration\n"
+            "Acceptable: May work but has weak areas\n"
+            "Critical: Likely to fail - address issues before calibrating",
+        )
+        self._quality_value = QLabel("—")
+        coverage_text_layout.addRow(quality_row, self._quality_value)
 
-        self._weak_links_label = QLabel("")
-        self._weak_links_label.setWordWrap(True)
-        coverage_text_layout.addWidget(self._weak_links_label)
+        # Weak links with tooltip
+        weak_links_row = self._create_info_label(
+            "Weak links:",
+            "Camera pairs with insufficient shared observations.\n\n"
+            "weak = 10-30 shared frames\n"
+            "critical = under 10 frames\n"
+            "none = no shared observations (cameras can't be connected)",
+        )
+        self._weak_links_value = QLabel("—")
+        self._weak_links_value.setWordWrap(True)
+        coverage_text_layout.addRow(weak_links_row, self._weak_links_value)
 
+        coverage_outer_layout.addLayout(coverage_text_layout)
+
+        # Guidance label (separate, full-width at bottom)
         self._guidance_label = QLabel("")
         self._guidance_label.setWordWrap(True)
         self._guidance_label.setStyleSheet("color: #FFA500;")  # Orange for warnings
-        coverage_text_layout.addWidget(self._guidance_label)
-
-        coverage_text_layout.addStretch()
-        coverage_outer_layout.addLayout(coverage_text_layout)
+        coverage_outer_layout.addWidget(self._guidance_label)
 
         self._coverage_group.hide()
         layout.addWidget(self._coverage_group)
@@ -149,8 +226,8 @@ class MultiCameraProcessingWidget(QWidget):
         # Create new cards
         cameras = self._presenter.cameras
         for i, port in enumerate(sorted(cameras.keys())):
-            row = i // self.GRID_COLUMNS
-            col = i % self.GRID_COLUMNS
+            row = i // self._current_columns
+            col = i % self._current_columns
 
             card = CameraThumbnailCard(port)
             card.rotate_requested.connect(self._on_rotate_requested)
@@ -162,6 +239,31 @@ class MultiCameraProcessingWidget(QWidget):
             if port in self._camera_cards:
                 rotation = self._presenter.cameras[port].rotation_count
                 self._camera_cards[port].set_thumbnail(frame, rotation)
+
+    def _reflow_grid(self) -> None:
+        """Reposition existing camera cards based on current column count.
+
+        More efficient than _rebuild_camera_grid - doesn't recreate widgets.
+        """
+        ports = sorted(self._camera_cards.keys())
+        for i, port in enumerate(ports):
+            card = self._camera_cards[port]
+            row = i // self._current_columns
+            col = i % self._current_columns
+            self._camera_grid.addWidget(card, row, col)
+
+    def resizeEvent(self, event) -> None:
+        """Recalculate grid columns when widget width changes."""
+        super().resizeEvent(event)
+
+        # Calculate how many columns fit
+        available_width = self._scroll_area.viewport().width()
+        new_columns = max(1, available_width // self.MIN_CARD_WIDTH)
+
+        # Only reflow if column count changed
+        if new_columns != self._current_columns and self._camera_cards:
+            self._current_columns = new_columns
+            self._reflow_grid()
 
     def _connect_signals(self) -> None:
         """Connect presenter signals to view slots."""
@@ -184,6 +286,7 @@ class MultiCameraProcessingWidget(QWidget):
             self._action_btn.setEnabled(False)
             self._progress_label.setText("Waiting for configuration...")
             self._set_rotation_enabled(False)
+            self._subsample_spin.setEnabled(False)
             self._coverage_group.hide()
 
         elif state == MultiCameraProcessingState.READY:
@@ -192,18 +295,21 @@ class MultiCameraProcessingWidget(QWidget):
             self._progress_label.setText("Ready to process")
             self._progress_bar.setValue(0)
             self._set_rotation_enabled(True)
+            self._subsample_spin.setEnabled(True)
             self._coverage_group.hide()
 
         elif state == MultiCameraProcessingState.PROCESSING:
             self._action_btn.setText("Cancel")
             self._action_btn.setEnabled(True)
             self._set_rotation_enabled(False)
+            self._subsample_spin.setEnabled(False)
 
         elif state == MultiCameraProcessingState.COMPLETE:
             self._action_btn.setText("Reset")
             self._action_btn.setEnabled(True)
             self._progress_label.setText("Processing complete")
             self._set_rotation_enabled(True)
+            self._subsample_spin.setEnabled(True)
             self._coverage_group.show()
 
     def _set_rotation_enabled(self, enabled: bool) -> None:
@@ -255,21 +361,21 @@ class MultiCameraProcessingWidget(QWidget):
 
         # Frame count from ImagePoints
         n_frames = image_points.df["sync_index"].nunique()
-        self._frames_label.setText(f"Frames processed: {n_frames}")
+        self._frames_value.setText(str(n_frames))
 
         # Network topology
         topology = coverage_report.topology_class.value.title()
-        self._topology_label.setText(f"Network topology: {topology}")
+        self._topology_value.setText(topology)
 
         # Redundancy factor (1.0 = minimal tree, higher = more robust)
         redundancy = coverage_report.redundancy_factor
         if redundancy >= 2.0:
-            redundancy_text = f"Redundancy: {redundancy:.1f}x (excellent)"
+            redundancy_text = f"{redundancy:.1f}x (excellent)"
         elif redundancy >= 1.5:
-            redundancy_text = f"Redundancy: {redundancy:.1f}x (good)"
+            redundancy_text = f"{redundancy:.1f}x (good)"
         else:
-            redundancy_text = f"Redundancy: {redundancy:.1f}x (minimal)"
-        self._redundancy_label.setText(redundancy_text)
+            redundancy_text = f"{redundancy:.1f}x (minimal)"
+        self._redundancy_value.setText(redundancy_text)
 
         # Quality assessment
         if coverage_report.has_critical_issues:
@@ -281,7 +387,7 @@ class MultiCameraProcessingWidget(QWidget):
             quality = f"Acceptable ({len(coverage_report.weak_links)} weak links)"
         else:
             quality = "Good"
-        self._quality_label.setText(f"Quality: {quality}")
+        self._quality_value.setText(quality)
 
         # Weak links detail
         if coverage_report.weak_links:
@@ -289,12 +395,12 @@ class MultiCameraProcessingWidget(QWidget):
             for cam_a, cam_b, link_quality in coverage_report.weak_links[:5]:
                 quality_str = link_quality.value if link_quality != LinkQuality.DISCONNECTED else "none"
                 weak_text_parts.append(f"C{cam_a}↔C{cam_b}: {quality_str}")
-            weak_text = "Weak links: " + ", ".join(weak_text_parts)
+            weak_text = ", ".join(weak_text_parts)
             if len(coverage_report.weak_links) > 5:
                 weak_text += f" (+{len(coverage_report.weak_links) - 5} more)"
-            self._weak_links_label.setText(weak_text)
+            self._weak_links_value.setText(weak_text)
         else:
-            self._weak_links_label.setText("")
+            self._weak_links_value.setText("None")
 
         # Guidance messages
         guidance = generate_multi_camera_guidance(coverage_report)
@@ -319,7 +425,9 @@ class MultiCameraProcessingWidget(QWidget):
 
         state = self._presenter.state
         if state == MultiCameraProcessingState.READY:
-            self._presenter.start_processing()
+            subsample = self._subsample_spin.value()
+            logger.info(f"Starting processing with subsample={subsample}")
+            self._presenter.start_processing(subsample=subsample)
         elif state == MultiCameraProcessingState.PROCESSING:
             self._presenter.cancel_processing()
         elif state == MultiCameraProcessingState.COMPLETE:

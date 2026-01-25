@@ -31,6 +31,7 @@ class LinkQuality(Enum):
 class TopologyClass(Enum):
     """Classification of camera network topology."""
 
+    MESH = "mesh"  # Fully connected (complete graph), ideal redundancy
     RING = "ring"  # Every camera sees 2+ neighbors, no articulation points
     CHAIN = "chain"  # Linear, each camera only sees neighbors
     STAR = "star"  # One central camera sees all, others only see center
@@ -39,7 +40,12 @@ class TopologyClass(Enum):
 
 @dataclass(frozen=True)
 class CoverageThresholds:
-    """Configurable thresholds for coverage quality assessment."""
+    """Configurable thresholds for coverage quality assessment.
+
+    Density = observations / (frames * max_corners_per_frame).
+    With real-world charuco detection (partial visibility, occlusions),
+    density is typically 0.1-0.4, not the theoretical max of 1.0.
+    """
 
     observations_critical: int = 100
     observations_weak: int = 500
@@ -47,9 +53,10 @@ class CoverageThresholds:
     frames_critical: int = 10
     frames_weak: int = 30
     frames_adequate: int = 50
-    density_critical: float = 0.1
-    density_weak: float = 0.4
-    density_adequate: float = 0.6
+    # Density thresholds adjusted for realistic partial charuco visibility
+    density_critical: float = 0.05  # <5% of max corners = almost no detection
+    density_weak: float = 0.15  # 15% = sparse detection
+    density_adequate: float = 0.25  # 25% = reasonable detection
 
 
 @dataclass(frozen=True)

@@ -187,6 +187,18 @@ Display queue pattern from `IntrinsicCalibrationPresenter`. Throttled to ~10 FPS
 
 ## Session Log
 
+### 2026-01-25: Phase 3.5 Round 2
+- Implemented UI polish: larger thumbnails (280px), bigger points (5px radius)
+- Added scroll area + dynamic columns for camera grid responsiveness
+- Added subsample control spinbox with proper state management
+- Added tooltips for coverage metrics (dotted underline pattern)
+- Coverage matrix now shows lower triangle only
+- Fixed test script anti-pattern (was overriding button handler instead of configuring spinbox)
+- **BLOCKED:** Coverage thresholds miscalibrated - needs CV engineer review
+- **BLOCKED:** Landmark points appear in wrong location despite rotation fix
+- **BLOCKED:** Missing MESH topology classification logic
+- See `specs/phase3-tab-integration.md` for detailed issue descriptions
+
 ### 2026-01-25: Phase 3 Complete
 - Completed all 4 Phase 3 tasks
 - Created `MultiCameraProcessingTab` (glue layer):

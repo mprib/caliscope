@@ -2,12 +2,10 @@ import logging
 import statistics
 from pathlib import Path
 
-import cv2
-
 from caliscope.cameras.camera_array import CameraData
 from caliscope.cameras.synchronizer import Synchronizer
 from caliscope.tracker import Tracker
-from caliscope.recording import FramePacketStreamer, create_streamer
+from caliscope.recording import FramePacketStreamer, create_streamer, read_video_properties
 from caliscope.recording.video_recorder import VideoRecorder
 from caliscope.trackers.charuco_tracker import CharucoTracker
 
@@ -134,28 +132,3 @@ class SynchronizedStreamManager:
             logger.info(f"Streamer for port {port} closed")
 
         logger.info("SynchronizedStreamManager cleanup complete")
-
-
-def read_video_properties(source_path: Path) -> dict:
-    # Dictionary to hold video properties
-    properties = {}
-
-    # Open the video file
-    video = cv2.VideoCapture(str(source_path))
-    logger.info(f"Attempting to open video file: {source_path}")
-
-    # Check if video opened successfully
-    if not video.isOpened():
-        raise ValueError(f"Could not open the video file: {source_path}")
-
-    # Extract video properties
-    properties["frame_count"] = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    properties["fps"] = video.get(cv2.CAP_PROP_FPS)
-    properties["width"] = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
-    properties["height"] = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    properties["size"] = (properties["width"], properties["height"])
-
-    # Release the video capture object
-    video.release()
-
-    return properties

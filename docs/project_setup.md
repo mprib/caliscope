@@ -4,7 +4,7 @@
 ## Initial Project Structure
 When a new project is created, the workspace will automatically populate the necessary folder structure if it does not already exist. There are 2 primary folders: `calibration` and `recordings`. Within `calibration` there must be subfolders for `intrinsic` and `extrinsic`. All motion capture trials must be stored separately within subfolders of `recordings` by the user.
 
-An configuration file called `config.toml` will be automatically created when a new project is created. Initially this will only be storing the default charuco board definition. 
+An configuration file called `config.toml` will be automatically created when a new project is created. Initially this will only be storing the default charuco board definition.
 
 An example initial project folder structure would therefore look like this:
 ```
@@ -18,11 +18,11 @@ ProjectDirectory/
 
 ## Stage 1: Intrinsic Calibration
 
-Place video files for the intrinsic camera calibration in the `intrinsic` folder. 
+Place video files for the intrinsic camera calibration in the `intrinsic` folder.
 
-These must follow the naming convention `port_1.mp4`, `port_2.mp4`, etc. They do not need to be synchronized. 
+These must follow the naming convention `port_1.mp4`, `port_2.mp4`, etc. They do not need to be synchronized.
 
-A project with 3 cameras would therefore look something like this going into the intrinsic camera calibration. 
+A project with 3 cameras would therefore look something like this going into the intrinsic camera calibration.
 
 ```
 ProjectDirectory/
@@ -45,10 +45,10 @@ Place sychronized video files in the `extrinsic` folder. Synchronization can be 
 
 1. Record all video footage with a common external trigger such that each frame is at the same point in time as the corresponding frames from the other files. In other words: all mp4 files should start and stop at the same moment in time and have the same number of frames.
 
-2. Provide a file called `frame_time_history.csv` within the folder of recorded video. This must provide the time at which each frame was read so that caliscope can synchronize the footage during processing. A companion project, [MultiWebCam](https://github.com/mprib/multiwebcam), creates this file automatically while it manages concurrent recording from multiple webcams and was the source of the [Sample Project](https://mprib.github.io/caliscope/sample_project) data found in the [docs](https://mprib.github.io/caliscope/)
-   
-   
-### `frame_time_history.csv`
+2. Provide a file called `frame_timestamps.csv` within the folder of recorded video. This must provide the time at which each frame was read so that caliscope can synchronize the footage during processing. A companion project, [MultiWebCam](https://github.com/mprib/multiwebcam), creates this file automatically while it manages concurrent recording from multiple webcams and was the source of the [Sample Project](https://mprib.github.io/caliscope/sample_project) data found in the [docs](https://mprib.github.io/caliscope/)
+
+
+### `frame_timestamps.csv`
 
 This file will have a structure like this:
 
@@ -81,14 +81,14 @@ ProjectDirectory/
 ├── point_estimates.toml # Contains charuco data used to estimate the relative camera positions
 ├── calibration/
 │   ├── intrinsic/       # directory unchanged from above
-│   │   ├── port_1.mp4   
-│   │   ├── port_2.mp4   
-│   │   └── port_3.mp4   
+│   │   ├── port_1.mp4
+│   │   ├── port_2.mp4
+│   │   └── port_3.mp4
 │   └── extrinsic/
-│       ├── frame_time_history.csv  # Time reference for frame synchronization (optional)
-│       ├── port_1.mp4              # Must be synchronized or use frame_time_history.csv
-│       ├── port_2.mp4              # Must be synchronized or use frame_time_history.csv
-│       └── port_3.mp4              # Must be synchronized or use frame_time_history.csv
+│       ├── frame_timestamps.csv  # Time reference for frame synchronization (optional)
+│       ├── port_1.mp4              # Must be synchronized or use frame_timestamps.csv
+│       ├── port_2.mp4              # Must be synchronized or use frame_timestamps.csv
+│       └── port_3.mp4              # Must be synchronized or use frame_timestamps.csv
 └── recordings/
 ```
 
@@ -103,22 +103,22 @@ ProjectDirectory/
 ├── point_estimates.toml                    # File unchanced from above
 ├── calibration/                            # Entire calibration directory unchanged from above
 │   ├── intrinsic/
-│   │   ├── port_1.mp4   
-│   │   ├── port_2.mp4   
-│   │   └── port_3.mp4   
+│   │   ├── port_1.mp4
+│   │   ├── port_2.mp4
+│   │   └── port_3.mp4
 │   └── extrinsic/
-│       ├── frame_time_history.csv  
-│       ├── port_1.mp4              
-│       ├── port_2.mp4              
-│       └── port_3.mp4              
+│       ├── frame_timestamps.csv
+│       ├── port_1.mp4
+│       ├── port_2.mp4
+│       └── port_3.mp4
 └── recordings/
     └── recording_1/                              # can be named anything; contents follow formatting of extrinsic calibration folder
-        ├── frame_time_history.csv                # optional file; not needed if all video synchronized frame-for-frame
-        ├── port_1.mp4                      
-        ├── port_2.mp4                      
-        ├── port_3.mp4                      
-        └── HOLISTIC/                             # Output subfolder created when running Holistic Mediapipe Tracker 
-            ├── frame_time_history.csv            # Matches file in parent folder
+        ├── frame_timestamps.csv                # optional file; not needed if all video synchronized frame-for-frame
+        ├── port_1.mp4
+        ├── port_2.mp4
+        ├── port_3.mp4
+        └── HOLISTIC/                             # Output subfolder created when running Holistic Mediapipe Tracker
+            ├── frame_timestamps.csv            # Matches file in parent folder
             ├── port_0_HOLISTIC.mp4               # Copy of file in parent folder with visualized landmarks
             ├── port_1_HOLISTIC.mp4               # Copy of file in parent folder with visualized landmarks
             ├── port_2_HOLISTIC.mp4               # Copy of file in parent folder with visualized landmarks

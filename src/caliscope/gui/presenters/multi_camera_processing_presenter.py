@@ -24,6 +24,7 @@ from caliscope.core.coverage_analysis import (
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.process_synchronized_recording import (
     FrameData,
+    get_initial_thumbnails,
     process_synchronized_recording,
 )
 from caliscope.task_manager.cancellation import CancellationToken
@@ -169,7 +170,7 @@ class MultiCameraProcessingPresenter(QObject):
     def set_recording_dir(self, path: Path) -> None:
         """Set the recording directory.
 
-        Resets any existing results.
+        Resets any existing results and loads initial thumbnails.
 
         Args:
             path: Directory containing port_N.mp4 and frame_timestamps.csv
@@ -180,12 +181,14 @@ class MultiCameraProcessingPresenter(QObject):
 
         self._recording_dir = path
         self._reset_results()
+        self._load_initial_thumbnails()
         self._emit_state_changed()
 
     def set_cameras(self, cameras: dict[int, CameraData]) -> None:
         """Set the camera configuration.
 
-        Makes a shallow copy of the cameras dict. Resets any existing results.
+        Makes a shallow copy of the cameras dict. Resets any existing results
+        and loads initial thumbnails.
 
         Args:
             cameras: Camera data by port
@@ -197,6 +200,7 @@ class MultiCameraProcessingPresenter(QObject):
         # Shallow copy - rotation_count may be modified via set_rotation()
         self._cameras = {port: cam for port, cam in cameras.items()}
         self._reset_results()
+        self._load_initial_thumbnails()
         self._emit_state_changed()
 
     # -------------------------------------------------------------------------
@@ -227,7 +231,7 @@ class MultiCameraProcessingPresenter(QObject):
         # Signal for coordinator persistence
         self.rotation_changed.emit(port, normalized)
 
-        # Refresh thumbnail to show new orientation (no-op until Task 2.4)
+        # Refresh thumbnail to show new orientation
         self._refresh_thumbnail(port)
 
         logger.debug(f"Rotation set: port {port} -> {normalized * 90}°")
@@ -378,11 +382,45 @@ class MultiCameraProcessingPresenter(QObject):
         logger.debug(f"State changed to {current_state}")
         self.state_changed.emit(current_state)
 
+    def _load_initial_thumbnails(self) -> None:
+        """Load first frame from each camera for thumbnail display.
+
+        Called when recording_dir or cameras are set. Guards ensure
+        both are configured before attempting to load.
+        """
+        if self._recording_dir is None or not self._cameras:
+            return
+
+        try:
+            thumbnails = get_initial_thumbnails(self._recording_dir, self._cameras)
+            self._thumbnails = thumbnails
+
+            # Emit signal for each loaded thumbnail
+            for port, frame in thumbnails.items():
+                self.thumbnail_updated.emit(port, frame)
+
+            logger.debug(f"Loaded initial thumbnails for {len(thumbnails)} cameras")
+
+        except Exception as e:
+            logger.warning(f"Failed to load initial thumbnails: {e}")
+
     def _refresh_thumbnail(self, port: int) -> None:
         """Refresh thumbnail for a single camera port.
 
         Used after rotation change to show updated orientation.
-        Implementation deferred to Task 2.4.
         """
-        # No-op placeholder - will be implemented in Task 2.4
-        pass
+        if self._recording_dir is None or port not in self._cameras:
+            return
+
+        try:
+            # Create single-camera dict for the helper function
+            single_camera = {port: self._cameras[port]}
+            thumbnails = get_initial_thumbnails(self._recording_dir, single_camera)
+
+            if port in thumbnails:
+                self._thumbnails[port] = thumbnails[port]
+                self.thumbnail_updated.emit(port, thumbnails[port])
+                logger.debug(f"Refreshed thumbnail for port {port}")
+
+        except Exception as e:
+            logger.warning(f"Failed to refresh thumbnail for port {port}: {e}")

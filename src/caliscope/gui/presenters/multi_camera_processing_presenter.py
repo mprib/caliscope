@@ -77,7 +77,7 @@ class MultiCameraProcessingPresenter(QObject):
 
     # Progress signals
     progress_updated = Signal(int, int, int)  # (current, total, percent)
-    thumbnail_updated = Signal(int, object)  # (port, NDArray frame)
+    thumbnail_updated = Signal(int, object, object)  # (port, NDArray frame, PointPacket | None)
 
     # Completion signals
     processing_complete = Signal(object, object, object)  # (ImagePoints, ExtrinsicCoverageReport, Tracker)
@@ -124,13 +124,25 @@ class MultiCameraProcessingPresenter(QObject):
     # Public Properties
     # -------------------------------------------------------------------------
 
+    def _is_task_active(self) -> bool:
+        """True if a task is submitted and not yet finished.
+
+        Includes both PENDING (just submitted, worker thread not yet running)
+        and RUNNING states. This prevents the race condition where checking
+        only RUNNING misses the window between submit() and worker start.
+        """
+        return self._task_handle is not None and self._task_handle.state in (
+            TaskState.PENDING,
+            TaskState.RUNNING,
+        )
+
     @property
     def state(self) -> MultiCameraProcessingState:
         """Compute current state from internal reality - never stale."""
         if self._result is not None:
             return MultiCameraProcessingState.COMPLETE
 
-        if self._task_handle is not None and self._task_handle.state == TaskState.RUNNING:
+        if self._is_task_active():
             return MultiCameraProcessingState.PROCESSING
 
         if self._recording_dir is None or not self._cameras:
@@ -217,6 +229,11 @@ class MultiCameraProcessingPresenter(QObject):
             port: Camera port
             rotation_count: Rotation in 90° increments (0=0°, 1=90°, 2=180°, 3=270°)
         """
+        # Belt-and-suspenders guard: buttons are disabled, but prevent API misuse
+        if self.state == MultiCameraProcessingState.PROCESSING:
+            logger.warning("Cannot change rotation while processing")
+            return
+
         if port not in self._cameras:
             logger.warning(f"Cannot set rotation: port {port} not in cameras")
             return
@@ -289,7 +306,7 @@ class MultiCameraProcessingPresenter(QObject):
 
     def cancel_processing(self) -> None:
         """Cancel the current processing task."""
-        if self._task_handle is not None and self._task_handle.state == TaskState.RUNNING:
+        if self._is_task_active() and self._task_handle is not None:
             logger.info("Cancelling multi-camera processing")
             self._task_handle.cancel()
 
@@ -311,7 +328,7 @@ class MultiCameraProcessingPresenter(QObject):
 
     def cleanup(self) -> None:
         """Clean up resources. Call before discarding presenter."""
-        if self._task_handle is not None and self._task_handle.state == TaskState.RUNNING:
+        if self._is_task_active() and self._task_handle is not None:
             self._task_handle.cancel()
 
     # -------------------------------------------------------------------------
@@ -335,9 +352,10 @@ class MultiCameraProcessingPresenter(QObject):
         self._last_thumbnail_time = now
 
         # Update thumbnails for all ports in this sync packet
+        # Points passed to View for overlay rendering (MVP: View renders)
         for port, data in frame_data.items():
             self._thumbnails[port] = data.frame
-            self.thumbnail_updated.emit(port, data.frame)
+            self.thumbnail_updated.emit(port, data.frame, data.points)
 
     def _on_processing_complete(self, image_points: ImagePoints) -> None:
         """Handle successful processing completion."""
@@ -393,9 +411,9 @@ class MultiCameraProcessingPresenter(QObject):
             thumbnails = get_initial_thumbnails(self._recording_dir, self._cameras)
             self._thumbnails = thumbnails
 
-            # Emit signal for each loaded thumbnail
+            # Emit signal for each loaded thumbnail (no points for initial frames)
             for port, frame in thumbnails.items():
-                self.thumbnail_updated.emit(port, frame)
+                self.thumbnail_updated.emit(port, frame, None)
 
             logger.debug(f"Loaded initial thumbnails for {len(thumbnails)} cameras")
 
@@ -405,20 +423,13 @@ class MultiCameraProcessingPresenter(QObject):
     def _refresh_thumbnail(self, port: int) -> None:
         """Refresh thumbnail for a single camera port.
 
-        Used after rotation change to show updated orientation.
+        Used after rotation change to re-emit the cached frame.
+        The View applies rotation, so we just need to trigger a re-display.
+        No disk I/O - uses cached frame for instant response.
         """
-        if self._recording_dir is None or port not in self._cameras:
+        if port not in self._thumbnails:
             return
 
-        try:
-            # Create single-camera dict for the helper function
-            single_camera = {port: self._cameras[port]}
-            thumbnails = get_initial_thumbnails(self._recording_dir, single_camera)
-
-            if port in thumbnails:
-                self._thumbnails[port] = thumbnails[port]
-                self.thumbnail_updated.emit(port, thumbnails[port])
-                logger.debug(f"Refreshed thumbnail for port {port}")
-
-        except Exception as e:
-            logger.warning(f"Failed to refresh thumbnail for port {port}: {e}")
+        # Re-emit cached frame - View will apply current rotation
+        self.thumbnail_updated.emit(port, self._thumbnails[port], None)
+        logger.debug(f"Refreshed thumbnail for port {port} (from cache)")

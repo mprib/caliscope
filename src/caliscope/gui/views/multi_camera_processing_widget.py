@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from caliscope.gui.views.camera_thumbnail_card import CameraThumbnailCard
+from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
 
 if TYPE_CHECKING:
     from caliscope.core.coverage_analysis import ExtrinsicCoverageReport
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
         MultiCameraProcessingPresenter,
         MultiCameraProcessingState,
     )
+    from caliscope.packets import PointPacket
 
 logger = logging.getLogger(__name__)
 
@@ -89,49 +91,47 @@ class MultiCameraProcessingWidget(QWidget):
 
         layout.addWidget(progress_group)
 
-        # Control buttons
-        button_row = QHBoxLayout()
-
-        self._start_btn = QPushButton("Start Processing")
-        self._start_btn.clicked.connect(self._on_start_clicked)
-        button_row.addWidget(self._start_btn)
-
-        self._cancel_btn = QPushButton("Cancel")
-        self._cancel_btn.clicked.connect(self._on_cancel_clicked)
-        self._cancel_btn.setEnabled(False)
-        button_row.addWidget(self._cancel_btn)
-
-        self._reset_btn = QPushButton("Reset")
-        self._reset_btn.clicked.connect(self._on_reset_clicked)
-        self._reset_btn.setEnabled(False)
-        button_row.addWidget(self._reset_btn)
-
-        layout.addLayout(button_row)
+        # Single action button (changes role based on state)
+        self._action_btn = QPushButton("Start Processing")
+        self._action_btn.clicked.connect(self._on_action_clicked)
+        layout.addWidget(self._action_btn)
 
         # Coverage summary (hidden until complete)
         self._coverage_group = QGroupBox("Coverage Summary")
-        coverage_layout = QVBoxLayout(self._coverage_group)
+        coverage_outer_layout = QHBoxLayout(self._coverage_group)
+
+        # Left side: heatmap visualization
+        self._coverage_heatmap = CoverageHeatmapWidget()
+        self._coverage_heatmap.setMinimumSize(200, 200)
+        self._coverage_heatmap.setMaximumSize(300, 300)
+        coverage_outer_layout.addWidget(self._coverage_heatmap)
+
+        # Right side: text summary
+        coverage_text_layout = QVBoxLayout()
 
         self._frames_label = QLabel("Frames processed: —")
-        coverage_layout.addWidget(self._frames_label)
+        coverage_text_layout.addWidget(self._frames_label)
 
         self._topology_label = QLabel("Network topology: —")
-        coverage_layout.addWidget(self._topology_label)
+        coverage_text_layout.addWidget(self._topology_label)
 
         self._redundancy_label = QLabel("Redundancy: —")
-        coverage_layout.addWidget(self._redundancy_label)
+        coverage_text_layout.addWidget(self._redundancy_label)
 
         self._quality_label = QLabel("Quality: —")
-        coverage_layout.addWidget(self._quality_label)
+        coverage_text_layout.addWidget(self._quality_label)
 
         self._weak_links_label = QLabel("")
         self._weak_links_label.setWordWrap(True)
-        coverage_layout.addWidget(self._weak_links_label)
+        coverage_text_layout.addWidget(self._weak_links_label)
 
         self._guidance_label = QLabel("")
         self._guidance_label.setWordWrap(True)
         self._guidance_label.setStyleSheet("color: #FFA500;")  # Orange for warnings
-        coverage_layout.addWidget(self._guidance_label)
+        coverage_text_layout.addWidget(self._guidance_label)
+
+        coverage_text_layout.addStretch()
+        coverage_outer_layout.addLayout(coverage_text_layout)
 
         self._coverage_group.hide()
         layout.addWidget(self._coverage_group)
@@ -180,32 +180,28 @@ class MultiCameraProcessingWidget(QWidget):
         logger.debug(f"Updating UI for state: {state}")
 
         if state == MultiCameraProcessingState.UNCONFIGURED:
-            self._start_btn.setEnabled(False)
-            self._cancel_btn.setEnabled(False)
-            self._reset_btn.setEnabled(False)
+            self._action_btn.setText("Start Processing")
+            self._action_btn.setEnabled(False)
             self._progress_label.setText("Waiting for configuration...")
             self._set_rotation_enabled(False)
             self._coverage_group.hide()
 
         elif state == MultiCameraProcessingState.READY:
-            self._start_btn.setEnabled(True)
-            self._cancel_btn.setEnabled(False)
-            self._reset_btn.setEnabled(False)
+            self._action_btn.setText("Start Processing")
+            self._action_btn.setEnabled(True)
             self._progress_label.setText("Ready to process")
             self._progress_bar.setValue(0)
             self._set_rotation_enabled(True)
             self._coverage_group.hide()
 
         elif state == MultiCameraProcessingState.PROCESSING:
-            self._start_btn.setEnabled(False)
-            self._cancel_btn.setEnabled(True)
-            self._reset_btn.setEnabled(False)
+            self._action_btn.setText("Cancel")
+            self._action_btn.setEnabled(True)
             self._set_rotation_enabled(False)
 
         elif state == MultiCameraProcessingState.COMPLETE:
-            self._start_btn.setEnabled(False)
-            self._cancel_btn.setEnabled(False)
-            self._reset_btn.setEnabled(True)
+            self._action_btn.setText("Reset")
+            self._action_btn.setEnabled(True)
             self._progress_label.setText("Processing complete")
             self._set_rotation_enabled(True)
             self._coverage_group.show()
@@ -224,11 +220,17 @@ class MultiCameraProcessingWidget(QWidget):
         self._progress_bar.setValue(percent)
         self._progress_label.setText(f"Processing: {current}/{total} frames ({percent}%)")
 
-    def _on_thumbnail_updated(self, port: int, frame: NDArray) -> None:
-        """Handle thumbnail update from presenter."""
+    def _on_thumbnail_updated(self, port: int, frame: NDArray, points: "PointPacket | None") -> None:
+        """Handle thumbnail update from presenter.
+
+        Args:
+            port: Camera port
+            frame: BGR image
+            points: Tracked landmarks to overlay (or None)
+        """
         if port in self._camera_cards:
             rotation = self._presenter.cameras[port].rotation_count
-            self._camera_cards[port].set_thumbnail(frame, rotation)
+            self._camera_cards[port].set_thumbnail(frame, rotation, points)
 
     def _on_processing_complete(
         self,
@@ -240,6 +242,15 @@ class MultiCameraProcessingWidget(QWidget):
         from caliscope.core.coverage_analysis import (
             LinkQuality,
             generate_multi_camera_guidance,
+        )
+
+        # Update coverage heatmap with port-based labels
+        ports = sorted(self._presenter.cameras.keys())
+        labels = [f"C{p}" for p in ports]
+        self._coverage_heatmap.set_data(
+            coverage_report.pairwise_frames,
+            killed_linkages=set(),  # No killed linkages in initial processing
+            labels=labels,
         )
 
         # Frame count from ImagePoints
@@ -300,21 +311,28 @@ class MultiCameraProcessingWidget(QWidget):
     # Slots for UI Actions
     # -------------------------------------------------------------------------
 
-    def _on_start_clicked(self) -> None:
-        """Handle start button click."""
-        self._presenter.start_processing()
+    def _on_action_clicked(self) -> None:
+        """Handle action button click - routes based on current state."""
+        from caliscope.gui.presenters.multi_camera_processing_presenter import (
+            MultiCameraProcessingState,
+        )
 
-    def _on_cancel_clicked(self) -> None:
-        """Handle cancel button click."""
-        self._presenter.cancel_processing()
+        state = self._presenter.state
+        if state == MultiCameraProcessingState.READY:
+            self._presenter.start_processing()
+        elif state == MultiCameraProcessingState.PROCESSING:
+            self._presenter.cancel_processing()
+        elif state == MultiCameraProcessingState.COMPLETE:
+            self._presenter.reset()
 
-    def _on_reset_clicked(self) -> None:
-        """Handle reset button click."""
-        self._presenter.reset()
+    def _on_rotate_requested(self, port: int, direction: int) -> None:
+        """Handle rotation request from camera card.
 
-    def _on_rotate_requested(self, port: int) -> None:
-        """Handle rotation request from camera card."""
+        Args:
+            port: Camera port
+            direction: +1 for clockwise, -1 for counter-clockwise
+        """
         if port in self._presenter.cameras:
             current = self._presenter.cameras[port].rotation_count
-            new_rotation = (current + 1) % 4
+            new_rotation = (current + direction) % 4
             self._presenter.set_rotation(port, new_rotation)

@@ -35,6 +35,7 @@ class CoverageHeatmapWidget(QWidget):
 
         self._coverage: NDArray[np.int64] | None = None
         self._killed_linkages: set[tuple[int, int]] = set()
+        self._labels: list[str] | None = None
 
         self.setMinimumSize(200, 200)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -43,15 +44,19 @@ class CoverageHeatmapWidget(QWidget):
         self,
         coverage: NDArray[np.int64],
         killed_linkages: set[tuple[int, int]],
+        labels: list[str] | None = None,
     ) -> None:
         """Update heatmap data.
 
         Args:
             coverage: (N, N) matrix of observation counts
             killed_linkages: Set of (cam_a, cam_b) tuples that are killed
+            labels: Optional custom labels for rows/columns (e.g., ["C1", "C2", "C3"]).
+                    Defaults to ["C0", "C1", ...] based on matrix indices.
         """
         self._coverage = coverage
         self._killed_linkages = killed_linkages
+        self._labels = labels
         self.update()
 
     def paintEvent(self, event) -> None:  # noqa: ARG002
@@ -96,9 +101,10 @@ class CoverageHeatmapWidget(QWidget):
                 text = "X" if is_killed and i != j else str(count)
                 painter.drawText(x, y, cell_size - 1, cell_size - 1, Qt.AlignmentFlag.AlignCenter, text)
 
-        # Draw row/column labels
+        # Draw row/column labels (use custom labels if provided)
         painter.setPen(Qt.GlobalColor.white)
         for i in range(n):
+            label = self._labels[i] if self._labels and i < len(self._labels) else f"C{i}"
             # Column headers
             painter.drawText(
                 self.MARGIN + i * cell_size,
@@ -106,7 +112,7 @@ class CoverageHeatmapWidget(QWidget):
                 cell_size,
                 self.MARGIN,
                 Qt.AlignmentFlag.AlignCenter,
-                f"C{i}",
+                label,
             )
             # Row headers
             painter.drawText(
@@ -115,7 +121,7 @@ class CoverageHeatmapWidget(QWidget):
                 self.MARGIN,
                 cell_size,
                 Qt.AlignmentFlag.AlignCenter,
-                f"C{i}",
+                label,
             )
 
     def _cell_size(self) -> int:

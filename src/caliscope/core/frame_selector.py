@@ -56,7 +56,7 @@ _POSE_ASPECT_RATIO = 4
 
 # Orientation binning constants
 _NUM_TILT_DIRECTION_BINS = 8  # 45° sectors
-_MIN_TILT_FOR_DIVERSITY = 0.05  # Minimum tilt magnitude to count as "tilted"
+MIN_TILT_FOR_DIVERSITY = 0.1  # Minimum tilt magnitude to count as "tilted"
 
 
 @dataclass(frozen=True)
@@ -69,8 +69,13 @@ class FrameCoverageData:
 
 
 @dataclass(frozen=True)
-class FrameSelectionResult:
-    """Immutable result of frame selection for intrinsic calibration."""
+class IntrinsicCoverageReport:
+    """Coverage and selection result for intrinsic calibration.
+
+    Assesses whether a single camera has sufficient data for intrinsic calibration:
+    - Spatial grid coverage (5x5 grid)
+    - Board orientation diversity (Zhang 2000)
+    """
 
     selected_frames: list[int]  # sync_index values
 
@@ -98,7 +103,7 @@ def select_calibration_frames(
     min_corners_per_frame: int = 6,
     min_orientations: int = 4,
     grid_size: int = 5,
-) -> FrameSelectionResult:
+) -> IntrinsicCoverageReport:
     """Select optimal frames for intrinsic camera calibration.
 
     Uses a two-phase selection algorithm:
@@ -124,7 +129,7 @@ def select_calibration_frames(
         grid_size: Coverage grid dimension (default 5 for 5x5 = 25 cells)
 
     Returns:
-        FrameSelectionResult with selected sync_index values, quality metrics,
+        IntrinsicCoverageReport with selected sync_index values, quality metrics,
         and orientation_sufficient flag indicating if diversity requirements were met
     """
     # Filter to specified port
@@ -132,7 +137,7 @@ def select_calibration_frames(
     total_frame_count = int(port_df["sync_index"].nunique())
 
     if total_frame_count == 0:
-        return FrameSelectionResult(
+        return IntrinsicCoverageReport(
             selected_frames=[],
             coverage_fraction=0.0,
             edge_coverage_fraction=0.0,
@@ -148,7 +153,7 @@ def select_calibration_frames(
     eligible_frames = _filter_eligible_frames(port_df, min_corners_per_frame)
 
     if not eligible_frames:
-        return FrameSelectionResult(
+        return IntrinsicCoverageReport(
             selected_frames=[],
             coverage_fraction=0.0,
             edge_coverage_fraction=0.0,
@@ -191,7 +196,7 @@ def select_calibration_frames(
     # Compute quality metrics
     metrics = _compute_quality_metrics(frame_data, selected_frames, grid_size)
 
-    return FrameSelectionResult(
+    return IntrinsicCoverageReport(
         selected_frames=selected_frames,
         coverage_fraction=metrics["coverage_fraction"],
         edge_coverage_fraction=metrics["edge_coverage_fraction"],
@@ -350,7 +355,7 @@ def _get_orientation_bin(orientation: OrientationFeatures) -> int | None:
     Returns None for frontal-parallel boards (tilt below threshold).
     Returns bin index 0-7 for tilted boards (8 sectors of 45° each).
     """
-    if orientation.tilt_magnitude < _MIN_TILT_FOR_DIVERSITY:
+    if orientation.tilt_magnitude < MIN_TILT_FOR_DIVERSITY:
         return None  # Frontal-parallel, doesn't contribute to orientation diversity
 
     # Map tilt_direction [0, 2π) to bin [0, 7]

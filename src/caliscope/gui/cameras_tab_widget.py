@@ -154,11 +154,7 @@ class CamerasTabWidget(QWidget):
     def _on_calibration_complete(self, port: int, output: IntrinsicCalibrationOutput) -> None:
         """Handle calibration completion - persist and update list."""
         report = output.report
-        logger.info(
-            f"Calibration complete for port {port}, "
-            f"in_sample={report.in_sample_rmse:.3f}px, "
-            f"out_of_sample={report.out_of_sample_rmse:.3f}px"
-        )
+        logger.info(f"Calibration complete for port {port}, rmse={report.rmse:.3f}px")
 
         # Get collected points from presenter for session-based overlay restoration
         collected_points = None

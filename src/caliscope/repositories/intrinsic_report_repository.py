@@ -49,10 +49,8 @@ class IntrinsicReportRepository:
 
         # Explicitly convert to Python native types - numpy types can't be serialized by rtoml
         data = {
-            "in_sample_rmse": float(report.in_sample_rmse),
-            "out_of_sample_rmse": float(report.out_of_sample_rmse),
+            "rmse": float(report.rmse),
             "frames_used": int(report.frames_used),
-            "holdout_frame_count": int(report.holdout_frame_count),
             "coverage_fraction": float(report.coverage_fraction),
             "edge_coverage_fraction": float(report.edge_coverage_fraction),
             "corner_coverage_fraction": float(report.corner_coverage_fraction),
@@ -65,7 +63,7 @@ class IntrinsicReportRepository:
         try:
             with open(path, "w") as f:
                 rtoml.dump(data, f)
-            logger.info(f"Saved intrinsic report for port {port}: RMSE={report.in_sample_rmse:.3f}px")
+            logger.info(f"Saved intrinsic report for port {port}: RMSE={report.rmse:.3f}px")
         except Exception as e:
             raise ValueError(f"Failed to save intrinsic report for port {port}: {e}") from e
 
@@ -90,10 +88,8 @@ class IntrinsicReportRepository:
                 data = rtoml.load(f)
 
             return IntrinsicCalibrationReport(
-                in_sample_rmse=float(data["in_sample_rmse"]),
-                out_of_sample_rmse=float(data["out_of_sample_rmse"]),
+                rmse=float(data["rmse"]),
                 frames_used=int(data["frames_used"]),
-                holdout_frame_count=int(data["holdout_frame_count"]),
                 coverage_fraction=float(data["coverage_fraction"]),
                 edge_coverage_fraction=float(data["edge_coverage_fraction"]),
                 corner_coverage_fraction=float(data["corner_coverage_fraction"]),

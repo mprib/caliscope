@@ -23,7 +23,7 @@ from caliscope.core.calibrate_intrinsics import (
     IntrinsicCalibrationReport,
     run_intrinsic_calibration,
 )
-from caliscope.core.frame_selector import FrameSelectionResult, select_calibration_frames
+from caliscope.core.frame_selector import IntrinsicCoverageReport, select_calibration_frames
 from caliscope.core.point_data import ImagePoints
 from caliscope.packets import FramePacket, PointPacket
 from caliscope.recording import create_streamer
@@ -113,7 +113,7 @@ class IntrinsicCalibrationPresenter(QObject):
         self._collected_points: list[tuple[int, PointPacket]] = []
         self._output: IntrinsicCalibrationOutput | None = None
         self._calibration_task: TaskHandle | None = None
-        self._selection_result: FrameSelectionResult | None = None
+        self._selection_result: IntrinsicCoverageReport | None = None
 
         # Restore previous calibration state if available
         if restored_report is not None and camera.matrix is not None:
@@ -430,10 +430,7 @@ class IntrinsicCalibrationPresenter(QObject):
         """Handle successful calibration. Stores output and emits signal."""
         report = output.report
         logger.info(
-            f"Calibration complete for port {self._port}: "
-            f"in_sample={report.in_sample_rmse:.3f}px, "
-            f"out_of_sample={report.out_of_sample_rmse:.3f}px, "
-            f"frames={report.frames_used}"
+            f"Calibration complete for port {self._port}: rmse={report.rmse:.3f}px, frames={report.frames_used}"
         )
 
         # Store complete output (camera + report)

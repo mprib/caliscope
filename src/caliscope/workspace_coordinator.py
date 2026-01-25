@@ -373,11 +373,7 @@ class WorkspaceCoordinator(QObject):
         if collected_points is not None:
             self._intrinsic_points[port] = collected_points
 
-        logger.info(
-            f"Persisted intrinsic calibration for port {port}: "
-            f"in_sample={output.report.in_sample_rmse:.3f}px, "
-            f"out_of_sample={output.report.out_of_sample_rmse:.3f}px"
-        )
+        logger.info(f"Persisted intrinsic calibration for port {port}: rmse={output.report.rmse:.3f}px")
         self.push_camera_data(port)
 
     def get_intrinsic_report(self, port: int) -> IntrinsicCalibrationReport | None:

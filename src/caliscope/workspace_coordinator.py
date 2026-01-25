@@ -68,6 +68,7 @@ class WorkspaceCoordinator(QObject):
     bundle_updated = Signal()  # PointDataBundle changed (new system, parallel to CaptureVolume)
     enable_inputs = Signal(int, bool)  # port, enable
     show_synched_frames = Signal()
+    extrinsic_image_points_ready = Signal()  # Emitted after 2D extraction completes (enables Tab 2)
 
     def __init__(self, workspace_dir: Path):
         super().__init__()

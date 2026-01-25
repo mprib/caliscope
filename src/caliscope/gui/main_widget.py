@@ -25,6 +25,7 @@ from caliscope.task_manager import TaskHandle
 from caliscope.gui.cameras_tab_widget import CamerasTabWidget
 from caliscope.gui.charuco_widget import CharucoWidget
 from caliscope.gui.log_widget import LogWidget
+from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
 from caliscope.gui.reconstruction_tab import ReconstructionTab
 from caliscope.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
 from caliscope.gui.extrinsic_calibration_tab import ExtrinsicCalibrationTab
@@ -37,7 +38,8 @@ class TabTypes(Enum):
     Workspace = 1
     Charuco = 2
     Cameras = 3
-    CaptureVolume = 4
+    MultiCamera = 4
+    CaptureVolume = 5
 
 
 class MainWindow(QMainWindow):
@@ -68,6 +70,8 @@ class MainWindow(QMainWindow):
         # Clean up tabs that have presenter resources
         if hasattr(self, "cameras_tab_widget") and hasattr(self.cameras_tab_widget, "cleanup"):
             self.cameras_tab_widget.cleanup()
+        if hasattr(self, "multi_camera_tab") and hasattr(self.multi_camera_tab, "cleanup"):
+            self.multi_camera_tab.cleanup()
         if hasattr(self, "reconstruction_tab") and hasattr(self.reconstruction_tab, "cleanup"):
             self.reconstruction_tab.cleanup()
 
@@ -141,6 +145,24 @@ class MainWindow(QMainWindow):
             self.coordinator.cameras_loaded,
         )
 
+        # Build Multi-Camera tab for synchronized 2D extraction
+        # Enabled when: intrinsics calibrated AND extrinsic videos available
+        multi_camera_enabled = extrinsics_available and intrinsics_calibrated
+        if multi_camera_enabled:
+            logger.info("Building Multi-Camera processing tab")
+            self.multi_camera_tab = MultiCameraProcessingTab(self.coordinator)
+        else:
+            logger.info("Multi-Camera tab disabled - prerequisites not met")
+            self.multi_camera_tab = QWidget()
+        self.central_tab.addTab(self.multi_camera_tab, "Multi-Camera")
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Multi-Camera"),
+            multi_camera_enabled,
+        )
+
+        # Enable Capture Volume tab when Multi-Camera processing completes
+        self.coordinator.extrinsic_image_points_ready.connect(self._on_extrinsic_points_ready)
+
         logger.info("About to load capture volume tab")
         if self.coordinator.capture_volume_loaded:
             logger.info("Creating ExtrinsicCalibrationTab")
@@ -210,6 +232,19 @@ class MainWindow(QMainWindow):
             if self.central_tab.tabText(index) == title:
                 return index
         return -1  # Return -1 if the tab is not found
+
+    def _on_extrinsic_points_ready(self) -> None:
+        """Enable Capture Volume tab after Multi-Camera processing completes.
+
+        The Multi-Camera tab has extracted 2D ImagePoints. Tab 2 (Capture Volume)
+        can now run triangulation and bundle adjustment.
+        """
+        idx = self.find_tab_index_by_title("Capture Volume")
+        if idx < 0 or self.central_tab.isTabEnabled(idx):
+            return  # Tab not found or already enabled
+
+        logger.info("Enabling Capture Volume tab after 2D extraction complete")
+        self.central_tab.setTabEnabled(idx, True)
 
     def _on_capture_volume_ready(self) -> None:
         """Enable Capture Volume tab after extrinsic calibration completes."""

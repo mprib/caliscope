@@ -82,6 +82,9 @@ class MultiCameraProcessingPresenter(QObject):
     processing_complete = Signal(object, object)  # (ImagePoints, ExtrinsicCoverageReport)
     processing_failed = Signal(str)  # error message
 
+    # Rotation signals
+    rotation_changed = Signal(int, int)  # (port, rotation_count)
+
     # Thumbnail throttle interval (seconds)
     THUMBNAIL_INTERVAL = 0.1  # ~10 FPS
 
@@ -191,10 +194,43 @@ class MultiCameraProcessingPresenter(QObject):
             logger.warning("Cannot change cameras while processing")
             return
 
-        # Shallow copy - we'll modify rotation_count on these objects in Task 2.3
+        # Shallow copy - rotation_count may be modified via set_rotation()
         self._cameras = {port: cam for port, cam in cameras.items()}
         self._reset_results()
         self._emit_state_changed()
+
+    # -------------------------------------------------------------------------
+    # Rotation Control
+    # -------------------------------------------------------------------------
+
+    def set_rotation(self, port: int, rotation_count: int) -> None:
+        """Set the rotation for a camera.
+
+        Updates the local camera copy and emits rotation_changed for coordinator
+        to persist. Rotation affects both display orientation and tracker input.
+
+        Args:
+            port: Camera port
+            rotation_count: Rotation in 90° increments (0=0°, 1=90°, 2=180°, 3=270°)
+        """
+        if port not in self._cameras:
+            logger.warning(f"Cannot set rotation: port {port} not in cameras")
+            return
+
+        # Normalize to 0-3 range
+        normalized = rotation_count % 4
+
+        # Update local copy (note: shallow copy means this is the same object
+        # the coordinator holds; signal notifies it to persist)
+        self._cameras[port].rotation_count = normalized
+
+        # Signal for coordinator persistence
+        self.rotation_changed.emit(port, normalized)
+
+        # Refresh thumbnail to show new orientation (no-op until Task 2.4)
+        self._refresh_thumbnail(port)
+
+        logger.debug(f"Rotation set: port {port} -> {normalized * 90}°")
 
     # -------------------------------------------------------------------------
     # Processing Control
@@ -341,3 +377,12 @@ class MultiCameraProcessingPresenter(QObject):
         current_state = self.state
         logger.debug(f"State changed to {current_state}")
         self.state_changed.emit(current_state)
+
+    def _refresh_thumbnail(self, port: int) -> None:
+        """Refresh thumbnail for a single camera port.
+
+        Used after rotation change to show updated orientation.
+        Implementation deferred to Task 2.4.
+        """
+        # No-op placeholder - will be implemented in Task 2.4
+        pass

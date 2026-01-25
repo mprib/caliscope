@@ -16,7 +16,7 @@ import pandas as pd
 
 from caliscope import __root__
 from caliscope.core.frame_selector import (
-    FrameSelectionResult,
+    IntrinsicCoverageReport,
     OrientationFeatures,
     _compute_orientation_features,
     _get_orientation_bin,
@@ -329,7 +329,7 @@ class TestIntegration:
             logger.info(f"  Eligible: {result.eligible_frame_count}/{result.total_frame_count}")
 
             # Validate result structure
-            assert isinstance(result, FrameSelectionResult)
+            assert isinstance(result, IntrinsicCoverageReport)
             assert all(isinstance(f, int) for f in result.selected_frames)
             assert 0 <= result.coverage_fraction <= 1
             assert 0 <= result.edge_coverage_fraction <= 1
@@ -379,14 +379,18 @@ class TestIntegration:
         for frame in result.selected_frames:
             assert frame in port_0_frames, f"Selected frame {frame} not in original data"
 
-    def test_frame_selector_beats_random_baseline(self, tmp_path: Path):
+    # NOTE: This test is disabled after removing holdout functionality in Phase 1.
+    # The test validated that frame selection produces better calibrations than random
+    # selection by comparing out-of-sample RMSE. This metric has been removed.
+    # See specs/calibration-quality-reports-implementation.md for context.
+    def _disabled_test_frame_selector_beats_random_baseline(self, tmp_path: Path):
         """Selected frames should produce lower holdout error than random selection.
 
         This integration test validates that the frame selection algorithm produces
         better calibrations than naive random selection, using holdout reprojection
         error as the quality metric.
         """
-        from caliscope.core.calibrate_intrinsics import calibrate_intrinsics, compute_holdout_error
+        from caliscope.core.calibrate_intrinsics import calibrate_intrinsics
 
         original_path = Path(__root__, "tests", "sessions", "prerecorded_calibration")
         copy_contents_to_clean_dest(original_path, tmp_path)
@@ -429,18 +433,13 @@ class TestIntegration:
 
         # Calibrate with selected frames
         try:
-            greedy_calib = calibrate_intrinsics(
+            calibrate_intrinsics(
                 image_points,
                 port=port,
                 image_size=image_size,
                 selected_frames=result.selected_frames,
             )
-            greedy_holdout = compute_holdout_error(
-                image_points,
-                greedy_calib,
-                port=port,
-                holdout_frames=holdout_frames[:20],  # Use subset for speed
-            )
+            # greedy_holdout = compute_holdout_error(...) - REMOVED
         except Exception as e:
             logger.warning(f"Greedy calibration failed: {e}")
             return
@@ -458,20 +457,15 @@ class TestIntegration:
                 continue
 
             try:
-                random_calib = calibrate_intrinsics(
+                calibrate_intrinsics(
                     image_points,
                     port=port,
                     image_size=image_size,
                     selected_frames=random_frames,
                 )
-                random_error = compute_holdout_error(
-                    image_points,
-                    random_calib,
-                    port=port,
-                    holdout_frames=random_holdout[:20],
-                )
-                if not np.isnan(random_error.rmse_pixels):
-                    random_rmses.append(random_error.rmse_pixels)
+                # random_error = compute_holdout_error(...) - REMOVED
+                # if not np.isnan(random_error.rmse_pixels):
+                #     random_rmses.append(random_error.rmse_pixels)
             except Exception:
                 continue
 
@@ -479,20 +473,8 @@ class TestIntegration:
             logger.warning("Insufficient successful random trials")
             return
 
-        random_mean = np.mean(random_rmses)
-        random_std = np.std(random_rmses)
-
-        logger.info(f"Greedy holdout RMSE: {greedy_holdout.rmse_pixels:.3f}")
-        logger.info(f"Random baseline: {random_mean:.3f} +/- {random_std:.3f}")
-        logger.info(f"Threshold (mean - 1 std): {random_mean - random_std:.3f}")
-
-        # Greedy selection should significantly outperform random selection
-        # The two-phase algorithm (orientation diversity first, then coverage)
-        # should produce calibrations at least 1 std better than random mean
-        assert greedy_holdout.rmse_pixels < random_mean - random_std, (
-            f"Greedy RMSE {greedy_holdout.rmse_pixels:.3f} should beat "
-            f"random mean - 1 std ({random_mean - random_std:.3f})"
-        )
+        # Test disabled - holdout functionality removed
+        pass
 
 
 class TestScoreFrame:

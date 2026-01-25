@@ -35,12 +35,43 @@ logger = logging.getLogger(__file__)
 
 
 @dataclass(frozen=True)
+class OptimizationStatus:
+    """Result metadata from bundle adjustment optimization.
+
+    Populated by optimize(), cleared by filter methods.
+    """
+
+    converged: bool
+    termination_reason: str  # "converged_gtol", "max_evaluations", etc.
+    iterations: int  # nfev from scipy
+    final_cost: float
+
+
+# Mapping from scipy least_squares status codes to human-readable reasons
+_SCIPY_STATUS_REASONS: dict[int, str] = {
+    -1: "improper_input",
+    0: "max_evaluations",
+    1: "converged_gtol",
+    2: "converged_ftol",
+    3: "converged_xtol",
+    4: "converged_small_step",
+}
+
+
+@dataclass(frozen=True)
 class PointDataBundle:
     camera_array: CameraArray
     image_points: ImagePoints
     world_points: WorldPoints
     # Computed field: maps each image observation to its world point index (-1 if unmatched)
     img_to_obj_map: np.ndarray = field(init=False)
+    # Optimization metadata: None if bundle hasn't been optimized or was filtered post-optimization
+    _optimization_status: OptimizationStatus | None = field(default=None, compare=False)
+
+    @property
+    def optimization_status(self) -> OptimizationStatus | None:
+        """Optimization result metadata, or None if not from optimize() call."""
+        return self._optimization_status
 
     def __post_init__(self):
         """Compute mapping and validate geometry."""
@@ -174,7 +205,7 @@ class PointDataBundle:
     def optimize(
         self,
         ftol: float = 1e-8,
-        max_nfev: int | None = None,
+        max_nfev: int = 1000,
         verbose: int = 2,
     ) -> PointDataBundle:
         """
@@ -215,6 +246,17 @@ class PointDataBundle:
             method="trf",
         )
 
+        # Capture optimization status
+        termination_reason = _SCIPY_STATUS_REASONS.get(result.status, f"unknown_{result.status}")
+        converged = result.status in (1, 2, 3, 4)  # Any gtol/ftol/xtol convergence
+
+        optimization_status = OptimizationStatus(
+            converged=converged,
+            termination_reason=termination_reason,
+            iterations=result.nfev,
+            final_cost=float(result.cost),
+        )
+
         # Create new bundle with optimized parameters
         new_camera_array = deepcopy(self.camera_array)
         new_camera_array.update_extrinsic_params(result.x)
@@ -235,6 +277,7 @@ class PointDataBundle:
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
+            _optimization_status=optimization_status,
         )
 
     def _get_sparsity_pattern(

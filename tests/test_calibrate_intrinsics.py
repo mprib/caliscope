@@ -9,15 +9,12 @@ These tests validate:
 import logging
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from caliscope import __root__
 from caliscope.core.calibrate_intrinsics import (
-    HoldoutResult,
     IntrinsicCalibrationResult,
     calibrate_intrinsics,
-    compute_holdout_error,
 )
 from caliscope.core.point_data import ImagePoints
 
@@ -110,75 +107,6 @@ class TestCalibrateIntrinsics:
             )
 
 
-class TestComputeHoldoutError:
-    """Unit tests for compute_holdout_error function."""
-
-    def test_holdout_error_returns_valid_result(self):
-        """Holdout error computation produces reasonable results."""
-        image_points, port0_frames = _load_test_data()
-
-        # Calibrate on first 30 frames
-        train_frames = port0_frames[:30]
-        calibration_result = calibrate_intrinsics(
-            image_points,
-            port=0,
-            image_size=IMAGE_SIZE,
-            selected_frames=train_frames,
-        )
-
-        holdout_frames = port0_frames[30:]  # Use frames not in training
-
-        result = compute_holdout_error(
-            image_points,
-            calibration_result,
-            port=0,
-            holdout_frames=holdout_frames,
-        )
-
-        assert isinstance(result, HoldoutResult)
-
-        # RMSE should be a positive number (not NaN)
-        assert not np.isnan(result.rmse)
-        assert result.rmse > 0
-
-        # RMSE in pixels should be reasonable (< 5 pixels is good)
-        assert not np.isnan(result.rmse_pixels)
-        assert result.rmse_pixels < 5.0
-
-        # Per-frame RMSE should have entries for successful frames
-        assert len(result.per_frame_rmse) > 0
-
-        # Total frames should match input
-        assert result.total_frames == len(holdout_frames)
-
-        # Should have evaluated some points
-        assert result.total_points > 0
-
-    def test_holdout_empty_frames_returns_nan(self):
-        """Holdout with no valid frames returns NaN RMSE."""
-        image_points, port0_frames = _load_test_data()
-
-        # Calibrate first
-        train_frames = port0_frames[:30]
-        calibration_result = calibrate_intrinsics(
-            image_points,
-            port=0,
-            image_size=IMAGE_SIZE,
-            selected_frames=train_frames,
-        )
-
-        result = compute_holdout_error(
-            image_points,
-            calibration_result,
-            port=0,
-            holdout_frames=[],
-        )
-
-        assert np.isnan(result.rmse)
-        assert result.total_frames == 0
-        assert result.total_points == 0
-
-
 # NOTE: Frame selection validation tests are deferred.
 #
 # The goal is to prove that select_calibration_frames() produces calibrations
@@ -226,7 +154,7 @@ class TestCalibrationPersistence:
 
         # Verify we got a valid output
         assert output.camera.matrix is not None
-        assert output.report.in_sample_rmse > 0
+        assert output.report.rmse > 0
         assert len(output.report.selected_frames) > 0
 
         # Save via repository (this is where numpy types caused problems)
@@ -238,8 +166,7 @@ class TestCalibrationPersistence:
 
         # Verify round-trip preserves values
         assert loaded_report is not None
-        assert loaded_report.in_sample_rmse == pytest.approx(output.report.in_sample_rmse)
-        assert loaded_report.out_of_sample_rmse == pytest.approx(output.report.out_of_sample_rmse)
+        assert loaded_report.rmse == pytest.approx(output.report.rmse)
         assert loaded_report.frames_used == output.report.frames_used
         assert loaded_report.coverage_fraction == pytest.approx(output.report.coverage_fraction)
         assert loaded_report.selected_frames == output.report.selected_frames
@@ -261,13 +188,6 @@ if __name__ == "__main__":
 
     test_calibrate.test_calibrate_nonexistent_port_raises()
     logger.info("PASS: test_calibrate_nonexistent_port_raises")
-
-    test_holdout = TestComputeHoldoutError()
-    test_holdout.test_holdout_error_returns_valid_result()
-    logger.info("PASS: test_holdout_error_returns_valid_result")
-
-    test_holdout.test_holdout_empty_frames_returns_nan()
-    logger.info("PASS: test_holdout_empty_frames_returns_nan")
 
     test_persist = TestCalibrationPersistence()
     with tempfile.TemporaryDirectory() as tmp:

@@ -80,14 +80,10 @@ class CalibrationResultsDisplay(QWidget):
         # Fit quality group - RMSE metrics with color-coding
         fit_group = QGroupBox("Fit Quality")
         fit_layout = QFormLayout(fit_group)
-        self._in_sample_rmse_label = QLabel("—")
-        self._out_sample_rmse_label = QLabel("—")
+        self._rmse_label = QLabel("—")
         self._grid_count_label = QLabel("—")
-        self._holdout_count_label = QLabel("—")
-        fit_layout.addRow("In-sample RMSE:", self._in_sample_rmse_label)
-        fit_layout.addRow("Out-of-sample RMSE:", self._out_sample_rmse_label)
+        fit_layout.addRow("RMSE:", self._rmse_label)
         fit_layout.addRow("Frames used:", self._grid_count_label)
-        fit_layout.addRow("Holdout frames:", self._holdout_count_label)
         layout.addWidget(fit_group)
 
         # Coverage quality group - spatial distribution of calibration frames
@@ -158,11 +154,9 @@ class CalibrationResultsDisplay(QWidget):
         camera = output.camera
         report = output.report
 
-        # Fit quality - RMSE values with color-coding
-        self._in_sample_rmse_label.setText(self._format_rmse_with_color(report.in_sample_rmse))
-        self._out_sample_rmse_label.setText(self._format_rmse_with_color(report.out_of_sample_rmse))
+        # Fit quality - RMSE with color-coding
+        self._rmse_label.setText(self._format_rmse_with_color(report.rmse))
         self._grid_count_label.setText(str(report.frames_used))
-        self._holdout_count_label.setText(str(report.holdout_frame_count))
 
         # Coverage quality
         self._coverage_label.setText(self._format_percentage(report.coverage_fraction))
@@ -206,10 +200,8 @@ class CalibrationResultsDisplay(QWidget):
     def reset(self) -> None:
         """Reset all values to placeholder state."""
         # Fit quality
-        self._in_sample_rmse_label.setText("—")
-        self._out_sample_rmse_label.setText("—")
+        self._rmse_label.setText("—")
         self._grid_count_label.setText("—")
-        self._holdout_count_label.setText("—")
 
         # Coverage quality
         self._coverage_label.setText("—")
@@ -637,10 +629,7 @@ class IntrinsicCalibrationWidget(QWidget):
         output = IntrinsicCalibrationOutput(camera=camera, report=report)
         self._results_display.update_from_output(output)
 
-        self._status_label.setText(
-            f"Status: CALIBRATED (in: {report.in_sample_rmse:.2f}px, "
-            f"out: {report.out_of_sample_rmse:.2f}px, frames: {report.frames_used})"
-        )
+        self._status_label.setText(f"Status: CALIBRATED (rmse: {report.rmse:.2f}px, frames: {report.frames_used})")
 
         # Enable grids overlay if we have collected points to render
         if self._presenter.collected_points:
@@ -691,10 +680,7 @@ class IntrinsicCalibrationWidget(QWidget):
         self._results_display.update_from_output(output)
 
         report = output.report
-        self._status_label.setText(
-            f"Status: CALIBRATED (in: {report.in_sample_rmse:.2f}px, "
-            f"out: {report.out_of_sample_rmse:.2f}px, frames: {report.frames_used})"
-        )
+        self._status_label.setText(f"Status: CALIBRATED (rmse: {report.rmse:.2f}px, frames: {report.frames_used})")
 
         # Enable selected grids overlay now that selection is available
         self._grids_cb.setEnabled(True)

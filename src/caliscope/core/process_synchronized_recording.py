@@ -1,7 +1,7 @@
 """Batch processing of synchronized multi-camera video.
 
 Pure function that extracts 2D landmarks from synchronized video streams.
-Uses batch synchronization from frame_time_history.csv — no real-time streaming.
+Uses batch synchronization from frame_timestamps.csv — no real-time streaming.
 """
 
 import logging
@@ -45,11 +45,11 @@ def process_synchronized_recording(
 ) -> ImagePoints:
     """Process synchronized video recordings to extract 2D landmarks.
 
-    Reads frame_time_history.csv to determine frame alignment, then processes
+    Reads frame_timestamps.csv to determine frame alignment, then processes
     each sync index by seeking directly to aligned frames.
 
     Args:
-        recording_dir: Directory containing port_N.mp4 and frame_time_history.csv
+        recording_dir: Directory containing port_N.mp4 and frame_timestamps.csv
         cameras: Camera data by port (provides rotation_count for frame orientation)
         tracker: Tracker for 2D point extraction (handles per-port state internally)
         subsample: Process every Nth sync index (1 = all, 10 = every 10th)
@@ -61,8 +61,7 @@ def process_synchronized_recording(
         ImagePoints containing all tracked 2D observations
     """
     # Load frame timestamps and compute sync assignments
-    # Note: CSV is named frame_time_history.csv until Task 1.7 renames it
-    timestamps_csv = recording_dir / "frame_time_history.csv"
+    timestamps_csv = recording_dir / "frame_timestamps.csv"
     sync_map = compute_sync_indices(timestamps_csv)
 
     # Load frame_time data for enriching output

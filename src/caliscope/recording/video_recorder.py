@@ -167,9 +167,9 @@ class VideoRecorder:
 
     def store_frame_history(self):
         df = pd.DataFrame(self.frame_history)
-        frame_hist_path = str(Path(self.destination_folder, "frame_time_history.csv"))
-        logger.info(f"Storing frame history to {frame_hist_path}")
-        df.to_csv(frame_hist_path, index=False, header=True)
+        frame_timestamps_path = str(Path(self.destination_folder, "frame_timestamps.csv"))
+        logger.info(f"Storing frame timestamps to {frame_timestamps_path}")
+        df.to_csv(frame_timestamps_path, index=False, header=True)
 
     def store_active_config(self):
         pass

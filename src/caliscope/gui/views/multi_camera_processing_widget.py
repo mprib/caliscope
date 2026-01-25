@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 from numpy.typing import NDArray
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFormLayout,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -25,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from caliscope.gui.views.camera_thumbnail_card import CameraThumbnailCard
 from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
+from caliscope.gui.widgets.structural_warnings import StructuralWarningsWidget
 
 if TYPE_CHECKING:
     from caliscope.core.coverage_analysis import ExtrinsicCoverageReport
@@ -45,7 +45,7 @@ class MultiCameraProcessingWidget(QWidget):
     - Grid of camera thumbnails with rotation controls
     - Progress bar during processing
     - Start/Cancel/Reset buttons
-    - Coverage summary after completion
+    - Coverage heatmap and structural warnings after completion
 
     Note: This widget connects to a Presenter, not directly to the Coordinator.
     The Tab layer handles Presenter-to-Coordinator communication.
@@ -54,14 +54,6 @@ class MultiCameraProcessingWidget(QWidget):
     # Thumbnail layout constants
     MIN_CARD_WIDTH = 300  # Minimum width per card (thumbnail + margins)
     DEFAULT_COLUMNS = 2  # Fallback before first resize
-
-    # Style for row labels with tooltip indicator (dotted underline)
-    # QToolTip rule ensures tooltip popup doesn't inherit the underline
-    _INFO_LABEL_STYLE = (
-        "QLabel { text-decoration: underline dotted; text-decoration-color: #888; "
-        "text-underline-offset: 2px; } "
-        "QToolTip { text-decoration: none; }"
-    )
 
     def __init__(
         self,
@@ -76,13 +68,6 @@ class MultiCameraProcessingWidget(QWidget):
         self._setup_ui()
         self._connect_signals()
         self._update_ui_for_state(presenter.state)
-
-    def _create_info_label(self, text: str, tooltip: str) -> QLabel:
-        """Create a row label with discoverable tooltip styling (dotted underline)."""
-        label = QLabel(text)
-        label.setToolTip(tooltip)
-        label.setStyleSheet(self._INFO_LABEL_STYLE)
-        return label
 
     def _setup_ui(self) -> None:
         """Build the UI layout."""
@@ -143,72 +128,36 @@ class MultiCameraProcessingWidget(QWidget):
         self._coverage_group = QGroupBox("Coverage Summary")
         coverage_outer_layout = QHBoxLayout(self._coverage_group)
 
-        # Left side: heatmap visualization
+        # Left side: heatmap visualization with label
+        heatmap_layout = QVBoxLayout()
+        heatmap_label = QLabel("Shared Point Observations")
+        heatmap_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        heatmap_label.setStyleSheet("color: #888; font-size: 11px;")
+        heatmap_layout.addWidget(heatmap_label)
+
         self._coverage_heatmap = CoverageHeatmapWidget()
         self._coverage_heatmap.setMinimumSize(200, 200)
         self._coverage_heatmap.setMaximumSize(300, 300)
-        coverage_outer_layout.addWidget(self._coverage_heatmap)
+        heatmap_layout.addWidget(self._coverage_heatmap)
+        coverage_outer_layout.addLayout(heatmap_layout)
 
-        # Right side: text summary with tooltips
-        coverage_text_layout = QFormLayout()
-        coverage_text_layout.setHorizontalSpacing(12)
+        # Right side: frames processed + structural warnings
+        right_side_layout = QVBoxLayout()
 
-        # Frames processed (simple label, no tooltip needed)
+        # Frames processed (simple, useful)
+        frames_row = QHBoxLayout()
+        frames_row.addWidget(QLabel("Frames processed:"))
         self._frames_value = QLabel("—")
-        coverage_text_layout.addRow("Frames processed:", self._frames_value)
+        frames_row.addWidget(self._frames_value)
+        frames_row.addStretch()
+        right_side_layout.addLayout(frames_row)
 
-        # Network topology with tooltip
-        topology_row = self._create_info_label(
-            "Network topology:",
-            "How cameras are connected via shared observations.\n\n"
-            "Ring: Each camera shares points with neighbors\n"
-            "Star: One central camera sees all others\n"
-            "Mesh: All cameras share points with each other (ideal)",
-        )
-        self._topology_value = QLabel("—")
-        coverage_text_layout.addRow(topology_row, self._topology_value)
+        # Structural warnings widget
+        self._warnings_widget = StructuralWarningsWidget()
+        right_side_layout.addWidget(self._warnings_widget)
+        right_side_layout.addStretch()
 
-        # Redundancy with tooltip
-        redundancy_row = self._create_info_label(
-            "Redundancy:",
-            "How many independent paths connect cameras.\n\n"
-            "1.0x = minimal (single path, fragile)\n"
-            "1.5x+ = good redundancy\n"
-            "2.0x+ = excellent (can lose links and still calibrate)",
-        )
-        self._redundancy_value = QLabel("—")
-        coverage_text_layout.addRow(redundancy_row, self._redundancy_value)
-
-        # Quality with tooltip
-        quality_row = self._create_info_label(
-            "Quality:",
-            "Overall assessment based on topology, redundancy, and weak links.\n\n"
-            "Good: Sufficient coverage for calibration\n"
-            "Acceptable: May work but has weak areas\n"
-            "Critical: Likely to fail - address issues before calibrating",
-        )
-        self._quality_value = QLabel("—")
-        coverage_text_layout.addRow(quality_row, self._quality_value)
-
-        # Weak links with tooltip
-        weak_links_row = self._create_info_label(
-            "Weak links:",
-            "Camera pairs with insufficient shared observations.\n\n"
-            "weak = 10-30 shared frames\n"
-            "critical = under 10 frames\n"
-            "none = no shared observations (cameras can't be connected)",
-        )
-        self._weak_links_value = QLabel("—")
-        self._weak_links_value.setWordWrap(True)
-        coverage_text_layout.addRow(weak_links_row, self._weak_links_value)
-
-        coverage_outer_layout.addLayout(coverage_text_layout)
-
-        # Guidance label (separate, full-width at bottom)
-        self._guidance_label = QLabel("")
-        self._guidance_label.setWordWrap(True)
-        self._guidance_label.setStyleSheet("color: #FFA500;")  # Orange for warnings
-        coverage_outer_layout.addWidget(self._guidance_label)
+        coverage_outer_layout.addLayout(right_side_layout)
 
         self._coverage_group.hide()
         layout.addWidget(self._coverage_group)
@@ -345,16 +294,13 @@ class MultiCameraProcessingWidget(QWidget):
         tracker: object,  # Tracker included in signal; widget doesn't use it (Tab does)
     ) -> None:
         """Handle processing completion from presenter."""
-        from caliscope.core.coverage_analysis import (
-            LinkQuality,
-            generate_multi_camera_guidance,
-        )
+        from caliscope.core.coverage_analysis import detect_structural_warnings
 
         # Update coverage heatmap with port-based labels
         ports = sorted(self._presenter.cameras.keys())
         labels = [f"C{p}" for p in ports]
         self._coverage_heatmap.set_data(
-            coverage_report.pairwise_frames,
+            coverage_report.pairwise_observations,
             killed_linkages=set(),  # No killed linkages in initial processing
             labels=labels,
         )
@@ -363,51 +309,10 @@ class MultiCameraProcessingWidget(QWidget):
         n_frames = image_points.df["sync_index"].nunique()
         self._frames_value.setText(str(n_frames))
 
-        # Network topology
-        topology = coverage_report.topology_class.value.title()
-        self._topology_value.setText(topology)
-
-        # Redundancy factor (1.0 = minimal tree, higher = more robust)
-        redundancy = coverage_report.redundancy_factor
-        if redundancy >= 2.0:
-            redundancy_text = f"{redundancy:.1f}x (excellent)"
-        elif redundancy >= 1.5:
-            redundancy_text = f"{redundancy:.1f}x (good)"
-        else:
-            redundancy_text = f"{redundancy:.1f}x (minimal)"
-        self._redundancy_value.setText(redundancy_text)
-
-        # Quality assessment
-        if coverage_report.has_critical_issues:
-            if coverage_report.isolated_cameras:
-                quality = "Critical - isolated cameras detected"
-            else:
-                quality = "Critical - weak camera links"
-        elif coverage_report.weak_links:
-            quality = f"Acceptable ({len(coverage_report.weak_links)} weak links)"
-        else:
-            quality = "Good"
-        self._quality_value.setText(quality)
-
-        # Weak links detail
-        if coverage_report.weak_links:
-            weak_text_parts = []
-            for cam_a, cam_b, link_quality in coverage_report.weak_links[:5]:
-                quality_str = link_quality.value if link_quality != LinkQuality.DISCONNECTED else "none"
-                weak_text_parts.append(f"C{cam_a}↔C{cam_b}: {quality_str}")
-            weak_text = ", ".join(weak_text_parts)
-            if len(coverage_report.weak_links) > 5:
-                weak_text += f" (+{len(coverage_report.weak_links) - 5} more)"
-            self._weak_links_value.setText(weak_text)
-        else:
-            self._weak_links_value.setText("None")
-
-        # Guidance messages
-        guidance = generate_multi_camera_guidance(coverage_report)
-        if guidance:
-            self._guidance_label.setText("\n".join(guidance))
-        else:
-            self._guidance_label.setText("")
+        # Detect and display structural warnings
+        n_cameras = len(ports)
+        warnings = detect_structural_warnings(coverage_report, n_cameras)
+        self._warnings_widget.set_warnings(warnings)
 
     def _on_processing_failed(self, error_msg: str) -> None:
         """Handle processing failure from presenter."""

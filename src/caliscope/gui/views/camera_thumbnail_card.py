@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QSizePolicy,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -49,6 +50,8 @@ class CameraThumbnailCard(QFrame):
     def _setup_ui(self) -> None:
         """Build the card layout."""
         self.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
+        # Prevent vertical stretching - card should be as compact as possible
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         layout = QVBoxLayout(self)
 
         # Port label

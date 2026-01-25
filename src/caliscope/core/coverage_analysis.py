@@ -2,6 +2,11 @@
 
 Provides pure functions for analyzing coverage data before calibration,
 helping users understand data quality and identify issues.
+
+Design Philosophy:
+- The heatmap IS the feedback - observation counts tell the full story
+- Only warn about truly actionable structural issues (disconnected cameras, islands)
+- Don't classify topology or redundancy - not actionable and often misleading
 """
 
 from __future__ import annotations
@@ -10,77 +15,67 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
-import networkx as nx
 import numpy as np
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
+
     from caliscope.core.point_data import ImagePoints
 
 
 class LinkQuality(Enum):
-    """Quality classification for camera pair linkage."""
+    """Quality classification for camera pair linkage.
 
-    GOOD = "good"  # >1000 obs, >50 frames, density >0.6
-    ADEQUATE = "adequate"  # 500-1000 obs, 30-50 frames, density 0.4-0.6
-    WEAK = "weak"  # 100-500 obs, 10-30 frames, density 0.1-0.4
-    CRITICAL = "critical"  # <100 obs or <10 frames or density <0.1
-    DISCONNECTED = "disconnected"  # 0 shared observations
+    Simplified to 3 levels focused on actionability.
+    """
+
+    GOOD = "good"  # >= 200 shared observations
+    MARGINAL = "marginal"  # 50-200 shared observations
+    INSUFFICIENT = "insufficient"  # < 50 shared observations
 
 
-class TopologyClass(Enum):
-    """Classification of camera network topology."""
+# Thresholds for link quality classification
+GOOD_OBSERVATION_THRESHOLD = 200
+MARGINAL_OBSERVATION_THRESHOLD = 50
 
-    MESH = "mesh"  # Fully connected (complete graph), ideal redundancy
-    RING = "ring"  # Every camera sees 2+ neighbors, no articulation points
-    CHAIN = "chain"  # Linear, each camera only sees neighbors
-    STAR = "star"  # One central camera sees all, others only see center
-    FRAGMENTED = "fragmented"  # Multiple disconnected components
+
+class WarningSeverity(Enum):
+    """Severity levels for structural warnings."""
+
+    CRITICAL = "critical"  # Calibration will fail
+    WARNING = "warning"  # May cause issues
+    INFO = "info"  # Informational
 
 
 @dataclass(frozen=True)
-class CoverageThresholds:
-    """Configurable thresholds for coverage quality assessment.
+class StructuralWarning:
+    """A structural issue in the camera network."""
 
-    Density = observations / (frames * max_corners_per_frame).
-    With real-world charuco detection (partial visibility, occlusions),
-    density is typically 0.1-0.4, not the theoretical max of 1.0.
-    """
-
-    observations_critical: int = 100
-    observations_weak: int = 500
-    observations_adequate: int = 1000
-    frames_critical: int = 10
-    frames_weak: int = 30
-    frames_adequate: int = 50
-    # Density thresholds adjusted for realistic partial charuco visibility
-    density_critical: float = 0.05  # <5% of max corners = almost no detection
-    density_weak: float = 0.15  # 15% = sparse detection
-    density_adequate: float = 0.25  # 25% = reasonable detection
+    severity: WarningSeverity
+    message: str
 
 
 @dataclass(frozen=True)
 class ExtrinsicCoverageReport:
     """Multi-camera coverage analysis for extrinsic calibration.
 
-    Assesses whether camera pairs have sufficient shared observations
-    for stereo calibration.
+    Focused on data the UI actually needs:
+    - pairwise_observations: For heatmap visualization
+    - isolated_cameras: Critical failure condition
+    - n_connected_components: Should be 1 for successful calibration
+    - leaf_cameras: Cameras with only one connection (potentially fragile)
+
+    Removed over-engineered metrics (topology class, articulation points,
+    bridges, redundancy factor) - not actionable and often misleading.
     """
 
-    # Raw data matrices (n_cameras x n_cameras, symmetric)
+    # Raw data matrix (n_cameras x n_cameras, symmetric)
     pairwise_observations: NDArray[np.int64]  # Shared observation counts
-    pairwise_frames: NDArray[np.int64]  # Shared frame counts
-    observation_density: NDArray[np.float64]  # obs / (frames * max_corners)
 
-    # Graph topology analysis
+    # Structural analysis (using actual port numbers)
     isolated_cameras: list[int]  # Ports with zero shared observations
-    weak_links: list[tuple[int, int, LinkQuality]]  # Camera pairs below "adequate"
-    articulation_points: list[int]  # Cameras whose removal disconnects graph
-    bridge_edges: list[tuple[int, int]]  # Links that are only path between cameras
-
-    # Summary metrics
-    redundancy_factor: float  # total_edges / (n_cameras - 1), 1.0 = minimal tree
-    topology_class: TopologyClass
+    n_connected_components: int  # Should be 1
+    leaf_cameras: list[tuple[int, int, int]]  # (port, connected_to, obs_count)
 
     @property
     def n_cameras(self) -> int:
@@ -89,10 +84,8 @@ class ExtrinsicCoverageReport:
 
     @property
     def has_critical_issues(self) -> bool:
-        """True if there are isolated cameras or critical weak links."""
-        if self.isolated_cameras:
-            return True
-        return any(quality == LinkQuality.CRITICAL for _, _, quality in self.weak_links)
+        """True if calibration will definitely fail."""
+        return bool(self.isolated_cameras) or self.n_connected_components > 1
 
 
 def compute_coverage_matrix(
@@ -133,223 +126,186 @@ def compute_coverage_matrix(
     return coverage
 
 
+def _find_connected_components(adjacency: NDArray[np.int64]) -> list[set[int]]:
+    """Find connected components using BFS (no NetworkX needed).
+
+    Args:
+        adjacency: (n, n) adjacency matrix where >0 means connected
+
+    Returns:
+        List of sets, each set containing indices in a connected component
+    """
+    n = len(adjacency)
+    visited = [False] * n
+    components: list[set[int]] = []
+
+    for start in range(n):
+        if visited[start]:
+            continue
+
+        # BFS from this node
+        component: set[int] = set()
+        queue = [start]
+        while queue:
+            node = queue.pop(0)
+            if visited[node]:
+                continue
+            visited[node] = True
+            component.add(node)
+
+            # Add unvisited neighbors
+            for neighbor in range(n):
+                if not visited[neighbor] and adjacency[node, neighbor] > 0:
+                    queue.append(neighbor)
+
+        components.append(component)
+
+    return components
+
+
+def _find_leaf_cameras(
+    adjacency: NDArray[np.int64],
+    index_to_port: dict[int, int],
+) -> list[tuple[int, int, int]]:
+    """Find cameras with exactly one connection (leaf nodes).
+
+    Args:
+        adjacency: (n, n) adjacency matrix
+        index_to_port: Mapping from matrix indices to actual port numbers
+
+    Returns:
+        List of (port, connected_to_port, observation_count) tuples
+    """
+    n = len(adjacency)
+    leaf_cameras: list[tuple[int, int, int]] = []
+
+    for idx in range(n):
+        # Count neighbors (non-zero off-diagonal entries)
+        neighbors = [(j, adjacency[idx, j]) for j in range(n) if j != idx and adjacency[idx, j] > 0]
+
+        if len(neighbors) == 1:
+            connected_idx, obs_count = neighbors[0]
+            port = index_to_port[idx]
+            connected_port = index_to_port[connected_idx]
+            leaf_cameras.append((port, connected_port, int(obs_count)))
+
+    return leaf_cameras
+
+
 def analyze_multi_camera_coverage(
     image_points: ImagePoints,
-    max_corners_per_frame: int = 35,  # Typical charuco board
-    thresholds: CoverageThresholds | None = None,
 ) -> ExtrinsicCoverageReport:
     """Analyze pairwise coverage for extrinsic calibration.
 
     Discovers actual camera ports from the data and builds port-to-index mapping
-    internally. Reports (isolated cameras, weak links, etc.) use actual port numbers.
+    internally. Reports use actual port numbers, not matrix indices.
 
     Args:
         image_points: ImagePoints containing all camera observations
-        max_corners_per_frame: Expected max corners per frame (for density calc)
-        thresholds: Quality thresholds (uses defaults if None)
 
     Returns:
-        ExtrinsicCoverageReport with comprehensive coverage analysis
+        ExtrinsicCoverageReport with coverage analysis
     """
-    if thresholds is None:
-        thresholds = CoverageThresholds()
-
     df = image_points.df
 
     # Build port-to-index mapping from actual data
-    # This handles arbitrary port numbers (not just 0..n-1)
     actual_ports = sorted(df["port"].unique()) if len(df) > 0 else []
     port_to_index = {port: idx for idx, port in enumerate(actual_ports)}
     index_to_port = {idx: port for port, idx in port_to_index.items()}
-    n_actual = len(actual_ports)
 
     # Compute observation counts using actual port mapping
     pairwise_obs = compute_coverage_matrix(image_points, port_to_index)
 
-    # Compute frame counts
-    pairwise_frames = np.zeros((n_actual, n_actual), dtype=np.int64)
-    if len(df) > 0:
-        frame_groups = df.groupby("sync_index")["port"].apply(set)
-        for ports in frame_groups:
-            port_list = sorted(ports)
-            for i, port_i in enumerate(port_list):
-                for port_j in port_list[i:]:
-                    if port_i in port_to_index and port_j in port_to_index:
-                        idx_i = port_to_index[port_i]
-                        idx_j = port_to_index[port_j]
-                        pairwise_frames[idx_i, idx_j] += 1
-                        if idx_i != idx_j:
-                            pairwise_frames[idx_j, idx_i] += 1
-
-    # Compute observation density
-    with np.errstate(divide="ignore", invalid="ignore"):
-        density = pairwise_obs / (pairwise_frames * max_corners_per_frame)
-        density = np.nan_to_num(density, nan=0.0, posinf=0.0, neginf=0.0)
-
-    # Find isolated cameras and classify links
-    # Report using actual port numbers, not matrix indices
+    # Find isolated cameras (no connections at all)
     isolated: list[int] = []
-    weak_links: list[tuple[int, int, LinkQuality]] = []
-
-    for idx_i in range(n_actual):
-        has_any_link = False
-        for idx_j in range(n_actual):
-            if idx_i == idx_j:
-                continue
-            obs = pairwise_obs[idx_i, idx_j]
-            frames = pairwise_frames[idx_i, idx_j]
-            dens = density[idx_i, idx_j]
-
-            if obs > 0:
-                has_any_link = True
-
-            # Only record each pair once (idx_i < idx_j)
-            if idx_i < idx_j:
-                quality = _classify_link_quality(obs, frames, dens, thresholds)
-                if quality in (LinkQuality.WEAK, LinkQuality.CRITICAL, LinkQuality.DISCONNECTED):
-                    # Convert back to actual port numbers
-                    port_i = index_to_port[idx_i]
-                    port_j = index_to_port[idx_j]
-                    weak_links.append((port_i, port_j, quality))
-
+    for idx in range(len(actual_ports)):
+        has_any_link = any(pairwise_obs[idx, j] > 0 for j in range(len(actual_ports)) if j != idx)
         if not has_any_link:
-            # Convert back to actual port number
-            isolated.append(index_to_port[idx_i])
+            isolated.append(index_to_port[idx])
 
-    # Graph analysis using NetworkX
-    articulation_pts_idx, bridges_idx = _compute_graph_metrics(pairwise_obs)
-    # Convert back to actual port numbers
-    articulation_pts = [index_to_port[idx] for idx in articulation_pts_idx]
-    bridges = [(index_to_port[i], index_to_port[j]) for i, j in bridges_idx]
+    # Find connected components
+    components = _find_connected_components(pairwise_obs)
 
-    # Compute redundancy and topology
-    n_edges = np.sum(pairwise_obs > 0) // 2  # Symmetric matrix, count once
-    min_edges = max(n_actual - 1, 1)
-    redundancy = n_edges / min_edges if min_edges > 0 else 0.0
-
-    topology = _classify_topology(pairwise_obs, articulation_pts_idx, isolated)
+    # Find leaf cameras
+    leaf_cameras = _find_leaf_cameras(pairwise_obs, index_to_port)
 
     return ExtrinsicCoverageReport(
         pairwise_observations=pairwise_obs,
-        pairwise_frames=pairwise_frames,
-        observation_density=density,
         isolated_cameras=isolated,
-        weak_links=weak_links,
-        articulation_points=articulation_pts,
-        bridge_edges=bridges,
-        redundancy_factor=float(redundancy),
-        topology_class=topology,
+        n_connected_components=len(components),
+        leaf_cameras=leaf_cameras,
     )
 
 
-def _classify_link_quality(
-    obs: int,
-    frames: int,
-    density: float,
-    thresholds: CoverageThresholds,
-) -> LinkQuality:
-    """Classify quality of a camera pair link."""
-    if obs == 0:
-        return LinkQuality.DISCONNECTED
-
-    if (
-        obs < thresholds.observations_critical
-        or frames < thresholds.frames_critical
-        or density < thresholds.density_critical
-    ):
-        return LinkQuality.CRITICAL
-
-    if obs < thresholds.observations_weak or frames < thresholds.frames_weak or density < thresholds.density_weak:
-        return LinkQuality.WEAK
-
-    if (
-        obs < thresholds.observations_adequate
-        or frames < thresholds.frames_adequate
-        or density < thresholds.density_adequate
-    ):
-        return LinkQuality.ADEQUATE
-
-    return LinkQuality.GOOD
+def classify_link_quality(observation_count: int) -> LinkQuality:
+    """Classify the quality of a camera pair link based on observation count."""
+    if observation_count >= GOOD_OBSERVATION_THRESHOLD:
+        return LinkQuality.GOOD
+    elif observation_count >= MARGINAL_OBSERVATION_THRESHOLD:
+        return LinkQuality.MARGINAL
+    else:
+        return LinkQuality.INSUFFICIENT
 
 
-def _compute_graph_metrics(
-    adjacency: NDArray[np.int64],
-) -> tuple[list[int], list[tuple[int, int]]]:
-    """Compute articulation points and bridges using NetworkX."""
-    G = nx.Graph()
-    n = len(adjacency)
+def detect_structural_warnings(
+    report: ExtrinsicCoverageReport,
+    n_cameras: int,
+    min_leaf_observations: int = 100,
+) -> list[StructuralWarning]:
+    """Detect actionable structural issues in camera network.
 
-    # Add all nodes first
-    G.add_nodes_from(range(n))
+    Args:
+        report: Coverage analysis report
+        n_cameras: Number of cameras in the setup
+        min_leaf_observations: Threshold for warning about weak leaf connections
 
-    # Add edges where observations exist
-    for i in range(n):
-        for j in range(i + 1, n):
-            if adjacency[i, j] > 0:
-                G.add_edge(i, j)
+    Returns:
+        List of warnings sorted by severity (critical first)
+    """
+    warnings: list[StructuralWarning] = []
 
-    articulation_points = list(nx.articulation_points(G)) if G.number_of_edges() > 0 else []
-    bridges = list(nx.bridges(G)) if G.number_of_edges() > 0 else []
+    # Critical: Disconnected cameras
+    for port in report.isolated_cameras:
+        warnings.append(
+            StructuralWarning(
+                WarningSeverity.CRITICAL,
+                f"Camera C{port} has no shared observations with any other camera",
+            )
+        )
 
-    return articulation_points, bridges
+    # Critical: Multiple islands
+    if report.n_connected_components > 1:
+        warnings.append(
+            StructuralWarning(
+                WarningSeverity.CRITICAL,
+                f"Camera network has {report.n_connected_components} disconnected groups",
+            )
+        )
 
+    # Leaf node warnings (skip for 2-camera setup - both are necessarily leaves)
+    if n_cameras > 2:
+        for port, connected_to, obs_count in report.leaf_cameras:
+            if obs_count < min_leaf_observations:
+                warnings.append(
+                    StructuralWarning(
+                        WarningSeverity.WARNING,
+                        f"Camera C{port} only connected to C{connected_to} ({obs_count} obs)",
+                    )
+                )
+            else:
+                warnings.append(
+                    StructuralWarning(
+                        WarningSeverity.INFO,
+                        f"Camera C{port} connects only through C{connected_to}",
+                    )
+                )
 
-def _classify_topology(
-    adjacency: NDArray[np.int64],
-    articulation_points: list[int],
-    isolated: list[int],
-) -> TopologyClass:
-    """Classify the camera network topology."""
-    n = len(adjacency)
+    # Sort by severity (critical first)
+    severity_order = {
+        WarningSeverity.CRITICAL: 0,
+        WarningSeverity.WARNING: 1,
+        WarningSeverity.INFO: 2,
+    }
+    warnings.sort(key=lambda w: severity_order[w.severity])
 
-    if isolated:
-        return TopologyClass.FRAGMENTED
-
-    # Check connectivity
-    G = nx.Graph()
-    G.add_nodes_from(range(n))
-    for i in range(n):
-        for j in range(i + 1, n):
-            if adjacency[i, j] > 0:
-                G.add_edge(i, j)
-
-    if not nx.is_connected(G):
-        return TopologyClass.FRAGMENTED
-
-    # Check for star topology (one node with n-1 edges, others with 1)
-    # NetworkX stubs incorrectly type G.degree() as int; it's actually DegreeView
-    degree_dict = dict(G.degree())  # type: ignore[call-overload]
-    degrees = [degree_dict[i] for i in range(n)]
-    if max(degrees) == n - 1 and degrees.count(1) == n - 1:
-        return TopologyClass.STAR
-
-    # Check for chain (all articulation points, each node has <= 2 edges)
-    if len(articulation_points) == n - 2 and all(d <= 2 for d in degrees):
-        return TopologyClass.CHAIN
-
-    # Ring if no articulation points and each camera sees 2+ neighbors
-    if not articulation_points and all(d >= 2 for d in degrees):
-        return TopologyClass.RING
-
-    # Default to ring if well-connected
-    return TopologyClass.RING
-
-
-def generate_multi_camera_guidance(report: ExtrinsicCoverageReport) -> list[str]:
-    """Return actionable guidance for improving coverage."""
-    messages: list[str] = []
-
-    if report.isolated_cameras:
-        ports = ", ".join(f"C{p}" for p in report.isolated_cameras)
-        messages.append(f"CRITICAL: Cameras {ports} have no shared observations with any other camera")
-
-    critical_links = [(a, b) for a, b, q in report.weak_links if q == LinkQuality.CRITICAL]
-    if critical_links:
-        pairs = ", ".join(f"C{a}-C{b}" for a, b in critical_links[:3])
-        messages.append(f"Camera pairs {pairs} have critically low shared observations")
-
-    if report.articulation_points and report.topology_class != TopologyClass.CHAIN:
-        ports = ", ".join(f"C{p}" for p in report.articulation_points[:2])
-        messages.append(f"Network depends on cameras {ports} - capture more overlapping views for redundancy")
-
-    return messages
+    return warnings

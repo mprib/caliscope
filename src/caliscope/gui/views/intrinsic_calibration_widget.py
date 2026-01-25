@@ -68,63 +68,181 @@ class CalibrationResultsDisplay(QWidget):
     RMSE_EXCELLENT = 0.5  # pixels
     RMSE_ACCEPTABLE = 1.0  # pixels
 
+    # Style for row labels with tooltip indicator (dotted underline)
+    # QToolTip rule ensures tooltip popup doesn't inherit the underline
+    _INFO_LABEL_STYLE = (
+        "QLabel { text-decoration: underline dotted; text-decoration-color: #888; "
+        "text-underline-offset: 2px; } "
+        "QToolTip { text-decoration: none; }"
+    )
+
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self._setup_ui()
+
+    def _create_info_label(self, text: str, tooltip: str) -> QLabel:
+        """Create a row label with discoverable tooltip styling (dotted underline)."""
+        label = QLabel(text)
+        label.setToolTip(tooltip)
+        label.setStyleSheet(self._INFO_LABEL_STYLE)
+        return label
 
     def _setup_ui(self) -> None:
         """Create the form layout with labeled value fields."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Fit quality group - RMSE metrics with color-coding
+        # Fit quality group
         fit_group = QGroupBox("Fit Quality")
+        fit_group.setToolTip("How well the calibration model fits the observed data.")
         fit_layout = QFormLayout(fit_group)
+
         self._rmse_label = QLabel("—")
+        rmse_row = self._create_info_label(
+            "RMSE:",
+            "Root Mean Square Error of reprojection: the average distance (in pixels) "
+            "between where calibration predicts a point should appear and where it "
+            "was actually detected.\n\n"
+            "Under 0.5px = excellent\n"
+            "0.5–1.0px = good for most applications\n"
+            "Over 1.0px = review your data quality\n\n"
+            "Note: Very low error with few frames or poor coverage may indicate "
+            "overfitting rather than good calibration.",
+        )
+
         self._grid_count_label = QLabel("—")
-        fit_layout.addRow("RMSE:", self._rmse_label)
-        fit_layout.addRow("Frames used:", self._grid_count_label)
+        frames_row = self._create_info_label(
+            "Frames used:",
+            "Number of frames where the calibration board was detected.\n\n"
+            "Minimum: 15–20 frames (fewer may be unstable)\n"
+            "Recommended: 30–50 frames\n"
+            "Diminishing returns beyond ~100 frames\n\n"
+            "Quality matters more than quantity — 25 well-distributed frames "
+            "beat 100 frames from similar viewpoints.",
+        )
+
+        fit_layout.addRow(rmse_row, self._rmse_label)
+        fit_layout.addRow(frames_row, self._grid_count_label)
         layout.addWidget(fit_group)
 
-        # Coverage quality group - spatial distribution of calibration frames
+        # Coverage quality group
         coverage_group = QGroupBox("Coverage Quality")
+        coverage_group.setToolTip("How well calibration frames sample the camera's field of view.")
         coverage_layout = QFormLayout(coverage_group)
+
         self._coverage_label = QLabel("—")
-        self._edge_coverage_label = QLabel("—")
-        self._corner_coverage_label = QLabel("—")
+        coverage_row = self._create_info_label(
+            "Image coverage:",
+            "Percentage of the image area where calibration corners were detected.\n\n"
+            "Why edges matter: Lens distortion is strongest near image edges — often "
+            "10× greater than at center. Without edge measurements, calibration must "
+            "extrapolate, reducing accuracy.\n\n"
+            "Why edges are hard: The detector needs complete board squares to find "
+            "corners. When the board extends past the frame edge, those corners can't "
+            "be detected.\n\n"
+            "Target: 80%+ coverage with observations near all four edges.",
+        )
+
         self._orientation_label = QLabel("—")
-        coverage_layout.addRow("Image coverage:", self._coverage_label)
-        coverage_layout.addRow("Edge coverage:", self._edge_coverage_label)
-        coverage_layout.addRow("Corner coverage:", self._corner_coverage_label)
-        coverage_layout.addRow("Board orientations:", self._orientation_label)
+        orientation_row = self._create_info_label(
+            "Board orientations:",
+            "Count of distinct board tilts captured.\n\n"
+            "Why this matters: When the board is tilted, one edge appears closer "
+            "(larger) and the opposite edge appears farther (smaller). This "
+            "'foreshortening' provides geometric information needed to accurately "
+            "determine focal length.\n\n"
+            "Capturing the board only flat (parallel to camera) creates ambiguity "
+            "that can cause calibration to fail.\n\n"
+            "Minimum: 3–4 distinct orientations\n"
+            "Better: Tilt in multiple directions (left, right, up, down, diagonal)",
+        )
+
+        coverage_layout.addRow(coverage_row, self._coverage_label)
+        coverage_layout.addRow(orientation_row, self._orientation_label)
         layout.addWidget(coverage_group)
 
         # Camera matrix group
         matrix_group = QGroupBox("Camera Matrix")
+        matrix_group.setToolTip("Internal properties of your camera and lens, computed during calibration.")
         matrix_layout = QFormLayout(matrix_group)
+
         self._fx_label = QLabel("—")
+        fx_row = self._create_info_label(
+            "fx:",
+            "Horizontal focal length in pixel units. Larger values mean a more zoomed-in (narrower) field of view.",
+        )
+
         self._fy_label = QLabel("—")
+        fy_row = self._create_info_label(
+            "fy:",
+            "Vertical focal length in pixel units. Almost always matches fx.",
+        )
+
         self._cx_label = QLabel("—")
+        cx_row = self._create_info_label(
+            "cx:",
+            "Horizontal center of the lens in pixels. Ideally near image center, "
+            "but manufacturing tolerances mean it's rarely exact.",
+        )
+
         self._cy_label = QLabel("—")
-        matrix_layout.addRow("fx:", self._fx_label)
-        matrix_layout.addRow("fy:", self._fy_label)
-        matrix_layout.addRow("cx:", self._cx_label)
-        matrix_layout.addRow("cy:", self._cy_label)
+        cy_row = self._create_info_label(
+            "cy:",
+            "Vertical center of the lens in pixels.",
+        )
+
+        matrix_layout.addRow(fx_row, self._fx_label)
+        matrix_layout.addRow(fy_row, self._fy_label)
+        matrix_layout.addRow(cx_row, self._cx_label)
+        matrix_layout.addRow(cy_row, self._cy_label)
         layout.addWidget(matrix_group)
 
         # Distortion coefficients group
         dist_group = QGroupBox("Distortion")
+        dist_group.setToolTip(
+            "Corrects for lens distortion where straight lines appear curved, especially near image edges."
+        )
         dist_layout = QFormLayout(dist_group)
+
         self._k1_label = QLabel("—")
+        k1_row = self._create_info_label(
+            "k1:",
+            "Main distortion term. Negative = barrel distortion (edges bow outward), "
+            "positive = pincushion (edges bow inward).",
+        )
+
         self._k2_label = QLabel("—")
+        k2_row = self._create_info_label(
+            "k2:",
+            "Secondary distortion term. Improves accuracy for lenses with stronger distortion.",
+        )
+
         self._p1_label = QLabel("—")
+        p1_row = self._create_info_label(
+            "p1:",
+            "Corrects for the lens not being perfectly parallel to the sensor. Usually small.",
+        )
+
         self._p2_label = QLabel("—")
+        p2_row = self._create_info_label(
+            "p2:",
+            "Vertical lens-sensor alignment correction. Usually small.",
+        )
+
         self._k3_label = QLabel("—")
-        dist_layout.addRow("k1:", self._k1_label)
-        dist_layout.addRow("k2:", self._k2_label)
-        dist_layout.addRow("p1:", self._p1_label)
-        dist_layout.addRow("p2:", self._p2_label)
-        dist_layout.addRow("k3:", self._k3_label)
+        k3_row = self._create_info_label(
+            "k3:",
+            "Third radial distortion term. k1 and k2 capture most distortion; k3 "
+            "models residual higher-order effects.\n\n"
+            "Typically small but non-zero for most lenses. Larger values are common "
+            "with wide-angle lenses where distortion is more complex.",
+        )
+
+        dist_layout.addRow(k1_row, self._k1_label)
+        dist_layout.addRow(k2_row, self._k2_label)
+        dist_layout.addRow(p1_row, self._p1_label)
+        dist_layout.addRow(p2_row, self._p2_label)
+        dist_layout.addRow(k3_row, self._k3_label)
         layout.addWidget(dist_group)
 
     def _format_rmse_with_color(self, rmse: float) -> str:
@@ -160,13 +278,11 @@ class CalibrationResultsDisplay(QWidget):
 
         # Coverage quality
         self._coverage_label.setText(self._format_percentage(report.coverage_fraction))
-        self._edge_coverage_label.setText(self._format_percentage(report.edge_coverage_fraction))
-        self._corner_coverage_label.setText(self._format_percentage(report.corner_coverage_fraction))
 
         # Orientation - show count and sufficiency
         orientation_text = f"{report.orientation_count}"
         if report.orientation_sufficient:
-            orientation_text += " ✓"
+            orientation_text += " (good)"
         else:
             orientation_text += " (need more variety)"
         self._orientation_label.setText(orientation_text)
@@ -205,8 +321,6 @@ class CalibrationResultsDisplay(QWidget):
 
         # Coverage quality
         self._coverage_label.setText("—")
-        self._edge_coverage_label.setText("—")
-        self._corner_coverage_label.setText("—")
         self._orientation_label.setText("—")
 
         # Camera matrix

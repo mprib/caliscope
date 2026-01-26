@@ -14,13 +14,14 @@
 - UI polish: Remove emoji indicators, clean up RMSE display
 - Cleanup: Remove broken widgets, update to new report structures
 
-**Current phase:** Phase 1 (Core Processing)
+**Current phase:** Phase 3 (Tab Integration)
 
 **Key files:**
 | Purpose | Location |
 |---------|----------|
-| Pattern to follow | `src/caliscope/gui/presenters/intrinsic_calibration_presenter.py` |
-| Code to extract from | `src/caliscope/managers/synchronized_stream_manager.py` |
+| Pattern to follow | `src/caliscope/gui/cameras_tab_widget.py` |
+| Presenter (Phase 2) | `src/caliscope/gui/presenters/multi_camera_processing_presenter.py` |
+| Core function (Phase 1) | `src/caliscope/core/process_synchronized_recording.py` |
 | Coverage reports (backend) | `src/caliscope/core/coverage_analysis.py` |
 
 **Documentation convention:**
@@ -28,13 +29,23 @@
 - Format: `phase{N}-{short-description}.md` (e.g., `phase1-process-synchronized-recording.md`)
 - Delete spec files when phase is complete and merged to main
 
+**Subphase workflow (for each task):**
+1. Implement → type check → test
+2. **Before commit:** Spawn architect to review (substance vs ceremony, pattern compliance)
+3. If changes needed → fix → re-review
+4. If good → architect updates spec (mark complete, update "Next task", add notes)
+5. Commit — spec should now be cold-start ready for next session
+
+This ensures quality gates and keeps specs current for session handoffs.
+
 **Branch strategy:**
 ```
 main
   └── epic/constellation (this branch)
-        ├── feature/phase-0-quick-wins
-        ├── feature/process-synchronized-recording
-        ├── feature/multi-camera-presenter
+        ├── feature/phase-0-quick-wins (merged)
+        ├── feature/process-synchronized-recording (merged)
+        ├── feature/multi-camera-presenter (merged)
+        ├── feature/tab-integration  <- Phase 3
         └── ... (merge each to epic, then epic to main when complete)
 ```
 
@@ -55,38 +66,87 @@ main
   - Fixed k3 tooltip (was incorrectly describing fisheye model)
   - Reviewed by CV domain expert for technical accuracy
 
-### Phase 1: Core Processing (3-4 hrs)
-- [ ] **1.1** Create `process_synchronized_recording()` skeleton
+### Phase 1: Core Processing ✓
+- [x] **1.1** Create `compute_sync_indices()` for batch frame synchronization
+  - New file: `src/caliscope/recording/frame_sync.py`
+  - Equivalence test validates against existing sync_index values
+- [x] **1.2** Extract video utilities to `recording/video_utils.py`
+- [x] **1.3** Create `process_synchronized_recording()` pure function
   - New file: `src/caliscope/core/process_synchronized_recording.py`
-  - Simplified batch synchronization (no real-time Synchronizer)
-  - Extract logic from `SynchronizedStreamManager.process_streams()`
-- [ ] **1.2** Add progress callbacks (`on_progress`, `on_sync_packet`)
-  - Integrate with cancellation token
-- [ ] **1.3** Test with existing session data
-  - Use `tests/sessions/prerecorded_calibration/`
+  - Progress callbacks, frame data callbacks, CancellationToken support
+- [x] **1.4** Add `get_initial_thumbnails()` utility
+- [x] **1.5** Add CancellationToken support
+- [x] **1.6** Write comprehensive tests (6 tests)
+- [x] **1.7** Rename CSV: `frame_time_history.csv` → `frame_timestamps.csv`
 
-### Phase 2: Multi-Camera Presenter (4-6 hrs)
-- [ ] **2.1** Create presenter skeleton with computed state machine
+**Commits merged to epic/constellation:**
+1. `b524623b feat(recording): add compute_sync_indices for batch frame synchronization`
+2. `e4a49131 refactor(recording): extract read_video_properties to video_utils`
+3. `5cc54584 feat(core): add process_synchronized_recording with thumbnails and cancellation`
+4. `8d5c2320 refactor: rename frame_time_history.csv to frame_timestamps.csv`
+5. `4d7fa4eb feat: Phase 1 - batch synchronized recording processing`
+
+### Phase 2: Multi-Camera Presenter ✓
+- [x] **2.1** Create presenter skeleton with computed state machine
   - New file: `src/caliscope/gui/presenters/multi_camera_processing_presenter.py`
   - States: UNCONFIGURED → READY → PROCESSING → COMPLETE
-- [ ] **2.2** Add TaskManager integration
-  - `start_processing()`, `cancel_processing()` methods
-- [ ] **2.3** Add rotation control and thumbnail preview
-  - Use `CameraData.rotation_count` pattern
+- [x] **2.2** Add TaskManager integration
+  - `start_processing()`, `cancel_processing()`, `reset()`, `cleanup()`
+- [x] **2.3** Add rotation control
+  - `set_rotation()` method, `rotation_changed` signal
+- [x] **2.4** Add thumbnail preview
+  - `_load_initial_thumbnails()`, `_refresh_thumbnail()`, `thumbnail_updated` signal
+- [x] **2.5** Add unit tests (12 canary tests)
+
+**Commits merged to epic/constellation:**
+1. `b033caae feat(gui): add MultiCameraProcessingPresenter skeleton`
+2. `714a4ba7 feat(gui): add TaskManager integration to MultiCameraProcessingPresenter`
+3. `4e865cb7 feat(gui): add rotation control to MultiCameraProcessingPresenter`
+4. `f01fd406 feat(gui): add thumbnail preview to MultiCameraProcessingPresenter`
+5. `5e659760 test: add unit tests for MultiCameraProcessingPresenter`
+6. `6cbff8c4 feat: Phase 2 - MultiCameraProcessingPresenter`
 
 ### Phase 3: Tab Integration (2-3 hrs)
-- [ ] **3.1** Create basic widget layout
+- [x] **3.1** Create `MultiCameraProcessingWidget` (the View)
   - New file: `src/caliscope/gui/views/multi_camera_processing_widget.py`
-  - Camera grid, progress bar, Start/Cancel buttons
-- [ ] **3.2** Add `CameraThumbnailWidget` with rotation controls
-- [ ] **3.3** Create tab and wire to coordinator
+  - Camera grid with thumbnails, rotation controls
+  - Progress bar, Start/Cancel buttons
+  - Coverage summary display
+- [x] **3.2** Create `MultiCameraProcessingTab` (the glue layer)
   - New file: `src/caliscope/gui/multi_camera_processing_tab.py`
+  - Creates presenter via factory on coordinator
+  - Wires signals: Presenter ↔ View, Presenter → Coordinator
+  - Handles tab enable/disable based on prerequisites
+- [x] **3.3** Add factory method to WorkspaceCoordinator
+  - `create_multi_camera_presenter()` method
+  - Inject dependencies: task_manager, charuco_tracker
+- [x] **3.4** Wire Tab 1 completion to Tab 2 enable
+  - On `processing_complete`: persist ImagePoints, enable Tab 2
+
+### Phase 3.5: Interactive UI Refinement ← CURRENT
+Iterative feedback loop using `scripts/widget_visualization/wv_multi_camera_tab.py`.
+User tests → reports issues → Claude fixes → repeat until satisfied.
+
+**Test script:** `uv run python scripts/widget_visualization/wv_multi_camera_tab.py`
+
+**Feedback categories:**
+- [ ] **Layout/Sizing**: Camera grid proportions, button placement, spacing
+- [ ] **Thumbnail Display**: Initial load, rotation, updates during processing
+- [ ] **Progress Feedback**: Bar updates, status messages, time estimates
+- [ ] **Coverage Summary**: Post-processing display clarity, actionable guidance
+- [ ] **Error Handling**: What happens on failure, cancellation UX
+- [ ] **Polish**: Colors, fonts, alignment, professional feel
+
+**Process:**
+1. User runs test script and interacts with widget
+2. User reports observations (what works, what doesn't, what's confusing)
+3. Claude makes targeted fixes
+4. Repeat until workflow feels right
 
 ### Phase 4: Extrinsic Calibration Tab (3-4 hrs)
 - [ ] **4.1** Review existing `ExtrinsicCalibrationTab`
 - [ ] **4.2** Add coverage quality display (heatmap, summary, guidance)
 - [ ] **4.3** Add calibration controls (button, progress, RMSE)
-- [ ] **4.4** Wire Tab 1 completion to Tab 2 enable
 
 ### Phase 5: Cleanup (2-3 hrs)
 - [ ] **5.1** Remove broken widgets
@@ -126,6 +186,51 @@ Display queue pattern from `IntrinsicCalibrationPresenter`. Throttled to ~10 FPS
 ---
 
 ## Session Log
+
+### 2026-01-25: Phase 3.5 Round 2
+- Implemented UI polish: larger thumbnails (280px), bigger points (5px radius)
+- Added scroll area + dynamic columns for camera grid responsiveness
+- Added subsample control spinbox with proper state management
+- Added tooltips for coverage metrics (dotted underline pattern)
+- Coverage matrix now shows lower triangle only
+- Fixed test script anti-pattern (was overriding button handler instead of configuring spinbox)
+- **BLOCKED:** Coverage thresholds miscalibrated - needs CV engineer review
+- **BLOCKED:** Landmark points appear in wrong location despite rotation fix
+- **BLOCKED:** Missing MESH topology classification logic
+- See `specs/phase3-tab-integration.md` for detailed issue descriptions
+
+### 2026-01-25: Phase 3 Complete
+- Completed all 4 Phase 3 tasks
+- Created `MultiCameraProcessingTab` (glue layer):
+  - Creates presenter via coordinator factory
+  - Configures with extrinsic_dir and cameras
+  - Wires rotation_changed → coordinator.persist_camera_rotation
+  - Wires processing_complete → persist ImagePoints → emit signal
+  - Handles charuco_changed by recreating presenter with fresh tracker
+  - Proper cleanup() method for lifecycle management
+- Added `extrinsic_image_points_ready` signal to coordinator
+- Wired MainWidget:
+  - Multi-Camera tab inserted between Cameras and Capture Volume
+  - Tab enabled when: intrinsics calibrated AND extrinsic videos available
+  - On processing complete → Capture Volume tab enabled
+  - Cleanup chain includes multi_camera_tab
+- Tab is named "Multi-Camera" per user preference
+
+### 2026-01-25: Phase 2 Complete
+- Completed all 5 Phase 2 tasks
+- MultiCameraProcessingPresenter fully implemented with:
+  - Computed state machine (UNCONFIGURED/READY/PROCESSING/COMPLETE)
+  - TaskManager integration for background processing
+  - Rotation control with persistence signaling
+  - Thumbnail loading and refresh
+  - 12 unit tests covering all behavior
+- Merged `feature/multi-camera-presenter` into `epic/constellation`
+
+### 2026-01-25: Phase 1 Complete
+- Completed batch sync algorithm with equivalence testing
+- Created process_synchronized_recording pure function
+- Migrated CSV naming: frame_time_history.csv → frame_timestamps.csv
+- Merged `feature/process-synchronized-recording` into `epic/constellation`
 
 ### 2026-01-25: Phase 0 Complete
 - Replaced emoji indicators with styled text colors (green/red)

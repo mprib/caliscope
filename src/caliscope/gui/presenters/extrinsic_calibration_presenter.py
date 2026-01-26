@@ -228,6 +228,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._task_handle.completed.connect(self._on_calibration_complete)
         self._task_handle.failed.connect(self._on_calibration_failed)
         self._task_handle.cancelled.connect(self._on_calibration_cancelled)
+        self._task_handle.progress_updated.connect(self.progress_updated)
 
         self._emit_state_changed()
 
@@ -321,6 +322,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._task_handle.completed.connect(self._on_calibration_complete)
         self._task_handle.failed.connect(self._on_calibration_failed)
         self._task_handle.cancelled.connect(self._on_calibration_cancelled)
+        self._task_handle.progress_updated.connect(self.progress_updated)
 
         self._emit_state_changed()
 
@@ -555,6 +557,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._task_handle.completed.connect(self._on_calibration_complete)
         self._task_handle.failed.connect(self._on_calibration_failed)
         self._task_handle.cancelled.connect(self._on_calibration_cancelled)
+        self._task_handle.progress_updated.connect(self.progress_updated)
         self._emit_state_changed()
 
     def _update_bundle(self, bundle: PointDataBundle) -> None:

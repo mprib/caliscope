@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from caliscope.core.scale_accuracy import ScaleAccuracyData
 from caliscope.gui.presenters.extrinsic_calibration_presenter import (
     ExtrinsicCalibrationPresenter,
     ExtrinsicCalibrationState,
@@ -270,6 +271,7 @@ class ExtrinsicCalibrationView(QWidget):
         self._presenter.state_changed.connect(self._update_ui_for_state)
         self._presenter.progress_updated.connect(self._on_progress_updated)
         self._presenter.quality_updated.connect(self._on_quality_updated)
+        self._presenter.scale_accuracy_updated.connect(self._on_scale_accuracy_updated)
         self._presenter.view_model_updated.connect(self._on_view_model_updated)
 
         # View → Presenter
@@ -435,6 +437,10 @@ class ExtrinsicCalibrationView(QWidget):
         """Handle quality data update from presenter."""
         self._quality_panel.set_reprojection_data(data)
         self._update_filter_preview()
+
+    def _on_scale_accuracy_updated(self, data: ScaleAccuracyData) -> None:
+        """Handle scale accuracy data update from presenter."""
+        self._quality_panel.set_scale_accuracy(data)
 
     def _on_view_model_updated(self, view_model: PlaybackViewModel) -> None:
         """Handle view model update from presenter."""

@@ -27,6 +27,7 @@ from caliscope.core.bootstrap_pose.build_paired_pose_network import (
 from caliscope.core.charuco import Charuco
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.scale_accuracy import compute_scale_accuracy
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
@@ -137,6 +138,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
     # Result signals
     quality_updated = Signal(object)  # QualityPanelData
+    scale_accuracy_updated = Signal(object)  # ScaleAccuracyData
     calibration_complete = Signal(object)  # PointDataBundle
     view_model_updated = Signal(object)  # PlaybackViewModel
 
@@ -170,6 +172,9 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         # View state
         self._current_sync_index: int = 0
+
+        # Scale accuracy reference frame (set by align_to_origin)
+        self._reference_sync_index: int | None = None
 
     # -------------------------------------------------------------------------
     # Public Properties
@@ -423,6 +428,9 @@ class ExtrinsicCalibrationPresenter(QObject):
     def align_to_origin(self, sync_index: int) -> None:
         """Set world origin to board position at sync_index.
 
+        Also computes and emits scale accuracy metrics by comparing
+        triangulated world points to known object geometry.
+
         Args:
             sync_index: Frame index where board position defines origin
         """
@@ -430,8 +438,11 @@ class ExtrinsicCalibrationPresenter(QObject):
             return
 
         new_bundle = self._bundle.align_to_object(sync_index)
-        logger.info(f"Aligned world origin to charuco at sync_index={sync_index}")
+        logger.info(f"Aligned world origin to object at sync_index={sync_index}")
+
+        self._reference_sync_index = sync_index
         self._update_bundle(new_bundle)
+        self._emit_scale_accuracy()
 
     # -------------------------------------------------------------------------
     # View Control (Implemented in 4.3)
@@ -557,6 +568,72 @@ class ExtrinsicCalibrationPresenter(QObject):
             world_points=self._bundle.world_points,
         )
         self.view_model_updated.emit(view_model)
+
+    def _emit_scale_accuracy(self) -> None:
+        """Compute and emit scale accuracy metrics.
+
+        Compares triangulated world points at the reference frame to their
+        known ground truth positions from the tracker's object geometry.
+        Works with any rigid tracker that provides obj_loc_* columns.
+        """
+        if self._bundle is None or self._reference_sync_index is None:
+            return
+
+        sync_index = self._reference_sync_index
+        world_df = self._bundle.world_points.df
+        img_df = self._bundle.image_points.df
+
+        # Get world points at reference frame
+        world_at_ref = world_df[world_df["sync_index"] == sync_index]
+        if world_at_ref.empty:
+            logger.warning(f"No world points at reference sync_index {sync_index}")
+            return
+
+        # Get image points with object locations at reference frame
+        img_at_ref = img_df[img_df["sync_index"] == sync_index]
+        if img_at_ref.empty:
+            logger.warning(f"No image points at reference sync_index {sync_index}")
+            return
+
+        # Match by point_id to get corresponding world/object point pairs
+        # Use drop_duplicates on img_at_ref since multiple cameras may see same point_id
+        obj_points_df = img_at_ref[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]].drop_duplicates(
+            subset=["point_id"]
+        )
+
+        merged = world_at_ref.merge(obj_points_df, on="point_id", how="inner")
+
+        if len(merged) < 2:
+            logger.warning(f"Insufficient matched points for scale accuracy: {len(merged)}")
+            return
+
+        # Handle planar objects (z=0 or NaN)
+        if merged["obj_loc_z"].isna().all():
+            merged = merged.copy()
+            merged["obj_loc_z"] = 0.0
+
+        # Filter out any remaining NaN values
+        valid_mask = ~merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].isna().any(axis=1)
+        merged = merged[valid_mask]
+
+        if len(merged) < 2:
+            logger.warning("Insufficient valid points after NaN filtering")
+            return
+
+        # Extract arrays for scale accuracy computation
+        world_points = merged[["x_coord", "y_coord", "z_coord"]].to_numpy()
+        object_points = merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].to_numpy()
+
+        try:
+            scale_data = compute_scale_accuracy(world_points, object_points, sync_index)
+            logger.info(
+                f"Scale accuracy at frame {sync_index}: "
+                f"RMSE={scale_data.distance_rmse_mm:.2f}mm, "
+                f"relative={scale_data.relative_error_percent:.2f}%"
+            )
+            self.scale_accuracy_updated.emit(scale_data)
+        except ValueError as e:
+            logger.warning(f"Could not compute scale accuracy: {e}")
 
     def _submit_optimization(self, bundle: PointDataBundle) -> None:
         """Submit bundle optimization as background task.

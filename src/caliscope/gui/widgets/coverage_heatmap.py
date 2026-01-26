@@ -29,6 +29,7 @@ class CoverageHeatmapWidget(QWidget):
 
     # Layout constants
     MARGIN = 30  # Space for row/column labels
+    MIN_CELL_SIZE = 35  # Minimum pixels per cell to keep counts readable
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -37,8 +38,9 @@ class CoverageHeatmapWidget(QWidget):
         self._killed_linkages: set[tuple[int, int]] = set()
         self._labels: list[str] | None = None
 
-        self.setMinimumSize(200, 200)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        # Start with a reasonable default; will be updated when data arrives
+        self.setMinimumSize(150, 150)
+        self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
 
     def set_data(
         self,
@@ -57,6 +59,12 @@ class CoverageHeatmapWidget(QWidget):
         self._coverage = coverage
         self._killed_linkages = killed_linkages
         self._labels = labels
+
+        # Dynamically set minimum size based on camera count
+        n = len(coverage)
+        required_size = n * self.MIN_CELL_SIZE + self.MARGIN
+        self.setMinimumSize(required_size, required_size)
+
         self.update()
 
     def paintEvent(self, event) -> None:  # noqa: ARG002

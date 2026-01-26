@@ -25,6 +25,7 @@ from caliscope.core.bootstrap_pose.build_paired_pose_network import (
     build_paired_pose_network,
 )
 from caliscope.core.charuco import Charuco
+from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.core.scale_accuracy import compute_scale_accuracy
@@ -139,6 +140,7 @@ class ExtrinsicCalibrationPresenter(QObject):
     # Result signals
     quality_updated = Signal(object)  # QualityPanelData
     scale_accuracy_updated = Signal(object)  # ScaleAccuracyData
+    coverage_updated = Signal(object, object)  # (coverage_matrix, port_labels)
     calibration_complete = Signal(object)  # PointDataBundle
     view_model_updated = Signal(object)  # PlaybackViewModel
 
@@ -170,11 +172,17 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._bundle: PointDataBundle | None = None
         self._task_handle: TaskHandle | None = None
 
+        # Pre-loaded image points for initial coverage display
+        self._initial_image_points: ImagePoints | None = None
+
         # View state
         self._current_sync_index: int = 0
 
         # Scale accuracy reference frame (set by align_to_origin)
         self._reference_sync_index: int | None = None
+
+        # Load image points immediately for initial coverage display
+        self._load_initial_image_points()
 
     # -------------------------------------------------------------------------
     # Public Properties
@@ -503,6 +511,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         self._emit_state_changed()
         self._emit_quality_updated()
+        self._emit_coverage_updated()
         self._emit_view_model_updated()
         self.calibration_complete.emit(bundle)
 
@@ -634,6 +643,62 @@ class ExtrinsicCalibrationPresenter(QObject):
             self.scale_accuracy_updated.emit(scale_data)
         except ValueError as e:
             logger.warning(f"Could not compute scale accuracy: {e}")
+
+    def _load_initial_image_points(self) -> None:
+        """Load ImagePoints for initial coverage display.
+
+        Called during __init__ to show coverage before calibration runs.
+        The ImagePoints are stored to avoid reloading during calibration.
+        """
+        try:
+            self._initial_image_points = ImagePoints.from_csv(self._image_points_path)
+            logger.debug(f"Loaded {len(self._initial_image_points.df)} initial image points")
+        except Exception as e:
+            logger.warning(f"Could not load initial image points: {e}")
+            self._initial_image_points = None
+
+    def emit_initial_coverage(self) -> None:
+        """Emit coverage matrix from pre-loaded ImagePoints.
+
+        Call this after connecting signals to show coverage before calibration.
+        Uses ports discovered from ImagePoints data (not posed cameras).
+        """
+        if self._initial_image_points is None:
+            return
+
+        df = self._initial_image_points.df
+        if len(df) == 0:
+            return
+
+        # Build port-to-index mapping from actual data
+        actual_ports = sorted(df["port"].unique())
+        port_to_index = {int(port): idx for idx, port in enumerate(actual_ports)}
+
+        coverage = compute_coverage_matrix(self._initial_image_points, port_to_index)
+        labels = [f"C{p}" for p in actual_ports]
+
+        self.coverage_updated.emit(coverage, labels)
+
+    def _emit_coverage_updated(self) -> None:
+        """Emit coverage matrix data for heatmap visualization.
+
+        Computes pairwise observation counts between all posed cameras.
+        Labels use port numbers (C1, C2, etc.) matching the camera array.
+        """
+        if self._bundle is None:
+            return
+
+        camera_array = self._bundle.camera_array
+        port_to_index = camera_array.posed_port_to_index
+
+        if not port_to_index:
+            logger.debug("No posed cameras for coverage matrix")
+            return
+
+        coverage = compute_coverage_matrix(self._bundle.image_points, port_to_index)
+        labels = [f"C{p}" for p in sorted(port_to_index.keys())]
+
+        self.coverage_updated.emit(coverage, labels)
 
     def _submit_optimization(self, bundle: PointDataBundle) -> None:
         """Submit bundle optimization as background task.

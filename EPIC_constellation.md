@@ -14,7 +14,7 @@
 - UI polish: Remove emoji indicators, clean up RMSE display
 - Cleanup: Remove broken widgets, update to new report structures
 
-**Current phase:** Phase 3 (Tab Integration)
+**Current phase:** Phase 4.6 (Tab Integration)
 
 **Key files:**
 | Purpose | Location |
@@ -123,30 +123,30 @@ main
 - [x] **3.4** Wire Tab 1 completion to Tab 2 enable
   - On `processing_complete`: persist ImagePoints, enable Tab 2
 
-### Phase 3.5: Interactive UI Refinement ← CURRENT
+### Phase 3.5: Interactive UI Refinement ✓
 Iterative feedback loop using `scripts/widget_visualization/wv_multi_camera_tab.py`.
-User tests → reports issues → Claude fixes → repeat until satisfied.
 
-**Test script:** `uv run python scripts/widget_visualization/wv_multi_camera_tab.py`
+**Completed refinements:**
+- [x] Larger thumbnails (280px), bigger landmark points (5px)
+- [x] Scroll area + dynamic columns for camera grid
+- [x] Subsample control spinbox
+- [x] Coverage tooltips with dotted underline pattern
+- [x] Coverage matrix shows lower triangle only
 
-**Feedback categories:**
-- [ ] **Layout/Sizing**: Camera grid proportions, button placement, spacing
-- [ ] **Thumbnail Display**: Initial load, rotation, updates during processing
-- [ ] **Progress Feedback**: Bar updates, status messages, time estimates
-- [ ] **Coverage Summary**: Post-processing display clarity, actionable guidance
-- [ ] **Error Handling**: What happens on failure, cancellation UX
-- [ ] **Polish**: Colors, fonts, alignment, professional feel
+### Phase 4: Extrinsic Calibration Tab ← CURRENT
+- [x] **4.1** Presenter skeleton
+- [x] **4.2** Calibration workflow implementation
+- [x] **4.3** Transform operations (rotate, filter, align)
+- [x] **4.4** Quality panel widget + scale accuracy
+- [x] **4.5** View assembly (ExtrinsicCalibrationView with all controls)
+- [ ] **4.6** Tab integration (wire tab to use new presenter/view)
+- [ ] **4.7** Legacy removal (delete ExtrinsicCalibrationWidget)
 
-**Process:**
-1. User runs test script and interacts with widget
-2. User reports observations (what works, what doesn't, what's confusing)
-3. Claude makes targeted fixes
-4. Repeat until workflow feels right
-
-### Phase 4: Extrinsic Calibration Tab (3-4 hrs)
-- [ ] **4.1** Review existing `ExtrinsicCalibrationTab`
-- [ ] **4.2** Add coverage quality display (heatmap, summary, guidance)
-- [ ] **4.3** Add calibration controls (button, progress, RMSE)
+**Enhancements beyond original spec:**
+- Coverage heatmap in floating dialog (handles any camera count)
+- Initial coverage shown before calibration runs
+- Coverage updates after filtering operations
+- MIN_CELL_SIZE=35px for readability at any camera count
 
 ### Phase 5: Cleanup (2-3 hrs)
 - [ ] **5.1** Remove broken widgets
@@ -186,6 +186,18 @@ Display queue pattern from `IntrinsicCalibrationPresenter`. Throttled to ~10 FPS
 ---
 
 ## Session Log
+
+### 2026-01-26: Phase 4.5 Enhancement - Coverage Matrix
+- Implemented coverage matrix visualization for ExtrinsicCalibrationView
+  - Initial approach: embedded widget beside QualityPanel
+  - Final approach: floating dialog via "View Coverage" button (handles 11+ cameras)
+  - Coverage shown immediately on load (before calibration)
+  - Updates after filtering operations
+- Coverage heatmap widget enhanced with MIN_CELL_SIZE=35px for readability
+- Scale accuracy signal chain already working from previous session
+- Layout: Filter controls as single line with coverage button at end
+- **Remaining:** 4.6 (tab integration) and 4.7 (legacy removal) still pending
+- Branch: `feature/phase4-extrinsic-calibration-tab`
 
 ### 2026-01-25: Phase 3.5 Round 2
 - Implemented UI polish: larger thumbnails (280px), bigger points (5px radius)

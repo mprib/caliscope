@@ -12,6 +12,7 @@ import logging
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
+    QDialog,
     QDoubleSpinBox,
     QGroupBox,
     QHBoxLayout,
@@ -24,12 +25,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import numpy as np
+
 from caliscope.core.scale_accuracy import ScaleAccuracyData
 from caliscope.gui.presenters.extrinsic_calibration_presenter import (
     ExtrinsicCalibrationPresenter,
     ExtrinsicCalibrationState,
     QualityPanelData,
 )
+from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
 from caliscope.gui.widgets.quality_panel import QualityPanel
 from caliscope.ui.viz.playback_triangulation_widget_pyvista import (
     PlaybackTriangulationWidgetPyVista,
@@ -63,6 +67,9 @@ class ExtrinsicCalibrationView(QWidget):
         self._setup_ui()
         self._connect_signals()
         self._update_ui_for_state(presenter.state)
+
+        # Show initial coverage before calibration
+        self._presenter.emit_initial_coverage()
 
         logger.info("ExtrinsicCalibrationView created")
 
@@ -222,23 +229,21 @@ class ExtrinsicCalibrationView(QWidget):
 
         layout.addWidget(self._coord_frame_group)
 
-        # Row 2: Quality panel
+        # Row 2: Quality panel (full width)
         self._quality_panel = QualityPanel()
         layout.addWidget(self._quality_panel)
 
-        # Row 3: Filter controls (at bottom - action taken after reviewing metrics)
+        # Row 3: Filter controls (single line) + Coverage button
         self._filter_group = QGroupBox("Filter Outliers")
         filter_layout = QHBoxLayout(self._filter_group)
 
         filter_layout.addWidget(QLabel("Mode:"))
-
         self._filter_mode = QComboBox()
         self._filter_mode.addItems(["Percentile", "Absolute"])
         self._filter_mode.setMinimumWidth(100)
         filter_layout.addWidget(self._filter_mode)
 
         filter_layout.addWidget(QLabel("Value:"))
-
         self._filter_value = QDoubleSpinBox()
         self._filter_value.setRange(0.1, 100.0)
         self._filter_value.setValue(5.0)
@@ -249,15 +254,24 @@ class ExtrinsicCalibrationView(QWidget):
         self._filter_apply_btn = QPushButton("Apply")
         filter_layout.addWidget(self._filter_apply_btn)
 
-        filter_layout.addSpacing(20)
+        filter_layout.addSpacing(12)
 
-        self._filter_preview_label = QLabel("Removes observations > ?.?? px")
+        self._filter_preview_label = QLabel("Removes > ?.?? px")
         self._filter_preview_label.setStyleSheet("color: #888; font-style: italic;")
         filter_layout.addWidget(self._filter_preview_label)
 
         filter_layout.addStretch()
 
+        # Coverage button opens floating dialog
+        self._coverage_btn = QPushButton("View Coverage")
+        self._coverage_btn.setToolTip("Show camera pair observation counts")
+        self._coverage_btn.setEnabled(False)  # Enabled when coverage data arrives
+        filter_layout.addWidget(self._coverage_btn)
+
         layout.addWidget(self._filter_group)
+
+        # Coverage data stored for dialog (updated by signal)
+        self._coverage_data: tuple[np.ndarray, list[str]] | None = None
 
         return panel
 
@@ -272,6 +286,7 @@ class ExtrinsicCalibrationView(QWidget):
         self._presenter.progress_updated.connect(self._on_progress_updated)
         self._presenter.quality_updated.connect(self._on_quality_updated)
         self._presenter.scale_accuracy_updated.connect(self._on_scale_accuracy_updated)
+        self._presenter.coverage_updated.connect(self._on_coverage_updated)
         self._presenter.view_model_updated.connect(self._on_view_model_updated)
 
         # View → Presenter
@@ -281,6 +296,7 @@ class ExtrinsicCalibrationView(QWidget):
         self._filter_value.valueChanged.connect(self._on_filter_value_changed)
         self._set_origin_btn.clicked.connect(self._on_set_origin_clicked)
         self._frame_slider.valueChanged.connect(self._on_frame_slider_changed)
+        self._coverage_btn.clicked.connect(self._show_coverage_dialog)
 
     # -------------------------------------------------------------------------
     # State-Driven UI
@@ -441,6 +457,34 @@ class ExtrinsicCalibrationView(QWidget):
     def _on_scale_accuracy_updated(self, data: ScaleAccuracyData) -> None:
         """Handle scale accuracy data update from presenter."""
         self._quality_panel.set_scale_accuracy(data)
+
+    def _on_coverage_updated(self, coverage: np.ndarray, labels: list[str]) -> None:
+        """Handle coverage data update from presenter."""
+        self._coverage_data = (coverage, labels)
+        # Enable button now that we have data
+        self._coverage_btn.setEnabled(True)
+
+    def _show_coverage_dialog(self) -> None:
+        """Show floating dialog with coverage heatmap."""
+        if self._coverage_data is None:
+            return
+
+        coverage, labels = self._coverage_data
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Camera Coverage")
+        dialog.setModal(False)  # Non-blocking
+
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(8, 8, 8, 8)
+
+        heatmap = CoverageHeatmapWidget()
+        heatmap.set_data(coverage, killed_linkages=set(), labels=labels)
+        layout.addWidget(heatmap)
+
+        # Size based on camera count (widget sets its own minimum)
+        dialog.adjustSize()
+        dialog.show()
 
     def _on_view_model_updated(self, view_model: PlaybackViewModel) -> None:
         """Handle view model update from presenter."""

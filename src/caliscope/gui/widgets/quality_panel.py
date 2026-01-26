@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QGroupBox,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
     QTableWidget,
@@ -41,6 +42,10 @@ class QualityPanel(QWidget):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(8)
 
+        # Top row: Reprojection Error + Scale Accuracy side by side
+        top_row = QHBoxLayout()
+        top_row.setSpacing(8)
+
         # Section 1: Reprojection Error
         self._reprojection_group = QGroupBox("Reprojection Error")
         repro_layout = QVBoxLayout(self._reprojection_group)
@@ -56,7 +61,7 @@ class QualityPanel(QWidget):
         repro_layout.addWidget(self._points_label)
         repro_layout.addWidget(self._converged_label)
 
-        layout.addWidget(self._reprojection_group)
+        top_row.addWidget(self._reprojection_group)
 
         # Section 2: Scale Accuracy
         self._scale_group = QGroupBox("Scale Accuracy")
@@ -74,7 +79,8 @@ class QualityPanel(QWidget):
         scale_layout.addWidget(self._scale_relative_label)
         scale_layout.addWidget(self._scale_detail_label)
 
-        layout.addWidget(self._scale_group)
+        top_row.addWidget(self._scale_group)
+        layout.addLayout(top_row)
 
         # Section 3: Per-Camera Table
         self._camera_group = QGroupBox("Per-Camera Metrics")
@@ -87,7 +93,8 @@ class QualityPanel(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
-        self._table.setMaximumHeight(150)
+        # Set minimum height to show ~4 rows comfortably, no max so it can expand
+        self._table.setMinimumHeight(120)
 
         camera_layout.addWidget(self._table)
         layout.addWidget(self._camera_group)

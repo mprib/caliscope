@@ -52,20 +52,34 @@ class ExtrinsicCalibrationState(Enum):
 class FilterPreviewData:
     """Data for filter UI showing translation between modes.
 
-    Maps percentile-to-remove to corresponding pixel threshold.
-    E.g., {5: 1.23} means "removing worst 5% would remove observations
-    with error > 1.23 pixels".
+    Provides bidirectional preview:
+    - threshold_at_percentile: percentile-to-remove → pixel threshold
+    - errors: raw error array for computing percentile at any threshold
     """
 
     total_observations: int
     mean_error: float
     # Maps percentile-to-remove → pixel threshold
     threshold_at_percentile: dict[int, float]
+    # Raw errors for computing reverse lookup (threshold → percentile)
+    errors: tuple[float, ...]
 
     @classmethod
     def empty(cls) -> FilterPreviewData:
         """Create empty preview data."""
-        return cls(total_observations=0, mean_error=0.0, threshold_at_percentile={})
+        return cls(
+            total_observations=0,
+            mean_error=0.0,
+            threshold_at_percentile={},
+            errors=(),
+        )
+
+    def percent_above_threshold(self, threshold: float) -> float:
+        """Compute what percentage of observations exceed the threshold."""
+        if len(self.errors) == 0:
+            return 0.0
+        count_above = sum(1 for e in self.errors if e > threshold)
+        return 100.0 * count_above / len(self.errors)
 
 
 @dataclass(frozen=True)
@@ -359,8 +373,9 @@ class ExtrinsicCalibrationPresenter(QObject):
     def get_filter_preview(self) -> FilterPreviewData:
         """Get error stats for filter UI.
 
-        Returns data allowing the View to show translation between filter modes.
-        E.g., "Removing 5% would remove observations with error > 1.23px"
+        Returns data allowing the View to show translation between filter modes:
+        - Percentile mode: "Removing 5% would remove observations > 1.23px"
+        - Absolute mode: "Removing observations > 1.0px would filter 3.2%"
         """
         if self._bundle is None:
             return FilterPreviewData.empty()
@@ -373,9 +388,15 @@ class ExtrinsicCalibrationPresenter(QObject):
             total_observations=len(errors),
             mean_error=float(np.mean(errors)),
             threshold_at_percentile={
-                5: float(np.percentile(errors, 95)),  # Worst 5% have error > this
-                10: float(np.percentile(errors, 90)),  # Worst 10% have error > this
+                1: float(np.percentile(errors, 99)),
+                2: float(np.percentile(errors, 98)),
+                3: float(np.percentile(errors, 97)),
+                5: float(np.percentile(errors, 95)),
+                10: float(np.percentile(errors, 90)),
+                15: float(np.percentile(errors, 85)),
+                20: float(np.percentile(errors, 80)),
             },
+            errors=tuple(float(e) for e in errors),
         )
 
     # -------------------------------------------------------------------------
@@ -419,6 +440,10 @@ class ExtrinsicCalibrationPresenter(QObject):
     def set_sync_index(self, index: int) -> None:
         """Update current frame for 3D view.
 
+        Note: This only updates the presenter's internal tracking of the current
+        sync index. It does NOT emit view_model_updated - the view should directly
+        update the PyVista widget for efficient frame-by-frame rendering.
+
         Args:
             index: Sync index to display
         """
@@ -436,7 +461,8 @@ class ExtrinsicCalibrationPresenter(QObject):
             index = int(sync_indices.max())
 
         self._current_sync_index = index
-        self._emit_view_model_updated()
+        # Note: No view_model_updated emission here - frame changes are
+        # handled directly by the view calling widget.set_sync_index()
 
     # -------------------------------------------------------------------------
     # Lifecycle

@@ -70,70 +70,163 @@ class ExtrinsicCalibrationView(QWidget):
     # -------------------------------------------------------------------------
 
     def _setup_ui(self) -> None:
-        """Build the UI layout."""
+        """Build the UI layout.
+
+        Layout (top to bottom):
+        1. Action bar (single button + progress) - workflow entry point
+        2. 3D visualization
+        3. Frame slider (directly under viz for consistency with reconstruction tab)
+        4. Transform controls (filter, coordinate frame)
+        5. Quality panel
+        """
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(4, 4, 4, 4)
         main_layout.setSpacing(4)
 
-        # Vertical splitter: 3D view on top, controls below
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        main_layout.addWidget(splitter)
+        # Row 1: Action bar at top (workflow entry point)
+        action_bar = self._create_action_bar()
+        main_layout.addWidget(action_bar)
 
-        # Top: 3D visualization container
+        # Vertical splitter: 3D view + slider on top, controls below
+        self._splitter = QSplitter(Qt.Orientation.Vertical)
+        main_layout.addWidget(self._splitter)
+
+        # Top: 3D visualization + frame slider
         viz_container = QWidget()
         viz_layout = QVBoxLayout(viz_container)
         viz_layout.setContentsMargins(0, 0, 0, 0)
+        viz_layout.setSpacing(4)
         self._viz_layout = viz_layout  # Store for lazy PyVista widget insertion
-        splitter.addWidget(viz_container)
 
-        # Bottom: controls panel
+        # Placeholder shown until PyVista widget is created
+        self._viz_placeholder = QLabel("Run calibration to see 3D visualization")
+        self._viz_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._viz_placeholder.setStyleSheet(
+            "QLabel { color: #888; font-size: 14px; "
+            "background-color: #2a2a2a; border: 1px dashed #555; border-radius: 4px; }"
+        )
+        self._viz_placeholder.setFixedHeight(150)  # Compact, doesn't stretch
+        viz_layout.addWidget(self._viz_placeholder)
+
+        # Frame slider directly under 3D viz
+        frame_widget = self._create_frame_slider()
+        viz_layout.addWidget(frame_widget)
+        self._splitter.addWidget(viz_container)
+
+        # Bottom: transform controls + quality panel
         controls_panel = self._create_controls_panel()
-        splitter.addWidget(controls_panel)
+        self._splitter.addWidget(controls_panel)
 
-        # Set splitter sizes (visualization gets 70%, controls 30%)
-        splitter.setSizes([700, 300])
-        splitter.setStretchFactor(0, 3)  # Visualization stretches more
-        splitter.setStretchFactor(1, 1)
+        # Initial sizes favor controls (placeholder is small)
+        # Will be updated when PyVista widget is created
+        self._splitter.setSizes([200, 600])
+        self._splitter.setStretchFactor(0, 1)
+        self._splitter.setStretchFactor(1, 2)
+
+    def _create_action_bar(self) -> QWidget:
+        """Create the action bar with single action button + progress.
+
+        The action button changes based on state:
+        - NEEDS_BOOTSTRAP: "Calibrate"
+        - OPTIMIZING: "Cancel"
+        - CALIBRATED: "Re-optimize"
+        """
+        bar = QWidget()
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(8)
+
+        # Single action button (text changes with state)
+        self._action_btn = QPushButton("Calibrate")
+        self._action_btn.setMinimumWidth(120)
+        layout.addWidget(self._action_btn)
+
+        # Progress section: bar first, then text
+        progress_container = QWidget()
+        progress_container.setMinimumWidth(450)  # Min width, can expand
+        progress_layout = QHBoxLayout(progress_container)
+        progress_layout.setContentsMargins(0, 0, 0, 0)
+        progress_layout.setSpacing(8)
+
+        self._progress_bar = QProgressBar()
+        self._progress_bar.setRange(0, 100)
+        self._progress_bar.setFixedWidth(180)
+        progress_layout.addWidget(self._progress_bar)
+
+        self._progress_label = QLabel("")
+        self._progress_label.setMinimumWidth(250)  # Room for longer messages
+        progress_layout.addWidget(self._progress_label, stretch=1)
+
+        layout.addWidget(progress_container)
+        self._progress_container = progress_container
+        self._progress_container.hide()  # Hidden until optimizing
+
+        layout.addStretch()
+        return bar
+
+    def _create_frame_slider(self) -> QWidget:
+        """Create the frame slider widget."""
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(4, 4, 4, 4)
+
+        layout.addWidget(QLabel("Frame:"))
+
+        self._frame_slider = QSlider(Qt.Orientation.Horizontal)
+        self._frame_slider.setMinimum(0)
+        self._frame_slider.setMaximum(0)
+        self._frame_slider.setEnabled(False)
+        layout.addWidget(self._frame_slider, stretch=1)
+
+        self._frame_display = QLabel("0 / 0")
+        self._frame_display.setMinimumWidth(80)
+        layout.addWidget(self._frame_display)
+
+        return widget
 
     def _create_controls_panel(self) -> QWidget:
-        """Create the bottom controls panel."""
+        """Create the bottom controls panel (coord frame, quality, filter)."""
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(8)
 
-        # Row 1: Action buttons + progress
-        action_layout = QHBoxLayout()
-        action_layout.setSpacing(8)
+        # Row 1: Coordinate frame controls
+        self._coord_frame_group = QGroupBox("Coordinate Frame")
+        coord_layout = QHBoxLayout(self._coord_frame_group)
 
-        self._calibrate_btn = QPushButton("Calibrate")
-        self._calibrate_btn.setMinimumWidth(100)
-        action_layout.addWidget(self._calibrate_btn)
+        # Rotation buttons
+        rotation_data = [
+            ("X+", "x", 90),
+            ("X−", "x", -90),
+            ("Y+", "y", 90),
+            ("Y−", "y", -90),
+            ("Z+", "z", 90),
+            ("Z−", "z", -90),
+        ]
 
-        self._reoptimize_btn = QPushButton("Re-optimize")
-        self._reoptimize_btn.setMinimumWidth(100)
-        action_layout.addWidget(self._reoptimize_btn)
+        for label, axis, degrees in rotation_data:
+            btn = QPushButton(label)
+            btn.setMaximumWidth(40)
+            btn.clicked.connect(lambda checked, a=axis, d=degrees: self._on_rotate_clicked(a, d))
+            coord_layout.addWidget(btn)
 
-        action_layout.addStretch()
+        coord_layout.addSpacing(20)
 
-        self._progress_bar = QProgressBar()
-        self._progress_bar.setRange(0, 100)
-        self._progress_bar.setMinimumWidth(200)
-        self._progress_bar.hide()
-        action_layout.addWidget(self._progress_bar)
+        self._set_origin_btn = QPushButton("Set Origin")
+        self._set_origin_btn.setToolTip("Set world origin to charuco position at current frame")
+        coord_layout.addWidget(self._set_origin_btn)
 
-        self._progress_label = QLabel("")
-        self._progress_label.hide()
-        action_layout.addWidget(self._progress_label)
+        coord_layout.addStretch()
 
-        self._cancel_btn = QPushButton("Cancel")
-        self._cancel_btn.hide()
-        action_layout.addWidget(self._cancel_btn)
+        layout.addWidget(self._coord_frame_group)
 
-        layout.addLayout(action_layout)
+        # Row 2: Quality panel
+        self._quality_panel = QualityPanel()
+        layout.addWidget(self._quality_panel)
 
-        # Row 2: Filter controls
-        self._filter_group = QGroupBox("Filter")
+        # Row 3: Filter controls (at bottom - action taken after reviewing metrics)
+        self._filter_group = QGroupBox("Filter Outliers")
         filter_layout = QHBoxLayout(self._filter_group)
 
         filter_layout.addWidget(QLabel("Mode:"))
@@ -165,57 +258,6 @@ class ExtrinsicCalibrationView(QWidget):
 
         layout.addWidget(self._filter_group)
 
-        # Row 3: Coordinate frame controls
-        self._coord_frame_group = QGroupBox("Coordinate Frame")
-        coord_layout = QHBoxLayout(self._coord_frame_group)
-
-        # Rotation buttons
-        rotation_data = [
-            ("X+", "x", 90),
-            ("X−", "x", -90),
-            ("Y+", "y", 90),
-            ("Y−", "y", -90),
-            ("Z+", "z", 90),
-            ("Z−", "z", -90),
-        ]
-
-        for label, axis, degrees in rotation_data:
-            btn = QPushButton(label)
-            btn.setMaximumWidth(40)
-            btn.clicked.connect(lambda checked, a=axis, d=degrees: self._on_rotate_clicked(a, d))
-            coord_layout.addWidget(btn)
-
-        coord_layout.addSpacing(20)
-
-        self._set_origin_btn = QPushButton("Set Origin")
-        self._set_origin_btn.setToolTip("Set world origin to charuco position at current frame")
-        coord_layout.addWidget(self._set_origin_btn)
-
-        coord_layout.addStretch()
-
-        layout.addWidget(self._coord_frame_group)
-
-        # Row 4: Frame slider
-        frame_layout = QHBoxLayout()
-
-        frame_layout.addWidget(QLabel("Frame:"))
-
-        self._frame_slider = QSlider(Qt.Orientation.Horizontal)
-        self._frame_slider.setMinimum(0)
-        self._frame_slider.setMaximum(0)
-        self._frame_slider.setEnabled(False)
-        frame_layout.addWidget(self._frame_slider, stretch=1)
-
-        self._frame_display = QLabel("0 / 0")
-        self._frame_display.setMinimumWidth(80)
-        frame_layout.addWidget(self._frame_display)
-
-        layout.addLayout(frame_layout)
-
-        # Row 5: Quality panel
-        self._quality_panel = QualityPanel()
-        layout.addWidget(self._quality_panel)
-
         return panel
 
     # -------------------------------------------------------------------------
@@ -231,9 +273,7 @@ class ExtrinsicCalibrationView(QWidget):
         self._presenter.view_model_updated.connect(self._on_view_model_updated)
 
         # View → Presenter
-        self._calibrate_btn.clicked.connect(self._on_calibrate_clicked)
-        self._reoptimize_btn.clicked.connect(self._presenter.re_optimize)
-        self._cancel_btn.clicked.connect(self._on_cancel_clicked)
+        self._action_btn.clicked.connect(self._on_action_clicked)
         self._filter_apply_btn.clicked.connect(self._on_filter_apply_clicked)
         self._filter_mode.currentIndexChanged.connect(self._on_filter_mode_changed)
         self._filter_value.valueChanged.connect(self._on_filter_value_changed)
@@ -249,24 +289,34 @@ class ExtrinsicCalibrationView(QWidget):
 
         Single handler that derives entire UI from current state.
         Prevents state/UI divergence - there's no stored UI state.
+
+        Action button behavior:
+        - NEEDS_BOOTSTRAP: "Calibrate" (enabled)
+        - OPTIMIZING: "Cancel" (enabled)
+        - CALIBRATED: "Re-optimize" (enabled)
         """
-        # Determine capabilities for current state
-        can_calibrate = state == ExtrinsicCalibrationState.NEEDS_BOOTSTRAP
-        can_reoptimize = state == ExtrinsicCalibrationState.CALIBRATED
         is_running = state == ExtrinsicCalibrationState.OPTIMIZING
         has_bundle = state in (
             ExtrinsicCalibrationState.NEEDS_OPTIMIZATION,
             ExtrinsicCalibrationState.CALIBRATED,
         )
 
-        # Action buttons
-        self._calibrate_btn.setEnabled(can_calibrate)
-        self._reoptimize_btn.setEnabled(can_reoptimize)
+        # Single action button - text and behavior changes with state
+        if state == ExtrinsicCalibrationState.NEEDS_BOOTSTRAP:
+            self._action_btn.setText("Calibrate")
+            self._action_btn.setEnabled(True)
+        elif state == ExtrinsicCalibrationState.OPTIMIZING:
+            self._action_btn.setText("Cancel")
+            self._action_btn.setEnabled(True)
+        elif state == ExtrinsicCalibrationState.CALIBRATED:
+            self._action_btn.setText("Re-optimize")
+            self._action_btn.setEnabled(True)
+        else:  # NEEDS_OPTIMIZATION
+            self._action_btn.setText("Optimize")
+            self._action_btn.setEnabled(True)
 
-        # Progress and cancel visibility
-        self._progress_bar.setVisible(is_running)
-        self._progress_label.setVisible(is_running)
-        self._cancel_btn.setVisible(is_running)
+        # Progress visibility (only when running)
+        self._progress_container.setVisible(is_running)
 
         # Controls enabled only when we have bundle data
         self._filter_group.setEnabled(has_bundle)
@@ -283,13 +333,18 @@ class ExtrinsicCalibrationView(QWidget):
     # Slot Methods
     # -------------------------------------------------------------------------
 
-    def _on_calibrate_clicked(self) -> None:
-        """Handle calibrate button click."""
-        self._presenter.run_calibration()
+    def _on_action_clicked(self) -> None:
+        """Handle action button click - behavior depends on current state."""
+        state = self._presenter.state
 
-    def _on_cancel_clicked(self) -> None:
-        """Handle cancel button click."""
-        self._presenter.cleanup()
+        if state == ExtrinsicCalibrationState.NEEDS_BOOTSTRAP:
+            self._presenter.run_calibration()
+        elif state == ExtrinsicCalibrationState.OPTIMIZING:
+            self._presenter.cleanup()
+        elif state == ExtrinsicCalibrationState.CALIBRATED:
+            self._presenter.re_optimize()
+        elif state == ExtrinsicCalibrationState.NEEDS_OPTIMIZATION:
+            self._presenter.re_optimize()
 
     def _on_filter_apply_clicked(self) -> None:
         """Handle filter apply button click."""
@@ -316,7 +371,12 @@ class ExtrinsicCalibrationView(QWidget):
         self._update_filter_preview()
 
     def _update_filter_preview(self) -> None:
-        """Update the filter preview label based on current settings."""
+        """Update the filter preview label based on current settings.
+
+        Shows bidirectional translation:
+        - Percentile mode: shows the pixel threshold
+        - Absolute mode: shows the percentage that would be removed
+        """
         preview_data = self._presenter.get_filter_preview()
 
         if preview_data.total_observations == 0:
@@ -327,18 +387,22 @@ class ExtrinsicCalibrationView(QWidget):
         value = self._filter_value.value()
 
         if is_percentile:
-            # Get threshold for the percentile we're removing
+            # Percentile mode: show pixel threshold for this percentile
             int_pct = int(value)
             # Find closest available percentile
             if int_pct in preview_data.threshold_at_percentile:
                 threshold = preview_data.threshold_at_percentile[int_pct]
                 self._filter_preview_label.setText(f"Removes observations > {threshold:.2f} px")
             else:
-                # Show mean for rough estimate
-                self._filter_preview_label.setText(f"Mean error: {preview_data.mean_error:.2f} px")
+                # Interpolate or show closest
+                available = sorted(preview_data.threshold_at_percentile.keys())
+                closest = min(available, key=lambda x: abs(x - int_pct))
+                threshold = preview_data.threshold_at_percentile[closest]
+                self._filter_preview_label.setText(f"~{closest}% removes > {threshold:.2f} px")
         else:
-            # Absolute mode - show what we'd remove
-            self._filter_preview_label.setText(f"Removes observations > {value:.2f} px")
+            # Absolute mode: show what percentage would be removed
+            pct_removed = preview_data.percent_above_threshold(value)
+            self._filter_preview_label.setText(f"Removes {pct_removed:.1f}% of observations")
 
     def _on_rotate_clicked(self, axis: str, degrees: float) -> None:
         """Handle rotation button click."""
@@ -350,7 +414,15 @@ class ExtrinsicCalibrationView(QWidget):
         self._presenter.align_to_origin(sync_index)
 
     def _on_frame_slider_changed(self, value: int) -> None:
-        """Handle frame slider value change."""
+        """Handle frame slider value change.
+
+        Directly updates the PyVista widget's sync_index for efficient rendering.
+        Also updates presenter's internal tracking (for align_to_origin, etc.)
+        but the presenter no longer emits view_model_updated for frame changes.
+        """
+        if self._pyvista_widget is not None:
+            self._pyvista_widget.set_sync_index(value)
+        # Keep presenter's internal state in sync (no signal emission)
         self._presenter.set_sync_index(value)
         self._update_frame_display()
 
@@ -368,11 +440,24 @@ class ExtrinsicCalibrationView(QWidget):
         """Handle view model update from presenter."""
         # Create PyVista widget on first use (lazy initialization)
         if self._pyvista_widget is None:
+            # Hide placeholder, show real widget
+            self._viz_placeholder.hide()
+
             self._pyvista_widget = PlaybackTriangulationWidgetPyVista(view_model)
             self._pyvista_widget.show_playback_controls(False)  # We have our own slider
-            self._viz_layout.addWidget(self._pyvista_widget)
+            # Insert at index 0 so it appears ABOVE the frame slider
+            self._viz_layout.insertWidget(0, self._pyvista_widget)
+            # PyVista widget should stretch to fill space
+            self._viz_layout.setStretchFactor(self._pyvista_widget, 1)
+
+            # Now that we have a 3D widget, give it more splitter space
+            self._splitter.setSizes([700, 300])
+            self._splitter.setStretchFactor(0, 3)
+            self._splitter.setStretchFactor(1, 1)
         else:
-            self._pyvista_widget.set_view_model(view_model)
+            # Updating existing widget (coordinate transforms, re-optimization)
+            # Preserve camera position so user doesn't lose their view
+            self._pyvista_widget.set_view_model(view_model, preserve_camera=True)
 
         # Update slider range from view model
         n_frames = view_model.max_index - view_model.min_index + 1 if view_model.has_points else 0

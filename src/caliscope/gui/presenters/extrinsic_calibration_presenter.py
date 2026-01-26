@@ -464,6 +464,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         self._emit_state_changed()
         self._emit_quality_updated()
+        self._emit_view_model_updated()
         self.calibration_complete.emit(bundle)
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
@@ -516,13 +517,18 @@ class ExtrinsicCalibrationPresenter(QObject):
         self.quality_updated.emit(quality_data)
 
     def _emit_view_model_updated(self) -> None:
-        """Build and emit PlaybackViewModel for 3D visualization.
+        """Build and emit PlaybackViewModel for 3D visualization."""
+        if self._bundle is None:
+            return
 
-        Currently a stub - will be implemented when 3D view is wired up.
-        The view_model_updated signal is declared but View isn't built yet.
-        """
-        # TODO: Build PlaybackViewModel from bundle and current_sync_index
-        pass
+        # Import here to avoid circular dependency at module level
+        from caliscope.ui.viz.playback_view_model import PlaybackViewModel
+
+        view_model = PlaybackViewModel(
+            camera_array=self._bundle.camera_array,
+            world_points=self._bundle.world_points,
+        )
+        self.view_model_updated.emit(view_model)
 
     def _submit_optimization(self, bundle: PointDataBundle) -> None:
         """Submit bundle optimization as background task.

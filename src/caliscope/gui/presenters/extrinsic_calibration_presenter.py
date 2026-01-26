@@ -15,7 +15,9 @@ from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
+from typing import Literal
 
+import numpy as np
 from PySide6.QtCore import QObject, Signal
 
 from caliscope.cameras.camera_array import CameraArray
@@ -332,7 +334,12 @@ class ExtrinsicCalibrationPresenter(QObject):
         Args:
             percentile: Percentage of worst observations to remove (0-100)
         """
-        raise NotImplementedError("Implemented in Subphase 4.3")
+        if self._bundle is None:
+            return
+
+        filtered = self._bundle.filter_by_percentile_error(percentile)
+        logger.info(f"Filtered {percentile}% worst observations, {len(filtered.image_points.df)} remaining")
+        self._submit_optimization(filtered)
 
     def filter_by_threshold(self, max_error_pixels: float) -> None:
         """Filter observations above threshold and re-optimize.
@@ -340,7 +347,12 @@ class ExtrinsicCalibrationPresenter(QObject):
         Args:
             max_error_pixels: Maximum reprojection error in pixels to keep
         """
-        raise NotImplementedError("Implemented in Subphase 4.3")
+        if self._bundle is None:
+            return
+
+        filtered = self._bundle.filter_by_absolute_error(max_error_pixels)
+        logger.info(f"Filtered to error < {max_error_pixels}px, {len(filtered.image_points.df)} remaining")
+        self._submit_optimization(filtered)
 
     def get_filter_preview(self) -> FilterPreviewData:
         """Get error stats for filter UI.
@@ -348,7 +360,21 @@ class ExtrinsicCalibrationPresenter(QObject):
         Returns data allowing the View to show translation between filter modes.
         E.g., "Removing 5% would remove observations with error > 1.23px"
         """
-        raise NotImplementedError("Implemented in Subphase 4.3")
+        if self._bundle is None:
+            return FilterPreviewData.empty()
+
+        report = self._bundle.reprojection_report
+        # Use to_numpy() for type safety - .values can return ExtensionArray
+        errors = report.raw_errors["euclidean_error"].to_numpy()
+
+        return FilterPreviewData(
+            total_observations=len(errors),
+            mean_error=float(np.mean(errors)),
+            threshold_at_percentile={
+                5: float(np.percentile(errors, 95)),  # Worst 5% have error > this
+                10: float(np.percentile(errors, 90)),  # Worst 10% have error > this
+            },
+        )
 
     # -------------------------------------------------------------------------
     # Coordinate Frame Operations (Implemented in 4.3)
@@ -361,7 +387,15 @@ class ExtrinsicCalibrationPresenter(QObject):
             axis: "x", "y", or "z"
             degrees: Rotation angle in degrees (positive = counter-clockwise)
         """
-        raise NotImplementedError("Implemented in Subphase 4.3")
+        if self._bundle is None:
+            return
+
+        # PointDataBundle.rotate() expects Literal["x", "y", "z"]
+        # The domain method validates the axis value
+        axis_typed: Literal["x", "y", "z"] = axis  # type: ignore[assignment]
+        new_bundle = self._bundle.rotate(axis_typed, degrees)
+        logger.info(f"Rotated coordinate frame {degrees}° around {axis}-axis")
+        self._update_bundle(new_bundle)
 
     def align_to_origin(self, sync_index: int) -> None:
         """Set world origin to board position at sync_index.
@@ -369,7 +403,12 @@ class ExtrinsicCalibrationPresenter(QObject):
         Args:
             sync_index: Frame index where board position defines origin
         """
-        raise NotImplementedError("Implemented in Subphase 4.3")
+        if self._bundle is None:
+            return
+
+        new_bundle = self._bundle.align_to_object(sync_index)
+        logger.info(f"Aligned world origin to charuco at sync_index={sync_index}")
+        self._update_bundle(new_bundle)
 
     # -------------------------------------------------------------------------
     # View Control (Implemented in 4.3)
@@ -381,7 +420,21 @@ class ExtrinsicCalibrationPresenter(QObject):
         Args:
             index: Sync index to display
         """
-        raise NotImplementedError("Implemented in Subphase 4.3")
+        if self._bundle is None:
+            return
+
+        # Clamp to valid range
+        sync_indices = self._bundle.unique_sync_indices
+        if len(sync_indices) == 0:
+            return
+
+        if index < sync_indices.min():
+            index = int(sync_indices.min())
+        elif index > sync_indices.max():
+            index = int(sync_indices.max())
+
+        self._current_sync_index = index
+        self._emit_view_model_updated()
 
     # -------------------------------------------------------------------------
     # Lifecycle
@@ -461,3 +514,54 @@ class ExtrinsicCalibrationPresenter(QObject):
         )
 
         self.quality_updated.emit(quality_data)
+
+    def _emit_view_model_updated(self) -> None:
+        """Build and emit PlaybackViewModel for 3D visualization.
+
+        Currently a stub - will be implemented when 3D view is wired up.
+        The view_model_updated signal is declared but View isn't built yet.
+        """
+        # TODO: Build PlaybackViewModel from bundle and current_sync_index
+        pass
+
+    def _submit_optimization(self, bundle: PointDataBundle) -> None:
+        """Submit bundle optimization as background task.
+
+        Used by filter methods to avoid duplicating task setup code.
+        After filtering, the bundle needs re-optimization to update
+        camera extrinsics and world points.
+
+        Args:
+            bundle: Filtered bundle to optimize
+        """
+        if self._is_task_active():
+            logger.warning("Cannot start optimization: task already running")
+            return
+
+        def worker(token: CancellationToken, handle: TaskHandle) -> PointDataBundle:
+            handle.report_progress(10, "Running optimization")
+            optimized = bundle.optimize(ftol=1e-8, verbose=0)
+            handle.report_progress(100, "Complete")
+            logger.info(f"Post-filter optimization RMSE: {optimized.reprojection_report.overall_rmse:.3f}px")
+            return optimized
+
+        self._task_handle = self._task_manager.submit(worker, name="Optimize bundle")
+        self._task_handle.completed.connect(self._on_calibration_complete)
+        self._task_handle.failed.connect(self._on_calibration_failed)
+        self._task_handle.cancelled.connect(self._on_calibration_cancelled)
+        self._emit_state_changed()
+
+    def _update_bundle(self, bundle: PointDataBundle) -> None:
+        """Update internal bundle and emit signals.
+
+        Called after synchronous bundle-modifying operations (rotate, align).
+        These operations don't change the optimization status, just transform
+        the coordinate frame.
+
+        Args:
+            bundle: New bundle after transformation
+        """
+        self._bundle = bundle
+        self._emit_quality_updated()
+        self._emit_view_model_updated()
+        self.calibration_complete.emit(bundle)

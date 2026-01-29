@@ -71,7 +71,6 @@ class WorkspaceCoordinator(QObject):
     capture_volume_shifted = Signal()
     bundle_updated = Signal()  # PointDataBundle changed (new system, parallel to CaptureVolume)
     enable_inputs = Signal(int, bool)  # port, enable
-    show_synched_frames = Signal()
     extrinsic_image_points_ready = Signal()  # Emitted after 2D extraction completes (enables Tab 2)
 
     def __init__(self, workspace_dir: Path):
@@ -649,6 +648,12 @@ class WorkspaceCoordinator(QObject):
     def calibrate_capture_volume(self) -> TaskHandle:
         """Perform full extrinsic calibration in worker thread.
 
+        DEPRECATED: This method is part of the old extrinsic calibration workflow.
+        The new workflow uses:
+        - MultiCameraProcessingPresenter for 2D extraction
+        - ExtrinsicCalibrationPresenter for bundle adjustment
+        Will be removed once we confirm no external callers exist.
+
         Returns:
             TaskHandle for connecting completion callbacks.
         """
@@ -669,9 +674,6 @@ class WorkspaceCoordinator(QObject):
                 logger.info(
                     f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
                 )
-
-                logger.info("About to signal that synched frames should be shown")
-                self.show_synched_frames.emit()
 
                 # Cancellable wait for tracked points
                 while not output_path.exists():

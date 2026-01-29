@@ -497,6 +497,19 @@ class ExtrinsicCalibrationPresenter(QObject):
     # Lifecycle
     # -------------------------------------------------------------------------
 
+    def update_charuco(self, charuco: Charuco) -> None:
+        """Update charuco reference for alignment operations.
+
+        Hot-swaps the charuco reference when config changes. The charuco
+        is only used for align_to_origin() to set the coordinate frame,
+        so this has no immediate visible effect.
+
+        Args:
+            charuco: New charuco configuration.
+        """
+        self._charuco = charuco
+        logger.info("Charuco updated")
+
     def cleanup(self) -> None:
         """Clean up resources. Call before discarding presenter."""
         if self._task_handle is not None:

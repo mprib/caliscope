@@ -326,6 +326,26 @@ class MultiCameraProcessingPresenter(QObject):
     # Lifecycle
     # -------------------------------------------------------------------------
 
+    def update_tracker(self, tracker: Tracker) -> None:
+        """Update tracker for next processing run.
+
+        Hot-swaps the tracker reference when charuco config changes. Clears
+        any existing results (old tracker's point IDs are stale).
+
+        Cannot be called during PROCESSING state - must cancel first.
+
+        Args:
+            tracker: New tracker to use for subsequent processing.
+        """
+        if self.state == MultiCameraProcessingState.PROCESSING:
+            logger.warning("Cannot update tracker while processing")
+            return
+
+        self._tracker = tracker
+        self._reset_results()
+        logger.info("Tracker updated, cleared previous results")
+        self._emit_state_changed()
+
     def cleanup(self) -> None:
         """Clean up resources. Call before discarding presenter."""
         if self._is_task_active() and self._task_handle is not None:

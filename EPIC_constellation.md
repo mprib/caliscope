@@ -14,7 +14,7 @@
 - UI polish: Remove emoji indicators, clean up RMSE display
 - Cleanup: Remove broken widgets, update to new report structures
 
-**Current phase:** Phase 5 (Cleanup)
+**Current phase:** Phase 6 (Performance Fix)
 
 **Key files:**
 | Purpose | Location |
@@ -181,11 +181,41 @@ Feedback from hands-on testing. Layout and cosmetic changes to ExtrinsicCalibrat
 - Coverage updates after filtering operations
 - MIN_CELL_SIZE=35px for readability at any camera count
 
-### Phase 5: Cleanup (2-3 hrs)
-- [ ] **5.1** Remove broken widgets
-  - `SyncedFramesDisplay`, `ExtrinsicPlaybackWidget`, `FrameDictionaryEmitter`
-- [ ] **5.2** Update documentation
-- [ ] **5.3** Final test suite run
+### Phase 5: Project Tab & Legacy Removal ✓
+Reframed from simple cleanup. The workspace_widget imports legacy code (SyncedFramesDisplay), revealing it's tangled with old architecture. Rather than patch, redesign as a proper "Project" tab.
+
+**Completed:**
+- [x] `WorkflowStatus` dataclass + `get_workflow_status()` on Coordinator
+- [x] `CharucoConfigPanel` extracted as reusable widget
+- [x] `ProjectSetupView` — workflow checklist + charuco config (View-to-Coordinator, no Presenter)
+- [x] Tab integration — "Project" tab replaces Workspace + Charuco
+- [x] Legacy removal — 829 lines deleted (5 widget files)
+- [x] Coordinator cleanup — `show_synched_frames` signal removed
+- [x] Verification — 283 tests pass
+
+**Spec:** `specs/phase5-project-tab-legacy-removal.md`
+
+**Key architectural decision:** Project tab wires directly to Coordinator (no Presenter) because it's a status observer, not a workflow orchestrator.
+
+### Phase 6: Charuco Config Performance Fix ← CURRENT
+**Problem discovered during testing:**
+Changing charuco board config (rows/cols spinbox) causes severe GUI freeze. The signal cascade appears to trigger a full application rebuild:
+1. Spinbox change → `charuco_changed` signal
+2. Signal triggers Coordinator to reload/recreate presenters
+3. All tabs get rebuilt, not just the charuco preview
+
+**Expected behavior:** Near-instantaneous preview update (how the old CharucoWidget worked).
+
+**Root cause investigation needed:**
+- Trace signal chain from `CharucoConfigPanel.config_changed` → Coordinator → subscribers
+- Identify why presenters are being recreated instead of just updated
+- May need debouncing, or separation between "preview update" and "persist to coordinator"
+
+**Potential fixes:**
+- [ ] Decouple preview update from coordinator notification
+- [ ] Add debouncing to config changes (only persist after user stops changing)
+- [ ] Audit `charuco_changed` signal subscribers for over-reaction
+- [ ] Consider intermediate "draft" state before committing to coordinator
 
 ---
 

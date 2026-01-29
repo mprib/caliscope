@@ -24,6 +24,7 @@ from caliscope.repositories import (
 )
 from caliscope.repositories.point_data_bundle_repository import PointDataBundleRepository
 from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.workflow_status import WorkflowStatus
 from caliscope.persistence import PersistenceError
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
 from caliscope.reconstruction.reconstructor import Reconstructor
@@ -70,7 +71,6 @@ class WorkspaceCoordinator(QObject):
     capture_volume_shifted = Signal()
     bundle_updated = Signal()  # PointDataBundle changed (new system, parallel to CaptureVolume)
     enable_inputs = Signal(int, bool)  # port, enable
-    show_synched_frames = Signal()
     extrinsic_image_points_ready = Signal()  # Emitted after 2D extraction completes (enables Tab 2)
 
     def __init__(self, workspace_dir: Path):
@@ -235,6 +235,45 @@ class WorkspaceCoordinator(QObject):
         """Check if any valid recording directories exist."""
         return len(self.workspace_guide.valid_recording_dirs()) > 0
 
+    def get_workflow_status(self) -> WorkflowStatus:
+        """Compute current workflow status from ground truth.
+
+        This method queries the filesystem and domain objects to build
+        a status snapshot. Called by the Project tab whenever it refreshes.
+        """
+        # Expected ports: 1..camera_count (convention: ports are 1-indexed)
+        expected_ports = set(range(1, self.camera_count + 1))
+
+        # Intrinsic video availability
+        intrinsic_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.intrinsic_dir)
+        intrinsic_missing = sorted(expected_ports - set(intrinsic_ports))
+
+        # Extrinsic video availability
+        extrinsic_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.extrinsic_dir)
+        extrinsic_missing = sorted(expected_ports - set(extrinsic_ports))
+
+        # Cameras needing intrinsic calibration
+        cameras_needing = [port for port, cam in self.camera_array.cameras.items() if cam.matrix is None]
+
+        # 2D extraction complete check
+        image_points_path = self.workspace_guide.extrinsic_dir / "CHARUCO" / "image_points.csv"
+        extraction_complete = image_points_path.exists()
+
+        return WorkflowStatus(
+            camera_count=self.camera_count,
+            charuco_configured=True,
+            intrinsic_videos_available=len(intrinsic_missing) == 0,
+            intrinsic_videos_missing=intrinsic_missing,
+            intrinsic_calibration_complete=self.camera_array.all_intrinsics_calibrated(),
+            cameras_needing_calibration=cameras_needing,
+            extrinsic_videos_available=len(extrinsic_missing) == 0,
+            extrinsic_videos_missing=extrinsic_missing,
+            extrinsic_2d_extraction_complete=extraction_complete,
+            extrinsic_calibration_complete=self.all_extrinsics_estimated(),
+            recordings_available=self.recordings_available(),
+            recording_names=self.workspace_guide.valid_recording_dirs(),
+        )
+
     def update_charuco(self, charuco: Charuco):
         """
         Update charuco board definition and persist to disk.
@@ -246,6 +285,18 @@ class WorkspaceCoordinator(QObject):
         self.charuco_repository.save(self.charuco)
         self.charuco_tracker = CharucoTracker(self.charuco)
         self.charuco_changed.emit()
+
+    def create_tracker(self) -> CharucoTracker:
+        """Create a tracker configured for the current charuco board.
+
+        Factory method for tabs that need to hot-swap trackers when charuco
+        config changes. Returns a fresh CharucoTracker instance using the
+        current charuco definition.
+
+        Returns:
+            CharucoTracker configured with the current charuco board.
+        """
+        return CharucoTracker(self.charuco)
 
     def get_charuco_params(self) -> dict:
         return self.charuco.__dict__
@@ -609,6 +660,12 @@ class WorkspaceCoordinator(QObject):
     def calibrate_capture_volume(self) -> TaskHandle:
         """Perform full extrinsic calibration in worker thread.
 
+        DEPRECATED: This method is part of the old extrinsic calibration workflow.
+        The new workflow uses:
+        - MultiCameraProcessingPresenter for 2D extraction
+        - ExtrinsicCalibrationPresenter for bundle adjustment
+        Will be removed once we confirm no external callers exist.
+
         Returns:
             TaskHandle for connecting completion callbacks.
         """
@@ -629,9 +686,6 @@ class WorkspaceCoordinator(QObject):
                 logger.info(
                     f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
                 )
-
-                logger.info("About to signal that synched frames should be shown")
-                self.show_synched_frames.emit()
 
                 # Cancellable wait for tracked points
                 while not output_path.exists():

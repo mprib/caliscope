@@ -103,19 +103,16 @@ class CamerasTabWidget(QWidget):
         self.coordinator.charuco_changed.connect(self._on_charuco_changed)
 
     def _on_charuco_changed(self) -> None:
-        """Clear presenter pool when charuco config changes.
+        """Update tracker in all pooled presenters when charuco changes.
 
-        Presenters hold tracker references from creation time. When charuco
-        changes, the old tracker is stale — clear pool so fresh presenters
-        get the new tracker.
+        Instead of destroying/recreating presenters (expensive, causes GUI freeze),
+        we hot-swap the tracker reference in each. The streamer keeps the old
+        tracker until calibration restarts, which is acceptable.
         """
-        logger.info("Charuco changed — clearing presenter pool")
-        current_port = self._current_port
-        self.cleanup()
-
-        # Re-select current camera to recreate with fresh tracker
-        if current_port is not None:
-            self._on_camera_selected(current_port)
+        new_tracker = self.coordinator.create_tracker()
+        for port, presenter in self._presenters.items():
+            presenter.update_tracker(new_tracker)
+        logger.info(f"Updated tracker in {len(self._presenters)} pooled presenters")
 
     def _on_camera_selected(self, port: int) -> None:
         """Handle camera selection - show existing or create new presenter/widget."""

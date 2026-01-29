@@ -10,12 +10,14 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class StereoPair:
     """
-    A dataclass to hold the extrinsic parameters associated with the cv2.stereoCalibrate
-    function output. Additionally provides some convenience methods to get common transformations
-    of the data.
+    Immutable representation of a stereo calibration result between two cameras.
+
+    Encapsulates the extrinsic transformation from primary to secondary camera
+    along with the calibration error score. The transformation answers:
+    "Given a point in primary's coordinate frame, where is it in secondary's frame?"
 
     Translation is stored as a 1D array of shape (3,) for consistency across the codebase.
     This avoids shape-related broadcasting bugs in downstream operations.
@@ -30,7 +32,8 @@ class StereoPair:
     def __post_init__(self):
         """Ensure translation is always shape (3,) and rotation is (3,3)."""
         # Squeeze translation to 1D if it's (3,1) or similar from OpenCV
-        self.translation = np.squeeze(self.translation)
+        # Use object.__setattr__ because this is a frozen dataclass
+        object.__setattr__(self, "translation", np.squeeze(self.translation))
 
         # Validate shapes for early error detection
         if self.translation.shape != (3,):
@@ -52,40 +55,31 @@ class StereoPair:
         t_stack = np.vstack([self.translation.reshape(3, 1), np.array([[1]])])
         return np.hstack([R_stack, t_stack])
 
+    def inverted(self) -> StereoPair:
+        """Reverse the link direction: A->B becomes B->A.
 
-def get_inverted_stereopair(stereo_pair: StereoPair) -> StereoPair:
-    """
-    Create a StereoPair with inverted transformation (secondary->primary).
+        Error score is preserved (same measurement, different direction).
+        """
+        inverted_transformation = np.linalg.inv(self.transformation)
+        return StereoPair(
+            primary_port=self.secondary_port,
+            secondary_port=self.primary_port,
+            error_score=self.error_score,
+            rotation=inverted_transformation[0:3, 0:3],
+            translation=inverted_transformation[0:3, 3],  # Single index gives (3,) shape
+        )
 
-    The inversion operation preserves the error_score and creates a new StereoPair
-    with primary/secondary ports swapped and the transformation inverted.
-    """
-    inverted_transformation = np.linalg.inv(stereo_pair.transformation)
-    return StereoPair(
-        primary_port=stereo_pair.secondary_port,
-        secondary_port=stereo_pair.primary_port,
-        error_score=stereo_pair.error_score,
-        rotation=inverted_transformation[0:3, 0:3],
-        translation=inverted_transformation[0:3, 3],  # Use single index to get (3,) shape
-    )
+    def link(self, other: StereoPair) -> StereoPair:
+        """Extend this link through another: (A->B).link(B->C) = A->C.
 
-
-def get_bridged_stereopair(pair_A_B: StereoPair, pair_B_C: StereoPair) -> StereoPair:
-    """
-    Create a StereoPair by chaining A->B and B->C transformations.
-
-    The error_score is summed, and the transformation is the matrix product
-    of the two transformations (B_C @ A_B).
-    """
-    port_A = pair_A_B.primary_port
-    port_C = pair_B_C.secondary_port
-    A_C_error = pair_A_B.error_score + pair_B_C.error_score
-
-    bridged_transformation = np.matmul(pair_B_C.transformation, pair_A_B.transformation)
-    return StereoPair(
-        primary_port=port_A,
-        secondary_port=port_C,
-        error_score=A_C_error,
-        rotation=bridged_transformation[0:3, 0:3],
-        translation=bridged_transformation[0:3, 3],  # Use single index to get (3,) shape
-    )
+        Error scores are summed as a conservative bound for the extended link.
+        Caller is responsible for ensuring self.secondary_port == other.primary_port.
+        """
+        bridged_transformation = np.matmul(other.transformation, self.transformation)
+        return StereoPair(
+            primary_port=self.primary_port,
+            secondary_port=other.secondary_port,
+            error_score=self.error_score + other.error_score,
+            rotation=bridged_transformation[0:3, 0:3],
+            translation=bridged_transformation[0:3, 3],  # Single index gives (3,) shape
+        )

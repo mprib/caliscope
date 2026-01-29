@@ -14,7 +14,7 @@
 - UI polish: Remove emoji indicators, clean up RMSE display
 - Cleanup: Remove broken widgets, update to new report structures
 
-**Current phase:** Phase 4.7 (Legacy Removal)
+**Current phase:** Phase 5 (Cleanup)
 
 **Key files:**
 | Purpose | Location |
@@ -133,7 +133,7 @@ Iterative feedback loop using `scripts/widget_visualization/wv_multi_camera_tab.
 - [x] Coverage tooltips with dotted underline pattern
 - [x] Coverage matrix shows lower triangle only
 
-### Phase 4: Extrinsic Calibration Tab ← CURRENT
+### Phase 4: Extrinsic Calibration Tab ✓
 - [x] **4.1** Presenter skeleton
 - [x] **4.2** Calibration workflow implementation
 - [x] **4.3** Transform operations (rotate, filter, align)
@@ -141,7 +141,7 @@ Iterative feedback loop using `scripts/widget_visualization/wv_multi_camera_tab.
 - [x] **4.5** View assembly (ExtrinsicCalibrationView with all controls)
 - [x] **4.6** Tab integration (wire tab to use new presenter/view)
 - [x] **4.65** View polish & bug fixes (see details below)
-- [ ] **4.7** Legacy removal (delete ExtrinsicCalibrationWidget) ← NEXT
+- [x] **4.7** Legacy removal (delete ExtrinsicCalibrationWidget)
 
 ### Phase 4.65: View Polish & Bug Fixes ✓
 Feedback from hands-on testing. Layout and cosmetic changes to ExtrinsicCalibrationView.
@@ -220,6 +220,17 @@ Display queue pattern from `IntrinsicCalibrationPresenter`. Throttled to ~10 FPS
 
 ## Session Log
 
+### 2026-01-29: Phase 4.7 Complete - Legacy Removal
+- Deleted `src/caliscope/ui/viz/extrinsic_calibration_widget.py` (312 lines)
+- Pre-deletion verification: grep confirmed no external imports
+- Post-deletion verification: all 283 tests pass
+- Type check shows 3 pre-existing errors (unrelated to deletion):
+  - `synched_frames_display.py` has broken Optional handling (confirms 5.1 target)
+  - `__main__.py` PySide6 version attribute issue
+- Commit: `0b6bc40e refactor(gui): remove legacy ExtrinsicCalibrationWidget`
+- **Phase 4 is now complete**
+- Branch: `feature/phase4-extrinsic-calibration-tab`
+
 ### 2026-01-29: Phase 4.6 Complete + 4.65 Bug Fix + Feedback Collection
 - **Phase 4.6 Tab Integration:**
   - Added `create_extrinsic_calibration_presenter()` factory to WorkspaceCoordinator
@@ -243,30 +254,22 @@ Display queue pattern from `IntrinsicCalibrationPresenter`. Throttled to ~10 FPS
 
 Branch: `feature/phase4-extrinsic-calibration-tab`
 
-**Immediate priority: 4.7 Legacy Removal**
+**Immediate priority: Phase 5 Cleanup**
 
-Delete the old ExtrinsicCalibrationWidget that has been replaced by the new MVP implementation.
+Phase 4 is complete. The legacy `ExtrinsicCalibrationWidget` has been deleted.
 
-**File to delete:**
-- `src/caliscope/ui/viz/extrinsic_calibration_widget.py`
+**5.1: Remove broken widgets:**
+- `src/caliscope/gui/synched_frames_display.py` — type errors confirm it's broken
+- `src/caliscope/ui/extrinsic_playback_widget.py` — references non-existent attributes
+- `src/caliscope/gui/frame_dictionary_emitter.py` — unused infrastructure
 
-**Verification before deletion:**
-1. Grep for imports/references (already verified: none exist)
-2. Run full test suite after deletion to confirm nothing breaks
+**Verification before each deletion:**
+1. Grep for imports/references across src/
+2. Run type check after deletion
+3. Full test suite at end of phase
 
-**After 4.7, move to Phase 5: Cleanup**
-- 5.1: Remove other broken widgets (SyncedFramesDisplay, ExtrinsicPlaybackWidget, etc.)
-- 5.2: Update documentation
-- 5.3: Final test suite run
-
-**Test commands:**
-```bash
-# Type check all modified files
-uv run basedpyright src/caliscope/gui/views/extrinsic_calibration_view.py
-
-# Full test suite
-xvfb-run --auto-servernum uv run pytest -n auto
-```
+**5.2: Update documentation** (if needed)
+**5.3: Final test suite run**
 
 **Deferred polish (minor issues noted during testing):**
 - Some layout spacing could be tighter

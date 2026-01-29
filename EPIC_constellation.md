@@ -181,11 +181,32 @@ Feedback from hands-on testing. Layout and cosmetic changes to ExtrinsicCalibrat
 - Coverage updates after filtering operations
 - MIN_CELL_SIZE=35px for readability at any camera count
 
-### Phase 5: Cleanup (2-3 hrs)
-- [ ] **5.1** Remove broken widgets
-  - `SyncedFramesDisplay`, `ExtrinsicPlaybackWidget`, `FrameDictionaryEmitter`
-- [ ] **5.2** Update documentation
-- [ ] **5.3** Final test suite run
+### Phase 5: Project Tab & Legacy Removal ← CURRENT
+Reframed from simple cleanup. The workspace_widget imports legacy code (SyncedFramesDisplay), revealing it's tangled with old architecture. Rather than patch, redesign as a proper "Project" tab.
+
+**5.1 Project Tab (new)**
+- [ ] Create `ProjectSetupView` — workflow checklist showing calibration progress
+- [ ] Create `ProjectSetupPresenter` — observes Coordinator state, emits ViewModel
+- [ ] Merge Workspace + Charuco functionality into single "Project" tab
+- [ ] Progressive disclosure: completed steps collapse, current step expands
+- [ ] Each step has nav button to relevant tab
+
+**5.2 Legacy Removal**
+- [ ] Remove `workspace_widget.py` (replaced by ProjectSetupView)
+- [ ] Remove `SyncedFramesDisplay` (old playback, unused after workspace_widget gone)
+- [ ] Remove `ExtrinsicPlaybackWidget` + inline `FrameDictionaryEmitter`
+- [ ] Remove `frame_emitters/frame_dictionary_emitter.py` (if unused after above)
+- [ ] Audit `workspace_coordinator.py` for dead methods (e.g., `calibrate_capture_volume` old path)
+
+**5.3 Verification**
+- [ ] Type check passes
+- [ ] Full test suite passes
+- [ ] Visual verification of Project tab in all states
+
+**Design considerations:**
+- Future: separate boards per calibration stage (chessboard intrinsic, ArUco extrinsic)
+- Board config should live on the tab where it's used (locality of configuration)
+- Project tab observes state via Coordinator signals, never reaches into other tabs directly
 
 ---
 

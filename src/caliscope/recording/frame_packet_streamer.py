@@ -82,6 +82,7 @@ class FramePacketStreamer:
         self._frame_timestamps = frame_timestamps
         self._rotation_count = rotation_count
         self._tracker = tracker
+        self._tracker_lock = Lock()  # Protect tracker swaps
         self._end_behavior = end_behavior
 
         # FPS targeting
@@ -169,6 +170,57 @@ class FramePacketStreamer:
             Frame as BGR numpy array, or None if out of bounds or read fails.
         """
         return self._frame_source.get_frame(frame_index)
+
+    def peek_tracked_frame(self, frame_index: int) -> FramePacket | None:
+        """Read a single frame with tracking applied, without affecting playback state.
+
+        Thread-safe: acquires tracker lock to read current tracker reference.
+        Does not affect the streamer's current position or pause state.
+
+        Args:
+            frame_index: Target frame index to retrieve.
+
+        Returns:
+            Complete FramePacket with tracking (if tracker set), or None if read fails.
+        """
+        frame = self._frame_source.get_frame(frame_index)
+        if frame is None:
+            return None
+
+        frame_time = self._frame_timestamps.get_time(frame_index)
+
+        # Thread-safe tracker read
+        with self._tracker_lock:
+            tracker = self._tracker
+
+        if tracker is not None:
+            point_data = tracker.get_points(frame, self.port, self._rotation_count)
+            draw_instructions = tracker.scatter_draw_instructions
+        else:
+            point_data = None
+            draw_instructions = None
+
+        return FramePacket(
+            port=self.port,
+            frame_index=frame_index,
+            frame_time=frame_time,
+            frame=frame,
+            points=point_data,
+            draw_instructions=draw_instructions,
+        )
+
+    def update_tracker(self, tracker: Tracker | None) -> None:
+        """Swap the tracker reference. Thread-safe.
+
+        Does NOT clean up the old tracker - caller is responsible for
+        tracker lifecycle (construction, cleanup).
+
+        Args:
+            tracker: New tracker to use, or None to disable tracking.
+        """
+        with self._tracker_lock:
+            self._tracker = tracker
+        logger.info(f"Tracker updated for streamer at port {self.port}")
 
     # -------------------------------------------------------------------------
     # Pub/Sub (thread-safe)
@@ -376,9 +428,12 @@ class FramePacketStreamer:
                     break
 
                 # Track points if tracker attached
-                if self._tracker is not None:
-                    point_data = self._tracker.get_points(current_frame, self.port, self._rotation_count)
-                    draw_instructions = self._tracker.scatter_draw_instructions
+                with self._tracker_lock:
+                    tracker = self._tracker
+
+                if tracker is not None:
+                    point_data = tracker.get_points(current_frame, self.port, self._rotation_count)
+                    draw_instructions = tracker.scatter_draw_instructions
                 else:
                     point_data = None
                     draw_instructions = None
@@ -468,7 +523,7 @@ def create_streamer(
     Convenience function that handles FrameSource and FrameTimestamps creation.
 
     Args:
-        video_directory: Directory containing port_N.mp4 and optionally frame_time_history.csv.
+        video_directory: Directory containing port_N.mp4 and optionally frame_timestamps.csv.
         port: Camera port number.
         rotation_count: Camera rotation (0, 1, 2, 3).
         tracker: Optional tracker for landmark detection.
@@ -480,7 +535,7 @@ def create_streamer(
     """
     frame_source = FrameSource(video_directory, port)
 
-    timing_csv = video_directory / "frame_time_history.csv"
+    timing_csv = video_directory / "frame_timestamps.csv"
     if timing_csv.exists():
         frame_timestamps = FrameTimestamps.from_csv(timing_csv, port)
     else:

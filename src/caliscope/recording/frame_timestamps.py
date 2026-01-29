@@ -46,7 +46,7 @@ class FrameTimestamps:
 
     @classmethod
     def from_csv(cls, csv_path: Path, port: int) -> Self:
-        """Load timing from frame_time_history.csv.
+        """Load timing from frame_timestamps.csv.
 
         Frame indices are computed via rank-ordering of frame_time within
         the port's rows. This handles synchronized recordings where frames
@@ -54,7 +54,7 @@ class FrameTimestamps:
         there are gaps in the recorded timestamps.
 
         Args:
-            csv_path: Path to frame_time_history.csv.
+            csv_path: Path to frame_timestamps.csv.
             port: Camera port to extract timing for.
 
         Raises:

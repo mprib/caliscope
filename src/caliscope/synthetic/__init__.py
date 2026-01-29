@@ -2,7 +2,7 @@
 
 from caliscope.synthetic.calibration_object import CalibrationObject
 from caliscope.synthetic.camera_synthesizer import CameraSynthesizer, strip_extrinsics
-from caliscope.synthetic.coverage import compute_coverage_matrix
+from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.synthetic.filter_config import FilterConfig
 from caliscope.synthetic.fixture_repository import (
     SyntheticFixture,

@@ -8,7 +8,7 @@ Instead of relying on logs or assertions, capture screenshots at each step and h
 
 1. Make code change
 2. Run script that exercises UI and captures screenshots
-3. Claude reviews screenshots (via Haiku delegation)
+3. Claude reviews screenshots
 4. Claude makes next code change
 5. Repeat
 
@@ -38,9 +38,6 @@ scripts/widget_visualization/
 ```bash
 # With display
 python scripts/widget_visualization/wv_charuco_widget.py
-
-# Headless (Linux) - required for CI or remote sessions
-xvfb-run --auto-servernum python scripts/widget_visualization/wv_full_workflow.py
 ```
 
 ## Core Utilities
@@ -122,30 +119,6 @@ class WorkflowTest:
         QTimer.singleShot(500, self.capture_state)
 ```
 
-## Visual Verification with Haiku
-
-After capturing screenshots, spawn a Haiku agent with targeted questions:
-
-```
-Use Task tool with model="haiku":
-
-"Review the screenshots in scripts/widget_visualization/output/
-
-We tested [describe what the script does]:
-1. Screenshot 01: [what it should show]
-2. Screenshot 02: [what it should show]
-
-Verify:
-- Does 01 show [specific expected element]?
-- Does 02 show [specific change from interaction]?
-- Any error dialogs or rendering issues?"
-```
-
-The orchestrator provides context about what the script did — Haiku answers specific verification questions rather than generic "describe these images".
-
-### Override: Direct Review
-
-If Haiku's descriptions aren't helping after 2-3 iterations, read the screenshots directly to get unstuck. Note: each screenshot costs ~1.3k tokens in the main context.
 
 ## Example Scripts
 
@@ -168,18 +141,6 @@ If Haiku's descriptions aren't helping after 2-3 iterations, read the screenshot
 
 PyVista widgets have unique challenges due to VTK's OpenGL requirements.
 
-### Headless Mode Limitations
-
-**xvfb + PyVista often segfaults** even with `LIBGL_ALWAYS_SOFTWARE=1`. The VTK rendering pipeline doesn't play well with virtual framebuffers.
-
-**Workaround:** Run with an actual display when testing PyVista widgets:
-```bash
-# With display (preferred for PyVista)
-uv run python scripts/widget_visualization/wv_playback_pyvista.py
-
-# Headless (often crashes with PyVista)
-xvfb-run --auto-servernum uv run python scripts/widget_visualization/wv_playback_pyvista.py
-```
 
 ### Black 3D Views in Software Mode
 

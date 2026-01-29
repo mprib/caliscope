@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pyvista as pv
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QIcon
@@ -187,8 +188,91 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
         self.plotter.show_axes()
         self._set_adaptive_camera()
         self.plotter.show_grid()
-        self.plotter.enable_trackball_style()
+        # Terrain style keeps Z-up (vertical stays vertical) during rotation
+        self.plotter.enable_terrain_style(mouse_wheel_zooms=True)
         logger.info("PyVista scene initialized")
+
+    def _add_origin_axes(self) -> None:
+        """Add small XYZ axes arrows at the origin (0,0,0).
+
+        Uses standard colors: X=red, Y=green, Z=blue.
+        Arrow size is scaled based on camera positions.
+        """
+        positions = self.view_model.get_camera_positions()
+        if positions is None or len(positions) == 0:
+            arrow_length = 0.1
+        else:
+            # Scale arrows to ~5% of scene extent
+            extent = positions.max(axis=0) - positions.min(axis=0)
+            arrow_length = max(extent.max() * 0.05, 0.02)
+
+        # X-axis (red)
+        x_arrow = pv.Arrow(
+            start=(0, 0, 0),
+            direction=(1, 0, 0),
+            scale=arrow_length,
+            tip_length=0.3,
+            tip_radius=0.15,
+            shaft_radius=0.05,
+        )
+        self.plotter.add_mesh(x_arrow, name="origin_x", color="red", opacity=0.9)
+
+        # Y-axis (green)
+        y_arrow = pv.Arrow(
+            start=(0, 0, 0),
+            direction=(0, 1, 0),
+            scale=arrow_length,
+            tip_length=0.3,
+            tip_radius=0.15,
+            shaft_radius=0.05,
+        )
+        self.plotter.add_mesh(y_arrow, name="origin_y", color="green", opacity=0.9)
+
+        # Z-axis (blue)
+        z_arrow = pv.Arrow(
+            start=(0, 0, 0),
+            direction=(0, 0, 1),
+            scale=arrow_length,
+            tip_length=0.3,
+            tip_radius=0.15,
+            shaft_radius=0.05,
+        )
+        self.plotter.add_mesh(z_arrow, name="origin_z", color="blue", opacity=0.9)
+
+    def _add_floor_indicator(self) -> None:
+        """Add a semi-transparent floor plane at z=0 centered on the origin.
+
+        The floor is always centered at (0,0,0) - the world origin.
+        Size is based on camera positions to ensure it's appropriately scaled.
+        """
+        positions = self.view_model.get_camera_positions()
+        if positions is None or len(positions) == 0:
+            floor_size = 2.0
+        else:
+            # Size floor to encompass cameras plus margin
+            # Use max distance from origin to any camera
+            distances = np.sqrt((positions[:, :2] ** 2).sum(axis=1))
+            floor_size = max(distances.max() * 2.5, 0.5)
+
+        # Create plane centered at origin (0, 0, 0)
+        floor = pv.Plane(
+            center=(0, 0, 0),
+            direction=(0, 0, 1),
+            i_size=floor_size,
+            j_size=floor_size,
+            i_resolution=10,
+            j_resolution=10,
+        )
+
+        self.plotter.add_mesh(
+            floor,
+            name="floor",
+            color="#333333",
+            opacity=0.3,
+            show_edges=True,
+            edge_color="#555555",
+            lighting=False,
+        )
 
     def _set_adaptive_camera(self) -> None:
         """Set camera position based on scene extent.
@@ -223,7 +307,7 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
         ]
 
     def _create_static_actors(self):
-        """Create static camera geometry."""
+        """Create static camera geometry and floor indicator."""
         camera_geom = self.view_model.get_camera_geometry(scale=self._camera_scale)
         if camera_geom is None:
             return
@@ -252,6 +336,12 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
             point_size=1,
             name="camera_labels",
         )
+
+        # Floor plane at z=0 to indicate origin/ground level
+        self._add_floor_indicator()
+
+        # Small XYZ axes at the true origin
+        self._add_origin_axes()
 
     def _create_dynamic_actors(self):
         """
@@ -421,15 +511,24 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
         super().hideEvent(event)
         self.suspend_vtk()
 
-    def set_view_model(self, view_model: PlaybackViewModel) -> None:
+    def set_view_model(self, view_model: PlaybackViewModel, preserve_camera: bool = False) -> None:
         """
         Replace the ViewModel and rebuild the scene.
 
         Used when switching recordings or trackers in post-processing.
         Must rebuild the full scene (not just dynamic actors) because
         cameras may differ between recordings.
+
+        Args:
+            view_model: New view model to display
+            preserve_camera: If True, restore camera position and sync_index
+                after rebuild (useful for coordinate transforms)
         """
         logger.info(f"Switching view model: {self.view_model.n_points} points → {view_model.n_points} points")
+
+        # Save state if preserving
+        saved_camera = self.plotter.camera_position if preserve_camera else None
+        saved_sync_index = self.sync_index if preserve_camera else None
 
         # Stop any playback
         self.playback_timer.stop()
@@ -443,7 +542,13 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
         self._wireframe_mesh = None
 
         self.view_model = view_model
-        self.sync_index = view_model.min_index
+
+        # Determine which sync_index to use
+        if saved_sync_index is not None:
+            # Clamp to valid range in new view model
+            self.sync_index = max(view_model.min_index, min(saved_sync_index, view_model.max_index))
+        else:
+            self.sync_index = view_model.min_index
 
         # Update slider range (setValue may trigger _on_sync_index_changed,
         # but mesh refs are already None so it safely returns early)
@@ -457,6 +562,11 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
         self._create_static_actors()
         self._create_dynamic_actors()
         self._on_sync_index_changed(self.sync_index)
+
+        # Restore camera if preserving
+        if saved_camera is not None:
+            self.plotter.camera_position = saved_camera
+            self.plotter.render()
 
     def set_sync_index(self, sync_index: int) -> None:
         """

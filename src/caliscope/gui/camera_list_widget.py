@@ -1,13 +1,14 @@
 """Camera list widget with calibration status indicators.
 
 Displays a list of cameras with visual feedback on their calibration state:
-- Green checkmark + RMSE for calibrated cameras
-- Red circle for uncalibrated cameras
+- Green text + RMSE for calibrated cameras
+- Red text for uncalibrated cameras
 """
 
 import logging
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 
 from caliscope.cameras.camera_array import CameraArray
@@ -42,14 +43,16 @@ class CameraListWidget(QListWidget):
             item.setData(Qt.ItemDataRole.UserRole, port)
 
             if camera.matrix is not None and camera.distortions is not None:
-                # Calibrated: green checkmark + RMSE
+                # Calibrated: green text + RMSE
                 if camera.error is not None:
-                    text = f"\u2705 Port {port}\n    RMSE: {camera.error:.2f}"
+                    text = f"Port {port} — {camera.error:.2f}px"
                 else:
-                    text = f"\u2705 Port {port}"
+                    text = f"Port {port}"
+                item.setForeground(QBrush(QColor("#4CAF50")))  # Material green
             else:
-                # Not calibrated: red circle
-                text = f"\U0001f534 Port {port}"
+                # Not calibrated: red text
+                text = f"Port {port}"
+                item.setForeground(QBrush(QColor("#F44336")))  # Material red
 
             item.setText(text)
             self.addItem(item)

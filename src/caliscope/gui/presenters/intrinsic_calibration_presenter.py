@@ -14,7 +14,6 @@ from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Thread
 
-import numpy as np
 from PySide6.QtCore import QObject, Signal
 
 from caliscope.cameras.camera_array import CameraData
@@ -147,6 +146,9 @@ class IntrinsicCalibrationPresenter(QObject):
         )
         self._streamer.pause()  # Immediately pause for scrubbing mode
 
+        # Position tracking (must be set before _load_initial_frame)
+        self._current_frame_index: int = self._streamer.start_frame_index
+
         # Guaranteed initial frame display (don't rely on thread timing)
         self._load_initial_frame()
 
@@ -154,9 +156,6 @@ class IntrinsicCalibrationPresenter(QObject):
         self._stop_event = Event()
         self._consumer_thread = Thread(target=self._consume_frames, daemon=True)
         self._consumer_thread.start()
-
-        # Position tracking
-        self._current_frame_index: int = 0
 
     @property
     def state(self) -> IntrinsicCalibrationState:
@@ -247,22 +246,19 @@ class IntrinsicCalibrationPresenter(QObject):
         )  # precise=False would cause Fast seek, skipping between keyframes
 
     def _load_initial_frame(self) -> None:
-        """Read first frame from video and put on display queue."""
-        start_index = self._streamer.start_frame_index
-        frame = self._streamer.peek_frame(start_index)
+        """Read current frame from video with tracking and put on display queue.
 
-        if frame is not None:
-            # FramePacket.frame typed as float64 but FrameSource returns uint8
-            initial_packet = FramePacket(
-                port=self._port,
-                frame_index=start_index,
-                frame_time=0.0,
-                frame=np.asarray(frame),  # type: ignore[arg-type]
-                points=None,
-            )
-            self._display_queue.put(initial_packet)
+        Uses current_frame_index to preserve user's position (not always start_frame_index).
+        """
+        # Use current position (default to start if not yet set)
+        target_index = self._current_frame_index if self._current_frame_index > 0 else self._streamer.start_frame_index
+
+        packet = self._streamer.peek_tracked_frame(target_index)
+
+        if packet is not None:
+            self._display_queue.put(packet)
         else:
-            logger.warning(f"Failed to load initial frame from {self._video_path}")
+            logger.warning(f"Failed to load frame {target_index} from {self._video_path}")
 
     def start_calibration(self) -> None:
         """Start collecting calibration frames.
@@ -453,6 +449,25 @@ class IntrinsicCalibrationPresenter(QObject):
         current_state = self.state
         logger.debug(f"State changed to {current_state} for port {self._port}")
         self.state_changed.emit(current_state)
+
+    def update_tracker(self, tracker: Tracker) -> None:
+        """Update tracker for next calibration run.
+
+        Hot-swaps the tracker reference in both the presenter and the streamer.
+        Clears any collected points (old tracker's point IDs are stale) and
+        resets calibration state.
+
+        Args:
+            tracker: New tracker to use for subsequent calibrations.
+        """
+        self._tracker = tracker
+        self._streamer.update_tracker(tracker)
+        self._collected_points.clear()
+        self._selection_result = None
+        self._output = None
+        logger.info(f"Tracker updated for port {self._port}, cleared collected points")
+        self._emit_state_changed()
+        self.refresh_display()
 
     def cleanup(self) -> None:
         """Clean up resources. Call before discarding presenter."""

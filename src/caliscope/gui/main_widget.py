@@ -2,7 +2,6 @@ import logging
 import os
 import subprocess
 import sys
-from enum import Enum
 from pathlib import Path
 
 import rtoml
@@ -23,21 +22,14 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.task_manager import TaskHandle
 from caliscope.gui.cameras_tab_widget import CamerasTabWidget
-from caliscope.gui.charuco_widget import CharucoWidget
 from caliscope.gui.log_widget import LogWidget
+from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
 from caliscope.gui.reconstruction_tab import ReconstructionTab
 from caliscope.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
 from caliscope.gui.extrinsic_calibration_tab import ExtrinsicCalibrationTab
-from caliscope.gui.workspace_widget import WorkspaceSummaryWidget
+from caliscope.gui.views.project_setup_view import ProjectSetupView
 
 logger = logging.getLogger(__name__)
-
-
-class TabTypes(Enum):
-    Workspace = 1
-    Charuco = 2
-    Cameras = 3
-    CaptureVolume = 4
 
 
 class MainWindow(QMainWindow):
@@ -68,6 +60,8 @@ class MainWindow(QMainWindow):
         # Clean up tabs that have presenter resources
         if hasattr(self, "cameras_tab_widget") and hasattr(self.cameras_tab_widget, "cleanup"):
             self.cameras_tab_widget.cleanup()
+        if hasattr(self, "multi_camera_tab") and hasattr(self.multi_camera_tab, "cleanup"):
+            self.multi_camera_tab.cleanup()
         if hasattr(self, "reconstruction_tab") and hasattr(self.reconstruction_tab, "cleanup"):
             self.reconstruction_tab.cleanup()
 
@@ -112,21 +106,14 @@ class MainWindow(QMainWindow):
         self.central_tab = QTabWidget(self)
         self.setCentralWidget(self.central_tab)
 
-        logger.info("Building workspace summary")
-        self.workspace_summary = WorkspaceSummaryWidget(self.coordinator)
-        self.workspace_summary.reload_workspace_btn.clicked.connect(self.reload_workspace)
-        self.central_tab.addTab(self.workspace_summary, "Workspace")
+        # Project tab (replaces Workspace + Charuco)
+        logger.info("Building Project setup tab")
+        self.project_tab = ProjectSetupView(self.coordinator)
+        self.project_tab.tab_navigation_requested.connect(self._navigate_to_tab)
+        self.central_tab.addTab(self.project_tab, "Project")
 
         extrinsics_available = self.coordinator.all_extrinsic_mp4s_available()
         intrinsics_calibrated = self.coordinator.camera_array.all_intrinsics_calibrated()
-        if extrinsics_available and intrinsics_calibrated:
-            self.workspace_summary.calibrate_btn.setEnabled(True)
-        else:
-            self.workspace_summary.calibrate_btn.setEnabled(False)
-
-        logger.info("Building Charuco widget")
-        self.charuco_widget = CharucoWidget(self.coordinator)
-        self.central_tab.addTab(self.charuco_widget, "Charuco")
 
         # Build Cameras tab with intrinsic calibration workflow
         if self.coordinator.cameras_loaded:
@@ -140,6 +127,24 @@ class MainWindow(QMainWindow):
             self.find_tab_index_by_title("Cameras"),
             self.coordinator.cameras_loaded,
         )
+
+        # Build Multi-Camera tab for synchronized 2D extraction
+        # Enabled when: intrinsics calibrated AND extrinsic videos available
+        multi_camera_enabled = extrinsics_available and intrinsics_calibrated
+        if multi_camera_enabled:
+            logger.info("Building Multi-Camera processing tab")
+            self.multi_camera_tab = MultiCameraProcessingTab(self.coordinator)
+        else:
+            logger.info("Multi-Camera tab disabled - prerequisites not met")
+            self.multi_camera_tab = QWidget()
+        self.central_tab.addTab(self.multi_camera_tab, "Multi-Camera")
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Multi-Camera"),
+            multi_camera_enabled,
+        )
+
+        # Enable Capture Volume tab when Multi-Camera processing completes
+        self.coordinator.extrinsic_image_points_ready.connect(self._on_extrinsic_points_ready)
 
         logger.info("About to load capture volume tab")
         if self.coordinator.capture_volume_loaded:
@@ -167,6 +172,10 @@ class MainWindow(QMainWindow):
             self.reconstruction_tab = ReconstructionTab(presenter)
             # Update camera array when coordinate system changes
             self.coordinator.capture_volume_shifted.connect(
+                lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
+            )
+            # Also update when new calibration bundle is saved (new PointDataBundle system)
+            self.coordinator.bundle_updated.connect(
                 lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
             )
             reconstruction_enabled = True
@@ -210,6 +219,47 @@ class MainWindow(QMainWindow):
             if self.central_tab.tabText(index) == title:
                 return index
         return -1  # Return -1 if the tab is not found
+
+    def _navigate_to_tab(self, tab_name: str) -> None:
+        """Navigate to requested tab by name.
+
+        Called when "Go to Tab" buttons are clicked in the Project tab.
+        Only navigates if the target tab is enabled.
+        """
+        for i in range(self.central_tab.count()):
+            if self.central_tab.tabText(i) == tab_name:
+                if self.central_tab.isTabEnabled(i):
+                    self.central_tab.setCurrentIndex(i)
+                break
+
+    def _on_extrinsic_points_ready(self) -> None:
+        """Enable Capture Volume tab after Multi-Camera processing completes.
+
+        The Multi-Camera tab has extracted 2D ImagePoints. Tab 2 (Capture Volume)
+        can now run triangulation and bundle adjustment.
+
+        If the tab is currently a dummy widget, replaces it with the real
+        ExtrinsicCalibrationTab which has the presenter/view for calibration.
+        """
+        idx = self.find_tab_index_by_title("Capture Volume")
+        if idx < 0 or self.central_tab.isTabEnabled(idx):
+            return  # Tab not found or already enabled
+
+        logger.info("Enabling Capture Volume tab after 2D extraction complete")
+
+        # Check if current widget is a dummy (not the real ExtrinsicCalibrationTab)
+        current_widget = self.central_tab.widget(idx)
+        if not isinstance(current_widget, ExtrinsicCalibrationTab):
+            # Replace dummy widget with real tab
+            logger.info("Replacing dummy widget with ExtrinsicCalibrationTab")
+            old_widget = current_widget
+            self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
+            self.central_tab.removeTab(idx)
+            self.central_tab.insertTab(idx, self.extrinsic_calibration_tab, "Capture Volume")
+            if old_widget is not None:
+                old_widget.deleteLater()
+
+        self.central_tab.setTabEnabled(idx, True)
 
     def _on_capture_volume_ready(self) -> None:
         """Enable Capture Volume tab after extrinsic calibration completes."""

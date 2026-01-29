@@ -80,32 +80,16 @@ class ExtrinsicCalibrationTab(QWidget):
         self._coordinator.update_bundle(bundle)
 
     def _on_charuco_changed(self) -> None:
-        """Handle charuco board changes - recreate presenter with new charuco.
+        """Update charuco reference when config changes.
 
-        The presenter holds a charuco reference from creation time. When charuco
-        changes, the old reference is stale - recreate to get the new one.
+        Instead of destroying/recreating the presenter (expensive, causes GUI freeze),
+        we hot-swap the charuco reference. Only affects next align_to_origin() call.
         """
-        logger.info("Charuco changed - recreating extrinsic calibration presenter")
+        if self._presenter is None:
+            return
 
-        # Cleanup existing presenter and view
-        if self._presenter is not None:
-            self._presenter.cleanup()
-
-        if self._view is not None:
-            self._view.cleanup()
-            layout = self.layout()
-            if layout is not None:
-                layout.removeWidget(self._view)
-            self._view.deleteLater()
-
-        # Recreate with fresh presenter/view
-        self._presenter = self._coordinator.create_extrinsic_calibration_presenter()
-        self._view = ExtrinsicCalibrationView(self._presenter)
-        layout = self.layout()
-        if layout is not None:
-            layout.addWidget(self._view)
-
-        self._connect_signals()
+        self._presenter.update_charuco(self._coordinator.charuco)
+        logger.info("Updated charuco in extrinsic calibration presenter")
 
     # -------------------------------------------------------------------------
     # VTK Lifecycle

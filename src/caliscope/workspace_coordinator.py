@@ -286,6 +286,18 @@ class WorkspaceCoordinator(QObject):
         self.charuco_tracker = CharucoTracker(self.charuco)
         self.charuco_changed.emit()
 
+    def create_tracker(self) -> CharucoTracker:
+        """Create a tracker configured for the current charuco board.
+
+        Factory method for tabs that need to hot-swap trackers when charuco
+        config changes. Returns a fresh CharucoTracker instance using the
+        current charuco definition.
+
+        Returns:
+            CharucoTracker configured with the current charuco board.
+        """
+        return CharucoTracker(self.charuco)
+
     def get_charuco_params(self) -> dict:
         return self.charuco.__dict__
 

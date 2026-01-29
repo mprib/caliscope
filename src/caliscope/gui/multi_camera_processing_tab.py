@@ -96,35 +96,17 @@ class MultiCameraProcessingTab(QWidget):
         self.coordinator.extrinsic_image_points_ready.emit()
 
     def _on_charuco_changed(self) -> None:
-        """Handle charuco board changes - recreate presenter with new tracker.
+        """Update tracker when charuco config changes.
 
-        The presenter holds a tracker reference from creation time. When charuco
-        changes, the old tracker is stale - recreate to get the new one.
+        Instead of destroying/recreating the presenter (expensive, causes GUI freeze),
+        we hot-swap the tracker reference. Results are cleared since point IDs change.
         """
-        logger.info("Charuco changed - recreating multi-camera presenter")
+        if self._presenter is None:
+            return
 
-        # Cleanup existing presenter
-        if self._presenter is not None:
-            self._presenter.cleanup()
-
-        # Remove old widget
-        if self._widget is not None:
-            layout = self.layout()
-            if layout is not None:
-                layout.removeWidget(self._widget)
-            self._widget.deleteLater()
-
-        # Recreate with fresh presenter/widget
-        self._presenter = self.coordinator.create_multi_camera_presenter()
-        self._presenter.set_recording_dir(self.coordinator.workspace_guide.extrinsic_dir)
-        self._presenter.set_cameras(self.coordinator.camera_array.cameras)
-
-        self._widget = MultiCameraProcessingWidget(self._presenter)
-        layout = self.layout()
-        if layout is not None:
-            layout.addWidget(self._widget)
-
-        self._connect_signals()
+        new_tracker = self.coordinator.create_tracker()
+        self._presenter.update_tracker(new_tracker)
+        logger.info("Updated tracker in multi-camera presenter")
 
     def cleanup(self) -> None:
         """Clean up presenter resources.

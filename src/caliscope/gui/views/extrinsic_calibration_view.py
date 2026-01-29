@@ -64,12 +64,16 @@ class ExtrinsicCalibrationView(QWidget):
         # Lazy-init: created on first view model update
         self._pyvista_widget: PlaybackTriangulationWidgetPyVista | None = None
 
+        # Valid sync indices for frame navigation (sparse data support)
+        # Slider position = index into this array, not the actual sync_index
+        self._valid_sync_indices: np.ndarray = np.array([], dtype=np.int64)
+
         self._setup_ui()
         self._connect_signals()
         self._update_ui_for_state(presenter.state)
 
-        # Show initial coverage before calibration
-        self._presenter.emit_initial_coverage()
+        # Emit initial state (coverage, and if restored session: quality + 3D viz)
+        self._presenter.emit_initial_state()
 
         logger.info("ExtrinsicCalibrationView created")
 
@@ -82,10 +86,10 @@ class ExtrinsicCalibrationView(QWidget):
 
         Layout (top to bottom):
         1. Action bar (single button + progress) - workflow entry point
-        2. 3D visualization
-        3. Frame slider (directly under viz for consistency with reconstruction tab)
-        4. Transform controls (filter, coordinate frame)
-        5. Quality panel
+        2. 3D visualization (dominates after calibration)
+        3. Frame slider + coordinate frame controls (single row)
+        4. Transform controls (filter)
+        5. Quality panel (compact horizontal layout)
         """
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(4, 4, 4, 4)
@@ -95,11 +99,11 @@ class ExtrinsicCalibrationView(QWidget):
         action_bar = self._create_action_bar()
         main_layout.addWidget(action_bar)
 
-        # Vertical splitter: 3D view + slider on top, controls below
+        # Vertical splitter: 3D view on top, controls below
         self._splitter = QSplitter(Qt.Orientation.Vertical)
         main_layout.addWidget(self._splitter)
 
-        # Top: 3D visualization + frame slider
+        # Top: 3D visualization + frame/coordinate controls row
         viz_container = QWidget()
         viz_layout = QVBoxLayout(viz_container)
         viz_layout.setContentsMargins(0, 0, 0, 0)
@@ -116,18 +120,18 @@ class ExtrinsicCalibrationView(QWidget):
         self._viz_placeholder.setFixedHeight(150)  # Compact, doesn't stretch
         viz_layout.addWidget(self._viz_placeholder)
 
-        # Frame slider directly under 3D viz
-        frame_widget = self._create_frame_slider()
-        viz_layout.addWidget(frame_widget)
+        # Combined frame slider + coordinate frame controls (single row)
+        frame_coord_widget = self._create_frame_and_coord_row()
+        viz_layout.addWidget(frame_coord_widget)
         self._splitter.addWidget(viz_container)
 
-        # Bottom: transform controls + quality panel
+        # Bottom: filter controls + quality panel (compact)
         controls_panel = self._create_controls_panel()
         self._splitter.addWidget(controls_panel)
 
         # Initial sizes favor controls (placeholder is small)
         # Will be updated when PyVista widget is created
-        self._splitter.setSizes([200, 600])
+        self._splitter.setSizes([200, 400])
         self._splitter.setStretchFactor(0, 1)
         self._splitter.setStretchFactor(1, 2)
 
@@ -145,8 +149,31 @@ class ExtrinsicCalibrationView(QWidget):
         layout.setSpacing(8)
 
         # Single action button (text changes with state)
+        # Primary action button - visually prominent blue
         self._action_btn = QPushButton("Calibrate")
         self._action_btn.setMinimumWidth(120)
+        self._action_btn.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #0078d4;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #106ebe;
+            }
+            QPushButton:pressed {
+                background-color: #005a9e;
+            }
+            QPushButton:disabled {
+                background-color: #555;
+                color: #888;
+            }
+            """
+        )
         layout.addWidget(self._action_btn)
 
         # Progress section: bar first, then text
@@ -172,12 +199,18 @@ class ExtrinsicCalibrationView(QWidget):
         layout.addStretch()
         return bar
 
-    def _create_frame_slider(self) -> QWidget:
-        """Create the frame slider widget."""
+    def _create_frame_and_coord_row(self) -> QWidget:
+        """Create combined frame slider + coordinate frame controls row.
+
+        Places navigation and transform controls together since they're
+        both about viewing/manipulating the 3D scene.
+        """
         widget = QWidget()
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(12)
 
+        # Frame slider section
         layout.addWidget(QLabel("Frame:"))
 
         self._frame_slider = QSlider(Qt.Orientation.Horizontal)
@@ -190,50 +223,66 @@ class ExtrinsicCalibrationView(QWidget):
         self._frame_display.setMinimumWidth(80)
         layout.addWidget(self._frame_display)
 
+        # Separator
+        layout.addSpacing(8)
+
+        # Coordinate frame section (inline, no group box for compactness)
+        layout.addWidget(QLabel("Rotate:"))
+
+        # Rotation buttons with axis-appropriate colors
+        # X axis: Red, Y axis: Green, Z axis: Blue
+        rotation_data = [
+            ("X+", "x", 90, "#cc3333", "#ff4444"),  # Red
+            ("X-", "x", -90, "#cc3333", "#ff4444"),
+            ("Y+", "y", 90, "#33aa33", "#44cc44"),  # Green
+            ("Y-", "y", -90, "#33aa33", "#44cc44"),
+            ("Z+", "z", 90, "#3366cc", "#4488ff"),  # Blue
+            ("Z-", "z", -90, "#3366cc", "#4488ff"),
+        ]
+
+        self._rotation_btns: list[QPushButton] = []
+        for label, axis, degrees, bg_color, hover_color in rotation_data:
+            btn = QPushButton(label)
+            btn.setFixedWidth(36)
+            btn.setStyleSheet(
+                f"""
+                QPushButton {{
+                    background-color: {bg_color};
+                    color: white;
+                    border: none;
+                    border-radius: 3px;
+                    padding: 4px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: {hover_color};
+                }}
+                QPushButton:disabled {{
+                    background-color: #555;
+                    color: #888;
+                }}
+                """
+            )
+            btn.clicked.connect(lambda checked, a=axis, d=degrees: self._on_rotate_clicked(a, d))
+            layout.addWidget(btn)
+            self._rotation_btns.append(btn)
+
+        layout.addSpacing(8)
+
+        self._set_origin_btn = QPushButton("Set Origin")
+        self._set_origin_btn.setToolTip("Set world origin to charuco position at current frame")
+        layout.addWidget(self._set_origin_btn)
+
         return widget
 
     def _create_controls_panel(self) -> QWidget:
-        """Create the bottom controls panel (coord frame, quality, filter)."""
+        """Create the bottom controls panel (filter + quality panel)."""
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(8)
 
-        # Row 1: Coordinate frame controls
-        self._coord_frame_group = QGroupBox("Coordinate Frame")
-        coord_layout = QHBoxLayout(self._coord_frame_group)
-
-        # Rotation buttons
-        rotation_data = [
-            ("X+", "x", 90),
-            ("X−", "x", -90),
-            ("Y+", "y", 90),
-            ("Y−", "y", -90),
-            ("Z+", "z", 90),
-            ("Z−", "z", -90),
-        ]
-
-        for label, axis, degrees in rotation_data:
-            btn = QPushButton(label)
-            btn.setMaximumWidth(40)
-            btn.clicked.connect(lambda checked, a=axis, d=degrees: self._on_rotate_clicked(a, d))
-            coord_layout.addWidget(btn)
-
-        coord_layout.addSpacing(20)
-
-        self._set_origin_btn = QPushButton("Set Origin")
-        self._set_origin_btn.setToolTip("Set world origin to charuco position at current frame")
-        coord_layout.addWidget(self._set_origin_btn)
-
-        coord_layout.addStretch()
-
-        layout.addWidget(self._coord_frame_group)
-
-        # Row 2: Quality panel (full width)
-        self._quality_panel = QualityPanel()
-        layout.addWidget(self._quality_panel)
-
-        # Row 3: Filter controls (single line) + Coverage button
+        # Row 1: Filter controls (single line) + Coverage button
         self._filter_group = QGroupBox("Filter Outliers")
         filter_layout = QHBoxLayout(self._filter_group)
 
@@ -270,6 +319,10 @@ class ExtrinsicCalibrationView(QWidget):
 
         layout.addWidget(self._filter_group)
 
+        # Row 2: Quality panel (compact horizontal layout)
+        self._quality_panel = QualityPanel()
+        layout.addWidget(self._quality_panel)
+
         # Coverage data stored for dialog (updated by signal)
         self._coverage_data: tuple[np.ndarray, list[str]] | None = None
 
@@ -281,7 +334,7 @@ class ExtrinsicCalibrationView(QWidget):
 
     def _connect_signals(self) -> None:
         """Wire up signal connections between UI and presenter."""
-        # Presenter → View
+        # Presenter -> View
         self._presenter.state_changed.connect(self._update_ui_for_state)
         self._presenter.progress_updated.connect(self._on_progress_updated)
         self._presenter.quality_updated.connect(self._on_quality_updated)
@@ -289,7 +342,7 @@ class ExtrinsicCalibrationView(QWidget):
         self._presenter.coverage_updated.connect(self._on_coverage_updated)
         self._presenter.view_model_updated.connect(self._on_view_model_updated)
 
-        # View → Presenter
+        # View -> Presenter
         self._action_btn.clicked.connect(self._on_action_clicked)
         self._filter_apply_btn.clicked.connect(self._on_filter_apply_clicked)
         self._filter_mode.currentIndexChanged.connect(self._on_filter_mode_changed)
@@ -338,8 +391,10 @@ class ExtrinsicCalibrationView(QWidget):
 
         # Controls enabled only when we have bundle data
         self._filter_group.setEnabled(has_bundle)
-        self._coord_frame_group.setEnabled(has_bundle)
         self._frame_slider.setEnabled(has_bundle)
+        self._set_origin_btn.setEnabled(has_bundle)
+        for btn in self._rotation_btns:
+            btn.setEnabled(has_bundle)
 
         # Update filter preview when we have bundle
         if has_bundle:
@@ -427,21 +482,36 @@ class ExtrinsicCalibrationView(QWidget):
         self._presenter.rotate(axis, degrees)
 
     def _on_set_origin_clicked(self) -> None:
-        """Handle set origin button click."""
-        sync_index = self._frame_slider.value()
-        self._presenter.align_to_origin(sync_index)
+        """Handle set origin button click.
+
+        Maps slider position to actual sync_index for sparse data support.
+        """
+        if len(self._valid_sync_indices) == 0:
+            return
+        slider_position = self._frame_slider.value()
+        actual_sync_index = int(self._valid_sync_indices[slider_position])
+        self._presenter.align_to_origin(actual_sync_index)
 
     def _on_frame_slider_changed(self, value: int) -> None:
         """Handle frame slider value change.
+
+        Maps slider position to actual sync_index for sparse data support.
+        Slider position is an index into _valid_sync_indices, not the sync_index itself.
 
         Directly updates the PyVista widget's sync_index for efficient rendering.
         Also updates presenter's internal tracking (for align_to_origin, etc.)
         but the presenter no longer emits view_model_updated for frame changes.
         """
+        if len(self._valid_sync_indices) == 0:
+            return
+
+        # Map slider position to actual sync_index
+        actual_sync_index = int(self._valid_sync_indices[value])
+
         if self._pyvista_widget is not None:
-            self._pyvista_widget.set_sync_index(value)
+            self._pyvista_widget.set_sync_index(actual_sync_index)
         # Keep presenter's internal state in sync (no signal emission)
-        self._presenter.set_sync_index(value)
+        self._presenter.set_sync_index(actual_sync_index)
         self._update_frame_display()
 
     def _on_progress_updated(self, percent: int, message: str) -> None:
@@ -501,30 +571,51 @@ class ExtrinsicCalibrationView(QWidget):
             self._viz_layout.setStretchFactor(self._pyvista_widget, 1)
 
             # Now that we have a 3D widget, give it more splitter space
-            self._splitter.setSizes([700, 300])
-            self._splitter.setStretchFactor(0, 3)
+            # VTK visualization should dominate (3:1 ratio)
+            self._splitter.setSizes([750, 250])
+            self._splitter.setStretchFactor(0, 4)
             self._splitter.setStretchFactor(1, 1)
         else:
             # Updating existing widget (coordinate transforms, re-optimization)
             # Preserve camera position so user doesn't lose their view
             self._pyvista_widget.set_view_model(view_model, preserve_camera=True)
 
-        # Update slider range from view model
-        n_frames = view_model.max_index - view_model.min_index + 1 if view_model.has_points else 0
+        # Cache valid sync indices for sparse data navigation
+        # Slider position = index into this array, not the actual sync_index
+        self._valid_sync_indices = view_model.valid_sync_indices
+        n_frames = len(self._valid_sync_indices)
+
         self._frame_slider.blockSignals(True)
-        self._frame_slider.setMinimum(view_model.min_index if view_model.has_points else 0)
-        self._frame_slider.setMaximum(view_model.max_index if view_model.has_points else 0)
-        self._frame_slider.setValue(self._presenter.current_sync_index)
+        self._frame_slider.setMinimum(0)
+        self._frame_slider.setMaximum(max(0, n_frames - 1))
+
+        # Map current sync_index back to slider position
+        if n_frames > 0:
+            current_sync = self._presenter.current_sync_index
+            # Find position of current_sync in valid indices (or nearest)
+            position = int(np.searchsorted(self._valid_sync_indices, current_sync))
+            position = min(position, n_frames - 1)  # Clamp to valid range
+            self._frame_slider.setValue(position)
+
         self._frame_slider.setEnabled(n_frames > 1)
         self._frame_slider.blockSignals(False)
 
         self._update_frame_display()
 
     def _update_frame_display(self) -> None:
-        """Update the frame counter display."""
-        current = self._frame_slider.value()
-        max_val = self._frame_slider.maximum()
-        self._frame_display.setText(f"{current} / {max_val}")
+        """Update the frame counter display.
+
+        Shows actual sync_index values (not slider positions) so the user
+        can correlate with video timecodes when data is sparse.
+        """
+        if len(self._valid_sync_indices) == 0:
+            self._frame_display.setText("0 / 0")
+            return
+
+        slider_position = self._frame_slider.value()
+        actual_sync_index = int(self._valid_sync_indices[slider_position])
+        max_sync_index = int(self._valid_sync_indices[-1])
+        self._frame_display.setText(f"{actual_sync_index} / {max_sync_index}")
 
     # -------------------------------------------------------------------------
     # VTK Lifecycle

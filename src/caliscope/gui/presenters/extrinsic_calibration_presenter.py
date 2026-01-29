@@ -150,6 +150,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         camera_array: CameraArray,
         image_points_path: Path,
         charuco: Charuco,
+        existing_bundle: PointDataBundle | None = None,
         parent: QObject | None = None,
     ) -> None:
         """Initialize the presenter.
@@ -159,6 +160,8 @@ class ExtrinsicCalibrationPresenter(QObject):
             camera_array: Initial camera configuration (extrinsics may be unset)
             image_points_path: Path to image_points.csv from Phase 3
             charuco: Charuco board definition for alignment
+            existing_bundle: Pre-loaded PointDataBundle for restoring calibrated state.
+                If provided, presenter starts in CALIBRATED state with visualization ready.
             parent: Optional Qt parent
         """
         super().__init__(parent)
@@ -169,7 +172,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._charuco = charuco
 
         # Processing state (managed internally)
-        self._bundle: PointDataBundle | None = None
+        self._bundle: PointDataBundle | None = existing_bundle
         self._task_handle: TaskHandle | None = None
 
         # Pre-loaded image points for initial coverage display
@@ -181,8 +184,15 @@ class ExtrinsicCalibrationPresenter(QObject):
         # Scale accuracy reference frame (set by align_to_origin)
         self._reference_sync_index: int | None = None
 
-        # Load image points immediately for initial coverage display
-        self._load_initial_image_points()
+        # Load image points for coverage display (from bundle if available, else CSV)
+        if existing_bundle is not None:
+            self._initial_image_points = existing_bundle.image_points
+            # Set initial sync index from bundle
+            sync_indices = existing_bundle.unique_sync_indices
+            if len(sync_indices) > 0:
+                self._current_sync_index = int(sync_indices[0])
+        else:
+            self._load_initial_image_points()
 
     # -------------------------------------------------------------------------
     # Public Properties
@@ -657,10 +667,35 @@ class ExtrinsicCalibrationPresenter(QObject):
             logger.warning(f"Could not load initial image points: {e}")
             self._initial_image_points = None
 
+    def emit_initial_state(self) -> None:
+        """Emit initial state for UI display after signal connections.
+
+        Call this after connecting signals. Emits:
+        - Coverage matrix (always, from ImagePoints)
+        - Quality data and view model (if existing bundle loaded)
+
+        This enables the view to show the correct initial state:
+        - Fresh start: coverage heatmap, "Calibrate" button
+        - Restored session: 3D visualization, quality metrics, "Re-optimize" button
+        """
+        # Always emit coverage from initial image points
+        self._emit_initial_coverage()
+
+        # If we have an existing bundle, emit quality and view model for 3D viz
+        if self._bundle is not None:
+            logger.info("Emitting initial state from existing bundle")
+            self._emit_quality_updated()
+            self._emit_coverage_updated()  # Use bundle's coverage (may differ after filtering)
+            self._emit_view_model_updated()
+
     def emit_initial_coverage(self) -> None:
+        """Deprecated: Use emit_initial_state() instead."""
+        self.emit_initial_state()
+
+    def _emit_initial_coverage(self) -> None:
         """Emit coverage matrix from pre-loaded ImagePoints.
 
-        Call this after connecting signals to show coverage before calibration.
+        Internal method - use emit_initial_state() from the view.
         Uses ports discovered from ImagePoints data (not posed cameras).
         """
         if self._initial_image_points is None:

@@ -19,12 +19,12 @@ from caliscope.gui.presenters.extrinsic_calibration_presenter import QualityPane
 
 
 class QualityPanel(QWidget):
-    """Display calibration quality metrics.
+    """Display calibration quality metrics with three groups in a horizontal row.
 
-    Shows three sections:
-    1. Reprojection Error: Overall RMSE, observation counts, convergence status
-    2. Scale Accuracy: Distance RMSE vs ground truth (when reference frame set)
-    3. Per-Camera Table: Observations and RMSE per camera
+    Layout:
+    [Reprojection Error] [Scale Accuracy] [Per-Camera Table]
+
+    Each group maintains its own detailed internal format.
 
     Usage:
         panel = QualityPanel()
@@ -37,54 +37,60 @@ class QualityPanel(QWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        """Build the widget layout."""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        """Build the widget layout with three horizontal groups."""
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
 
-        # Top row: Reprojection Error + Scale Accuracy side by side
-        top_row = QHBoxLayout()
-        top_row.setSpacing(8)
+        # Group 1: Reprojection Error (global metrics)
+        reproj_group = QGroupBox("Reprojection Error")
+        reproj_layout = QVBoxLayout(reproj_group)
+        reproj_layout.setContentsMargins(8, 4, 8, 4)
+        reproj_layout.setSpacing(2)
 
-        # Section 1: Reprojection Error
-        self._reprojection_group = QGroupBox("Reprojection Error")
-        repro_layout = QVBoxLayout(self._reprojection_group)
-        repro_layout.setSpacing(4)
+        self._rmse_label = QLabel("RMSE: --")
+        self._rmse_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+        reproj_layout.addWidget(self._rmse_label)
 
-        self._rmse_label = QLabel("Overall RMSE: --")
         self._obs_label = QLabel("Observations: --")
+        reproj_layout.addWidget(self._obs_label)
+
         self._points_label = QLabel("3D Points: --")
+        reproj_layout.addWidget(self._points_label)
+
         self._converged_label = QLabel("Converged: --")
+        reproj_layout.addWidget(self._converged_label)
 
-        repro_layout.addWidget(self._rmse_label)
-        repro_layout.addWidget(self._obs_label)
-        repro_layout.addWidget(self._points_label)
-        repro_layout.addWidget(self._converged_label)
+        reproj_layout.addStretch()
+        layout.addWidget(reproj_group)
 
-        top_row.addWidget(self._reprojection_group)
+        # Group 2: Scale Accuracy
+        scale_group = QGroupBox("Scale Accuracy")
+        scale_layout = QVBoxLayout(scale_group)
+        scale_layout.setContentsMargins(8, 4, 8, 4)
+        scale_layout.setSpacing(2)
 
-        # Section 2: Scale Accuracy
-        self._scale_group = QGroupBox("Scale Accuracy")
-        scale_layout = QVBoxLayout(self._scale_group)
-        scale_layout.setSpacing(4)
-
-        self._scale_ref_label = QLabel("Reference: --")
         self._scale_rmse_label = QLabel("Distance RMSE: --")
-        self._scale_relative_label = QLabel("Relative Error: --")
-        self._scale_detail_label = QLabel("")
-        self._scale_detail_label.setStyleSheet("color: #888888;")
-
-        scale_layout.addWidget(self._scale_ref_label)
+        self._scale_rmse_label.setStyleSheet("font-weight: bold; font-size: 13px;")
         scale_layout.addWidget(self._scale_rmse_label)
+
+        self._scale_relative_label = QLabel("Relative Error: --")
         scale_layout.addWidget(self._scale_relative_label)
+
+        self._scale_ref_label = QLabel("Reference Frame: --")
+        scale_layout.addWidget(self._scale_ref_label)
+
+        self._scale_detail_label = QLabel("")
+        self._scale_detail_label.setStyleSheet("color: #888888; font-style: italic;")
         scale_layout.addWidget(self._scale_detail_label)
 
-        top_row.addWidget(self._scale_group)
-        layout.addLayout(top_row)
+        scale_layout.addStretch()
+        layout.addWidget(scale_group)
 
-        # Section 3: Per-Camera Table
-        self._camera_group = QGroupBox("Per-Camera Metrics")
+        # Group 3: Per-Camera Table
+        self._camera_group = QGroupBox("Per-Camera")
         camera_layout = QVBoxLayout(self._camera_group)
+        camera_layout.setContentsMargins(4, 4, 4, 4)
 
         self._table = QTableWidget()
         self._table.setColumnCount(3)
@@ -93,13 +99,11 @@ class QualityPanel(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
-        # Set minimum height to show ~4 rows comfortably, no max so it can expand
-        self._table.setMinimumHeight(120)
+        # Allow table to show more rows, stretch to fill
+        self._table.setMinimumHeight(80)
 
         camera_layout.addWidget(self._table)
-        layout.addWidget(self._camera_group)
-
-        layout.addStretch()
+        layout.addWidget(self._camera_group, stretch=1)  # Table gets extra space
 
     def set_reprojection_data(self, data: QualityPanelData) -> None:
         """Update reprojection error section with new data.
@@ -107,12 +111,12 @@ class QualityPanel(QWidget):
         Args:
             data: Quality metrics from the presenter
         """
-        self._rmse_label.setText(f"Overall RMSE: {data.overall_rmse:.2f} px")
+        self._rmse_label.setText(f"RMSE: {data.overall_rmse:.3f} px")
         self._obs_label.setText(f"Observations: {data.n_observations:,}")
         self._points_label.setText(f"3D Points: {data.n_world_points:,}")
 
         status = "Yes" if data.converged else "No"
-        self._converged_label.setText(f"Converged: {status} ({data.iterations} iterations)")
+        self._converged_label.setText(f"Converged: {status} ({data.iterations} iter)")
 
         # Update per-camera table
         self._table.setRowCount(len(data.camera_rows))
@@ -123,7 +127,7 @@ class QualityPanel(QWidget):
             obs_item = QTableWidgetItem(f"{n_obs:,}")
             obs_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
-            rmse_item = QTableWidgetItem(f"{rmse:.2f}")
+            rmse_item = QTableWidgetItem(f"{rmse:.3f}")
             rmse_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
             self._table.setItem(row, 0, port_item)
@@ -137,27 +141,27 @@ class QualityPanel(QWidget):
             data: Scale accuracy metrics, or None to show placeholder
         """
         if data is None or data.n_corners_detected == 0:
-            self._scale_ref_label.setText("Reference: not set")
             self._scale_rmse_label.setText("Distance RMSE: --")
             self._scale_relative_label.setText("Relative Error: --")
-            self._scale_detail_label.setText("Set origin frame to compute scale accuracy")
+            self._scale_ref_label.setText("Reference Frame: --")
+            self._scale_detail_label.setText("(set origin to compute)")
             return
 
-        self._scale_ref_label.setText(f"Reference: frame {data.reference_sync_index}")
         self._scale_rmse_label.setText(f"Distance RMSE: {data.distance_rmse_mm:.2f} mm")
         self._scale_relative_label.setText(f"Relative Error: {data.relative_error_percent:.2f}%")
-        self._scale_detail_label.setText(f"({data.n_corners_detected} corners, {data.n_distance_pairs} distance pairs)")
+        self._scale_ref_label.setText(f"Reference Frame: {data.reference_sync_index}")
+        self._scale_detail_label.setText(f"({data.n_corners_detected} corners matched)")
 
     def clear(self) -> None:
         """Reset all displays to placeholder values."""
-        self._rmse_label.setText("Overall RMSE: --")
+        self._rmse_label.setText("RMSE: --")
         self._obs_label.setText("Observations: --")
         self._points_label.setText("3D Points: --")
         self._converged_label.setText("Converged: --")
 
-        self._scale_ref_label.setText("Reference: --")
         self._scale_rmse_label.setText("Distance RMSE: --")
         self._scale_relative_label.setText("Relative Error: --")
+        self._scale_ref_label.setText("Reference Frame: --")
         self._scale_detail_label.setText("")
 
         self._table.setRowCount(0)

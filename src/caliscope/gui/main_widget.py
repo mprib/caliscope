@@ -174,6 +174,10 @@ class MainWindow(QMainWindow):
             self.coordinator.capture_volume_shifted.connect(
                 lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
             )
+            # Also update when new calibration bundle is saved (new PointDataBundle system)
+            self.coordinator.bundle_updated.connect(
+                lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
+            )
             reconstruction_enabled = True
         else:
             logger.info("Creating dummy widget")

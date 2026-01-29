@@ -24,6 +24,7 @@ from caliscope.repositories import (
 )
 from caliscope.repositories.point_data_bundle_repository import PointDataBundleRepository
 from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.workflow_status import WorkflowStatus
 from caliscope.persistence import PersistenceError
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
 from caliscope.reconstruction.reconstructor import Reconstructor
@@ -234,6 +235,45 @@ class WorkspaceCoordinator(QObject):
     def recordings_available(self) -> bool:
         """Check if any valid recording directories exist."""
         return len(self.workspace_guide.valid_recording_dirs()) > 0
+
+    def get_workflow_status(self) -> WorkflowStatus:
+        """Compute current workflow status from ground truth.
+
+        This method queries the filesystem and domain objects to build
+        a status snapshot. Called by the Project tab whenever it refreshes.
+        """
+        # Expected ports: 1..camera_count (convention: ports are 1-indexed)
+        expected_ports = set(range(1, self.camera_count + 1))
+
+        # Intrinsic video availability
+        intrinsic_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.intrinsic_dir)
+        intrinsic_missing = sorted(expected_ports - set(intrinsic_ports))
+
+        # Extrinsic video availability
+        extrinsic_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.extrinsic_dir)
+        extrinsic_missing = sorted(expected_ports - set(extrinsic_ports))
+
+        # Cameras needing intrinsic calibration
+        cameras_needing = [port for port, cam in self.camera_array.cameras.items() if cam.matrix is None]
+
+        # 2D extraction complete check
+        image_points_path = self.workspace_guide.extrinsic_dir / "CHARUCO" / "image_points.csv"
+        extraction_complete = image_points_path.exists()
+
+        return WorkflowStatus(
+            camera_count=self.camera_count,
+            charuco_configured=True,
+            intrinsic_videos_available=len(intrinsic_missing) == 0,
+            intrinsic_videos_missing=intrinsic_missing,
+            intrinsic_calibration_complete=self.camera_array.all_intrinsics_calibrated(),
+            cameras_needing_calibration=cameras_needing,
+            extrinsic_videos_available=len(extrinsic_missing) == 0,
+            extrinsic_videos_missing=extrinsic_missing,
+            extrinsic_2d_extraction_complete=extraction_complete,
+            extrinsic_calibration_complete=self.all_extrinsics_estimated(),
+            recordings_available=self.recordings_available(),
+            recording_names=self.workspace_guide.valid_recording_dirs(),
+        )
 
     def update_charuco(self, charuco: Charuco):
         """

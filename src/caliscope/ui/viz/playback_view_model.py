@@ -115,6 +115,18 @@ class PlaybackViewModel:
             return 0  # Single frame for camera-only mode
         return self.world_points.max_index
 
+    @property
+    def valid_sync_indices(self) -> np.ndarray:
+        """Return sorted array of sync indices that have point data.
+
+        Used for slider navigation - the slider should only stop at frames
+        that actually have data, not every frame in the min/max range.
+        For sparse data (e.g., every 5th frame), this returns [0, 5, 10, ...]
+        """
+        if not self._grouped_points:
+            return np.array([], dtype=np.int64)
+        return np.sort(np.array(list(self._grouped_points.keys()), dtype=np.int64))
+
     def get_camera_geometry(self, scale: float = 0.0005) -> dict[str, Any] | None:
         """Pass-through to the static camera builder."""
         return build_camera_geometry(self.camera_array, scale=scale)

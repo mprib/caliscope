@@ -238,12 +238,28 @@ class MainWindow(QMainWindow):
 
         The Multi-Camera tab has extracted 2D ImagePoints. Tab 2 (Capture Volume)
         can now run triangulation and bundle adjustment.
+
+        If the tab is currently a dummy widget, replaces it with the real
+        ExtrinsicCalibrationTab which has the presenter/view for calibration.
         """
         idx = self.find_tab_index_by_title("Capture Volume")
         if idx < 0 or self.central_tab.isTabEnabled(idx):
             return  # Tab not found or already enabled
 
         logger.info("Enabling Capture Volume tab after 2D extraction complete")
+
+        # Check if current widget is a dummy (not the real ExtrinsicCalibrationTab)
+        current_widget = self.central_tab.widget(idx)
+        if not isinstance(current_widget, ExtrinsicCalibrationTab):
+            # Replace dummy widget with real tab
+            logger.info("Replacing dummy widget with ExtrinsicCalibrationTab")
+            old_widget = current_widget
+            self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
+            self.central_tab.removeTab(idx)
+            self.central_tab.insertTab(idx, self.extrinsic_calibration_tab, "Capture Volume")
+            if old_widget is not None:
+                old_widget.deleteLater()
+
         self.central_tab.setTabEnabled(idx, True)
 
     def _on_capture_volume_ready(self) -> None:

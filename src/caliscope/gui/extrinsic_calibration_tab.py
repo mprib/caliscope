@@ -1,107 +1,146 @@
-"""
-Container that wires ExtrinsicCalibrationWidget signals to WorkspaceCoordinator.
+"""Extrinsic Calibration tab for bundle adjustment workflow.
 
-This is the thin glue layer that connects the pure UI widget (which only emits signals)
-to the application coordinator (which manages domain state and persistence).
+Glue layer that connects ExtrinsicCalibrationPresenter to the View and Coordinator.
+Handles presenter lifecycle and signal wiring.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from caliscope.ui.viz.extrinsic_calibration_widget import ExtrinsicCalibrationWidget
-from caliscope.ui.viz.playback_view_model import PlaybackViewModel
+from caliscope.gui.presenters.extrinsic_calibration_presenter import (
+    ExtrinsicCalibrationPresenter,
+)
+from caliscope.gui.views.extrinsic_calibration_view import ExtrinsicCalibrationView
 
 if TYPE_CHECKING:
+    from caliscope.core.point_data_bundle import PointDataBundle
     from caliscope.workspace_coordinator import WorkspaceCoordinator
 
 logger = logging.getLogger(__name__)
 
 
 class ExtrinsicCalibrationTab(QWidget):
-    """
-    Container that wires ExtrinsicCalibrationWidget to WorkspaceCoordinator.
+    """Tab container for extrinsic calibration workflow.
 
-    Responsibilities:
-    - Create widget with ViewModel built from coordinator's bundle
-    - Wire widget signals to coordinator methods
-    - Listen for bundle changes and refresh the widget's ViewModel
+    Creates and manages the presenter/view pair for bundle adjustment
+    calibration. On completion, persists the calibrated PointDataBundle
+    via the coordinator.
+
+    Lifecycle:
+    - Presenter created on tab construction
+    - On calibration complete: bundle persisted via coordinator.update_bundle()
+    - cleanup() must be called before tab is destroyed
     """
 
-    def __init__(self, coordinator: WorkspaceCoordinator, parent: QWidget | None = None):
-        super().__init__(parent)
+    def __init__(self, coordinator: WorkspaceCoordinator) -> None:
+        super().__init__()
         self._coordinator = coordinator
-        self._widget: ExtrinsicCalibrationWidget | None = None
+        self._presenter: ExtrinsicCalibrationPresenter | None = None
+        self._view: ExtrinsicCalibrationView | None = None
 
-        # Layout to hold the widget
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        """Build the UI and create presenter/view pair."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Initial setup if bundle exists
-        self._refresh_widget()
+        # Create presenter via coordinator factory
+        self._presenter = self._coordinator.create_extrinsic_calibration_presenter()
 
-        # Listen for bundle changes from coordinator
-        self._coordinator.bundle_updated.connect(self._on_bundle_changed)
+        # Create view with presenter
+        self._view = ExtrinsicCalibrationView(self._presenter)
+        layout.addWidget(self._view)
 
-    def _refresh_widget(self) -> None:
-        """Create or update widget with current bundle data."""
-        bundle = self._coordinator.point_data_bundle
+        # Wire presenter signals to coordinator
+        self._connect_signals()
 
-        if bundle is None:
-            logger.warning("No point data bundle available for extrinsic calibration tab")
+        logger.info("ExtrinsicCalibrationTab created")
+
+    def _connect_signals(self) -> None:
+        """Wire presenter signals to coordinator persistence."""
+        if self._presenter is None:
             return
 
-        # Create ViewModel from bundle
-        view_model = PlaybackViewModel(
-            camera_array=bundle.camera_array,
-            world_points=bundle.world_points,
-            wireframe_segments=None,  # No skeleton for charuco points
-        )
+        # Calibration completion - persist bundle via coordinator
+        self._presenter.calibration_complete.connect(self._on_calibration_complete)
 
-        if self._widget is None:
-            # First time - create widget
-            self._widget = ExtrinsicCalibrationWidget(view_model, parent=self)
-            self.layout().addWidget(self._widget)
+        # Charuco changes invalidate the presenter - need to recreate
+        self._coordinator.charuco_changed.connect(self._on_charuco_changed)
 
-            # Wire signals to coordinator
-            self._widget.rotation_requested.connect(self._on_rotation_requested)
-            self._widget.set_origin_requested.connect(self._on_set_origin_requested)
+    def _on_calibration_complete(self, bundle: PointDataBundle) -> None:
+        """Handle calibration completion - persist bundle via coordinator."""
+        logger.info(f"Extrinsic calibration complete: RMSE={bundle.reprojection_report.overall_rmse:.3f}px")
 
-            logger.info("ExtrinsicCalibrationWidget created and wired")
-        else:
-            # Update existing widget with new ViewModel
-            self._widget.set_view_model(view_model)
-            logger.info("ExtrinsicCalibrationWidget ViewModel refreshed")
+        # Persist via coordinator (handles bundle_updated signal, camera array save, etc.)
+        self._coordinator.update_bundle(bundle)
 
-    def _on_rotation_requested(self, axis: str, angle_degrees: float) -> None:
-        """Handle rotation request from widget.
+    def _on_charuco_changed(self) -> None:
+        """Handle charuco board changes - recreate presenter with new charuco.
 
-        The widget emits str for axis (Qt signals don't support Literal types),
-        but we know it's constrained to "x", "y", "z" at runtime.
+        The presenter holds a charuco reference from creation time. When charuco
+        changes, the old reference is stale - recreate to get the new one.
         """
-        logger.info(f"Rotation requested: axis={axis}, angle={angle_degrees}")
-        typed_axis = cast(Literal["x", "y", "z"], axis)
-        self._coordinator.rotate_calibration_bundle(typed_axis, angle_degrees)
+        logger.info("Charuco changed - recreating extrinsic calibration presenter")
 
-    def _on_set_origin_requested(self, sync_index: int) -> None:
-        """Handle set origin request from widget."""
-        logger.info(f"Set origin requested: sync_index={sync_index}")
-        self._coordinator.set_calibration_bundle_origin(sync_index)
+        # Cleanup existing presenter and view
+        if self._presenter is not None:
+            self._presenter.cleanup()
 
-    def _on_bundle_changed(self) -> None:
-        """Handle bundle change signal from coordinator."""
-        logger.info("Bundle changed, refreshing widget")
-        self._refresh_widget()
+        if self._view is not None:
+            self._view.cleanup()
+            layout = self.layout()
+            if layout is not None:
+                layout.removeWidget(self._view)
+            self._view.deleteLater()
+
+        # Recreate with fresh presenter/view
+        self._presenter = self._coordinator.create_extrinsic_calibration_presenter()
+        self._view = ExtrinsicCalibrationView(self._presenter)
+        layout = self.layout()
+        if layout is not None:
+            layout.addWidget(self._view)
+
+        self._connect_signals()
+
+    # -------------------------------------------------------------------------
+    # VTK Lifecycle
+    # -------------------------------------------------------------------------
 
     def suspend_vtk(self) -> None:
         """Pause VTK rendering when tab is not active."""
-        if self._widget is not None:
-            self._widget.suspend_vtk()
+        if self._view is not None:
+            self._view.suspend_vtk()
 
     def resume_vtk(self) -> None:
         """Resume VTK rendering when tab becomes active."""
-        if self._widget is not None:
-            self._widget.resume_vtk()
+        if self._view is not None:
+            self._view.resume_vtk()
+
+    # -------------------------------------------------------------------------
+    # Lifecycle
+    # -------------------------------------------------------------------------
+
+    def cleanup(self) -> None:
+        """Clean up presenter and view resources.
+
+        Must be called before tab is destroyed. The parent (MainWidget) is
+        responsible for calling this during reload_workspace or closeEvent.
+        """
+        if self._view is not None:
+            self._view.cleanup()
+            self._view = None
+
+        if self._presenter is not None:
+            logger.info("Cleaning up extrinsic calibration presenter")
+            self._presenter.cleanup()
+            self._presenter = None
+
+    def closeEvent(self, event) -> None:
+        """Defensive cleanup on normal close."""
+        self.cleanup()
+        super().closeEvent(event)

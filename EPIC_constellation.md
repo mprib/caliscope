@@ -14,7 +14,7 @@
 - UI polish: Remove emoji indicators, clean up RMSE display
 - Cleanup: Remove broken widgets, update to new report structures
 
-**Current phase:** Phase 3 (Tab Integration)
+**Current phase:** Phase 5 (Cleanup)
 
 **Key files:**
 | Purpose | Location |
@@ -123,30 +123,63 @@ main
 - [x] **3.4** Wire Tab 1 completion to Tab 2 enable
   - On `processing_complete`: persist ImagePoints, enable Tab 2
 
-### Phase 3.5: Interactive UI Refinement ← CURRENT
+### Phase 3.5: Interactive UI Refinement ✓
 Iterative feedback loop using `scripts/widget_visualization/wv_multi_camera_tab.py`.
-User tests → reports issues → Claude fixes → repeat until satisfied.
 
-**Test script:** `uv run python scripts/widget_visualization/wv_multi_camera_tab.py`
+**Completed refinements:**
+- [x] Larger thumbnails (280px), bigger landmark points (5px)
+- [x] Scroll area + dynamic columns for camera grid
+- [x] Subsample control spinbox
+- [x] Coverage tooltips with dotted underline pattern
+- [x] Coverage matrix shows lower triangle only
 
-**Feedback categories:**
-- [ ] **Layout/Sizing**: Camera grid proportions, button placement, spacing
-- [ ] **Thumbnail Display**: Initial load, rotation, updates during processing
-- [ ] **Progress Feedback**: Bar updates, status messages, time estimates
-- [ ] **Coverage Summary**: Post-processing display clarity, actionable guidance
-- [ ] **Error Handling**: What happens on failure, cancellation UX
-- [ ] **Polish**: Colors, fonts, alignment, professional feel
+### Phase 4: Extrinsic Calibration Tab ✓
+- [x] **4.1** Presenter skeleton
+- [x] **4.2** Calibration workflow implementation
+- [x] **4.3** Transform operations (rotate, filter, align)
+- [x] **4.4** Quality panel widget + scale accuracy
+- [x] **4.5** View assembly (ExtrinsicCalibrationView with all controls)
+- [x] **4.6** Tab integration (wire tab to use new presenter/view)
+- [x] **4.65** View polish & bug fixes (see details below)
+- [x] **4.7** Legacy removal (delete ExtrinsicCalibrationWidget)
 
-**Process:**
-1. User runs test script and interacts with widget
-2. User reports observations (what works, what doesn't, what's confusing)
-3. Claude makes targeted fixes
-4. Repeat until workflow feels right
+### Phase 4.65: View Polish & Bug Fixes ✓
+Feedback from hands-on testing. Layout and cosmetic changes to ExtrinsicCalibrationView.
 
-### Phase 4: Extrinsic Calibration Tab (3-4 hrs)
-- [ ] **4.1** Review existing `ExtrinsicCalibrationTab`
-- [ ] **4.2** Add coverage quality display (heatmap, summary, guidance)
-- [ ] **4.3** Add calibration controls (button, progress, RMSE)
+**Bug Fixes:**
+- [x] **4.65.1** Sparse frame scrubbing — slider now indexes into valid sync_indices only
+
+**Layout/UX (ExtrinsicCalibrationView):**
+- [x] **4.65.2** Metrics as three horizontal QGroupBoxes: Reprojection Error | Scale Accuracy | Per-Camera
+- [x] **4.65.3** Compress dead space, expand VTK widget relative to controls
+- [x] **4.65.4** Frame scrubber + coordinate frame controls on same row
+- [x] **4.65.5** Calibrate button: distinct blue color (primary action callout)
+- [x] **4.65.6** Coordinate frame buttons: RGB color-coded (X=red, Y=green, Z=blue)
+
+**Persistence (CRITICAL — FIXED):**
+- [x] **4.65.7** Calibration not reloading on project relaunch
+  - **Root cause:** Three-part issue:
+    1. Tab enablement checked old system only (`point_estimates.toml`)
+    2. `update_bundle()` didn't save camera_array to main repository
+    3. Presenter had no way to receive existing bundle
+  - **Fix:**
+    - `all_extrinsics_estimated()` now checks new PointDataBundle OR old system
+    - `update_bundle()` now saves camera_array to main repo (for restart detection)
+    - Presenter accepts `existing_bundle` parameter, emits initial state with 3D viz
+    - `load_workspace()` skips old system load when only new system has data
+
+**3D Visualization (defer to tasks.json for future session):**
+- VTK axes: add X/Y/Z labels to tricolor axis widget
+- Point sizing: use physical size (scales with zoom) instead of fixed screen size
+- Camera meshes: wireframe edges as lines instead of solid green fill
+- Camera labels: on image plane with orientation from rotation_count (Vicon style)
+
+
+**Enhancements beyond original spec:**
+- Coverage heatmap in floating dialog (handles any camera count)
+- Initial coverage shown before calibration runs
+- Coverage updates after filtering operations
+- MIN_CELL_SIZE=35px for readability at any camera count
 
 ### Phase 5: Cleanup (2-3 hrs)
 - [ ] **5.1** Remove broken widgets
@@ -186,6 +219,91 @@ Display queue pattern from `IntrinsicCalibrationPresenter`. Throttled to ~10 FPS
 ---
 
 ## Session Log
+
+### 2026-01-29: Phase 4.7 Complete - Legacy Removal
+- Deleted `src/caliscope/ui/viz/extrinsic_calibration_widget.py` (312 lines)
+- Pre-deletion verification: grep confirmed no external imports
+- Post-deletion verification: all 283 tests pass
+- Type check shows 3 pre-existing errors (unrelated to deletion):
+  - `synched_frames_display.py` has broken Optional handling (confirms 5.1 target)
+  - `__main__.py` PySide6 version attribute issue
+- Commit: `0b6bc40e refactor(gui): remove legacy ExtrinsicCalibrationWidget`
+- **Phase 4 is now complete**
+- Branch: `feature/phase4-extrinsic-calibration-tab`
+
+### 2026-01-29: Phase 4.6 Complete + 4.65 Bug Fix + Feedback Collection
+- **Phase 4.6 Tab Integration:**
+  - Added `create_extrinsic_calibration_presenter()` factory to WorkspaceCoordinator
+  - Rewrote ExtrinsicCalibrationTab following MultiCameraProcessingTab pattern
+  - Wired `calibration_complete` → `coordinator.update_bundle()`
+  - Fixed `_on_extrinsic_points_ready` to replace dummy widget with real tab
+- **Phase 4.65.1 Sparse Frame Scrubbing Fix:**
+  - Slider now indexes into `valid_sync_indices` array (not raw sync_index range)
+  - Frame display shows actual sync_index for video correlation
+  - Fixes blank frames when data is subsampled (e.g., every 5th frame)
+- **Hands-on testing feedback collected:**
+  - Layout improvements needed (metrics row, button styling, compact controls)
+  - Calibration persistence issue discovered (not reloading on project relaunch)
+  - 3D visualization improvements identified (deferred to future session)
+- All 283 tests pass
+- Branch: `feature/phase4-extrinsic-calibration-tab`
+
+---
+
+**Resume Notes for Next Session:**
+
+Branch: `feature/phase4-extrinsic-calibration-tab`
+
+**Immediate priority: Phase 5 Cleanup**
+
+Phase 4 is complete. The legacy `ExtrinsicCalibrationWidget` has been deleted.
+
+**5.1: Remove broken widgets:**
+- `src/caliscope/gui/synched_frames_display.py` — type errors confirm it's broken
+- `src/caliscope/ui/extrinsic_playback_widget.py` — references non-existent attributes
+- `src/caliscope/gui/frame_dictionary_emitter.py` — unused infrastructure
+
+**Verification before each deletion:**
+1. Grep for imports/references across src/
+2. Run type check after deletion
+3. Full test suite at end of phase
+
+**5.2: Update documentation** (if needed)
+**5.3: Final test suite run**
+
+**Deferred polish (minor issues noted during testing):**
+- Some layout spacing could be tighter
+- 3D visualization enhancements (axis labels, physical point sizing, wireframe cameras)
+
+---
+
+### 2026-01-29: Phase 4.65 Complete - Polish & Persistence Fix
+- **Persistence bug fixed (4.65.7):** Calibration now reloads correctly on project relaunch
+  - Added `existing_bundle` parameter to presenter for restored sessions
+  - `update_bundle()` now saves camera_array to main repository
+  - `all_extrinsics_estimated()` checks both old and new persistence systems
+  - `load_workspace()` skips old system load when only new PointDataBundle exists
+- **Layout polish (4.65.2-6):**
+  - Quality metrics as three horizontal QGroupBoxes (Reprojection | Scale Accuracy | Per-Camera)
+  - Frame slider + coordinate frame controls combined on one row
+  - Calibrate button styled with primary blue color
+  - Coordinate frame buttons RGB color-coded (X=red, Y=green, Z=blue)
+  - Controls compressed, VTK widget given more relative space
+- **Minor polish issues deferred** (spacing, 3D viz enhancements)
+- Branch: `feature/phase4-extrinsic-calibration-tab`
+- Next: 4.7 Legacy Removal (delete old ExtrinsicCalibrationWidget)
+
+### 2026-01-26: Phase 4.5 Enhancement - Coverage Matrix
+- Implemented coverage matrix visualization for ExtrinsicCalibrationView
+  - Initial approach: embedded widget beside QualityPanel
+  - Final approach: floating dialog via "View Coverage" button (handles 11+ cameras)
+  - Coverage shown immediately on load (before calibration)
+  - Updates after filtering operations
+- Coverage heatmap widget enhanced with MIN_CELL_SIZE=35px for readability
+- Scale accuracy signal chain already working from previous session
+- Layout: Filter controls as single line with coverage button at end
+- **Remaining:** 4.6 (tab integration) and 4.7 (legacy removal) still pending
+- Branch: `feature/phase4-extrinsic-calibration-tab`
 
 ### 2026-01-25: Phase 3.5 Round 2
 - Implemented UI polish: larger thumbnails (280px), bigger points (5px radius)

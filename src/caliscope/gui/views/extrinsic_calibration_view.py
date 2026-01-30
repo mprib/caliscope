@@ -33,12 +33,10 @@ from caliscope.gui.presenters.extrinsic_calibration_presenter import (
     ExtrinsicCalibrationState,
     QualityPanelData,
 )
+from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
+from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
 from caliscope.gui.widgets.quality_panel import QualityPanel
-from caliscope.ui.viz.playback_triangulation_widget_pyvista import (
-    PlaybackTriangulationWidgetPyVista,
-)
-from caliscope.ui.viz.playback_view_model import PlaybackViewModel
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +59,10 @@ class ExtrinsicCalibrationView(QWidget):
         super().__init__(parent)
         self._presenter = presenter
 
-        # Lazy-init: created on first view model update
-        self._pyvista_widget: PlaybackTriangulationWidgetPyVista | None = None
+        # Lazy-init: created on first view model update WHEN VISIBLE
+        # This prevents VTK OpenGL context issues when tab starts disabled
+        self._pyvista_widget: PlaybackVizWidget | None = None
+        self._pending_view_model: PlaybackViewModel | None = None
 
         # Valid sync indices for frame navigation (sparse data support)
         # Slider position = index into this array, not the actual sync_index
@@ -557,29 +557,53 @@ class ExtrinsicCalibrationView(QWidget):
         dialog.show()
 
     def _on_view_model_updated(self, view_model: PlaybackViewModel) -> None:
-        """Handle view model update from presenter."""
-        # Create PyVista widget on first use (lazy initialization)
+        """Handle view model update from presenter.
+
+        Defers PyVista widget creation until the tab is actually visible.
+        This prevents VTK OpenGL context issues when the tab starts disabled
+        and gets replaced with the real tab later.
+        """
         if self._pyvista_widget is None:
-            # Hide placeholder, show real widget
-            self._viz_placeholder.hide()
-
-            self._pyvista_widget = PlaybackTriangulationWidgetPyVista(view_model)
-            self._pyvista_widget.show_playback_controls(False)  # We have our own slider
-            # Insert at index 0 so it appears ABOVE the frame slider
-            self._viz_layout.insertWidget(0, self._pyvista_widget)
-            # PyVista widget should stretch to fill space
-            self._viz_layout.setStretchFactor(self._pyvista_widget, 1)
-
-            # Now that we have a 3D widget, give it more splitter space
-            # VTK visualization should dominate (3:1 ratio)
-            self._splitter.setSizes([750, 250])
-            self._splitter.setStretchFactor(0, 4)
-            self._splitter.setStretchFactor(1, 1)
+            # No widget yet - check if we should create it now or defer
+            if self.isVisible():
+                self._create_pyvista_widget(view_model)
+            else:
+                # Tab not visible - cache view model for later creation in showEvent
+                logger.debug("Deferring PyVista widget creation until tab is visible")
+                self._pending_view_model = view_model
         else:
             # Updating existing widget (coordinate transforms, re-optimization)
             # Preserve camera position so user doesn't lose their view
             self._pyvista_widget.set_view_model(view_model, preserve_camera=True)
 
+        # Always update slider state (even if widget creation deferred)
+        self._update_slider_for_view_model(view_model)
+
+    def _create_pyvista_widget(self, view_model: PlaybackViewModel) -> None:
+        """Create the PyVista widget. Only call when visible."""
+        logger.debug("Creating PyVista widget (tab is visible)")
+
+        # Hide placeholder, show real widget
+        self._viz_placeholder.hide()
+
+        self._pyvista_widget = PlaybackVizWidget(view_model)
+        self._pyvista_widget.show_playback_controls(False)  # We have our own slider
+        # Insert at index 0 so it appears ABOVE the frame slider
+        self._viz_layout.insertWidget(0, self._pyvista_widget)
+        # PyVista widget should stretch to fill space
+        self._viz_layout.setStretchFactor(self._pyvista_widget, 1)
+
+        # Now that we have a 3D widget, give it more splitter space
+        # VTK visualization should dominate (3:1 ratio)
+        self._splitter.setSizes([750, 250])
+        self._splitter.setStretchFactor(0, 4)
+        self._splitter.setStretchFactor(1, 1)
+
+        # Clear pending state
+        self._pending_view_model = None
+
+    def _update_slider_for_view_model(self, view_model: PlaybackViewModel) -> None:
+        """Update slider state for the given view model."""
         # Cache valid sync indices for sparse data navigation
         # Slider position = index into this array, not the actual sync_index
         self._valid_sync_indices = view_model.valid_sync_indices
@@ -620,6 +644,19 @@ class ExtrinsicCalibrationView(QWidget):
     # -------------------------------------------------------------------------
     # VTK Lifecycle
     # -------------------------------------------------------------------------
+
+    def showEvent(self, event) -> None:
+        """Handle show event - create deferred PyVista widget if needed.
+
+        VTK/OpenGL requires the widget to be visible for proper context
+        initialization. If view_model_updated fired while we were hidden,
+        we deferred widget creation. Now that we're visible, create it.
+        """
+        super().showEvent(event)
+
+        if self._pending_view_model is not None and self._pyvista_widget is None:
+            logger.debug("Tab now visible - creating deferred PyVista widget")
+            self._create_pyvista_widget(self._pending_view_model)
 
     def suspend_vtk(self) -> None:
         """Pause VTK rendering when tab not active."""

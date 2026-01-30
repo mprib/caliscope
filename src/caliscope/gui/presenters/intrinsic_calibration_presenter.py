@@ -14,7 +14,7 @@ from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Thread
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 
 from caliscope.cameras.camera_array import CameraData
 from caliscope.core.calibrate_intrinsics import (
@@ -390,8 +390,15 @@ class IntrinsicCalibrationPresenter(QObject):
             calibration_worker,
             name=f"Intrinsic calibration port {self._port}",
         )
-        self._calibration_task.completed.connect(self._on_calibration_complete)
-        self._calibration_task.failed.connect(self._on_calibration_failed)
+        # Use QueuedConnection - TaskHandle signals emitted from worker threads
+        self._calibration_task.completed.connect(
+            self._on_calibration_complete,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._calibration_task.failed.connect(
+            self._on_calibration_failed,
+            Qt.ConnectionType.QueuedConnection,
+        )
 
         self._emit_state_changed()
 

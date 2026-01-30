@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 
 from caliscope.cameras.camera_array import CameraData
 from caliscope.core.coverage_analysis import (
@@ -298,9 +298,19 @@ class MultiCameraProcessingPresenter(QObject):
             worker,
             name="Multi-camera processing",
         )
-        self._task_handle.completed.connect(self._on_processing_complete)
-        self._task_handle.failed.connect(self._on_processing_failed)
-        self._task_handle.cancelled.connect(self._on_processing_cancelled)
+        # Use QueuedConnection - TaskHandle signals emitted from worker threads
+        self._task_handle.completed.connect(
+            self._on_processing_complete,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_handle.failed.connect(
+            self._on_processing_failed,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_handle.cancelled.connect(
+            self._on_processing_cancelled,
+            Qt.ConnectionType.QueuedConnection,
+        )
 
         self._emit_state_changed()
 

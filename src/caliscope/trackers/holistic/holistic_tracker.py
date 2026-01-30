@@ -131,7 +131,9 @@ class HolisticTracker(Tracker):
         self.in_queues: dict[int, Queue] = {}
         self.out_queues: dict[int, Queue] = {}
         self.threads: dict[int, Thread] = {}
-        wireframe_spec_path = Path(Path(__file__).parent.parent.parent, "ui/viz/wireframes/holistic_wireframe.toml")
+        wireframe_spec_path = Path(
+            Path(__file__).parent.parent.parent, "gui/geometry/wireframes/holistic_wireframe.toml"
+        )
         self.wireframe = get_wireframe(wireframe_spec_path, POINT_NAMES)
 
     @property

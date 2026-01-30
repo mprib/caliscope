@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from caliscope.ui.viz.wireframe_loader import load_wireframe_config
+from caliscope.gui.geometry.wireframe import load_wireframe_config
 
 
 def test_load_wireframe_config_valid():
@@ -138,9 +138,15 @@ points = ["existing_b", "existing_a"]
 
 def test_load_wireframe_config_real_holistic_file():
     """Test loading the actual holistic wireframe TOML."""
-    # Path to the holistic wireframe file in UI directory
+    # Path to the holistic wireframe file in gui/geometry
     toml_path = (
-        Path(__file__).parent.parent / "src" / "caliscope" / "ui" / "viz" / "wireframes" / "holistic_wireframe.toml"
+        Path(__file__).parent.parent
+        / "src"
+        / "caliscope"
+        / "gui"
+        / "geometry"
+        / "wireframes"
+        / "holistic_wireframe.toml"
     )
 
     if not toml_path.exists():

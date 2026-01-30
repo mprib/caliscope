@@ -28,10 +28,8 @@ from caliscope.gui.presenters.reconstruction_presenter import (
     ReconstructionPresenter,
     ReconstructionState,
 )
-from caliscope.ui.viz.playback_triangulation_widget_pyvista import (
-    PlaybackTriangulationWidgetPyVista,
-)
-from caliscope.ui.viz.playback_view_model import PlaybackViewModel
+from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
+from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +48,7 @@ class ReconstructionWidget(QWidget):
     ):
         super().__init__(parent)
         self._presenter = presenter
-        self._pyvista_widget: PlaybackTriangulationWidgetPyVista | None = None
+        self._pyvista_widget: PlaybackVizWidget | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -342,7 +340,7 @@ class ReconstructionWidget(QWidget):
 
             # Create or update widget
             if self._pyvista_widget is None:
-                self._pyvista_widget = PlaybackTriangulationWidgetPyVista(view_model)
+                self._pyvista_widget = PlaybackVizWidget(view_model)
                 self._pyvista_container.addWidget(self._pyvista_widget)
             else:
                 self._pyvista_widget.set_view_model(view_model)

@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
-from pathlib import Path
-import numpy as np
-import pyqtgraph as pg
-from pyqtgraph.opengl import GLLinePlotItem
-
 from dataclasses import dataclass
-from caliscope.packets import PointPacket, XYZPacket
+from pathlib import Path
+
+import numpy as np
+
+from caliscope.packets import PointPacket
 
 
 class Tracker(ABC):
@@ -92,24 +91,13 @@ class Segment:
     width: float = 1  # note that this does not scale with zoom level... should probably just stick with 1
 
 
-@dataclass(slots=False, frozen=False)
+@dataclass(slots=True, frozen=True)
 class WireFrameView:
-    segments: list[Segment]
+    """Pure data container for wireframe visualization config.
+
+    Stores segment definitions and point name→ID mapping.
+    Rendering is handled by the visualization layer (PyVista widgets).
+    """
+
+    segments: tuple[Segment, ...]
     point_names: dict[str, int]  # map landmark name to landmark id
-
-    def __post_init__(self):
-        self.line_plots: dict[str, GLLinePlotItem] = {}
-        for segment in self.segments:
-            self.line_plots[segment.name] = GLLinePlotItem(
-                color=pg.mkColor(segment.color), width=segment.width, mode="lines"
-            )
-
-        # Same as point_names: point_name (str) -> point_id (int)
-        # Used in set_points() to look up IDs by landmark name
-        self.point_ids: dict[str, int] = dict(self.point_names)
-
-    def set_points(self, xyz_packet: XYZPacket):
-        for segment in self.segments:
-            A_id = self.point_ids[segment.point_A]
-            B_id = self.point_ids[segment.point_B]
-            self.line_plots[segment.name].setData(pos=xyz_packet.get_segment_ends(A_id, B_id))

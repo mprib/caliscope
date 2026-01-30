@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from pyvistaqt import QtInteractor
 
 from caliscope import ICONS_DIR
-from caliscope.ui.viz.playback_view_model import PlaybackViewModel
+from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def _icon(name: str) -> QIcon:
     return QIcon(str(ICONS_DIR / f"{name}.svg"))
 
 
-class PlaybackTriangulationWidgetPyVista(QWidget):
+class PlaybackVizWidget(QWidget):
     """
     PyVista-based widget for animated playback of triangulated 3D points.
 
@@ -477,7 +477,7 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
         Call this when the containing tab becomes inactive.
         Pair with resume_vtk() when tab becomes active again.
         """
-        logger.debug("PlaybackTriangulationWidgetPyVista suspending VTK")
+        logger.debug("PlaybackVizWidget suspending VTK")
         if hasattr(self.plotter, "iren") and self.plotter.iren is not None:
             # Access underlying VTK interactor - PyVista wrapper doesn't expose these methods
             vtk_iren = self.plotter.iren.interactor
@@ -493,7 +493,7 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
 
         Call this when the containing tab becomes active.
         """
-        logger.debug("PlaybackTriangulationWidgetPyVista resuming VTK")
+        logger.debug("PlaybackVizWidget resuming VTK")
         if hasattr(self.plotter, "iren") and self.plotter.iren is not None:
             vtk_iren = self.plotter.iren.interactor
             if vtk_iren is not None:
@@ -592,3 +592,7 @@ class PlaybackTriangulationWidgetPyVista(QWidget):
             visible: If False, hides the slider, play/pause button, speed control, etc.
         """
         self._control_bar.setVisible(visible)
+
+
+# Backwards compatibility alias - will be removed in future version
+PlaybackTriangulationWidgetPyVista = PlaybackVizWidget

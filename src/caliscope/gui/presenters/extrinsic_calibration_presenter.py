@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.bootstrap_pose.build_paired_pose_network import (
@@ -261,10 +261,25 @@ class ExtrinsicCalibrationPresenter(QObject):
             worker,
             name="Extrinsic calibration",
         )
-        self._task_handle.completed.connect(self._on_bundle_optimized)
-        self._task_handle.failed.connect(self._on_calibration_failed)
-        self._task_handle.cancelled.connect(self._on_calibration_cancelled)
-        self._task_handle.progress_updated.connect(self.progress_updated)
+        # Use QueuedConnection because TaskHandle signals are emitted from worker threads.
+        # Without explicit QueuedConnection, Qt uses DirectConnection (sender/receiver both
+        # have main thread affinity), causing slots to run in the worker thread.
+        self._task_handle.completed.connect(
+            self._on_bundle_optimized,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_handle.failed.connect(
+            self._on_calibration_failed,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_handle.cancelled.connect(
+            self._on_calibration_cancelled,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_handle.progress_updated.connect(
+            self.progress_updated,
+            Qt.ConnectionType.QueuedConnection,
+        )
 
         self._emit_state_changed()
 
@@ -355,10 +370,23 @@ class ExtrinsicCalibrationPresenter(QObject):
             worker,
             name="Re-optimize bundle",
         )
-        self._task_handle.completed.connect(self._on_bundle_optimized)
-        self._task_handle.failed.connect(self._on_calibration_failed)
-        self._task_handle.cancelled.connect(self._on_calibration_cancelled)
-        self._task_handle.progress_updated.connect(self.progress_updated)
+        # Use QueuedConnection - TaskHandle signals emitted from worker threads
+        self._task_handle.completed.connect(
+            self._on_bundle_optimized,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_handle.failed.connect(
+            self._on_calibration_failed,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_handle.cancelled.connect(
+            self._on_calibration_cancelled,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_handle.progress_updated.connect(
+            self.progress_updated,
+            Qt.ConnectionType.QueuedConnection,
+        )
 
         self._emit_state_changed()
 
@@ -592,7 +620,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             return
 
         # Import here to avoid circular dependency at module level
-        from caliscope.ui.viz.playback_view_model import PlaybackViewModel
+        from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 
         view_model = PlaybackViewModel(
             camera_array=self._bundle.camera_array,
@@ -724,10 +752,23 @@ class ExtrinsicCalibrationPresenter(QObject):
             return optimized
 
         self._task_handle = self._task_manager.submit(worker, name="Optimize bundle")
-        self._task_handle.completed.connect(self._on_bundle_optimized)
-        self._task_handle.failed.connect(self._on_calibration_failed)
-        self._task_handle.cancelled.connect(self._on_calibration_cancelled)
-        self._task_handle.progress_updated.connect(self.progress_updated)
+        # Use QueuedConnection - TaskHandle signals emitted from worker threads
+        self._task_handle.completed.connect(
+            self._on_bundle_optimized,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_handle.failed.connect(
+            self._on_calibration_failed,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_handle.cancelled.connect(
+            self._on_calibration_cancelled,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        self._task_handle.progress_updated.connect(
+            self.progress_updated,
+            Qt.ConnectionType.QueuedConnection,
+        )
         self._emit_state_changed()
 
     def _update_bundle(self, bundle: PointDataBundle) -> None:

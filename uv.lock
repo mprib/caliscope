@@ -135,7 +135,6 @@ dependencies = [
     { name = "platformdirs" },
     { name = "pyarrow" },
     { name = "pyopengl" },
-    { name = "pyqtgraph" },
     { name = "pyside6-essentials" },
     { name = "pyvista" },
     { name = "pyvistaqt" },
@@ -176,7 +175,6 @@ requires-dist = [
     { name = "platformdirs", specifier = ">=4.3.8" },
     { name = "pyarrow", specifier = ">=15.0.0" },
     { name = "pyopengl", specifier = ">=3.1.6" },
-    { name = "pyqtgraph", specifier = ">=0.13.2" },
     { name = "pyside6-essentials", specifier = ">=6.10.1" },
     { name = "pyvista", specifier = ">=0.46.4" },
     { name = "pyvistaqt", specifier = ">=0.11.3" },
@@ -4283,18 +4281,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f2/a5/181488fc2b9d093e3972d2a472855aae8a03f000592dbfce716a512b3359/pyparsing-3.2.5.tar.gz", hash = "sha256:2df8d5b7b2802ef88e8d016a2eb9c7aeaa923529cd251ed0fe4608275d4105b6", size = 1099274, upload-time = "2025-09-21T04:11:06.277Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/10/5e/1aa9a93198c6b64513c9d7752de7422c06402de6600a8767da1524f9570b/pyparsing-3.2.5-py3-none-any.whl", hash = "sha256:e38a4f02064cf41fe6593d328d0512495ad1f3d8a91c4f73fc401b3079a59a5e", size = 113890, upload-time = "2025-09-21T04:11:04.117Z" },
-]
-
-[[package]]
-name = "pyqtgraph"
-version = "0.13.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/33/d9/b62d5cddb3caa6e5145664bee5ed90223dee23ca887ed3ee479f2609e40a/pyqtgraph-0.13.7.tar.gz", hash = "sha256:64f84f1935c6996d0e09b1ee66fe478a7771e3ca6f3aaa05f00f6e068321d9e3", size = 2343380, upload-time = "2024-04-29T02:18:58.467Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7b/34/5702b3b7cafe99be1d94b42f100e8cc5e6957b761fcb1cf5f72d492851da/pyqtgraph-0.13.7-py3-none-any.whl", hash = "sha256:7754edbefb6c367fa0dfb176e2d0610da3ada20aa7a5318516c74af5fb72bf7a", size = 1925473, upload-time = "2024-04-29T02:18:56.206Z" },
 ]
 
 [[package]]

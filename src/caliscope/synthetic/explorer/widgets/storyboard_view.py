@@ -13,10 +13,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from caliscope.ui.viz.playback_triangulation_widget_pyvista import (
-    PlaybackTriangulationWidgetPyVista,
-)
-from caliscope.ui.viz.playback_view_model import PlaybackViewModel
+from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
+from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
 
 if TYPE_CHECKING:
     from caliscope.synthetic.explorer.presenter import PipelineResult
@@ -46,7 +44,7 @@ class StoryboardView(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
-        self._panels: dict[str, PlaybackTriangulationWidgetPyVista] = {}
+        self._panels: dict[str, PlaybackVizWidget] = {}
         self._view_models: dict[str, PlaybackViewModel | None] = {
             "ground_truth": None,
             "bootstrapped": None,
@@ -179,7 +177,7 @@ class StoryboardView(QWidget):
             placeholder.hide()
 
         # Create new panel
-        panel = PlaybackTriangulationWidgetPyVista(
+        panel = PlaybackVizWidget(
             view_model,
             camera_scale=SYNTHETIC_CAMERA_SCALE,
         )
@@ -235,7 +233,7 @@ class StoryboardView(QWidget):
                     return widget
         return None
 
-    def _connect_camera_sync(self, panel: PlaybackTriangulationWidgetPyVista) -> None:
+    def _connect_camera_sync(self, panel: PlaybackVizWidget) -> None:
         """Connect VTK observer for camera synchronization."""
         if hasattr(panel, "plotter") and panel.plotter is not None:
             if hasattr(panel.plotter, "iren") and panel.plotter.iren is not None:
@@ -246,7 +244,7 @@ class StoryboardView(QWidget):
                         lambda obj, event, p=panel: self._sync_camera_from(p),
                     )
 
-    def _sync_camera_from(self, source: PlaybackTriangulationWidgetPyVista) -> None:
+    def _sync_camera_from(self, source: PlaybackVizWidget) -> None:
         """Copy camera state from source to all other panels."""
         if self._sync_in_progress:
             return

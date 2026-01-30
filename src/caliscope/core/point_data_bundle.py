@@ -13,7 +13,7 @@ import logging
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints, WorldPoints
-from caliscope.core.capture_volume.point_estimates import PointEstimates
+from caliscope.core.point_estimates import PointEstimates
 from caliscope.core.reprojection import (
     ErrorsXY,
     reprojection_errors,

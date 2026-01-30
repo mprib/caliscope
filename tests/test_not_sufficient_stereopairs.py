@@ -5,12 +5,10 @@ from pathlib import Path
 
 
 from caliscope import __root__
-from caliscope.core.capture_volume.capture_volume import CaptureVolume
-from caliscope.core.capture_volume.point_estimates import PointEstimates
-from caliscope.core.capture_volume.quality_controller import QualityController
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.core.point_data import ImagePoints
+from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope import persistence
 
 logger = logging.getLogger(__name__)
@@ -25,7 +23,7 @@ def test_calibration_workflow(tmp_path: Path):
 
     xy_data_path = Path(tmp_path, "xy_CHARUCO.csv")
     #    camera_array = config.get_camera_array()
-    charuco = persistence.load_charuco(tmp_path / "charuco.toml")
+    persistence.load_charuco(tmp_path / "charuco.toml")
     camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
     logger.info("Creating stereocalibrator")
 
@@ -37,44 +35,42 @@ def test_calibration_workflow(tmp_path: Path):
     logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array)
 
-    logger.info("Loading point estimates")
+    logger.info("Triangulating world points")
     world_points = image_points.triangulate(camera_array)
-    point_estimates: PointEstimates = world_points.to_point_estimates(image_points, camera_array)
 
-    capture_volume = CaptureVolume(camera_array, point_estimates)
+    # Create initial bundle
+    bundle = PointDataBundle(camera_array, image_points, world_points)
 
     # Before filtering - log initial point counts
     logger.info("========== POINT COUNT DIAGNOSTICS ==========")
     logger.info("Initial point counts:")
-    logger.info(f"  3D points (obj.shape[0]): {capture_volume.point_estimates.obj.shape[0]}")
-    logger.info(f"  2D observations (img.shape[0]): {capture_volume.point_estimates.img.shape[0]}")
-    logger.info(f"  Camera indices length: {len(capture_volume.point_estimates.camera_indices)}")
-
-    QualityController(capture_volume, charuco)
+    logger.info(f"  3D points: {len(bundle.world_points.df)}")
+    logger.info(f"  2D observations: {len(bundle.image_points.df)}")
+    logger.info(f"  Cameras: {len(bundle.camera_array.posed_cameras)}")
 
     # Verify initial state
-    assert capture_volume.stage == 0
-    rmse_initial = capture_volume.rmse
-    assert rmse_initial is not None
-    assert "overall" in rmse_initial
-    assert all(str(port) in rmse_initial for port in capture_volume.camera_array.posed_cameras.keys())
+    rmse_initial = bundle.reprojection_report.overall_rmse
+    assert rmse_initial > 0
+    per_camera_rmse = bundle.reprojection_report.by_camera
+    assert all(port in per_camera_rmse for port in bundle.camera_array.posed_cameras.keys())
 
     # Log initial RMSE values
-    logger.info(f"Initial RMSE before optimization: {rmse_initial['overall']:.4f} pixels")
+    logger.info(f"Initial RMSE before optimization: {rmse_initial:.4f} pixels")
     logger.info("Per-camera initial RMSE values:")
+    for port, rmse in sorted(per_camera_rmse.items()):
+        logger.info(f"  Camera {port}: {rmse:.4f} pixels")
 
     # First optimization stage - bundle adjustment
     logger.info("Performing bundle adjustment")
-    capture_volume.optimize(ftol=1e-3)
-    assert capture_volume.stage == 1
+    optimized_bundle = bundle.optimize(ftol=1e-3)
 
     # Log post-bundle adjustment RMSE and improvement
-    rmse_post_bundle_adj = capture_volume.rmse
-    improvement = rmse_initial["overall"] - rmse_post_bundle_adj["overall"]
-    percent_improvement = (improvement / rmse_initial["overall"]) * 100
-    logger.info(f"RMSE after bundle adjustment: {rmse_post_bundle_adj['overall']:.4f} pixels")
+    rmse_post_bundle_adj = optimized_bundle.reprojection_report.overall_rmse
+    improvement = rmse_initial - rmse_post_bundle_adj
+    percent_improvement = (improvement / rmse_initial) * 100
+    logger.info(f"RMSE after bundle adjustment: {rmse_post_bundle_adj:.4f} pixels")
     logger.info(f"Improvement: {improvement:.4f} pixels ({percent_improvement:.2f}%)")
-    assert rmse_post_bundle_adj["overall"] <= rmse_initial["overall"]
+    assert rmse_post_bundle_adj <= rmse_initial
 
 
 if __name__ == "__main__":

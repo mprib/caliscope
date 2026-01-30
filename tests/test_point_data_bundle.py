@@ -1,12 +1,13 @@
 import logging
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pandas as pd
+import pytest
 from caliscope import __root__
-from caliscope.core.capture_volume.capture_volume import CaptureVolume
-from caliscope.core.capture_volume.point_estimates import PointEstimates
 from caliscope.core.point_data_bundle import PointDataBundle
+from caliscope.core.point_estimates import PointEstimates
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.repositories import PointDataBundleRepository
 from caliscope.core.point_data import ImagePoints, WorldPoints
@@ -14,9 +15,8 @@ from caliscope import persistence
 
 logger = logging.getLogger(__name__)
 
-# Tolerance for RMSE comparison between implementations (pixels)
-# Can be adjusted based on numerical precision requirements
-RMSE_TOLERANCE = 1e-5
+# Tolerance for RMSE comparison after save/load roundtrip
+RMSE_TOLERANCE = 1e-6
 
 
 def test_world_data_point_estimates(tmp_path: Path):
@@ -146,7 +146,7 @@ def test_world_data_point_estimates(tmp_path: Path):
 
 
 def test_point_data_bundle(tmp_path: Path):
-    """Test PointDataBundle implementation against CaptureVolume workflow."""
+    """Test PointDataBundle implementation with optimized session data."""
     version = "post_optimization"
     original_session_path = Path(__root__, "tests", "sessions", version)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
@@ -190,23 +190,20 @@ def test_point_data_bundle(tmp_path: Path):
         world_points=world_points,
     )
 
-    # Test 1: RMSE calculation matches CaptureVolume
+    # Test 1: RMSE calculation
     logger.info("=" * 50)
     logger.info("TEST 1: RMSE Calculation")
     logger.info("=" * 50)
     error_report = bundle.reprojection_report
     bundle_rmse = error_report.overall_rmse
 
-    # Load existing point_estimates for CaptureVolume comparison
-    capture_volume = CaptureVolume(camera_array, point_estimates)
-    cv_rmse = capture_volume.rmse["overall"]
-
     logger.info(f"PointDataBundle RMSE: {bundle_rmse:.6f} pixels")
-    logger.info(f"CaptureVolume RMSE: {cv_rmse:.6f} pixels")
-    logger.info(f"Difference: {abs(bundle_rmse - cv_rmse):.6f} pixels")
+    assert bundle_rmse > 0, "RMSE should be positive"
 
-    assert abs(bundle_rmse - cv_rmse) < RMSE_TOLERANCE, f"RMSE mismatch: {bundle_rmse} vs {cv_rmse}"
-    logger.info("✓ RMSE calculation matches CaptureVolume")
+    # Verify per-camera RMSE is available
+    per_camera_rmse = error_report.by_camera
+    assert len(per_camera_rmse) == len(camera_array.posed_cameras)
+    logger.info("✓ RMSE calculation complete with per-camera breakdown")
 
     # Test 2: point_estimates property
     logger.info("\n" + "=" * 50)
@@ -328,12 +325,20 @@ def test_point_estimates_roundtrip(tmp_path: Path):
     )
     logger.info(f"✓ 3D point counts match: {original_pe.n_obj_points}")
 
-    # Check 4: RMSE calculations match exactly
-    original_cv = CaptureVolume(camera_array, original_pe)
-    reconstructed_cv = CaptureVolume(camera_array, reconstructed_pe)
+    # Check 4: RMSE calculations match exactly via PointDataBundle
+    original_bundle = PointDataBundle(
+        camera_array,
+        ImagePoints.from_point_estimates(original_pe, camera_array),
+        WorldPoints.from_point_estimates(original_pe),
+    )
+    reconstructed_bundle = PointDataBundle(
+        camera_array,
+        ImagePoints.from_point_estimates(reconstructed_pe, camera_array),
+        WorldPoints.from_point_estimates(reconstructed_pe),
+    )
 
-    original_rmse = original_cv.rmse["overall"]
-    reconstructed_rmse = reconstructed_cv.rmse["overall"]
+    original_rmse = original_bundle.reprojection_report.overall_rmse
+    reconstructed_rmse = reconstructed_bundle.reprojection_report.overall_rmse
 
     logger.info(f"Original RMSE: {original_rmse:.6f} pixels")
     logger.info(f"Reconstructed RMSE: {reconstructed_rmse:.6f} pixels")
@@ -345,9 +350,12 @@ def test_point_estimates_roundtrip(tmp_path: Path):
     logger.info("✓ RMSE calculations are identical")
 
     # Check 5: Per-camera RMSE matches
+    original_by_camera = original_bundle.reprojection_report.by_camera
+    reconstructed_by_camera = reconstructed_bundle.reprojection_report.by_camera
+
     for port in camera_array.posed_cameras.keys():
-        orig_cam_rmse = original_cv.rmse[str(port)]
-        recon_cam_rmse = reconstructed_cv.rmse[str(port)]
+        orig_cam_rmse = original_by_camera[port]
+        recon_cam_rmse = reconstructed_by_camera[port]
         assert abs(orig_cam_rmse - recon_cam_rmse) < 1e-6, (
             f"Per-camera RMSE mismatch for port {port}: {orig_cam_rmse} vs {recon_cam_rmse}"
         )
@@ -461,6 +469,153 @@ def test_align_bundle_to_charuco_board(tmp_path: Path):
         )
 
     logger.info("✓ All alignment validations passed")
+
+
+@pytest.mark.parametrize("axis", ["x", "y", "z"])
+def test_rotation_invariance(axis: Literal["x", "y", "z"], tmp_path: Path):
+    """
+    Tests that 4x90-degree rotations around any axis returns bundle to original state.
+
+    This is the migrated version of test_rotation_invariance from test_capture_volume_transformation.py.
+    Uses PointDataBundle's immutable rotation API instead of CaptureVolume's mutable rotate() method.
+    """
+    # SETUP: Use optimized session with stable calibration
+    source_session_path = Path(__root__, "tests", "sessions", "post_optimization")
+    copy_contents_to_clean_dest(source_session_path, tmp_path)
+
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    point_estimates = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
+
+    # Create bundle from legacy data
+    image_points = ImagePoints.from_point_estimates(point_estimates, camera_array)
+    world_points = WorldPoints.from_point_estimates(point_estimates)
+    bundle = PointDataBundle(camera_array, image_points, world_points)
+
+    # STORE INITIAL STATE
+    initial_points = bundle.world_points.points.copy()
+    initial_transforms = {port: cam.transformation.copy() for port, cam in bundle.camera_array.posed_cameras.items()}
+
+    logger.info(f"Testing rotation invariance around {axis} axis")
+    logger.info(f"Initial state: {len(initial_points)} points, {len(initial_transforms)} cameras")
+
+    # EXECUTE & ASSERT: 4x90-degree rotations
+    current_bundle = bundle
+    for i in range(1, 5):
+        logger.info(f"Applying rotation {i}/4 ({i * 90} degrees total)")
+
+        # Rotate 90 degrees (immutable operation returns new bundle)
+        current_bundle = current_bundle.rotate(axis, 90.0)
+
+        current_points = current_bundle.world_points.points
+        current_transforms = {
+            port: cam.transformation for port, cam in current_bundle.camera_array.posed_cameras.items()
+        }
+
+        if i < 4:
+            # After 90, 180, 270 degrees: state should be DIFFERENT
+            assert not np.allclose(initial_points, current_points, atol=1e-6), (
+                f"Points should not match initial state after {i * 90} degrees"
+            )
+
+            for port in initial_transforms:
+                assert not np.allclose(initial_transforms[port], current_transforms[port], atol=1e-6), (
+                    f"Camera {port} transform should not match initial state after {i * 90} degrees"
+                )
+
+            logger.info(f"  ✓ State is different after {i * 90} degrees (as expected)")
+        else:
+            # After 360 degrees: state should RETURN to original
+            points_match = np.allclose(initial_points, current_points, atol=1e-6)
+            assert points_match, (
+                f"Points should return to initial state after 360 degrees\n"
+                f"Max difference: {np.max(np.abs(initial_points - current_points))}"
+            )
+
+            for port in initial_transforms:
+                transform_match = np.allclose(initial_transforms[port], current_transforms[port], atol=1e-6)
+                assert transform_match, (
+                    f"Camera {port} transform should return to initial state after 360 degrees\n"
+                    f"Max difference: {np.max(np.abs(initial_transforms[port] - current_transforms[port]))}"
+                )
+
+            logger.info("  ✓ State returned to initial after 360 degrees (rotation invariance confirmed)")
+
+    logger.info(f"✓ Rotation invariance test passed for {axis} axis")
+
+
+def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
+    """
+    Tests bundle adjustment with cameras that have no shared observations.
+
+    This is the migrated version of test_bundle_adjust_with_unlinked_camera from test_optimization_unlinked.py.
+    Uses PointDataBundle instead of CaptureVolume.
+
+    Setup: Camera 4 is ignored, Camera 5 has no shared images with others.
+    Expected: Only cameras {1, 2, 3, 6} are posed and optimized.
+    """
+    # SETUP: Use session that results in unposed cameras
+    version = "not_sufficient_stereopairs"
+    original_session_path = Path(__root__, "tests", "sessions", version)
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
+
+    xy_data_path = tmp_path / "xy_CHARUCO.csv"
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+
+    logger.info("Creating paired pose network...")
+    from caliscope.core.point_data import ImagePoints
+    from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+
+    image_points = ImagePoints.from_csv(xy_data_path)
+
+    paired_pose_network = build_paired_pose_network(image_points, camera_array, method="stereocalibrate")
+
+    logger.info("Initializing estimated camera positions...")
+    paired_pose_network.apply_to(camera_array)
+
+    # Triangulate world points
+    world_points = image_points.triangulate(camera_array)
+
+    # VERIFY SETUP: Confirm expected posed/unposed camera configuration
+    assert set(camera_array.posed_cameras.keys()) == {1, 2, 3, 6}, (
+        f"Expected cameras {{1, 2, 3, 6}} to be posed, got {set(camera_array.posed_cameras.keys())}"
+    )
+    assert list(camera_array.unposed_cameras.keys()) == [4, 5], (
+        f"Expected cameras [4, 5] to be unposed, got {list(camera_array.unposed_cameras.keys())}"
+    )
+    assert len(camera_array.posed_port_to_index) == 4, (
+        f"Expected 4 cameras in optimization index, got {len(camera_array.posed_port_to_index)}"
+    )
+
+    logger.info("✓ Camera configuration validated: 4 posed, 2 unposed")
+
+    # CREATE BUNDLE AND OPTIMIZE
+    logger.info("Creating PointDataBundle with unlinked cameras...")
+    bundle = PointDataBundle(
+        camera_array=camera_array,
+        image_points=image_points,
+        world_points=world_points,
+    )
+
+    initial_rmse = bundle.reprojection_report.overall_rmse
+    logger.info(f"Initial RMSE: {initial_rmse:.4f} pixels")
+
+    logger.info("Running optimization with unlinked camera present...")
+    optimized_bundle = bundle.optimize()
+
+    # ASSERT SUCCESS
+    assert optimized_bundle.optimization_status is not None, "Optimization status should be set"
+    assert optimized_bundle.optimization_status.converged, (
+        f"Optimization should converge, but got: {optimized_bundle.optimization_status.termination_reason}"
+    )
+
+    final_rmse = optimized_bundle.reprojection_report.overall_rmse
+    logger.info(f"Final RMSE: {final_rmse:.4f} pixels")
+    logger.info(f"Optimization converged in {optimized_bundle.optimization_status.iterations} iterations")
+
+    # Verify RMSE improved
+    assert final_rmse < initial_rmse, f"RMSE should improve after optimization: {initial_rmse:.4f} -> {final_rmse:.4f}"
+
+    logger.info("✓ Optimization completed successfully with unlinked cameras present")
 
 
 if __name__ == "__main__":

@@ -18,14 +18,12 @@ from PySide6.QtWidgets import (
 )
 
 from caliscope import APP_SETTINGS_PATH, LOG_DIR, __root__
-from caliscope.cameras.camera_array import CameraArray
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 from caliscope.task_manager import TaskHandle
 from caliscope.gui.cameras_tab_widget import CamerasTabWidget
 from caliscope.gui.log_widget import LogWidget
 from caliscope.gui.multi_camera_processing_tab import MultiCameraProcessingTab
 from caliscope.gui.reconstruction_tab import ReconstructionTab
-from caliscope.gui.vizualize.calibration.capture_volume_visualizer import CaptureVolumeVisualizer
 from caliscope.gui.extrinsic_calibration_tab import ExtrinsicCalibrationTab
 from caliscope.gui.views.project_setup_view import ProjectSetupView
 
@@ -160,11 +158,7 @@ class MainWindow(QMainWindow):
             logger.info("Creating reconstruction tab")
             presenter = self.coordinator.create_reconstruction_presenter()
             self.reconstruction_tab = ReconstructionTab(presenter)
-            # Update camera array when coordinate system changes
-            self.coordinator.capture_volume_shifted.connect(
-                lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
-            )
-            # Also update when new calibration bundle is saved (new PointDataBundle system)
+            # Update camera array when new calibration bundle is saved
             self.coordinator.bundle_updated.connect(
                 lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
             )
@@ -257,9 +251,6 @@ class MainWindow(QMainWindow):
             old = self.central_tab.widget(recon_idx)
             presenter = self.coordinator.create_reconstruction_presenter()
             self.reconstruction_tab = ReconstructionTab(presenter)
-            self.coordinator.capture_volume_shifted.connect(
-                lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
-            )
             self.coordinator.bundle_updated.connect(
                 lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
             )
@@ -413,8 +404,6 @@ def launch_main():
     # import qdarktheme
 
     app = QApplication(sys.argv)
-    dummy_widget = CaptureVolumeVisualizer(camera_array=CameraArray({}))  #  try to force "blinking to initial main"
-    del dummy_widget
     # qdarktheme.setup_theme("auto")
     window = MainWindow()
     window.show()

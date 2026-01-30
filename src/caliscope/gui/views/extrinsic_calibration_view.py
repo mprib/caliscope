@@ -33,12 +33,10 @@ from caliscope.gui.presenters.extrinsic_calibration_presenter import (
     ExtrinsicCalibrationState,
     QualityPanelData,
 )
+from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
+from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
 from caliscope.gui.widgets.quality_panel import QualityPanel
-from caliscope.ui.viz.playback_triangulation_widget_pyvista import (
-    PlaybackTriangulationWidgetPyVista,
-)
-from caliscope.ui.viz.playback_view_model import PlaybackViewModel
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +60,7 @@ class ExtrinsicCalibrationView(QWidget):
         self._presenter = presenter
 
         # Lazy-init: created on first view model update
-        self._pyvista_widget: PlaybackTriangulationWidgetPyVista | None = None
+        self._pyvista_widget: PlaybackVizWidget | None = None
 
         # Valid sync indices for frame navigation (sparse data support)
         # Slider position = index into this array, not the actual sync_index
@@ -563,7 +561,7 @@ class ExtrinsicCalibrationView(QWidget):
             # Hide placeholder, show real widget
             self._viz_placeholder.hide()
 
-            self._pyvista_widget = PlaybackTriangulationWidgetPyVista(view_model)
+            self._pyvista_widget = PlaybackVizWidget(view_model)
             self._pyvista_widget.show_playback_controls(False)  # We have our own slider
             # Insert at index 0 so it appears ABOVE the frame slider
             self._viz_layout.insertWidget(0, self._pyvista_widget)

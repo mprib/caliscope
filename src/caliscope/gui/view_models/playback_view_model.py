@@ -8,8 +8,8 @@ from numpy.typing import NDArray
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import WorldPoints
-from caliscope.ui.viz.geometry_builders import build_camera_geometry
-from caliscope.ui.viz.wireframe_loader import WireframeSegment
+from caliscope.gui.geometry.camera_frustum import build_camera_geometry
+from caliscope.gui.geometry.wireframe import WireframeSegment
 
 logger = logging.getLogger(__name__)
 

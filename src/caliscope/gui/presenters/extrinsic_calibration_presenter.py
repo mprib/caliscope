@@ -592,7 +592,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             return
 
         # Import here to avoid circular dependency at module level
-        from caliscope.ui.viz.playback_view_model import PlaybackViewModel
+        from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 
         view_model = PlaybackViewModel(
             camera_array=self._bundle.camera_array,

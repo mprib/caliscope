@@ -71,9 +71,8 @@ class WorkspaceCoordinator(QObject):
     capture_volume_calibrated = Signal()
     charuco_changed = Signal()  # Emitted when charuco board config is updated
     capture_volume_shifted = Signal()
-    bundle_updated = Signal()  # PointDataBundle changed (new system, parallel to CaptureVolume)
-    enable_inputs = Signal(int, bool)  # port, enable
-    status_changed = Signal()  # Emitted when workflow state may have changed
+    bundle_updated = Signal()  # Immediate: in-memory state changed, use for UI refresh
+    status_changed = Signal()  # Deferred: fires after filesystem operations complete
 
     def __init__(self, workspace_dir: Path):
         super().__init__()
@@ -469,16 +468,20 @@ class WorkspaceCoordinator(QObject):
         Factory method that assembles the presenter with all required dependencies.
         The caller is responsible for:
         - Calling set_recording_dir() and set_cameras() to configure
-        - Connecting signals for rotation persistence and result handling
         - Managing presenter lifecycle (cleanup on tab close)
 
         Returns:
             MultiCameraProcessingPresenter configured with task_manager and tracker.
         """
-        return MultiCameraProcessingPresenter(
+        presenter = MultiCameraProcessingPresenter(
             task_manager=self.task_manager,
             tracker=self.charuco_tracker,
         )
+
+        # Wire signal directly - no passthrough needed
+        presenter.processing_complete.connect(lambda ip, _cr, t: self.persist_extrinsic_image_points(ip, t.name))
+
+        return presenter
 
     def create_extrinsic_calibration_presenter(self) -> ExtrinsicCalibrationPresenter:
         """Create presenter for extrinsic calibration workflow.
@@ -491,7 +494,6 @@ class WorkspaceCoordinator(QObject):
         to the presenter so the UI starts in the CALIBRATED state with visualization.
 
         The caller is responsible for:
-        - Connecting calibration_complete signal to update_bundle()
         - Managing presenter lifecycle (cleanup on tab close)
 
         Returns:
@@ -503,13 +505,18 @@ class WorkspaceCoordinator(QObject):
         # Check for existing calibration (restores state on project reopen)
         existing_bundle = self.point_data_bundle
 
-        return ExtrinsicCalibrationPresenter(
+        presenter = ExtrinsicCalibrationPresenter(
             task_manager=self.task_manager,
             camera_array=self.camera_array,
             image_points_path=image_points_path,
             charuco=self.charuco,
             existing_bundle=existing_bundle,
         )
+
+        # Wire signal directly - no passthrough needed
+        presenter.bundle_changed.connect(self.update_bundle)
+
+        return presenter
 
     def persist_extrinsic_image_points(self, image_points: ImagePoints, tracker_name: str) -> None:
         """Persist 2D image points from multi-camera processing.
@@ -762,11 +769,10 @@ class WorkspaceCoordinator(QObject):
                 # Cleanup stream manager threads (recorder, synchronizer, streamers)
                 self.extrinsic_stream_manager.cleanup()
 
-            self.extrinsic_calibration_xy = Path(
+            image_points_path = Path(
                 self.workspace, "calibration", "extrinsic", EXTRINSIC_TRACKER_NAME, "xy_CHARUCO.csv"
             )
-
-            image_points = ImagePoints.from_csv(self.extrinsic_calibration_xy)
+            image_points = ImagePoints.from_csv(image_points_path)
 
             # initialize estimated extrinsics from paired poses
             paired_pose_network = build_paired_pose_network(image_points, self.camera_array)
@@ -792,7 +798,6 @@ class WorkspaceCoordinator(QObject):
                 return
 
             self.capture_volume.optimize()
-            self.capture_volume_loaded = True
 
             # Save camera array (shared by both systems)
             self.camera_repository.save(self.camera_array)

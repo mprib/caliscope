@@ -17,9 +17,6 @@ from caliscope.gui.presenters.multi_camera_processing_presenter import (
 from caliscope.gui.views.multi_camera_processing_widget import MultiCameraProcessingWidget
 
 if TYPE_CHECKING:
-    from caliscope.core.coverage_analysis import ExtrinsicCoverageReport
-    from caliscope.core.point_data import ImagePoints
-    from caliscope.tracker import Tracker
     from caliscope.workspace_coordinator import WorkspaceCoordinator
 
 logger = logging.getLogger(__name__)
@@ -74,23 +71,8 @@ class MultiCameraProcessingTab(QWidget):
         # Rotation persistence
         self._presenter.rotation_changed.connect(self.coordinator.persist_camera_rotation)
 
-        # Processing completion - persist results and notify coordinator
-        self._presenter.processing_complete.connect(self._on_processing_complete)
-
         # Charuco changes invalidate the tracker - need to recreate presenter
         self.coordinator.charuco_changed.connect(self._on_charuco_changed)
-
-    def _on_processing_complete(
-        self,
-        image_points: ImagePoints,
-        coverage_report: ExtrinsicCoverageReport,
-        tracker: Tracker,
-    ) -> None:
-        """Handle processing completion - persist results and signal coordinator."""
-        logger.info(f"Multi-camera processing complete: {len(image_points.df)} observations")
-
-        # Persist ImagePoints to extrinsic directory (triggers status_changed)
-        self.coordinator.persist_extrinsic_image_points(image_points, tracker.name)
 
     def _on_charuco_changed(self) -> None:
         """Update tracker when charuco config changes.

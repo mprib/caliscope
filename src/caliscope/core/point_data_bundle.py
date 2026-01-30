@@ -13,7 +13,6 @@ import logging
 
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints, WorldPoints
-from caliscope.core.point_estimates import PointEstimates
 from caliscope.core.reprojection import (
     ErrorsXY,
     reprojection_errors,
@@ -132,17 +131,21 @@ class PointDataBundle:
         Generate comprehensive reprojection error report in pixel units.
         Cached automatically since bundle data is immutable.
         """
-        # 1. Filter to matched observations
+        # 1. Filter to matched observations from posed cameras only
         matched_mask = self.img_to_obj_map >= 0
+        posed_ports = set(self.camera_array.posed_port_to_index.keys())
+        posed_mask: np.ndarray = self.image_points.df["port"].isin(posed_ports).to_numpy()
+        combined_mask = matched_mask & posed_mask
+
         n_total = len(self.img_to_obj_map)
-        n_matched = matched_mask.sum()
+        n_matched = combined_mask.sum()
         n_unmatched = n_total - n_matched
 
         if n_matched == 0:
             raise ValueError("No matched observations for reprojection error calculation")
 
-        matched_img_df = self.image_points.df[matched_mask]
-        matched_obj_indices = self.img_to_obj_map[matched_mask]
+        matched_img_df = self.image_points.df[combined_mask]
+        matched_obj_indices = self.img_to_obj_map[combined_mask]
 
         # 2. Prepare arrays for core function
         camera_indices: CameraIndices = np.array(
@@ -182,11 +185,11 @@ class PointDataBundle:
             point_errors = euclidean_error[matched_img_df["point_id"] == point_id]
             by_point_id[point_id] = float(np.sqrt(np.mean(point_errors**2)))
 
-        # 6. Count unmatched by camera
+        # 6. Count unmatched by camera (only count for posed cameras)
         unmatched_by_camera = {}
         for port in self.camera_array.cameras.keys():
             port_total = (self.image_points.df["port"] == port).sum()
-            port_matched = ((self.image_points.df["port"] == port) & matched_mask).sum()
+            port_matched = ((self.image_points.df["port"] == port) & combined_mask).sum()
             unmatched_by_camera[port] = int(port_total - port_matched)
 
         # 7. Create and cache report
@@ -218,16 +221,20 @@ class PointDataBundle:
         Returns a NEW PointDataBundle with optimized camera parameters and 3D points.
         The original bundle remains unchanged (immutable pattern).
         """
-        # Extract static data once
+        # Extract static data once - filter to matched observations from posed cameras
         matched_mask = self.img_to_obj_map >= 0
-        matched_img_df = self.image_points.df[matched_mask]
+        posed_ports = set(self.camera_array.posed_port_to_index.keys())
+        posed_mask: np.ndarray = self.image_points.df["port"].isin(posed_ports).to_numpy()
+        combined_mask = matched_mask & posed_mask
+
+        matched_img_df = self.image_points.df[combined_mask]
 
         camera_indices: CameraIndices = np.array(
             [self.camera_array.posed_port_to_index[port] for port in matched_img_df["port"]], dtype=np.int16
         )
 
         image_coords: ImageCoords = matched_img_df[["img_loc_x", "img_loc_y"]].values
-        image_to_world_indices = self.img_to_obj_map[matched_mask]
+        image_to_world_indices = self.img_to_obj_map[combined_mask]
 
         # Initial parameters from current state
         initial_params = self._get_vectorized_params()
@@ -342,47 +349,6 @@ class PointDataBundle:
         points_3d = self.world_points.points  # (n_points, 3)
 
         return np.concatenate([camera_params.ravel(), points_3d.ravel()])
-
-    @property
-    def point_estimates(self) -> PointEstimates:
-        """Convert to PointEstimates format for bundle adjustment.
-        Currently a legacy conversion that will be phased out"""
-        # Filter to matched observations only
-        matched_mask = self.img_to_obj_map >= 0
-        if not matched_mask.any():
-            logger.warning("No matched observations for PointEstimates conversion")
-            return PointEstimates(
-                sync_indices=np.array([], dtype=np.int32),
-                camera_indices=np.array([], dtype=np.int16),
-                point_id=np.array([], dtype=np.int16),
-                img=np.array([], dtype=np.float64).reshape(0, 2),
-                obj_indices=np.array([], dtype=np.int32),
-                obj=np.array([], dtype=np.float64).reshape(0, 3),
-            )
-
-        matched_img_df = self.image_points.df[matched_mask]
-        matched_obj_indices = self.img_to_obj_map[matched_mask]
-
-        # Create compact world points array (unique points only)
-        unique_obj_indices = np.unique(matched_obj_indices)
-        world_points_compact = self.world_points.points[unique_obj_indices]
-
-        # Map to compact indices
-        index_map = {old: new for new, old in enumerate(unique_obj_indices)}
-        compact_obj_indices = np.array([index_map[idx] for idx in matched_obj_indices], dtype=np.int32)
-
-        # Map ports to camera indices
-        port_to_index = self.camera_array.posed_port_to_index
-        camera_indices = np.array([port_to_index[port] for port in matched_img_df["port"]], dtype=np.int16)
-
-        return PointEstimates(
-            sync_indices=matched_img_df["sync_index"].to_numpy(dtype=np.int32),
-            camera_indices=camera_indices,
-            point_id=matched_img_df["point_id"].to_numpy(dtype=np.int16),
-            img=matched_img_df[["img_loc_x", "img_loc_y"]].to_numpy(dtype=np.float64),
-            obj_indices=compact_obj_indices,
-            obj=world_points_compact,
-        )
 
     def _filter_by_reprojection_thresholds(self, thresholds: dict[int, float], min_per_camera: int) -> PointDataBundle:
         """

@@ -8,7 +8,6 @@ from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope import __root__
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.trackers.tracker_enum import TrackerEnum
-from caliscope.core.point_estimates import PointEstimates
 from caliscope import persistence
 
 from caliscope.triangulate.triangulation import triangulate_from_files
@@ -45,10 +44,6 @@ def test_image_points_to_world_points(tmp_path: Path):
     logger.info(
         f"Elapsed time is {stop - start:.1f} seconds. Note that on first iteration, @jit functions will take longer"
     )
-
-    # Verify conversion method exists and works
-    point_estimates = world_points.to_point_estimates(image_points, camera_array)
-    assert isinstance(point_estimates, PointEstimates), "to_point_estimates() should return PointEstimates"
 
     xyz_recalculated = world_points.df
 

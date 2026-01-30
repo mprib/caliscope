@@ -75,24 +75,13 @@ def test_triangulator(tmp_path: Path):
     # 1. LOAD DATA
     xyz_history = pd.read_csv(target_xyz_path)
 
-    # Load the ground truth data from the bundle adjustment (PointEstimates)
-    point_estimates = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
+    # Load the ground truth data from the bundle adjustment (CSV format)
+    csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
+    world_points = persistence.load_world_points_csv(csv_dir / "xyz_CHARUCO.csv")
 
-    # 2. CONSTRUCT GROUND TRUTH DATAFRAME
-    # Create a DataFrame from the bundle adjustment results for easier comparison.
-    xyz_config_coords = point_estimates.obj
-    df_ground_truth = pd.DataFrame(
-        {
-            "sync_index": point_estimates.sync_indices,
-            "point_id": point_estimates.point_id,
-            "x_coord": xyz_config_coords[point_estimates.obj_indices, 0],
-            "y_coord": xyz_config_coords[point_estimates.obj_indices, 1],
-            "z_coord": xyz_config_coords[point_estimates.obj_indices, 2],
-        }
-    )
-
-    # Ensure we are only comparing unique 3D points
-    df_ground_truth.drop_duplicates(subset=["sync_index", "point_id"], inplace=True)
+    # 2. USE GROUND TRUTH DATAFRAME
+    # The CSV already contains unique 3D points (sync_index, point_id, x/y/z_coord)
+    df_ground_truth = world_points.df.copy()
 
     # 3. NORMALIZE SYNC INDICES
     # Normalize the ground truth sync_index to be zero-based, matching the

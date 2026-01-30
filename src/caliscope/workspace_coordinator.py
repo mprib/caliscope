@@ -226,11 +226,9 @@ class WorkspaceCoordinator(QObject):
             else:
                 logger.info("Skipping camera array load (no intrinsic videos)")
 
-            # Load capture volume if extrinsic calibration complete
+            # Load point data bundle if extrinsic calibration complete
             if self.capture_volume_tab_enabled:
-                logger.info("Loading capture volume (extrinsics calibrated)")
-                if self.capture_volume_repository.point_estimates_path.exists():
-                    self.load_estimated_capture_volume()
+                logger.info("Extrinsic calibration available (loaded via point_data_bundle property)")
             else:
                 logger.info("Skipping capture volume load (not calibrated)")
 
@@ -259,16 +257,13 @@ class WorkspaceCoordinator(QObject):
         Check if full extrinsic calibration is complete.
 
         At this point, the capture volume tab should be available.
-        Checks both old system (point_estimates.toml) and new system (PointDataBundle).
         """
         cameras_good = self.camera_array.all_extrinsics_calibrated()
         logger.info(f"All extrinsics calculated: {cameras_good}")
 
-        # Check for calibration data in either old or new system
-        old_system_good = self.capture_volume_repository.point_estimates_path.exists()
-        new_system_good = self.bundle_repository.camera_array_path.exists()
-        point_estimates_good = old_system_good or new_system_good
-        logger.info(f"Point estimates available: {point_estimates_good} (old={old_system_good}, new={new_system_good})")
+        # Check for calibration data in PointDataBundle system
+        point_estimates_good = self.bundle_repository.camera_array_path.exists()
+        logger.info(f"Point estimates available: {point_estimates_good}")
 
         all_data_available = self.workspace_guide.all_extrinsic_mp4s_available()
         logger.info(f"All underlying data available: {all_data_available}")

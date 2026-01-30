@@ -10,7 +10,6 @@ import rtoml
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.point_data import ImagePointSchema, ImagePoints, WorldPoints, WorldPointSchema
 from caliscope.core.charuco import Charuco
-from caliscope.core.point_estimates import PointEstimates
 from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
 from caliscope.core.bootstrap_pose.stereopairs import StereoPair
 
@@ -249,111 +248,6 @@ def save_charuco(charuco: Charuco, path: Path) -> None:
         _write_toml(charuco.__dict__, path)
     except Exception as e:
         raise PersistenceError(f"Failed to save Charuco to {path}: {e}") from e
-
-
-def load_point_estimates(path: Path) -> PointEstimates:
-    """
-    Load PointEstimates from TOML file.
-
-    PointEstimates contains 2D-3D correspondences for bundle adjustment:
-    sync_indices, camera_indices, point_id, img (2D points), obj_indices,
-    and obj (3D points).
-
-    Args:
-        path: Path to point_estimates.toml
-
-    Returns:
-        PointEstimates instance
-
-    Raises:
-        PersistenceError: If file doesn't exist or numpy arrays cannot be
-                         reconstructed from stored lists
-    """
-    if not path.exists():
-        raise PersistenceError(f"Point estimates file not found: {path}")
-
-    try:
-        data = rtoml.load(path)
-        if not data:
-            raise PersistenceError(f"Point estimates file is empty: {path}")
-
-        # Convert all list fields back to numpy arrays
-        # Use explicit dtype matching to avoid type issues
-        sync_indices = _list_to_array(data.get("sync_indices"), dtype=np.int64)
-        camera_indices = _list_to_array(data.get("camera_indices"), dtype=np.int64)
-        point_id = _list_to_array(data.get("point_id"), dtype=np.int64)
-        img = _list_to_array(data.get("img"), dtype=np.float32)
-        obj_indices = _list_to_array(data.get("obj_indices"), dtype=np.int64)
-        obj = _list_to_array(data.get("obj"), dtype=np.float32)
-
-        # Validate required fields - explicit checks for type narrowing
-        if sync_indices is None:
-            raise PersistenceError("Missing required field 'sync_indices' in point estimates")
-        if camera_indices is None:
-            raise PersistenceError("Missing required field 'camera_indices' in point estimates")
-        if point_id is None:
-            raise PersistenceError("Missing required field 'point_id' in point estimates")
-        if img is None:
-            raise PersistenceError("Missing required field 'img' in point estimates")
-        if obj_indices is None:
-            raise PersistenceError("Missing required field 'obj_indices' in point estimates")
-        if obj is None:
-            raise PersistenceError("Missing required field 'obj' in point estimates")
-
-        # Validate array shapes and consistency
-        if img.ndim != 2 or img.shape[1] != 2:
-            raise PersistenceError(f"Invalid img shape: {img.shape}, expected (N, 2)")
-
-        if obj.ndim != 2 or obj.shape[1] != 3:
-            raise PersistenceError(f"Invalid obj shape: {obj.shape}, expected (N, 3)")
-
-        n_observations = len(sync_indices)
-        if not all(len(arr) == n_observations for arr in [camera_indices, point_id, obj_indices]):
-            raise PersistenceError("Inconsistent array lengths in point estimates")
-
-        if len(img) != n_observations:
-            raise PersistenceError(f"img array length {len(img)} doesn't match sync_indices length {n_observations}")
-
-        return PointEstimates(
-            sync_indices=sync_indices,
-            camera_indices=camera_indices,
-            point_id=point_id,
-            img=img,
-            obj_indices=obj_indices,
-            obj=obj,
-        )
-
-    except Exception as e:
-        raise PersistenceError(f"Failed to load point estimates from {path}: {e}") from e
-
-
-def save_point_estimates(point_estimates: PointEstimates, path: Path) -> None:
-    """
-    Save PointEstimates to TOML file.
-
-    Converts numpy arrays to lists for TOML compatibility. Write is atomic.
-
-    Args:
-        point_estimates: PointEstimates to serialize
-        path: Target file path
-
-    Raises:
-        PersistenceError: If serialization or write fails
-    """
-    try:
-        # Convert all numpy arrays to lists
-        data = {
-            "sync_indices": point_estimates.sync_indices.tolist(),
-            "camera_indices": point_estimates.camera_indices.tolist(),
-            "point_id": point_estimates.point_id.tolist(),
-            "img": point_estimates.img.tolist(),
-            "obj_indices": point_estimates.obj_indices.tolist(),
-            "obj": point_estimates.obj.tolist(),
-        }
-
-        _write_toml(data, path)
-    except Exception as e:
-        raise PersistenceError(f"Failed to save point estimates to {path}: {e}") from e
 
 
 def load_stereo_pairs(path: Path) -> PairedPoseNetwork:
@@ -602,14 +496,8 @@ def load_image_points_csv(path: Path) -> ImagePoints:
 
     try:
         df = pd.read_csv(path)
-
-        # Backward compatibility: add obj_loc columns if missing
-        for col in ["obj_loc_x", "obj_loc_y", "obj_loc_z"]:
-            if col not in df.columns:
-                df[col] = np.nan
-        # Validate with Pandera schema
-        validated_df = ImagePointSchema.validate(df)
-        return ImagePoints(validated_df)
+        # ImagePoints constructor handles adding missing optional columns
+        return ImagePoints(df)
     except Exception as e:
         raise PersistenceError(f"Failed to load image points from {path}: {e}") from e
 

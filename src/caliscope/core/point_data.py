@@ -13,9 +13,6 @@ from numba.typed import Dict, List
 from pandera.typing import Series
 from scipy.signal import butter, filtfilt
 from caliscope.cameras.camera_array import CameraArray
-from caliscope.core.point_estimates import PointEstimates
-
-# Add to existing imports at top of file
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -190,9 +187,9 @@ class ImagePoints:
         return self._df.copy()
 
     def __init__(self, df: pd.DataFrame):
-        # Ensure obj_loc columns exist even if not in source data
+        # Ensure optional columns exist even if not in source data
         df = df.copy()  # Don't modify the original DataFrame
-        for col in ["obj_loc_x", "obj_loc_y", "obj_loc_z"]:
+        for col in ["obj_loc_x", "obj_loc_y", "obj_loc_z", "frame_time"]:
             if col not in df.columns:
                 df[col] = np.nan
 
@@ -201,40 +198,8 @@ class ImagePoints:
     @classmethod
     def from_csv(cls, path: str | Path) -> ImagePoints:
         df = pd.read_csv(path)
-
-        # Backward compatibility: add obj_loc columns if missing
-        for col in ["obj_loc_x", "obj_loc_y", "obj_loc_z"]:
-            if col not in df.columns:
-                df[col] = np.nan
-
-        return cls(df)  # Let constructor handle validation
-
-    @classmethod
-    def from_point_estimates(cls, point_estimates: PointEstimates, camera_array: CameraArray) -> ImagePoints:
-        """
-        Reconstruct ImagePoints from optimized PointEstimates.
-
-        This is used for legacy data compatibility where only the optimized
-        PointEstimates are saved. It recreates the 2D observations that were
-        used to generate the optimized 3D points.
-
-        Note: Only core columns (sync_index, port, point_id, img_loc_x, img_loc_y)
-        are reconstructed. Additional metadata columns (frame_index, frame_time, etc.)
-        are not available in PointEstimates and will be missing.
-        """
-        # Map camera indices back to ports
-        index_to_port = camera_array.posed_index_to_port
-
-        image_data = {
-            "sync_index": point_estimates.sync_indices,
-            "port": [index_to_port[idx] for idx in point_estimates.camera_indices],
-            "point_id": point_estimates.point_id,
-            "img_loc_x": point_estimates.img[:, 0],
-            "img_loc_y": point_estimates.img[:, 1],
-        }
-
-        image_df = pd.DataFrame(image_data)
-        return cls(image_df)
+        # Constructor handles adding missing optional columns
+        return cls(df)
 
     def fill_gaps(self, max_gap_size: int = 3) -> ImagePoints:
         xy_filled = pd.DataFrame()
@@ -376,86 +341,6 @@ class WorldPoints:
         """Return Nx3 numpy array of coordinates."""
         return self._df[["x_coord", "y_coord", "z_coord"]].values
 
-    def to_point_estimates(self, image_points: ImagePoints, camera_array: CameraArray) -> PointEstimates:
-        xyz_df = self.df
-        xy_df = image_points.df
-
-        # Create explicit mapping in the dataframe to track indices.
-        # We reset index to ensure we have a column "xyz_index" corresponding to the row number in xyz_df
-        xyz_df = xyz_df.reset_index(drop=True)
-        xyz_df["xyz_index"] = xyz_df.index
-
-        # Merge 2D and 3D data
-        merged = xy_df.merge(
-            xyz_df[["sync_index", "point_id", "xyz_index"]],  # We don't strictly need coords here
-            on=["sync_index", "point_id"],
-            how="inner",
-        )
-
-        # Filter to posed cameras only
-        posed_ports = list(camera_array.posed_port_to_index.keys())
-        merged = merged[merged["port"].isin(posed_ports)]
-
-        if merged.empty:
-            logger.warning("No merged 2D-3D observations after filtering")
-            return PointEstimates(
-                sync_indices=np.array([], dtype=np.int64),
-                camera_indices=np.array([], dtype=np.int64),
-                point_id=np.array([], dtype=np.int64),
-                img=np.array([], dtype=np.float32).reshape(0, 2),
-                obj_indices=np.array([], dtype=np.int64),
-                obj=np.array([], dtype=np.float32).reshape(0, 3),
-            )
-
-        # =========================================================================
-        # Prune orphaned 3D points
-        # =========================================================================
-
-        # 1. Identify which xyz_indices are actually used after filtering cameras
-        used_xyz_indices = merged["xyz_index"].unique()
-        used_xyz_indices.sort()  # Ensure deterministic order
-
-        # 2. Extract ONLY the used 3D points from the master list
-        obj = xyz_df.loc[used_xyz_indices, ["x_coord", "y_coord", "z_coord"]].to_numpy(dtype=np.float32)
-
-        # 3. Create a map from the old (large) index to the new (compact) index
-        old_to_new_map = {old: new for new, old in enumerate(used_xyz_indices)}
-
-        # 4. Update the pointers in the merged dataframe to reflect the new compact array
-        merged["obj_index_pruned"] = merged["xyz_index"].map(old_to_new_map)
-        obj_indices = merged["obj_index_pruned"].to_numpy(dtype=np.int64)
-
-        # =========================================================================
-
-        # Map ports to camera indices
-        merged["camera_index"] = merged["port"].map(camera_array.posed_port_to_index)
-
-        # Extract arrays
-        sync_indices = merged["sync_index"].to_numpy(dtype=np.int64)
-        camera_indices = merged["camera_index"].to_numpy(dtype=np.int64)
-        point_ids = merged["point_id"].to_numpy(dtype=np.int64)
-        img = merged[["img_loc_x", "img_loc_y"]].to_numpy(dtype=np.float32)
-
-        # Validate consistency
-        assert len(camera_indices) == len(img) == len(obj_indices), "Mismatch in 2D data array lengths"
-        if len(obj_indices) > 0:
-            assert obj_indices.max() < obj.shape[0], "CRITICAL: obj_indices contains an out-of-bounds index"
-            # The key check for the hang:
-            assert np.unique(obj_indices).size == obj.shape[0], (
-                "CRITICAL: Orphaned 3D points detected! Optimizer will hang."
-            )
-
-        logger.info(f"Successfully created PointEstimates: {obj.shape[0]} 3D points and {img.shape[0]} 2D observations")
-
-        return PointEstimates(
-            sync_indices=sync_indices,
-            camera_indices=camera_indices,
-            point_id=point_ids,
-            img=img,
-            obj_indices=obj_indices,
-            obj=obj,
-        )
-
     def fill_gaps(self, max_gap_size: int = 3) -> WorldPoints:
         """Fill gaps in 3D point trajectories."""
         xyz_filled = pd.DataFrame()
@@ -510,43 +395,3 @@ class WorldPoints:
         """
         df = pd.read_csv(path)
         return cls(df)  # Constructor handles validation via WorldPointSchema
-
-    @classmethod
-    def from_point_estimates(cls, point_estimates: PointEstimates) -> WorldPoints:
-        """
-        Reconstruct WorldPoints from optimized PointEstimates.
-
-        Creates WorldPoints by extracting unique 3D points and their identifiers
-        from the optimized PointEstimates structure. This is used when loading
-        previously optimized calibration data where only the filtered subset
-        of observations is available.
-        """
-        # Get unique object indices and their first occurrence
-        unique_obj_indices = np.unique(point_estimates.obj_indices)
-
-        # For each unique 3D point, find its first observation to get identifiers
-        world_data = {
-            "sync_index": [],
-            "point_id": [],
-            "x_coord": [],
-            "y_coord": [],
-            "z_coord": [],
-            "frame_time": [],  # NaN - not available from PointEstimates
-        }
-
-        for obj_idx in unique_obj_indices:
-            # Find first observation of this 3D point
-            first_obs_idx = np.where(point_estimates.obj_indices == obj_idx)[0][0]
-
-            world_data["sync_index"].append(point_estimates.sync_indices[first_obs_idx])
-            world_data["point_id"].append(point_estimates.point_id[first_obs_idx])
-
-            # Get 3D coordinates
-            coords = point_estimates.obj[obj_idx]
-            world_data["x_coord"].append(coords[0])
-            world_data["y_coord"].append(coords[1])
-            world_data["z_coord"].append(coords[2])
-            world_data["frame_time"].append(np.nan)
-
-        world_df = pd.DataFrame(world_data)
-        return cls(world_df)

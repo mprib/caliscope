@@ -28,10 +28,9 @@ def test_reprojection_report_generation(tmp_path: Path):
     camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
     persistence.load_charuco(tmp_path / "charuco.toml")
 
-    persistence.load_point_estimates(tmp_path / "point_estimates.toml")
-    # image_points = ImagePoints.from_point_estimates(point_estimates, camera_array)
-    image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
-    # world_points = WorldPoints.from_point_estimates(point_estimates)
+    # Load from CSV format
+    csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
+    image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
     world_points = image_points.triangulate(camera_array)
 
     # Create PointDataBundle
@@ -97,9 +96,9 @@ def test_unmatched_observation_tracking(tmp_path: Path):
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
     camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
-    image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
-    point_estimates = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
-    world_points = WorldPoints.from_point_estimates(point_estimates)
+    csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
+    image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
+    world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
 
     bundle = PointDataBundle(
         camera_array=camera_array,

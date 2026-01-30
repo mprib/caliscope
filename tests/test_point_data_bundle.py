@@ -1,11 +1,11 @@
 import logging
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pandas as pd
+import pytest
 from caliscope import __root__
-from caliscope.core.capture_volume.capture_volume import CaptureVolume
-from caliscope.core.capture_volume.point_estimates import PointEstimates
 from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.repositories import PointDataBundleRepository
@@ -14,13 +14,12 @@ from caliscope import persistence
 
 logger = logging.getLogger(__name__)
 
-# Tolerance for RMSE comparison between implementations (pixels)
-# Can be adjusted based on numerical precision requirements
-RMSE_TOLERANCE = 1e-5
+# Tolerance for RMSE comparison after save/load roundtrip
+RMSE_TOLERANCE = 1e-6
 
 
-def test_world_data_point_estimates(tmp_path: Path):
-    """Test WorldPoints <-> PointEstimates round-trip conversion preserves 3D data integrity."""
+def test_triangulation_consistency(tmp_path: Path):
+    """Test that triangulation produces consistent 3D data."""
     version = "post_optimization"
     original_session_path = Path(__root__, "tests", "sessions", version)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
@@ -34,119 +33,42 @@ def test_world_data_point_estimates(tmp_path: Path):
     image_points = ImagePoints.from_csv(xy_data_path)
     world_points_triangulated = image_points.triangulate(camera_array)
 
-    # Convert WorldPoints -> PointEstimates -> WorldPoints
-    point_estimates_from_world_points = world_points_triangulated.to_point_estimates(image_points, camera_array)
-    world_points_from_point_estimates = WorldPoints.from_point_estimates(point_estimates_from_world_points)
-
     # =========================================================================
-    # VALIDATION: PointEstimates structure integrity
+    # VALIDATION: 3D point data structure
     # =========================================================================
     logger.info("=" * 50)
-    logger.info("VALIDATING POINTESTIMATES STRUCTURE")
+    logger.info("VALIDATING TRIANGULATION OUTPUT")
     logger.info("=" * 50)
 
-    # Check 1: Array length consistency
-    n_observations = len(point_estimates_from_world_points.sync_indices)
-    assert len(point_estimates_from_world_points.camera_indices) == n_observations, "Camera indices length mismatch"
-    assert len(point_estimates_from_world_points.point_id) == n_observations, "Point ID length mismatch"
-    assert len(point_estimates_from_world_points.img) == n_observations, "Image points length mismatch"
-    assert len(point_estimates_from_world_points.obj_indices) == n_observations, "Object indices length mismatch"
-    logger.info(f"✓ All arrays have consistent length: {n_observations} observations")
+    # Check 1: Basic structure
+    n_world_points = len(world_points_triangulated.df)
+    assert n_world_points > 0, "No world points produced"
+    logger.info(f"✓ Produced {n_world_points} world points")
 
-    # Check 2: No orphaned 3D points (critical for bundle adjustment)
-    unique_obj_indices = np.unique(point_estimates_from_world_points.obj_indices)
-    assert unique_obj_indices.size == point_estimates_from_world_points.obj.shape[0], (
-        "CRITICAL: Orphaned 3D points detected! This will cause bundle adjustment to hang."
-    )
-    logger.info(f"✓ No orphaned 3D points: {point_estimates_from_world_points.obj.shape[0]} unique points")
+    # Check 2: All required columns present
+    required_cols = ["sync_index", "point_id", "x_coord", "y_coord", "z_coord"]
+    for col in required_cols:
+        assert col in world_points_triangulated.df.columns, f"Missing required column: {col}"
+    logger.info("✓ All required columns present")
 
-    # Check 3: Valid camera indices
-    unique_camera_indices = np.unique(point_estimates_from_world_points.camera_indices)
-    n_posed_cams = len(camera_array.posed_cameras)
-    assert unique_camera_indices.max() < n_posed_cams, (
-        f"Camera index {unique_camera_indices.max()} out of bounds (max should be {n_posed_cams - 1})"
-    )
-    logger.info(f"✓ Valid camera indices: {unique_camera_indices.size} cameras")
-
-    # Check 4: Object indices within bounds
-    max_obj_index = point_estimates_from_world_points.obj_indices.max()
-    n_obj_points = point_estimates_from_world_points.obj.shape[0]
-    assert max_obj_index < n_obj_points, (
-        f"Object index {max_obj_index} out of bounds (max should be {n_obj_points - 1})"
-    )
-    logger.info("✓ All object indices within valid bounds")
-
-    # Check 5: Camera count matches posed cameras
-    assert point_estimates_from_world_points.n_cameras == n_posed_cams, (
-        f"Camera count mismatch: PointEstimates has {point_estimates_from_world_points.n_cameras}, "
-        f"but CameraArray has {n_posed_cams} posed cameras"
-    )
-    logger.info(f"✓ Camera count matches posed cameras: {n_posed_cams}")
-
-    # Check 5b: Image point count matches observations
-    assert point_estimates_from_world_points.n_img_points == n_observations, (
-        f"Image point count mismatch: n_img_points={point_estimates_from_world_points.n_img_points}, "
-        f"but actual observations={n_observations}"
-    )
-    logger.info(f"✓ Image point count matches observations: {n_observations}")
-
-    # =========================================================================
-    # VALIDATION: 3D point data preservation
-    # =========================================================================
-    logger.info("=" * 50)
-    logger.info("VALIDATING 3D POINT DATA PRESERVATION")
-    logger.info("=" * 50)
-
-    # Get unique 3D points from original WorldPoints
-    triangulated = world_points_triangulated.df.sort_values("point_id").reset_index(drop=True)
-
-    # Get points from reconstructed WorldPoints
-    reconstructed = world_points_from_point_estimates.df.sort_values("point_id").reset_index(drop=True)
-
-    # Check 6: Same number of unique points
-    assert len(triangulated) == len(reconstructed), (
-        f"Point count mismatch: original had {len(triangulated)}, reconstructed has {len(reconstructed)}"
-    )
-    logger.info(f"✓ Same number of unique points: {len(reconstructed)}")
-
-    # Check 7: Point IDs match exactly
-    triangulated_point_ids = triangulated["point_id"].to_numpy()
-    reconstructed_point_ids = reconstructed["point_id"].to_numpy()
-    assert np.array_equal(triangulated_point_ids, reconstructed_point_ids), (
-        "Point IDs do not match between original and reconstructed"
-    )
-    logger.info("✓ Point IDs match exactly")
-
-    # Check 8: Coordinates match within tolerance
-    coord_tolerance = 1e-6  # micrometer precision at meter scale
+    # Check 3: No NaN coordinates
     for axis in ["x_coord", "y_coord", "z_coord"]:
-        triangulated_coords = triangulated[axis].to_numpy()
-        reconstructed_coords = reconstructed[axis].to_numpy()
-        max_diff = np.max(np.abs(triangulated_coords - reconstructed_coords))
-        assert max_diff < coord_tolerance, (
-            f"{axis} coordinate mismatch: max difference {max_diff} exceeds tolerance {coord_tolerance}"
-        )
-        logger.info(f"✓ {axis} coordinates match within tolerance (max diff: {max_diff:.2e})")
+        assert not world_points_triangulated.df[axis].isna().any(), f"NaN values in {axis}"
+    logger.info("✓ No NaN coordinates")
 
-    # Check 9: Sync indices are reasonable (should be first occurrence)
-    for point_id in reconstructed["point_id"]:
-        # .loc with boolean mask returns Series, but stubs think it might return scalar
-        triangulated_sync = triangulated.loc[triangulated["point_id"] == point_id, "sync_index"].iloc[0]  # type: ignore[union-attr]
-        reconstructed_sync = reconstructed.loc[reconstructed["point_id"] == point_id, "sync_index"].iloc[0]  # type: ignore[union-attr]
-        assert triangulated_sync == reconstructed_sync, f"""
-            Sync index mismatch for point_id {point_id}:
-            original {triangulated_sync} vs reconstructed {reconstructed_sync}
-            """
-    logger.info("✓ Sync indices match first occurrence in original data")
+    # Check 4: Points are within reasonable range (calibration data should be ~1m scale)
+    for axis in ["x_coord", "y_coord", "z_coord"]:
+        coords = world_points_triangulated.df[axis]
+        assert coords.abs().max() < 10.0, f"{axis} values out of expected range"
+    logger.info("✓ Coordinates within expected range")
 
     logger.info("=" * 50)
     logger.info("ALL VALIDATION CHECKS PASSED!")
-    logger.info("WorldPoints <-> PointEstimates round-trip conversion is working correctly.")
     logger.info("=" * 50)
 
 
 def test_point_data_bundle(tmp_path: Path):
-    """Test PointDataBundle implementation against CaptureVolume workflow."""
+    """Test PointDataBundle implementation with optimized session data."""
     version = "post_optimization"
     original_session_path = Path(__root__, "tests", "sessions", version)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
@@ -156,31 +78,13 @@ def test_point_data_bundle(tmp_path: Path):
     camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
     persistence.load_charuco(tmp_path / "charuco.toml")
 
-    # Load existing OPTIMIZED point estimates (from bundle adjustment)
-    point_estimates = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
+    # Load from CSV format (the canonical storage format)
+    csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
+    image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
+    world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
 
-    # Reconstruct BOTH from PointEstimates for perfect consistency
-    image_points = ImagePoints.from_point_estimates(point_estimates, camera_array)
-    world_points = WorldPoints.from_point_estimates(point_estimates)
-
-    # Should have 100% overlap now
-    img_keys = set(zip(image_points.df["sync_index"], image_points.df["point_id"]))
-    world_keys = set(zip(world_points.df["sync_index"], world_points.df["point_id"]))
-    assert img_keys == world_keys, "Image and World points should have identical identifiers"
-
-    logger.info(f"Reconstructed {len(image_points.df)} image observations from PointEstimates")
-    logger.info(f"Reconstructed {len(world_points.df)} world points from PointEstimates")
-
-    # Validate perfect alignment
-    assert len(image_points.df) == len(point_estimates.sync_indices)
-    assert len(world_points.df) == len(point_estimates.obj)
-
-    # All identifiers should match perfectly
-    img_keys = set(zip(image_points.df["sync_index"], image_points.df["point_id"]))
-    world_keys = set(zip(world_points.df["sync_index"], world_points.df["point_id"]))
-    assert img_keys == world_keys, (
-        f"Image and World points have mismatched identifiers! Only {len(img_keys & world_keys)} overlap."
-    )
+    logger.info(f"Loaded {len(image_points.df)} image observations from CSV")
+    logger.info(f"Loaded {len(world_points.df)} world points from CSV")
 
     # Create PointDataBundle
     logger.info("Creating PointDataBundle...")
@@ -190,53 +94,24 @@ def test_point_data_bundle(tmp_path: Path):
         world_points=world_points,
     )
 
-    # Test 1: RMSE calculation matches CaptureVolume
+    # Test 1: RMSE calculation
     logger.info("=" * 50)
     logger.info("TEST 1: RMSE Calculation")
     logger.info("=" * 50)
     error_report = bundle.reprojection_report
     bundle_rmse = error_report.overall_rmse
 
-    # Load existing point_estimates for CaptureVolume comparison
-    capture_volume = CaptureVolume(camera_array, point_estimates)
-    cv_rmse = capture_volume.rmse["overall"]
-
     logger.info(f"PointDataBundle RMSE: {bundle_rmse:.6f} pixels")
-    logger.info(f"CaptureVolume RMSE: {cv_rmse:.6f} pixels")
-    logger.info(f"Difference: {abs(bundle_rmse - cv_rmse):.6f} pixels")
+    assert bundle_rmse > 0, "RMSE should be positive"
 
-    assert abs(bundle_rmse - cv_rmse) < RMSE_TOLERANCE, f"RMSE mismatch: {bundle_rmse} vs {cv_rmse}"
-    logger.info("✓ RMSE calculation matches CaptureVolume")
+    # Verify per-camera RMSE is available
+    per_camera_rmse = error_report.by_camera
+    assert len(per_camera_rmse) == len(camera_array.posed_cameras)
+    logger.info("✓ RMSE calculation complete with per-camera breakdown")
 
-    # Test 2: point_estimates property
+    # Test 2: Save/load roundtrip
     logger.info("\n" + "=" * 50)
-    logger.info("TEST 2: PointEstimates Property")
-    logger.info("=" * 50)
-    bundle_pe = bundle.point_estimates
-
-    # Basic validation of structure
-    assert isinstance(bundle_pe, PointEstimates), f"Expected PointEstimates, got {type(bundle_pe)}"
-    assert bundle_pe.n_cameras == len(camera_array.posed_cameras), (
-        f"Camera count mismatch: {bundle_pe.n_cameras} vs {len(camera_array.posed_cameras)}"
-    )
-    assert bundle_pe.n_img_points == len(image_points.df), (
-        f"Image point count mismatch: {bundle_pe.n_img_points} vs {len(image_points.df)}"
-    )
-    assert bundle_pe.n_obj_points == len(world_points.df), (
-        f"World point count mismatch: {bundle_pe.n_obj_points} vs {len(world_points.df)}"
-    )
-
-    logger.info(
-        f"""
-            Created PointEstimates with {bundle_pe.n_cameras} cameras,
-            {bundle_pe.n_img_points} image points, {bundle_pe.n_obj_points} object points
-        """
-    )
-    logger.info("✓ PointEstimates property structure is valid")
-
-    # Test 5: Save/load roundtrip
-    logger.info("\n" + "=" * 50)
-    logger.info("TEST 5: Save/Load Roundtrip")
+    logger.info("TEST 2: Save/Load Roundtrip")
     logger.info("=" * 50)
     bundle_dir = tmp_path / "test_bundle"
     bundle_dir.mkdir(exist_ok=True)
@@ -268,123 +143,11 @@ def test_point_data_bundle(tmp_path: Path):
     logger.info("=" * 50)
 
 
-def test_point_estimates_roundtrip(tmp_path: Path):
-    """Validate that PointEstimates -> Bundle -> PointEstimates is lossless."""
-    version = "post_optimization"
-    original_session_path = Path(__root__, "tests", "sessions", version)
-    copy_contents_to_clean_dest(original_session_path, tmp_path)
-
-    # Load original legacy data
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
-    original_pe = persistence.load_point_estimates(tmp_path / "point_estimates.toml")
-
-    logger.info("=" * 50)
-    logger.info("ROUND-TRIP VALIDATION: PointEstimates -> Bundle -> PointEstimates")
-    logger.info("=" * 50)
-    logger.info(
-        f"Original PointEstimates: {original_pe.n_img_points} observations, {original_pe.n_obj_points} 3D points"
-    )
-
-    # Forward transformation: PointEstimates -> Bundle
-    image_points = ImagePoints.from_point_estimates(original_pe, camera_array)
-    world_points = WorldPoints.from_point_estimates(original_pe)
-
-    bundle = PointDataBundle(
-        camera_array=camera_array,
-        image_points=image_points,
-        world_points=world_points,
-    )
-
-    # Reverse transformation: Bundle -> PointEstimates
-    reconstructed_pe = bundle.point_estimates
-
-    logger.info(
-        f"""
-        Reconstructed PointEstimates: {reconstructed_pe.n_img_points}
-        observations, {reconstructed_pe.n_obj_points} 3D points
-        """
-    )
-
-    # =========================================================================
-    # VALIDATION CHECKS
-    # =========================================================================
-
-    # Check 1: Structural integrity (no orphaned points)
-    unique_obj_indices = np.unique(reconstructed_pe.obj_indices)
-    assert unique_obj_indices.size == reconstructed_pe.obj.shape[0], (
-        "CRITICAL: Orphaned 3D points detected in reconstructed PointEstimates!"
-    )
-    logger.info("✓ No orphaned 3D points in reconstructed structure")
-
-    # Check 2: Observation counts match
-    assert original_pe.n_img_points == reconstructed_pe.n_img_points, (
-        f"Observation count mismatch: {original_pe.n_img_points} vs {reconstructed_pe.n_img_points}"
-    )
-    logger.info(f"✓ Observation counts match: {original_pe.n_img_points}")
-
-    # Check 3: Unique 3D point counts match
-    assert original_pe.n_obj_points == reconstructed_pe.n_obj_points, (
-        f"3D point count mismatch: {original_pe.n_obj_points} vs {reconstructed_pe.n_obj_points}"
-    )
-    logger.info(f"✓ 3D point counts match: {original_pe.n_obj_points}")
-
-    # Check 4: RMSE calculations match exactly
-    original_cv = CaptureVolume(camera_array, original_pe)
-    reconstructed_cv = CaptureVolume(camera_array, reconstructed_pe)
-
-    original_rmse = original_cv.rmse["overall"]
-    reconstructed_rmse = reconstructed_cv.rmse["overall"]
-
-    logger.info(f"Original RMSE: {original_rmse:.6f} pixels")
-    logger.info(f"Reconstructed RMSE: {reconstructed_rmse:.6f} pixels")
-    logger.info(f"RMSE difference: {abs(original_rmse - reconstructed_rmse):.6e} pixels")
-
-    assert abs(original_rmse - reconstructed_rmse) < 1e-6, (
-        f"RMSE mismatch after round-trip: {original_rmse} vs {reconstructed_rmse}"
-    )
-    logger.info("✓ RMSE calculations are identical")
-
-    # Check 5: Per-camera RMSE matches
-    for port in camera_array.posed_cameras.keys():
-        orig_cam_rmse = original_cv.rmse[str(port)]
-        recon_cam_rmse = reconstructed_cv.rmse[str(port)]
-        assert abs(orig_cam_rmse - recon_cam_rmse) < 1e-6, (
-            f"Per-camera RMSE mismatch for port {port}: {orig_cam_rmse} vs {recon_cam_rmse}"
-        )
-    logger.info("✓ Per-camera RMSE calculations are identical")
-
-    # Check 6: Camera indices mapping is preserved
-    # The actual index values might differ if camera ordering changed, but the
-    # mapping from observations to cameras should be functionally equivalent
-    original_ports = [camera_array.posed_index_to_port[idx] for idx in original_pe.camera_indices]
-    reconstructed_ports = [camera_array.posed_index_to_port[idx] for idx in reconstructed_pe.camera_indices]
-
-    assert original_ports == reconstructed_ports, "Camera assignment for observations changed!"
-    logger.info("✓ Camera assignments preserved for all observations")
-
-    # Check 7: Point IDs are preserved
-    assert np.array_equal(original_pe.point_id, reconstructed_pe.point_id), (
-        "Point IDs do not match after reconstruction"
-    )
-    logger.info("✓ Point IDs preserved for all observations")
-
-    # Check 8: 2D image coordinates are preserved (within numerical precision)
-    # Use allclose for floating point comparison
-    assert np.allclose(original_pe.img, reconstructed_pe.img, rtol=1e-7, atol=1e-8), (
-        "2D image coordinates changed during reconstruction"
-    )
-    logger.info("✓ 2D image coordinates preserved")
-
-    logger.info("=" * 50)
-    logger.info("ALL ROUND-TRIP VALIDATION CHECKS PASSED!")
-    logger.info("PointEstimates -> Bundle -> PointEstimates is lossless.")
-    logger.info("=" * 50)
-
-
 def test_align_bundle_to_charuco_board(tmp_path: Path):
     """Test aligning a PointDataBundle to Charuco board coordinates."""
-    # Setup: load a calibration session with Charuco data
-    version = "post_optimization"
+    # Setup: load a calibration session with Charuco data including obj_loc coordinates
+    # Use larger_calibration_post_monocal which has populated obj_loc values
+    version = "larger_calibration_post_monocal"
     original_session_path = Path(__root__, "tests", "sessions", version)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
@@ -393,12 +156,12 @@ def test_align_bundle_to_charuco_board(tmp_path: Path):
     persistence.load_charuco(tmp_path / "charuco.toml")
     image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
 
-    # CRITICAL: Handle missing obj_loc_z column (common in planar board data)
-    # The CSV may only have obj_loc_x and obj_loc_y ,with
-    logger.info("Adding missing obj_loc_z column (planar board assumption)")
-
+    # This session has obj_loc_x and obj_loc_y populated, but obj_loc_z may be missing (planar board)
+    # Set obj_loc_z to 0.0 for planar board assumption
     df = image_points.df.copy()
-    df["obj_loc_z"] = 0.0
+    if df["obj_loc_z"].isna().all():
+        logger.info("obj_loc_z is all NaN, assuming planar board with z=0")
+        df["obj_loc_z"] = 0.0
     image_points = ImagePoints(df)
 
     # Verify we have valid object coordinates
@@ -463,6 +226,153 @@ def test_align_bundle_to_charuco_board(tmp_path: Path):
     logger.info("✓ All alignment validations passed")
 
 
+@pytest.mark.parametrize("axis", ["x", "y", "z"])
+def test_rotation_invariance(axis: Literal["x", "y", "z"], tmp_path: Path):
+    """
+    Tests that 4x90-degree rotations around any axis returns bundle to original state.
+
+    This is the migrated version of test_rotation_invariance from test_capture_volume_transformation.py.
+    Uses PointDataBundle's immutable rotation API instead of CaptureVolume's mutable rotate() method.
+    """
+    # SETUP: Use optimized session with stable calibration
+    source_session_path = Path(__root__, "tests", "sessions", "post_optimization")
+    copy_contents_to_clean_dest(source_session_path, tmp_path)
+
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+
+    # Load from CSV format
+    csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
+    image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
+    world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
+    bundle = PointDataBundle(camera_array, image_points, world_points)
+
+    # STORE INITIAL STATE
+    initial_points = bundle.world_points.points.copy()
+    initial_transforms = {port: cam.transformation.copy() for port, cam in bundle.camera_array.posed_cameras.items()}
+
+    logger.info(f"Testing rotation invariance around {axis} axis")
+    logger.info(f"Initial state: {len(initial_points)} points, {len(initial_transforms)} cameras")
+
+    # EXECUTE & ASSERT: 4x90-degree rotations
+    current_bundle = bundle
+    for i in range(1, 5):
+        logger.info(f"Applying rotation {i}/4 ({i * 90} degrees total)")
+
+        # Rotate 90 degrees (immutable operation returns new bundle)
+        current_bundle = current_bundle.rotate(axis, 90.0)
+
+        current_points = current_bundle.world_points.points
+        current_transforms = {
+            port: cam.transformation for port, cam in current_bundle.camera_array.posed_cameras.items()
+        }
+
+        if i < 4:
+            # After 90, 180, 270 degrees: state should be DIFFERENT
+            assert not np.allclose(initial_points, current_points, atol=1e-6), (
+                f"Points should not match initial state after {i * 90} degrees"
+            )
+
+            for port in initial_transforms:
+                assert not np.allclose(initial_transforms[port], current_transforms[port], atol=1e-6), (
+                    f"Camera {port} transform should not match initial state after {i * 90} degrees"
+                )
+
+            logger.info(f"  ✓ State is different after {i * 90} degrees (as expected)")
+        else:
+            # After 360 degrees: state should RETURN to original
+            points_match = np.allclose(initial_points, current_points, atol=1e-6)
+            assert points_match, (
+                f"Points should return to initial state after 360 degrees\n"
+                f"Max difference: {np.max(np.abs(initial_points - current_points))}"
+            )
+
+            for port in initial_transforms:
+                transform_match = np.allclose(initial_transforms[port], current_transforms[port], atol=1e-6)
+                assert transform_match, (
+                    f"Camera {port} transform should return to initial state after 360 degrees\n"
+                    f"Max difference: {np.max(np.abs(initial_transforms[port] - current_transforms[port]))}"
+                )
+
+            logger.info("  ✓ State returned to initial after 360 degrees (rotation invariance confirmed)")
+
+    logger.info(f"✓ Rotation invariance test passed for {axis} axis")
+
+
+def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
+    """
+    Tests bundle adjustment with cameras that have no shared observations.
+
+    This is the migrated version of test_bundle_adjust_with_unlinked_camera from test_optimization_unlinked.py.
+    Uses PointDataBundle instead of CaptureVolume.
+
+    Setup: Camera 4 is ignored, Camera 5 has no shared images with others.
+    Expected: Only cameras {1, 2, 3, 6} are posed and optimized.
+    """
+    # SETUP: Use session that results in unposed cameras
+    version = "not_sufficient_stereopairs"
+    original_session_path = Path(__root__, "tests", "sessions", version)
+    copy_contents_to_clean_dest(original_session_path, tmp_path)
+
+    xy_data_path = tmp_path / "xy_CHARUCO.csv"
+    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+
+    logger.info("Creating paired pose network...")
+    from caliscope.core.point_data import ImagePoints
+    from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+
+    image_points = ImagePoints.from_csv(xy_data_path)
+
+    paired_pose_network = build_paired_pose_network(image_points, camera_array, method="stereocalibrate")
+
+    logger.info("Initializing estimated camera positions...")
+    paired_pose_network.apply_to(camera_array)
+
+    # Triangulate world points
+    world_points = image_points.triangulate(camera_array)
+
+    # VERIFY SETUP: Confirm expected posed/unposed camera configuration
+    assert set(camera_array.posed_cameras.keys()) == {1, 2, 3, 6}, (
+        f"Expected cameras {{1, 2, 3, 6}} to be posed, got {set(camera_array.posed_cameras.keys())}"
+    )
+    assert list(camera_array.unposed_cameras.keys()) == [4, 5], (
+        f"Expected cameras [4, 5] to be unposed, got {list(camera_array.unposed_cameras.keys())}"
+    )
+    assert len(camera_array.posed_port_to_index) == 4, (
+        f"Expected 4 cameras in optimization index, got {len(camera_array.posed_port_to_index)}"
+    )
+
+    logger.info("✓ Camera configuration validated: 4 posed, 2 unposed")
+
+    # CREATE BUNDLE AND OPTIMIZE
+    logger.info("Creating PointDataBundle with unlinked cameras...")
+    bundle = PointDataBundle(
+        camera_array=camera_array,
+        image_points=image_points,
+        world_points=world_points,
+    )
+
+    initial_rmse = bundle.reprojection_report.overall_rmse
+    logger.info(f"Initial RMSE: {initial_rmse:.4f} pixels")
+
+    logger.info("Running optimization with unlinked camera present...")
+    optimized_bundle = bundle.optimize()
+
+    # ASSERT SUCCESS
+    assert optimized_bundle.optimization_status is not None, "Optimization status should be set"
+    assert optimized_bundle.optimization_status.converged, (
+        f"Optimization should converge, but got: {optimized_bundle.optimization_status.termination_reason}"
+    )
+
+    final_rmse = optimized_bundle.reprojection_report.overall_rmse
+    logger.info(f"Final RMSE: {final_rmse:.4f} pixels")
+    logger.info(f"Optimization converged in {optimized_bundle.optimization_status.iterations} iterations")
+
+    # Verify RMSE improved
+    assert final_rmse < initial_rmse, f"RMSE should improve after optimization: {initial_rmse:.4f} -> {final_rmse:.4f}"
+
+    logger.info("✓ Optimization completed successfully with unlinked cameras present")
+
+
 if __name__ == "__main__":
     from caliscope.logger import setup_logging
 
@@ -473,7 +383,6 @@ if __name__ == "__main__":
     debug_dir.mkdir(exist_ok=True)
 
     # Run test
-    # test_point_data_bundle(debug_dir)
-    # test_point_estimates_roundtrip(debug_dir)
-    # test_world_data_point_estimates(debug_dir)
+    test_point_data_bundle(debug_dir)
+    test_triangulation_consistency(debug_dir)
     test_align_bundle_to_charuco_board(debug_dir)

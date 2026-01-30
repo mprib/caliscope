@@ -90,13 +90,10 @@ def load_fixture_data(session_name: str = "post_optimization") -> dict:
     charuco_path = session_path / "charuco.toml"
     charuco = persistence.load_charuco(charuco_path)
 
-    # Load point estimates
-    point_estimates_path = session_path / "point_estimates.toml"
-    point_estimates = persistence.load_point_estimates(point_estimates_path)
-
-    # Load image points
-    xy_csv_path = session_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv"
-    image_points = persistence.load_image_points_csv(xy_csv_path)
+    # Load image and world points from CSV
+    csv_dir = session_path / "calibration" / "extrinsic" / "CHARUCO"
+    image_points = persistence.load_image_points_csv(csv_dir / "xy_CHARUCO.csv")
+    world_points = persistence.load_world_points_csv(csv_dir / "xyz_CHARUCO.csv")
 
     # Build paired pose network
     paired_pose_network = build_paired_pose_network(image_points, camera_array)
@@ -104,8 +101,8 @@ def load_fixture_data(session_name: str = "post_optimization") -> dict:
     return {
         "camera_array": camera_array,
         "charuco": charuco,
-        "point_estimates": point_estimates,
         "image_points": image_points,
+        "world_points": world_points,
         "paired_pose_network": paired_pose_network,
     }
 
@@ -193,28 +190,23 @@ def test_charuco_roundtrip(tmp_path: Path):
     logger.info("✓ Charuco round-trip test passed")
 
 
-def test_point_estimates_roundtrip(tmp_path: Path):
-    """Test PointEstimates save/load round-trip using real fixture data."""
-    logger.info("Testing PointEstimates round-trip...")
+def test_world_points_roundtrip(tmp_path: Path):
+    """Test WorldPoints CSV save/load round-trip using real fixture data."""
+    logger.info("Testing WorldPoints CSV round-trip...")
 
     # Load real fixture data
     fixtures = load_fixture_data()
-    original = fixtures["point_estimates"]
-    file_path = tmp_path / "point_estimates.toml"
+    original = fixtures["world_points"]
+    file_path = tmp_path / "xyz_test.csv"
 
     # Save and load
-    persistence.save_point_estimates(original, file_path)
-    loaded = persistence.load_point_estimates(file_path)
+    persistence.save_world_points_csv(original, file_path)
+    loaded = persistence.load_world_points_csv(file_path)
 
     # Assert equivalence
-    np.testing.assert_array_equal(loaded.sync_indices, original.sync_indices)
-    np.testing.assert_array_equal(loaded.camera_indices, original.camera_indices)
-    np.testing.assert_array_equal(loaded.point_id, original.point_id)
-    np.testing.assert_array_equal(loaded.img, original.img)
-    np.testing.assert_array_equal(loaded.obj_indices, original.obj_indices)
-    np.testing.assert_array_equal(loaded.obj, original.obj)
+    pd.testing.assert_frame_equal(loaded.df, original.df, check_dtype=True)
 
-    logger.info("✓ PointEstimates round-trip test passed")
+    logger.info("✓ WorldPoints CSV round-trip test passed")
 
 
 def test_paired_pose_network_roundtrip(tmp_path: Path):
@@ -282,7 +274,7 @@ if __name__ == "__main__":
         try:
             test_camera_array_roundtrip(tmp_path)
             test_charuco_roundtrip(tmp_path)
-            test_point_estimates_roundtrip(tmp_path)
+            test_world_points_roundtrip(tmp_path)
             test_paired_pose_network_roundtrip(tmp_path)
             test_image_points_roundtrip(tmp_path)
 

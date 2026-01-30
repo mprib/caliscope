@@ -1,7 +1,6 @@
 import logging
 from collections import OrderedDict
 from pathlib import Path
-from time import time
 from datetime import datetime
 from typing import Literal
 
@@ -10,15 +9,11 @@ from PySide6.QtCore import QObject, QFileSystemWatcher, Signal
 
 from caliscope.task_manager import TaskHandle, TaskManager
 
-from caliscope.core.capture_volume.capture_volume import CaptureVolume
-from caliscope.core.capture_volume.quality_controller import QualityController
-from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
 from caliscope.core.charuco import Charuco
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.calibrate_intrinsics import IntrinsicCalibrationOutput, IntrinsicCalibrationReport
 from caliscope.repositories import (
     CameraArrayRepository,
-    CaptureVolumeRepository,
     CharucoRepository,
     ProjectSettingsRepository,
 )
@@ -28,7 +23,6 @@ from caliscope.core.workflow_status import WorkflowStatus
 from caliscope.persistence import PersistenceError
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
 from caliscope.reconstruction.reconstructor import Reconstructor
-from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.recording import read_video_properties
 from caliscope.core.point_data import ImagePoints
 from caliscope.trackers.charuco_tracker import CharucoTracker
@@ -59,7 +53,7 @@ class WorkspaceCoordinator(QObject):
 
     Orchestrates the calibration workflow by coordinating between repositories
     (persistence), stream managers (video processing), and domain objects
-    (CameraArray, CaptureVolume). Maintains no business logic itself beyond
+    (CameraArray, PointDataBundle). Maintains no business logic itself beyond
     workflow state management.
 
     This is session-scoped to a workspace directory. All data access is delegated
@@ -68,9 +62,7 @@ class WorkspaceCoordinator(QObject):
     """
 
     new_camera_data = Signal(int, OrderedDict)  # port, camera_display_dictionary
-    capture_volume_calibrated = Signal()
     charuco_changed = Signal()  # Emitted when charuco board config is updated
-    capture_volume_shifted = Signal()
     bundle_updated = Signal()  # Immediate: in-memory state changed, use for UI refresh
     status_changed = Signal()  # Deferred: fires after filesystem operations complete
 
@@ -82,13 +74,11 @@ class WorkspaceCoordinator(QObject):
         self.settings_repository = ProjectSettingsRepository(workspace_dir / "project_settings.toml")
         self.camera_repository = CameraArrayRepository(workspace_dir / "camera_array.toml")
         self.charuco_repository = CharucoRepository(workspace_dir / "charuco.toml")
-        self.capture_volume_repository = CaptureVolumeRepository(workspace_dir)
         self.intrinsic_report_repository = IntrinsicReportRepository(
             workspace_dir / "calibration" / "intrinsic" / "reports"
         )
 
-        # PointDataBundle (new system, parallel to CaptureVolume)
-        # These two systems are independent during migration - do not mix them
+        # PointDataBundle (extrinsic calibration system)
         self.bundle_repository = PointDataBundleRepository(
             workspace_dir / "calibration" / "extrinsic" / EXTRINSIC_TRACKER_NAME
         )
@@ -112,8 +102,6 @@ class WorkspaceCoordinator(QObject):
 
         # Watch calibration directories for file changes
         self._setup_filesystem_watcher()
-
-        self.capture_volume = None
 
         # Centralized task management for background operations
         self.task_manager = TaskManager(parent=self)
@@ -238,11 +226,9 @@ class WorkspaceCoordinator(QObject):
             else:
                 logger.info("Skipping camera array load (no intrinsic videos)")
 
-            # Load capture volume if extrinsic calibration complete
+            # Load point data bundle if extrinsic calibration complete
             if self.capture_volume_tab_enabled:
-                logger.info("Loading capture volume (extrinsics calibrated)")
-                if self.capture_volume_repository.point_estimates_path.exists():
-                    self.load_estimated_capture_volume()
+                logger.info("Extrinsic calibration available (loaded via point_data_bundle property)")
             else:
                 logger.info("Skipping capture volume load (not calibrated)")
 
@@ -271,16 +257,13 @@ class WorkspaceCoordinator(QObject):
         Check if full extrinsic calibration is complete.
 
         At this point, the capture volume tab should be available.
-        Checks both old system (point_estimates.toml) and new system (PointDataBundle).
         """
         cameras_good = self.camera_array.all_extrinsics_calibrated()
         logger.info(f"All extrinsics calculated: {cameras_good}")
 
-        # Check for calibration data in either old or new system
-        old_system_good = self.capture_volume_repository.point_estimates_path.exists()
-        new_system_good = self.bundle_repository.camera_array_path.exists()
-        point_estimates_good = old_system_good or new_system_good
-        logger.info(f"Point estimates available: {point_estimates_good} (old={old_system_good}, new={new_system_good})")
+        # Check for calibration data in PointDataBundle system
+        point_estimates_good = self.bundle_repository.camera_array_path.exists()
+        logger.info(f"Point estimates available: {point_estimates_good}")
 
         all_data_available = self.workspace_guide.all_extrinsic_mp4s_available()
         logger.info(f"All underlying data available: {all_data_available}")
@@ -355,15 +338,6 @@ class WorkspaceCoordinator(QObject):
 
     def get_charuco_params(self) -> dict:
         return self.charuco.__dict__
-
-    def load_extrinsic_stream_manager(self):
-        """Initialize stream manager for extrinsic calibration videos."""
-        logger.info(f"Loading manager for streams saved to {self.workspace_guide.extrinsic_dir}")
-        self.extrinsic_stream_manager = SynchronizedStreamManager(
-            recording_dir=self.workspace_guide.extrinsic_dir,
-            all_camera_data=self.camera_array.cameras,
-            tracker=self.charuco_tracker,
-        )
 
     def load_camera_array(self):
         """
@@ -614,9 +588,6 @@ class WorkspaceCoordinator(QObject):
         2. Try to load from PointDataBundleRepository
         3. Return None if no data available
 
-        Note: This does NOT fall back to CaptureVolume. The two systems are
-        independent during migration. Use legacy CaptureVolume methods if you
-        need data from the old system.
         """
         if self._point_data_bundle is not None:
             return self._point_data_bundle
@@ -692,130 +663,6 @@ class WorkspaceCoordinator(QObject):
         new_bundle = bundle.align_to_object(sync_index)
         self.update_bundle(new_bundle)
 
-    # -------------------------------------------------------------------------
-    # CaptureVolume API (legacy system - do not mix with PointDataBundle)
-    # -------------------------------------------------------------------------
-
-    def load_estimated_capture_volume(self):
-        """
-        Load capture volume data from persistence layer.
-
-        This method coordinates loading of point estimates and metadata,
-        then reconstructs the CaptureVolume domain object.
-        """
-        logger.info("Beginning to load estimated capture volume")
-
-        # Load point estimates from dedicated manager
-        self.point_estimates = self.capture_volume_repository.load_point_estimates()
-        self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
-
-        # Load metadata and apply to capture volume
-        metadata = self.capture_volume_repository.load_metadata()
-        stage = metadata.get("stage")
-        if stage is not None:
-            self.capture_volume.stage = stage
-        origin_sync_index = metadata.get("origin_sync_index")
-        if origin_sync_index is not None:
-            self.capture_volume.origin_sync_index = origin_sync_index
-
-        logger.info("Load of capture volume complete")
-
-        # QC needed to get the corner distance accuracy within the GUI
-        self.quality_controller = QualityController(self.capture_volume, charuco=self.charuco)
-
-    def calibrate_capture_volume(self) -> TaskHandle:
-        """Perform full extrinsic calibration in worker thread.
-
-        DEPRECATED: This method is part of the old extrinsic calibration workflow.
-        The new workflow uses:
-        - MultiCameraProcessingPresenter for 2D extraction
-        - ExtrinsicCalibrationPresenter for bundle adjustment
-        Will be removed once we confirm no external callers exist.
-
-        Returns:
-            TaskHandle for connecting completion callbacks.
-        """
-
-        def worker(token, _handle):
-            output_path = Path(self.workspace_guide.extrinsic_dir, EXTRINSIC_TRACKER_NAME, "xy_CHARUCO.csv")
-            if output_path.exists():
-                output_path.unlink()  # ensure clean start
-
-            self.load_extrinsic_stream_manager()
-
-            # Get processing settings from project configuration
-            include_video = self.settings_repository.get_save_tracked_points_video()
-            fps_target = self.settings_repository.get_fps_sync_stream_processing()
-
-            try:
-                self.extrinsic_stream_manager.process_streams(fps_target=fps_target, include_video=include_video)
-                logger.info(
-                    f"Processing of extrinsic calibration begun...waiting for output to populate: {output_path}"
-                )
-
-                # Cancellable wait for tracked points
-                while not output_path.exists():
-                    if token.sleep_unless_cancelled(0.5):
-                        return  # User cancelled
-                    # moderate the frequency with which logging statements get made
-                    if round(time()) % 3 == 0:
-                        logger.info(f"Waiting for 2D tracked points to populate at {output_path}")
-
-                if token.is_cancelled:
-                    return
-
-                logger.info("Processing of extrinsic calibration streams complete...")
-            finally:
-                # Cleanup stream manager threads (recorder, synchronizer, streamers)
-                self.extrinsic_stream_manager.cleanup()
-
-            image_points_path = Path(
-                self.workspace, "calibration", "extrinsic", EXTRINSIC_TRACKER_NAME, "xy_CHARUCO.csv"
-            )
-            image_points = ImagePoints.from_csv(image_points_path)
-
-            # initialize estimated extrinsics from paired poses
-            paired_pose_network = build_paired_pose_network(image_points, self.camera_array)
-            paired_pose_network.apply_to(self.camera_array)
-
-            world_points = image_points.triangulate(self.camera_array)
-
-            self.point_estimates = world_points.to_point_estimates(image_points, self.camera_array)
-
-            if token.is_cancelled:
-                return
-
-            # Bundle adjustment (can't interrupt mid-call)
-            self.capture_volume = CaptureVolume(self.camera_array, self.point_estimates)
-            self.capture_volume.optimize()
-
-            self.quality_controller = QualityController(self.capture_volume, self.charuco)
-
-            logger.info(f"Removing the worst fitting {FILTERED_FRACTION * 100} percent of points from the model")
-            self.quality_controller.filter_point_estimates(FILTERED_FRACTION)
-
-            if token.is_cancelled:
-                return
-
-            self.capture_volume.optimize()
-
-            # Save camera array (shared by both systems)
-            self.camera_repository.save(self.camera_array)
-
-            # Save as PointDataBundle (new system)
-            # We have image_points and world_points from earlier in this workflow
-            bundle = PointDataBundle(self.camera_array, image_points, world_points)
-            self.bundle_repository.save(bundle)
-            self._point_data_bundle = bundle
-            logger.info("Saved PointDataBundle for extrinsic calibration")
-
-            # Also save CaptureVolume (legacy, can remove once migration complete)
-            self.capture_volume_repository.save_capture_volume(self.capture_volume)
-
-        handle = self.task_manager.submit(worker, name="calibrate_capture_volume")
-        handle.completed.connect(lambda _: self.capture_volume_calibrated.emit())
-        return handle
-
     def process_recordings(self, recording_path: Path, tracker_enum: TrackerEnum) -> TaskHandle:
         """
         Initiate post-processing of recorded video in worker thread.
@@ -850,34 +697,6 @@ class WorkspaceCoordinator(QObject):
 
         handle = self.task_manager.submit(worker, name="process_recordings")
         return handle
-
-    def rotate_capture_volume(self, direction: str):
-        """Rotate capture volume and persist in background thread."""
-        assert self.capture_volume is not None
-        self.capture_volume.rotate(direction)
-        self.capture_volume_shifted.emit()
-
-        capture_volume = self.capture_volume  # capture for closure
-
-        def worker(_token, _handle):
-            self.camera_repository.save(self.camera_array)
-            self.capture_volume_repository.save_capture_volume(capture_volume)
-
-        self.task_manager.submit(worker, name="rotate_capture_volume")
-
-    def set_capture_volume_origin_to_board(self, origin_index):
-        """Set world origin and persist in background thread."""
-        assert self.capture_volume is not None
-        self.capture_volume.set_origin_to_board(origin_index, self.charuco)
-        self.capture_volume_shifted.emit()
-
-        capture_volume = self.capture_volume  # capture for closure
-
-        def worker(_token, _handle):
-            self.camera_repository.save(self.camera_array)
-            self.capture_volume_repository.save_capture_volume(capture_volume)
-
-        self.task_manager.submit(worker, name="set_capture_volume_origin")
 
     def cleanup(self) -> None:
         """Shutdown all background operations.

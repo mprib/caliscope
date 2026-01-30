@@ -59,16 +59,6 @@ class ProjectSettingsRepository:
             raise ValueError(f"Failed to save project settings: {e}") from e
 
     # Typed accessors provide API stability and prevent magic strings
-    def get_camera_count(self) -> int:
-        """Get configured camera count (default: 0 for new projects)."""
-        return self._cache.get("camera_count", 0)
-
-    def set_camera_count(self, count: int) -> None:
-        """Update camera count and persist immediately."""
-        settings = self._cache.copy()
-        settings["camera_count"] = count
-        self.save(settings)
-
     def get_fps_sync_stream_processing(self) -> int:
         """Get FPS throttle for stream processing (default: 100)."""
         return self._cache.get("fps_sync_stream_processing", 100)

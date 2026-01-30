@@ -89,11 +89,8 @@ class MultiCameraProcessingTab(QWidget):
         """Handle processing completion - persist results and signal coordinator."""
         logger.info(f"Multi-camera processing complete: {len(image_points.df)} observations")
 
-        # Persist ImagePoints to extrinsic directory
+        # Persist ImagePoints to extrinsic directory (triggers status_changed)
         self.coordinator.persist_extrinsic_image_points(image_points, tracker.name)
-
-        # Signal that ImagePoints are ready (enables Tab 2)
-        self.coordinator.extrinsic_image_points_ready.emit()
 
     def _on_charuco_changed(self) -> None:
         """Update tracker when charuco config changes.

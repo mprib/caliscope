@@ -105,6 +105,12 @@ class ReconstructionWidget(QWidget):
         self._status_message.setWordWrap(True)
         status_layout.addWidget(self._status_message)
 
+        self._calibration_indicator = QLabel()
+        self._calibration_indicator.setStyleSheet("color: #888; font-style: italic;")
+        self._calibration_indicator.setWordWrap(True)
+        self._calibration_indicator.hide()
+        status_layout.addWidget(self._calibration_indicator)
+
         left_layout.addWidget(status_group)
 
         # Actions group
@@ -247,6 +253,13 @@ class ReconstructionWidget(QWidget):
         elif state == ReconstructionState.ERROR:
             error = self._presenter.last_error or "Unknown error"
             self._status_message.setText(f"Error: {error}")
+
+        # Calibration indicator (show when viewing historical data)
+        if self._presenter.is_showing_historical_calibration:
+            self._calibration_indicator.setText("Showing cameras from this recording's calibration")
+            self._calibration_indicator.show()
+        else:
+            self._calibration_indicator.hide()
 
         # Process button
         can_process = self._presenter.selected_recording is not None and self._presenter.selected_tracker is not None

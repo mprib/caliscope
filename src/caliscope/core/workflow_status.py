@@ -15,6 +15,7 @@ class StepStatus(Enum):
     NOT_STARTED = auto()  # Prerequisites not met
     INCOMPLETE = auto()  # In progress but not complete
     COMPLETE = auto()  # Fully complete
+    AVAILABLE = auto()  # Optional feature, ready to use
 
 
 @dataclass(frozen=True)

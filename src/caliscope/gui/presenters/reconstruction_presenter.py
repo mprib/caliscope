@@ -14,6 +14,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal
 
+from caliscope import persistence
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.reconstruction.reconstructor import Reconstructor
 from caliscope.task_manager.task_handle import TaskHandle
@@ -193,9 +194,40 @@ class ReconstructionPresenter(QObject):
         return self._last_error
 
     @property
-    def camera_array(self) -> CameraArray:
-        """Camera array used for triangulation (needed for visualization)."""
+    def historical_camera_array_path(self) -> Path | None:
+        """Path to camera_array.toml in current selection's output folder."""
+        output_path = self.xyz_output_path
+        if output_path is None:
+            return None
+        return output_path.parent / "camera_array.toml"
+
+    @property
+    def camera_array_for_visualization(self) -> CameraArray:
+        """Camera array to use for visualization.
+
+        When viewing processed output, returns the historical array from that
+        output's folder. Otherwise returns the current calibration.
+
+        This ensures the visualization shows cameras matching the 3D points.
+        """
+        historical_path = self.historical_camera_array_path
+        if historical_path is not None and historical_path.exists():
+            try:
+                return persistence.load_camera_array(historical_path)
+            except Exception:
+                logger.warning(f"Failed to load historical camera array from {historical_path}")
         return self._camera_array
+
+    @property
+    def is_showing_historical_calibration(self) -> bool:
+        """True if visualization is using historical (per-recording) camera array."""
+        historical_path = self.historical_camera_array_path
+        return historical_path is not None and historical_path.exists() and self.state == ReconstructionState.COMPLETE
+
+    @property
+    def camera_array(self) -> CameraArray:
+        """Camera array for visualization (delegates to camera_array_for_visualization)."""
+        return self.camera_array_for_visualization
 
     def select_recording(self, name: str) -> None:
         """Select a recording for processing.
@@ -310,10 +342,11 @@ class ReconstructionPresenter(QObject):
 
         When the user adjusts the coordinate system origin in the calibration tab,
         the camera extrinsics change. This updates the presenter's reference and
-        triggers a view rebuild if we're showing completed results.
+        triggers a view rebuild if showing current calibration (not historical).
         """
         self._camera_array = camera_array
-        if self.state == ReconstructionState.COMPLETE:
+        # Only refresh if showing current calibration, not historical per-recording data
+        if not self.is_showing_historical_calibration:
             self._emit_state_changed()  # Triggers view rebuild with new camera positions
 
     def _on_reconstruction_complete(self, result: object) -> None:

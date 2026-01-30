@@ -106,17 +106,15 @@ class MainWindow(QMainWindow):
         self.central_tab = QTabWidget(self)
         self.setCentralWidget(self.central_tab)
 
-        # Project tab (replaces Workspace + Charuco)
+        # Project tab (always enabled)
         logger.info("Building Project setup tab")
         self.project_tab = ProjectSetupView(self.coordinator)
         self.project_tab.tab_navigation_requested.connect(self._navigate_to_tab)
         self.central_tab.addTab(self.project_tab, "Project")
 
-        extrinsics_available = self.coordinator.all_extrinsic_mp4s_available()
-        intrinsics_calibrated = self.coordinator.camera_array.all_intrinsics_calibrated()
-
-        # Build Cameras tab with intrinsic calibration workflow
-        if self.coordinator.cameras_loaded:
+        # Cameras tab - enabled based on computed property
+        cameras_enabled = self.coordinator.cameras_tab_enabled
+        if cameras_enabled:
             logger.info("Building Cameras tab with intrinsic calibration")
             self.cameras_tab_widget = CamerasTabWidget(self.coordinator)
         else:
@@ -125,12 +123,11 @@ class MainWindow(QMainWindow):
         self.central_tab.addTab(self.cameras_tab_widget, "Cameras")
         self.central_tab.setTabEnabled(
             self.find_tab_index_by_title("Cameras"),
-            self.coordinator.cameras_loaded,
+            cameras_enabled,
         )
 
-        # Build Multi-Camera tab for synchronized 2D extraction
-        # Enabled when: intrinsics calibrated AND extrinsic videos available
-        multi_camera_enabled = extrinsics_available and intrinsics_calibrated
+        # Multi-Camera tab - enabled based on computed property
+        multi_camera_enabled = self.coordinator.multi_camera_tab_enabled
         if multi_camera_enabled:
             logger.info("Building Multi-Camera processing tab")
             self.multi_camera_tab = MultiCameraProcessingTab(self.coordinator)
@@ -143,30 +140,23 @@ class MainWindow(QMainWindow):
             multi_camera_enabled,
         )
 
-        # Enable Capture Volume tab when Multi-Camera processing completes
-        self.coordinator.extrinsic_image_points_ready.connect(self._on_extrinsic_points_ready)
-
-        logger.info("About to load capture volume tab")
-        if self.coordinator.capture_volume_loaded:
+        # Capture Volume tab - enabled based on computed property
+        capture_volume_enabled = self.coordinator.capture_volume_tab_enabled
+        if capture_volume_enabled:
             logger.info("Creating ExtrinsicCalibrationTab")
             self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
         else:
-            logger.info("Creating dummy widget")
+            logger.info("Creating dummy widget for Capture Volume")
             self.extrinsic_calibration_tab = QWidget()
         self.central_tab.addTab(self.extrinsic_calibration_tab, "Capture Volume")
         self.central_tab.setTabEnabled(
-            self.find_tab_index_by_title("Capture Volume"), self.coordinator.capture_volume_loaded
+            self.find_tab_index_by_title("Capture Volume"),
+            capture_volume_enabled,
         )
 
-        # Enable Capture Volume tab dynamically when extrinsic calibration completes
-        self.coordinator.capture_volume_calibrated.connect(self._on_capture_volume_ready)
-
-        # Track current tab for VTK suspend/resume (QTabWidget doesn't fire hideEvent)
-        self._previous_tab_index: int = 0
-        self.central_tab.currentChanged.connect(self._on_tab_changed)
-
-        logger.info("About to load reconstruction tab")
-        if self.coordinator.capture_volume_loaded and self.coordinator.recordings_available():
+        # Reconstruction tab - enabled based on computed property
+        reconstruction_enabled = self.coordinator.reconstruction_tab_enabled
+        if reconstruction_enabled:
             logger.info("Creating reconstruction tab")
             presenter = self.coordinator.create_reconstruction_presenter()
             self.reconstruction_tab = ReconstructionTab(presenter)
@@ -178,13 +168,105 @@ class MainWindow(QMainWindow):
             self.coordinator.bundle_updated.connect(
                 lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
             )
-            reconstruction_enabled = True
         else:
-            logger.info("Creating dummy widget")
+            logger.info("Creating dummy widget for Reconstruction")
             self.reconstruction_tab = QWidget()
-            reconstruction_enabled = False
         self.central_tab.addTab(self.reconstruction_tab, "Reconstruction")
-        self.central_tab.setTabEnabled(self.find_tab_index_by_title("Reconstruction"), reconstruction_enabled)
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Reconstruction"),
+            reconstruction_enabled,
+        )
+
+        # Subscribe to status_changed for dynamic tab enablement
+        self.coordinator.status_changed.connect(self._refresh_tab_enablement)
+
+        # Track current tab for VTK suspend/resume (QTabWidget doesn't fire hideEvent)
+        self._previous_tab_index: int = 0
+        self.central_tab.currentChanged.connect(self._on_tab_changed)
+
+    def _refresh_tab_enablement(self) -> None:
+        """Refresh tab enabled states from computed properties.
+
+        Called when Coordinator.status_changed fires (filesystem change,
+        calibration complete, etc.).
+        """
+        # Update enabled state for each tab
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Cameras"),
+            self.coordinator.cameras_tab_enabled,
+        )
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Multi-Camera"),
+            self.coordinator.multi_camera_tab_enabled,
+        )
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Capture Volume"),
+            self.coordinator.capture_volume_tab_enabled,
+        )
+        self.central_tab.setTabEnabled(
+            self.find_tab_index_by_title("Reconstruction"),
+            self.coordinator.reconstruction_tab_enabled,
+        )
+
+        # If a tab became enabled and has a dummy widget, replace it
+        self._maybe_replace_dummy_tabs()
+
+    def _maybe_replace_dummy_tabs(self) -> None:
+        """Replace dummy widgets with real tabs when they become enabled."""
+        # Cameras tab
+        cameras_idx = self.find_tab_index_by_title("Cameras")
+        if self.coordinator.cameras_tab_enabled and not isinstance(
+            self.central_tab.widget(cameras_idx), CamerasTabWidget
+        ):
+            old = self.central_tab.widget(cameras_idx)
+            self.cameras_tab_widget = CamerasTabWidget(self.coordinator)
+            self.central_tab.removeTab(cameras_idx)
+            self.central_tab.insertTab(cameras_idx, self.cameras_tab_widget, "Cameras")
+            if old:
+                old.deleteLater()
+
+        # Multi-Camera tab
+        multi_idx = self.find_tab_index_by_title("Multi-Camera")
+        if self.coordinator.multi_camera_tab_enabled and not isinstance(
+            self.central_tab.widget(multi_idx), MultiCameraProcessingTab
+        ):
+            old = self.central_tab.widget(multi_idx)
+            self.multi_camera_tab = MultiCameraProcessingTab(self.coordinator)
+            self.central_tab.removeTab(multi_idx)
+            self.central_tab.insertTab(multi_idx, self.multi_camera_tab, "Multi-Camera")
+            if old:
+                old.deleteLater()
+
+        # Capture Volume tab
+        cv_idx = self.find_tab_index_by_title("Capture Volume")
+        if self.coordinator.capture_volume_tab_enabled and not isinstance(
+            self.central_tab.widget(cv_idx), ExtrinsicCalibrationTab
+        ):
+            old = self.central_tab.widget(cv_idx)
+            self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
+            self.central_tab.removeTab(cv_idx)
+            self.central_tab.insertTab(cv_idx, self.extrinsic_calibration_tab, "Capture Volume")
+            if old:
+                old.deleteLater()
+
+        # Reconstruction tab
+        recon_idx = self.find_tab_index_by_title("Reconstruction")
+        if self.coordinator.reconstruction_tab_enabled and not isinstance(
+            self.central_tab.widget(recon_idx), ReconstructionTab
+        ):
+            old = self.central_tab.widget(recon_idx)
+            presenter = self.coordinator.create_reconstruction_presenter()
+            self.reconstruction_tab = ReconstructionTab(presenter)
+            self.coordinator.capture_volume_shifted.connect(
+                lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
+            )
+            self.coordinator.bundle_updated.connect(
+                lambda: presenter.refresh_camera_array(self.coordinator.camera_array)
+            )
+            self.central_tab.removeTab(recon_idx)
+            self.central_tab.insertTab(recon_idx, self.reconstruction_tab, "Reconstruction")
+            if old:
+                old.deleteLater()
 
     def build_docked_logger(self):
         # create log window which is fixed below main window
@@ -231,52 +313,6 @@ class MainWindow(QMainWindow):
                 if self.central_tab.isTabEnabled(i):
                     self.central_tab.setCurrentIndex(i)
                 break
-
-    def _on_extrinsic_points_ready(self) -> None:
-        """Enable Capture Volume tab after Multi-Camera processing completes.
-
-        The Multi-Camera tab has extracted 2D ImagePoints. Tab 2 (Capture Volume)
-        can now run triangulation and bundle adjustment.
-
-        If the tab is currently a dummy widget, replaces it with the real
-        ExtrinsicCalibrationTab which has the presenter/view for calibration.
-        """
-        idx = self.find_tab_index_by_title("Capture Volume")
-        if idx < 0 or self.central_tab.isTabEnabled(idx):
-            return  # Tab not found or already enabled
-
-        logger.info("Enabling Capture Volume tab after 2D extraction complete")
-
-        # Check if current widget is a dummy (not the real ExtrinsicCalibrationTab)
-        current_widget = self.central_tab.widget(idx)
-        if not isinstance(current_widget, ExtrinsicCalibrationTab):
-            # Replace dummy widget with real tab
-            logger.info("Replacing dummy widget with ExtrinsicCalibrationTab")
-            old_widget = current_widget
-            self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
-            self.central_tab.removeTab(idx)
-            self.central_tab.insertTab(idx, self.extrinsic_calibration_tab, "Capture Volume")
-            if old_widget is not None:
-                old_widget.deleteLater()
-
-        self.central_tab.setTabEnabled(idx, True)
-
-    def _on_capture_volume_ready(self) -> None:
-        """Enable Capture Volume tab after extrinsic calibration completes."""
-        idx = self.find_tab_index_by_title("Capture Volume")
-        if idx < 0 or self.central_tab.isTabEnabled(idx):
-            return  # Tab not found or already enabled
-
-        logger.info("Enabling Capture Volume tab after calibration")
-
-        # Replace dummy widget with real ExtrinsicCalibrationTab
-        old_widget = self.central_tab.widget(idx)
-        self.extrinsic_calibration_tab = ExtrinsicCalibrationTab(self.coordinator)
-        self.central_tab.removeTab(idx)
-        self.central_tab.insertTab(idx, self.extrinsic_calibration_tab, "Capture Volume")
-        if old_widget is not None:
-            old_widget.deleteLater()
-        self.central_tab.setTabEnabled(idx, True)
 
     def _on_tab_changed(self, new_index: int) -> None:
         """Suspend/resume VTK rendering when switching tabs.

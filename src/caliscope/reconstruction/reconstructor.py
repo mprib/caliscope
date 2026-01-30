@@ -1,10 +1,10 @@
 # caliscope/reconstruction/reconstructor.py
 
 import logging
-import shutil
 from pathlib import Path
 from time import sleep
 
+from caliscope import persistence
 from caliscope.cameras.camera_array import CameraArray
 from caliscope.export import xyz_to_trc, xyz_to_wide_labelled
 from caliscope.core.point_data import ImagePoints
@@ -40,11 +40,11 @@ class Reconstructor:
         # CharucoTracker requires charuco arg but isn't used for motion capture
         self.tracker = tracker_enum.value()  # type: ignore[call-arg]
 
-        # save out current camera array to output folder
+        # Serialize the camera array actually used for triangulation
         tracker_subdirectory = Path(self.recording_path, self.tracker_name)
         tracker_subdirectory.mkdir(exist_ok=True, parents=True)
-        shutil.copy(
-            Path(self.recording_path.parent.parent, "camera_array.toml"),
+        persistence.save_camera_array(
+            self.camera_array,
             Path(tracker_subdirectory, "camera_array.toml"),
         )
 

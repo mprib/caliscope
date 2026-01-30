@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Literal
 
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QFileSystemWatcher, Signal
 
 from caliscope.task_manager import TaskHandle, TaskManager
 
@@ -46,6 +46,8 @@ from caliscope.persistence import save_image_points_csv
 logger = logging.getLogger(__name__)
 
 
+EXTRINSIC_TRACKER_NAME = "CHARUCO"  # Only supported tracker for extrinsic calibration
+
 FILTERED_FRACTION = (
     0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
 )
@@ -71,7 +73,7 @@ class WorkspaceCoordinator(QObject):
     capture_volume_shifted = Signal()
     bundle_updated = Signal()  # PointDataBundle changed (new system, parallel to CaptureVolume)
     enable_inputs = Signal(int, bool)  # port, enable
-    extrinsic_image_points_ready = Signal()  # Emitted after 2D extraction completes (enables Tab 2)
+    status_changed = Signal()  # Emitted when workflow state may have changed
 
     def __init__(self, workspace_dir: Path):
         super().__init__()
@@ -88,13 +90,13 @@ class WorkspaceCoordinator(QObject):
 
         # PointDataBundle (new system, parallel to CaptureVolume)
         # These two systems are independent during migration - do not mix them
-        self.bundle_repository = PointDataBundleRepository(workspace_dir / "calibration" / "extrinsic" / "CHARUCO")
+        self.bundle_repository = PointDataBundleRepository(
+            workspace_dir / "calibration" / "extrinsic" / EXTRINSIC_TRACKER_NAME
+        )
         self._point_data_bundle: PointDataBundle | None = None
 
         # Initialize project files if they don't exist
         self._initialize_project_files()
-
-        self.camera_count = self.settings_repository.get_camera_count()
 
         # streams will be used to play back recorded video with tracked markers to select frames
         self.camera_array = CameraArray({})  # empty camera array at init
@@ -109,9 +111,10 @@ class WorkspaceCoordinator(QObject):
         self.workspace_guide.extrinsic_dir.mkdir(exist_ok=True, parents=True)
         self.workspace_guide.recording_dir.mkdir(exist_ok=True, parents=True)
 
+        # Watch calibration directories for file changes
+        self._setup_filesystem_watcher()
+
         self.capture_volume = None
-        self.cameras_loaded = False
-        self.capture_volume_loaded = False
 
         # Centralized task management for background operations
         self.task_manager = TaskManager(parent=self)
@@ -123,6 +126,77 @@ class WorkspaceCoordinator(QObject):
         # Not persisted to disk - lost on app restart
         self._intrinsic_points: dict[int, list[tuple[int, PointPacket]]] = {}
 
+    def _setup_filesystem_watcher(self) -> None:
+        """Watch calibration directories for file changes."""
+        self._watcher = QFileSystemWatcher(parent=self)
+
+        dirs_to_watch = [
+            self.workspace_guide.intrinsic_dir,
+            self.workspace_guide.extrinsic_dir,
+            self.workspace_guide.recording_dir,
+        ]
+
+        for dir_path in dirs_to_watch:
+            if dir_path.exists():
+                self._watcher.addPath(str(dir_path))
+                logger.debug(f"Watching directory: {dir_path}")
+
+        self._watcher.directoryChanged.connect(self._on_directory_changed)
+
+    def _on_directory_changed(self, path: str) -> None:
+        """Handle filesystem change in watched directory."""
+        logger.info(f"Directory changed: {path}")
+        self.status_changed.emit()
+
+    @property
+    def camera_count(self) -> int:
+        """Derived camera count from extrinsic directory (source of truth)."""
+        return self.workspace_guide.get_camera_count()
+
+    @property
+    def camera_ports(self) -> list[int]:
+        """Authoritative list of camera ports from extrinsic directory."""
+        return self.workspace_guide.get_camera_ports()
+
+    @property
+    def extrinsic_image_points_path(self) -> Path:
+        """Path to 2D observations from extrinsic calibration extraction."""
+        return self.workspace_guide.extrinsic_dir / EXTRINSIC_TRACKER_NAME / "image_points.csv"
+
+    @property
+    def cameras_tab_enabled(self) -> bool:
+        """Whether Cameras tab should be enabled.
+
+        Requires: intrinsic videos exist for all cameras in the extrinsic set.
+        """
+        return self.workspace_guide.all_instrinsic_mp4s_available()
+
+    @property
+    def multi_camera_tab_enabled(self) -> bool:
+        """Whether Multi-Camera tab should be enabled.
+
+        Requires: extrinsic videos exist AND all intrinsics calibrated.
+        """
+        return self.workspace_guide.all_extrinsic_mp4s_available() and self.camera_array.all_intrinsics_calibrated()
+
+    @property
+    def capture_volume_tab_enabled(self) -> bool:
+        """Whether Capture Volume tab should be enabled.
+
+        Requires: 2D extraction complete AND intrinsics calibrated.
+        This is where extrinsic calibration happens.
+        """
+        extraction_complete = self.extrinsic_image_points_path.exists()
+        return extraction_complete and self.camera_array.all_intrinsics_calibrated()
+
+    @property
+    def reconstruction_tab_enabled(self) -> bool:
+        """Whether Reconstruction tab should be enabled.
+
+        Requires: extrinsic calibration complete AND recordings available.
+        """
+        return self.capture_volume_tab_enabled and self.recordings_available()
+
     def _initialize_project_files(self):
         """Create default project files if they don't exist."""
         logger.info("Checking for existing project files...")
@@ -133,7 +207,6 @@ class WorkspaceCoordinator(QObject):
             self.settings_repository.save(
                 {
                     "creation_date": datetime.now().isoformat(),
-                    "camera_count": 0,
                     "save_tracked_points_video": True,
                     "fps_sync_stream_processing": 100,
                 }
@@ -159,48 +232,32 @@ class WorkspaceCoordinator(QObject):
         """
 
         def worker(_token, _handle):
-            logger.info("Assessing whether to load cameras")
-            if self.workspace_guide.all_instrinsic_mp4s_available(self.camera_count):
+            # Load camera array if intrinsic videos exist
+            if self.cameras_tab_enabled:
+                logger.info("Loading camera array (intrinsic videos available)")
                 self.load_camera_array()
-                self.cameras_loaded = True
             else:
-                self.cameras_loaded = False
+                logger.info("Skipping camera array load (no intrinsic videos)")
 
-            logger.info("Assessing whether to load capture volume")
-            if self.all_extrinsics_estimated():
-                logger.info("All extrinsics calibrated...loading capture volume")
-                # Only load old CaptureVolume system if it has data
-                # New PointDataBundle system is loaded lazily by the presenter
+            # Load capture volume if extrinsic calibration complete
+            if self.capture_volume_tab_enabled:
+                logger.info("Loading capture volume (extrinsics calibrated)")
                 if self.capture_volume_repository.point_estimates_path.exists():
-                    logger.info("Loading from old CaptureVolume system")
                     self.load_estimated_capture_volume()
-                else:
-                    logger.info("Using new PointDataBundle system (loaded by presenter)")
-                self.capture_volume_loaded = True
             else:
-                logger.info("Not all extrinsics calibrated...not loading capture volume")
-                self.capture_volume_loaded = False
+                logger.info("Skipping capture volume load (not calibrated)")
 
-        return self.task_manager.submit(worker, name="load_workspace")
-
-    def set_camera_count(self, count: int):
-        """Update camera count in project settings."""
-        self.camera_count = count
-        self.settings_repository.set_camera_count(count)
-
-    def get_camera_count(self) -> int:
-        """Get current camera count from settings."""
-        count = self.settings_repository.get_camera_count()
-        self.camera_count = count
-        return count
+        handle = self.task_manager.submit(worker, name="load_workspace")
+        handle.completed.connect(lambda _: self.status_changed.emit())
+        return handle
 
     def all_instrinsic_mp4s_available(self) -> bool:
         """Check if all intrinsic calibration videos are present."""
-        return self.workspace_guide.all_instrinsic_mp4s_available(self.camera_count)
+        return self.workspace_guide.all_instrinsic_mp4s_available()
 
     def all_extrinsic_mp4s_available(self) -> bool:
         """Check if all extrinsic calibration videos are present."""
-        return self.workspace_guide.all_extrinsic_mp4s_available(self.camera_count)
+        return self.workspace_guide.all_extrinsic_mp4s_available()
 
     def all_intrinsics_estimated(self) -> bool:
         """
@@ -226,7 +283,7 @@ class WorkspaceCoordinator(QObject):
         point_estimates_good = old_system_good or new_system_good
         logger.info(f"Point estimates available: {point_estimates_good} (old={old_system_good}, new={new_system_good})")
 
-        all_data_available = self.workspace_guide.all_extrinsic_mp4s_available(self.camera_count)
+        all_data_available = self.workspace_guide.all_extrinsic_mp4s_available()
         logger.info(f"All underlying data available: {all_data_available}")
 
         return cameras_good and point_estimates_good and all_data_available
@@ -241,8 +298,8 @@ class WorkspaceCoordinator(QObject):
         This method queries the filesystem and domain objects to build
         a status snapshot. Called by the Project tab whenever it refreshes.
         """
-        # Expected ports: 1..camera_count (convention: ports are 1-indexed)
-        expected_ports = set(range(1, self.camera_count + 1))
+        camera_count = self.camera_count  # Now a property
+        expected_ports = set(self.camera_ports) if self.camera_ports else set()
 
         # Intrinsic video availability
         intrinsic_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.intrinsic_dir)
@@ -256,11 +313,10 @@ class WorkspaceCoordinator(QObject):
         cameras_needing = [port for port, cam in self.camera_array.cameras.items() if cam.matrix is None]
 
         # 2D extraction complete check
-        image_points_path = self.workspace_guide.extrinsic_dir / "CHARUCO" / "image_points.csv"
-        extraction_complete = image_points_path.exists()
+        extraction_complete = self.extrinsic_image_points_path.exists()
 
         return WorkflowStatus(
-            camera_count=self.camera_count,
+            camera_count=camera_count,
             charuco_configured=True,
             intrinsic_videos_available=len(intrinsic_missing) == 0,
             intrinsic_videos_missing=intrinsic_missing,
@@ -442,7 +498,7 @@ class WorkspaceCoordinator(QObject):
             ExtrinsicCalibrationPresenter configured with camera_array, charuco, etc.
         """
         # ImagePoints path from multi-camera processing (Phase 3 output)
-        image_points_path = self.workspace_guide.extrinsic_dir / "CHARUCO" / "image_points.csv"
+        image_points_path = self.extrinsic_image_points_path
 
         # Check for existing calibration (restores state on project reopen)
         existing_bundle = self.point_data_bundle
@@ -474,6 +530,7 @@ class WorkspaceCoordinator(QObject):
         save_image_points_csv(image_points, output_path)
 
         logger.info(f"Persisted extrinsic image points: {len(image_points.df)} observations to {output_path}")
+        self.status_changed.emit()
 
     def persist_camera_rotation(self, port: int, rotation_count: int) -> None:
         """Persist updated rotation for a camera.
@@ -527,6 +584,7 @@ class WorkspaceCoordinator(QObject):
 
         logger.info(f"Persisted intrinsic calibration for port {port}: rmse={output.report.rmse:.3f}px")
         self.push_camera_data(port)
+        self.status_changed.emit()
 
     def get_intrinsic_report(self, port: int) -> IntrinsicCalibrationReport | None:
         """Get cached intrinsic calibration report for a port."""
@@ -568,10 +626,10 @@ class WorkspaceCoordinator(QObject):
         return None
 
     def update_bundle(self, bundle: PointDataBundle) -> None:
-        """Update the in-memory bundle, emit signal, and persist in background.
+        """Update the in-memory bundle and persist in background.
 
-        Pattern: Update immediately → emit signal → persist asynchronously.
-        This ensures UI responsiveness while maintaining durability.
+        Emits bundle_updated immediately (for UI refresh using in-memory state).
+        Emits status_changed after save completes (for filesystem-based status checks).
 
         Also updates the main camera_array so that on restart, the calibrated
         extrinsics are available (enables tab and correct state detection).
@@ -581,7 +639,7 @@ class WorkspaceCoordinator(QObject):
         """
         self._point_data_bundle = bundle
         self.camera_array = bundle.camera_array  # Keep main camera_array in sync
-        self.bundle_updated.emit()
+        self.bundle_updated.emit()  # Immediate - consumers use in-memory state
 
         # Capture for closure (background worker)
         bundle_to_save = bundle
@@ -598,7 +656,8 @@ class WorkspaceCoordinator(QObject):
                 # Log prominently - user's changes may be lost on restart
                 logger.error(f"Failed to persist PointDataBundle: {e}")
 
-        self.task_manager.submit(worker, name="save_point_data_bundle")
+        handle = self.task_manager.submit(worker, name="save_point_data_bundle")
+        handle.completed.connect(lambda _: self.status_changed.emit())  # Post-save
 
     def rotate_calibration_bundle(self, axis: Literal["x", "y", "z"], angle_degrees: float) -> None:
         """Rotate the calibration bundle and persist.
@@ -671,7 +730,7 @@ class WorkspaceCoordinator(QObject):
         """
 
         def worker(token, _handle):
-            output_path = Path(self.workspace_guide.extrinsic_dir, "CHARUCO", "xy_CHARUCO.csv")
+            output_path = Path(self.workspace_guide.extrinsic_dir, EXTRINSIC_TRACKER_NAME, "xy_CHARUCO.csv")
             if output_path.exists():
                 output_path.unlink()  # ensure clean start
 
@@ -704,7 +763,7 @@ class WorkspaceCoordinator(QObject):
                 self.extrinsic_stream_manager.cleanup()
 
             self.extrinsic_calibration_xy = Path(
-                self.workspace, "calibration", "extrinsic", "CHARUCO", "xy_CHARUCO.csv"
+                self.workspace, "calibration", "extrinsic", EXTRINSIC_TRACKER_NAME, "xy_CHARUCO.csv"
             )
 
             image_points = ImagePoints.from_csv(self.extrinsic_calibration_xy)

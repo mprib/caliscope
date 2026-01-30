@@ -4,27 +4,14 @@
 # Must be set before any Qt or VTK imports
 import os
 import sys
+from pathlib import Path
 
 if sys.platform == "linux" and os.environ.get("XDG_SESSION_TYPE") == "wayland":
     os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 
 os.environ.setdefault("QT_API", "pyside6")
 
-# PySide6-essentials compatibility shim for pyqtgraph
-# pyqtgraph expects PySide6.__version__ and PySide6.__version_info__ at the top level,
-# but pyside6-essentials only exposes these in PySide6.QtCore.
-# This shim adds the missing attributes before pyqtgraph is imported.
-# Can be removed once pyqtgraph fixes: https://github.com/pyqtgraph/pyqtgraph/issues/2048
-import PySide6
-from PySide6 import QtCore
-
-# Monkey-patch for pyqtgraph compatibility - stubs don't know about this
-PySide6.__version__ = QtCore.__version__  # type: ignore[attr-defined]
-PySide6.__version_info__ = QtCore.__version_info__  # type: ignore[attr-defined]
-
-from pathlib import Path  # noqa: E402
-
-from platformdirs import user_data_dir  # noqa: E402
+from platformdirs import user_data_dir
 
 __package_name__ = "caliscope"
 __author__ = "Mac Prible"

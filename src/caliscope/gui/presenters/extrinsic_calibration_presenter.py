@@ -28,7 +28,6 @@ from caliscope.core.charuco import Charuco
 from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.point_data_bundle import PointDataBundle
-from caliscope.core.scale_accuracy import compute_scale_accuracy
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
@@ -118,8 +117,8 @@ class ExtrinsicCalibrationPresenter(QObject):
         state_changed: Emitted when computed state changes. View updates UI.
         progress_updated: Emitted during optimization with (percent, message).
         quality_updated: Emitted when metrics refresh after calibration.
-        calibration_complete: Emitted when optimization finishes.
-            Contains the optimized PointDataBundle.
+        bundle_changed: Emitted when bundle is updated (optimization, rotate, align).
+            Contains the new PointDataBundle.
         view_model_updated: Emitted when 3D view needs refresh.
             Contains PlaybackViewModel.
 
@@ -128,7 +127,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             task_manager, camera_array, image_points_path, charuco
         )
         presenter.run_calibration()  # Bootstrap + optimize
-        # On completion: calibration_complete emitted with bundle
+        # On completion: bundle_changed emitted with bundle
     """
 
     # State signals
@@ -141,7 +140,7 @@ class ExtrinsicCalibrationPresenter(QObject):
     quality_updated = Signal(object)  # QualityPanelData
     scale_accuracy_updated = Signal(object)  # ScaleAccuracyData
     coverage_updated = Signal(object, object)  # (coverage_matrix, port_labels)
-    calibration_complete = Signal(object)  # PointDataBundle
+    bundle_changed = Signal(object)  # PointDataBundle
     view_model_updated = Signal(object)  # PlaybackViewModel
 
     def __init__(
@@ -242,7 +241,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         """Bootstrap poses and run bundle adjustment.
 
         Loads image_points.csv, performs stereo bootstrap triangulation,
-        then runs bundle adjustment optimization. Emits calibration_complete
+        then runs bundle adjustment optimization. Emits bundle_changed
         with the optimized bundle.
 
         Only valid in NEEDS_BOOTSTRAP state.
@@ -262,7 +261,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             worker,
             name="Extrinsic calibration",
         )
-        self._task_handle.completed.connect(self._on_calibration_complete)
+        self._task_handle.completed.connect(self._on_bundle_optimized)
         self._task_handle.failed.connect(self._on_calibration_failed)
         self._task_handle.cancelled.connect(self._on_calibration_cancelled)
         self._task_handle.progress_updated.connect(self.progress_updated)
@@ -356,7 +355,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             worker,
             name="Re-optimize bundle",
         )
-        self._task_handle.completed.connect(self._on_calibration_complete)
+        self._task_handle.completed.connect(self._on_bundle_optimized)
         self._task_handle.failed.connect(self._on_calibration_failed)
         self._task_handle.cancelled.connect(self._on_calibration_cancelled)
         self._task_handle.progress_updated.connect(self.progress_updated)
@@ -460,7 +459,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         self._reference_sync_index = sync_index
         self._update_bundle(new_bundle)
-        self._emit_scale_accuracy()
+        self._refresh_scale_accuracy()
 
     # -------------------------------------------------------------------------
     # View Control (Implemented in 4.3)
@@ -520,7 +519,7 @@ class ExtrinsicCalibrationPresenter(QObject):
     # Private: Task Callbacks
     # -------------------------------------------------------------------------
 
-    def _on_calibration_complete(self, bundle: PointDataBundle) -> None:
+    def _on_bundle_optimized(self, bundle: PointDataBundle) -> None:
         """Handle successful calibration/optimization completion."""
         logger.info(f"Calibration complete. RMSE: {bundle.reprojection_report.overall_rmse:.3f}px")
 
@@ -533,10 +532,10 @@ class ExtrinsicCalibrationPresenter(QObject):
             self._current_sync_index = int(sync_indices[0])
 
         self._emit_state_changed()
-        self._emit_quality_updated()
-        self._emit_coverage_updated()
-        self._emit_view_model_updated()
-        self.calibration_complete.emit(bundle)
+        self._refresh_quality_panel()
+        self._refresh_coverage()
+        self._refresh_view_model()
+        self.bundle_changed.emit(bundle)
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
         """Handle calibration failure."""
@@ -560,7 +559,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         logger.debug(f"State changed to {current_state}")
         self.state_changed.emit(current_state)
 
-    def _emit_quality_updated(self) -> None:
+    def _refresh_quality_panel(self) -> None:
         """Build and emit quality panel data from current bundle."""
         if self._bundle is None:
             return
@@ -587,7 +586,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         self.quality_updated.emit(quality_data)
 
-    def _emit_view_model_updated(self) -> None:
+    def _refresh_view_model(self) -> None:
         """Build and emit PlaybackViewModel for 3D visualization."""
         if self._bundle is None:
             return
@@ -601,7 +600,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         )
         self.view_model_updated.emit(view_model)
 
-    def _emit_scale_accuracy(self) -> None:
+    def _refresh_scale_accuracy(self) -> None:
         """Compute and emit scale accuracy metrics.
 
         Compares triangulated world points at the reference frame to their
@@ -611,55 +610,10 @@ class ExtrinsicCalibrationPresenter(QObject):
         if self._bundle is None or self._reference_sync_index is None:
             return
 
-        sync_index = self._reference_sync_index
-        world_df = self._bundle.world_points.df
-        img_df = self._bundle.image_points.df
-
-        # Get world points at reference frame
-        world_at_ref = world_df[world_df["sync_index"] == sync_index]
-        if world_at_ref.empty:
-            logger.warning(f"No world points at reference sync_index {sync_index}")
-            return
-
-        # Get image points with object locations at reference frame
-        img_at_ref = img_df[img_df["sync_index"] == sync_index]
-        if img_at_ref.empty:
-            logger.warning(f"No image points at reference sync_index {sync_index}")
-            return
-
-        # Match by point_id to get corresponding world/object point pairs
-        # Use drop_duplicates on img_at_ref since multiple cameras may see same point_id
-        obj_points_df = img_at_ref[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]].drop_duplicates(
-            subset=["point_id"]
-        )
-
-        merged = world_at_ref.merge(obj_points_df, on="point_id", how="inner")
-
-        if len(merged) < 2:
-            logger.warning(f"Insufficient matched points for scale accuracy: {len(merged)}")
-            return
-
-        # Handle planar objects (z=0 or NaN)
-        if merged["obj_loc_z"].isna().all():
-            merged = merged.copy()
-            merged["obj_loc_z"] = 0.0
-
-        # Filter out any remaining NaN values
-        valid_mask = ~merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].isna().any(axis=1)
-        merged = merged[valid_mask]
-
-        if len(merged) < 2:
-            logger.warning("Insufficient valid points after NaN filtering")
-            return
-
-        # Extract arrays for scale accuracy computation
-        world_points = merged[["x_coord", "y_coord", "z_coord"]].to_numpy()
-        object_points = merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].to_numpy()
-
         try:
-            scale_data = compute_scale_accuracy(world_points, object_points, sync_index)
+            scale_data = self._bundle.compute_scale_accuracy(self._reference_sync_index)
             logger.info(
-                f"Scale accuracy at frame {sync_index}: "
+                f"Scale accuracy at frame {self._reference_sync_index}: "
                 f"RMSE={scale_data.distance_rmse_mm:.2f}mm, "
                 f"relative={scale_data.relative_error_percent:.2f}%"
             )
@@ -692,20 +646,20 @@ class ExtrinsicCalibrationPresenter(QObject):
         - Restored session: 3D visualization, quality metrics, "Re-optimize" button
         """
         # Always emit coverage from initial image points
-        self._emit_initial_coverage()
+        self._refresh_initial_coverage()
 
         # If we have an existing bundle, emit quality and view model for 3D viz
         if self._bundle is not None:
             logger.info("Emitting initial state from existing bundle")
-            self._emit_quality_updated()
-            self._emit_coverage_updated()  # Use bundle's coverage (may differ after filtering)
-            self._emit_view_model_updated()
+            self._refresh_quality_panel()
+            self._refresh_coverage()  # Use bundle's coverage (may differ after filtering)
+            self._refresh_view_model()
 
     def emit_initial_coverage(self) -> None:
         """Deprecated: Use emit_initial_state() instead."""
         self.emit_initial_state()
 
-    def _emit_initial_coverage(self) -> None:
+    def _refresh_initial_coverage(self) -> None:
         """Emit coverage matrix from pre-loaded ImagePoints.
 
         Internal method - use emit_initial_state() from the view.
@@ -727,7 +681,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         self.coverage_updated.emit(coverage, labels)
 
-    def _emit_coverage_updated(self) -> None:
+    def _refresh_coverage(self) -> None:
         """Emit coverage matrix data for heatmap visualization.
 
         Computes pairwise observation counts between all posed cameras.
@@ -770,7 +724,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             return optimized
 
         self._task_handle = self._task_manager.submit(worker, name="Optimize bundle")
-        self._task_handle.completed.connect(self._on_calibration_complete)
+        self._task_handle.completed.connect(self._on_bundle_optimized)
         self._task_handle.failed.connect(self._on_calibration_failed)
         self._task_handle.cancelled.connect(self._on_calibration_cancelled)
         self._task_handle.progress_updated.connect(self.progress_updated)
@@ -787,6 +741,6 @@ class ExtrinsicCalibrationPresenter(QObject):
             bundle: New bundle after transformation
         """
         self._bundle = bundle
-        self._emit_quality_updated()
-        self._emit_view_model_updated()
-        self.calibration_complete.emit(bundle)
+        self._refresh_quality_panel()
+        self._refresh_view_model()
+        self.bundle_changed.emit(bundle)

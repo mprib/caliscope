@@ -28,6 +28,10 @@ from caliscope.core.alignment import (
     apply_similarity_transform,
     SimilarityTransform,
 )
+from caliscope.core.scale_accuracy import (
+    compute_scale_accuracy as compute_scale_accuracy_impl,
+    ScaleAccuracyData,
+)
 
 import pandas as pd
 
@@ -511,6 +515,65 @@ class PointDataBundle:
             raise ValueError(f"scope must be 'per_camera' or 'overall', got {scope}")
 
         return self._filter_by_reprojection_thresholds(thresholds, min_per_camera)
+
+    def compute_scale_accuracy(self, sync_index: int) -> ScaleAccuracyData:
+        """Compute scale accuracy comparing triangulated points to known object geometry.
+
+        Compares triangulated world points at the given sync_index to their
+        corresponding ground truth object positions (from obj_loc columns) to
+        assess reconstruction accuracy. Uses ALL pairwise distances between
+        detected corners for robust statistical measurement.
+
+        Args:
+            sync_index: Frame index to compute accuracy at
+
+        Returns:
+            ScaleAccuracyData with distance RMSE and relative error
+
+        Raises:
+            ValueError: If insufficient matched points at sync_index (< 2)
+        """
+        # Extract data at sync_index
+        img_df = self.image_points.df
+        world_df = self.world_points.df
+
+        img_subset = img_df[img_df["sync_index"] == sync_index]
+        world_subset = world_df[world_df["sync_index"] == sync_index]
+
+        if img_subset.empty:
+            raise ValueError(f"No image observations at sync_index {sync_index}")
+        if world_subset.empty:
+            raise ValueError(f"No world points at sync_index {sync_index}")
+
+        # Get image points with object locations at reference frame
+        # Use drop_duplicates on img_subset since multiple cameras may see same point_id
+        obj_points_df = img_subset[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]].drop_duplicates(
+            subset=["point_id"]
+        )
+
+        # Merge world points with object locations by point_id
+        merged = world_subset.merge(obj_points_df, on="point_id", how="inner")
+
+        if len(merged) < 2:
+            raise ValueError(f"Insufficient matched points for scale accuracy: {len(merged)} (need at least 2)")
+
+        # Handle planar objects (z=0 or NaN)
+        if merged["obj_loc_z"].isna().all():
+            merged = merged.copy()
+            merged["obj_loc_z"] = 0.0
+
+        # Filter out any remaining NaN values
+        valid_mask = ~merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].isna().any(axis=1)
+        merged = merged[valid_mask]
+
+        if len(merged) < 2:
+            raise ValueError("Insufficient valid points after NaN filtering (need at least 2)")
+
+        # Extract arrays for scale accuracy computation
+        world_points = merged[["x_coord", "y_coord", "z_coord"]].to_numpy()
+        object_points = merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].to_numpy()
+
+        return compute_scale_accuracy_impl(world_points, object_points, sync_index)
 
     def align_to_object(self, sync_index: int) -> "PointDataBundle":
         """

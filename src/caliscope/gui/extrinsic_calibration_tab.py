@@ -17,7 +17,6 @@ from caliscope.gui.presenters.extrinsic_calibration_presenter import (
 from caliscope.gui.views.extrinsic_calibration_view import ExtrinsicCalibrationView
 
 if TYPE_CHECKING:
-    from caliscope.core.point_data_bundle import PointDataBundle
     from caliscope.workspace_coordinator import WorkspaceCoordinator
 
 logger = logging.getLogger(__name__)
@@ -66,18 +65,8 @@ class ExtrinsicCalibrationTab(QWidget):
         if self._presenter is None:
             return
 
-        # Calibration completion - persist bundle via coordinator
-        self._presenter.calibration_complete.connect(self._on_calibration_complete)
-
         # Charuco changes invalidate the presenter - need to recreate
         self._coordinator.charuco_changed.connect(self._on_charuco_changed)
-
-    def _on_calibration_complete(self, bundle: PointDataBundle) -> None:
-        """Handle calibration completion - persist bundle via coordinator."""
-        logger.info(f"Extrinsic calibration complete: RMSE={bundle.reprojection_report.overall_rmse:.3f}px")
-
-        # Persist via coordinator (handles bundle_updated signal, camera array save, etc.)
-        self._coordinator.update_bundle(bundle)
 
     def _on_charuco_changed(self) -> None:
         """Update charuco reference when config changes.

@@ -29,7 +29,7 @@ class PairedPoseNetwork:
         # Initialize with raw pairs
         # Legacy behavior: inverted pairs are added to the dictionary
         all_pairs = raw_pairs.copy()
-        inverted_pairs = {cls._invert_pair(pair).pair: cls._invert_pair(pair) for pair in all_pairs.values()}
+        inverted_pairs = {(inv := pair.inverted()).pair: inv for pair in all_pairs.values()}
         all_pairs.update(inverted_pairs)
 
         # Get all ports involved
@@ -73,7 +73,7 @@ class PairedPoseNetwork:
                         pair_a_x = all_pairs[pair_a_x_key]
                         pair_x_c = all_pairs[pair_x_c_key]
 
-                        possible_bridge = cls._bridge_pairs(pair_a_x, pair_x_c)
+                        possible_bridge = pair_a_x.link(pair_x_c)
 
                         # Legacy Comparison: if best is None or old > new (strictly greater)
                         if best_bridge is None or best_bridge.error_score > possible_bridge.error_score:
@@ -82,7 +82,7 @@ class PairedPoseNetwork:
                 if best_bridge is not None:
                     # Add both directions immediately, matching legacy add_stereopair()
                     all_pairs[best_bridge.pair] = best_bridge
-                    inverted = cls._invert_pair(best_bridge)
+                    inverted = best_bridge.inverted()
                     all_pairs[inverted.pair] = inverted
         # Before: return cls(_pairs=all_pairs)
         # Add:
@@ -149,22 +149,6 @@ class PairedPoseNetwork:
                 total_error_score += anchored_stereopair.error_score
 
         return total_error_score, configured_cameras
-
-    @staticmethod
-    def _bridge_pairs(pair_ab: StereoPair, pair_bc: StereoPair) -> StereoPair:
-        """Create a bridged pair A->C from A->B and B->C."""
-        # Transform composition: A->C = B->C * A->B
-        trans_ab = pair_ab.transformation
-        trans_bc = pair_bc.transformation
-        trans_ac = np.matmul(trans_bc, trans_ab)
-
-        return StereoPair(
-            primary_port=pair_ab.primary_port,
-            secondary_port=pair_bc.secondary_port,
-            error_score=pair_ab.error_score + pair_bc.error_score,
-            rotation=trans_ac[0:3, 0:3],
-            translation=trans_ac[0:3, 3:],
-        )
 
     def get_pair(self, port_a: int, port_b: int) -> StereoPair | None:
         """Retrieve a stereo pair by port pair, returns None if not found."""
@@ -251,18 +235,6 @@ class PairedPoseNetwork:
             for (a, b), pair in self._pairs.items()
             if a < b  # Only store forward pairs to avoid duplication
         }
-
-    @staticmethod
-    def _invert_pair(stereo_pair: StereoPair) -> StereoPair:
-        """Helper to create inverted stereo pair."""
-        inverted_transformation = np.linalg.inv(stereo_pair.transformation)
-        return StereoPair(
-            primary_port=stereo_pair.secondary_port,
-            secondary_port=stereo_pair.primary_port,
-            error_score=stereo_pair.error_score,
-            rotation=inverted_transformation[0:3, 0:3],
-            translation=inverted_transformation[0:3, 3:],
-        )
 
     def _find_largest_connected_component(self, ports: list[int]) -> set[int]:
         """Finds the largest connected subgraph of cameras."""

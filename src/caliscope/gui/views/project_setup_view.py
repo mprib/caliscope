@@ -27,13 +27,11 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QScrollArea,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from caliscope.core.workflow_status import StepStatus, WorkflowStatus
-from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 from caliscope.gui.widgets.charuco_config_panel import CharucoConfigPanel
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 
@@ -113,6 +111,11 @@ class WorkflowStepRow(QWidget):
             self._status_icon.setText("[~]")
             self._status_icon.setStyleSheet("color: #FFA000; font-weight: bold;")
             self._name_label.setStyleSheet("font-weight: bold; color: #FFA000;")
+        elif status == StepStatus.AVAILABLE:
+            # Blue indicator for optional capability
+            self._status_icon.setText("[*]")
+            self._status_icon.setStyleSheet("color: #2196F3; font-weight: bold;")
+            self._name_label.setStyleSheet("font-weight: bold; color: #2196F3;")
         else:  # NOT_STARTED
             # Gray empty
             self._status_icon.setText("[ ]")
@@ -128,11 +131,8 @@ class ProjectSetupView(QWidget):
     is recomputed on each refresh from ground truth in the Coordinator.
 
     Signal subscriptions:
-    - charuco_changed: Board config updated
-    - new_camera_data: Intrinsic calibration saved
-    - capture_volume_calibrated: Extrinsic calibration complete
-    - extrinsic_image_points_ready: 2D extraction complete
-    - bundle_updated: PointDataBundle changed
+    - status_changed: Workflow state may have changed (single refresh trigger)
+    - charuco_changed: Board config updated (requires preview refresh)
     """
 
     tab_navigation_requested = Signal(str)  # Tab name to navigate to
@@ -167,9 +167,6 @@ class ProjectSetupView(QWidget):
         # Row 1: Workspace path and folder button
         main_layout.addWidget(self._create_workspace_row())
 
-        # Row 2: Camera count
-        main_layout.addWidget(self._create_camera_count_row())
-
         # Charuco configuration group
         main_layout.addWidget(self._create_charuco_group())
 
@@ -200,23 +197,6 @@ class ProjectSetupView(QWidget):
         self._open_folder_btn.setFixedWidth(100)
         layout.addWidget(self._open_folder_btn)
 
-        return row
-
-    def _create_camera_count_row(self) -> QWidget:
-        """Create the camera count configuration row."""
-        row = QWidget()
-        layout = QHBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        layout.addWidget(QLabel("<b>Camera Count:</b>"))
-
-        self._camera_count_spin = QSpinBox()
-        self._camera_count_spin.setValue(self._coordinator.get_camera_count())
-        setup_spinbox_sizing(self._camera_count_spin, min_value=1, max_value=100, padding=20)
-        self._camera_count_spin.setMaximumWidth(60)
-        layout.addWidget(self._camera_count_spin)
-
-        layout.addStretch()
         return row
 
     def _create_charuco_group(self) -> QGroupBox:
@@ -273,6 +253,11 @@ class ProjectSetupView(QWidget):
         layout = QVBoxLayout(group)
         layout.setSpacing(4)
 
+        # Camera count display (read-only, derived from filesystem)
+        self._camera_count_label = QLabel()
+        self._camera_count_label.setStyleSheet("color: #888; font-style: italic;")
+        layout.addWidget(self._camera_count_label)
+
         # Create workflow step rows
         self._intrinsic_row = WorkflowStepRow("Intrinsic Calibration", "Cameras")
         self._intrinsic_row.navigation_requested.connect(self.tab_navigation_requested)
@@ -298,18 +283,12 @@ class ProjectSetupView(QWidget):
 
     def _connect_signals(self) -> None:
         """Wire up signal connections."""
-        # Coordinator signals -> refresh
-        self._coordinator.charuco_changed.connect(self._on_charuco_changed)
-        self._coordinator.new_camera_data.connect(self._on_camera_data_changed)
-        self._coordinator.capture_volume_calibrated.connect(self._refresh_status)
-        self._coordinator.extrinsic_image_points_ready.connect(self._refresh_status)
-        self._coordinator.bundle_updated.connect(self._refresh_status)
+        # Single signal for status refresh
+        self._coordinator.status_changed.connect(self._refresh_status)
 
-        # CharucoConfigPanel -> Coordinator
+        # Charuco panel still needs specific handling for preview update
+        self._coordinator.charuco_changed.connect(self._update_charuco_preview)
         self._charuco_panel.config_changed.connect(self._on_panel_config_changed)
-
-        # Camera count -> Coordinator
-        self._camera_count_spin.valueChanged.connect(self._on_camera_count_changed)
 
         # UI buttons
         self._open_folder_btn.clicked.connect(self._open_workspace_folder)
@@ -320,30 +299,11 @@ class ProjectSetupView(QWidget):
     # Event Handlers
     # -------------------------------------------------------------------------
 
-    def _on_charuco_changed(self) -> None:
-        """Handle charuco_changed signal from Coordinator."""
-        # Update panel with new charuco values (in case change came from elsewhere)
-        # Note: We don't need to update the panel if we initiated the change,
-        # but it's harmless to refresh it
-        self._refresh_status()
-        self._update_charuco_preview()
-
-    def _on_camera_data_changed(self, port: int, _data: dict) -> None:
-        """Handle new_camera_data signal from Coordinator."""
-        logger.debug(f"Camera data changed for port {port}")
-        self._refresh_status()
-
     def _on_panel_config_changed(self) -> None:
         """Handle config change from CharucoConfigPanel."""
         charuco = self._charuco_panel.get_charuco()
         self._coordinator.update_charuco(charuco)
-        # Note: update_charuco emits charuco_changed, which triggers _on_charuco_changed
-        # So the preview will be updated via that signal chain
-
-    def _on_camera_count_changed(self, value: int) -> None:
-        """Handle camera count spinbox change."""
-        self._coordinator.set_camera_count(value)
-        self._refresh_status()
+        # Note: update_charuco emits charuco_changed, which triggers _update_charuco_preview
 
     def _open_workspace_folder(self) -> None:
         """Open the workspace directory in the system file manager."""
@@ -394,6 +354,12 @@ class ProjectSetupView(QWidget):
     def _refresh_status(self) -> None:
         """Query Coordinator and update status display."""
         status = self._coordinator.get_workflow_status()
+
+        # Update camera count display
+        if status.camera_count > 0:
+            self._camera_count_label.setText(f"Detected cameras: {status.camera_count} (from extrinsic videos)")
+        else:
+            self._camera_count_label.setText("No cameras detected (add port_N.mp4 files to calibration/extrinsic/)")
 
         self._update_intrinsic_row(status)
         self._update_extraction_row(status)
@@ -466,15 +432,18 @@ class ProjectSetupView(QWidget):
 
     def _update_reconstruction_row(self, status: WorkflowStatus) -> None:
         """Update the reconstruction status row."""
-        # Reconstruction doesn't have a StepStatus - it's optional
-        # Use recordings_available to determine status
-        if status.recordings_available:
+        if not status.extrinsic_calibration_complete:
+            # Prerequisites not met
+            detail = "Waiting for extrinsic calibration"
+            step_status = StepStatus.NOT_STARTED
+        elif status.recordings_available:
+            # Capability unlocked - show as AVAILABLE (blue)
             count = len(status.recording_names)
             detail = f"{count} recording{'s' if count != 1 else ''} available"
-            # Show as INCOMPLETE (yellow) to indicate work can be done
-            step_status = StepStatus.INCOMPLETE
+            step_status = StepStatus.AVAILABLE
         else:
-            detail = "No recordings available"
+            # Calibrated but no recordings yet
+            detail = "No recordings yet"
             step_status = StepStatus.NOT_STARTED
 
         self._reconstruction_row.set_status(step_status, detail)

@@ -119,7 +119,6 @@ if __name__ == "__main__":
 
     test_path = Path(__root__, "tests", "sessions", "prerecorded_calibration")
     coordinator = WorkspaceCoordinator(test_path)
-    coordinator.set_camera_count(1)
     ex = CameraDataDisplayWidget(port=0, coordinator=coordinator)
     coordinator.new_camera_data.emit(0, camera_data)
     ex.show()

@@ -47,12 +47,50 @@ class WorkspaceGuide:
 
         return sorted(all_ports)
 
-    def all_instrinsic_mp4s_available(self, camera_count: int) -> bool:
-        """Check if all intrinsic videos are present for configured camera count."""
+    def get_camera_ports(self) -> list[int]:
+        """Return the authoritative list of camera ports from extrinsic directory.
+
+        The extrinsic directory is the source of truth for the camera set because:
+        1. Extrinsic calibration requires all cameras to have synchronized video
+        2. Intrinsic videos may be added incrementally, but extrinsic must be complete
+        3. Reconstruction uses the extrinsic-calibrated camera set
+
+        Returns:
+            Sorted list of port numbers found in extrinsic directory.
+            Empty list if directory doesn't exist or has no videos.
+        """
+        return self.get_ports_in_dir(self.extrinsic_dir)
+
+    def get_camera_count(self) -> int:
+        """Return camera count derived from extrinsic directory.
+
+        Returns:
+            Number of cameras (port_*.mp4 files in extrinsic directory).
+        """
+        return len(self.get_camera_ports())
+
+    def all_instrinsic_mp4s_available(self, camera_count: int | None = None) -> bool:
+        """Check if all intrinsic videos are present.
+
+        Args:
+            camera_count: Expected count. If None, uses derived count from extrinsic dir.
+        """
+        if camera_count is None:
+            camera_count = self.get_camera_count()
+        if camera_count == 0:
+            return False
         return self.missing_files_in_dir(self.intrinsic_dir, camera_count) == "NONE"
 
-    def all_extrinsic_mp4s_available(self, camera_count: int) -> bool:
-        """Check if all extrinsic videos are present for configured camera count."""
+    def all_extrinsic_mp4s_available(self, camera_count: int | None = None) -> bool:
+        """Check if all extrinsic videos are present.
+
+        Args:
+            camera_count: Expected count. If None, uses count from extrinsic dir itself.
+        """
+        if camera_count is None:
+            camera_count = self.get_camera_count()
+        if camera_count == 0:
+            return False
         return self.missing_files_in_dir(self.extrinsic_dir, camera_count) == "NONE"
 
     def missing_files_in_dir(self, directory: Path, camera_count: int) -> str:

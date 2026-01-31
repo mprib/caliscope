@@ -44,7 +44,8 @@ class MainWindow(QMainWindow):
 
         self.build_menus()
         self.connect_menu_actions()
-        self.build_docked_logger()
+        # Log dock removed for cleaner UI
+        # self.build_docked_logger()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Graceful shutdown on app exit.

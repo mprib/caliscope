@@ -1,8 +1,10 @@
 """Camera list widget with calibration status indicators.
 
 Displays a list of cameras with visual feedback on their calibration state:
-- Green text + RMSE for calibrated cameras
-- Red text for uncalibrated cameras
+- Green dot + RMSE for calibrated cameras
+- Hollow circle for uncalibrated cameras
+
+Uses both icons and color for accessibility (not color-alone).
 """
 
 import logging
@@ -29,6 +31,17 @@ class CameraListWidget(QListWidget):
         self._camera_array = camera_array
         self._port_to_row: dict[int, int] = {}
 
+        # Style for comfortable row height and strong selection highlight
+        self.setStyleSheet("""
+            QListWidget::item {
+                padding: 8px 12px;
+                min-height: 24px;
+            }
+            QListWidget::item:selected {
+                background-color: #3a5f8a;
+            }
+        """)
+
         self._populate_list()
         self.currentRowChanged.connect(self._on_row_changed)
 
@@ -43,15 +56,15 @@ class CameraListWidget(QListWidget):
             item.setData(Qt.ItemDataRole.UserRole, port)
 
             if camera.matrix is not None and camera.distortions is not None:
-                # Calibrated: green text + RMSE
+                # Calibrated: filled circle + green text + optional RMSE
                 if camera.error is not None:
-                    text = f"Port {port} — {camera.error:.2f}px"
+                    text = f"\u25cf Port {port} \u2014 {camera.error:.2f}px"
                 else:
-                    text = f"Port {port}"
+                    text = f"\u25cf Port {port}"
                 item.setForeground(QBrush(QColor("#4CAF50")))  # Material green
             else:
-                # Not calibrated: red text
-                text = f"Port {port}"
+                # Not calibrated: hollow circle + red text
+                text = f"\u25cb Port {port}"
                 item.setForeground(QBrush(QColor("#F44336")))  # Material red
 
             item.setText(text)

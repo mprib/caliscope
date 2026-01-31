@@ -18,15 +18,18 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QByteArray, QEvent, Qt, Signal
 from PySide6.QtGui import QPixmap
+from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (
     QFileDialog,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -41,7 +44,7 @@ logger = logging.getLogger(__name__)
 class WorkflowStepRow(QWidget):
     """A single row in the workflow status checklist.
 
-    Shows: [checkbox icon] Step Name         [status text] [Go to Tab]
+    Shows: [SVG icon] Step Name         [status text] [Go to Tab]
     """
 
     navigation_requested = Signal(str)  # Tab name to navigate to
@@ -61,13 +64,12 @@ class WorkflowStepRow(QWidget):
 
     def _setup_ui(self) -> None:
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setContentsMargins(8, 6, 8, 6)
         layout.setSpacing(8)
 
-        # Checkbox-style status indicator (read-only visual)
-        self._status_icon = QLabel()
-        self._status_icon.setFixedWidth(24)
-        self._status_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # SVG status icon
+        self._status_icon = QSvgWidget()
+        self._status_icon.setFixedSize(20, 20)
         layout.addWidget(self._status_icon)
 
         # Step name label
@@ -75,13 +77,12 @@ class WorkflowStepRow(QWidget):
         self._name_label.setStyleSheet("font-weight: bold;")
         layout.addWidget(self._name_label)
 
-        layout.addStretch()
-
         # Status detail text
         self._status_label = QLabel()
         self._status_label.setStyleSheet("color: #888;")
-        self._status_label.setMinimumWidth(200)
         layout.addWidget(self._status_label)
+
+        layout.addStretch()
 
         # Navigation button
         self._nav_btn = QPushButton("Go to Tab")
@@ -90,6 +91,19 @@ class WorkflowStepRow(QWidget):
 
     def _connect_signals(self) -> None:
         self._nav_btn.clicked.connect(lambda: self.navigation_requested.emit(self._target_tab))
+
+    def _load_colored_svg(self, svg_path: Path, color: str) -> None:
+        """Load an SVG file and replace currentColor with the specified color.
+
+        Args:
+            svg_path: Path to the SVG file
+            color: Hex color code (e.g., "#4CAF50")
+        """
+        with open(svg_path) as f:
+            svg_content = f.read()
+        # Replace currentColor with the actual color
+        colored_svg = svg_content.replace("currentColor", color)
+        self._status_icon.load(QByteArray(colored_svg.encode()))
 
     def set_status(self, status: StepStatus, detail_text: str) -> None:
         """Update the row's visual state.
@@ -100,26 +114,25 @@ class WorkflowStepRow(QWidget):
         """
         self._status_label.setText(detail_text)
 
-        # Update checkbox-style icon based on status
+        # Get icons directory
+        icons_dir = Path(__file__).parent.parent / "icons"
+
+        # Load appropriate SVG icon with color
         if status == StepStatus.COMPLETE:
             # Green checkmark
-            self._status_icon.setText("[X]")
-            self._status_icon.setStyleSheet("color: #4CAF50; font-weight: bold;")
+            self._load_colored_svg(icons_dir / "status-complete.svg", "#4CAF50")
             self._name_label.setStyleSheet("font-weight: bold; color: #4CAF50;")
         elif status == StepStatus.INCOMPLETE:
-            # Yellow partial/in-progress
-            self._status_icon.setText("[~]")
-            self._status_icon.setStyleSheet("color: #FFA000; font-weight: bold;")
+            # Yellow/amber partial/in-progress
+            self._load_colored_svg(icons_dir / "status-incomplete.svg", "#FFA000")
             self._name_label.setStyleSheet("font-weight: bold; color: #FFA000;")
         elif status == StepStatus.AVAILABLE:
             # Blue indicator for optional capability
-            self._status_icon.setText("[*]")
-            self._status_icon.setStyleSheet("color: #2196F3; font-weight: bold;")
+            self._load_colored_svg(icons_dir / "status-available.svg", "#2196F3")
             self._name_label.setStyleSheet("font-weight: bold; color: #2196F3;")
         else:  # NOT_STARTED
-            # Gray empty
-            self._status_icon.setText("[ ]")
-            self._status_icon.setStyleSheet("color: #888; font-weight: bold;")
+            # Gray not started
+            self._load_colored_svg(icons_dir / "status-not-started.svg", "#666666")
             self._name_label.setStyleSheet("font-weight: bold; color: #888;")
 
 
@@ -168,7 +181,11 @@ class ProjectSetupView(QWidget):
         main_layout.addWidget(self._create_workspace_row())
 
         # Charuco configuration group
-        main_layout.addWidget(self._create_charuco_group())
+        self._charuco_group = self._create_charuco_group()
+        main_layout.addWidget(self._charuco_group)
+
+        # Visual separator
+        main_layout.addWidget(self._create_separator())
 
         # Workflow status group
         main_layout.addWidget(self._create_workflow_group())
@@ -181,6 +198,13 @@ class ProjectSetupView(QWidget):
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
         outer_layout.addWidget(scroll)
+
+    def _create_separator(self) -> QFrame:
+        """Create a horizontal separator line."""
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        return line
 
     def _create_workspace_row(self) -> QWidget:
         """Create the workspace path display and folder button."""
@@ -202,19 +226,42 @@ class ProjectSetupView(QWidget):
     def _create_charuco_group(self) -> QGroupBox:
         """Create the charuco board configuration group."""
         group = QGroupBox("Charuco Board Configuration")
-        layout = QVBoxLayout(group)
 
-        # Embed the CharucoConfigPanel
+        # Main horizontal layout: config on left, preview+buttons on right
+        main_layout = QHBoxLayout(group)
+
+        # Left side: config widgets stacked vertically
+        # Panel has internal stretch between main controls and Printed Edge
+        left_layout = QVBoxLayout()
+
+        # Embed the CharucoConfigPanel - let it expand to use internal stretch
         self._charuco_panel = CharucoConfigPanel(self._coordinator.charuco)
-        layout.addWidget(self._charuco_panel)
+        self._charuco_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        left_layout.addWidget(self._charuco_panel)
 
-        # Helper text
-        helper_label = QLabel("<i>Top left corner is point (0,0,0) when setting capture volume origin</i>")
-        helper_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        helper_label.setStyleSheet("color: #888;")
-        layout.addWidget(helper_label)
+        # Edge length helper text (stays with Printed Edge at bottom of panel)
+        edge_helper = QLabel("<i>Sets the scale of the capture volume</i>")
+        edge_helper.setStyleSheet("color: #aaa; margin-top: 4px;")
+        left_layout.addWidget(edge_helper)
 
-        # PNG save buttons
+        main_layout.addLayout(left_layout, stretch=1)
+
+        # Right side: preview image + buttons below, all centered
+        right_layout = QVBoxLayout()
+        right_layout.addStretch()  # Top stretch for vertical centering
+
+        # Preview image - use Expanding policy so it grows with window
+        self._charuco_preview = QLabel()
+        self._charuco_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._charuco_preview.setMinimumSize(200, 200)
+        self._charuco_preview.setMaximumSize(550, 550)
+        self._charuco_preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._charuco_preview.setStyleSheet(
+            "QLabel { background-color: #2a2a2a; border: 1px solid #555; border-radius: 4px; }"
+        )
+        right_layout.addWidget(self._charuco_preview, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # PNG save buttons below preview
         btn_row = QWidget()
         btn_layout = QHBoxLayout(btn_row)
         btn_layout.setContentsMargins(0, 8, 0, 0)
@@ -223,27 +270,15 @@ class ProjectSetupView(QWidget):
         self._save_png_btn.setFixedWidth(100)
         btn_layout.addWidget(self._save_png_btn)
 
-        self._save_mirror_btn = QPushButton("Save Mirror PNG")
-        self._save_mirror_btn.setFixedWidth(120)
+        self._save_mirror_btn = QPushButton("Save Mirror")
+        self._save_mirror_btn.setFixedWidth(100)
         btn_layout.addWidget(self._save_mirror_btn)
 
-        btn_layout.addStretch()
-        layout.addWidget(btn_row)
+        right_layout.addWidget(btn_row, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Charuco preview image
-        self._charuco_preview = QLabel()
-        self._charuco_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._charuco_preview.setMinimumHeight(200)
-        self._charuco_preview.setStyleSheet(
-            "QLabel { background-color: #2a2a2a; border: 1px solid #555; border-radius: 4px; }"
-        )
-        layout.addWidget(self._charuco_preview)
+        right_layout.addStretch()  # Bottom stretch for vertical centering
 
-        # Edge length helper text
-        edge_helper = QLabel("<i>Printed square size will set the scale of the capture volume</i>")
-        edge_helper.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        edge_helper.setStyleSheet("color: #888;")
-        layout.addWidget(edge_helper)
+        main_layout.addLayout(right_layout, stretch=1)
 
         return group
 
@@ -275,6 +310,17 @@ class ProjectSetupView(QWidget):
         self._reconstruction_row.navigation_requested.connect(self.tab_navigation_requested)
         layout.addWidget(self._reconstruction_row)
 
+        # Color key legend
+        layout.addSpacing(12)
+        legend = QLabel(
+            '<span style="color: #4CAF50;">●</span> Complete · '
+            '<span style="color: #FFA000;">●</span> In Progress · '
+            '<span style="color: #2196F3;">●</span> Available · '
+            '<span style="color: #666666;">●</span> Not Started'
+        )
+        legend.setStyleSheet("color: #888; font-size: 11px;")
+        layout.addWidget(legend)
+
         return group
 
     # -------------------------------------------------------------------------
@@ -294,6 +340,18 @@ class ProjectSetupView(QWidget):
         self._open_folder_btn.clicked.connect(self._open_workspace_folder)
         self._save_png_btn.clicked.connect(self._save_charuco_png)
         self._save_mirror_btn.clicked.connect(self._save_charuco_mirror_png)
+
+        # Install event filter on the charuco group to detect resize
+        self._charuco_group.installEventFilter(self)
+
+    def eventFilter(self, watched: QWidget, event: QEvent) -> bool:
+        """Handle resize events on the charuco group to update preview size."""
+        if watched is self._charuco_group and event.type() == QEvent.Type.Resize:
+            # Update preview on next event loop iteration to ensure layout is settled
+            from PySide6.QtCore import QTimer
+
+            QTimer.singleShot(0, self._update_charuco_preview)
+        return super().eventFilter(watched, event)
 
     # -------------------------------------------------------------------------
     # Event Handlers
@@ -452,18 +510,25 @@ class ProjectSetupView(QWidget):
         """Update the charuco board preview image."""
         charuco = self._charuco_panel.get_charuco()
 
-        # Calculate preview dimensions maintaining aspect ratio
-        preview_width = 400
-        preview_height = 300
+        # Responsive sizing: use the preview label's current size as reference
+        # The label has Expanding policy and will grow with the window
+        container_width = self._charuco_preview.width()
+        container_height = self._charuco_preview.height()
+        container_size = min(container_width, container_height)
+
+        # Clamp to reasonable bounds — generous sizing for large windows
+        # Subtract padding for the border
+        max_dimension = max(200, min(container_size - 20, 550))
 
         board_width = charuco.board_width
         board_height = charuco.board_height
 
+        # Calculate dimensions to fit within max_dimension while maintaining aspect ratio
         if board_height > board_width:
-            target_height = preview_height
+            target_height = max_dimension
             target_width = int(target_height * (board_width / board_height))
         else:
-            target_width = preview_width
+            target_width = max_dimension
             target_height = int(target_width * (board_height / board_width))
 
         try:

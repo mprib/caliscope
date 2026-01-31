@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QSpinBox,
@@ -33,14 +32,13 @@ class CharucoConfigPanel(QWidget):
     Emits `config_changed` whenever any configuration value is modified.
     Use `get_charuco()` to build a Charuco instance from current values.
 
-    This widget contains:
-    - Row/column spinboxes
-    - Board width/height spinboxes
-    - Units dropdown (cm/inch)
-    - Invert checkbox
-    - Printed edge length spinbox (for "true up" functionality)
+    Layout: Vertical stack of rows
+    - Row 1: Board Shape: [rows] x [cols]
+    - Row 2: Board Size: [width] x [height] [units]
+    - Row 3: Invert checkbox
+    - Row 4: Printed Edge: [value] cm
 
-    It does NOT contain:
+    This widget does NOT contain:
     - Board preview image (responsibility of the parent view)
     - PNG save buttons (responsibility of the parent view)
     """
@@ -79,67 +77,82 @@ class CharucoConfigPanel(QWidget):
         }
 
     def _setup_ui(self) -> None:
-        """Build the widget layout."""
+        """Build the widget layout with vertically stacked rows."""
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)  # We'll use explicit spacing between rows
 
-        # --- Board shape and size configuration ---
-        config_layout = QHBoxLayout()
-        config_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        # Row 1: Board Shape: [rows] x [cols]
+        shape_row = QHBoxLayout()
+        shape_row.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        # Shape group (row x col)
-        shape_group = QGroupBox("row x col")
-        shape_layout = QHBoxLayout(shape_group)
-        shape_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        shape_row.addWidget(QLabel("Board Shape:"))
 
         self._row_spin = QSpinBox()
         self._row_spin.setValue(self._charuco_params["rows"])
         setup_spinbox_sizing(self._row_spin, min_value=4, max_value=999, padding=10)
+        shape_row.addWidget(self._row_spin)
+
+        shape_row.addWidget(QLabel("x"))
 
         self._column_spin = QSpinBox()
         self._column_spin.setValue(self._charuco_params["columns"])
         setup_spinbox_sizing(self._column_spin, min_value=3, max_value=999, padding=10)
+        shape_row.addWidget(self._column_spin)
 
-        # Note: displayed as "row x col" but row_spin comes first visually
-        shape_layout.addWidget(self._row_spin)
-        shape_layout.addWidget(self._column_spin)
-        config_layout.addWidget(shape_group)
+        shape_row.addStretch()
+        main_layout.addLayout(shape_row)
 
-        # Size group (target board dimensions)
-        size_group = QGroupBox("Target Board Size")
-        size_layout = QHBoxLayout(size_group)
-        size_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        # 12px spacing between rows (style guide: row-to-row spacing)
+        main_layout.addSpacing(12)
+
+        # Row 2: Board Size: [width] x [height] [units]
+        size_row = QHBoxLayout()
+        size_row.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        size_row.addWidget(QLabel("Board Size:"))
 
         self._width_spin = QDoubleSpinBox()
         self._width_spin.setValue(self._charuco_params["board_width"])
         setup_spinbox_sizing(self._width_spin, min_value=1, max_value=10000, padding=10)
+        size_row.addWidget(self._width_spin)
+
+        size_row.addWidget(QLabel("x"))
 
         self._height_spin = QDoubleSpinBox()
         self._height_spin.setValue(self._charuco_params["board_height"])
         setup_spinbox_sizing(self._height_spin, min_value=1, max_value=10000, padding=10)
+        size_row.addWidget(self._height_spin)
 
         self._units_combo = QComboBox()
         self._units_combo.addItems(["cm", "inch"])
         self._units_combo.setCurrentText(self._charuco_params["units"])
+        size_row.addWidget(self._units_combo)
 
-        size_layout.addWidget(self._width_spin)
-        size_layout.addWidget(self._height_spin)
-        size_layout.addWidget(self._units_combo)
-        config_layout.addWidget(size_group)
+        size_row.addStretch()
+        main_layout.addLayout(size_row)
 
-        # Invert checkbox
+        main_layout.addSpacing(12)
+
+        # Row 3: Invert checkbox
+        invert_row = QHBoxLayout()
+        invert_row.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
         self._invert_checkbox = QCheckBox("&Invert")
         self._invert_checkbox.setChecked(self._charuco_params["inverted"])
-        config_layout.addWidget(self._invert_checkbox)
+        invert_row.addWidget(self._invert_checkbox)
 
-        main_layout.addLayout(config_layout)
+        invert_row.addStretch()
+        main_layout.addLayout(invert_row)
 
-        # --- Printed edge length (true up) ---
-        edge_layout = QHBoxLayout()
-        edge_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        # Flexible stretch - allows top controls to separate from bottom
+        main_layout.addStretch()
 
-        edge_label = QLabel("Actual Printed Square Edge Length:")
-        edge_layout.addWidget(edge_label)
+        # Row 4: Printed Edge: [value] cm (stays grouped with helper text below)
+        edge_row = QHBoxLayout()
+        edge_row.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        edge_row.addWidget(QLabel("Printed Edge:"))
 
         self._printed_edge_spin = QDoubleSpinBox()
         self._printed_edge_spin.setSingleStep(0.01)
@@ -155,10 +168,11 @@ class CharucoConfigPanel(QWidget):
             # Default to a reasonable value if not set
             self._printed_edge_spin.setValue(5.0)
 
-        edge_layout.addWidget(self._printed_edge_spin)
-        edge_layout.addWidget(QLabel("cm"))
+        edge_row.addWidget(self._printed_edge_spin)
+        edge_row.addWidget(QLabel("cm"))
 
-        main_layout.addLayout(edge_layout)
+        edge_row.addStretch()
+        main_layout.addLayout(edge_row)
 
     def _connect_signals(self) -> None:
         """Connect widget signals to emit config_changed."""

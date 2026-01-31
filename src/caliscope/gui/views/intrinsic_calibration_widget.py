@@ -38,6 +38,7 @@ from caliscope.gui.presenters.intrinsic_calibration_presenter import (
     IntrinsicCalibrationPresenter,
     IntrinsicCalibrationState,
 )
+from caliscope.gui.theme import Styles
 from caliscope.packets import FramePacket, PointPacket
 
 logger = logging.getLogger(__name__)
@@ -546,9 +547,8 @@ class IntrinsicCalibrationWidget(QWidget):
 
     Layout:
     - Frame display (QLabel)
-    - Status label showing current state
-    - Calibrate/Stop button
-    - Undistort checkbox (enabled after calibration)
+    - Frame jogger slider
+    - Calibrate button and Undistort checkbox
     """
 
     def __init__(
@@ -580,46 +580,57 @@ class IntrinsicCalibrationWidget(QWidget):
         self._results_display = CalibrationResultsDisplay()
         main_layout.addWidget(self._results_display)
 
-        # Right column: Video display and controls
+        # Right column: Video display and controls, vertically centered
         right_column = QVBoxLayout()
+        right_column.setContentsMargins(0, 0, 0, 0)
+
+        # Add stretch to push video unit toward center
+        right_column.addStretch(1)
+
+        # Video controls container - groups video, slider, and buttons tightly
+        video_container = QWidget()
+        video_layout = QVBoxLayout(video_container)
+        video_layout.setContentsMargins(0, 0, 0, 0)
+        video_layout.setSpacing(6)  # Tight spacing between elements
 
         # Frame display
         self._frame_label = QLabel()
         self._frame_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._frame_label.setMinimumSize(500, 500)
         self._frame_label.setStyleSheet("background-color: #1a1a1a;")
-        right_column.addWidget(self._frame_label)
+        video_layout.addWidget(self._frame_label)
 
         # Legend for boundary overlay (hidden by default)
-        self._boundary_legend = QLabel("┈┈ Original frame boundary")
+        self._boundary_legend = QLabel("Original frame boundary")
         self._boundary_legend.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._boundary_legend.setStyleSheet("color: #00FFFF;")  # Cyan to match boundary
         self._boundary_legend.hide()
-        right_column.addWidget(self._boundary_legend)
+        video_layout.addWidget(self._boundary_legend)
 
-        # Status label
-        self._status_label = QLabel("Status: READY")
-        self._status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        right_column.addWidget(self._status_label)
-
-        # Position slider row
+        # Position slider row - directly beneath video
         slider_row = QHBoxLayout()
+        slider_row.setSpacing(8)
 
         self._position_slider = QSlider(Qt.Orientation.Horizontal)
         self._position_slider.setMinimum(0)
         self._position_slider.setMaximum(max(0, self._presenter.frame_count - 1))
+        self._position_slider.setStyleSheet(Styles.SLIDER)
         slider_row.addWidget(self._position_slider)
 
         self._frame_counter = QLabel(f"0 / {self._presenter.frame_count - 1}")
         self._frame_counter.setMinimumWidth(100)
         slider_row.addWidget(self._frame_counter)
 
-        right_column.addLayout(slider_row)
+        video_layout.addLayout(slider_row)
 
-        # Controls row
+        # Controls row - Calibrate button and Undistort checkbox, centered together
         controls = QHBoxLayout()
+        controls.setSpacing(16)  # Space between button and checkbox
+
+        controls.addStretch()  # Push controls to center
 
         self._calibrate_btn = QPushButton("Calibrate")
+        self._calibrate_btn.setStyleSheet(Styles.PRIMARY_BUTTON)
         self._calibrate_btn.clicked.connect(self._on_calibrate_clicked)
         controls.addWidget(self._calibrate_btn)
 
@@ -628,28 +639,19 @@ class IntrinsicCalibrationWidget(QWidget):
         self._undistort_checkbox.toggled.connect(self._on_undistort_toggled)
         controls.addWidget(self._undistort_checkbox)
 
-        right_column.addLayout(controls)
+        controls.addStretch()  # Balance - push controls to center
 
-        # Overlay controls row
-        overlay_row = QHBoxLayout()
+        video_layout.addLayout(controls)
 
-        self._current_points_cb = QCheckBox("Current Points")
-        self._current_points_cb.setChecked(True)
-        self._current_points_cb.toggled.connect(self._on_overlay_toggled)
-        overlay_row.addWidget(self._current_points_cb)
+        # Add the video container to right column
+        right_column.addWidget(video_container)
 
-        self._accumulated_cb = QCheckBox("All Points")
-        self._accumulated_cb.setChecked(True)
-        self._accumulated_cb.toggled.connect(self._on_overlay_toggled)
-        overlay_row.addWidget(self._accumulated_cb)
+        # Add stretch below to complete vertical centering
+        right_column.addStretch(1)
 
-        self._grids_cb = QCheckBox("Selected Grids")
-        self._grids_cb.setChecked(True)
-        self._grids_cb.setEnabled(False)  # Enable after calibration
-        self._grids_cb.toggled.connect(self._on_overlay_toggled)
-        overlay_row.addWidget(self._grids_cb)
-
-        right_column.addLayout(overlay_row)
+        # TODO: overlay checkboxes removed as dead code - revisit if needed
+        # Previously had: Current Points, All Points, Selected Grids checkboxes
+        # The FrameRenderThread still supports overlay rendering if these are restored
 
         main_layout.addLayout(right_column)
 
@@ -706,8 +708,6 @@ class IntrinsicCalibrationWidget(QWidget):
 
     def _update_ui_for_state(self, state: IntrinsicCalibrationState) -> None:
         """Update UI elements based on presenter state."""
-        self._status_label.setText(f"Status: {state.name}")
-
         if state == IntrinsicCalibrationState.READY:
             self._calibrate_btn.setText("Calibrate")
             self._calibrate_btn.setEnabled(True)
@@ -743,12 +743,6 @@ class IntrinsicCalibrationWidget(QWidget):
         output = IntrinsicCalibrationOutput(camera=camera, report=report)
         self._results_display.update_from_output(output)
 
-        self._status_label.setText(f"Status: CALIBRATED (rmse: {report.rmse:.2f}px, frames: {report.frames_used})")
-
-        # Enable grids overlay if we have collected points to render
-        if self._presenter.collected_points:
-            self._grids_cb.setEnabled(True)
-
         # Auto-enable undistort to show calibration effect
         self._undistort_checkbox.setChecked(True)
 
@@ -761,8 +755,6 @@ class IntrinsicCalibrationWidget(QWidget):
         elif state in (IntrinsicCalibrationState.READY, IntrinsicCalibrationState.CALIBRATED):
             # Reset display state when starting new calibration
             self._undistort_checkbox.setChecked(False)
-            self._grids_cb.setChecked(True)
-            self._grids_cb.setEnabled(False)
             self._results_display.reset()
             self._presenter.start_calibration()
 
@@ -778,33 +770,18 @@ class IntrinsicCalibrationWidget(QWidget):
 
         self._render_thread.rerender_cached()
 
-    def _on_overlay_toggled(self) -> None:
-        """Handle overlay checkbox toggles."""
-        self._render_thread.set_overlay_visibility(
-            current_points=self._current_points_cb.isChecked(),
-            accumulated=self._accumulated_cb.isChecked(),
-            selected_grids=self._grids_cb.isChecked(),
-        )
-        # Re-render cached frame with new settings (don't jump to frame 0)
-        self._render_thread.rerender_cached()
-
     def _on_calibration_complete(self, output: IntrinsicCalibrationOutput) -> None:
         """Handle successful calibration."""
         # Populate results display FIRST (before state change shows it)
         self._results_display.update_from_output(output)
-
-        report = output.report
-        self._status_label.setText(f"Status: CALIBRATED (rmse: {report.rmse:.2f}px, frames: {report.frames_used})")
-
-        # Enable selected grids overlay now that selection is available
-        self._grids_cb.setEnabled(True)
 
         # Auto-enable undistort to show the calibration effect
         self._undistort_checkbox.setChecked(True)
 
     def _on_calibration_failed(self, error_msg: str) -> None:
         """Handle calibration failure."""
-        self._status_label.setText(f"Status: FAILED - {error_msg}")
+        # Could show error in UI, but for now just log it
+        logger.error(f"Calibration failed: {error_msg}")
 
     def closeEvent(self, event) -> None:
         """Clean up on close."""

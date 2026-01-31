@@ -37,14 +37,14 @@ class CamerasTabWidget(QWidget):
     """Container for Cameras tab with camera list and calibration workflow.
 
     Layout:
-    ┌───────────────────────────────────────────────────────┐
-    │ CamerasTabWidget                                      │
-    ├──────────────┬────────────────────────────────────────┤
-    │              │                                        │
-    │ CameraList   │  IntrinsicCalibrationWidget            │
-    │ Widget       │  (or message if no video/no selection) │
-    │              │                                        │
-    └──────────────┴────────────────────────────────────────┘
+    ┌───────────────────────────────────────────────────────────┐
+    │ CamerasTabWidget                                          │
+    ├──────────────┬────────────────────────────────────────────┤
+    │              │                                            │
+    │ CameraList   │  IntrinsicCalibrationWidget                │
+    │ Widget       │  (or message if no video/no selection)     │
+    │              │                                            │
+    └──────────────┴────────────────────────────────────────────┘
 
     Lifecycle:
     - Presenters created lazily on first camera selection
@@ -78,10 +78,12 @@ class CamerasTabWidget(QWidget):
 
         # Left: Camera list
         self.camera_list = CameraListWidget(self.coordinator.camera_array)
+        self.camera_list.setMinimumWidth(150)  # Prevent collapse
         self._splitter.addWidget(self.camera_list)
 
         # Right: Content area (placeholder initially)
         self._content_container = QWidget()
+        self._content_container.setMinimumWidth(400)  # Prevent collapse
         self._content_layout = QVBoxLayout(self._content_container)
         self._content_layout.setContentsMargins(0, 0, 0, 0)
 

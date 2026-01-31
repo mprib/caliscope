@@ -26,6 +26,30 @@ from caliscope.gui.frame_emitters.tools import apply_rotation, cv2_to_qlabel
 if TYPE_CHECKING:
     from caliscope.packets import PointPacket
 
+# Rotation button style with blue-grey tint for visibility.
+# Uses 'color' property to set icon color via SVG currentColor inheritance.
+ROTATION_BUTTON_STYLE = """
+    QToolButton {
+        background-color: #3a4a5a;
+        border: 1px solid #4a5a6a;
+        border-radius: 4px;
+        padding: 4px;
+        color: #aabbcc;
+    }
+    QToolButton:hover {
+        background-color: #4a5a6a;
+        border-color: #5a6a7a;
+    }
+    QToolButton:pressed {
+        background-color: #2a3a4a;
+    }
+    QToolButton:disabled {
+        background-color: #333;
+        border-color: #444;
+        color: #555;
+    }
+"""
+
 
 class CameraThumbnailCard(QFrame):
     """Card displaying camera thumbnail with rotation controls.
@@ -38,7 +62,8 @@ class CameraThumbnailCard(QFrame):
     rotate_requested = Signal(int, int)  # (port, direction)
 
     THUMBNAIL_SIZE = 280  # pixels (larger for better visibility)
-    ICON_SIZE = 24  # pixels for rotation buttons
+    ICON_SIZE = 20  # pixels for rotation button icons
+    BUTTON_SIZE = 32  # pixels for rotation button clickable area
 
     def __init__(self, port: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -68,20 +93,30 @@ class CameraThumbnailCard(QFrame):
 
         # Compact rotation controls with icons
         rotation_row = QHBoxLayout()
-        rotation_row.setContentsMargins(0, 4, 0, 0)
+        rotation_row.setContentsMargins(0, 8, 0, 0)
         rotation_row.addStretch()
 
         self._rotate_left_btn = QToolButton()
         self._rotate_left_btn.setIcon(QIcon(str(ICONS_DIR / "rotate-camera-left.svg")))
+        self._rotate_left_btn.setIconSize(
+            self._rotate_left_btn.iconSize().scaled(self.ICON_SIZE, self.ICON_SIZE, Qt.AspectRatioMode.KeepAspectRatio)
+        )
         self._rotate_left_btn.setToolTip("Rotate counter-clockwise")
-        self._rotate_left_btn.setFixedSize(self.ICON_SIZE + 4, self.ICON_SIZE + 4)
+        self._rotate_left_btn.setFixedSize(self.BUTTON_SIZE, self.BUTTON_SIZE)
+        self._rotate_left_btn.setStyleSheet(ROTATION_BUTTON_STYLE)
         self._rotate_left_btn.clicked.connect(lambda: self._on_rotate_clicked(-1))
         rotation_row.addWidget(self._rotate_left_btn)
 
+        rotation_row.addSpacing(8)  # Gap between buttons
+
         self._rotate_right_btn = QToolButton()
         self._rotate_right_btn.setIcon(QIcon(str(ICONS_DIR / "rotate-camera-right.svg")))
+        self._rotate_right_btn.setIconSize(
+            self._rotate_right_btn.iconSize().scaled(self.ICON_SIZE, self.ICON_SIZE, Qt.AspectRatioMode.KeepAspectRatio)
+        )
         self._rotate_right_btn.setToolTip("Rotate clockwise")
-        self._rotate_right_btn.setFixedSize(self.ICON_SIZE + 4, self.ICON_SIZE + 4)
+        self._rotate_right_btn.setFixedSize(self.BUTTON_SIZE, self.BUTTON_SIZE)
+        self._rotate_right_btn.setStyleSheet(ROTATION_BUTTON_STYLE)
         self._rotate_right_btn.clicked.connect(lambda: self._on_rotate_clicked(+1))
         rotation_row.addWidget(self._rotate_right_btn)
 

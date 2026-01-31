@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -19,12 +19,13 @@ from caliscope.gui.presenters.extrinsic_calibration_presenter import QualityPane
 
 
 class QualityPanel(QWidget):
-    """Display calibration quality metrics with three groups in a horizontal row.
+    """Display calibration quality metrics with three sections in a horizontal row.
 
     Layout:
     [Reprojection Error] [Scale Accuracy] [Per-Camera Table]
 
-    Each group maintains its own detailed internal format.
+    Uses typography and spacing for visual separation - no heavy borders.
+    Each section is evenly distributed horizontally.
 
     Usage:
         panel = QualityPanel()
@@ -37,60 +38,81 @@ class QualityPanel(QWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        """Build the widget layout with three horizontal groups."""
+        """Build the widget layout with three horizontal sections."""
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(0, 8, 0, 8)
+        layout.setSpacing(24)  # Generous spacing between sections
 
-        # Group 1: Reprojection Error (global metrics)
-        reproj_group = QGroupBox("Reprojection Error")
-        reproj_layout = QVBoxLayout(reproj_group)
-        reproj_layout.setContentsMargins(8, 4, 8, 4)
-        reproj_layout.setSpacing(2)
+        # Section 1: Reprojection Error (global metrics)
+        reproj_section = QWidget()
+        reproj_section.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        reproj_layout = QVBoxLayout(reproj_section)
+        reproj_layout.setContentsMargins(0, 0, 0, 0)
+        reproj_layout.setSpacing(4)
+
+        reproj_header = QLabel("Reprojection Error")
+        reproj_header.setStyleSheet("font-weight: bold; color: #aaa; font-size: 11px;")
+        reproj_layout.addWidget(reproj_header)
 
         self._rmse_label = QLabel("RMSE: --")
-        self._rmse_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+        self._rmse_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         reproj_layout.addWidget(self._rmse_label)
 
         self._obs_label = QLabel("Observations: --")
+        self._obs_label.setStyleSheet("color: #ccc;")
         reproj_layout.addWidget(self._obs_label)
 
         self._points_label = QLabel("3D Points: --")
+        self._points_label.setStyleSheet("color: #ccc;")
         reproj_layout.addWidget(self._points_label)
 
         self._converged_label = QLabel("Converged: --")
+        self._converged_label.setStyleSheet("color: #ccc;")
         reproj_layout.addWidget(self._converged_label)
 
         reproj_layout.addStretch()
-        layout.addWidget(reproj_group)
+        layout.addWidget(reproj_section, stretch=1)
 
-        # Group 2: Scale Accuracy
-        scale_group = QGroupBox("Scale Accuracy")
-        scale_layout = QVBoxLayout(scale_group)
-        scale_layout.setContentsMargins(8, 4, 8, 4)
-        scale_layout.setSpacing(2)
+        # Section 2: Scale Accuracy
+        scale_section = QWidget()
+        scale_section.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        scale_layout = QVBoxLayout(scale_section)
+        scale_layout.setContentsMargins(0, 0, 0, 0)
+        scale_layout.setSpacing(4)
+
+        scale_header = QLabel("Scale Accuracy")
+        scale_header.setStyleSheet("font-weight: bold; color: #aaa; font-size: 11px;")
+        scale_layout.addWidget(scale_header)
 
         self._scale_rmse_label = QLabel("Distance RMSE: --")
-        self._scale_rmse_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+        self._scale_rmse_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         scale_layout.addWidget(self._scale_rmse_label)
 
         self._scale_relative_label = QLabel("Relative Error: --")
+        self._scale_relative_label.setStyleSheet("color: #ccc;")
         scale_layout.addWidget(self._scale_relative_label)
 
         self._scale_ref_label = QLabel("Reference Frame: --")
+        self._scale_ref_label.setStyleSheet("color: #ccc;")
         scale_layout.addWidget(self._scale_ref_label)
 
         self._scale_detail_label = QLabel("")
-        self._scale_detail_label.setStyleSheet("color: #888888; font-style: italic;")
+        self._scale_detail_label.setStyleSheet("color: #888; font-style: italic;")
         scale_layout.addWidget(self._scale_detail_label)
 
         scale_layout.addStretch()
-        layout.addWidget(scale_group)
+        layout.addWidget(scale_section, stretch=1)
 
-        # Group 3: Per-Camera Table
-        self._camera_group = QGroupBox("Per-Camera")
-        camera_layout = QVBoxLayout(self._camera_group)
-        camera_layout.setContentsMargins(4, 4, 4, 4)
+        # Section 3: Per-Camera Table
+        camera_section = QWidget()
+        camera_section.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        camera_layout = QVBoxLayout(camera_section)
+        camera_layout.setContentsMargins(0, 0, 0, 0)
+        camera_layout.setSpacing(4)
+
+        camera_header = QLabel("Per-Camera")
+        camera_header.setStyleSheet("font-weight: bold; color: #aaa; font-size: 11px;")
+        camera_layout.addWidget(camera_header)
 
         self._table = QTableWidget()
         self._table.setColumnCount(3)
@@ -99,11 +121,25 @@ class QualityPanel(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
-        # Allow table to show more rows, stretch to fill
         self._table.setMinimumHeight(80)
+        self._table.setMaximumHeight(120)
+        # Subtle styling - no heavy borders
+        self._table.setStyleSheet("""
+            QTableWidget {
+                background-color: #1a1a1a;
+                border: none;
+                gridline-color: #333;
+            }
+            QHeaderView::section {
+                background-color: #252525;
+                border: none;
+                border-bottom: 1px solid #333;
+                padding: 4px;
+            }
+        """)
 
         camera_layout.addWidget(self._table)
-        layout.addWidget(self._camera_group, stretch=1)  # Table gets extra space
+        layout.addWidget(camera_section, stretch=2)  # Table gets more space
 
     def set_reprojection_data(self, data: QualityPanelData) -> None:
         """Update reprojection error section with new data.

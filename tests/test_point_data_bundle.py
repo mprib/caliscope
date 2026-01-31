@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
@@ -11,6 +13,9 @@ from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.repositories import PointDataBundleRepository
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope import persistence
+
+if TYPE_CHECKING:
+    from conftest import CalibrationTestData
 
 logger = logging.getLogger(__name__)
 
@@ -143,18 +148,12 @@ def test_point_data_bundle(tmp_path: Path):
     logger.info("=" * 50)
 
 
-def test_align_bundle_to_charuco_board(tmp_path: Path):
+def test_align_bundle_to_charuco_board(larger_calibration_session_reduced: CalibrationTestData):
     """Test aligning a PointDataBundle to Charuco board coordinates."""
     # Setup: load a calibration session with Charuco data including obj_loc coordinates
-    # Use larger_calibration_post_monocal which has populated obj_loc values
-    version = "larger_calibration_post_monocal"
-    original_session_path = Path(__root__, "tests", "sessions", version)
-    copy_contents_to_clean_dest(original_session_path, tmp_path)
-
-    # Load data
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
-    persistence.load_charuco(tmp_path / "charuco.toml")
-    image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
+    camera_array = larger_calibration_session_reduced.camera_array
+    persistence.load_charuco(larger_calibration_session_reduced.session_path / "charuco.toml")
+    image_points = larger_calibration_session_reduced.image_points
 
     # This session has obj_loc_x and obj_loc_y populated, but obj_loc_z may be missing (planar board)
     # Set obj_loc_z to 0.0 for planar board assumption
@@ -367,7 +366,13 @@ def test_bundle_filter(tmp_path: Path):
 
 
 if __name__ == "__main__":
+    import sys
+
+    # Add tests directory to path for conftest import
+    sys.path.insert(0, str(Path(__file__).parent))
+
     from caliscope.logger import setup_logging
+    from conftest import _load_calibration_data, FAST_SUBSAMPLE_STRIDE
 
     setup_logging()
 
@@ -375,7 +380,10 @@ if __name__ == "__main__":
     debug_dir = Path(__file__).parent / "debug"
     debug_dir.mkdir(exist_ok=True)
 
-    # Run test
+    # Run tests that use simple tmp_path pattern
     test_point_data_bundle(debug_dir)
     test_triangulation_consistency(debug_dir)
-    test_align_bundle_to_charuco_board(debug_dir)
+
+    # Run test that uses CalibrationTestData fixture
+    calibration_data = _load_calibration_data(debug_dir / "align_test", FAST_SUBSAMPLE_STRIDE)
+    test_align_bundle_to_charuco_board(calibration_data)

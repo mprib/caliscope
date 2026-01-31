@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import matplotlib
 
 # Force non-interactive backend to prevent the debugger
@@ -8,8 +10,8 @@ matplotlib.use("Agg")
 import logging
 from pathlib import Path
 from time import sleep
+from typing import TYPE_CHECKING
 import numpy as np
-
 
 from caliscope import __root__
 from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
@@ -22,6 +24,9 @@ from caliscope.managers.synchronized_stream_manager import SynchronizedStreamMan
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope import persistence
 from caliscope.core.point_data_bundle import PointDataBundle
+
+if TYPE_CHECKING:
+    from conftest import CalibrationTestData
 
 
 logger = logging.getLogger(__name__)
@@ -56,35 +61,31 @@ def test_xy_charuco_creation(tmp_path: Path):
     assert point_data_path.exists()
 
 
-def test_point_data_bundle_optimization(tmp_path: Path):
-    version = "larger_calibration_post_monocal"
-    original_session_path = Path(__root__, "tests", "sessions", version)
-    copy_contents_to_clean_dest(original_session_path, tmp_path)
+def _run_bundle_optimization_test(data: CalibrationTestData):
+    """Shared test implementation for bundle optimization.
 
-    recording_path = Path(tmp_path, "calibration", "extrinsic")
-    xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
+    Used by both fast (reduced) and thorough (full) test variants.
+    """
+    camera_array = data.camera_array
+    image_points = data.image_points
 
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
+    # Log data size for debugging - especially important for reduced data
+    obs_count = len(image_points.df)
+    if data.is_subsampled:
+        logger.info(f"Using SUBSAMPLED data: {obs_count:,} observations")
+    else:
+        logger.info(f"Using FULL data: {obs_count:,} observations")
 
-    image_points = ImagePoints.from_csv(xy_data_path)
-
-    logger.info("Creating paired pose network")
-
+    # Build paired pose network (this step is fast regardless of data size)
     paired_pose_network = build_paired_pose_network(image_points, camera_array)
-    logger.info("Initializing estimated camera positions based on best daisy-chained stereopairs")
     paired_pose_network.apply_to(camera_array, anchor_cam=8)
 
-    # save initial extrinsics
-    logger.info("Loading point estimates")
-    image_points = ImagePoints.from_csv(xy_data_path)
+    # Create initial bundle
     world_points = image_points.triangulate(camera_array)
-
-    # Create initial bundle (triangulation)
     point_data_bundle = PointDataBundle(camera_array, image_points, world_points)
 
     initial_rmse = point_data_bundle.reprojection_report.overall_rmse
     logger.info(f"Initial RMSE (triangulation): {initial_rmse:.4f}px")
-    logger.info(f"Initial observations: {len(point_data_bundle.image_points.df)}")
 
     # First optimization
     optimized_bundle = point_data_bundle.optimize()
@@ -92,29 +93,21 @@ def test_point_data_bundle_optimization(tmp_path: Path):
     logger.info(f"RMSE after 1st optimization: {rmse_after_opt1:.4f}px")
     assert initial_rmse > rmse_after_opt1, "RMSE did not decline with first optimization"
 
-    # Aggressive filtering (2px threshold) - should trigger safety mechanism
+    # Aggressive filtering (2px threshold)
     filtered_bundle = optimized_bundle.filter_by_absolute_error(max_pixels=2.0, min_per_camera=50)
     rmse_after_filter = filtered_bundle.reprojection_report.overall_rmse
     logger.info(f"RMSE after filtering (2px): {rmse_after_filter:.4f}px")
-    logger.info(f"Observations after filtering: {len(filtered_bundle.image_points.df)}")
 
-    # Log per-camera observation counts to verify safety mechanism
-    for port in sorted(filtered_bundle.camera_array.posed_cameras.keys()):
-        count = (filtered_bundle.image_points.df["port"] == port).sum()
-        logger.info(f"  Camera {port}: {count} observations")
-
-    # RMSE should improve after filtering (removing worst outliers)
     assert rmse_after_opt1 > rmse_after_filter, "RMSE did not decline after filtering"
 
-    # Second optimization on filtered data
+    # Second optimization
     reoptimized_bundle = filtered_bundle.optimize()
     rmse_after_opt2 = reoptimized_bundle.reprojection_report.overall_rmse
     logger.info(f"RMSE after 2nd optimization: {rmse_after_opt2:.4f}px")
 
-    # RMSE should improve further
     assert rmse_after_filter > rmse_after_opt2, "RMSE did not decline with second optimization"
 
-    # Verify all cameras are still present
+    # Verify all cameras retained
     posed_ports = set(reoptimized_bundle.camera_array.posed_cameras.keys())
     observed_ports = set(reoptimized_bundle.image_points.df["port"].unique())
     assert posed_ports == observed_ports, "Some cameras lost all observations!"
@@ -122,17 +115,29 @@ def test_point_data_bundle_optimization(tmp_path: Path):
     logger.info("SUCCESS: RMSE decreased at each stage, all cameras retained")
 
 
+def test_point_data_bundle_optimization(larger_calibration_session_reduced: CalibrationTestData):
+    """Test bundle optimization pipeline with subsampled data (~2.5s instead of ~23s)."""
+    _run_bundle_optimization_test(larger_calibration_session_reduced)
+
+
 def test_filter_percentile_modes(tmp_path: Path):
-    """Verify that per_camera and overall percentile modes behave correctly and differently."""
-    version = "larger_calibration_post_monocal"
-    original_session_path = Path(__root__, "tests", "sessions", version)
+    """Verify that per_camera and overall percentile modes behave correctly and differently.
+
+    Uses stride=10 (not 20) because percentile filtering needs sufficient observations
+    per camera to meaningfully test the min_per_camera safety mechanism.
+    """
+    # Load and subsample with stride=10 (more conservative than the default stride=20)
+    original_session_path = Path(__root__, "tests", "sessions", "larger_calibration_post_monocal")
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    recording_path = Path(tmp_path, "calibration", "extrinsic")
-    xy_data_path = Path(recording_path, "CHARUCO", "xy_CHARUCO.csv")
-
     camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
-    image_points = ImagePoints.from_csv(xy_data_path)
+    image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
+
+    # Subsample to stride=10
+    max_sync_index = image_points.df.sync_index.max()
+    keep_indices = set(range(0, max_sync_index + 1, 10))
+    subsampled_df = image_points.df[image_points.df.sync_index.isin(keep_indices)].copy()
+    image_points = ImagePoints(subsampled_df)
     world_points = image_points.triangulate(camera_array)
 
     bundle = PointDataBundle(camera_array, image_points, world_points)
@@ -142,7 +147,9 @@ def test_filter_percentile_modes(tmp_path: Path):
     logger.info(f"Initial state: {initial_obs} observations, RMSE={initial_rmse:.4f}px")
 
     # Apply both modes with same percentile
-    percentile = 95
+    # With stride=10 subsampled data, use 80th percentile (keeps ~20%) to ensure
+    # sufficient observations remain per camera. Original used 95th with full data.
+    percentile = 80
     min_per_camera = 10
 
     bundle_per_cam = bundle.filter_by_percentile_error(
@@ -249,11 +256,25 @@ def test_filter_percentile_modes(tmp_path: Path):
 
 
 if __name__ == "__main__":
+    import sys
+
+    # Add tests directory to path for conftest import
+    sys.path.insert(0, str(Path(__file__).parent))
+
     from caliscope.logger import setup_logging
+    from conftest import _load_calibration_data
 
     setup_logging()
 
     temp_path = Path(__file__).parent / "debug"
-    test_point_data_bundle_optimization(temp_path)
+    temp_path.mkdir(parents=True, exist_ok=True)
+
+    # Run tests with reduced data for fast debugging
+    calib_data = _load_calibration_data(temp_path, subsample_stride=20)
+    test_point_data_bundle_optimization(calib_data)
+
+    # Run other tests that don't use the new fixtures
     test_xy_charuco_creation(temp_path)
-    test_filter_percentile_modes(temp_path)
+
+    # Run percentile test (function does its own loading with stride=10)
+    test_filter_percentile_modes(temp_path / "percentile")

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from numpy.typing import NDArray
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -36,6 +38,28 @@ if TYPE_CHECKING:
     from caliscope.packets import PointPacket
 
 logger = logging.getLogger(__name__)
+
+# Primary action button style (matches style guide)
+PRIMARY_BUTTON_STYLE = """
+    QPushButton {
+        background-color: #0078d4;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 20px;
+        font-weight: bold;
+    }
+    QPushButton:hover {
+        background-color: #106ebe;
+    }
+    QPushButton:pressed {
+        background-color: #005a9e;
+    }
+    QPushButton:disabled {
+        background-color: #555;
+        color: #888;
+    }
+"""
 
 
 class MultiCameraProcessingWidget(QWidget):
@@ -87,20 +111,14 @@ class MultiCameraProcessingWidget(QWidget):
         # Create cards for existing cameras
         self._rebuild_camera_grid()
 
-        # Progress section
-        progress_group = QGroupBox("Progress")
-        progress_layout = QVBoxLayout(progress_group)
+        # Bottom section: Controls (left) | Coverage Summary (right)
+        bottom_section = QHBoxLayout()
+        bottom_section.setSpacing(24)
 
-        self._progress_bar = QProgressBar()
-        self._progress_bar.setRange(0, 100)
-        self._progress_bar.setValue(0)
-        progress_layout.addWidget(self._progress_bar)
-
-        self._progress_label = QLabel("Ready")
-        self._progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        progress_layout.addWidget(self._progress_label)
-
-        layout.addWidget(progress_group)
+        # === Left side: Controls ===
+        controls_container = QWidget()
+        controls_layout = QVBoxLayout(controls_container)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
 
         # Subsample control row
         subsample_row = QHBoxLayout()
@@ -117,52 +135,122 @@ class MultiCameraProcessingWidget(QWidget):
         subsample_row.addWidget(self._subsample_spin)
         subsample_row.addWidget(QLabel("frames"))
         subsample_row.addStretch()
-        layout.addLayout(subsample_row)
+        controls_layout.addLayout(subsample_row)
 
-        # Single action button (changes role based on state)
+        controls_layout.addSpacing(12)
+
+        # Action button (centered, content-fit width)
+        button_row = QHBoxLayout()
+        button_row.addStretch()
         self._action_btn = QPushButton("Start Processing")
+        self._action_btn.setStyleSheet(PRIMARY_BUTTON_STYLE)
+        self._action_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._action_btn.clicked.connect(self._on_action_clicked)
-        layout.addWidget(self._action_btn)
+        button_row.addWidget(self._action_btn)
+        button_row.addStretch()
+        controls_layout.addLayout(button_row)
 
-        # Coverage summary (hidden until complete)
-        self._coverage_group = QGroupBox("Coverage Summary")
-        coverage_outer_layout = QHBoxLayout(self._coverage_group)
+        controls_layout.addSpacing(12)
 
-        # Left side: heatmap visualization with label
+        # Progress section (shown only during/after processing)
+        self._progress_container = QWidget()
+        progress_layout = QVBoxLayout(self._progress_container)
+        progress_layout.setContentsMargins(0, 0, 0, 0)
+
+        self._progress_bar = QProgressBar()
+        self._progress_bar.setRange(0, 100)
+        self._progress_bar.setValue(0)
+        progress_layout.addWidget(self._progress_bar)
+
+        self._progress_label = QLabel("Ready")
+        self._progress_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._progress_label.setStyleSheet("color: #888; font-size: 12px;")
+        progress_layout.addWidget(self._progress_label)
+
+        controls_layout.addWidget(self._progress_container)
+        controls_layout.addStretch()
+
+        bottom_section.addWidget(controls_container, stretch=1)
+
+        # === Right side: Coverage Summary (always visible) ===
+        self._coverage_container = QFrame()
+        self._coverage_container.setStyleSheet("""
+            QFrame {
+                background-color: #1e1e1e;
+                border-radius: 4px;
+            }
+        """)
+        coverage_layout = QVBoxLayout(self._coverage_container)
+        coverage_layout.setContentsMargins(16, 16, 16, 16)
+
+        # Coverage title
+        coverage_title = QLabel("Coverage Summary")
+        coverage_title.setStyleSheet("font-weight: bold; font-size: 13px; background: transparent;")
+        coverage_layout.addWidget(coverage_title)
+
+        coverage_layout.addSpacing(8)
+
+        # Stacked content: placeholder OR actual coverage data
+        # We use a simple show/hide approach with two containers
+
+        # Placeholder (shown before processing)
+        self._coverage_placeholder = QWidget()
+        placeholder_layout = QVBoxLayout(self._coverage_placeholder)
+        placeholder_layout.setContentsMargins(0, 0, 0, 0)
+        placeholder_layout.addStretch()
+        placeholder_text = QLabel("Process video to see\ncamera coverage analysis")
+        placeholder_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        placeholder_text.setStyleSheet("color: #666; font-size: 12px; background: transparent;")
+        placeholder_layout.addWidget(placeholder_text)
+        placeholder_layout.addStretch()
+        coverage_layout.addWidget(self._coverage_placeholder)
+
+        # Actual coverage content (shown after processing)
+        self._coverage_content = QWidget()
+        content_layout = QHBoxLayout(self._coverage_content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Left: heatmap visualization
         heatmap_layout = QVBoxLayout()
         heatmap_label = QLabel("Shared Point Observations")
         heatmap_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        heatmap_label.setStyleSheet("color: #888; font-size: 11px;")
+        heatmap_label.setStyleSheet("color: #888; font-size: 11px; background: transparent;")
         heatmap_layout.addWidget(heatmap_label)
 
         self._coverage_heatmap = CoverageHeatmapWidget()
-        self._coverage_heatmap.setMinimumSize(200, 200)
-        self._coverage_heatmap.setMaximumSize(300, 300)
+        self._coverage_heatmap.setMinimumSize(180, 180)
+        self._coverage_heatmap.setMaximumSize(250, 250)
         heatmap_layout.addWidget(self._coverage_heatmap)
-        coverage_outer_layout.addLayout(heatmap_layout)
+        content_layout.addLayout(heatmap_layout)
 
-        # Right side: frames processed + structural warnings
+        # Right: frames processed + structural warnings
         right_side_layout = QVBoxLayout()
 
-        # Frames processed (simple, useful)
         frames_row = QHBoxLayout()
-        frames_row.addWidget(QLabel("Frames processed:"))
+        frames_label = QLabel("Frames processed:")
+        frames_label.setStyleSheet("background: transparent;")
+        frames_row.addWidget(frames_label)
         self._frames_value = QLabel("—")
+        self._frames_value.setStyleSheet("background: transparent;")
         frames_row.addWidget(self._frames_value)
         frames_row.addStretch()
         right_side_layout.addLayout(frames_row)
 
-        # Structural warnings widget
         self._warnings_widget = StructuralWarningsWidget()
         right_side_layout.addWidget(self._warnings_widget)
         right_side_layout.addStretch()
 
-        coverage_outer_layout.addLayout(right_side_layout)
+        content_layout.addLayout(right_side_layout)
 
-        self._coverage_group.hide()
-        layout.addWidget(self._coverage_group)
+        self._coverage_content.hide()  # Start hidden
+        coverage_layout.addWidget(self._coverage_content)
 
-        layout.addStretch()
+        # Set minimum size so layout doesn't jump
+        self._coverage_container.setMinimumSize(350, 200)
+
+        bottom_section.addWidget(self._coverage_container, stretch=1)
+
+        layout.addLayout(bottom_section)
 
     def _rebuild_camera_grid(self) -> None:
         """Rebuild the camera grid from presenter's cameras."""
@@ -233,33 +321,45 @@ class MultiCameraProcessingWidget(QWidget):
         if state == MultiCameraProcessingState.UNCONFIGURED:
             self._action_btn.setText("Start Processing")
             self._action_btn.setEnabled(False)
-            self._progress_label.setText("Waiting for configuration...")
+            self._progress_container.hide()
             self._set_rotation_enabled(False)
             self._subsample_spin.setEnabled(False)
-            self._coverage_group.hide()
+            # Show placeholder, hide content
+            self._coverage_placeholder.show()
+            self._coverage_content.hide()
 
         elif state == MultiCameraProcessingState.READY:
             self._action_btn.setText("Start Processing")
             self._action_btn.setEnabled(True)
-            self._progress_label.setText("Ready to process")
-            self._progress_bar.setValue(0)
+            self._progress_container.hide()
             self._set_rotation_enabled(True)
             self._subsample_spin.setEnabled(True)
-            self._coverage_group.hide()
+            # Show placeholder, hide content
+            self._coverage_placeholder.show()
+            self._coverage_content.hide()
 
         elif state == MultiCameraProcessingState.PROCESSING:
             self._action_btn.setText("Cancel")
             self._action_btn.setEnabled(True)
+            self._progress_container.show()
+            self._progress_bar.setValue(0)
+            self._progress_label.setText("Starting...")
             self._set_rotation_enabled(False)
             self._subsample_spin.setEnabled(False)
+            # Keep showing placeholder during processing
+            self._coverage_placeholder.show()
+            self._coverage_content.hide()
 
         elif state == MultiCameraProcessingState.COMPLETE:
             self._action_btn.setText("Reset")
             self._action_btn.setEnabled(True)
+            self._progress_container.show()
             self._progress_label.setText("Processing complete")
             self._set_rotation_enabled(True)
             self._subsample_spin.setEnabled(True)
-            self._coverage_group.show()
+            # Show content, hide placeholder
+            self._coverage_placeholder.hide()
+            self._coverage_content.show()
 
     def _set_rotation_enabled(self, enabled: bool) -> None:
         """Enable or disable rotation controls on all camera cards."""

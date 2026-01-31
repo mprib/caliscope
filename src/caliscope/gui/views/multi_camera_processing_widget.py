@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from caliscope.gui.theme import Styles
 from caliscope.gui.views.camera_thumbnail_card import CameraThumbnailCard
 from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
 from caliscope.gui.widgets.structural_warnings import StructuralWarningsWidget
@@ -38,28 +39,6 @@ if TYPE_CHECKING:
     from caliscope.packets import PointPacket
 
 logger = logging.getLogger(__name__)
-
-# Primary action button style (matches style guide)
-PRIMARY_BUTTON_STYLE = """
-    QPushButton {
-        background-color: #0078d4;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        padding: 8px 20px;
-        font-weight: bold;
-    }
-    QPushButton:hover {
-        background-color: #106ebe;
-    }
-    QPushButton:pressed {
-        background-color: #005a9e;
-    }
-    QPushButton:disabled {
-        background-color: #555;
-        color: #888;
-    }
-"""
 
 
 class MultiCameraProcessingWidget(QWidget):
@@ -143,7 +122,7 @@ class MultiCameraProcessingWidget(QWidget):
         button_row = QHBoxLayout()
         button_row.addStretch()
         self._action_btn = QPushButton("Start Processing")
-        self._action_btn.setStyleSheet(PRIMARY_BUTTON_STYLE)
+        self._action_btn.setStyleSheet(Styles.PRIMARY_BUTTON)
         self._action_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._action_btn.clicked.connect(self._on_action_clicked)
         button_row.addWidget(self._action_btn)

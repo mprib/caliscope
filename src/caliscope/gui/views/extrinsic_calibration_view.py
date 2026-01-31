@@ -33,79 +33,13 @@ from caliscope.gui.presenters.extrinsic_calibration_presenter import (
     ExtrinsicCalibrationState,
     QualityPanelData,
 )
+from caliscope.gui.theme import Styles
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
 from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
 from caliscope.gui.widgets.quality_panel import QualityPanel
 
 logger = logging.getLogger(__name__)
-
-# Primary action button style (filled blue)
-_PRIMARY_BUTTON_STYLE = """
-    QPushButton {
-        background-color: #0078d4;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        padding: 8px 20px;
-        font-weight: bold;
-        min-width: 100px;
-    }
-    QPushButton:hover {
-        background-color: #106ebe;
-    }
-    QPushButton:pressed {
-        background-color: #005a9e;
-    }
-    QPushButton:disabled {
-        background-color: #555;
-        color: #888;
-    }
-"""
-
-# Slider styling with enlarged thumb for easier interaction
-_SLIDER_STYLE = """
-    QSlider::groove:horizontal {
-        height: 8px;
-        background: #3a3a3a;
-        border-radius: 4px;
-    }
-    QSlider::handle:horizontal {
-        width: 20px;
-        height: 20px;
-        margin: -6px 0;
-        background: #0078d4;
-        border-radius: 10px;
-    }
-    QSlider::handle:horizontal:hover {
-        background: #106ebe;
-    }
-    QSlider::handle:horizontal:disabled {
-        background: #555;
-    }
-"""
-
-# Ghost/outline button style for secondary actions
-_GHOST_BUTTON_STYLE = """
-    QPushButton {
-        background-color: transparent;
-        color: #0078d4;
-        border: 1px solid #0078d4;
-        border-radius: 4px;
-        padding: 4px 12px;
-    }
-    QPushButton:hover {
-        background-color: rgba(0, 120, 212, 0.15);
-    }
-    QPushButton:pressed {
-        background-color: rgba(0, 120, 212, 0.25);
-    }
-    QPushButton:disabled {
-        color: #666;
-        border-color: #444;
-        background-color: transparent;
-    }
-"""
 
 
 class ExtrinsicCalibrationView(QWidget):
@@ -238,13 +172,13 @@ class ExtrinsicCalibrationView(QWidget):
 
         # Optimize button (primary action)
         self._action_btn = QPushButton("Optimize")
-        self._action_btn.setStyleSheet(_PRIMARY_BUTTON_STYLE)
+        self._action_btn.setStyleSheet(Styles.PRIMARY_BUTTON)
         layout.addWidget(self._action_btn)
 
         # Set Origin button (also primary - both are main workflow actions)
         self._set_origin_btn = QPushButton("Set Origin")
         self._set_origin_btn.setToolTip("Set world origin to charuco position at current frame")
-        self._set_origin_btn.setStyleSheet(_PRIMARY_BUTTON_STYLE)
+        self._set_origin_btn.setStyleSheet(Styles.PRIMARY_BUTTON)
         layout.addWidget(self._set_origin_btn)
 
         # Progress section (shown during optimization)
@@ -283,7 +217,7 @@ class ExtrinsicCalibrationView(QWidget):
         self._frame_slider.setMinimum(0)
         self._frame_slider.setMaximum(0)
         self._frame_slider.setEnabled(False)
-        self._frame_slider.setStyleSheet(_SLIDER_STYLE)
+        self._frame_slider.setStyleSheet(Styles.SLIDER)
         layout.addWidget(self._frame_slider, stretch=1)
 
         self._frame_display = QLabel("0 / 0")
@@ -380,7 +314,7 @@ class ExtrinsicCalibrationView(QWidget):
 
         # Apply button (ghost style)
         self._filter_apply_btn = QPushButton("Apply")
-        self._filter_apply_btn.setStyleSheet(_GHOST_BUTTON_STYLE)
+        self._filter_apply_btn.setStyleSheet(Styles.GHOST_BUTTON)
         layout.addWidget(self._filter_apply_btn)
 
         layout.addSpacing(8)
@@ -395,7 +329,7 @@ class ExtrinsicCalibrationView(QWidget):
         self._coverage_btn = QPushButton("View Coverage")
         self._coverage_btn.setToolTip("Show camera pair observation counts")
         self._coverage_btn.setEnabled(False)
-        self._coverage_btn.setStyleSheet(_GHOST_BUTTON_STYLE)
+        self._coverage_btn.setStyleSheet(Styles.GHOST_BUTTON)
         layout.addWidget(self._coverage_btn)
 
         return row

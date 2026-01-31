@@ -38,6 +38,7 @@ from caliscope.gui.presenters.intrinsic_calibration_presenter import (
     IntrinsicCalibrationPresenter,
     IntrinsicCalibrationState,
 )
+from caliscope.gui.theme import Styles
 from caliscope.packets import FramePacket, PointPacket
 
 logger = logging.getLogger(__name__)
@@ -541,26 +542,6 @@ class FrameRenderThread(QThread):
         logger.debug(f"Frame render thread exiting for port {self._camera.port}")
 
 
-# Slider styling for larger, easier-to-grab thumb
-_SLIDER_STYLE = """
-    QSlider::groove:horizontal {
-        height: 8px;
-        background: #3a3a3a;
-        border-radius: 4px;
-    }
-    QSlider::handle:horizontal {
-        width: 20px;
-        height: 20px;
-        margin: -6px 0;
-        background: #0078d4;
-        border-radius: 10px;
-    }
-    QSlider::handle:horizontal:hover {
-        background: #106ebe;
-    }
-"""
-
-
 class IntrinsicCalibrationWidget(QWidget):
     """Minimal development View for testing IntrinsicCalibrationPresenter.
 
@@ -633,7 +614,7 @@ class IntrinsicCalibrationWidget(QWidget):
         self._position_slider = QSlider(Qt.Orientation.Horizontal)
         self._position_slider.setMinimum(0)
         self._position_slider.setMaximum(max(0, self._presenter.frame_count - 1))
-        self._position_slider.setStyleSheet(_SLIDER_STYLE)
+        self._position_slider.setStyleSheet(Styles.SLIDER)
         slider_row.addWidget(self._position_slider)
 
         self._frame_counter = QLabel(f"0 / {self._presenter.frame_count - 1}")
@@ -649,28 +630,7 @@ class IntrinsicCalibrationWidget(QWidget):
         controls.addStretch()  # Push controls to center
 
         self._calibrate_btn = QPushButton("Calibrate")
-        self._calibrate_btn.setStyleSheet(
-            """
-            QPushButton {
-                background-color: #0078d4;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #106ebe;
-            }
-            QPushButton:pressed {
-                background-color: #005a9e;
-            }
-            QPushButton:disabled {
-                background-color: #555;
-                color: #888;
-            }
-            """
-        )
+        self._calibrate_btn.setStyleSheet(Styles.PRIMARY_BUTTON)
         self._calibrate_btn.clicked.connect(self._on_calibrate_clicked)
         controls.addWidget(self._calibrate_btn)
 

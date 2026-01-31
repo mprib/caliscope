@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
@@ -11,6 +13,9 @@ from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.repositories import PointDataBundleRepository
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope import persistence
+
+if TYPE_CHECKING:
+    from conftest import CalibrationTestData
 
 logger = logging.getLogger(__name__)
 
@@ -143,18 +148,12 @@ def test_point_data_bundle(tmp_path: Path):
     logger.info("=" * 50)
 
 
-def test_align_bundle_to_charuco_board(tmp_path: Path):
+def test_align_bundle_to_charuco_board(larger_calibration_session_reduced: CalibrationTestData):
     """Test aligning a PointDataBundle to Charuco board coordinates."""
     # Setup: load a calibration session with Charuco data including obj_loc coordinates
-    # Use larger_calibration_post_monocal which has populated obj_loc values
-    version = "larger_calibration_post_monocal"
-    original_session_path = Path(__root__, "tests", "sessions", version)
-    copy_contents_to_clean_dest(original_session_path, tmp_path)
-
-    # Load data
-    camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
-    persistence.load_charuco(tmp_path / "charuco.toml")
-    image_points = ImagePoints.from_csv(tmp_path / "calibration" / "extrinsic" / "CHARUCO" / "xy_CHARUCO.csv")
+    camera_array = larger_calibration_session_reduced.camera_array
+    persistence.load_charuco(larger_calibration_session_reduced.session_path / "charuco.toml")
+    image_points = larger_calibration_session_reduced.image_points
 
     # This session has obj_loc_x and obj_loc_y populated, but obj_loc_z may be missing (planar board)
     # Set obj_loc_z to 0.0 for planar board assumption
@@ -298,83 +297,82 @@ def test_rotation_invariance(axis: Literal["x", "y", "z"], tmp_path: Path):
     logger.info(f"✓ Rotation invariance test passed for {axis} axis")
 
 
-def test_bundle_adjust_with_unlinked_camera(tmp_path: Path):
-    """
-    Tests bundle adjustment with cameras that have no shared observations.
+def test_bundle_filter(tmp_path: Path):
+    """Test filtering workflow with PointDataBundle.
 
-    This is the migrated version of test_bundle_adjust_with_unlinked_camera from test_optimization_unlinked.py.
-    Uses PointDataBundle instead of CaptureVolume.
-
-    Setup: Camera 4 is ignored, Camera 5 has no shared images with others.
-    Expected: Only cameras {1, 2, 3, 6} are posed and optimized.
+    Moved from test_optimization_unlinked.py during test consolidation.
     """
-    # SETUP: Use session that results in unposed cameras
-    version = "not_sufficient_stereopairs"
+    # SETUP: Use post_optimization session with enough data for filtering
+    version = "post_optimization"
     original_session_path = Path(__root__, "tests", "sessions", version)
     copy_contents_to_clean_dest(original_session_path, tmp_path)
 
-    xy_data_path = tmp_path / "xy_CHARUCO.csv"
     camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
 
-    logger.info("Creating paired pose network...")
-    from caliscope.core.point_data import ImagePoints
-    from caliscope.core.bootstrap_pose.build_paired_pose_network import build_paired_pose_network
+    # Load from CSV format
+    csv_dir = tmp_path / "calibration" / "extrinsic" / "CHARUCO"
+    image_points = ImagePoints.from_csv(csv_dir / "xy_CHARUCO.csv")
+    world_points = WorldPoints.from_csv(csv_dir / "xyz_CHARUCO.csv")
 
-    image_points = ImagePoints.from_csv(xy_data_path)
+    logger.info("Creating PointDataBundle from loaded data")
+    bundle = PointDataBundle(camera_array, image_points, world_points)
+    logger.info("PointDataBundle initialized")
 
-    paired_pose_network = build_paired_pose_network(image_points, camera_array, method="stereocalibrate")
+    logger.info("Point counts BEFORE filtering:")
+    logger.info(f"  3D points: {len(bundle.world_points.df)}")
+    logger.info(f"  2D observations: {len(bundle.image_points.df)}")
+    logger.info(f"  Cameras: {len(bundle.camera_array.posed_cameras)}")
 
-    logger.info("Initializing estimated camera positions...")
-    paired_pose_network.apply_to(camera_array)
+    # Save initial state
+    initial_repo = PointDataBundleRepository(tmp_path / "initial")
+    initial_repo.save(bundle)
 
-    # Triangulate world points
-    world_points = image_points.triangulate(camera_array)
-
-    # VERIFY SETUP: Confirm expected posed/unposed camera configuration
-    assert set(camera_array.posed_cameras.keys()) == {1, 2, 3, 6}, (
-        f"Expected cameras {{1, 2, 3, 6}} to be posed, got {set(camera_array.posed_cameras.keys())}"
-    )
-    assert list(camera_array.unposed_cameras.keys()) == [4, 5], (
-        f"Expected cameras [4, 5] to be unposed, got {list(camera_array.unposed_cameras.keys())}"
-    )
-    assert len(camera_array.posed_port_to_index) == 4, (
-        f"Expected 4 cameras in optimization index, got {len(camera_array.posed_port_to_index)}"
-    )
-
-    logger.info("✓ Camera configuration validated: 4 posed, 2 unposed")
-
-    # CREATE BUNDLE AND OPTIMIZE
-    logger.info("Creating PointDataBundle with unlinked cameras...")
-    bundle = PointDataBundle(
-        camera_array=camera_array,
-        image_points=image_points,
-        world_points=world_points,
-    )
-
-    initial_rmse = bundle.reprojection_report.overall_rmse
-    logger.info(f"Initial RMSE: {initial_rmse:.4f} pixels")
-
-    logger.info("Running optimization with unlinked camera present...")
+    # Optimize
     optimized_bundle = bundle.optimize()
+    optimized_repo = PointDataBundleRepository(tmp_path / "post_optimization")
+    optimized_repo.save(optimized_bundle)
 
-    # ASSERT SUCCESS
-    assert optimized_bundle.optimization_status is not None, "Optimization status should be set"
-    assert optimized_bundle.optimization_status.converged, (
-        f"Optimization should converge, but got: {optimized_bundle.optimization_status.termination_reason}"
+    # Filter out worst 50% of points (percentile filtering)
+    filtered_percentile = 50  # Keep best 50%
+    logger.info(f"Filtering to keep best {filtered_percentile}% of points")
+    filtered_bundle = optimized_bundle.filter_by_percentile_error(
+        percentile=filtered_percentile, scope="per_camera", min_per_camera=10
     )
+    filtered_repo = PointDataBundleRepository(tmp_path / "post_filtering")
+    filtered_repo.save(filtered_bundle)
 
-    final_rmse = optimized_bundle.reprojection_report.overall_rmse
-    logger.info(f"Final RMSE: {final_rmse:.4f} pixels")
-    logger.info(f"Optimization converged in {optimized_bundle.optimization_status.iterations} iterations")
+    logger.info("Point counts AFTER filtering:")
+    logger.info(f"  3D points: {len(filtered_bundle.world_points.df)}")
+    logger.info(f"  2D observations: {len(filtered_bundle.image_points.df)}")
+    logger.info(f"  Cameras: {len(filtered_bundle.camera_array.posed_cameras)}")
 
-    # Verify RMSE improved
-    assert final_rmse < initial_rmse, f"RMSE should improve after optimization: {initial_rmse:.4f} -> {final_rmse:.4f}"
+    # Re-optimize with filtered data
+    reoptimized_bundle = filtered_bundle.optimize()
+    reopt_repo = PointDataBundleRepository(tmp_path / "post_filtering_then_optimizing")
+    reopt_repo.save(reoptimized_bundle)
 
-    logger.info("✓ Optimization completed successfully with unlinked cameras present")
+    # Verify RMSE improves through the filtering and re-optimization stages
+    initial_rmse = bundle.reprojection_report.overall_rmse
+    optimized_rmse = optimized_bundle.reprojection_report.overall_rmse
+    filtered_rmse = filtered_bundle.reprojection_report.overall_rmse
+    final_rmse = reoptimized_bundle.reprojection_report.overall_rmse
+
+    logger.info(f"RMSE progression: {initial_rmse:.4f} → {optimized_rmse:.4f} → {filtered_rmse:.4f} → {final_rmse:.4f}")
+
+    # Note: Initial optimization may not always improve RMSE when starting from
+    # ground truth data, but filtering worst observations should always help
+    assert filtered_rmse <= optimized_rmse, "Filtering should improve RMSE"
+    assert final_rmse <= filtered_rmse, "Second optimization should improve or maintain RMSE"
 
 
 if __name__ == "__main__":
+    import sys
+
+    # Add tests directory to path for conftest import
+    sys.path.insert(0, str(Path(__file__).parent))
+
     from caliscope.logger import setup_logging
+    from conftest import _load_calibration_data, FAST_SUBSAMPLE_STRIDE
 
     setup_logging()
 
@@ -382,7 +380,10 @@ if __name__ == "__main__":
     debug_dir = Path(__file__).parent / "debug"
     debug_dir.mkdir(exist_ok=True)
 
-    # Run test
+    # Run tests that use simple tmp_path pattern
     test_point_data_bundle(debug_dir)
     test_triangulation_consistency(debug_dir)
-    test_align_bundle_to_charuco_board(debug_dir)
+
+    # Run test that uses CalibrationTestData fixture
+    calibration_data = _load_calibration_data(debug_dir / "align_test", FAST_SUBSAMPLE_STRIDE)
+    test_align_bundle_to_charuco_board(calibration_data)

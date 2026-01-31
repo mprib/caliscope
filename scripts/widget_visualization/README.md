@@ -1,43 +1,105 @@
 # Widget Visualization
 
-Visual debugging and development technique for PySide6/Qt applications. Capture screenshots at key moments and verify them visually.
+Visual development workflow for PySide6/Qt applications. Combines automated screenshot capture with AI-driven design review to achieve **elegant, professional UI**.
 
-## The Technique
+## Philosophy
 
-Instead of relying on logs or assertions, capture screenshots at each step and have Claude verify them visually. This creates a fast iteration loop for GUI development:
+This isn't just debugging — it's **visual design iteration**. The goal is software that looks crafted, not just functional.
 
-1. Make code change
-2. Run script that exercises UI and captures screenshots
-3. Claude reviews screenshots
-4. Claude makes next code change
-5. Repeat
+**Design Principles (Tufte-inspired):**
+- **Data-ink ratio**: Every pixel should communicate. Remove visual noise.
+- **Hierarchy through subtlety**: Use spacing, weight, and value — not heavy borders.
+- **Consistent rhythm**: Spacing should follow a scale (4, 8, 16, 24, 32px).
+- **Elegance over decoration**: Beauty comes from balance and proportion, not ornament.
 
-**Key insight:** The script IS the spec — visual TDD.
+**The test**: "Would I proudly demo this?" If not, keep iterating.
 
-## When to Use
+## The Orchestrated Workflow
 
-- Display corruption (wrong colors, rotation, shearing)
-- Widget/component rendering problems
-- GUI feature development needing visual validation
-- Any bug where "you need to see the actual output"
+The orchestrator (main Claude session) coordinates specialized agents:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ORCHESTRATOR (preserves context, makes decisions)              │
+│                                                                 │
+│  1. Spawn CODER agent → implements UI changes                   │
+│  2. Run visualization script → captures screenshots             │
+│  3. Spawn UX agent → reviews screenshots, reports findings      │
+│  4. Synthesize feedback → decide next iteration                 │
+│  5. Repeat until elegant                                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Why this pattern?**
+- Orchestrator context stays lean (doesn't load images)
+- UX agent can examine screenshots in detail
+- Coder agent focuses on implementation
+- Each agent is disposable; the workflow persists
+
+## Prompting the UX Agent for Elegance
+
+Don't just ask "does it work?" — prompt for **good taste**:
+
+```
+You are reviewing [widget/tab]. Your job is not just to check if things
+work — it's to evaluate elegance and good taste.
+
+Design Philosophy:
+This should look like professional software — think Blender, DaVinci
+Resolve, Figma. Clean, purposeful, refined.
+
+Evaluate with these criteria:
+1. Visual Rhythm — Consistent spacing? Intentional placement?
+2. Typography — Clear hierarchy? Unnecessary boldness?
+3. Whitespace — Purposeful grouping? Or dead space?
+4. Color Palette — Harmonious? Semantic meaning clear?
+5. The "Would I Show This Off?" Test
+
+What's missing to make this elegant? Be specific.
+```
+
+## Multi-Size Capture Pattern
+
+Always test resize behavior. Capture at multiple window sizes:
+
+```python
+sizes = [
+    (900, 600, "small"),
+    (1200, 800, "medium"),
+    (1600, 1000, "large"),
+]
+
+for width, height, label in sizes:
+    window.resize(width, height)
+    process_events_for(400)
+    capture_widget(window, f"01_widget_{label}.png")
+```
+
+This reveals:
+- Layout breaking at small sizes
+- Awkward whitespace at large sizes
+- Elements that don't scale proportionally
 
 ## Directory Structure
 
 ```
 scripts/widget_visualization/
 ├── utils.py              # Core utilities
-├── wv_charuco_widget.py  # Widget interaction test
-├── wv_capture_volume.py  # 3D OpenGL rendering test
-├── wv_full_workflow.py   # Full app smoke test
-├── README.md
-└── output/               # Screenshots saved here (gitignored)
+├── wv_*.py               # Visualization scripts (disposable)
+├── README.md             # This file
+└── output/               # Screenshots (gitignored)
 ```
+
+Scripts are **ephemeral working files**. Create them as needed, delete when done.
 
 ## Running Scripts
 
 ```bash
-# With display
-python scripts/widget_visualization/wv_charuco_widget.py
+# Direct execution
+uv run python scripts/widget_visualization/wv_project_tab_cosmetic.py
+
+# Headless (CI or remote)
+xvfb-run uv run python scripts/widget_visualization/wv_project_tab_cosmetic.py
 ```
 
 ## Core Utilities
@@ -45,17 +107,12 @@ python scripts/widget_visualization/wv_charuco_widget.py
 ```python
 from utils import capture_widget, process_events_for, clear_output_dir
 
-# Capture widget to PNG
-capture_widget(widget, "01_initial.png")
-
-# Let Qt process events (essential before captures)
-process_events_for(500)  # milliseconds
-
-# Clear output directory at start of test
-clear_output_dir()
+clear_output_dir()                        # Remove old screenshots
+process_events_for(500)                   # Let Qt render (ms)
+capture_widget(widget, "01_initial.png")  # Save screenshot
 ```
 
-## Writing New Scripts
+## Writing Visualization Scripts
 
 ### Naming Convention
 
@@ -70,6 +127,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).parent))
 
 from PySide6.QtWidgets import QApplication
 from utils import capture_widget, clear_output_dir, process_events_for
@@ -78,103 +136,151 @@ def main():
     clear_output_dir()
     app = QApplication(sys.argv)
 
-    # Create your widget
+    # Create widget with controlled context
     widget = YourWidget()
     widget.show()
-    process_events_for(500)
 
-    # Capture initial state
-    capture_widget(widget, "01_initial.png")
+    # Capture at multiple sizes
+    for width, height, label in [(900, 600, "sm"), (1200, 800, "md"), (1600, 1000, "lg")]:
+        widget.window().resize(width, height)
+        process_events_for(400)
+        capture_widget(widget.window(), f"01_{label}.png")
 
-    # Interact with widget
-    widget.some_button.click()
-    process_events_for(300)
-    capture_widget(widget, "02_after_click.png")
-
-    # Print verification checklist
-    print("Verification checklist:")
-    print("  [ ] 01: Widget renders correctly")
-    print("  [ ] 02: Button click had expected effect")
+    print("Screenshots: scripts/widget_visualization/output/")
 
 if __name__ == "__main__":
     main()
 ```
 
-### Async Loading Pattern
+## Iteration Checklist
 
-For widgets that load data asynchronously (like MainWindow loading a workspace):
+When doing cosmetic polish work:
 
-```python
-class WorkflowTest:
-    def __init__(self, window):
-        self.window = window
+1. **Structural changes first** — Layout, component hierarchy
+2. **Then visual refinement** — Icons, typography, spacing
+3. **Then polish** — Hover states, subtle animations, shadows
 
-    def run(self):
-        # launch_workspace returns TaskHandle for connecting callbacks
-        handle = self.window.launch_workspace(path)
-        handle.completed.connect(self.on_loaded)
+At each stage:
+- [ ] Capture screenshots at 3 sizes
+- [ ] UX agent reviews for elegance (not just function)
+- [ ] Address highest-impact issues first
+- [ ] Re-capture and verify
 
-    def on_loaded(self):
-        # Now safe to interact
-        QTimer.singleShot(500, self.capture_state)
+## Design Quick Reference
+
+### Spacing Scale
+```
+4px   - Tight (within related items)
+8px   - Standard (between items)
+16px  - Comfortable (between groups)
+24px  - Generous (between sections)
+32px  - Dramatic (major divisions)
 ```
 
+### Typography Hierarchy
+```
+Section headers  - Semibold, larger
+Primary text     - Regular weight
+Secondary text   - Regular weight, lighter color (#888)
+Helper text      - Smaller, lighter color, optional italic
+```
 
-## Example Scripts
+### Status Colors
+```
+Complete     - #4CAF50 (green)
+Incomplete   - #FFA000 (amber)
+Available    - #2196F3 (blue)
+Not started  - #666666 (gray)
+```
 
-| Script | Tests | Complexity |
-|--------|-------|------------|
-| `wv_charuco_widget.py` | Spinbox/checkbox interactions | Simple - direct widget |
-| `wv_capture_volume.py` | 3D OpenGL rendering | Medium - data loading |
-| `wv_playback_pyvista.py` | PyVista 3D playback, embedding, SVG icons | Medium - data loading |
-| `wv_full_workflow.py` | Full app navigation | Complex - async loading |
+### Button Styles
+```
+Primary action   - Filled background
+Secondary action - Ghost (outline only)
+Tertiary action  - Text only
+```
+
+### Form Layout Standards
+```
+Row-to-row spacing     - 12px  (breathing room without waste)
+Section spacing        - 24px  (clear visual grouping)
+Group box padding      - 16px  (consistent container feel)
+Label-to-input gap     - 8px   (horizontal, within a row)
+```
+
+### List Widget Standards
+```
+Row height             - 36-40px (touch-friendly, scannable)
+Left padding           - 8-12px  (text inset from edge)
+Selection highlight    - #3a5f8a (strong, not default system)
+```
+
+### Preview/Media Scaling
+
+**Principle:** Fill available space within bounds — never fixed size.
+
+```
+min_dimension: 150px   (ensures readability at small windows)
+max_dimension: 450px   (prevents comical enlargement)
+               — OR 50% of container width, whichever smaller
+aspect_ratio:  Always preserved
+dead_space:    Fill with subtle background (#1e1e1e), not black void (#000)
+```
+
+Implementation pattern:
+```python
+# BAD: Fixed size that doesn't adapt
+max_dimension = 350  # Same at all window sizes
+
+# GOOD: Responsive within bounds
+available = min(container.width() * 0.5, container.height() - 40)
+target = max(150, min(available, 450))
+```
+
+### Accessibility: Status Indicators
+
+**Rule:** Never use color alone to convey status.
+
+```
+✓ Icon + color         (checkmark + green, X + red)
+✓ Icon + text          ("Complete", "Failed")
+✗ Color-only text      (green text vs red text — colorblind users miss this)
+```
+
+Recommended pattern for lists:
+```
+[●] Port 0 — 0.42px    (green dot + RMSE for calibrated)
+[○] Port 1             (gray circle for uncalibrated)
+```
+
+### Visual Separation
+
+Create zones with subtle cues, not heavy borders:
+
+```
+Background tint        - #1e1e1e vs #1a1a1a (barely perceptible)
+Separator line         - 1px solid #333 (subtle, not harsh)
+Shadow                 - Avoid — too "web 2.0"
+Heavy borders          - Avoid — creates visual noise
+```
 
 ## Tips
 
-- **OpenGL widgets** need longer delays (1000-1500ms) for initialization
+- **OpenGL widgets** need 1000-1500ms delays for initialization
 - **Print progress** so you can see where scripts fail
-- **Print verification checklist** at the end for quick reference
 - **Clear output dir** at start to avoid stale screenshots
-- **Use process_events_for()** before every capture — Qt needs time to render
+- **Use process_events_for()** before every capture
+- **Scripts are disposable** — don't precious them
 
-## PyVista/VTK Widget Testing
+## PyVista/VTK Notes
 
-PyVista widgets have unique challenges due to VTK's OpenGL requirements.
+Software rendering may produce black 3D views (VTK limitation). Qt controls still render correctly.
 
-
-### Black 3D Views in Software Mode
-
-Even when scripts don't crash, **software rendering may produce black 3D views**. This is a VTK limitation, not a bug in your widget. The Qt controls layer still renders correctly.
-
-**What you CAN verify in software mode:**
-- Widget embeds in layouts (no nested window behavior)
-- Controls render and respond to clicks
+**Can verify in software mode:**
+- Widget embeds properly
+- Controls render and respond
 - Icon loading works
-- Slider/button state changes
 
-**What you CANNOT reliably verify:**
-- 3D scene content (cameras, points, meshes)
-- PyVista rendering quality
-
-### Embedding Test Pattern
-
-To verify a `QMainWindow` → `QWidget` refactor worked, embed the widget below a colored header:
-
-```python
-container = QMainWindow()
-central = QWidget()
-layout = QVBoxLayout(central)
-
-# Colored header proves embedding works
-header = QLabel("This label is ABOVE the embedded widget")
-header.setStyleSheet("background-color: #2196F3; color: white; padding: 10px;")
-layout.addWidget(header)
-
-# Your refactored widget
-widget = YourPyVistaWidget(view_model)
-layout.addWidget(widget, stretch=1)
-
-container.setCentralWidget(central)
-```
-
-If the header appears **above** the 3D view (not in a separate window), the refactor succeeded.
+**Cannot verify reliably:**
+- 3D scene content
+- Rendering quality

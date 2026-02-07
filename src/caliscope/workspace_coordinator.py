@@ -10,6 +10,7 @@ from PySide6.QtCore import QObject, QFileSystemWatcher, Signal
 from caliscope.task_manager import TaskHandle, TaskManager
 
 from caliscope.core.charuco import Charuco
+from caliscope.core.chessboard import Chessboard
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.calibrate_intrinsics import IntrinsicCalibrationOutput, IntrinsicCalibrationReport
 from caliscope.repositories import (
@@ -17,6 +18,7 @@ from caliscope.repositories import (
     CharucoRepository,
     ProjectSettingsRepository,
 )
+from caliscope.repositories.chessboard_repository import ChessboardRepository
 from caliscope.repositories.point_data_bundle_repository import PointDataBundleRepository
 from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.core.workflow_status import WorkflowStatus
@@ -26,6 +28,7 @@ from caliscope.reconstruction.reconstructor import Reconstructor
 from caliscope.recording import read_video_properties
 from caliscope.core.point_data import ImagePoints
 from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.trackers.chessboard_tracker import ChessboardTracker
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide
 from caliscope.gui.presenters.extrinsic_calibration_presenter import (
@@ -63,6 +66,7 @@ class WorkspaceCoordinator(QObject):
 
     new_camera_data = Signal(int, OrderedDict)  # port, camera_display_dictionary
     charuco_changed = Signal()  # Emitted when charuco board config is updated
+    chessboard_changed = Signal()  # Emitted when chessboard config is updated
     bundle_updated = Signal()  # Immediate: in-memory state changed, use for UI refresh
     status_changed = Signal()  # Deferred: fires after filesystem operations complete
 
@@ -74,6 +78,7 @@ class WorkspaceCoordinator(QObject):
         self.settings_repository = ProjectSettingsRepository(workspace_dir / "project_settings.toml")
         self.camera_repository = CameraArrayRepository(workspace_dir / "camera_array.toml")
         self.charuco_repository = CharucoRepository(workspace_dir / "charuco.toml")
+        self.chessboard_repository = ChessboardRepository(workspace_dir / "calibration" / "chessboard.toml")
         self.intrinsic_report_repository = IntrinsicReportRepository(
             workspace_dir / "calibration" / "intrinsic" / "reports"
         )
@@ -105,6 +110,9 @@ class WorkspaceCoordinator(QObject):
 
         # Centralized task management for background operations
         self.task_manager = TaskManager(parent=self)
+
+        # Created during process_recordings; lives for the duration of that task
+        self.reconstructor: Reconstructor | None = None
 
         # In-memory cache of intrinsic calibration data (by port)
         # These enable overlay restoration when switching between cameras
@@ -335,6 +343,34 @@ class WorkspaceCoordinator(QObject):
             CharucoTracker configured with the current charuco board.
         """
         return CharucoTracker(self.charuco)
+
+    def update_chessboard(self, chessboard: Chessboard) -> None:
+        """
+        Update chessboard pattern definition and persist to disk.
+
+        Unlike charuco, we do NOT cache self.chessboard. Presenters load
+        from repository when they need it (Repository-SSOT pattern).
+
+        Emits chessboard_changed signal so dependent components can refresh.
+        """
+        self.chessboard_repository.save(chessboard)
+        self.chessboard_changed.emit()
+
+    def create_intrinsic_tracker(self) -> ChessboardTracker | CharucoTracker:
+        """Create tracker for intrinsic calibration.
+
+        Factory method that selects tracker based on which calibration
+        pattern is configured. Checks chessboard first (preferred),
+        falls back to charuco for backward compatibility.
+
+        Returns:
+            ChessboardTracker if chessboard.toml exists, else CharucoTracker.
+        """
+        if self.chessboard_repository.exists():
+            chessboard = self.chessboard_repository.load()
+            return ChessboardTracker(chessboard)
+        else:
+            return CharucoTracker(self.charuco)
 
     def get_charuco_params(self) -> dict:
         return self.charuco.__dict__

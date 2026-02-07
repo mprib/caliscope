@@ -10,6 +10,7 @@ import rtoml
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.point_data import ImagePointSchema, ImagePoints, WorldPoints, WorldPointSchema
 from caliscope.core.charuco import Charuco
+from caliscope.core.chessboard import Chessboard
 from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
 from caliscope.core.bootstrap_pose.stereopairs import StereoPair
 
@@ -248,6 +249,50 @@ def save_charuco(charuco: Charuco, path: Path) -> None:
         _write_toml(charuco.__dict__, path)
     except Exception as e:
         raise PersistenceError(f"Failed to save Charuco to {path}: {e}") from e
+
+
+def load_chessboard(path: Path) -> Chessboard:
+    """
+    Load Chessboard pattern definition from TOML file.
+
+    Args:
+        path: Path to chessboard.toml
+
+    Returns:
+        Chessboard instance with pattern parameters
+
+    Raises:
+        PersistenceError: If file doesn't exist or contains invalid parameters
+    """
+    if not path.exists():
+        raise PersistenceError(f"Chessboard file not found: {path}")
+
+    try:
+        data = rtoml.load(path)
+        return Chessboard(**data)
+    except Exception as e:
+        raise PersistenceError(f"Failed to load Chessboard from {path}: {e}") from e
+
+
+def save_chessboard(chessboard: Chessboard, path: Path) -> None:
+    """
+    Save Chessboard pattern definition to TOML file.
+
+    Args:
+        chessboard: Chessboard to serialize
+        path: Target file path
+
+    Raises:
+        PersistenceError: If serialization or write fails
+    """
+    from dataclasses import asdict
+
+    try:
+        # Ensure parent directory exists
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _write_toml(asdict(chessboard), path)
+    except Exception as e:
+        raise PersistenceError(f"Failed to save Chessboard to {path}: {e}") from e
 
 
 def load_stereo_pairs(path: Path) -> PairedPoseNetwork:

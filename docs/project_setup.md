@@ -45,10 +45,10 @@ Place sychronized video files in the `extrinsic` folder. Synchronization can be 
 
 1. Record all video footage with a common external trigger such that each frame is at the same point in time as the corresponding frames from the other files. In other words: all mp4 files should start and stop at the same moment in time and have the same number of frames.
 
-2. Provide a file called `frame_timestamps.csv` within the folder of recorded video. This must provide the time at which each frame was read so that caliscope can synchronize the footage during processing. A companion project, [MultiWebCam](https://github.com/mprib/multiwebcam), creates this file automatically while it manages concurrent recording from multiple webcams and was the source of the [Sample Project](https://mprib.github.io/caliscope/sample_project) data found in the [docs](https://mprib.github.io/caliscope/)
+2. Provide a file called `timestamps.csv` within the folder of recorded video. This must provide the time at which each frame was read so that caliscope can synchronize the footage during processing. A companion project, [MultiWebCam](https://github.com/mprib/multiwebcam), creates this file automatically while it manages concurrent recording from multiple webcams and was the source of the [Sample Project](https://mprib.github.io/caliscope/sample_project) data found in the [docs](https://mprib.github.io/caliscope/)
 
 
-### `frame_timestamps.csv`
+### `timestamps.csv`
 
 This file will have a structure like this:
 
@@ -85,10 +85,10 @@ ProjectDirectory/
 │   │   ├── port_2.mp4
 │   │   └── port_3.mp4
 │   └── extrinsic/
-│       ├── frame_timestamps.csv  # Time reference for frame synchronization (optional)
-│       ├── port_1.mp4              # Must be synchronized or use frame_timestamps.csv
-│       ├── port_2.mp4              # Must be synchronized or use frame_timestamps.csv
-│       └── port_3.mp4              # Must be synchronized or use frame_timestamps.csv
+│       ├── timestamps.csv  # Time reference for frame synchronization (optional)
+│       ├── port_1.mp4              # Must be synchronized or use timestamps.csv
+│       ├── port_2.mp4              # Must be synchronized or use timestamps.csv
+│       └── port_3.mp4              # Must be synchronized or use timestamps.csv
 └── recordings/
 ```
 
@@ -107,18 +107,18 @@ ProjectDirectory/
 │   │   ├── port_2.mp4
 │   │   └── port_3.mp4
 │   └── extrinsic/
-│       ├── frame_timestamps.csv
+│       ├── timestamps.csv
 │       ├── port_1.mp4
 │       ├── port_2.mp4
 │       └── port_3.mp4
 └── recordings/
     └── recording_1/                              # can be named anything; contents follow formatting of extrinsic calibration folder
-        ├── frame_timestamps.csv                # optional file; not needed if all video synchronized frame-for-frame
+        ├── timestamps.csv                # optional file; not needed if all video synchronized frame-for-frame
         ├── port_1.mp4
         ├── port_2.mp4
         ├── port_3.mp4
         └── HOLISTIC/                             # Output subfolder created when running Holistic Mediapipe Tracker
-            ├── frame_timestamps.csv            # Matches file in parent folder
+            ├── timestamps.csv            # Matches file in parent folder
             ├── port_0_HOLISTIC.mp4               # Copy of file in parent folder with visualized landmarks
             ├── port_1_HOLISTIC.mp4               # Copy of file in parent folder with visualized landmarks
             ├── port_2_HOLISTIC.mp4               # Copy of file in parent folder with visualized landmarks

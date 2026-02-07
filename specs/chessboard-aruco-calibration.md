@@ -4,10 +4,10 @@
 
 Replace the Charuco-dependent calibration workflow with simpler, more accessible patterns:
 
-- **Chessboard**: Primary calibration object. Used for intrinsic calibration (configured on Cameras tab). May also work for extrinsic calibration if rotational ambiguity can be resolved via non-square board dimensions + consistent camera "up" orientation — this is investigated in Milestone 1's research spike.
+- **Chessboard**: Used for intrinsic calibration only. The Milestone 1 research spike confirmed OpenCV does not disambiguate chessboard rotation, so extrinsic uses ArUco exclusively.
 - **ArUco marker**: Single marker moved through scene for extrinsic calibration (configured on Multi-Camera tab). Serves as the reliable extrinsic path regardless of spike outcome.
 
-The chessboard-for-everything workflow is the ideal: users print one pattern and use it for the entire calibration pipeline. The ArUco path provides a fallback and may be preferable in setups where cameras have inconsistent orientations.
+Users print one sheet (chessboard on one side, ArUco marker on the other) for the entire calibration pipeline.
 
 Charuco deprecated from the GUI (keep code, remove from UI).
 
@@ -66,6 +66,33 @@ Each milestone = one feature branch = one conversation (~100k orchestrator token
 - Session plans reference milestone specs for grounding — don't duplicate their content
 - When starting a new milestone, create its spec as the first step before any implementation
 
+### Delegation Model
+
+Orchestrator (Opus) stays clean — delegates everything, absorbs only summaries.
+
+| Agent | Model | Role |
+|-------|-------|------|
+| **Explore** | sonnet | Codebase search, pattern gathering, "where is X?" |
+| **architect** | inherited (4.6) | Design specs, pattern decisions, trade-off analysis |
+| **coder** | sonnet | Implementation from approved spec |
+| **senior-dev** | inherited (4.6) | Post-implementation code review |
+| **classic-cv-engineer** | inherited (4.6) | Mathematical correctness for calibration algorithms |
+| **pyside6-ui-ux** | sonnet | Widget implementation, visual testing |
+
+**Per-milestone workflow:**
+1. **Explore** (sonnet) → gather existing patterns, analogs, integration points
+2. **architect** (opus) → draft milestone spec with file-level detail
+3. User reviews → approve or iterate
+4. **coder** (sonnet) → implement from spec (parallel agents for independent files)
+5. **senior-dev** (opus) → review implementation
+6. Fix issues → commit → merge feature → epic
+
+**Rules:**
+- Orchestrator never implements — it synthesizes and delegates
+- Milestone spec is the contract between architect and coder
+- Coder gets spec + relevant file excerpts, not "go figure it out"
+- Failed delegations get fixed, never absorbed into orchestrator
+
 ---
 
 ## Architectural Decisions
@@ -113,37 +140,42 @@ This means the calibration object config differs by context:
 **Deliverables**:
 
 Naming cleanup:
-- [ ] Rename `frametimes.csv` → `timestamps.csv` convention throughout codebase
-- [ ] Update all code references (recording, synchronization, workspace guide)
+- [x] Rename `frametimes.csv` → `timestamps.csv` convention throughout codebase
+- [x] Update all code references (recording, synchronization, workspace guide)
 
 Domain layer:
-- [ ] `Chessboard(rows, columns, square_size_cm)` frozen dataclass
-- [ ] `get_object_points()` → (N, 3) array of corner positions in board frame
-- [ ] TOML persistence round-trip (save/load)
-- [ ] `ChessboardRepository` following `CharucoRepository` pattern
-- [ ] Unit tests for dataclass, object points, and persistence
+- [x] `Chessboard(rows, columns, square_size_cm)` frozen dataclass
+- [x] `get_object_points()` → (N, 3) array of corner positions in board frame
+- [x] TOML persistence round-trip (save/load)
+- [x] `ChessboardRepository` following `CharucoRepository` pattern (Repository-SSOT pattern)
+- [x] Unit tests for dataclass, object points, and persistence (10 tests passing)
+
+Coordinator integration (Repository-SSOT pattern — new for this EPIC):
+- [x] `WorkspaceGuide`: `calibration_dir` and `chessboard_toml` path definitions
+- [x] `WorkspaceCoordinator`: `ChessboardRepository`, `chessboard_changed` signal, `update_chessboard()`, `create_intrinsic_tracker()` factory
+- [x] Coordinator does NOT cache `self.chessboard` — presenters load from repository
 
 Tracker:
-- [ ] `ChessboardTracker(chessboard)` implementing `Tracker` ABC
-- [ ] Uses `cv2.findChessboardCorners()` + `cv2.cornerSubPix()`
-- [ ] Returns `PointPacket` with `point_id` (0 to N-1 row-major) and `obj_loc` populated
-- [ ] Implement all required ABC methods (`get_point_name`, `scatter_draw_instructions`)
-- [ ] Visual verification script: run tracker on test video frames, overlay detected corners
-- [ ] Unit tests
+- [x] `ChessboardTracker(chessboard)` implementing `Tracker` ABC
+- [x] Uses `cv2.findChessboardCorners()` + `cv2.cornerSubPix()`
+- [x] Returns `PointPacket` with `point_id` (0 to N-1 row-major) and `obj_loc` populated
+- [x] Implement all required ABC methods (`get_point_name`, `scatter_draw_instructions`)
+- [x] Visual verification: `__main__` debug harness in test_chessboard.py overlays detected corners with IDs
+- [x] Unit tests (type check clean, all passing)
 
 Test data extraction (from `~/OneDrive/mocap/chessboard_aruco/calibration/`):
-- [ ] Extract a handful of representative frames as PNGs from intrinsic and extrinsic videos
-- [ ] Include: board-detected frames (various positions/angles), no-board frames, synchronized multi-camera frames
-- [ ] Store in `tests/sessions/` — small footprint, visually verifiable, real data
+- [x] Extract representative frames as PNGs from intrinsic videos
+- [x] Include: board-detected frames (various positions/angles), no-board frame, synchronized 4-camera frames
+- [x] Store in `tests/sessions/chessboard_intrinsic/` — 8 PNGs (~7MB total)
 
 Research spike — chessboard extrinsic disambiguation:
-- [ ] **Positive test**: Detect corners on unmodified frames → verify consistent ordering
-- [ ] **Break it**: Rotate same frame 180° → detect → verify ordering changes (proves non-square board breaks rotational symmetry)
-- [ ] **Cross-camera**: Same timestamp, different cameras → verify all agree on corner ordering
-- [ ] All test cameras recorded in landscape (consistent "up"), so no rotation correction should be needed
-- [ ] Document findings and decision: can chessboard work for extrinsic calibration?
+- [x] **Detection**: All 54 corners found consistently on test frames
+- [x] **No-board**: Empty PointPacket returned when board not visible
+- [x] **Cross-camera**: 4 cameras at same timestamp → consistent point_id ordering (relies on user-configured rotation_count)
+- [x] **Finding**: OpenCV does NOT disambiguate 180° rotation even with asymmetric 9×6 board. Neither `findChessboardCorners` nor `findChessboardCornersSB` re-orders corners.
+- [x] **Decision**: Chessboard for intrinsic only. ArUco for extrinsic (inherently unambiguous).
 
-**Status**: Not started
+**Status**: **Complete** — all deliverables done, 13 tests passing, 0 type errors
 
 ---
 
@@ -156,11 +188,7 @@ Research spike — chessboard extrinsic disambiguation:
 - `src/caliscope/gui/widgets/chessboard_config_panel.py` — shape-only config (rows, columns, NO physical size)
 
 **Modify**:
-- `src/caliscope/workspace_coordinator.py`
-  - Add `chessboard` attribute and `ChessboardRepository`
-  - Add `update_chessboard()` method
-  - Add `create_intrinsic_tracker()` factory
-  - Emit signal on chessboard change
+- `src/caliscope/workspace_coordinator.py` (coordinator integration completed in Milestone 1 via Repository-SSOT pattern)
 - Cameras tab view
   - Replace CharucoConfigPanel with CalibrationObjectSelector (intrinsic mode)
   - Visual preview of configured chessboard pattern
@@ -227,7 +255,7 @@ Tracker enhancement:
 - `src/caliscope/gui/widgets/calibration_object_selector.py`
   - Extrinsic mode: pattern shape + physical size field (gauge setting)
   - ArUco slot: dictionary dropdown, marker ID, marker size
-  - Chessboard slot: rows, columns, square size (if spike succeeded)
+  - Chessboard slot: not applicable — chessboard is intrinsic-only
 - `src/caliscope/gui/widgets/aruco_marker_config_panel.py` (new)
   - Dictionary dropdown, marker ID spinbox, marker size spinbox
   - "Save marker PNG" button

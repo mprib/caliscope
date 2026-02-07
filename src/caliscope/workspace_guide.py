@@ -19,9 +19,11 @@ class WorkspaceGuide:
             workspace_dir: Root workspace directory path
         """
         self.workspace_dir = workspace_dir
+        self.calibration_dir = Path(workspace_dir, "calibration")
         self.intrinsic_dir = Path(workspace_dir, "calibration", "intrinsic")
         self.extrinsic_dir = Path(workspace_dir, "calibration", "extrinsic")
         self.recording_dir = Path(workspace_dir, "recordings")
+        self.chessboard_toml = self.calibration_dir / "chessboard.toml"
 
     def get_ports_in_dir(self, directory: Path) -> list[int]:
         """

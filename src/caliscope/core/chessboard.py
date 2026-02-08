@@ -37,3 +37,19 @@ class Chessboard:
         object_points = np.zeros((self.rows * self.columns, 3), dtype=np.float32)
         object_points[:, :2] = np.mgrid[0 : self.columns, 0 : self.rows].T.reshape(-1, 2)
         return object_points
+
+    def get_connected_points(self) -> set[tuple[int, int]]:
+        """Point ID pairs that form the grid pattern (adjacent corners only).
+
+        For a rows x columns grid with row-major point IDs, each corner
+        connects to its right neighbor and bottom neighbor.
+        """
+        edges: set[tuple[int, int]] = set()
+        for r in range(self.rows):
+            for c in range(self.columns):
+                point_id = r * self.columns + c
+                if c < self.columns - 1:
+                    edges.add((point_id, point_id + 1))
+                if r < self.rows - 1:
+                    edges.add((point_id, point_id + self.columns))
+        return edges

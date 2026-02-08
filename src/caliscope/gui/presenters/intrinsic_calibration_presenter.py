@@ -26,6 +26,7 @@ from caliscope.core.frame_selector import IntrinsicCoverageReport, select_calibr
 from caliscope.core.point_data import ImagePoints
 from caliscope.packets import FramePacket, PointPacket
 from caliscope.recording import create_streamer
+from caliscope.recording.frame_source import FrameSource
 from caliscope.task_manager.cancellation import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
@@ -43,7 +44,7 @@ class IntrinsicCalibrationState(Enum):
     """
 
     READY = auto()  # Initial state, can start collection
-    COLLECTING = auto()  # Video playing, accumulating points
+    COLLECTING = auto()  # Batch loop running, accumulating points
     CALIBRATING = auto()  # calibrate_intrinsics() running via TaskManager
     CALIBRATED = auto()  # Result available, can toggle undistortion
 
@@ -55,8 +56,11 @@ class IntrinsicCalibrationPresenter(QObject):
     submission of calibration to TaskManager. Exposes a display_queue for
     the View's processing thread to consume directly (avoids GUI thread hop).
 
-    A single FramePacketStreamer lives across all states, enabling scrubbing
-    in READY/CALIBRATED states and collection during COLLECTING state.
+    Collection uses a batch-seek pattern: a background thread seeks directly to
+    every Nth frame via FrameSource.get_frame(), tracks it, and emits for display.
+    This skips expensive tracking on frames that won't be used.
+
+    A FramePacketStreamer handles interactive scrubbing in READY/CALIBRATED states.
 
     Signals:
         state_changed: Emitted when computed state changes. View updates UI.
@@ -97,6 +101,7 @@ class IntrinsicCalibrationPresenter(QObject):
             parent: Optional Qt parent
             restored_report: Optional report from previous calibration for overlay restoration
             restored_points: Optional collected points from previous calibration (session-only)
+            frame_skip: Process every Nth frame during collection
         """
         super().__init__(parent)
 
@@ -129,8 +134,10 @@ class IntrinsicCalibrationPresenter(QObject):
 
         # Collection state
         self._is_collecting = False
+        self._stop_collection = Event()
+        self._collection_thread: Thread | None = None
 
-        # Single streamer for all states (scrubbing + collection)
+        # Single streamer for scrubbing (READY/CALIBRATED states)
         self._streamer = create_streamer(
             video_directory=self._video_path.parent,
             port=self._camera.port,
@@ -154,7 +161,7 @@ class IntrinsicCalibrationPresenter(QObject):
         # Guaranteed initial frame display (don't rely on thread timing)
         self._load_initial_frame()
 
-        # Consumer thread runs continuously
+        # Consumer thread for streamer frames (scrubbing display only)
         self._stop_event = Event()
         self._consumer_thread = Thread(target=self._consume_frames, daemon=True)
         self._consumer_thread.start()
@@ -262,10 +269,15 @@ class IntrinsicCalibrationPresenter(QObject):
         else:
             logger.warning(f"Failed to load frame {target_index} from {self._video_path}")
 
-    def start_calibration(self) -> None:
-        """Start collecting calibration frames.
+    # -------------------------------------------------------------------------
+    # Collection: batch-seek pattern
+    # -------------------------------------------------------------------------
 
-        Resets to beginning and unpauses the streamer.
+    def start_calibration(self) -> None:
+        """Start collecting calibration frames via batch-seek loop.
+
+        Pauses the streamer (keeps it alive for later scrubbing) and spawns
+        a collection thread that seeks directly to every Nth frame.
         """
         if self.state not in (IntrinsicCalibrationState.READY, IntrinsicCalibrationState.CALIBRATED):
             logger.warning(f"Cannot start calibration in state {self.state}")
@@ -280,18 +292,22 @@ class IntrinsicCalibrationPresenter(QObject):
         self._output = None
         self._calibration_task = None
 
+        # Pause streamer — collection uses its own FrameSource
+        self._streamer.pause()
+
         # Now set collecting and emit state change
         self._is_collecting = True
+        self._stop_collection.clear()
         self._emit_state_changed()
 
-        # Reset to beginning and start playback
-        self._streamer.seek_to(0, precise=True)
-        self._streamer.unpause()
+        # Spawn batch collection thread
+        self._collection_thread = Thread(target=self._run_collection, daemon=True)
+        self._collection_thread.start()
 
     def stop_calibration(self) -> None:
         """Stop collection and return to READY state.
 
-        Pauses playback and clears accumulated data.
+        Signals the collection thread to stop and clears accumulated data.
         """
         if self.state != IntrinsicCalibrationState.COLLECTING:
             logger.warning(f"Cannot stop calibration in state {self.state}")
@@ -299,16 +315,76 @@ class IntrinsicCalibrationPresenter(QObject):
 
         logger.info(f"Stopping calibration collection for port {self._port}")
 
-        self._streamer.pause()
+        self._stop_collection.set()
+        if self._collection_thread is not None:
+            self._collection_thread.join(timeout=5.0)
+            self._collection_thread = None
+
         self._collected_points.clear()
         self._is_collecting = False
         self._emit_state_changed()
 
-    def _consume_frames(self) -> None:
-        """Pull frames from queue, accumulate points when collecting, emit for display.
+    def _run_collection(self) -> None:
+        """Batch collection loop — seeks directly to every Nth frame.
 
-        Runs continuously across all states. Exits when stop_event is set or
-        streamer is cancelled externally.
+        Creates a temporary FrameSource, iterates through subsampled frame
+        indices, tracks each frame, accumulates points, and emits for display.
+        Matches the pattern in process_synchronized_recording().
+        """
+        frame_source = FrameSource(self._video_path.parent, self._port)
+        last_index = self._streamer.last_frame_index
+        frame_skip = max(1, self._frame_skip)
+
+        indices = list(range(0, last_index + 1, frame_skip))
+        total = len(indices)
+
+        logger.info(f"Collection batch: {total} frames (skip={frame_skip}, total available={last_index + 1})")
+
+        try:
+            for i, frame_idx in enumerate(indices):
+                if self._stop_collection.is_set():
+                    logger.info(f"Collection cancelled at frame {frame_idx}")
+                    break
+
+                frame = frame_source.get_frame(frame_idx)
+                if frame is None:
+                    continue
+
+                # Track the frame
+                points = self._tracker.get_points(frame, self._port, self._camera.rotation_count)
+
+                # Accumulate if board detected
+                if points is not None and len(points.point_id) > 0:
+                    self._collected_points.append((frame_idx, points))
+
+                # Emit for display (subsampled frames only — preferred)
+                packet = FramePacket(
+                    port=self._port,
+                    frame_index=frame_idx,
+                    frame_time=0.0,
+                    frame=frame,
+                    points=points,
+                )
+                self._display_queue.put(packet)
+                self._current_frame_index = frame_idx
+                self.frame_position_changed.emit(frame_idx)
+
+        finally:
+            frame_source.close()
+
+        # If not cancelled, proceed to calibration
+        if not self._stop_collection.is_set():
+            self._on_collection_complete()
+
+    # -------------------------------------------------------------------------
+    # Scrubbing consumer (READY/CALIBRATED states only)
+    # -------------------------------------------------------------------------
+
+    def _consume_frames(self) -> None:
+        """Pull frames from streamer queue and emit for display.
+
+        Handles scrubbing in READY/CALIBRATED states. During COLLECTING state,
+        the batch loop writes directly to the display queue instead.
         """
         logger.debug(f"Consumer thread started for port {self._port}")
 
@@ -326,25 +402,19 @@ class IntrinsicCalibrationPresenter(QObject):
             if packet.frame_index == -1:
                 continue
 
-            # Accumulate points only during collection
-            if self._is_collecting and packet.points is not None and len(packet.points.point_id) > 0:
-                if self._frame_skip <= 1 or packet.frame_index % self._frame_skip == 0:
-                    self._collected_points.append((packet.frame_index, packet.points))
-
-            # Always emit for display
+            # Emit for display (scrubbing only — collection uses its own path)
             self._display_queue.put(packet)
             self._current_frame_index = packet.frame_index
             self.frame_position_changed.emit(packet.frame_index)
 
-            # Detect end of video during collection
-            if self._is_collecting and packet.frame_index >= self._streamer.last_frame_index:
-                self._on_collection_complete()
-
         logger.debug(f"Consumer thread exiting for port {self._port}")
 
+    # -------------------------------------------------------------------------
+    # Post-collection: calibration pipeline
+    # -------------------------------------------------------------------------
+
     def _on_collection_complete(self) -> None:
-        """Called when video playback finishes. Submits calibration task."""
-        self._streamer.pause()
+        """Called when batch loop finishes. Submits calibration task."""
         self._is_collecting = False
 
         if len(self._collected_points) == 0:
@@ -487,14 +557,18 @@ class IntrinsicCalibrationPresenter(QObject):
     def set_frame_skip(self, skip: int) -> None:
         """Set frame skip interval for collection.
 
-        Called from GUI thread; read from consumer thread. CPython GIL
-        makes simple int assignment atomic — benign race at worst means
-        one frame uses the old value.
+        Takes effect on the next collection run. Changing during collection
+        has no effect (batch loop captures frame_skip at start).
         """
         self._frame_skip = max(1, skip)
 
     def cleanup(self) -> None:
         """Clean up resources. Call before discarding presenter."""
+        # Stop collection if running
+        self._stop_collection.set()
+        if self._collection_thread is not None:
+            self._collection_thread.join(timeout=2.0)
+
         # Stop consumer thread
         self._stop_event.set()
         if self._consumer_thread is not None:

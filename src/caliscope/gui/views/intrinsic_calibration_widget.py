@@ -22,7 +22,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QSlider,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -40,7 +39,6 @@ from caliscope.gui.presenters.intrinsic_calibration_presenter import (
     IntrinsicCalibrationState,
 )
 from caliscope.gui.theme import Styles
-from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 from caliscope.packets import FramePacket, PointPacket
 
 logger = logging.getLogger(__name__)
@@ -641,18 +639,6 @@ class IntrinsicCalibrationWidget(QWidget):
         self._undistort_checkbox.toggled.connect(self._on_undistort_toggled)
         controls.addWidget(self._undistort_checkbox)
 
-        self._frame_skip_label = QLabel("Process every")
-        controls.addWidget(self._frame_skip_label)
-
-        self._frame_skip_spin = QSpinBox()
-        self._frame_skip_spin.setValue(self._presenter.frame_skip)
-        self._frame_skip_spin.setSuffix(" frames")
-        self._frame_skip_spin.setToolTip(
-            "Collect every Nth frame during calibration.\nHigher values speed up calibration but use fewer frames."
-        )
-        setup_spinbox_sizing(self._frame_skip_spin, min_value=1, max_value=30)
-        controls.addWidget(self._frame_skip_spin)
-
         controls.addStretch()  # Balance - push controls to center
 
         video_layout.addLayout(controls)
@@ -693,8 +679,6 @@ class IntrinsicCalibrationWidget(QWidget):
         # Position tracking from presenter
         self._presenter.frame_position_changed.connect(self._on_position_changed)
 
-        self._frame_skip_spin.valueChanged.connect(self._presenter.set_frame_skip)
-
     def _on_pixmap_ready(self, pixmap: QPixmap) -> None:
         """Update frame display."""
         self._frame_label.setPixmap(pixmap)
@@ -729,25 +713,21 @@ class IntrinsicCalibrationWidget(QWidget):
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(False)
             self._position_slider.setEnabled(True)
-            self._frame_skip_spin.setEnabled(True)
         elif state == IntrinsicCalibrationState.COLLECTING:
             self._calibrate_btn.setText("Stop")
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(False)
             self._position_slider.setEnabled(False)
-            self._frame_skip_spin.setEnabled(False)
         elif state == IntrinsicCalibrationState.CALIBRATING:
             self._calibrate_btn.setText("Calibrating...")
             self._calibrate_btn.setEnabled(False)
             self._undistort_checkbox.setEnabled(False)
             self._position_slider.setEnabled(False)
-            self._frame_skip_spin.setEnabled(False)
         elif state == IntrinsicCalibrationState.CALIBRATED:
             self._calibrate_btn.setText("Recalibrate")
             self._calibrate_btn.setEnabled(True)
             self._undistort_checkbox.setEnabled(True)
             self._position_slider.setEnabled(True)
-            self._frame_skip_spin.setEnabled(True)
 
     def _restore_calibrated_state(self) -> None:
         """Initialize display for restored calibration state (from session cache).

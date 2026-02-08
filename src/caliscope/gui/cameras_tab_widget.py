@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
+    QSpinBox,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -23,6 +24,7 @@ from PySide6.QtCore import Qt
 from caliscope.core.calibrate_intrinsics import IntrinsicCalibrationOutput
 from caliscope.gui.theme import Colors
 from caliscope.gui.utils.chessboard_preview import render_chessboard_pixmap
+from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 from caliscope.gui.camera_list_widget import CameraListWidget
 from caliscope.gui.views.intrinsic_calibration_widget import IntrinsicCalibrationWidget
 
@@ -103,6 +105,20 @@ class CamerasTabWidget(QWidget):
         self._pattern_info.setStyleSheet("color: #888; font-size: 11px;")
         left_layout.addWidget(self._pattern_info)
 
+        # Frame skip control (global for all cameras)
+        frame_skip_label = QLabel("Frames to skip:")
+        frame_skip_label.setStyleSheet("color: #aaa; font-size: 11px;")
+        left_layout.addWidget(frame_skip_label)
+
+        self._frame_skip_spin = QSpinBox()
+        self._frame_skip_spin.setValue(self.coordinator.intrinsic_frame_skip)
+        self._frame_skip_spin.setToolTip(
+            "Skip N frames between each sample during calibration.\n"
+            "Higher values speed up processing but use fewer frames."
+        )
+        setup_spinbox_sizing(self._frame_skip_spin, min_value=1, max_value=30)
+        left_layout.addWidget(self._frame_skip_spin)
+
         self._splitter.addWidget(left_container)
 
         # Right: Content area (placeholder initially)
@@ -127,6 +143,7 @@ class CamerasTabWidget(QWidget):
         """Connect internal signals."""
         self.camera_list.camera_selected.connect(self._on_camera_selected)
         self.coordinator.chessboard_changed.connect(self._on_chessboard_changed)
+        self._frame_skip_spin.valueChanged.connect(self._on_frame_skip_changed)
 
     def _on_chessboard_changed(self) -> None:
         """Update tracker in all pooled presenters when chessboard changes."""
@@ -135,6 +152,10 @@ class CamerasTabWidget(QWidget):
             presenter.update_tracker(new_tracker)
         logger.info(f"Updated tracker in {len(self._presenters)} pooled presenters")
         self._update_pattern_preview()
+
+    def _on_frame_skip_changed(self, value: int) -> None:
+        """Propagate frame skip change to coordinator and all active presenters."""
+        self.coordinator.set_intrinsic_frame_skip(value, self._presenters)
 
     def _on_camera_selected(self, port: int) -> None:
         """Handle camera selection - show existing or create new presenter/widget."""
@@ -207,7 +228,12 @@ class CamerasTabWidget(QWidget):
         chessboard = self.coordinator.chessboard_repository.load()
         pixmap = render_chessboard_pixmap(chessboard, 120)
         self._pattern_preview.setPixmap(pixmap)
-        self._pattern_info.setText(f"{chessboard.columns} x {chessboard.rows} corners")
+
+        # Display square count (what users see), not internal corner count
+        # A board with (columns x rows) internal corners has (columns+1 x rows+1) squares
+        squares_wide = chessboard.columns + 1
+        squares_tall = chessboard.rows + 1
+        self._pattern_info.setText(f"{squares_wide} x {squares_tall} squares")
 
     def cleanup(self) -> None:
         """Clean up all presenters and widgets.

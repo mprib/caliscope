@@ -1,7 +1,8 @@
 """Reusable chessboard pattern configuration widget.
 
 Used in intrinsic calibration workflow for configuring chessboard patterns.
-Simpler than charuco — only rows and columns (internal corners).
+UI presents rows and columns of squares (what the user sees). The domain
+object stores inner corner counts (squares - 1 in each dimension).
 """
 
 from __future__ import annotations
@@ -31,8 +32,8 @@ class ChessboardConfigPanel(QWidget):
     Use `get_chessboard()` to build a Chessboard instance from current values.
 
     Layout: Vertical stack with shape row and helper text
-    - Row 1: Board Shape: [columns] x [rows] corners
-    - Helper text: Dynamic square count explanation
+    - Row 1: Board Shape: [columns] x [rows] squares
+    - Helper text: Derived inner corner count
 
     This widget does NOT contain:
     - Board preview image (responsibility of the parent view)
@@ -53,8 +54,9 @@ class ChessboardConfigPanel(QWidget):
             parent: Optional parent widget
         """
         super().__init__(parent)
-        self._initial_rows = initial_chessboard.rows
-        self._initial_columns = initial_chessboard.columns
+        # UI shows square counts (what the user sees); domain stores inner corner counts
+        self._initial_square_rows = initial_chessboard.rows + 1
+        self._initial_square_columns = initial_chessboard.columns + 1
         self._setup_ui()
         self._connect_signals()
 
@@ -64,25 +66,25 @@ class ChessboardConfigPanel(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Row 1: Board Shape: [columns] x [rows] corners
+        # Row 1: Board Shape: [columns] x [rows] squares
         shape_row = QHBoxLayout()
         shape_row.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         shape_row.addWidget(QLabel("Board Shape:"))
 
         self._column_spin = QSpinBox()
-        self._column_spin.setValue(self._initial_columns)
-        setup_spinbox_sizing(self._column_spin, min_value=3, max_value=99, padding=10)
+        self._column_spin.setValue(self._initial_square_columns)
+        setup_spinbox_sizing(self._column_spin, min_value=4, max_value=100, padding=10)
         shape_row.addWidget(self._column_spin)
 
         shape_row.addWidget(QLabel("x"))
 
         self._row_spin = QSpinBox()
-        self._row_spin.setValue(self._initial_rows)
-        setup_spinbox_sizing(self._row_spin, min_value=3, max_value=99, padding=10)
+        self._row_spin.setValue(self._initial_square_rows)
+        setup_spinbox_sizing(self._row_spin, min_value=4, max_value=100, padding=10)
         shape_row.addWidget(self._row_spin)
 
-        shape_row.addWidget(QLabel("corners"))
+        shape_row.addWidget(QLabel("squares"))
 
         shape_row.addStretch()
         main_layout.addLayout(shape_row)
@@ -106,20 +108,19 @@ class ChessboardConfigPanel(QWidget):
         self.config_changed.emit()
 
     def _update_helper_text(self) -> None:
-        """Update helper text with current square counts."""
+        """Update helper text with derived inner corner count."""
         cols = self._column_spin.value()
         rows = self._row_spin.value()
-        square_cols = cols + 1
-        square_rows = rows + 1
-        self._helper_label.setText(f"(internal corners — your grid has {square_cols} x {square_rows} squares)")
+        inner_cols = cols - 1
+        inner_rows = rows - 1
+        self._helper_label.setText(f"({inner_cols} x {inner_rows} inner corners used for detection)")
 
     def get_chessboard(self) -> Chessboard:
         """Build a Chessboard instance from current widget values.
 
-        Returns:
-            New Chessboard with configuration from this panel
+        UI shows square counts; domain stores inner corner counts (squares - 1).
         """
         return Chessboard(
-            rows=self._row_spin.value(),
-            columns=self._column_spin.value(),
+            rows=self._row_spin.value() - 1,
+            columns=self._column_spin.value() - 1,
         )

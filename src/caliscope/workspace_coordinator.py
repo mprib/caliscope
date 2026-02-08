@@ -121,6 +121,9 @@ class WorkspaceCoordinator(QObject):
         # Not persisted to disk - lost on app restart
         self._intrinsic_points: dict[int, list[tuple[int, PointPacket]]] = {}
 
+        # Global intrinsic calibration settings
+        self._intrinsic_frame_skip: int = 5
+
     def _setup_filesystem_watcher(self) -> None:
         """Watch calibration directories for file changes."""
         self._watcher = QFileSystemWatcher(parent=self)
@@ -455,8 +458,28 @@ class WorkspaceCoordinator(QObject):
             task_manager=self.task_manager,
             restored_report=report,
             restored_points=collected_points,
-            frame_skip=5,
+            frame_skip=self._intrinsic_frame_skip,
         )
+
+    @property
+    def intrinsic_frame_skip(self) -> int:
+        """Current frame skip value for intrinsic calibration."""
+        return self._intrinsic_frame_skip
+
+    def set_intrinsic_frame_skip(
+        self, value: int, presenters: dict[int, IntrinsicCalibrationPresenter] | None = None
+    ) -> None:
+        """Set global frame skip and propagate to all active presenters.
+
+        Args:
+            value: Process every Nth frame (minimum 1).
+            presenters: Active presenter pool to propagate to. Passed by CamerasTabWidget
+                since the coordinator doesn't own the presenter pool.
+        """
+        self._intrinsic_frame_skip = max(1, value)
+        if presenters is not None:
+            for presenter in presenters.values():
+                presenter.set_frame_skip(self._intrinsic_frame_skip)
 
     def create_reconstruction_presenter(self) -> ReconstructionPresenter:
         """Create presenter for reconstruction (post-processing) workflow.

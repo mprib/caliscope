@@ -109,6 +109,10 @@ class ChessboardTracker(Tracker):
 
         return PointPacket(point_id=point_id, img_loc=img_loc, obj_loc=obj_loc)
 
+    def get_connected_points(self) -> set[tuple[int, int]]:
+        """Point ID pairs forming the grid pattern (adjacent corners only)."""
+        return self.chessboard.get_connected_points()
+
     def get_point_name(self, point_id: int) -> str:
         """Return point ID as string (corners don't have semantic names)."""
         return str(point_id)

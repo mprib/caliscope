@@ -451,10 +451,11 @@ class WorkspaceCoordinator(QObject):
         return IntrinsicCalibrationPresenter(
             camera=camera,
             video_path=video_path,
-            tracker=self.charuco_tracker,
+            tracker=self.create_intrinsic_tracker(),
             task_manager=self.task_manager,
             restored_report=report,
             restored_points=collected_points,
+            frame_skip=5,
         )
 
     def create_reconstruction_presenter(self) -> ReconstructionPresenter:

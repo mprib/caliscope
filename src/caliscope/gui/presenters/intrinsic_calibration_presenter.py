@@ -1,6 +1,6 @@
 """Presenter for intrinsic camera calibration workflow.
 
-Coordinates the collection of charuco corner observations and calibration
+Coordinates the collection of calibration board corner observations and calibration
 via the domain's pure functions. Emits raw FramePackets for the View to
 handle display transforms (undistortion, rotation, padding).
 
@@ -51,7 +51,7 @@ class IntrinsicCalibrationState(Enum):
 class IntrinsicCalibrationPresenter(QObject):
     """Presenter for single-camera intrinsic calibration workflow.
 
-    Manages the collection of charuco observations from recorded video and
+    Manages the collection of calibration board observations from recorded video and
     submission of calibration to TaskManager. Exposes a display_queue for
     the View's processing thread to consume directly (avoids GUI thread hop).
 
@@ -85,13 +85,14 @@ class IntrinsicCalibrationPresenter(QObject):
         parent: QObject | None = None,
         restored_report: IntrinsicCalibrationReport | None = None,
         restored_points: list[tuple[int, PointPacket]] | None = None,
+        frame_skip: int = 1,
     ) -> None:
         """Initialize the presenter.
 
         Args:
             camera: CameraData with port, size, rotation_count
             video_path: Path to the video file for this camera
-            tracker: CharucoTracker for point detection
+            tracker: Tracker for calibration board point detection
             task_manager: TaskManager for background calibration
             parent: Optional Qt parent
             restored_report: Optional report from previous calibration for overlay restoration
@@ -103,6 +104,7 @@ class IntrinsicCalibrationPresenter(QObject):
         self._video_path = video_path
         self._tracker = tracker
         self._task_manager = task_manager
+        self._frame_skip = frame_skip
 
         # Derived properties for convenience
         self._port = camera.port
@@ -326,7 +328,8 @@ class IntrinsicCalibrationPresenter(QObject):
 
             # Accumulate points only during collection
             if self._is_collecting and packet.points is not None and len(packet.points.point_id) > 0:
-                self._collected_points.append((packet.frame_index, packet.points))
+                if self._frame_skip <= 1 or packet.frame_index % self._frame_skip == 0:
+                    self._collected_points.append((packet.frame_index, packet.points))
 
             # Always emit for display
             self._display_queue.put(packet)
@@ -346,7 +349,7 @@ class IntrinsicCalibrationPresenter(QObject):
 
         if len(self._collected_points) == 0:
             logger.warning(f"No points collected for port {self._port}")
-            self.calibration_failed.emit("No charuco boards detected in video")
+            self.calibration_failed.emit("No calibration boards detected in video")
             self._emit_state_changed()
             return
 
@@ -475,6 +478,20 @@ class IntrinsicCalibrationPresenter(QObject):
         logger.info(f"Tracker updated for port {self._port}, cleared collected points")
         self._emit_state_changed()
         self.refresh_display()
+
+    @property
+    def frame_skip(self) -> int:
+        """Current frame skip interval for collection."""
+        return self._frame_skip
+
+    def set_frame_skip(self, skip: int) -> None:
+        """Set frame skip interval for collection.
+
+        Called from GUI thread; read from consumer thread. CPython GIL
+        makes simple int assignment atomic — benign race at worst means
+        one frame uses the old value.
+        """
+        self._frame_skip = max(1, skip)
 
     def cleanup(self) -> None:
         """Clean up resources. Call before discarding presenter."""

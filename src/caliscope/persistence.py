@@ -269,6 +269,7 @@ def load_chessboard(path: Path) -> Chessboard:
 
     try:
         data = rtoml.load(path)
+        data.pop("square_size_cm", None)  # Strip legacy field
         return Chessboard(**data)
     except Exception as e:
         raise PersistenceError(f"Failed to load Chessboard from {path}: {e}") from e

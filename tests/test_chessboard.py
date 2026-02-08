@@ -29,7 +29,7 @@ def test_chessboard_immutable():
 
 def test_get_object_points_shape():
     """Object points should have correct shape."""
-    cb = Chessboard(rows=6, columns=9, square_size_cm=2.5)
+    cb = Chessboard(rows=6, columns=9)
     points = cb.get_object_points()
     assert points.shape == (54, 3)
     assert points.dtype == np.float32
@@ -43,24 +43,18 @@ def test_get_object_points_origin():
 
 
 def test_get_object_points_spacing():
-    """Adjacent points should be square_size_cm apart."""
-    cb = Chessboard(rows=6, columns=9, square_size_cm=2.5)
+    """Adjacent points should be unit spacing apart."""
+    cb = Chessboard(rows=6, columns=9)
     points = cb.get_object_points()
-    np.testing.assert_array_almost_equal(points[1], [2.5, 0, 0])
-    np.testing.assert_array_almost_equal(points[9], [0, 2.5, 0])
+    np.testing.assert_array_almost_equal(points[1], [1.0, 0, 0])
+    np.testing.assert_array_almost_equal(points[9], [0, 1.0, 0])
 
 
 def test_get_object_points_planar():
     """All points should have Z=0 (planar board)."""
-    cb = Chessboard(rows=6, columns=9, square_size_cm=2.5)
+    cb = Chessboard(rows=6, columns=9)
     points = cb.get_object_points()
     np.testing.assert_array_equal(points[:, 2], np.zeros(54))
-
-
-def test_default_square_size():
-    """Default square_size_cm should be 1.0."""
-    cb = Chessboard(rows=6, columns=9)
-    assert cb.square_size_cm == 1.0
 
 
 # ── Persistence ──────────────────────────────────────────────────────────────
@@ -68,20 +62,30 @@ def test_default_square_size():
 
 def test_save_load_roundtrip(tmp_path: Path):
     """Save/load round-trip should produce identical Chessboard."""
-    original = Chessboard(rows=6, columns=9, square_size_cm=2.5)
+    original = Chessboard(rows=6, columns=9)
     file_path = tmp_path / "chessboard.toml"
     save_chessboard(original, file_path)
     loaded = load_chessboard(file_path)
 
     assert loaded.rows == original.rows
     assert loaded.columns == original.columns
-    assert loaded.square_size_cm == original.square_size_cm
 
 
 def test_load_nonexistent_file(tmp_path: Path):
     """Load from nonexistent path should raise PersistenceError."""
     with pytest.raises(PersistenceError, match="not found"):
         load_chessboard(tmp_path / "nonexistent.toml")
+
+
+def test_load_legacy_toml_with_square_size_cm(tmp_path: Path):
+    """Loading TOML with legacy square_size_cm field should succeed."""
+    file_path = tmp_path / "legacy_chessboard.toml"
+    file_path.write_text("rows = 6\ncolumns = 9\nsquare_size_cm = 2.5\n")
+
+    loaded = load_chessboard(file_path)
+
+    assert loaded.rows == 6
+    assert loaded.columns == 9
 
 
 def test_save_creates_parent_directory(tmp_path: Path):
@@ -92,15 +96,6 @@ def test_save_creates_parent_directory(tmp_path: Path):
 
     assert file_path.exists()
     assert load_chessboard(file_path).rows == original.rows
-
-
-def test_save_with_default_square_size(tmp_path: Path):
-    """Default square_size_cm should persist correctly."""
-    original = Chessboard(rows=6, columns=9)
-    file_path = tmp_path / "chessboard.toml"
-    save_chessboard(original, file_path)
-
-    assert load_chessboard(file_path).square_size_cm == 1.0
 
 
 # ── Tracker (real frames) ───────────────────────────────────────────────────

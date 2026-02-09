@@ -79,7 +79,7 @@ def test_aruco_draw_instructions():
 
 
 def test_aruco_point_id_mapping():
-    """Verify point ID scheme: marker_id * 10 + corner_index (1-4)."""
+    """Verify point ID scheme: marker_id * 10 + corner_index (0-3)."""
     tracker = ArucoTracker(inverted=True)
     fixture_dir = __root__ / "tests/sessions/post_optimization"
     sample_video_path = fixture_dir / "calibration/extrinsic/port_0.mp4"
@@ -95,7 +95,7 @@ def test_aruco_point_id_mapping():
 
     for marker_id in unique_marker_ids:
         corner_ids = point_packet.point_id[point_packet.point_id // 10 == marker_id]
-        expected_ids = np.array([marker_id * 10 + i for i in range(1, 5)])
+        expected_ids = np.array([marker_id * 10 + i for i in range(0, 4)])
 
         np.testing.assert_array_equal(
             np.sort(corner_ids),

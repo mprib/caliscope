@@ -24,6 +24,7 @@ class WorkspaceGuide:
         self.extrinsic_dir = Path(workspace_dir, "calibration", "extrinsic")
         self.recording_dir = Path(workspace_dir, "recordings")
         self.chessboard_toml = self.calibration_dir / "chessboard.toml"
+        self.aruco_target_toml = self.calibration_dir / "aruco_target.toml"
 
     def get_ports_in_dir(self, directory: Path) -> list[int]:
         """

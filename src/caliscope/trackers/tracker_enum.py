@@ -1,6 +1,7 @@
 from enum import Enum
 
 from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.trackers.chessboard_tracker import ChessboardTracker
 from caliscope.trackers.hand_tracker import HandTracker
 from caliscope.trackers.holistic.holistic_tracker import HolisticTracker
 from caliscope.trackers.pose_tracker import PoseTracker
@@ -17,6 +18,7 @@ class TrackerEnum(Enum):
     SIMPLE_HOLISTIC = SimpleHolisticTracker
     HOLISTIC = HolisticTracker
     CHARUCO = CharucoTracker
+    CHESSBOARD = ChessboardTracker
     ARUCO = ArucoTracker
     # FACE = FaceTracker
 

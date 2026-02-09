@@ -311,8 +311,15 @@ def _compute_orientation_features(frame_df: pd.DataFrame) -> OrientationFeatures
             in_plane_rotation=0.0,
         )
 
+    # Normalize object coordinates to [0, 1] so tilt_magnitude reflects pure
+    # geometric foreshortening (near edge vs far edge size ratio), independent
+    # of whatever coordinate units the board uses.
+    obj_range = obj_points.max(axis=0) - obj_points.min(axis=0)
+    obj_range[obj_range < 1e-6] = 1.0  # guard against degenerate axis
+    obj_normalized = (obj_points - obj_points.min(axis=0)) / obj_range
+
     # Compute homography using RANSAC for robustness
-    H, mask = cv2.findHomography(obj_points, img_points, cv2.RANSAC, 5.0)
+    H, mask = cv2.findHomography(obj_normalized, img_points, cv2.RANSAC, 5.0)
 
     if H is None:
         return OrientationFeatures(

@@ -4,12 +4,14 @@ from pathlib import Path
 from datetime import datetime
 from typing import Literal
 
-
+import cv2
 from PySide6.QtCore import QObject, QFileSystemWatcher, Signal
 
 from caliscope.task_manager import TaskHandle, TaskManager
 
 from caliscope.core.charuco import Charuco
+from caliscope.core.chessboard import Chessboard
+from caliscope.core.aruco_target import ArucoTarget
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.calibrate_intrinsics import IntrinsicCalibrationOutput, IntrinsicCalibrationReport
 from caliscope.repositories import (
@@ -17,6 +19,8 @@ from caliscope.repositories import (
     CharucoRepository,
     ProjectSettingsRepository,
 )
+from caliscope.repositories.chessboard_repository import ChessboardRepository
+from caliscope.repositories.aruco_target_repository import ArucoTargetRepository
 from caliscope.repositories.point_data_bundle_repository import PointDataBundleRepository
 from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.core.workflow_status import WorkflowStatus
@@ -26,6 +30,8 @@ from caliscope.reconstruction.reconstructor import Reconstructor
 from caliscope.recording import read_video_properties
 from caliscope.core.point_data import ImagePoints
 from caliscope.trackers.charuco_tracker import CharucoTracker
+from caliscope.trackers.chessboard_tracker import ChessboardTracker
+from caliscope.trackers.aruco_tracker import ArucoTracker
 from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide
 from caliscope.gui.presenters.extrinsic_calibration_presenter import (
@@ -40,7 +46,7 @@ from caliscope.persistence import save_image_points_csv
 logger = logging.getLogger(__name__)
 
 
-EXTRINSIC_TRACKER_NAME = "CHARUCO"  # Only supported tracker for extrinsic calibration
+EXTRINSIC_TRACKER_NAME = "ARUCO"  # Only supported tracker for extrinsic calibration
 
 FILTERED_FRACTION = (
     0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
@@ -63,6 +69,8 @@ class WorkspaceCoordinator(QObject):
 
     new_camera_data = Signal(int, OrderedDict)  # port, camera_display_dictionary
     charuco_changed = Signal()  # Emitted when charuco board config is updated
+    chessboard_changed = Signal()  # Emitted when chessboard config is updated
+    aruco_target_changed = Signal()  # Emitted when ArUco target config is updated
     bundle_updated = Signal()  # Immediate: in-memory state changed, use for UI refresh
     status_changed = Signal()  # Deferred: fires after filesystem operations complete
 
@@ -74,6 +82,8 @@ class WorkspaceCoordinator(QObject):
         self.settings_repository = ProjectSettingsRepository(workspace_dir / "project_settings.toml")
         self.camera_repository = CameraArrayRepository(workspace_dir / "camera_array.toml")
         self.charuco_repository = CharucoRepository(workspace_dir / "charuco.toml")
+        self.chessboard_repository = ChessboardRepository(workspace_dir / "calibration" / "chessboard.toml")
+        self.aruco_target_repository = ArucoTargetRepository(workspace_dir / "calibration" / "aruco_target.toml")
         self.intrinsic_report_repository = IntrinsicReportRepository(
             workspace_dir / "calibration" / "intrinsic" / "reports"
         )
@@ -106,12 +116,18 @@ class WorkspaceCoordinator(QObject):
         # Centralized task management for background operations
         self.task_manager = TaskManager(parent=self)
 
+        # Created during process_recordings; lives for the duration of that task
+        self.reconstructor: Reconstructor | None = None
+
         # In-memory cache of intrinsic calibration data (by port)
         # These enable overlay restoration when switching between cameras
         self._intrinsic_reports: dict[int, IntrinsicCalibrationReport] = {}
         # Session-only cache of collected points for overlay rendering
         # Not persisted to disk - lost on app restart
         self._intrinsic_points: dict[int, list[tuple[int, PointPacket]]] = {}
+
+        # Global intrinsic calibration settings
+        self._intrinsic_frame_skip: int = 5
 
     def _setup_filesystem_watcher(self) -> None:
         """Watch calibration directories for file changes."""
@@ -336,6 +352,64 @@ class WorkspaceCoordinator(QObject):
         """
         return CharucoTracker(self.charuco)
 
+    def update_chessboard(self, chessboard: Chessboard) -> None:
+        """
+        Update chessboard pattern definition and persist to disk.
+
+        Unlike charuco, we do NOT cache self.chessboard. Presenters load
+        from repository when they need it (Repository-SSOT pattern).
+
+        Emits chessboard_changed signal so dependent components can refresh.
+        """
+        self.chessboard_repository.save(chessboard)
+        self.chessboard_changed.emit()
+
+    def update_aruco_target(self, target: ArucoTarget) -> None:
+        """Update ArUco target configuration and persist to disk.
+
+        Unlike charuco, we do NOT cache the target. Presenters load
+        from repository when they need it (Repository-SSOT pattern).
+        """
+        self.aruco_target_repository.save(target)
+        self.aruco_target_changed.emit()
+
+    def create_intrinsic_tracker(self) -> ChessboardTracker | CharucoTracker:
+        """Create tracker for intrinsic calibration.
+
+        Factory method that selects tracker based on which calibration
+        pattern is configured. Checks chessboard first (preferred),
+        falls back to charuco for backward compatibility.
+
+        Returns:
+            ChessboardTracker if chessboard.toml exists, else CharucoTracker.
+        """
+        if self.chessboard_repository.exists():
+            chessboard = self.chessboard_repository.load()
+            return ChessboardTracker(chessboard)
+        else:
+            return CharucoTracker(self.charuco)
+
+    def create_extrinsic_tracker(self) -> ArucoTracker:
+        """Create tracker for extrinsic calibration from repository config.
+
+        Returns ArucoTracker configured with the workspace's ArUco target.
+        If no target is configured, creates one with defaults and persists it.
+        """
+        if not self.aruco_target_repository.exists():
+            default_target = ArucoTarget.single_marker(
+                marker_id=0,
+                marker_size_m=0.05,
+                dictionary=cv2.aruco.DICT_4X4_100,
+            )
+            self.aruco_target_repository.save(default_target)
+            logger.info("Created default ArUco target configuration")
+
+        target = self.aruco_target_repository.load()
+        return ArucoTracker(
+            dictionary=target.dictionary,
+            aruco_target=target,
+        )
+
     def get_charuco_params(self) -> dict:
         return self.charuco.__dict__
 
@@ -415,11 +489,32 @@ class WorkspaceCoordinator(QObject):
         return IntrinsicCalibrationPresenter(
             camera=camera,
             video_path=video_path,
-            tracker=self.charuco_tracker,
+            tracker=self.create_intrinsic_tracker(),
             task_manager=self.task_manager,
             restored_report=report,
             restored_points=collected_points,
+            frame_skip=self._intrinsic_frame_skip,
         )
+
+    @property
+    def intrinsic_frame_skip(self) -> int:
+        """Current frame skip value for intrinsic calibration."""
+        return self._intrinsic_frame_skip
+
+    def set_intrinsic_frame_skip(
+        self, value: int, presenters: dict[int, IntrinsicCalibrationPresenter] | None = None
+    ) -> None:
+        """Set global frame skip and propagate to all active presenters.
+
+        Args:
+            value: Process every Nth frame (minimum 1).
+            presenters: Active presenter pool to propagate to. Passed by CamerasTabWidget
+                since the coordinator doesn't own the presenter pool.
+        """
+        self._intrinsic_frame_skip = max(1, value)
+        if presenters is not None:
+            for presenter in presenters.values():
+                presenter.set_frame_skip(self._intrinsic_frame_skip)
 
     def create_reconstruction_presenter(self) -> ReconstructionPresenter:
         """Create presenter for reconstruction (post-processing) workflow.
@@ -449,7 +544,7 @@ class WorkspaceCoordinator(QObject):
         """
         presenter = MultiCameraProcessingPresenter(
             task_manager=self.task_manager,
-            tracker=self.charuco_tracker,
+            tracker=self.create_extrinsic_tracker(),
         )
 
         # Wire signal directly - no passthrough needed
@@ -471,7 +566,7 @@ class WorkspaceCoordinator(QObject):
         - Managing presenter lifecycle (cleanup on tab close)
 
         Returns:
-            ExtrinsicCalibrationPresenter configured with camera_array, charuco, etc.
+            ExtrinsicCalibrationPresenter configured with camera_array, image_points, etc.
         """
         # ImagePoints path from multi-camera processing (Phase 3 output)
         image_points_path = self.extrinsic_image_points_path
@@ -483,7 +578,6 @@ class WorkspaceCoordinator(QObject):
             task_manager=self.task_manager,
             camera_array=self.camera_array,
             image_points_path=image_points_path,
-            charuco=self.charuco,
             existing_bundle=existing_bundle,
         )
 

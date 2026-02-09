@@ -24,7 +24,6 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.bootstrap_pose.build_paired_pose_network import (
     build_paired_pose_network,
 )
-from caliscope.core.charuco import Charuco
 from caliscope.core.coverage_analysis import compute_coverage_matrix
 from caliscope.core.point_data import ImagePoints
 from caliscope.core.point_data_bundle import PointDataBundle
@@ -109,7 +108,7 @@ class QualityPanelData:
 class ExtrinsicCalibrationPresenter(QObject):
     """Presenter for extrinsic calibration workflow.
 
-    Manages the extraction of camera extrinsics from charuco observations.
+    Manages the extraction of camera extrinsics from 2D observations.
     Coordinates bootstrap triangulation, bundle adjustment optimization,
     and coordinate frame transformations.
 
@@ -124,7 +123,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
     Usage:
         presenter = ExtrinsicCalibrationPresenter(
-            task_manager, camera_array, image_points_path, charuco
+            task_manager, camera_array, image_points_path
         )
         presenter.run_calibration()  # Bootstrap + optimize
         # On completion: bundle_changed emitted with bundle
@@ -148,7 +147,6 @@ class ExtrinsicCalibrationPresenter(QObject):
         task_manager: TaskManager,
         camera_array: CameraArray,
         image_points_path: Path,
-        charuco: Charuco,
         existing_bundle: PointDataBundle | None = None,
         parent: QObject | None = None,
     ) -> None:
@@ -158,7 +156,6 @@ class ExtrinsicCalibrationPresenter(QObject):
             task_manager: TaskManager for background processing
             camera_array: Initial camera configuration (extrinsics may be unset)
             image_points_path: Path to image_points.csv from Phase 3
-            charuco: Charuco board definition for alignment
             existing_bundle: Pre-loaded PointDataBundle for restoring calibrated state.
                 If provided, presenter starts in CALIBRATED state with visualization ready.
             parent: Optional Qt parent
@@ -168,7 +165,6 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._task_manager = task_manager
         self._camera_array = camera_array
         self._image_points_path = image_points_path
-        self._charuco = charuco
 
         # Processing state (managed internally)
         self._bundle: PointDataBundle | None = existing_bundle
@@ -523,19 +519,6 @@ class ExtrinsicCalibrationPresenter(QObject):
     # -------------------------------------------------------------------------
     # Lifecycle
     # -------------------------------------------------------------------------
-
-    def update_charuco(self, charuco: Charuco) -> None:
-        """Update charuco reference for alignment operations.
-
-        Hot-swaps the charuco reference when config changes. The charuco
-        is only used for align_to_origin() to set the coordinate frame,
-        so this has no immediate visible effect.
-
-        Args:
-            charuco: New charuco configuration.
-        """
-        self._charuco = charuco
-        logger.info("Charuco updated")
 
     def cleanup(self) -> None:
         """Clean up resources. Call before discarding presenter."""

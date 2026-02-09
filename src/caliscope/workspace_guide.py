@@ -19,9 +19,12 @@ class WorkspaceGuide:
             workspace_dir: Root workspace directory path
         """
         self.workspace_dir = workspace_dir
+        self.calibration_dir = Path(workspace_dir, "calibration")
         self.intrinsic_dir = Path(workspace_dir, "calibration", "intrinsic")
         self.extrinsic_dir = Path(workspace_dir, "calibration", "extrinsic")
         self.recording_dir = Path(workspace_dir, "recordings")
+        self.chessboard_toml = self.calibration_dir / "chessboard.toml"
+        self.aruco_target_toml = self.calibration_dir / "aruco_target.toml"
 
     def get_ports_in_dir(self, directory: Path) -> list[int]:
         """
@@ -69,47 +72,43 @@ class WorkspaceGuide:
         """
         return len(self.get_camera_ports())
 
-    def all_instrinsic_mp4s_available(self, camera_count: int | None = None) -> bool:
-        """Check if all intrinsic videos are present.
+    def all_instrinsic_mp4s_available(self) -> bool:
+        """Check if intrinsic videos exist for every camera in the extrinsic set.
 
-        Args:
-            camera_count: Expected count. If None, uses derived count from extrinsic dir.
+        The extrinsic directory defines the camera set. This checks that the
+        intrinsic directory has a matching port_N.mp4 for each extrinsic port.
         """
-        if camera_count is None:
-            camera_count = self.get_camera_count()
-        if camera_count == 0:
+        expected_ports = self.get_camera_ports()
+        if not expected_ports:
             return False
-        return self.missing_files_in_dir(self.intrinsic_dir, camera_count) == "NONE"
+        return self.missing_files_in_dir(self.intrinsic_dir, expected_ports) == "NONE"
 
-    def all_extrinsic_mp4s_available(self, camera_count: int | None = None) -> bool:
+    def all_extrinsic_mp4s_available(self) -> bool:
         """Check if all extrinsic videos are present.
 
-        Args:
-            camera_count: Expected count. If None, uses count from extrinsic dir itself.
+        Since the extrinsic directory is self-referential (it defines the camera
+        set), this just checks that at least one port exists.
         """
-        if camera_count is None:
-            camera_count = self.get_camera_count()
-        if camera_count == 0:
-            return False
-        return self.missing_files_in_dir(self.extrinsic_dir, camera_count) == "NONE"
+        return len(self.get_camera_ports()) > 0
 
-    def missing_files_in_dir(self, directory: Path, camera_count: int) -> str:
-        """
-        Return comma-separated list of missing port_N.mp4 files.
+    def missing_files_in_dir(self, directory: Path, expected_ports: list[int]) -> str:
+        """Return comma-separated list of missing port_N.mp4 files.
+
+        Compares actual files in directory against the expected port set
+        (typically derived from extrinsic directory).
 
         Args:
             directory: Path to check for files
-            camera_count: Expected number of cameras (ports 1..camera_count)
+            expected_ports: Port numbers that should have corresponding videos
 
         Returns:
             Comma-separated list like "port_1.mp4,port_3.mp4" or "NONE"
         """
         if not directory.exists():
-            return ",".join([f"port_{i}.mp4" for i in range(1, camera_count + 1)])
+            return ",".join([f"port_{p}.mp4" for p in sorted(expected_ports)])
 
-        target_ports = set(range(1, camera_count + 1))
         current_ports = set(self.get_ports_in_dir(directory))
-        missing_ports = sorted(target_ports - current_ports)
+        missing_ports = sorted(set(expected_ports) - current_ports)
 
         if not missing_ports:
             return "NONE"
@@ -137,15 +136,15 @@ class WorkspaceGuide:
 
         return ",".join(uncalibrated) if uncalibrated else "NONE"
 
-    def intrinsic_calibration_status(self, camera_array: CameraArray, camera_count: int) -> str:
+    def intrinsic_calibration_status(self, camera_array: CameraArray) -> str:
         """Return status of intrinsic calibration: COMPLETE or INCOMPLETE."""
-        if camera_array.all_intrinsics_calibrated() and self.all_instrinsic_mp4s_available(camera_count):
+        if camera_array.all_intrinsics_calibrated() and self.all_instrinsic_mp4s_available():
             return "COMPLETE"
         return "INCOMPLETE"
 
-    def extrinsic_calibration_status(self, camera_array: CameraArray, camera_count: int) -> str:
+    def extrinsic_calibration_status(self, camera_array: CameraArray) -> str:
         """Return status of extrinsic calibration: COMPLETE or INCOMPLETE."""
-        if camera_array.all_extrinsics_calibrated() and self.all_extrinsic_mp4s_available(camera_count):
+        if camera_array.all_extrinsics_calibrated() and self.all_extrinsic_mp4s_available():
             return "COMPLETE"
         return "INCOMPLETE"
 
@@ -169,17 +168,17 @@ class WorkspaceGuide:
         recording_dirs = self.valid_recording_dirs()
         return ",".join(recording_dirs) if recording_dirs else "NONE"
 
-    def get_html_summary(self, camera_array: CameraArray, camera_count: int) -> str:
-        """
-        Provide granular summary of calibration process state.
+    def get_html_summary(self, camera_array: CameraArray) -> str:
+        """Provide granular summary of calibration process state.
 
         Args:
             camera_array: Current camera array from Controller (source of truth)
-            camera_count: Current camera count from Controller
 
         Returns:
             HTML string summarizing workspace state
         """
+        expected_ports = self.get_camera_ports()
+        camera_count = len(expected_ports)
         html = f"""
             <html>
                 <head>
@@ -193,13 +192,13 @@ class WorkspaceGuide:
                     <h4>Summary</h4>
                     <p>    Directory: {self.workspace_dir}</p>
                     <p>    Camera Count: {camera_count}</p>
-                    <h4>Intrinsic Calibration: {self.intrinsic_calibration_status(camera_array, camera_count)}</h4>
+                    <h4>Intrinsic Calibration: {self.intrinsic_calibration_status(camera_array)}</h4>
                     <p>    subdirectory: {self.intrinsic_dir}</p>
-                    <p>    missing files: {self.missing_files_in_dir(self.intrinsic_dir, camera_count)}</p>
+                    <p>    missing files: {self.missing_files_in_dir(self.intrinsic_dir, expected_ports)}</p>
                     <p>    cameras needing calibration: {self.uncalibrated_cameras(camera_array)}</p>
-                    <h4>Extrinsic Calibration: {self.extrinsic_calibration_status(camera_array, camera_count)}</h4>
+                    <h4>Extrinsic Calibration: {self.extrinsic_calibration_status(camera_array)}</h4>
                     <p>    subdirectory: {self.extrinsic_dir}</p>
-                    <p>    missing files: {self.missing_files_in_dir(self.extrinsic_dir, camera_count)}</p>
+                    <p>    missing files: {self.missing_files_in_dir(self.extrinsic_dir, expected_ports)}</p>
                     <h4>Recordings</h4>
                     <p>    valid directories: {self.valid_recording_dir_text()}</p>
                 </body>

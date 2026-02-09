@@ -10,6 +10,8 @@ import rtoml
 from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.point_data import ImagePointSchema, ImagePoints, WorldPoints, WorldPointSchema
 from caliscope.core.charuco import Charuco
+from caliscope.core.chessboard import Chessboard
+from caliscope.core.aruco_target import ArucoTarget
 from caliscope.core.bootstrap_pose.paired_pose_network import PairedPoseNetwork
 from caliscope.core.bootstrap_pose.stereopairs import StereoPair
 
@@ -248,6 +250,51 @@ def save_charuco(charuco: Charuco, path: Path) -> None:
         _write_toml(charuco.__dict__, path)
     except Exception as e:
         raise PersistenceError(f"Failed to save Charuco to {path}: {e}") from e
+
+
+def load_chessboard(path: Path) -> Chessboard:
+    """
+    Load Chessboard pattern definition from TOML file.
+
+    Args:
+        path: Path to chessboard.toml
+
+    Returns:
+        Chessboard instance with pattern parameters
+
+    Raises:
+        PersistenceError: If file doesn't exist or contains invalid parameters
+    """
+    if not path.exists():
+        raise PersistenceError(f"Chessboard file not found: {path}")
+
+    try:
+        data = rtoml.load(path)
+        data.pop("square_size_cm", None)  # Strip legacy field
+        return Chessboard(**data)
+    except Exception as e:
+        raise PersistenceError(f"Failed to load Chessboard from {path}: {e}") from e
+
+
+def save_chessboard(chessboard: Chessboard, path: Path) -> None:
+    """
+    Save Chessboard pattern definition to TOML file.
+
+    Args:
+        chessboard: Chessboard to serialize
+        path: Target file path
+
+    Raises:
+        PersistenceError: If serialization or write fails
+    """
+    from dataclasses import asdict
+
+    try:
+        # Ensure parent directory exists
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _write_toml(asdict(chessboard), path)
+    except Exception as e:
+        raise PersistenceError(f"Failed to save Chessboard to {path}: {e}") from e
 
 
 def load_stereo_pairs(path: Path) -> PairedPoseNetwork:
@@ -571,3 +618,63 @@ def save_world_points_csv(world_points: WorldPoints, path: Path) -> None:
         validated_df.to_csv(path, index=False, float_format=CSV_FLOAT_PRECISION)
     except Exception as e:
         raise PersistenceError(f"Failed to save world points to {path}: {e}") from e
+
+
+def load_aruco_target(path: Path) -> ArucoTarget:
+    """Load ArucoTarget from TOML file.
+
+    TOML format:
+        dictionary = 0
+        marker_size_m = 0.05
+
+        [corners.0]
+        positions = [[-0.025, -0.025, 0.0], [0.025, -0.025, 0.0], ...]
+    """
+    if not path.exists():
+        raise PersistenceError(f"ArucoTarget file not found: {path}")
+
+    try:
+        data = rtoml.load(path)
+
+        dictionary = data["dictionary"]
+        marker_size_m = data["marker_size_m"]
+
+        corners: dict[int, np.ndarray] = {}
+        for marker_id_str, corner_data in data.get("corners", {}).items():
+            marker_id = int(marker_id_str)
+            positions = np.array(corner_data["positions"], dtype=np.float64)
+            if positions.shape != (4, 3):
+                raise ValueError(f"Marker {marker_id} has invalid shape: {positions.shape}")
+            corners[marker_id] = positions
+
+        return ArucoTarget(
+            dictionary=dictionary,
+            corners=corners,
+            marker_size_m=marker_size_m,
+        )
+    except PersistenceError:
+        raise
+    except Exception as e:
+        raise PersistenceError(f"Failed to load ArucoTarget from {path}: {e}") from e
+
+
+def save_aruco_target(target: ArucoTarget, path: Path) -> None:
+    """Save ArucoTarget to TOML file."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        corners_data = {}
+        for marker_id, positions in target.corners.items():
+            corners_data[str(marker_id)] = {"positions": positions.tolist()}
+
+        data = {
+            "dictionary": target.dictionary,
+            "marker_size_m": target.marker_size_m,
+            "corners": corners_data,
+        }
+
+        _write_toml(data, path)
+    except PersistenceError:
+        raise
+    except Exception as e:
+        raise PersistenceError(f"Failed to save ArucoTarget to {path}: {e}") from e

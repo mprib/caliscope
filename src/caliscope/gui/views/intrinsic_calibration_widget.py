@@ -1,6 +1,6 @@
 """Intrinsic calibration widget for single-camera calibration workflow.
 
-Provides video playback with charuco tracking overlay, calibration controls,
+Provides video playback with calibration board tracking overlay, calibration controls,
 and results display. Connects to IntrinsicCalibrationPresenter for business logic.
 """
 

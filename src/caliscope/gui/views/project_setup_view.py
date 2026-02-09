@@ -2,8 +2,8 @@
 
 This is the landing tab for Caliscope that:
 1. Displays workspace path with folder access
-2. Configures camera count and charuco board
-3. Shows charuco board preview with PNG export
+2. Configures chessboard for intrinsic calibration
+3. Shows chessboard preview with PNG export
 4. Displays workflow status checklist with navigation
 
 Unlike other tabs, this view wires directly to the Coordinator (no Presenter)
@@ -18,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, QEvent, Qt, Signal
+from PySide6.QtCore import QByteArray, QEvent, QObject, Qt, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (
@@ -34,8 +34,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import cv2
+
+from caliscope.core.aruco_target import ArucoTarget
+from caliscope.core.chessboard import Chessboard
 from caliscope.core.workflow_status import StepStatus, WorkflowStatus
-from caliscope.gui.widgets.charuco_config_panel import CharucoConfigPanel
+from caliscope.gui.utils.aruco_preview import render_aruco_pixmap
+from caliscope.gui.utils.chessboard_preview import render_chessboard_pixmap
+from caliscope.gui.widgets.aruco_target_config_panel import ArucoTargetConfigPanel
+from caliscope.gui.widgets.chessboard_config_panel import ChessboardConfigPanel
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 
 logger = logging.getLogger(__name__)
@@ -145,7 +152,7 @@ class ProjectSetupView(QWidget):
 
     Signal subscriptions:
     - status_changed: Workflow state may have changed (single refresh trigger)
-    - charuco_changed: Board config updated (requires preview refresh)
+    - chessboard_changed: Board config updated (requires preview refresh)
     """
 
     tab_navigation_requested = Signal(str)  # Tab name to navigate to
@@ -157,7 +164,8 @@ class ProjectSetupView(QWidget):
         self._setup_ui()
         self._connect_signals()
         self._refresh_status()
-        self._update_charuco_preview()
+        self._update_chessboard_preview()
+        self._update_aruco_preview()
 
         logger.info("ProjectSetupView created")
 
@@ -180,9 +188,13 @@ class ProjectSetupView(QWidget):
         # Row 1: Workspace path and folder button
         main_layout.addWidget(self._create_workspace_row())
 
-        # Charuco configuration group
-        self._charuco_group = self._create_charuco_group()
-        main_layout.addWidget(self._charuco_group)
+        # Calibration target configuration (side by side)
+        config_row = QHBoxLayout()
+        self._chessboard_group = self._create_chessboard_group()
+        config_row.addWidget(self._chessboard_group)
+        self._aruco_group = self._create_aruco_target_group()
+        config_row.addWidget(self._aruco_group)
+        main_layout.addLayout(config_row)
 
         # Visual separator
         main_layout.addWidget(self._create_separator())
@@ -223,62 +235,95 @@ class ProjectSetupView(QWidget):
 
         return row
 
-    def _create_charuco_group(self) -> QGroupBox:
-        """Create the charuco board configuration group."""
-        group = QGroupBox("Charuco Board Configuration")
-
-        # Main horizontal layout: config on left, preview+buttons on right
+    def _create_chessboard_group(self) -> QGroupBox:
+        """Create the chessboard configuration group."""
+        group = QGroupBox("Chessboard Configuration")
         main_layout = QHBoxLayout(group)
 
-        # Left side: config widgets stacked vertically
-        # Panel has internal stretch between main controls and Printed Edge
+        # Left side: config panel
         left_layout = QVBoxLayout()
 
-        # Embed the CharucoConfigPanel - let it expand to use internal stretch
-        self._charuco_panel = CharucoConfigPanel(self._coordinator.charuco)
-        self._charuco_panel.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
-        left_layout.addWidget(self._charuco_panel)
+        # Load initial chessboard from repository or persist default
+        if self._coordinator.chessboard_repository.exists():
+            initial_chessboard = self._coordinator.chessboard_repository.load()
+        else:
+            initial_chessboard = Chessboard(rows=6, columns=9)
+            self._coordinator.update_chessboard(initial_chessboard)
 
-        # Edge length helper text (stays with Printed Edge at bottom of panel)
-        edge_helper = QLabel("<i>Sets the scale of the capture volume</i>")
-        edge_helper.setStyleSheet("color: #aaa; margin-top: 4px;")
-        left_layout.addWidget(edge_helper)
-
+        self._chessboard_panel = ChessboardConfigPanel(initial_chessboard)
+        left_layout.addWidget(self._chessboard_panel)
         main_layout.addLayout(left_layout, stretch=1)
 
-        # Right side: preview image + buttons below, all centered
+        # Right side: preview + save button
         right_layout = QVBoxLayout()
-        right_layout.addStretch()  # Top stretch for vertical centering
+        right_layout.addStretch()
 
-        # Preview image - use Expanding policy so it grows with window
-        self._charuco_preview = QLabel()
-        self._charuco_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._charuco_preview.setMinimumSize(200, 200)
-        self._charuco_preview.setMaximumSize(550, 550)
-        self._charuco_preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self._charuco_preview.setStyleSheet(
+        self._chessboard_preview = QLabel()
+        self._chessboard_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._chessboard_preview.setMinimumSize(200, 200)
+        self._chessboard_preview.setMaximumSize(550, 550)
+        self._chessboard_preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._chessboard_preview.setStyleSheet(
             "QLabel { background-color: #2a2a2a; border: 1px solid #555; border-radius: 4px; }"
         )
-        right_layout.addWidget(self._charuco_preview, alignment=Qt.AlignmentFlag.AlignCenter)
+        right_layout.addWidget(self._chessboard_preview, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # PNG save buttons below preview
+        # Single save button (no mirror needed)
         btn_row = QWidget()
         btn_layout = QHBoxLayout(btn_row)
         btn_layout.setContentsMargins(0, 8, 0, 0)
-
         self._save_png_btn = QPushButton("Save PNG")
         self._save_png_btn.setFixedWidth(100)
         btn_layout.addWidget(self._save_png_btn)
-
-        self._save_mirror_btn = QPushButton("Save Mirror")
-        self._save_mirror_btn.setFixedWidth(100)
-        btn_layout.addWidget(self._save_mirror_btn)
-
         right_layout.addWidget(btn_row, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        right_layout.addStretch()  # Bottom stretch for vertical centering
-
+        right_layout.addStretch()
         main_layout.addLayout(right_layout, stretch=1)
+
+        return group
+
+    def _create_aruco_target_group(self) -> QGroupBox:
+        """Create ArUco target configuration group for extrinsic calibration.
+
+        Layout: config panel (left) + preview (right) + Save PNG button (below)
+        """
+        group = QGroupBox("ArUco Target (Extrinsic Calibration)")
+
+        main_layout = QVBoxLayout(group)
+
+        # Top: config + preview side by side
+        top_layout = QHBoxLayout()
+
+        # Left: config panel
+        if self._coordinator.aruco_target_repository.exists():
+            initial_target = self._coordinator.aruco_target_repository.load()
+        else:
+            initial_target = ArucoTarget.single_marker()
+            # Persist default immediately (matches chessboard pattern)
+            self._coordinator.update_aruco_target(initial_target)
+
+        self._aruco_panel = ArucoTargetConfigPanel(initial_target)
+        self._aruco_panel.config_changed.connect(self._on_aruco_config_changed)
+        top_layout.addWidget(self._aruco_panel)
+
+        # Right: preview
+        self._aruco_preview = QLabel()
+        self._aruco_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._aruco_preview.setMinimumSize(120, 120)
+        top_layout.addWidget(self._aruco_preview, stretch=1)
+
+        main_layout.addLayout(top_layout)
+
+        # Bottom: Save PNG button
+        self._save_aruco_btn = QPushButton("Save PNG")
+        self._save_aruco_btn.clicked.connect(self._save_aruco_png)
+        main_layout.addWidget(self._save_aruco_btn)
+
+        # Initial preview
+        self._update_aruco_preview()
+
+        # Install event filter for responsive preview sizing
+        group.installEventFilter(self)
 
         return group
 
@@ -332,36 +377,39 @@ class ProjectSetupView(QWidget):
         # Single signal for status refresh
         self._coordinator.status_changed.connect(self._refresh_status)
 
-        # Charuco panel still needs specific handling for preview update
-        self._coordinator.charuco_changed.connect(self._update_charuco_preview)
-        self._charuco_panel.config_changed.connect(self._on_panel_config_changed)
+        # Chessboard panel needs specific handling for preview update
+        self._coordinator.chessboard_changed.connect(self._update_chessboard_preview)
+        self._chessboard_panel.config_changed.connect(self._on_chessboard_config_changed)
+
+        # ArUco panel needs specific handling for preview update
+        self._coordinator.aruco_target_changed.connect(self._update_aruco_preview)
 
         # UI buttons
         self._open_folder_btn.clicked.connect(self._open_workspace_folder)
-        self._save_png_btn.clicked.connect(self._save_charuco_png)
-        self._save_mirror_btn.clicked.connect(self._save_charuco_mirror_png)
+        self._save_png_btn.clicked.connect(self._save_chessboard_png)
 
-        # Install event filter on the charuco group to detect resize
-        self._charuco_group.installEventFilter(self)
+        # Install event filter on the chessboard group to detect resize
+        self._chessboard_group.installEventFilter(self)
 
-    def eventFilter(self, watched: QWidget, event: QEvent) -> bool:
-        """Handle resize events on the charuco group to update preview size."""
-        if watched is self._charuco_group and event.type() == QEvent.Type.Resize:
-            # Update preview on next event loop iteration to ensure layout is settled
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Handle resize events on config groups to update preview sizes."""
+        if event.type() == QEvent.Type.Resize:
             from PySide6.QtCore import QTimer
 
-            QTimer.singleShot(0, self._update_charuco_preview)
+            if watched is self._chessboard_group:
+                QTimer.singleShot(0, self._update_chessboard_preview)
+            elif watched is self._aruco_group:
+                QTimer.singleShot(0, self._update_aruco_preview)
         return super().eventFilter(watched, event)
 
     # -------------------------------------------------------------------------
     # Event Handlers
     # -------------------------------------------------------------------------
 
-    def _on_panel_config_changed(self) -> None:
-        """Handle config change from CharucoConfigPanel."""
-        charuco = self._charuco_panel.get_charuco()
-        self._coordinator.update_charuco(charuco)
-        # Note: update_charuco emits charuco_changed, which triggers _update_charuco_preview
+    def _on_chessboard_config_changed(self) -> None:
+        """Handle config change from ChessboardConfigPanel."""
+        chessboard = self._chessboard_panel.get_chessboard()
+        self._coordinator.update_chessboard(chessboard)
 
     def _open_workspace_folder(self) -> None:
         """Open the workspace directory in the system file manager."""
@@ -375,35 +423,60 @@ class ProjectSetupView(QWidget):
         else:  # Linux and other Unix-like systems
             subprocess.run(["xdg-open", workspace_path], check=False)
 
-    def _save_charuco_png(self) -> None:
-        """Save the charuco board as a PNG file."""
-        default_path = Path(self._coordinator.workspace) / "charuco.png"
+    def _save_chessboard_png(self) -> None:
+        """Save the chessboard as a high-resolution PNG file."""
+        default_path = Path(self._coordinator.workspace) / "chessboard.png"
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Save Charuco Board",
+            "Save Chessboard",
+            str(default_path),
+            "PNG Files (*.png)",
+        )
+        if file_path:
+            chessboard = self._chessboard_panel.get_chessboard()
+            pixmap = render_chessboard_pixmap(chessboard, 2000)
+            pixmap.save(file_path, "PNG")
+            logger.info(f"Saved chessboard to {file_path}")
+
+    def _on_aruco_config_changed(self) -> None:
+        """Handle ArUco config panel changes."""
+        target = self._aruco_panel.get_aruco_target()
+        self._coordinator.update_aruco_target(target)
+
+    def _update_aruco_preview(self) -> None:
+        """Update ArUco preview from current config."""
+        if not self._coordinator.aruco_target_repository.exists():
+            self._aruco_preview.clear()
+            return
+
+        target = self._coordinator.aruco_target_repository.load()
+        marker_id = target.marker_ids[0] if target.marker_ids else 0
+
+        # Use available width for preview
+        available = self._aruco_preview.width() or 120
+        size = min(available, 200)
+
+        pixmap = render_aruco_pixmap(target, marker_id, size)
+        self._aruco_preview.setPixmap(pixmap)
+
+    def _save_aruco_png(self) -> None:
+        """Save ArUco marker image to file."""
+        target = self._aruco_panel.get_aruco_target()
+        marker_id = target.marker_ids[0] if target.marker_ids else 0
+
+        default_path = Path(self._coordinator.workspace) / f"aruco_marker_{marker_id}.png"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save ArUco Marker",
             str(default_path),
             "PNG Files (*.png)",
         )
 
         if file_path:
-            charuco = self._charuco_panel.get_charuco()
-            charuco.save_image(file_path)
-            logger.info(f"Saved charuco board to {file_path}")
-
-    def _save_charuco_mirror_png(self) -> None:
-        """Save the charuco board as a mirrored PNG file."""
-        default_path = Path(self._coordinator.workspace) / "charuco_mirror.png"
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Mirrored Charuco Board",
-            str(default_path),
-            "PNG Files (*.png)",
-        )
-
-        if file_path:
-            charuco = self._charuco_panel.get_charuco()
-            charuco.save_mirror_image(file_path)
-            logger.info(f"Saved mirrored charuco board to {file_path}")
+            # Generate high-resolution marker for printing
+            bgr = target.generate_marker_image(marker_id, pixels_per_meter=8000)
+            cv2.imwrite(file_path, bgr)
+            logger.info(f"Saved ArUco marker to {file_path}")
 
     # -------------------------------------------------------------------------
     # Status Refresh
@@ -506,47 +579,20 @@ class ProjectSetupView(QWidget):
 
         self._reconstruction_row.set_status(step_status, detail)
 
-    def _update_charuco_preview(self) -> None:
-        """Update the charuco board preview image."""
-        charuco = self._charuco_panel.get_charuco()
+    def _update_chessboard_preview(self) -> None:
+        """Update the chessboard preview image."""
+        chessboard = self._chessboard_panel.get_chessboard()
 
-        # Responsive sizing: use the preview label's current size as reference
-        # The label has Expanding policy and will grow with the window
-        container_width = self._charuco_preview.width()
-        container_height = self._charuco_preview.height()
+        # Responsive sizing based on container
+        container_width = self._chessboard_preview.width()
+        container_height = self._chessboard_preview.height()
         container_size = min(container_width, container_height)
-
-        # Clamp to reasonable bounds — generous sizing for large windows
-        # Subtract padding for the border
         max_dimension = max(200, min(container_size - 20, 550))
 
-        board_width = charuco.board_width
-        board_height = charuco.board_height
-
-        # Calculate dimensions to fit within max_dimension while maintaining aspect ratio
-        if board_height > board_width:
-            target_height = max_dimension
-            target_width = int(target_height * (board_width / board_height))
-        else:
-            target_width = max_dimension
-            target_height = int(target_width * (board_height / board_width))
-
         try:
-            pixmap = charuco.board_pixmap(target_width, target_height)
-            self._charuco_preview.setPixmap(pixmap)
-            self._charuco_preview.setStyleSheet(
-                "QLabel { background-color: #2a2a2a; border: 1px solid #555; border-radius: 4px; }"
-            )
-            self._charuco_preview.setToolTip("")
+            pixmap = render_chessboard_pixmap(chessboard, max_dimension)
+            self._chessboard_preview.setPixmap(pixmap)
         except Exception as e:
-            logger.error(f"Failed to create charuco preview: {e}")
-            self._charuco_preview.setPixmap(QPixmap())
-            self._charuco_preview.setText(
-                "Unable to create board with current dimensions.\n"
-                "The dictionary may be too small or aspect ratio too extreme."
-            )
-            self._charuco_preview.setStyleSheet(
-                "QLabel { color: red; background-color: #2a2a2a; "
-                "border: 1px solid #555; border-radius: 4px; padding: 20px; }"
-            )
-            self._charuco_preview.setToolTip("Try adjusting dimensions to have a less extreme ratio")
+            logger.error(f"Failed to create chessboard preview: {e}")
+            self._chessboard_preview.setPixmap(QPixmap())
+            self._chessboard_preview.setText("Unable to create preview")

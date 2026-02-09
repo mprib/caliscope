@@ -523,7 +523,7 @@ def create_streamer(
     Convenience function that handles FrameSource and FrameTimestamps creation.
 
     Args:
-        video_directory: Directory containing port_N.mp4 and optionally frame_timestamps.csv.
+        video_directory: Directory containing port_N.mp4 and optionally timestamps.csv.
         port: Camera port number.
         rotation_count: Camera rotation (0, 1, 2, 3).
         tracker: Optional tracker for landmark detection.
@@ -535,7 +535,7 @@ def create_streamer(
     """
     frame_source = FrameSource(video_directory, port)
 
-    timing_csv = video_directory / "frame_timestamps.csv"
+    timing_csv = video_directory / "timestamps.csv"
     if timing_csv.exists():
         frame_timestamps = FrameTimestamps.from_csv(timing_csv, port)
     else:

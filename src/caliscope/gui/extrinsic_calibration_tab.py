@@ -65,21 +65,6 @@ class ExtrinsicCalibrationTab(QWidget):
         if self._presenter is None:
             return
 
-        # Charuco changes invalidate the presenter - need to recreate
-        self._coordinator.charuco_changed.connect(self._on_charuco_changed)
-
-    def _on_charuco_changed(self) -> None:
-        """Update charuco reference when config changes.
-
-        Instead of destroying/recreating the presenter (expensive, causes GUI freeze),
-        we hot-swap the charuco reference. Only affects next align_to_origin() call.
-        """
-        if self._presenter is None:
-            return
-
-        self._presenter.update_charuco(self._coordinator.charuco)
-        logger.info("Updated charuco in extrinsic calibration presenter")
-
     # -------------------------------------------------------------------------
     # VTK Lifecycle
     # -------------------------------------------------------------------------

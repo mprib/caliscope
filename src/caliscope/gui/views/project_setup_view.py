@@ -34,9 +34,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import cv2
+
+from caliscope.core.aruco_target import ArucoTarget
 from caliscope.core.chessboard import Chessboard
 from caliscope.core.workflow_status import StepStatus, WorkflowStatus
+from caliscope.gui.utils.aruco_preview import render_aruco_pixmap
 from caliscope.gui.utils.chessboard_preview import render_chessboard_pixmap
+from caliscope.gui.widgets.aruco_target_config_panel import ArucoTargetConfigPanel
 from caliscope.gui.widgets.chessboard_config_panel import ChessboardConfigPanel
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 
@@ -160,6 +165,7 @@ class ProjectSetupView(QWidget):
         self._connect_signals()
         self._refresh_status()
         self._update_chessboard_preview()
+        self._update_aruco_preview()
 
         logger.info("ProjectSetupView created")
 
@@ -182,9 +188,13 @@ class ProjectSetupView(QWidget):
         # Row 1: Workspace path and folder button
         main_layout.addWidget(self._create_workspace_row())
 
-        # Chessboard configuration group
+        # Calibration target configuration (side by side)
+        config_row = QHBoxLayout()
         self._chessboard_group = self._create_chessboard_group()
-        main_layout.addWidget(self._chessboard_group)
+        config_row.addWidget(self._chessboard_group)
+        self._aruco_group = self._create_aruco_target_group()
+        config_row.addWidget(self._aruco_group)
+        main_layout.addLayout(config_row)
 
         # Visual separator
         main_layout.addWidget(self._create_separator())
@@ -272,6 +282,51 @@ class ProjectSetupView(QWidget):
 
         return group
 
+    def _create_aruco_target_group(self) -> QGroupBox:
+        """Create ArUco target configuration group for extrinsic calibration.
+
+        Layout: config panel (left) + preview (right) + Save PNG button (below)
+        """
+        group = QGroupBox("ArUco Target (Extrinsic Calibration)")
+
+        main_layout = QVBoxLayout(group)
+
+        # Top: config + preview side by side
+        top_layout = QHBoxLayout()
+
+        # Left: config panel
+        if self._coordinator.aruco_target_repository.exists():
+            initial_target = self._coordinator.aruco_target_repository.load()
+        else:
+            initial_target = ArucoTarget.single_marker()
+            # Persist default immediately (matches chessboard pattern)
+            self._coordinator.update_aruco_target(initial_target)
+
+        self._aruco_panel = ArucoTargetConfigPanel(initial_target)
+        self._aruco_panel.config_changed.connect(self._on_aruco_config_changed)
+        top_layout.addWidget(self._aruco_panel)
+
+        # Right: preview
+        self._aruco_preview = QLabel()
+        self._aruco_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._aruco_preview.setMinimumSize(120, 120)
+        top_layout.addWidget(self._aruco_preview, stretch=1)
+
+        main_layout.addLayout(top_layout)
+
+        # Bottom: Save PNG button
+        self._save_aruco_btn = QPushButton("Save PNG")
+        self._save_aruco_btn.clicked.connect(self._save_aruco_png)
+        main_layout.addWidget(self._save_aruco_btn)
+
+        # Initial preview
+        self._update_aruco_preview()
+
+        # Install event filter for responsive preview sizing
+        group.installEventFilter(self)
+
+        return group
+
     def _create_workflow_group(self) -> QGroupBox:
         """Create the workflow status checklist group."""
         group = QGroupBox("Workflow Status")
@@ -326,6 +381,9 @@ class ProjectSetupView(QWidget):
         self._coordinator.chessboard_changed.connect(self._update_chessboard_preview)
         self._chessboard_panel.config_changed.connect(self._on_chessboard_config_changed)
 
+        # ArUco panel needs specific handling for preview update
+        self._coordinator.aruco_target_changed.connect(self._update_aruco_preview)
+
         # UI buttons
         self._open_folder_btn.clicked.connect(self._open_workspace_folder)
         self._save_png_btn.clicked.connect(self._save_chessboard_png)
@@ -334,12 +392,14 @@ class ProjectSetupView(QWidget):
         self._chessboard_group.installEventFilter(self)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        """Handle resize events on the chessboard group to update preview size."""
-        if watched is self._chessboard_group and event.type() == QEvent.Type.Resize:
-            # Update preview on next event loop iteration to ensure layout is settled
+        """Handle resize events on config groups to update preview sizes."""
+        if event.type() == QEvent.Type.Resize:
             from PySide6.QtCore import QTimer
 
-            QTimer.singleShot(0, self._update_chessboard_preview)
+            if watched is self._chessboard_group:
+                QTimer.singleShot(0, self._update_chessboard_preview)
+            elif watched is self._aruco_group:
+                QTimer.singleShot(0, self._update_aruco_preview)
         return super().eventFilter(watched, event)
 
     # -------------------------------------------------------------------------
@@ -377,6 +437,46 @@ class ProjectSetupView(QWidget):
             pixmap = render_chessboard_pixmap(chessboard, 2000)
             pixmap.save(file_path, "PNG")
             logger.info(f"Saved chessboard to {file_path}")
+
+    def _on_aruco_config_changed(self) -> None:
+        """Handle ArUco config panel changes."""
+        target = self._aruco_panel.get_aruco_target()
+        self._coordinator.update_aruco_target(target)
+
+    def _update_aruco_preview(self) -> None:
+        """Update ArUco preview from current config."""
+        if not self._coordinator.aruco_target_repository.exists():
+            self._aruco_preview.clear()
+            return
+
+        target = self._coordinator.aruco_target_repository.load()
+        marker_id = target.marker_ids[0] if target.marker_ids else 0
+
+        # Use available width for preview
+        available = self._aruco_preview.width() or 120
+        size = min(available, 200)
+
+        pixmap = render_aruco_pixmap(target, marker_id, size)
+        self._aruco_preview.setPixmap(pixmap)
+
+    def _save_aruco_png(self) -> None:
+        """Save ArUco marker image to file."""
+        target = self._aruco_panel.get_aruco_target()
+        marker_id = target.marker_ids[0] if target.marker_ids else 0
+
+        default_path = Path(self._coordinator.workspace) / f"aruco_marker_{marker_id}.png"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save ArUco Marker",
+            str(default_path),
+            "PNG Files (*.png)",
+        )
+
+        if file_path:
+            # Generate high-resolution marker for printing
+            bgr = target.generate_marker_image(marker_id, pixels_per_meter=8000)
+            cv2.imwrite(file_path, bgr)
+            logger.info(f"Saved ArUco marker to {file_path}")
 
     # -------------------------------------------------------------------------
     # Status Refresh

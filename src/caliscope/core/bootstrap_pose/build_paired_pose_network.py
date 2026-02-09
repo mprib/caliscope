@@ -26,9 +26,6 @@ def build_paired_pose_network(
     else:
         builder = PoseNetworkBuilder(camera_array, image_points)
         network = (
-            builder.estimate_camera_to_object_poses(min_points=6)
-            .estimate_relative_poses()
-            .filter_outliers(threshold=1.5)
-            .build()
+            builder.estimate_camera_to_object_poses().estimate_relative_poses().filter_outliers(threshold=1.5).build()
         )
         return network

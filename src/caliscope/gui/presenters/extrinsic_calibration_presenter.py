@@ -42,10 +42,9 @@ class ExtrinsicCalibrationState(Enum):
     This prevents state/reality divergence.
     """
 
-    NEEDS_BOOTSTRAP = auto()  # Have ImagePoints path, need to triangulate
-    NEEDS_OPTIMIZATION = auto()  # Have WorldPoints, not yet optimized
-    OPTIMIZING = auto()  # Background optimization running
-    CALIBRATED = auto()  # Optimization complete, can refine
+    NEEDS_CALIBRATION = auto()  # Have ImagePoints path, need to calibrate
+    CALIBRATING = auto()  # Background calibration/optimization running
+    CALIBRATED = auto()  # Have bundle, can refine
 
 
 @dataclass(frozen=True)
@@ -137,7 +136,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
     # Result signals
     quality_updated = Signal(object)  # QualityPanelData
-    scale_accuracy_updated = Signal(object)  # ScaleAccuracyData
+    volumetric_accuracy_updated = Signal(object)  # VolumetricScaleReport
     coverage_updated = Signal(object, object)  # (coverage_matrix, port_labels)
     bundle_changed = Signal(object)  # PointDataBundle
     view_model_updated = Signal(object)  # PlaybackViewModel
@@ -176,9 +175,6 @@ class ExtrinsicCalibrationPresenter(QObject):
         # View state
         self._current_sync_index: int = 0
 
-        # Scale accuracy reference frame (set by align_to_origin)
-        self._reference_sync_index: int | None = None
-
         # Load image points for coverage display (from bundle if available, else CSV)
         if existing_bundle is not None:
             self._initial_image_points = existing_bundle.image_points
@@ -209,15 +205,12 @@ class ExtrinsicCalibrationPresenter(QObject):
     def state(self) -> ExtrinsicCalibrationState:
         """Compute current state from internal reality - never stale."""
         if self._is_task_active():
-            return ExtrinsicCalibrationState.OPTIMIZING
-
-        if self._bundle is not None and self._bundle.optimization_status is not None:
-            return ExtrinsicCalibrationState.CALIBRATED
+            return ExtrinsicCalibrationState.CALIBRATING
 
         if self._bundle is not None:
-            return ExtrinsicCalibrationState.NEEDS_OPTIMIZATION
+            return ExtrinsicCalibrationState.CALIBRATED
 
-        return ExtrinsicCalibrationState.NEEDS_BOOTSTRAP
+        return ExtrinsicCalibrationState.NEEDS_CALIBRATION
 
     @property
     def bundle(self) -> PointDataBundle | None:
@@ -240,11 +233,15 @@ class ExtrinsicCalibrationPresenter(QObject):
         then runs bundle adjustment optimization. Emits bundle_changed
         with the optimized bundle.
 
-        Only valid in NEEDS_BOOTSTRAP state.
+        Can be called from NEEDS_CALIBRATION or CALIBRATED state.
+        In CALIBRATED state, discards current bundle first.
         """
-        if self.state != ExtrinsicCalibrationState.NEEDS_BOOTSTRAP:
-            logger.warning(f"Cannot run calibration in state {self.state}")
+        if self.state == ExtrinsicCalibrationState.CALIBRATING:
+            logger.warning("Cannot run calibration: already running")
             return
+
+        # Clear existing bundle to allow re-calibration from CALIBRATED state
+        self._bundle = None
 
         # Capture for closure - deepcopy camera_array since bootstrap mutates it
         image_points_path = self._image_points_path
@@ -338,54 +335,6 @@ class ExtrinsicCalibrationPresenter(QObject):
         handle.report_progress(100, "Complete")
         return final
 
-    def re_optimize(self) -> None:
-        """Run optimization again on current bundle.
-
-        Useful after filtering or if previous optimization was interrupted.
-        Only valid in CALIBRATED or NEEDS_OPTIMIZATION states.
-        """
-        if self._bundle is None:
-            logger.warning("Cannot re-optimize: no bundle available")
-            return
-
-        if self._is_task_active():
-            logger.warning("Cannot re-optimize: task already running")
-            return
-
-        # Capture for closure
-        bundle = self._bundle
-
-        def worker(token: CancellationToken, handle: TaskHandle) -> PointDataBundle:
-            handle.report_progress(10, "Running optimization")
-            optimized = bundle.optimize(ftol=1e-8, verbose=0)
-            handle.report_progress(100, "Complete")
-            logger.info(f"Re-optimization RMSE: {optimized.reprojection_report.overall_rmse:.3f}px")
-            return optimized
-
-        self._task_handle = self._task_manager.submit(
-            worker,
-            name="Re-optimize bundle",
-        )
-        # Use QueuedConnection - TaskHandle signals emitted from worker threads
-        self._task_handle.completed.connect(
-            self._on_bundle_optimized,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._task_handle.failed.connect(
-            self._on_calibration_failed,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._task_handle.cancelled.connect(
-            self._on_calibration_cancelled,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._task_handle.progress_updated.connect(
-            self.progress_updated,
-            Qt.ConnectionType.QueuedConnection,
-        )
-
-        self._emit_state_changed()
-
     # -------------------------------------------------------------------------
     # Filtering Operations (Implemented in 4.3)
     # -------------------------------------------------------------------------
@@ -469,9 +418,6 @@ class ExtrinsicCalibrationPresenter(QObject):
     def align_to_origin(self, sync_index: int) -> None:
         """Set world origin to board position at sync_index.
 
-        Also computes and emits scale accuracy metrics by comparing
-        triangulated world points to known object geometry.
-
         Args:
             sync_index: Frame index where board position defines origin
         """
@@ -481,9 +427,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         new_bundle = self._bundle.align_to_object(sync_index)
         logger.info(f"Aligned world origin to object at sync_index={sync_index}")
 
-        self._reference_sync_index = sync_index
         self._update_bundle(new_bundle)
-        self._refresh_scale_accuracy()
 
     # -------------------------------------------------------------------------
     # View Control (Implemented in 4.3)
@@ -517,6 +461,22 @@ class ExtrinsicCalibrationPresenter(QObject):
         # handled directly by the view calling widget.set_sync_index()
 
     # -------------------------------------------------------------------------
+    # Cancellation
+    # -------------------------------------------------------------------------
+
+    def cancel_calibration(self) -> None:
+        """Request cancellation of running calibration.
+
+        Unlike cleanup(), this leaves the task handle intact so the
+        cancelled callback can drive the state transition naturally.
+        The _on_calibration_cancelled slot will clear the handle and
+        emit state_changed.
+        """
+        if self._task_handle is not None and self._is_task_active():
+            logger.info("Cancel requested by user")
+            self._task_handle.cancel()
+
+    # -------------------------------------------------------------------------
     # Lifecycle
     # -------------------------------------------------------------------------
 
@@ -546,6 +506,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_quality_panel()
         self._refresh_coverage()
         self._refresh_view_model()
+        self._refresh_volumetric_accuracy()
         self.bundle_changed.emit(bundle)
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
@@ -611,26 +572,23 @@ class ExtrinsicCalibrationPresenter(QObject):
         )
         self.view_model_updated.emit(view_model)
 
-    def _refresh_scale_accuracy(self) -> None:
-        """Compute and emit scale accuracy metrics.
+    def _refresh_volumetric_accuracy(self) -> None:
+        """Compute and emit volumetric scale accuracy across all valid frames.
 
-        Compares triangulated world points at the reference frame to their
-        known ground truth positions from the tracker's object geometry.
-        Works with any rigid tracker that provides obj_loc_* columns.
+        Scans all frames with >=4 corners and obj_loc data, computing distance
+        RMSE at each frame. Returns empty report if no valid frames exist
+        (normal pre-alignment state).
         """
-        if self._bundle is None or self._reference_sync_index is None:
+        if self._bundle is None:
             return
 
-        try:
-            scale_data = self._bundle.compute_scale_accuracy(self._reference_sync_index)
+        report = self._bundle.compute_volumetric_scale_accuracy()
+        if report.n_frames_sampled > 0:
             logger.info(
-                f"Scale accuracy at frame {self._reference_sync_index}: "
-                f"RMSE={scale_data.distance_rmse_mm:.2f}mm, "
-                f"relative={scale_data.relative_error_percent:.2f}%"
+                f"Volumetric scale accuracy: pooled RMSE={report.pooled_rmse_mm:.2f}mm, "
+                f"{report.n_frames_sampled} frames sampled"
             )
-            self.scale_accuracy_updated.emit(scale_data)
-        except ValueError as e:
-            logger.warning(f"Could not compute scale accuracy: {e}")
+        self.volumetric_accuracy_updated.emit(report)
 
     def _load_initial_image_points(self) -> None:
         """Load ImagePoints for initial coverage display.
@@ -654,7 +612,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         This enables the view to show the correct initial state:
         - Fresh start: coverage heatmap, "Calibrate" button
-        - Restored session: 3D visualization, quality metrics, "Re-optimize" button
+        - Restored session: 3D visualization, quality metrics, "Calibrate" button
         """
         # Always emit coverage from initial image points
         self._refresh_initial_coverage()
@@ -665,6 +623,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             self._refresh_quality_panel()
             self._refresh_coverage()  # Use bundle's coverage (may differ after filtering)
             self._refresh_view_model()
+            self._refresh_volumetric_accuracy()
 
     def emit_initial_coverage(self) -> None:
         """Deprecated: Use emit_initial_state() instead."""
@@ -765,6 +724,8 @@ class ExtrinsicCalibrationPresenter(QObject):
             bundle: New bundle after transformation
         """
         self._bundle = bundle
+        self._emit_state_changed()
         self._refresh_quality_panel()
         self._refresh_view_model()
+        self._refresh_volumetric_accuracy()
         self.bundle_changed.emit(bundle)

@@ -89,8 +89,10 @@ class WorkspaceCoordinator(QObject):
         )
 
         # PointDataBundle (extrinsic calibration system)
+        # Capture volume lives as a sibling to the tracker extraction directory.
+        # Extraction writes to .../ARUCO/image_points.csv, bundle saves to .../capture_volume/.
         self.bundle_repository = PointDataBundleRepository(
-            workspace_dir / "calibration" / "extrinsic" / EXTRINSIC_TRACKER_NAME
+            workspace_dir / "calibration" / "extrinsic" / "capture_volume"
         )
         self._point_data_bundle: PointDataBundle | None = None
 
@@ -670,7 +672,7 @@ class WorkspaceCoordinator(QObject):
         return self._intrinsic_points.get(port)
 
     # -------------------------------------------------------------------------
-    # PointDataBundle API (new system, parallel to CaptureVolume)
+    # PointDataBundle API
     # -------------------------------------------------------------------------
 
     @property
@@ -681,7 +683,6 @@ class WorkspaceCoordinator(QObject):
         1. Return cached bundle if available
         2. Try to load from PointDataBundleRepository
         3. Return None if no data available
-
         """
         if self._point_data_bundle is not None:
             return self._point_data_bundle

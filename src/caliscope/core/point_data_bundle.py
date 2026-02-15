@@ -28,8 +28,9 @@ from caliscope.core.alignment import (
     SimilarityTransform,
 )
 from caliscope.core.scale_accuracy import (
-    compute_scale_accuracy as compute_scale_accuracy_impl,
-    ScaleAccuracyData,
+    compute_frame_scale_error,
+    FrameScaleError,
+    VolumetricScaleReport,
 )
 
 import pandas as pd
@@ -482,64 +483,87 @@ class PointDataBundle:
 
         return self._filter_by_reprojection_thresholds(thresholds, min_per_camera)
 
-    def compute_scale_accuracy(self, sync_index: int) -> ScaleAccuracyData:
-        """Compute scale accuracy comparing triangulated points to known object geometry.
+    def compute_volumetric_scale_accuracy(self) -> VolumetricScaleReport:
+        """Compute multi-frame scale accuracy across the capture volume.
 
-        Compares triangulated world points at the given sync_index to their
-        corresponding ground truth object positions (from obj_loc columns) to
-        assess reconstruction accuracy. Uses ALL pairwise distances between
-        detected corners for robust statistical measurement.
-
-        Args:
-            sync_index: Frame index to compute accuracy at
+        Compares triangulated world points to their corresponding ground truth
+        object positions (from obj_loc columns) at all frames where >=4 corners
+        are visible. Uses ALL pairwise distances at each frame for robust
+        statistical measurement.
 
         Returns:
-            ScaleAccuracyData with distance RMSE and relative error
-
-        Raises:
-            ValueError: If insufficient matched points at sync_index (< 2)
+            VolumetricScaleReport containing per-frame errors and aggregate metrics.
+            Returns empty report if no valid frames exist (normal pre-alignment state).
         """
-        # Extract data at sync_index
         img_df = self.image_points.df
         world_df = self.world_points.df
 
-        img_subset = img_df[img_df["sync_index"] == sync_index]
-        world_subset = world_df[world_df["sync_index"] == sync_index]
+        # Find sync_indices where obj_loc data exists
+        # Check if obj_loc columns are present
+        obj_loc_cols = ["obj_loc_x", "obj_loc_y", "obj_loc_z"]
+        if not all(col in img_df.columns for col in obj_loc_cols):
+            return VolumetricScaleReport.empty()
 
-        if img_subset.empty:
-            raise ValueError(f"No image observations at sync_index {sync_index}")
-        if world_subset.empty:
-            raise ValueError(f"No world points at sync_index {sync_index}")
+        # Filter to rows that have obj_loc x/y data (z may be NaN for planar boards)
+        obj_loc_mask = ~img_df[["obj_loc_x", "obj_loc_y"]].isna().any(axis=1)
+        frames_with_obj_loc = img_df[obj_loc_mask]["sync_index"].unique()
 
-        # Get image points with object locations at reference frame
-        # Use drop_duplicates on img_subset since multiple cameras may see same point_id
-        obj_points_df = img_subset[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]].drop_duplicates(
-            subset=["point_id"]
-        )
+        if len(frames_with_obj_loc) == 0:
+            return VolumetricScaleReport.empty()
 
-        # Merge world points with object locations by point_id
-        merged = world_subset.merge(obj_points_df, on="point_id", how="inner")
+        frame_errors: list[FrameScaleError] = []
 
-        if len(merged) < 2:
-            raise ValueError(f"Insufficient matched points for scale accuracy: {len(merged)} (need at least 2)")
+        # Process each frame
+        for sync_index in frames_with_obj_loc:
+            img_subset = img_df[img_df["sync_index"] == sync_index]
+            world_subset = world_df[world_df["sync_index"] == sync_index]
 
-        # Handle planar objects (z=0 or NaN)
-        if merged["obj_loc_z"].isna().all():
-            merged = merged.copy()
-            merged["obj_loc_z"] = 0.0
+            if img_subset.empty or world_subset.empty:
+                continue
 
-        # Filter out any remaining NaN values
-        valid_mask = ~merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].isna().any(axis=1)
-        merged = merged[valid_mask]
+            # Get unique point_ids with obj_loc data (drop duplicates from multi-camera observations)
+            obj_points_df = img_subset[["point_id", "obj_loc_x", "obj_loc_y", "obj_loc_z"]].drop_duplicates(
+                subset=["point_id"]
+            )
 
-        if len(merged) < 2:
-            raise ValueError("Insufficient valid points after NaN filtering (need at least 2)")
+            # Merge world points with object locations by point_id
+            merged = world_subset.merge(obj_points_df, on="point_id", how="inner")
 
-        # Extract arrays for scale accuracy computation
-        world_points = merged[["x_coord", "y_coord", "z_coord"]].to_numpy()
-        object_points = merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].to_numpy()
+            # Handle planar objects (z=0 or NaN)
+            if merged["obj_loc_z"].isna().all():
+                merged = merged.copy()
+                merged["obj_loc_z"] = 0.0
 
-        return compute_scale_accuracy_impl(world_points, object_points, sync_index)
+            # Filter out any remaining NaN values
+            valid_mask = ~merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].isna().any(axis=1)
+            merged = merged[valid_mask]
+
+            # Skip frames with <4 corners (spec's minimum threshold)
+            if len(merged) < 4:
+                continue
+
+            # Count cameras contributing at this frame
+            n_cameras_contributing = int(img_subset[img_subset["point_id"].isin(merged["point_id"])]["port"].nunique())
+
+            # Extract arrays for scale accuracy computation
+            world_points = merged[["x_coord", "y_coord", "z_coord"]].to_numpy()
+            object_points = merged[["obj_loc_x", "obj_loc_y", "obj_loc_z"]].to_numpy()
+
+            try:
+                frame_error = compute_frame_scale_error(
+                    world_points=world_points,
+                    object_points=object_points,
+                    sync_index=int(sync_index),
+                    n_cameras_contributing=n_cameras_contributing,
+                )
+                frame_errors.append(frame_error)
+            except ValueError as e:
+                # Log but don't fail — some frames may have degenerate geometry
+                logger.debug(f"Skipping sync_index {sync_index} due to error: {e}")
+                continue
+
+        # Return report (empty if no valid frames)
+        return VolumetricScaleReport(frame_errors=tuple(frame_errors))
 
     def align_to_object(self, sync_index: int) -> "PointDataBundle":
         """
@@ -619,7 +643,10 @@ class PointDataBundle:
         new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
 
         return PointDataBundle(
-            camera_array=new_camera_array, image_points=self.image_points, world_points=new_world_points
+            camera_array=new_camera_array,
+            image_points=self.image_points,
+            world_points=new_world_points,
+            _optimization_status=self._optimization_status,
         )
 
     @property
@@ -695,6 +722,7 @@ class PointDataBundle:
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
+            _optimization_status=self._optimization_status,
         )
 
 

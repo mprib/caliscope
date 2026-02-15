@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from caliscope.core.scale_accuracy import ScaleAccuracyData
+from caliscope.core.scale_accuracy import VolumetricScaleReport
 from caliscope.gui.presenters.extrinsic_calibration_presenter import QualityPanelData
 
 
@@ -30,7 +30,7 @@ class QualityPanel(QWidget):
     Usage:
         panel = QualityPanel()
         panel.set_reprojection_data(quality_data)
-        panel.set_scale_accuracy(scale_data)
+        panel.set_volumetric_accuracy(report)
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -84,21 +84,20 @@ class QualityPanel(QWidget):
         scale_header.setStyleSheet("font-weight: bold; color: #aaa; font-size: 11px;")
         scale_layout.addWidget(scale_header)
 
-        self._scale_rmse_label = QLabel("Distance RMSE: --")
-        self._scale_rmse_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        scale_layout.addWidget(self._scale_rmse_label)
+        # Primary metric: pooled RMSE (14px bold)
+        self._scale_pooled_rmse_label = QLabel("Pooled RMSE: --")
+        self._scale_pooled_rmse_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        scale_layout.addWidget(self._scale_pooled_rmse_label)
 
-        self._scale_relative_label = QLabel("Relative Error: --")
-        self._scale_relative_label.setStyleSheet("color: #ccc;")
-        scale_layout.addWidget(self._scale_relative_label)
+        # Secondary metrics: median + worst (one line)
+        self._scale_median_worst_label = QLabel("Median: -- | Worst: --")
+        self._scale_median_worst_label.setStyleSheet("color: #ccc;")
+        scale_layout.addWidget(self._scale_median_worst_label)
 
-        self._scale_ref_label = QLabel("Reference Frame: --")
-        self._scale_ref_label.setStyleSheet("color: #ccc;")
-        scale_layout.addWidget(self._scale_ref_label)
-
-        self._scale_detail_label = QLabel("")
-        self._scale_detail_label.setStyleSheet("color: #888; font-style: italic;")
-        scale_layout.addWidget(self._scale_detail_label)
+        # Tertiary: bias + frames (muted/italic)
+        self._scale_bias_frames_label = QLabel("Bias: -- | -- frames")
+        self._scale_bias_frames_label.setStyleSheet("color: #888; font-style: italic;")
+        scale_layout.addWidget(self._scale_bias_frames_label)
 
         scale_layout.addStretch()
         layout.addWidget(scale_section, stretch=1)
@@ -170,23 +169,30 @@ class QualityPanel(QWidget):
             self._table.setItem(row, 1, obs_item)
             self._table.setItem(row, 2, rmse_item)
 
-    def set_scale_accuracy(self, data: ScaleAccuracyData | None) -> None:
-        """Update scale accuracy section with new data.
+    def set_volumetric_accuracy(self, report: VolumetricScaleReport | None) -> None:
+        """Update scale accuracy section with volumetric report.
 
         Args:
-            data: Scale accuracy metrics, or None to show placeholder
+            report: Volumetric scale accuracy report, or None to show placeholder
         """
-        if data is None or data.n_corners_detected == 0:
-            self._scale_rmse_label.setText("Distance RMSE: --")
-            self._scale_relative_label.setText("Relative Error: --")
-            self._scale_ref_label.setText("Reference Frame: --")
-            self._scale_detail_label.setText("(set origin to compute)")
+        if report is None or report.n_frames_sampled == 0:
+            self._scale_pooled_rmse_label.setText("Pooled RMSE: --")
+            self._scale_median_worst_label.setText("Median: -- | Worst: --")
+            self._scale_bias_frames_label.setText("(set origin to compute)")
             return
 
-        self._scale_rmse_label.setText(f"Distance RMSE: {data.distance_rmse_mm:.2f} mm")
-        self._scale_relative_label.setText(f"Relative Error: {data.relative_error_percent:.2f}%")
-        self._scale_ref_label.setText(f"Reference Frame: {data.reference_sync_index}")
-        self._scale_detail_label.setText(f"({data.n_corners_detected} corners matched)")
+        # Primary: pooled RMSE
+        self._scale_pooled_rmse_label.setText(f"Pooled RMSE: {report.pooled_rmse_mm:.2f} mm")
+
+        # Secondary: median + worst
+        self._scale_median_worst_label.setText(
+            f"Median: {report.median_rmse_mm:.2f} mm | Worst: {report.max_rmse_mm:.1f} mm"
+        )
+
+        # Tertiary: bias + frames (sign prefix on bias)
+        self._scale_bias_frames_label.setText(
+            f"Bias: {report.mean_signed_error_mm:+.2f} mm | {report.n_frames_sampled} frames"
+        )
 
     def clear(self) -> None:
         """Reset all displays to placeholder values."""
@@ -195,9 +201,8 @@ class QualityPanel(QWidget):
         self._points_label.setText("3D Points: --")
         self._converged_label.setText("Converged: --")
 
-        self._scale_rmse_label.setText("Distance RMSE: --")
-        self._scale_relative_label.setText("Relative Error: --")
-        self._scale_ref_label.setText("Reference Frame: --")
-        self._scale_detail_label.setText("")
+        self._scale_pooled_rmse_label.setText("Pooled RMSE: --")
+        self._scale_median_worst_label.setText("Median: -- | Worst: --")
+        self._scale_bias_frames_label.setText("(set origin to compute)")
 
         self._table.setRowCount(0)

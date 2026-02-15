@@ -59,10 +59,14 @@ class TaskHandle(QObject):
     def cancel(self) -> None:
         """Request this task be cancelled.
 
+        Accepts both PENDING and RUNNING states. PENDING tasks may not
+        have started their worker yet, but the token will be checked
+        on first cancellation checkpoint.
+
         Does not immediately stop the task - the worker must check
         token.is_cancelled cooperatively.
         """
-        if self._state == TaskState.RUNNING:
+        if self._state in (TaskState.PENDING, TaskState.RUNNING):
             logger.info(f"Cancellation requested for task '{self._name}'")
             self._token.cancel()
 

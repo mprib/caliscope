@@ -21,13 +21,14 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSlider,
     QSplitter,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 import numpy as np
 
-from caliscope.core.scale_accuracy import ScaleAccuracyData
+from caliscope.core.scale_accuracy import VolumetricScaleReport
 from caliscope.gui.presenters.extrinsic_calibration_presenter import (
     ExtrinsicCalibrationPresenter,
     ExtrinsicCalibrationState,
@@ -38,6 +39,8 @@ from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 from caliscope.gui.widgets.coverage_heatmap import CoverageHeatmapWidget
 from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
 from caliscope.gui.widgets.quality_panel import QualityPanel
+from caliscope.gui.widgets.scale_detail_dialog import ScaleDetailDialog
+from caliscope.gui.widgets.scale_sparkline import ScaleSparkline
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +57,9 @@ class ExtrinsicCalibrationView(QWidget):
     Layout (top to bottom):
     1. Primary actions (Optimize + Set Origin) - centered
     2. Frame slider + Rotation buttons (2x3 grid)
-    3. Quality panel (3 sections, evenly distributed)
-    4. Filter controls (at bottom)
+    3. Scale accuracy sparkline + expand button
+    4. Quality panel (3 sections, evenly distributed)
+    5. Filter controls (at bottom)
     """
 
     def __init__(
@@ -74,6 +78,10 @@ class ExtrinsicCalibrationView(QWidget):
         # Valid sync indices for frame navigation (sparse data support)
         # Slider position = index into this array, not the actual sync_index
         self._valid_sync_indices: np.ndarray = np.array([], dtype=np.int64)
+
+        # Scale accuracy state
+        self._scale_detail_dialog: ScaleDetailDialog | None = None
+        self._latest_scale_report: VolumetricScaleReport | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -131,8 +139,9 @@ class ExtrinsicCalibrationView(QWidget):
         Layout order:
         1. Primary actions row (Optimize + Set Origin)
         2. Frame slider + Rotation buttons row
-        3. Quality panel
-        4. Filter controls row
+        3. Sparkline row (scale accuracy chart + expand button)
+        4. Quality panel
+        5. Filter controls row
         """
         panel = QWidget()
         layout = QVBoxLayout(panel)
@@ -147,11 +156,15 @@ class ExtrinsicCalibrationView(QWidget):
         nav_row = self._create_navigation_row()
         layout.addWidget(nav_row)
 
-        # Row 3: Quality panel
+        # Row 3: Sparkline + expand button
+        sparkline_row = self._create_sparkline_row()
+        layout.addWidget(sparkline_row)
+
+        # Row 4: Quality panel
         self._quality_panel = QualityPanel()
         layout.addWidget(self._quality_panel)
 
-        # Row 4: Filter controls (at bottom)
+        # Row 5: Filter controls (at bottom)
         filter_row = self._create_filter_row()
         layout.addWidget(filter_row)
 
@@ -285,6 +298,28 @@ class ExtrinsicCalibrationView(QWidget):
 
         return widget
 
+    def _create_sparkline_row(self) -> QWidget:
+        """Create sparkline chart + expand button row."""
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        # Sparkline (stretches to fill available space)
+        self._sparkline = ScaleSparkline()
+        layout.addWidget(self._sparkline, stretch=1)
+
+        # Expand button (20x20, icon-only, hidden until data available)
+        self._sparkline_expand_btn = QToolButton()
+        self._sparkline_expand_btn.setText("⊕")
+        self._sparkline_expand_btn.setFixedSize(20, 20)
+        self._sparkline_expand_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._sparkline_expand_btn.setToolTip("Show detailed scale accuracy chart")
+        self._sparkline_expand_btn.hide()
+        layout.addWidget(self._sparkline_expand_btn)
+
+        return row
+
     def _create_filter_row(self) -> QWidget:
         """Create filter controls row (at bottom)."""
         row = QWidget()
@@ -344,7 +379,7 @@ class ExtrinsicCalibrationView(QWidget):
         self._presenter.state_changed.connect(self._update_ui_for_state)
         self._presenter.progress_updated.connect(self._on_progress_updated)
         self._presenter.quality_updated.connect(self._on_quality_updated)
-        self._presenter.scale_accuracy_updated.connect(self._on_scale_accuracy_updated)
+        self._presenter.volumetric_accuracy_updated.connect(self._on_volumetric_accuracy_updated)
         self._presenter.coverage_updated.connect(self._on_coverage_updated)
         self._presenter.view_model_updated.connect(self._on_view_model_updated)
 
@@ -356,6 +391,10 @@ class ExtrinsicCalibrationView(QWidget):
         self._set_origin_btn.clicked.connect(self._on_set_origin_clicked)
         self._frame_slider.valueChanged.connect(self._on_frame_slider_changed)
         self._coverage_btn.clicked.connect(self._show_coverage_dialog)
+
+        # Sparkline interactions (cursor sync happens in _on_frame_slider_changed, not direct connection)
+        self._sparkline.frame_clicked.connect(self._on_sparkline_frame_clicked)
+        self._sparkline_expand_btn.clicked.connect(self._show_scale_detail_dialog)
 
     # -------------------------------------------------------------------------
     # State-Driven UI
@@ -489,6 +528,9 @@ class ExtrinsicCalibrationView(QWidget):
         if self._pyvista_widget is not None:
             self._pyvista_widget.set_sync_index(actual_sync_index)
         self._presenter.set_sync_index(actual_sync_index)
+        self._sparkline.set_cursor(actual_sync_index)
+        if self._scale_detail_dialog is not None:
+            self._scale_detail_dialog.set_cursor(actual_sync_index)
         self._update_frame_display()
 
     def _on_progress_updated(self, percent: int, message: str) -> None:
@@ -501,9 +543,47 @@ class ExtrinsicCalibrationView(QWidget):
         self._quality_panel.set_reprojection_data(data)
         self._update_filter_preview()
 
-    def _on_scale_accuracy_updated(self, data: ScaleAccuracyData) -> None:
-        """Handle scale accuracy data update from presenter."""
-        self._quality_panel.set_scale_accuracy(data)
+    def _on_volumetric_accuracy_updated(self, report: VolumetricScaleReport) -> None:
+        """Handle volumetric scale accuracy update from presenter."""
+        self._latest_scale_report = report
+        self._sparkline.set_data(report)
+        self._quality_panel.set_volumetric_accuracy(report)
+
+        # Update detail dialog if it exists
+        if self._scale_detail_dialog is not None:
+            self._scale_detail_dialog.set_data(report)
+
+        # Show/hide expand button based on whether we have data
+        if report.n_frames_sampled > 0:
+            self._sparkline_expand_btn.show()
+        else:
+            self._sparkline_expand_btn.hide()
+
+    def _on_sparkline_frame_clicked(self, sync_index: int) -> None:
+        """Handle click-to-seek from sparkline."""
+        # Map sync_index to slider position
+        if len(self._valid_sync_indices) == 0:
+            return
+
+        position = int(np.searchsorted(self._valid_sync_indices, sync_index))
+        position = min(position, len(self._valid_sync_indices) - 1)
+        self._frame_slider.setValue(position)
+
+    def _show_scale_detail_dialog(self) -> None:
+        """Show expanded scale accuracy chart."""
+        if self._scale_detail_dialog is None:
+            self._scale_detail_dialog = ScaleDetailDialog(self)
+            self._scale_detail_dialog.frame_clicked.connect(self._on_sparkline_frame_clicked)
+
+        # Populate with current data and cursor position
+        if self._latest_scale_report is not None:
+            self._scale_detail_dialog.set_data(self._latest_scale_report)
+        if len(self._valid_sync_indices) > 0:
+            actual_sync_index = int(self._valid_sync_indices[self._frame_slider.value()])
+            self._scale_detail_dialog.set_cursor(actual_sync_index)
+
+        self._scale_detail_dialog.show()
+        self._scale_detail_dialog.raise_()
 
     def _on_coverage_updated(self, coverage: np.ndarray, labels: list[str]) -> None:
         """Handle coverage data update from presenter."""
@@ -579,6 +659,13 @@ class ExtrinsicCalibrationView(QWidget):
 
         self._frame_slider.setEnabled(n_frames > 1)
         self._frame_slider.blockSignals(False)
+
+        # Explicitly update sparkline cursor (slider uses blockSignals, so valueChanged won't fire)
+        if n_frames > 0:
+            actual_sync_index = int(self._valid_sync_indices[self._frame_slider.value()])
+            self._sparkline.set_cursor(actual_sync_index)
+            if self._scale_detail_dialog is not None:
+                self._scale_detail_dialog.set_cursor(actual_sync_index)
 
         self._update_frame_display()
 

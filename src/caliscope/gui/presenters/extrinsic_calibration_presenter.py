@@ -137,7 +137,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
     # Result signals
     quality_updated = Signal(object)  # QualityPanelData
-    scale_accuracy_updated = Signal(object)  # ScaleAccuracyData
+    volumetric_accuracy_updated = Signal(object)  # VolumetricScaleReport
     coverage_updated = Signal(object, object)  # (coverage_matrix, port_labels)
     bundle_changed = Signal(object)  # PointDataBundle
     view_model_updated = Signal(object)  # PlaybackViewModel
@@ -469,7 +469,7 @@ class ExtrinsicCalibrationPresenter(QObject):
     def align_to_origin(self, sync_index: int) -> None:
         """Set world origin to board position at sync_index.
 
-        Also computes and emits scale accuracy metrics by comparing
+        Also computes and emits volumetric scale accuracy metrics by comparing
         triangulated world points to known object geometry.
 
         Args:
@@ -483,7 +483,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         self._reference_sync_index = sync_index
         self._update_bundle(new_bundle)
-        self._refresh_scale_accuracy()
+        self._refresh_volumetric_accuracy()
 
     # -------------------------------------------------------------------------
     # View Control (Implemented in 4.3)
@@ -546,6 +546,10 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_quality_panel()
         self._refresh_coverage()
         self._refresh_view_model()
+        # Refresh volumetric accuracy after view_model (which provides _valid_sync_indices)
+        # Only if we have a reference frame set (post-alignment)
+        if self._reference_sync_index is not None:
+            self._refresh_volumetric_accuracy()
         self.bundle_changed.emit(bundle)
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
@@ -611,26 +615,23 @@ class ExtrinsicCalibrationPresenter(QObject):
         )
         self.view_model_updated.emit(view_model)
 
-    def _refresh_scale_accuracy(self) -> None:
-        """Compute and emit scale accuracy metrics.
+    def _refresh_volumetric_accuracy(self) -> None:
+        """Compute and emit volumetric scale accuracy across all valid frames.
 
-        Compares triangulated world points at the reference frame to their
-        known ground truth positions from the tracker's object geometry.
-        Works with any rigid tracker that provides obj_loc_* columns.
+        Scans all frames with >=4 corners and obj_loc data, computing distance
+        RMSE at each frame. Returns empty report if no valid frames exist
+        (normal pre-alignment state).
         """
         if self._bundle is None or self._reference_sync_index is None:
             return
 
-        try:
-            scale_data = self._bundle.compute_scale_accuracy(self._reference_sync_index)
+        report = self._bundle.compute_volumetric_scale_accuracy()
+        if report.n_frames_sampled > 0:
             logger.info(
-                f"Scale accuracy at frame {self._reference_sync_index}: "
-                f"RMSE={scale_data.distance_rmse_mm:.2f}mm, "
-                f"relative={scale_data.relative_error_percent:.2f}%"
+                f"Volumetric scale accuracy: pooled RMSE={report.pooled_rmse_mm:.2f}mm, "
+                f"{report.n_frames_sampled} frames sampled"
             )
-            self.scale_accuracy_updated.emit(scale_data)
-        except ValueError as e:
-            logger.warning(f"Could not compute scale accuracy: {e}")
+        self.volumetric_accuracy_updated.emit(report)
 
     def _load_initial_image_points(self) -> None:
         """Load ImagePoints for initial coverage display.

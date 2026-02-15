@@ -30,6 +30,7 @@ from caliscope.gui.presenters.reconstruction_presenter import (
 )
 from caliscope.gui.view_models.playback_view_model import PlaybackViewModel
 from caliscope.gui.widgets.playback_viz_widget import PlaybackVizWidget
+from caliscope.trackers import tracker_registry
 
 logger = logging.getLogger(__name__)
 
@@ -184,8 +185,9 @@ class ReconstructionWidget(QWidget):
         # Populate trackers
         trackers = self._presenter.available_trackers
         self._tracker_combo.clear()
-        for tracker in trackers:
-            self._tracker_combo.addItem(tracker.name.replace("_", " ").title(), tracker)
+        for tracker_name in trackers:
+            display = tracker_registry.display_name_for(tracker_name)
+            self._tracker_combo.addItem(display, tracker_name)
 
         # No auto-selection for tracker - user should consciously choose
 
@@ -198,8 +200,8 @@ class ReconstructionWidget(QWidget):
     def _on_tracker_changed(self, index: int) -> None:
         """Handle tracker selection change."""
         if index >= 0:
-            tracker = self._presenter.available_trackers[index]
-            self._presenter.select_tracker(tracker)
+            tracker_name = self._tracker_combo.itemData(index)
+            self._presenter.select_tracker(tracker_name)
             self._update_visualization()
 
     def _on_process_clicked(self) -> None:
@@ -331,7 +333,7 @@ class ReconstructionWidget(QWidget):
                 view_model = PlaybackViewModel.from_xyz_csv(
                     xyz_path=str(output_path),
                     camera_array=camera_array,
-                    wireframe_segments=None,  # Future: add skeleton support
+                    wireframe_segments=self._presenter.wireframe_segments,
                     fps=30,
                 )
             else:

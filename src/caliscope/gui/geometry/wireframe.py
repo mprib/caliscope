@@ -1,12 +1,14 @@
 """
-Wireframe loading and geometry building - pure UI layer.
-Zero domain dependencies beyond Tracker interface.
+Wireframe loading and geometry building - UI layer.
+Depends on domain WireFrameView for conversion to GUI-ready segments.
 """
 
 from dataclasses import dataclass
 from pathlib import Path
 
 import rtoml
+
+from caliscope.tracker import WireFrameView
 
 
 # Map PyQtGraph single-character colors to RGB
@@ -89,3 +91,29 @@ def load_wireframe_config(toml_path: Path) -> WireframeConfig:
         )
 
     return WireframeConfig(point_name_to_id=point_name_to_id, segments=segments)
+
+
+def wireframe_segments_from_view(view: WireFrameView) -> list[WireframeSegment]:
+    """Convert domain WireFrameView to GUI-ready WireframeSegment list.
+
+    Resolves landmark names to IDs and single-char color codes to RGB tuples.
+    Silently skips segments with unresolved point names or unknown color codes.
+    """
+    segments: list[WireframeSegment] = []
+    for seg in view.segments:
+        point_a_id = view.point_names.get(seg.point_A)
+        point_b_id = view.point_names.get(seg.point_B)
+        color_rgb = COLOR_MAP.get(seg.color)
+
+        if point_a_id is None or point_b_id is None or color_rgb is None:
+            continue
+
+        segments.append(
+            WireframeSegment(
+                name=seg.name,
+                point_a_id=point_a_id,
+                point_b_id=point_b_id,
+                color_rgb=color_rgb,
+            )
+        )
+    return segments

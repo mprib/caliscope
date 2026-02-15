@@ -8,7 +8,6 @@ Model configuration is loaded from a TOML "model card" file.
 """
 
 import logging
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -21,7 +20,7 @@ except ImportError:
     _ONNXRUNTIME_AVAILABLE = False
 
 from caliscope.packets import PointPacket
-from caliscope.tracker import Tracker
+from caliscope.tracker import Tracker, WireFrameView
 from caliscope.trackers.helper import apply_rotation, unrotate_points
 from caliscope.trackers.model_card import ModelCard
 from caliscope.trackers.model_decode import decode_heatmap, decode_simcc
@@ -392,20 +391,16 @@ class OnnxTracker(Tracker):
         }
 
     @property
-    def wireframe_toml_path(self) -> Path | None:
-        """Return path to wireframe definition.
-
-        Wireframe is now embedded directly in ModelCard.wireframe,
-        not stored in a separate TOML file. This property exists
-        for backward compatibility with other trackers.
-
-        Returns:
-            None (wireframe accessible via card.wireframe)
-        """
-        return None
+    def wireframe(self) -> "WireFrameView | None":
+        return self.card.wireframe
 
     def cleanup(self) -> None:
-        """Release onnxruntime session resources."""
+        """Release onnxruntime session resources.
+
+        Idempotent — safe to call multiple times (multiple FramePacketStreamers
+        share a single tracker instance and each calls cleanup on close).
+        """
         self._prev_bboxes.clear()
-        del self.session
-        logger.debug(f"OnnxTracker cleaned up: {self.card.name}")
+        if hasattr(self, "session"):
+            del self.session
+            logger.debug(f"OnnxTracker cleaned up: {self.card.name}")

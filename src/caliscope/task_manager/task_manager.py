@@ -42,6 +42,8 @@ class _WorkerThread(QThread):
             else:
                 self._handle._emit_completed(result)
 
+        except InterruptedError:
+            self._handle._emit_cancelled()
         except Exception as e:
             self._handle._emit_failed(type(e).__name__, str(e))
 

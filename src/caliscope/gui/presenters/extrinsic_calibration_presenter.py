@@ -42,10 +42,9 @@ class ExtrinsicCalibrationState(Enum):
     This prevents state/reality divergence.
     """
 
-    NEEDS_BOOTSTRAP = auto()  # Have ImagePoints path, need to triangulate
-    NEEDS_OPTIMIZATION = auto()  # Have WorldPoints, not yet optimized
-    OPTIMIZING = auto()  # Background optimization running
-    CALIBRATED = auto()  # Optimization complete, can refine
+    NEEDS_CALIBRATION = auto()  # Have ImagePoints path, need to calibrate
+    CALIBRATING = auto()  # Background calibration/optimization running
+    CALIBRATED = auto()  # Have bundle, can refine
 
 
 @dataclass(frozen=True)
@@ -206,15 +205,12 @@ class ExtrinsicCalibrationPresenter(QObject):
     def state(self) -> ExtrinsicCalibrationState:
         """Compute current state from internal reality - never stale."""
         if self._is_task_active():
-            return ExtrinsicCalibrationState.OPTIMIZING
-
-        if self._bundle is not None and self._bundle.optimization_status is not None:
-            return ExtrinsicCalibrationState.CALIBRATED
+            return ExtrinsicCalibrationState.CALIBRATING
 
         if self._bundle is not None:
-            return ExtrinsicCalibrationState.NEEDS_OPTIMIZATION
+            return ExtrinsicCalibrationState.CALIBRATED
 
-        return ExtrinsicCalibrationState.NEEDS_BOOTSTRAP
+        return ExtrinsicCalibrationState.NEEDS_CALIBRATION
 
     @property
     def bundle(self) -> PointDataBundle | None:
@@ -237,11 +233,15 @@ class ExtrinsicCalibrationPresenter(QObject):
         then runs bundle adjustment optimization. Emits bundle_changed
         with the optimized bundle.
 
-        Only valid in NEEDS_BOOTSTRAP state.
+        Can be called from NEEDS_CALIBRATION or CALIBRATED state.
+        In CALIBRATED state, discards current bundle first.
         """
-        if self.state != ExtrinsicCalibrationState.NEEDS_BOOTSTRAP:
-            logger.warning(f"Cannot run calibration in state {self.state}")
+        if self.state == ExtrinsicCalibrationState.CALIBRATING:
+            logger.warning("Cannot run calibration: already running")
             return
+
+        # Clear existing bundle to allow re-calibration from CALIBRATED state
+        self._bundle = None
 
         # Capture for closure - deepcopy camera_array since bootstrap mutates it
         image_points_path = self._image_points_path
@@ -334,54 +334,6 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         handle.report_progress(100, "Complete")
         return final
-
-    def re_optimize(self) -> None:
-        """Run optimization again on current bundle.
-
-        Useful after filtering or if previous optimization was interrupted.
-        Only valid in CALIBRATED or NEEDS_OPTIMIZATION states.
-        """
-        if self._bundle is None:
-            logger.warning("Cannot re-optimize: no bundle available")
-            return
-
-        if self._is_task_active():
-            logger.warning("Cannot re-optimize: task already running")
-            return
-
-        # Capture for closure
-        bundle = self._bundle
-
-        def worker(token: CancellationToken, handle: TaskHandle) -> PointDataBundle:
-            handle.report_progress(10, "Running optimization")
-            optimized = bundle.optimize(ftol=1e-8, verbose=0)
-            handle.report_progress(100, "Complete")
-            logger.info(f"Re-optimization RMSE: {optimized.reprojection_report.overall_rmse:.3f}px")
-            return optimized
-
-        self._task_handle = self._task_manager.submit(
-            worker,
-            name="Re-optimize bundle",
-        )
-        # Use QueuedConnection - TaskHandle signals emitted from worker threads
-        self._task_handle.completed.connect(
-            self._on_bundle_optimized,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._task_handle.failed.connect(
-            self._on_calibration_failed,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._task_handle.cancelled.connect(
-            self._on_calibration_cancelled,
-            Qt.ConnectionType.QueuedConnection,
-        )
-        self._task_handle.progress_updated.connect(
-            self.progress_updated,
-            Qt.ConnectionType.QueuedConnection,
-        )
-
-        self._emit_state_changed()
 
     # -------------------------------------------------------------------------
     # Filtering Operations (Implemented in 4.3)
@@ -507,6 +459,22 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._current_sync_index = index
         # Note: No view_model_updated emission here - frame changes are
         # handled directly by the view calling widget.set_sync_index()
+
+    # -------------------------------------------------------------------------
+    # Cancellation
+    # -------------------------------------------------------------------------
+
+    def cancel_calibration(self) -> None:
+        """Request cancellation of running calibration.
+
+        Unlike cleanup(), this leaves the task handle intact so the
+        cancelled callback can drive the state transition naturally.
+        The _on_calibration_cancelled slot will clear the handle and
+        emit state_changed.
+        """
+        if self._task_handle is not None and self._is_task_active():
+            logger.info("Cancel requested by user")
+            self._task_handle.cancel()
 
     # -------------------------------------------------------------------------
     # Lifecycle
@@ -644,7 +612,7 @@ class ExtrinsicCalibrationPresenter(QObject):
 
         This enables the view to show the correct initial state:
         - Fresh start: coverage heatmap, "Calibrate" button
-        - Restored session: 3D visualization, quality metrics, "Re-optimize" button
+        - Restored session: 3D visualization, quality metrics, "Calibrate" button
         """
         # Always emit coverage from initial image points
         self._refresh_initial_coverage()

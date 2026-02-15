@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QSlider,
@@ -55,11 +56,15 @@ class ExtrinsicCalibrationView(QWidget):
     This prevents state/UI divergence - there's no stored UI state.
 
     Layout (top to bottom):
-    1. Primary actions (Optimize + Set Origin) - centered
-    2. Frame slider + Rotation buttons (2x3 grid)
-    3. Scale accuracy sparkline + expand button
-    4. Quality panel (3 sections, evenly distributed)
-    5. Filter controls (at bottom)
+    1. Primary actions (split layout):
+       - Left: Calibrate/Recalibrate + progress
+       - Right: Set Origin + View Coverage
+    2-6. Calibrated controls (progressive disclosure - hidden until CALIBRATED):
+       2. Frame slider (full width)
+       3. Rotation buttons (2x3 grid, left-aligned)
+       4. Scale accuracy sparkline + expand button
+       5. Quality panel (3 sections, evenly distributed)
+       6. Filter controls (at bottom)
     """
 
     def __init__(
@@ -137,36 +142,51 @@ class ExtrinsicCalibrationView(QWidget):
         """Create the bottom controls panel.
 
         Layout order:
-        1. Primary actions row (Optimize + Set Origin)
-        2. Frame slider + Rotation buttons row
-        3. Sparkline row (scale accuracy chart + expand button)
-        4. Quality panel
-        5. Filter controls row
+        1. Primary actions row (Calibrate/Recalibrate + progress + Set Origin + View Coverage)
+        2-6. Calibrated controls (hidden until CALIBRATED):
+           2. Frame slider
+           3. Rotation buttons
+           4. Sparkline
+           5. Quality panel
+           6. Filter controls
         """
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(4, 8, 4, 4)
         layout.setSpacing(12)
 
-        # Row 1: Primary actions (Optimize + Set Origin) - centered
+        # Row 1: Primary actions - split layout
         primary_row = self._create_primary_actions_row()
         layout.addWidget(primary_row)
 
-        # Row 2: Frame slider + Rotation buttons
-        nav_row = self._create_navigation_row()
-        layout.addWidget(nav_row)
+        # Rows 2-6: Calibrated controls (hidden until CALIBRATED)
+        self._calibrated_controls = QWidget()
+        cal_layout = QVBoxLayout(self._calibrated_controls)
+        cal_layout.setContentsMargins(0, 0, 0, 0)
+        cal_layout.setSpacing(12)
 
-        # Row 3: Sparkline + expand button
+        # Row 2: Frame slider (full width)
+        slider_row = self._create_slider_row()
+        cal_layout.addWidget(slider_row)
+
+        # Row 3: Rotation buttons (compact, left-aligned)
+        rotation_row = self._create_rotation_row()
+        cal_layout.addWidget(rotation_row)
+
+        # Row 4: Sparkline + expand button
         sparkline_row = self._create_sparkline_row()
-        layout.addWidget(sparkline_row)
+        cal_layout.addWidget(sparkline_row)
 
-        # Row 4: Quality panel
+        # Row 5: Quality panel
         self._quality_panel = QualityPanel()
-        layout.addWidget(self._quality_panel)
+        cal_layout.addWidget(self._quality_panel)
 
-        # Row 5: Filter controls (at bottom)
+        # Row 6: Filter controls
         filter_row = self._create_filter_row()
-        layout.addWidget(filter_row)
+        cal_layout.addWidget(filter_row)
+
+        layout.addWidget(self._calibrated_controls)
+        self._calibrated_controls.hide()  # Hidden until CALIBRATED
 
         # Coverage data stored for dialog (updated by signal)
         self._coverage_data: tuple[np.ndarray, list[str]] | None = None
@@ -174,25 +194,20 @@ class ExtrinsicCalibrationView(QWidget):
         return panel
 
     def _create_primary_actions_row(self) -> QWidget:
-        """Create primary actions row with Optimize + Set Origin buttons."""
+        """Create primary actions row with split layout.
+
+        Left: Calibrate/Recalibrate + progress
+        Right: Set Origin + View Coverage
+        """
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(24)  # Gap between buttons
+        layout.setSpacing(16)
 
-        # Center the buttons
-        layout.addStretch()
-
-        # Optimize button (primary action)
-        self._action_btn = QPushButton("Optimize")
+        # Left side: primary action
+        self._action_btn = QPushButton("Calibrate")
         self._action_btn.setStyleSheet(Styles.PRIMARY_BUTTON)
         layout.addWidget(self._action_btn)
-
-        # Set Origin button (also primary - both are main workflow actions)
-        self._set_origin_btn = QPushButton("Set Origin")
-        self._set_origin_btn.setToolTip("Set world origin to charuco position at current frame")
-        self._set_origin_btn.setStyleSheet(Styles.PRIMARY_BUTTON)
-        layout.addWidget(self._set_origin_btn)
 
         # Progress section (shown during optimization)
         self._progress_container = QWidget()
@@ -212,18 +227,30 @@ class ExtrinsicCalibrationView(QWidget):
         layout.addWidget(self._progress_container)
         self._progress_container.hide()
 
-        layout.addStretch()
+        layout.addStretch()  # Push right-side buttons to the right
+
+        # Right side: secondary actions
+        self._set_origin_btn = QPushButton("Set Origin")
+        self._set_origin_btn.setToolTip("Set world origin to charuco position at current frame")
+        self._set_origin_btn.setStyleSheet(Styles.GHOST_BUTTON)
+        self._set_origin_btn.setVisible(False)  # Hidden until calibrated
+        layout.addWidget(self._set_origin_btn)
+
+        self._coverage_btn = QPushButton("View Coverage")
+        self._coverage_btn.setToolTip("Show camera pair observation counts")
+        self._coverage_btn.setEnabled(False)
+        self._coverage_btn.setStyleSheet(Styles.GHOST_BUTTON)
+        layout.addWidget(self._coverage_btn)
 
         return row
 
-    def _create_navigation_row(self) -> QWidget:
-        """Create frame slider + rotation buttons row."""
+    def _create_slider_row(self) -> QWidget:
+        """Create frame slider row (full width)."""
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(16)
 
-        # Frame slider section
         layout.addWidget(QLabel("Frame:"))
 
         self._frame_slider = QSlider(Qt.Orientation.Horizontal)
@@ -237,13 +264,19 @@ class ExtrinsicCalibrationView(QWidget):
         self._frame_display.setMinimumWidth(70)
         layout.addWidget(self._frame_display)
 
-        layout.addSpacing(16)
+        return row
 
-        # Rotation buttons section (2x3 grid)
+    def _create_rotation_row(self) -> QWidget:
+        """Create rotation buttons row (left-aligned, compact)."""
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(16)
+
         layout.addWidget(QLabel("Rotate:"))
-
         rotation_grid = self._create_rotation_grid()
         layout.addWidget(rotation_grid)
+        layout.addStretch()
 
         return row
 
@@ -360,13 +393,6 @@ class ExtrinsicCalibrationView(QWidget):
 
         layout.addStretch()
 
-        # Coverage button (ghost style)
-        self._coverage_btn = QPushButton("View Coverage")
-        self._coverage_btn.setToolTip("Show camera pair observation counts")
-        self._coverage_btn.setEnabled(False)
-        self._coverage_btn.setStyleSheet(Styles.GHOST_BUTTON)
-        layout.addWidget(self._coverage_btn)
-
         return row
 
     # -------------------------------------------------------------------------
@@ -402,37 +428,39 @@ class ExtrinsicCalibrationView(QWidget):
 
     def _update_ui_for_state(self, state: ExtrinsicCalibrationState) -> None:
         """Update all UI elements based on presenter state."""
-        is_running = state == ExtrinsicCalibrationState.OPTIMIZING
-        has_bundle = state in (
-            ExtrinsicCalibrationState.NEEDS_OPTIMIZATION,
-            ExtrinsicCalibrationState.CALIBRATED,
-        )
+        is_running = state == ExtrinsicCalibrationState.CALIBRATING
+        has_bundle = state == ExtrinsicCalibrationState.CALIBRATED
 
-        # Action button - text and behavior changes with state
-        if state == ExtrinsicCalibrationState.NEEDS_BOOTSTRAP:
-            self._action_btn.setText("Calibrate")
-            self._action_btn.setEnabled(True)
-        elif state == ExtrinsicCalibrationState.OPTIMIZING:
+        # Action button text changes based on state
+        if is_running:
             self._action_btn.setText("Cancel")
-            self._action_btn.setEnabled(True)
-        elif state == ExtrinsicCalibrationState.CALIBRATED:
-            self._action_btn.setText("Re-optimize")
-            self._action_btn.setEnabled(True)
-        else:  # NEEDS_OPTIMIZATION
-            self._action_btn.setText("Optimize")
-            self._action_btn.setEnabled(True)
+        elif has_bundle:
+            self._action_btn.setText("Recalibrate")
+        else:
+            self._action_btn.setText("Calibrate")
+        self._action_btn.setEnabled(True)
 
-        # Progress visibility (only when running)
+        # Set Origin only visible when calibrated
+        self._set_origin_btn.setVisible(has_bundle)
+
+        # Progress only when running
         self._progress_container.setVisible(is_running)
 
-        # Controls enabled only when we have bundle data
-        self._frame_slider.setEnabled(has_bundle)
-        self._set_origin_btn.setEnabled(has_bundle)
-        self._filter_apply_btn.setEnabled(has_bundle)
-        self._filter_mode.setEnabled(has_bundle)
-        self._filter_value.setEnabled(has_bundle)
+        # Progressive disclosure: show calibrated controls when we have a bundle.
+        # During filter re-optimization (CALIBRATING with bundle preserved),
+        # controls stay visible. Only fresh calibration (bundle cleared) hides them.
+        show_calibrated = has_bundle or (is_running and self._presenter.bundle is not None)
+        self._calibrated_controls.setVisible(show_calibrated)
+
+        # Controls enabled when calibrated and not running
+        # During filter re-opt, controls are visible but disabled
+        controls_enabled = has_bundle and not is_running
+        self._frame_slider.setEnabled(controls_enabled)
+        self._filter_apply_btn.setEnabled(controls_enabled)
+        self._filter_mode.setEnabled(controls_enabled)
+        self._filter_value.setEnabled(controls_enabled)
         for btn in self._rotation_btns:
-            btn.setEnabled(has_bundle)
+            btn.setEnabled(controls_enabled)
 
         # Update filter preview when we have bundle
         if has_bundle:
@@ -448,14 +476,25 @@ class ExtrinsicCalibrationView(QWidget):
         """Handle action button click - behavior depends on current state."""
         state = self._presenter.state
 
-        if state == ExtrinsicCalibrationState.NEEDS_BOOTSTRAP:
-            self._presenter.run_calibration()
-        elif state == ExtrinsicCalibrationState.OPTIMIZING:
-            self._presenter.cleanup()
+        if state == ExtrinsicCalibrationState.CALIBRATING:
+            self._presenter.cancel_calibration()
         elif state == ExtrinsicCalibrationState.CALIBRATED:
-            self._presenter.re_optimize()
-        elif state == ExtrinsicCalibrationState.NEEDS_OPTIMIZATION:
-            self._presenter.re_optimize()
+            # Confirm before discarding current calibration
+            if self._confirm_recalibrate():
+                self._presenter.run_calibration()
+        else:  # NEEDS_CALIBRATION
+            self._presenter.run_calibration()
+
+    def _confirm_recalibrate(self) -> bool:
+        """Show confirmation dialog before discarding current calibration."""
+        result = QMessageBox.warning(
+            self,
+            "Discard current calibration?",
+            "This will discard the current calibration and run a fresh calibration from scratch.",
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        return result == QMessageBox.StandardButton.Ok
 
     def _on_filter_apply_clicked(self) -> None:
         """Handle filter apply button click."""

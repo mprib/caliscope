@@ -66,6 +66,11 @@ class OnnxTracker(Tracker):
         # Get input name from model
         self.input_name = self.session.get_inputs()[0].name
 
+        # Tracking state: per-camera previous bounding box in post-rotation coords.
+        # Keyed by port to isolate state across cameras (single tracker instance
+        # is shared across all cameras — see Reconstructor/SynchronizedStreamManager).
+        self._prev_bboxes: dict[int, tuple[int, int, int, int]] = {}
+
         logger.info(
             f"OnnxTracker initialized: {card.name}, "
             f"format={card.format}, input_size={card.input_width}x{card.input_height}"
@@ -76,32 +81,46 @@ class OnnxTracker(Tracker):
         """Return tracker name derived from ONNX filename stem."""
         return f"ONNX_{self.card.model_path.stem}"
 
-    def _preprocess_simcc(self, frame: np.ndarray) -> np.ndarray:
+    def _preprocess_simcc(self, frame: np.ndarray) -> tuple[np.ndarray, float, int, int]:
         """Preprocess frame for SimCC format models (RTMPose).
 
-        Steps:
-        1. Resize to model input size
-        2. BGR -> RGB
-        3. Normalize with ImageNet mean/std
-        4. Transpose to (1, 3, H, W) float32
+        Letterboxes the frame to preserve aspect ratio, then normalizes.
+        Returns the preprocessed tensor plus transform parameters needed
+        to map model-space coordinates back to original frame coordinates.
 
         Args:
             frame: BGR image from cv2.VideoCapture
 
         Returns:
-            Preprocessed array ready for inference
+            Tuple of (preprocessed, scale, pad_x, pad_y) where:
+            - preprocessed: (1, 3, H, W) float32 tensor
+            - scale: resize scale factor applied to the original frame
+            - pad_x: horizontal padding in model input pixels
+            - pad_y: vertical padding in model input pixels
         """
-        # Resize to model input size (cv2.resize expects (width, height))
-        resized = cv2.resize(frame, (self.card.input_width, self.card.input_height), interpolation=cv2.INTER_LINEAR)
+        src_h, src_w = frame.shape[:2]
+        dst_w, dst_h = self.card.input_width, self.card.input_height
+
+        # Compute uniform scale that fits the frame inside the model input
+        scale = min(dst_w / src_w, dst_h / src_h)
+        scaled_w = int(src_w * scale)
+        scaled_h = int(src_h * scale)
+
+        # Padding to center the scaled image in the model input
+        pad_x = (dst_w - scaled_w) // 2
+        pad_y = (dst_h - scaled_h) // 2
+
+        # Resize preserving aspect ratio, then place on black canvas
+        resized = cv2.resize(frame, (scaled_w, scaled_h), interpolation=cv2.INTER_LINEAR)
+        canvas = np.zeros((dst_h, dst_w, 3), dtype=np.uint8)
+        canvas[pad_y : pad_y + scaled_h, pad_x : pad_x + scaled_w] = resized
 
         # BGR -> RGB
-        rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB)
 
         # Normalize with ImageNet mean/std
         mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
         std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-
-        # Convert to float and normalize
         normalized = rgb.astype(np.float32) / 255.0
         normalized = (normalized - mean) / std
 
@@ -109,7 +128,7 @@ class OnnxTracker(Tracker):
         transposed = np.transpose(normalized, (2, 0, 1))  # (3, H, W)
         batched = np.expand_dims(transposed, axis=0)  # (1, 3, H, W)
 
-        return batched
+        return batched, scale, pad_x, pad_y
 
     def _preprocess_heatmap(self, frame: np.ndarray) -> np.ndarray:
         """Preprocess frame for heatmap format models (SLEAP).
@@ -136,20 +155,147 @@ class OnnxTracker(Tracker):
 
         return batched
 
-    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
-        """Detect pose keypoints in frame.
+    def _infer_simcc(self, region: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Run SimCC inference on a BGR image region.
 
-        Process:
-        1. Apply rotation if rotation_count != 0
-        2. Store original dimensions for coordinate scaling
-        3. Resize to model input size
-        4. Preprocess based on format (simcc or heatmap)
-        5. Run inference
-        6. Decode based on format
-        7. Scale coordinates back to original frame size
-        8. Unrotate points if rotation_count != 0
-        9. Apply confidence threshold
-        10. Return PointPacket with point_id, img_loc, confidence
+        Returns keypoints in the region's coordinate space (not original frame).
+        """
+        preprocessed, lb_scale, pad_x, pad_y = self._preprocess_simcc(region)
+        outputs = self.session.run(None, {self.input_name: preprocessed})
+
+        if len(outputs) != 2:
+            raise ValueError(f"SimCC format expects 2 outputs, got {len(outputs)}")
+        simcc_x = np.asarray(outputs[0])
+        simcc_y = np.asarray(outputs[1])
+        keypoints, confidence = decode_simcc(simcc_x, simcc_y)
+
+        # Undo letterbox: subtract padding offset, then invert the scale
+        keypoints[:, 0] = (keypoints[:, 0] - pad_x) / lb_scale
+        keypoints[:, 1] = (keypoints[:, 1] - pad_y) / lb_scale
+
+        return keypoints, confidence
+
+    def _infer_heatmap(
+        self, region: np.ndarray, original_width: int, original_height: int
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Run heatmap inference on a BGR image region."""
+        preprocessed = self._preprocess_heatmap(region)
+        outputs = self.session.run(None, {self.input_name: preprocessed})
+
+        if len(outputs) != 1:
+            raise ValueError(f"Heatmap format expects 1 output, got {len(outputs)}")
+        raw_heatmaps = np.asarray(outputs[0])
+        heatmaps = raw_heatmaps[0]
+        keypoints, confidence = decode_heatmap(heatmaps)
+
+        heatmap_height, heatmap_width = raw_heatmaps.shape[2:]
+        scale_x = float(original_width) / float(heatmap_width)
+        scale_y = float(original_height) / float(heatmap_height)
+        keypoints[:, 0] *= scale_x
+        keypoints[:, 1] *= scale_y
+
+        return keypoints, confidence
+
+    def _bbox_from_keypoints(
+        self, keypoints: np.ndarray, confidence: np.ndarray, frame_w: int, frame_h: int, padding: float = 0.3
+    ) -> tuple[int, int, int, int]:
+        """Compute a padded, aspect-ratio-correct bounding box from keypoints.
+
+        Takes detected keypoints, adds padding, then expands to match the
+        model's aspect ratio (3:4 portrait for RTMPose). Clamps to frame bounds.
+        """
+        mask = confidence >= self.card.confidence_threshold
+        if not np.any(mask):
+            return (0, 0, frame_w, frame_h)
+
+        valid_kps = keypoints[mask]
+        x_min, y_min = valid_kps.min(axis=0)
+        x_max, y_max = valid_kps.max(axis=0)
+
+        # Add padding proportional to bbox size
+        w = x_max - x_min
+        h = y_max - y_min
+        pad_w = w * padding
+        pad_h = h * padding
+        x_min -= pad_w
+        y_min -= pad_h
+        x_max += pad_w
+        y_max += pad_h
+
+        # Expand to match model aspect ratio (width/height)
+        target_aspect = self.card.input_width / self.card.input_height
+        box_w = x_max - x_min
+        box_h = y_max - y_min
+        current_aspect = box_w / max(box_h, 1)
+
+        cx = (x_min + x_max) / 2
+        cy = (y_min + y_max) / 2
+
+        if current_aspect > target_aspect:
+            # Too wide — expand height
+            box_h = box_w / target_aspect
+        else:
+            # Too tall — expand width
+            box_w = box_h * target_aspect
+
+        x1 = int(max(0, cx - box_w / 2))
+        y1 = int(max(0, cy - box_h / 2))
+        x2 = int(min(frame_w, cx + box_w / 2))
+        y2 = int(min(frame_h, cy + box_h / 2))
+
+        return (x1, y1, x2, y2)
+
+    def _scan_positions(self, frame_w: int, frame_h: int) -> list[tuple[int, int, int, int]]:
+        """Generate sliding window crop positions across the frame.
+
+        Creates aspect-ratio-correct windows at full frame height,
+        sliding horizontally with 50% overlap.
+        """
+        target_aspect = self.card.input_width / self.card.input_height
+        crop_h = frame_h
+        crop_w = int(crop_h * target_aspect)
+
+        if crop_w >= frame_w:
+            # Frame is narrower than one crop — single centered crop
+            return [(0, 0, frame_w, frame_h)]
+
+        # Slide with 50% overlap
+        step = max(crop_w // 2, 1)
+        positions = []
+        x = 0
+        while x + crop_w <= frame_w:
+            positions.append((x, 0, x + crop_w, frame_h))
+            x += step
+        # Ensure we cover the right edge
+        if positions[-1][2] < frame_w:
+            positions.append((frame_w - crop_w, 0, frame_w, frame_h))
+
+        return positions
+
+    def _detect_in_region(self, frame: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> tuple[np.ndarray, np.ndarray]:
+        """Run inference on a crop region, return keypoints in original frame coords."""
+        crop = frame[y1:y2, x1:x2]
+
+        if self.card.format == "simcc":
+            keypoints, confidence = self._infer_simcc(crop)
+        else:
+            keypoints, confidence = self._infer_heatmap(crop, x2 - x1, y2 - y1)
+
+        # Offset from crop coords to original frame coords
+        keypoints[:, 0] += x1
+        keypoints[:, 1] += y1
+
+        return keypoints, confidence
+
+    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
+        """Detect pose keypoints in frame using three-tier search.
+
+        Tier 1: Crop to previous detection (fast, common case)
+        Tier 2: Full-frame letterbox (cold start or lost tracking)
+        Tier 3: Sliding window scan (thorough search when full-frame fails)
+
+        After any successful detection, stores the bounding box for Tier 1
+        on the next frame.
 
         Args:
             frame: BGR image from cv2.VideoCapture
@@ -159,61 +305,52 @@ class OnnxTracker(Tracker):
         Returns:
             PointPacket with detected keypoints and confidence scores
         """
-        # Apply rotation if needed
         if rotation_count != 0:
             frame = apply_rotation(frame, rotation_count)
 
-        # Store original dimensions for coordinate scaling
-        original_height, original_width = frame.shape[:2]
+        frame_h, frame_w = frame.shape[:2]
+        keypoints: np.ndarray | None = None
+        confidence: np.ndarray | None = None
+        prev_bbox = self._prev_bboxes.get(port)
 
-        # Preprocess based on format
-        if self.card.format == "simcc":
-            preprocessed = self._preprocess_simcc(frame)
-        else:  # heatmap
-            preprocessed = self._preprocess_heatmap(frame)
+        # Tier 1: Crop to previous detection
+        if prev_bbox is not None:
+            keypoints, confidence = self._detect_in_region(frame, *prev_bbox)
+            if np.sum(confidence >= self.card.confidence_threshold) == 0:
+                keypoints, confidence = None, None
 
-        # Run inference
-        outputs = self.session.run(None, {self.input_name: preprocessed})
+        # Tier 2: Full-frame letterbox
+        if keypoints is None:
+            keypoints, confidence = self._detect_in_region(frame, 0, 0, frame_w, frame_h)
+            if np.sum(confidence >= self.card.confidence_threshold) == 0:
+                keypoints, confidence = None, None
 
-        # Decode based on format
-        if self.card.format == "simcc":
-            # SimCC outputs are two tensors: simcc_x and simcc_y
-            if len(outputs) != 2:
-                raise ValueError(f"SimCC format expects 2 outputs, got {len(outputs)}")
-            keypoints, confidence = decode_simcc(outputs[0], outputs[1])
-        else:  # heatmap
-            # Heatmap output is a single tensor (batch, K, H, W)
-            # Remove batch dimension before passing to decode_heatmap
-            if len(outputs) != 1:
-                raise ValueError(f"Heatmap format expects 1 output, got {len(outputs)}")
-            heatmaps = outputs[0][0]  # Remove batch dimension: (K, H, W)
-            keypoints, confidence = decode_heatmap(heatmaps)
+        # Tier 3: Sliding window scan
+        if keypoints is None:
+            best_count = 0
+            for x1, y1, x2, y2 in self._scan_positions(frame_w, frame_h):
+                kps, conf = self._detect_in_region(frame, x1, y1, x2, y2)
+                count = int(np.sum(conf >= self.card.confidence_threshold))
+                if count > best_count:
+                    best_count = count
+                    keypoints, confidence = kps, conf
+            # If scan also found nothing, use the last attempt
+            if keypoints is None:
+                keypoints, confidence = self._detect_in_region(frame, 0, 0, frame_w, frame_h)
 
-        # Scale coordinates back to original frame size
-        if self.card.format == "simcc":
-            # SimCC keypoints are in model input space
-            scale_x = float(original_width) / float(self.card.input_width)
-            scale_y = float(original_height) / float(self.card.input_height)
-        else:  # heatmap
-            # Heatmap keypoints are in heatmap space (which matches model input size)
-            # Get heatmap dimensions from the output
-            heatmap_height, heatmap_width = outputs[0].shape[2:]
-            scale_x = float(original_width) / float(heatmap_width)
-            scale_y = float(original_height) / float(heatmap_height)
+        assert confidence is not None  # All paths above assign confidence
 
-        keypoints[:, 0] *= scale_x
-        keypoints[:, 1] *= scale_y
+        # Update tracking state for this camera
+        self._prev_bboxes[port] = self._bbox_from_keypoints(keypoints, confidence, frame_w, frame_h)
 
         # Unrotate points if needed
         if rotation_count != 0:
-            keypoints = unrotate_points(keypoints, rotation_count, original_width, original_height)
+            keypoints = unrotate_points(keypoints, rotation_count, frame_w, frame_h)
 
         # Apply confidence threshold and filter
         mask = confidence >= self.card.confidence_threshold
         filtered_keypoints = keypoints[mask]
         filtered_confidence = confidence[mask]
-
-        # Generate point IDs (indices of keypoints that passed threshold)
         point_ids = np.arange(len(confidence), dtype=np.int32)[mask]
 
         return PointPacket(
@@ -269,5 +406,6 @@ class OnnxTracker(Tracker):
 
     def cleanup(self) -> None:
         """Release onnxruntime session resources."""
+        self._prev_bboxes.clear()
         del self.session
         logger.debug(f"OnnxTracker cleaned up: {self.card.name}")

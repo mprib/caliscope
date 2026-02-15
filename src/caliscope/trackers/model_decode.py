@@ -44,8 +44,6 @@ def decode_simcc(
     simcc_x = simcc_x[0]  # (K, W_x)
     simcc_y = simcc_y[0]  # (K, H_y)
 
-    simcc_x.shape[0]
-
     # Find peaks in each 1D distribution
     x_indices = np.argmax(simcc_x, axis=1)  # (K,)
     y_indices = np.argmax(simcc_y, axis=1)  # (K,)
@@ -62,7 +60,8 @@ def decode_simcc(
     keypoints = np.stack([x_coords, y_coords], axis=1)
 
     # Overall confidence is minimum of x and y
-    confidence = np.minimum(x_confidence, y_confidence).astype(np.float32)
+    # SimCC outputs are raw logits that can exceed 1.0 — clamp to [0, 1]
+    confidence = np.clip(np.minimum(x_confidence, y_confidence), 0.0, 1.0).astype(np.float32)
 
     return keypoints, confidence
 

@@ -14,13 +14,19 @@ PySide6.__version__ = _qt_version
 
 import logging  # noqa: E402
 
+from caliscope import MODELS_DIR  # noqa: E402
 from caliscope.gui.main_widget import launch_main  # noqa: E402
 from caliscope.logger import setup_logging  # noqa: E402
 from caliscope.startup import initialize_app  # noqa: E402
+from caliscope.trackers import tracker_registry  # noqa: E402
 
 setup_logging()
 initialize_app()
 logger = logging.getLogger(__name__)
+
+# Scan for ONNX models at app startup
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
+tracker_registry.scan_onnx_models(MODELS_DIR)
 
 
 def CLI_parser():

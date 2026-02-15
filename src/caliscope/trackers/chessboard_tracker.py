@@ -51,7 +51,7 @@ class ChessboardTracker(Tracker):
 
     @property
     def name(self) -> str:
-        """Return tracker name for file naming and TrackerEnum alignment."""
+        """Return tracker name for file naming."""
         return "CHESSBOARD"
 
     def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:

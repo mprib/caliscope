@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from pathlib import Path
 
 import numpy as np
 
@@ -12,7 +13,6 @@ class Tracker(ABC):
     def name(self) -> str:
         """
         returns the tracker name
-        This name should align with the label used by TrackerEnum
         Used for file naming creation
         """
         return "Name Me"
@@ -55,11 +55,8 @@ class Tracker(ABC):
         pass
 
     @property
-    def wireframe_toml_path(self) -> Path | None:
-        """
-        OPTIONAL: Path to wireframe definition TOML, or None if no wireframe.
-        This is a UI concern - the tracker just provides the path.
-        """
+    def wireframe(self) -> WireFrameView | None:
+        """Wireframe topology for 3D visualization, or None if not applicable."""
         return None
 
     def get_connected_points(self) -> set[tuple[int, int]]:

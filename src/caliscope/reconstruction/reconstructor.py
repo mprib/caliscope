@@ -11,7 +11,7 @@ from caliscope.core.point_data import ImagePoints
 from caliscope.managers.synchronized_stream_manager import SynchronizedStreamManager
 from caliscope.task_manager import CancellationToken
 from caliscope.task_manager.task_handle import TaskHandle
-from caliscope.trackers.tracker_enum import TrackerEnum
+from caliscope.trackers import tracker_registry
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +31,11 @@ class Reconstructor:
     The Reconstructor will archive the active config.toml file into the subdirectory.
     """
 
-    def __init__(self, camera_array: CameraArray, recording_path: Path, tracker_enum: TrackerEnum):
+    def __init__(self, camera_array: CameraArray, recording_path: Path, tracker_name: str):
         self.camera_array = camera_array
         self.recording_path = recording_path
-        self.tracker_enum = tracker_enum
-        self.tracker_name = tracker_enum.name
-        # Post-processing uses motion trackers (HOLISTIC, POSE, etc.) that don't require args
-        # CharucoTracker requires charuco arg but isn't used for motion capture
-        self.tracker = tracker_enum.value()  # type: ignore[call-arg]
+        self.tracker_name = tracker_name
+        self.tracker = tracker_registry.create(tracker_name)
 
         # Serialize the camera array actually used for triangulation
         tracker_subdirectory = Path(self.recording_path, self.tracker_name)
@@ -157,14 +154,13 @@ class Reconstructor:
         final_xyz_data.df.to_csv(xyz_csv_path, index=False)
 
         xyz_wide_csv_path = Path(tracker_output_path, f"xyz_{self.tracker_name}_labelled.csv")
-        # Motion trackers don't require constructor args (see comment in __init__)
-        xyz_labelled = xyz_to_wide_labelled(final_xyz_data.df, self.tracker_enum.value())  # type: ignore[call-arg]
+        xyz_labelled = xyz_to_wide_labelled(final_xyz_data.df, self.tracker)
         xyz_labelled.to_csv(xyz_wide_csv_path, index=False)
 
         if include_trc:
             trc_path = Path(tracker_output_path, f"xyz_{self.tracker_name}.trc")
             xyz_to_trc(
                 final_xyz_data.df,
-                tracker=self.tracker_enum.value(),  # type: ignore[call-arg]
+                tracker=self.tracker,
                 target_path=trc_path,
             )

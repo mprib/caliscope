@@ -9,7 +9,7 @@ import mediapipe as mp
 import numpy as np
 
 from caliscope.packets import PointPacket
-from caliscope.tracker import Tracker
+from caliscope.tracker import Tracker, WireFrameView
 from caliscope.trackers.helper import apply_rotation, unrotate_points
 from caliscope.trackers.wireframe_builder import get_wireframe
 
@@ -134,7 +134,9 @@ class HolisticTracker(Tracker):
         wireframe_spec_path = Path(
             Path(__file__).parent.parent.parent, "gui/geometry/wireframes/holistic_wireframe.toml"
         )
-        self.wireframe = get_wireframe(wireframe_spec_path, POINT_NAMES)
+        # Invert POINT_NAMES from {id: name} to {name: id} for WireFrameView
+        point_names_inverted = {name: pid for pid, name in POINT_NAMES.items()}
+        self._wireframe_view = get_wireframe(wireframe_spec_path, point_names_inverted)
 
     @property
     def name(self):
@@ -253,6 +255,10 @@ class HolisticTracker(Tracker):
             rules = {"radius": 1, "color": (220, 0, 220), "thickness": 1}
 
         return rules
+
+    @property
+    def wireframe(self) -> "WireFrameView | None":
+        return self._wireframe_view
 
     def get_connected_points(self) -> set[tuple[int, int]]:
         return super().get_connected_points()

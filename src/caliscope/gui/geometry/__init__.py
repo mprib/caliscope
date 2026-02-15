@@ -5,11 +5,13 @@ from caliscope.gui.geometry.wireframe import (
     WireframeConfig,
     WireframeSegment,
     load_wireframe_config,
+    wireframe_segments_from_view,
 )
 
 __all__ = [
     "build_camera_geometry",
     "load_wireframe_config",
+    "wireframe_segments_from_view",
     "WireframeConfig",
     "WireframeSegment",
 ]

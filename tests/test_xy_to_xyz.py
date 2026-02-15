@@ -7,7 +7,6 @@ from caliscope.cameras.camera_array import CameraArray
 from caliscope.core.point_data import ImagePoints, WorldPoints
 from caliscope import __root__
 from caliscope.helper import copy_contents_to_clean_dest
-from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope import persistence
 
 from caliscope.triangulate.triangulation import triangulate_from_files
@@ -23,12 +22,12 @@ def test_image_points_to_world_points(tmp_path: Path):
     copy_contents_to_clean_dest(origin_data, tmp_path)
 
     recording_directory = Path(tmp_path, "recordings", "recording_1")
-    tracker_enum = TrackerEnum.HOLISTIC
+    tracker_name = "HOLISTIC"
 
-    xy_path = Path(recording_directory, tracker_enum.name, f"xy_{tracker_enum.name}.csv")
+    xy_path = Path(recording_directory, tracker_name, f"xy_{tracker_name}.csv")
 
     # load in previously triangulated data
-    original_xyz_path = Path(xy_path.parent, f"xyz_{tracker_enum.name}.csv")
+    original_xyz_path = Path(xy_path.parent, f"xyz_{tracker_name}.csv")
     original_xyz = pd.read_csv(original_xyz_path)
 
     image_points = ImagePoints.from_csv(xy_path)
@@ -125,9 +124,9 @@ def test_triangulate_from_files(tmp_path: Path):
     copy_contents_to_clean_dest(origin_data, tmp_path)
 
     recording_directory = Path(tmp_path, "recordings", "recording_1")
-    tracker_enum = TrackerEnum.HOLISTIC
+    tracker_name = "HOLISTIC"
 
-    xy_path = Path(recording_directory, tracker_enum.name, f"xy_{tracker_enum.name}.csv")
+    xy_path = Path(recording_directory, tracker_name, f"xy_{tracker_name}.csv")
 
     start = time.time()
     logger.info(f"beginning triangulation at {time.time()}")
@@ -144,7 +143,7 @@ def test_triangulate_from_files(tmp_path: Path):
     )
 
     # load in previously triangulated data
-    original_xyz_path = Path(xy_path.parent, f"xyz_{tracker_enum.name}.csv")
+    original_xyz_path = Path(xy_path.parent, f"xyz_{tracker_name}.csv")
     original_xyz = pd.read_csv(original_xyz_path)
 
     # After loading original_xyz and calculating xyz_recalculated:

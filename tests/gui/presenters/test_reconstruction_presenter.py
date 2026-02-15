@@ -21,7 +21,6 @@ from caliscope.gui.presenters.reconstruction_presenter import (
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.persistence import load_camera_array
 from caliscope.task_manager.task_state import TaskState
-from caliscope.trackers.tracker_enum import TrackerEnum
 
 # Test session with 4 cameras and recordings
 TEST_SESSION = Path(__root__) / "tests" / "sessions" / "4_cam_recording"
@@ -105,7 +104,7 @@ class TestStateComputation:
     def test_state_complete_when_xyz_exists(self, presenter, workspace_with_recordings):
         """State is COMPLETE when xyz output file exists."""
         presenter._selected_recording = "recording_1"
-        presenter._selected_tracker = TrackerEnum.SIMPLE_HOLISTIC
+        presenter._selected_tracker = "SIMPLE_HOLISTIC"
 
         # Create the output file (exist_ok because test session may have partial data)
         output_dir = workspace_with_recordings / "recordings" / "recording_1" / "SIMPLE_HOLISTIC"
@@ -117,7 +116,7 @@ class TestStateComputation:
     def test_task_state_takes_precedence_over_file(self, presenter, workspace_with_recordings):
         """Task RUNNING state takes precedence over file existence."""
         presenter._selected_recording = "recording_1"
-        presenter._selected_tracker = TrackerEnum.SIMPLE_HOLISTIC
+        presenter._selected_tracker = "SIMPLE_HOLISTIC"
 
         # Create the output file (exist_ok because test session may have partial data)
         output_dir = workspace_with_recordings / "recordings" / "recording_1" / "SIMPLE_HOLISTIC"
@@ -142,13 +141,12 @@ class TestAvailableOptions:
         assert "recording_1" in recordings
         assert len(recordings) == 1  # Test session has one recording
 
-    def test_available_trackers_excludes_charuco(self, presenter):
-        """CHARUCO should not be in available trackers."""
+    def test_available_trackers_only_reconstruction_trackers(self, presenter):
+        """Only reconstruction trackers are registered, not calibration trackers."""
         trackers = presenter.available_trackers
-        tracker_names = [t.name for t in trackers]
 
-        assert "CHARUCO" not in tracker_names
-        assert "SIMPLE_HOLISTIC" in tracker_names
+        assert "CHARUCO" not in trackers
+        assert "SIMPLE_HOLISTIC" in trackers
 
 
 class TestSelection:
@@ -161,8 +159,8 @@ class TestSelection:
 
     def test_select_tracker(self, presenter):
         """Selecting a tracker updates selection."""
-        presenter.select_tracker(TrackerEnum.SIMPLE_HOLISTIC)
-        assert presenter.selected_tracker == TrackerEnum.SIMPLE_HOLISTIC
+        presenter.select_tracker("SIMPLE_HOLISTIC")
+        assert presenter.selected_tracker == "SIMPLE_HOLISTIC"
 
     def test_select_recording_clears_error(self, presenter):
         """Selecting a recording clears previous error."""
@@ -173,7 +171,7 @@ class TestSelection:
     def test_select_tracker_clears_error(self, presenter):
         """Selecting a tracker clears previous error."""
         presenter._last_error = "Previous error"
-        presenter.select_tracker(TrackerEnum.SIMPLE_HOLISTIC)
+        presenter.select_tracker("SIMPLE_HOLISTIC")
         assert presenter._last_error is None
 
     def test_select_invalid_recording_ignored(self, presenter):
@@ -192,7 +190,7 @@ class TestXyzOutputPath:
     def test_xyz_output_path_computed_from_selection(self, presenter, workspace_with_recordings):
         """Path is computed from selected recording and tracker."""
         presenter._selected_recording = "recording_1"
-        presenter._selected_tracker = TrackerEnum.SIMPLE_HOLISTIC
+        presenter._selected_tracker = "SIMPLE_HOLISTIC"
 
         expected = (
             workspace_with_recordings / "recordings" / "recording_1" / "SIMPLE_HOLISTIC" / "xyz_SIMPLE_HOLISTIC.csv"
@@ -218,7 +216,7 @@ class TestSignalEmissions:
         signal_received = []
         presenter.state_changed.connect(lambda s: signal_received.append(s))
 
-        presenter.select_tracker(TrackerEnum.SIMPLE_HOLISTIC)
+        presenter.select_tracker("SIMPLE_HOLISTIC")
 
         assert len(signal_received) == 1
 
@@ -241,7 +239,7 @@ class TestStartReconstruction:
         mock_task_manager.submit.return_value = mock_handle
 
         presenter.select_recording("recording_1")
-        presenter.select_tracker(TrackerEnum.SIMPLE_HOLISTIC)
+        presenter.select_tracker("SIMPLE_HOLISTIC")
         presenter.start_reconstruction()
 
         mock_task_manager.submit.assert_called_once()

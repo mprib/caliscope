@@ -36,6 +36,9 @@ LOG_FILE_PATH = LOG_DIR / "caliscope.log"
 # Define the path to the settings file
 APP_SETTINGS_PATH = APP_DIR / "settings.toml"
 
+# User-managed ONNX model directory
+MODELS_DIR = APP_DIR / "models"
+
 # A helpful reference to the source code root
 __root__ = Path(__file__).parent.parent.parent
 

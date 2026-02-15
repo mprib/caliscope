@@ -16,11 +16,12 @@ from PySide6.QtCore import QObject, Qt, Signal
 
 from caliscope import persistence
 from caliscope.cameras.camera_array import CameraArray
+from caliscope.gui.geometry.wireframe import WireframeSegment, wireframe_segments_from_view
 from caliscope.reconstruction.reconstructor import Reconstructor
 from caliscope.task_manager.task_handle import TaskHandle
 from caliscope.task_manager.task_manager import TaskManager
 from caliscope.task_manager.task_state import TaskState
-from caliscope.trackers.tracker_enum import TrackerEnum
+from caliscope.trackers import tracker_registry
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ class ReconstructionPresenter(QObject):
 
         # Selection state
         self._selected_recording: str | None = None
-        self._selected_tracker: TrackerEnum | None = None
+        self._selected_tracker: str | None = None
 
         # Task tracking
         self._processing_task: TaskHandle | None = None
@@ -157,9 +158,9 @@ class ReconstructionPresenter(QObject):
         return sorted(valid)
 
     @property
-    def available_trackers(self) -> list[TrackerEnum]:
-        """List of available trackers (excludes CHARUCO which is for calibration)."""
-        return [t for t in TrackerEnum if t.name != "CHARUCO"]
+    def available_trackers(self) -> list[str]:
+        """List of available trackers."""
+        return tracker_registry.available_names()
 
     @property
     def selected_recording(self) -> str | None:
@@ -167,7 +168,7 @@ class ReconstructionPresenter(QObject):
         return self._selected_recording
 
     @property
-    def selected_tracker(self) -> TrackerEnum | None:
+    def selected_tracker(self) -> str | None:
         """Currently selected tracker."""
         return self._selected_tracker
 
@@ -184,8 +185,8 @@ class ReconstructionPresenter(QObject):
             self._workspace_dir
             / "recordings"
             / self._selected_recording
-            / self._selected_tracker.name
-            / f"xyz_{self._selected_tracker.name}.csv"
+            / self._selected_tracker
+            / f"xyz_{self._selected_tracker}.csv"
         )
 
     @property
@@ -229,6 +230,16 @@ class ReconstructionPresenter(QObject):
         """Camera array for visualization (delegates to camera_array_for_visualization)."""
         return self.camera_array_for_visualization
 
+    @property
+    def wireframe_segments(self) -> list[WireframeSegment] | None:
+        """Wireframe segments for the selected tracker, or None."""
+        if self._selected_tracker is None:
+            return None
+        view = tracker_registry.wireframe_for(self._selected_tracker)
+        if view is None:
+            return None
+        return wireframe_segments_from_view(view)
+
     def select_recording(self, name: str) -> None:
         """Select a recording for processing.
 
@@ -244,20 +255,20 @@ class ReconstructionPresenter(QObject):
         self._emit_state_changed()
         logger.info(f"Selected recording: {name}")
 
-    def select_tracker(self, tracker: TrackerEnum) -> None:
+    def select_tracker(self, tracker: str) -> None:
         """Select a tracker for processing.
 
         Clears any previous error state when selection changes.
         """
         if tracker not in self.available_trackers:
-            logger.warning(f"Tracker '{tracker.name}' not available")
+            logger.warning(f"Tracker '{tracker}' not available")
             return
 
         self._selected_tracker = tracker
         self._last_error = None  # Clear error on new selection
         self._processing_task = None  # Clear stale task reference
         self._emit_state_changed()
-        logger.info(f"Selected tracker: {tracker.name}")
+        logger.info(f"Selected tracker: {tracker}")
 
     def start_reconstruction(self) -> None:
         """Start the reconstruction process.
@@ -274,20 +285,18 @@ class ReconstructionPresenter(QObject):
             self._emit_state_changed()
             return
 
-        logger.info(
-            f"Starting reconstruction: recording={self._selected_recording}, tracker={self._selected_tracker.name}"
-        )
+        logger.info(f"Starting reconstruction: recording={self._selected_recording}, tracker={self._selected_tracker}")
 
         # Clear previous state
         self._last_error = None
 
         # Capture values for closure
         recording_path = self._workspace_dir / "recordings" / self._selected_recording
-        tracker_enum = self._selected_tracker
+        tracker_name = self._selected_tracker
         camera_array = self._camera_array
 
         def worker(token, handle):
-            reconstructor = Reconstructor(camera_array, recording_path, tracker_enum)
+            reconstructor = Reconstructor(camera_array, recording_path, tracker_name)
 
             # Stage 1: 2D landmark detection (0-80%)
             if not reconstructor.create_xy(token=token, handle=handle):

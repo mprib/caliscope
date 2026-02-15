@@ -8,7 +8,6 @@ from caliscope import __root__
 # specify a source directory (with recordings)
 from caliscope.helper import copy_contents_to_clean_dest
 from caliscope.reconstruction.reconstructor import Reconstructor
-from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope import persistence
 
 logger = logging.getLogger(__name__)
@@ -22,11 +21,11 @@ def test_xy_point_creation(tmp_path: Path):
     camera_array = persistence.load_camera_array(tmp_path / "camera_array.toml")
 
     recording_path = Path(tmp_path, "recordings", "recording_1")
-    tracker_enum = TrackerEnum.HAND
+    tracker_name = "HAND"
     reconstructor = Reconstructor(
         camera_array=camera_array,
         recording_path=recording_path,
-        tracker_enum=tracker_enum,
+        tracker_name=tracker_name,
     )
 
     # make some basic assertions against the created files
@@ -48,7 +47,7 @@ def test_xy_point_creation(tmp_path: Path):
         assert file.exists()
 
     # confirm that xy data is produced for the sync indices (slightly reduced to avoid missing data issues)
-    xy_data = pd.read_csv(Path(recording_path, "HAND", f"xy_{tracker_enum.name}.csv"))
+    xy_data = pd.read_csv(Path(recording_path, "HAND", f"xy_{tracker_name}.csv"))
     xy_sync_index_count = xy_data["sync_index"].max() + 1  # zero indexed
 
     frame_timestamps = pd.read_csv(Path(recording_path, "timestamps.csv"))

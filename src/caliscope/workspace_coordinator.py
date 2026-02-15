@@ -32,7 +32,6 @@ from caliscope.core.point_data import ImagePoints
 from caliscope.trackers.charuco_tracker import CharucoTracker
 from caliscope.trackers.chessboard_tracker import ChessboardTracker
 from caliscope.trackers.aruco_tracker import ArucoTracker
-from caliscope.trackers.tracker_enum import TrackerEnum
 from caliscope.workspace_guide import WorkspaceGuide
 from caliscope.gui.presenters.extrinsic_calibration_presenter import (
     ExtrinsicCalibrationPresenter,
@@ -758,13 +757,13 @@ class WorkspaceCoordinator(QObject):
         new_bundle = bundle.align_to_object(sync_index)
         self.update_bundle(new_bundle)
 
-    def process_recordings(self, recording_path: Path, tracker_enum: TrackerEnum) -> TaskHandle:
+    def process_recordings(self, recording_path: Path, tracker_name: str) -> TaskHandle:
         """
         Initiate post-processing of recorded video in worker thread.
 
         Args:
             recording_path: Directory containing synchronized video recordings
-            tracker_enum: Tracker type to use for landmark detection
+            tracker_name: Tracker name to use for landmark detection
 
         Returns:
             TaskHandle for connecting completion callbacks.
@@ -773,7 +772,7 @@ class WorkspaceCoordinator(QObject):
         def worker(token, handle):
             logger.info(f"Beginning to process video files at {recording_path}")
             logger.info(f"Creating reconstructor for {recording_path}")
-            self.reconstructor = Reconstructor(self.camera_array, recording_path, tracker_enum)
+            self.reconstructor = Reconstructor(self.camera_array, recording_path, tracker_name)
 
             # Get processing settings from project configuration
             include_video = self.settings_repository.get_save_tracked_points_video()

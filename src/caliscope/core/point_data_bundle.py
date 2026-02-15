@@ -643,7 +643,10 @@ class PointDataBundle:
         new_camera_array, new_world_points = apply_similarity_transform(self.camera_array, self.world_points, transform)
 
         return PointDataBundle(
-            camera_array=new_camera_array, image_points=self.image_points, world_points=new_world_points
+            camera_array=new_camera_array,
+            image_points=self.image_points,
+            world_points=new_world_points,
+            _optimization_status=self._optimization_status,
         )
 
     @property
@@ -719,6 +722,7 @@ class PointDataBundle:
             camera_array=new_camera_array,
             image_points=self.image_points,
             world_points=new_world_points,
+            _optimization_status=self._optimization_status,
         )
 
 

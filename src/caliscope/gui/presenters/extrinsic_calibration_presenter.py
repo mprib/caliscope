@@ -176,9 +176,6 @@ class ExtrinsicCalibrationPresenter(QObject):
         # View state
         self._current_sync_index: int = 0
 
-        # Scale accuracy reference frame (set by align_to_origin)
-        self._reference_sync_index: int | None = None
-
         # Load image points for coverage display (from bundle if available, else CSV)
         if existing_bundle is not None:
             self._initial_image_points = existing_bundle.image_points
@@ -469,9 +466,6 @@ class ExtrinsicCalibrationPresenter(QObject):
     def align_to_origin(self, sync_index: int) -> None:
         """Set world origin to board position at sync_index.
 
-        Also computes and emits volumetric scale accuracy metrics by comparing
-        triangulated world points to known object geometry.
-
         Args:
             sync_index: Frame index where board position defines origin
         """
@@ -481,9 +475,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         new_bundle = self._bundle.align_to_object(sync_index)
         logger.info(f"Aligned world origin to object at sync_index={sync_index}")
 
-        self._reference_sync_index = sync_index
         self._update_bundle(new_bundle)
-        self._refresh_volumetric_accuracy()
 
     # -------------------------------------------------------------------------
     # View Control (Implemented in 4.3)
@@ -546,10 +538,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         self._refresh_quality_panel()
         self._refresh_coverage()
         self._refresh_view_model()
-        # Refresh volumetric accuracy after view_model (which provides _valid_sync_indices)
-        # Only if we have a reference frame set (post-alignment)
-        if self._reference_sync_index is not None:
-            self._refresh_volumetric_accuracy()
+        self._refresh_volumetric_accuracy()
         self.bundle_changed.emit(bundle)
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
@@ -622,7 +611,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         RMSE at each frame. Returns empty report if no valid frames exist
         (normal pre-alignment state).
         """
-        if self._bundle is None or self._reference_sync_index is None:
+        if self._bundle is None:
             return
 
         report = self._bundle.compute_volumetric_scale_accuracy()
@@ -666,6 +655,7 @@ class ExtrinsicCalibrationPresenter(QObject):
             self._refresh_quality_panel()
             self._refresh_coverage()  # Use bundle's coverage (may differ after filtering)
             self._refresh_view_model()
+            self._refresh_volumetric_accuracy()
 
     def emit_initial_coverage(self) -> None:
         """Deprecated: Use emit_initial_state() instead."""
@@ -766,6 +756,8 @@ class ExtrinsicCalibrationPresenter(QObject):
             bundle: New bundle after transformation
         """
         self._bundle = bundle
+        self._emit_state_changed()
         self._refresh_quality_panel()
         self._refresh_view_model()
+        self._refresh_volumetric_accuracy()
         self.bundle_changed.emit(bundle)

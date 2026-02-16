@@ -50,7 +50,7 @@ class IntrinsicCalibrator:
 
                 self.add_frame_packet(frame_packet)
 
-            logger.info(f"Harvest frames successfully ended in calibrator for port {self.streamer.port}")
+            logger.info(f"Harvest frames successfully ended in calibrator for cam {self.streamer.cam_id}")
 
         self.harvest_thread = Thread(target=harvest_worker, args=[], daemon=True)
         self.harvest_thread.start()
@@ -171,7 +171,7 @@ class IntrinsicCalibrator:
         Now when frame_packets are read in from the stream, the
 
         """
-        logger.info(f"Initiating autopopulation of corner data in port {self.camera.port}")
+        logger.info(f"Initiating autopopulation of corner data in cam {self.camera.cam_id}")
         self.clear_calibration_data()
         self.wait_between = wait_between
         self.threshold_corner_count = threshold_corner_count
@@ -189,7 +189,7 @@ class IntrinsicCalibrator:
         self.calibration_point_ids = []
         self.calibration_img_loc = []
         self.calibration_obj_loc = []
-        logger.info(f"Blank calibration inputs initialized at port {self.camera.port}")
+        logger.info(f"Blank calibration inputs initialized at cam {self.camera.cam_id}")
         for index in self.calibration_frame_indices:
             id_count = len(self.all_ids[index])
             if id_count > 3:  # I believe this is a requirement of opencv
@@ -210,7 +210,7 @@ class IntrinsicCalibrator:
         """
         self.set_calibration_inputs()
 
-        logger.info(f"Calibrating camera {self.camera.port}....")
+        logger.info(f"Calibrating camera {self.camera.cam_id}....")
 
         width = self.streamer.size[0]
         height = self.streamer.size[1]
@@ -229,7 +229,7 @@ class IntrinsicCalibrator:
             # try:
             #     # Get the directory of the current script
             #     current_dir = os.path.dirname(os.path.abspath(__file__))
-            #     output_path = os.path.join(current_dir, f"debug_camera_{self.camera.port}_inputs.toml")
+            #     output_path = os.path.join(current_dir, f"debug_camera_{self.camera.cam_id}_inputs.toml")
             #
             #     logger.info(f"Saving calibration inputs for debugging to {output_path}")
             #
@@ -239,7 +239,7 @@ class IntrinsicCalibrator:
             #
             #     debug_data = {
             #         "description": "Debug data for cv2.fisheye.calibrate",
-            #         "camera_port": self.camera.port,
+            #         "camera_port": self.camera.cam_id,
             #         "image_size": [width, height],
             #         "object_points": obj_points_list,
             #         "image_points": img_points_list,
@@ -284,7 +284,7 @@ class IntrinsicCalibrator:
         logger.info(f"Grid Count: {self.grid_count}")
 
     def update_camera(self):
-        logger.info(f"Setting calibration params on camera {self.camera.port}")
+        logger.info(f"Setting calibration params on camera {self.camera.cam_id}")
 
         # ret is RMSE of reprojection
         self.camera.error = round(self.error, 3)

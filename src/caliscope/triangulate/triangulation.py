@@ -25,7 +25,7 @@ def triangulate_from_files(
     xy_path : Path
         Path to CSV file with 2D point data:
         - sync_index: Temporal index for synchronization
-        - port: Camera ID/port
+        - cam_id: Camera ID
         - point_id: ID of the tracked point
         - img_loc_x: X-coordinate in image
         - img_loc_y: Y-coordinate in image

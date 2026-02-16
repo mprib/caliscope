@@ -72,10 +72,10 @@ class ExtrinsicCoverageReport:
     # Raw data matrix (n_cameras x n_cameras, symmetric)
     pairwise_observations: NDArray[np.int64]  # Shared observation counts
 
-    # Structural analysis (using actual port numbers)
-    isolated_cameras: list[int]  # Ports with zero shared observations
+    # Structural analysis (using actual cam_id numbers)
+    isolated_cameras: list[int]  # Cam IDs with zero shared observations
     n_connected_components: int  # Should be 1
-    leaf_cameras: list[tuple[int, int, int]]  # (port, connected_to, obs_count)
+    leaf_cameras: list[tuple[int, int, int]]  # (cam_id, connected_to, obs_count)
 
     @property
     def n_cameras(self) -> int:
@@ -90,7 +90,7 @@ class ExtrinsicCoverageReport:
 
 def compute_coverage_matrix(
     image_points: ImagePoints,
-    port_to_index: dict[int, int],
+    cam_id_to_index: dict[int, int],
 ) -> NDArray[np.int64]:
     """Compute camera-pair shared observation counts.
 
@@ -100,25 +100,25 @@ def compute_coverage_matrix(
 
     Args:
         image_points: ImagePoints to analyze
-        port_to_index: Mapping from actual port numbers to matrix indices
+        cam_id_to_index: Mapping from actual cam_id numbers to matrix indices
 
     Returns:
         (n_cameras, n_cameras) symmetric matrix of observation counts
     """
     df = image_points.df
-    n_cameras = len(port_to_index)
+    n_cameras = len(cam_id_to_index)
     coverage = np.zeros((n_cameras, n_cameras), dtype=np.int64)
 
     # Group by (sync_index, point_id) to find which cameras see each point
-    grouped = df.groupby(["sync_index", "point_id"])["port"].apply(set)
+    grouped = df.groupby(["sync_index", "point_id"])["cam_id"].apply(set)
 
-    for ports in grouped:
-        port_list = sorted(ports)
-        for i, port_i in enumerate(port_list):
-            for port_j in port_list[i:]:
-                if port_i in port_to_index and port_j in port_to_index:
-                    idx_i = port_to_index[port_i]
-                    idx_j = port_to_index[port_j]
+    for cam_ids in grouped:
+        cam_id_list = sorted(cam_ids)
+        for i, cam_id_i in enumerate(cam_id_list):
+            for cam_id_j in cam_id_list[i:]:
+                if cam_id_i in cam_id_to_index and cam_id_j in cam_id_to_index:
+                    idx_i = cam_id_to_index[cam_id_i]
+                    idx_j = cam_id_to_index[cam_id_j]
                     coverage[idx_i, idx_j] += 1
                     if idx_i != idx_j:
                         coverage[idx_j, idx_i] += 1
@@ -165,16 +165,16 @@ def _find_connected_components(adjacency: NDArray[np.int64]) -> list[set[int]]:
 
 def _find_leaf_cameras(
     adjacency: NDArray[np.int64],
-    index_to_port: dict[int, int],
+    index_to_cam_id: dict[int, int],
 ) -> list[tuple[int, int, int]]:
     """Find cameras with exactly one connection (leaf nodes).
 
     Args:
         adjacency: (n, n) adjacency matrix
-        index_to_port: Mapping from matrix indices to actual port numbers
+        index_to_cam_id: Mapping from matrix indices to actual cam_id numbers
 
     Returns:
-        List of (port, connected_to_port, observation_count) tuples
+        List of (cam_id, connected_to_cam_id, observation_count) tuples
     """
     n = len(adjacency)
     leaf_cameras: list[tuple[int, int, int]] = []
@@ -185,9 +185,9 @@ def _find_leaf_cameras(
 
         if len(neighbors) == 1:
             connected_idx, obs_count = neighbors[0]
-            port = index_to_port[idx]
-            connected_port = index_to_port[connected_idx]
-            leaf_cameras.append((port, connected_port, int(obs_count)))
+            cam_id = index_to_cam_id[idx]
+            connected_cam_id = index_to_cam_id[connected_idx]
+            leaf_cameras.append((cam_id, connected_cam_id, int(obs_count)))
 
     return leaf_cameras
 
@@ -197,8 +197,8 @@ def analyze_multi_camera_coverage(
 ) -> ExtrinsicCoverageReport:
     """Analyze pairwise coverage for extrinsic calibration.
 
-    Discovers actual camera ports from the data and builds port-to-index mapping
-    internally. Reports use actual port numbers, not matrix indices.
+    Discovers actual camera cam_ids from the data and builds cam_id-to-index mapping
+    internally. Reports use actual cam_id numbers, not matrix indices.
 
     Args:
         image_points: ImagePoints containing all camera observations
@@ -208,26 +208,26 @@ def analyze_multi_camera_coverage(
     """
     df = image_points.df
 
-    # Build port-to-index mapping from actual data
-    actual_ports = sorted(df["port"].unique()) if len(df) > 0 else []
-    port_to_index = {port: idx for idx, port in enumerate(actual_ports)}
-    index_to_port = {idx: port for port, idx in port_to_index.items()}
+    # Build cam_id-to-index mapping from actual data
+    actual_cam_ids = sorted(df["cam_id"].unique()) if len(df) > 0 else []
+    cam_id_to_index = {cam_id: idx for idx, cam_id in enumerate(actual_cam_ids)}
+    index_to_cam_id = {idx: cam_id for cam_id, idx in cam_id_to_index.items()}
 
-    # Compute observation counts using actual port mapping
-    pairwise_obs = compute_coverage_matrix(image_points, port_to_index)
+    # Compute observation counts using actual cam_id mapping
+    pairwise_obs = compute_coverage_matrix(image_points, cam_id_to_index)
 
     # Find isolated cameras (no connections at all)
     isolated: list[int] = []
-    for idx in range(len(actual_ports)):
-        has_any_link = any(pairwise_obs[idx, j] > 0 for j in range(len(actual_ports)) if j != idx)
+    for idx in range(len(actual_cam_ids)):
+        has_any_link = any(pairwise_obs[idx, j] > 0 for j in range(len(actual_cam_ids)) if j != idx)
         if not has_any_link:
-            isolated.append(index_to_port[idx])
+            isolated.append(index_to_cam_id[idx])
 
     # Find connected components
     components = _find_connected_components(pairwise_obs)
 
     # Find leaf cameras
-    leaf_cameras = _find_leaf_cameras(pairwise_obs, index_to_port)
+    leaf_cameras = _find_leaf_cameras(pairwise_obs, index_to_cam_id)
 
     return ExtrinsicCoverageReport(
         pairwise_observations=pairwise_obs,
@@ -265,11 +265,11 @@ def detect_structural_warnings(
     warnings: list[StructuralWarning] = []
 
     # Critical: Disconnected cameras
-    for port in report.isolated_cameras:
+    for cam_id in report.isolated_cameras:
         warnings.append(
             StructuralWarning(
                 WarningSeverity.CRITICAL,
-                f"Camera C{port} has no shared observations with any other camera",
+                f"Camera C{cam_id} has no shared observations with any other camera",
             )
         )
 
@@ -284,19 +284,19 @@ def detect_structural_warnings(
 
     # Leaf node warnings (skip for 2-camera setup - both are necessarily leaves)
     if n_cameras > 2:
-        for port, connected_to, obs_count in report.leaf_cameras:
+        for cam_id, connected_to, obs_count in report.leaf_cameras:
             if obs_count < min_leaf_observations:
                 warnings.append(
                     StructuralWarning(
                         WarningSeverity.WARNING,
-                        f"Camera C{port} only connected to C{connected_to} ({obs_count} obs)",
+                        f"Camera C{cam_id} only connected to C{connected_to} ({obs_count} obs)",
                     )
                 )
             else:
                 warnings.append(
                     StructuralWarning(
                         WarningSeverity.INFO,
-                        f"Camera C{port} connects only through C{connected_to}",
+                        f"Camera C{cam_id} connects only through C{connected_to}",
                     )
                 )
 

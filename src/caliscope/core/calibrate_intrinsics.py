@@ -79,7 +79,7 @@ class IntrinsicCalibrationOutput:
 
     Bundles the calibrated camera with its quality report so they travel
     together through the system. The Coordinator persists both: camera
-    parameters to camera_array.toml, report to intrinsic/reports/port_N.toml.
+    parameters to camera_array.toml, report to intrinsic/reports/cam_N.toml.
     """
 
     camera: CameraData
@@ -88,7 +88,7 @@ class IntrinsicCalibrationOutput:
 
 def calibrate_intrinsics(
     image_points: ImagePoints,
-    port: int,
+    cam_id: int,
     image_size: tuple[int, int],
     selected_frames: list[int],
     *,
@@ -101,9 +101,9 @@ def calibrate_intrinsics(
 
     Args:
         image_points: Detected charuco corners across all frames. Must contain
-            columns: sync_index, port, point_id, img_loc_x, img_loc_y,
+            columns: sync_index, cam_id, point_id, img_loc_x, img_loc_y,
             obj_loc_x, obj_loc_y, obj_loc_z.
-        port: Camera port to calibrate.
+        cam_id: Camera cam_id to calibrate.
         image_size: (width, height) of camera images in pixels.
         selected_frames: List of sync_index values to use for calibration.
             Use select_calibration_frames() to choose optimal frames.
@@ -115,14 +115,14 @@ def calibrate_intrinsics(
         reprojection RMSE, and frame count.
 
     Raises:
-        ValueError: If no valid frames found for the specified port,
+        ValueError: If no valid frames found for the specified cam_id,
             or if all frames have insufficient corners (< 4 per frame).
     """
-    obj_points_list, img_points_list = _extract_calibration_arrays(image_points, port, selected_frames)
+    obj_points_list, img_points_list = _extract_calibration_arrays(image_points, cam_id, selected_frames)
 
     if len(obj_points_list) == 0:
         raise ValueError(
-            f"No valid calibration frames found for port {port}. "
+            f"No valid calibration frames found for cam_id {cam_id}. "
             f"Ensure frames have at least {MIN_CORNERS_PER_FRAME} corners each."
         )
 
@@ -166,7 +166,7 @@ def calibrate_intrinsics(
         # calibrateCamera returns dist as (1, 5), flatten it
         dist = dist.ravel()
 
-    logger.info(f"Calibration complete for port {port}: error={error:.4f}px, frames={len(obj_points_list)}")
+    logger.info(f"Calibration complete for cam_id {cam_id}: error={error:.4f}px, frames={len(obj_points_list)}")
 
     return IntrinsicCalibrationResult(
         camera_matrix=np.asarray(mtx, dtype=np.float64),
@@ -178,7 +178,7 @@ def calibrate_intrinsics(
 
 def _extract_calibration_arrays(
     image_points: ImagePoints,
-    port: int,
+    cam_id: int,
     frames: list[int],
 ) -> tuple[list[NDArray], list[NDArray]]:
     """Extract per-frame object and image point arrays for OpenCV calibration.
@@ -191,15 +191,15 @@ def _extract_calibration_arrays(
     """
     df = image_points.df
 
-    # Filter to specified port and frames
-    mask = (df["port"] == port) & (df["sync_index"].isin(frames))
-    port_df = df[mask]
+    # Filter to specified cam_id and frames
+    mask = (df["cam_id"] == cam_id) & (df["sync_index"].isin(frames))
+    cam_df = df[mask]
 
     obj_points_list: list[NDArray] = []
     img_points_list: list[NDArray] = []
 
     for sync_index in frames:
-        frame_df = port_df[port_df["sync_index"] == sync_index]
+        frame_df = cam_df[cam_df["sync_index"] == sync_index]
 
         if len(frame_df) < MIN_CORNERS_PER_FRAME:
             logger.debug(f"Skipping frame {sync_index}: only {len(frame_df)} corners (need {MIN_CORNERS_PER_FRAME})")
@@ -240,7 +240,7 @@ def run_intrinsic_calibration(
     5. Return both together
 
     Args:
-        camera: Camera to calibrate (provides port, size, fisheye flag).
+        camera: Camera to calibrate (provides cam_id, size, fisheye flag).
         image_points: Detected charuco corners across all frames.
         selection_result: Pre-computed frame selection. If None, runs
             `select_calibration_frames()` automatically.
@@ -251,23 +251,23 @@ def run_intrinsic_calibration(
     Raises:
         ValueError: If no valid frames found or calibration fails.
     """
-    port = camera.port
+    cam_id = camera.cam_id
     image_size = camera.size
     fisheye = camera.fisheye
 
     # Step 1: Frame selection (if not provided)
     if selection_result is None:
-        selection_result = select_calibration_frames(image_points, port, image_size)
+        selection_result = select_calibration_frames(image_points, cam_id, image_size)
 
     if not selection_result.selected_frames:
-        raise ValueError(f"No frames selected for calibration on port {port}")
+        raise ValueError(f"No frames selected for calibration on cam_id {cam_id}")
 
     selected_frames = selection_result.selected_frames
 
     # Step 2: Intrinsic calibration
     calibration_result = calibrate_intrinsics(
         image_points,
-        port,
+        cam_id,
         image_size,
         selected_frames,
         fisheye=fisheye,
@@ -295,7 +295,7 @@ def run_intrinsic_calibration(
     )
 
     logger.info(
-        f"Calibration complete for port {port}: "
+        f"Calibration complete for cam_id {cam_id}: "
         f"rmse={report.rmse:.3f}px, "
         f"frames={report.frames_used}, "
         f"coverage={report.coverage_fraction:.0%}"

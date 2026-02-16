@@ -32,7 +32,7 @@ def build_camera_geometry(camera_array: CameraArray, scale: float = 0.0005) -> d
     # Color scheme: green for cameras
     cam_color = np.array([0.2, 0.8, 0.2], dtype=np.float32)
 
-    for port, cam in camera_array.cameras.items():
+    for cam_id, cam in camera_array.cameras.items():
         if cam.rotation is None or cam.translation is None or cam.matrix is None:
             continue
 
@@ -91,7 +91,7 @@ def build_camera_geometry(camera_array: CameraArray, scale: float = 0.0005) -> d
 
         # Add label position (slightly above the apex)
         label_pos = t_world + np.array([0, 0, 0.1], dtype=np.float32)
-        labels.append((label_pos, f"Cam {port}"))
+        labels.append((label_pos, f"Cam {cam_id}"))
 
         vertex_offset += len(verts_world)
 

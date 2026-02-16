@@ -310,7 +310,7 @@ class ExplorerTab(QWidget):
         if result.camera_metrics:
             for metrics in result.camera_metrics:
                 label_text = (
-                    f"C{metrics.port}: {metrics.rotation_error_deg:.2f}° / "
+                    f"C{metrics.cam_id}: {metrics.rotation_error_deg:.2f}° / "
                     f"{metrics.translation_error_mm:.1f}mm | {metrics.reprojection_rmse:.2f}px"
                 )
                 label = QLabel(label_text)

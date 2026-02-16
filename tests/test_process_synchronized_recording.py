@@ -55,7 +55,7 @@ class TestProcessSynchronizedRecording:
         # Required columns should be present
         required_columns = [
             "sync_index",
-            "port",
+            "cam_id",
             "point_id",
             "img_loc_x",
             "img_loc_y",
@@ -63,9 +63,9 @@ class TestProcessSynchronizedRecording:
         for col in required_columns:
             assert col in image_points.df.columns
 
-        # Should have data from multiple ports
-        ports_in_data = image_points.df["port"].unique()
-        assert len(ports_in_data) > 1
+        # Should have data from multiple cameras
+        cam_ids_in_data = image_points.df["cam_id"].unique()
+        assert len(cam_ids_in_data) > 1
 
     def test_subsample_reduces_processed_frames(self, cameras, tracker):
         """Verify subsample parameter reduces frames processed proportionally."""
@@ -144,10 +144,10 @@ class TestProcessSynchronizedRecording:
         for sync_index, data in frame_data_calls[:5]:  # Check first 5
             assert isinstance(sync_index, int)
             assert isinstance(data, dict)
-            # Should have at least some ports with data
+            # Should have at least some cameras with data
             assert len(data) > 0
-            for port, frame_data in data.items():
-                assert isinstance(port, int)
+            for cam_id, frame_data in data.items():
+                assert isinstance(cam_id, int)
                 assert frame_data.frame is not None
                 assert frame_data.frame.ndim == 3  # BGR image
 
@@ -189,7 +189,7 @@ class TestGetInitialThumbnails:
         assert len(thumbnails) > 0
 
         # Each thumbnail should be a valid BGR image
-        for port, thumb in thumbnails.items():
+        for cam_id, thumb in thumbnails.items():
             assert thumb.ndim == 3
             assert thumb.shape[2] == 3  # BGR channels
 
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     )
     print(f"Found {len(image_points.df)} point observations")
     print(f"Unique sync indices: {image_points.df['sync_index'].nunique()}")
-    print(f"Ports in data: {sorted(image_points.df['port'].unique())}")
+    print(f"Camera IDs in data: {sorted(image_points.df['cam_id'].unique())}")
 
     # Save for inspection
     output_path = debug_dir / "process_sync_recording_output.csv"

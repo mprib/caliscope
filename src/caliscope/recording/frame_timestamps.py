@@ -45,32 +45,32 @@ class FrameTimestamps:
         return self.frame_times[frame_index]
 
     @classmethod
-    def from_csv(cls, csv_path: Path, port: int) -> Self:
-        """Load timing from timestamps.csv.
+    def from_csv(cls, csv_path: Path, cam_id: int) -> Self:
+        """Load timing from frametimes.csv.
 
         Frame indices are computed via rank-ordering of frame_time within
-        the port's rows. This handles synchronized recordings where frames
+        the cam_id's rows. This handles synchronized recordings where frames
         may not start at index 0, and ensures sequential indices even if
         there are gaps in the recorded timestamps.
 
         Args:
-            csv_path: Path to timestamps.csv.
-            port: Camera port to extract timing for.
+            csv_path: Path to frametimes.csv.
+            cam_id: Camera identifier to extract timing for.
 
         Raises:
             FileNotFoundError: If csv_path doesn't exist.
-            KeyError: If port not found in CSV.
+            KeyError: If cam_id not found in CSV.
         """
         df = pd.read_csv(csv_path)
-        port_df = df[df["port"] == port].copy()
+        cam_df = df[df["cam_id"] == cam_id].copy()
 
-        if port_df.empty:
-            raise KeyError(f"Port {port} not found in {csv_path}")
+        if cam_df.empty:
+            raise KeyError(f"cam_id {cam_id} not found in {csv_path}")
 
         # Rank-based indexing: ensures sequential indices from timestamps
-        port_df["frame_index"] = port_df["frame_time"].rank(method="min").astype(int) - 1
+        cam_df["frame_index"] = cam_df["frame_time"].rank(method="min").astype(int) - 1
 
-        frame_times = dict(zip(port_df["frame_index"], port_df["frame_time"]))
+        frame_times = dict(zip(cam_df["frame_index"], cam_df["frame_time"]))
         return cls(MappingProxyType(frame_times))
 
     @classmethod

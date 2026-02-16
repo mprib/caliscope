@@ -57,7 +57,7 @@ def test_pose_network_builder_end_to_end(tmp_path: Path):
     assert len(test_array.posed_cameras) > 0, "Should pose at least one camera"
 
     # Verify pose quality
-    for port, cam in test_array.posed_cameras.items():
+    for cam_id, cam in test_array.posed_cameras.items():
         assert cam.rotation is not None and cam.rotation.shape == (3, 3)
         assert cam.translation is not None and cam.translation.shape == (3,)
         assert np.isclose(np.linalg.det(cam.rotation), 1.0, atol=1e-5)
@@ -147,7 +147,7 @@ def test_apply_to_with_disconnected_camera(tmp_path: Path):
     extra_cameras = camera_array.cameras.copy()
     from caliscope.cameras.camera_array import CameraData
 
-    extra_cameras[99] = CameraData(port=99, size=(640, 480), matrix=np.eye(3), distortions=np.zeros(5))
+    extra_cameras[99] = CameraData(cam_id=99, size=(640, 480), matrix=np.eye(3), distortions=np.zeros(5))
 
     test_array = CameraArray(extra_cameras)
     network.apply_to(test_array)

@@ -101,10 +101,10 @@ def verify_results(stereo_graph: PairedPoseNetwork, gold_results: dict):
     # The new graph uses tuple keys like (1, 10)
 
     for pair_key, pair_obj in stereo_graph._pairs.items():
-        port_a, port_b = pair_key
+        cam_id_a, cam_id_b = pair_key
 
         # Construct Gold Standard Key
-        gold_key = f"stereo_{port_a}_{port_b}"
+        gold_key = f"stereo_{cam_id_a}_{cam_id_b}"
 
         if gold_key not in gold_results:
             missing_in_gold.append(gold_key)
@@ -192,7 +192,7 @@ def test_stereopair_graph_against_gold_standard():
     camera_array = persistence.load_camera_array(session_path / "camera_array.toml")
 
     # ensure camera_array has no extrinsics
-    for port, cam in camera_array.cameras.items():
+    for cam_id, cam in camera_array.cameras.items():
         cam.rotation = None
         cam.translation = None
 

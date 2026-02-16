@@ -144,9 +144,9 @@ class SkullTracker(Tracker):
 
         return skull_positions
 
-    def run_frame_processor(self, port: int, rotation_count: int):
+    def run_frame_processor(self, cam_id: int, rotation_count: int):
         """
-        Background thread processor for each camera port.
+        Background thread processor for each camera cam_id.
         Only detects landmarks and returns 2D positions + CONSTANT 3D positions.
         """
         # Mediapipe type stubs are incomplete; the holistic module exists at runtime
@@ -158,10 +158,10 @@ class SkullTracker(Tracker):
             min_tracking_confidence=0.5,
         ) as holistic:
             while True:
-                frame = self.in_queues[port].get()
+                frame = self.in_queues[cam_id].get()
 
                 if frame is None:  # Shutdown signal
-                    logger.debug(f"SkullTracker port {port} received shutdown signal")
+                    logger.debug(f"SkullTracker cam {cam_id} received shutdown signal")
                     # reset() closes the calculator graph but TFLite memory persists
                     holistic.reset()
                     break
@@ -210,39 +210,39 @@ class SkullTracker(Tracker):
 
                         point_packet = PointPacket(point_id=filtered_ids, img_loc=filtered_img, obj_loc=filtered_obj)
 
-                        logger.debug(f"Port {port}: Detected {visible_skull_count} skull landmarks")
+                        logger.debug(f"Cam {cam_id}: Detected {visible_skull_count} skull landmarks")
                     else:
                         logger.debug(
-                            f"Port {port}: Only {visible_skull_count} skull landmarks visible "
+                            f"Cam {cam_id}: Only {visible_skull_count} skull landmarks visible "
                             f"(need {self.min_landmarks_threshold})"
                         )
 
                 # Put result in output queue
-                self.out_queues[port].put(point_packet)
+                self.out_queues[cam_id].put(point_packet)
 
-    def get_points(self, frame: NDArray[np.uint8], port: int = 0, rotation_count: int = 0) -> PointPacket:
+    def get_points(self, frame: NDArray[np.uint8], cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
         """
         Main interface called by SynchronizedStreamManager.
         Queues frame for processing and returns result.
         """
-        # Initialize queues and thread for this port if not exists
-        if port not in self.in_queues:
-            self.in_queues[port] = Queue(maxsize=1)
-            self.out_queues[port] = Queue(maxsize=1)
+        # Initialize queues and thread for this cam_id if not exists
+        if cam_id not in self.in_queues:
+            self.in_queues[cam_id] = Queue(maxsize=1)
+            self.out_queues[cam_id] = Queue(maxsize=1)
 
-            self.threads[port] = Thread(
+            self.threads[cam_id] = Thread(
                 target=self.run_frame_processor,
-                args=(port, rotation_count),
+                args=(cam_id, rotation_count),
                 daemon=True,
-                name=f"SkullTracker_Port_{port}",
+                name=f"SkullTracker_Cam_{cam_id}",
             )
-            self.threads[port].start()
+            self.threads[cam_id].start()
 
         # Put frame in input queue
-        self.in_queues[port].put(frame)
+        self.in_queues[cam_id].put(frame)
 
         # Get result from output queue
-        point_packet = self.out_queues[port].get()
+        point_packet = self.out_queues[cam_id].get()
 
         return point_packet
 
@@ -264,17 +264,17 @@ class SkullTracker(Tracker):
         logger.debug(f"SkullTracker cleanup: stopping {len(self.threads)} threads")
 
         # Send shutdown signal to all threads
-        for port, queue in self.in_queues.items():
+        for cam_id, queue in self.in_queues.items():
             try:
                 queue.put(None, timeout=1.0)
             except Full:
-                logger.warning(f"SkullTracker: timeout sending shutdown to port {port}")
+                logger.warning(f"SkullTracker: timeout sending shutdown to cam {cam_id}")
 
         # Wait for threads to finish
-        for port, thread in self.threads.items():
+        for cam_id, thread in self.threads.items():
             thread.join(timeout=2.0)
             if thread.is_alive():
-                logger.warning(f"SkullTracker: thread for port {port} did not exit in time")
+                logger.warning(f"SkullTracker: thread for cam {cam_id} did not exit in time")
 
         # Clear state
         self.in_queues.clear()

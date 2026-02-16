@@ -54,19 +54,19 @@ class FrameSource:
     the internal iterator is naturally exhausted or a new FrameSource is created.
     """
 
-    def __init__(self, video_directory: Path, port: int) -> None:
+    def __init__(self, video_directory: Path, cam_id: int) -> None:
         """Open a video file for frame access.
 
         Args:
-            video_directory: Directory containing port_N.mp4 video files.
-            port: Camera port number (used to construct filename).
+            video_directory: Directory containing cam_N.mp4 video files.
+            cam_id: Camera identifier (used to construct filename).
 
         Raises:
             ValueError: If the video stream lacks required metadata.
             FileNotFoundError: If the video file doesn't exist.
         """
-        self.port = port
-        self.video_path = video_directory / f"port_{port}.mp4"
+        self.cam_id = cam_id
+        self.video_path = video_directory / f"cam_{cam_id}.mp4"
 
         if not self.video_path.exists():
             raise FileNotFoundError(f"Video file not found: {self.video_path}")
@@ -101,7 +101,7 @@ class FrameSource:
         self.frame_count = frame_count
 
         logger.debug(
-            f"FrameSource for port {port}: metadata says {frame_count} frames, "
+            f"FrameSource for cam_id {cam_id}: metadata says {frame_count} frames, "
             f"actual last accessible frame is {self._actual_last_frame_index}, "
             f"found {len(self._keyframe_pts)} keyframes"
         )

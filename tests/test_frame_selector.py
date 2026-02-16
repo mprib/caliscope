@@ -2,7 +2,7 @@
 
 These tests focus on behavior rather than implementation details:
 - Determinism: same input produces identical output
-- Edge cases: empty port, all frames ineligible
+- Edge cases: empty camera, all frames ineligible
 - Integration: realistic frame selection with real tracking data
 - Orientation diversity: homography-based orientation extraction
 """
@@ -46,7 +46,7 @@ class TestOrientationExtraction:
 
         data = {
             "sync_index": [0] * 9,
-            "port": [0] * 9,
+            "cam_id": [0] * 9,
             "point_id": list(range(9)),
             "obj_loc_x": obj_x,
             "obj_loc_y": obj_y,
@@ -95,7 +95,7 @@ class TestOrientationExtraction:
 
         data = {
             "sync_index": [0] * 9,
-            "port": [0] * 9,
+            "cam_id": [0] * 9,
             "point_id": list(range(9)),
             "obj_loc_x": obj_x,
             "obj_loc_y": obj_y,
@@ -144,7 +144,7 @@ class TestOrientationExtraction:
         """With fewer than 4 points, orientation extraction returns zeros."""
         data = {
             "sync_index": [0] * 3,
-            "port": [0] * 3,
+            "cam_id": [0] * 3,
             "point_id": [0, 1, 2],
             "obj_loc_x": [0, 1, 2],
             "obj_loc_y": [0, 0, 0],
@@ -173,7 +173,7 @@ class TestTwoPhaseSelection:
 
         result = select_calibration_frames(
             image_points,
-            port=0,
+            cam_id=0,
             image_size=(1280, 720),
             target_frame_count=20,
         )
@@ -189,7 +189,7 @@ class TestTwoPhaseSelection:
         """Empty result (no frames) should have orientation fields set to defaults."""
         data = {
             "sync_index": [0],
-            "port": [1],  # Only port 1 has data
+            "cam_id": [1],  # Only camera 1 has data
             "point_id": [0],
             "img_loc_x": [100],
             "img_loc_y": [100],
@@ -200,7 +200,7 @@ class TestTwoPhaseSelection:
 
         result = select_calibration_frames(
             image_points,
-            port=0,  # Port 0 has no data
+            cam_id=0,  # Camera 0 has no data
             image_size=(1920, 1080),
         )
 
@@ -223,7 +223,7 @@ class TestDeterminism:
         results = [
             select_calibration_frames(
                 image_points,
-                port=0,
+                cam_id=0,
                 image_size=(1280, 720),
                 target_frame_count=15,
             )
@@ -242,10 +242,10 @@ class TestEdgeCases:
     """Handle edge cases gracefully without crashing."""
 
     def test_empty_port_returns_empty_result(self):
-        """Port with no data returns empty result, not an error."""
+        """Camera with no data returns empty result, not an error."""
         data = {
             "sync_index": [0, 1],
-            "port": [1, 1],  # Only port 1 has data
+            "cam_id": [1, 1],  # Only camera 1 has data
             "point_id": [0, 0],
             "img_loc_x": [100, 200],
             "img_loc_y": [100, 200],
@@ -256,7 +256,7 @@ class TestEdgeCases:
 
         result = select_calibration_frames(
             image_points,
-            port=0,  # Port 0 has no data
+            cam_id=0,  # Camera 0 has no data
             image_size=(1920, 1080),
         )
 
@@ -274,7 +274,7 @@ class TestEdgeCases:
                 data.append(
                     {
                         "sync_index": sync_index,
-                        "port": 0,
+                        "cam_id": 0,
                         "point_id": point_id,
                         "img_loc_x": 100 + point_id * 100,
                         "img_loc_y": 100 + point_id * 100,
@@ -287,7 +287,7 @@ class TestEdgeCases:
 
         result = select_calibration_frames(
             image_points,
-            port=0,
+            cam_id=0,
             image_size=(1920, 1080),
         )
 
@@ -312,16 +312,16 @@ class TestIntegration:
         xy_csv = tmp_path / "calibration" / "intrinsic" / "CHARUCO" / "xy_CHARUCO.csv"
         image_points = ImagePoints.from_csv(xy_csv)
 
-        # Test across all ports
-        for port in [0, 1, 2, 3]:
+        # Test across all cameras
+        for cam_id in [0, 1, 2, 3]:
             result = select_calibration_frames(
                 image_points,
-                port=port,
+                cam_id=cam_id,
                 image_size=(1280, 720),
                 target_frame_count=20,
             )
 
-            logger.info(f"Port {port}: selected {len(result.selected_frames)} frames")
+            logger.info(f"Camera {cam_id}: selected {len(result.selected_frames)} frames")
             logger.info(f"  Coverage: {result.coverage_fraction:.2%}")
             logger.info(f"  Edge coverage: {result.edge_coverage_fraction:.2%}")
             logger.info(f"  Orientation count: {result.orientation_count}")
@@ -336,7 +336,7 @@ class TestIntegration:
             assert 0 <= result.corner_coverage_fraction <= 1
 
     def test_port_0_selects_frames_and_reports_coverage(self, tmp_path: Path):
-        """Port 0 should select frames and report meaningful coverage metrics."""
+        """Camera 0 should select frames and report meaningful coverage metrics."""
         original_path = Path(__root__, "tests", "sessions", "prerecorded_calibration")
         copy_contents_to_clean_dest(original_path, tmp_path)
 
@@ -345,7 +345,7 @@ class TestIntegration:
 
         result = select_calibration_frames(
             image_points,
-            port=0,
+            cam_id=0,
             image_size=(1280, 720),
             target_frame_count=20,
         )
@@ -369,15 +369,15 @@ class TestIntegration:
 
         result = select_calibration_frames(
             image_points,
-            port=0,
+            cam_id=0,
             image_size=(1280, 720),
             target_frame_count=15,
         )
 
         # All selected frames must exist in the original data
-        port_0_frames = set(pd.unique(image_points.df[image_points.df["port"] == 0]["sync_index"]))
+        cam_0_frames = set(pd.unique(image_points.df[image_points.df["cam_id"] == 0]["sync_index"]))
         for frame in result.selected_frames:
-            assert frame in port_0_frames, f"Selected frame {frame} not in original data"
+            assert frame in cam_0_frames, f"Selected frame {frame} not in original data"
 
     # NOTE: This test is disabled after removing holdout functionality in Phase 1.
     # The test validated that frame selection produces better calibrations than random
@@ -398,13 +398,13 @@ class TestIntegration:
         xy_csv = tmp_path / "calibration" / "intrinsic" / "CHARUCO" / "xy_CHARUCO.csv"
         image_points = ImagePoints.from_csv(xy_csv)
 
-        port = 0
+        cam_id = 0
         image_size = (1280, 720)
         target_count = 15
 
-        # Get eligible frames for this port
-        port_df = image_points.df[image_points.df["port"] == port]
-        eligible_df = port_df.groupby("sync_index").filter(lambda g: len(g) >= 6)
+        # Get eligible frames for this camera
+        cam_df = image_points.df[image_points.df["cam_id"] == cam_id]
+        eligible_df = cam_df.groupby("sync_index").filter(lambda g: len(g) >= 6)
         all_frames = list(pd.unique(eligible_df["sync_index"]))
 
         if len(all_frames) < target_count * 2:
@@ -414,7 +414,7 @@ class TestIntegration:
         # Run frame selector
         result = select_calibration_frames(
             image_points,
-            port=port,
+            cam_id=cam_id,
             image_size=image_size,
             target_frame_count=target_count,
         )
@@ -435,7 +435,7 @@ class TestIntegration:
         try:
             calibrate_intrinsics(
                 image_points,
-                port=port,
+                cam_id=cam_id,
                 image_size=image_size,
                 selected_frames=result.selected_frames,
             )
@@ -459,7 +459,7 @@ class TestIntegration:
             try:
                 calibrate_intrinsics(
                     image_points,
-                    port=port,
+                    cam_id=cam_id,
                     image_size=image_size,
                     selected_frames=random_frames,
                 )

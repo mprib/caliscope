@@ -134,8 +134,8 @@ class PointDataBundle:
         """
         # 1. Filter to matched observations from posed cameras only
         matched_mask = self.img_to_obj_map >= 0
-        posed_ports = set(self.camera_array.posed_port_to_index.keys())
-        posed_mask: np.ndarray = self.image_points.df["port"].isin(posed_ports).to_numpy()
+        posed_cam_ids = set(self.camera_array.posed_cam_id_to_index.keys())
+        posed_mask: np.ndarray = self.image_points.df["cam_id"].isin(posed_cam_ids).to_numpy()
         combined_mask = matched_mask & posed_mask
 
         n_total = len(self.img_to_obj_map)
@@ -150,7 +150,7 @@ class PointDataBundle:
 
         # 2. Prepare arrays for core function
         camera_indices: CameraIndices = np.array(
-            [self.camera_array.posed_port_to_index[port] for port in matched_img_df["port"]], dtype=np.int16
+            [self.camera_array.posed_cam_id_to_index[cam_id] for cam_id in matched_img_df["cam_id"]], dtype=np.int16
         )
         image_coords: ImageCoords = matched_img_df[["img_loc_x", "img_loc_y"]].values
         world_coords: WorldCoords = self.world_points.points[matched_obj_indices]
@@ -165,7 +165,7 @@ class PointDataBundle:
         raw_errors = pd.DataFrame(
             {
                 "sync_index": matched_img_df["sync_index"].values,
-                "port": matched_img_df["port"].values,
+                "cam_id": matched_img_df["cam_id"].values,
                 "point_id": matched_img_df["point_id"].values,
                 "error_x": errors_xy[:, 0],
                 "error_y": errors_xy[:, 1],
@@ -177,9 +177,9 @@ class PointDataBundle:
         overall_rmse = float(np.sqrt(np.mean(euclidean_error**2)))
 
         by_camera = {}
-        for port in self.camera_array.posed_cameras.keys():
-            port_errors = euclidean_error[matched_img_df["port"] == port]
-            by_camera[port] = float(np.sqrt(np.mean(port_errors**2))) if len(port_errors) > 0 else 0.0
+        for cam_id in self.camera_array.posed_cameras.keys():
+            cam_errors = euclidean_error[matched_img_df["cam_id"] == cam_id]
+            by_camera[cam_id] = float(np.sqrt(np.mean(cam_errors**2))) if len(cam_errors) > 0 else 0.0
 
         by_point_id = {}
         for point_id in np.unique(matched_img_df["point_id"]):
@@ -188,10 +188,10 @@ class PointDataBundle:
 
         # 6. Count unmatched by camera (only count for posed cameras)
         unmatched_by_camera = {}
-        for port in self.camera_array.cameras.keys():
-            port_total = (self.image_points.df["port"] == port).sum()
-            port_matched = ((self.image_points.df["port"] == port) & combined_mask).sum()
-            unmatched_by_camera[port] = int(port_total - port_matched)
+        for cam_id in self.camera_array.cameras.keys():
+            cam_total = (self.image_points.df["cam_id"] == cam_id).sum()
+            cam_matched = ((self.image_points.df["cam_id"] == cam_id) & combined_mask).sum()
+            unmatched_by_camera[cam_id] = int(cam_total - cam_matched)
 
         # 7. Create and cache report
         report = ReprojectionReport(
@@ -224,14 +224,14 @@ class PointDataBundle:
         """
         # Extract static data once - filter to matched observations from posed cameras
         matched_mask = self.img_to_obj_map >= 0
-        posed_ports = set(self.camera_array.posed_port_to_index.keys())
-        posed_mask: np.ndarray = self.image_points.df["port"].isin(posed_ports).to_numpy()
+        posed_cam_ids = set(self.camera_array.posed_cam_id_to_index.keys())
+        posed_mask: np.ndarray = self.image_points.df["cam_id"].isin(posed_cam_ids).to_numpy()
         combined_mask = matched_mask & posed_mask
 
         matched_img_df = self.image_points.df[combined_mask]
 
         camera_indices: CameraIndices = np.array(
-            [self.camera_array.posed_port_to_index[port] for port in matched_img_df["port"]], dtype=np.int16
+            [self.camera_array.posed_cam_id_to_index[cam_id] for cam_id in matched_img_df["cam_id"]], dtype=np.int16
         )
 
         image_coords: ImageCoords = matched_img_df[["img_loc_x", "img_loc_y"]].values
@@ -356,7 +356,7 @@ class PointDataBundle:
         Internal: Filter observations using per-camera error thresholds with safety enforcement.
 
         Args:
-            thresholds: dict mapping camera port -> max_error_pixels for that camera
+            thresholds: dict mapping camera cam_id -> max_error_pixels for that camera
             min_per_camera: minimum observations to preserve per camera
 
         Returns:
@@ -366,13 +366,13 @@ class PointDataBundle:
         report = self.reprojection_report
         raw_errors = report.raw_errors
 
-        # Build initial keep mask: error <= threshold for that camera's port
-        threshold_series = raw_errors["port"].map(thresholds)
+        # Build initial keep mask: error <= threshold for that camera's cam_id
+        threshold_series = raw_errors["cam_id"].map(thresholds)
         keep_mask = (raw_errors["euclidean_error"] <= threshold_series).copy()
 
         # Apply safety: ensure each camera keeps at least min_per_camera observations
-        for port in raw_errors["port"].unique():
-            camera_idx = raw_errors["port"] == port
+        for cam_id in raw_errors["cam_id"].unique():
+            camera_idx = raw_errors["cam_id"] == cam_id
             n_keep = keep_mask[camera_idx].sum()
             n_total = camera_idx.sum()
 
@@ -393,10 +393,10 @@ class PointDataBundle:
                     keep_mask[camera_idx] = raw_errors.loc[camera_idx, "euclidean_error"] <= threshold_to_add  # type: ignore[index, operator]
 
         # Get keys of observations to keep
-        keep_keys = raw_errors[keep_mask][["sync_index", "port", "point_id"]]
+        keep_keys = raw_errors[keep_mask][["sync_index", "cam_id", "point_id"]]
 
         # Filter image points by merging with keep keys
-        filtered_img_df = self.image_points.df.merge(keep_keys, on=["sync_index", "port", "point_id"], how="inner")
+        filtered_img_df = self.image_points.df.merge(keep_keys, on=["sync_index", "cam_id", "point_id"], how="inner")
         filtered_image_points = ImagePoints(filtered_img_df)
 
         # Prune orphaned world points (3D points with no observations)
@@ -433,7 +433,7 @@ class PointDataBundle:
             raise ValueError(f"min_per_camera must be >= 1, got {min_per_camera}")
 
         # Build uniform thresholds for all posed cameras
-        thresholds = {port: max_pixels for port in self.camera_array.posed_cameras.keys()}
+        thresholds = {cam_id: max_pixels for cam_id in self.camera_array.posed_cameras.keys()}
 
         return self._filter_by_reprojection_thresholds(thresholds, min_per_camera)
 
@@ -463,20 +463,20 @@ class PointDataBundle:
         if scope == "per_camera":
             # Compute (100 - percentile)th percentile per camera
             thresholds: dict[int, float] = {}
-            for port in self.camera_array.posed_cameras.keys():
-                camera_errors = raw_errors[raw_errors["port"] == port]["euclidean_error"]
+            for cam_id in self.camera_array.posed_cameras.keys():
+                camera_errors = raw_errors[raw_errors["cam_id"] == cam_id]["euclidean_error"]
                 if len(camera_errors) > 0:
                     # Keep the best (100 - percentile) percent
                     keep_percentile = 100 - percentile
-                    thresholds[port] = float(np.percentile(camera_errors, keep_percentile))
+                    thresholds[cam_id] = float(np.percentile(camera_errors, keep_percentile))
                 else:
-                    thresholds[port] = float(np.inf)  # No observations, keep nothing
+                    thresholds[cam_id] = float(np.inf)  # No observations, keep nothing
 
         elif scope == "overall":
             # Compute global (100 - percentile)th percentile
             keep_percentile = 100 - percentile
             global_threshold = float(np.percentile(raw_errors["euclidean_error"], keep_percentile))
-            thresholds = {port: global_threshold for port in self.camera_array.posed_cameras.keys()}
+            thresholds = {cam_id: global_threshold for cam_id in self.camera_array.posed_cameras.keys()}
 
         else:
             raise ValueError(f"scope must be 'per_camera' or 'overall', got {scope}")
@@ -543,7 +543,9 @@ class PointDataBundle:
                 continue
 
             # Count cameras contributing at this frame
-            n_cameras_contributing = int(img_subset[img_subset["point_id"].isin(merged["point_id"])]["port"].nunique())
+            n_cameras_contributing = int(
+                img_subset[img_subset["point_id"].isin(merged["point_id"])]["cam_id"].nunique()
+            )
 
             # Extract arrays for scale accuracy computation
             world_points = merged[["x_coord", "y_coord", "z_coord"]].to_numpy()

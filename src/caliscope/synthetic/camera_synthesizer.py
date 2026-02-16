@@ -16,7 +16,7 @@ from caliscope.synthetic.se3_pose import SE3Pose
 class _CameraSpec:
     """Internal: specification for a single camera before building."""
 
-    port: int
+    cam_id: int
     position: NDArray[np.float64]
     target: NDArray[np.float64]
     roll_deg: float = 0.0
@@ -27,22 +27,22 @@ class CameraSynthesizer:
     """Fluent builder for synthetic camera arrays.
 
     Enables composable camera rig construction with orientation variation
-    and port gaps (simulating disconnected cameras).
+    and cam_id gaps (simulating disconnected cameras).
 
     Example:
         array = (
             CameraSynthesizer()
             .add_ring(n=4, radius_mm=2000, height_mm=0)
             .add_ring(n=4, radius_mm=2000, height_mm=500, angular_offset_deg=45)
-            .drop_ports(1, 5)
+            .drop_cam_ids(1, 5)
             .build()
         )
-        # Result: CameraArray with ports [0, 2, 3, 4, 6, 7]
+        # Result: CameraArray with cam_ids [0, 2, 3, 4, 6, 7]
     """
 
     def __init__(self) -> None:
         self._specs: list[_CameraSpec] = []
-        self._next_port: int = 0
+        self._next_cam_id: int = 0
         self._dropped: set[int] = set()
 
     def add_ring(
@@ -97,14 +97,14 @@ class CameraSynthesizer:
 
             self._specs.append(
                 _CameraSpec(
-                    port=self._next_port,
+                    cam_id=self._next_cam_id,
                     position=position,
                     target=target,
                     roll_deg=roll,
                     pitch_deg=pitch,
                 )
             )
-            self._next_port += 1
+            self._next_cam_id += 1
 
         return self
 
@@ -158,46 +158,46 @@ class CameraSynthesizer:
 
             self._specs.append(
                 _CameraSpec(
-                    port=self._next_port,
+                    cam_id=self._next_cam_id,
                     position=position,
                     target=target,
                     roll_deg=roll,
                     pitch_deg=pitch,
                 )
             )
-            self._next_port += 1
+            self._next_cam_id += 1
 
         return self
 
-    def drop_ports(self, *ports: int) -> CameraSynthesizer:
-        """Exclude ports from final array (creates gaps in numbering).
+    def drop_cam_ids(self, *cam_ids: int) -> CameraSynthesizer:
+        """Exclude cam_ids from final array (creates gaps in numbering).
 
         Useful for simulating disconnected cameras or testing sparse configurations.
 
         Args:
-            *ports: Port numbers to exclude from the final CameraArray
+            *cam_ids: Camera ID numbers to exclude from the final CameraArray
 
         Returns:
             self, for method chaining
         """
-        self._dropped.update(ports)
+        self._dropped.update(cam_ids)
         return self
 
     def build(self) -> CameraArray:
         """Build the CameraArray from accumulated specs.
 
-        Applies roll/pitch variations and excludes dropped ports.
+        Applies roll/pitch variations and excludes dropped cam_ids.
 
         Returns:
-            CameraArray with cameras at non-dropped ports
+            CameraArray with cameras at non-dropped cam_ids
 
         Raises:
-            ValueError: If fewer than 2 cameras remain after dropping ports
+            ValueError: If fewer than 2 cameras remain after dropping cam_ids
         """
         cameras: dict[int, CameraData] = {}
 
         for spec in self._specs:
-            if spec.port in self._dropped:
+            if spec.cam_id in self._dropped:
                 continue
 
             pose = SE3Pose.look_at(spec.position, spec.target)
@@ -211,8 +211,8 @@ class CameraSynthesizer:
             # OpenCV convention: t = -R @ position
             translation = -rotation @ spec.position
 
-            cameras[spec.port] = CameraData(
-                port=spec.port,
+            cameras[spec.cam_id] = CameraData(
+                cam_id=spec.cam_id,
                 size=(1920, 1080),
                 matrix=_default_matrix(),
                 distortions=np.zeros(5, dtype=np.float64),
@@ -222,7 +222,8 @@ class CameraSynthesizer:
 
         if len(cameras) < 2:
             raise ValueError(
-                f"Need at least 2 cameras for calibration, got {len(cameras)} (dropped ports: {sorted(self._dropped)})"
+                f"Need at least 2 cameras for calibration, "
+                f"got {len(cameras)} (dropped cam_ids: {sorted(self._dropped)})"
             )
 
         return CameraArray(cameras=cameras)
@@ -255,9 +256,9 @@ def strip_extrinsics(camera_array: CameraArray) -> CameraArray:
     """
     cameras: dict[int, CameraData] = {}
 
-    for port, cam in camera_array.cameras.items():
-        cameras[port] = CameraData(
-            port=cam.port,
+    for cam_id, cam in camera_array.cameras.items():
+        cameras[cam_id] = CameraData(
+            cam_id=cam.cam_id,
             size=cam.size,
             rotation_count=cam.rotation_count,
             error=cam.error,

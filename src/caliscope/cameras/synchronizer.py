@@ -30,18 +30,18 @@ class Synchronizer:
         self.stop_event = Event()
         self.frames_complete = False  # only relevant for video playback, but provides a way to wrap up the thread
 
-        self.ports = []
+        self.cam_ids = []
         self.frame_packet_queues = {}
-        for port, stream in self.streams.items():
-            self.ports.append(port)
+        for cam_id, stream in self.streams.items():
+            self.cam_ids.append(cam_id)
             q = Queue(-1)
-            self.frame_packet_queues[port] = q
+            self.frame_packet_queues[cam_id] = q
 
         self.subscribed_to_streams = False  # not subscribed yet
         self.subscribe_to_streams()
 
         # place to store a recent history of dropped frames
-        self.dropped_frame_history = {port: [] for port in sorted(self.ports)}
+        self.dropped_frame_history = {cam_id: [] for cam_id in sorted(self.cam_ids)}
 
         self.initialize_ledgers()
         # Note: Caller must call start() explicitly - no auto-start in constructor
@@ -52,33 +52,33 @@ class Synchronizer:
 
         current_dropped: dict = self.current_sync_packet.dropped
 
-        for port, dropped in current_dropped.items():
-            self.dropped_frame_history[port].append(dropped)
-            self.dropped_frame_history[port] = self.dropped_frame_history[port][-DROPPED_FRAME_TRACK_WINDOW:]
+        for cam_id, dropped in current_dropped.items():
+            self.dropped_frame_history[cam_id].append(dropped)
+            self.dropped_frame_history[cam_id] = self.dropped_frame_history[cam_id][-DROPPED_FRAME_TRACK_WINDOW:]
 
     @property
     def dropped_fps(self):
         """
         Averages dropped frame count across the observed history
         """
-        return {port: np.mean(drop_history) for port, drop_history in self.dropped_frame_history.items()}
+        return {cam_id: np.mean(drop_history) for cam_id, drop_history in self.dropped_frame_history.items()}
 
     # def set_stream_fps(self, fps_target):
     #     self.fps_target = fps_target
     #     logger.info(f"Attempting to change target fps in streams to {fps_target}")
-    #     for port, stream in self.streams.items():
+    #     for cam_id, stream in self.streams.items():
     #         stream.set_fps_target(fps_target)
 
     def subscribe_to_streams(self):
-        for port, stream in self.streams.items():
-            logger.info(f"Subscribing synchronizer to stream from port {port}")
-            stream.subscribe(self.frame_packet_queues[port])
+        for cam_id, stream in self.streams.items():
+            logger.info(f"Subscribing synchronizer to stream from cam_id {cam_id}")
+            stream.subscribe(self.frame_packet_queues[cam_id])
         self.subscribed_to_streams = True
 
     def unsubscribe_from_streams(self):
-        for port, stream in self.streams.items():
-            logger.info(f"unsubscribe synchronizer from port {port}")
-            stream.unsubscribe(self.frame_packet_queues[port])
+        for cam_id, stream in self.streams.items():
+            logger.info(f"unsubscribe synchronizer from cam_id {cam_id}")
+            stream.unsubscribe(self.frame_packet_queues[cam_id])
         self.subscribed_to_streams = False
 
     def stop(self):
@@ -111,14 +111,14 @@ class Synchronizer:
         logger.info("Synchronizer stop complete")
 
     def initialize_ledgers(self):
-        self.port_frame_count = {port: 0 for port in self.ports}
-        self.port_current_frame = {port: 0 for port in self.ports}
+        self.cam_id_frame_count = {cam_id: 0 for cam_id in self.cam_ids}
+        self.cam_id_current_frame = {cam_id: 0 for cam_id in self.cam_ids}
         self.mean_frame_times = []
 
     def start(self):
         logger.info("About to submit Threadpool of frame Harvesters")
         self.threads = []
-        for port, stream in self.streams.items():
+        for cam_id, stream in self.streams.items():
             t = Thread(target=self.harvest_frame_packets, args=(stream,), daemon=True)
             t.start()
             self.threads.append(t)
@@ -142,37 +142,37 @@ class Synchronizer:
         Uses timeout on queue.get() to periodically check stop_event,
         allowing clean shutdown when stop() is called.
         """
-        port = stream.port
+        cam_id = stream.cam_id
 
-        logger.info(f"Beginning to collect data generated at port {port}")
+        logger.info(f"Beginning to collect data generated at cam_id {cam_id}")
 
         while not self.stop_event.is_set():
             try:
                 # Use timeout to periodically check stop_event
-                frame_packet = self.frame_packet_queues[port].get(timeout=0.5)
+                frame_packet = self.frame_packet_queues[cam_id].get(timeout=0.5)
             except Empty:
                 # No frame available, loop back to check stop_event
                 continue
 
-            frame_index = self.port_frame_count[port]
+            frame_index = self.cam_id_frame_count[cam_id]
 
-            self.all_frame_packets[f"{port}_{frame_index}"] = frame_packet
-            self.port_frame_count[port] += 1
+            self.all_frame_packets[f"{cam_id}_{frame_index}"] = frame_packet
+            self.cam_id_frame_count[cam_id] += 1
 
             logger.debug(
-                f"Frame data harvested from reel {frame_packet.port} with index {frame_index} and frame time of {frame_packet.frame_time}"  # noqa E501
+                f"Frame data harvested from reel {frame_packet.cam_id} with index {frame_index} and frame time of {frame_packet.frame_time}"  # noqa E501
             )
 
-        logger.info(f"Frame harvester for port {port} completed")
+        logger.info(f"Frame harvester for cam_id {cam_id} completed")
 
     # get minimum value of frame_time for next layer
-    def earliest_next_frame(self, port):
-        """Looks at next unassigned frame across the ports to determine
+    def earliest_next_frame(self, cam_id):
+        """Looks at next unassigned frame across cameras to determine
         the earliest time at which each of them was read"""
         times_of_next_frames = []
-        for p in self.ports:
-            next_index = self.port_current_frame[p] + 1
-            frame_data_key = f"{p}_{next_index}"
+        for c in self.cam_ids:
+            next_index = self.cam_id_current_frame[c] + 1
+            frame_data_key = f"{c}_{next_index}"
 
             # problem with outpacing the threads reading data in, so wait if need be
             while frame_data_key not in self.all_frame_packets.keys():
@@ -188,31 +188,31 @@ class Synchronizer:
             next_frame_time = self.all_frame_packets[frame_data_key].frame_time
 
             if next_frame_time == -1:
-                logger.info(f"End of frames at port {p} detected; ending synchronization")
+                logger.info(f"End of frames at cam_id {c} detected; ending synchronization")
 
                 self.frames_complete = True
                 self.stop_event.set()
 
-            if p != port:
+            if c != cam_id:
                 times_of_next_frames.append(next_frame_time)
 
         return min(times_of_next_frames)
 
-    def latest_current_frame(self, port):
-        """Provides the latest frame_time of the current frames not inclusive of the provided port"""
+    def latest_current_frame(self, cam_id):
+        """Provides the latest frame_time of the current frames not inclusive of the provided camera"""
         times_of_current_frames = []
-        for p in self.ports:
-            current_index = self.port_current_frame[p]
-            frame_data_key = f"{p}_{current_index}"
+        for c in self.cam_ids:
+            current_index = self.cam_id_current_frame[c]
+            frame_data_key = f"{c}_{current_index}"
             current_frame_time = self.all_frame_packets[frame_data_key].frame_time
-            if p != port:
+            if c != cam_id:
                 times_of_current_frames.append(current_frame_time)
 
         return max(times_of_current_frames)
 
     def frame_slack(self):
         """Determine how many unassigned frames are sitting in self.dataframe"""
-        slack = [self.port_frame_count[port] - self.port_current_frame[port] for port in self.ports]
+        slack = [self.cam_id_frame_count[cam_id] - self.cam_id_current_frame[cam_id] for cam_id in self.cam_ids]
         logger.debug(f"Slack in frames is {slack}")
         return min(slack)
 
@@ -230,7 +230,7 @@ class Synchronizer:
         return 1 / mean_delta_t
 
     def synch_frames_worker(self):
-        logger.info("Waiting for all ports to begin harvesting corners...")
+        logger.info("Waiting for all cameras to begin harvesting corners...")
 
         sync_index = 0
 
@@ -240,43 +240,44 @@ class Synchronizer:
 
             layer_frame_times = []
 
-            # build earliest next/latest current dictionaries for each port to determine where to put frames
+            # build earliest next/latest current dictionaries for each cam_id to determine where to put frames
             # must be done before going in and making any updates to the frame index
             earliest_next = {}
             latest_current = {}
 
-            for port in self.ports:
-                earliest_next[port] = self.earliest_next_frame(port)
-                latest_current[port] = self.latest_current_frame(port)
-                current_frame_index = self.port_current_frame[port]
+            for cam_id in self.cam_ids:
+                earliest_next[cam_id] = self.earliest_next_frame(cam_id)
+                latest_current[cam_id] = self.latest_current_frame(cam_id)
+                current_frame_index = self.cam_id_current_frame[cam_id]
 
-            for port in self.ports:
-                current_frame_index = self.port_current_frame[port]
+            for cam_id in self.cam_ids:
+                current_frame_index = self.cam_id_current_frame[cam_id]
 
-                port_index_key = f"{port}_{current_frame_index}"
-                current_frame_packet = self.all_frame_packets[port_index_key]
+                cam_id_index_key = f"{cam_id}_{current_frame_index}"
+                current_frame_packet = self.all_frame_packets[cam_id_index_key]
                 frame_time = current_frame_packet.frame_time
 
                 # don't put a frame in a synched frame packet if the next packet has a frame before it
-                if frame_time > earliest_next[port]:
+                if frame_time > earliest_next[cam_id]:
                     # definitly should be put in the next layer and not this one
-                    current_frame_packets[port] = None
-                    logger.warning(f"Skipped frame at port {port}: > earliest_next")
+                    current_frame_packets[cam_id] = None
+                    logger.warning(f"Skipped frame at cam_id {cam_id}: > earliest_next")
                 elif (
-                    earliest_next[port] - frame_time < frame_time - latest_current[port]
+                    earliest_next[cam_id] - frame_time < frame_time - latest_current[cam_id]
                 ):  # frame time is closer to earliest next than latest current
                     # if it's closer to the earliest next frame than the latest current frame, bump it up
                     # only applying for 2 camera setup where I noticed this was an issue (frames stay out of synch)
-                    current_frame_packets[port] = None
-                    logger.warning(f"Skipped frame at port {port}: delta < time-latest_current")
+                    current_frame_packets[cam_id] = None
+                    logger.warning(f"Skipped frame at cam_id {cam_id}: delta < time-latest_current")
                 else:
                     # add the data and increment the index
-                    current_frame_packets[port] = self.all_frame_packets.pop(port_index_key)
-                    # frame_packets[port]["sync_index"] = sync_index
-                    self.port_current_frame[port] += 1
+                    current_frame_packets[cam_id] = self.all_frame_packets.pop(cam_id_index_key)
+                    # frame_packets[cam_id]["sync_index"] = sync_index
+                    self.cam_id_current_frame[cam_id] += 1
                     layer_frame_times.append(frame_time)
                     logger.debug(
-                        f"Adding to layer from port {port} at index {current_frame_index} and frame time: {frame_time}"
+                        f"Adding to layer from cam_id {cam_id} "
+                        f"at index {current_frame_index} and frame time: {frame_time}"
                     )
 
             logger.debug(f"Unassigned Frames: {len(self.all_frame_packets)}")
@@ -312,7 +313,7 @@ class Synchronizer:
                         logger.info(f"Placing new synched frames with index {self.current_sync_packet.sync_index}")
                 else:
                     logger.info("signaling end of frames with `None` packet on subscriber queue.")
-                    for port, q in self.frame_packet_queues.items():
-                        logger.info(f"Currently {q.qsize()} frame packets unprocessed for port {port}")
+                    for cam_id, q in self.frame_packet_queues.items():
+                        logger.info(f"Currently {q.qsize()} frame packets unprocessed for cam_id {cam_id}")
 
         logger.info("Frame synch worker successfully ended")

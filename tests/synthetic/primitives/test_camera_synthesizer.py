@@ -28,8 +28,8 @@ class TestCameraSynthesizer:
         assert len(array.cameras) == 7
         assert list(array.cameras.keys()) == [0, 1, 2, 3, 4, 5, 6]
 
-    def test_drop_ports_creates_gaps(self) -> None:
-        array = CameraSynthesizer().add_ring(n=4, radius_mm=2000).drop_ports(1, 3).build()
+    def test_drop_cam_ids_creates_gaps(self) -> None:
+        array = CameraSynthesizer().add_ring(n=4, radius_mm=2000).drop_cam_ids(1, 3).build()
         assert list(array.cameras.keys()) == [0, 2]
 
     def test_angular_offset_rotates_ring(self) -> None:
@@ -46,7 +46,7 @@ class TestCameraSynthesizer:
     def test_rejects_insufficient_cameras(self) -> None:
         """Must have at least 2 cameras after drops."""
         with pytest.raises(ValueError, match="at least 2 cameras"):
-            CameraSynthesizer().add_ring(n=2, radius_mm=1000).drop_ports(0, 1).build()
+            CameraSynthesizer().add_ring(n=2, radius_mm=1000).drop_cam_ids(0, 1).build()
 
     def test_roll_variation_applies_random_roll(self) -> None:
         """With roll variation, cameras should have different orientations."""
@@ -55,10 +55,10 @@ class TestCameraSynthesizer:
         array2 = CameraSynthesizer().add_ring(n=4, radius_mm=1000, roll_variation_deg=10, random_seed=42).build()
 
         # Same seed = same rotations
-        for port in array1.cameras:
+        for cam_id in array1.cameras:
             np.testing.assert_allclose(
-                array1.cameras[port].rotation,  # type: ignore[arg-type]
-                array2.cameras[port].rotation,  # type: ignore[arg-type]
+                array1.cameras[cam_id].rotation,  # type: ignore[arg-type]
+                array2.cameras[cam_id].rotation,  # type: ignore[arg-type]
             )
 
     def test_different_seeds_give_different_results(self) -> None:
@@ -85,7 +85,7 @@ class TestAddLine:
 
         # Extract positions from extrinsics
         positions = []
-        for port, cam in array.cameras.items():
+        for cam_id, cam in array.cameras.items():
             pos = -cam.rotation.T @ cam.translation  # type: ignore[union-attr]
             positions.append(pos)
 
@@ -101,7 +101,7 @@ class TestStripExtrinsics:
         original = CameraSynthesizer().add_ring(n=4, radius_mm=1000).build()
         stripped = strip_extrinsics(original)
 
-        for port, cam in stripped.cameras.items():
+        for cam_id, cam in stripped.cameras.items():
             assert cam.rotation is None
             assert cam.translation is None
 
@@ -109,8 +109,8 @@ class TestStripExtrinsics:
         original = CameraSynthesizer().add_ring(n=4, radius_mm=1000).build()
         stripped = strip_extrinsics(original)
 
-        for port, cam in stripped.cameras.items():
-            orig_cam = original.cameras[port]
+        for cam_id, cam in stripped.cameras.items():
+            orig_cam = original.cameras[cam_id]
             assert cam.matrix is not None
             assert orig_cam.matrix is not None
             np.testing.assert_allclose(cam.matrix, orig_cam.matrix)
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
     # Basic ring
     ring = CameraSynthesizer().add_ring(n=4, radius_mm=1000, height_mm=500).build()
-    print(f"Ring: {len(ring.cameras)} cameras at ports {list(ring.cameras.keys())}")
+    print(f"Ring: {len(ring.cameras)} cameras at cam_ids {list(ring.cameras.keys())}")
 
     # Two staggered rings
     double_ring = (
@@ -202,8 +202,8 @@ if __name__ == "__main__":
     print(f"Double ring: {len(double_ring.cameras)} cameras")
 
     # With drops
-    sparse = CameraSynthesizer().add_ring(n=6, radius_mm=1500).drop_ports(1, 4).build()
-    print(f"Sparse: {len(sparse.cameras)} cameras at ports {list(sparse.cameras.keys())}")
+    sparse = CameraSynthesizer().add_ring(n=6, radius_mm=1500).drop_cam_ids(1, 4).build()
+    print(f"Sparse: {len(sparse.cameras)} cameras at cam_ids {list(sparse.cameras.keys())}")
 
     # Line with curvature
     line = CameraSynthesizer().add_line(n=5, spacing_mm=300, curvature=1.0).build()

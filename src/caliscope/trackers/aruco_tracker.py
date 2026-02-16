@@ -133,7 +133,7 @@ class ArucoTracker(Tracker):
 
         return filtered_point_ids, filtered_img_loc, obj_loc
 
-    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
+    def get_points(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
         """
         Detect ArUco markers in frame and return corner points.
 

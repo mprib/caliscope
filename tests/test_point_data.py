@@ -14,7 +14,7 @@ def _get_valid_xy_df() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sync_index": [0, 1, 0, 1],
-            "port": [0, 0, 1, 1],
+            "cam_id": [0, 0, 1, 1],
             "point_id": [10, 10, 10, 10],
             "img_loc_x": [100.5, 102.3, 200.1, 202.8],
             "img_loc_y": [300.2, 301.9, 400.6, 401.3],
@@ -27,7 +27,7 @@ def _get_invalid_xy_df() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "sync_index": [0, 1],
-            "port": [0, 0],
+            "cam_id": [0, 0],
             "img_loc_x": [100.5, 102.3],
             "img_loc_y": [300.2, 301.9],
         }
@@ -99,7 +99,7 @@ def test_xydata_fill_gaps():
     gappy_data = pd.DataFrame(
         {
             "sync_index": [1, 3, 1, 3],
-            "port": [0, 0, 1, 1],
+            "cam_id": [0, 0, 1, 1],
             "point_id": [1, 1, 2, 2],
             "img_loc_x": [10, 30, 100, 300],
             "img_loc_y": [20, 40, 200, 400],
@@ -112,18 +112,18 @@ def test_xydata_fill_gaps():
         pd.DataFrame(
             {
                 "sync_index": [1, 2, 3, 1, 2, 3],
-                "port": [0, 0, 0, 1, 1, 1],
+                "cam_id": [0, 0, 0, 1, 1, 1],
                 "point_id": [1, 1, 1, 2, 2, 2],
                 "img_loc_x": [10.0, 20.0, 30.0, 100.0, 200.0, 300.0],
                 "img_loc_y": [20.0, 30.0, 40.0, 200.0, 300.0, 400.0],
             }
         )
-        .sort_values(["port", "point_id", "sync_index"])
+        .sort_values(["cam_id", "point_id", "sync_index"])
         .reset_index(drop=True)
     )
     result_df = (
-        xy_filled.df[["sync_index", "port", "point_id", "img_loc_x", "img_loc_y"]]
-        .sort_values(["port", "point_id", "sync_index"])
+        xy_filled.df[["sync_index", "cam_id", "point_id", "img_loc_x", "img_loc_y"]]
+        .sort_values(["cam_id", "point_id", "sync_index"])
         .reset_index(drop=True)
     )
     pd.testing.assert_frame_equal(expected_data, result_df)

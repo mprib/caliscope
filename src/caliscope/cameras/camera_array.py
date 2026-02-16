@@ -23,7 +23,7 @@ class CameraData:
     whether the source camera is standard or fisheye.
     """
 
-    port: int
+    cam_id: int
     size: tuple[int, int]
     rotation_count: int = 0
     error: float | None = None  # the RMSE of reprojection associated with the intrinsic calibration
@@ -65,9 +65,9 @@ class CameraData:
         # rotation of the camera relative to the world
         assert self.rotation is not None and self.translation is not None
         rotation_rodrigues = cv2.Rodrigues(self.rotation)[0]  # elements 0,1,2
-        port_param = np.hstack([rotation_rodrigues[:, 0], self.translation])
+        cam_param = np.hstack([rotation_rodrigues[:, 0], self.translation])
 
-        return port_param
+        return cam_param
 
     def extrinsics_from_vector(self, row):
         """
@@ -96,7 +96,7 @@ class CameraData:
             (N, 2) array of undistorted points in the specified coordinate system
         """
         if self.matrix is None or self.distortions is None:
-            raise ValueError(f"Camera {self.port} lacks intrinsic calibration; cannot undistort points.")
+            raise ValueError(f"Camera {self.cam_id} lacks intrinsic calibration; cannot undistort points.")
 
         # OpenCV functions require points in shape (N, 1, 2) and float32 type
         points_reshaped = np.ascontiguousarray(points, dtype=np.float32).reshape(-1, 1, 2)
@@ -135,7 +135,7 @@ class CameraData:
         For display visualization, use LensModelVisualizer instead.
         """
         if self.matrix is None or self.distortions is None:
-            raise ValueError(f"Camera {self.port} lacks intrinsic calibration; cannot undistort frame.")
+            raise ValueError(f"Camera {self.cam_id} lacks intrinsic calibration; cannot undistort frame.")
 
         h, w = frame.shape[:2]
         frame_size = (w, h)
@@ -258,58 +258,60 @@ class CameraArray:
     def posed_cameras(self) -> Dict[int, CameraData]:
         """Returns a view of cameras that have extrinsic data (pose)."""
         return {
-            port: cam for port, cam in self.cameras.items() if cam.rotation is not None and cam.translation is not None
+            cam_id: cam
+            for cam_id, cam in self.cameras.items()
+            if cam.rotation is not None and cam.translation is not None
         }
 
     @property
     def unposed_cameras(self) -> Dict[int, CameraData]:
         """Returns a view of cameras that are missing extrinsic data (pose)."""
-        return {port: cam for port, cam in self.cameras.items() if cam.rotation is None or cam.translation is None}
+        return {cam_id: cam for cam_id, cam in self.cameras.items() if cam.rotation is None or cam.translation is None}
 
     @property
-    def posed_port_to_index(self) -> Dict[int, int]:
+    def posed_cam_id_to_index(self) -> Dict[int, int]:
         """
-        Maps the port to an index for *posed and non-ignored* cameras.
+        Maps the cam_id to an index for *posed and non-ignored* cameras.
         This is used for ordering parameters for optimization routines.
         The value is re-calculated on each access to ensure it is always fresh.
         """
         # CRITICAL: This operates on `posed_cameras` to get the set of cameras
         # eligible for optimization.
-        eligible_ports = [port for port, cam in self.posed_cameras.items() if not cam.ignore]
-        eligible_ports.sort()  # Important for deterministic behavior
-        return {port: i for i, port in enumerate(eligible_ports)}
+        eligible_cam_ids = [cam_id for cam_id, cam in self.posed_cameras.items() if not cam.ignore]
+        eligible_cam_ids.sort()  # Important for deterministic behavior
+        return {cam_id: i for i, cam_id in enumerate(eligible_cam_ids)}
 
     @property
-    def posed_index_to_port(self) -> Dict[int, int]:
+    def posed_index_to_cam_id(self) -> Dict[int, int]:
         """
-        Maps an index back to a port for *posed and non-ignored* cameras.
+        Maps an index back to a cam_id for *posed and non-ignored* cameras.
         The value is re-calculated on each access to ensure it is always fresh.
         """
-        return {value: key for key, value in self.posed_port_to_index.items()}
+        return {value: key for key, value in self.posed_cam_id_to_index.items()}
 
     def get_extrinsic_params(self) -> NDArray | None:
         """
         Builds the extrinsic parameter vector for all *posed* cameras.
         Returns None if no cameras are posed and not ignored.
         """
-        # The index_port property already filters for posed and non-ignored cameras
-        ordered_ports = self.posed_index_to_port.keys()
+        # The index_cam_id property already filters for posed and non-ignored cameras
+        ordered_cam_ids = self.posed_index_to_cam_id.keys()
 
-        if not ordered_ports:
+        if not ordered_cam_ids:
             return None
 
-        # Build the params in the order defined by index_port
+        # Build the params in the order defined by index_cam_id
         params_list = []
-        for index in sorted(ordered_ports):
-            port = self.posed_index_to_port[index]
-            cam = self.cameras[port]
+        for index in sorted(ordered_cam_ids):
+            cam_id = self.posed_index_to_cam_id[index]
+            cam = self.cameras[cam_id]
             params_list.append(cam.extrinsics_to_vector())
 
         return np.vstack(params_list)
 
     def update_extrinsic_params(self, least_sq_result_x: NDArray) -> None:
         """Updates extrinsic parameters from an optimization result vector."""
-        indices_to_update = self.posed_index_to_port
+        indices_to_update = self.posed_index_to_cam_id
         n_cameras = len(indices_to_update)
 
         if n_cameras == 0:
@@ -321,39 +323,9 @@ class CameraArray:
         new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
 
         for index, cam_vec in enumerate(new_camera_params):
-            port = indices_to_update[index]
+            cam_id = indices_to_update[index]
             # When updating, we modify the original camera object in self.cameras
-            self.cameras[port].extrinsics_from_vector(cam_vec)
-
-    # def get_extrinsic_params(self) -> np.ndarray | None:
-    #     logger.debug(f"get_extrinsic_params called. Posed cameras: {list(self.posed_cameras.keys())}")
-    #
-    #     posed_cams = self.posed_cameras
-    #     if not posed_cams:
-    #         logger.warning("No posed cameras available")
-    #         return None
-    #
-    #     params = np.array([cam.extrinsics_to_vector() for cam in posed_cams.values()])
-    #     logger.debug(f"Extrinsic params shape: {params.shape}")
-    #     return params
-    #
-    # def update_extrinsic_params(self, least_sq_result_x: NDArray) -> None:
-    #     """Updates extrinsic parameters from an optimization result vector."""
-    #     indices_to_update = self.posed_index_to_port
-    #     n_cameras = len(indices_to_update)
-    #
-    #     if n_cameras == 0:
-    #         logger.warning("Tried to update extrinsics, but no posed cameras were found to update.")
-    #         return
-    #
-    #     n_cam_param = 6  # 6 DoF
-    #     flat_camera_params = least_sq_result_x[0 : n_cameras * n_cam_param]
-    #     new_camera_params = flat_camera_params.reshape(n_cameras, n_cam_param)
-    #
-    #     for index, cam_vec in enumerate(new_camera_params):
-    #         port = indices_to_update[index]
-    #         # When updating, we modify the original camera object in self.cameras
-    #         self.cameras[port].extrinsics_from_vector(cam_vec)
+            self.cameras[cam_id].extrinsics_from_vector(cam_vec)
 
     # Note: I've updated the docstrings on these to be more precise
     def all_extrinsics_calibrated(self) -> bool:
@@ -372,7 +344,7 @@ class CameraArray:
         logger.info("Creating normalized projection matrices for posed and non-ignored cameras.")
         # Note: This NumbaDict should only contain cameras used in optimization
         proj_mat = NumbaDict()  # type: ignore
-        for port in self.posed_port_to_index.keys():  # port_index keys are posed and not ignored
-            proj_mat[port] = self.cameras[port].normalized_projection_matrix
+        for cam_id in self.posed_cam_id_to_index.keys():  # cam_id_to_index keys are posed and not ignored
+            proj_mat[cam_id] = self.cameras[cam_id].normalized_projection_matrix
 
         return proj_mat

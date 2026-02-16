@@ -188,10 +188,10 @@ def apply_similarity_transform(
 
     # Build new camera dictionary
     new_cameras = {}
-    for port, camera_data in camera_array.cameras.items():
+    for cam_id, camera_data in camera_array.cameras.items():
         # Copy camera data (shallow copy is fine since we're replacing transformation)
         new_camera_data = CameraData(
-            port=camera_data.port,
+            cam_id=camera_data.cam_id,
             size=camera_data.size,
             rotation_count=camera_data.rotation_count,
             error=camera_data.error,
@@ -224,7 +224,7 @@ def apply_similarity_transform(
             new_camera_data.rotation = R_cam_new
             new_camera_data.translation = t_cam_new
 
-        new_cameras[port] = new_camera_data
+        new_cameras[cam_id] = new_camera_data
 
     new_camera_array = CameraArray(cameras=new_cameras)
 

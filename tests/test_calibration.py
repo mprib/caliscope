@@ -108,9 +108,9 @@ def _run_bundle_optimization_test(data: CalibrationTestData):
     assert rmse_after_filter > rmse_after_opt2, "RMSE did not decline with second optimization"
 
     # Verify all cameras retained
-    posed_ports = set(reoptimized_bundle.camera_array.posed_cameras.keys())
-    observed_ports = set(reoptimized_bundle.image_points.df["port"].unique())
-    assert posed_ports == observed_ports, "Some cameras lost all observations!"
+    posed_cam_ids = set(reoptimized_bundle.camera_array.posed_cameras.keys())
+    observed_cam_ids = set(reoptimized_bundle.image_points.df["cam_id"].unique())
+    assert posed_cam_ids == observed_cam_ids, "Some cameras lost all observations!"
 
     logger.info("SUCCESS: RMSE decreased at each stage, all cameras retained")
 
@@ -174,14 +174,14 @@ def test_filter_percentile_modes(tmp_path: Path):
     logger.info(f"RMSE improvement: {initial_rmse:.4f} → {rmse_overall:.4f} (overall)")
 
     # === ASSERTION 2: Safety mechanism enforced ===
-    for port in sorted(bundle.camera_array.posed_cameras.keys()):
-        count_per_cam = (bundle_per_cam.image_points.df["port"] == port).sum()
-        count_overall = (bundle_overall.image_points.df["port"] == port).sum()
+    for cam_id in sorted(bundle.camera_array.posed_cameras.keys()):
+        count_per_cam = (bundle_per_cam.image_points.df["cam_id"] == cam_id).sum()
+        count_overall = (bundle_overall.image_points.df["cam_id"] == cam_id).sum()
 
-        assert count_per_cam >= min_per_camera, f"Per-camera mode dropped camera {port} below minimum"
-        assert count_overall >= min_per_camera, f"Overall mode dropped camera {port} below minimum"
+        assert count_per_cam >= min_per_camera, f"Per-camera mode dropped camera {cam_id} below minimum"
+        assert count_overall >= min_per_camera, f"Overall mode dropped camera {cam_id} below minimum"
 
-        logger.info(f"  Camera {port}: {count_per_cam} (per_cam), {count_overall} (overall)")
+        logger.info(f"  Camera {cam_id}: {count_per_cam} (per_cam), {count_overall} (overall)")
 
     # === ASSERTION 3: No orphaned 3D points ===
     # Every 3D point should have at least one observation
@@ -213,21 +213,21 @@ def test_filter_percentile_modes(tmp_path: Path):
 
     # Calculate removal fraction per camera for per_camera mode
     removal_fractions = {}
-    for port in initial_by_camera.keys():
-        initial_count = (bundle.image_points.df["port"] == port).sum()
-        final_count = (bundle_per_cam.image_points.df["port"] == port).sum()
-        removal_fractions[port] = (initial_count - final_count) / initial_count
+    for cam_id in initial_by_camera.keys():
+        initial_count = (bundle.image_points.df["cam_id"] == cam_id).sum()
+        final_count = (bundle_per_cam.image_points.df["cam_id"] == cam_id).sum()
+        removal_fractions[cam_id] = (initial_count - final_count) / initial_count
 
     # Sort cameras by initial RMSE
     sorted_by_rmse = sorted(initial_by_camera.items(), key=lambda x: x[1])
 
     # Check that higher-RMSE cameras generally have higher removal fractions
     # (This is a statistical tendency, not a strict guarantee)
-    high_rmse_ports = [port for port, rmse in sorted_by_rmse[-3:]]  # Top 3 worst cameras
-    low_rmse_ports = [port for port, rmse in sorted_by_rmse[:3]]  # Top 3 best cameras
+    high_rmse_cam_ids = [cam_id for cam_id, rmse in sorted_by_rmse[-3:]]  # Top 3 worst cameras
+    low_rmse_cam_ids = [cam_id for cam_id, rmse in sorted_by_rmse[:3]]  # Top 3 best cameras
 
-    avg_removal_high = np.mean([removal_fractions[p] for p in high_rmse_ports])
-    avg_removal_low = np.mean([removal_fractions[p] for p in low_rmse_ports])
+    avg_removal_high = np.mean([removal_fractions[p] for p in high_rmse_cam_ids])
+    avg_removal_low = np.mean([removal_fractions[p] for p in low_rmse_cam_ids])
 
     logger.info(f"Avg removal fraction - high RMSE cameras: {avg_removal_high:.2%}")
     logger.info(f"Avg removal fraction - low RMSE cameras: {avg_removal_low:.2%}")
@@ -238,13 +238,13 @@ def test_filter_percentile_modes(tmp_path: Path):
     # === ASSERTION 6: Overall mode also targets high-error cameras ===
     # Calculate removal fraction per camera for overall mode
     removal_fractions_overall = {}
-    for port in initial_by_camera.keys():
-        initial_count = (bundle.image_points.df["port"] == port).sum()
-        final_count = (bundle_overall.image_points.df["port"] == port).sum()
-        removal_fractions_overall[port] = (initial_count - final_count) / initial_count
+    for cam_id in initial_by_camera.keys():
+        initial_count = (bundle.image_points.df["cam_id"] == cam_id).sum()
+        final_count = (bundle_overall.image_points.df["cam_id"] == cam_id).sum()
+        removal_fractions_overall[cam_id] = (initial_count - final_count) / initial_count
 
-    avg_removal_high_overall = np.mean([removal_fractions_overall[p] for p in high_rmse_ports])
-    avg_removal_low_overall = np.mean([removal_fractions_overall[p] for p in low_rmse_ports])
+    avg_removal_high_overall = np.mean([removal_fractions_overall[p] for p in high_rmse_cam_ids])
+    avg_removal_low_overall = np.mean([removal_fractions_overall[p] for p in low_rmse_cam_ids])
 
     logger.info(f"Avg removal fraction (overall) - high RMSE cameras: {avg_removal_high_overall:.2%}")
     logger.info(f"Avg removal fraction (overall) - low RMSE cameras: {avg_removal_low_overall:.2%}")

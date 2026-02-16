@@ -31,7 +31,7 @@ def test_sync_stream_manager(tmp_path: Path):
     recording_dir = Path(tmp_path, "calibration", "extrinsic")
 
     # delete frame timestamps to assess success of imputed frame time method
-    frame_timestamps = Path(recording_dir, "timestamps.csv")
+    frame_timestamps = Path(recording_dir, "frametimes.csv")
     frame_timestamps.unlink()
 
     sync_stream_manager = SynchronizedStreamManager(
@@ -55,8 +55,10 @@ def test_sync_stream_manager(tmp_path: Path):
     # Adjust sync_index in gold_standard_df to start at 1
     gold_standard_df["sync_index"] -= gold_standard_df["sync_index"].min() - 1
 
-    # Merge the dataframes on sync_index, port, point_id
-    merged_df = pd.merge(gold_standard_df, test_df, on=["sync_index", "port", "point_id"], suffixes=("_gold", "_test"))
+    # Merge the dataframes on sync_index, cam_id, point_id
+    merged_df = pd.merge(
+        gold_standard_df, test_df, on=["sync_index", "cam_id", "point_id"], suffixes=("_gold", "_test")
+    )
 
     # Define pixel tolerance for img_loc_x and img_loc_y
     pixel_tolerance = 10

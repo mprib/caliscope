@@ -56,18 +56,18 @@ class CameraThumbnailCard(QFrame):
 
     Signals:
         rotate_requested: Emitted when user clicks rotate.
-            Payload is (port, direction) where direction is +1 (CW) or -1 (CCW).
+            Payload is (cam_id, direction) where direction is +1 (CW) or -1 (CCW).
     """
 
-    rotate_requested = Signal(int, int)  # (port, direction)
+    rotate_requested = Signal(int, int)  # (cam_id, direction)
 
     THUMBNAIL_SIZE = 280  # pixels (larger for better visibility)
     ICON_SIZE = 20  # pixels for rotation button icons
     BUTTON_SIZE = 32  # pixels for rotation button clickable area
 
-    def __init__(self, port: int, parent: QWidget | None = None) -> None:
+    def __init__(self, cam_id: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._port = port
+        self._cam_id = cam_id
         self._rotation_count = 0
 
         self._setup_ui()
@@ -79,10 +79,10 @@ class CameraThumbnailCard(QFrame):
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         layout = QVBoxLayout(self)
 
-        # Port label
-        self._port_label = QLabel(f"Port {self._port}")
-        self._port_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self._port_label)
+        # Camera ID label
+        self._cam_id_label = QLabel(f"Cam {self._cam_id}")
+        self._cam_id_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._cam_id_label)
 
         # Thumbnail display
         self._thumbnail_label = QLabel()
@@ -124,9 +124,9 @@ class CameraThumbnailCard(QFrame):
         layout.addLayout(rotation_row)
 
     @property
-    def port(self) -> int:
-        """Camera port for this card."""
-        return self._port
+    def cam_id(self) -> int:
+        """Camera cam_id for this card."""
+        return self._cam_id
 
     # Landmark overlay styling
     LANDMARK_COLOR = (0, 0, 255)  # Red (BGR for OpenCV)
@@ -197,4 +197,4 @@ class CameraThumbnailCard(QFrame):
         Args:
             direction: +1 for clockwise, -1 for counter-clockwise
         """
-        self.rotate_requested.emit(self._port, direction)
+        self.rotate_requested.emit(self._cam_id, direction)

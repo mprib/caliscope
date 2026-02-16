@@ -114,7 +114,7 @@ class SyntheticScene:
             # Object-local coordinates (for obj_loc columns)
             obj_local = self.calibration_object.points
 
-            for port, camera in self.camera_array.cameras.items():
+            for cam_id, camera in self.camera_array.cameras.items():
                 if camera.rotation is None or camera.translation is None:
                     continue
                 if camera.matrix is None or camera.distortions is None:
@@ -144,7 +144,7 @@ class SyntheticScene:
                         rows.append(
                             {
                                 "sync_index": frame,
-                                "port": port,
+                                "cam_id": cam_id,
                                 "point_id": int(point_id),
                                 "img_loc_x": float(x),
                                 "img_loc_y": float(y),
@@ -165,8 +165,8 @@ class SyntheticScene:
         Element [i, j] is the number of (frame, point) pairs visible
         from both camera i and camera j. Diagonal is total observations per camera.
         """
-        port_to_index = {port: idx for idx, port in enumerate(sorted(self.camera_array.cameras.keys()))}
-        return compute_coverage_matrix(self.image_points_noisy, port_to_index)
+        cam_id_to_index = {cam_id: idx for idx, cam_id in enumerate(sorted(self.camera_array.cameras.keys()))}
+        return compute_coverage_matrix(self.image_points_noisy, cam_id_to_index)
 
     def intrinsics_only_cameras(self) -> CameraArray:
         """Return cameras with extrinsics stripped (for pipeline input)."""

@@ -23,8 +23,8 @@ class StereoPair:
     This avoids shape-related broadcasting bugs in downstream operations.
     """
 
-    primary_port: int
-    secondary_port: int
+    primary_cam_id: int
+    secondary_cam_id: int
     error_score: float
     translation: np.ndarray
     rotation: np.ndarray
@@ -46,7 +46,7 @@ class StereoPair:
 
     @property
     def pair(self) -> Tuple[int, int]:
-        return (self.primary_port, self.secondary_port)
+        return (self.primary_cam_id, self.secondary_cam_id)
 
     @property
     def transformation(self) -> np.ndarray:
@@ -62,8 +62,8 @@ class StereoPair:
         """
         inverted_transformation = np.linalg.inv(self.transformation)
         return StereoPair(
-            primary_port=self.secondary_port,
-            secondary_port=self.primary_port,
+            primary_cam_id=self.secondary_cam_id,
+            secondary_cam_id=self.primary_cam_id,
             error_score=self.error_score,
             rotation=inverted_transformation[0:3, 0:3],
             translation=inverted_transformation[0:3, 3],  # Single index gives (3,) shape
@@ -73,12 +73,12 @@ class StereoPair:
         """Extend this link through another: (A->B).link(B->C) = A->C.
 
         Error scores are summed as a conservative bound for the extended link.
-        Caller is responsible for ensuring self.secondary_port == other.primary_port.
+        Caller is responsible for ensuring self.secondary_cam_id == other.primary_cam_id.
         """
         bridged_transformation = np.matmul(other.transformation, self.transformation)
         return StereoPair(
-            primary_port=self.primary_port,
-            secondary_port=other.secondary_port,
+            primary_cam_id=self.primary_cam_id,
+            secondary_cam_id=other.secondary_cam_id,
             error_score=self.error_score + other.error_score,
             rotation=bridged_transformation[0:3, 0:3],
             translation=bridged_transformation[0:3, 3],  # Single index gives (3,) shape

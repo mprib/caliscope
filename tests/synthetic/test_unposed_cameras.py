@@ -20,7 +20,7 @@ def make_12_camera_scene() -> SyntheticScene:
     """Create 12-camera scene for unposed camera tests.
 
     Configuration:
-    - 12 cameras (ports 0-11) arranged in a ring
+    - 12 cameras (cam_ids 0-11) arranged in a ring
     - 2000mm radius, 500mm height
     - 5x7 grid at 50mm spacing (250x300mm total)
     - 5 stationary frames (sufficient for crash testing)
@@ -66,13 +66,13 @@ class TestDroppedCameras:
         bundle = PointDataBundle(intrinsics_only, filtered_image_points, world_points)
 
         # Key assertions on camera configuration
-        posed_ports = set(intrinsics_only.posed_cameras.keys())
-        unposed_ports = set(intrinsics_only.unposed_cameras.keys())
+        posed_cam_ids = set(intrinsics_only.posed_cameras.keys())
+        unposed_cam_ids = set(intrinsics_only.unposed_cameras.keys())
 
         expected_posed = {0, 1, 2, 3, 4, 5, 6, 7, 8, 11}
-        assert posed_ports == expected_posed, f"Expected ports {expected_posed} posed, got {posed_ports}"
-        assert unposed_ports == {9, 10}, f"Expected ports 9,10 unposed, got {unposed_ports}"
-        assert len(intrinsics_only.posed_port_to_index) == 10
+        assert posed_cam_ids == expected_posed, f"Expected cam_ids {expected_posed} posed, got {posed_cam_ids}"
+        assert unposed_cam_ids == {9, 10}, f"Expected cam_ids 9,10 unposed, got {unposed_cam_ids}"
+        assert len(intrinsics_only.posed_cam_id_to_index) == 10
 
         # Core test: optimization completes without crashing
         optimized = bundle.optimize()
@@ -120,16 +120,16 @@ class TestIsolatedIslands:
 
         # Filter: keep observations where (camera in island_a AND frame in frames_a)
         #                              OR (camera in island_b AND frame in frames_b)
-        mask_island_a = (image_points_df["port"].isin(island_a)) & (image_points_df["sync_index"].isin(frames_a))
-        mask_island_b = (image_points_df["port"].isin(island_b)) & (image_points_df["sync_index"].isin(frames_b))
+        mask_island_a = (image_points_df["cam_id"].isin(island_a)) & (image_points_df["sync_index"].isin(frames_a))
+        mask_island_b = (image_points_df["cam_id"].isin(island_b)) & (image_points_df["sync_index"].isin(frames_b))
 
         filtered_df = image_points_df[mask_island_a | mask_island_b].copy()
         filtered_image_points = ImagePoints(filtered_df)
 
         # Verify both islands still have internal observations
-        for port in range(12):
-            port_obs = filtered_image_points.df[filtered_image_points.df["port"] == port]
-            assert len(port_obs) > 0, f"Camera {port} should still have observations"
+        for cam_id in range(12):
+            cam_id_obs = filtered_image_points.df[filtered_image_points.df["cam_id"] == cam_id]
+            assert len(cam_id_obs) > 0, f"Camera {cam_id} should still have observations"
 
         # Bootstrap uses intrinsics-only cameras
         intrinsics_only = scene.intrinsics_only_cameras()
@@ -139,18 +139,18 @@ class TestIsolatedIslands:
         network.apply_to(intrinsics_only)
 
         # Document what happened
-        posed_ports = set(intrinsics_only.posed_cameras.keys())
-        unposed_ports = set(intrinsics_only.unposed_cameras.keys())
+        posed_cam_ids = set(intrinsics_only.posed_cameras.keys())
+        unposed_cam_ids = set(intrinsics_only.unposed_cameras.keys())
 
         print("\n=== DISCOVERED BEHAVIOR ===")
-        print(f"Posed ports: {sorted(posed_ports)}")
-        print(f"Unposed ports: {sorted(unposed_ports)}")
-        print(f"Number posed: {len(posed_ports)}")
-        print(f"Number unposed: {len(unposed_ports)}")
+        print(f"Posed cam_ids: {sorted(posed_cam_ids)}")
+        print(f"Unposed cam_ids: {sorted(unposed_cam_ids)}")
+        print(f"Number posed: {len(posed_cam_ids)}")
+        print(f"Number unposed: {len(unposed_cam_ids)}")
 
         # Document which island was chosen (if any)
-        posed_in_island_a = posed_ports & island_a
-        posed_in_island_b = posed_ports & island_b
+        posed_in_island_a = posed_cam_ids & island_a
+        posed_in_island_b = posed_cam_ids & island_b
         print(f"Posed from Island A (0-5): {sorted(posed_in_island_a)}")
         print(f"Posed from Island B (6-11): {sorted(posed_in_island_b)}")
 
@@ -158,7 +158,7 @@ class TestIsolatedIslands:
         # (These document the invariants we expect)
 
         # At least some cameras should be posed (calibration shouldn't completely fail)
-        assert len(posed_ports) > 0, "Expected at least some cameras to be posed"
+        assert len(posed_cam_ids) > 0, "Expected at least some cameras to be posed"
 
         # The posed cameras should form a connected component
         # (i.e., we shouldn't have cameras from both islands posed,
@@ -178,7 +178,7 @@ class TestIsolatedIslands:
                 assert posed_in_island_a == set(), f"Expected no cameras from Island A, got {posed_in_island_a}"
 
         # Attempt triangulation and optimization (may or may not work)
-        if len(posed_ports) >= 2:
+        if len(posed_cam_ids) >= 2:
             world_points = filtered_image_points.triangulate(intrinsics_only)
             bundle = PointDataBundle(intrinsics_only, filtered_image_points, world_points)
 
@@ -196,8 +196,8 @@ class TestIsolatedIslands:
         else:
             pytest.skip("Fewer than 2 cameras posed - cannot triangulate")
 
-    def _run_island_test(self, island_a_ports: set[int], island_b_ports: set[int]) -> tuple[set[int], set[int]]:
-        """Helper: run island split and return (posed_ports, unposed_ports)."""
+    def _run_island_test(self, island_a_cam_ids: set[int], island_b_cam_ids: set[int]) -> tuple[set[int], set[int]]:
+        """Helper: run island split and return (posed_cam_ids, unposed_cam_ids)."""
         scene = make_12_camera_scene()
 
         frames_a = {0, 1, 2}
@@ -205,8 +205,8 @@ class TestIsolatedIslands:
 
         image_points_df = scene.image_points_noisy.df.copy()
 
-        mask_a = (image_points_df["port"].isin(island_a_ports)) & (image_points_df["sync_index"].isin(frames_a))
-        mask_b = (image_points_df["port"].isin(island_b_ports)) & (image_points_df["sync_index"].isin(frames_b))
+        mask_a = (image_points_df["cam_id"].isin(island_a_cam_ids)) & (image_points_df["sync_index"].isin(frames_a))
+        mask_b = (image_points_df["cam_id"].isin(island_b_cam_ids)) & (image_points_df["sync_index"].isin(frames_b))
 
         filtered_df = image_points_df[mask_a | mask_b].copy()
         filtered_image_points = ImagePoints(filtered_df)
@@ -215,60 +215,60 @@ class TestIsolatedIslands:
         network = build_paired_pose_network(filtered_image_points, intrinsics_only, method="stereocalibrate")
         network.apply_to(intrinsics_only)
 
-        posed_ports = set(intrinsics_only.posed_cameras.keys())
-        unposed_ports = set(intrinsics_only.unposed_cameras.keys())
+        posed_cam_ids = set(intrinsics_only.posed_cameras.keys())
+        unposed_cam_ids = set(intrinsics_only.unposed_cameras.keys())
 
-        return posed_ports, unposed_ports
+        return posed_cam_ids, unposed_cam_ids
 
-    def test_largest_island_wins_when_smaller_has_port_0(self) -> None:
-        """Larger island is chosen even when smaller island contains port 0.
+    def test_largest_island_wins_when_smaller_has_cam_id_0(self) -> None:
+        """Larger island is chosen even when smaller island contains cam_id 0.
 
         Scenario: 4-camera island (0-3) vs 8-camera island (4-11)
-        Expected: 8-camera island wins despite port 0 being in smaller island.
+        Expected: 8-camera island wins despite cam_id 0 being in smaller island.
         """
-        island_a = {0, 1, 2, 3}  # 4 cameras, has port 0
+        island_a = {0, 1, 2, 3}  # 4 cameras, has cam_id 0
         island_b = {4, 5, 6, 7, 8, 9, 10, 11}  # 8 cameras
 
-        posed_ports, unposed_ports = self._run_island_test(island_a, island_b)
+        posed_cam_ids, unposed_cam_ids = self._run_island_test(island_a, island_b)
 
         # Larger island (B) should win
-        assert posed_ports == island_b, f"Expected larger island {island_b} posed, got {posed_ports}"
-        assert unposed_ports == island_a, f"Expected smaller island {island_a} unposed, got {unposed_ports}"
+        assert posed_cam_ids == island_b, f"Expected larger island {island_b} posed, got {posed_cam_ids}"
+        assert unposed_cam_ids == island_a, f"Expected smaller island {island_a} unposed, got {unposed_cam_ids}"
 
-    def test_largest_island_wins_when_larger_has_port_0(self) -> None:
-        """Larger island is chosen when it also contains port 0.
+    def test_largest_island_wins_when_larger_has_cam_id_0(self) -> None:
+        """Larger island is chosen when it also contains cam_id 0.
 
         Scenario: 8-camera island (0-7) vs 4-camera island (8-11)
         Expected: 8-camera island wins.
         """
-        island_a = {0, 1, 2, 3, 4, 5, 6, 7}  # 8 cameras, has port 0
+        island_a = {0, 1, 2, 3, 4, 5, 6, 7}  # 8 cameras, has cam_id 0
         island_b = {8, 9, 10, 11}  # 4 cameras
 
-        posed_ports, unposed_ports = self._run_island_test(island_a, island_b)
+        posed_cam_ids, unposed_cam_ids = self._run_island_test(island_a, island_b)
 
         # Larger island (A) should win
-        assert posed_ports == island_a, f"Expected larger island {island_a} posed, got {posed_ports}"
-        assert unposed_ports == island_b, f"Expected smaller island {island_b} unposed, got {unposed_ports}"
+        assert posed_cam_ids == island_a, f"Expected larger island {island_a} posed, got {posed_cam_ids}"
+        assert unposed_cam_ids == island_b, f"Expected smaller island {island_b} unposed, got {unposed_cam_ids}"
 
-    def test_largest_island_wins_non_contiguous_ports(self) -> None:
-        """Larger island wins even with non-contiguous port numbers.
+    def test_largest_island_wins_non_contiguous_cam_ids(self) -> None:
+        """Larger island wins even with non-contiguous cam_id numbers.
 
         Scenario: 4-camera island (4-7) vs 8-camera island (0-3, 8-11)
         Expected: 8-camera island wins.
 
-        This tests that size, not port ordering, determines the winner.
+        This tests that size, not cam_id ordering, determines the winner.
         """
-        island_a = {4, 5, 6, 7}  # 4 cameras, no port 0
-        island_b = {0, 1, 2, 3, 8, 9, 10, 11}  # 8 cameras, has port 0
+        island_a = {4, 5, 6, 7}  # 4 cameras, no cam_id 0
+        island_b = {0, 1, 2, 3, 8, 9, 10, 11}  # 8 cameras, has cam_id 0
 
-        posed_ports, unposed_ports = self._run_island_test(island_a, island_b)
+        posed_cam_ids, unposed_cam_ids = self._run_island_test(island_a, island_b)
 
         # Larger island (B) should win
-        assert posed_ports == island_b, f"Expected larger island {island_b} posed, got {posed_ports}"
-        assert unposed_ports == island_a, f"Expected smaller island {island_a} unposed, got {unposed_ports}"
+        assert posed_cam_ids == island_b, f"Expected larger island {island_b} posed, got {posed_cam_ids}"
+        assert unposed_cam_ids == island_a, f"Expected smaller island {island_a} unposed, got {unposed_cam_ids}"
 
 
-def explore_island_split(island_a_ports: set[int], island_b_ports: set[int], label: str) -> None:
+def explore_island_split(island_a_cam_ids: set[int], island_b_cam_ids: set[int], label: str) -> None:
     """Explore what happens with a given island split."""
     scene = make_12_camera_scene()
 
@@ -278,8 +278,8 @@ def explore_island_split(island_a_ports: set[int], island_b_ports: set[int], lab
 
     image_points_df = scene.image_points_noisy.df.copy()
 
-    mask_a = (image_points_df["port"].isin(island_a_ports)) & (image_points_df["sync_index"].isin(frames_a))
-    mask_b = (image_points_df["port"].isin(island_b_ports)) & (image_points_df["sync_index"].isin(frames_b))
+    mask_a = (image_points_df["cam_id"].isin(island_a_cam_ids)) & (image_points_df["sync_index"].isin(frames_a))
+    mask_b = (image_points_df["cam_id"].isin(island_b_cam_ids)) & (image_points_df["sync_index"].isin(frames_b))
 
     filtered_df = image_points_df[mask_a | mask_b].copy()
     filtered_image_points = ImagePoints(filtered_df)
@@ -288,13 +288,13 @@ def explore_island_split(island_a_ports: set[int], island_b_ports: set[int], lab
     network = build_paired_pose_network(filtered_image_points, intrinsics_only, method="stereocalibrate")
     network.apply_to(intrinsics_only)
 
-    posed_ports = set(intrinsics_only.posed_cameras.keys())
-    posed_in_a = posed_ports & island_a_ports
-    posed_in_b = posed_ports & island_b_ports
+    posed_cam_ids = set(intrinsics_only.posed_cameras.keys())
+    posed_in_a = posed_cam_ids & island_a_cam_ids
+    posed_in_b = posed_cam_ids & island_b_cam_ids
 
     print(f"\n=== {label} ===")
-    print(f"Island A: {sorted(island_a_ports)} ({len(island_a_ports)} cameras)")
-    print(f"Island B: {sorted(island_b_ports)} ({len(island_b_ports)} cameras)")
+    print(f"Island A: {sorted(island_a_cam_ids)} ({len(island_a_cam_ids)} cameras)")
+    print(f"Island B: {sorted(island_b_cam_ids)} ({len(island_b_cam_ids)} cameras)")
     print("WINNER: ", end="")
     if posed_in_a and not posed_in_b:
         print(f"Island A ({len(posed_in_a)} cameras posed)")
@@ -328,26 +328,26 @@ if __name__ == "__main__":
 
     # 6/6 split (baseline)
     explore_island_split(
-        island_a_ports={0, 1, 2, 3, 4, 5}, island_b_ports={6, 7, 8, 9, 10, 11}, label="6/6 SPLIT (baseline)"
+        island_a_cam_ids={0, 1, 2, 3, 4, 5}, island_b_cam_ids={6, 7, 8, 9, 10, 11}, label="6/6 SPLIT (baseline)"
     )
 
-    # 4/8 split - smaller island has port 0
+    # 4/8 split - smaller island has cam_id 0
     explore_island_split(
-        island_a_ports={0, 1, 2, 3},
-        island_b_ports={4, 5, 6, 7, 8, 9, 10, 11},
+        island_a_cam_ids={0, 1, 2, 3},
+        island_b_cam_ids={4, 5, 6, 7, 8, 9, 10, 11},
         label="4/8 SPLIT - Port 0 in SMALLER island",
     )
 
-    # 8/4 split - larger island has port 0
+    # 8/4 split - larger island has cam_id 0
     explore_island_split(
-        island_a_ports={0, 1, 2, 3, 4, 5, 6, 7},
-        island_b_ports={8, 9, 10, 11},
+        island_a_cam_ids={0, 1, 2, 3, 4, 5, 6, 7},
+        island_b_cam_ids={8, 9, 10, 11},
         label="8/4 SPLIT - Port 0 in LARGER island",
     )
 
-    # Tricky: 4/8 but port 0 is in the larger island B
+    # Tricky: 4/8 but cam_id 0 is in the larger island B
     explore_island_split(
-        island_a_ports={4, 5, 6, 7},
-        island_b_ports={0, 1, 2, 3, 8, 9, 10, 11},
+        island_a_cam_ids={4, 5, 6, 7},
+        island_b_cam_ids={0, 1, 2, 3, 8, 9, 10, 11},
         label="4/8 SPLIT - Port 0 in LARGER island (non-contiguous)",
     )

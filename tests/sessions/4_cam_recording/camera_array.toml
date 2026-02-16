@@ -1,5 +1,5 @@
 [cameras.0]
-port = 0
+cam_id = 0
 rotation_count = 0
 error = 0.19
 exposure = -7.0
@@ -13,7 +13,7 @@ rotation = [[0.028454458274723926, -0.8200005191342249, 0.571655046705523], [-0.
 verified_resolutions = [[640, 480], [1280, 720], [1920, 1080]]
 
 [cameras.1]
-port = 1
+cam_id = 1
 rotation_count = -1
 error = 0.469
 exposure = -6.0
@@ -27,7 +27,7 @@ rotation = [[0.999994984884606, 0.0030591131003008653, -0.0008197759914263436], 
 verified_resolutions = [[640, 480], [1280, 720], [1920, 1080]]
 
 [cameras.2]
-port = 2
+cam_id = 2
 rotation_count = 1
 error = 0.656
 exposure = -5
@@ -41,7 +41,7 @@ rotation = [[-0.9967644634943604, -0.07540940912751744, 0.027821310713882212], [
 verified_resolutions = [[640, 480], [1280, 720], [1920, 1080]]
 
 [cameras.3]
-port = 3
+cam_id = 3
 rotation_count = 0
 error = 0.276
 exposure = -6

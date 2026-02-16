@@ -39,7 +39,7 @@ class ChessboardTracker(Tracker):
         self._pattern_size = (chessboard.columns, chessboard.rows)
 
         # Detection flags for robustness
-        self._flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE
+        self._flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_CB_EXHAUSTIVE
 
         # Sub-pixel refinement parameters
         self._criteria = (
@@ -54,7 +54,7 @@ class ChessboardTracker(Tracker):
         """Return tracker name for file naming."""
         return "CHESSBOARD"
 
-    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
+    def get_points(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
         """
         Detect chessboard corners in frame.
 
@@ -63,7 +63,7 @@ class ChessboardTracker(Tracker):
 
         Args:
             frame: BGR image from video capture
-            port: Camera port identifier (unused, for ABC compliance)
+            cam_id: Camera cam_id identifier (unused, for ABC compliance)
             rotation_count: Image rotation in 90-degree increments (unused)
 
         Returns:

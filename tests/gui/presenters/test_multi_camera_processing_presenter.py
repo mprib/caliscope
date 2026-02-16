@@ -52,8 +52,8 @@ def mock_tracker():
 def minimal_cameras():
     """Create minimal CameraData objects for testing state transitions."""
     return {
-        0: CameraData(port=0, size=(640, 480)),
-        1: CameraData(port=1, size=(640, 480)),
+        0: CameraData(cam_id=0, size=(640, 480)),
+        1: CameraData(cam_id=1, size=(640, 480)),
     }
 
 
@@ -181,7 +181,7 @@ class TestRotationControl:
         presenter.set_cameras(minimal_cameras)
 
         signal_received = []
-        presenter.rotation_changed.connect(lambda port, rot: signal_received.append((port, rot)))
+        presenter.rotation_changed.connect(lambda cam_id, rot: signal_received.append((cam_id, rot)))
 
         presenter.set_rotation(0, 1)
 
@@ -201,7 +201,7 @@ class TestThumbnailLoading:
         )
 
         recording_dir = workspace_with_recordings / "recordings" / "recording_1"
-        cameras_dict = {cam.port: cam for cam in real_camera_array.cameras.values()}
+        cameras_dict = {cam.cam_id: cam for cam in real_camera_array.cameras.values()}
 
         presenter.set_recording_dir(recording_dir)
         presenter.set_cameras(cameras_dict)
@@ -248,7 +248,7 @@ class TestLifecycle:
 
         # Attempt to change config
         presenter.set_recording_dir(Path("/other/path"))
-        presenter.set_cameras({99: CameraData(port=99, size=(320, 240))})
+        presenter.set_cameras({99: CameraData(cam_id=99, size=(320, 240))})
 
         # Original config preserved
         assert presenter.recording_dir == recording_dir

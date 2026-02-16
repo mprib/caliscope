@@ -59,9 +59,9 @@ def test_reprojection_report_generation(tmp_path: Path):
     assert 0.0 < report.overall_rmse < 10.0, f"RMSE {report.overall_rmse} out of expected range"
 
     # Per-camera metrics
-    for port in camera_array.posed_cameras.keys():
-        assert port in report.by_camera, f"Missing RMSE for camera {port}"
-        assert 0.0 <= report.by_camera[port] < 10.0
+    for cam_id in camera_array.posed_cameras.keys():
+        assert cam_id in report.by_camera, f"Missing RMSE for camera {cam_id}"
+        assert 0.0 <= report.by_camera[cam_id] < 10.0
 
     # Per-point metrics
     assert len(report.by_point_id) > 0, "Should have point-level metrics"
@@ -70,7 +70,7 @@ def test_reprojection_report_generation(tmp_path: Path):
 
     # Raw errors DataFrame structure
     assert len(report.raw_errors) == report.n_observations_matched
-    expected_columns = ["sync_index", "port", "point_id", "error_x", "error_y", "euclidean_error"]
+    expected_columns = ["sync_index", "cam_id", "point_id", "error_x", "error_y", "euclidean_error"]
     assert list(report.raw_errors.columns) == expected_columns
 
     # Verify error calculations are consistent
@@ -113,12 +113,12 @@ def test_unmatched_observation_tracking(tmp_path: Path):
     matched_observations = report.n_observations_matched
 
     # Manual verification of unmatched by camera
-    for port in camera_array.cameras.keys():
-        port_total = (bundle.image_points.df["port"] == port).sum()
-        port_matched = ((bundle.image_points.df["port"] == port) & (bundle.img_to_obj_map >= 0)).sum()
-        expected_unmatched = port_total - port_matched
+    for cam_id in camera_array.cameras.keys():
+        cam_total = (bundle.image_points.df["cam_id"] == cam_id).sum()
+        cam_matched = ((bundle.image_points.df["cam_id"] == cam_id) & (bundle.img_to_obj_map >= 0)).sum()
+        expected_unmatched = cam_total - cam_matched
 
-        assert report.unmatched_by_camera[port] == expected_unmatched, f"Unmatched count mismatch for camera {port}"
+        assert report.unmatched_by_camera[cam_id] == expected_unmatched, f"Unmatched count mismatch for camera {cam_id}"
 
     assert report.n_unmatched_observations == total_observations - matched_observations
     logger.info("✓ Unmatched observation tracking validated")

@@ -55,7 +55,7 @@ class FramePacketStreamer:
         blocking put() calls to avoid deadlock when queues are bounded.
 
     Duck-typed Interface:
-        Exposes port, subscribe(), unsubscribe() for Synchronizer compatibility.
+        Exposes cam_id, subscribe(), unsubscribe() for Synchronizer compatibility.
     """
 
     def __init__(
@@ -118,9 +118,9 @@ class FramePacketStreamer:
     # -------------------------------------------------------------------------
 
     @property
-    def port(self) -> int:
-        """Camera port from underlying FrameSource."""
-        return self._frame_source.port
+    def cam_id(self) -> int:
+        """Camera identifier from underlying FrameSource."""
+        return self._frame_source.cam_id
 
     @property
     def size(self) -> tuple[int, int]:
@@ -194,14 +194,14 @@ class FramePacketStreamer:
             tracker = self._tracker
 
         if tracker is not None:
-            point_data = tracker.get_points(frame, self.port, self._rotation_count)
+            point_data = tracker.get_points(frame, self.cam_id, self._rotation_count)
             draw_instructions = tracker.scatter_draw_instructions
         else:
             point_data = None
             draw_instructions = None
 
         return FramePacket(
-            port=self.port,
+            cam_id=self.cam_id,
             frame_index=frame_index,
             frame_time=frame_time,
             frame=frame,
@@ -220,7 +220,7 @@ class FramePacketStreamer:
         """
         with self._tracker_lock:
             self._tracker = tracker
-        logger.info(f"Tracker updated for streamer at port {self.port}")
+        logger.info(f"Tracker updated for streamer at cam_id {self.cam_id}")
 
     # -------------------------------------------------------------------------
     # Pub/Sub (thread-safe)
@@ -233,11 +233,11 @@ class FramePacketStreamer:
         """
         with self._subscriber_condition:
             if queue not in self._subscribers:
-                logger.info(f"Adding subscriber to streamer at port {self.port}")
+                logger.info(f"Adding subscriber to streamer at cam_id {self.cam_id}")
                 self._subscribers.append(queue)
                 self._subscriber_condition.notify()
             else:
-                logger.warning(f"Attempted duplicate subscription to streamer at port {self.port}")
+                logger.warning(f"Attempted duplicate subscription to streamer at cam_id {self.cam_id}")
 
     def unsubscribe(self, queue: Queue) -> None:
         """Remove a queue from receiving FramePackets.
@@ -246,10 +246,10 @@ class FramePacketStreamer:
         """
         with self._subscriber_lock:
             if queue in self._subscribers:
-                logger.info(f"Removing subscriber from streamer at port {self.port}")
+                logger.info(f"Removing subscriber from streamer at cam_id {self.cam_id}")
                 self._subscribers.remove(queue)
             else:
-                logger.warning(f"Attempted to unsubscribe non-existent queue at port {self.port}")
+                logger.warning(f"Attempted to unsubscribe non-existent queue at cam_id {self.cam_id}")
 
     def _broadcast(self, packet: FramePacket) -> None:
         """Send packet to all subscribers.
@@ -273,11 +273,11 @@ class FramePacketStreamer:
                 if token.is_cancelled:
                     return False
                 if not logged:
-                    logger.info(f"Waiting for subscribers at port {self.port}")
+                    logger.info(f"Waiting for subscribers at cam_id {self.cam_id}")
                     logged = True
                 self._subscriber_condition.wait(timeout=0.5)
             if logged:
-                logger.info(f"Subscriber arrived at port {self.port}")
+                logger.info(f"Subscriber arrived at cam_id {self.cam_id}")
         return True
 
     # -------------------------------------------------------------------------
@@ -286,12 +286,12 @@ class FramePacketStreamer:
 
     def pause(self) -> None:
         """Pause playback."""
-        logger.info(f"Pausing streamer at port {self.port}")
+        logger.info(f"Pausing streamer at cam_id {self.cam_id}")
         self._pause_event.set()
 
     def unpause(self) -> None:
         """Resume playback."""
-        logger.info(f"Unpausing streamer at port {self.port}")
+        logger.info(f"Unpausing streamer at cam_id {self.cam_id}")
         self._pause_event.clear()
 
     def seek_to(self, frame_index: int, precise: bool = True) -> None:
@@ -346,7 +346,7 @@ class FramePacketStreamer:
 
     def start(self) -> None:
         """Start playback in a new thread. Call stop() to terminate."""
-        logger.info(f"Starting streamer for port {self.port}")
+        logger.info(f"Starting streamer for cam_id {self.cam_id}")
         self._internal_token = CancellationToken()
         self._thread = Thread(
             target=self.play_worker,
@@ -362,7 +362,7 @@ class FramePacketStreamer:
         if self._thread is not None:
             self._thread.join(timeout=2.0)
             self._thread = None
-        logger.info(f"Stopped streamer for port {self.port}")
+        logger.info(f"Stopped streamer for cam_id {self.cam_id}")
 
     def close(self) -> None:
         """Release all resources."""
@@ -390,7 +390,7 @@ class FramePacketStreamer:
             if self.start_frame_index > 0:
                 self._frame_source.get_frame(self.start_frame_index)
 
-            logger.info(f"Beginning playback for port {self.port}")
+            logger.info(f"Beginning playback for cam_id {self.cam_id}")
 
             # Track current frame data
             current_frame: np.ndarray | None = None
@@ -416,9 +416,9 @@ class FramePacketStreamer:
 
                 # Handle EOF
                 if current_frame is None:
-                    logger.info(f"EOF reached at port {self.port}")
+                    logger.info(f"EOF reached at cam_id {self.cam_id}")
                     eof_packet = FramePacket(
-                        port=self.port,
+                        cam_id=self.cam_id,
                         frame_index=-1,
                         frame_time=-1,
                         frame=None,
@@ -432,7 +432,7 @@ class FramePacketStreamer:
                     tracker = self._tracker
 
                 if tracker is not None:
-                    point_data = tracker.get_points(current_frame, self.port, self._rotation_count)
+                    point_data = tracker.get_points(current_frame, self.cam_id, self._rotation_count)
                     draw_instructions = tracker.scatter_draw_instructions
                 else:
                     point_data = None
@@ -440,7 +440,7 @@ class FramePacketStreamer:
 
                 # Create and broadcast packet
                 frame_packet = FramePacket(
-                    port=self.port,
+                    cam_id=self.cam_id,
                     frame_index=self._frame_index,
                     frame_time=self._frame_time,
                     frame=current_frame,
@@ -448,15 +448,15 @@ class FramePacketStreamer:
                     draw_instructions=draw_instructions,
                 )
 
-                logger.debug(f"Broadcasting frame {self._frame_index} at port {self.port}")
+                logger.debug(f"Broadcasting frame {self._frame_index} at cam_id {self.cam_id}")
                 self._broadcast(frame_packet)
 
                 # Handle last frame
                 if self._frame_index == self.last_frame_index:
                     if self._end_behavior == "stop":
-                        logger.info(f"Reached last frame at port {self.port}")
+                        logger.info(f"Reached last frame at cam_id {self.cam_id}")
                         eof_packet = FramePacket(
-                            port=self.port,
+                            cam_id=self.cam_id,
                             frame_index=-1,
                             frame_time=-1,
                             frame=None,
@@ -480,7 +480,7 @@ class FramePacketStreamer:
                 pending = self._take_pending_seek()
                 if pending is not None:
                     target_index, precise = pending
-                    logger.info(f"Processing seek to frame {target_index} (precise={precise}) at port {self.port}")
+                    logger.info(f"Processing seek to frame {target_index} (precise={precise}) at cam_id {self.cam_id}")
 
                     if precise:
                         frame = self._frame_source.get_frame(target_index)
@@ -490,7 +490,7 @@ class FramePacketStreamer:
                             skip_read = True
                         else:
                             # Seek failed - stay at current position, don't call read_frame()
-                            logger.warning(f"Seek to frame {target_index} failed at port {self.port}")
+                            logger.warning(f"Seek to frame {target_index} failed at cam_id {self.cam_id}")
                             skip_read = True
                     else:
                         frame, actual_index = self._frame_source.get_nearest_keyframe(target_index)
@@ -500,19 +500,19 @@ class FramePacketStreamer:
                             skip_read = True
                         else:
                             # Fast seek failed - stay at current position
-                            logger.warning(f"Fast seek to frame {target_index} failed at port {self.port}")
+                            logger.warning(f"Fast seek to frame {target_index} failed at cam_id {self.cam_id}")
                             skip_read = True
                 else:
                     # Increment for next iteration (only if not seeking)
                     self._frame_index += 1
 
         finally:
-            logger.info(f"Streamer worker exiting for port {self.port}")
+            logger.info(f"Streamer worker exiting for cam_id {self.cam_id}")
 
 
 def create_streamer(
     video_directory: Path,
-    port: int,
+    cam_id: int,
     rotation_count: int = 0,
     tracker: Tracker | None = None,
     fps_target: float | None = None,
@@ -523,8 +523,8 @@ def create_streamer(
     Convenience function that handles FrameSource and FrameTimestamps creation.
 
     Args:
-        video_directory: Directory containing port_N.mp4 and optionally timestamps.csv.
-        port: Camera port number.
+        video_directory: Directory containing cam_N.mp4 and optionally frametimes.csv.
+        cam_id: Camera identifier.
         rotation_count: Camera rotation (0, 1, 2, 3).
         tracker: Optional tracker for landmark detection.
         fps_target: Target FPS. None = unlimited.
@@ -533,11 +533,11 @@ def create_streamer(
     Returns:
         Configured FramePacketStreamer ready to start().
     """
-    frame_source = FrameSource(video_directory, port)
+    frame_source = FrameSource(video_directory, cam_id)
 
-    timing_csv = video_directory / "timestamps.csv"
+    timing_csv = video_directory / "frametimes.csv"
     if timing_csv.exists():
-        frame_timestamps = FrameTimestamps.from_csv(timing_csv, port)
+        frame_timestamps = FrameTimestamps.from_csv(timing_csv, cam_id)
     else:
         frame_timestamps = FrameTimestamps.inferred(frame_source.fps, frame_source.frame_count)
 

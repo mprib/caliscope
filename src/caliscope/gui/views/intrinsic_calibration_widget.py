@@ -519,7 +519,7 @@ class FrameRenderThread(QThread):
     def run(self) -> None:
         """Main render loop - reads directly from Presenter's queue."""
         self._keep_running.set()
-        logger.debug(f"Frame render thread started for port {self._camera.port}")
+        logger.debug(f"Frame render thread started for cam {self._camera.cam_id}")
 
         while self._keep_running.is_set():
             try:
@@ -539,7 +539,7 @@ class FrameRenderThread(QThread):
             self._last_packet = packet
             self._render_packet(packet)
 
-        logger.debug(f"Frame render thread exiting for port {self._camera.port}")
+        logger.debug(f"Frame render thread exiting for cam {self._camera.cam_id}")
 
 
 class IntrinsicCalibrationWidget(QWidget):

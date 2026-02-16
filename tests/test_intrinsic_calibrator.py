@@ -29,11 +29,11 @@ def test_intrinsic_calibrator(tmp_path: Path):
 
     streamer = create_streamer(
         video_directory=recording_directory,
-        port=1,
+        cam_id=1,
         tracker=charuco_tracker,
     )
 
-    camera = CameraData(port=0, size=streamer.size)  # fresh camera for calibration
+    camera = CameraData(cam_id=0, size=streamer.size)  # fresh camera for calibration
 
     assert camera.rotation is None
     assert camera.translation is None
@@ -103,12 +103,12 @@ def test_autopopulate_data(tmp_path: Path):
 
     streamer = create_streamer(
         video_directory=recording_directory,
-        port=1,
+        cam_id=1,
         tracker=charuco_tracker,
         fps_target=100,  # Fast playback for autopopulation
     )
 
-    camera = CameraData(port=0, size=streamer.size)  # fresh camera for calibration
+    camera = CameraData(cam_id=0, size=streamer.size)  # fresh camera for calibration
 
     assert camera.rotation is None
     assert camera.translation is None

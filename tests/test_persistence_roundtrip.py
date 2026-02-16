@@ -17,7 +17,7 @@ def create_test_camera_array() -> CameraArray:
     """Create a realistic CameraArray with mixed intrinsic-only and fully calibrated cameras."""
     cameras = {
         0: CameraData(
-            port=0,
+            cam_id=0,
             size=(1920, 1080),
             rotation_count=0,
             error=0.5,
@@ -31,7 +31,7 @@ def create_test_camera_array() -> CameraArray:
             fisheye=False,
         ),
         1: CameraData(
-            port=1,
+            cam_id=1,
             size=(1280, 720),
             rotation_count=1,
             error=0.7,
@@ -45,7 +45,7 @@ def create_test_camera_array() -> CameraArray:
             fisheye=False,
         ),
         2: CameraData(
-            port=2,
+            cam_id=2,
             size=(640, 480),
             rotation_count=0,
             error=None,  # Intrinsic-only camera
@@ -121,11 +121,11 @@ def test_camera_array_roundtrip(tmp_path: Path):
 
     # Assert equivalence
     assert len(loaded.cameras) == len(original.cameras)
-    for port in original.cameras:
-        orig_cam = original.cameras[port]
-        loaded_cam = loaded.cameras[port]
+    for cam_id in original.cameras:
+        orig_cam = original.cameras[cam_id]
+        loaded_cam = loaded.cameras[cam_id]
 
-        assert loaded_cam.port == orig_cam.port
+        assert loaded_cam.cam_id == orig_cam.cam_id
         assert loaded_cam.size == orig_cam.size
         assert loaded_cam.rotation_count == orig_cam.rotation_count
         assert loaded_cam.error == orig_cam.error
@@ -225,12 +225,12 @@ def test_paired_pose_network_roundtrip(tmp_path: Path):
     # Assert equivalence
     assert len(loaded._pairs) == len(original._pairs)
 
-    for (port_a, port_b), original_pair in original._pairs.items():
-        loaded_pair = loaded._pairs.get((port_a, port_b))
-        assert loaded_pair is not None, f"Pair ({port_a}, {port_b}) missing after load"
+    for (cam_id_a, cam_id_b), original_pair in original._pairs.items():
+        loaded_pair = loaded._pairs.get((cam_id_a, cam_id_b))
+        assert loaded_pair is not None, f"Pair ({cam_id_a}, {cam_id_b}) missing after load"
 
-        assert loaded_pair.primary_port == original_pair.primary_port
-        assert loaded_pair.secondary_port == original_pair.secondary_port
+        assert loaded_pair.primary_cam_id == original_pair.primary_cam_id
+        assert loaded_pair.secondary_cam_id == original_pair.secondary_cam_id
         assert loaded_pair.error_score == original_pair.error_score
 
         np.testing.assert_allclose(loaded_pair.rotation, original_pair.rotation, rtol=1e-10, atol=1e-10)

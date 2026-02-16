@@ -38,14 +38,14 @@ def build_legacy_stereocal_paired_pose_network(
     """
     logger.info("Beginning pairwise extrinsic estimation...")
 
-    # Get all camera ports that have intrinsic calibration AND are not ignored
-    ports = [
-        port
-        for port, cam in camera_array.cameras.items()
+    # Get all camera cam_ids that have intrinsic calibration AND are not ignored
+    cam_ids = [
+        cam_id
+        for cam_id, cam in camera_array.cameras.items()
         if cam.matrix is not None and cam.distortions is not None and not cam.ignore
     ]
 
-    if len(ports) < 2:
+    if len(cam_ids) < 2:
         logger.error("Need at least 2 calibrated cameras for stereo estimation")
         return PairedPoseNetwork(_pairs={})
 
@@ -54,22 +54,22 @@ def build_legacy_stereocal_paired_pose_network(
 
     # Build stereo pairs for all combinations
     pairs = {}
-    for port_a, port_b in combinations(ports, 2):
-        # logger.info(f"Estimating stereo pair for cameras {port_a}-{port_b}")
+    for cam_id_a, cam_id_b in combinations(cam_ids, 2):
+        # logger.info(f"Estimating stereo pair for cameras {cam_id_a}-{cam_id_b}")
 
         stereo_pair = _estimate_single_pair(
             points_with_coverage=points_with_coverage,
             camera_array=camera_array,
-            port_a=port_a,
-            port_b=port_b,
+            cam_id_a=cam_id_a,
+            cam_id_b=cam_id_b,
             boards_sampled=boards_sampled,
         )
 
         if stereo_pair is not None:
             pairs[stereo_pair.pair] = stereo_pair
-            # logger.info(f"Successfully estimated pair {port_a}-{port_b} with RMSE: {stereo_pair.error_score:.6f}")
+            # logger.info(f"Successfully estimated pair {cam_id_a}-{cam_id_b} with RMSE: {stereo_pair.error_score:.6f}")
         else:
-            logger.warning(f"Failed to estimate pair {port_a}-{port_b}")
+            logger.warning(f"Failed to estimate pair {cam_id_a}-{cam_id_b}")
 
     logger.info(f"Completed estimation for {len(pairs)} stereo pairs")
     return PairedPoseNetwork.from_raw_estimates(pairs)
@@ -78,17 +78,17 @@ def build_legacy_stereocal_paired_pose_network(
 def _add_coverage_regions(point_data: pd.DataFrame) -> pd.DataFrame:
     """
     Pre-compute coverage regions for all points.
-    Coverage region is a string like "_1_2_3_" showing which ports see each point.
+    Coverage region is a string like "_1_2_3_" showing which cam_ids see each point.
     """
-    # Extract unique combinations of sync_index, point_id, and port
-    point_ports = point_data[["sync_index", "point_id", "port"]].drop_duplicates()
+    # Extract unique combinations of sync_index, point_id, and cam_id
+    point_cam_ids = point_data[["sync_index", "point_id", "cam_id"]].drop_duplicates()
 
-    # Convert port to string for easier handling
-    point_ports["port_str"] = point_ports["port"].astype(str)
+    # Convert cam_id to string for easier handling
+    point_cam_ids["cam_id_str"] = point_cam_ids["cam_id"].astype(str)
 
-    # Group by sync_index and point_id to collect ports
+    # Group by sync_index and point_id to collect cam_ids
     grouped = (
-        point_ports.groupby(["sync_index", "point_id"])["port_str"]
+        point_cam_ids.groupby(["sync_index", "point_id"])["cam_id_str"]
         .apply(lambda x: "_" + "_".join(sorted(x)) + "_")
         .reset_index(name="coverage_region")
     )
@@ -102,52 +102,52 @@ def _add_coverage_regions(point_data: pd.DataFrame) -> pd.DataFrame:
 def _estimate_single_pair(
     points_with_coverage: pd.DataFrame,
     camera_array: CameraArray,
-    port_a: int,
-    port_b: int,
+    cam_id_a: int,
+    cam_id_b: int,
     boards_sampled: int,
 ) -> StereoPair | None:
     """
     Estimate extrinsics for a single camera pair using pre-computed coverage data.
     """
-    # logger.info(f"Estimating stereo pair {port_a}-{port_b}...")
+    # logger.info(f"Estimating stereo pair {cam_id_a}-{cam_id_b}...")
 
     # Get camera data
-    cam_a = camera_array.cameras[port_a]
-    cam_b = camera_array.cameras[port_b]
+    cam_a = camera_array.cameras[cam_id_a]
+    cam_b = camera_array.cameras[cam_id_b]
 
     if cam_a.matrix is None or cam_b.matrix is None:
-        logger.warning(f"Camera {port_a} or {port_b} lacks intrinsics")
+        logger.warning(f"Camera {cam_id_a} or {cam_id_b} lacks intrinsics")
         return None
 
     # Filter points using pre-computed coverage regions
-    a_str, b_str = str(port_a), str(port_b)
+    a_str, b_str = str(cam_id_a), str(cam_id_b)
     in_region_a = points_with_coverage["coverage_region"].str.contains(f"_{a_str}_")
     in_region_b = points_with_coverage["coverage_region"].str.contains(f"_{b_str}_")
-    in_port_pair = points_with_coverage["port"].isin([port_a, port_b])
+    in_cam_id_pair = points_with_coverage["cam_id"].isin([cam_id_a, cam_id_b])
 
-    pair_points = points_with_coverage[in_region_a & in_region_b & in_port_pair].copy()
+    pair_points = points_with_coverage[in_region_a & in_region_b & in_cam_id_pair].copy()
 
     if pair_points.empty:
-        logger.info(f"For pair {port_a}-{port_b} there are no shared points")
+        logger.info(f"For pair {cam_id_a}-{cam_id_b} there are no shared points")
         return None
 
     # Count points per board and filter to boards with enough points
-    board_counts = pair_points.groupby(["sync_index", "port"]).size().reset_index(name="point_count")
+    board_counts = pair_points.groupby(["sync_index", "cam_id"]).size().reset_index(name="point_count")
     valid_boards = board_counts[board_counts["point_count"] >= 6]
-    valid_boards_a = valid_boards[valid_boards["port"] == port_a]
+    valid_boards_a = valid_boards[valid_boards["cam_id"] == cam_id_a]
 
     if valid_boards_a.empty:
-        logger.info(f"For pair {port_a}-{port_b} there are no boards with sufficient points")
+        logger.info(f"For pair {cam_id_a}-{cam_id_b} there are no boards with sufficient points")
         return None
 
     # Sample boards deterministically
     sample_size = min(len(valid_boards_a), boards_sampled)
 
     if sample_size > 0:
-        logger.info(f"Assembling {sample_size} shared boards for pair {port_a}-{port_b}")
+        logger.info(f"Assembling {sample_size} shared boards for pair {cam_id_a}-{cam_id_b}")
         selected_boards = _select_diverse_boards(valid_boards_a, sample_size)
     else:
-        logger.info(f"For pair {port_a}-{port_b} there are no shared boards")
+        logger.info(f"For pair {cam_id_a}-{cam_id_b} there are no shared boards")
         return None
 
     # Filter points to selected boards
@@ -155,11 +155,11 @@ def _estimate_single_pair(
     pair_points = pair_points[pair_points["sync_index"].isin(selected_sync)]
 
     # Prepare inputs for cv2.stereoCalibrate
-    img_locs_a, obj_locs_a = _prepare_stereocal_inputs(port_a, pair_points)
-    img_locs_b, obj_locs_b = _prepare_stereocal_inputs(port_b, pair_points)
+    img_locs_a, obj_locs_a = _prepare_stereocal_inputs(cam_id_a, pair_points)
+    img_locs_b, obj_locs_b = _prepare_stereocal_inputs(cam_id_b, pair_points)
 
     if not img_locs_a or not img_locs_b:
-        logger.info(f"No calibration data prepared for pair {port_a}-{port_b}")
+        logger.info(f"No calibration data prepared for pair {cam_id_a}-{cam_id_b}")
         return None
 
     # Undistort points
@@ -192,17 +192,17 @@ def _estimate_single_pair(
             flags=stereocal_flags,
         )
 
-        logger.info(f"Stereo calibration successful for pair {port_a}-{port_b}, RMSE: {ret:.6f}")
+        logger.info(f"Stereo calibration successful for pair {cam_id_a}-{cam_id_b}, RMSE: {ret:.6f}")
 
         return StereoPair(
-            primary_port=port_a,
-            secondary_port=port_b,
+            primary_cam_id=cam_id_a,
+            secondary_cam_id=cam_id_b,
             error_score=float(ret),
             rotation=R,
             translation=T,
         )
     except Exception as e:
-        logger.error(f"Stereo calibration failed for pair {port_a}-{port_b}: {e}")
+        logger.error(f"Stereo calibration failed for pair {cam_id_a}-{cam_id_b}: {e}")
         return None
 
 
@@ -246,23 +246,23 @@ def _select_diverse_boards(valid_boards_a: pd.DataFrame, sample_size: int) -> pd
     return boards_sorted.head(sample_size)
 
 
-def _prepare_stereocal_inputs(port: int, pair_points: pd.DataFrame):
+def _prepare_stereocal_inputs(cam_id: int, pair_points: pd.DataFrame):
     """
     Prepare image and object points for cv2.stereoCalibrate.
     """
-    port_data = pair_points[pair_points["port"] == port].copy()
+    cam_data = pair_points[pair_points["cam_id"] == cam_id].copy()
 
-    if port_data.empty:
+    if cam_data.empty:
         return [], []
 
     # ensure deterministic output with explicit sort
-    port_data.sort_values(by=["sync_index", "point_id"], inplace=True)
+    cam_data.sort_values(by=["sync_index", "point_id"], inplace=True)
 
-    sync_indices = port_data["sync_index"].to_numpy().round().astype(int)
-    img_loc_x = port_data["img_loc_x"].to_numpy().astype(np.float32)
-    img_loc_y = port_data["img_loc_y"].to_numpy().astype(np.float32)
-    obj_loc_x = port_data["obj_loc_x"].to_numpy().astype(np.float32)
-    obj_loc_y = port_data["obj_loc_y"].to_numpy().astype(np.float32)
+    sync_indices = cam_data["sync_index"].to_numpy().round().astype(int)
+    img_loc_x = cam_data["img_loc_x"].to_numpy().astype(np.float32)
+    img_loc_y = cam_data["img_loc_y"].to_numpy().astype(np.float32)
+    obj_loc_x = cam_data["obj_loc_x"].to_numpy().astype(np.float32)
+    obj_loc_y = cam_data["obj_loc_y"].to_numpy().astype(np.float32)
     obj_loc_z = np.zeros_like(obj_loc_x)
 
     # Build arrays

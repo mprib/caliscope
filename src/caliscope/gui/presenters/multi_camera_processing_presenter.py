@@ -59,7 +59,7 @@ class MultiCameraProcessingPresenter(QObject):
     Signals:
         state_changed: Emitted when computed state changes. View updates UI.
         progress_updated: Emitted during processing with (current, total, percent).
-        thumbnail_updated: Emitted when a camera thumbnail is updated (port, frame).
+        thumbnail_updated: Emitted when a camera thumbnail is updated (cam_id, frame).
         processing_complete: Emitted when processing finishes successfully.
             Contains (ImagePoints, ExtrinsicCoverageReport).
         processing_failed: Emitted when processing fails. Contains error message.
@@ -77,14 +77,14 @@ class MultiCameraProcessingPresenter(QObject):
 
     # Progress signals
     progress_updated = Signal(int, int, int)  # (current, total, percent)
-    thumbnail_updated = Signal(int, object, object)  # (port, NDArray frame, PointPacket | None)
+    thumbnail_updated = Signal(int, object, object)  # (cam_id, NDArray frame, PointPacket | None)
 
     # Completion signals
     processing_complete = Signal(object, object, object)  # (ImagePoints, ExtrinsicCoverageReport, Tracker)
     processing_failed = Signal(str)  # error message
 
     # Rotation signals
-    rotation_changed = Signal(int, int)  # (port, rotation_count)
+    rotation_changed = Signal(int, int)  # (cam_id, rotation_count)
 
     # Thumbnail throttle interval (seconds)
     THUMBNAIL_INTERVAL = 0.1  # ~10 FPS
@@ -172,7 +172,7 @@ class MultiCameraProcessingPresenter(QObject):
 
     @property
     def thumbnails(self) -> dict[int, NDArray[np.uint8]]:
-        """Current thumbnails by port (copy)."""
+        """Current thumbnails by cam_id (copy)."""
         return dict(self._thumbnails)
 
     # -------------------------------------------------------------------------
@@ -185,7 +185,7 @@ class MultiCameraProcessingPresenter(QObject):
         Resets any existing results and loads initial thumbnails.
 
         Args:
-            path: Directory containing port_N.mp4 and timestamps.csv
+            path: Directory containing cam_N.mp4 and frametimes.csv
         """
         if self.state == MultiCameraProcessingState.PROCESSING:
             logger.warning("Cannot change recording_dir while processing")
@@ -203,14 +203,14 @@ class MultiCameraProcessingPresenter(QObject):
         and loads initial thumbnails.
 
         Args:
-            cameras: Camera data by port
+            cameras: Camera data by cam_id
         """
         if self.state == MultiCameraProcessingState.PROCESSING:
             logger.warning("Cannot change cameras while processing")
             return
 
         # Shallow copy - rotation_count may be modified via set_rotation()
-        self._cameras = {port: cam for port, cam in cameras.items()}
+        self._cameras = {cam_id: cam for cam_id, cam in cameras.items()}
         self._reset_results()
         self._load_initial_thumbnails()
         self._emit_state_changed()
@@ -219,14 +219,14 @@ class MultiCameraProcessingPresenter(QObject):
     # Rotation Control
     # -------------------------------------------------------------------------
 
-    def set_rotation(self, port: int, rotation_count: int) -> None:
+    def set_rotation(self, cam_id: int, rotation_count: int) -> None:
         """Set the rotation for a camera.
 
         Updates the local camera copy and emits rotation_changed for coordinator
         to persist. Rotation affects both display orientation and tracker input.
 
         Args:
-            port: Camera port
+            cam_id: Camera ID
             rotation_count: Rotation in 90° increments (0=0°, 1=90°, 2=180°, 3=270°)
         """
         # Belt-and-suspenders guard: buttons are disabled, but prevent API misuse
@@ -234,8 +234,8 @@ class MultiCameraProcessingPresenter(QObject):
             logger.warning("Cannot change rotation while processing")
             return
 
-        if port not in self._cameras:
-            logger.warning(f"Cannot set rotation: port {port} not in cameras")
+        if cam_id not in self._cameras:
+            logger.warning(f"Cannot set rotation: cam_id {cam_id} not in cameras")
             return
 
         # Normalize to 0-3 range
@@ -243,15 +243,15 @@ class MultiCameraProcessingPresenter(QObject):
 
         # Update local copy (note: shallow copy means this is the same object
         # the coordinator holds; signal notifies it to persist)
-        self._cameras[port].rotation_count = normalized
+        self._cameras[cam_id].rotation_count = normalized
 
         # Signal for coordinator persistence
-        self.rotation_changed.emit(port, normalized)
+        self.rotation_changed.emit(cam_id, normalized)
 
         # Refresh thumbnail to show new orientation
-        self._refresh_thumbnail(port)
+        self._refresh_thumbnail(cam_id)
 
-        logger.debug(f"Rotation set: port {port} -> {normalized * 90}°")
+        logger.debug(f"Rotation set: cam_id {cam_id} -> {normalized * 90}°")
 
     # -------------------------------------------------------------------------
     # Processing Control
@@ -381,11 +381,11 @@ class MultiCameraProcessingPresenter(QObject):
 
         self._last_thumbnail_time = now
 
-        # Update thumbnails for all ports in this sync packet
+        # Update thumbnails for all cameras in this sync packet
         # Points passed to View for overlay rendering (MVP: View renders)
-        for port, data in frame_data.items():
-            self._thumbnails[port] = data.frame
-            self.thumbnail_updated.emit(port, data.frame, data.points)
+        for cam_id, data in frame_data.items():
+            self._thumbnails[cam_id] = data.frame
+            self.thumbnail_updated.emit(cam_id, data.frame, data.points)
 
     def _on_processing_complete(self, image_points: ImagePoints) -> None:
         """Handle successful processing completion."""
@@ -442,24 +442,24 @@ class MultiCameraProcessingPresenter(QObject):
             self._thumbnails = thumbnails
 
             # Emit signal for each loaded thumbnail (no points for initial frames)
-            for port, frame in thumbnails.items():
-                self.thumbnail_updated.emit(port, frame, None)
+            for cam_id, frame in thumbnails.items():
+                self.thumbnail_updated.emit(cam_id, frame, None)
 
             logger.debug(f"Loaded initial thumbnails for {len(thumbnails)} cameras")
 
         except Exception as e:
             logger.warning(f"Failed to load initial thumbnails: {e}")
 
-    def _refresh_thumbnail(self, port: int) -> None:
-        """Refresh thumbnail for a single camera port.
+    def _refresh_thumbnail(self, cam_id: int) -> None:
+        """Refresh thumbnail for a single camera.
 
         Used after rotation change to re-emit the cached frame.
         The View applies rotation, so we just need to trigger a re-display.
         No disk I/O - uses cached frame for instant response.
         """
-        if port not in self._thumbnails:
+        if cam_id not in self._thumbnails:
             return
 
         # Re-emit cached frame - View will apply current rotation
-        self.thumbnail_updated.emit(port, self._thumbnails[port], None)
-        logger.debug(f"Refreshed thumbnail for port {port} (from cache)")
+        self.thumbnail_updated.emit(cam_id, self._thumbnails[cam_id], None)
+        logger.debug(f"Refreshed thumbnail for cam_id {cam_id} (from cache)")

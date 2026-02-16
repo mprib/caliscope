@@ -186,7 +186,7 @@ class TestImagePoints:
 
         expected_cols = [
             "sync_index",
-            "port",
+            "cam_id",
             "point_id",
             "img_loc_x",
             "img_loc_y",
@@ -213,14 +213,14 @@ class TestImagePoints:
 
         df = scene.image_points_noisy.df
 
-        for port, camera in cameras.cameras.items():
+        for cam_id, camera in cameras.cameras.items():
             w, h = camera.size
-            port_points = df[df["port"] == port]
+            cam_id_points = df[df["cam_id"] == cam_id]
 
-            assert (port_points["img_loc_x"] >= 0).all()
-            assert (port_points["img_loc_x"] < w).all()
-            assert (port_points["img_loc_y"] >= 0).all()
-            assert (port_points["img_loc_y"] < h).all()
+            assert (cam_id_points["img_loc_x"] >= 0).all()
+            assert (cam_id_points["img_loc_x"] < w).all()
+            assert (cam_id_points["img_loc_y"] >= 0).all()
+            assert (cam_id_points["img_loc_y"] < h).all()
 
     def test_perfect_vs_noisy_differ_when_noise_nonzero(self):
         """Noisy points differ from perfect when sigma > 0."""
@@ -241,7 +241,7 @@ class TestImagePoints:
         # Merge on key columns to compare same observations
         merged = perfect.merge(
             noisy,
-            on=["sync_index", "port", "point_id"],
+            on=["sync_index", "cam_id", "point_id"],
             suffixes=("_perfect", "_noisy"),
         )
 
@@ -275,7 +275,7 @@ class TestImagePoints:
         # Merge and compare
         merged = perfect.merge(
             noisy,
-            on=["sync_index", "port", "point_id"],
+            on=["sync_index", "cam_id", "point_id"],
             suffixes=("_perfect", "_noisy"),
         )
 
@@ -338,7 +338,7 @@ class TestImagePoints:
         noisy2 = scene2.image_points_noisy.df
 
         # Merge on key columns
-        merged = noisy1.merge(noisy2, on=["sync_index", "port", "point_id"], suffixes=("_1", "_2"))
+        merged = noisy1.merge(noisy2, on=["sync_index", "cam_id", "point_id"], suffixes=("_1", "_2"))
 
         # Should be different
         x_same = np.isclose(merged["img_loc_x_1"], merged["img_loc_x_2"], atol=1e-10)
@@ -370,8 +370,8 @@ class TestImagePoints:
             random_seed=42,
         )
 
-        noisy1 = scene1.image_points_noisy.df.sort_values(["sync_index", "port", "point_id"])
-        noisy2 = scene2.image_points_noisy.df.sort_values(["sync_index", "port", "point_id"])
+        noisy1 = scene1.image_points_noisy.df.sort_values(["sync_index", "cam_id", "point_id"])
+        noisy2 = scene2.image_points_noisy.df.sort_values(["sync_index", "cam_id", "point_id"])
 
         # Should be identical
         assert np.allclose(noisy1["img_loc_x"], noisy2["img_loc_x"], atol=1e-10)
@@ -426,9 +426,9 @@ class TestCoverageMatrix:
         cov = scene.coverage_matrix
         df = scene.image_points_noisy.df
 
-        for port in range(scene.n_cameras):
-            port_count = len(df[df["port"] == port])
-            assert cov[port, port] == port_count
+        for cam_id in range(scene.n_cameras):
+            cam_id_count = len(df[df["cam_id"] == cam_id])
+            assert cov[cam_id, cam_id] == cam_id_count
 
     def test_coverage_matrix_off_diagonal_is_shared_observations(self):
         """Off-diagonal elements count shared observations."""
@@ -446,27 +446,27 @@ class TestCoverageMatrix:
         df = scene.image_points_noisy.df
 
         # Check one pair
-        port_a = 0
-        port_b = 1
+        cam_id_a = 0
+        cam_id_b = 1
 
         # Find shared (sync_index, point_id) pairs
         a_obs = set(
             zip(
-                df[df["port"] == port_a]["sync_index"],
-                df[df["port"] == port_a]["point_id"],
+                df[df["cam_id"] == cam_id_a]["sync_index"],
+                df[df["cam_id"] == cam_id_a]["point_id"],
             )
         )
         b_obs = set(
             zip(
-                df[df["port"] == port_b]["sync_index"],
-                df[df["port"] == port_b]["point_id"],
+                df[df["cam_id"] == cam_id_b]["sync_index"],
+                df[df["cam_id"] == cam_id_b]["point_id"],
             )
         )
 
         shared_count = len(a_obs & b_obs)
 
-        assert cov[port_a, port_b] == shared_count
-        assert cov[port_b, port_a] == shared_count
+        assert cov[cam_id_a, cam_id_b] == shared_count
+        assert cov[cam_id_b, cam_id_a] == shared_count
 
 
 class TestIntrinsicsOnlyCameras:
@@ -486,7 +486,7 @@ class TestIntrinsicsOnlyCameras:
 
         intrinsics_only = scene.intrinsics_only_cameras()
 
-        for port, camera in intrinsics_only.cameras.items():
+        for cam_id, camera in intrinsics_only.cameras.items():
             assert camera.rotation is None
             assert camera.translation is None
 
@@ -504,8 +504,8 @@ class TestIntrinsicsOnlyCameras:
 
         intrinsics_only = scene.intrinsics_only_cameras()
 
-        for port, camera in scene.camera_array.cameras.items():
-            intrinsics_cam = intrinsics_only.cameras[port]
+        for cam_id, camera in scene.camera_array.cameras.items():
+            intrinsics_cam = intrinsics_only.cameras[cam_id]
 
             assert np.allclose(camera.matrix, intrinsics_cam.matrix)
             assert np.allclose(camera.distortions, intrinsics_cam.distortions)
@@ -548,10 +548,10 @@ class TestApplyFilter:
         filtered = scene.apply_filter(config)
 
         # Should have no observations from cameras 0 or 2
-        assert 0 not in filtered.df["port"].values
-        assert 2 not in filtered.df["port"].values
-        assert 1 in filtered.df["port"].values
-        assert 3 in filtered.df["port"].values
+        assert 0 not in filtered.df["cam_id"].values
+        assert 2 not in filtered.df["cam_id"].values
+        assert 1 in filtered.df["cam_id"].values
+        assert 3 in filtered.df["cam_id"].values
 
     def test_apply_killed_linkage_filter(self):
         """Killed linkage filter removes shared observations."""
@@ -569,14 +569,14 @@ class TestApplyFilter:
         df_before = scene.image_points_noisy.df
         cam0_obs = set(
             zip(
-                df_before[df_before["port"] == 0]["sync_index"],
-                df_before[df_before["port"] == 0]["point_id"],
+                df_before[df_before["cam_id"] == 0]["sync_index"],
+                df_before[df_before["cam_id"] == 0]["point_id"],
             )
         )
         cam1_obs = set(
             zip(
-                df_before[df_before["port"] == 1]["sync_index"],
-                df_before[df_before["port"] == 1]["point_id"],
+                df_before[df_before["cam_id"] == 1]["sync_index"],
+                df_before[df_before["cam_id"] == 1]["point_id"],
             )
         )
         shared_before = len(cam0_obs & cam1_obs)
@@ -589,14 +589,14 @@ class TestApplyFilter:
         df_after = filtered.df
         cam0_obs_after = set(
             zip(
-                df_after[df_after["port"] == 0]["sync_index"],
-                df_after[df_after["port"] == 0]["point_id"],
+                df_after[df_after["cam_id"] == 0]["sync_index"],
+                df_after[df_after["cam_id"] == 0]["point_id"],
             )
         )
         cam1_obs_after = set(
             zip(
-                df_after[df_after["port"] == 1]["sync_index"],
-                df_after[df_after["port"] == 1]["point_id"],
+                df_after[df_after["cam_id"] == 1]["sync_index"],
+                df_after[df_after["cam_id"] == 1]["point_id"],
             )
         )
         shared_after = len(cam0_obs_after & cam1_obs_after)

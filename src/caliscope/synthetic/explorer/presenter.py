@@ -69,7 +69,7 @@ class PipelineResult:
 class CameraMetrics:
     """Per-camera error metrics."""
 
-    port: int
+    cam_id: int
     rotation_error_deg: float
     translation_error_mm: float
     reprojection_rmse: float
@@ -167,8 +167,8 @@ class ExplorerPresenter(QObject):
         """Current coverage matrix (after filtering)."""
         if self._filtered_image_points is None:
             return None
-        port_to_index = {port: idx for idx, port in enumerate(sorted(self._scene.camera_array.cameras.keys()))}
-        return compute_coverage_matrix(self._filtered_image_points, port_to_index)
+        cam_id_to_index = {cam_id: idx for idx, cam_id in enumerate(sorted(self._scene.camera_array.cameras.keys()))}
+        return compute_coverage_matrix(self._filtered_image_points, cam_id_to_index)
 
     @property
     def result(self) -> PipelineResult | None:
@@ -334,9 +334,9 @@ class ExplorerPresenter(QObject):
 
             # Compute per-camera pose errors and observation counts
             camera_metrics_list = []
-            for port in result.aligned_cameras.cameras:
-                cam_result = result.aligned_cameras.cameras[port]
-                cam_gt = result.ground_truth_cameras.cameras[port]
+            for cam_id in result.aligned_cameras.cameras:
+                cam_result = result.aligned_cameras.cameras[cam_id]
+                cam_gt = result.ground_truth_cameras.cameras[cam_id]
 
                 # After alignment, all cameras have pose data
                 assert cam_result.rotation is not None
@@ -352,14 +352,14 @@ class ExplorerPresenter(QObject):
                 )
 
                 # Count observations for this camera
-                n_obs = int((image_points.df["port"] == port).sum())
+                n_obs = int((image_points.df["cam_id"] == cam_id).sum())
 
                 # Get per-camera reprojection RMSE
-                camera_reproj_rmse = reprojection_report.by_camera.get(port, 0.0)
+                camera_reproj_rmse = reprojection_report.by_camera.get(cam_id, 0.0)
 
                 camera_metrics_list.append(
                     CameraMetrics(
-                        port=port,
+                        cam_id=cam_id,
                         rotation_error_deg=rotation_error,
                         translation_error_mm=translation_error,
                         reprojection_rmse=camera_reproj_rmse,
@@ -397,6 +397,6 @@ class ExplorerPresenter(QObject):
         """Apply current filter to scene and emit coverage update."""
         self._filtered_image_points = self._filter_config.apply(self._scene.image_points_noisy)
 
-        port_to_index = {port: idx for idx, port in enumerate(sorted(self._scene.camera_array.cameras.keys()))}
-        coverage = compute_coverage_matrix(self._filtered_image_points, port_to_index)
+        cam_id_to_index = {cam_id: idx for idx, cam_id in enumerate(sorted(self._scene.camera_array.cameras.keys()))}
+        coverage = compute_coverage_matrix(self._filtered_image_points, cam_id_to_index)
         self.filter_changed.emit(coverage)

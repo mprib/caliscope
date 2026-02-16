@@ -2,7 +2,7 @@
 
 Stores quality metrics and frame selection data for intrinsic calibration.
 Reports are stored per-camera in TOML format at:
-    calibration/intrinsic/reports/port_{N}.toml
+    calibration/intrinsic/reports/cam_{N}.toml
 """
 
 import logging
@@ -31,15 +31,15 @@ class IntrinsicReportRepository:
         """
         self._reports_dir = reports_dir
 
-    def _port_path(self, port: int) -> Path:
-        """Get file path for a specific port's report."""
-        return self._reports_dir / f"port_{port}.toml"
+    def _cam_path(self, cam_id: int) -> Path:
+        """Get file path for a specific camera's report."""
+        return self._reports_dir / f"cam_{cam_id}.toml"
 
-    def save(self, port: int, report: IntrinsicCalibrationReport) -> None:
+    def save(self, cam_id: int, report: IntrinsicCalibrationReport) -> None:
         """Save calibration report for a camera.
 
         Args:
-            port: Camera port number
+            cam_id: Camera identifier
             report: Calibration report to save
 
         Raises:
@@ -59,19 +59,19 @@ class IntrinsicReportRepository:
             "selected_frames": [int(f) for f in report.selected_frames],
         }
 
-        path = self._port_path(port)
+        path = self._cam_path(cam_id)
         try:
             with open(path, "w") as f:
                 rtoml.dump(data, f)
-            logger.info(f"Saved intrinsic report for port {port}: RMSE={report.rmse:.3f}px")
+            logger.info(f"Saved intrinsic report for cam_id {cam_id}: RMSE={report.rmse:.3f}px")
         except Exception as e:
-            raise ValueError(f"Failed to save intrinsic report for port {port}: {e}") from e
+            raise ValueError(f"Failed to save intrinsic report for cam_id {cam_id}: {e}") from e
 
-    def load(self, port: int) -> IntrinsicCalibrationReport | None:
+    def load(self, cam_id: int) -> IntrinsicCalibrationReport | None:
         """Load calibration report for a camera.
 
         Args:
-            port: Camera port number
+            cam_id: Camera identifier
 
         Returns:
             Calibration report or None if not found
@@ -79,7 +79,7 @@ class IntrinsicReportRepository:
         Raises:
             ValueError: If file exists but contains invalid data
         """
-        path = self._port_path(port)
+        path = self._cam_path(cam_id)
         if not path.exists():
             return None
 
@@ -106,36 +106,36 @@ class IntrinsicReportRepository:
         """Load all available reports.
 
         Returns:
-            Dictionary mapping port numbers to reports
+            Dictionary mapping camera identifiers to reports
         """
         reports: dict[int, IntrinsicCalibrationReport] = {}
 
         if not self._reports_dir.exists():
             return reports
 
-        for path in self._reports_dir.glob("port_*.toml"):
+        for path in self._reports_dir.glob("cam_*.toml"):
             try:
-                port = int(path.stem.split("_")[1])
-                report = self.load(port)
+                cam_id = int(path.stem.split("_")[1])
+                report = self.load(cam_id)
                 if report is not None:
-                    reports[port] = report
+                    reports[cam_id] = report
             except (ValueError, IndexError) as e:
                 logger.warning(f"Skipping invalid report file {path}: {e}")
 
         return reports
 
-    def delete(self, port: int) -> bool:
+    def delete(self, cam_id: int) -> bool:
         """Delete report for a camera.
 
         Args:
-            port: Camera port number
+            cam_id: Camera identifier
 
         Returns:
             True if file was deleted, False if it didn't exist
         """
-        path = self._port_path(port)
+        path = self._cam_path(cam_id)
         if path.exists():
             path.unlink()
-            logger.info(f"Deleted intrinsic report for port {port}")
+            logger.info(f"Deleted intrinsic report for cam_id {cam_id}")
             return True
         return False

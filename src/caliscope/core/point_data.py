@@ -129,8 +129,8 @@ def triangulate_sync_index(
 def _undistort_batch(xy_df: pd.DataFrame, camera_array: CameraArray) -> pd.DataFrame:
     """Module-private helper to undistort all points in a DataFrame."""
     undistorted_points = []
-    for port, camera in camera_array.cameras.items():
-        subset_xy = xy_df.query(f"port == {port}").copy()
+    for cam_id, camera in camera_array.cameras.items():
+        subset_xy = xy_df.query(f"cam_id == {cam_id}").copy()
         if not subset_xy.empty:
             points = np.vstack([subset_xy["img_loc_x"], subset_xy["img_loc_y"]]).T
             undistorted_xy = camera.undistort_points(points, output="normalized")
@@ -149,7 +149,7 @@ class ImagePointSchema(pa.DataFrameModel):
     """Pandera schema for validating 2D (x,y) point data."""
 
     sync_index: Series[int] = pa.Field(coerce=True)
-    port: Series[int] = pa.Field(coerce=True)
+    cam_id: Series[int] = pa.Field(coerce=True)
     point_id: Series[int] = pa.Field(coerce=True)
     img_loc_x: Series[float] = pa.Field(coerce=True)
     img_loc_y: Series[float] = pa.Field(coerce=True)
@@ -204,20 +204,20 @@ class ImagePoints:
     def fill_gaps(self, max_gap_size: int = 3) -> ImagePoints:
         xy_filled = pd.DataFrame()
         index_key = "sync_index"
-        last_port = -1
+        last_cam_id = -1
         base_df = self.df
-        for (port, point_id), group in base_df.groupby(["port", "point_id"]):
-            if last_port != port:
+        for (cam_id, point_id), group in base_df.groupby(["cam_id", "point_id"]):
+            if last_cam_id != cam_id:
                 logger.info(
-                    f"Gap filling for (x,y) data from port {port}. "
+                    f"Gap filling for (x,y) data from cam_id {cam_id}. "
                     f"Filling gaps that are {max_gap_size} frames or less..."
                 )
-            last_port = port
+            last_cam_id = cam_id
             group = group.sort_values(index_key)
             all_frames = pd.DataFrame({index_key: np.arange(group[index_key].min(), group[index_key].max() + 1)})
-            all_frames["port"] = int(port)  # type: ignore[arg-type]
+            all_frames["cam_id"] = int(cam_id)  # type: ignore[arg-type]
             all_frames["point_id"] = int(point_id)  # type: ignore[arg-type]
-            merged = pd.merge(all_frames, group, on=["port", "point_id", index_key], how="left")
+            merged = pd.merge(all_frames, group, on=["cam_id", "point_id", index_key], how="left")
             merged["gap_size"] = (
                 merged["img_loc_x"].isnull().astype(int).groupby((merged["img_loc_x"].notnull()).cumsum()).cumsum()
             )
@@ -239,11 +239,11 @@ class ImagePoints:
             return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
 
         # Only process cameras that are both in data AND posed
-        ports_in_data = xy_df["port"].unique()
-        posed_ports = list(camera_array.posed_port_to_index.keys())
-        valid_ports = [p for p in ports_in_data if p in posed_ports]
+        cam_ids_in_data = xy_df["cam_id"].unique()
+        posed_cam_ids = list(camera_array.posed_cam_id_to_index.keys())
+        valid_cam_ids = [c for c in cam_ids_in_data if c in posed_cam_ids]
 
-        if not valid_ports:
+        if not valid_cam_ids:
             logger.warning("No cameras in data have extrinsics for triangulation")
             return WorldPoints(pd.DataFrame(columns=list(WorldPointSchema.to_schema().columns.keys())))
 
@@ -272,8 +272,8 @@ class ImagePoints:
 
         logger.info("About to begin triangulation...due to jit, first round of calculations may take a moment.")
 
-        # Only iterate over sync indices that have data from valid ports
-        valid_sync_indices = undistorted_xy[undistorted_xy["port"].isin(valid_ports)]["sync_index"].unique()
+        # Only iterate over sync indices that have data from valid cam_ids
+        valid_sync_indices = undistorted_xy[undistorted_xy["cam_id"].isin(valid_cam_ids)]["sync_index"].unique()
 
         sync_index_counter = 0
         total_sync_indices = len(valid_sync_indices)
@@ -281,19 +281,19 @@ class ImagePoints:
         for index in valid_sync_indices:
             sync_index_counter += 1  # used for tracking progress
             active_index = undistorted_xy["sync_index"] == index
-            # Filter to valid ports for this sync index
-            index_data = undistorted_xy[active_index & undistorted_xy["port"].isin(valid_ports)]
+            # Filter to valid cam_ids for this sync index
+            index_data = undistorted_xy[active_index & undistorted_xy["cam_id"].isin(valid_cam_ids)]
 
             if index_data.empty:
                 continue
 
-            port = index_data["port"].to_numpy()
+            cam_id = index_data["cam_id"].to_numpy()
             point_ids = index_data["point_id"].to_numpy()
             img_loc_x = index_data["img_loc_undistort_x"].to_numpy()
             img_loc_y = index_data["img_loc_undistort_y"].to_numpy()
             raw_xy = np.vstack([img_loc_x, img_loc_y]).T
 
-            point_id_xyz, points_xyz = triangulate_sync_index(normalized_projection_matrices, port, point_ids, raw_xy)
+            point_id_xyz, points_xyz = triangulate_sync_index(normalized_projection_matrices, cam_id, point_ids, raw_xy)
 
             if len(point_id_xyz) > 0:
                 xyz_data["sync_index"].extend([index] * len(point_id_xyz))

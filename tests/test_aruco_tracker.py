@@ -21,7 +21,7 @@ def test_aruco_tracker_detection():
     """Test marker detection on a sample frame from test fixture."""
     # Load test video frame
     fixture_dir = __root__ / "tests/sessions/post_optimization"
-    sample_video_path = fixture_dir / "calibration/extrinsic/port_0.mp4"
+    sample_video_path = fixture_dir / "calibration/extrinsic/cam_0.mp4"
 
     capture = cv2.VideoCapture(str(sample_video_path))
     success, frame = capture.read()
@@ -82,7 +82,7 @@ def test_aruco_point_id_mapping():
     """Verify point ID scheme: marker_id * 10 + corner_index (0-3)."""
     tracker = ArucoTracker(inverted=True)
     fixture_dir = __root__ / "tests/sessions/post_optimization"
-    sample_video_path = fixture_dir / "calibration/extrinsic/port_0.mp4"
+    sample_video_path = fixture_dir / "calibration/extrinsic/cam_0.mp4"
 
     capture = cv2.VideoCapture(str(sample_video_path))
     success, frame = capture.read()
@@ -113,7 +113,7 @@ def test_aruco_point_id_mapping():
 #     """
 #     # Load a normal frame with markers (representing front-side view)
 #     fixture_dir = __root__ / "tests/sessions/post_optimization"
-#     sample_video_path = fixture_dir / "calibration/extrinsic/port_0.mp4"
+#     sample_video_path = fixture_dir / "calibration/extrinsic/cam_0.mp4"
 #
 #     capture = cv2.VideoCapture(str(sample_video_path))
 #     success, original_frame = capture.read()
@@ -135,8 +135,8 @@ def test_aruco_point_id_mapping():
 #     tracker = ArucoTracker(inverted=True, mirror_flag_search=True)
 #
 #     # Process original frame - should detect markers via mirror search
-#     point_packet = tracker.get_points(original_frame, port=0, rotation_count=0)
-#     flipped_point_packet = tracker.get_points(flipped_frame, port=0, rotation_count=0)
+#     point_packet = tracker.get_points(original_frame, cam_id=0, rotation_count=0)
+#     flipped_point_packet = tracker.get_points(flipped_frame, cam_id=0, rotation_count=0)
 #
 #     for packet in [point_packet, flipped_point_packet]:
 #         # Should detect markers

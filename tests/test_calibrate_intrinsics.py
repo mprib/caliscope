@@ -32,8 +32,8 @@ def _load_test_data() -> tuple[ImagePoints, list[int]]:
     """Load test data and return (image_points, port0_frames)."""
     image_points = ImagePoints.from_csv(INTRINSIC_CSV)
     df = image_points.df
-    port0_frames = sorted(df[df["port"] == 0]["sync_index"].unique().tolist())
-    return image_points, port0_frames
+    cam0_frames = sorted(df[df["cam_id"] == 0]["sync_index"].unique().tolist())
+    return image_points, cam0_frames
 
 
 class TestCalibrateIntrinsics:
@@ -41,14 +41,14 @@ class TestCalibrateIntrinsics:
 
     def test_calibrate_returns_valid_result(self):
         """Calibration produces reasonable camera matrix and distortions."""
-        image_points, port0_frames = _load_test_data()
+        image_points, cam0_frames = _load_test_data()
 
         # Use first 20 frames for calibration
-        selected = port0_frames[:20]
+        selected = cam0_frames[:20]
 
         result = calibrate_intrinsics(
             image_points,
-            port=0,
+            cam_id=0,
             image_size=IMAGE_SIZE,
             selected_frames=selected,
         )
@@ -89,19 +89,19 @@ class TestCalibrateIntrinsics:
         with pytest.raises(ValueError, match="No valid calibration frames"):
             calibrate_intrinsics(
                 image_points,
-                port=0,
+                cam_id=0,
                 image_size=IMAGE_SIZE,
                 selected_frames=[],
             )
 
     def test_calibrate_nonexistent_port_raises(self):
-        """Calibration for non-existent port raises ValueError."""
+        """Calibration for non-existent camera raises ValueError."""
         image_points, _ = _load_test_data()
 
         with pytest.raises(ValueError, match="No valid calibration frames"):
             calibrate_intrinsics(
                 image_points,
-                port=999,  # Non-existent port
+                cam_id=999,  # Non-existent camera
                 image_size=IMAGE_SIZE,
                 selected_frames=[0, 1, 2],
             )
@@ -141,13 +141,13 @@ class TestCalibrationPersistence:
             IntrinsicReportRepository,
         )
 
-        image_points, port0_frames = _load_test_data()
+        image_points, cam0_frames = _load_test_data()
 
         # Create a minimal CameraData for the calibration
-        camera = CameraData(port=0, size=IMAGE_SIZE, rotation_count=0)
+        camera = CameraData(cam_id=0, size=IMAGE_SIZE, rotation_count=0)
 
         # Run frame selection (produces numpy types internally)
-        selection_result = select_calibration_frames(image_points, port=0, image_size=IMAGE_SIZE)
+        selection_result = select_calibration_frames(image_points, cam_id=0, image_size=IMAGE_SIZE)
 
         # Run calibration orchestrator - this produces IntrinsicCalibrationOutput
         output = run_intrinsic_calibration(camera, image_points, selection_result)
@@ -159,10 +159,10 @@ class TestCalibrationPersistence:
 
         # Save via repository (this is where numpy types caused problems)
         repo = IntrinsicReportRepository(tmp_path / "reports")
-        repo.save(port=0, report=output.report)
+        repo.save(cam_id=0, report=output.report)
 
         # Load back
-        loaded_report = repo.load(port=0)
+        loaded_report = repo.load(cam_id=0)
 
         # Verify round-trip preserves values
         assert loaded_report is not None

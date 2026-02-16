@@ -65,13 +65,13 @@ class SynchronizedStreamManager:
         for camera in self.all_camera_data.values():
             streamer = create_streamer(
                 video_directory=self.recording_dir,
-                port=camera.port,
+                cam_id=camera.cam_id,
                 rotation_count=camera.rotation_count,
                 tracker=self.tracker,
                 fps_target=fps_target,
                 end_behavior="stop",  # Stop at end for batch processing
             )
-            self.streamers[camera.port] = streamer
+            self.streamers[camera.cam_id] = streamer
 
         logger.info(f"Creating synchronizer based off of streamers: {self.streamers}")
         self.synchronizer = Synchronizer(self.streamers)
@@ -87,7 +87,7 @@ class SynchronizedStreamManager:
         )
 
         logger.info(f"About to start playing video streamers: {self.streamers}")
-        for port, streamer in self.streamers.items():
+        for cam_id, streamer in self.streamers.items():
             streamer.start()
 
     def load_video_properties(self):
@@ -96,7 +96,7 @@ class SynchronizedStreamManager:
         logger.info(f"About to load video properties for files stored in {self.recording_dir}")
         logger.info(f"Current camera data is: {self.all_camera_data}")
         for camera in self.all_camera_data.values():
-            mp4_path = Path(self.recording_dir, f"port_{camera.port}.mp4")
+            mp4_path = Path(self.recording_dir, f"cam_{camera.cam_id}.mp4")
 
             video_properties = read_video_properties(mp4_path)
             fps.append(video_properties["fps"])
@@ -127,8 +127,8 @@ class SynchronizedStreamManager:
             logger.info("Synchronizer stopped")
 
         # Close streamers last (close() calls stop() then cleans up tracker resources)
-        for port, streamer in self.streamers.items():
+        for cam_id, streamer in self.streamers.items():
             streamer.close()
-            logger.info(f"Streamer for port {port} closed")
+            logger.info(f"Streamer for cam_id {cam_id} closed")
 
         logger.info("SynchronizedStreamManager cleanup complete")

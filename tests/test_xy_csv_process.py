@@ -31,8 +31,8 @@ def test_xy_point_creation(tmp_path: Path):
     # make some basic assertions against the created files
     produced_files = [
         Path(recording_path, "HAND", "xy_HAND.csv"),
-        Path(recording_path, "HAND", "port_0_HAND.mp4"),
-        Path(recording_path, "HAND", "port_1_HAND.mp4"),
+        Path(recording_path, "HAND", "cam_0_HAND.mp4"),
+        Path(recording_path, "HAND", "cam_1_HAND.mp4"),
     ]
 
     # confirm that the directory does not have these files prior to running xy creation method
@@ -50,7 +50,7 @@ def test_xy_point_creation(tmp_path: Path):
     xy_data = pd.read_csv(Path(recording_path, "HAND", f"xy_{tracker_name}.csv"))
     xy_sync_index_count = xy_data["sync_index"].max() + 1  # zero indexed
 
-    frame_timestamps = pd.read_csv(Path(recording_path, "timestamps.csv"))
+    frame_timestamps = pd.read_csv(Path(recording_path, "frametimes.csv"))
     sync_index_count = len(frame_timestamps["sync_index"].unique())
     logger.info(f"Sync index count in frame timestamps: {sync_index_count}")
     logger.info(f"Max sync index: {xy_data['sync_index'].max()} in xy.csv")

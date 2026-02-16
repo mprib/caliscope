@@ -52,7 +52,7 @@ class PoseNetworkBuilder:
         Args:
             camera_array: Camera array with intrinsic calibration
             point_data: DataFrame with 2D/3D point correspondences
-                       Required columns: sync_index, port, point_id,
+                       Required columns: sync_index, cam_id, point_id,
                                        img_loc_x, img_loc_y, obj_loc_x, obj_loc_y
         """
         self.camera_array: CameraArray = camera_array
@@ -222,19 +222,19 @@ def compute_camera_to_object_poses_pnp(
         fallback_flags: Fallback algorithm if primary fails (default: SOLVEPNP_ITERATIVE)
 
     Returns:
-        dict mapping (port, sync_index) -> (R, t, reprojection_error)
+        dict mapping (cam_id, sync_index) -> (R, t, reprojection_error)
     """
     logger.info(f"Computing per-frame camera poses with PnP (min_points={min_points})...")
 
     # Pre-undistort all points per camera
     logger.info("Pre-undistorting points...")
     undistorted_data = []
-    for port, camera in camera_array.cameras.items():
+    for cam_id, camera in camera_array.cameras.items():
         if camera.matrix is None:
-            logger.warning(f"Camera {port} missing intrinsics, skipping")
+            logger.warning(f"Camera {cam_id} missing intrinsics, skipping")
             continue
 
-        cam_data = image_points.df[image_points.df["port"] == port].copy()
+        cam_data = image_points.df[image_points.df["cam_id"] == cam_id].copy()
         if cam_data.empty:
             continue
 
@@ -247,7 +247,7 @@ def compute_camera_to_object_poses_pnp(
         raise ValueError("No valid camera data found for PnP")
 
     all_undistorted = pd.concat(undistorted_data)
-    grouped = all_undistorted.groupby(["port", "sync_index"])
+    grouped = all_undistorted.groupby(["cam_id", "sync_index"])
 
     poses = {}
     success_count = 0
@@ -257,7 +257,7 @@ def compute_camera_to_object_poses_pnp(
     K_perfect = np.identity(3)
     D_perfect = np.zeros(5)
 
-    for (port, sync_index), group in grouped:
+    for (cam_id, sync_index), group in grouped:
         if len(group) < min_points:
             failure_count += 1
             continue
@@ -285,7 +285,7 @@ def compute_camera_to_object_poses_pnp(
             projected, _ = cv2.projectPoints(obj_points, rvec, tvec, K_perfect, D_perfect)
             rmse = np.sqrt(np.mean(np.sum((img_points - projected.reshape(-1, 2)) ** 2, axis=1)))
 
-            poses[(port, sync_index)] = (R, t, rmse)
+            poses[(cam_id, sync_index)] = (R, t, rmse)
             success_count += 1
         else:
             failure_count += 1
@@ -466,18 +466,18 @@ def compute_relative_poses(
     logger.info("Computing relative poses between camera pairs...")
     relative_poses: dict[tuple[tuple[int, int], int], StereoPair] = {}
 
-    ports = [p for p, cam in camera_array.cameras.items() if not cam.ignore]
-    pairs = [(i, j) for i, j in combinations(ports, 2) if i < j]
+    cam_ids = [c for c, cam in camera_array.cameras.items() if not cam.ignore]
+    pairs = [(i, j) for i, j in combinations(cam_ids, 2) if i < j]
 
-    for port_a, port_b in pairs:
+    for cam_id_a, cam_id_b in pairs:
         # Find sync indices where both cameras have poses
-        sync_a = {s for p, s in camera_to_object_poses.keys() if p == port_a}
-        sync_b = {s for p, s in camera_to_object_poses.keys() if p == port_b}
+        sync_a = {s for c, s in camera_to_object_poses.keys() if c == cam_id_a}
+        sync_b = {s for c, s in camera_to_object_poses.keys() if c == cam_id_b}
         common_sync = sync_a.intersection(sync_b)
 
         for sync_index in common_sync:
-            R_a, t_a, _ = camera_to_object_poses[(port_a, sync_index)]
-            R_b, t_b, _ = camera_to_object_poses[(port_b, sync_index)]
+            R_a, t_a, _ = camera_to_object_poses[(cam_id_a, sync_index)]
+            R_b, t_b, _ = camera_to_object_poses[(cam_id_b, sync_index)]
 
             # Compute relative transformation: T_B_A = T_B_obj @ inv(T_A_obj)
             R_a_inv = R_a.T
@@ -486,10 +486,10 @@ def compute_relative_poses(
             t_rel = R_b @ t_a_inv + t_b
 
             # Store as StereoPair (error_score will be computed after aggregation)
-            pair_key = (port_a, port_b)
+            pair_key = (cam_id_a, cam_id_b)
             relative_poses[(pair_key, sync_index)] = StereoPair(
-                primary_port=port_a,
-                secondary_port=port_b,
+                primary_cam_id=cam_id_a,
+                secondary_cam_id=cam_id_b,
                 error_score=float("nan"),  # Placeholder until RMSE calculation
                 translation=t_rel,
                 rotation=R_rel,
@@ -531,8 +531,8 @@ def aggregate_poses(filtered_poses: dict[tuple[int, int], list[StereoPair]]) -> 
         avg_t = np.mean(translations, axis=0)
 
         aggregated[pair] = StereoPair(
-            primary_port=pair[0],
-            secondary_port=pair[1],
+            primary_cam_id=pair[0],
+            secondary_cam_id=pair[1],
             error_score=float("nan"),  # Placeholder until RMSE calculation
             rotation=avg_R,
             translation=avg_t,
@@ -567,8 +567,8 @@ def estimate_pnp_paired_pose_network(
 
         # Create new StereoPair with RMSE populated
         pairs_with_rmse[pair] = StereoPair(
-            primary_port=stereo_pair.primary_port,
-            secondary_port=stereo_pair.secondary_port,
+            primary_cam_id=stereo_pair.primary_cam_id,
+            secondary_cam_id=stereo_pair.secondary_cam_id,
             error_score=rmse,
             rotation=stereo_pair.rotation,
             translation=stereo_pair.translation,
@@ -585,20 +585,20 @@ def _precompute_common_observations(
     Pre-compute common observations for all camera pairs to avoid repeated merges.
 
     Returns:
-        dict mapping (port_a, port_b) -> DataFrame with common observations
+        dict mapping (cam_id_a, cam_id_b) -> DataFrame with common observations
     """
     df = image_points.df
-    ports = [p for p, cam in camera_array.cameras.items() if not cam.ignore]
+    cam_ids = [c for c, cam in camera_array.cameras.items() if not cam.ignore]
 
     common_obs = {}
-    for port_a, port_b in combinations(ports, 2):
-        data_a = df[df["port"] == port_a]
-        data_b = df[df["port"] == port_b]
+    for cam_id_a, cam_id_b in combinations(cam_ids, 2):
+        data_a = df[df["cam_id"] == cam_id_a]
+        data_b = df[df["cam_id"] == cam_id_b]
 
         # Merge once per pair
         common = pd.merge(data_a, data_b, on=["sync_index", "point_id"], suffixes=("_a", "_b"))
         if len(common) >= DEFAULT_MIN_PNP_POINTS:
-            common_obs[(port_a, port_b)] = common
+            common_obs[(cam_id_a, cam_id_b)] = common
 
     logger.info(f"Pre-computed common observations for {len(common_obs)} pairs")
     return common_obs
@@ -619,15 +619,15 @@ def calculate_stereo_rmse_for_pair(
     Returns:
         RMSE value or None if insufficient data
     """
-    port_a, port_b = stereo_pair.pair
+    cam_id_a, cam_id_b = stereo_pair.pair
 
     # Look up pre-computed common observations
-    common = common_observations.get((port_a, port_b))
+    common = common_observations.get((cam_id_a, cam_id_b))
     if common is None or len(common) < DEFAULT_MIN_PNP_POINTS:
         logger.warning(f"Insufficient common points for RMSE calc on pair {stereo_pair}")
         return None
 
-    cam_a, cam_b = camera_array.cameras[port_a], camera_array.cameras[port_b]
+    cam_a, cam_b = camera_array.cameras[cam_id_a], camera_array.cameras[cam_id_b]
 
     # Extract and undistort points
     pts_a = common[["img_loc_x_a", "img_loc_y_a"]].to_numpy(dtype=np.float32)

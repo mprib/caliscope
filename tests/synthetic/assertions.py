@@ -41,9 +41,9 @@ def pose_error(estimated: CameraData, ground_truth: CameraData) -> PoseError:
     - Camera position in world = -R.T @ t
     """
     if estimated.rotation is None or estimated.translation is None:
-        raise ValueError(f"Estimated camera {estimated.port} lacks pose")
+        raise ValueError(f"Estimated camera {estimated.cam_id} lacks pose")
     if ground_truth.rotation is None or ground_truth.translation is None:
-        raise ValueError(f"Ground truth camera {ground_truth.port} lacks pose")
+        raise ValueError(f"Ground truth camera {ground_truth.cam_id} lacks pose")
 
     # Rotation error: geodesic distance on SO(3)
     R_rel: np.ndarray = estimated.rotation @ ground_truth.rotation.T
@@ -77,24 +77,24 @@ def cameras_match_ground_truth(
 
     failures = []
 
-    for port in expected.cameras:
-        if port in skip_ports:
+    for cam_id in expected.cameras:
+        if cam_id in skip_ports:
             continue
 
-        if port not in actual.cameras:
-            failures.append(f"Camera {port}: missing from actual")
+        if cam_id not in actual.cameras:
+            failures.append(f"Camera {cam_id}: missing from actual")
             continue
 
-        error = pose_error(actual.cameras[port], expected.cameras[port])
+        error = pose_error(actual.cameras[cam_id], expected.cameras[cam_id])
 
         if error.rotation_deg > rotation_tol_deg:
             failures.append(
-                f"Camera {port}: rotation error {error.rotation_deg:.3f} deg > {rotation_tol_deg} deg tolerance"
+                f"Camera {cam_id}: rotation error {error.rotation_deg:.3f} deg > {rotation_tol_deg} deg tolerance"
             )
 
         if error.translation_mm > translation_tol_mm:
             failures.append(
-                f"Camera {port}: translation error {error.translation_mm:.2f} mm > {translation_tol_mm} mm tolerance"
+                f"Camera {cam_id}: translation error {error.translation_mm:.2f} mm > {translation_tol_mm} mm tolerance"
             )
 
     if failures:
@@ -117,15 +117,15 @@ def assert_cameras_moved(
     if skip_ports is None:
         skip_ports = []
 
-    for port in initial.cameras:
-        if port in skip_ports:
+    for cam_id in initial.cameras:
+        if cam_id in skip_ports:
             continue
 
-        initial_vec = initial.cameras[port].extrinsics_to_vector()
-        final_vec = final.cameras[port].extrinsics_to_vector()
+        initial_vec = initial.cameras[cam_id].extrinsics_to_vector()
+        final_vec = final.cameras[cam_id].extrinsics_to_vector()
 
         movement = np.linalg.norm(final_vec - initial_vec)
 
         assert movement > min_movement, (
-            f"Camera {port} didn't move during optimization! Parameter change: {movement:.2e}"
+            f"Camera {cam_id} didn't move during optimization! Parameter change: {movement:.2e}"
         )

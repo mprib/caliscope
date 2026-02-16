@@ -39,7 +39,7 @@ class ChessboardTracker(Tracker):
         self._pattern_size = (chessboard.columns, chessboard.rows)
 
         # Detection flags for robustness
-        self._flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE
+        self._flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_CB_EXHAUSTIVE
 
         # Sub-pixel refinement parameters
         self._criteria = (

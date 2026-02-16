@@ -242,6 +242,12 @@ class OnnxTracker(Tracker):
         x2 = int(min(frame_w, cx + box_w / 2))
         y2 = int(min(frame_h, cy + box_h / 2))
 
+        # Ensure bbox has at least 1px in each dimension (single-keypoint edge case)
+        if x2 <= x1:
+            x2 = min(x1 + 1, frame_w)
+        if y2 <= y1:
+            y2 = min(y1 + 1, frame_h)
+
         return (x1, y1, x2, y2)
 
     def _scan_positions(self, frame_w: int, frame_h: int) -> list[tuple[int, int, int, int]]:
@@ -273,6 +279,9 @@ class OnnxTracker(Tracker):
 
     def _detect_in_region(self, frame: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> tuple[np.ndarray, np.ndarray]:
         """Run inference on a crop region, return keypoints in original frame coords."""
+        if x2 <= x1 or y2 <= y1:
+            n = len(self.card.point_name_to_id)
+            return np.zeros((n, 2), dtype=np.float32), np.zeros(n, dtype=np.float32)
         crop = frame[y1:y2, x1:x2]
 
         if self.card.format == "simcc":

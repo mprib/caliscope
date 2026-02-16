@@ -28,15 +28,15 @@ def analyze_true_connectivity(image_points: ImagePoints) -> dict:
 
     # 1. Points per camera
     print("\n📊 OBSERVATIONS PER CAMERA:")
-    obs_per_cam = df.groupby("port").size().sort_index()
-    for port, count in obs_per_cam.items():
-        print(f"  Camera {port}: {count:,} observations")
+    obs_per_cam = df.groupby("cam_id").size().sort_index()
+    for cam_id, count in obs_per_cam.items():
+        print(f"  Camera {cam_id}: {count:,} observations")
 
     # 2. Shared point analysis
     print("\n🔍 SHARED POINTS ANALYSIS:")
 
     # Group by sync_index + point_id to find which cameras see the same point
-    point_coverage = df.groupby(["sync_index", "point_id"])["port"].apply(lambda x: tuple(sorted(set(x))))
+    point_coverage = df.groupby(["sync_index", "point_id"])["cam_id"].apply(lambda x: tuple(sorted(set(x))))
 
     # Count coverage patterns
     coverage_counts = point_coverage.value_counts()
@@ -51,7 +51,7 @@ def analyze_true_connectivity(image_points: ImagePoints) -> dict:
     # For each sync_index, find all camera pairs that see the same board
     pair_counts = {}
     for (sync_idx, point_id), group in df.groupby(["sync_index", "point_id"]):
-        ports_in_group = sorted(group["port"].unique())
+        ports_in_group = sorted(group["cam_id"].unique())
 
         # Count all pairs within this group
         for i, port_a in enumerate(ports_in_group):
@@ -69,10 +69,10 @@ def analyze_true_connectivity(image_points: ImagePoints) -> dict:
     # 4. Board-level connectivity
     print("\n🎯 BOARD-LEVEL CONNECTIVITY:")
 
-    # For each port pair, count how many unique boards (sync_index) they share
+    # For each camera pair, count how many unique boards (sync_index) they share
     board_counts = {}
     for (sync_idx, point_id), group in df.groupby(["sync_index", "point_id"]):
-        ports_in_group = sorted(group["port"].unique())
+        ports_in_group = sorted(group["cam_id"].unique())
 
         for i, port_a in enumerate(ports_in_group):
             for port_b in ports_in_group[i + 1 :]:
@@ -93,7 +93,7 @@ def analyze_true_connectivity(image_points: ImagePoints) -> dict:
     print("\n📋 SUMMARY FOR TEST EXPECTATIONS:")
 
     # Which cameras have ANY connectivity
-    all_ports_with_data = set(df["port"].unique())
+    all_ports_with_data = set(df["cam_id"].unique())
     ports_with_pairs = set()
     for a, b in pair_counts.keys():
         ports_with_pairs.add(a)
@@ -160,7 +160,7 @@ def test_missing_extrinsics(tmp_path: Path):
     paired_pose_network.apply_to(camera_array)
     logger.info("Camera Poses estimated from stereocalibration")
 
-    # should have posed all ports but 4 and 5 (4 is ignored)
+    # should have posed all cameras but 4 and 5 (4 is ignored)
     # Using set for posed_cameras to avoid order dependency
     assert set(camera_array.posed_cameras.keys()) == {1, 2, 3, 6}
     assert list(camera_array.unposed_cameras.keys()) == [4, 5]
@@ -173,16 +173,16 @@ def test_missing_extrinsics(tmp_path: Path):
     assert extrinsic_params.shape == (4, 6), "Shape should be (4 posed cameras, 6 params)"
 
     # camera 5 should not be in the index used for optimization parameter mapping
-    assert 5 not in camera_array.posed_port_to_index
-    assert 4 not in camera_array.posed_port_to_index
+    assert 5 not in camera_array.posed_cam_id_to_index
+    assert 4 not in camera_array.posed_cam_id_to_index
 
     # Verify that the order of cameras in the extrinsic_params array is correct
     logger.info("Verifying order of extrinsic parameters vector...")
-    for port, index in camera_array.posed_port_to_index.items():
-        expected_params = camera_array.cameras[port].extrinsics_to_vector()
+    for cam_id, index in camera_array.posed_cam_id_to_index.items():
+        expected_params = camera_array.cameras[cam_id].extrinsics_to_vector()
         actual_params = extrinsic_params[index]
         np.testing.assert_array_equal(
-            actual_params, expected_params, err_msg=f"Parameter mismatch for port {port} at index {index}"
+            actual_params, expected_params, err_msg=f"Parameter mismatch for cam_id {cam_id} at index {index}"
         )
 
     # should be able to extract params from complete extrinsics vector and map back to individual cam params

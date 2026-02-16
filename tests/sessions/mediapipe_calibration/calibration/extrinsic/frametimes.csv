@@ -1,4 +1,4 @@
-sync_index,port,frame_index,frame_time
+sync_index,cam_id,frame_index,frame_time
 26,3,26,123.3359266
 26,2,26,123.3349457
 26,1,26,123.3348083

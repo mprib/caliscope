@@ -44,10 +44,10 @@ def test_triangulator(tmp_path: Path):
     logger.info("Creating streamers based on calibration recordings")
 
     streamers = {}
-    for port, camera in camera_array.cameras.items():
-        streamers[port] = create_streamer(
+    for cam_id, camera in camera_array.cameras.items():
+        streamers[cam_id] = create_streamer(
             video_directory=recording_directory,
-            port=port,
+            cam_id=cam_id,
             rotation_count=camera.rotation_count,
             tracker=charuco_tracker,
             fps_target=100,
@@ -66,7 +66,7 @@ def test_triangulator(tmp_path: Path):
         tracker_name=charuco_tracker.name,
     )
 
-    for port, publisher in streamers.items():
+    for cam_id, publisher in streamers.items():
         publisher.start()
 
     while real_time_triangulator.running:

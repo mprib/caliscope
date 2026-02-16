@@ -1,4 +1,4 @@
-sync_index,port,frame_index,frame_time,point_id,img_loc_x,img_loc_y,obj_loc_x,obj_loc_y,obj_loc_z
+sync_index,cam_id,frame_index,frame_time,point_id,img_loc_x,img_loc_y,obj_loc_x,obj_loc_y,obj_loc_z
 0,0,0,0.000000,0,235.082581,424.735779,0.054000,0.054000,
 0,0,0,0.000000,1,312.229492,425.801666,0.108000,0.054000,
 0,0,0,0.000000,2,389.012634,425.811676,0.162000,0.054000,

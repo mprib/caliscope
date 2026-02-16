@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class HandTracker(Tracker):
     def __init__(self) -> None:
-        # Each port gets its own mediapipe context manager
+        # Each cam_id gets its own mediapipe context manager
         # use a dictionary of queues for passing
         self.in_queues: dict[int, Queue] = {}
         self.out_queues: dict[int, Queue] = {}
@@ -26,7 +26,7 @@ class HandTracker(Tracker):
     def name(self):
         return "HAND"
 
-    def run_frame_processor(self, port: int, rotation_count: int):
+    def run_frame_processor(self, cam_id: int, rotation_count: int):
         # Create a MediaPipe Hands instance
         # Mediapipe type stubs are incomplete; the hands module exists at runtime
         with mp.solutions.hands.Hands(  # type: ignore[reportAttributeAccessIssue]
@@ -36,10 +36,10 @@ class HandTracker(Tracker):
             min_tracking_confidence=0.8,
         ) as hands:
             while True:
-                frame = self.in_queues[port].get()
+                frame = self.in_queues[cam_id].get()
 
                 if frame is None:  # Shutdown signal
-                    logger.debug(f"HandTracker port {port} received shutdown signal")
+                    logger.debug(f"HandTracker cam {cam_id} received shutdown signal")
                     # reset() closes the calculator graph but TFLite memory persists
                     hands.reset()
                     break
@@ -87,23 +87,23 @@ class HandTracker(Tracker):
 
                 point_packet = PointPacket(point_ids, landmark_xy)
 
-                self.out_queues[port].put(point_packet)
+                self.out_queues[cam_id].put(point_packet)
 
-    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
-        if port not in self.in_queues.keys():
-            self.in_queues[port] = Queue(1)
-            self.out_queues[port] = Queue(1)
+    def get_points(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
+        if cam_id not in self.in_queues.keys():
+            self.in_queues[cam_id] = Queue(1)
+            self.out_queues[cam_id] = Queue(1)
 
-            self.threads[port] = Thread(
+            self.threads[cam_id] = Thread(
                 target=self.run_frame_processor,
-                args=(port, rotation_count),
+                args=(cam_id, rotation_count),
                 daemon=True,
-                name=f"HandTracker_Port_{port}",
+                name=f"HandTracker_Cam_{cam_id}",
             )
-            self.threads[port].start()
+            self.threads[cam_id].start()
 
-        self.in_queues[port].put(frame)
-        point_packet = self.out_queues[port].get()
+        self.in_queues[cam_id].put(frame)
+        point_packet = self.out_queues[cam_id].get()
 
         return point_packet
 
@@ -122,17 +122,17 @@ class HandTracker(Tracker):
         logger.debug(f"HandTracker cleanup: stopping {len(self.threads)} threads")
 
         # Send shutdown signal to all threads
-        for port, queue in self.in_queues.items():
+        for cam_id, queue in self.in_queues.items():
             try:
                 queue.put(None, timeout=1.0)
             except Full:
-                logger.warning(f"HandTracker: timeout sending shutdown to port {port}")
+                logger.warning(f"HandTracker: timeout sending shutdown to cam {cam_id}")
 
         # Wait for threads to finish
-        for port, thread in self.threads.items():
+        for cam_id, thread in self.threads.items():
             thread.join(timeout=2.0)
             if thread.is_alive():
-                logger.warning(f"HandTracker: thread for port {port} did not exit in time")
+                logger.warning(f"HandTracker: thread for cam {cam_id} did not exit in time")
 
         # Clear state
         self.in_queues.clear()

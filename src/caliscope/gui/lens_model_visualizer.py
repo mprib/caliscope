@@ -121,7 +121,7 @@ class LensModelVisualizer:
     def _compute_undistortion_params(self) -> None:
         """Compute remap tables and detect if content expands."""
         if self._camera.matrix is None or self._camera.distortions is None:
-            logger.debug(f"Camera {self._camera.port} lacks calibration")
+            logger.debug(f"Camera {self._camera.cam_id} lacks calibration")
             return
 
         w, h = self._camera.size
@@ -210,7 +210,7 @@ class LensModelVisualizer:
                 )
 
             logger.debug(
-                f"LensModelVisualizer port {self._camera.port}: content expands, "
+                f"LensModelVisualizer cam {self._camera.cam_id}: content expands, "
                 f"scale={scale:.3f}, boundary={self._boundary_rect}"
             )
         else:
@@ -230,7 +230,7 @@ class LensModelVisualizer:
                     matrix, distortions, np.eye(3), final_matrix, (w, h), cv2.CV_16SC2
                 )
 
-            logger.debug(f"LensModelVisualizer port {self._camera.port}: content fits within frame")
+            logger.debug(f"LensModelVisualizer cam {self._camera.cam_id}: content fits within frame")
 
     def undistort(self, frame: NDArray) -> NDArray:
         """Undistort a frame for visualization.
@@ -245,7 +245,7 @@ class LensModelVisualizer:
             Undistorted frame with boundary overlay if applicable
         """
         if self._map1 is None or self._map2 is None:
-            logger.warning(f"Cannot undistort frame for port {self._camera.port}: not ready")
+            logger.warning(f"Cannot undistort frame for cam {self._camera.cam_id}: not ready")
             return frame
 
         result = cv2.remap(frame, self._map1, self._map2, cv2.INTER_LINEAR)

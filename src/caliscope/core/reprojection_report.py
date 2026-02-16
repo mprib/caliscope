@@ -8,7 +8,7 @@ class ReprojectionReport:
 
     # Aggregate metrics
     overall_rmse: float
-    by_camera: dict[int, float]  # port -> rmse
+    by_camera: dict[int, float]  # cam_id -> rmse
     by_point_id: dict[int, float]  # point_id -> rmse
 
     # Unmatched observation tracking
@@ -17,7 +17,7 @@ class ReprojectionReport:
     unmatched_by_camera: dict[int, int]
 
     # Raw matched errors for detailed analysis
-    raw_errors: pd.DataFrame  # columns: sync_index, port, point_id, error_x, error_y, euclidean_error
+    raw_errors: pd.DataFrame  # columns: sync_index, cam_id, point_id, error_x, error_y, euclidean_error
 
     # Quality metadata
     n_observations_matched: int

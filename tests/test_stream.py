@@ -20,7 +20,7 @@ def test_streamer():
 
     streamer = create_streamer(
         video_directory=recording_directory,
-        port=1,
+        cam_id=1,
         tracker=charuco_tracker,
         fps_target=6,
     )

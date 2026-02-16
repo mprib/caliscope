@@ -60,10 +60,10 @@ class CamerasTabWidget(QWidget):
         super().__init__()
         self.coordinator = coordinator
 
-        # Pool of presenters and widgets, keyed by port
+        # Pool of presenters and widgets, keyed by cam_id
         self._presenters: dict[int, IntrinsicCalibrationPresenter] = {}
         self._widgets: dict[int, IntrinsicCalibrationWidget] = {}
-        self._current_port: int | None = None
+        self._current_cam_id: int | None = None
 
         self._setup_ui()
         self._connect_signals()
@@ -148,7 +148,7 @@ class CamerasTabWidget(QWidget):
     def _on_chessboard_changed(self) -> None:
         """Update tracker in all pooled presenters when chessboard changes."""
         new_tracker = self.coordinator.create_intrinsic_tracker()
-        for port, presenter in self._presenters.items():
+        for cam_id, presenter in self._presenters.items():
             presenter.update_tracker(new_tracker)
         logger.info(f"Updated tracker in {len(self._presenters)} pooled presenters")
         self._update_pattern_preview()
@@ -157,49 +157,49 @@ class CamerasTabWidget(QWidget):
         """Propagate frame skip change to coordinator and all active presenters."""
         self.coordinator.set_intrinsic_frame_skip(value, self._presenters)
 
-    def _on_camera_selected(self, port: int) -> None:
+    def _on_camera_selected(self, cam_id: int) -> None:
         """Handle camera selection - show existing or create new presenter/widget."""
-        logger.info(f"Camera selected: port {port}")
+        logger.info(f"Camera selected: cam {cam_id}")
 
         # Hide current widget (keep presenter running in background)
-        if self._current_port is not None and self._current_port in self._widgets:
-            current_widget = self._widgets[self._current_port]
+        if self._current_cam_id is not None and self._current_cam_id in self._widgets:
+            current_widget = self._widgets[self._current_cam_id]
             self._content_layout.removeWidget(current_widget)
             current_widget.hide()
 
-        # Get or create presenter/widget for new port
-        if port not in self._presenters:
+        # Get or create presenter/widget for new cam_id
+        if cam_id not in self._presenters:
             try:
-                presenter = self.coordinator.create_intrinsic_presenter(port)
+                presenter = self.coordinator.create_intrinsic_presenter(cam_id)
             except ValueError as e:
-                logger.warning(f"Cannot create presenter for port {port}: {e}")
+                logger.warning(f"Cannot create presenter for cam {cam_id}: {e}")
                 self._show_message(str(e))
                 return
 
-            presenter.calibration_complete.connect(partial(self._on_calibration_complete, port))
+            presenter.calibration_complete.connect(partial(self._on_calibration_complete, cam_id))
             widget = IntrinsicCalibrationWidget(presenter)
 
-            self._presenters[port] = presenter
-            self._widgets[port] = widget
+            self._presenters[cam_id] = presenter
+            self._widgets[cam_id] = widget
 
-        # Show the widget for this port
-        widget = self._widgets[port]
+        # Show the widget for this cam_id
+        widget = self._widgets[cam_id]
         self._message_label.hide()
         self._content_layout.addWidget(widget)
         widget.show()
-        self._current_port = port
+        self._current_cam_id = cam_id
 
-        logger.info(f"Intrinsic calibration widget active for port {port}")
+        logger.info(f"Intrinsic calibration widget active for cam {cam_id}")
 
-    def _on_calibration_complete(self, port: int, output: IntrinsicCalibrationOutput) -> None:
+    def _on_calibration_complete(self, cam_id: int, output: IntrinsicCalibrationOutput) -> None:
         """Handle calibration completion - persist and update list."""
         report = output.report
-        logger.info(f"Calibration complete for port {port}, rmse={report.rmse:.3f}px")
+        logger.info(f"Calibration complete for cam {cam_id}, rmse={report.rmse:.3f}px")
 
         # Get collected points from presenter for session-based overlay restoration
         collected_points = None
-        if port in self._presenters:
-            collected_points = self._presenters[port].collected_points
+        if cam_id in self._presenters:
+            collected_points = self._presenters[cam_id].collected_points
 
         # Persist to ground truth via coordinator (including collected points for session)
         self.coordinator.persist_intrinsic_calibration(output, collected_points)
@@ -210,8 +210,8 @@ class CamerasTabWidget(QWidget):
     def _show_message(self, text: str) -> None:
         """Show a message in the content area."""
         # Hide current widget if any
-        if self._current_port is not None and self._current_port in self._widgets:
-            current_widget = self._widgets[self._current_port]
+        if self._current_cam_id is not None and self._current_cam_id in self._widgets:
+            current_widget = self._widgets[self._current_cam_id]
             self._content_layout.removeWidget(current_widget)
             current_widget.hide()
 
@@ -242,19 +242,19 @@ class CamerasTabWidget(QWidget):
         removeTab() + deleteLater() doesn't trigger closeEvent.
         The parent (MainWidget) must call this during reload_workspace.
         """
-        for port, presenter in self._presenters.items():
-            logger.info(f"Cleaning up presenter for port {port}")
+        for cam_id, presenter in self._presenters.items():
+            logger.info(f"Cleaning up presenter for cam {cam_id}")
             presenter.cleanup()
 
-        for port, widget in self._widgets.items():
-            logger.info(f"Cleaning up widget for port {port}")
+        for cam_id, widget in self._widgets.items():
+            logger.info(f"Cleaning up widget for cam {cam_id}")
             self._content_layout.removeWidget(widget)
             widget.close()
             widget.deleteLater()
 
         self._presenters.clear()
         self._widgets.clear()
-        self._current_port = None
+        self._current_cam_id = None
 
     def closeEvent(self, event) -> None:
         """Defensive cleanup on normal close."""

@@ -93,7 +93,7 @@ class QualityPanelData:
     n_observations: int
     n_world_points: int
 
-    # Per-camera table rows: (port, n_obs, rmse)
+    # Per-camera table rows: (cam_id, n_obs, rmse)
     camera_rows: list[tuple[int, int, float]]
 
     # Optimization metadata
@@ -137,7 +137,7 @@ class ExtrinsicCalibrationPresenter(QObject):
     # Result signals
     quality_updated = Signal(object)  # QualityPanelData
     volumetric_accuracy_updated = Signal(object)  # VolumetricScaleReport
-    coverage_updated = Signal(object, object)  # (coverage_matrix, port_labels)
+    coverage_updated = Signal(object, object)  # (coverage_matrix, cam_id_labels)
     bundle_changed = Signal(object)  # PointDataBundle
     view_model_updated = Signal(object)  # PlaybackViewModel
 
@@ -539,12 +539,12 @@ class ExtrinsicCalibrationPresenter(QObject):
         report = self._bundle.reprojection_report
         status = self._bundle.optimization_status
 
-        # Build per-camera rows: (port, n_obs, rmse)
+        # Build per-camera rows: (cam_id, n_obs, rmse)
         camera_rows: list[tuple[int, int, float]] = []
-        for port in sorted(report.by_camera.keys()):
-            n_obs = int((self._bundle.image_points.df["port"] == port).sum())
-            rmse = report.by_camera[port]
-            camera_rows.append((port, n_obs, rmse))
+        for cam_id in sorted(report.by_camera.keys()):
+            n_obs = int((self._bundle.image_points.df["cam_id"] == cam_id).sum())
+            rmse = report.by_camera[cam_id]
+            camera_rows.append((cam_id, n_obs, rmse))
 
         quality_data = QualityPanelData(
             overall_rmse=report.overall_rmse,
@@ -633,7 +633,7 @@ class ExtrinsicCalibrationPresenter(QObject):
         """Emit coverage matrix from pre-loaded ImagePoints.
 
         Internal method - use emit_initial_state() from the view.
-        Uses ports discovered from ImagePoints data (not posed cameras).
+        Uses cam_ids discovered from ImagePoints data (not posed cameras).
         """
         if self._initial_image_points is None:
             return
@@ -642,12 +642,12 @@ class ExtrinsicCalibrationPresenter(QObject):
         if len(df) == 0:
             return
 
-        # Build port-to-index mapping from actual data
-        actual_ports = sorted(df["port"].unique())
-        port_to_index = {int(port): idx for idx, port in enumerate(actual_ports)}
+        # Build cam_id-to-index mapping from actual data
+        actual_cam_ids = sorted(df["cam_id"].unique())
+        cam_id_to_index = {int(cam_id): idx for idx, cam_id in enumerate(actual_cam_ids)}
 
-        coverage = compute_coverage_matrix(self._initial_image_points, port_to_index)
-        labels = [f"C{p}" for p in actual_ports]
+        coverage = compute_coverage_matrix(self._initial_image_points, cam_id_to_index)
+        labels = [f"C{c}" for c in actual_cam_ids]
 
         self.coverage_updated.emit(coverage, labels)
 
@@ -655,20 +655,20 @@ class ExtrinsicCalibrationPresenter(QObject):
         """Emit coverage matrix data for heatmap visualization.
 
         Computes pairwise observation counts between all posed cameras.
-        Labels use port numbers (C1, C2, etc.) matching the camera array.
+        Labels use camera IDs (C1, C2, etc.) matching the camera array.
         """
         if self._bundle is None:
             return
 
         camera_array = self._bundle.camera_array
-        port_to_index = camera_array.posed_port_to_index
+        cam_id_to_index = camera_array.posed_cam_id_to_index
 
-        if not port_to_index:
+        if not cam_id_to_index:
             logger.debug("No posed cameras for coverage matrix")
             return
 
-        coverage = compute_coverage_matrix(self._bundle.image_points, port_to_index)
-        labels = [f"C{p}" for p in sorted(port_to_index.keys())]
+        coverage = compute_coverage_matrix(self._bundle.image_points, cam_id_to_index)
+        labels = [f"C{c}" for c in sorted(cam_id_to_index.keys())]
 
         self.coverage_updated.emit(coverage, labels)
 

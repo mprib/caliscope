@@ -126,15 +126,15 @@ class ReconstructionPresenter(QObject):
         """List of valid recording directory names.
 
         A recording directory is valid if:
-        1. It contains a port_N.mp4 file for every port in the camera array
+        1. It contains a cam_N.mp4 file for every camera in the camera array
         2. There are no unexpected .mp4 files (catches misnamed files)
         """
         recordings_dir = self._workspace_dir / "recordings"
         if not recordings_dir.exists():
             return []
 
-        expected_ports = set(self._camera_array.cameras.keys())
-        if not expected_ports:
+        expected_cam_ids = set(self._camera_array.cameras.keys())
+        if not expected_cam_ids:
             return []
 
         valid = []
@@ -143,16 +143,16 @@ class ReconstructionPresenter(QObject):
                 # Get all mp4 files in the directory
                 all_mp4s = list(item.glob("*.mp4"))
 
-                # Parse port numbers from properly named files
-                available_ports: set[int] = set()
+                # Parse camera IDs from properly named files
+                available_cam_ids: set[int] = set()
                 for mp4 in all_mp4s:
                     parts = mp4.stem.split("_")
-                    if len(parts) == 2 and parts[0] == "port" and parts[1].isdigit():
-                        available_ports.add(int(parts[1]))
+                    if len(parts) == 2 and parts[0] == "cam" and parts[1].isdigit():
+                        available_cam_ids.add(int(parts[1]))
 
-                # Valid if: all expected ports present AND no unexpected mp4 files
-                expected_files_count = len(expected_ports)
-                if expected_ports == available_ports and len(all_mp4s) == expected_files_count:
+                # Valid if: all expected cameras present AND no unexpected mp4 files
+                expected_files_count = len(expected_cam_ids)
+                if expected_cam_ids == available_cam_ids and len(all_mp4s) == expected_files_count:
                     valid.append(item.name)
 
         return sorted(valid)

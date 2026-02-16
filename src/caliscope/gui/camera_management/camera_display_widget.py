@@ -14,9 +14,9 @@ class CameraDataDisplayWidget(QWidget):
     This receives a dictionary that displays the characteristics of a given camera
     """
 
-    def __init__(self, port: int, coordinator: WorkspaceCoordinator):
+    def __init__(self, cam_id: int, coordinator: WorkspaceCoordinator):
         super().__init__()
-        self.port = port
+        self.cam_id = cam_id
         self.coordinator = coordinator
         self.tree = QTreeWidget()
 
@@ -24,7 +24,7 @@ class CameraDataDisplayWidget(QWidget):
         self.connect_widgets()
 
         # make sure you populate whatever is there on load
-        self.coordinator.push_camera_data(self.port)
+        self.coordinator.push_camera_data(self.cam_id)
 
     def place_widgets(self):
         layout = QVBoxLayout()
@@ -35,11 +35,8 @@ class CameraDataDisplayWidget(QWidget):
     def connect_widgets(self):
         self.coordinator.new_camera_data.connect(self.update_tree)
 
-    def update_tree(self, port, camera_display_dict):
-        # logger.info(f"Updating display tree for port {port} with camera data {camera_display_dict}")
-        # port, camera_display_dict = port_camera_display_dict
-
-        if port == self.port:
+    def update_tree(self, cam_id, camera_display_dict):
+        if cam_id == self.cam_id:
             self.tree.clear()
             # Adding top-level items
             self.add_items(None, self.tree, camera_display_dict)
@@ -119,7 +116,7 @@ if __name__ == "__main__":
 
     test_path = Path(__root__, "tests", "sessions", "prerecorded_calibration")
     coordinator = WorkspaceCoordinator(test_path)
-    ex = CameraDataDisplayWidget(port=0, coordinator=coordinator)
+    ex = CameraDataDisplayWidget(cam_id=0, coordinator=coordinator)
     coordinator.new_camera_data.emit(0, camera_data)
     ex.show()
     sys.exit(app.exec())

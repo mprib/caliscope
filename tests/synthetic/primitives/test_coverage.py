@@ -18,7 +18,7 @@ from caliscope.core.coverage_analysis import (
 from caliscope.synthetic import FilterConfig
 
 
-# Mapping for 3-camera test setup (ports 0, 1, 2 -> indices 0, 1, 2)
+# Mapping for 3-camera test setup (cam_ids 0, 1, 2 -> indices 0, 1, 2)
 THREE_CAMERA_PORT_TO_INDEX = {0: 0, 1: 1, 2: 2}
 
 
@@ -37,11 +37,11 @@ def make_simple_image_points() -> ImagePoints:
     for frame in range(3):
         # Points 0-1: cameras 0,1 only
         for point_id in [0, 1]:
-            for port in [0, 1]:
+            for cam_id in [0, 1]:
                 rows.append(
                     {
                         "sync_index": frame,
-                        "port": port,
+                        "cam_id": cam_id,
                         "point_id": point_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
@@ -52,11 +52,11 @@ def make_simple_image_points() -> ImagePoints:
                 )
         # Points 2-3: cameras 1,2 only
         for point_id in [2, 3]:
-            for port in [1, 2]:
+            for cam_id in [1, 2]:
                 rows.append(
                     {
                         "sync_index": frame,
-                        "port": port,
+                        "cam_id": cam_id,
                         "point_id": point_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
@@ -67,11 +67,11 @@ def make_simple_image_points() -> ImagePoints:
                 )
         # Points 4-5: cameras 0,2 only
         for point_id in [4, 5]:
-            for port in [0, 2]:
+            for cam_id in [0, 2]:
                 rows.append(
                     {
                         "sync_index": frame,
-                        "port": port,
+                        "cam_id": cam_id,
                         "point_id": point_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
@@ -82,11 +82,11 @@ def make_simple_image_points() -> ImagePoints:
                 )
         # Points 6-7: all cameras
         for point_id in [6, 7]:
-            for port in range(3):
+            for cam_id in range(3):
                 rows.append(
                     {
                         "sync_index": frame,
-                        "port": port,
+                        "cam_id": cam_id,
                         "point_id": point_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
@@ -162,7 +162,7 @@ class TestDroppedCameras:
         config = FilterConfig(dropped_cameras=(1,))
         filtered = config.apply(image_points)
 
-        # Pass full port_to_index to maintain 3x3 shape even with dropped camera
+        # Pass full cam_id_to_index to maintain 3x3 shape even with dropped camera
         coverage = compute_coverage_matrix(filtered, THREE_CAMERA_PORT_TO_INDEX)
 
         # Camera 1 should have zero observations (entire row/column is zero)
@@ -188,11 +188,11 @@ class TestCoverageIntegration:
         # 10 frames, both cameras see 5 points each frame
         for frame in range(10):
             for point_id in range(5):
-                for port in [0, 1]:
+                for cam_id in [0, 1]:
                     rows.append(
                         {
                             "sync_index": frame,
-                            "port": port,
+                            "cam_id": cam_id,
                             "point_id": point_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
@@ -205,8 +205,8 @@ class TestCoverageIntegration:
         df = pd.DataFrame(rows)
         image_points = ImagePoints(df)
 
-        two_camera_port_to_index = {0: 0, 1: 1}
-        coverage = compute_coverage_matrix(image_points, two_camera_port_to_index)
+        two_camera_cam_id_to_index = {0: 0, 1: 1}
+        coverage = compute_coverage_matrix(image_points, two_camera_cam_id_to_index)
 
         # Each camera: 10 frames * 5 points = 50 observations
         assert coverage[0, 0] == 50
@@ -239,8 +239,8 @@ class TestLinkQualityClassification:
         assert classify_link_quality(49) == LinkQuality.INSUFFICIENT
 
 
-class TestExtrinsicCoverageReport:
-    """Test the ExtrinsicCoverageReport structure."""
+class TestExtrinsicCoverageRecam_id:
+    """Test the ExtrinsicCoverageRecam_id structure."""
 
     def test_well_connected_network(self):
         """A fully connected 3-camera network has no structural issues."""
@@ -262,7 +262,7 @@ class TestExtrinsicCoverageReport:
                 rows.append(
                     {
                         "sync_index": frame,
-                        "port": 0,
+                        "cam_id": 0,
                         "point_id": point_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
@@ -273,11 +273,11 @@ class TestExtrinsicCoverageReport:
                 )
             # Cameras 1 and 2 share points 10-12
             for point_id in range(10, 13):
-                for port in [1, 2]:
+                for cam_id in [1, 2]:
                     rows.append(
                         {
                             "sync_index": frame,
-                            "port": port,
+                            "cam_id": cam_id,
                             "point_id": point_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
@@ -301,11 +301,11 @@ class TestExtrinsicCoverageReport:
         for frame in range(3):
             # Cameras 0 and 1 share points 0-2
             for point_id in range(3):
-                for port in [0, 1]:
+                for cam_id in [0, 1]:
                     rows.append(
                         {
                             "sync_index": frame,
-                            "port": port,
+                            "cam_id": cam_id,
                             "point_id": point_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
@@ -316,11 +316,11 @@ class TestExtrinsicCoverageReport:
                     )
             # Cameras 2 and 3 share points 3-5 (different point IDs = no cross-link)
             for point_id in range(3, 6):
-                for port in [2, 3]:
+                for cam_id in [2, 3]:
                     rows.append(
                         {
                             "sync_index": frame,
-                            "port": port,
+                            "cam_id": cam_id,
                             "point_id": point_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
@@ -345,11 +345,11 @@ class TestExtrinsicCoverageReport:
         for frame in range(3):
             # Camera 0 and 1 share points 0-2
             for point_id in range(3):
-                for port in [0, 1]:
+                for cam_id in [0, 1]:
                     rows.append(
                         {
                             "sync_index": frame,
-                            "port": port,
+                            "cam_id": cam_id,
                             "point_id": point_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
@@ -360,11 +360,11 @@ class TestExtrinsicCoverageReport:
                     )
             # Camera 1 and 2 share points 3-5
             for point_id in range(3, 6):
-                for port in [1, 2]:
+                for cam_id in [1, 2]:
                     rows.append(
                         {
                             "sync_index": frame,
-                            "port": port,
+                            "cam_id": cam_id,
                             "point_id": point_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
@@ -380,10 +380,10 @@ class TestExtrinsicCoverageReport:
         report = analyze_multi_camera_coverage(image_points)
 
         # Cameras 0 and 2 are leaf nodes (only connected to camera 1)
-        leaf_ports = [port for port, _, _ in report.leaf_cameras]
-        assert 0 in leaf_ports
-        assert 2 in leaf_ports
-        assert 1 not in leaf_ports  # Camera 1 has 2 connections
+        leaf_cam_ids = [cam_id for cam_id, _, _ in report.leaf_cameras]
+        assert 0 in leaf_cam_ids
+        assert 2 in leaf_cam_ids
+        assert 1 not in leaf_cam_ids  # Camera 1 has 2 connections
 
 
 class TestStructuralWarnings:
@@ -411,7 +411,7 @@ class TestStructuralWarnings:
                 rows.append(
                     {
                         "sync_index": frame,
-                        "port": 0,
+                        "cam_id": 0,
                         "point_id": point_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,
@@ -422,11 +422,11 @@ class TestStructuralWarnings:
                 )
             # Cameras 1 and 2 share points 10-12
             for point_id in range(10, 13):
-                for port in [1, 2]:
+                for cam_id in [1, 2]:
                     rows.append(
                         {
                             "sync_index": frame,
-                            "port": port,
+                            "cam_id": cam_id,
                             "point_id": point_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
@@ -451,11 +451,11 @@ class TestStructuralWarnings:
         rows = []
         for frame in range(10):
             for point_id in range(5):
-                for port in [0, 1]:
+                for cam_id in [0, 1]:
                     rows.append(
                         {
                             "sync_index": frame,
-                            "port": port,
+                            "cam_id": cam_id,
                             "point_id": point_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
@@ -482,11 +482,11 @@ class TestStructuralWarnings:
         for frame in range(3):
             # Camera 0 and 1 share only 3 points (9 total observations - weak)
             for point_id in range(3):
-                for port in [0, 1]:
+                for cam_id in [0, 1]:
                     rows.append(
                         {
                             "sync_index": frame,
-                            "port": port,
+                            "cam_id": cam_id,
                             "point_id": point_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
@@ -497,11 +497,11 @@ class TestStructuralWarnings:
                     )
             # Camera 1 and 2 share points 3-52 (150 observations - strong)
             for point_id in range(3, 53):
-                for port in [1, 2]:
+                for cam_id in [1, 2]:
                     rows.append(
                         {
                             "sync_index": frame,
-                            "port": port,
+                            "cam_id": cam_id,
                             "point_id": point_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
@@ -528,11 +528,11 @@ class TestStructuralWarnings:
         # Only camera 1 and 2 connected, camera 0 isolated
         for frame in range(3):
             for point_id in range(3):
-                for port in [1, 2]:
+                for cam_id in [1, 2]:
                     rows.append(
                         {
                             "sync_index": frame,
-                            "port": port,
+                            "cam_id": cam_id,
                             "point_id": point_id,
                             "img_loc_x": 100.0,
                             "img_loc_y": 100.0,
@@ -546,7 +546,7 @@ class TestStructuralWarnings:
                 rows.append(
                     {
                         "sync_index": frame,
-                        "port": 0,
+                        "cam_id": 0,
                         "point_id": point_id,
                         "img_loc_x": 100.0,
                         "img_loc_y": 100.0,

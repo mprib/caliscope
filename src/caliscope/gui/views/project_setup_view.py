@@ -490,7 +490,7 @@ class ProjectSetupView(QWidget):
         if status.camera_count > 0:
             self._camera_count_label.setText(f"Detected cameras: {status.camera_count} (from extrinsic videos)")
         else:
-            self._camera_count_label.setText("No cameras detected (add port_N.mp4 files to calibration/extrinsic/)")
+            self._camera_count_label.setText("No cameras detected (add cam_N.mp4 files to calibration/extrinsic/)")
 
         self._update_intrinsic_row(status)
         self._update_extraction_row(status)
@@ -509,16 +509,16 @@ class ProjectSetupView(QWidget):
             calibrated_count = status.camera_count - len(status.cameras_needing_calibration)
             detail = f"{calibrated_count}/{status.camera_count} cameras calibrated"
             if status.cameras_needing_calibration:
-                ports = ", ".join(str(p) for p in status.cameras_needing_calibration[:3])
+                cam_labels = ", ".join(str(p) for p in status.cameras_needing_calibration[:3])
                 if len(status.cameras_needing_calibration) > 3:
-                    ports += "..."
-                detail += f" (need: {ports})"
+                    cam_labels += "..."
+                detail += f" (need: {cam_labels})"
         else:
             if status.intrinsic_videos_missing:
-                ports = ", ".join(str(p) for p in status.intrinsic_videos_missing[:3])
+                cam_labels = ", ".join(str(p) for p in status.intrinsic_videos_missing[:3])
                 if len(status.intrinsic_videos_missing) > 3:
-                    ports += "..."
-                detail = f"Missing videos: port {ports}"
+                    cam_labels += "..."
+                detail = f"Missing videos: cam {cam_labels}"
             else:
                 detail = "Not started"
 
@@ -536,10 +536,10 @@ class ProjectSetupView(QWidget):
             if not status.intrinsic_calibration_complete:
                 detail = "Waiting for intrinsic calibration"
             elif status.extrinsic_videos_missing:
-                ports = ", ".join(str(p) for p in status.extrinsic_videos_missing[:3])
+                cam_labels = ", ".join(str(p) for p in status.extrinsic_videos_missing[:3])
                 if len(status.extrinsic_videos_missing) > 3:
-                    ports += "..."
-                detail = f"Missing videos: port {ports}"
+                    cam_labels += "..."
+                detail = f"Missing videos: cam {cam_labels}"
             else:
                 detail = "Not started"
 

@@ -12,7 +12,7 @@ from caliscope.synthetic import FilterConfig
 def make_test_image_points() -> ImagePoints:
     """Create test ImagePoints with predictable structure for filter testing.
 
-    4 cameras (ports 0-3), 5 frames (0-4):
+    4 cameras (cam_ids 0-3), 5 frames (0-4):
     - Points 0-2: camera 0 only (exclusive to cam 0)
     - Points 3-5: camera 1 only (exclusive to cam 1)
     - Points 6-8: cameras 0 and 1 shared (linkage 0-1)
@@ -31,7 +31,7 @@ def make_test_image_points() -> ImagePoints:
             rows.append(
                 {
                     "sync_index": frame,
-                    "port": 0,
+                    "cam_id": 0,
                     "point_id": point_id,
                     "img_loc_x": float(frame * 10 + point_id),
                     "img_loc_y": float(frame * 10 + point_id),
@@ -45,7 +45,7 @@ def make_test_image_points() -> ImagePoints:
             rows.append(
                 {
                     "sync_index": frame,
-                    "port": 1,
+                    "cam_id": 1,
                     "point_id": point_id,
                     "img_loc_x": float(frame * 10 + point_id),
                     "img_loc_y": float(frame * 10 + point_id),
@@ -56,14 +56,14 @@ def make_test_image_points() -> ImagePoints:
             )
         # Points 6-8: cameras 0 and 1 shared
         for point_id in range(6, 9):
-            for port in [0, 1]:
+            for cam_id in [0, 1]:
                 rows.append(
                     {
                         "sync_index": frame,
-                        "port": port,
+                        "cam_id": cam_id,
                         "point_id": point_id,
-                        "img_loc_x": float(frame * 10 + port + point_id),
-                        "img_loc_y": float(frame * 10 + port + point_id),
+                        "img_loc_x": float(frame * 10 + cam_id + point_id),
+                        "img_loc_y": float(frame * 10 + cam_id + point_id),
                         "obj_loc_x": 0.0,
                         "obj_loc_y": 0.0,
                         "obj_loc_z": 0.0,
@@ -71,14 +71,14 @@ def make_test_image_points() -> ImagePoints:
                 )
         # Points 9-11: cameras 2 and 3 shared
         for point_id in range(9, 12):
-            for port in [2, 3]:
+            for cam_id in [2, 3]:
                 rows.append(
                     {
                         "sync_index": frame,
-                        "port": port,
+                        "cam_id": cam_id,
                         "point_id": point_id,
-                        "img_loc_x": float(frame * 10 + port + point_id),
-                        "img_loc_y": float(frame * 10 + port + point_id),
+                        "img_loc_x": float(frame * 10 + cam_id + point_id),
+                        "img_loc_y": float(frame * 10 + cam_id + point_id),
                         "obj_loc_x": 0.0,
                         "obj_loc_y": 0.0,
                         "obj_loc_z": 0.0,
@@ -86,14 +86,14 @@ def make_test_image_points() -> ImagePoints:
                 )
         # Points 12-14: all cameras
         for point_id in range(12, 15):
-            for port in range(4):
+            for cam_id in range(4):
                 rows.append(
                     {
                         "sync_index": frame,
-                        "port": port,
+                        "cam_id": cam_id,
                         "point_id": point_id,
-                        "img_loc_x": float(frame * 10 + port + point_id),
-                        "img_loc_y": float(frame * 10 + port + point_id),
+                        "img_loc_x": float(frame * 10 + cam_id + point_id),
+                        "img_loc_y": float(frame * 10 + cam_id + point_id),
                         "obj_loc_x": 0.0,
                         "obj_loc_y": 0.0,
                         "obj_loc_z": 0.0,
@@ -159,13 +159,13 @@ class TestDroppedCameras:
 
         filtered = config.apply(image_points)
 
-        # Should have no observations from port 1
-        assert 1 not in filtered.df["port"].values
+        # Should have no observations from cam_id 1
+        assert 1 not in filtered.df["cam_id"].values
 
         # Other cameras should still be present
-        assert 0 in filtered.df["port"].values
-        assert 2 in filtered.df["port"].values
-        assert 3 in filtered.df["port"].values
+        assert 0 in filtered.df["cam_id"].values
+        assert 2 in filtered.df["cam_id"].values
+        assert 3 in filtered.df["cam_id"].values
 
         # Verify some data was removed
         assert len(filtered.df) < original_count
@@ -182,20 +182,20 @@ class TestKilledLinkages:
         filtered = config.apply(image_points)
 
         # Should still have data from both cameras
-        assert 0 in filtered.df["port"].values
-        assert 1 in filtered.df["port"].values
+        assert 0 in filtered.df["cam_id"].values
+        assert 1 in filtered.df["cam_id"].values
 
         # But no (sync_index, point_id) should be shared between them
         cam0_obs = set(
             zip(
-                filtered.df[filtered.df["port"] == 0]["sync_index"],
-                filtered.df[filtered.df["port"] == 0]["point_id"],
+                filtered.df[filtered.df["cam_id"] == 0]["sync_index"],
+                filtered.df[filtered.df["cam_id"] == 0]["point_id"],
             )
         )
         cam1_obs = set(
             zip(
-                filtered.df[filtered.df["port"] == 1]["sync_index"],
-                filtered.df[filtered.df["port"] == 1]["point_id"],
+                filtered.df[filtered.df["cam_id"] == 1]["sync_index"],
+                filtered.df[filtered.df["cam_id"] == 1]["point_id"],
             )
         )
 
@@ -278,7 +278,7 @@ class TestCombinedFilters:
         filtered = config.apply(image_points)
 
         # Should have applied all filters
-        assert 3 not in filtered.df["port"].values
+        assert 3 not in filtered.df["cam_id"].values
         assert 4 not in filtered.df["sync_index"].values
 
         # Some data should remain

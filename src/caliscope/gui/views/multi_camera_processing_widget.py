@@ -241,29 +241,29 @@ class MultiCameraProcessingWidget(QWidget):
 
         # Create new cards
         cameras = self._presenter.cameras
-        for i, port in enumerate(sorted(cameras.keys())):
+        for i, cam_id in enumerate(sorted(cameras.keys())):
             row = i // self._current_columns
             col = i % self._current_columns
 
-            card = CameraThumbnailCard(port)
+            card = CameraThumbnailCard(cam_id)
             card.rotate_requested.connect(self._on_rotate_requested)
             self._camera_grid.addWidget(card, row, col)
-            self._camera_cards[port] = card
+            self._camera_cards[cam_id] = card
 
         # Load initial thumbnails
-        for port, frame in self._presenter.thumbnails.items():
-            if port in self._camera_cards:
-                rotation = self._presenter.cameras[port].rotation_count
-                self._camera_cards[port].set_thumbnail(frame, rotation)
+        for cam_id, frame in self._presenter.thumbnails.items():
+            if cam_id in self._camera_cards:
+                rotation = self._presenter.cameras[cam_id].rotation_count
+                self._camera_cards[cam_id].set_thumbnail(frame, rotation)
 
     def _reflow_grid(self) -> None:
         """Reposition existing camera cards based on current column count.
 
         More efficient than _rebuild_camera_grid - doesn't recreate widgets.
         """
-        ports = sorted(self._camera_cards.keys())
-        for i, port in enumerate(ports):
-            card = self._camera_cards[port]
+        cam_ids = sorted(self._camera_cards.keys())
+        for i, cam_id in enumerate(cam_ids):
+            card = self._camera_cards[cam_id]
             row = i // self._current_columns
             col = i % self._current_columns
             self._camera_grid.addWidget(card, row, col)
@@ -354,17 +354,17 @@ class MultiCameraProcessingWidget(QWidget):
         self._progress_bar.setValue(percent)
         self._progress_label.setText(f"Processing: {current}/{total} frames ({percent}%)")
 
-    def _on_thumbnail_updated(self, port: int, frame: NDArray, points: "PointPacket | None") -> None:
+    def _on_thumbnail_updated(self, cam_id: int, frame: NDArray, points: "PointPacket | None") -> None:
         """Handle thumbnail update from presenter.
 
         Args:
-            port: Camera port
+            cam_id: Camera cam_id
             frame: BGR image
             points: Tracked landmarks to overlay (or None)
         """
-        if port in self._camera_cards:
-            rotation = self._presenter.cameras[port].rotation_count
-            self._camera_cards[port].set_thumbnail(frame, rotation, points)
+        if cam_id in self._camera_cards:
+            rotation = self._presenter.cameras[cam_id].rotation_count
+            self._camera_cards[cam_id].set_thumbnail(frame, rotation, points)
 
     def _on_processing_complete(
         self,
@@ -375,9 +375,9 @@ class MultiCameraProcessingWidget(QWidget):
         """Handle processing completion from presenter."""
         from caliscope.core.coverage_analysis import detect_structural_warnings
 
-        # Update coverage heatmap with port-based labels
-        ports = sorted(self._presenter.cameras.keys())
-        labels = [f"C{p}" for p in ports]
+        # Update coverage heatmap with cam_id-based labels
+        cam_ids = sorted(self._presenter.cameras.keys())
+        labels = [f"C{p}" for p in cam_ids]
         self._coverage_heatmap.set_data(
             coverage_report.pairwise_observations,
             killed_linkages=set(),  # No killed linkages in initial processing
@@ -389,7 +389,7 @@ class MultiCameraProcessingWidget(QWidget):
         self._frames_value.setText(str(n_frames))
 
         # Detect and display structural warnings
-        n_cameras = len(ports)
+        n_cameras = len(cam_ids)
         warnings = detect_structural_warnings(coverage_report, n_cameras)
         self._warnings_widget.set_warnings(warnings)
 
@@ -417,14 +417,14 @@ class MultiCameraProcessingWidget(QWidget):
         elif state == MultiCameraProcessingState.COMPLETE:
             self._presenter.reset()
 
-    def _on_rotate_requested(self, port: int, direction: int) -> None:
+    def _on_rotate_requested(self, cam_id: int, direction: int) -> None:
         """Handle rotation request from camera card.
 
         Args:
-            port: Camera port
+            cam_id: Camera cam_id
             direction: +1 for clockwise, -1 for counter-clockwise
         """
-        if port in self._presenter.cameras:
-            current = self._presenter.cameras[port].rotation_count
+        if cam_id in self._presenter.cameras:
+            current = self._presenter.cameras[cam_id].rotation_count
             new_rotation = (current + direction) % 4
-            self._presenter.set_rotation(port, new_rotation)
+            self._presenter.set_rotation(cam_id, new_rotation)

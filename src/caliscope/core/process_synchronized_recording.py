@@ -1,7 +1,7 @@
 """Batch processing of synchronized multi-camera video.
 
 Pure function that extracts 2D landmarks from synchronized video streams.
-Uses batch synchronization from timestamps.csv — no real-time streaming.
+Uses batch synchronization from frametimes.csv — no real-time streaming.
 """
 
 import logging
@@ -45,23 +45,23 @@ def process_synchronized_recording(
 ) -> ImagePoints:
     """Process synchronized video recordings to extract 2D landmarks.
 
-    Reads timestamps.csv to determine frame alignment, then processes
+    Reads frametimes.csv to determine frame alignment, then processes
     each sync index by seeking directly to aligned frames.
 
     Args:
-        recording_dir: Directory containing port_N.mp4 and timestamps.csv
-        cameras: Camera data by port (provides rotation_count for frame orientation)
-        tracker: Tracker for 2D point extraction (handles per-port state internally)
+        recording_dir: Directory containing cam_N.mp4 and frametimes.csv
+        cameras: Camera data by cam_id (provides rotation_count for frame orientation)
+        tracker: Tracker for 2D point extraction (handles per-cam_id state internally)
         subsample: Process every Nth sync index (1 = all, 10 = every 10th)
         on_progress: Called with (current, total) during processing
-        on_frame_data: Called with (sync_index, {port: FrameData}) for live display
+        on_frame_data: Called with (sync_index, {cam_id: FrameData}) for live display
         token: Cancellation token for graceful shutdown
 
     Returns:
         ImagePoints containing all tracked 2D observations
     """
     # Load frame timestamps and compute sync assignments
-    timestamps_csv = recording_dir / "timestamps.csv"
+    timestamps_csv = recording_dir / "frametimes.csv"
     sync_map = compute_sync_indices(timestamps_csv)
 
     # Load frame_time data for enriching output
@@ -90,32 +90,34 @@ def process_synchronized_recording(
 
             # Read and track frames for this sync index
             frame_data: dict[int, FrameData] = {}
-            port_assignments = sync_map[sync_index]
+            cam_id_assignments = sync_map[sync_index]
 
-            for port, frame_index in port_assignments.items():
+            for cam_id, frame_index in cam_id_assignments.items():
                 if frame_index is None:
-                    logger.debug(f"Dropped frame: sync={sync_index}, port={port}")
+                    logger.debug(f"Dropped frame: sync={sync_index}, cam_id={cam_id}")
                     continue
 
-                if port not in frame_sources:
+                if cam_id not in frame_sources:
                     # Camera in sync_map but not in cameras dict (shouldn't happen)
-                    logger.warning(f"Port {port} not in cameras dict, skipping")
+                    logger.warning(f"cam_id {cam_id} not in cameras dict, skipping")
                     continue
 
-                camera = cameras[port]
-                frame = frame_sources[port].get_frame(frame_index)
+                camera = cameras[cam_id]
+                frame = frame_sources[cam_id].get_frame(frame_index)
 
                 if frame is None:
-                    logger.warning(f"Failed to read frame: sync={sync_index}, port={port}, frame_index={frame_index}")
+                    logger.warning(
+                        f"Failed to read frame: sync={sync_index}, cam_id={cam_id}, frame_index={frame_index}"
+                    )
                     continue
 
-                # Tracker handles per-port state internally via port parameter
-                points = tracker.get_points(frame, port, camera.rotation_count)
-                frame_data[port] = FrameData(frame, points, frame_index)
+                # Tracker handles per-cam_id state internally via cam_id parameter
+                points = tracker.get_points(frame, cam_id, camera.rotation_count)
+                frame_data[cam_id] = FrameData(frame, points, frame_index)
 
                 # Accumulate points
-                frame_time = frame_times.get((port, frame_index), 0.0)
-                _accumulate_points(point_rows, sync_index, port, frame_index, frame_time, points)
+                frame_time = frame_times.get((cam_id, frame_index), 0.0)
+                _accumulate_points(point_rows, sync_index, cam_id, frame_index, frame_time, points)
 
             # Invoke callbacks
             if on_frame_data is not None:
@@ -139,59 +141,59 @@ def get_initial_thumbnails(
     Uses same FrameSource mechanism as processing, just reads frame 0.
 
     Args:
-        recording_dir: Directory containing port_N.mp4 files
-        cameras: Camera data by port
+        recording_dir: Directory containing cam_N.mp4 files
+        cameras: Camera data by cam_id
 
     Returns:
-        Mapping of port -> first frame (BGR image)
+        Mapping of cam_id -> first frame (BGR image)
     """
     thumbnails: dict[int, NDArray[np.uint8]] = {}
 
-    for port in cameras:
+    for cam_id in cameras:
         try:
-            source = FrameSource(recording_dir, port)
+            source = FrameSource(recording_dir, cam_id)
             frame = source.get_frame(0)
             source.close()
 
             if frame is not None:
-                thumbnails[port] = frame
+                thumbnails[cam_id] = frame
             else:
-                logger.warning(f"Could not read first frame for port {port}")
+                logger.warning(f"Could not read first frame for cam_id {cam_id}")
         except FileNotFoundError:
-            logger.warning(f"Video file not found for port {port}")
+            logger.warning(f"Video file not found for cam_id {cam_id}")
         except ValueError as e:
-            logger.warning(f"Error opening video for port {port}: {e}")
+            logger.warning(f"Error opening video for cam_id {cam_id}: {e}")
 
     return thumbnails
 
 
 def _create_frame_sources(recording_dir: Path, cameras: dict[int, CameraData]) -> dict[int, FrameSource]:
-    """Create FrameSource for each camera port."""
+    """Create FrameSource for each camera cam_id."""
     sources: dict[int, FrameSource] = {}
 
-    for port in cameras:
+    for cam_id in cameras:
         try:
-            sources[port] = FrameSource(recording_dir, port)
+            sources[cam_id] = FrameSource(recording_dir, cam_id)
         except FileNotFoundError:
-            logger.warning(f"Video file not found for port {port}, skipping")
+            logger.warning(f"Video file not found for cam_id {cam_id}, skipping")
         except ValueError as e:
-            logger.warning(f"Error opening video for port {port}: {e}")
+            logger.warning(f"Error opening video for cam_id {cam_id}: {e}")
 
     return sources
 
 
 def _build_frame_time_lookup(timestamps_df: pd.DataFrame) -> dict[tuple[int, int], float]:
-    """Build lookup table: (port, frame_index) -> frame_time.
+    """Build lookup table: (cam_id, frame_index) -> frame_time.
 
-    Frame index is the row number within each port's sequence.
+    Frame index is the row number within each cam_id's sequence.
     """
     lookup: dict[tuple[int, int], float] = {}
 
-    for port, group in timestamps_df.groupby("port"):
+    for cam_id, group in timestamps_df.groupby("cam_id"):
         sorted_group = group.sort_values("frame_time").reset_index(drop=True)
         for frame_index, row in sorted_group.iterrows():
             # frame_index here is actually the integer index from iterrows
-            lookup[(int(port), int(frame_index))] = float(row["frame_time"])  # type: ignore[arg-type]
+            lookup[(int(cam_id), int(frame_index))] = float(row["frame_time"])  # type: ignore[arg-type]
 
     return lookup
 
@@ -199,7 +201,7 @@ def _build_frame_time_lookup(timestamps_df: pd.DataFrame) -> dict[tuple[int, int
 def _accumulate_points(
     point_rows: list[dict],
     sync_index: int,
-    port: int,
+    cam_id: int,
     frame_index: int,
     frame_time: float,
     points: PointPacket | None,
@@ -219,7 +221,7 @@ def _accumulate_points(
         point_rows.append(
             {
                 "sync_index": sync_index,
-                "port": port,
+                "cam_id": cam_id,
                 "frame_index": frame_index,
                 "frame_time": frame_time,
                 "point_id": int(points.point_id[i]),
@@ -239,7 +241,7 @@ def _build_image_points(point_rows: list[dict]) -> ImagePoints:
         df = pd.DataFrame(
             columns=[
                 "sync_index",
-                "port",
+                "cam_id",
                 "frame_index",
                 "frame_time",
                 "point_id",

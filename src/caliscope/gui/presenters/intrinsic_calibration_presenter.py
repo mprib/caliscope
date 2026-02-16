@@ -94,7 +94,7 @@ class IntrinsicCalibrationPresenter(QObject):
         """Initialize the presenter.
 
         Args:
-            camera: CameraData with port, size, rotation_count
+            camera: CameraData with cam_id, size, rotation_count
             video_path: Path to the video file for this camera
             tracker: Tracker for calibration board point detection
             task_manager: TaskManager for background calibration
@@ -112,7 +112,7 @@ class IntrinsicCalibrationPresenter(QObject):
         self._frame_skip = frame_skip
 
         # Derived properties for convenience
-        self._port = camera.port
+        self._cam_id = camera.cam_id
         self._image_size = camera.size
 
         # Scratchpad state - may be restored from previous calibration
@@ -124,7 +124,7 @@ class IntrinsicCalibrationPresenter(QObject):
         # Restore previous calibration state if available
         if restored_report is not None and camera.matrix is not None:
             self._output = IntrinsicCalibrationOutput(camera=camera, report=restored_report)
-            logger.info(f"Restored calibration for port {self._port}")
+            logger.info(f"Restored calibration for cam_id {self._cam_id}")
 
         if restored_points is not None:
             self._collected_points = list(restored_points)
@@ -140,7 +140,7 @@ class IntrinsicCalibrationPresenter(QObject):
         # Single streamer for scrubbing (READY/CALIBRATED states)
         self._streamer = create_streamer(
             video_directory=self._video_path.parent,
-            port=self._camera.port,
+            cam_id=self._camera.cam_id,
             rotation_count=self._camera.rotation_count,
             tracker=self._tracker,
             end_behavior="pause",  # Pause at end for interactive scrubbing
@@ -151,7 +151,7 @@ class IntrinsicCalibrationPresenter(QObject):
         # Start streamer worker (will read first frame, then we pause)
         self._stream_handle = self._task_manager.submit(
             self._streamer.play_worker,
-            name=f"Streamer port {self._port}",
+            name=f"Streamer cam_id {self._cam_id}",
         )
         self._streamer.pause()  # Immediately pause for scrubbing mode
 
@@ -283,7 +283,7 @@ class IntrinsicCalibrationPresenter(QObject):
             logger.warning(f"Cannot start calibration in state {self.state}")
             return
 
-        logger.info(f"Starting calibration collection for port {self._port}")
+        logger.info(f"Starting calibration collection for cam_id {self._cam_id}")
 
         # Clear previous calibration data BEFORE setting collecting flag
         # (state is computed: CALIBRATED check comes before COLLECTING check)
@@ -313,7 +313,7 @@ class IntrinsicCalibrationPresenter(QObject):
             logger.warning(f"Cannot stop calibration in state {self.state}")
             return
 
-        logger.info(f"Stopping calibration collection for port {self._port}")
+        logger.info(f"Stopping calibration collection for cam_id {self._cam_id}")
 
         self._stop_collection.set()
         if self._collection_thread is not None:
@@ -331,7 +331,7 @@ class IntrinsicCalibrationPresenter(QObject):
         indices, tracks each frame, accumulates points, and emits for display.
         Matches the pattern in process_synchronized_recording().
         """
-        frame_source = FrameSource(self._video_path.parent, self._port)
+        frame_source = FrameSource(self._video_path.parent, self._cam_id)
         last_index = self._streamer.last_frame_index
         frame_skip = max(1, self._frame_skip)
 
@@ -351,7 +351,7 @@ class IntrinsicCalibrationPresenter(QObject):
                     continue
 
                 # Track the frame
-                points = self._tracker.get_points(frame, self._port, self._camera.rotation_count)
+                points = self._tracker.get_points(frame, self._cam_id, self._camera.rotation_count)
 
                 # Accumulate if board detected
                 if points is not None and len(points.point_id) > 0:
@@ -359,7 +359,7 @@ class IntrinsicCalibrationPresenter(QObject):
 
                 # Emit for display (subsampled frames only — preferred)
                 packet = FramePacket(
-                    port=self._port,
+                    cam_id=self._cam_id,
                     frame_index=frame_idx,
                     frame_time=0.0,
                     frame=frame,
@@ -386,7 +386,7 @@ class IntrinsicCalibrationPresenter(QObject):
         Handles scrubbing in READY/CALIBRATED states. During COLLECTING state,
         the batch loop writes directly to the display queue instead.
         """
-        logger.debug(f"Consumer thread started for port {self._port}")
+        logger.debug(f"Consumer thread started for cam_id {self._cam_id}")
 
         while not self._stop_event.is_set():
             # Exit if streamer was cancelled externally
@@ -407,7 +407,7 @@ class IntrinsicCalibrationPresenter(QObject):
             self._current_frame_index = packet.frame_index
             self.frame_position_changed.emit(packet.frame_index)
 
-        logger.debug(f"Consumer thread exiting for port {self._port}")
+        logger.debug(f"Consumer thread exiting for cam_id {self._cam_id}")
 
     # -------------------------------------------------------------------------
     # Post-collection: calibration pipeline
@@ -418,12 +418,12 @@ class IntrinsicCalibrationPresenter(QObject):
         self._is_collecting = False
 
         if len(self._collected_points) == 0:
-            logger.warning(f"No points collected for port {self._port}")
+            logger.warning(f"No points collected for cam_id {self._cam_id}")
             self.calibration_failed.emit("No calibration boards detected in video")
             self._emit_state_changed()
             return
 
-        logger.info(f"Collection complete for port {self._port}: {len(self._collected_points)} frames with points")
+        logger.info(f"Collection complete for cam_id {self._cam_id}: {len(self._collected_points)} frames with points")
 
         # Build ImagePoints from collected data
         try:
@@ -435,10 +435,10 @@ class IntrinsicCalibrationPresenter(QObject):
             return
 
         # Select calibration frames
-        selection_result = select_calibration_frames(image_points, self._port, self._image_size)
+        selection_result = select_calibration_frames(image_points, self._cam_id, self._image_size)
 
         if not selection_result.selected_frames:
-            logger.warning(f"No frames selected for calibration at port {self._port}")
+            logger.warning(f"No frames selected for calibration at cam_id {self._cam_id}")
             self.calibration_failed.emit("Frame selection found no suitable frames")
             self._emit_state_changed()
             return
@@ -461,7 +461,7 @@ class IntrinsicCalibrationPresenter(QObject):
 
         self._calibration_task = self._task_manager.submit(
             calibration_worker,
-            name=f"Intrinsic calibration port {self._port}",
+            name=f"Intrinsic calibration cam_id {self._cam_id}",
         )
         # Use QueuedConnection - TaskHandle signals emitted from worker threads
         self._calibration_task.completed.connect(
@@ -487,7 +487,7 @@ class IntrinsicCalibrationPresenter(QObject):
             # Build row data matching ImagePoints schema
             row_data = {
                 "sync_index": [frame_index] * point_count,
-                "port": [self._port] * point_count,
+                "cam_id": [self._cam_id] * point_count,
                 "frame_index": [frame_index] * point_count,
                 "frame_time": [0.0] * point_count,  # Not used for calibration
                 "point_id": points.point_id.tolist(),
@@ -506,7 +506,7 @@ class IntrinsicCalibrationPresenter(QObject):
         """Handle successful calibration. Stores output and emits signal."""
         report = output.report
         logger.info(
-            f"Calibration complete for port {self._port}: rmse={report.rmse:.3f}px, frames={report.frames_used}"
+            f"Calibration complete for cam_id {self._cam_id}: rmse={report.rmse:.3f}px, frames={report.frames_used}"
         )
 
         # Store complete output (camera + report)
@@ -520,14 +520,14 @@ class IntrinsicCalibrationPresenter(QObject):
 
     def _on_calibration_failed(self, exc_type: str, message: str) -> None:
         """Handle calibration failure."""
-        logger.error(f"Calibration failed for port {self._port}: {exc_type}: {message}")
+        logger.error(f"Calibration failed for cam_id {self._cam_id}: {exc_type}: {message}")
         self.calibration_failed.emit(f"{exc_type}: {message}")
         self._emit_state_changed()
 
     def _emit_state_changed(self) -> None:
         """Emit state_changed signal with current computed state."""
         current_state = self.state
-        logger.debug(f"State changed to {current_state} for port {self._port}")
+        logger.debug(f"State changed to {current_state} for cam_id {self._cam_id}")
         self.state_changed.emit(current_state)
 
     def update_tracker(self, tracker: Tracker) -> None:
@@ -545,7 +545,7 @@ class IntrinsicCalibrationPresenter(QObject):
         self._collected_points.clear()
         self._selection_result = None
         self._output = None
-        logger.info(f"Tracker updated for port {self._port}, cleared collected points")
+        logger.info(f"Tracker updated for cam_id {self._cam_id}, cleared collected points")
         self._emit_state_changed()
         self.refresh_display()
 

@@ -18,12 +18,12 @@ class Tracker(ABC):
         return "Name Me"
 
     @abstractmethod
-    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
+    def get_points(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
         """
         frame: np.ndarray from reading an OpenCV capture object
 
-        port: integer value usd to track which camera the frame originates from
-              Default 0 for trackers that don't need camera identification
+        cam_id: integer value used to track which camera the frame originates from
+                Default 0 for trackers that don't need camera identification
 
         rotation count: used to indicate the orientation of the image (e.g. rotateed 90 degrees left or right)
                         Some tracking algorithms expect images to be "upright", so this can be used to align the image

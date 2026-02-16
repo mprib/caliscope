@@ -66,7 +66,7 @@ class OnnxTracker(Tracker):
         self.input_name = self.session.get_inputs()[0].name
 
         # Tracking state: per-camera previous bounding box in post-rotation coords.
-        # Keyed by port to isolate state across cameras (single tracker instance
+        # Keyed by cam_id to isolate state across cameras (single tracker instance
         # is shared across all cameras — see Reconstructor/SynchronizedStreamManager).
         self._prev_bboxes: dict[int, tuple[int, int, int, int]] = {}
 
@@ -295,7 +295,7 @@ class OnnxTracker(Tracker):
 
         return keypoints, confidence
 
-    def get_points(self, frame: np.ndarray, port: int = 0, rotation_count: int = 0) -> PointPacket:
+    def get_points(self, frame: np.ndarray, cam_id: int = 0, rotation_count: int = 0) -> PointPacket:
         """Detect pose keypoints in frame using three-tier search.
 
         Tier 1: Crop to previous detection (fast, common case)
@@ -307,7 +307,7 @@ class OnnxTracker(Tracker):
 
         Args:
             frame: BGR image from cv2.VideoCapture
-            port: Camera identifier (unused by tracker, passed through)
+            cam_id: Camera identifier (unused by tracker, passed through)
             rotation_count: Number of 90-degree rotations to apply
 
         Returns:
@@ -319,7 +319,7 @@ class OnnxTracker(Tracker):
         frame_h, frame_w = frame.shape[:2]
         keypoints: np.ndarray | None = None
         confidence: np.ndarray | None = None
-        prev_bbox = self._prev_bboxes.get(port)
+        prev_bbox = self._prev_bboxes.get(cam_id)
 
         # Tier 1: Crop to previous detection
         if prev_bbox is not None:
@@ -349,7 +349,7 @@ class OnnxTracker(Tracker):
         assert confidence is not None  # All paths above assign confidence
 
         # Update tracking state for this camera
-        self._prev_bboxes[port] = self._bbox_from_keypoints(keypoints, confidence, frame_w, frame_h)
+        self._prev_bboxes[cam_id] = self._bbox_from_keypoints(keypoints, confidence, frame_w, frame_h)
 
         # Unrotate points if needed
         if rotation_count != 0:

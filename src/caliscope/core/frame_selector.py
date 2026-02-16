@@ -96,7 +96,7 @@ class IntrinsicCoverageReport:
 
 def select_calibration_frames(
     image_points: ImagePoints,
-    port: int,
+    cam_id: int,
     image_size: tuple[int, int],
     *,
     target_frame_count: int = 30,
@@ -121,7 +121,7 @@ def select_calibration_frames(
 
     Args:
         image_points: Detected charuco corners across all frames
-        port: Camera port to select frames for
+        cam_id: Camera cam_id to select frames for
         image_size: (width, height) of the camera image
         target_frame_count: Maximum frames to select (default 30)
         min_corners_per_frame: Minimum corners required per frame (default 6)
@@ -132,9 +132,9 @@ def select_calibration_frames(
         IntrinsicCoverageReport with selected sync_index values, quality metrics,
         and orientation_sufficient flag indicating if diversity requirements were met
     """
-    # Filter to specified port
-    port_df = cast(pd.DataFrame, image_points.df[image_points.df["port"] == port].copy())
-    total_frame_count = int(port_df["sync_index"].nunique())
+    # Filter to specified cam_id
+    cam_df = cast(pd.DataFrame, image_points.df[image_points.df["cam_id"] == cam_id].copy())
+    total_frame_count = int(cam_df["sync_index"].nunique())
 
     if total_frame_count == 0:
         return IntrinsicCoverageReport(
@@ -150,7 +150,7 @@ def select_calibration_frames(
         )
 
     # Filter eligible frames (only by corner count - no coverage filtering)
-    eligible_frames = _filter_eligible_frames(port_df, min_corners_per_frame)
+    eligible_frames = _filter_eligible_frames(cam_df, min_corners_per_frame)
 
     if not eligible_frames:
         return IntrinsicCoverageReport(
@@ -168,7 +168,7 @@ def select_calibration_frames(
     # Precompute coverage, pose, and orientation features for all eligible frames
     frame_data: dict[int, FrameCoverageData] = {}
     for sync_index in eligible_frames:
-        frame_df = cast(pd.DataFrame, port_df[port_df["sync_index"] == sync_index])
+        frame_df = cast(pd.DataFrame, cam_df[cam_df["sync_index"] == sync_index])
         coverage = _compute_frame_coverage(frame_df, image_size, grid_size)
         pose = _compute_pose_features(frame_df, image_size)
         orientation = _compute_orientation_features(frame_df)
@@ -210,7 +210,7 @@ def select_calibration_frames(
 
 
 def _filter_eligible_frames(
-    port_df: pd.DataFrame,
+    cam_df: pd.DataFrame,
     min_corners: int,
 ) -> list[int]:
     """Filter frames meeting minimum corner count.
@@ -220,7 +220,7 @@ def _filter_eligible_frames(
     for focal length estimation per Zhang (2000).
     """
     eligible: list[int] = []
-    grouped = port_df.groupby("sync_index")
+    grouped = cam_df.groupby("sync_index")
     for sync_index_key, frame_group in grouped:
         frame_df = cast(pd.DataFrame, frame_group)
         sync_index = int(sync_index_key)  # type: ignore[arg-type]

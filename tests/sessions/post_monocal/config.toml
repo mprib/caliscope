@@ -2,7 +2,7 @@ CreationDate = 2023-05-06T11:12:27.631355
 fps_sync_stream_processing = 24
 
 [cam_0]
-port = 0
+cam_id =0
 size = [ 1280, 720,]
 rotation_count = 0
 error = 0.19
@@ -16,7 +16,7 @@ ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 
 [cam_1]
-port = 1
+cam_id =1
 size = [ 1280, 720,]
 rotation_count = -1
 error = 0.469
@@ -30,7 +30,7 @@ ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 
 [cam_2]
-port = 2
+cam_id =2
 size = [ 1280, 720,]
 rotation_count = 1
 error = 0.656
@@ -44,7 +44,7 @@ ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 
 [cam_3]
-port = 3
+cam_id =3
 size = [ 1280, 720,]
 rotation_count = 0
 error = 0.276

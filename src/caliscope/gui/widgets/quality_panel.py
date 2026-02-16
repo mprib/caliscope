@@ -155,9 +155,9 @@ class QualityPanel(QWidget):
 
         # Update per-camera table
         self._table.setRowCount(len(data.camera_rows))
-        for row, (port, n_obs, rmse) in enumerate(data.camera_rows):
-            port_item = QTableWidgetItem(f"Port {port}")
-            port_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        for row, (cam_id, n_obs, rmse) in enumerate(data.camera_rows):
+            cam_id_item = QTableWidgetItem(f"Cam {cam_id}")
+            cam_id_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
             obs_item = QTableWidgetItem(f"{n_obs:,}")
             obs_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -165,7 +165,7 @@ class QualityPanel(QWidget):
             rmse_item = QTableWidgetItem(f"{rmse:.3f}")
             rmse_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
-            self._table.setItem(row, 0, port_item)
+            self._table.setItem(row, 0, cam_id_item)
             self._table.setItem(row, 1, obs_item)
             self._table.setItem(row, 2, rmse_item)
 

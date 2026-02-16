@@ -12,9 +12,9 @@ class TestComputeSyncIndices:
 
     @pytest.fixture(
         params=[
-            "tests/sessions/4_cam_recording/calibration/extrinsic/timestamps.csv",
-            "tests/sessions/mediapipe_calibration_2_cam/calibration/extrinsic/timestamps.csv",
-            "tests/sessions/4_cam_recording/recordings/recording_1/timestamps.csv",
+            "tests/sessions/4_cam_recording/calibration/extrinsic/frametimes.csv",
+            "tests/sessions/mediapipe_calibration_2_cam/calibration/extrinsic/frametimes.csv",
+            "tests/sessions/4_cam_recording/recordings/recording_1/frametimes.csv",
         ]
     )
     def timestamps_csv(self, request) -> Path:
@@ -27,14 +27,14 @@ class TestComputeSyncIndices:
         # Compute using batch algorithm (from frame_time only)
         sync_map = compute_sync_indices(timestamps_csv)
 
-        # Build lookup: (port, frame_idx) -> stored sync_index
-        # Frames per port are in temporal order in the CSV
-        port_groups = df.groupby("port")
+        # Build lookup: (cam_id, frame_idx) -> stored sync_index
+        # Frames per cam_id are in temporal order in the CSV
+        cam_id_groups = df.groupby("cam_id")
         stored_sync = {}
-        for port, group in port_groups:
+        for cam_id, group in cam_id_groups:
             sorted_group = group.sort_values("frame_time")
             for frame_idx, (_, row) in enumerate(sorted_group.iterrows()):
-                stored_sync[(port, frame_idx)] = row["sync_index"]
+                stored_sync[(cam_id, frame_idx)] = row["sync_index"]
 
         # Determine the offset between computed and stored sync indices
         # The stored CSV may not start at sync_index 0
@@ -42,29 +42,29 @@ class TestComputeSyncIndices:
         offset = min_stored_sync  # e.g., if stored starts at 416, offset is 416
 
         # Verify our computed assignments match the stored groupings
-        for sync_idx, port_frames in sync_map.items():
+        for sync_idx, cam_id_frames in sync_map.items():
             # Map computed sync_idx to stored sync_idx accounting for offset
             expected_stored_sync = sync_idx + offset
 
-            for port, frame_idx in port_frames.items():
+            for cam_id, frame_idx in cam_id_frames.items():
                 if frame_idx is None:
                     # Port dropped this frame - verify it's not in stored data for this sync_index
-                    # or that all ports have the same sync_index for this group
+                    # or that all cam_ids have the same sync_index for this group
                     continue
 
-                actual_stored_sync = stored_sync.get((port, frame_idx))
+                actual_stored_sync = stored_sync.get((cam_id, frame_idx))
                 assert actual_stored_sync == expected_stored_sync, (
-                    f"Mismatch: port={port}, frame_idx={frame_idx}: "
+                    f"Mismatch: cam_id={cam_id}, frame_idx={frame_idx}: "
                     f"computed sync_idx={sync_idx} (stored={expected_stored_sync}), "
                     f"actual stored={actual_stored_sync}"
                 )
 
         # Also verify that all stored frames were accounted for
         all_computed_frames = set()
-        for sync_idx, port_frames in sync_map.items():
-            for port, frame_idx in port_frames.items():
+        for sync_idx, cam_id_frames in sync_map.items():
+            for cam_id, frame_idx in cam_id_frames.items():
                 if frame_idx is not None:
-                    all_computed_frames.add((port, frame_idx))
+                    all_computed_frames.add((cam_id, frame_idx))
 
         all_stored_frames = set(stored_sync.keys())
         missing_from_computed = all_stored_frames - all_computed_frames
@@ -82,9 +82,9 @@ if __name__ == "__main__":
     debug_dir.mkdir(parents=True, exist_ok=True)
 
     test_csvs = [
-        Path("tests/sessions/4_cam_recording/calibration/extrinsic/timestamps.csv"),
-        Path("tests/sessions/mediapipe_calibration_2_cam/calibration/extrinsic/timestamps.csv"),
-        Path("tests/sessions/4_cam_recording/recordings/recording_1/timestamps.csv"),
+        Path("tests/sessions/4_cam_recording/calibration/extrinsic/frametimes.csv"),
+        Path("tests/sessions/mediapipe_calibration_2_cam/calibration/extrinsic/frametimes.csv"),
+        Path("tests/sessions/4_cam_recording/recordings/recording_1/frametimes.csv"),
     ]
 
     test_instance = TestComputeSyncIndices()

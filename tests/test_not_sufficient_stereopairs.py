@@ -52,13 +52,13 @@ def test_calibration_workflow(tmp_path: Path):
     rmse_initial = bundle.reprojection_report.overall_rmse
     assert rmse_initial > 0
     per_camera_rmse = bundle.reprojection_report.by_camera
-    assert all(port in per_camera_rmse for port in bundle.camera_array.posed_cameras.keys())
+    assert all(cam_id in per_camera_rmse for cam_id in bundle.camera_array.posed_cameras.keys())
 
     # Log initial RMSE values
     logger.info(f"Initial RMSE before optimization: {rmse_initial:.4f} pixels")
     logger.info("Per-camera initial RMSE values:")
-    for port, rmse in sorted(per_camera_rmse.items()):
-        logger.info(f"  Camera {port}: {rmse:.4f} pixels")
+    for cam_id, rmse in sorted(per_camera_rmse.items()):
+        logger.info(f"  Camera {cam_id}: {rmse:.4f} pixels")
 
     # First optimization stage - bundle adjustment
     logger.info("Performing bundle adjustment")

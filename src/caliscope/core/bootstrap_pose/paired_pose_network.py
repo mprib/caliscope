@@ -32,22 +32,22 @@ class PairedPoseNetwork:
         inverted_pairs = {(inv := pair.inverted()).pair: inv for pair in all_pairs.values()}
         all_pairs.update(inverted_pairs)
 
-        # Get all ports involved
-        ports_set = set()
+        # Get all cam_ids involved
+        cam_ids_set = set()
         for a, b in all_pairs.keys():
-            ports_set.add(a)
-            ports_set.add(b)
+            cam_ids_set.add(a)
+            cam_ids_set.add(b)
 
-        # Sort ports to ensure deterministic graph construction
+        # Sort cam_ids to ensure deterministic graph construction
         # Legacy code used: sorted(list(self.camera_array.cameras.keys()))
-        ports = sorted(list(ports_set))
+        cam_ids = sorted(list(cam_ids_set))
 
         # Iteratively fill gaps using legacy permutation logic
         missing_count_last_cycle = -1
 
         while True:
             # Replicate _get_missing_stereopairs()
-            possible_pairs = list(permutations(ports, 2))
+            possible_pairs = list(permutations(cam_ids, 2))
             missing_pairs = [pair for pair in possible_pairs if pair not in all_pairs]
 
             current_missing = len(missing_pairs)
@@ -61,13 +61,13 @@ class PairedPoseNetwork:
             missing_count_last_cycle = current_missing
 
             # Legacy logic: Iterate through missing pairs (A, C)
-            for port_a, port_c in missing_pairs:
+            for cam_id_a, cam_id_c in missing_pairs:
                 best_bridge = None
 
                 # Legacy logic: Iterate through potential bridges X in sorted order
-                for port_x in ports:
-                    pair_a_x_key = (port_a, port_x)
-                    pair_x_c_key = (port_x, port_c)
+                for cam_id_x in cam_ids:
+                    pair_a_x_key = (cam_id_a, cam_id_x)
+                    pair_x_c_key = (cam_id_x, cam_id_c)
 
                     if pair_a_x_key in all_pairs and pair_x_c_key in all_pairs:
                         pair_a_x = all_pairs[pair_a_x_key]
@@ -96,23 +96,23 @@ class PairedPoseNetwork:
         return cls(_pairs=all_pairs)
 
     def _build_anchored_config(
-        self, camera_array: CameraArray, anchor_port: int
+        self, camera_array: CameraArray, anchor_cam_id: int
     ) -> tuple[float, Dict[int, CameraData]]:
         """
-        Builds a camera configuration anchored to the specified port.
+        Builds a camera configuration anchored to the specified cam_id.
         Uses direct lookup from the anchor node, relying on the gap-filling step
         to have created the necessary edges.
         """
         total_error_score = 0.0
         configured_cameras = {}
 
-        # Get sorted ports to match legacy iteration order
-        ports = sorted(list(camera_array.cameras.keys()))
+        # Get sorted cam_ids to match legacy iteration order
+        cam_ids = sorted(list(camera_array.cameras.keys()))
 
         # Create new CameraData objects (legacy _get_scored_anchored_array behavior)
-        for port, cam_data in camera_array.cameras.items():
-            configured_cameras[port] = CameraData(
-                port=cam_data.port,
+        for cam_id, cam_data in camera_array.cameras.items():
+            configured_cameras[cam_id] = CameraData(
+                cam_id=cam_data.cam_id,
                 size=cam_data.size,
                 rotation_count=cam_data.rotation_count,
                 error=cam_data.error,
@@ -127,48 +127,48 @@ class PairedPoseNetwork:
             )
 
         # Set anchor to origin
-        configured_cameras[anchor_port].rotation = np.eye(3, dtype=np.float64)
-        configured_cameras[anchor_port].translation = np.zeros(3, dtype=np.float64)
+        configured_cameras[anchor_cam_id].rotation = np.eye(3, dtype=np.float64)
+        configured_cameras[anchor_cam_id].translation = np.zeros(3, dtype=np.float64)
 
         # Pose other cameras using direct lookup
-        for port in ports:
-            if port == anchor_port:
+        for cam_id in cam_ids:
+            if cam_id == anchor_cam_id:
                 continue
 
-            # Legacy: Direct lookup Anchor -> Port
-            pair_key = (anchor_port, port)
+            # Legacy: Direct lookup Anchor -> cam_id
+            pair_key = (anchor_cam_id, cam_id)
 
             if pair_key in self._pairs:
                 anchored_stereopair = self._pairs[pair_key]
 
                 # Apply transformation
-                configured_cameras[port].translation = anchored_stereopair.translation.flatten()
-                configured_cameras[port].rotation = anchored_stereopair.rotation
+                configured_cameras[cam_id].translation = anchored_stereopair.translation.flatten()
+                configured_cameras[cam_id].rotation = anchored_stereopair.rotation
 
                 # Accumulate error
                 total_error_score += anchored_stereopair.error_score
 
         return total_error_score, configured_cameras
 
-    def get_pair(self, port_a: int, port_b: int) -> StereoPair | None:
-        """Retrieve a stereo pair by port pair, returns None if not found."""
-        return self._pairs.get((port_a, port_b))
+    def get_pair(self, cam_id_a: int, cam_id_b: int) -> StereoPair | None:
+        """Retrieve a stereo pair by cam_id pair, returns None if not found."""
+        return self._pairs.get((cam_id_a, cam_id_b))
 
     def get_best_anchored_camera_array(
-        self, main_group_ports, camera_array
+        self, main_group_cam_ids, camera_array
     ) -> tuple[int, Dict[int, CameraData]] | tuple[None, Dict[int, CameraData]]:
-        # Find best anchor by trying each port in the main group
+        # Find best anchor by trying each cam_id in the main group
         best_anchor = -1
         lowest_error = float("inf")
         best_cameras_config = None
 
-        logger.info("Assessing best port to anchor camera array")
-        for port in main_group_ports:
-            error_score, cameras_config = self._build_anchored_config(camera_array, port)
-            logger.info(f"    port {port} anchor_score = {error_score}")
+        logger.info("Assessing best cam_id to anchor camera array")
+        for cam_id in main_group_cam_ids:
+            error_score, cameras_config = self._build_anchored_config(camera_array, cam_id)
+            logger.info(f"    cam_id {cam_id} anchor_score = {error_score}")
             if error_score < lowest_error:
                 lowest_error = error_score
-                best_anchor = port
+                best_anchor = cam_id
                 best_cameras_config = cameras_config
 
         if best_anchor == -1:
@@ -184,25 +184,25 @@ class PairedPoseNetwork:
         from the stereo pair graph.
         """
 
-        ports = sorted(camera_array.cameras.keys())
+        cam_ids = sorted(camera_array.cameras.keys())
         # Find largest connected component (Legacy behavior used this to filter main group)
-        main_group_ports = self._find_largest_connected_component(ports)
+        main_group_cam_ids = self._find_largest_connected_component(cam_ids)
 
         if anchor_cam:
             error_score, best_cameras_config = self._build_anchored_config(camera_array, anchor_cam)
         else:
-            anchor_cam, best_cameras_config = self.get_best_anchored_camera_array(main_group_ports, camera_array)
+            anchor_cam, best_cameras_config = self.get_best_anchored_camera_array(main_group_cam_ids, camera_array)
             logger.info(f"Selected camera {anchor_cam} as anchor, yielding lowest initial error.")
 
         logger.info("Applying stereo pair graph to camera array...")
 
         # Apply the best configuration to the original camera array
-        for port, cam_data in best_cameras_config.items():
-            camera_array.cameras[port] = cam_data
+        for cam_id, cam_data in best_cameras_config.items():
+            camera_array.cameras[cam_id] = cam_data
 
-        unposed_ports = [p for p in ports if p not in main_group_ports]
-        if unposed_ports:
-            logger.warning(f"Cameras not in the main group remain unposed: {unposed_ports}")
+        unposed_cam_ids = [c for c in cam_ids if c not in main_group_cam_ids]
+        if unposed_cam_ids:
+            logger.warning(f"Cameras not in the main group remain unposed: {unposed_cam_ids}")
 
     @classmethod
     def from_legacy_dict(cls, data: Dict[str, Dict]) -> PairedPoseNetwork:
@@ -210,12 +210,12 @@ class PairedPoseNetwork:
         pairs = {}
         for key, params in data.items():
             # key is 'stereo_1_2'
-            _, port_a_str, port_b_str = key.split("_")
-            port_a, port_b = int(port_a_str), int(port_b_str)
+            _, cam_id_a_str, cam_id_b_str = key.split("_")
+            cam_id_a, cam_id_b = int(cam_id_a_str), int(cam_id_b_str)
 
             pair = StereoPair(
-                primary_port=port_a,
-                secondary_port=port_b,
+                primary_cam_id=cam_id_a,
+                secondary_cam_id=cam_id_b,
                 error_score=float(params["RMSE"]),
                 rotation=np.array(params["rotation"], dtype=np.float64),
                 translation=np.array(params["translation"], dtype=np.float64),
@@ -236,26 +236,26 @@ class PairedPoseNetwork:
             if a < b  # Only store forward pairs to avoid duplication
         }
 
-    def _find_largest_connected_component(self, ports: list[int]) -> set[int]:
+    def _find_largest_connected_component(self, cam_ids: list[int]) -> set[int]:
         """Finds the largest connected subgraph of cameras."""
         if not self._pairs:
             return set()
 
-        adj = {port: [] for port in ports}
-        for port1, port2 in self._pairs.keys():
-            if port1 in adj:
-                adj[port1].append(port2)
+        adj = {cam_id: [] for cam_id in cam_ids}
+        for cam_id1, cam_id2 in self._pairs.keys():
+            if cam_id1 in adj:
+                adj[cam_id1].append(cam_id2)
 
         visited = set()
         largest_component = set()
-        for port in ports:
-            if port not in visited:
+        for cam_id in cam_ids:
+            if cam_id not in visited:
                 current_component = set()
-                # deque([port]) used in legacy
+                # deque([cam_id]) used in legacy
                 from collections import deque
 
-                q = deque([port])
-                visited.add(port)
+                q = deque([cam_id])
+                visited.add(cam_id)
                 while q:
                     u = q.popleft()
                     current_component.add(u)

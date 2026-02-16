@@ -30,7 +30,7 @@ def reprojection_errors(
               Reports error in original image coordinates (intuitive for users).
 
     Args:
-        camera_array: CameraArray with posed cameras (used for intrinsics and port mapping)
+        camera_array: CameraArray with posed cameras (used for intrinsics and cam_id mapping)
         camera_indices: Array mapping each observation to a camera index
         image_coords: Observed 2D image coordinates (distorted pixel coords)
         world_coords: 3D world coordinates (one per observation)
@@ -45,8 +45,8 @@ def reprojection_errors(
     """
     errors_xy = np.zeros_like(image_coords)
 
-    for port, camera_data in camera_array.posed_cameras.items():
-        camera_index = camera_array.posed_port_to_index[port]
+    for cam_id, camera_data in camera_array.posed_cameras.items():
+        camera_index = camera_array.posed_cam_id_to_index[cam_id]
         cam_mask = camera_indices == camera_index
 
         if not cam_mask.any():
@@ -65,7 +65,7 @@ def reprojection_errors(
         else:
             # Pixel mode: keep distorted observations, project with full model
             if camera_data.matrix is None or camera_data.distortions is None:
-                raise ValueError(f"Camera {port} missing intrinsics for pixel-mode reprojection")
+                raise ValueError(f"Camera {cam_id} missing intrinsics for pixel-mode reprojection")
             cam_matrix = camera_data.matrix
             dist_coeffs = camera_data.distortions
 
@@ -76,7 +76,7 @@ def reprojection_errors(
         else:
             # posed_cameras guarantees rotation/translation are present
             if camera_data.rotation is None or camera_data.translation is None:
-                raise ValueError(f"Camera {port} missing extrinsics")
+                raise ValueError(f"Camera {cam_id} missing extrinsics")
             rvec, _ = cv2.Rodrigues(camera_data.rotation)
             rvec = rvec.ravel()
             tvec = camera_data.translation

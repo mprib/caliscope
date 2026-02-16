@@ -91,10 +91,10 @@ class SyncPacketTriangulator:
                     # for each camera.
                     undistorted_imgs_xy = np.zeros_like(imgs_xy)
                     unique_cameras = np.unique(cameras)
-                    for port in unique_cameras:
-                        mask = cameras == port
+                    for cam_id in unique_cameras:
+                        mask = cameras == cam_id
                         points_to_undistort = imgs_xy[mask]
-                        camera = self.camera_array.cameras[port]
+                        camera = self.camera_array.cameras[cam_id]
                         undistorted_subset = camera.undistort_points(points_to_undistort, output="normalized")
                         undistorted_imgs_xy[mask] = undistorted_subset
 

@@ -6,7 +6,7 @@ fps_recording = 24
 intrinsic_wait_time = 0.5
 
 [cam_0]
-port = 0
+cam_id =0
 size = [ 1280, 720,]
 rotation_count = 0
 error = 0.453
@@ -20,7 +20,7 @@ ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 
 [cam_1]
-port = 1
+cam_id =1
 size = [ 1280, 720,]
 rotation_count = 0
 error = 0.569
@@ -34,7 +34,7 @@ ignore = false
 verified_resolutions = [ [ 640, 480,], [ 1280, 720,], [ 1920, 1080,],]
 
 [cam_2]
-port = 2
+cam_id =2
 size = [ 1280, 720,]
 rotation_count = 0
 error = 0.494

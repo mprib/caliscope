@@ -75,8 +75,8 @@ class CameraArrayRepository:
         """
         try:
             camera_array = self.load()
-            camera_array.cameras[camera.port] = camera
+            camera_array.cameras[camera.cam_id] = camera
             self.save(camera_array)
-            logger.debug(f"Updated camera {camera.port} in array")
+            logger.debug(f"Updated camera {camera.cam_id} in array")
         except persistence.PersistenceError as e:
-            raise ValueError(f"Failed to save camera {camera.port}: {e}") from e
+            raise ValueError(f"Failed to save camera {camera.cam_id}: {e}") from e

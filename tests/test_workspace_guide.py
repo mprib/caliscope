@@ -17,45 +17,42 @@ def workspace(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def _touch_ports(directory: Path, ports: list[int]) -> None:
-    """Create empty port_N.mp4 files for each port number."""
-    for p in ports:
-        (directory / f"port_{p}.mp4").touch()
+def _touch_cam_ids(directory: Path, cam_ids: list[int]) -> None:
+    """Create empty cam_N.mp4 files for each cam_id number."""
+    for cam_id in cam_ids:
+        (directory / f"cam_{cam_id}.mp4").touch()
 
 
 class TestMissingFilesInDir:
-    """Verify missing_files_in_dir compares against actual port sets, not 1-based ranges."""
+    """Verify missing_files_in_dir compares against actual camera sets, not 1-based ranges."""
 
     def test_zero_indexed_ports_all_present(self, workspace: Path) -> None:
         """Ports 0-3 in both dirs should report NONE missing — the original bug."""
-        _touch_ports(workspace / "calibration" / "extrinsic", [0, 1, 2, 3])
-        _touch_ports(workspace / "calibration" / "intrinsic", [0, 1, 2, 3])
+        _touch_cam_ids(workspace / "calibration" / "extrinsic", [0, 1, 2, 3])
+        _touch_cam_ids(workspace / "calibration" / "intrinsic", [0, 1, 2, 3])
 
         guide = WorkspaceGuide(workspace)
         assert guide.all_instrinsic_mp4s_available() is True
 
     def test_one_indexed_ports_all_present(self, workspace: Path) -> None:
-        _touch_ports(workspace / "calibration" / "extrinsic", [1, 2, 3, 4])
-        _touch_ports(workspace / "calibration" / "intrinsic", [1, 2, 3, 4])
+        _touch_cam_ids(workspace / "calibration" / "extrinsic", [1, 2, 3, 4])
+        _touch_cam_ids(workspace / "calibration" / "intrinsic", [1, 2, 3, 4])
 
         guide = WorkspaceGuide(workspace)
         assert guide.all_instrinsic_mp4s_available() is True
 
     def test_missing_intrinsic_port(self, workspace: Path) -> None:
-        _touch_ports(workspace / "calibration" / "extrinsic", [0, 1, 2, 3])
-        _touch_ports(workspace / "calibration" / "intrinsic", [0, 1, 3])  # missing port 2
+        _touch_cam_ids(workspace / "calibration" / "extrinsic", [0, 1, 2, 3])
+        _touch_cam_ids(workspace / "calibration" / "intrinsic", [0, 1, 3])  # missing cam 2
 
         guide = WorkspaceGuide(workspace)
         assert guide.all_instrinsic_mp4s_available() is False
-        assert (
-            guide.missing_files_in_dir(workspace / "calibration" / "intrinsic", guide.get_camera_ports())
-            == "port_2.mp4"
-        )
+        assert guide.missing_files_in_dir(workspace / "calibration" / "intrinsic", guide.get_cam_ids()) == "cam_2.mp4"
 
     def test_noncontiguous_ports(self, workspace: Path) -> None:
         """Ports with gaps (e.g. 0, 2, 5) should work correctly."""
-        _touch_ports(workspace / "calibration" / "extrinsic", [0, 2, 5])
-        _touch_ports(workspace / "calibration" / "intrinsic", [0, 2, 5])
+        _touch_cam_ids(workspace / "calibration" / "extrinsic", [0, 2, 5])
+        _touch_cam_ids(workspace / "calibration" / "intrinsic", [0, 2, 5])
 
         guide = WorkspaceGuide(workspace)
         assert guide.all_instrinsic_mp4s_available() is True

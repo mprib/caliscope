@@ -247,7 +247,9 @@ def test_rotation_invariance(axis: Literal["x", "y", "z"], tmp_path: Path):
 
     # STORE INITIAL STATE
     initial_points = bundle.world_points.points.copy()
-    initial_transforms = {port: cam.transformation.copy() for port, cam in bundle.camera_array.posed_cameras.items()}
+    initial_transforms = {
+        cam_id: cam.transformation.copy() for cam_id, cam in bundle.camera_array.posed_cameras.items()
+    }
 
     logger.info(f"Testing rotation invariance around {axis} axis")
     logger.info(f"Initial state: {len(initial_points)} points, {len(initial_transforms)} cameras")
@@ -262,7 +264,7 @@ def test_rotation_invariance(axis: Literal["x", "y", "z"], tmp_path: Path):
 
         current_points = current_bundle.world_points.points
         current_transforms = {
-            port: cam.transformation for port, cam in current_bundle.camera_array.posed_cameras.items()
+            cam_id: cam.transformation for cam_id, cam in current_bundle.camera_array.posed_cameras.items()
         }
 
         if i < 4:
@@ -271,9 +273,9 @@ def test_rotation_invariance(axis: Literal["x", "y", "z"], tmp_path: Path):
                 f"Points should not match initial state after {i * 90} degrees"
             )
 
-            for port in initial_transforms:
-                assert not np.allclose(initial_transforms[port], current_transforms[port], atol=1e-6), (
-                    f"Camera {port} transform should not match initial state after {i * 90} degrees"
+            for cam_id in initial_transforms:
+                assert not np.allclose(initial_transforms[cam_id], current_transforms[cam_id], atol=1e-6), (
+                    f"Camera {cam_id} transform should not match initial state after {i * 90} degrees"
                 )
 
             logger.info(f"  ✓ State is different after {i * 90} degrees (as expected)")
@@ -285,11 +287,11 @@ def test_rotation_invariance(axis: Literal["x", "y", "z"], tmp_path: Path):
                 f"Max difference: {np.max(np.abs(initial_points - current_points))}"
             )
 
-            for port in initial_transforms:
-                transform_match = np.allclose(initial_transforms[port], current_transforms[port], atol=1e-6)
+            for cam_id in initial_transforms:
+                transform_match = np.allclose(initial_transforms[cam_id], current_transforms[cam_id], atol=1e-6)
                 assert transform_match, (
-                    f"Camera {port} transform should return to initial state after 360 degrees\n"
-                    f"Max difference: {np.max(np.abs(initial_transforms[port] - current_transforms[port]))}"
+                    f"Camera {cam_id} transform should return to initial state after 360 degrees\n"
+                    f"Max difference: {np.max(np.abs(initial_transforms[cam_id] - current_transforms[cam_id]))}"
                 )
 
             logger.info("  ✓ State returned to initial after 360 degrees (rotation invariance confirmed)")

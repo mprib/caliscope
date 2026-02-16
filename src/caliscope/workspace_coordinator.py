@@ -66,7 +66,7 @@ class WorkspaceCoordinator(QObject):
     persistence implementation details.
     """
 
-    new_camera_data = Signal(int, OrderedDict)  # port, camera_display_dictionary
+    new_camera_data = Signal(int, OrderedDict)  # cam_id, camera_display_dictionary
     charuco_changed = Signal()  # Emitted when charuco board config is updated
     chessboard_changed = Signal()  # Emitted when chessboard config is updated
     aruco_target_changed = Signal()  # Emitted when ArUco target config is updated
@@ -120,7 +120,7 @@ class WorkspaceCoordinator(QObject):
         # Created during process_recordings; lives for the duration of that task
         self.reconstructor: Reconstructor | None = None
 
-        # In-memory cache of intrinsic calibration data (by port)
+        # In-memory cache of intrinsic calibration data (by cam_id)
         # These enable overlay restoration when switching between cameras
         self._intrinsic_reports: dict[int, IntrinsicCalibrationReport] = {}
         # Session-only cache of collected points for overlay rendering
@@ -158,9 +158,9 @@ class WorkspaceCoordinator(QObject):
         return self.workspace_guide.get_camera_count()
 
     @property
-    def camera_ports(self) -> list[int]:
-        """Authoritative list of camera ports from extrinsic directory."""
-        return self.workspace_guide.get_camera_ports()
+    def cam_ids(self) -> list[int]:
+        """Authoritative list of camera IDs from extrinsic directory."""
+        return self.workspace_guide.get_cam_ids()
 
     @property
     def extrinsic_image_points_path(self) -> Path:
@@ -298,18 +298,18 @@ class WorkspaceCoordinator(QObject):
         a status snapshot. Called by the Project tab whenever it refreshes.
         """
         camera_count = self.camera_count  # Now a property
-        expected_ports = set(self.camera_ports) if self.camera_ports else set()
+        expected_cam_ids = set(self.cam_ids) if self.cam_ids else set()
 
         # Intrinsic video availability
-        intrinsic_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.intrinsic_dir)
-        intrinsic_missing = sorted(expected_ports - set(intrinsic_ports))
+        intrinsic_cam_ids = self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.intrinsic_dir)
+        intrinsic_missing = sorted(expected_cam_ids - set(intrinsic_cam_ids))
 
         # Extrinsic video availability
-        extrinsic_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.extrinsic_dir)
-        extrinsic_missing = sorted(expected_ports - set(extrinsic_ports))
+        extrinsic_cam_ids = self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.extrinsic_dir)
+        extrinsic_missing = sorted(expected_cam_ids - set(extrinsic_cam_ids))
 
         # Cameras needing intrinsic calibration
-        cameras_needing = [port for port, cam in self.camera_array.cameras.items() if cam.matrix is None]
+        cameras_needing = [cam_id for cam_id, cam in self.camera_array.cameras.items() if cam.matrix is None]
 
         # 2D extraction complete check
         extraction_complete = self.extrinsic_image_points_path.exists()
@@ -425,43 +425,43 @@ class WorkspaceCoordinator(QObject):
         self.camera_array = self.camera_repository.load()
 
         # double check that no new camera associated files have been placed in the intrinsic calibration folder
-        all_ports = self.workspace_guide.get_ports_in_dir(self.workspace_guide.intrinsic_dir)
+        all_cam_ids = self.workspace_guide.get_cam_ids_in_dir(self.workspace_guide.intrinsic_dir)
 
-        for port in all_ports:
-            if port not in self.camera_array.cameras:
-                self._add_camera_from_source(port)
+        for cam_id in all_cam_ids:
+            if cam_id not in self.camera_array.cameras:
+                self._add_camera_from_source(cam_id)
 
         # Load any persisted intrinsic reports for overlay restoration
         self._intrinsic_reports = self.intrinsic_report_repository.load_all()
         if self._intrinsic_reports:
-            logger.info(f"Loaded intrinsic reports for ports: {list(self._intrinsic_reports.keys())}")
+            logger.info(f"Loaded intrinsic reports for cam_ids: {list(self._intrinsic_reports.keys())}")
 
-    def _add_camera_from_source(self, port: int):
+    def _add_camera_from_source(self, cam_id: int):
         """
         Add a new camera discovered from video file in intrinsic directory.
 
-        File will be transferred to workspace/calibration/intrinsic/port_{index}.mp4
+        File will be transferred to workspace/calibration/intrinsic/cam_{cam_id}.mp4
         in keeping with project layout.
         """
         # copy source over to standard workspace structure
-        target_mp4_path = Path(self.workspace_guide.intrinsic_dir, f"port_{port}.mp4")
+        target_mp4_path = Path(self.workspace_guide.intrinsic_dir, f"cam_{cam_id}.mp4")
         video_properties = read_video_properties(target_mp4_path)
         size = video_properties["size"]
         new_cam_data = CameraData(
-            port=port,
+            cam_id=cam_id,
             size=size,
         )
-        self.camera_array.cameras[port] = new_cam_data
+        self.camera_array.cameras[cam_id] = new_cam_data
         self.camera_repository.save(self.camera_array)
 
-    def push_camera_data(self, port):
+    def push_camera_data(self, cam_id):
         """Emit signal with updated camera display data."""
-        logger.info(f"Pushing camera data for port {port}")
-        camera_display_data = self.camera_array.cameras[port].get_display_data()
+        logger.info(f"Pushing camera data for cam_id {cam_id}")
+        camera_display_data = self.camera_array.cameras[cam_id].get_display_data()
         logger.info(f"camera display data is {camera_display_data}")
-        self.new_camera_data.emit(port, camera_display_data)
+        self.new_camera_data.emit(cam_id, camera_display_data)
 
-    def create_intrinsic_presenter(self, port: int) -> IntrinsicCalibrationPresenter:
+    def create_intrinsic_presenter(self, cam_id: int) -> IntrinsicCalibrationPresenter:
         """Create presenter for intrinsic calibration of a single camera.
 
         Factory method that assembles the presenter with all required dependencies.
@@ -472,20 +472,20 @@ class WorkspaceCoordinator(QObject):
         (not after app restart).
 
         Raises:
-            ValueError: If port is not in camera_array or intrinsic video doesn't exist.
+            ValueError: If cam_id is not in camera_array or intrinsic video doesn't exist.
         """
-        if port not in self.camera_array.cameras:
-            raise ValueError(f"No camera data for port {port}")
+        if cam_id not in self.camera_array.cameras:
+            raise ValueError(f"No camera data for cam_id {cam_id}")
 
-        camera = self.camera_array.cameras[port]
-        video_path = self.workspace_guide.intrinsic_dir / f"port_{port}.mp4"
+        camera = self.camera_array.cameras[cam_id]
+        video_path = self.workspace_guide.intrinsic_dir / f"cam_{cam_id}.mp4"
 
         if not video_path.exists():
-            raise ValueError(f"No intrinsic video for port {port}")
+            raise ValueError(f"No intrinsic video for cam_id {cam_id}")
 
         # Get cached data for overlay restoration
-        report = self._intrinsic_reports.get(port)
-        collected_points = self._intrinsic_points.get(port)
+        report = self._intrinsic_reports.get(cam_id)
+        collected_points = self._intrinsic_points.get(cam_id)
 
         return IntrinsicCalibrationPresenter(
             camera=camera,
@@ -608,24 +608,24 @@ class WorkspaceCoordinator(QObject):
         logger.info(f"Persisted extrinsic image points: {len(image_points.df)} observations to {output_path}")
         self.status_changed.emit()
 
-    def persist_camera_rotation(self, port: int, rotation_count: int) -> None:
+    def persist_camera_rotation(self, cam_id: int, rotation_count: int) -> None:
         """Persist updated rotation for a camera.
 
         Called when user adjusts camera orientation in the multi-camera processing
         view. Updates both the in-memory camera array and disk persistence.
 
         Args:
-            port: Camera port to update
+            cam_id: Camera ID to update
             rotation_count: Rotation in 90° increments (0-3)
         """
-        if port not in self.camera_array.cameras:
-            logger.warning(f"Cannot persist rotation: port {port} not in camera_array")
+        if cam_id not in self.camera_array.cameras:
+            logger.warning(f"Cannot persist rotation: cam_id {cam_id} not in camera_array")
             return
 
-        self.camera_array.cameras[port].rotation_count = rotation_count
+        self.camera_array.cameras[cam_id].rotation_count = rotation_count
         self.camera_repository.save(self.camera_array)
-        self.push_camera_data(port)
-        logger.debug(f"Persisted camera rotation: port {port} -> {rotation_count * 90}°")
+        self.push_camera_data(cam_id)
+        logger.debug(f"Persisted camera rotation: cam_id {cam_id} -> {rotation_count * 90}°")
 
     def persist_intrinsic_calibration(
         self,
@@ -644,31 +644,31 @@ class WorkspaceCoordinator(QObject):
             collected_points: Optional list of (frame_index, PointPacket) for
                 overlay restoration during session. Not persisted to disk.
         """
-        port = output.camera.port
+        cam_id = output.camera.cam_id
 
         # Update camera in array and save
-        self.camera_array.cameras[port] = output.camera
+        self.camera_array.cameras[cam_id] = output.camera
         self.camera_repository.save(self.camera_array)
 
         # Cache report for overlay restoration and save to disk
-        self._intrinsic_reports[port] = output.report
-        self.intrinsic_report_repository.save(port, output.report)
+        self._intrinsic_reports[cam_id] = output.report
+        self.intrinsic_report_repository.save(cam_id, output.report)
 
         # Cache collected points for session-only overlay restoration
         if collected_points is not None:
-            self._intrinsic_points[port] = collected_points
+            self._intrinsic_points[cam_id] = collected_points
 
-        logger.info(f"Persisted intrinsic calibration for port {port}: rmse={output.report.rmse:.3f}px")
-        self.push_camera_data(port)
+        logger.info(f"Persisted intrinsic calibration for cam_id {cam_id}: rmse={output.report.rmse:.3f}px")
+        self.push_camera_data(cam_id)
         self.status_changed.emit()
 
-    def get_intrinsic_report(self, port: int) -> IntrinsicCalibrationReport | None:
-        """Get cached intrinsic calibration report for a port."""
-        return self._intrinsic_reports.get(port)
+    def get_intrinsic_report(self, cam_id: int) -> IntrinsicCalibrationReport | None:
+        """Get cached intrinsic calibration report for a camera."""
+        return self._intrinsic_reports.get(cam_id)
 
-    def get_intrinsic_points(self, port: int) -> list[tuple[int, PointPacket]] | None:
-        """Get cached collected points for a port (session-only)."""
-        return self._intrinsic_points.get(port)
+    def get_intrinsic_points(self, cam_id: int) -> list[tuple[int, PointPacket]] | None:
+        """Get cached collected points for a camera (session-only)."""
+        return self._intrinsic_points.get(cam_id)
 
     # -------------------------------------------------------------------------
     # PointDataBundle API

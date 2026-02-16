@@ -49,7 +49,7 @@ class FramePacket:
     the frame time and the points if they were generated
     """
 
-    port: int
+    cam_id: int
     frame_index: int
     frame_time: float
     frame: NDArray[Any] | None  # None for end-of-stream markers
@@ -67,7 +67,7 @@ class FramePacket:
             if point_count > 0:
                 table = {
                     "sync_index": [sync_index] * point_count,
-                    "port": [self.port] * point_count,
+                    "cam_id": [self.cam_id] * point_count,
                     "frame_index": [self.frame_index] * point_count,
                     "frame_time": [self.frame_time] * point_count,
                     "point_id": self.points.point_id.tolist(),
@@ -118,7 +118,7 @@ class SyncPacket:
     """
 
     sync_index: int
-    frame_packets: dict[int, FramePacket | None]  # port: frame_packet
+    frame_packets: dict[int, FramePacket | None]  # cam_id: frame_packet
 
     @property
     def triangulation_inputs(self):
@@ -133,9 +133,9 @@ class SyncPacket:
         point_ids = []
         img_xy = []
 
-        for port, packet in self.frame_packets.items():
+        for cam_id, packet in self.frame_packets.items():
             if packet is not None and packet.points is not None:
-                cameras.extend([port] * len(packet.points.point_id))
+                cameras.extend([cam_id] * len(packet.points.point_id))
                 point_ids.extend(packet.points.point_id.tolist())
                 img_xy.extend(packet.points.img_loc.tolist())
 
@@ -147,17 +147,17 @@ class SyncPacket:
         convencience method to ease tracking of dropped frame rate within the synchronizer
         """
         temp_dict = {}
-        for port, packet in self.frame_packets.items():
+        for cam_id, packet in self.frame_packets.items():
             if packet is None:
-                temp_dict[port] = 1
+                temp_dict[cam_id] = 1
             else:
-                temp_dict[port] = 0
+                temp_dict[cam_id] = 0
         return temp_dict
 
     @property
     def frame_packet_count(self):
         count = 0
-        for port, packet in self.frame_packets.items():
+        for cam_id, packet in self.frame_packets.items():
             if packet is not None:
                 count += 1
         return count

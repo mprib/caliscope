@@ -22,7 +22,7 @@ class VideoRecorder:
         super().__init__()
         self.synchronizer = synchronizer
 
-        # set text to be appended as port_X_{suffix}.mp4
+        # set text to be appended as cam_N_{suffix}.mp4
         # will also be appended to xy_{suffix}
         if suffix is not None:
             self.suffix = "_" + suffix
@@ -43,15 +43,15 @@ class VideoRecorder:
         """
         # create a dictionary of videowriters
         self.video_writers = {}
-        for port, stream in self.synchronizer.streams.items():
-            path = str(Path(self.destination_folder, f"port_{port}{self.suffix}.mp4"))
-            logger.info(f"Building video writer for port {port}; recording to {path}")
+        for cam_id, stream in self.synchronizer.streams.items():
+            path = str(Path(self.destination_folder, f"cam_{cam_id}{self.suffix}.mp4"))
+            logger.info(f"Building video writer for cam_id {cam_id}; recording to {path}")
             # VideoWriter_fourcc exists at runtime but not in cv2 stubs
             fourcc = cv2.VideoWriter_fourcc(*"MP4V")  # type: ignore[attr-defined]
             frame_size = stream.size
             logger.info(f"Creating video writer with fps of {stream.original_fps} and frame size of {frame_size}")
             writer = cv2.VideoWriter(path, fourcc, stream.original_fps, frame_size)
-            self.video_writers[port] = writer
+            self.video_writers[cam_id] = writer
 
     def save_data_worker(self, include_video: bool, show_points: bool, store_point_history: bool):
         # connect video recorder to synchronizer via an "in" queue
@@ -61,14 +61,14 @@ class VideoRecorder:
         # I think I put this here so that it will get reset if you reuse the same recorder..
         self.frame_history = {
             "sync_index": [],
-            "port": [],
+            "cam_id": [],
             "frame_index": [],
             "frame_time": [],
         }
 
         self.point_data_history = {
             "sync_index": [],
-            "port": [],
+            "cam_id": [],
             "frame_index": [],
             "frame_time": [],
             "point_id": [],
@@ -100,10 +100,10 @@ class VideoRecorder:
 
             self.sync_index = sync_packet.sync_index
 
-            for port, frame_packet in sync_packet.frame_packets.items():
+            for cam_id, frame_packet in sync_packet.frame_packets.items():
                 if frame_packet is not None:
                     logger.debug("Processiong frame packet...")
-                    # read in the data for this frame for this port
+                    # read in the data for this frame for this cam_id
                     if show_points:
                         frame = frame_packet.frame_with_points
                     else:
@@ -115,14 +115,14 @@ class VideoRecorder:
                     if include_video and frame is not None:
                         # store the frame
                         if self.sync_index % 50 == 0:
-                            logger.debug(f"Writing frame for port {port} and sync index {self.sync_index}")
+                            logger.debug(f"Writing frame for cam_id {cam_id} and sync index {self.sync_index}")
                             logger.debug(f"frame size  {frame.shape}")
 
-                        self.video_writers[port].write(frame)
+                        self.video_writers[cam_id].write(frame)
 
                         # store to assocated data in the dictionary
                         self.frame_history["sync_index"].append(self.sync_index)
-                        self.frame_history["port"].append(port)
+                        self.frame_history["cam_id"].append(cam_id)
                         self.frame_history["frame_index"].append(frame_index)
                         self.frame_history["frame_time"].append(frame_time)
 
@@ -142,9 +142,9 @@ class VideoRecorder:
         # a proper release is strictly necessary to ensure file is readable
         if include_video:
             logger.info("releasing video writers...")
-            for port in self.synchronizer.ports:
-                logger.info(f"releasing video writer for port {port}")
-                self.video_writers[port].release()
+            for cam_id in self.synchronizer.cam_ids:
+                logger.info(f"releasing video writer for cam_id {cam_id}")
+                self.video_writers[cam_id].release()
 
             # del self.video_writers
 
@@ -167,7 +167,7 @@ class VideoRecorder:
 
     def store_frame_history(self):
         df = pd.DataFrame(self.frame_history)
-        frame_timestamps_path = str(Path(self.destination_folder, "timestamps.csv"))
+        frame_timestamps_path = str(Path(self.destination_folder, "frametimes.csv"))
         logger.info(f"Storing frame timestamps to {frame_timestamps_path}")
         df.to_csv(frame_timestamps_path, index=False, header=True)
 

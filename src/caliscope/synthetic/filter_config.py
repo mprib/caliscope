@@ -16,13 +16,13 @@ class CameraOcclusion:
     """Camera-specific observation dropout.
 
     Unlike killed_linkages (which removes shared observations from BOTH cameras),
-    this only removes observations from the specified camera_port.
+    this only removes observations from the specified camera_cam_id.
 
     Example: Camera 1 loses 30% of observations it shares with camera 2:
-        CameraOcclusion(camera_port=1, dropout_fraction=0.3, target_cameras=(2,))
+        CameraOcclusion(camera_cam_id=1, dropout_fraction=0.3, target_cameras=(2,))
     """
 
-    camera_port: int  # The camera that loses observations
+    camera_cam_id: int  # The camera that loses observations
     dropout_fraction: float  # 0.0 to 1.0 - fraction of observations to drop
     target_cameras: tuple[int, ...] = ()  # Empty = all cameras, else specific cameras
     random_seed: int = 42
@@ -131,7 +131,7 @@ class FilterConfig:
 
         # 1. Drop cameras
         if self.dropped_cameras:
-            df = df[~df["port"].isin(self.dropped_cameras)]
+            df = df[~df["cam_id"].isin(self.dropped_cameras)]
 
         # 2. Kill linkages (remove shared observations)
         for cam_a, cam_b in self.killed_linkages:
@@ -163,16 +163,16 @@ class FilterConfig:
         # Find points seen by cam_a
         seen_by_a = set(
             zip(
-                df[df["port"] == cam_a]["sync_index"],
-                df[df["port"] == cam_a]["point_id"],
+                df[df["cam_id"] == cam_a]["sync_index"],
+                df[df["cam_id"] == cam_a]["point_id"],
             )
         )
 
         # Find points seen by cam_b
         seen_by_b = set(
             zip(
-                df[df["port"] == cam_b]["sync_index"],
-                df[df["port"] == cam_b]["point_id"],
+                df[df["cam_id"] == cam_b]["sync_index"],
+                df[df["cam_id"] == cam_b]["point_id"],
             )
         )
 
@@ -187,7 +187,7 @@ class FilterConfig:
 
         def should_keep(row: pd.Series[Any]) -> bool:
             key = (row["sync_index"], row["point_id"])
-            if key in shared_set and row["port"] in (cam_a, cam_b):
+            if key in shared_set and row["cam_id"] in (cam_a, cam_b):
                 return False
             return True
 
@@ -199,7 +199,7 @@ class FilterConfig:
         """Apply camera-specific occlusions.
 
         For each CameraOcclusion, randomly drops observations from the specified
-        camera_port that are shared with target_cameras (or all cameras if empty).
+        camera_cam_id that are shared with target_cameras (or all cameras if empty).
         Unlike killed_linkages, this only affects the occluded camera, not its peers.
         """
         if not self.camera_occlusions:
@@ -207,15 +207,15 @@ class FilterConfig:
 
         for occlusion in self.camera_occlusions:
             # Get observations from the occluded camera
-            occluded_cam_obs = df[df["port"] == occlusion.camera_port]
+            occluded_cam_obs = df[df["cam_id"] == occlusion.camera_cam_id]
             if occluded_cam_obs.empty:
                 continue
 
             # Find observations from target cameras (or all other cameras if empty)
             if occlusion.target_cameras:
-                target_df = df[df["port"].isin(occlusion.target_cameras)]
+                target_df = df[df["cam_id"].isin(occlusion.target_cameras)]
             else:
-                target_df = df[df["port"] != occlusion.camera_port]
+                target_df = df[df["cam_id"] != occlusion.camera_cam_id]
 
             if target_df.empty:
                 continue
@@ -257,7 +257,7 @@ class FilterConfig:
 
             # Remove only from the occluded camera
             def should_keep(row: pd.Series[Any]) -> bool:
-                if row["port"] != occlusion.camera_port:
+                if row["cam_id"] != occlusion.camera_cam_id:
                     return True
                 key = (row["sync_index"], row["point_id"])
                 return key not in points_to_drop

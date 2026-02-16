@@ -95,7 +95,7 @@ def load_camera_array(path: Path) -> CameraArray:
     """
     Load CameraArray from TOML file.
 
-    The TOML file must contain camera data indexed by port, with each camera
+    The TOML file must contain camera data indexed by cam_id, with each camera
     entry containing intrinsics (matrix, distortions), extrinsics (rotation,
     translation), and metadata (error, grid_count, etc.).
 
@@ -125,9 +125,9 @@ def load_camera_array(path: Path) -> CameraArray:
         return CameraArray({})
 
     cameras_dict = {}
-    for port_str, camera_data in data["cameras"].items():
+    for cam_id_str, camera_data in data["cameras"].items():
         try:
-            port = int(port_str)
+            cam_id = int(cam_id_str)
 
             # Convert numpy arrays from lists
             matrix = _list_to_array(camera_data.get("matrix"))
@@ -149,7 +149,7 @@ def load_camera_array(path: Path) -> CameraArray:
                 rotation = None
 
             camera = CameraData(
-                port=port,
+                cam_id=cam_id,
                 size=(camera_data["size"][0], camera_data["size"][1]),
                 rotation_count=camera_data.get("rotation_count", 0),
                 # WRAP SCALARS IN _clean_scalar
@@ -163,10 +163,10 @@ def load_camera_array(path: Path) -> CameraArray:
                 rotation=rotation,
                 fisheye=camera_data.get("fisheye", False),
             )
-            cameras_dict[port] = camera
+            cameras_dict[cam_id] = camera
 
         except Exception as e:
-            raise PersistenceError(f"Failed to parse camera {port_str}: {e}") from e
+            raise PersistenceError(f"Failed to parse camera {cam_id_str}: {e}") from e
 
     return CameraArray(cameras_dict)
 
@@ -179,14 +179,14 @@ def save_camera_array(camera_array: CameraArray, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         cameras_data = {}
-        for port, camera in camera_array.cameras.items():
+        for cam_id, camera in camera_array.cameras.items():
             # Convert rotation from 3x3 matrix to 3x1 Rodrigues vector for storage
             rotation_for_config = None
             if camera.rotation is not None and camera.rotation.any():
                 rotation_for_config = cv2.Rodrigues(camera.rotation)[0][:, 0].tolist()
 
             camera_dict = {
-                "port": camera.port,
+                "cam_id": camera.cam_id,
                 "size": camera.size,
                 "rotation_count": camera.rotation_count,
                 "error": camera.error,
@@ -203,7 +203,7 @@ def save_camera_array(camera_array: CameraArray, path: Path) -> None:
             # This prevents rtoml from writing "null" strings.
             clean_camera_dict = {k: v for k, v in camera_dict.items() if v is not None}
 
-            cameras_data[str(port)] = clean_camera_dict
+            cameras_data[str(cam_id)] = clean_camera_dict
 
         data = {"cameras": cameras_data}
         _write_toml(data, path)
@@ -301,8 +301,8 @@ def load_stereo_pairs(path: Path) -> PairedPoseNetwork:
     """
     Load PairedPoseNetwork from TOML file.
 
-    The file stores only directly calibrated stereo pairs (primary_port <
-    secondary_port) with Rodrigues rotation vectors. On load, we:
+    The file stores only directly calibrated stereo pairs (primary_cam_id <
+    secondary_cam_id) with Rodrigues rotation vectors. On load, we:
     1. Convert Rodrigues vectors back to 3x3 rotation matrices
     2. Reconstruct the full graph by adding inverted pairs
     3. Build bridged connections for missing pairs
@@ -329,8 +329,8 @@ def load_stereo_pairs(path: Path) -> PairedPoseNetwork:
         for key, pair_data in data.items():
             # Parse key format: "stereo_1_2"
             try:
-                _, port_a_str, port_b_str = key.split("_")
-                port_a, port_b = int(port_a_str), int(port_b_str)
+                _, cam_id_a_str, cam_id_b_str = key.split("_")
+                cam_id_a, cam_id_b = int(cam_id_a_str), int(cam_id_b_str)
             except (ValueError, AttributeError):
                 logger.warning(f"Skipping invalid stereo pair key: {key}")
                 continue
@@ -361,8 +361,8 @@ def load_stereo_pairs(path: Path) -> PairedPoseNetwork:
                 translation = translation.reshape(3, 1)
 
             pair = StereoPair(
-                primary_port=port_a,
-                secondary_port=port_b,
+                primary_cam_id=cam_id_a,
+                secondary_cam_id=cam_id_b,
                 error_score=float(pair_data.get("RMSE", 0.0)),
                 rotation=rotation_matrix,
                 translation=translation,
@@ -380,7 +380,7 @@ def save_stereo_pairs(paired_pose_network: PairedPoseNetwork, path: Path) -> Non
     """
     Save PairedPoseNetwork to TOML file.
 
-    Only stores raw calibrated pairs (primary_port < secondary_port) to avoid
+    Only stores raw calibrated pairs (primary_cam_id < secondary_cam_id) to avoid
     duplication. Converts 3x3 rotation matrices to 3x1 Rodrigues vectors for
     storage efficiency.
 
@@ -526,7 +526,7 @@ def load_image_points_csv(path: Path) -> ImagePoints:
     """
     Load 2D image points from CSV file.
 
-    Expected columns: sync_index, port, point_id, img_loc_x, img_loc_y
+    Expected columns: sync_index, cam_id, point_id, img_loc_x, img_loc_y
 
     Args:
         path: Path to CSV file

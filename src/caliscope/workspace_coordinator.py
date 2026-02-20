@@ -16,12 +16,15 @@ from caliscope.cameras.camera_array import CameraArray, CameraData
 from caliscope.core.calibrate_intrinsics import IntrinsicCalibrationOutput, IntrinsicCalibrationReport
 from caliscope.repositories import (
     CameraArrayRepository,
-    CharucoRepository,
+    CalibrationTargetsRepository,
     ProjectSettingsRepository,
 )
-from caliscope.repositories.chessboard_repository import ChessboardRepository
-from caliscope.repositories.aruco_target_repository import ArucoTargetRepository
 from caliscope.repositories.point_data_bundle_repository import PointDataBundleRepository
+from caliscope.repositories.calibration_targets_repository import (
+    IntrinsicTargetType,
+    ExtrinsicTargetType,
+    TargetRouting,
+)
 from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.core.workflow_status import WorkflowStatus
 from caliscope.persistence import PersistenceError
@@ -45,8 +48,6 @@ from caliscope.persistence import save_image_points_csv
 logger = logging.getLogger(__name__)
 
 
-EXTRINSIC_TRACKER_NAME = "ARUCO"  # Only supported tracker for extrinsic calibration
-
 FILTERED_FRACTION = (
     0.025  # by default, 2.5% of image points with highest reprojection error are filtered out during calibration
 )
@@ -67,9 +68,8 @@ class WorkspaceCoordinator(QObject):
     """
 
     new_camera_data = Signal(int, OrderedDict)  # cam_id, camera_display_dictionary
-    charuco_changed = Signal()  # Emitted when charuco board config is updated
-    chessboard_changed = Signal()  # Emitted when chessboard config is updated
-    aruco_target_changed = Signal()  # Emitted when ArUco target config is updated
+    intrinsic_target_changed = Signal()  # Emitted when intrinsic target config is updated
+    extrinsic_target_changed = Signal()  # Emitted when extrinsic target config is updated
     bundle_updated = Signal()  # Immediate: in-memory state changed, use for UI refresh
     status_changed = Signal()  # Deferred: fires after filesystem operations complete
 
@@ -80,9 +80,7 @@ class WorkspaceCoordinator(QObject):
         # Initialize repositories with explicit file paths
         self.settings_repository = ProjectSettingsRepository(workspace_dir / "project_settings.toml")
         self.camera_repository = CameraArrayRepository(workspace_dir / "camera_array.toml")
-        self.charuco_repository = CharucoRepository(workspace_dir / "charuco.toml")
-        self.chessboard_repository = ChessboardRepository(workspace_dir / "calibration" / "chessboard.toml")
-        self.aruco_target_repository = ArucoTargetRepository(workspace_dir / "calibration" / "aruco_target.toml")
+        self.targets_repository = CalibrationTargetsRepository(workspace_dir / "calibration" / "targets")
         self.intrinsic_report_repository = IntrinsicReportRepository(
             workspace_dir / "calibration" / "intrinsic" / "reports"
         )
@@ -100,10 +98,6 @@ class WorkspaceCoordinator(QObject):
 
         # streams will be used to play back recorded video with tracked markers to select frames
         self.camera_array = CameraArray({})  # empty camera array at init
-
-        logger.info("Loading charuco from manager")
-        self.charuco = self.charuco_repository.load()
-        self.charuco_tracker = CharucoTracker(self.charuco)
 
         logger.info("Building workspace guide")
         self.workspace_guide = WorkspaceGuide(self.workspace)
@@ -165,7 +159,8 @@ class WorkspaceCoordinator(QObject):
     @property
     def extrinsic_image_points_path(self) -> Path:
         """Path to 2D observations from extrinsic calibration extraction."""
-        return self.workspace_guide.extrinsic_dir / EXTRINSIC_TRACKER_NAME / "image_points.csv"
+        tracker_name = self.targets_repository.get_extrinsic_tracker_name()
+        return self.workspace_guide.extrinsic_dir / tracker_name / "image_points.csv"
 
     @property
     def cameras_tab_enabled(self) -> bool:
@@ -216,11 +211,8 @@ class WorkspaceCoordinator(QObject):
                 }
             )
 
-        # Charuco board (create default if missing)
-        if not self.charuco_repository.path.exists():
-            logger.info("Creating default charuco board")
-            default_charuco = Charuco(4, 5, 11, 8.5, square_size_overide_cm=5.4)
-            self.charuco_repository.save(default_charuco)
+        # Calibration targets (creates all default target configs + routing)
+        self.targets_repository.initialize_defaults()
 
         # Camera array (create empty if missing)
         if not self.camera_repository.path.exists():
@@ -329,90 +321,87 @@ class WorkspaceCoordinator(QObject):
             recording_names=self.workspace_guide.valid_recording_dirs(),
         )
 
-    def update_charuco(self, charuco: Charuco):
-        """
-        Update charuco board definition and persist to disk.
+    def update_intrinsic_target_type(self, target_type: IntrinsicTargetType) -> None:
+        """Update which target type is used for intrinsic calibration."""
+        routing = self.targets_repository.get_routing()
+        new_routing = TargetRouting(
+            intrinsic_target_type=target_type,
+            extrinsic_target_type=routing.extrinsic_target_type,
+            extrinsic_charuco_same_as_intrinsic=routing.extrinsic_charuco_same_as_intrinsic,
+        )
+        self.targets_repository.save_routing(new_routing)
+        self.intrinsic_target_changed.emit()
 
-        Also updates the charuco tracker used by stream managers.
-        Emits charuco_changed signal so dependent components can refresh.
-        """
-        self.charuco = charuco
-        self.charuco_repository.save(self.charuco)
-        self.charuco_tracker = CharucoTracker(self.charuco)
-        self.charuco_changed.emit()
+    def update_extrinsic_target_type(self, target_type: ExtrinsicTargetType) -> None:
+        """Update which target type is used for extrinsic calibration."""
+        routing = self.targets_repository.get_routing()
+        new_routing = TargetRouting(
+            intrinsic_target_type=routing.intrinsic_target_type,
+            extrinsic_target_type=target_type,
+            extrinsic_charuco_same_as_intrinsic=routing.extrinsic_charuco_same_as_intrinsic,
+        )
+        self.targets_repository.save_routing(new_routing)
+        self.extrinsic_target_changed.emit()
 
-    def create_tracker(self) -> CharucoTracker:
-        """Create a tracker configured for the current charuco board.
+    def update_intrinsic_charuco(self, charuco: Charuco) -> None:
+        """Persist intrinsic charuco config and notify consumers."""
+        self.targets_repository.save_intrinsic_charuco(charuco)
+        self.intrinsic_target_changed.emit()
+        # If extrinsic shares intrinsic charuco, extrinsic consumers need to know too
+        routing = self.targets_repository.get_routing()
+        if routing.extrinsic_target_type == "charuco" and routing.extrinsic_charuco_same_as_intrinsic:
+            self.extrinsic_target_changed.emit()
 
-        Factory method for tabs that need to hot-swap trackers when charuco
-        config changes. Returns a fresh CharucoTracker instance using the
-        current charuco definition.
+    def update_intrinsic_chessboard(self, chessboard: Chessboard) -> None:
+        """Persist intrinsic chessboard config and notify consumers."""
+        self.targets_repository.save_chessboard(chessboard)
+        self.intrinsic_target_changed.emit()
 
-        Returns:
-            CharucoTracker configured with the current charuco board.
-        """
-        return CharucoTracker(self.charuco)
+    def update_extrinsic_charuco(self, charuco: Charuco) -> None:
+        """Persist extrinsic-specific charuco config and notify consumers."""
+        self.targets_repository.save_extrinsic_charuco(charuco)
+        self.extrinsic_target_changed.emit()
 
-    def update_chessboard(self, chessboard: Chessboard) -> None:
-        """
-        Update chessboard pattern definition and persist to disk.
+    def update_extrinsic_aruco_target(self, target: ArucoTarget) -> None:
+        """Persist extrinsic ArUco target config and notify consumers."""
+        self.targets_repository.save_aruco_target(target)
+        self.extrinsic_target_changed.emit()
 
-        Unlike charuco, we do NOT cache self.chessboard. Presenters load
-        from repository when they need it (Repository-SSOT pattern).
-
-        Emits chessboard_changed signal so dependent components can refresh.
-        """
-        self.chessboard_repository.save(chessboard)
-        self.chessboard_changed.emit()
-
-    def update_aruco_target(self, target: ArucoTarget) -> None:
-        """Update ArUco target configuration and persist to disk.
-
-        Unlike charuco, we do NOT cache the target. Presenters load
-        from repository when they need it (Repository-SSOT pattern).
-        """
-        self.aruco_target_repository.save(target)
-        self.aruco_target_changed.emit()
+    def set_extrinsic_charuco_same_as_intrinsic(self, same: bool) -> None:
+        """Toggle whether extrinsic charuco shares intrinsic config."""
+        self.targets_repository.set_extrinsic_charuco_same_as_intrinsic(same)
+        self.extrinsic_target_changed.emit()
 
     def create_intrinsic_tracker(self) -> ChessboardTracker | CharucoTracker:
-        """Create tracker for intrinsic calibration.
-
-        Factory method that selects tracker based on which calibration
-        pattern is configured. Checks chessboard first (preferred),
-        falls back to charuco for backward compatibility.
-
-        Returns:
-            ChessboardTracker if chessboard.toml exists, else CharucoTracker.
-        """
-        if self.chessboard_repository.exists():
-            chessboard = self.chessboard_repository.load()
+        """Create tracker for intrinsic calibration based on current target type."""
+        target_type = self.targets_repository.intrinsic_target_type
+        if target_type == "chessboard":
+            chessboard = self.targets_repository.load_chessboard()
             return ChessboardTracker(chessboard)
-        else:
-            return CharucoTracker(self.charuco)
+        else:  # "charuco"
+            charuco = self.targets_repository.load_intrinsic_charuco()
+            return CharucoTracker(charuco)
 
-    def create_extrinsic_tracker(self) -> ArucoTracker:
-        """Create tracker for extrinsic calibration from repository config.
-
-        Returns ArucoTracker configured with the workspace's ArUco target.
-        If no target is configured, creates one with defaults and persists it.
-        """
-        if not self.aruco_target_repository.exists():
-            default_target = ArucoTarget.single_marker(
-                marker_id=0,
-                marker_size_m=0.05,
-                dictionary=cv2.aruco.DICT_4X4_100,
+    def create_extrinsic_tracker(self) -> ArucoTracker | CharucoTracker:
+        """Create tracker for extrinsic calibration based on current target type."""
+        target_type = self.targets_repository.extrinsic_target_type
+        if target_type == "aruco":
+            if not self.targets_repository.aruco_target_exists():
+                # Create default if missing (backward compat with first-time setup)
+                default_target = ArucoTarget.single_marker(
+                    marker_id=0,
+                    marker_size_m=0.05,
+                    dictionary=cv2.aruco.DICT_4X4_100,
+                )
+                self.targets_repository.save_aruco_target(default_target)
+            target = self.targets_repository.load_aruco_target()
+            return ArucoTracker(
+                dictionary=target.dictionary,
+                aruco_target=target,
             )
-            self.aruco_target_repository.save(default_target)
-            logger.info("Created default ArUco target configuration")
-
-        target = self.aruco_target_repository.load()
-        return ArucoTracker(
-            dictionary=target.dictionary,
-            aruco_target=target,
-        )
-
-    def get_charuco_params(self) -> dict:
-        return self.charuco.__dict__
+        else:  # "charuco"
+            charuco = self.targets_repository.load_extrinsic_charuco()
+            return CharucoTracker(charuco)
 
     def load_camera_array(self):
         """

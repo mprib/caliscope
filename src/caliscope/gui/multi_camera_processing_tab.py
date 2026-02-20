@@ -71,11 +71,11 @@ class MultiCameraProcessingTab(QWidget):
         # Rotation persistence
         self._presenter.rotation_changed.connect(self.coordinator.persist_camera_rotation)
 
-        # Charuco changes invalidate the tracker - need to recreate presenter
-        self.coordinator.charuco_changed.connect(self._on_charuco_changed)
+        # Target changes invalidate the tracker - need to hot-swap it
+        self.coordinator.extrinsic_target_changed.connect(self._on_extrinsic_target_changed)
 
-    def _on_charuco_changed(self) -> None:
-        """Update tracker when charuco config changes.
+    def _on_extrinsic_target_changed(self) -> None:
+        """Update tracker when extrinsic target config changes.
 
         Instead of destroying/recreating the presenter (expensive, causes GUI freeze),
         we hot-swap the tracker reference. Results are cleared since point IDs change.
@@ -83,7 +83,7 @@ class MultiCameraProcessingTab(QWidget):
         if self._presenter is None:
             return
 
-        new_tracker = self.coordinator.create_tracker()
+        new_tracker = self.coordinator.create_extrinsic_tracker()
         self._presenter.update_tracker(new_tracker)
         logger.info("Updated tracker in multi-camera presenter")
 

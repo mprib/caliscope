@@ -2,8 +2,8 @@
 
 This is the landing tab for Caliscope that:
 1. Displays workspace path with folder access
-2. Configures chessboard for intrinsic calibration
-3. Shows chessboard preview with PNG export
+2. Configures intrinsic and extrinsic calibration targets
+3. Shows board previews with PNG export
 4. Displays workflow status checklist with navigation
 
 Unlike other tabs, this view wires directly to the Coordinator (no Presenter)
@@ -18,10 +18,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QByteArray, QEvent, QObject, Qt, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QByteArray, Qt, Signal
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
     QFileDialog,
     QFrame,
     QGroupBox,
@@ -29,23 +30,31 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 import cv2
 
-from caliscope.core.aruco_target import ArucoTarget
-from caliscope.core.chessboard import Chessboard
 from caliscope.core.workflow_status import StepStatus, WorkflowStatus
 from caliscope.gui.utils.aruco_preview import render_aruco_pixmap
 from caliscope.gui.utils.chessboard_preview import render_chessboard_pixmap
+from caliscope.gui.utils.charuco_preview import render_charuco_pixmap
 from caliscope.gui.widgets.aruco_target_config_panel import ArucoTargetConfigPanel
 from caliscope.gui.widgets.chessboard_config_panel import ChessboardConfigPanel
+from caliscope.gui.widgets.charuco_config_panel import CharucoConfigPanel
 from caliscope.workspace_coordinator import WorkspaceCoordinator
 
 logger = logging.getLogger(__name__)
+
+# Stacked widget page indices for intrinsic target
+_INTRINSIC_PAGE_CHARUCO = 0
+_INTRINSIC_PAGE_CHESSBOARD = 1
+
+# Stacked widget page indices for extrinsic target
+_EXTRINSIC_PAGE_ARUCO = 0
+_EXTRINSIC_PAGE_CHARUCO = 1
 
 
 class WorkflowStepRow(QWidget):
@@ -152,7 +161,8 @@ class ProjectSetupView(QWidget):
 
     Signal subscriptions:
     - status_changed: Workflow state may have changed (single refresh trigger)
-    - chessboard_changed: Board config updated (requires preview refresh)
+    - intrinsic_target_changed: Intrinsic target config updated (refresh preview)
+    - extrinsic_target_changed: Extrinsic target config updated (refresh preview)
     """
 
     tab_navigation_requested = Signal(str)  # Tab name to navigate to
@@ -161,11 +171,15 @@ class ProjectSetupView(QWidget):
         super().__init__()
         self._coordinator = coordinator
 
+        # Panel references (populated during setup)
+        self._intrinsic_charuco_panel: CharucoConfigPanel | None = None
+        self._intrinsic_chessboard_panel: ChessboardConfigPanel | None = None
+        self._extrinsic_aruco_panel: ArucoTargetConfigPanel | None = None
+        self._extrinsic_charuco_panel: CharucoConfigPanel | None = None
+
         self._setup_ui()
         self._connect_signals()
         self._refresh_status()
-        self._update_chessboard_preview()
-        self._update_aruco_preview()
 
         logger.info("ProjectSetupView created")
 
@@ -190,10 +204,8 @@ class ProjectSetupView(QWidget):
 
         # Calibration target configuration (side by side)
         config_row = QHBoxLayout()
-        self._chessboard_group = self._create_chessboard_group()
-        config_row.addWidget(self._chessboard_group)
-        self._aruco_group = self._create_aruco_target_group()
-        config_row.addWidget(self._aruco_group)
+        config_row.addWidget(self._create_intrinsic_target_group())
+        config_row.addWidget(self._create_extrinsic_target_group())
         main_layout.addLayout(config_row)
 
         # Visual separator
@@ -235,95 +247,149 @@ class ProjectSetupView(QWidget):
 
         return row
 
-    def _create_chessboard_group(self) -> QGroupBox:
-        """Create the chessboard configuration group."""
-        group = QGroupBox("Chessboard Configuration")
-        main_layout = QHBoxLayout(group)
+    def _create_intrinsic_target_group(self) -> QGroupBox:
+        """Create the intrinsic calibration target configuration group."""
+        group = QGroupBox("Intrinsic Calibration Target")
+        main_layout = QVBoxLayout(group)
 
-        # Left side: config panel
-        left_layout = QVBoxLayout()
+        # Target type combo box
+        type_row = QHBoxLayout()
+        type_row.addWidget(QLabel("Target Type:"))
+        self._intrinsic_type_combo = QComboBox()
+        self._intrinsic_type_combo.addItem("ChArUco Board (recommended)", "charuco")
+        self._intrinsic_type_combo.addItem("Chessboard", "chessboard")
+        type_row.addWidget(self._intrinsic_type_combo)
+        type_row.addStretch()
+        main_layout.addLayout(type_row)
 
-        # Load initial chessboard from repository or persist default
-        if self._coordinator.chessboard_repository.exists():
-            initial_chessboard = self._coordinator.chessboard_repository.load()
-        else:
-            initial_chessboard = Chessboard(rows=6, columns=9)
-            self._coordinator.update_chessboard(initial_chessboard)
+        # Stacked widget for config + preview
+        self._intrinsic_stack = QStackedWidget()
 
-        self._chessboard_panel = ChessboardConfigPanel(initial_chessboard)
-        left_layout.addWidget(self._chessboard_panel)
-        main_layout.addLayout(left_layout, stretch=1)
+        # Page 0: Charuco
+        charuco_page = QWidget()
+        charuco_layout = QHBoxLayout(charuco_page)
+        charuco = self._coordinator.targets_repository.load_intrinsic_charuco()
+        self._intrinsic_charuco_panel = CharucoConfigPanel(charuco)
+        charuco_layout.addWidget(self._intrinsic_charuco_panel)
 
-        # Right side: preview + save button
-        right_layout = QVBoxLayout()
-        right_layout.addStretch()
-
-        self._chessboard_preview = QLabel()
-        self._chessboard_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._chessboard_preview.setMinimumSize(200, 200)
-        self._chessboard_preview.setMaximumSize(550, 550)
-        self._chessboard_preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self._chessboard_preview.setStyleSheet(
+        self._intrinsic_charuco_preview = QLabel()
+        self._intrinsic_charuco_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._intrinsic_charuco_preview.setMinimumSize(200, 200)
+        self._intrinsic_charuco_preview.setStyleSheet(
             "QLabel { background-color: #2a2a2a; border: 1px solid #555; border-radius: 4px; }"
         )
-        right_layout.addWidget(self._chessboard_preview, alignment=Qt.AlignmentFlag.AlignCenter)
+        charuco_layout.addWidget(self._intrinsic_charuco_preview)
+        self._intrinsic_stack.addWidget(charuco_page)
 
-        # Single save button (no mirror needed)
-        btn_row = QWidget()
-        btn_layout = QHBoxLayout(btn_row)
-        btn_layout.setContentsMargins(0, 8, 0, 0)
-        self._save_png_btn = QPushButton("Save PNG")
-        self._save_png_btn.setFixedWidth(100)
-        btn_layout.addWidget(self._save_png_btn)
-        right_layout.addWidget(btn_row, alignment=Qt.AlignmentFlag.AlignCenter)
+        # Page 1: Chessboard
+        chessboard_page = QWidget()
+        chessboard_layout = QHBoxLayout(chessboard_page)
+        chessboard = self._coordinator.targets_repository.load_chessboard()
+        self._intrinsic_chessboard_panel = ChessboardConfigPanel(chessboard)
+        chessboard_layout.addWidget(self._intrinsic_chessboard_panel)
 
-        right_layout.addStretch()
-        main_layout.addLayout(right_layout, stretch=1)
+        self._intrinsic_chessboard_preview = QLabel()
+        self._intrinsic_chessboard_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._intrinsic_chessboard_preview.setMinimumSize(200, 200)
+        self._intrinsic_chessboard_preview.setStyleSheet(
+            "QLabel { background-color: #2a2a2a; border: 1px solid #555; border-radius: 4px; }"
+        )
+        chessboard_layout.addWidget(self._intrinsic_chessboard_preview)
+        self._intrinsic_stack.addWidget(chessboard_page)
+
+        main_layout.addWidget(self._intrinsic_stack)
+
+        # Save button
+        self._intrinsic_save_btn = QPushButton()
+        main_layout.addWidget(self._intrinsic_save_btn)
+
+        # Set initial state from routing
+        routing = self._coordinator.targets_repository.get_routing()
+        if routing.intrinsic_target_type == "charuco":
+            self._intrinsic_type_combo.setCurrentIndex(0)
+            self._intrinsic_stack.setCurrentIndex(_INTRINSIC_PAGE_CHARUCO)
+            self._intrinsic_save_btn.setText("Save Board + Mirror")
+            self._update_intrinsic_charuco_preview()
+        else:
+            self._intrinsic_type_combo.setCurrentIndex(1)
+            self._intrinsic_stack.setCurrentIndex(_INTRINSIC_PAGE_CHESSBOARD)
+            self._intrinsic_save_btn.setText("Save PNG")
+            self._update_intrinsic_chessboard_preview()
 
         return group
 
-    def _create_aruco_target_group(self) -> QGroupBox:
-        """Create ArUco target configuration group for extrinsic calibration.
-
-        Layout: config panel (left) + preview (right) + Save PNG button (below)
-        """
-        group = QGroupBox("ArUco Target (Extrinsic Calibration)")
-
+    def _create_extrinsic_target_group(self) -> QGroupBox:
+        """Create the extrinsic calibration target configuration group."""
+        group = QGroupBox("Extrinsic Calibration Target")
         main_layout = QVBoxLayout(group)
 
-        # Top: config + preview side by side
-        top_layout = QHBoxLayout()
+        # Target type combo box
+        type_row = QHBoxLayout()
+        type_row.addWidget(QLabel("Target Type:"))
+        self._extrinsic_type_combo = QComboBox()
+        self._extrinsic_type_combo.addItem("ChArUco Board", "charuco")
+        self._extrinsic_type_combo.addItem("ArUco Marker", "aruco")
+        type_row.addWidget(self._extrinsic_type_combo)
+        type_row.addStretch()
+        main_layout.addLayout(type_row)
 
-        # Left: config panel
-        if self._coordinator.aruco_target_repository.exists():
-            initial_target = self._coordinator.aruco_target_repository.load()
+        # Same-as-intrinsic checkbox (only visible when both are charuco)
+        self._same_as_intrinsic_check = QCheckBox("Same as intrinsic target")
+        main_layout.addWidget(self._same_as_intrinsic_check)
+
+        # Stacked widget for config + preview
+        self._extrinsic_stack = QStackedWidget()
+
+        # Page 0: ArUco
+        aruco_page = QWidget()
+        aruco_layout = QHBoxLayout(aruco_page)
+        aruco_target = self._coordinator.targets_repository.load_aruco_target()
+        self._extrinsic_aruco_panel = ArucoTargetConfigPanel(aruco_target)
+        aruco_layout.addWidget(self._extrinsic_aruco_panel)
+
+        self._extrinsic_aruco_preview = QLabel()
+        self._extrinsic_aruco_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._extrinsic_aruco_preview.setMinimumSize(120, 120)
+        aruco_layout.addWidget(self._extrinsic_aruco_preview, stretch=1)
+        self._extrinsic_stack.addWidget(aruco_page)
+
+        # Page 1: Charuco (can be disabled or enabled based on same-as-intrinsic)
+        charuco_page = QWidget()
+        charuco_layout = QHBoxLayout(charuco_page)
+        extrinsic_charuco = self._coordinator.targets_repository.load_extrinsic_charuco()
+        self._extrinsic_charuco_panel = CharucoConfigPanel(extrinsic_charuco)
+        charuco_layout.addWidget(self._extrinsic_charuco_panel)
+
+        self._extrinsic_charuco_preview = QLabel()
+        self._extrinsic_charuco_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._extrinsic_charuco_preview.setMinimumSize(200, 200)
+        self._extrinsic_charuco_preview.setStyleSheet(
+            "QLabel { background-color: #2a2a2a; border: 1px solid #555; border-radius: 4px; }"
+        )
+        charuco_layout.addWidget(self._extrinsic_charuco_preview)
+        self._extrinsic_stack.addWidget(charuco_page)
+
+        main_layout.addWidget(self._extrinsic_stack)
+
+        # Save button
+        self._extrinsic_save_btn = QPushButton()
+        main_layout.addWidget(self._extrinsic_save_btn)
+
+        # Set initial state from routing
+        routing = self._coordinator.targets_repository.get_routing()
+        if routing.extrinsic_target_type == "charuco":
+            self._extrinsic_type_combo.setCurrentIndex(0)
+            self._same_as_intrinsic_check.setChecked(routing.extrinsic_charuco_same_as_intrinsic)
+            # Visibility of checkbox
+            intrinsic_is_charuco = routing.intrinsic_target_type == "charuco"
+            self._same_as_intrinsic_check.setVisible(intrinsic_is_charuco)
+            self._update_extrinsic_stack()
         else:
-            initial_target = ArucoTarget.single_marker()
-            # Persist default immediately (matches chessboard pattern)
-            self._coordinator.update_aruco_target(initial_target)
-
-        self._aruco_panel = ArucoTargetConfigPanel(initial_target)
-        self._aruco_panel.config_changed.connect(self._on_aruco_config_changed)
-        top_layout.addWidget(self._aruco_panel)
-
-        # Right: preview
-        self._aruco_preview = QLabel()
-        self._aruco_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._aruco_preview.setMinimumSize(120, 120)
-        top_layout.addWidget(self._aruco_preview, stretch=1)
-
-        main_layout.addLayout(top_layout)
-
-        # Bottom: Save PNG button
-        self._save_aruco_btn = QPushButton("Save PNG")
-        self._save_aruco_btn.clicked.connect(self._save_aruco_png)
-        main_layout.addWidget(self._save_aruco_btn)
-
-        # Initial preview
-        self._update_aruco_preview()
-
-        # Install event filter for responsive preview sizing
-        group.installEventFilter(self)
+            self._extrinsic_type_combo.setCurrentIndex(1)
+            self._same_as_intrinsic_check.setVisible(False)
+            self._extrinsic_stack.setCurrentIndex(_EXTRINSIC_PAGE_ARUCO)
+            self._extrinsic_save_btn.setText("Save PNG")
+            self._update_extrinsic_aruco_preview()
 
         return group
 
@@ -374,57 +440,245 @@ class ProjectSetupView(QWidget):
 
     def _connect_signals(self) -> None:
         """Wire up signal connections."""
-        # Single signal for status refresh
+        # Status refresh
         self._coordinator.status_changed.connect(self._refresh_status)
 
-        # Chessboard panel needs specific handling for preview update
-        self._coordinator.chessboard_changed.connect(self._update_chessboard_preview)
-        self._chessboard_panel.config_changed.connect(self._on_chessboard_config_changed)
+        # Target config panels -> coordinator
+        if self._intrinsic_charuco_panel is not None:
+            self._intrinsic_charuco_panel.config_changed.connect(self._on_intrinsic_charuco_changed)
+        if self._intrinsic_chessboard_panel is not None:
+            self._intrinsic_chessboard_panel.config_changed.connect(self._on_intrinsic_chessboard_changed)
+        if self._extrinsic_aruco_panel is not None:
+            self._extrinsic_aruco_panel.config_changed.connect(self._on_extrinsic_aruco_changed)
+        if self._extrinsic_charuco_panel is not None:
+            self._extrinsic_charuco_panel.config_changed.connect(self._on_extrinsic_charuco_changed)
 
-        # ArUco panel needs specific handling for preview update
-        self._coordinator.aruco_target_changed.connect(self._update_aruco_preview)
+        # Combo boxes
+        self._intrinsic_type_combo.currentIndexChanged.connect(self._on_intrinsic_type_changed)
+        self._extrinsic_type_combo.currentIndexChanged.connect(self._on_extrinsic_type_changed)
+        self._same_as_intrinsic_check.toggled.connect(self._on_same_as_intrinsic_changed)
+
+        # Coordinator -> view (for preview refresh when config changes externally)
+        self._coordinator.intrinsic_target_changed.connect(self._on_intrinsic_target_changed)
+        self._coordinator.extrinsic_target_changed.connect(self._on_extrinsic_target_changed)
 
         # UI buttons
         self._open_folder_btn.clicked.connect(self._open_workspace_folder)
-        self._save_png_btn.clicked.connect(self._save_chessboard_png)
-
-        # Install event filter on the chessboard group to detect resize
-        self._chessboard_group.installEventFilter(self)
-
-    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        """Handle resize events on config groups to update preview sizes."""
-        if event.type() == QEvent.Type.Resize:
-            from PySide6.QtCore import QTimer
-
-            if watched is self._chessboard_group:
-                QTimer.singleShot(0, self._update_chessboard_preview)
-            elif watched is self._aruco_group:
-                QTimer.singleShot(0, self._update_aruco_preview)
-        return super().eventFilter(watched, event)
+        self._intrinsic_save_btn.clicked.connect(self._save_intrinsic_target)
+        self._extrinsic_save_btn.clicked.connect(self._save_extrinsic_target)
 
     # -------------------------------------------------------------------------
-    # Event Handlers
+    # Event Handlers - Intrinsic Target
     # -------------------------------------------------------------------------
 
-    def _on_chessboard_config_changed(self) -> None:
-        """Handle config change from ChessboardConfigPanel."""
-        chessboard = self._chessboard_panel.get_chessboard()
-        self._coordinator.update_chessboard(chessboard)
+    def _on_intrinsic_type_changed(self, index: int) -> None:
+        """Handle intrinsic target type combo box change."""
+        target_type = self._intrinsic_type_combo.currentData()
+        if target_type == "charuco":
+            self._intrinsic_stack.setCurrentIndex(_INTRINSIC_PAGE_CHARUCO)
+        else:
+            self._intrinsic_stack.setCurrentIndex(_INTRINSIC_PAGE_CHESSBOARD)
+        self._coordinator.update_intrinsic_target_type(target_type)
 
-    def _open_workspace_folder(self) -> None:
-        """Open the workspace directory in the system file manager."""
-        workspace_path = str(self._coordinator.workspace)
-        logger.info(f"Opening workspace folder: {workspace_path}")
+        # Update save button text
+        if target_type == "charuco":
+            self._intrinsic_save_btn.setText("Save Board + Mirror")
+        else:
+            self._intrinsic_save_btn.setText("Save PNG")
 
-        if sys.platform == "win32":
-            os.startfile(workspace_path)  # type: ignore[attr-defined]
-        elif sys.platform == "darwin":
-            subprocess.run(["open", workspace_path], check=False)
-        else:  # Linux and other Unix-like systems
-            subprocess.run(["xdg-open", workspace_path], check=False)
+        # If switching away from charuco while extrinsic same-as-intrinsic is checked,
+        # uncheck it and switch extrinsic to editable mode
+        routing = self._coordinator.targets_repository.get_routing()
+        if (
+            target_type != "charuco"
+            and routing.extrinsic_target_type == "charuco"
+            and routing.extrinsic_charuco_same_as_intrinsic
+        ):
+            self._same_as_intrinsic_check.setChecked(False)
 
-    def _save_chessboard_png(self) -> None:
-        """Save the chessboard as a high-resolution PNG file."""
+        # Update checkbox visibility
+        self._same_as_intrinsic_check.setVisible(
+            target_type == "charuco" and routing.extrinsic_target_type == "charuco"
+        )
+
+    def _on_intrinsic_charuco_changed(self) -> None:
+        """Handle intrinsic charuco config panel change."""
+        if self._intrinsic_charuco_panel is None:
+            return
+        charuco = self._intrinsic_charuco_panel.get_charuco()
+        self._coordinator.update_intrinsic_charuco(charuco)
+
+    def _on_intrinsic_chessboard_changed(self) -> None:
+        """Handle intrinsic chessboard config panel change."""
+        if self._intrinsic_chessboard_panel is None:
+            return
+        chessboard = self._intrinsic_chessboard_panel.get_chessboard()
+        self._coordinator.update_intrinsic_chessboard(chessboard)
+
+    def _on_intrinsic_target_changed(self) -> None:
+        """Refresh intrinsic preview and sync extrinsic panel if needed."""
+        target_type = self._coordinator.targets_repository.intrinsic_target_type
+        if target_type == "charuco":
+            self._update_intrinsic_charuco_preview()
+        else:
+            self._update_intrinsic_chessboard_preview()
+
+        # If extrinsic is same-as-intrinsic, update extrinsic charuco panel + preview
+        routing = self._coordinator.targets_repository.get_routing()
+        if routing.extrinsic_target_type == "charuco" and routing.extrinsic_charuco_same_as_intrinsic:
+            charuco = self._coordinator.targets_repository.load_intrinsic_charuco()
+            if self._extrinsic_charuco_panel is not None:
+                self._extrinsic_charuco_panel.set_values(charuco)
+            self._update_extrinsic_charuco_preview()
+
+    def _save_intrinsic_target(self) -> None:
+        """Save intrinsic target board image(s) to file."""
+        target_type = self._coordinator.targets_repository.intrinsic_target_type
+        if target_type == "charuco":
+            self._save_charuco_images(self._intrinsic_charuco_panel)
+        else:
+            self._save_chessboard_png(self._intrinsic_chessboard_panel)
+
+    # -------------------------------------------------------------------------
+    # Event Handlers - Extrinsic Target
+    # -------------------------------------------------------------------------
+
+    def _on_extrinsic_type_changed(self, index: int) -> None:
+        """Handle extrinsic target type combo box change."""
+        target_type = self._extrinsic_type_combo.currentData()
+        self._coordinator.update_extrinsic_target_type(target_type)
+
+        # Show/hide same_as_intrinsic checkbox
+        routing = self._coordinator.targets_repository.get_routing()
+        intrinsic_is_charuco = routing.intrinsic_target_type == "charuco"
+        self._same_as_intrinsic_check.setVisible(target_type == "charuco" and intrinsic_is_charuco)
+
+        self._update_extrinsic_stack()
+
+    def _on_same_as_intrinsic_changed(self, checked: bool) -> None:
+        """Handle same-as-intrinsic checkbox change."""
+        self._coordinator.set_extrinsic_charuco_same_as_intrinsic(checked)
+        self._update_extrinsic_stack()
+
+    def _update_extrinsic_stack(self) -> None:
+        """Set the correct stacked widget page based on current state."""
+        target_type = self._extrinsic_type_combo.currentData()
+        if target_type == "aruco":
+            self._extrinsic_stack.setCurrentIndex(_EXTRINSIC_PAGE_ARUCO)
+            self._extrinsic_save_btn.setText("Save PNG")
+            self._extrinsic_save_btn.setEnabled(True)
+            self._extrinsic_save_btn.setToolTip("")
+            self._update_extrinsic_aruco_preview()
+        else:  # "charuco"
+            same_as_intrinsic = self._same_as_intrinsic_check.isChecked()
+            self._extrinsic_stack.setCurrentIndex(_EXTRINSIC_PAGE_CHARUCO)
+            self._extrinsic_save_btn.setText("Save Board + Mirror")
+
+            if same_as_intrinsic:
+                # Disable save button and sync panel from intrinsic
+                self._extrinsic_save_btn.setEnabled(False)
+                self._extrinsic_save_btn.setToolTip(
+                    "Board images are the same as the intrinsic target — use the intrinsic Save button."
+                )
+                charuco = self._coordinator.targets_repository.load_intrinsic_charuco()
+                if self._extrinsic_charuco_panel is not None:
+                    self._extrinsic_charuco_panel.setEnabled(False)
+                    self._extrinsic_charuco_panel.set_values(charuco)
+            else:
+                # Enable save button and editable panel
+                self._extrinsic_save_btn.setEnabled(True)
+                self._extrinsic_save_btn.setToolTip("")
+                if self._extrinsic_charuco_panel is not None:
+                    self._extrinsic_charuco_panel.setEnabled(True)
+
+            self._update_extrinsic_charuco_preview()
+
+    def _on_extrinsic_aruco_changed(self) -> None:
+        """Handle extrinsic ArUco config panel change."""
+        if self._extrinsic_aruco_panel is None:
+            return
+        target = self._extrinsic_aruco_panel.get_aruco_target()
+        self._coordinator.update_extrinsic_aruco_target(target)
+
+    def _on_extrinsic_charuco_changed(self) -> None:
+        """Handle extrinsic charuco config panel change."""
+        if self._extrinsic_charuco_panel is None:
+            return
+        charuco = self._extrinsic_charuco_panel.get_charuco()
+        self._coordinator.update_extrinsic_charuco(charuco)
+
+    def _on_extrinsic_target_changed(self) -> None:
+        """Refresh extrinsic preview."""
+        target_type = self._coordinator.targets_repository.extrinsic_target_type
+        if target_type == "aruco":
+            self._update_extrinsic_aruco_preview()
+        else:
+            self._update_extrinsic_charuco_preview()
+
+    def _save_extrinsic_target(self) -> None:
+        """Save extrinsic target board image(s) to file."""
+        target_type = self._coordinator.targets_repository.extrinsic_target_type
+        if target_type == "aruco":
+            self._save_aruco_png(self._extrinsic_aruco_panel)
+        else:
+            self._save_charuco_images(self._extrinsic_charuco_panel)
+
+    # -------------------------------------------------------------------------
+    # Preview Updates
+    # -------------------------------------------------------------------------
+
+    def _update_intrinsic_charuco_preview(self) -> None:
+        """Update intrinsic charuco preview."""
+        charuco = self._coordinator.targets_repository.load_intrinsic_charuco()
+        pixmap = render_charuco_pixmap(charuco, 200)
+        self._intrinsic_charuco_preview.setPixmap(pixmap)
+
+    def _update_intrinsic_chessboard_preview(self) -> None:
+        """Update intrinsic chessboard preview."""
+        chessboard = self._coordinator.targets_repository.load_chessboard()
+        pixmap = render_chessboard_pixmap(chessboard, 200)
+        self._intrinsic_chessboard_preview.setPixmap(pixmap)
+
+    def _update_extrinsic_charuco_preview(self) -> None:
+        """Update extrinsic charuco preview."""
+        charuco = self._coordinator.targets_repository.load_extrinsic_charuco()
+        pixmap = render_charuco_pixmap(charuco, 200)
+        self._extrinsic_charuco_preview.setPixmap(pixmap)
+
+    def _update_extrinsic_aruco_preview(self) -> None:
+        """Update extrinsic ArUco preview."""
+        target = self._coordinator.targets_repository.load_aruco_target()
+        marker_id = target.marker_ids[0] if target.marker_ids else 0
+        pixmap = render_aruco_pixmap(target, marker_id, 120)
+        self._extrinsic_aruco_preview.setPixmap(pixmap)
+
+    # -------------------------------------------------------------------------
+    # File Save Handlers
+    # -------------------------------------------------------------------------
+
+    def _save_charuco_images(self, panel: CharucoConfigPanel | None) -> None:
+        """Save charuco board as front PNG + mirror PNG."""
+        if panel is None:
+            return
+        charuco = panel.get_charuco()
+        default_dir = self._coordinator.workspace
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save ChArUco Board", str(default_dir / "charuco_board.png"), "PNG Files (*.png)"
+        )
+        if file_path:
+            charuco.save_image(file_path)
+            # Save mirror alongside with _mirror suffix
+            p = Path(file_path)
+            mirror_path = p.parent / f"{p.stem}_mirror{p.suffix}"
+            charuco.save_mirror_image(str(mirror_path))
+            logger.info(f"Saved charuco board to {file_path} and mirror to {mirror_path}")
+
+    def _save_chessboard_png(self, panel: ChessboardConfigPanel | None) -> None:
+        """Save chessboard as a high-resolution PNG file."""
+        if panel is None:
+            return
+        chessboard = panel.get_chessboard()
         default_path = Path(self._coordinator.workspace) / "chessboard.png"
         file_path, _ = QFileDialog.getSaveFileName(
             self,
@@ -433,35 +687,15 @@ class ProjectSetupView(QWidget):
             "PNG Files (*.png)",
         )
         if file_path:
-            chessboard = self._chessboard_panel.get_chessboard()
             pixmap = render_chessboard_pixmap(chessboard, 2000)
             pixmap.save(file_path, "PNG")
             logger.info(f"Saved chessboard to {file_path}")
 
-    def _on_aruco_config_changed(self) -> None:
-        """Handle ArUco config panel changes."""
-        target = self._aruco_panel.get_aruco_target()
-        self._coordinator.update_aruco_target(target)
-
-    def _update_aruco_preview(self) -> None:
-        """Update ArUco preview from current config."""
-        if not self._coordinator.aruco_target_repository.exists():
-            self._aruco_preview.clear()
-            return
-
-        target = self._coordinator.aruco_target_repository.load()
-        marker_id = target.marker_ids[0] if target.marker_ids else 0
-
-        # Use available width for preview
-        available = self._aruco_preview.width() or 120
-        size = min(available, 200)
-
-        pixmap = render_aruco_pixmap(target, marker_id, size)
-        self._aruco_preview.setPixmap(pixmap)
-
-    def _save_aruco_png(self) -> None:
+    def _save_aruco_png(self, panel: ArucoTargetConfigPanel | None) -> None:
         """Save ArUco marker image to file."""
-        target = self._aruco_panel.get_aruco_target()
+        if panel is None:
+            return
+        target = panel.get_aruco_target()
         marker_id = target.marker_ids[0] if target.marker_ids else 0
 
         default_path = Path(self._coordinator.workspace) / f"aruco_marker_{marker_id}.png"
@@ -477,6 +711,22 @@ class ProjectSetupView(QWidget):
             bgr = target.generate_marker_image(marker_id, pixels_per_meter=8000)
             cv2.imwrite(file_path, bgr)
             logger.info(f"Saved ArUco marker to {file_path}")
+
+    # -------------------------------------------------------------------------
+    # Other Handlers
+    # -------------------------------------------------------------------------
+
+    def _open_workspace_folder(self) -> None:
+        """Open the workspace directory in the system file manager."""
+        workspace_path = str(self._coordinator.workspace)
+        logger.info(f"Opening workspace folder: {workspace_path}")
+
+        if sys.platform == "win32":
+            os.startfile(workspace_path)  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.run(["open", workspace_path], check=False)
+        else:  # Linux and other Unix-like systems
+            subprocess.run(["xdg-open", workspace_path], check=False)
 
     # -------------------------------------------------------------------------
     # Status Refresh
@@ -578,21 +828,3 @@ class ProjectSetupView(QWidget):
             step_status = StepStatus.NOT_STARTED
 
         self._reconstruction_row.set_status(step_status, detail)
-
-    def _update_chessboard_preview(self) -> None:
-        """Update the chessboard preview image."""
-        chessboard = self._chessboard_panel.get_chessboard()
-
-        # Responsive sizing based on container
-        container_width = self._chessboard_preview.width()
-        container_height = self._chessboard_preview.height()
-        container_size = min(container_width, container_height)
-        max_dimension = max(200, min(container_size - 20, 550))
-
-        try:
-            pixmap = render_chessboard_pixmap(chessboard, max_dimension)
-            self._chessboard_preview.setPixmap(pixmap)
-        except Exception as e:
-            logger.error(f"Failed to create chessboard preview: {e}")
-            self._chessboard_preview.setPixmap(QPixmap())
-            self._chessboard_preview.setText("Unable to create preview")

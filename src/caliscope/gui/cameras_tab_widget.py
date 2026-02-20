@@ -24,6 +24,7 @@ from PySide6.QtCore import Qt
 from caliscope.core.calibrate_intrinsics import IntrinsicCalibrationOutput
 from caliscope.gui.theme import Colors
 from caliscope.gui.utils.chessboard_preview import render_chessboard_pixmap
+from caliscope.gui.utils.charuco_preview import render_charuco_pixmap
 from caliscope.gui.utils.spinbox_utils import setup_spinbox_sizing
 from caliscope.gui.camera_list_widget import CameraListWidget
 from caliscope.gui.views.intrinsic_calibration_widget import IntrinsicCalibrationWidget
@@ -142,11 +143,11 @@ class CamerasTabWidget(QWidget):
     def _connect_signals(self) -> None:
         """Connect internal signals."""
         self.camera_list.camera_selected.connect(self._on_camera_selected)
-        self.coordinator.chessboard_changed.connect(self._on_chessboard_changed)
+        self.coordinator.intrinsic_target_changed.connect(self._on_intrinsic_target_changed)
         self._frame_skip_spin.valueChanged.connect(self._on_frame_skip_changed)
 
-    def _on_chessboard_changed(self) -> None:
-        """Update tracker in all pooled presenters when chessboard changes."""
+    def _on_intrinsic_target_changed(self) -> None:
+        """Update tracker in all pooled presenters and refresh preview."""
         new_tracker = self.coordinator.create_intrinsic_tracker()
         for cam_id, presenter in self._presenters.items():
             presenter.update_tracker(new_tracker)
@@ -219,21 +220,34 @@ class CamerasTabWidget(QWidget):
         self._message_label.show()
 
     def _update_pattern_preview(self) -> None:
-        """Update the chessboard preview from coordinator state."""
-        if not self.coordinator.chessboard_repository.exists():
-            self._pattern_preview.clear()
-            self._pattern_info.setText("No chessboard configured")
-            return
+        """Update the pattern preview from coordinator state.
 
-        chessboard = self.coordinator.chessboard_repository.load()
-        pixmap = render_chessboard_pixmap(chessboard, 120)
-        self._pattern_preview.setPixmap(pixmap)
+        Queries the repository for the current intrinsic target type,
+        then renders the appropriate preview.
+        """
+        target_type = self.coordinator.targets_repository.intrinsic_target_type
 
-        # Display square count (what users see), not internal corner count
-        # A board with (columns x rows) internal corners has (columns+1 x rows+1) squares
-        squares_wide = chessboard.columns + 1
-        squares_tall = chessboard.rows + 1
-        self._pattern_info.setText(f"{squares_wide} x {squares_tall} squares")
+        if target_type == "chessboard":
+            if not self.coordinator.targets_repository.chessboard_exists():
+                self._pattern_preview.clear()
+                self._pattern_info.setText("No chessboard configured")
+                return
+            chessboard = self.coordinator.targets_repository.load_chessboard()
+            pixmap = render_chessboard_pixmap(chessboard, 120)
+            self._pattern_preview.setPixmap(pixmap)
+            squares_wide = chessboard.columns + 1
+            squares_tall = chessboard.rows + 1
+            self._pattern_info.setText(f"Chessboard: {squares_wide} x {squares_tall} squares")
+
+        else:  # "charuco"
+            if not self.coordinator.targets_repository.intrinsic_charuco_exists():
+                self._pattern_preview.clear()
+                self._pattern_info.setText("No charuco configured")
+                return
+            charuco = self.coordinator.targets_repository.load_intrinsic_charuco()
+            pixmap = render_charuco_pixmap(charuco, 120)
+            self._pattern_preview.setPixmap(pixmap)
+            self._pattern_info.setText(f"ChArUco: {charuco.columns} x {charuco.rows}")
 
     def cleanup(self) -> None:
         """Clean up all presenters and widgets.

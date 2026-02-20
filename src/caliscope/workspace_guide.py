@@ -23,8 +23,6 @@ class WorkspaceGuide:
         self.intrinsic_dir = Path(workspace_dir, "calibration", "intrinsic")
         self.extrinsic_dir = Path(workspace_dir, "calibration", "extrinsic")
         self.recording_dir = Path(workspace_dir, "recordings")
-        self.chessboard_toml = self.calibration_dir / "chessboard.toml"
-        self.aruco_target_toml = self.calibration_dir / "aruco_target.toml"
 
     def get_cam_ids_in_dir(self, directory: Path) -> list[int]:
         """

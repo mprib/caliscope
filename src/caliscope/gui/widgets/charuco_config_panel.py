@@ -217,3 +217,41 @@ class CharucoConfigPanel(QWidget):
         self._printed_edge_spin.blockSignals(True)
         self._printed_edge_spin.setValue(cm)
         self._printed_edge_spin.blockSignals(False)
+
+    def set_values(self, charuco: Charuco) -> None:
+        """Repopulate panel with values from a charuco instance.
+
+        Used when syncing the same-as-intrinsic extrinsic panel from
+        the intrinsic charuco config.
+
+        Args:
+            charuco: Charuco instance to populate widget values from
+        """
+        # Block signals during bulk update to avoid spurious config_changed emissions
+        self._row_spin.blockSignals(True)
+        self._column_spin.blockSignals(True)
+        self._width_spin.blockSignals(True)
+        self._height_spin.blockSignals(True)
+        self._units_combo.blockSignals(True)
+        self._invert_checkbox.blockSignals(True)
+        self._printed_edge_spin.blockSignals(True)
+
+        self._row_spin.setValue(charuco.rows)
+        self._column_spin.setValue(charuco.columns)
+        self._width_spin.setValue(charuco.board_width)
+        self._height_spin.setValue(charuco.board_height)
+        self._units_combo.setCurrentText(charuco.units)
+        self._invert_checkbox.setChecked(charuco.inverted)
+        if charuco.square_size_overide_cm is not None:
+            self._printed_edge_spin.setValue(charuco.square_size_overide_cm)
+
+        self._row_spin.blockSignals(False)
+        self._column_spin.blockSignals(False)
+        self._width_spin.blockSignals(False)
+        self._height_spin.blockSignals(False)
+        self._units_combo.blockSignals(False)
+        self._invert_checkbox.blockSignals(False)
+        self._printed_edge_spin.blockSignals(False)
+
+        # Update internal params cache (for immutable fields like dictionary)
+        self._charuco_params = self._extract_params(charuco)

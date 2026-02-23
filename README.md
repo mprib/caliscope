@@ -17,6 +17,8 @@ It simplifies the process of determining camera properties to enable 3D motion c
 
 ## Demo
 
+NOTE: the demo below represents the current version on `main`, which has not yet been formally released on PyPI yet.
+
 https://github.com/user-attachments/assets/037c6237-0955-41e2-979e-a4247f7677e6
 
 ## Quick Start

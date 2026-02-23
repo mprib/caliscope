@@ -15,6 +15,10 @@
 Caliscope is a GUI-based multicamera calibration package.
 It simplifies the process of determining camera properties to enable 3D motion capture in a hardware-agnostic pipeline.
 
+## Demo
+
+https://github.com/user-attachments/assets/037c6237-0955-41e2-979e-a4247f7677e6
+
 ## Quick Start
 
 Basic installation instructions can be found in our [docs](https://mprib.github.io/caliscope/installation/).
@@ -24,31 +28,6 @@ We are working to streamline the installation in an upcoming release.
 For a complete overview of the entire workflow, please see the [sample project](https://mprib.github.io/caliscope/sample_project/).
 A [video walk through](https://www.youtube.com/watch?v=voE3IKYtuIQ) demonstrates the process with an example dataset.
 
-## Demo of Core Features
-
-### Calibration Board Creation and Camera Intrinsic Calibration
-
-https://github.com/user-attachments/assets/c2dd4119-772a-4076-90f7-4e6201f604ed
-
-
-### Estimate Multicamera Relative Pose and Set World Origin
-
-
-https://github.com/user-attachments/assets/6e21c5bb-b8d1-4999-88f8-735bb5722570
-
-
-### Integrate with Tracking Tools To Triangulate Landmarks
-
-https://github.com/user-attachments/assets/1a1b09ab-0938-48e1-aeb8-6c0bfc3492fc
-
-
-### Demo Animation
-
-https://github.com/mprib/caliscope/assets/31831778/803a4ce8-4012-4da1-87b9-66c5e6b31c59
-
-The animation above was generated using only `Caliscope` output and a handful of webcams.
-
-
 ---
 
 ## How It Works
@@ -56,7 +35,7 @@ The animation above was generated using only `Caliscope` output and a handful of
 To triangulate 3D landmarks from synchronized video, you must know the intrinsic and extrinsic properties of your camera system.
 Intrinsic properties include each camera's focal length, optical center, and lens distortion.
 Extrinsic properties describe the relative rotation and translation of all cameras in the system.
-Using more cameras makes 3D tracking more robust to occlusion and other inevitable errors.
+Using more cameras makes 3D tracking more robust to occlusion and other inevitable errors, but increases the computational demands of optimizing their relative position.
 
 While OpenCV provides functions for single-camera intrinsics, estimating extrinsics for more than two cameras is not straightforward.
 This multi-camera process requires a technique called [bundle adjustment](https://scipy-cookbook.readthedocs.io/items/bundle_adjustment.html), which demands extensive tracking of camera parameters and 2D point estimates.
@@ -76,8 +55,6 @@ It provides visual feedback at each stage, helping you verify the parameter esti
 - Tools to set the world origin within the visualizer to simplify data processing.
 
 #### 3D Tracking
-
-
 
 - A general Tracker interface for integrating alternate 2D tracking methods.
 - Three sample implementations using Google Mediapipe (Hands/Pose/Holistic).

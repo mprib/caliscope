@@ -1,4 +1,4 @@
-Camera calibration is performed with the aid of a [ChArUco calibration board](https://docs.opencv.org/3.4/df/d4a/tutorial_charuco_detection.html). This is basically a chessboard that has ArUco markers within it and is used to determine both the intrinsic properties of a camera (optical center, focal length, and lens distortion) as well as where the cameras are relative to each other. 
+Camera calibration is performed with the aid of a [ChArUco calibration board](https://docs.opencv.org/3.4/df/d4a/tutorial_charuco_detection.html). This is basically a chessboard that has ArUco markers within it and is used to determine both the intrinsic properties of a camera (optical center, focal length, and lens distortion) as well as where the cameras are relative to each other.
 
 It is possible to purchase pre-printed calibration boards and then set the parameters of the ChArUco to fit the board you have. **Please keep in mind that row count and column count are not interchangeable, so visually inspect your physical board compared to the board shown in the GUI to make sure they are the same. You may need to swap row and column values.**
 
@@ -19,7 +19,7 @@ While more rows and columns mean that you can get more recognized corners per bo
 As noted above: row count and column count are not interchangeable. An 8x5 board is not the same as a 5x8 board.
 ### 2. Board Size
 
-This is the target size that the final printed board will have. This can minimize white space in the `png`. 
+This is the target size that the final printed board will have. This can minimize white space in the `png`.
 
 ### 3. Board Inversion
 
@@ -27,7 +27,7 @@ To save on printer ink, you can select to invert the board image so that white a
 
 ### 4. Save Calibration Board `.png`
 
-Only used for printing out. This file does not need to be saved anywhere in particular. 
+Only used for printing out. This file does not need to be saved anywhere in particular.
 
 ### 5. Save Mirror Board `.png`
 
@@ -44,11 +44,11 @@ To ensure that the scale of the world is accurate in your final triangulated poi
 
 ### Flatness Matters Particularly for Intrinsics
 
-Having a truly flat board is crucial for a good intrinsic camera calibration. At the core of the calibration algorithm is the fact that all points exist on a common plane. Loosely taped pieces of paper or warped cardboard backings will undermine the calibration quality. 
+Having a truly flat board is crucial for a good intrinsic camera calibration. At the core of the calibration algorithm is the fact that all points exist on a common plane. Loosely taped pieces of paper or warped cardboard backings will undermine the calibration quality.
 
 ### Different boards for intrinsic and extrinsic calibrations
 
-It is possible to perform the intrinsic calibration and extrinsic calibration using different boards, though you will have to adjust the board definition prior to running each calibration. 
+It is possible to perform the intrinsic calibration and extrinsic calibration using different boards, though you will have to adjust the board definition prior to running each calibration.
 
 In this way, a more perfectly flat and and aligned board could be used for intrinsic calibration when it is fine to have the board relatively close to a single camera. During extrinsic calibration, a larger board pieced together from multiple sheets of paper could be used to allow calibration of a larger capture volume.
 

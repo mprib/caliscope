@@ -14,9 +14,9 @@ The built-in MediaPipe trackers (Hand, Pose, Simple Holistic, Holistic) are incl
 
 Caliscope supports three target types:
 
-- **ChArUco board** — works for both intrinsic and extrinsic calibration
-- **Chessboard** — intrinsic calibration only
-- **ArUco marker** — extrinsic calibration only
+- **ChArUco board**: works for both intrinsic and extrinsic calibration
+- **Chessboard**: intrinsic calibration only
+- **ArUco marker**: extrinsic calibration only
 
 See [Calibration Targets](calibration_targets.md) for when to use each.
 

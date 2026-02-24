@@ -1,6 +1,6 @@
 # Triangulation API
 
-Beyond the GUI interface, Caliscope provides a Python API for programmatically triangulating 2D points based on a calibrated camera array. This is intended for batch processing, custom workflows, or integration with other tools.
+Beyond the GUI, Caliscope provides a Python API for programmatically triangulating 2D points based on a calibrated camera array. This is intended for batch processing, custom workflows, or integration with other tools.
 
 ## Basic Usage
 

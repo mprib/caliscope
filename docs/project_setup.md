@@ -175,13 +175,3 @@ Track Row Column format for OpenSim and other biomechanical modeling software. C
 
 ### camera_array.toml
 A snapshot of the camera calibration (intrinsic and extrinsic parameters) used for this specific reconstruction. This ensures reproducibility even if the calibration is later updated.
-
-## Summary
-
-1. **Create project** → Caliscope generates the workspace structure
-2. **Intrinsic calibration** → Place `cam_N.mp4` in `calibration/intrinsic/` (unsynchronized)
-3. **Extrinsic calibration** → Place synchronized `cam_N.mp4` in `calibration/extrinsic/` (with optional `timestamps.csv`)
-4. **Record motion** → Create subfolders in `recordings/` with synchronized videos
-5. **Reconstruct** → Process recordings to generate 3D trajectories in multiple formats
-
-The application automatically detects file changes and updates the interface accordingly.

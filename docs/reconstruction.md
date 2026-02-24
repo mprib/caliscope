@@ -1,11 +1,9 @@
 # Reconstruction: Landmark Triangulation from Motion Capture
 
-## Overview
-
 The reconstruction pipeline transforms synchronized videos into 3D motion trajectories through two stages:
 
-1. **2D landmark detection** — A tracker processes each camera's video to identify anatomical landmarks (e.g., joint positions) in every frame
-2. **3D triangulation** — Using the calibrated camera system, corresponding 2D observations from multiple cameras are triangulated into 3D world coordinates
+1. **2D landmark detection**: a tracker processes each camera's video to identify anatomical landmarks (e.g., joint positions) in every frame
+2. **3D triangulation**: using the calibrated camera system, corresponding 2D observations from multiple cameras are triangulated into 3D world coordinates
 
 The pipeline uses the camera intrinsics and extrinsics established during calibration to locate landmarks in physical space.
 

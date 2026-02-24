@@ -1,14 +1,8 @@
 # Custom ONNX Trackers
 
-## Overview
+Caliscope can load custom ONNX pose estimation models for 2D landmark tracking. You can use models trained on your specific subjects (particular species, body regions, behavioral features) without modifying Caliscope's source code. A TOML "model card" file describes the model's input requirements and output format.
 
-Caliscope supports custom ONNX pose estimation models for 2D landmark tracking. This allows integration with models trained on your specific subjects (animals, specialized body parts, etc.) without modifying Caliscope's source code. A TOML "model card" file describes the model's input requirements and output format.
-
-After installation, ONNX models appear alongside the built-in trackers in the reconstruction tab's dropdown menu, ready to use for tracking and triangulation.
-
-**Current limitations:**
-- Single-person detection only (one subject per camera view)
-- CPU inference via onnxruntime (no GPU acceleration)
+After installation, ONNX models appear alongside the built-in trackers in the reconstruction tab's dropdown menu.
 
 ## Installation
 
@@ -56,7 +50,7 @@ A model card is a TOML file that describes your ONNX model's configuration. Here
 
 ```toml
 [model]
-# Display name in the GUI (optional — defaults to the .onnx filename if omitted)
+# Display name in the GUI (optional, defaults to the .onnx filename if omitted)
 name = "RTMPose-t Halpe26"
 
 # Absolute path to your ONNX model file (required)
@@ -175,8 +169,8 @@ points = ["left_knee", "left_ankle"]
 ### Wireframe Segments
 
 Each segment definition requires:
-- `color` — Matplotlib color string (e.g., `"r"`, `"blue"`, `"#FF5733"`)
-- `points` — 2-element list of point names (must exist in `[points]` section)
+- `color`: Matplotlib color string (e.g., `"r"`, `"blue"`, `"#FF5733"`)
+- `points`: 2-element list of point names (must exist in `[points]` section)
 
 Segments are used by the 3D visualizer to draw connections between keypoints, making it easier to interpret motion trajectories.
 
@@ -188,7 +182,7 @@ ONNX pose estimation models output predictions in different formats. You must sp
 
 **Used by:** RTMPose family (MMPose/OpenMMLab)
 
-**How it works:** The model outputs two 1D probability distributions per keypoint — one for the X coordinate and one for the Y coordinate. The coordinate is the argmax of each distribution. This provides sub-pixel accuracy (0.5px resolution) built into the architecture.
+**How it works:** The model outputs two 1D probability distributions per keypoint, one for the X coordinate and one for the Y coordinate. The coordinate is the argmax of each distribution. This provides sub-pixel accuracy (0.5px resolution) built into the architecture.
 
 **When to use:** If your model was trained with RTMPose or uses the SimCC head architecture, use `format = "simcc"`.
 
@@ -216,7 +210,7 @@ Caliscope uses platform-specific data directories following standard conventions
 | **macOS** | `~/Library/Application Support/caliscope/models/` |
 | **Windows** | `C:\Users\<user>\AppData\Local\caliscope\caliscope\models\` |
 
-Place your `.toml` model card files in this directory. The `.onnx` model file can live anywhere — the model card points to it via the `model_path` field (use an absolute path).
+Place your `.toml` model card files in this directory. The `.onnx` model file can live anywhere; the model card points to it via the `model_path` field (use an absolute path).
 
 **To find your models directory:**
 
@@ -318,14 +312,6 @@ A three-tier crop-and-track strategy helps maintain robust detection across fram
 
 This ensures reliable detection even when subjects move rapidly or temporarily leave the crop region.
 
-## Future Enhancements
+## Limitations
 
-Planned improvements to ONNX tracker support:
-
-- GPU acceleration via CUDA/TensorRT execution providers
-- Multi-person detection and tracking
-- Live preview during model selection
-- Model card validation and testing UI
-- Model zoo with pre-configured cards for popular models
-
-Contributions and feature requests are welcome at the [Caliscope GitHub repository](https://github.com/mprib/caliscope).
+The ONNX tracker currently supports single-person detection with CPU inference only. GPU acceleration and multi-person tracking are not yet implemented. If you have a use case that requires these features, please [open an issue](https://github.com/mprib/caliscope/issues).

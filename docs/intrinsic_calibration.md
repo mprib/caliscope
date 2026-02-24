@@ -1,15 +1,6 @@
 # Cameras: Intrinsic Calibration
 
-
-## Overview
-
-Intrinsic calibration determines the internal optical properties of each camera:
-
-- **Focal length** (in pixels) — how the camera magnifies the scene
-- **Optical center** — the pixel coordinates where the camera's optical axis intersects the sensor
-- **Lens distortion coefficients** — correction parameters for barrel/pincushion distortion
-
-These parameters are unique to each camera and remain constant as long as the camera's focal length and lens haven't changed.
+Intrinsic calibration determines the internal optical properties of each camera: the focal length (in pixels), the optical center (where the camera's optical axis intersects the sensor), and the lens distortion coefficients that correct barrel and pincushion distortion. These parameters are unique to each camera and remain constant as long as the camera's focal length and lens haven't changed.
 
 ### Calibration Targets
 
@@ -32,7 +23,7 @@ The physical dimensions of your calibration board do not affect the final intrin
    1. Select the target number of boards for your calibration (~20 works well)
    2. Select the percent of the board that must be identified for it to be included in the calibration data (the "Board Threshold")
    3. Click `Autocalibrate`
-   4. The video will play and calibration data will be periodically stored. At the conclusion of the video, calibration will be performed and the updated camera parameters will be displayed in the GUI.
+   4. The video will play and calibration data will be periodically stored. When the video finishes, calibration runs and the updated camera parameters appear in the GUI.
 
 ## Reusability
 
@@ -56,9 +47,8 @@ If your calibration results show poor reprojection accuracy with a wide-angle le
 ## Practical Recording Guidelines
 
 ### Camera and Board Movement
-- Feel free to move the camera *or* the board
-  - It can be easier to collect good data when directly monitoring the view of the camera
-  - The camera does not need to be in the same position as it is during the extrinsic calibration (and the calibration board doesn't need to be the same either)
+- You can move the camera, the board, or both during recording. It is often easier to collect good data when you can directly monitor the camera's live view.
+- The camera does not need to be in the same position it will occupy during extrinsic calibration, and the calibration board does not need to be the same one either.
 
 ### Minimize Motion Blur
 - Make movements slow and smooth
@@ -66,7 +56,7 @@ If your calibration results show poor reprojection accuracy with a wide-angle le
 - Ensure adequate lighting to allow for a faster shutter speed without underexposing the video
 
 ### Provide Foreshortening
-- Hold the calibration board at various angles relative to the camera. This introduces foreshortening, which is crucial for the calibration process as it provides more information about the camera's lens characteristics.
+- Hold the calibration board at various angles relative to the camera. Foreshortening gives the solver more information about the lens geometry.
 - Include a mix of positions: some shots with the board tilted towards the camera, some away, and others at an angle
 
 ### Cover the Entire Field of View
@@ -81,7 +71,7 @@ If your calibration results show poor reprojection accuracy with a wide-angle le
 
 ### Consistent Focus Settings
 - **Use manual focus if available** to keep the focus consistent throughout the filming
-- **WARNING**: If your camera uses auto-focus, the focal length changes between shots, which invalidates the calibration. Auto-focus can introduce inconsistencies as the focus mechanism changes between frames. If you cannot disable auto-focus, ensure the camera is focused at a fixed distance and doesn't refocus during recording.
+- If your camera uses auto-focus, be aware that the focal length changes between shots, which invalidates the calibration. If you cannot disable auto-focus, ensure the camera is focused at a fixed distance and does not refocus during recording.
 
 ### Adequate Lighting
 - Ensure the scene is well-lit to avoid noise and grain in the video, which can interfere with the calibration process

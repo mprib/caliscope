@@ -1,8 +1,12 @@
 # Sample Project
 
-The video below walks through the full calibration and reconstruction workflow. To try this on your own hardware, download the sample dataset [here](https://1drv.ms/f/c/a30b139c66ff49c7/EqIVjIRLQ9hEh7hLE7UysAcBvxa1Oqy8JlM8Cu1gg0mXKw?e=3PAYXa).
+The video below walks through the full calibration and reconstruction workflow. To try this on your own hardware, clone the sample dataset from [caliscope-sample-data](https://github.com/mprib/caliscope-sample-data):
 
-This sample project uses a 3-camera setup with ChArUco board calibration and MediaPipe pose tracking. It demonstrates the full pipeline: intrinsic calibration, extrinsic calibration, and 3D reconstruction.
+```bash
+git clone https://github.com/mprib/caliscope-sample-data.git
+```
+
+This sample project uses a 3-camera setup with ArUco marker extrinsic calibration and software synchronization. It contains raw input data only: intrinsic calibration videos, extrinsic calibration videos with timestamps, and one walking recording. You configure calibration targets and run the pipeline yourself following the documentation.
 
 This project illustrates the workflow with a minimal setup. Several improvements would increase the quality of the final results:
 

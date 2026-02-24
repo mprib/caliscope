@@ -57,7 +57,7 @@ These three files together form a complete snapshot of the calibrated capture vo
 
 ### 5. Filter and Re-optimize
 
-After the initial calibration, a filter control allows you to remove the worst observations based on reprojection error. The default setting removes the 2.5th percentile of observations (those with the highest error). Removing outliers and re-running bundle adjustment typically improves the calibration result.
+The initial calibration pipeline includes a built-in outlier removal pass that removes the worst 2.5% of observations per camera and re-optimizes. After this automatic pass completes, a filter control allows you to apply additional filtering. The default filter threshold also targets the 2.5th percentile, applied per camera (not globally). Per-camera filtering ensures that cameras with fewer observations are not disproportionately stripped. Removing additional outliers and re-running bundle adjustment can further improve the calibration result.
 
 During re-optimization, the calibration controls remain visible but are disabled. Once re-optimization completes, the controls re-enable and the updated results are displayed.
 

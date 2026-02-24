@@ -20,7 +20,7 @@ Caliscope supports both **ChArUco** and **chessboard** patterns for intrinsic ca
 
 ### Physical Board Size
 
-**Important**: The physical dimensions of your calibration board do not matter for intrinsic calibration. The mathematics only use pixel ratios — the geometric relationships between detected corners in the image. Whether your board is 10 cm or 1 meter across, the resulting focal length and distortion coefficients are identical. This is why you can use different calibration boards for intrinsic and extrinsic calibration without issue.
+The physical dimensions of your calibration board do not affect the final intrinsic parameters (focal length and distortion coefficients), which are scale-invariant. Whether your board is 10 cm or 1 meter across, these parameters are identical. The board dimensions do affect internal pose estimates during optimization, but approximate dimensions are acceptable. This is why you can use different calibration boards for intrinsic and extrinsic calibration without issue.
 
 ## Processing Steps
 
@@ -45,13 +45,16 @@ Caliscope supports both **ChArUco** and **chessboard** patterns for intrinsic ca
 - The lens hasn't been physically modified or replaced
 - You're using the same focus setting (see warning below)
 
-You can copy previously determined intrinsic parameters from one project to another when reusing the same cameras in a new setup.
+You can copy previously determined intrinsic parameters from one project to another when reusing the same cameras in a new setup. Intrinsic parameters are stored in `camera_array.toml` (TOML format) within the project's calibration directory.
 
 ### Camera Model Considerations
 
-Caliscope uses OpenCV's standard pinhole camera model with radial and tangential distortion coefficients. This model works well for most cameras, including typical webcams and professional cameras with moderate field-of-view lenses.
+Caliscope supports two distortion models:
 
-**Fisheye lenses**: GoPro cameras and action cameras with extreme wide-angle lenses may require a specialized fisheye distortion model. Caliscope's standard model may struggle to accurately model barrel distortion from ultra-wide lenses. If your calibration results show poor reprojection accuracy with a fisheye lens, consider using a camera with a narrower field of view.
+- **Standard (Brown-Conrady)**: Pinhole model with 5 distortion coefficients (k1, k2, p1, p2, k3) for radial and tangential distortion. Works well for most cameras, including typical webcams and professional cameras with moderate field-of-view lenses.
+- **Fisheye (equidistant)**: 4-coefficient model (k1, k2, k3, k4) for extreme wide-angle lenses like GoPros and action cameras. Enable this by setting the `fisheye` flag in `camera_array.toml` for the relevant camera.
+
+If your calibration results show poor reprojection accuracy with a wide-angle lens, try enabling the fisheye model for that camera.
 
 ## Practical Recording Guidelines
 

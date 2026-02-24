@@ -192,7 +192,7 @@ ONNX pose estimation models output predictions in different formats. You must sp
 
 **When to use:** If your model was trained with RTMPose or uses the SimCC head architecture, use `format = "simcc"`.
 
-**Output structure:** Two tensors of shape `(batch, num_keypoints, input_width)` and `(batch, num_keypoints, input_height)`.
+**Output structure:** Two tensors of shape `(batch, num_keypoints, input_width * simcc_split_ratio)` and `(batch, num_keypoints, input_height * simcc_split_ratio)`. The default `simcc_split_ratio` is 2.0, so for a model with `input_size = [192, 256]`, the X vector length is 384 and the Y vector length is 512.
 
 ### Heatmap
 
@@ -214,7 +214,7 @@ Caliscope uses platform-specific data directories following standard conventions
 |----------|-----------------|
 | **Linux** | `~/.local/share/caliscope/models/` |
 | **macOS** | `~/Library/Application Support/caliscope/models/` |
-| **Windows** | `C:\Users\<user>\AppData\Local\Mac Prible\caliscope\models\` |
+| **Windows** | `C:\Users\<user>\AppData\Local\caliscope\caliscope\models\` |
 
 Place your `.toml` model card files in this directory. The `.onnx` model file can live anywhere — the model card points to it via the `model_path` field (use an absolute path).
 

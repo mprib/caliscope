@@ -2,7 +2,7 @@
 
 ### Can I process videos I pre-recorded with GoPros, phones, etc.?
 
-Yes. Caliscope works with pre-recorded video from any camera, including GoPros and smartphones. Frame synchronization is required for extrinsic calibration and reconstruction. You can either ensure all cameras are hardware-synchronized (same trigger, same frame count) or provide a `frametimes.csv` file that records when each frame was captured. See [Project Setup](project_setup.md#frametimescsv-format) for the file format.
+Yes. Caliscope works with pre-recorded video from any camera, including GoPros and smartphones. Frame synchronization is required for extrinsic calibration and reconstruction. You can either ensure all cameras are hardware-synchronized (same trigger, same frame count) or provide a `timestamps.csv` file that records when each frame was captured. See [Project Setup](project_setup.md#timestampscsv-format) for the file format.
 
 ### How can I use something other than MediaPipe for tracking?
 

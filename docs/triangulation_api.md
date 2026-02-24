@@ -38,6 +38,7 @@ print(f"Triangulated {len(xyz_data)} points")
 - `point_id`: Integer identifying which landmark/point is being tracked
 - `img_loc_x`: Float X-coordinate in the image (in pixels)
 - `img_loc_y`: Float Y-coordinate in the image (in pixels)
+- `frame_time` (optional): Float timestamp in seconds. If present, it is propagated to the output DataFrame.
 
 Each row represents a single 2D point observed by a specific camera at a specific time. Multiple cameras observing the same `point_id` at the same `sync_index` enables triangulation.
 
@@ -52,6 +53,7 @@ Pandas DataFrame containing triangulated 3D points with columns:
 - `x_coord`: Float X-coordinate in 3D space (meters)
 - `y_coord`: Float Y-coordinate in 3D space (meters)
 - `z_coord`: Float Z-coordinate in 3D space (meters)
+- `frame_time`: Float timestamp in seconds (present when the input CSV includes `frame_time`)
 
 Each row represents a single 3D point at a specific time. The coordinates are in the world coordinate system defined during extrinsic calibration (see [Extrinsic Calibration](extrinsic_calibration.md#origin-setting)).
 

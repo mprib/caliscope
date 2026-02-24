@@ -7,13 +7,19 @@ The reconstruction pipeline transforms synchronized videos into 3D motion trajec
 1. **2D landmark detection** — A tracker processes each camera's video to identify anatomical landmarks (e.g., joint positions) in every frame
 2. **3D triangulation** — Using the calibrated camera system, corresponding 2D observations from multiple cameras are triangulated into 3D world coordinates
 
-The pipeline leverages the camera intrinsics and extrinsics established during calibration to accurately locate landmarks in physical space.
+The pipeline uses the camera intrinsics and extrinsics established during calibration to locate landmarks in physical space.
 
 ## Available Trackers
 
-### Built-in Trackers
+### Custom ONNX Trackers
 
-Caliscope includes four MediaPipe-based trackers for immediate use:
+Caliscope can load custom pose estimation models in ONNX format. This is the primary extensibility mechanism: you can use models trained on your specific subjects (particular species, body regions, behavioral features) without modifying Caliscope's source code. Models exported from SLEAP, DeepLabCut, RTMPose, or other frameworks are supported.
+
+After installation, ONNX models appear alongside the built-in trackers in the reconstruction tab's dropdown menu. See [Custom ONNX Trackers](onnx_trackers.md) for setup instructions.
+
+### Built-in MediaPipe Trackers
+
+Four MediaPipe-based trackers are included for convenience:
 
 | Tracker | Description | Landmarks |
 |---------|-------------|-----------|
@@ -22,13 +28,7 @@ Caliscope includes four MediaPipe-based trackers for immediate use:
 | **Simple Holistic** | Body + hands + face (filtered) | Reduced set for gross movement |
 | **Holistic** | Body + hands + face (full) | Several hundred keypoints |
 
-The **Holistic** tracker combines body, hand, and face tracking into a comprehensive output. While this provides the most complete anatomical coverage, the large number of face landmarks (several hundred) can become unwieldy for users primarily interested in skeletal movement. The **Simple Holistic** tracker filters these down to a more manageable set focused on gross motor patterns.
-
-### Custom ONNX Trackers
-
-You can integrate custom pose estimation models exported in ONNX format. This enables use of specialized trackers trained for specific species, behaviors, or anatomical features not covered by the built-in models.
-
-After installation, ONNX models appear alongside the built-in trackers in the reconstruction tab's dropdown menu. See [Custom ONNX Trackers](onnx_trackers.md) for detailed setup instructions.
+The **Holistic** tracker combines body, hand, and face tracking into a single output. The large number of face landmarks (several hundred) can become unwieldy for users primarily interested in skeletal movement. The **Simple Holistic** tracker filters these down to a smaller set focused on gross motor patterns.
 
 ## Workflow
 
@@ -59,9 +59,9 @@ All 3D coordinates are in **meters**. The physical scale is determined by the ca
 
 ## Per-Recording Camera Snapshot
 
-Each reconstruction saves a copy of `camera_array.toml` alongside its output files. This design ensures that recalibrating your camera system does not invalidate previous reconstruction results — each recording retains the exact calibration parameters that were used to produce it.
+Each reconstruction saves a copy of `camera_array.toml` alongside its output files. This ensures that recalibrating your camera system does not invalidate previous reconstruction results. Each recording retains the exact calibration parameters used to produce it.
 
-This is particularly valuable in longitudinal studies where camera positions may shift between sessions, or when refining calibration quality without needing to reprocess archived recordings.
+In longitudinal studies where camera positions may shift between sessions, this prevents the need to reprocess archived recordings.
 
 ## Practical Recording Guidelines
 

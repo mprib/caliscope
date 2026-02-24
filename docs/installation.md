@@ -1,6 +1,6 @@
 # Installation
 
-We recommend installing Caliscope using `uv`, which is a modern, high-performance tool that simplifies and accelerates the installation process.
+We recommend installing Caliscope using `uv`, a fast Python package manager that handles virtual environments and dependency resolution.
 
 ## 1. Check for `uv`
 
@@ -89,7 +89,7 @@ With your virtual environment activated, you can now install Caliscope using `uv
 uv pip install caliscope
 ```
 
-Installation may take a moment as some dependencies are large, but `uv`'s performance makes this process significantly faster than traditional tools.
+Installation may take a moment as some dependencies are large.
 
 ### ONNX Tracker Support (Optional)
 

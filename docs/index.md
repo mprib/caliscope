@@ -1,33 +1,29 @@
-# Welcome
+# Caliscope
 
-Caliscope is a GUI-based, permissively licensed multicamera calibration package. It determines camera intrinsic and extrinsic properties from synchronized video, enabling 3D triangulation of landmark positions for motion capture research.
+Caliscope is an open-source tool for multicamera calibration and 3D triangulation. Any workflow that depends on knowing where your cameras are in space can benefit from it, whether you are tracking animal behavior with [SLEAP](https://sleap.ai/) or [DeepLabCut](https://www.mackenziemathislab.org/deeplabcut), running biomechanical analysis with [Pose2Sim](https://github.com/perfanalytics/pose2sim), or building something else entirely. If you need help fitting Caliscope into your pipeline, please [open a discussion](https://github.com/mprib/caliscope/discussions).
 
-## What It Does
+## The calibration problem
 
-Given synchronized video from two or more cameras and a calibration target, Caliscope will:
+Multicamera 3D reconstruction requires knowing each camera's optical properties (intrinsic calibration) and its position and orientation in space (extrinsic calibration). Getting these parameters right is the foundation of accurate triangulation. Getting them wrong produces errors that propagate silently through every downstream analysis.
 
-1. **Calibrate each camera's intrinsic properties** (focal length, optical center, lens distortion)
-2. **Determine extrinsic properties** (rotation and translation of every camera relative to a common world frame) using pairwise stereo bootstrapping and bundle adjustment
-3. **Track 2D landmarks** using built-in MediaPipe trackers or custom ONNX pose estimation models
-4. **Triangulate 3D positions** from the 2D observations across cameras
-5. **Export results** in `.csv` and `.trc` (OpenSim) formats
+Extrinsic calibration is the harder of the two. Most approaches require the calibration target to be visible in all cameras simultaneously, which limits how cameras can be arranged. Caliscope takes a different approach: for each pair of cameras that both see the calibration target in the same frame, it estimates their relative position and orientation. It then chains these pairwise estimates together to build a complete camera array, even when no single position of the target is visible to all cameras at once. This initial estimate gives bundle adjustment a good starting point, so it converges reliably.
 
-## Calibration Targets
+For surround-view setups where cameras face opposite directions, Caliscope supports mirror boards: a ChArUco pattern printed on both sides of a rigid surface. Cameras viewing opposite sides of the board can calibrate against each other.
 
-Caliscope supports three calibration target types:
+The GUI provides feedback throughout the process. During intrinsic calibration, you can inspect the fitted distortion model to catch problems early. During extrinsic calibration, you can see reprojection errors after bundle adjustment, filter outliers, and verify scale accuracy against the known geometry of your calibration target.
 
-- **ChArUco board** — best general-purpose target; works for both intrinsic and extrinsic calibration
-- **Chessboard** — simpler alternative for intrinsic calibration
-- **ArUco marker** — single printed marker for extrinsic calibration of large capture volumes
+## Tracking and triangulation
 
-See [Calibration Targets](calibration_targets.md) for details on each option.
+Once cameras are calibrated, Caliscope can track 2D landmarks and triangulate them into 3D trajectories. You can load custom ONNX pose estimation models exported from SLEAP, DeepLabCut, RTMPose, or other frameworks for tracking specific to your subjects. Built-in MediaPipe trackers are included for convenience. Output is available in CSV and TRC (OpenSim) formats.
 
-## Getting Started
+These features are downstream of calibration. The core contribution is the calibration system itself.
 
-The [Installation](installation.md) guide will walk you through setting up the package. [Project Setup](project_setup.md) explains the workspace directory structure and file naming conventions. The calibration and reconstruction guides in the sidebar will take you through each step of the workflow.
+## Acknowledgments
 
-A [sample project](sample_project.md) with downloadable data demonstrates the full pipeline.
+Caliscope was inspired by [anipose](https://anipose.readthedocs.io/), which demonstrated the value of accessible multicamera calibration for the research community. Caliscope focuses on the calibration step specifically, adding GUI feedback and flexible camera arrangements through pairwise estimation.
 
-## Feedback
+## Getting started
 
-If you encounter a bug or have a feature request, please [open an issue](https://github.com/mprib/caliscope/issues). For general questions, post in [Discussions](https://github.com/mprib/caliscope/discussions).
+The [Installation](installation.md) guide covers setup. [Project Setup](project_setup.md) explains the workspace directory structure and file naming conventions. A [sample project](sample_project.md) with downloadable data demonstrates the full pipeline.
+
+If you encounter a bug or have a feature request, please [open an issue](https://github.com/mprib/caliscope/issues). For questions, post in [Discussions](https://github.com/mprib/caliscope/discussions).

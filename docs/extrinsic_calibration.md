@@ -5,7 +5,7 @@
 
 Extrinsic calibration determines the position and orientation of every camera in a common 3D coordinate frame. This process requires synchronized video of a calibration target visible to multiple cameras. Once complete, the calibrated camera array enables 3D triangulation of tracked landmarks from multiple camera views.
 
-Caliscope uses a two-stage approach: first, pairwise stereo bootstrapping establishes initial camera positions from shared observations of the calibration target; second, bundle adjustment simultaneously refines all camera positions and 3D point estimates to minimize reprojection error.
+Caliscope uses a two-stage approach: first, it estimates relative camera positions from pairs of cameras that share a view of the calibration target; second, bundle adjustment simultaneously refines all camera positions and 3D point estimates to minimize reprojection error.
 
 ## Supported Calibration Targets
 
@@ -28,17 +28,15 @@ The first processing step is extraction. Select which calibration target type to
 
 The extraction output is saved as `image_points.csv` in either `calibration/extrinsic/CHARUCO/` or `calibration/extrinsic/ARUCO/`, depending on the target type selected.
 
-### 3. Pairwise Stereo Bootstrapping
+### 3. Initial Camera Positions from Pairwise Estimation
 
-After extraction, Caliscope estimates the initial relative positions of all cameras using pairwise stereo bootstrapping. This is a key differentiator from other calibration tools:
+After extraction, Caliscope estimates the initial position and orientation of every camera. The calibration target does **not** need to be visible in all cameras simultaneously. Instead:
 
-- **The calibration target does NOT need to be visible in all cameras simultaneously**
-- Caliscope identifies pairs of cameras that share visibility of the target at the same moment (same synchronized frame)
-- For each camera pair with sufficient shared observations, it triangulates 3D points and estimates the relative position and orientation between the two cameras
-- It then chains these pairwise relationships: if the relationship between cameras A↔B and B↔C are known, the relationship A↔C can be derived transitively
-- This means you can calibrate surround-view setups where no single board position is visible to all cameras at once
+- For each pair of cameras that both see the target in the same frame, Caliscope estimates their relative position and orientation
+- It chains these pairwise relationships together: if the relationship between cameras A and B is known, and the relationship between B and C is known, then A to C can be derived transitively
+- This process repeats until all cameras that share any chain of connections have estimated positions
 
-The pairwise estimates serve as the starting point for bundle adjustment. This approach is more flexible than methods requiring simultaneous visibility across all cameras.
+This means you can calibrate surround-view setups where no single position of the target is visible to all cameras at once. The pairwise estimates serve as the starting point for bundle adjustment.
 
 ### 4. Bundle Adjustment
 
@@ -85,7 +83,7 @@ Interpretation guidelines:
 - If errors are consistently positive (reconstructed distances larger than known distances), the entered board size may be slightly too small
 - If errors are consistently negative (reconstructed distances smaller than known distances), the entered board size may be too large
 
-This is a powerful diagnostic for catching measurement errors in the board dimensions you entered during setup.
+This helps catch measurement errors in the board dimensions you entered during setup.
 
 ## Practical Recording Guidelines
 

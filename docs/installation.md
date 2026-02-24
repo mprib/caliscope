@@ -30,7 +30,7 @@ If you don't have `uv` installed, you can install it with a single command.
 
 ## 3. Create a virtual environment
 
-We strongly advise installing Caliscope within a virtual environment to avoid conflicts with other packages. Caliscope is compatible with Python 3.10 and 3.11.
+We strongly advise installing Caliscope within a virtual environment to avoid conflicts with other packages. Caliscope is compatible with Python 3.10, 3.11, and 3.12.
 
 === "Windows"
 
@@ -38,8 +38,8 @@ We strongly advise installing Caliscope within a virtual environment to avoid co
     # Navigate to the directory that will hold your project
     cd path\to\your\project
 
-    # Create a virtual environment named '.venv' using Python 3.10
-    uv venv --python 3.11
+    # Create a virtual environment using Python 3.12
+    uv venv --python 3.12
 
     # Activate the virtual environment
     .\.venv\Scripts\activate
@@ -48,7 +48,7 @@ We strongly advise installing Caliscope within a virtual environment to avoid co
 === "macOS"
 
     ```bash
-    # Note that there are some environment variables that must be set on MacOS
+    # Note that there are some environment variables that must be set on macOS
     # to ensure everything works:
     export MKL_NUM_THREADS=1
     export NUMEXPR_NUM_THREADS=1
@@ -57,8 +57,8 @@ We strongly advise installing Caliscope within a virtual environment to avoid co
     # Navigate to the directory that will hold your project
     cd path/to/your/project
 
-    # Create a virtual environment named '.venv' using Python 3.10
-    uv venv --python 3.11
+    # Create a virtual environment using Python 3.12
+    uv venv --python 3.12
 
     # Activate the virtual environment
     source .venv/bin/activate
@@ -67,15 +67,15 @@ We strongly advise installing Caliscope within a virtual environment to avoid co
 === "Linux"
 
     ```bash
-    # Install prerequisite packages for GUI display (Ubuntu)
+    # Install prerequisite packages for GUI display (Ubuntu/Debian)
     sudo apt-get update
     sudo apt-get install --fix-missing libgl1-mesa-dev
 
     # Navigate to the directory that will hold your project
     cd path/to/your/project
 
-    # Create a virtual environment named '.venv' using Python 3.10
-    uv venv --python 3.11
+    # Create a virtual environment using Python 3.12
+    uv venv --python 3.12
 
     # Activate the virtual environment
     source .venv/bin/activate
@@ -90,6 +90,16 @@ uv pip install caliscope
 ```
 
 Installation may take a moment as some dependencies are large, but `uv`'s performance makes this process significantly faster than traditional tools.
+
+### ONNX Tracker Support (Optional)
+
+To use custom ONNX pose estimation models, install the optional ONNX dependency:
+
+```bash
+uv pip install "caliscope[onnx]"
+```
+
+This adds `onnxruntime` for CPU-based inference. See [Custom ONNX Trackers](onnx_trackers.md) for setup instructions.
 
 ## 5. Launch from the command line
 

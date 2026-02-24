@@ -4,55 +4,85 @@
   <source src="../videos/intrinsic_calibration_demo.mp4" type="video/mp4">
 </video>
 
-## Processing steps
+## Overview
 
-1. Save calibration video to `project_root/calibration/intrinsic/` with the filename in the format of `port_#.mp4` as described in [Project Setup](project_setup.md#stage-1-intrinsic-calibration)
-2. Reload the workspace if needed so that the`Camera` tab becomes enabled 
-3. On the specific Camera sub-tab, ensure that the video is loaded correctly
+Intrinsic calibration determines the internal optical properties of each camera:
+
+- **Focal length** (in pixels) — how the camera magnifies the scene
+- **Optical center** — the pixel coordinates where the camera's optical axis intersects the sensor
+- **Lens distortion coefficients** — correction parameters for barrel/pincushion distortion
+
+These parameters are unique to each camera and remain constant as long as the camera's focal length and lens haven't changed.
+
+### Calibration Targets
+
+Caliscope supports both **ChArUco** and **chessboard** patterns for intrinsic calibration. ChArUco boards are generally preferred because they are more robust to partial occlusion and provide unique corner identification. See [Calibration Targets](calibration_targets.md) for details on creating your calibration board.
+
+### Physical Board Size
+
+**Important**: The physical dimensions of your calibration board do not matter for intrinsic calibration. The mathematics only use pixel ratios — the geometric relationships between detected corners in the image. Whether your board is 10 cm or 1 meter across, the resulting focal length and distortion coefficients are identical. This is why you can use different calibration boards for intrinsic and extrinsic calibration without issue.
+
+## Processing Steps
+
+1. Place calibration videos in `calibration/intrinsic/` with filenames in the format `cam_N.mp4` (e.g., `cam_0.mp4`, `cam_1.mp4`) as described in [Project Setup](project_setup.md#stage-1-intrinsic-calibration)
+2. The Cameras tab will enable automatically when videos are detected
+3. On the specific camera sub-tab, ensure that the video loaded correctly
 4. Confirm by scrolling through the video that the calibration board corners are being recognized (red dots placed on them)
-5. (Option 1) Manual Board Selection
-   1. Scroll through the calibration footage and select `Add Grid` to include the frame in your calibration data. Grid images should accumulate for all grids included in the intrinisc calibration. 
-   2. When you have chosen the frames you like, click `Calibrate` to begin the calibration process. 
-6. (Option 2) Autocalibrate
-   1. Select the target number of boards for your calibration (~20 works well) 
+5. **Option 1: Manual Board Selection**
+   1. Scroll through the calibration footage and select `Add Grid` to include the frame in your calibration data. Grid images should accumulate for all grids included in the intrinsic calibration.
+   2. When you have chosen the frames you like, click `Calibrate` to begin the calibration process.
+6. **Option 2: Autocalibrate**
+   1. Select the target number of boards for your calibration (~20 works well)
    2. Select the percent of the board that must be identified for it to be included in the calibration data (the "Board Threshold")
-   3. click `Autocalibrate`
-   5. The video will play and calibration data will be periodically stored. At the conclusion of the video the calibration will be performed and the updated camera parameters will be displayed in the GUI (and stored in the `config.toml` file at the project root).
+   3. Click `Autocalibrate`
+   4. The video will play and calibration data will be periodically stored. At the conclusion of the video, calibration will be performed and the updated camera parameters will be displayed in the GUI.
 
-**NOTE: Intrinsic calibration only needs to be performed once per camera. Previously determined values can be carried over to a new project's `config.toml` file when using the same cameras in a new setup.** 
+## Reusability
 
+**Intrinsic calibration only needs to be performed once per camera.** The same calibration parameters can be used across multiple projects as long as:
 
-## MultiWebCam
+- The camera's focal length hasn't changed (no zoom adjustment)
+- The lens hasn't been physically modified or replaced
+- You're using the same focus setting (see warning below)
 
-While conventionally synchronized video data with specialized cama 
+You can copy previously determined intrinsic parameters from one project to another when reusing the same cameras in a new setup.
+
+### Camera Model Considerations
+
+Caliscope uses OpenCV's standard pinhole camera model with radial and tangential distortion coefficients. This model works well for most cameras, including typical webcams and professional cameras with moderate field-of-view lenses.
+
+**Fisheye lenses**: GoPro cameras and action cameras with extreme wide-angle lenses may require a specialized fisheye distortion model. Caliscope's standard model may struggle to accurately model barrel distortion from ultra-wide lenses. If your calibration results show poor reprojection accuracy with a fisheye lens, consider using a camera with a narrower field of view.
 
 ## Practical Recording Guidelines
-1. Feel free to move the camera *or* the board
-    - it can be easier to collect good data when directly monitoring the view of the camera
-    - the camera does not need to be in the same position as it is during the extrinsic calibration ([and the calibration board doesn't need to be the same either](calibration_board.md#different-boards-from-intrinsic-and-extrinsic-calibration))
 
-2. Minimize Motion Blur:
-    - make movements slow and smooth 
-    - Use a high shutter speed to reduce motion blur. 
-    - Ensure adequate lighting to allow for a faster shutter speed without underexposing the video.
+### Camera and Board Movement
+- Feel free to move the camera *or* the board
+  - It can be easier to collect good data when directly monitoring the view of the camera
+  - The camera does not need to be in the same position as it is during the extrinsic calibration (and the calibration board doesn't need to be the same either)
 
-3. Provide Foreshortening:
-    - Hold the calibration board at various angles relative to the camera. This introduces foreshortening, which is crucial for the calibration process as it provides more information about the camera’s lens characteristics.
-    - Include a mix of positions: some shots with the board tilted towards the camera, some away, and others at an angle.
+### Minimize Motion Blur
+- Make movements slow and smooth
+- Use a high shutter speed to reduce motion blur
+- Ensure adequate lighting to allow for a faster shutter speed without underexposing the video
 
-4. Cover the Entire Field of View:
-    - Move the calibration board throughout the entire field of view of the camera. This ensures that the calibration accounts for lens distortions and other characteristics across the whole image sensor.
+### Provide Foreshortening
+- Hold the calibration board at various angles relative to the camera. This introduces foreshortening, which is crucial for the calibration process as it provides more information about the camera's lens characteristics.
+- Include a mix of positions: some shots with the board tilted towards the camera, some away, and others at an angle
 
-5. Use a High-Quality Calibration Board:
-    - The board should be printed on a flat, rigid material to prevent warping.
+### Cover the Entire Field of View
+- Move the calibration board throughout the entire field of view of the camera. This ensures that the calibration accounts for lens distortions and other characteristics across the whole image sensor.
 
-6. Vary the Distance:
-    - Film the calibration board at different distances from the camera. This variation helps in understanding how the camera focuses at different depths.
+### Use a High-Quality Calibration Board
+- The board should be printed on a flat, rigid material to prevent warping
+- Even slight bowing or warping will introduce systematic errors into your calibration
 
-7. Consistent Focus:
-    - Use manual focus if available to keep the focus consistent throughout the filming. 
-    - Auto-focus can introduce inconsistencies as it may change between shots.
+### Vary the Distance
+- Film the calibration board at different distances from the camera. This variation helps in understanding how the camera focuses at different depths.
 
-8. Adequate Lighting:
-    - Ensure the scene is well-lit to avoid noise and grain in the video, which can interfere with the calibration process.
-    - Avoid strong direct light sources that can cause glare or shadows on the calibration board.
+### Consistent Focus Settings
+- **Use manual focus if available** to keep the focus consistent throughout the filming
+- **WARNING**: If your camera uses auto-focus, the focal length changes between shots, which invalidates the calibration. Auto-focus can introduce inconsistencies as the focus mechanism changes between frames. If you cannot disable auto-focus, ensure the camera is focused at a fixed distance and doesn't refocus during recording.
+
+### Adequate Lighting
+- Ensure the scene is well-lit to avoid noise and grain in the video, which can interfere with the calibration process
+- Avoid strong direct light sources that can cause glare or shadows on the calibration board

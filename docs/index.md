@@ -1,12 +1,33 @@
-
 # Welcome
 
-Caliscope is a GUI-based and permissively licensed multicamera calibration package that integrates with 2D landmark tracking tools to produce low-cost, open-source motion capture.
+Caliscope is a GUI-based, permissively licensed multicamera calibration package. It determines camera intrinsic and extrinsic properties from synchronized video, enabling 3D triangulation of landmark positions for motion capture research.
 
-The package includes sample markerless trackers using variations of Google's Mediapipe (hands/pose/holistic) which illustrate how to implement the underlying Tracker base class. The intention is to allow alternate tracking algorithms to be cleanly plugged into the pipeline.
+## What It Does
 
-The workflow currently requires you to provide your own synchronized frames or to provide [a file](project_setup.md#timestampscsv) that specifies the time at which each frame was read so that caliscope can time-align the frames itself. A companion project is currently in development ([multiwebcam](https://github.com/mprib/multiwebcam)) that can perform concurrent USB webcam video for use cases where differences in frame capture of a few hundredths of a second are tolerable.
+Given synchronized video from two or more cameras and a calibration target, Caliscope will:
 
-The [installation](installation.md) guide will walk you through the process of installing the package on your system. [Project Setup](project_setup.md) will show you the format for saving files so that they can be used. The workflow guides to the left will provide details about how to create a ChArUco board, calibrate the cameras (both intrinsic and extrinsic) and perform 3D landmark tracking from motion capture trials.
+1. **Calibrate each camera's intrinsic properties** (focal length, optical center, lens distortion)
+2. **Determine extrinsic properties** (rotation and translation of every camera relative to a common world frame) using pairwise stereo bootstrapping and bundle adjustment
+3. **Track 2D landmarks** using built-in MediaPipe trackers or custom ONNX pose estimation models
+4. **Triangulate 3D positions** from the 2D observations across cameras
+5. **Export results** in `.csv` and `.trc` (OpenSim) formats
 
-This project is at a very early stage so please bear with us while going through the inevitable growing pains that are ahead. You feedback is appreciated. If you have specific recommendations, please consider creating an [issue](https://github.com/mprib/caliscope/issues). If you have more general questions or thoughts about the project, please open up a thread in the [discussions](https://github.com/mprib/caliscope/discussions).
+## Calibration Targets
+
+Caliscope supports three calibration target types:
+
+- **ChArUco board** — best general-purpose target; works for both intrinsic and extrinsic calibration
+- **Chessboard** — simpler alternative for intrinsic calibration
+- **ArUco marker** — single printed marker for extrinsic calibration of large capture volumes
+
+See [Calibration Targets](calibration_targets.md) for details on each option.
+
+## Getting Started
+
+The [Installation](installation.md) guide will walk you through setting up the package. [Project Setup](project_setup.md) explains the workspace directory structure and file naming conventions. The calibration and reconstruction guides in the sidebar will take you through each step of the workflow.
+
+A [sample project](sample_project.md) with downloadable data demonstrates the full pipeline.
+
+## Feedback
+
+If you encounter a bug or have a feature request, please [open an issue](https://github.com/mprib/caliscope/issues). For general questions, post in [Discussions](https://github.com/mprib/caliscope/discussions).

@@ -1,129 +1,187 @@
 # Workspace Setup
 
+This document explains how to structure your workspace for multicamera calibration and motion capture with Caliscope.
 
 ## Initial Project Structure
-When a new project is created, the workspace will automatically populate the necessary folder structure if it does not already exist. There are 2 primary folders: `calibration` and `recordings`. Within `calibration` there must be subfolders for `intrinsic` and `extrinsic`. All motion capture trials must be stored separately within subfolders of `recordings` by the user.
 
-An configuration file called `config.toml` will be automatically created when a new project is created. Initially this will only be storing the default charuco board definition.
+When you create a new project, Caliscope automatically creates the necessary directory structure:
 
-An example initial project folder structure would therefore look like this:
 ```
-ProjectDirectory/
-├── config.toml    # Only contains default charuco board definition
+workspace/
 ├── calibration/
-│   ├── intrinsic/
-│   └── extrinsic/
-└── recordings/    # Empty by default prior to user populating data
+│   ├── targets/          # Auto-created calibration target configurations
+│   ├── intrinsic/        # Per-camera calibration videos (unsynchronized)
+│   └── extrinsic/        # Multi-camera calibration videos (synchronized)
+└── recordings/           # Motion capture sessions
 ```
+
+The application monitors these directories and automatically updates when files are added or changed.
+
+## Camera Identification
+
+Cameras are identified by integer IDs assigned through your video file naming. Video files must follow the naming convention `cam_N.mp4`, where N is the camera ID (e.g., `cam_0.mp4`, `cam_1.mp4`, `cam_2.mp4`).
+
+Camera IDs:
+- Can be any non-negative integer
+- Do not need to be contiguous (e.g., `cam_0.mp4`, `cam_3.mp4`, `cam_7.mp4` is valid)
+- Are determined from the files present in the extrinsic calibration directory
+- Must remain consistent across intrinsic calibration, extrinsic calibration, and recording sessions
 
 ## Stage 1: Intrinsic Calibration
 
-Place video files for the intrinsic camera calibration in the `intrinsic` folder.
+Intrinsic calibration determines each camera's internal properties (focal length, principal point, lens distortion).
 
-These must follow the naming convention `port_1.mp4`, `port_2.mp4`, etc. They do not need to be synchronized.
-
-A project with 3 cameras would therefore look something like this going into the intrinsic camera calibration.
+Place one video per camera in `calibration/intrinsic/`. These videos **do not need to be synchronized**. Each video should show a calibration target (Charuco board, chessboard, or ArUco grid) being moved throughout the camera's field of view.
 
 ```
-ProjectDirectory/
-├── config.toml          # following intrinsic calibration, this file will also have the camera matrix and distortion for each source camera
-├── calibration/
-│   ├── intrinsic/
-│   │   ├── port_1.mp4   # These files do not need to be synchronized
-│   │   ├── port_2.mp4   # Unsynchronized files
-│   │   └── port_3.mp4   # Unsynchronized files
-│   └── extrinsic/
-└── recordings/
+workspace/
+└── calibration/
+    └── intrinsic/
+        ├── cam_0.mp4     # Individual camera recordings
+        ├── cam_1.mp4     # No synchronization required
+        └── cam_2.mp4
 ```
 
-As the intrinsic properties of the camera are calculated, parameters are stored in `config.toml` at the project root.
-
+After calibration, each camera's intrinsic parameters are stored internally for use in extrinsic calibration.
 
 ## Stage 2: Extrinsic Calibration
 
-Place sychronized video files in the `extrinsic` folder. Synchronization can be accomplished in one of two ways:
+Extrinsic calibration determines the spatial relationship between cameras (their positions and orientations in 3D space).
 
-1. Record all video footage with a common external trigger such that each frame is at the same point in time as the corresponding frames from the other files. In other words: all mp4 files should start and stop at the same moment in time and have the same number of frames.
-
-2. Provide a file called `timestamps.csv` within the folder of recorded video. This must provide the time at which each frame was read so that caliscope can synchronize the footage during processing. A companion project, [MultiWebCam](https://github.com/mprib/multiwebcam), creates this file automatically while it manages concurrent recording from multiple webcams and was the source of the [Sample Project](https://mprib.github.io/caliscope/sample_project) data found in the [docs](https://mprib.github.io/caliscope/)
-
-
-### `timestamps.csv`
-
-This file will have a structure like this:
+Place synchronized videos in `calibration/extrinsic/`. All cameras must observe the same physical space during the same time period.
 
 ```
-port,frame_time
-3,927387.33536115
-4,927387.50128975
-1,927387.3530109001
-3,927387.50643105
+workspace/
+└── calibration/
+    └── extrinsic/
+        ├── cam_0.mp4
+        ├── cam_1.mp4
+        ├── cam_2.mp4
+        └── timestamps.csv      # Optional: only needed for software synchronization
+```
+
+### Synchronization Methods
+
+Caliscope supports two approaches to synchronization:
+
+**1. Hardware Synchronization (Preferred)**
+
+Record all videos with a common external trigger so each frame captures the same moment in time. All video files should:
+- Start and stop at the same time
+- Have the same number of frames
+- Have matching frame timestamps
+
+When using hardware synchronization, no `timestamps.csv` file is needed.
+
+**2. Software Synchronization**
+
+If cameras record independently without a common trigger, provide a `timestamps.csv` file containing the timestamp for each captured frame.
+
+### `timestamps.csv` Format
+
+The file must have two columns: `cam_id` and `frame_time`.
+
+```csv
+cam_id,frame_time
+0,927387.33536115
+1,927387.50128975
+2,927387.3530109001
+0,927387.50643105
 1,927387.51819965
 2,927387.5063038999
-3,927387.6684489499
-4,927387.66848565
-3,927387.8359558999
-4,927387.8360615501
+0,927387.6684489499
+1,927387.66848565
 ...
 ```
 
-It does not need to be in any special order. The numbers shown above are from `time.perf_counter()` in the standard python library, but any numerical value that shows the relative time of the frame reads will work. There do not need to be the same number of frames within each `mp4` file. They do not need to start on the same frame. The synchronization will take place automatically, including inserting a blank frame when necessary to keep the video streams aligned in time.
+Requirements:
+- **cam_id**: Must match the camera IDs from your video filenames
+- **frame_time**: Numerical timestamp showing relative time (e.g., from Python's `time.perf_counter()`)
+- Rows can be in any order
+- Files do not need the same number of frames
+- Cameras do not need to start on the same frame
 
+Caliscope automatically synchronizes the videos during processing, inserting blank frames when necessary to maintain temporal alignment.
 
-### Final file structure following extrinsic calibration
+**Note**: [MultiWebCam](https://github.com/mprib/multiwebcam) is a companion project that creates this file automatically during concurrent webcam recording.
 
-Following the extrinsic calibration, an additional file called `point_estimates.toml` will be created. This contains data used to estimate the relative camera translations and rotations. A project with fully calibrated extrinsics would thus look something like this:
+### Calibration Output
 
+After successful extrinsic calibration, Caliscope creates output in subdirectories:
 
 ```
-ProjectDirectory/
-├── config.toml          # Now contains rotation and translation parameters for each camera in addition to the distortion and camera matrix
-├── point_estimates.toml # Contains charuco data used to estimate the relative camera positions
-├── calibration/
-│   ├── intrinsic/       # directory unchanged from above
-│   │   ├── port_1.mp4
-│   │   ├── port_2.mp4
-│   │   └── port_3.mp4
-│   └── extrinsic/
-│       ├── timestamps.csv  # Time reference for frame synchronization (optional)
-│       ├── port_1.mp4              # Must be synchronized or use timestamps.csv
-│       ├── port_2.mp4              # Must be synchronized or use timestamps.csv
-│       └── port_3.mp4              # Must be synchronized or use timestamps.csv
+workspace/
+└── calibration/
+    └── extrinsic/
+        ├── cam_0.mp4
+        ├── cam_1.mp4
+        ├── cam_2.mp4
+        ├── timestamps.csv           # If using software sync
+        ├── CHARUCO/                 # Extraction output (tracker name varies)
+        │   └── image_points.csv
+        └── capture_volume/          # Calibration result
+            ├── camera_array.toml
+            ├── image_points.csv
+            └── world_points.csv
+```
+
+The `capture_volume/` directory contains the complete calibrated camera system and can be used for 3D reconstruction of motion capture data.
+
+## Stage 3: Recording and Reconstruction
+
+For each motion capture session, create a subfolder within `recordings/` and populate it with synchronized videos following the same requirements as extrinsic calibration (hardware sync preferred, software sync via `timestamps.csv` if needed).
+
+```
+workspace/
 └── recordings/
+    └── walking_trial/              # Name the folder descriptively
+        ├── cam_0.mp4
+        ├── cam_1.mp4
+        ├── cam_2.mp4
+        └── timestamps.csv          # Optional: same format as extrinsic
 ```
 
-
-## Stage 3: Processing Motion Capture Trial
-
-For each motion capture trial, create a subfolder within `recordings` and populate it with synchronized footage as was done with the extrinsic calibration. After post-processing of the video footage has occurred, output will be created as shown in the following example:
+After processing with a motion tracking system (e.g., POSE, HAND, HOLISTIC), output files are created in a tracker-named subdirectory:
 
 ```
-ProjectDirectory/
-├── config.toml                             # File unchanged from above
-├── point_estimates.toml                    # File unchanced from above
-├── calibration/                            # Entire calibration directory unchanged from above
-│   ├── intrinsic/
-│   │   ├── port_1.mp4
-│   │   ├── port_2.mp4
-│   │   └── port_3.mp4
-│   └── extrinsic/
-│       ├── timestamps.csv
-│       ├── port_1.mp4
-│       ├── port_2.mp4
-│       └── port_3.mp4
+workspace/
 └── recordings/
-    └── recording_1/                              # can be named anything; contents follow formatting of extrinsic calibration folder
-        ├── timestamps.csv                # optional file; not needed if all video synchronized frame-for-frame
-        ├── port_1.mp4
-        ├── port_2.mp4
-        ├── port_3.mp4
-        └── HOLISTIC/                             # Output subfolder created when running Holistic Mediapipe Tracker
-            ├── timestamps.csv            # Matches file in parent folder
-            ├── port_0_HOLISTIC.mp4               # Copy of file in parent folder with visualized landmarks
-            ├── port_1_HOLISTIC.mp4               # Copy of file in parent folder with visualized landmarks
-            ├── port_2_HOLISTIC.mp4               # Copy of file in parent folder with visualized landmarks
-            ├── xy_HOLISTIC.csv                   # All 2D tracked points by source and point id
-            ├── xyz_HOLISTIC.csv                  # Triangulated output by point ID
-            ├── xyz_HOLISTIC_labelled.csv         # Triangulated output in tidy format with labelled x, y, z columns
-            └── xyz_HOLISTIC.trc                  # Triangulated Landmark data for OpenSim
+    └── walking_trial/
+        ├── cam_0.mp4
+        ├── cam_1.mp4
+        ├── cam_2.mp4
+        ├── timestamps.csv
+        └── POSE/                           # Output subdirectory (tracker name)
+            ├── camera_array.toml           # Snapshot of calibration used
+            ├── xy_POSE.csv                 # 2D tracked points per camera
+            ├── xyz_POSE.csv                # Triangulated 3D points
+            ├── xyz_POSE_labelled.csv       # Wide-format 3D data with named columns
+            └── xyz_POSE.trc                # OpenSim format for biomechanical analysis
 ```
+
+## Output Files
+
+### xy_[tracker].csv
+2D landmark coordinates detected in each camera's view. Contains columns: `sync_index`, `cam_id`, `point_id`, `img_loc_x`, `img_loc_y`.
+
+### xyz_[tracker].csv
+Triangulated 3D coordinates in long format. Contains columns: `sync_index`, `point_id`, `x_coord`, `y_coord`, `z_coord`, plus metadata fields. Each row represents one landmark point at one time frame.
+
+### xyz_[tracker]_labelled.csv
+Wide-format 3D data with named columns (e.g., `nose_x`, `nose_y`, `nose_z`, `left_shoulder_x`, ...). Each row represents one time frame with all landmarks as separate columns. This format is easier for analysis in spreadsheet applications or data science tools like pandas.
+
+### xyz_[tracker].trc
+Track Row Column format for OpenSim and other biomechanical modeling software. Contains the same 3D trajectory data formatted according to OpenSim specifications, with landmark names and units (meters).
+
+### camera_array.toml
+A snapshot of the camera calibration (intrinsic and extrinsic parameters) used for this specific reconstruction. This ensures reproducibility even if the calibration is later updated.
+
+## Summary
+
+1. **Create project** → Caliscope generates the workspace structure
+2. **Intrinsic calibration** → Place `cam_N.mp4` in `calibration/intrinsic/` (unsynchronized)
+3. **Extrinsic calibration** → Place synchronized `cam_N.mp4` in `calibration/extrinsic/` (with optional `timestamps.csv`)
+4. **Record motion** → Create subfolders in `recordings/` with synchronized videos
+5. **Reconstruct** → Process recordings to generate 3D trajectories in multiple formats
+
+The application automatically detects file changes and updates the interface accordingly.

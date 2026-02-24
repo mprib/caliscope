@@ -1,36 +1,96 @@
 # Reconstruction: Landmark Triangulation from Motion Capture
 
+## Overview
 
-*demonstration video coming soon...*
+The reconstruction pipeline transforms synchronized videos into 3D motion trajectories through two stages:
 
+1. **2D landmark detection** — A tracker processes each camera's video to identify anatomical landmarks (e.g., joint positions) in every frame
+2. **3D triangulation** — Using the calibrated camera system, corresponding 2D observations from multiple cameras are triangulated into 3D world coordinates
 
-## Processing steps
+The pipeline leverages the camera intrinsics and extrinsics established during calibration to accurately locate landmarks in physical space.
 
-1. Save videos to dedicated subfolders within `project_root/recordings/` according to the naming convention outlined in [Project Setup](project_setup.md#stage-3-processing-motion-capture-trial)
-2. Ensure that videos were synchronized when recording, or provide a [`timestamps.csv`](project_setup.md#timestampscsv) file so that caliscope can perform the synchronization during processing.
-3. You may need to reload the workspace for the recordings to appear in the `Reconstruction` tab
-4. Select which tracker you would like to apply
-5. Click the `Process` button to begin the landmark tracking and triangulation.
-6. 3D landmark positions will be visualized and you can open the subfolder to inspect the landmark tracking on the recordings or to access the trajectory output files
+## Available Trackers
 
-## Tracker Outputs
+### Built-in Trackers
 
-Current options for the tracker outputs are built on Google's [Mediapipe]() and include pipelines for general [Pose](), [Hands](), and [Face]().
-The [Holistic]() tracker combines all three outputs.
-While the Holistic tracker offers improved tracking of the face and hands compared to the Pose model, the number of points it supplies can quickly become unweildy (several hundred for the face).
-The Simple Holistic model filters out many of these points that may be extraneous to users primarily interested in gross skeletal movement.
+Caliscope includes four MediaPipe-based trackers for immediate use:
 
+| Tracker | Description | Landmarks |
+|---------|-------------|-----------|
+| **Pose** | Full body skeletal tracking | 33 keypoints |
+| **Hand** | Detailed hand tracking | 21 keypoints per hand |
+| **Simple Holistic** | Body + hands + face (filtered) | Reduced set for gross movement |
+| **Holistic** | Body + hands + face (full) | Several hundred keypoints |
 
-## Metarig Generation
+The **Holistic** tracker combines body, hand, and face tracking into a comprehensive output. While this provides the most complete anatomical coverage, the large number of face landmarks (several hundred) can become unwieldy for users primarily interested in skeletal movement. The **Simple Holistic** tracker filters these down to a more manageable set focused on gross motor patterns.
 
-For the Simple Holistic tracker you can generate a metarig configuration file. This will provide a set of parameters that can scale segments of a skeletal model based on the average distances between various landmarks throughout a dynamic calibration motion trial where the subject flexes and extends their joints with minimal camera occlusion.
+### Custom ONNX Trackers
 
-With a more accurately scaled skeletal model, inverse kinematics can more successfully approximate the true movement.
+You can integrate custom pose estimation models exported in ONNX format. This enables use of specialized trackers trained for specific species, behaviors, or anatomical features not covered by the built-in models.
+
+After installation, ONNX models appear alongside the built-in trackers in the reconstruction tab's dropdown menu. See [Custom ONNX Trackers](onnx_trackers.md) for detailed setup instructions.
+
+## Workflow
+
+1. Navigate to the **Reconstruction** tab
+2. Select the recording you want to process from the list
+   - Recordings are detected automatically from subfolders within `recordings/` that contain synchronized videos
+   - You may need to reload the workspace if recordings were added while the application was running
+3. Choose a tracker from the dropdown menu
+4. Click **Process** to begin landmark tracking and triangulation
+5. Results appear in the 3D viewer when processing completes
+6. Open the recording's output subfolder to access trajectory files
+
+## Output Files
+
+After processing, output is saved to a subfolder named after the tracker within the recording directory (e.g., `recordings/walking/POSE/`).
+
+| File | Format | Description |
+|------|--------|-------------|
+| `xy_{TRACKER}.csv` | Long CSV | 2D tracked points per camera (sync_index, cam_id, point_id, img_loc_x, img_loc_y) |
+| `xyz_{TRACKER}.csv` | Long CSV | Triangulated 3D points (sync_index, point_id, x_coord, y_coord, z_coord) |
+| `xyz_{TRACKER}_labelled.csv` | Wide CSV | Named columns (e.g., nose_x, nose_y, nose_z, left_shoulder_x, ...) |
+| `xyz_{TRACKER}.trc` | TRC | OpenSim-compatible format for biomechanical modeling |
+| `camera_array.toml` | TOML | Snapshot of the camera calibration used for this reconstruction |
+
+### Coordinate Units
+
+All 3D coordinates are in **meters**. The physical scale is determined by the calibration target dimensions you entered during extrinsic calibration. See [Calibration Targets](calibration_targets.md#physical-size-and-world-scale) for details on how the scale chain propagates from board geometry to world coordinates.
+
+## Per-Recording Camera Snapshot
+
+Each reconstruction saves a copy of `camera_array.toml` alongside its output files. This design ensures that recalibrating your camera system does not invalidate previous reconstruction results — each recording retains the exact calibration parameters that were used to produce it.
+
+This is particularly valuable in longitudinal studies where camera positions may shift between sessions, or when refining calibration quality without needing to reprocess archived recordings.
 
 ## Practical Recording Guidelines
 
+### Minimize Motion Blur
 
-1. Minimize motion blur
-    - motion blur can substantially compromise landmark recognition
-    - using a higher frame rate can reduce motion blur
-      - this will require more light to maintain good illumination
+Motion blur substantially compromises landmark recognition. To reduce blur:
+
+- Use higher frame rates (e.g., 60 fps or above for dynamic movements)
+- Increase lighting to maintain exposure at faster shutter speeds
+- Avoid slow shutter speeds that allow excessive motion during exposure
+
+### Lighting
+
+- Ensure adequate, even lighting across the capture volume
+- Avoid harsh shadows or high-contrast regions that can confuse trackers
+- Diffuse lighting generally produces more consistent tracking than point sources
+
+### Subject Appearance
+
+- Contrasting clothing against the background improves tracking reliability
+- Avoid patterns or textures that might be mistaken for anatomical features
+- For hand tracking, ensure hands are clearly visible and not occluded by clothing or props
+
+### Calibration Trials for Biomechanical Analysis
+
+For inverse kinematics and musculoskeletal modeling, consider capturing a **dynamic calibration trial** where the subject performs controlled movements:
+
+- Flex and extend joints through their full range of motion
+- Minimize occlusion by positioning the subject optimally for all cameras
+- Keep movements slow and deliberate to reduce blur
+
+This trial establishes accurate segment lengths and joint centers, improving the fidelity of downstream biomechanical analysis.

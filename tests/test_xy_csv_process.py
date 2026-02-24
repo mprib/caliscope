@@ -50,7 +50,7 @@ def test_xy_point_creation(tmp_path: Path):
     xy_data = pd.read_csv(Path(recording_path, "HAND", f"xy_{tracker_name}.csv"))
     xy_sync_index_count = xy_data["sync_index"].max() + 1  # zero indexed
 
-    frame_timestamps = pd.read_csv(Path(recording_path, "frametimes.csv"))
+    frame_timestamps = pd.read_csv(Path(recording_path, "timestamps.csv"))
     sync_index_count = len(frame_timestamps["sync_index"].unique())
     logger.info(f"Sync index count in frame timestamps: {sync_index_count}")
     logger.info(f"Max sync index: {xy_data['sync_index'].max()} in xy.csv")

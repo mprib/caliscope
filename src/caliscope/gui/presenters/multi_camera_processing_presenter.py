@@ -185,7 +185,7 @@ class MultiCameraProcessingPresenter(QObject):
         Resets any existing results and loads initial thumbnails.
 
         Args:
-            path: Directory containing cam_N.mp4 and frametimes.csv
+            path: Directory containing cam_N.mp4 and timestamps.csv
         """
         if self.state == MultiCameraProcessingState.PROCESSING:
             logger.warning("Cannot change recording_dir while processing")

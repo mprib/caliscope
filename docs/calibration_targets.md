@@ -16,9 +16,6 @@ Caliscope supports three types of calibration targets:
 
 The [ChArUco board](https://docs.opencv.org/3.4/df/d4a/tutorial_charuco_detection.html) is the default and recommended calibration target. It combines a chessboard pattern with embedded ArUco markers, enabling both intrinsic and extrinsic calibration from the same target.
 
-<video controls>
-  <source src="../videos/charuco_demo.mp4" type="video/mp4">
-</video>
 
 ### Configuration Parameters
 

@@ -1,8 +1,5 @@
 # Capture Volume: Extrinsic Calibration
 
-<video controls>
-  <source src="../videos/multicamera_calibration.mp4" type="video/mp4">
-</video>
 
 ## Overview
 

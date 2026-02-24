@@ -1,12 +1,8 @@
 # Sample Project
 
-The video below walks through the full calibration and reconstruction workflow. To try this on your own hardware, clone the sample dataset from [caliscope-sample-data](https://github.com/mprib/caliscope-sample-data):
+The video below walks through the full calibration and reconstruction workflow. A downloadable sample dataset will be available with the next release. <!-- TODO: replace with link to release asset zip when 0.7.0 ships -->
 
-```bash
-git clone https://github.com/mprib/caliscope-sample-data.git
-```
-
-This sample project uses a 3-camera setup with ArUco marker extrinsic calibration and software synchronization. It contains raw input data only: intrinsic calibration videos, extrinsic calibration videos with timestamps, and one walking recording. You configure calibration targets and run the pipeline yourself following the documentation.
+The sample project is a 3-camera setup with ArUco marker extrinsic calibration and software synchronization. It contains raw input data only: intrinsic calibration videos, extrinsic calibration videos with timestamps, and one walking recording. You configure calibration targets and run the pipeline yourself following the documentation.
 
 This project illustrates the workflow with a minimal setup. Several improvements would increase the quality of the final results:
 

@@ -124,7 +124,7 @@ When using a ChArUco board for both intrinsic and extrinsic calibration, Calisco
 
 ### Measure Actual Printed Dimensions
 
-Even when printing at exact scale, small variations in printed size are common. Measure the actual dimensions of your printed target with a ruler or calipers before entering values in the GUI. For both ChArUco boards and ArUco markers, measure corner to corner. Enter this value in the "Printed Edge" field.
+Even when printing at exact scale, small variations in printed size are common. Measure the actual dimensions of your printed target with a ruler or calipers before entering values in the GUI. For both ChArUco boards and ArUco markers, measure corner to corner. Enter this value in the "Square Size (corner to corner)" field.
 
 ### Physical Construction
 

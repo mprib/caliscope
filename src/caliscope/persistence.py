@@ -251,13 +251,19 @@ def save_camera_array_aniposelib(camera_array: CameraArray, path: Path) -> None:
             if camera.rotation is not None and camera.rotation.any():
                 rotation_rodrigues = cv2.Rodrigues(camera.rotation)[0][:, 0].tolist()
 
+            # Aniposelib expects flat 1D lists for distortions and translation.
+            # Flatten defensively in case upstream code delivers 2D arrays
+            # (e.g. cv2.calibrateCamera returns distortions as (1, 5)).
+            distortions_flat = camera.distortions.ravel().tolist() if camera.distortions is not None else None
+            translation_flat = camera.translation.ravel().tolist() if camera.translation is not None else None
+
             camera_dict = {
                 "name": f"cam_{cam_id}",
-                "size": list(camera.size),
+                "size": [int(camera.size[0]), int(camera.size[1])],
                 "matrix": _array_to_list(camera.matrix),
-                "distortions": _array_to_list(camera.distortions),
+                "distortions": distortions_flat,
                 "rotation": rotation_rodrigues,
-                "translation": _array_to_list(camera.translation),
+                "translation": translation_flat,
             }
 
             data[f"cam_{cam_id}"] = camera_dict
@@ -266,6 +272,7 @@ def save_camera_array_aniposelib(camera_array: CameraArray, path: Path) -> None:
         data["metadata"] = {"adjusted": False, "error": 0.0}
 
         _write_toml(data, path)
+        logger.info(f"Saved aniposelib-compatible camera array to {path}")
 
     except Exception as e:
         raise PersistenceError(f"Failed to save aniposelib CameraArray to {path}: {e}") from e

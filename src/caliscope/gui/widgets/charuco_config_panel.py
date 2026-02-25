@@ -36,7 +36,7 @@ class CharucoConfigPanel(QWidget):
     - Row 1: Board Shape: [rows] x [cols]
     - Row 2: Board Size: [width] x [height] [units]
     - Row 3: Invert checkbox
-    - Row 4: Printed Edge: [value] cm
+    - Row 4: Square Size: [value] cm
 
     This widget does NOT contain:
     - Board preview image (responsibility of the parent view)
@@ -148,27 +148,27 @@ class CharucoConfigPanel(QWidget):
         # Flexible stretch - allows top controls to separate from bottom
         main_layout.addStretch()
 
-        # Row 4: Printed Edge: [value] cm (stays grouped with helper text below)
+        # Row 4: Square Size: [value] cm (stays grouped with helper text below)
         edge_row = QHBoxLayout()
         edge_row.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        edge_row.addWidget(QLabel("Printed Edge:"))
+        edge_row.addWidget(QLabel("Square Size (corner to corner):"))
 
-        self._printed_edge_spin = QDoubleSpinBox()
-        self._printed_edge_spin.setSingleStep(0.01)
-        self._printed_edge_spin.setDecimals(2)
-        self._printed_edge_spin.setMinimum(0.01)
-        self._printed_edge_spin.setMaximum(1000.0)
-        self._printed_edge_spin.setMaximumWidth(100)
+        self._square_size_spin = QDoubleSpinBox()
+        self._square_size_spin.setSingleStep(0.01)
+        self._square_size_spin.setDecimals(2)
+        self._square_size_spin.setMinimum(0.01)
+        self._square_size_spin.setMaximum(1000.0)
+        self._square_size_spin.setMaximumWidth(100)
 
         override_value = self._charuco_params["square_size_overide_cm"]
         if override_value is not None:
-            self._printed_edge_spin.setValue(override_value)
+            self._square_size_spin.setValue(override_value)
         else:
             # Default to a reasonable value if not set
-            self._printed_edge_spin.setValue(5.0)
+            self._square_size_spin.setValue(5.0)
 
-        edge_row.addWidget(self._printed_edge_spin)
+        edge_row.addWidget(self._square_size_spin)
         edge_row.addWidget(QLabel("cm"))
 
         edge_row.addStretch()
@@ -182,7 +182,7 @@ class CharucoConfigPanel(QWidget):
         self._height_spin.valueChanged.connect(self._on_config_changed)
         self._units_combo.currentIndexChanged.connect(self._on_config_changed)
         self._invert_checkbox.stateChanged.connect(self._on_config_changed)
-        self._printed_edge_spin.valueChanged.connect(self._on_config_changed)
+        self._square_size_spin.valueChanged.connect(self._on_config_changed)
 
     def _on_config_changed(self) -> None:
         """Handle any configuration change."""
@@ -202,21 +202,21 @@ class CharucoConfigPanel(QWidget):
             units=self._units_combo.currentText(),
             dictionary=self._charuco_params["dictionary"],
             aruco_scale=self._charuco_params["aruco_scale"],
-            square_size_overide_cm=round(self._printed_edge_spin.value(), 2),
+            square_size_overide_cm=round(self._square_size_spin.value(), 2),
             inverted=self._invert_checkbox.isChecked(),
             legacy_pattern=self._charuco_params["legacy_pattern"],
         )
 
-    def set_printed_edge_length(self, cm: float) -> None:
+    def set_square_size(self, cm: float) -> None:
         """Update the printed edge length override.
 
         Args:
             cm: Edge length in centimeters
         """
         # Block signals to avoid triggering config_changed during programmatic update
-        self._printed_edge_spin.blockSignals(True)
-        self._printed_edge_spin.setValue(cm)
-        self._printed_edge_spin.blockSignals(False)
+        self._square_size_spin.blockSignals(True)
+        self._square_size_spin.setValue(cm)
+        self._square_size_spin.blockSignals(False)
 
     def set_values(self, charuco: Charuco) -> None:
         """Repopulate panel with values from a charuco instance.
@@ -234,7 +234,7 @@ class CharucoConfigPanel(QWidget):
         self._height_spin.blockSignals(True)
         self._units_combo.blockSignals(True)
         self._invert_checkbox.blockSignals(True)
-        self._printed_edge_spin.blockSignals(True)
+        self._square_size_spin.blockSignals(True)
 
         self._row_spin.setValue(charuco.rows)
         self._column_spin.setValue(charuco.columns)
@@ -243,7 +243,7 @@ class CharucoConfigPanel(QWidget):
         self._units_combo.setCurrentText(charuco.units)
         self._invert_checkbox.setChecked(charuco.inverted)
         if charuco.square_size_overide_cm is not None:
-            self._printed_edge_spin.setValue(charuco.square_size_overide_cm)
+            self._square_size_spin.setValue(charuco.square_size_overide_cm)
 
         self._row_spin.blockSignals(False)
         self._column_spin.blockSignals(False)
@@ -251,7 +251,7 @@ class CharucoConfigPanel(QWidget):
         self._height_spin.blockSignals(False)
         self._units_combo.blockSignals(False)
         self._invert_checkbox.blockSignals(False)
-        self._printed_edge_spin.blockSignals(False)
+        self._square_size_spin.blockSignals(False)
 
         # Update internal params cache (for immutable fields like dictionary)
         self._charuco_params = self._extract_params(charuco)

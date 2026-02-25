@@ -31,7 +31,7 @@ def test_sync_stream_manager(tmp_path: Path):
     recording_dir = Path(tmp_path, "calibration", "extrinsic")
 
     # delete frame timestamps to assess success of imputed frame time method
-    frame_timestamps = Path(recording_dir, "frametimes.csv")
+    frame_timestamps = Path(recording_dir, "timestamps.csv")
     frame_timestamps.unlink()
 
     sync_stream_manager = SynchronizedStreamManager(

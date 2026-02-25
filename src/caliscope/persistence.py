@@ -212,6 +212,72 @@ def save_camera_array(camera_array: CameraArray, path: Path) -> None:
         raise PersistenceError(f"Failed to save CameraArray to {path}: {e}") from e
 
 
+def save_camera_array_aniposelib(camera_array: CameraArray, path: Path) -> None:
+    """
+    Save CameraArray in aniposelib-compatible TOML format.
+
+    Only exports posed cameras (those with both rotation and translation).
+    Uses top-level [cam_N] sections instead of nested structure.
+
+    Example output format:
+        [cam_0]
+        name = "cam_0"
+        size = [1280, 720]
+        matrix = [[903.5, 0.0, 618.3], [0.0, 907.8, 394.2], [0.0, 0.0, 1.0]]
+        distortions = [-0.332, 0.046, -0.004, 0.004, 0.066]
+        rotation = [1.234, -0.567, 0.890]  # Rodrigues vector (3 elements)
+        translation = [0.171, -0.032, 1.208]
+
+        [metadata]
+        adjusted = false
+        error = 0.0
+
+    Args:
+        camera_array: CameraArray to export
+        path: Target file path
+
+    Raises:
+        PersistenceError: If serialization or write fails
+    """
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        data: dict[str, Any] = {}
+
+        # Export only posed cameras
+        for cam_id, camera in camera_array.posed_cameras.items():
+            # Convert 3x3 rotation matrix to 3x1 Rodrigues vector
+            rotation_rodrigues = None
+            if camera.rotation is not None and camera.rotation.any():
+                rotation_rodrigues = cv2.Rodrigues(camera.rotation)[0][:, 0].tolist()
+
+            # Aniposelib expects flat 1D lists for distortions and translation.
+            # Flatten defensively in case upstream code delivers 2D arrays
+            # (e.g. cv2.calibrateCamera returns distortions as (1, 5)).
+            distortions_flat = camera.distortions.ravel().tolist() if camera.distortions is not None else None
+            translation_flat = camera.translation.ravel().tolist() if camera.translation is not None else None
+
+            camera_dict = {
+                "name": f"cam_{cam_id}",
+                "size": [int(camera.size[0]), int(camera.size[1])],
+                "matrix": _array_to_list(camera.matrix),
+                "distortions": distortions_flat,
+                "rotation": rotation_rodrigues,
+                "translation": translation_flat,
+            }
+
+            data[f"cam_{cam_id}"] = camera_dict
+
+        # Add metadata section
+        data["metadata"] = {"adjusted": False, "error": 0.0}
+
+        _write_toml(data, path)
+        logger.info(f"Saved aniposelib-compatible camera array to {path}")
+
+    except Exception as e:
+        raise PersistenceError(f"Failed to save aniposelib CameraArray to {path}: {e}") from e
+
+
 def load_charuco(path: Path) -> Charuco:
     """
     Load Charuco board definition from TOML file.

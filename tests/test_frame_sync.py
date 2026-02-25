@@ -12,9 +12,9 @@ class TestComputeSyncIndices:
 
     @pytest.fixture(
         params=[
-            "tests/sessions/4_cam_recording/calibration/extrinsic/frametimes.csv",
-            "tests/sessions/mediapipe_calibration_2_cam/calibration/extrinsic/frametimes.csv",
-            "tests/sessions/4_cam_recording/recordings/recording_1/frametimes.csv",
+            "tests/sessions/4_cam_recording/calibration/extrinsic/timestamps.csv",
+            "tests/sessions/mediapipe_calibration_2_cam/calibration/extrinsic/timestamps.csv",
+            "tests/sessions/4_cam_recording/recordings/recording_1/timestamps.csv",
         ]
     )
     def timestamps_csv(self, request) -> Path:
@@ -82,9 +82,9 @@ if __name__ == "__main__":
     debug_dir.mkdir(parents=True, exist_ok=True)
 
     test_csvs = [
-        Path("tests/sessions/4_cam_recording/calibration/extrinsic/frametimes.csv"),
-        Path("tests/sessions/mediapipe_calibration_2_cam/calibration/extrinsic/frametimes.csv"),
-        Path("tests/sessions/4_cam_recording/recordings/recording_1/frametimes.csv"),
+        Path("tests/sessions/4_cam_recording/calibration/extrinsic/timestamps.csv"),
+        Path("tests/sessions/mediapipe_calibration_2_cam/calibration/extrinsic/timestamps.csv"),
+        Path("tests/sessions/4_cam_recording/recordings/recording_1/timestamps.csv"),
     ]
 
     test_instance = TestComputeSyncIndices()

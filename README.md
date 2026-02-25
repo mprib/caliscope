@@ -12,7 +12,7 @@
 ![pytest](https://github.com/mprib/caliscope/actions/workflows/pytest.yml/badge.svg)
 </div>
 
-Caliscope is a permissively licensed multicamera calibration tool for markerless motion capture workflows. It allows visual assessment and detailed quality metrics at each stage of the calibration workflow to allow high quality output. The approach to initializing parameters for bundle adjustment ([see docs](https://mprib.github.io/caliscope/extrinsic_calibration/)) allows rapid and reliable calibration.
+Caliscope is a permissively licensed multicamera calibration tool for markerless motion capture workflows. It allows visual assessment and detailed quality metrics at each stage of the calibration workflow to allow high quality output. The approach to initializing parameters for bundle adjustment allows rapid and reliable calibration.
 
 ## Demo
 

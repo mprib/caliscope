@@ -47,6 +47,8 @@ Caliscope uses scipy's optimization routines to solve this large-scale problem, 
 
 These three files together form a complete snapshot of the calibrated capture volume.
 
+An aniposelib-compatible version of the camera parameters is also written as `camera_array_aniposelib.toml` in the same directory. Tools that consume the aniposelib calibration format, such as [Pose2Sim](https://github.com/perfanalytics/pose2sim), can use this file directly.
+
 ### 5. Filter and Re-optimize
 
 The initial calibration pipeline includes a built-in outlier removal pass that removes the worst 2.5% of observations per camera and re-optimizes. After this automatic pass completes, a filter control allows you to apply additional filtering. The default filter threshold also targets the 2.5th percentile, applied per camera (not globally). Per-camera filtering ensures that cameras with fewer observations are not disproportionately stripped. Removing additional outliers and re-running bundle adjustment can further improve the calibration result.

@@ -27,7 +27,7 @@ The base installation does not include onnxruntime to keep the dependency footpr
    - Ensure the model outputs either SimCC vectors or heatmaps (see format details below)
 
 2. **Locate your models directory**
-   - Caliscope uses platform-specific data directories (see Models Directory section below)
+   - Caliscope uses platform-specific data directories (see Models Directory below)
    - The directory is created automatically on first run
    - Place your `.onnx` model file anywhere accessible (does not need to be in the models directory)
 
@@ -43,6 +43,31 @@ The base installation does not include onnxruntime to keep the dependency footpr
 5. **Verify the model appears**
    - Open Caliscope and navigate to the Reconstruction tab
    - Your custom model should appear in the tracker selection dropdown
+
+## Models Directory
+
+Caliscope uses platform-specific data directories following standard conventions:
+
+| Platform | Models Directory |
+|----------|-----------------|
+| **Linux** | `~/.local/share/caliscope/models/` |
+| **macOS** | `~/Library/Application Support/caliscope/models/` |
+| **Windows** | `C:\Users\<user>\AppData\Local\caliscope\caliscope\models\` |
+
+Place your `.toml` model card files in this directory. The `.onnx` model file can live anywhere; the model card points to it via the `model_path` field (use an absolute path).
+
+**To find your models directory:**
+
+1. Launch Caliscope
+2. Check the log file location shown in the terminal output
+3. The models directory is in the same parent directory
+
+Or from Python:
+
+```python
+from caliscope import MODELS_DIR
+print(MODELS_DIR)
+```
 
 ## Model Card Reference
 
@@ -199,31 +224,6 @@ ONNX pose estimation models output predictions in different formats. You must sp
 **Output structure:** One tensor of shape `(batch, num_keypoints, heatmap_height, heatmap_width)`.
 
 If you're unsure which format your model uses, check the training framework's documentation or inspect the model's output tensors. SimCC models will have two outputs, heatmap models will have one.
-
-## Models Directory
-
-Caliscope uses platform-specific data directories following standard conventions:
-
-| Platform | Models Directory |
-|----------|-----------------|
-| **Linux** | `~/.local/share/caliscope/models/` |
-| **macOS** | `~/Library/Application Support/caliscope/models/` |
-| **Windows** | `C:\Users\<user>\AppData\Local\caliscope\caliscope\models\` |
-
-Place your `.toml` model card files in this directory. The `.onnx` model file can live anywhere; the model card points to it via the `model_path` field (use an absolute path).
-
-**To find your models directory:**
-
-1. Launch Caliscope
-2. Check the log file location shown in the terminal output
-3. The models directory is in the same parent directory
-
-Or from Python:
-
-```python
-from caliscope import MODELS_DIR
-print(MODELS_DIR)
-```
 
 ## Known Compatible Models
 

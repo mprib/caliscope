@@ -42,9 +42,6 @@ nav:
   - Reconstruction:
     - Tracking & Triangulation: reconstruction.md
     - Custom ONNX Trackers: onnx_trackers.md
-  - Python API:
-    - Triangulation: triangulation_api.md
-  - FAQ: faq.md
 
 
 plugins:

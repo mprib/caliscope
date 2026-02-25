@@ -21,11 +21,10 @@ The application monitors these directories and automatically updates when files 
 
 Cameras are identified by integer IDs assigned through your video file naming. Video files must follow the naming convention `cam_N.mp4`, where N is the camera ID (e.g., `cam_0.mp4`, `cam_1.mp4`, `cam_2.mp4`).
 
-Camera IDs:
-- Can be any non-negative integer
-- Do not need to be contiguous (e.g., `cam_0.mp4`, `cam_3.mp4`, `cam_7.mp4` is valid)
-- Are determined from the files present in the extrinsic calibration directory
-- Must remain consistent across intrinsic calibration, extrinsic calibration, and recording sessions
+- Camera IDs can be any non-negative integer
+- Camera IDs do not need to be contiguous (e.g., `cam_0.mp4`, `cam_3.mp4`, `cam_7.mp4` is valid)
+- The camera set is determined from the files present in the extrinsic calibration directory
+- Camera IDs must remain consistent across intrinsic calibration, extrinsic calibration, and recording sessions
 
 ## Stage 1: Intrinsic Calibration
 
@@ -102,8 +101,6 @@ Requirements:
 - Cameras do not need to start on the same frame
 
 Caliscope automatically synchronizes the videos during processing, inserting blank frames when necessary to maintain temporal alignment.
-
-**Note**: [MultiWebCam](https://github.com/mprib/multiwebcam) is a companion project that creates this file automatically during concurrent webcam recording.
 
 ### Calibration Output
 

@@ -1,6 +1,6 @@
 # Caliscope
 
-Caliscope is an open-source multicamera calibration tool. It produces the intrinsic and extrinsic camera parameters that downstream tools need for 3D reconstruction, whether you are tracking animal behavior with [SLEAP](https://sleap.ai/) or [DeepLabCut](https://www.mackenziemathislab.org/deeplabcut), running biomechanical analysis with [Pose2Sim](https://github.com/perfanalytics/pose2sim), or building something else entirely. If you need help fitting Caliscope into your pipeline, please [open a discussion](https://github.com/mprib/caliscope/discussions).
+Caliscope is an open-source multicamera calibration tool. It produces the intrinsic and extrinsic camera parameters that downstream tools need for 3D reconstruction, whether you are tracking animal behavior with [SLEAP](https://sleap.ai/) or [DeepLabCut](https://www.mackenziemathislab.org/deeplabcut), feeding calibration into an [anipose](https://anipose.readthedocs.io/) pipeline, running biomechanical analysis with [Pose2Sim](https://github.com/perfanalytics/pose2sim), or building something else entirely. If you need help fitting Caliscope into your pipeline, please [open a discussion](https://github.com/mprib/caliscope/discussions).
 
 ## The calibration problem
 
@@ -20,7 +20,7 @@ Caliscope's primary output is a calibrated camera array: intrinsic parameters (f
 
 ## Tracking and triangulation
 
-Caliscope includes a basic reconstruction pipeline that tracks 2D landmarks and triangulates them into 3D trajectories as a proof of concept. You can load custom ONNX pose estimation models exported from SLEAP, DeepLabCut, RTMPose, or other frameworks. Built-in MediaPipe trackers are included for convenience. Output is available in CSV and TRC (OpenSim) formats. Signal processing (gap filling, smoothing, filtering) and biomechanical modeling are outside the current scope.
+Caliscope includes a basic reconstruction pipeline that tracks 2D landmarks and triangulates them into 3D trajectories. You can load custom ONNX pose estimation models exported from SLEAP, DeepLabCut, RTMPose, or other frameworks. Built-in MediaPipe trackers are included for convenience. Output is available in CSV and TRC (OpenSim) formats. Signal processing (gap filling, smoothing, filtering) and biomechanical modeling are outside the current scope.
 
 ## Acknowledgments
 

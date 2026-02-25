@@ -1,6 +1,6 @@
 [project]
 name = "caliscope"
-version = "0.7.0"
+version = "0.7.1"
 description = "GUI based multicamera calibration that integrates with 2D landmark tracking to triangulate 3D landmark positions"
 authors = [{name = "Mac Prible", email = "prible@gmail.com"}]
 license = { text = "BSD-2-Clause" }
@@ -43,7 +43,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.sdist]
 exclude = [
-  "**/*.mp4",       # Or just nuke all video files by extension
+  "**/*.mp4",         # large video files
+  "tests/sessions/**",  # pre-captured calibration sessions (~63MB compressed)
 ]
 
 [tool.hatch.build.targets.wheel]

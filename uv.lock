@@ -122,7 +122,7 @@ wheels = [
 
 [[package]]
 name = "caliscope"
-version = "0.7.1"
+version = "0.6.9"
 source = { editable = "." }
 dependencies = [
     { name = "av" },
@@ -172,7 +172,7 @@ dev = [
 requires-dist = [
     { name = "av", specifier = ">=16.0.0,<16.1.0" },
     { name = "fonttools", specifier = ">=4.60.2" },
-    { name = "mediapipe", specifier = ">=0.10.20,<0.10.31" },
+    { name = "mediapipe", specifier = ">=0.10.20" },
     { name = "numba", specifier = ">=0.57.0" },
     { name = "onnxruntime", marker = "extra == 'onnx'", specifier = ">=1.16.0" },
     { name = "opencv-contrib-python", specifier = ">=4.8.0.74" },

@@ -19,6 +19,7 @@ from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.persistence import (
     load_camera_array,
     save_camera_array,
+    save_camera_array_aniposelib,
     load_image_points_csv,
     save_image_points_csv,
     load_world_points_csv,
@@ -106,6 +107,10 @@ class PointDataBundleRepository:
             # Save components in order: data first, metadata last
             # This ensures bundle.toml only exists if all data is present
             save_camera_array(bundle.camera_array, self.camera_array_path)
+            save_camera_array_aniposelib(
+                bundle.camera_array,
+                self.camera_array_path.parent / "camera_array_aniposelib.toml",
+            )
             save_image_points_csv(bundle.image_points, self.image_points_path)
             save_world_points_csv(bundle.world_points, self.world_points_path)
 

@@ -27,7 +27,7 @@ from caliscope.repositories.calibration_targets_repository import (
 )
 from caliscope.core.point_data_bundle import PointDataBundle
 from caliscope.core.workflow_status import WorkflowStatus
-from caliscope.persistence import PersistenceError
+from caliscope.persistence import PersistenceError, save_camera_array_aniposelib
 from caliscope.repositories.intrinsic_report_repository import IntrinsicReportRepository
 from caliscope.reconstruction.reconstructor import Reconstructor
 from caliscope.recording import read_video_properties
@@ -705,6 +705,7 @@ class WorkspaceCoordinator(QObject):
         # Capture for closure (background worker)
         bundle_to_save = bundle
         camera_repo = self.camera_repository
+        aniposelib_path = self.workspace / "camera_array_aniposelib.toml"
 
         def worker(_token, _handle):
             try:
@@ -713,6 +714,9 @@ class WorkspaceCoordinator(QObject):
                 # Also save camera_array to main repo for restart detection
                 camera_repo.save(bundle_to_save.camera_array)
                 logger.info("Camera array with extrinsics persisted")
+                # Export aniposelib-compatible format to workspace root for downstream tools
+                save_camera_array_aniposelib(bundle_to_save.camera_array, aniposelib_path)
+                logger.info("Aniposelib-compatible camera array exported")
             except PersistenceError as e:
                 # Log prominently - user's changes may be lost on restart
                 logger.error(f"Failed to persist PointDataBundle: {e}")

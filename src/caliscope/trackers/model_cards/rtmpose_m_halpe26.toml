@@ -2,12 +2,16 @@
 name = "RTMPose-m Halpe26"
 model_path = "rtmpose_m_halpe26.onnx"
 format = "simcc"
-input_size = [256, 192]
+input_size = [192, 256]
 confidence_threshold = 0.3
 
 [source]
-url = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/"
-license = "Apache-2.0 (MMPose code + weights)"
+url = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-m_simcc-body7_pt-body7-halpe26_700e-256x192-4d3e73dd_20230605.zip"
+extraction = "zip_end2end"
+license = "Apache-2.0"
+license_url = "https://github.com/open-mmlab/mmpose/blob/main/LICENSE"
+file_size_mb = 50
+sha256 = "55b81170e236040b59fc792ad0a8315301ac4c079a3bdb1095d838aad3088d18"
 
 [points]
 nose = 0

@@ -91,6 +91,14 @@ def model_card_for(key: str) -> ModelCard | None:
     return _model_cards.get(key)
 
 
+def has_source_url(key: str) -> bool:
+    """Whether the registered tracker has a downloadable model source."""
+    card = _model_cards.get(key)
+    if card is None:
+        return False
+    return card.has_source_url
+
+
 def scan_onnx_models(models_dir: Path) -> None:
     """Scan directory for .toml model cards and register each as ONNX tracker.
 

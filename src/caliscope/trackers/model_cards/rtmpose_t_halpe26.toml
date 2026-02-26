@@ -6,9 +6,12 @@ input_size = [192, 256]
 confidence_threshold = 0.3
 
 [source]
-url = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/"
-license = "Apache-2.0 (MMPose code + weights)"
-file_size_mb = 15.2
+url = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-t_simcc-body7_pt-body7-halpe26_700e-256x192-6020f8a6_20230605.zip"
+extraction = "zip_end2end"
+license = "Apache-2.0"
+license_url = "https://github.com/open-mmlab/mmpose/blob/main/LICENSE"
+file_size_mb = 13
+sha256 = "de5fa6ef754e1b19a0f8199d53affef122813e30c580c48be87fcf86c4ec47a7"
 
 [points]
 nose = 0

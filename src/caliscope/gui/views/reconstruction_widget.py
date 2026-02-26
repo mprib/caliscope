@@ -261,7 +261,10 @@ class ReconstructionWidget(QWidget):
 
         # IDLE: check if the selected tracker needs a download
         if self._selected_tracker_needs_download():
-            return "Download Model"
+            tracker = self._presenter.selected_tracker
+            if tracker and tracker_registry.has_source_url(tracker):
+                return "Download Model"
+            return "Model Missing"
 
         return "Process"
 
@@ -286,7 +289,11 @@ class ReconstructionWidget(QWidget):
         if state == ReconstructionState.IDLE:
             if self._presenter.selected_recording and self._presenter.selected_tracker:
                 if self._selected_tracker_needs_download():
-                    self._status_message.setText("Model download required before processing")
+                    tracker = self._presenter.selected_tracker
+                    if tracker and tracker_registry.has_source_url(tracker):
+                        self._status_message.setText("Model download required before processing")
+                    else:
+                        self._status_message.setText("Place .onnx file in models folder")
                 else:
                     self._status_message.setText("Ready to process")
             elif self._presenter.selected_recording:
@@ -311,9 +318,12 @@ class ReconstructionWidget(QWidget):
         # Process button
         can_process = self._presenter.selected_recording is not None and self._presenter.selected_tracker is not None
 
-        self._process_btn.setText(self._process_button_text_for_state(state))
+        button_text = self._process_button_text_for_state(state)
+        self._process_btn.setText(button_text)
         if state == ReconstructionState.RECONSTRUCTING:
             self._process_btn.setEnabled(True)
+        elif button_text == "Model Missing":
+            self._process_btn.setEnabled(False)
         else:
             self._process_btn.setEnabled(can_process)
 
@@ -401,7 +411,7 @@ class ReconstructionWidget(QWidget):
         if not isinstance(card, ModelCard):
             logger.error("Expected ModelCard, got %s", type(card))
             return
-        dialog = ModelDownloadDialog(card, MODELS_DIR, parent=self)
+        dialog = ModelDownloadDialog(card, MODELS_DIR, self._presenter.task_manager, parent=self)
         dialog.finished.connect(self._refresh_tracker_combo_annotations)
         dialog.exec()
 

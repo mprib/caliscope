@@ -30,6 +30,8 @@ class ModelCard:
     license_info: str | None = None
     file_size_mb: float | None = None
     sha256: str | None = None
+    extraction: str | None = None  # "zip_end2end" or "direct"
+    license_url: str | None = None
 
     @property
     def point_id_to_name(self) -> dict[int, str]:
@@ -44,6 +46,11 @@ class ModelCard:
         the .onnx file hasn't been downloaded yet.
         """
         return self.model_path.exists()
+
+    @property
+    def has_source_url(self) -> bool:
+        """Whether this card has a download URL configured."""
+        return self.source_url is not None
 
     @staticmethod
     def from_toml(path: Path, models_dir: Path | None = None) -> "ModelCard":
@@ -140,6 +147,15 @@ class ModelCard:
         license_info = source_section.get("license")
         file_size_mb = source_section.get("file_size_mb")
         sha256 = source_section.get("sha256")
+        extraction = source_section.get("extraction")
+        license_url = source_section.get("license_url")
+
+        # Validate: if [source] has url, extraction is required
+        if source_url is not None:
+            if extraction is None:
+                raise ValueError(f"'extraction' field is required when [source] has a 'url' in {path}")
+            if extraction not in ("zip_end2end", "direct"):
+                raise ValueError(f"Invalid extraction '{extraction}' in {path}. Must be 'zip_end2end' or 'direct'.")
 
         # Construct ModelCard
         return ModelCard(
@@ -155,4 +171,6 @@ class ModelCard:
             license_info=license_info,
             file_size_mb=file_size_mb,
             sha256=sha256,
+            extraction=extraction,
+            license_url=license_url,
         )

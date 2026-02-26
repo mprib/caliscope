@@ -248,6 +248,11 @@ class ReconstructionPresenter(QObject):
             return False
         return tracker_registry.is_model_ready(self._selected_tracker)
 
+    @property
+    def task_manager(self) -> TaskManager:
+        """TaskManager instance for background operations."""
+        return self._task_manager
+
     def select_recording(self, name: str) -> None:
         """Select a recording for processing.
 
